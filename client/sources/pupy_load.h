@@ -1,0 +1,5 @@
+#ifndef PYTHONINTERPRETER
+#define PYTHONINTERPRETER
+
+DWORD WINAPI mainThread(LPVOID lpArg);
+#endif
