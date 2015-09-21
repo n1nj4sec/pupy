@@ -70,13 +70,31 @@ python reverse_ssl.py 192.168.0.1:443
 ![screenshot5](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/filters.png "screenshot5")
 #####migrate into another process
 ![screenshot6](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/migrate.png "screenshot6")
+#####interactive shell
+![screenshot7](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/interactive_shell.png "screenshot7")
+#####interactive python shell
+![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 
 ## Dependencies
 rpyc (https://github.com/tomerfiliba/rpyc)
 
+##Roadmap and ideas
+Some ideas without any priority order
+	- support for https proxy
+	- add offline options to payloads like enable/disable certificate checking, embbed offline modules (persistence, keylogger, ...), etc...
+	- integrate scapy in the windows dll :D (that would be fun)
+	- work on stealthiness and modules under unix systems
+	- webcam snap
+	- mic recording
+	- socks5 udp support
+	- local/remote port forwarding
+	- ...
+	- any cool idea ?
+
 ## Contact
-Don't hesitate to send me your feedback or any issue you may find  
 mail: contact@n1nj4.eu  
+  
+If some of you want to participate or send me a feedback, don't hesitate :-)  
 [Follow me on twitter](https://twitter.com/n1nj4sec)
  
 
