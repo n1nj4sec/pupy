@@ -1,3 +1,8 @@
+#pupy
+pupy/data/
+pupy/.pupy_history
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

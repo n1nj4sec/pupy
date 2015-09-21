@@ -56,3 +56,27 @@ python reverse_ssl.py 192.168.0.1:443
 ./pupysh.py
 ```
 3. type "clients" to display connected clients
+
+### Some screenshots
+#####list connected clients
+![screenshot1](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/scr1.png "screenshot1")
+#####help
+![screenshot3](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/help.png "screenshot3")
+#####execute python code on all clients
+![screenshot2](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/scr2.png "screenshot2")
+#####execute a command on all clients, exception is retrieved in case the command does not exists
+![screenshot4](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/scr3.png "screenshot4")
+#####use a filter to send a module only on selected clients
+![screenshot5](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/filters.png "screenshot5")
+#####migrate into another process
+![screenshot6](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/migrate.png "screenshot6")
+
+## Dependencies
+rpyc (https://github.com/tomerfiliba/rpyc)
+
+## Contact
+Don't hesitate to send me your feedback or any issue you may find  
+mail: contact@n1nj4.eu  
+[Follow me on twitter](https://twitter.com/n1nj4sec)
+ 
+
