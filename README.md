@@ -49,13 +49,12 @@ easy_install rpyc #(or manually copy it if you are not admin)
 python reverse_ssl.py 192.168.0.1:443
 ```
 
-### having fun
+### start the server
 1. eventually edit pupy.conf to change the bind address / port
 2. start the pupy server :
 ```bash
 ./pupysh.py
 ```
-3. type "clients" to display connected clients
 
 ### Some screenshots
 #####list connected clients
@@ -75,12 +74,46 @@ python reverse_ssl.py 192.168.0.1:443
 #####interactive python shell
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 
+##write a module : example a MsgBox
+first of all write the function/class you want to import on the remote client  
+in the example we create the file pupy/packages/windows/all/pupwinutils/msgbox.py 
+```python
+import ctypes
+import threading
+
+def MessageBox(text, title):
+	t=threading.Thread(target=ctypes.windll.user32.MessageBoxA, args=(None, text, title, 0))
+	t.daemon=True
+	t.start()
+```
+then, simply create a module to load our package and call the function remotely
+```python
+class MsgBoxPopup(PupyModule):
+	""" Pop up a custom message box """
+
+	def init_argparse(self):
+		self.arg_parser = PupyArgumentParser(prog="msgbox", description=self.__doc__)
+		self.arg_parser.add_argument('--title', help='msgbox title')
+		self.arg_parser.add_argument('text', help='text to print in the msgbox :)')
+
+	@windows_only
+	def is_compatible(self):
+		pass
+
+	def run(self, args):
+		self.client.load_package("pupwinutils.msgbox")
+		self.client.conn.modules['pupwinutils.msgbox'].MessageBox(args.text, args.title)
+		self.log("message box popped !")
+
+```
+
 ## Dependencies
 rpyc (https://github.com/tomerfiliba/rpyc)
 
 ##Roadmap and ideas
 Some ideas without any priority order
 - support for https proxy
+- bind instead of reverse connection
 - add offline options to payloads like enable/disable certificate checking, embbed offline modules (persistence, keylogger, ...), etc...
 - integrate scapy in the windows dll :D (that would be fun)
 - work on stealthiness and modules under unix systems
@@ -88,6 +121,7 @@ Some ideas without any priority order
 - mic recording
 - socks5 udp support
 - local/remote port forwarding
+- perhaps write some documentation
 - ...
 - any cool idea ?
 
@@ -97,4 +131,3 @@ mail: contact@n1nj4.eu
 If some of you want to participate or send me a feedback, don't hesitate :-)  
 [Follow me on twitter](https://twitter.com/n1nj4sec)
  
-
