@@ -80,16 +80,16 @@ rpyc (https://github.com/tomerfiliba/rpyc)
 
 ##Roadmap and ideas
 Some ideas without any priority order
-	- support for https proxy
-	- add offline options to payloads like enable/disable certificate checking, embbed offline modules (persistence, keylogger, ...), etc...
-	- integrate scapy in the windows dll :D (that would be fun)
-	- work on stealthiness and modules under unix systems
-	- webcam snap
-	- mic recording
-	- socks5 udp support
-	- local/remote port forwarding
-	- ...
-	- any cool idea ?
+- support for https proxy
+- add offline options to payloads like enable/disable certificate checking, embbed offline modules (persistence, keylogger, ...), etc...
+- integrate scapy in the windows dll :D (that would be fun)
+- work on stealthiness and modules under unix systems
+- webcam snap
+- mic recording
+- socks5 udp support
+- local/remote port forwarding
+- ...
+- any cool idea ?
 
 ## Contact
 mail: contact@n1nj4.eu  
