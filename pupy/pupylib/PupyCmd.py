@@ -368,6 +368,7 @@ class PupyCmd(cmd.Cmd):
 		arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
 		arg_parser.add_argument('-i', '--interact', metavar='<filter>', help="change the default --filter value for other commands")
 		arg_parser.add_argument('-g', '--global-reset', action='store_true', help="reset --interact to the default global behavior")
+		arg_parser.add_argument('-k', '--kill', metavar='<id>', type=int, help='Kill the selected session')
 		try:
 			modargs=arg_parser.parse_args(shlex.split(arg))
 		except PupyModuleExit:
@@ -378,7 +379,14 @@ class PupyCmd(cmd.Cmd):
 			self.display_success("default filter reset to global !")
 		elif modargs.interact:
 			self.default_filter=modargs.interact
-			self.display_success("default filter set to %s"%self.default_filter)
+			self.display_success("default filter set to {}".format(self.default_filter))
+		elif modargs.kill:
+			selected_client = self.pupsrv.get_clients(modargs.kill)
+			if selected_client:
+				try:
+					selected_client[0].conn.exit()
+				except Exception:
+					pass
 		else:
 			client_list=self.pupsrv.get_clients_list()
 			self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
