@@ -26,7 +26,8 @@ except ImportError:
 modules={}
 try:
 	import pupy
-	modules = marshal.loads(zlib.decompress(pupy._get_compressed_library_string()))
+	if not (hasattr(pupy, 'pseudo') and pupy.pseudo):
+		modules = marshal.loads(zlib.decompress(pupy._get_compressed_library_string()))
 except ImportError:
 	#modules = marshal.loads(zlib.decompress(open("resources\\library_compressed_string.txt",'rb').read()))
 	pass
