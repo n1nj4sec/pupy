@@ -124,6 +124,7 @@ class PupyCmd(cmd.Cmd):
 	def __init__(self, pupsrv, configFile="pupy.conf"):
 		cmd.Cmd.__init__(self)
 		self.pupsrv=pupsrv
+		self.pupsrv.register_handler(self)
 		self.config = configparser.ConfigParser()
 		self.config.read(configFile)
 		self.init_readline()
@@ -320,6 +321,11 @@ class PupyCmd(cmd.Cmd):
 		return color('[%] ','darkgrey')+msg.rstrip()+"\n"
 
 	@staticmethod
+	def format_srvinfo(msg):
+		""" return a formated info log line """
+		return color('[*] ','blue')+msg.rstrip()+"\n"
+
+	@staticmethod
 	def format_section(msg):
 		""" return a formated info log line """
 		return color('#>#>  ','green')+color(msg.rstrip(),'darkgrey')+color('  <#<#','green')+"\n"
@@ -334,10 +340,16 @@ class PupyCmd(cmd.Cmd):
 				sys.stdout.write(PupyCmd.format_success(msg))
 			elif modifier=="info":
 				sys.stdout.write(PupyCmd.format_info(msg))
+			elif modifier=="srvinfo":
+				sys.stdout.write(PupyCmd.format_srvinfo(msg))
+				#readline.redisplay()
 			elif modifier=="warning":
 				sys.stdout.write(PupyCmd.format_warning(msg))
 			else:
 				sys.stdout.write(PupyCmd.format_log(msg))
+
+	def display_srvinfo(self, msg):
+		return self.display(msg, modifier="srvinfo")
 
 	def display_success(self, msg):
 		return self.display(msg, modifier="success")
@@ -364,10 +376,12 @@ class PupyCmd(cmd.Cmd):
 		self.do_sessions(arg)
 
 	def do_sessions(self, arg):
-		""" display/interact with connected clients """
+		""" list/interact with established sessions """
 		arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
 		arg_parser.add_argument('-i', '--interact', metavar='<filter>', help="change the default --filter value for other commands")
 		arg_parser.add_argument('-g', '--global-reset', action='store_true', help="reset --interact to the default global behavior")
+		arg_parser.add_argument('-l', dest='list', action='store_true', help='List all active sessions')
+		arg_parser.add_argument('-k', dest='kill', metavar='<id>', type=int, help='Kill the selected session')
 		try:
 			modargs=arg_parser.parse_args(shlex.split(arg))
 		except PupyModuleExit:
@@ -379,9 +393,17 @@ class PupyCmd(cmd.Cmd):
 		elif modargs.interact:
 			self.default_filter=modargs.interact
 			self.display_success("default filter set to %s"%self.default_filter)
-		else:
+		elif modargs.kill:
+			selected_client = self.pupsrv.get_clients(modargs.kill)
+			if selected_client:
+				try:
+					selected_client[0].conn.exit()
+				except Exception:
+					pass
+		elif modargs.list or not arg:
 			client_list=self.pupsrv.get_clients_list()
 			self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
+
 
 	def do_jobs(self, arg):
 		""" manage jobs """
@@ -428,7 +450,7 @@ class PupyCmd(cmd.Cmd):
 			self.display_error(traceback.format_exc())
 
 	def do_python(self,arg):
-		""" start interacting with the server local python interpreter (for debugging purposes). Auto-completion available. """
+		""" start the local python interpreter (for debugging purposes) """
 		orig_exit=builtins.exit
 		orig_quit=builtins.quit
 		def disabled_exit(*args, **kwargs):
@@ -524,7 +546,7 @@ class PupyCmd(cmd.Cmd):
 			error=pj.interactive_wait()
 			if error and not modjobs:
 				pj.stop()
-				
+
 		except KeyboardInterrupt:
 			self.display_warning("interrupting job ... (please wait)")
 			pj.interrupt()
