@@ -48,7 +48,7 @@ def interactive_open(program=None, encoding=None):
 				program="/bin/sh"
 				encoding=None
 		print "Opening interactive %s ... (encoding : %s)"%(program,encoding)
-		p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True)
+		p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, shell=True, close_fds=ON_POSIX, universal_newlines=True)
 		q = Queue()
 		q2 = Queue()
 		t = Thread(target=write_output, args=(p.stdout, q))
