@@ -28,6 +28,7 @@ Pupy is an opensource RAT (Remote Administration Tool) written in Python. Pupy u
 - socks5 proxy
 - interactive shell (cmd.exe, /bin/sh, ...)
 - interactive python shell
+- shellcode exec (thanks to @byt3bl33d3r)
 
 ##Quick start
 In these examples the server is running on a linux host (tested on kali linux) and it's IP address is 192.168.0.1  
