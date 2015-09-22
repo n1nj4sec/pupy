@@ -24,6 +24,8 @@ import modules
 import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
+from .PupyCmd import color_real
+
 try:
 	import ConfigParser as configparser
 except ImportError:
@@ -127,12 +129,20 @@ class PupyServer(threading.Thread):
 				"pid" : l[7],
 				"address" : conn._conn._config['connid'].split(':')[0],
 			}, self))
-			self.current_id+=1
+
+			addr = conn.modules['pupy'].get_connect_back_host()
+			server_ip, server_port = addr.rsplit(':', 1)
+			client_ip, client_port = conn._conn._config['connid'].split(':')
+
+			print color_real('[*]', 'blue'), "Session {} opened ({}:{} -> {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port)
+
+			self.current_id += 1
 
 	def remove_client(self, client):
 		with self.clients_lock:
 			for i,c in enumerate(self.clients):
 				if c.conn is client:
+					print color_real('[*]', 'blue'), 'Session {} closed'.format(self.clients[i].desc['id'])
 					del self.clients[i]
 					break
 
@@ -218,7 +228,6 @@ class PupyServer(threading.Thread):
 		job.id=self.jobs_id
 		self.jobs[self.jobs_id]=job
 		self.jobs_id+=1
-
 
 	def get_job(self, job_id):
 		try:
