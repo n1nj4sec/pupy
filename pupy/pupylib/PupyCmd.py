@@ -428,7 +428,7 @@ class PupyCmd(cmd.Cmd):
 			self.display_error(traceback.format_exc())
 
 	def do_python(self,arg):
-		""" start interacting with the server local python interpreter (for debugging purposes). Auto-completion available. """
+		""" start the local python interpreter (for debugging purposes) """
 		orig_exit=builtins.exit
 		orig_quit=builtins.quit
 		def disabled_exit(*args, **kwargs):
@@ -524,7 +524,7 @@ class PupyCmd(cmd.Cmd):
 			error=pj.interactive_wait()
 			if error and not modjobs:
 				pj.stop()
-				
+
 		except KeyboardInterrupt:
 			self.display_warning("interrupting job ... (please wait)")
 			pj.interrupt()
