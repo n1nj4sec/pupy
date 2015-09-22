@@ -360,10 +360,11 @@ class PupyCmd(cmd.Cmd):
 			self.stdout.write("{:<20}	{}\n".format(m, color(d,'grey')))
 			
 	def do_clients(self, arg):
+		""" alias for sessions """
 		self.do_sessions(arg)
 
 	def do_sessions(self, arg):
-		""" display connected clients """
+		""" display/interact with connected clients """
 		arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
 		arg_parser.add_argument('-i', '--interact', metavar='<filter>', help="change the default --filter value for other commands")
 		arg_parser.add_argument('-g', '--global-reset', action='store_true', help="reset --interact to the default global behavior")
