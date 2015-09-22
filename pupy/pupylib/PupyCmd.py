@@ -44,6 +44,7 @@ from .PupyJob import PupyJob
 import argparse
 from pupysh import __version__
 import copy
+from functools import partial
 
 BANNER="""
             _____                    _       _ _            
@@ -56,12 +57,14 @@ BANNER="""
 """%__version__
 
 
-def color(s, color, prompt=False):
+def color_real(s, color, prompt=False, colors_enabled=True):
 	""" color a string using ansi escape characters. set prompt to true to add marks for readline to see invisible portions of the prompt
 	cf. http://stackoverflow.com/questions/9468435/look-how-to-fix-column-calculation-in-python-readline-if-use-color-prompt"""
 	if s is None:
 		return ""
 	s=str(s)
+	if not colors_enabled:
+		return s
 	res=s
 	COLOR_STOP="\033[0m"
 	prompt_stop=""
@@ -118,16 +121,21 @@ def obj2utf8(obj):
 	return obj
 
 class PupyCmd(cmd.Cmd):
-	intro = color(BANNER, 'green')
-	prompt = color('>> ','blue', prompt=True)
-	doc_header = 'Available commands :\n'
-	complete_space=['run']
 	def __init__(self, pupsrv, configFile="pupy.conf"):
 		cmd.Cmd.__init__(self)
 		self.pupsrv=pupsrv
 		self.config = configparser.ConfigParser()
 		self.config.read(configFile)
 		self.init_readline()
+		global color
+		try:
+			color = partial(color_real, colors_enabled=self.config.getboolean("cmdline","colors"))
+		except Exception:
+			color = color_real
+		self.intro = color(BANNER, 'green')
+		self.prompt = color('>> ','blue', prompt=True)
+		self.doc_header = 'Available commands :\n'
+		self.complete_space=['run']
 		try:
 			if not self.config.getboolean("cmdline","display_banner"):
 				self.intro=""
