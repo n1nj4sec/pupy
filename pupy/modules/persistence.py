@@ -8,7 +8,7 @@ import string
 __class_name__="PersistenceModule"
 
 class PersistenceModule(PupyModule):
-	""" Pop up a custom message box """
+	""" Enables persistence via registry keys """
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
 		self.arg_parser.add_argument('-m','--method', choices=['registry'], required=True, help='persistence method')
