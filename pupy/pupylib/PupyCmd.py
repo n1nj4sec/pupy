@@ -357,11 +357,30 @@ class PupyCmd(cmd.Cmd):
 		""" List available modules with a brief description """
 		for m,d in self.pupsrv.list_modules():
 			self.stdout.write("{:<20}	{}\n".format(m, color(d,'grey')))
-			
-	def do_clients(self, arg):
-		""" List connected clients """
-		client_list=self.pupsrv.get_clients_list()
-		self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
+
+	def do_sessions(self, arg):
+		""" list/interact with established sessions """
+		arg_parser = PupyArgumentParser(prog='sessions', description='List/interact with established sessions')
+		arg_parser.add_argument('-k', dest='kill', metavar='<id>', type=int, help='Kill the selected session')
+		#arg_parser.add_argument('-i', dest='interact', metavar='<id>', help='Interact with the supplied session ID')
+		arg_parser.add_argument('-l', dest='list', action='store_true', help='List all active sessions')
+
+		try:
+			modargs=arg_parser.parse_args(shlex.split(arg))
+		except PupyModuleExit:
+			return
+
+		if modargs.list or not arg:
+			client_list=self.pupsrv.get_clients_list()
+			self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
+
+		elif modargs.kill:
+			selected_client = self.pupsrv.get_clients(modargs.kill)
+			if selected_client:
+				try:
+					selected_client[0].conn.exit()
+				except Exception:
+					pass
 
 	def do_jobs(self, arg):
 		""" manage jobs """
@@ -408,7 +427,7 @@ class PupyCmd(cmd.Cmd):
 			self.display_error(traceback.format_exc())
 
 	def do_python(self,arg):
-		""" start interacting with the server local python interpreter (for debugging purposes). Auto-completion available. """
+		""" start the local python interpreter (for debugging purposes) """
 		orig_exit=builtins.exit
 		orig_quit=builtins.quit
 		def disabled_exit(*args, **kwargs):
@@ -504,7 +523,7 @@ class PupyCmd(cmd.Cmd):
 			error=pj.interactive_wait()
 			if error and not modjobs:
 				pj.stop()
-				
+
 		except KeyboardInterrupt:
 			self.display_warning("interrupting job ... (please wait)")
 			pj.interrupt()
