@@ -2,6 +2,8 @@
 pupy/data/
 pupy/.pupy_history
 .DS_Store
+# do not ignore package files
+!pupy/packages/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
