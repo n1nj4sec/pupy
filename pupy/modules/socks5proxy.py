@@ -171,7 +171,7 @@ class ThreadedSocks5Server(SocketServer.ThreadingMixIn, Socks5Server):
 	pass
 
 class Socks5Proxy(PupyModule):
-	""" start a socks5 proxy going through a client """
+	""" start a socks5 proxy gooing through a client """
 	max_clients=1
 	unique_instance=True
 	daemon=True
