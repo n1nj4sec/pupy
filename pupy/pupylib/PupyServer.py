@@ -48,6 +48,11 @@ class PupyServer(threading.Thread):
 		self.config.read(configFile)
 		self.port=self.config.getint("pupyd","port")
 		self.address=self.config.get("pupyd","address")
+		self.handler=None
+
+	def register_handler(self, instance):
+		""" register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
+		self.handler=instance
 
 	def add_client(self, conn):
 		with self.clients_lock:
@@ -130,11 +135,11 @@ class PupyServer(threading.Thread):
 				"address" : conn._conn._config['connid'].split(':')[0],
 			}, self))
 
-			addr = conn.modules['pupy'].get_connect_back_host()
-			server_ip, server_port = addr.rsplit(':', 1)
-			client_ip, client_port = conn._conn._config['connid'].split(':')
-
-			print color_real('[*]', 'blue'), "Session {} opened ({}:{} -> {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port)
+			if self.handler:
+				addr = conn.modules['pupy'].get_connect_back_host()
+				server_ip, server_port = addr.rsplit(':', 1)
+				client_ip, client_port = conn._conn._config['connid'].split(':')
+				self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port))
 
 			self.current_id += 1
 
@@ -142,7 +147,8 @@ class PupyServer(threading.Thread):
 		with self.clients_lock:
 			for i,c in enumerate(self.clients):
 				if c.conn is client:
-					print color_real('[*]', 'blue'), 'Session {} closed'.format(self.clients[i].desc['id'])
+					if self.handler:
+						self.handler.display_srvinfo('Session {} closed'.format(self.clients[i].desc['id']))
 					del self.clients[i]
 					break
 
