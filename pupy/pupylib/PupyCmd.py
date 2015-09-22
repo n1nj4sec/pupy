@@ -136,6 +136,7 @@ class PupyCmd(cmd.Cmd):
 		self.prompt = color('>> ','blue', prompt=True)
 		self.doc_header = 'Available commands :\n'
 		self.complete_space=['run']
+		self.default_filter=None
 		try:
 			if not self.config.getboolean("cmdline","display_banner"):
 				self.intro=""
@@ -359,9 +360,27 @@ class PupyCmd(cmd.Cmd):
 			self.stdout.write("{:<20}	{}\n".format(m, color(d,'grey')))
 			
 	def do_clients(self, arg):
-		""" List connected clients """
-		client_list=self.pupsrv.get_clients_list()
-		self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
+		self.do_sessions(arg)
+
+	def do_sessions(self, arg):
+		""" display connected clients """
+		arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
+		arg_parser.add_argument('-i', '--interact', metavar='<filter>', help="change the default --filter value for other commands")
+		arg_parser.add_argument('-g', '--global-reset', action='store_true', help="reset --interact to the default global behavior")
+		try:
+			modargs=arg_parser.parse_args(shlex.split(arg))
+		except PupyModuleExit:
+			return
+
+		if modargs.global_reset:
+			self.default_filter=None
+			self.display_success("default filter reset to global !")
+		elif modargs.interact:
+			self.default_filter=modargs.interact
+			self.display_success("default filter set to %s"%self.default_filter)
+		else:
+			client_list=self.pupsrv.get_clients_list()
+			self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
 
 	def do_jobs(self, arg):
 		""" manage jobs """
@@ -433,7 +452,7 @@ class PupyCmd(cmd.Cmd):
 		""" run a module on one or multiple clients"""
 		arg_parser = PupyArgumentParser(prog='run', description='run a module on one or multiple clients')
 		arg_parser.add_argument('module', metavar='<module>', help="module")
-		arg_parser.add_argument('-f', '--filter', metavar='<client filter>', help="filter to a subset of all clients. All fields available in the \"info\" module can be used. example: run get_info -f 'platform:win release:7 os_arch:64'")
+		arg_parser.add_argument('-f', '--filter', metavar='<client filter>', default=self.default_filter ,help="filter to a subset of all clients. All fields available in the \"info\" module can be used. example: run get_info -f 'platform:win release:7 os_arch:64'")
 		arg_parser.add_argument('--bg', action='store_true', help="run in background")
 		arg_parser.add_argument('arguments', nargs=argparse.REMAINDER, metavar='<arguments>', help="module arguments")
 		pj=None
