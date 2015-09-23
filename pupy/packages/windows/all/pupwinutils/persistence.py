@@ -30,6 +30,6 @@ def add_registry_startup(bin_path):
 		try:
 			SetValueEx(aKey2, randname, 0, REG_SZ, bin_path)
 		finally:
-			CloseKey(aKey)
+			CloseKey(aKey2)
 
 
