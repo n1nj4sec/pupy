@@ -87,10 +87,10 @@ def main():
 			HOST=pupy.get_connect_back_host()
 		except ImportError:
 			print "Warning : ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL"
-			if len(sys.argv)!=2:
-				exit("usage: %s host:port"%sys.argv[0])
-			HOST=sys.argv[1]
 	else:
+		if len(sys.argv)!=2:
+			exit("usage: %s host:port"%sys.argv[0])
+		HOST=sys.argv[1]
 		add_pseudo_pupy_module(HOST)
 	attempt=0
 	while True:
