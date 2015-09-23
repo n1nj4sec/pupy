@@ -116,7 +116,7 @@ rpyc (https://github.com/tomerfiliba/rpyc)
 Some ideas without any priority order
 - support for https proxy
 - bind instead of reverse connection
-- add offline options to payloads like enable/disable certificate checking, embbed offline modules (persistence, keylogger, ...), etc...
+- add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
 - integrate scapy in the windows dll :D (that would be fun)
 - work on stealthiness and modules under unix systems
 - webcam snap
