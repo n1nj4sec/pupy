@@ -2,9 +2,9 @@
 from pupylib.PupyModule import *
 from pupylib.utils import obtain
 
-__class_name__="MsgBoxPopup"
+__class_name__="PsModule"
 
-class MsgBoxPopup(PupyModule):
+class PsModule(PupyModule):
 	""" list processes """
 
 	def init_argparse(self):
