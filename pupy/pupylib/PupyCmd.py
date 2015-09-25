@@ -21,6 +21,7 @@ import re
 import os
 import os.path
 import traceback
+import platform
 try:
 	import ConfigParser as configparser
 except ImportError:
@@ -55,6 +56,7 @@ BANNER="""
 
                            %s
 """%__version__
+
 
 
 def color_real(s, color, prompt=False, colors_enabled=True):
@@ -120,6 +122,23 @@ def obj2utf8(obj):
 		obj=str(obj)
 	return obj
 
+class WindowsColoredStdout(object):
+	def __init__(self, write_color):
+		from ctypes import c_ulong, windll
+		STD_OUTPUT_HANDLE_ID = c_ulong(0xfffffff5)
+		windll.Kernel32.GetStdHandle.restype = c_ulong
+		self.std_output_hdl = windll.Kernel32.GetStdHandle(STD_OUTPUT_HANDLE_ID)
+		self.SetConsoleTextAttribute=windll.Kernel32.SetConsoleTextAttribute
+		self.write_color=write_color
+	def write(self, msg):
+		for attr, chunk in self.write_color(msg)[1]:
+			self.SetConsoleTextAttribute(self.std_output_hdl, attr.get_winattr())
+			sys.stdout.write(chunk)
+	def flush(self):
+		sys.stdout.flush()
+	def read(self, *args, **kwargs):
+		sys.stdout.read(*args, **kwargs)
+
 class PupyCmd(cmd.Cmd):
 	def __init__(self, pupsrv, configFile="pupy.conf"):
 		cmd.Cmd.__init__(self)
@@ -133,6 +152,17 @@ class PupyCmd(cmd.Cmd):
 			color = partial(color_real, colors_enabled=self.config.getboolean("cmdline","colors"))
 		except Exception:
 			color = color_real
+
+		#wrap stdout to support ANSI coloring
+		if "windows" in platform.system().lower():
+			if sys.stdout.isatty():
+				try:
+					from pyreadline.console.ansi import write_color
+					self.stdout=WindowsColoredStdout(write_color)
+				except ImportError:
+					color = partial(color_real, colors_enabled=False)
+					self.display_warning("pyreadline is not installer. Output color disabled. Use \"pip install pyreadline\"")
+
 		self.intro = color(BANNER, 'green')
 		self.prompt = color('>> ','blue', prompt=True)
 		self.doc_header = 'Available commands :\n'
@@ -335,18 +365,18 @@ class PupyCmd(cmd.Cmd):
 			msg=str(msg)
 		if msg:
 			if modifier=="error":
-				sys.stdout.write(PupyCmd.format_error(msg))
+				self.stdout.write(PupyCmd.format_error(msg))
 			elif modifier=="success":
-				sys.stdout.write(PupyCmd.format_success(msg))
+				self.stdout.write(PupyCmd.format_success(msg))
 			elif modifier=="info":
-				sys.stdout.write(PupyCmd.format_info(msg))
+				self.stdout.write(PupyCmd.format_info(msg))
 			elif modifier=="srvinfo":
-				sys.stdout.write(PupyCmd.format_srvinfo(msg))
+				self.stdout.write(PupyCmd.format_srvinfo(msg))
 				#readline.redisplay()
 			elif modifier=="warning":
-				sys.stdout.write(PupyCmd.format_warning(msg))
+				self.stdout.write(PupyCmd.format_warning(msg))
 			else:
-				sys.stdout.write(PupyCmd.format_log(msg))
+				self.stdout.write(PupyCmd.format_log(msg))
 
 	def display_srvinfo(self, msg):
 		return self.display(msg, modifier="srvinfo")
