@@ -119,7 +119,7 @@ DWORD inject_via_remotethread(HANDLE hProcess, DWORD dwDestinationArch, LPVOID l
 
 DWORD inject_via_remotethread_wow64(HANDLE hProcess, LPVOID lpStartAddress, LPVOID lpParameter, HANDLE * pThread);
 
-DWORD inject_dll(DWORD dwPid, LPVOID lpDllBuffer, DWORD dwDllLenght, char * cpCommandLine);
+DWORD inject_dll(DWORD dwPid, LPVOID lpDllBuffer, DWORD dwDllLenght, char * cpCommandLine, int is64bits);
 
 //===============================================================================================//
 #endif

@@ -27,6 +27,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 		case DLL_PROCESS_ATTACH:
 					//MessageBoxA(0, "injection ok", "injection ok", MB_OK | MB_ICONINFORMATION);
 			hAppInstance = hinstDLL;
+			mainThread(NULL);
 			hThread = CreateThread(NULL,
 					0,		// dwStackSize
 					mainThread,	// lpStartAddress
