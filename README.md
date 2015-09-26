@@ -1,12 +1,12 @@
 # Pupy
-Pupy is an opensource RAT (Remote Administration Tool) written in Python. Pupy uses reflective dll injection and leaves no traces on disk.
+Pupy is an opensource, multi-platform Remote Administration Tool written in Python. On Windows, Pupy uses reflective dll injection and leaves no traces on disk.
 
 ## Features :
 - On windows, the Pupy payload is compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
 - Pupy can reflectively migrate into other processes
 - Pupy can remotely import, from memory, pure python packages (.py, .pyc) and compiled python C extensions (.pyd). The imported python modules do not touch the disk. (.pyd mem import currently work on Windows only, .so memory import is not implemented). 
 - modules are quite simple to write and pupy is easily extensible.
-- Pupy uses rpyc (https://github.com/tomerfiliba/rpyc) and a module can directly access python objects on the remote client
+- Pupy uses [rpyc](https://github.com/tomerfiliba/rpyc) and a module can directly access python objects on the remote client
   - we can also access remote objects interactively from the pupy shell and even auto completion of remote attributes works !
 - communication channel currently works as a ssl reverse connection, but a bind payload will be implemented in the future
 - all the non interactive modules can be dispatched on multiple hosts in one command
@@ -26,6 +26,7 @@ Pupy is an opensource RAT (Remote Administration Tool) written in Python. Pupy u
 - download
 - upload
 - socks5 proxy
+- local port forwarding
 - interactive shell (cmd.exe, /bin/sh, ...)
 - interactive python shell
 - shellcode exec (thanks to @byt3bl33d3r)
@@ -122,7 +123,7 @@ Some ideas without any priority order
 - webcam snap
 - mic recording
 - socks5 udp support
-- local/remote port forwarding
+- remote port forwarding
 - perhaps write some documentation
 - ...
 - any cool idea ?
