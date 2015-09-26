@@ -104,13 +104,13 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
 		self.request.sendall("\x05\x00")
 		VER=self.request.recv(1)
 		if VER!="\x05":
-			logging.debug("receiving unsuported socks version: %s"%VER.encode('hex'))
+			self.server.module.error("receiving unsuported socks version: %s"%VER.encode('hex'))
 			self._socks_response(CODE_GENERAL_SRV_FAILURE, terminate=True)
 			return
 
 		CMD=self.request.recv(1)
 		if CMD!="\x01": # we only support CONNECT for now
-			logging.debug("receiving unsuported socks CMD: %s"%CMD.encode('hex'))
+			self.server.module.error("receiving unsuported socks CMD: %s"%CMD.encode('hex'))
 			self._socks_response(CODE_COMMAND_NOT_SUPPORTED, terminate=True)
 			return
 
@@ -127,28 +127,26 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
 			DST_ADDR=self.request.recv(DOMAIN_LEN)
 			DST_PORT=struct.unpack("!H",self.request.recv(2))[0]
 		else: #TODO: ipv6
-			logging.debug("atyp not supported: %s"%ATYP.encode('hex'))
+			self.server.module.error("atyp not supported: %s"%ATYP.encode('hex'))
 			self._socks_response(CODE_ADDRESS_TYPE_NOT_SUPPORTED, terminate=True)
 			return
 
 		#now we have all we need, we can open the socket proxyfied through rpyc :)
-		logging.debug("connecting to %s:%s through the rpyc client"%(DST_ADDR,DST_PORT))
+		self.server.module.info("connecting to %s:%s ..."%(DST_ADDR,DST_PORT))
 		rsocket_mod=self.server.rpyc_client.conn.modules.socket
 		rsocket=rsocket_mod.socket(rsocket_mod.AF_INET,rsocket_mod.SOCK_STREAM)
 		rsocket.settimeout(5)
 		try:
 			rsocket.connect((DST_ADDR, DST_PORT))
 		except Exception as e:
-			logging.debug("error: %s"%e)
+			self.server.module.error("error %s connecting to %s:%s ..."%(str(e),DST_ADDR,DST_PORT))
 			if e[0]==10060:
-				logging.debug("unreachable !")
-				
 				self._socks_response(CODE_HOST_UNREACHABLE, terminate=True)
 			else:
 				self._socks_response(CODE_NET_NOT_REACHABLE, terminate=True)
 			return
 		self._socks_response(CODE_SUCCEEDED)
-		logging.debug("connection succeeded !")
+		self.server.module.success("connection to %s:%s succeed !"%(DST_ADDR,DST_PORT))
 
 		#self.request.settimeout(30)
 		#rsocket.settimeout(30)
@@ -159,12 +157,13 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
 		sp2.start()
 		sp1.join()
 		sp2.join()
-		logging.debug("conn to %s:%s closed"%(DST_ADDR,DST_PORT))
+		self.server.module.info("conn to %s:%s closed"%(DST_ADDR,DST_PORT))
 
 class Socks5Server(SocketServer.TCPServer):
 	allow_reuse_address = True
-	def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, rpyc_client=None):
+	def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, rpyc_client=None, module=None):
 		self.rpyc_client=rpyc_client
+		self.module=module
 		SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
 class ThreadedSocks5Server(SocketServer.ThreadingMixIn, Socks5Server):
@@ -194,7 +193,7 @@ class Socks5Proxy(PupyModule):
 		if args.action=="start":
 			if self.server is None:
 				self.success("starting server ...")
-				self.server = ThreadedSocks5Server(("127.0.0.1", int(args.port)), Socks5RequestHandler, rpyc_client=self.client)
+				self.server = ThreadedSocks5Server(("127.0.0.1", int(args.port)), Socks5RequestHandler, rpyc_client=self.client, module=self)
 				t=threading.Thread(target=self.server.serve_forever)
 				t.daemon=True
 				t.start()
