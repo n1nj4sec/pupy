@@ -1,3 +1,4 @@
+//#define VERBOSE
 #ifdef STANDALONE
 #  include <Python.h>
 #  include "Python-version.h"

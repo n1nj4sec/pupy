@@ -6,6 +6,7 @@ del *.exp
 del pupyx86.exe
 del pupyx86.dll
 
+IF [%1]==[quick] GOTO compilation
 ::First: generate resources :
 copy resources\python27_x86.dll resources\python27.dll
 %python_path% gen_library_compressed_string.py
@@ -16,13 +17,13 @@ copy resources\msvcr90_x86.dll resources\msvcr90.dll
 %python_path% gen_resource_header.py resources\msvcr90.dll
 %python_path% gen_python_bootloader.py
 %python_path% gen_resource_header.py resources\bootloader.pyc
-::compile them to obj files :
+
+:compilation
+
 %cl_path% /c resources_library_compressed_string_txt.c
 %cl_path% /c resources_bootloader_pyc.c
 %cl_path% /c resources_python27_dll.c
 %cl_path% /c resources_msvcr90_dll.c
-
-::then compile
 
 %cl_path% /c Python-dynload.c /IC:\Python27\include
 %cl_path% /c MemoryModule.c
