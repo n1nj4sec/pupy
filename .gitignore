@@ -27,7 +27,10 @@ client/sources/resources_msvcr90_dll.c
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
-*.py[cod]
+client/**/*.py[cod]
+pupy/*.py[cod]
+pupy/pupylib/*.py[cod]
+pupy/modules/*.py[cod]
 
 # do not ignore package & templates files
 !pupy/packages/
