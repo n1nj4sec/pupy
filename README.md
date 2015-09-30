@@ -1,4 +1,6 @@
 # Pupy
+
+[![Join the chat at https://gitter.im/n1nj4sec/pupy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/n1nj4sec/pupy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 Pupy is an opensource, multi-platform Remote Administration Tool written in Python. On Windows, Pupy uses reflective dll injection and leaves no traces on disk.
 
 ## Features :
@@ -22,6 +24,7 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - keylogger (windows only)
 - persistence (windows only)
 - screenshot (windows only)
+- webcam snapshot (windows only)
 - command execution
 - download
 - upload
@@ -37,7 +40,7 @@ The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac 
 ### generate/run a payload
 #### for Windows
 ```bash
-./genpayload.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
+./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
 ```
 you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
 #### for Linux
