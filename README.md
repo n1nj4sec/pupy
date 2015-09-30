@@ -78,7 +78,7 @@ python reverse_ssl.py 192.168.0.1:443
 #####interactive python shell
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 
-##example: How to write a MsgBox module
+##Example: How to write a MsgBox module
 first of all write the function/class you want to import on the remote client  
 in the example we create the file pupy/packages/windows/all/pupwinutils/msgbox.py 
 ```python
@@ -130,8 +130,8 @@ Some ideas without any priority order
 - any cool idea ?
 
 ## Contact
-mail: contact@n1nj4.eu  
-  
-If some of you want to participate or send me a feedback, don't hesitate :-)  
-[Follow me on twitter](https://twitter.com/n1nj4sec)
+by mail: contact@n1nj4.eu  
+on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)  
+[![Join the chat at https://gitter.im/n1nj4sec/pupy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/n1nj4sec/pupy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)  
+If some of you want to participate or send me a feedback, don't hesitate :-)
  
