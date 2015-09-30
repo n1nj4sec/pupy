@@ -22,6 +22,7 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - keylogger (windows only)
 - persistence (windows only)
 - screenshot (windows only)
+- webcam snapshot (windows only)
 - command execution
 - download
 - upload
