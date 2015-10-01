@@ -102,7 +102,8 @@ class PupyClient(object):
 			For other platforms : loading .so in memory is not supported yet.
 		"""
 		modules_dic={}
-		start_path=module_name.replace(".",os.sep)
+		# start path should only use "/" as separator
+		start_path=module_name.replace(".", "/")
 		package_found=False
 		package_path=None
 		for search_path in self.get_packages_path():
@@ -123,7 +124,7 @@ class PupyClient(object):
 							with open(filepath,'rb') as f:
 								module_code=f.read()
 							cur=""
-							for rep in start_path.split(os.sep)[:-1]:
+							for rep in start_path.split("/")[:-1]:
 								if not cur+rep+"/__init__.py" in modules_dic:
 									modules_dic[rep+"/__init__.py"]=""
 								cur+=rep+"/"
