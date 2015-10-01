@@ -26,6 +26,10 @@ else:
 sys.argv=[sys.argv[0],"py2exe"]
 
 
+# put necessary library patches/includes/whatever in this directory
+sys.path.insert(0, "sources/resources/library_patches")
+
+
 setup(
 	data_files = [(".", glob(r'.\RESOURCES_x86\msvcr90.dll'))],
 	console=['reverse_ssl.py'],
