@@ -545,12 +545,9 @@ class PupyCmd(cmd.Cmd):
 		if mod.max_clients!=0 and len(l)>mod.max_clients:
 			self.display_error("This module is limited to %s client(s) at a time and you selected %s clients"%(mod.max_clients, len(l)))
 			return
+
 		modjobs=[x for x in self.pupsrv.jobs.itervalues() if str(type(x.pupymodules[0]))== str(mod) and x.pupymodules[0].client in l]
-		#print [x for x in self.pupsrv.jobs.itervalues()]
-		#print modjobs
-		#if mod.unique_instance and len(modjobs)>=1:
-		#	self.display_error("This module is limited to %s instances per client. Job(s) containing this modules are still running."%(len(modjobs)))
-		#	return
+
 		pj=None
 		try:
 			interactive=False
@@ -567,15 +564,23 @@ class PupyCmd(cmd.Cmd):
 						ps=mod(c, pj)
 						pj.add_module(ps)
 			pj.start(args)
-			if not modjobs:
+			if not mod.unique_instance:
 				if modargs.bg:
 					self.pupsrv.add_job(pj)
-					return
+					self.display_info("job %s started in background !"%pj)
 				elif mod.daemon:
 					self.pupsrv.add_job(pj)
-			error=pj.interactive_wait()
-			if error and not modjobs:
-				pj.stop()
+					self.display_info("job %s started in background !"%pj)
+				else:
+					error=pj.interactive_wait()
+					if error and not modjobs:
+						pj.stop()
+			else:
+				if mod.daemon and not modjobs:
+					self.pupsrv.add_job(pj)
+				error=pj.interactive_wait()
+				if error and not modjobs:
+					pj.stop()
 
 		except KeyboardInterrupt:
 			self.display_warning("interrupting job ... (please wait)")
