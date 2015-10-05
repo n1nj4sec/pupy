@@ -35,19 +35,23 @@ if __name__=="__main__":
 	if os.path.dirname(__file__):
 		os.chdir(os.path.dirname(__file__))
 	parser = argparse.ArgumentParser(prog='ptrconsole', description="Pupy console")
-	parser.add_argument('-d', '--debug', help="print DEBUG level logs", action="store_const", dest="loglevel", const=logging.DEBUG, default=logging.WARNING)
-	parser.add_argument('-v', '--verbose', help="print INFO level logs", action="store_const", dest="loglevel", const=logging.INFO)
+	parser.add_argument('--log-lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
 	parser.add_argument('--version', help="print version and exit", action='store_true')
 	args=parser.parse_args()
 	if args.version:
 		print_version()
 		exit(0)
-	if args.loglevel==logging.INFO:
-		print("logging level: INFO")
-	elif args.loglevel==logging.DEBUG:
-		print("logging level: DEBUG")
+	loglevel=logging.WARNING
+	if args.loglevel=="ERROR":
+		loglevel=logging.ERROR
+	elif args.loglevel=="DEBUG":
+		loglevel=logging.DEBUG
+	elif args.loglevel=="INFO":
+		loglevel=logging.INFO
+	else:
+		loglevel=logging.WARNING
 	logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
-	logging.getLogger().setLevel(args.loglevel)
+	logging.getLogger().setLevel(loglevel)
 
 	pupyServer=pupylib.PupyServer.PupyServer()
 	try:
