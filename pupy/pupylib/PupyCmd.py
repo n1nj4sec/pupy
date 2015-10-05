@@ -116,8 +116,11 @@ def obj2utf8(obj):
 		for i in range(0,len(obj)):
 			obj[i]=obj2utf8(obj[i])
 		obj=tuple(obj)
-	elif type(obj)==unicode or type(obj)==str:
+	elif type(obj)==unicode:
 		return obj.encode('utf8', errors='replace')
+	elif type(obj)==str:
+		# assume str sent by client is already utf8
+		return obj
 	else:
 		obj=str(obj)
 	return obj
@@ -362,7 +365,9 @@ class PupyCmd(cmd.Cmd):
 
 	def display(self, msg, modifier=None):
 		if not type(msg) is unicode:
-			msg=str(msg)
+			# force output unicode string to output
+			# Python will hopefully handle output printing
+			msg=str(msg).decode('utf8')
 		if msg:
 			if modifier=="error":
 				self.stdout.write(PupyCmd.format_error(msg))
