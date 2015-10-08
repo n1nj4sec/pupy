@@ -138,10 +138,13 @@ Some ideas without any priority order
 
 ## FAQ
 > Does the server works on windows ?
+
 Yes but it has not really been tested and it may be unstable
 > I can't install it how does it work ?
+
 pip install rpyc
 > hey c4n y0u add a DDOS module plzz?
+
 No.
 
 ## Contact
