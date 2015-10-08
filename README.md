@@ -17,12 +17,13 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - commands aliases can be defined in the config
 
 ## Implemented Modules :
-- migrate (windows only) 
+- migrate
   - inter process architecture injection also works (x86->x64 and x64->x86)
-- keylogger (windows only)
-- persistence (windows only)
-- screenshot (windows only)
-- webcam snapshot (windows only)
+- keylogger
+- persistence
+- screenshot
+- webcam snapshot
+- in memory execution of PE exe both x86 and x64 :)
 - command execution
 - download
 - upload
@@ -77,6 +78,8 @@ python reverse_ssl.py 192.168.0.1:443
 ![screenshot7](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/interactive_shell.png "screenshot7")
 #####interactive python shell
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
+#####upload and run another PE exe from memory
+![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
 
 ##Example: How to write a MsgBox module
 first of all write the function/class you want to import on the remote client  
@@ -121,13 +124,23 @@ Some ideas without any priority order
 - add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
 - integrate scapy in the windows dll :D (that would be fun)
 - work on stealthiness and modules under unix systems
-- webcam snap
 - mic recording
 - socks5 udp support
 - remote port forwarding
 - perhaps write some documentation
+- The backdoor factory ?
+- Impacket ?
+- exfiltration through obfsproxy obfuscated network stream ?
 - ...
 - any cool idea ?
+
+## FAQ
+> Does the server works on windows ?
+Yes but it has not really been tested and it may be unstable
+> I can't install it how does it work ?
+pip install rpyc
+> hey c4n y0u add a DDOS module plzz?
+No.
 
 ## Contact
 by mail: contact@n1nj4.eu  
