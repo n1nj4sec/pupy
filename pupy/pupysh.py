@@ -26,7 +26,7 @@ import os
 import os.path
 
 __author__='Nicolas VERDIER'
-__version__='v1.0.0'
+__version__='v1.0.1-alpha'
 
 def print_version():
 	print("Pupy - %s"%(__version__))
