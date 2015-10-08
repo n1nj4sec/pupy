@@ -16,6 +16,7 @@ from ctypes import byref, c_bool
 from ctypes import windll
 import psutil
 import platform
+import subprocess
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
@@ -49,6 +50,14 @@ def enum_processes():
 		except psutil.NoSuchProcess:
 			pass
 	return proclist
+
+def start_hidden_process(path):
+	info = subprocess.STARTUPINFO()
+	info.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
+	info.wShowWindow = subprocess.SW_HIDE
+	p=subprocess.Popen(path, startupinfo=info)
+	return p
+
 
 if __name__ == '__main__':
 	for dic in enum_processes():
