@@ -144,8 +144,14 @@ class PupyJob(object):
 	def interrupt(self):
 		if not self.started:
 			raise RuntimeError("can't interrupt. job %s has not been started"%str(self))
-		self.worker_pool.interrupt_all()
-		self.wait()
+
+		#calling the interrupt method is one is defined for the module instead of killing the thread
+		if hasattr(self.pupymodules[0],'interrupt'):
+			for m in self.pupymodules:
+				m.interrupt()
+		else:
+			self.worker_pool.interrupt_all()
+			self.wait()
 
 	def interactive_wait(self):
 		while True:
