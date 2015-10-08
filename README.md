@@ -80,6 +80,8 @@ python reverse_ssl.py 192.168.0.1:443
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 #####upload and run another PE exe from memory
 ![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
+#####list available modules (the list is not up to date)
+![screenshot10](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/list_modules.png "screenshot10")
 
 ##Example: How to write a MsgBox module
 first of all write the function/class you want to import on the remote client  
