@@ -1,8 +1,8 @@
 import __builtin__
 
-__all__ = ["PupyCompleter"]
+__all__ = ["PythonCompleter"]
 
-class PupyCompleter:
+class PythonCompleter:
 	def __init__(self, local_ns=None, global_ns=None):
 		if local_ns is not None:
 			self.local_ns=local_ns
@@ -100,7 +100,7 @@ def get_class_members(klass):
 if __name__=="__main__":
 	import code
 	import readline
-	readline.set_completer(PupyCompleter().complete)
+	readline.set_completer(PythonCompleter().complete)
 	readline.parse_and_bind('tab: complete')
 	code.interact()
 

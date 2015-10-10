@@ -16,6 +16,7 @@
 import argparse
 import sys
 from .PupyErrors import PupyModuleExit
+from .PupyCompleter import PupyModCompleter, void_completer
 import StringIO
 
 class PupyArgumentParser(argparse.ArgumentParser):
@@ -23,6 +24,28 @@ class PupyArgumentParser(argparse.ArgumentParser):
 		if message:
 			self._print_message(message, sys.stderr)
 		raise PupyModuleExit("exit with status %s"%status)
+
+	def add_argument(self, *args, **kwargs):
+		completer_func=None
+		if "completer" in kwargs:
+			completer_func=kwargs["completer"]
+			del kwargs["completer"]
+		else:
+			completer_func=void_completer
+		argparse.ArgumentParser.add_argument(self, *args, **kwargs)
+		completer=self.get_completer()
+		for a in args:
+			if a.startswith("-"):
+				completer.add_optional_arg(a, completer=completer_func)
+			else:
+				completer.add_positional_arg(a, completer=completer_func)
+
+	def get_completer(self):
+		if hasattr(self,'pupy_mod_completer') and self.pupy_mod_completer is not None:
+			return self.pupy_mod_completer
+		else:
+			self.pupy_mod_completer=PupyModCompleter()
+			return self.pupy_mod_completer
 
 class PupyModule(object):
 	"""
@@ -38,7 +61,6 @@ class PupyModule(object):
 		""" client must be a PupyClient instance """
 		self.client=client
 		self.job=job
-		self.init_argparse()
 		if formatter is None:
 			from .PupyCmd import PupyCmd
 			self.formatter=PupyCmd
@@ -50,6 +72,7 @@ class PupyModule(object):
 		else:
 			self.stdout=stdout
 			self.del_close=False
+		self.init_argparse()
 
 	def __del__(self):
 		if self.del_close:
