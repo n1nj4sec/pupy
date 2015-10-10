@@ -2,6 +2,7 @@
 pupy/data/
 pupy/.pupy_history
 .DS_Store
+*.swp
 
 
 #do not redistribute microsoft visual C++ DLLs (LICENSE)
