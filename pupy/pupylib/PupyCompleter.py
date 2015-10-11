@@ -26,7 +26,8 @@ def debug(msg):
 
 def list_completer(l):
 	def func(text, line, begidx, endidx):
-		return [x for x in l if text.startswith(x)]
+		return [x+" " for x in l if x.startswith(text)]
+	return func
 
 def void_completer(text, line, begidx, endidx):
 	return []
@@ -100,7 +101,6 @@ class PupyModCompleter(object):
 	def __init__(self):
 		self.conf= {
 			"positional_args":[
-				#TODO
 			],
 			"optional_args":[
 			],
@@ -140,7 +140,6 @@ class PupyModCompleter(object):
 			return None
 
 	def get_positional_arg_index(self, text, line, begidx, endidx):
-		#TODO
 		tab=shlex.split(line)
 		positional_index=-1
 		for i in range(0, len(tab)):
@@ -157,6 +156,7 @@ class PupyModCompleter(object):
 
 	def get_optional_args_completer(self, name):
 		return [x[1]["completer"] for x in self.conf["optional_args"] if x[0]==name][0]
+
 	def get_positional_args_completer(self, index):
 		return self.conf["positional_args"][index][1]["completer"]
 
@@ -171,7 +171,6 @@ class PupyModCompleter(object):
 			return [x+" " for x in self.get_optional_args() if x.startswith(text)]
 		else:
 			try:
-				debug("here")
 				positional_index=self.get_positional_arg_index(text, line, begidx, endidx)-2 # -2 for "run" + "module_name"
 				debug("positional index is %s"%positional_index)
 				return self.get_positional_args_completer(positional_index)(text, line, begidx, endidx)
