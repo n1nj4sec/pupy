@@ -36,7 +36,7 @@ class MigrateModule(PupyModule):
 			pid=p.pid
 			self.success("%s created with pid %s"%(args.create,pid))
 		else:
-			pid=args.pid[0]
+			pid=args.pid
 		dllbuf=b""
 		isProcess64bits=False
 		#TODO automatically fill ip/port
