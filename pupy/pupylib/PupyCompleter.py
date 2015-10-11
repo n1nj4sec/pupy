@@ -56,7 +56,9 @@ class PupyCompleter(object):
 		self.pupysrv=pupysrv
 
 	def get_module_completer(self, name):
-		#TODO handle aliases
+		if name in self.aliases:
+			name=self.aliases[name].split()[0]
+		debug("completer for %s"%name)
 		return self.pupysrv.get_module_completer(name)
 		
 	def complete(self, text, line, begidx, endidx):
@@ -73,6 +75,14 @@ class PupyCompleter(object):
 					return completer_func(text, line, begidx, endidx)
 				else:
 					return []
+			elif any([True for x in self.aliases if line.startswith(x+" ")]):
+				modname=line.split()[0]
+				completer_func=self.get_module_completer(modname).complete
+				if completer_func:
+					return completer_func(text, line, begidx, endidx)
+				else:
+					return []
+				
 		except Exception as e:
 			#print e
 			pass
@@ -171,7 +181,9 @@ class PupyModCompleter(object):
 			return [x+" " for x in self.get_optional_args() if x.startswith(text)]
 		else:
 			try:
-				positional_index=self.get_positional_arg_index(text, line, begidx, endidx)-2 # -2 for "run" + "module_name"
+				positional_index=positional_index=self.get_positional_arg_index(text, line, begidx, endidx)-1
+				if line.startswith("run "):  # -2 for "run" + "module_name" whereas -1 for aliases
+					positional_index-=1
 				debug("positional index is %s"%positional_index)
 				return self.get_positional_args_completer(positional_index)(text, line, begidx, endidx)
 			except Exception as e:

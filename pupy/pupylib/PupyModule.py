@@ -48,6 +48,7 @@ class PupyArgumentParser(argparse.ArgumentParser):
 		else:
 			self.pupy_mod_completer=PupyModCompleter()
 			return self.pupy_mod_completer
+	#TODO handle completer kw for add_mutually_exclusive_group (ex modules/pyexec.py)
 
 class PupyModule(object):
 	"""
