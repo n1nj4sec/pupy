@@ -132,7 +132,7 @@ class MsgBoxPopup(PupyModule):
 		self.log("message box popped !")
 
 ```
-and that's it we have a functionning module :)
+and that's it, we have a fully functional module :)
 
 ```bash
 >> run msgbox -h
