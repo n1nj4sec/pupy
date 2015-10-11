@@ -18,7 +18,7 @@
 import argparse
 import sys
 import os.path
-import pupylib.utils
+from pupylib.utils.network import get_local_ip
 
 def get_edit_pupyx86_dll(host, ip):
 	return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), host, ip)
@@ -65,7 +65,7 @@ if __name__=="__main__":
 	args=parser.parse_args()
 	myhost=None
 	if not args.host:
-		myip=pupylib.utils.get_ip()
+		myip=get_local_ip()
 		if not myip:
 			sys.exit("[-] couldn't find your local IP. You must precise an ip or a fqdn manually")
 		myhost=myip

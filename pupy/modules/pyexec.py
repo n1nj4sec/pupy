@@ -1,7 +1,7 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
 import StringIO
-import pupylib.utils
+import pupylib.utils.rpyc_utils import redirected_stdo
 
 __class_name__="PythonExec"
 
@@ -24,7 +24,7 @@ class PythonExec(PupyModule):
 		stdout=StringIO.StringIO()
 		stderr=StringIO.StringIO()
 		try:
-			with pupylib.utils.redirected_stdo(self.client.conn, stdout, stderr):
+			with redirected_stdo(self.client.conn, stdout, stderr):
 				self.client.conn.execute(code+"\n")
 			res=stdout.getvalue()
 			err=stderr.getvalue()
