@@ -1,6 +1,6 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils import redirected_stdio
+from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="InteractiveShell"
 

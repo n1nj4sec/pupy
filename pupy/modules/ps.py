@@ -1,6 +1,6 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils import obtain
+from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="PsModule"
 

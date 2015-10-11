@@ -15,7 +15,6 @@
 # --------------------------------------------------------------
 
 import sys
-import subprocess
 from contextlib import contextmanager
 from rpyc.utils.helpers import restricted
 from rpyc.utils.classic import obtain
@@ -70,11 +69,4 @@ def redirected_stdio(conn):
 		conn.modules.sys.stdin = orig_stdin
 		conn.modules.sys.stdout = orig_stdout
 		conn.modules.sys.stderr = orig_stderr
-
-def get_ip(iface = 'eth0'):
-	try:
-		return subprocess.check_output(["ifconfig", iface]).split("\n")[1].split()[1][5:]
-		#TODO same for windows
-	except Exception:
-		return None
 

