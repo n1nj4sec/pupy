@@ -6,11 +6,11 @@ PYTHON=$(PYTHONPATH)/python.exe
 TEMPLATE_OUTPUT_PATH=..\..\pupy\payload_templates
 
 ifndef ARCH
-    $(error You must specify an architecture.)
+$(error You must specify an architecture.)
 else
-    ifeq "$(ARCH)" "x64"
-        CFLAGS:=$(CFLAGS) /DWIN_X64 /D_WIN64
-    endif
+ifeq "$(ARCH)" "x64"
+CFLAGS:=$(CFLAGS) /DWIN_X64 /D_WIN64
+endif
 endif
 
 PYOBJS=_memimporter.obj MyLoadLibrary.obj Python-dynload.obj pupy_load.obj pupy.obj base_inject.obj
