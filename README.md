@@ -34,14 +34,23 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - shellcode exec (thanks to @byt3bl33d3r)
 
 ##Quick start
+###Installation :
+```bash
+pip install rpyc
+pip install pefile 
+```
+####Troubleshooting:
+If you have some issues with rpyc while running the server on windows, take a look at issue #25, @deathfantasy made a fix 
+
 In these examples the server is running on a linux host (tested on kali linux) and it's IP address is 192.168.0.1  
 The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac OS X 10.10.5) 
-### generate/run a payload
+### Generate/run a payload
 #### for Windows
 ```bash
 ./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
 ```
 you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
+
 #### for Linux
 ```bash
 pip install rpyc #(or manually copy it if you are not admin)
@@ -123,9 +132,25 @@ class MsgBoxPopup(PupyModule):
 		self.log("message box popped !")
 
 ```
+and that's it we have a functionning module :)
+
+```bash
+>> run msgbox -h
+usage: msgbox [-h] [--title TITLE] text
+
+Pop up a custom message box
+
+positional arguments:
+  text           text to print in the msgbox :)
+
+  optional arguments:
+    -h, --help     show this help message and exit
+    --title TITLE  msgbox title
+```
 
 ## Dependencies
 rpyc (https://github.com/tomerfiliba/rpyc)
+pefile
 
 ##Roadmap and ideas
 Some ideas without any priority order
