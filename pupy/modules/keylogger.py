@@ -1,7 +1,6 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
 import StringIO
-import pupylib.utils
 import SocketServer
 import threading
 import socket

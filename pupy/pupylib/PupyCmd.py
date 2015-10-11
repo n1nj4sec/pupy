@@ -1,3 +1,4 @@
+# -*- coding: UTF8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
@@ -38,10 +39,11 @@ import logging
 import traceback
 import rpyc
 import rpyc.utils.classic
-from .PythonCompleter import PupyCompleter
+from .PythonCompleter import PythonCompleter
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyModule import PupyArgumentParser
 from .PupyJob import PupyJob
+from .PupyCompleter import PupyCompleter
 import argparse
 from pupysh import __version__
 import copy
@@ -169,7 +171,6 @@ class PupyCmd(cmd.Cmd):
 		self.intro = color(BANNER, 'green')
 		self.prompt = color('>> ','blue', prompt=True)
 		self.doc_header = 'Available commands :\n'
-		self.complete_space=['run']
 		self.default_filter=None
 		try:
 			if not self.config.getboolean("cmdline","display_banner"):
@@ -183,6 +184,7 @@ class PupyCmd(cmd.Cmd):
 				self.aliases[command]=alias
 		except Exception as e:
 			logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
+		self.pupy_completer=PupyCompleter(self.aliases, self.pupsrv)
 
 	@staticmethod
 	def table_format(diclist, wl=[], bl=[]):
@@ -270,9 +272,7 @@ class PupyCmd(cmd.Cmd):
 
 	def completenames(self, text, *ignored):
 		dotext = 'do_'+text
-		if text in self.complete_space:
-			return [a[3:]+" " for a in self.get_names() if a.startswith(dotext)]+[x+" " for x in self.aliases.iterkeys() if x.startswith(text)]
-		return [a[3:] for a in self.get_names() if a.startswith(dotext)]+[x for x in self.aliases.iterkeys() if x.startswith(text)]
+		return [a[3:]+' ' for a in self.get_names() if a.startswith(dotext)]+[x+' ' for x in self.aliases.iterkeys() if x.startswith(text)]
 
 	def pre_input_hook(self):
 		#readline.redisplay()
@@ -495,7 +495,7 @@ class PupyCmd(cmd.Cmd):
 		oldcompleter=readline.get_completer()
 		try:
 			local_ns={"pupsrv":self.pupsrv}
-			readline.set_completer(PupyCompleter(local_ns=local_ns).complete)
+			readline.set_completer(PythonCompleter(local_ns=local_ns).complete)
 			readline.parse_and_bind('tab: complete')
 			code.interact(local=local_ns)
 		except Exception as e:
@@ -596,9 +596,41 @@ class PupyCmd(cmd.Cmd):
 		if pj:
 			del pj
 		
+	def complete(self, text, state):
+		if state == 0:
+			import readline
+			origline = readline.get_line_buffer()
+			line = origline.lstrip()
+			stripped = len(origline) - len(line)
+			begidx = readline.get_begidx() - stripped
+			endidx = readline.get_endidx() - stripped
+			if begidx>0:
+				cmd, args, foo = self.parseline(line)
+				if cmd == '':
+					compfunc = self.completedefault
+				else:
+					try:
+						#compfunc = getattr(self, 'complete_' + cmd)
+						compfunc = self.pupy_completer.complete
+					except AttributeError:
+						compfunc = self.completedefault
+			else:
+				compfunc = self.completenames
+			self.completion_matches = compfunc(text, line, begidx, endidx)
+		try:
+			return self.completion_matches[state]
+		except IndexError:
+			return None
+
 	#text : word match
 	#line : complete line
 	def complete_run(self, text, line, begidx, endidx):
+		pmc=PupyModCompleter(None)
+		try:
+			res=pmc.complete(text, line, begidx, endidx)
+		except Exception as e:
+			print e
+		return res
 		mline = line.partition(' ')[2]
 
 		joker=1

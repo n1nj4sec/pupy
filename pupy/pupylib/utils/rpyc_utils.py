@@ -69,3 +69,4 @@ def redirected_stdio(conn):
 		conn.modules.sys.stdin = orig_stdin
 		conn.modules.sys.stdout = orig_stdout
 		conn.modules.sys.stderr = orig_stderr
+

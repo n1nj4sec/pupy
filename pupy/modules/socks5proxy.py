@@ -18,7 +18,6 @@
 #RFC @https://www.ietf.org/rfc/rfc1928.txt
 from pupylib.PupyModule import *
 import StringIO
-import pupylib.utils
 import SocketServer
 import threading
 import socket

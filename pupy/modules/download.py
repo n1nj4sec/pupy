@@ -1,5 +1,6 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import *
 from rpyc.utils.classic import download
 import os
 import os.path
@@ -11,7 +12,7 @@ class DownloaderScript(PupyModule):
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='download', description=self.__doc__)
 		self.arg_parser.add_argument('remote_file', metavar='<remote_path>')
-		self.arg_parser.add_argument('local_file', nargs='?', metavar='<local_path>')
+		self.arg_parser.add_argument('local_file', nargs='?', metavar='<local_path>', completer=path_completer)
 	def run(self, args):
 		remote_file=self.client.conn.modules['os.path'].expandvars(args.remote_file)
 		rep=os.path.join("data","downloads",self.client.short_name())

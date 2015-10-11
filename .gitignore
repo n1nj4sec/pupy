@@ -2,6 +2,7 @@
 pupy/data/
 pupy/.pupy_history
 .DS_Store
+*.swp
 
 
 #do not redistribute microsoft visual C++ DLLs (LICENSE)
@@ -29,7 +30,7 @@ client/sources/resources_msvcr90_dll.c
 __pycache__/
 client/**/*.py[cod]
 pupy/*.py[cod]
-pupy/pupylib/*.py[cod]
+pupy/pupylib/**/*.py[cod]
 pupy/modules/*.py[cod]
 
 # do not ignore package & templates files
