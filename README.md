@@ -42,9 +42,9 @@ pip install pefile
 ####Troubleshooting:
 If you have some issues with rpyc while running the server on windows, take a look at issue #25, @deathfantasy made a fix 
 
+### Generate/run a payload
 In these examples the server is running on a linux host (tested on kali linux) and it's IP address is 192.168.0.1  
 The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac OS X 10.10.5) 
-### Generate/run a payload
 #### for Windows
 ```bash
 ./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
@@ -132,7 +132,7 @@ class MsgBoxPopup(PupyModule):
 		self.log("message box popped !")
 
 ```
-and that's it we have a functionning module :)
+and that's it, we have a fully functional module :)
 
 ```bash
 >> run msgbox -h
@@ -149,8 +149,8 @@ positional arguments:
 ```
 
 ## Dependencies
-rpyc (https://github.com/tomerfiliba/rpyc)
-pefile
+rpyc (https://github.com/tomerfiliba/rpyc)  
+pefile  
 
 ##Roadmap and ideas
 Some ideas without any priority order
