@@ -1,7 +1,7 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
 import StringIO
-import pupylib.utils.rpyc_utils import redirected_stdo
+from pupylib.utils.rpyc_utils import redirected_stdo
 
 __class_name__="PythonExec"
 
