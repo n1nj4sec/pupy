@@ -16,7 +16,7 @@
 import argparse
 import sys
 from .PupyErrors import PupyModuleExit
-from .PupyCompleter import PupyModCompleter, void_completer
+from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 import StringIO
 
 class PupyArgumentParser(argparse.ArgumentParser):
@@ -30,6 +30,8 @@ class PupyArgumentParser(argparse.ArgumentParser):
 		if "completer" in kwargs:
 			completer_func=kwargs["completer"]
 			del kwargs["completer"]
+		elif "choices" in kwargs:
+			completer_func=list_completer(kwargs["choices"])
 		else:
 			completer_func=void_completer
 		argparse.ArgumentParser.add_argument(self, *args, **kwargs)
