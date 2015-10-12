@@ -70,7 +70,7 @@ if __name__=="__main__":
 			sys.exit("[-] couldn't find your local IP. You must precise an ip or a fqdn manually")
 		myhost=myip
 	else:
-		myhost=args.host
+		myhost=args.host[0]
 	
 	outpath=None
 	if args.type=="exe_x86":
