@@ -1,5 +1,5 @@
-# Mostly stolen form Nicolas VERDIER (contact@n1nj4.eu)
-# Mostly stolen by golind
+# Mostly stolen from Nicolas VERDIER (contact@n1nj4.eu)
+# Mostly stolen and recreated by golind
 import sys
 from ctypes import *
 from ctypes.wintypes import MSG
