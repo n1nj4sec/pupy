@@ -184,5 +184,6 @@ No.
 by mail: contact@n1nj4.eu  
 on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)  
 [![Join the chat at https://gitter.im/n1nj4sec/pupy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/n1nj4sec/pupy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)  
-If some of you want to participate or send me a feedback, don't hesitate :-)
- 
+If some of you want to participate or send me a feedback, don't hesitate :-)  
+  
+This project is a personal development, please respect its philosophy don't use it for evil purpose !
