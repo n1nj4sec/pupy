@@ -47,7 +47,7 @@ In these examples the server is running on a linux host (tested on kali linux) a
 The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac OS X 10.10.5) 
 #### for Windows
 ```bash
-./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
+./genpayload.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
 ```
 you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
 
