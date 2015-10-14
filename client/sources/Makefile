@@ -10,6 +10,8 @@ $(error You must specify an architecture.)
 else
 ifeq "$(ARCH)" "x64"
 CFLAGS:=$(CFLAGS) /DWIN_X64 /D_WIN64
+else
+CFLAGS:=$(CFLAGS) /DWIN_X86
 endif
 endif
 
@@ -27,7 +29,7 @@ resources\library_compressed_string.txt: resources\library_compressed_string_$(A
 resources_library_compressed_string_txt.c: gen_resource_header.py resources\library_compressed_string.txt
 	$(PYTHON) $+
 
-resources\bootloader.pyc: gen_python_bootloader.py
+resources\bootloader.pyc: gen_python_bootloader.py ..\..\pupy\packages\all\pupyimporter.py
 	$(PYTHON) $+
 	
 resources_bootloader_pyc.c: gen_resource_header.py resources\bootloader.pyc
