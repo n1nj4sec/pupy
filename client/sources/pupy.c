@@ -38,8 +38,7 @@ static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 	return Py_BuildValue("s", "unknown");
 }
 
-static PyObject *
-Py_reflective_inject_dll(PyObject *self, PyObject *args)
+static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 {
 	DWORD dwPid;
 	const char *lpDllBuffer;
@@ -60,11 +59,25 @@ Py_reflective_inject_dll(PyObject *self, PyObject *args)
 	return PyBool_FromLong(1);
 }
 
+static PyObject *Py_load_dll(PyObject *self, PyObject *args)
+{
+	DWORD dwPid;
+	const char *lpDllBuffer;
+	DWORD dwDllLenght;
+	const char *dllname;
+	if (!PyArg_ParseTuple(args, "ss#", &dllname, &lpDllBuffer, &dwDllLenght))
+		return NULL;
+	if(_load_dll(dllname, lpDllBuffer))
+		return PyBool_FromLong(1);
+	return PyBool_FromLong(0);
+}
+
 static PyMethodDef methods[] = {
 	{ "get_connect_back_host", Py_get_connect_back_host, METH_NOARGS, "get_connect_back_host() -> (ip, port)" },
 	{ "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
 	{ "_get_compressed_library_string", Py_get_compressed_library_string, METH_VARARGS },
 	{ "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure" },
+	{ "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> bool" },
 	{ NULL, NULL },		/* Sentinel */
 };
 
