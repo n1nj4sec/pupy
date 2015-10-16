@@ -19,40 +19,45 @@ import rpyc
 import threading
 import sys
 import ssl
+import logging
+import traceback
 
 class PupyService(rpyc.Service):
 	def __init__(self, *args, **kwargs):
 		super(PupyService, self).__init__(*args, **kwargs)
 		self.pupy_srv=glob_pupyServer
 	def on_connect(self):
-		# code that runs when a connection is created
-		# (to init the serivce, if needed)
-		self._conn._config.update(dict(
-			allow_safe_attrs = True,
-			allow_public_attrs = False,
-			allow_pickle = False,
-			allow_getattr = True,
-			allow_setattr = False,
-			allow_delattr = False,
-			import_custom_exceptions = False,
-			instantiate_custom_exceptions = False,
-			instantiate_oldstyle_exceptions = False,
-		))
-		#self._conn._config["safe_attrs"].add("__iter__")
-		#self._conn._config["safe_attrs"].add("readline")
-		self.modules=None
+		try:
+			# code that runs when a connection is created
+			# (to init the serivce, if needed)
+			self._conn._config.update(dict(
+				allow_safe_attrs = True,
+				allow_public_attrs = False,
+				allow_pickle = False,
+				allow_getattr = True,
+				allow_setattr = False,
+				allow_delattr = False,
+				import_custom_exceptions = False,
+				instantiate_custom_exceptions = False,
+				instantiate_oldstyle_exceptions = False,
+			))
+			#self._conn._config["safe_attrs"].add("__iter__")
+			#self._conn._config["safe_attrs"].add("readline")
+			self.modules=None
 
-		#some aliases :
-		self.namespace=self._conn.root.namespace
-		self.execute=self._conn.root.execute
-		self.exit=self._conn.root.exit
-		self.eval=self._conn.root.eval
-		self.builtin=self.modules.__builtin__
-		self.builtins=self.modules.__builtin__
-		self.exposed_stdin=sys.stdin
-		self.exposed_stdout=sys.stdout
-		self.exposed_stderr=sys.stderr
-		self.pupy_srv.add_client(self)
+			#some aliases :
+			self.namespace=self._conn.root.namespace
+			self.execute=self._conn.root.execute
+			self.exit=self._conn.root.exit
+			self.eval=self._conn.root.eval
+			self.builtin=self.modules.__builtin__
+			self.builtins=self.modules.__builtin__
+			self.exposed_stdin=sys.stdin
+			self.exposed_stdout=sys.stdout
+			self.exposed_stderr=sys.stderr
+			self.pupy_srv.add_client(self)
+		except Exception as e:
+			logging.error(traceback.format_exc())
 
 	def on_disconnect(self):
 		self.pupy_srv.remove_client(self)
