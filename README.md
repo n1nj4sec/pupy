@@ -8,7 +8,7 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - modules are quite simple to write and pupy is easily extensible.
 - Pupy uses [rpyc](https://github.com/tomerfiliba/rpyc) and a module can directly access python objects on the remote client
   - we can also access remote objects interactively from the pupy shell and even auto completion of remote attributes works !
-- communication channel currently works as a ssl reverse connection, but a bind payload will be implemented in the future
+- communication transports are modular and pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
 - all the non interactive modules can be dispatched on multiple hosts in one command
 - Multi-platform (tested on windows 7, windows xp, kali linux, ubuntu)
 - modules can be executed as background jobs
@@ -49,7 +49,9 @@ The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac 
 ```bash
 ./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
 ```
-you can also use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
+you can also :
+- use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
+- customize the transport used by supplying it with --transport
 
 #### for Linux
 ```bash
@@ -73,9 +75,9 @@ pyinstaller --onefile /full_path/pupy/client/reverse_ssl.py
 
 ### start the server
 1. eventually edit pupy.conf to change the bind address / port
-2. start the pupy server :
+2. start the pupy server with the transport used by the client (tcp_ssl by default):
 ```bash
-./pupysh.py
+./pupysh.py --transport <transport_used>
 ```
 
 ### Some screenshots
@@ -155,7 +157,7 @@ pefile
 ##Roadmap and ideas
 Some ideas without any priority order
 - support for https proxy
-- bind instead of reverse connection
+- bind payloads instead of reverse
 - add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
 - integrate scapy in the windows dll :D (that would be fun)
 - work on stealthiness and modules under unix systems
