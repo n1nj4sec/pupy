@@ -32,7 +32,7 @@ client/**/*.py[cod]
 pupy/*.py[cod]
 pupy/pupylib/**/*.py[cod]
 pupy/modules/*.py[cod]
-pupy/network/**/*.py[cod]
+pupy/network/**/*.pyc
 
 # do not ignore package & templates files
 !pupy/packages/
