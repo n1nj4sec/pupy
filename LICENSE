@@ -19,3 +19,5 @@ Pupy also uses some code source/libraries from other projects under different li
 			http://videocapture.sourceforge.net/
 		-psutil by Giampaolo Rodola under the BSD license
 			https://github.com/giampaolo/psutil
+	-For the transports :
+		-obfsproxy software is under the 3-Clause BSD License. Copyright 2013 George Kadianakis
