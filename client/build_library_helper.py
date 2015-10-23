@@ -17,22 +17,22 @@ if not (len(sys.argv)==3 and sys.argv[1]=="genzip"):
 	exit("This setup is not meant to build pupy stubs, but only to generate an adequate library.zip to embed in the real exe/dll stub\nplease don't use this if you don't want to recompile from sources")
 if sys.argv[2] == 'x86':
 	outname = 'x86'
-	platform = 'x86'
+	platform = '32'
 elif sys.argv[2] == 'x64':
 	outname = 'x64'
-	platform = 'amd64'
+	platform = '-amd64'
 else:
 	exit('unsupported platform')
 sys.argv=[sys.argv[0],"py2exe"]
 
 
 # put necessary library patches/includes/whatever in this directory
-sys.path.insert(0, "sources/resources/library_patches")
-
+sys.path.insert(0, os.path.join("sources","resources","library_patches"))
+sys.path.insert(0, os.path.join("..","pupy"))
 
 setup(
-	data_files = [(".", glob(r'.\RESOURCES_x86\msvcr90.dll'))],
-	console=['reverse_ssl.py'],
+	#data_files = [(".", glob(r'.\RESOURCES_x86\msvcr90.dll'))],
+	console=['..\\pupy\\pp.py'],
 	#windows=['reverse_ssl.py'],
 	#zipfile=None,
 	options={ "py2exe" : {
@@ -49,19 +49,25 @@ excluded_files = [
 	'library.zip',
 	'mswsock.dll',
 	'python27.dll',
+	'pp.exe',
+	'w9xpopen.exe',
 ]
+
 def zwalk(path, zf):
 	for root, dirs, files in os.walk(path):
 		for file in files:
 			if file.lower() in excluded_files:
 				pass
+			elif file.endswith('.pyd') and "." in file.rsplit(".",1)[0]:
+				arch_path="/".join(file.rsplit(".",1)[0].split('.'))
+				zf.write(os.path.join(root,file),arcname=arch_path+".pyd")
 			else:
 				zf.write(os.path.join(root, file))
 
 			
 with zipfile.ZipFile('sources/resources/library%s.zip' % outname, 'w', zipfile.ZIP_DEFLATED) as zf:
 	root = os.getcwd()
-	os.chdir('build/bdist.win-%s/winexe/collect-2.7' % platform)
+	os.chdir('build/bdist.win%s/winexe/collect-2.7' % platform)
 	zwalk('.', zf)
 	os.chdir('%s/dist' % root)
 	zwalk('.', zf)

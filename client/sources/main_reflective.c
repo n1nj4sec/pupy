@@ -1,15 +1,13 @@
 /*
- *     Author : Nicolas VERDIER
- *
- */
-//#pragma comment(lib, "user32")
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+*/
+
+#pragma comment(lib, "user32")
 
 #include <windows.h>
 #include "pupy_load.h"
 #include "ReflectiveDllInjection.h"
-
-/* value "<default_connect_back_host>:<default_connect_back_port>" will be searched/replaced by the framework to change pupy connect back IP without recompiling the DLL */
-char connect_back_host[100]="<default_connect_back_host>:<default_connect_back_port>"; //big array to have space for big domain names.
 
 extern HINSTANCE hAppInstance;
 //===============================================================================================//

@@ -1,5 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: UTF8 -*-
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from .servers import PupyTCPServer
 from .clients import PupyTCPClient, PupySSLClient
 from .transports import dummy, b64
@@ -14,18 +15,18 @@ except ImportError:
 from rpyc.utils.authenticators import SSLAuthenticator
 
 ssl_auth=None
-config = configparser.ConfigParser()
-try:
+
+def ssl_authenticator():
+	config = configparser.ConfigParser()
 	config.read("pupy.conf")
-except Exception:
-	logging.error("couldn't read pupy.conf")
+	return SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
 
 transports={
 	"tcp_ssl" : {
 		"server" : PupyTCPServer,
 		"client": PupySSLClient,
 		"client_kwargs" : {},
-		"authenticator" : SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH"),
+		"authenticator" : ssl_authenticator,
 		"stream": PupySocketStream ,
 		"client_transport" : dummy.DummyPupyTransport,
 		"server_transport" : dummy.DummyPupyTransport,
