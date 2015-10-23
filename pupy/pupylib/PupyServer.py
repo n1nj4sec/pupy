@@ -262,7 +262,11 @@ class PupyServer(threading.Thread):
 		self.handler_registered.wait()
 		self.handler.display_srvinfo("Server started on %s:%s with transport %s"%(self.address, self.port, self.transport))
 		t=transports[self.transport]
-		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=t['authenticator'], stream=t['stream'], transport=t['server_transport'])
+		if t['authenticator']:
+			authenticator=t['authenticator']()
+		else:
+			authenticator=None
+		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'])
 		self.server.start()
 
 

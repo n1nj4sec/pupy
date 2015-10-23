@@ -4,7 +4,6 @@ PYTHONPATH=C:/Python27
 PYTHON=$(PYTHONPATH)/python.exe
 
 TEMPLATE_OUTPUT_PATH=..\..\pupy\payload_templates
-
 ifndef ARCH
 $(error You must specify an architecture.)
 else
@@ -14,14 +13,20 @@ else
 CFLAGS:=$(CFLAGS) /DWIN_X86
 endif
 endif
+ifdef DEBUG
+DEBUG_ADD:=DEBUG
+CFLAGS:= $(CFLAGS) /DDEBUG
+else
+DEBUG_ADD:=
+endif
 
 PYOBJS=_memimporter.obj MyLoadLibrary.obj Python-dynload.obj pupy_load.obj pupy.obj base_inject.obj
 COMMON_OBJS=resources_bootloader_pyc.obj resources_python27_dll.obj MemoryModule.obj resources_library_compressed_string_txt.obj actctx.obj list.obj thread.obj remote_thread.obj LoadLibraryR.obj resources_msvcr90_dll.obj
 
 all: $(TEMPLATE_OUTPUT_PATH)\pupy$(ARCH).exe $(TEMPLATE_OUTPUT_PATH)\pupy$(ARCH).dll
 
-resources\library_compressed_string_$(ARCH).txt: gen_library_compressed_string.py
-	$(PYTHON) $+
+resources\library_compressed_string_$(ARCH).txt: gen_library_compressed_string.py resources\library$(ARCH).zip
+	$(PYTHON) gen_library_compressed_string.py
 	
 resources\library_compressed_string.txt: resources\library_compressed_string_$(ARCH).txt
 	copy $< $@
@@ -29,8 +34,8 @@ resources\library_compressed_string.txt: resources\library_compressed_string_$(A
 resources_library_compressed_string_txt.c: gen_resource_header.py resources\library_compressed_string.txt
 	$(PYTHON) $+
 
-resources\bootloader.pyc: gen_python_bootloader.py ..\..\pupy\packages\all\pupyimporter.py
-	$(PYTHON) $+
+resources\bootloader.pyc: gen_python_bootloader.py ..\..\pupy\packages\all\pupyimporter.py ..\..\pupy\pp.py
+	$(PYTHON) gen_python_bootloader.py $(DEBUG_ADD)
 	
 resources_bootloader_pyc.c: gen_resource_header.py resources\bootloader.pyc
 	$(PYTHON) $+
@@ -50,6 +55,9 @@ resources_msvcr90_dll.c: gen_resource_header.py resources\msvcr90.dll
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)/include $<
 	
+main_exe.obj: main_exe.c
+	$(CC) /c $(CFLAGS) $<
+
 %.obj: %.c
 	$(CC) /c $(CFLAGS) $<
 	
@@ -57,7 +65,7 @@ ReflectiveLoader.obj: ReflectiveLoader.c
 	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN /DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $<
 
 $(TEMPLATE_OUTPUT_PATH)\pupy$(ARCH).exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
-	$(CC) $(CFLAGS) $+ /Fe$@
+	$(CC) $(CFLAGS) $+ /Fe$@ 
 
 $(TEMPLATE_OUTPUT_PATH)\pupy$(ARCH).dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ /LD

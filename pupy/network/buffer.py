@@ -1,6 +1,6 @@
-# This file has been taken from obfsproxy project
 # Using the same buffer object as in obfsproxy to enhance compatibility
-
+#some modifications brings to have waiting capabilities
+import threading
 class Buffer(object):
 	"""
 	A Buffer is a simple FIFO buffer. You write() stuff to it, and you
@@ -13,9 +13,20 @@ class Buffer(object):
 		"""
 		self.buffer = bytes(data)
 		self.on_write_f=on_write
+		self.waiting_lock=threading.Lock()
+		self.waiting=threading.Event()
+
+
 	def on_write(self):
 		if self.on_write_f:
 			self.on_write_f()
+
+	def wait(self, timeout=0.1):
+		""" wait for a size """
+		with self.waiting_lock:
+			self.waiting.clear()
+			self.waiting.wait(timeout)
+			
 	def read(self, n=-1):
 		"""
 		Read and return 'n' bytes from the buffer.
@@ -38,8 +49,10 @@ class Buffer(object):
 		"""
 		Append 'data' to the buffer.
 		"""
-		self.buffer = self.buffer + data
-		self.on_write()
+		with self.waiting_lock:
+			self.buffer = self.buffer + data
+			self.on_write()
+			self.waiting.set()
 
 	def peek(self, n=-1):
 		"""
