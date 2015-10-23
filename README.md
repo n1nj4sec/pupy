@@ -56,21 +56,21 @@ you can also :
 #### for Linux
 ```bash
 pip install rpyc #(or manually copy it if you are not admin)
-python reverse_ssl.py 192.168.0.1:443
+python pp.py 192.168.0.1:443
 ```
 you can also build a single binary with pyinstaller :
 ```bash
-pyinstaller --onefile /full_path/pupy/client/reverse_ssl.py
+pyinstaller --onefile /full_path/pupy/pupy/pp.py
 ```
 
 #### for MAC OS X
 ```bash
 easy_install rpyc #(or manually copy it if you are not admin)
-python reverse_ssl.py 192.168.0.1:443
+python pp.py 192.168.0.1:443
 ```
 you can also build a single binary with pyinstaller (but you can't "cross-compile", pyinstaller currently only support this from osx):
 ```bash
-pyinstaller --onefile /full_path/pupy/client/reverse_ssl.py
+pyinstaller --onefile /full_path/pupy/pupy/pp.py
 ```
 
 ### start the server
