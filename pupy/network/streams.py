@@ -14,16 +14,24 @@ from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, 
 import threading
 retry_errnos = (errno.EAGAIN, errno.EWOULDBLOCK)
 
+class addGetPeer(object):
+	""" add some functions needed by some obfsproxy transports"""
+	def __init__(self, peer):
+		self.peer=peer
+	def getPeer(self):
+		return self.peer
+
 class PupySocketStream(SocketStream):
-	def __init__(self, sock, transport_class):
+	def __init__(self, sock, transport_class, transport_kwargs={}):
 		super(PupySocketStream, self).__init__(sock)
 		#buffers for streams
 		self.buf_in=Buffer()
 		self.buf_out=Buffer()
 		#buffers for transport
-		self.upstream=Buffer()
-		self.downstream=Buffer(on_write=self._upstream_recv)
-		self.transport=transport_class(self)
+		self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
+		self.downstream=Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(sock.getpeername()))
+
+		self.transport=transport_class(self, **transport_kwargs)
 		self.on_connect()
 		#self.async_read_thread=threading.Thread(target=self._downstream_recv_loop)
 		#self.async_read_thread.daemon=True

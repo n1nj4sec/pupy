@@ -13,6 +13,12 @@ please don't use this if you don't want to recompile from sources
 NOTE: I had to manually change pyreadline/console/console.py to console2.py and edit __init__.py to change the import because I had a conflict 
 
 """
+print "NOTE: you must install the following packages before proceeding: "
+print """
+	-pywin32
+	-pycrypto
+	-pyaml (scramblesuit dependency)
+"""
 if not (len(sys.argv)==3 and sys.argv[1]=="genzip"):
 	exit("This setup is not meant to build pupy stubs, but only to generate an adequate library.zip to embed in the real exe/dll stub\nplease don't use this if you don't want to recompile from sources")
 if sys.argv[2] == 'x86':

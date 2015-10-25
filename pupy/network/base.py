@@ -57,3 +57,5 @@ class BasePupyTransport(object):
 class BaseTransport(BasePupyTransport):
 	""" obfsproxy style alias """
 	pass
+class PluggableTransportError(Exception):
+	pass
