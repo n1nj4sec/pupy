@@ -4,6 +4,17 @@
 """ This is a module to substiture some twisted functions used in obfsproxy to avoid dependencies with twisted """
 import threading
 import traceback
+import time
+
+def delayer_func(delay, cb, args, kwargs):
+	time.sleep(delay)
+	cb(*args, **kwargs)
+
+
+def callLater(delay, callable, *args, **kw):
+	t=threading.Thread(target=delayer_func, args=(delay, callable, args, kw))
+	t.daemon=True
+	t.start()
 
 class threadDeferer(threading.Thread):
 	def __init__(self, target=None, args=tuple(), kwargs={}):

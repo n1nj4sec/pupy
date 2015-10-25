@@ -12,8 +12,10 @@ class PupyTCPServer(ThreadPoolServer):
 			raise ValueError("missing transport argument")
 		self.stream_class=kwargs["stream"]
 		self.transport_class=kwargs["transport"]
+		self.transport_kwargs=kwargs["transport_kwargs"]
 		del kwargs["stream"]
 		del kwargs["transport"]
+		del kwargs["transport_kwargs"]
 
 		ThreadPoolServer.__init__(self, *args, **kwargs)
 
@@ -34,5 +36,5 @@ class PupyTCPServer(ThreadPoolServer):
 		# build a connection
 		h, p = sock.getpeername()
 		config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
-		return Connection(self.service, Channel(self.stream_class(sock, self.transport_class)), config=config)
+		return Connection(self.service, Channel(self.stream_class(sock, self.transport_class, self.transport_kwargs)), config=config)
 

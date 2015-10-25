@@ -266,7 +266,7 @@ class PupyServer(threading.Thread):
 			authenticator=t['authenticator']()
 		else:
 			authenticator=None
-		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'])
+		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=t['server_transport_kwargs'])
 		self.server.start()
 
 

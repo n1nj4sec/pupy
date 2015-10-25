@@ -7,7 +7,7 @@ class Buffer(object):
 	read() them back. You can also peek() or drain() data.
 	"""
 
-	def __init__(self, data='', on_write=None):
+	def __init__(self, data='', on_write=None, transport_func=None):
 		"""
 		Initialize a buffer with 'data'.
 		"""
@@ -15,6 +15,7 @@ class Buffer(object):
 		self.on_write_f=on_write
 		self.waiting_lock=threading.Lock()
 		self.waiting=threading.Event()
+		self.transport=transport_func
 
 
 	def on_write(self):
