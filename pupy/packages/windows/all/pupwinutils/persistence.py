@@ -28,7 +28,6 @@ def registry_check(run,marker):
     except WindowsError:
         pass
 
-    print runkey
     return HKEY, HK, runkey
 
 def binary_startup(bin_path):
