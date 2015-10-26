@@ -367,7 +367,7 @@ class PupyCmd(cmd.Cmd):
 		if not type(msg) is unicode:
 			# force output unicode string to output
 			# Python will hopefully handle output printing
-			msg=str(msg).decode('utf8')
+			msg=obj2utf8(msg)
 		if msg:
 			if modifier=="error":
 				self.stdout.write(PupyCmd.format_error(msg))
