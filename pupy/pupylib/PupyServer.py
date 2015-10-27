@@ -260,7 +260,6 @@ class PupyServer(threading.Thread):
 		
 	def run(self):
 		self.handler_registered.wait()
-		self.handler.display_srvinfo("Server started on %s:%s with transport %s"%(self.address, self.port, self.transport))
 		t=transports[self.transport]
 		if t['authenticator']:
 			authenticator=t['authenticator']()

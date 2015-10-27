@@ -60,7 +60,6 @@ BANNER="""
 """%__version__
 
 
-
 def color_real(s, color, prompt=False, colors_enabled=True):
 	""" color a string using ansi escape characters. set prompt to true to add marks for readline to see invisible portions of the prompt
 	cf. http://stackoverflow.com/questions/9468435/look-how-to-fix-column-calculation-in-python-readline-if-use-color-prompt"""
@@ -169,6 +168,8 @@ class PupyCmd(cmd.Cmd):
 					self.display_warning("pyreadline is not installer. Output color disabled. Use \"pip install pyreadline\"")
 
 		self.intro = color(BANNER, 'green')
+		self.intro += "\n"+self.format_srvinfo("Server started on %s:%s with transport %s"%(self.pupsrv.address, self.pupsrv.port, self.pupsrv.transport)).rstrip("\n")
+		self.raw_prompt= color('>> ','blue')
 		self.prompt = color('>> ','blue', prompt=True)
 		self.doc_header = 'Available commands :\n'
 		self.default_filter=None
@@ -376,8 +377,14 @@ class PupyCmd(cmd.Cmd):
 			elif modifier=="info":
 				self.stdout.write(PupyCmd.format_info(msg))
 			elif modifier=="srvinfo":
-				self.stdout.write(PupyCmd.format_srvinfo(msg))
-				#readline.redisplay()
+				buf_bkp=readline.get_line_buffer()
+				#nG move cursor to column n
+				#nE move cursor ro the beginning of n lines down
+				#nK Erases part of the line. If n is zero (or missing), clear from cursor to the end of the line. If n is one, clear from cursor to beginning of the line. If n is two, clear entire line. Cursor position does not change. 
+				self.stdout.write("\x1b[0G"+PupyCmd.format_srvinfo(msg)+"\x1b[0E")
+				self.stdout.write("\x1b[2K")#clear line
+				self.stdout.write(self.raw_prompt+buf_bkp)#"\x1b[2K")
+				readline.redisplay()
 			elif modifier=="warning":
 				self.stdout.write(PupyCmd.format_warning(msg))
 			else:
