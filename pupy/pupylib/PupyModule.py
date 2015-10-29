@@ -18,8 +18,15 @@ import sys
 from .PupyErrors import PupyModuleExit
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 import StringIO
+import textwrap
 
 class PupyArgumentParser(argparse.ArgumentParser):
+	def __init__(self, *args, **kwargs):
+		if 'formatter_class' not in kwargs:
+			kwargs['formatter_class']=argparse.RawDescriptionHelpFormatter
+		if 'description' in kwargs and kwargs['description']:
+			kwargs['description']=textwrap.dedent(kwargs['description'])
+		argparse.ArgumentParser.__init__(self, *args, **kwargs)
 	def exit(self, status=0, message=None):
 		if message:
 			self._print_message(message, sys.stderr)
