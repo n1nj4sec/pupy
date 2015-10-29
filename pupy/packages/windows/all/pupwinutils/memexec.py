@@ -83,7 +83,7 @@ class MemoryPE(object):
 		if not self.hProcess:
 			return ""
 		#Closing the write handle to avoid lock:
-		ctypes.windll.kernel32.CloseHandle(self.rpStdout)
+		#ctypes.windll.kernel32.CloseHandle(self.rpStdout)
 
 		fulldata=b""
 		while True:
