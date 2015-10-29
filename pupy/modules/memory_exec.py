@@ -23,7 +23,8 @@ import time
 __class_name__="MemoryExec"
 
 class MemoryExec(PupyModule):
-	""" execute a PE executable from memory
+	""" 
+		Execute a PE executable from memory
 		The default behavior is to accept arguments and print stdout of the program once it exits or after timeout seconds
 	"""
 	interactive=1

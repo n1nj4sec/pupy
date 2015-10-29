@@ -207,7 +207,7 @@ class PupyServer(threading.Thread):
 		l=[]
 		for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):
 			module=self.get_module(module_name)
-			l.append((module_name,module.__doc__))
+			l.append((module_name, textwrap.dedent(module.__doc__.strip())))
 		return l
 
 	def get_module_completer(self, module_name):

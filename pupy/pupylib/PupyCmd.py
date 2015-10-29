@@ -409,9 +409,9 @@ class PupyCmd(cmd.Cmd):
 		readline.write_history_file('.pupy_history')
 	
 	def do_list_modules(self, arg):
-		""" List available modules with a brief description """
+		""" List available modules with a brief description (the first description line) """
 		for m,d in self.pupsrv.list_modules():
-			self.stdout.write("{:<20}	{}\n".format(m, color(d,'grey')))
+			self.stdout.write("{:<20}	{}\n".format(m, color(d.split("\n",1)[0],'grey')))
 			
 	def do_clients(self, arg):
 		""" alias for sessions """
