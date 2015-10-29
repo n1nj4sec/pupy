@@ -18,11 +18,14 @@ from pupylib.PupyCompleter import *
 from pupylib.utils.pe import get_pe_arch
 from pupylib.PupyErrors import PupyModuleError
 from pupylib.utils.rpyc_utils import redirected_stdio
+import time
 
 __class_name__="MemoryExec"
 
 class MemoryExec(PupyModule):
-	""" execute a PE executable from memory """
+	""" execute a PE executable from memory
+		The default behavior is to accept arguments and print stdout of the program once it exits or after timeout seconds
+	"""
 	interactive=1
 	def __init__(self, *args, **kwargs):
 		PupyModule.__init__(self,*args, **kwargs)
@@ -32,7 +35,8 @@ class MemoryExec(PupyModule):
 		self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
 		self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
 		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved', completer=path_completer)
-		#self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interactive with the new process stdin/stdout')
+		self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
+		self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
 		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
 		self.arg_parser.add_argument('args', nargs='*', help='optional arguments to pass to the exe')
 
@@ -48,12 +52,15 @@ class MemoryExec(PupyModule):
 			self.log(res)
 
 	def run(self, args):
-		
+		if args.fork and args.interactive:
+			self.error("--fork and --interactive options can't be used together")
+			return
+
 		#check we are injecting from the good process arch:
 		pe_arch=get_pe_arch(args.path)
 		proc_arch=self.client.desc["proc_arch"]
 		if pe_arch!=proc_arch:
-			self.error("%s is a %s PE and your pupy payload is a %s process. Please inject a %s PE or first migrate into a %s process"%(args.path, pe_arch, proc_arch, proc_arch, pe_arch))
+			self.error("%s is a %s PE and your pupy payload is a %s process. Please inject a %s PE or migrate into a %s process first"%(args.path, pe_arch, proc_arch, proc_arch, pe_arch))
 			return
 
 		wait=True
@@ -73,10 +80,22 @@ class MemoryExec(PupyModule):
 		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=args.args, hidden=True, redirect_stdio=redirect_stdio)
 		self.mp.run()
 		if not args.fork:
-			with redirected_stdio(self.client.conn):
-				self.mp.get_shell()
-		self.mp.close()
-		#res=self.mp.get_stdout()
-		#self.log(res)
-
+			if args.interactive:
+				try:
+					with redirected_stdio(self.client.conn):
+						self.mp.get_shell()
+				finally:
+					self.mp.close()
+			else:
+				starttime=time.time()
+				while True:
+					if self.mp.wait(1):
+						break
+					if args.timeout:
+						if time.time()-starttime>args.timeout:
+							break
+				self.mp.close()
+				res=self.mp.get_stdout()
+				self.log(res)
+				
 
