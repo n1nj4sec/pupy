@@ -11,7 +11,7 @@ class GetInfo(PupyModule):
 	def run(self, args):
 		infos=""
 		for k,v in self.client.desc.iteritems():
-			if k not in ["conn","id","user","platform"]:
+			if k not in ["conn","id","platform"]:
 				infos+="{:<10}: {}\n".format(k,v)
 		self.rawlog(infos)
 

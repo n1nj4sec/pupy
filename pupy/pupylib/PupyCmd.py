@@ -45,7 +45,7 @@ from .PupyModule import PupyArgumentParser
 from .PupyJob import PupyJob
 from .PupyCompleter import PupyCompleter
 import argparse
-from pupysh import __version__
+from pupysh import __version__, __date__
 import copy
 from functools import partial
 
@@ -56,8 +56,13 @@ BANNER="""
            |__|  |___|  _|_  |  |___|_|_|___|_|_|           
                      |_| |___|                              
 
-                           %s
-"""%__version__
+                   %s (%s)
+"""%(__version__, __date__)
+
+BANNER_INFO="""
+Author:           Nicolas VERDIER  < @n1nj4sec > (contact@n1nj4.eu)
+Bleeding edge:    https://github.com/n1nj4sec/pupy
+"""
 
 
 def color_real(s, color, prompt=False, colors_enabled=True):
@@ -168,6 +173,7 @@ class PupyCmd(cmd.Cmd):
 					self.display_warning("pyreadline is not installer. Output color disabled. Use \"pip install pyreadline\"")
 
 		self.intro = color(BANNER, 'green')
+		self.intro += color(BANNER_INFO, 'darkgrey')
 		self.intro += "\n"+self.format_srvinfo("Server started on %s:%s with transport %s"%(self.pupsrv.address, self.pupsrv.port, self.pupsrv.transport)).rstrip("\n")
 		self.raw_prompt= color('>> ','blue')
 		self.prompt = color('>> ','blue', prompt=True)
@@ -541,7 +547,12 @@ class PupyCmd(cmd.Cmd):
 		if not mod:
 			self.display_error("unknown module %s !"%modargs.module)
 			return
-		#logging.debug("args passed to %s: %s"%(modargs.module,args))
+
+		try:
+			self.pupsrv.module_parse_args(modargs.module, args)
+		except PupyModuleExit:
+			return
+
 		l=self.pupsrv.get_clients(selected_clients)
 		if not l:
 			if not self.pupsrv.clients:
@@ -550,10 +561,6 @@ class PupyCmd(cmd.Cmd):
 				self.display_error("no clients match this search!")
 			return
 		
-		try:
-			self.pupsrv.module_parse_args(modargs.module, args)
-		except PupyModuleExit:
-			return
 		if mod.max_clients!=0 and len(l)>mod.max_clients:
 			self.display_error("This module is limited to %s client(s) at a time and you selected %s clients"%(mod.max_clients, len(l)))
 			return
