@@ -6,6 +6,7 @@
 import argparse
 import sys
 import os.path
+import re
 from pupylib.utils.network import get_local_ip
 from network.conf import transports
 
@@ -61,7 +62,10 @@ if __name__=="__main__":
 		myhost=myip
 	else:
 		myhost=args.host[0]
-	
+		if re.match("^.*:[0-9]+$", myhost):#auto fixing errors when entering host:port			
+			myhost, p=myhost.rsplit(':',1)
+			if args.port==443:
+				args.port=p
 	outpath=None
 	if args.type=="exe_x86":
 		binary=get_edit_pupyx86_exe(myhost, args.port, args.transport)
