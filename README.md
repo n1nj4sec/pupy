@@ -5,17 +5,18 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - On windows, the Pupy payload is compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
 - Pupy can reflectively migrate into other processes
 - Pupy can remotely import, from memory, pure python packages (.py, .pyc) and compiled python C extensions (.pyd). The imported python modules do not touch the disk. (.pyd mem import currently work on Windows only, .so memory import is not implemented). 
-- modules are quite simple to write and pupy is easily extensible.
+- Modules are quite simple to write and pupy is easily extensible.
+- A lot of awesome modules are already implemented !
 - Pupy uses [rpyc](https://github.com/tomerfiliba/rpyc) and a module can directly access python objects on the remote client
-  - we can also access remote objects interactively from the pupy shell and even auto completion of remote attributes works !
-- communication transports are modular and pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
-- all the non interactive modules can be dispatched on multiple hosts in one command
-- Multi-platform (tested on windows 7, windows xp, kali linux, ubuntu)
-- modules can be executed as background jobs
-- commands and scripts running on remote hosts are interruptible
-- auto-completion for commands and arguments
-- nice colored output :-)
-- commands aliases can be defined in the config  
+  - We can also access remote objects interactively from the pupy shell and even auto completion of remote attributes works !
+- Communication transports are modular and pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
+- All the non interactive modules can be dispatched on multiple hosts in one command
+- Multi-platform (tested on windows 7, windows xp, kali linux, ubuntu, osx)
+- Modules can be executed as background jobs and their output be retrieved later
+- Commands and scripts running on remote hosts are interruptible
+- Auto-completion for commands and arguments
+- Nice colored output :-)
+- Commands aliases can be defined in the config  
 
 ## Implemented Transports :
 - tcp_cleartext
@@ -40,8 +41,8 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - persistence
 - screenshot
 - webcam snapshot
-	- ~~to spy on your girlfriend~~
-- in memory execution of PE exe both x86 and x64 :)
+	- ~~to spy on your crush~~
+- in memory execution of PE exe both x86 and x64 !
 	- works very well with [mimitakz](https://github.com/gentilkiwi/mimikatz) :-)
 - socks5 proxy
 - local port forwarding
