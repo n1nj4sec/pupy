@@ -15,7 +15,18 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - commands and scripts running on remote hosts are interruptible
 - auto-completion for commands and arguments
 - nice colored output :-)
-- commands aliases can be defined in the config
+- commands aliases can be defined in the config  
+
+## Implemented Transports :
+- tcp_cleartext
+	- A good example to look at, it's a protocol that does nothing
+- tcp_base64
+	- it's more to have a simple example
+- tcp_ssl (the default one)
+- obfs3
+	- [A protocol to keep a third party from telling what protocol is in use based on message contents](https://gitweb.torproject.org/pluggable-transports/obfsproxy.git/tree/doc/obfs3/obfs3-protocol-spec.txt)
+- scramblesuit
+	- [A Polymorphic Network Protocol to Circumvent Censorship](http://www.cs.kau.se/philwint/scramblesuit/)
 
 ## Implemented Modules :
 - migrate
@@ -164,11 +175,12 @@ yaml (only needed if using scramblesuit transport)
 
 ##Roadmap and ideas
 Some ideas without any priority order
-- [X] ~~ make the PE memory execution works interactively ~~ 
+- [X] ~~make the PE memory execution works interactively~~ 
 - [X] ~~handle tty in interactive shell~~
 - [X] ~~exfiltration through obfsproxy obfuscated network stream ?~~ 
 - [X] ~~webcam snapshots~~ 
 - [ ] bind payloads instead of reverse
+- [ ] make the network transports stackable (for example to encapsulate SSL over scramblesuit)
 - [ ] make the python compiled C extension load from memory on linux
 - [ ] make the migrate modules works on linux
 - [ ] add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
@@ -187,7 +199,7 @@ Some ideas without any priority order
 - [ ] UDP transport
 - [ ] DNS transport
 - [ ] ICMP transport
-- [ ] bypass UAC module
+- [ ] bypass UAC module
 - [ ] privilege elevation module
 - ...
 - any cool idea ?
