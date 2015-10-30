@@ -6,6 +6,7 @@ from threading  import Thread
 from Queue import Queue, Empty
 import time
 import traceback
+import rpyc
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -19,6 +20,11 @@ def write_output(out, queue):
 
 def flush_loop(queue, encoding):
 	try:
+		stdout_write=sys.stdout.write
+		stdout_flush=sys.stdout.flush
+		if type(sys.stdout) is not file:
+			stdout_write=rpyc.async(sys.stdout.write)
+			stdout_flush=rpyc.async(sys.stdout.flush)
 		while True:
 			buf=b""
 			while True:
@@ -32,9 +38,9 @@ def flush_loop(queue, encoding):
 						buf=buf.decode(encoding)
 					except Exception:
 						pass
-				sys.stdout.write(buf)
-				sys.stdout.flush()
-			time.sleep(0.5)
+				stdout_write(buf)
+				stdout_flush()
+			time.sleep(0.05)
 	except Exception as e:
 		print(traceback.format_exc())
 
@@ -70,6 +76,7 @@ def interactive_open(program=None, encoding=None):
 		while True:
 			line = raw_input()
 			p.stdin.write(line+"\n")
+			p.stdin.flush()
 			if line.strip()=="exit":
 				break
 	except Exception as e:

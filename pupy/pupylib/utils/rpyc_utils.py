@@ -20,7 +20,11 @@ from rpyc.utils.helpers import restricted
 from rpyc.utils.classic import obtain
 
 @contextmanager
-def redirected_stdo(conn, stdout, stderr):
+def redirected_stdo(conn, stdout=None, stderr=None):
+	if stdout is None:
+		stdout=sys.stdout
+	if stderr is None:
+		stderr=sys.stderr
 	orig_stdout = conn.modules.sys.stdout
 	orig_stderr = conn.modules.sys.stderr
 	try:
