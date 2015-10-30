@@ -3,9 +3,10 @@ from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdio
 import sys
 import os
-import termios
-import tty
-import select
+if sys.platform!="win32":
+	import termios
+	import tty
+	import select
 import time
 import StringIO
 from threading import Event
