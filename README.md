@@ -13,25 +13,32 @@ Pupy is an opensource, multi-platform Remote Administration Tool written in Pyth
 - Multi-platform (tested on windows 7, windows xp, kali linux, ubuntu)
 - modules can be executed as background jobs
 - commands and scripts running on remote hosts are interruptible
-- auto-completion and nice colored output :-)
+- auto-completion for commands and arguments
+- nice colored output :-)
 - commands aliases can be defined in the config
 
 ## Implemented Modules :
 - migrate
   - inter process architecture injection also works (x86->x64 and x64->x86)
-- keylogger
+- command execution
+- interactive shell (cmd.exe, /bin/sh, /bin/bash, ...)
+	- tty allocation is well supported on target running a unix system. Just looks like a ssh shell
+- interactive python shell
+- download
+- upload
 - persistence
 - screenshot
 - webcam snapshot
+	- ~~to spy on your girlfriend~~
 - in memory execution of PE exe both x86 and x64 :)
-- command execution
-- download
-- upload
+	- works very well with [mimitakz](https://github.com/gentilkiwi/mimikatz) :-)
 - socks5 proxy
 - local port forwarding
-- interactive shell (cmd.exe, /bin/sh, ...)
-- interactive python shell
 - shellcode exec (thanks to @byt3bl33d3r)
+- keylogger
+	- monitor keys, the windows titles the text is typed in and the clipboard ! (thanks @golind for the updates)
+- mouselogger:
+	- takes small screenshots around the mouse at each click and send them back to the server (thanks @golind)
 
 ##Quick start
 ###Installation :
@@ -152,32 +159,48 @@ positional arguments:
 
 ## Dependencies
 rpyc (https://github.com/tomerfiliba/rpyc)  
-pefile  
+pefile
+yaml (only needed if using scramblesuit transport)
 
 ##Roadmap and ideas
 Some ideas without any priority order
-- support for https proxy
-- bind payloads instead of reverse
-- add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
-- integrate scapy in the windows dll :D (that would be fun)
-- work on stealthiness and modules under unix systems
-- mic recording
-- socks5 udp support
-- remote port forwarding
-- perhaps write some documentation
-- The backdoor factory ?
-- Impacket ?
-- exfiltration through obfsproxy obfuscated network stream ?
+- [X] ~~ make the PE memory execution works interactively ~~ 
+- [X] ~~handle tty in interactive shell~~
+- [X] ~~exfiltration through obfsproxy obfuscated network stream ?~~ 
+- [X] ~~webcam snapshots~~ 
+- [ ] bind payloads instead of reverse
+- [ ] make the python compiled C extension load from memory on linux
+- [ ] make the migrate modules works on linux
+- [ ] add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
+- [ ] integrate scapy in the windows dll :D (that would be fun)
+- [ ] then make some network attack/sniffing tools modules using scapy
+- [ ] work on stealthiness under unix systems
+- [ ] mic recording
+- [ ] socks5 udp support
+- [ ] remote port forwarding
+- [ ] add a wiki and write some documentation
+- [ ] split the README into the wiki
+- [ ] The backdoor factory ?
+- [ ] Impacket ?
+- [ ] support for https proxy
+- [ ] HTTP transport
+- [ ] UDP transport
+- [ ] DNS transport
+- [ ] ICMP transport
+- [ ] bypass UAC module
+- [ ] privilege elevation module
 - ...
 - any cool idea ?
 
 ## FAQ
 > Does the server works on windows ?
 
-Yes but it has not really been tested and it may be unstable
+Pupy server works best on linux. the server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but it don't always find the time to fix everything. If you find the courage to patch non portable code, I will gladly accept push requests ! :)
+
 > I can't install it how does it work ?
 
-pip install rpyc
+Use pip to install all the dependencies
+
 > hey c4n y0u add a DDOS module plzz?
 
 No.
@@ -188,4 +211,4 @@ on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)
 [![Join the chat at https://gitter.im/n1nj4sec/pupy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/n1nj4sec/pupy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)  
 If some of you want to participate or send me a feedback, don't hesitate :-)  
   
-This project is a personal development, please respect its philosophy don't use it for evil purpose !
+This project is a personal development, please respect its philosophy and don't use it for evil purpose !
