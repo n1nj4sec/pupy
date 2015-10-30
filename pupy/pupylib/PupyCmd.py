@@ -174,6 +174,8 @@ class PupyCmd(cmd.Cmd):
 
 		self.intro = color(BANNER, 'green')
 		self.intro += color(BANNER_INFO, 'darkgrey')
+		if sys.platform=="win32":
+			self.intro+="\n"+self.format_warning("You are running Pupy server on Windows. Pupy server works best on linux. Pupy server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but it don't always find the time to fix everything. If you find the courage to patch non portable code, I will gladly accept push requests ! :)\n")
 		self.intro += "\n"+self.format_srvinfo("Server started on %s:%s with transport %s"%(self.pupsrv.address, self.pupsrv.port, self.pupsrv.transport)).rstrip("\n")
 		self.raw_prompt= color('>> ','blue')
 		self.prompt = color('>> ','blue', prompt=True)
@@ -390,7 +392,10 @@ class PupyCmd(cmd.Cmd):
 				self.stdout.write("\x1b[0G"+PupyCmd.format_srvinfo(msg)+"\x1b[0E")
 				self.stdout.write("\x1b[2K")#clear line
 				self.stdout.write(self.raw_prompt+buf_bkp)#"\x1b[2K")
-				readline.redisplay()
+				try:
+					readline.redisplay()
+				except Exception:
+					pass
 			elif modifier=="warning":
 				self.stdout.write(PupyCmd.format_warning(msg))
 			else:
@@ -632,7 +637,8 @@ class PupyCmd(cmd.Cmd):
 				compfunc = self.completenames
 			self.completion_matches = compfunc(text, line, begidx, endidx)
 		try:
-			return self.completion_matches[state]
+			if self.completion_matches:
+				return self.completion_matches[state]
 		except IndexError:
 			return None
 
