@@ -140,12 +140,30 @@ def main():
 				rport=int(tab[1])
 			else:
 				rport=443
-			print "connecting to %s:%s using transport %s ..."%(rhost,rport, TRANSPORT)
+			print "connecting to %s:%s using transport %s ..."%(rhost, rport, TRANSPORT)
 			t=transports[TRANSPORT]
 			client=t['client'](**t['client_kwargs'])
 			s=client.connect(rhost, rport)
 			stream = t['stream'](s, t['client_transport'], t['client_transport_kwargs'])
-			conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+			def check_timeout(event, cb, timeout=10):
+				start_time=time.time()
+				while True:
+					if time.time()-start_time>timeout:
+						if not event.is_set():
+							print "timeout occured !"
+							cb()
+						break
+					elif event.is_set():
+						break
+					time.sleep(0.5)
+			event=threading.Event()
+			t=threading.Thread(target=check_timeout, args=(event, stream.close))
+			t.daemon=True
+			t.start()
+			try:
+				conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+			finally:
+				event.set()
 			while True:
 				attempt=0
 				conn.serve()
