@@ -49,10 +49,9 @@ class InteractiveShell(PupyModule):
 			ps.start_read_loop(print_callback, is_closed.set)
 			try:
 				fd=sys.stdin.fileno()
-				f=os.fdopen(fd,'r')
 				old_settings = termios.tcgetattr(fd)
 				try:
-					tty.setraw(fd)
+					tty.setraw(sys.stdin.fileno())
 					input_buf=b""
 					while True:
 						r, w, x = select.select([sys.stdin], [], [], 0)
