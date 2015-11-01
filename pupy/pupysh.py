@@ -18,6 +18,10 @@
 
 import pupylib.PupyServer
 import pupylib.PupyCmd
+try:
+	import pupylib.PupySignalHandler
+except:
+	pass
 import logging
 import time
 import traceback
@@ -70,6 +74,7 @@ if __name__=="__main__":
 			pcmd.cmdloop()
 		except Exception as e:
 			print(traceback.format_exc())
+			time.sleep(0.1) #to avoid flood in case of exceptions in loop
 			pcmd.intro=''
 
 	

@@ -90,6 +90,8 @@ class ReverseSlaveService(Service):
 def get_next_wait(attempt):
 	if attempt<60:
 		return 0.5
+	elif attempt<100:
+		return 3
 	else:
 		return random.randint(15,30)
 
