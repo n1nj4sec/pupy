@@ -171,6 +171,7 @@ positional arguments:
 
 ## Dependencies
 rpyc (https://github.com/tomerfiliba/rpyc)  
+pycrypto
 pefile
 yaml (only needed if using scramblesuit transport)
 
