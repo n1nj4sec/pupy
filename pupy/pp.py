@@ -29,7 +29,6 @@ import os
 import subprocess
 import threading
 import multiprocessing
-import logging
 import StringIO
 import json
 import urllib2
