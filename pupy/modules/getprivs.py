@@ -11,30 +11,7 @@ from modules import memory_exec
 __class_name__="GetPrivsModule"
 
 class GetPrivsModule(PupyModule):
-	""" try to get SeDebugPrivilege for the current process """
-
-	#https://msdn.microsoft.com/en-us/library/windows/desktop/aa383745%28v=vs.85%29.aspx#macros_for_conditional_declarations
-	#https://msdn.microsoft.com/en-us/library/windows/desktop/ms724833%28v=vs.85%29.aspx
-	win_versions={}
-	win_versions['WIN_10']=(10, 0, 0)
-	win_versions['WIN_SERVER_2016']=(10, 0, 0)
-	win_versions['WIN_8.1']=(6, 3, 0)
-	win_versions['WIN_SERVER_2012_R2']=(6, 3, 0)
-	win_versions['WIN_8']=(6, 2, 0)
-	win_versions['WIN_SERVER_2012']=(6, 2, 0)
-	win_versions['WIN_7_SP1']=(6, 1, 1)
-	win_versions['WIN_7']=(6, 1, 0)
-	win_versions['WIN_SERVER_2008_R2']=(6, 0, 1)
-	win_versions['WIN_SERVER_2008']=(6, 0, 1)
-	win_versions['WIN_VISTA_SP1']=(6, 0, 1)
-	win_versions['WIN_VISTA']=(6, 0, 0)
-	win_versions['WIN_SERVER_2003_SP2']=(5, 2, 2)
-	win_versions['WIN_SERVER_2003_SP1']=(5, 2, 1)
-	win_versions['WIN_SERVER_2003']=(5, 2, 0)
-	win_versions['WIN_XP_SP3']=(5, 1, 3)
-	win_versions['WIN_XP_SP2']=(5, 1, 2)
-	win_versions['WIN_XP_SP1']=(5, 1, 1)
-	win_versions['WIN_XP']=(5, 1, 0)
+	""" try to work pupy magic """
 
 	def init_argparse(self):
 		self.arg_parser=PupyArgumentParser(prog="getprivs", description=self.__doc__)
@@ -111,7 +88,7 @@ class GetPrivsModule(PupyModule):
 					self.success("upload successful")
 				print remote_path['bypass'], remote_path['pupy']
 				self.client.conn.modules["pupwinutils.security"].ByPassUAC_bin(remote_path['bypass'], remote_path['pupy'])
-				self.success("ADMIN stuff enabled !")
+				self.success("UAC stuff bypassed !")
 
 			except:
-				self.error("Could not elevate privilages to ADMIN")
+				self.error("Could not bypassuac")
