@@ -59,9 +59,7 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 		family, socktype, proto, _, sockaddr = socket.getaddrinfo(host, port, self.family, self.socktype, self.proto)[0]
 		s=socks.socksocket(family, socktype, proto)
 		s.settimeout(self.timeout)
-		print "connecting..."
 		s.connect(sockaddr)
-		print "connected"
 		if self.nodelay:
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 		if self.keepalive:
@@ -73,7 +71,6 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
 		self.sock=s
-		print "let's rock"
 		return s
 
 class PupySSLClient(PupyTCPClient):
@@ -99,5 +96,8 @@ class PupySSLClient(PupyTCPClient):
 	def connect(self, host, port):
 		s=super(PupySSLClient, self).connect(host, port)
 		return ssl.wrap_socket(s, **self.ssl_kwargs)
+	
+class PupyProxifiedSSLClient(PupySSLClient, PupyProxifiedTCPClient):
+	pass
 
 		

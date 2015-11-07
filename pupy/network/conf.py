@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from .servers import PupyTCPServer
-from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient
+from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from .transports import dummy, b64
 from .transports.obfs3 import obfs3
 import logging
@@ -37,6 +37,18 @@ transports["tcp_ssl"]={
 		"server" : PupyTCPServer,
 		"client": PupySSLClient,
 		"client_kwargs" : {},
+		"authenticator" : ssl_authenticator,
+		"stream": PupySocketStream ,
+		"client_transport" : dummy.DummyPupyTransport,
+		"server_transport" : dummy.DummyPupyTransport,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
+	}
+transports["tcp_ssl_proxy"]={
+		"info" : "Simple reverse TCP payload with SSL passing through a SOCKS4/SOCKS5/HTTP proxy",
+		"server" : PupyTCPServer,
+		"client": PupyProxifiedSSLClient,
+		"client_kwargs" : {'proxy_addr':'127.0.0.1', 'proxy_port':8080, 'proxy_type':'HTTP'},
 		"authenticator" : ssl_authenticator,
 		"stream": PupySocketStream ,
 		"client_transport" : dummy.DummyPupyTransport,
