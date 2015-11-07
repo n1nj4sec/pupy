@@ -41,7 +41,7 @@ def get_edit_binary(path, host, port, transport, offline_script=None):
 	elif len(offsets)!=1:
 		raise Exception("Error: multiple offsets to edit the config have been found")
 
-	new_conf="HOST=\"%s:%s\"\nTRANSPORT=%s\n%s\n\x00\x00\x00\x00\x00\x00\x00\x00"%(host, port, repr(transport), offline_script)
+	new_conf="HOST=\"%s:%s\"\nTRANSPORTS=[%s,{}]\n%s\n\x00\x00\x00\x00\x00\x00\x00\x00"%(host, port, repr(transport), offline_script)
 	if len(new_conf)>4092:
 		raise Exception("Error: config or offline script too long")
 	binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
