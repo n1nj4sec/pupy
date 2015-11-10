@@ -1,11 +1,13 @@
 # -*- coding: UTF8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+
+import os
+import logging
 from .servers import PupyTCPServer
 from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from .transports import dummy, b64
 from .transports.obfs3 import obfs3
-import logging
 try:
 	from .transports.scramblesuit import scramblesuit
 except ImportError as e:
@@ -13,7 +15,7 @@ except ImportError as e:
 	logging.warning("%s. The transport has been disabled."%e)
 	scramblesuit=None
 from .streams import PupySocketStream
-import os
+from .launchers.simple import SimpleLauncher
 try:
 	import ConfigParser as configparser
 except ImportError:
@@ -30,7 +32,8 @@ def ssl_authenticator():
 #scramblesuit password must be 20 char long
 scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
 
-transports=dict()
+transports={}
+launchers={}
 
 transports["tcp_ssl"]={
 		"info" : "Simple reverse TCP payload with SSL",
@@ -48,7 +51,7 @@ transports["tcp_ssl_proxy"]={
 		"info" : "Simple reverse TCP payload with SSL passing through a SOCKS4/SOCKS5/HTTP proxy",
 		"server" : PupyTCPServer,
 		"client": PupyProxifiedSSLClient,
-		"client_kwargs" : {'proxy_addr':'127.0.0.1', 'proxy_port':8080, 'proxy_type':'HTTP'},
+		"client_kwargs" : {'proxy_addr': None, 'proxy_port': None, 'proxy_type':'HTTP'},
 		"authenticator" : ssl_authenticator,
 		"stream": PupySocketStream ,
 		"client_transport" : dummy.DummyPupyTransport,
@@ -117,4 +120,6 @@ if scramblesuit:
 			"client_transport_kwargs": {"password":scramblesuit_passwd}, 
 			"server_transport_kwargs": {"password":scramblesuit_passwd},
 		}
+
+launchers["simple"]=SimpleLauncher
 
