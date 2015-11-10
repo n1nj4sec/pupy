@@ -47,9 +47,10 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 		self.proxy_port=kwargs.pop('proxy_port', None)
 		if not self.proxy_port:
 			raise AssertionError("proxy_port argument is mandatory")
+		self.proxy_port=int(self.proxy_port)
 		self.proxy_type=kwargs.pop('proxy_type', "HTTP").upper()
 		if self.proxy_type not in socks.PROXY_TYPES:
-			raise SystemExit("Unknown proxy type %s"%self.proxy_type)
+			raise AssertionError("Unknown proxy type %s"%self.proxy_type)
 		self.proxy_username=kwargs.pop('proxy_username', None)
 		self.proxy_password=kwargs.pop('proxy_password', None)
 		super(PupyProxifiedTCPClient, self).__init__(*args, **kwargs)

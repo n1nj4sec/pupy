@@ -1,4 +1,6 @@
 # -*- coding: UTF8 -*-
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys
 import os
 import termios
@@ -84,7 +86,7 @@ class PtyShell(object):
 			try:
 				tty.setraw(fd)
 				while True:
-					r, w, x = select.select([sys.stdin, self.master], [], [], 1)
+					r, w, x = select.select([sys.stdin, self.master], [], [], 0.1)
 					if self.master in r:
 						data=self.master.read(50)
 						sys.stdout.write(data)
@@ -100,8 +102,6 @@ class PtyShell(object):
 				termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 		finally:
 			self.close()
-
-
 
 
 
