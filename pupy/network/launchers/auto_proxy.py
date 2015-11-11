@@ -40,7 +40,6 @@ def get_proxies(wpad_timeout=600):
 		try:
 			value=QueryValueEx(aKey,"ProxyServer")[0]
 			if value:
-				logging.info("proxy conf retrieved from HKLM !")
 				for p in parse_win_proxy(value):
 					yield p
 		except Exception:
@@ -52,7 +51,6 @@ def get_proxies(wpad_timeout=600):
 		try:
 			value=QueryValueEx(aKey,"ProxyServer")[0]
 			if value:
-				logging.info("proxy conf retrieved from HKCU !")
 				for p in parse_win_proxy(value):
 					yield p
 		except Exception: 
@@ -97,7 +95,6 @@ def get_proxies(wpad_timeout=600):
 
 	env_proxy=os.environ.get('HTTP_PROXY')
 	if env_proxy:
-		logging.info("proxy conf retrieved from env !"%wpad_domain)
 		user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$","http://proxy.domain.com:3128").groups()
 		yield ('HTTP', proxy, user, passwd)
 
@@ -107,7 +104,6 @@ def get_proxies(wpad_timeout=600):
 			wpad_domain = socket.getfqdn("wpad")
 			wpad_request = urllib.urlopen("http://%s/wpad.dat"%(wpad_domain))
 			wpad_data = wpad_request.read()
-			logging.info("wpad.dat retrieved from http://%s/wpad.dat !"%wpad_domain)
 			r=re.findall(r"PROXY\s+([a-zA-Z0-9.-]+:[0-9]+);?\s*", wpad_data)
 			for p in r:
 				yield ('HTTP', p, None, None)
@@ -143,6 +139,36 @@ class AutoProxyLauncher(BaseLauncher):
 			raise LauncherError("parse_args needs to be called before iterate")
 
 		opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
+		
+		#first we try without any proxy :
+		try:
+			t=copy.deepcopy(network.conf.transports[self.args.transport])
+			client_args=t['client_kwargs']
+			transport_args=t['client_transport_kwargs']
+			for val in opt_args:
+				if val.lower() in t['client_kwargs']:
+					client_args[val.lower()]=opt_args[val]
+				elif val.lower() in t['client_transport_kwargs']:
+					transport_args[val.lower()]=opt_args[val]
+				else:
+					logging.warning("unknown transport argument : %s"%tab[0])
+			logging.info("using client options: %s"%client_args)
+			logging.info("using transports options: %s"%transport_args)
+			try:
+				client=t['client'](**client_args)
+			except Exception as e:
+				#at this point we quit if we can't instanciate the client
+				raise SystemExit(e)
+			logging.info("connecting to %s:%s using transport %s without any proxy ..."%(self.rhost, self.rport, self.args.transport))
+			s=client.connect(self.rhost, self.rport)
+			stream = t['stream'](s, t['client_transport'], transport_args)
+			yield stream
+		except StopIteration:
+			raise
+		except Exception as e:
+			logging.error(e)
+
+		#then with proxies
 		for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
 			try:
 				t=copy.deepcopy(network.conf.transports[self.args.transport])
@@ -180,32 +206,5 @@ class AutoProxyLauncher(BaseLauncher):
 				raise
 			except Exception as e:
 				logging.error(e)
-
-		try:
-			t=network.conf.transports[self.args.transport]
-			client_args=t['client_kwargs']
-			transport_args=t['client_transport_kwargs']
-			for val in opt_args:
-				if val.lower() in t['client_kwargs']:
-					client_args[val.lower()]=opt_args[val]
-				elif val.lower() in t['client_transport_kwargs']:
-					transport_args[val.lower()]=opt_args[val]
-				else:
-					logging.warning("unknown transport argument : %s"%tab[0])
-			logging.info("using client options: %s"%client_args)
-			logging.info("using transports options: %s"%transport_args)
-			try:
-				client=t['client'](**client_args)
-			except Exception as e:
-				#at this point we quit if we can't instanciate the client
-				raise SystemExit(e)
-			logging.info("connecting to %s:%s using transport %s without any proxy ..."%(self.rhost, self.rport, self.args.transport))
-			s=client.connect(self.rhost, self.rport)
-			stream = t['stream'](s, t['client_transport'], transport_args)
-			yield stream
-		except StopIteration:
-			raise
-		except Exception as e:
-			logging.error(e)
 
 
