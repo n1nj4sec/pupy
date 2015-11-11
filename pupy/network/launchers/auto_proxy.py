@@ -11,6 +11,7 @@ import re
 import os
 import socket
 import time
+import subprocess
 try:
 	from urllib import request as urllib
 except ImportError:
@@ -31,6 +32,7 @@ def parse_win_proxy(val):
 last_wpad=None
 def get_proxies(wpad_timeout=600):
 	global last_wpad
+
 	if sys.platform=="win32":
 		#TODO retrieve all users proxy settings, not only HKCU
 		from _winreg import OpenKey, CloseKey, QueryValueEx, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER, KEY_QUERY_VALUE
@@ -57,12 +59,48 @@ def get_proxies(wpad_timeout=600):
 			pass
 		finally:
 			CloseKey(aKey)
+	if "linux" in sys.platform:
+		try:
+			#retrieving gnome proxy settings
+			subprocess.check_call("which gsettings > /dev/null", shell=True) #raise an exception in case of return code!=0
+			try:
+				host=subprocess.check_output("gsettings get org.gnome.system.proxy.http host", shell=True).strip(" \n'\"")
+				port=subprocess.check_output("gsettings get org.gnome.system.proxy.http port", shell=True).strip(" \n'\"")
+				user=subprocess.check_output("gsettings get org.gnome.system.proxy.http authentication-user", shell=True).strip(" \n'\"")
+				password=subprocess.check_output("gsettings get org.gnome.system.proxy.http authentication-password", shell=True).strip(" \n'\"")
+				if host and port:
+					if not user:
+						user=None
+					if not password:
+						password=None
+					yield ('HTTP', "%s:%s"%(host,port), user, password)
+			except Exception:
+				pass
+			try:
+				host=subprocess.check_output("gsettings get org.gnome.system.proxy.https host", shell=True).strip(" \n'\"")
+				port=subprocess.check_output("gsettings get org.gnome.system.proxy.https port", shell=True).strip(" \n'\"")
+				if host and port:
+					yield ('HTTP', "%s:%s"%(host,port), None, None)
+			except Exception:
+				pass
+			try:
+				host=subprocess.check_output("gsettings get org.gnome.system.proxy.socks host", shell=True).strip(" \n'\"")
+				port=subprocess.check_output("gsettings get org.gnome.system.proxy.socks port", shell=True).strip(" \n'\"")
+				if host and port:
+					yield ('SOCKS4', "%s:%s"%(host,port), None, None)
+					yield ('SOCKS5', "%s:%s"%(host,port), None, None)
+			except Exception:
+				pass
+
+		except Exception:
+			pass
 
 	env_proxy=os.environ.get('HTTP_PROXY')
 	if env_proxy:
 		logging.info("proxy conf retrieved from env !"%wpad_domain)
 		user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$","http://proxy.domain.com:3128").groups()
 		yield ('HTTP', proxy, user, passwd)
+
 	if last_wpad is None or time.time()-last_wpad > wpad_timeout: # to avoid flooding the network with wpad requests :)
 		last_wpad=time.time()
 		try:
