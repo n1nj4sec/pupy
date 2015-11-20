@@ -17,9 +17,13 @@ class LauncherArgumentParser(argparse.ArgumentParser):
 	def __init__(self, *args, **kwargs):
 		argparse.ArgumentParser.__init__(self, *args, **kwargs)
 	def exit(self, status=0, message=None):
-		if message:
-			self._print_message(message, sys.stderr)
-		raise LauncherError("exit with status %s"%status)
+		#if message:
+		#	self._print_message(message, sys.stderr)
+		raise LauncherError(message)
+	def error(self, message):
+		#self.print_usage(_sys.stderr)
+		self.exit(2, str('%s: error: %s\n') % (self.prog, message))
+
 
 class BaseLauncher(object):
 	arg_parser=None

