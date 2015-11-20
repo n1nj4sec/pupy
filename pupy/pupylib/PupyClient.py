@@ -38,6 +38,14 @@ class PupyClient(object):
 	def __del__(self):
 		del self.desc
 
+	def get_conf(self):
+		dic={}
+		if "offline_script" in self.desc:
+			dic["offline_script"]=self.desc["offline_script"]
+		dic["launcher"]=self.desc["launcher"]
+		dic["launcher_args"]=self.desc["launcher_args"]
+		return dic
+
 	def short_name(self):
 		try:
 			return self.desc["platform"][0:3].lower()+"_"+self.desc["hostname"]+"_"+self.desc["macaddr"].replace(':','')

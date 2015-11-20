@@ -50,6 +50,7 @@ class PupyService(rpyc.Service):
 			self.execute=self._conn.root.execute
 			self.exit=self._conn.root.exit
 			self.eval=self._conn.root.eval
+			self.get_infos=self._conn.root.get_infos
 			self.builtin=self.modules.__builtin__
 			self.builtins=self.modules.__builtin__
 			self.exposed_stdin=sys.stdin
