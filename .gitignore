@@ -25,6 +25,8 @@ client/sources/resources_library_compressed_string_txt.c
 client/sources/resources/library_compressed_string_x86.txt
 client/sources/resources/library_compressed_string_x64.txt
 client/sources/resources_msvcr90_dll.c
+client/sources/resources/libraryx64.zip
+client/sources/resources/libraryx86.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
