@@ -182,9 +182,9 @@ positional arguments:
 
 ## Dependencies
 rpyc (https://github.com/tomerfiliba/rpyc)  
-pycrypto
-pefile
-yaml (only needed if using scramblesuit transport)
+pycrypto  
+pefile  
+yaml (only needed if using scramblesuit transport)  
 
 ##Roadmap and ideas
 Some ideas without any priority order
