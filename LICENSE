@@ -21,3 +21,6 @@ Pupy also uses some code source/libraries from other projects under different li
 			https://github.com/giampaolo/psutil
 	-For the transports :
 		-obfsproxy software is under the 3-Clause BSD License. Copyright 2013 George Kadianakis
+	-For the launchers :
+		-SocksiPy - Python SOCKS module. 3-Clause BSD License. Copyright 2006 Dan-Haim. (cf pupy/network/socks.py)
+
