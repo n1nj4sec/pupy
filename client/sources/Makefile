@@ -16,8 +16,10 @@ endif
 ifdef DEBUG
 DEBUG_ADD:=DEBUG
 CFLAGS:= $(CFLAGS) /DDEBUG
+LINKER_OPTS:=
 else
 DEBUG_ADD:=
+LINKER_OPTS:=/link /subsystem:windows /ENTRY:mainCRTStartup
 endif
 
 PYOBJS=_memimporter.obj MyLoadLibrary.obj Python-dynload.obj pupy_load.obj pupy.obj base_inject.obj
@@ -65,7 +67,7 @@ ReflectiveLoader.obj: ReflectiveLoader.c
 	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN /DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $<
 
 $(TEMPLATE_OUTPUT_PATH)\pupy$(ARCH).exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
-	$(CC) $(CFLAGS) $+ /Fe$@ 
+	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
 
 $(TEMPLATE_OUTPUT_PATH)\pupy$(ARCH).dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ /LD
