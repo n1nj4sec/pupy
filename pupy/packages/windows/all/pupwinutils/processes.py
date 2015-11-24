@@ -27,7 +27,7 @@ def is_process_64(pid):
 	is64=False
 	if not "64" in platform.machine():
 		return False
-	hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
+	hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
 	is64=is_process_64_from_handle(hProcess)
 	windll.kernel32.CloseHandle(hProcess)
 	return is64

