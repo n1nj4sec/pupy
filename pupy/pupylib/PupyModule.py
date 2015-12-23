@@ -94,7 +94,8 @@ class PupyModule(object):
 
 	def is_compatible(self):
 		""" override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
-		return (True, "")
+		raise NotImplementedError("is_compatible is not implemented !")
+		#return (True, "")
 
 	def is_daemon(self):
 		return self.daemon
@@ -135,13 +136,19 @@ class PupyModule(object):
 def windows_only(func):
 	""" decorator for is_compatible method """
 	def wrapper(self):
-		return (self.client.is_windows(), "The module has only been implemented for windows systems")
+		is_win=self.client.is_windows()
+		if not is_win:
+			return (False, "The module has only been implemented for windows systems")
+		return func(self)
 	return wrapper
 
 def unix_only(func):
 	""" decorator for is_compatible method """
 	def wrapper(self):
-		return (self.client.is_unix(), "The module has only been implemented for unix systems")
+		is_unix=self.client.is_unix()
+		if not is_unix:
+			return (False, "The module has only been implemented for unix systems")
+		return func(self)
 	return wrapper
 
 
