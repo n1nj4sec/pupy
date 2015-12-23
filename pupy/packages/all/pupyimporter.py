@@ -76,7 +76,7 @@ class PupyPackageLoader:
 					mod.__package__ = fullname.rsplit('.', 1)[0]
 				sys.modules[fullname]=mod
 				code = compile(self.contents, mod.__file__, "exec")
-				exec self.contents in mod.__dict__
+				exec code in mod.__dict__
 			elif self.extension in ["pyc","pyo"]:
 				mod = imp.new_module(fullname)
 				mod.__name__ = fullname
