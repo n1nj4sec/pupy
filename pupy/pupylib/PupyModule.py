@@ -94,8 +94,7 @@ class PupyModule(object):
 
 	def is_compatible(self):
 		""" override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
-		raise NotImplementedError("is_compatible is not implemented !")
-		#return (True, "")
+		return (True, "")
 
 	def is_daemon(self):
 		return self.daemon
