@@ -45,7 +45,7 @@ setup(
 				"packages":['additional_imports'],
 				"compressed" : True,
 				"bundle_files" : 3, #3 = don't bundle (default) 2 = bundle everything but the Python interpreter 1 = bundle everything
-				"excludes": ["Tkinter"]
+				"excludes": ["Tkinter", "pyreadline", "IPython"]
 				}
 		}
 )

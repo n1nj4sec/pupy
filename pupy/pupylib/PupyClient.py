@@ -129,7 +129,7 @@ class PupyClient(object):
 					self.conn.execute(v)
 				else:
 					raise PupyModuleError("Unknown package loading method %s"%t)
-		self._load_package(module_name, force)
+		return self._load_package(module_name, force)
 	def _load_package(self, module_name, force=False):
 		""" 
 			load a python module into memory depending on what OS the client is.
