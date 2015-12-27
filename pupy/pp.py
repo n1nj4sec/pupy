@@ -43,6 +43,10 @@ from network import conf
 from network.base_launcher import LauncherError
 import logging
 import shlex
+try:
+	import additional_imports #additional imports needed to package with pyinstaller
+except ImportError:
+	pass
 logging.getLogger().setLevel(logging.INFO)
 
 LAUNCHER="simple" # the default launcher to start when no argv
