@@ -134,7 +134,15 @@ class PupyJob(object):
 		#	raise RuntimeError("job %s has already been started !"%str(self))
 		for m in self.pupymodules:
 			margs=m.arg_parser.parse_args(args)
-			comp, comp_exp= m.is_compatible()
+			res = m.is_compatible()
+			if type(res) is tuple:
+				comp, comp_exp=res
+			elif res is None:
+				comp=True
+				comp_exp=""
+			else:
+				comp=res
+				comp_exp="reason not precised"
 			if not comp:
 				m.error("Compatibility error : %s"%comp_exp)
 				continue

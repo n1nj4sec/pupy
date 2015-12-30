@@ -300,7 +300,7 @@ class PupyCmd(cmd.Cmd):
 				try:
 					doc=getattr(self, 'do_' + arg).__doc__
 					if doc:
-						self.stdout.write("%s\n"%str(doc))
+						self.stdout.write("%s\n"%str(doc).strip())
 						return
 				except AttributeError:
 					pass
@@ -327,7 +327,7 @@ class PupyCmd(cmd.Cmd):
 						cmds_doc.append(cmd)
 						del help[cmd]
 					elif getattr(self, name).__doc__:
-						cmds_doc.append((cmd, getattr(self, name).__doc__))
+						cmds_doc.append((cmd, getattr(self, name).__doc__.strip()))
 					else:
 						cmds_doc.append((cmd, ""))
 			for name in [x for x in self.aliases.iterkeys()]:
@@ -335,7 +335,9 @@ class PupyCmd(cmd.Cmd):
 
 			self.stdout.write("%s\n"%str(self.doc_header))
 			for command,doc in cmds_doc:
-				self.stdout.write("- {:<10}	{}\n".format(command, color(doc,'grey')))
+				if doc is None:
+					doc=""
+				self.stdout.write("- {:<10}	{}\n".format(command, color(doc.strip(),'grey')))
 	
 	@staticmethod
 	def format_log(msg):
