@@ -64,6 +64,7 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 ```bash
 pip install rpyc
 pip install pefile 
+pip install pycrypto 
 ```
 ####Troubleshooting
 If you have some issues with rpyc while running the server on windows, take a look at issue #25, @deathfantasy made a fix 
@@ -93,8 +94,9 @@ you can also:
 
 #### for Linux & Mac OS X
 ```bash
-pip install rpyc #(or manually copy it if you are not admin)
-python pp.py simple --transport tcp_ssl --host 127.0.0.2:443
+pip install rpyc #(or manually copy it if you are not admin) 
+pip install pycrypto 
+python pp.py simple --transport tcp_ssl --host 127.0.0.2:443 
 ```
 you can also:
 - modify the default arguments at the top of the file to call pp.py without arguments
@@ -207,6 +209,7 @@ Some ideas without any priority order
 - [ ] split the README into the wiki
 - [ ] The backdoor factory?
 - [ ] Impacket?
+- [ ] add auto-completion to the pyshell module
 - [X] support for https & socks proxy
 - [ ] HTTP transport
 - [ ] UDP transport
