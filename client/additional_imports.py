@@ -42,3 +42,6 @@ import time
 import urllib
 import urllib2
 import socks
+#needed for scapy :
+import new 
+import fractions

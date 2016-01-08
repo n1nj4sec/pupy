@@ -117,6 +117,7 @@ class PupyJob(object):
 
 	def module_worker(self, module, args):
 		try:
+			module.import_dependencies()
 			module.run(args)
 		except PupyModuleExit as e:
 			return
