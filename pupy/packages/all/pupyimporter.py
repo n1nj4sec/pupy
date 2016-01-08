@@ -106,7 +106,7 @@ class PupyPackageLoader:
 			if fullname in sys.modules:
 				del sys.modules[fullname]
 			import traceback
-			print "PupyPackageLoader: Error while loading package %s (%s) : %s %s"%(fullname, self.extension, str(e), c)
+			print "PupyPackageLoader: Error while loading package %s (%s) : %s"%(fullname, self.extension, str(e))
 			raise e
 		finally:
 			imp.release_lock()

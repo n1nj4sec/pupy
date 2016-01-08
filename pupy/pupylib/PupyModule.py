@@ -66,7 +66,8 @@ class PupyModule(object):
 	max_clients=0 #define on how much clients you module can be run in one command. For example an interactive module should be 1 client max at a time. set to 0 for unlimited
 	daemon=False #if your module is meant to run in background, set this to True and override the stop_daemon method.
 	unique_instance=False # if True, don't start a new module and use another instead
-	
+	dependencies=[] #dependencies to push on the remote target. same as calling self.client.load_package
+
 	def __init__(self, client, job, formatter=None, stdout=None):
 		""" client must be a PupyClient instance """
 		self.client=client
@@ -87,6 +88,9 @@ class PupyModule(object):
 	def __del__(self):
 		if self.del_close:
 			self.stdout.close()
+	def import_dependencies(self):
+		for d in self.dependencies:
+			self.client.load_package(d)
 
 	def init_argparse(self):
 		""" Override this class to define your own arguments. """

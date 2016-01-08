@@ -39,6 +39,8 @@ def path_completer(text, line, begidx, endidx):
 	else:
 		try:
 			dirname=os.path.dirname(text)
+			if not dirname:
+				dirname="."
 			basename=os.path.basename(text)
 			for f in os.listdir(dirname):
 				if f.startswith(basename):
