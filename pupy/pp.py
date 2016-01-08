@@ -104,9 +104,9 @@ class ReverseSlaveService(Service):
 		return self._conn
 
 def get_next_wait(attempt):
-	if attempt<60:
+	if attempt<120:
 		return random.randint(5,10)/10.0
-	elif attempt<100:
+	elif attempt<320:
 		return random.randint(30,50)/10.0
 	else:
 		return random.randint(150,300)/10.0

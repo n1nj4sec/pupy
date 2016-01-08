@@ -223,20 +223,24 @@ Some ideas without any priority order
 ## FAQ
 > Does the server work on windows?
 
-Pupy server works best on linux. The server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but I don't always find the time to fix everything. If you find the courage to patch non-portable code, I will gladly accept pull requests! :)
+Pupy server works best on linux. The server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but I don't always find the time to fix everything. If you find the courage to patch non-portable code, I will gladly accept pull requests! :) 
 
-> I can't install it, how does it work?
+> I can't install it, how does it work? 
 
-Use pip to install all the dependencies
+Use pip to install all the dependencies 
 
-> hey c4n y0u add a DDOS module plzz?
+> hey c4n y0u add a DDOS module plzz? 
 
 No.
+> I was wondering if you had a BTC address I could send a tip over to
+
+Sure, here you go : 
+Bitcoin address: 12BKKN81RodiG9vxJn34Me9ky19ArqNQxC 
 
 ## Contact
 by mail: contact@n1nj4.eu  
 on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)  
-[![Join the chat at https://gitter.im/n1nj4sec/pupy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/n1nj4sec/pupy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)  
+
 If some of you want to participate or send me a feedback, don't hesitate :-)  
-  
-This project is a personal project, please respect its philosophy and don't use it for evil purposes!
+This project is a personal project, please respect its philosophy and don't use it for evil purposes!  
+

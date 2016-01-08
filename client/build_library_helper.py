@@ -42,10 +42,10 @@ setup(
 	#windows=['reverse_ssl.py'],
 	#zipfile=None,
 	options={ "py2exe" : {
-				"packages":['additional_imports'],
+				"packages":['additional_imports', 'Crypto'],
 				"compressed" : True,
 				"bundle_files" : 3, #3 = don't bundle (default) 2 = bundle everything but the Python interpreter 1 = bundle everything
-				"excludes": ["Tkinter", "pyreadline", "IPython"]
+				"excludes": ["Tkinter", "pyreadline", "IPython","readline"]
 				}
 		}
 )
