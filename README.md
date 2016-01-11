@@ -125,14 +125,13 @@ pyinstaller --onefile /full_path/pupy/pupy/pp.py
 ![screenshot5](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/filters.png "screenshot5")
 #####migrate into another process
 ![screenshot6](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/migrate.png "screenshot6")
-#####interactive shell
+#####interactive shells
 ![screenshot7](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/interactive_shell.png "screenshot7")
+![screenshot7bis](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/interactive_shell2.png "screenshot7bis")
 #####interactive python shell
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 #####upload and run another PE exe from memory
 ![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
-#####list available modules (the list is not up to date)
-![screenshot10](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/list_modules.png "screenshot10")
 
 ##Example: How to write a MsgBox module
 First of all write the function/class you want to import on the remote client  
@@ -204,12 +203,12 @@ Some ideas without any priority order
 - [ ] work on stealthiness under unix systems
 - [ ] mic recording
 - [ ] socks5 udp support
-- [ ] remote port forwarding
+- [X] remote port forwarding
 - [ ] add a wiki and write some documentation
 - [ ] split the README into the wiki
 - [ ] The backdoor factory?
 - [ ] Impacket?
-- [ ] add auto-completion to the pyshell module
+- [X] add auto-completion to the pyshell module
 - [X] support for https & socks proxy
 - [ ] HTTP transport
 - [ ] UDP transport
