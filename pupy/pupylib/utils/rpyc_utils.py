@@ -18,6 +18,22 @@ import sys
 from contextlib import contextmanager
 from rpyc.utils.helpers import restricted
 from rpyc.utils.classic import obtain
+import textwrap
+
+def hotpatch_oswrite(conn):
+	""" some scripts/libraries use os.write(1, ...) instead of sys.stdout.write to write to stdout """
+	conn.execute(textwrap.dedent("""
+	import sys
+	import os
+	def patched_write(fd, s):
+		if fd==1:
+			return sys.stdout.write(s)
+		elif fd==2:
+			return sys.stdout.write(s)
+		else:
+			return os.write(fd, s)
+	os.write=patched_write
+	"""))
 
 @contextmanager
 def redirected_stdo(conn, stdout=None, stderr=None):
@@ -25,6 +41,7 @@ def redirected_stdo(conn, stdout=None, stderr=None):
 		stdout=sys.stdout
 	if stderr is None:
 		stderr=sys.stderr
+	hotpatch_oswrite(conn)
 	orig_stdout = conn.modules.sys.stdout
 	orig_stderr = conn.modules.sys.stderr
 	try:
