@@ -1,0 +1,3 @@
+[submodule "pupy/packages/src/scapy"]
+	path = pupy/packages/src/scapy
+	url = git://github.com/n1nj4sec/scapy.git
