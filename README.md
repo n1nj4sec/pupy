@@ -17,6 +17,10 @@ Pupy is an opensource, multi-platform Remote Administration Tool with an embedde
 - Auto-completion for commands and arguments
 - Nice colored output :-)
 - Command aliases can be defined in the config  
+- Interactive python shells with auto-completion on the all in memory remote python interpreter can be opened
+- Interactive shells (cmd.exe, /bin/bash, ...) can be opened remotely. Remote shells on Unix clients have a real tty with all keyboard signals working fine just like a ssh shell
+- Pupy can execute PE exe remotely and from memory (cf. ex with mimikatz)
+- tons of other features, check out the implemented modules
 
 ## Implemented Transports
 - tcp_cleartext
@@ -52,65 +56,17 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - in memory execution of PE exe both x86 and x64!
 	- works very well with [mimitakz](https://github.com/gentilkiwi/mimikatz) :-)
 - socks5 proxy
-- local port forwarding
+- local and remote port forwarding
 - shellcode exec (thanks to @byt3bl33d3r)
 - keylogger
 	- monitor keys and the titles of the windows the text is typed into, plus the clipboard! (thanks @golind for the updates)
 - mouselogger:
 	- takes small screenshots around the mouse at each click and send them back to the server (thanks @golind)
 
-##Quick start
-###Installation
-```bash
-pip install rpyc
-pip install pefile 
-pip install pycrypto 
-```
-####Troubleshooting
-If you have some issues with rpyc while running the server on windows, take a look at issue #25, @deathfantasy made a fix 
-
-### Generate/run a payload
-In these examples the server is running on a linux host (tested on kali linux) and its IP address is 192.168.0.1  
-The clients have been tested on (Windows 7, Windows XP, kali linux, ubuntu, Mac OS X 10.10.5) 
-#### for Windows
-```bash
-$ ./pupygen.py auto_proxy -h
-usage: auto_proxy [-h] --host <host:port>
-                  [--transport {obfs3,tcp_cleartext,tcp_ssl,tcp_base64,scramblesuit}]
-				                    ...
-$ ./pupygen.py -t exe_x86 auto_proxy --transport tcp_ssl --host 192.168.2.132:443
-binary generated with config :
-OUTPUT_PATH = ~/pupy/pupyx86.exe
-LAUNCHER = 'auto_proxy'
-LAUNCHER_ARGS = ['--transport', 'tcp_ssl', '--host', '192.168.2.132:443']
-OFFLINE_SCRIPT = None
-
-									
-```
-you can also:
-- use another launcher (currently simple or auto_proxy)
-- use -t dll_x86 or dll_x64 to generate a reflective DLL and inject/load it by your own means
-- customize the transport used by supplying it with --transport
-
-#### for Linux & Mac OS X
-```bash
-pip install rpyc #(or manually copy it if you are not admin) 
-pip install pycrypto 
-python pp.py simple --transport tcp_ssl --host 127.0.0.2:443 
-```
-you can also:
-- modify the default arguments at the top of the file to call pp.py without arguments
-- build a single binary with pyinstaller:
-```bash
-pyinstaller --onefile /full_path/pupy/pupy/pp.py
-```
-
-### start the server
-1. eventually edit pupy.conf to change the bind address / port
-2. start the pupy server with the transport used by the client (tcp_ssl by default):
-```bash
-./pupysh.py --transport <transport_used>
-```
+##Installation
+[Check out the wiki !](https://github.com/n1nj4sec/pupy/wiki/Installation)
+##Documentation
+[Check out the wiki !](https://github.com/n1nj4sec/pupy/wiki)
 
 ### Some screenshots
 #####list connected clients
@@ -133,60 +89,6 @@ pyinstaller --onefile /full_path/pupy/pupy/pp.py
 #####upload and run another PE exe from memory
 ![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
 
-##Example: How to write a MsgBox module
-First of all write the function/class you want to import on the remote client  
-in the example we create the file pupy/packages/windows/all/pupwinutils/msgbox.py 
-```python
-import ctypes
-import threading
-
-def MessageBox(text, title):
-	t=threading.Thread(target=ctypes.windll.user32.MessageBoxA, args=(None, text, title, 0))
-	t.daemon=True
-	t.start()
-```
-then, simply create a module to load our package and call the function remotely
-```python
-class MsgBoxPopup(PupyModule):
-	""" Pop up a custom message box """
-
-	def init_argparse(self):
-		self.arg_parser = PupyArgumentParser(prog="msgbox", description=self.__doc__)
-		self.arg_parser.add_argument('--title', help='msgbox title')
-		self.arg_parser.add_argument('text', help='text to print in the msgbox :)')
-
-	@windows_only
-	def is_compatible(self):
-		pass
-
-	def run(self, args):
-		self.client.load_package("pupwinutils.msgbox")
-		self.client.conn.modules['pupwinutils.msgbox'].MessageBox(args.text, args.title)
-		self.log("message box popped !")
-
-```
-and that's it, we have a fully functional module :)
-
-```bash
->> run msgbox -h
-usage: msgbox [-h] [--title TITLE] text
-
-Pop up a custom message box
-
-positional arguments:
-  text           text to print in the msgbox :)
-
-  optional arguments:
-    -h, --help     show this help message and exit
-    --title TITLE  msgbox title
-```
-
-## Dependencies
-rpyc (https://github.com/tomerfiliba/rpyc)  
-pycrypto  
-pefile  
-yaml (only needed if using scramblesuit transport)  
-
 ##Roadmap and ideas
 Some ideas without any priority order
 - [X] ~~make the PE memory execution works interactively~~ 
@@ -198,13 +100,13 @@ Some ideas without any priority order
 - [ ] make the python compiled C extension load from memory on linux
 - [ ] make the migrate modules works on linux
 - [ ] add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
-- [ ] integrate scapy in the windows dll :D (that would be fun)
+- [X] add scapy support in windows :D (that would be fun)
 - [ ] then make some network attack/sniffing tools modules using scapy
 - [ ] work on stealthiness under unix systems
 - [ ] mic recording
 - [ ] socks5 udp support
 - [X] remote port forwarding
-- [ ] add a wiki and write some documentation
+- [X] add a wiki and write some documentation
 - [ ] split the README into the wiki
 - [ ] The backdoor factory?
 - [ ] Impacket?
@@ -226,15 +128,16 @@ Pupy server works best on linux. The server on windows has not been really teste
 
 > I can't install it, how does it work? 
 
-Use pip to install all the dependencies 
+Have a look at the Installation section in the wiki
+
+> I was wondering if you had a BTC address I could send a tip over to !
+
+Sure, here you go :)
+Bitcoin address: 12BKKN81RodiG9vxJn34Me9ky19ArqNQxC 
 
 > hey c4n y0u add a DDOS module plzz? 
 
 No.
-> I was wondering if you had a BTC address I could send a tip over to
-
-Sure, here you go : 
-Bitcoin address: 12BKKN81RodiG9vxJn34Me9ky19ArqNQxC 
 
 ## Contact
 by mail: contact@n1nj4.eu  
