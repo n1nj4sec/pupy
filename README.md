@@ -114,35 +114,3 @@ on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)
 If some of you want to participate or send me a feedback, don't hesitate :-)  
 This project is a personal project, please respect its philosophy and don't use it for evil purposes!  
 
-##Roadmap and ideas
-Some ideas without any priority order
-- [X] ~~make the PE memory execution works interactively~~ 
-- [X] ~~handle tty in interactive shell~~
-- [X] ~~exfiltration through obfsproxy obfuscated network stream?~~ 
-- [X] ~~webcam snapshots~~ 
-- [ ] bind payloads instead of reverse
-- [ ] make the network transports stackable (for example to encapsulate SSL over scramblesuit)
-- [ ] make the python compiled C extension load from memory on linux
-- [ ] make the migrate modules works on linux
-- [ ] add offline options to payloads like enable/disable certificate checking, embed offline modules (persistence, keylogger, ...), etc...
-- [X] add scapy support in windows :D (that would be fun)
-- [ ] then make some network attack/sniffing tools modules using scapy
-- [ ] work on stealthiness under unix systems
-- [ ] mic recording
-- [ ] socks5 udp support
-- [X] remote port forwarding
-- [X] add a wiki and write some documentation
-- [ ] split the README into the wiki
-- [ ] The backdoor factory?
-- [ ] Impacket?
-- [X] add auto-completion to the pyshell module
-- [X] support for https & socks proxy
-- [ ] HTTP transport
-- [ ] UDP transport
-- [ ] DNS transport
-- [ ] ICMP transport
-- [ ] bypass UAC module
-- [ ] privilege elevation module
-- ...
-- other cool ideas?
-
