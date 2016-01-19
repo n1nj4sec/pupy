@@ -10,11 +10,11 @@ class ShellExec(PupyModule):
 	""" execute shell commands on a remote system """
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='shell_exec', description=self.__doc__)
-		self.arg_parser.add_argument('argument', nargs='+')
+		self.arg_parser.add_argument('argument')
 	def run(self, args):
 		res=""
 		try:
-			res=self.client.conn.modules.subprocess.check_output(' '.join(args.argument), stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=True, universal_newlines=True)
+			res=self.client.conn.modules.subprocess.check_output(args.argument, stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=True, universal_newlines=True)
 		except Exception as e:
 			if hasattr(e,'output') and e.output:
 				res=e.output
