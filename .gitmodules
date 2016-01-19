@@ -1,3 +1,6 @@
 [submodule "pupy/packages/src/scapy"]
 	path = pupy/packages/src/scapy
 	url = git://github.com/n1nj4sec/scapy.git
+[submodule "pupy/payload_templates"]
+	path = pupy/payload_templates
+	url = ssh://git@github.com/n1nj4sec/pupy-binaries
