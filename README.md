@@ -89,6 +89,31 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 #####upload and run another PE exe from memory
 ![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
 
+## FAQ
+> Does the server work on windows?
+
+Pupy server works best on linux. The server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but I don't always find the time to fix everything. If you find the courage to patch non-portable code, I will gladly accept pull requests! :) 
+
+> I can't install it, how does it work? 
+
+Have a look at the Installation section in the wiki
+
+> I was wondering if you had a BTC address I could send a tip over to !
+
+Sure, here you go :)
+Bitcoin address: 12BKKN81RodiG9vxJn34Me9ky19ArqNQxC 
+
+> hey c4n y0u add a DDOS module plzz? 
+
+No.
+
+## Contact
+by mail: contact@n1nj4.eu  
+on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)  
+
+If some of you want to participate or send me a feedback, don't hesitate :-)  
+This project is a personal project, please respect its philosophy and don't use it for evil purposes!  
+
 ##Roadmap and ideas
 Some ideas without any priority order
 - [X] ~~make the PE memory execution works interactively~~ 
@@ -120,29 +145,4 @@ Some ideas without any priority order
 - [ ] privilege elevation module
 - ...
 - other cool ideas?
-
-## FAQ
-> Does the server work on windows?
-
-Pupy server works best on linux. The server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but I don't always find the time to fix everything. If you find the courage to patch non-portable code, I will gladly accept pull requests! :) 
-
-> I can't install it, how does it work? 
-
-Have a look at the Installation section in the wiki
-
-> I was wondering if you had a BTC address I could send a tip over to !
-
-Sure, here you go :)
-Bitcoin address: 12BKKN81RodiG9vxJn34Me9ky19ArqNQxC 
-
-> hey c4n y0u add a DDOS module plzz? 
-
-No.
-
-## Contact
-by mail: contact@n1nj4.eu  
-on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)  
-
-If some of you want to participate or send me a feedback, don't hesitate :-)  
-This project is a personal project, please respect its philosophy and don't use it for evil purposes!  
 
