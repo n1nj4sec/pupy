@@ -101,7 +101,7 @@ class PupyServer(threading.Thread):
 					pass
 				try:
 					from kivy.utils import platform as kivy_plat#support for android
-					plat=kivy_plat
+					plat=bytes(kivy_plat)
 				except ImportError:
 					pass
 				try:

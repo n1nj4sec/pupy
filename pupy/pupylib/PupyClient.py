@@ -56,6 +56,12 @@ class PupyClient(object):
 	def is_unix(self):
 		return not self.is_windows()
 
+	def is_linux(self):
+		return "linux" in self.desc["platform"].lower()
+
+	def is_android(self):
+		return self.desc["platform"].lower()=="android"
+
 	def is_windows(self):
 		if "windows" in self.desc["platform"].lower():
 			return True
