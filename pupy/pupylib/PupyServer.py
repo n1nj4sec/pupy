@@ -100,6 +100,11 @@ class PupyServer(threading.Thread):
 				except Exception:
 					pass
 				try:
+					from kivy.utils import platform as kivy_plat#support for android
+					plat=kivy_plat
+				except ImportError:
+					pass
+				try:
 					release=platform.release()
 				except Exception:
 					pass
