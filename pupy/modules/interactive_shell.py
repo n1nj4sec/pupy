@@ -46,11 +46,13 @@ class InteractiveShell(PupyModule):
 			self.set_pty_size(buf[0], buf[1], buf[2], buf[3])
 
 	def run(self, args):
-		if self.client.is_windows() or args.pseudo_tty:
+		if self.client.is_windows() or self.client.is_android() or args.pseudo_tty:
 			self.client.load_package("interactive_shell")
 			encoding=None
 			program="/bin/sh"
-			if self.client.is_windows():
+			if self.client.is_android():
+				program="/system/bin/sh"
+			elif self.client.is_windows():
 				program="cmd.exe"
 				encoding="cp437"
 			if args.program:
