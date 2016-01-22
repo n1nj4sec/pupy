@@ -87,6 +87,9 @@ class PupyClient(object):
 			else:
 				path.append(os.path.join("packages","linux","x86"))
 			path.append(os.path.join("packages","linux","all"))
+		if self.is_android():
+			path.append(os.path.join("packages","android"))
+
 		path.append(os.path.join("packages","all"))
 		return path
 

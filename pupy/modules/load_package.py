@@ -7,7 +7,7 @@ __class_name__="LoadPackageModule"
 def package_completer(text, line, begidx, endidx):
 	try:
 		l=[]
-		for p in ["packages/all", "packages/linux/all/", "packages/windows/all", "packages/windows/x86", "packages/windows/amd64"]:
+		for p in ["packages/all", "packages/linux/all/", "packages/windows/all", "packages/windows/x86", "packages/windows/amd64", "packages/android"]:
 			for pkg in os.listdir(p):
 				if pkg.endswith(".py"):
 					pkg=pkg[:-3]

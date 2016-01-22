@@ -154,4 +154,14 @@ def unix_only(func):
 		return func(self)
 	return wrapper
 
+def android_only(func):
+	""" decorator for is_compatible method """
+	def wrapper(self):
+		is_android=self.client.is_android()
+		if not is_android:
+			return (False, "The module has only been implemented for android systems")
+		return func(self)
+	return wrapper
+
+
 
