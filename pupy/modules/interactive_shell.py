@@ -46,7 +46,7 @@ class InteractiveShell(PupyModule):
 			self.set_pty_size(buf[0], buf[1], buf[2], buf[3])
 
 	def run(self, args):
-		if self.client.is_windows() or self.client.is_android() or args.pseudo_tty:
+		if self.client.is_windows() or args.pseudo_tty:
 			self.client.load_package("interactive_shell")
 			encoding=None
 			program="/bin/sh"
@@ -65,13 +65,13 @@ class InteractiveShell(PupyModule):
 			program=None
 			if args.program:
 				program=args.program.split()
-			self.ps.spawn(program)
-			is_closed=Event()
-			self.ps.start_read_loop(print_callback, is_closed.set)
-			self.set_pty_size=rpyc.async(self.ps.set_pty_size)
-			old_handler = pupylib.PupySignalHandler.set_signal_winch(self._signal_winch)
-			self._signal_winch(None, None) # set the remote tty sie to the current terminal size
 			try:
+				self.ps.spawn(program)
+				is_closed=Event()
+				self.ps.start_read_loop(print_callback, is_closed.set)
+				self.set_pty_size=rpyc.async(self.ps.set_pty_size)
+				old_handler = pupylib.PupySignalHandler.set_signal_winch(self._signal_winch)
+				self._signal_winch(None, None) # set the remote tty sie to the current terminal size
 				fd=sys.stdin.fileno()
 				old_settings = termios.tcgetattr(fd)
 				try:
@@ -90,8 +90,12 @@ class InteractiveShell(PupyModule):
 							time.sleep(0.01)
 				finally:
 					termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+					pupylib.PupySignalHandler.set_signal_winch(old_handler)
 			finally:
-				pupylib.PupySignalHandler.set_signal_winch(old_settings)
-				self.ps.close()
+				try:
+					self.ps.close()
+				except Exception:
+					pass
+				self.set_pty_size=None
 
 

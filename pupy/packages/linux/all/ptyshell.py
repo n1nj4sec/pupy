@@ -3,6 +3,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys
 import os
+import os.path
 import termios
 import pty
 import tty
@@ -25,18 +26,27 @@ class PtyShell(object):
 		self.real_stdout=sys.stdout
 
 	def close(self):
-		if self.prog.returncode is None:
+		if self.prog is not None and self.prog.returncode is None:
 			self.prog.terminate()
 
 	def __del__(self):
 		self.close()
 
 	def spawn(self, argv=None):
-		if not argv:
+		if argv is None:
 			if 'SHELL' in os.environ:
 				argv = [os.environ['SHELL']]
-			else:
-				argv= ['/bin/sh']
+			elif 'PATH' in os.environ: #searching sh in the path. It can be unusual like /system/bin/sh on android
+				for shell in ["sh","bash","ksh","zsh","csh","ash"]:
+					for path in os.environ['PATH'].split(':'):
+						fullpath=os.path.join(path.strip(),shell)
+						if os.path.isfile(fullpath):
+							argv=[fullpath]
+							break
+					if argv:
+						break
+		if not argv:
+			argv= ['/bin/sh']
 
 		master, slave = pty.openpty()
 		self.slave=slave
