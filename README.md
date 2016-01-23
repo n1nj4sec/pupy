@@ -89,6 +89,8 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 ![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
 #####upload and run another PE exe from memory
 ![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
+#####screenshot of a android session
+![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/android.png "screenshot10")
 
 ## FAQ
 > Does the server work on windows?
