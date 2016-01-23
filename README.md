@@ -1,5 +1,5 @@
 # Pupy
-Pupy is an opensource, multi-platform Remote Administration Tool with an embedded Python interpreter, allowing its modules to load python packages from memory and transparently access remote python objects. Pupy can communicate using different transports and have a bunch of cool features & modules. On Windows, Pupy uses reflective dll injection and leaves no traces on disk.
+Pupy is an opensource, multi-platform (Windows, Linux, OSX, Android) Remote Administration Tool with an embedded Python interpreter, allowing its modules to load python packages from memory and transparently access remote python objects. Pupy can communicate using different transports and have a bunch of cool features & modules. On Windows, Pupy uses reflective dll injection and leaves no traces on disk.
 
 ## Features
 - On windows, the Pupy payload is compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
@@ -51,7 +51,8 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - upload
 - persistence
 - screenshot
-- webcam snapshot
+- Text to speach for Android to say stuff out loud
+- webcam snapshot (Windows & Android)
 	- ~~to spy on your crush~~
 - in memory execution of PE exe both x86 and x64!
 	- works very well with [mimitakz](https://github.com/gentilkiwi/mimikatz) :-)
