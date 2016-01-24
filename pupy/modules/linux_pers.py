@@ -4,11 +4,11 @@ from pupylib.PupyModule import *
 
 __class_name__="SetPersistence"
 
-@compatibility("unix")
 def print_callback(data):
 	sys.stdout.write(data)
 	sys.stdout.flush()
 
+@compatibility("unix")
 class SetPersistence(PupyModule):
 	"""Add your pp.py file to /etc/init.d/ scripts
 NOTE: the pp.py script needs to be running with root privileges in order to modify the init scripts."""

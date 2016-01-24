@@ -34,6 +34,8 @@ client/**/*.py[cod]
 pupy/*.py[cod]
 pupy/pupylib/**/*.py[cod]
 pupy/modules/*.py[cod]
+pupy/modules/lib/*.py[cod]
+pupy/modules/lib/**/*.py[cod]
 pupy/network/**/*.pyc
 
 # do not ignore package & templates files
