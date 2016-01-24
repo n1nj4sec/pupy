@@ -139,7 +139,7 @@ def get_edit_apk(path, new_path, conf):
 
 
 if __name__=="__main__":
-	parser = argparse.ArgumentParser(description='Process some integers.')
+	parser = argparse.ArgumentParser(description='Generate EXE/DLL for windows and APK for android.')
 	parser.add_argument('-t', '--type', default='exe_x86', choices=['apk','exe_x86','exe_x64','dll_x86','dll_x64'], help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-s', '--offline-script', help="offline python script to execute before starting the connection")
