@@ -7,14 +7,13 @@ __class_name__="GetSystem"
 @compatibility("windows")
 class GetSystem(PupyModule):
 	""" try to get NT AUTHORITY SYSTEM privileges """
-
+	dependencies=["psutil", "pupwinutils.getsystem"]
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="getsystem", description=self.__doc__)
 
 	def run(self, args):
-		self.client.load_package("pupwinutils.getsystem")
 		with redirected_stdo(self.client.conn):
 			proc_pid=self.client.conn.modules["pupwinutils.getsystem"].getsystem()
 		migrate(self, proc_pid)
-		self.success("[+] got system !")
+		self.success("got system !")
 
