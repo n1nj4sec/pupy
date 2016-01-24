@@ -3,4 +3,4 @@
 	url = git://github.com/n1nj4sec/scapy.git
 [submodule "pupy/payload_templates"]
 	path = pupy/payload_templates
-	url = git://git@github.com/n1nj4sec/pupy-binaries
+	url = git://github.com/n1nj4sec/pupy-binaries.git
