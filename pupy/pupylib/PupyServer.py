@@ -213,8 +213,14 @@ class PupyServer(threading.Thread):
 	def list_modules(self):
 		l=[]
 		for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):
+			if module_name=="lib":
+				continue
 			module=self.get_module(module_name)
-			l.append((module_name, textwrap.dedent(module.__doc__.strip())))
+			doc=module.__doc__
+			if not doc:
+				doc=""
+			doc=doc.strip()
+			l.append((module_name, textwrap.dedent(doc)))
 		return l
 
 	def get_module_completer(self, module_name):
@@ -236,7 +242,7 @@ class PupyServer(threading.Thread):
 						logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(script_name,class_name))
 				if not class_name:
 					#TODO automatically search the class name in the file
-					pass
+					exit("Error : no __class_name__ for module %s"%module)
 				return getattr(module,class_name)
 
 	def module_parse_args(self, module_name, args):

@@ -155,6 +155,7 @@ def compatibility(*systems):
 	""" add compatibility with one or multiple os"""
 	def class_rebuilder(cls):
 		class NewClass(cls):
+			__doc__=cls.__doc__
 			def is_compatible(self):
 				if "all" in systems:
 					return (True,"")
