@@ -65,9 +65,9 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 	- takes small screenshots around the mouse at each click and send them back to the server (thanks @golind)
 
 ##Installation
-[Check out the wiki !](https://github.com/n1nj4sec/pupy/wiki/Installation)
+[Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 ##Documentation
-[Check out the wiki !](https://github.com/n1nj4sec/pupy/wiki)
+[Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
 ### Some screenshots
 #####list connected clients
