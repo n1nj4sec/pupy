@@ -7,6 +7,7 @@ import os.path
 
 __class_name__="DownloaderScript"
 
+@compatibility("all")
 class DownloaderScript(PupyModule):
 	""" download a file/directory from a remote system """
 	def init_argparse(self):

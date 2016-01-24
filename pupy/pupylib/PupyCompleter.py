@@ -14,15 +14,11 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
+import sys
 import os
 import os.path
 import shlex
 import re
-
-def debug(msg):
-	#with open("/tmp/debug.log","a+") as log:
-	#	log.write(str(msg)+"\n")
-	pass
 
 def list_completer(l):
 	def func(text, line, begidx, endidx):
@@ -60,19 +56,16 @@ class PupyCompleter(object):
 	def get_module_completer(self, name):
 		if name in self.aliases:
 			name=self.aliases[name].split()[0]
-		debug("completer for %s"%name)
 		return self.pupysrv.get_module_completer(name)
 		
 	def complete(self, text, line, begidx, endidx):
 		try:
-			#debug("\"%s\" \"%s\" %s %s"%(text, line, begidx, endidx))
 			if line.startswith("run "):
 				res=self.complete_run(text, line, begidx, endidx)
 				if res is not None:
 					return res
 				modname=line[4:].split()[0]
 				completer_func=self.get_module_completer(modname).complete
-				debug("%s"%completer_func)
 				if completer_func:
 					return completer_func(text, line, begidx, endidx)
 				else:
@@ -106,7 +99,7 @@ class PupyCompleter(object):
 			if joker<0:
 				return
 		if ((len(text)>0 and joker==0) or (len(text)==0 and not found_module and joker<=1)):
-			return [re.sub(r"(.*)\.pyc?$",r"\1",x)+" " for x in os.listdir("modules") if x.startswith(text) and not x=="__init__.py" and not x=="__init__.pyc"]
+			return [re.sub(r"(.*)\.pyc?$",r"\1",x)+" " for x in os.listdir("modules") if x.startswith(text) and not x in ["__init__.py", "__init__.pyc", '__pycache__', 'lib']]
 
 		
 class PupyModCompleter(object):
@@ -133,10 +126,13 @@ class PupyModCompleter(object):
 			self.conf["optional_args"].append((name, kwargs))
 
 	def get_optional_nargs(self, name):
-		if "action" in self.conf["optional_args"]:
-			action=self.conf["optional_args"]["action"]
-			if action=="store_true" or action=="store_false":
-				return 0
+		for n,kwargs in self.conf["optional_args"]:
+			if name==n:
+				if "action" in kwargs:
+					action=kwargs["action"]
+					if action=="store_true" or action=="store_false":
+						return 0
+				break
 		return 1
 
 	def get_optional_args(self, nargs=None):
@@ -173,11 +169,8 @@ class PupyModCompleter(object):
 		return self.conf["positional_args"][index][1]["completer"]
 
 	def complete(self, text, line, begidx, endidx):
-		debug("\"%s\" \"%s\" %s %s"%(text, line, begidx, endidx))
 		last_text=self.get_last_text(text, line, begidx, endidx)
-		debug("last text: %s"%last_text)
 		if last_text in self.get_optional_args(nargs=1):
-			debug(self.get_optional_args_completer(last_text))
 			return self.get_optional_args_completer(last_text)(text, line, begidx, endidx)
 		if text.startswith("-"): #positional args completer
 			return [x+" " for x in self.get_optional_args() if x.startswith(text)]
@@ -186,10 +179,9 @@ class PupyModCompleter(object):
 				positional_index=positional_index=self.get_positional_arg_index(text, line, begidx, endidx)-1
 				if line.startswith("run "):  # -2 for "run" + "module_name" whereas -1 for aliases
 					positional_index-=1
-				debug("positional index is %s"%positional_index)
 				return self.get_positional_args_completer(positional_index)(text, line, begidx, endidx)
 			except Exception as e:
-				debug(e)
+				pass
 
 			
 		

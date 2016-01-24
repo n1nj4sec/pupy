@@ -4,16 +4,13 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="PsModule"
 
+@compatibility("windows")
 class PsModule(PupyModule):
 	""" list processes """
 
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="ps", description=self.__doc__)
 		self.arg_parser.add_argument('--all', '-a', action='store_true', help='more info')
-
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def run(self, args):
 		#self.client.conn.modules.ctypes.windll.user32.MessageBoxA(None, args.text, args.title, 0)

