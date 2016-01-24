@@ -2,6 +2,7 @@
 
 import sys
 from subprocess import PIPE, Popen
+import subprocess
 from threading  import Thread
 from Queue import Queue, Empty
 import time
@@ -58,7 +59,13 @@ def interactive_open(program=None, encoding=None):
 					program="/bin/sh"
 				encoding=None
 		print "Opening interactive %s ... (encoding : %s)"%(program,encoding)
-		p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True)
+		if sys.platform=="win32":
+			startupinfo = subprocess.STARTUPINFO()
+			startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW
+			startupinfo.wShowWindow = subprocess.SW_HIDE
+			p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True, startupinfo=startupinfo)
+		else:
+			p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True)
 		q = Queue()
 		q2 = Queue()
 		t = Thread(target=write_output, args=(p.stdout, q))
