@@ -89,8 +89,6 @@ class MemoryExec(PupyModule):
 				res=self.mp.get_stdout()
 				self.log(res)
 				
-
-
 	def run(self, args):
 		self.exec_pe(args.path, args.args, interactive=args.interactive, fork=args.fork, timeout=args.timeout)
 
