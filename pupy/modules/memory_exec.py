@@ -22,6 +22,7 @@ import time
 
 __class_name__="MemoryExec"
 
+@compatibility("windows")
 class MemoryExec(PupyModule):
 	""" 
 		Execute a PE executable from memory
@@ -40,10 +41,6 @@ class MemoryExec(PupyModule):
 		self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
 		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
 		self.arg_parser.add_argument('args', nargs='*', help='optional arguments to pass to the exe')
-
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def interrupt(self):
 		self.info("interrupting remote process, please wait ...")

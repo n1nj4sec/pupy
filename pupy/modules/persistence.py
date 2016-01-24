@@ -22,16 +22,13 @@ import string
 
 __class_name__="PersistenceModule"
 
+@compatibility("windows")
 class PersistenceModule(PupyModule):
 	""" Enables persistence via registry keys """
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
 		self.arg_parser.add_argument('-e','--exe', help='Use an alternative file and set persistency', completer=path_completer)
 		self.arg_parser.add_argument('-m','--method', choices=['registry'], required=True, help='persistence method')
-
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def run(self, args):
 		exebuff=b""

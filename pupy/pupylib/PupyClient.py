@@ -67,6 +67,11 @@ class PupyClient(object):
 			return True
 		return False
 
+	def is_darwin(self):
+		if "darwin" in self.desc["platform"].lower():
+			return True
+		return False
+
 	def is_proc_arch_64_bits(self):
 		if "64" in self.desc["proc_arch"]:
 			return True

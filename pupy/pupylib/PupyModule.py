@@ -136,32 +136,39 @@ class PupyModule(object):
 
 
 #define some decorators for PupyModules :
-def windows_only(func):
-	""" decorator for is_compatible method """
-	def wrapper(self):
-		is_win=self.client.is_windows()
-		if not is_win:
-			return (False, "The module has only been implemented for windows systems")
-		return func(self)
-	return wrapper
+def daemon():
+	def class_rebuilder(cls):
+		class NewClass(cls):
+			daemon=True
+		return NewClass
+	return class_rebuilder
 
-def unix_only(func):
-	""" decorator for is_compatible method """
-	def wrapper(self):
-		is_unix=self.client.is_unix()
-		if not is_unix:
-			return (False, "The module has only been implemented for unix systems")
-		return func(self)
-	return wrapper
+def max_clients(nb):
+	def class_rebuilder(cls):
+		class NewClass(cls):
+			max_clients=nb
+		return NewClass
+	return class_rebuilder
 
-def android_only(func):
-	""" decorator for is_compatible method """
-	def wrapper(self):
-		is_android=self.client.is_android()
-		if not is_android:
-			return (False, "The module has only been implemented for android systems")
-		return func(self)
-	return wrapper
-
-
+def compatibility(*systems):
+	""" add compatibility with one or multiple os"""
+	def class_rebuilder(cls):
+		class NewClass(cls):
+			def is_compatible(self):
+				if "all" in systems:
+					return (True,"")
+				elif "android" in systems and self.client.is_android():
+					return (True,"")
+				elif "windows" in systems and self.client.is_windows():
+					return (True,"")
+				elif "linux" in systems and self.client.is_linux():
+					return (True,"")
+				elif ("darwin" in systems or "osx" in systems) and self.client.is_darwin():
+					return (True,"")
+				elif "unix" in systems and self.client.is_unix():
+					return (True,"")
+				return (False, "This module currently only support the following systems: %s"%(','.join(systems)))
+		return NewClass
+	return class_rebuilder
+	
 

@@ -14,6 +14,7 @@ def has_proc_migrated(client, pid):
 				return c
 	return None
 
+@compatibility("windows")
 class MigrateModule(PupyModule):
 	""" Migrate pupy into another process using reflective DLL injection """
 	max_clients=1
@@ -22,10 +23,6 @@ class MigrateModule(PupyModule):
 		group = self.arg_parser.add_mutually_exclusive_group(required=True)
 		group.add_argument('-c', '--create', metavar='<exe_path>',help='create a new process and inject into it')
 		group.add_argument('pid', nargs='?', type=int, help='pid')
-
-	@windows_only
-	def is_compatible(self):
-		pass
 
 	def run(self, args):
 		pid=None

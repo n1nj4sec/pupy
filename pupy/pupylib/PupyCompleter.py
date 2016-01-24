@@ -19,11 +19,6 @@ import os.path
 import shlex
 import re
 
-def debug(msg):
-	#with open("/tmp/debug.log","a+") as log:
-	#	log.write(str(msg)+"\n")
-	pass
-
 def list_completer(l):
 	def func(text, line, begidx, endidx):
 		return [x+" " for x in l if x.startswith(text)]
@@ -60,19 +55,16 @@ class PupyCompleter(object):
 	def get_module_completer(self, name):
 		if name in self.aliases:
 			name=self.aliases[name].split()[0]
-		debug("completer for %s"%name)
 		return self.pupysrv.get_module_completer(name)
 		
 	def complete(self, text, line, begidx, endidx):
 		try:
-			#debug("\"%s\" \"%s\" %s %s"%(text, line, begidx, endidx))
 			if line.startswith("run "):
 				res=self.complete_run(text, line, begidx, endidx)
 				if res is not None:
 					return res
 				modname=line[4:].split()[0]
 				completer_func=self.get_module_completer(modname).complete
-				debug("%s"%completer_func)
 				if completer_func:
 					return completer_func(text, line, begidx, endidx)
 				else:
@@ -106,7 +98,7 @@ class PupyCompleter(object):
 			if joker<0:
 				return
 		if ((len(text)>0 and joker==0) or (len(text)==0 and not found_module and joker<=1)):
-			return [re.sub(r"(.*)\.pyc?$",r"\1",x)+" " for x in os.listdir("modules") if x.startswith(text) and not x=="__init__.py" and not x=="__init__.pyc"]
+			return [re.sub(r"(.*)\.pyc?$",r"\1",x)+" " for x in os.listdir("modules") if x.startswith(text) and not x in ["__init__.py", "__init__.pyc", '__pycache__', 'lib']]
 
 		
 class PupyModCompleter(object):
@@ -173,11 +165,8 @@ class PupyModCompleter(object):
 		return self.conf["positional_args"][index][1]["completer"]
 
 	def complete(self, text, line, begidx, endidx):
-		debug("\"%s\" \"%s\" %s %s"%(text, line, begidx, endidx))
 		last_text=self.get_last_text(text, line, begidx, endidx)
-		debug("last text: %s"%last_text)
 		if last_text in self.get_optional_args(nargs=1):
-			debug(self.get_optional_args_completer(last_text))
 			return self.get_optional_args_completer(last_text)(text, line, begidx, endidx)
 		if text.startswith("-"): #positional args completer
 			return [x+" " for x in self.get_optional_args() if x.startswith(text)]
@@ -186,10 +175,9 @@ class PupyModCompleter(object):
 				positional_index=positional_index=self.get_positional_arg_index(text, line, begidx, endidx)-1
 				if line.startswith("run "):  # -2 for "run" + "module_name" whereas -1 for aliases
 					positional_index-=1
-				debug("positional index is %s"%positional_index)
 				return self.get_positional_args_completer(positional_index)(text, line, begidx, endidx)
 			except Exception as e:
-				debug(e)
+				pass
 
 			
 		
