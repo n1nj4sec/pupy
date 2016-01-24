@@ -29,7 +29,7 @@ class Mimikatz(MemoryExec):
 		else:
 			mimikatz_path=self.client.pupsrv.config.get("mimikatz","exe_Win32")
 		if not os.path.isfile(mimikatz_path):
-			self.error("Mimikatz exe %s not found ! please edit Mimikatz section in pupy.conf")
+			self.error("Mimikatz exe %s not found ! please edit Mimikatz section in pupy.conf"%mimikatz_path)
 			return
 
 		mimikatz_args=args.args
