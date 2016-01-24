@@ -42,12 +42,13 @@ class PupyArgumentParser(argparse.ArgumentParser):
 		else:
 			completer_func=void_completer
 		argparse.ArgumentParser.add_argument(self, *args, **kwargs)
+		kwargs['completer']=completer_func
 		completer=self.get_completer()
 		for a in args:
 			if a.startswith("-"):
-				completer.add_optional_arg(a, completer=completer_func)
+				completer.add_optional_arg(a, **kwargs)
 			else:
-				completer.add_positional_arg(a, completer=completer_func)
+				completer.add_positional_arg(a, **kwargs)
 
 	def get_completer(self):
 		if hasattr(self,'pupy_mod_completer') and self.pupy_mod_completer is not None:

