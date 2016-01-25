@@ -113,6 +113,8 @@ def get_remote_port_fwd_cb(remote_addr, local_addr):
 
 	return func
 
+@category("network")
+@tags("pivot","forward")
 class PortFwdModule(PupyModule):
 	""" perform local/remote port forwarding using openssh -L/-R syntax """
 	max_clients=1

@@ -3,6 +3,7 @@ from pupylib.PupyModule import *
 
 __class_name__="SearchModule"
 
+@category("gather")
 class SearchModule(PupyModule):
 	""" walk through a directory and recursively search a string into files """
 	daemon=True

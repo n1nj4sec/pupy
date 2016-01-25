@@ -4,6 +4,7 @@ from pupylib.PupyModule import *
 __class_name__="GetPrivsModule"
 
 @compatibility("windows")
+@category("privesc")
 class GetPrivsModule(PupyModule):
 	""" try to get SeDebugPrivilege for the current process """
 	dependencies=["psutil"]

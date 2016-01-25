@@ -6,6 +6,7 @@ from scapy.all import *
 
 __class_name__="PortScan"
 
+@category("network")
 class PortScan(PupyModule):
 	""" run a TCP port scan """
 	dependencies=['portscan', 'scapy']

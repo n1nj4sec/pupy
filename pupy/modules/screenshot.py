@@ -38,6 +38,7 @@ def pil_save(filename, pixels, width, height):
 
 
 @compatibility("windows")
+@category("gather")
 class Screenshoter(PupyModule):
 	""" take a screenshot :) """
 

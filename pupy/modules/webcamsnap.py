@@ -37,6 +37,7 @@ def pil_save(filename, pixels, width, height):
 	logging.info('webcam snap saved to %s'%filename)
 
 @compatibility("windows", "android")
+@category("gather")
 class WebcamSnapModule(PupyModule):
 	""" take a webcam snap :) """
 

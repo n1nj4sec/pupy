@@ -5,6 +5,7 @@ from modules.lib.windows.migrate import migrate
 __class_name__="GetSystem"
 
 @compatibility("windows")
+@category("privesc")
 class GetSystem(PupyModule):
 	""" try to get NT AUTHORITY SYSTEM privileges """
 	dependencies=["psutil", "pupwinutils.getsystem"]

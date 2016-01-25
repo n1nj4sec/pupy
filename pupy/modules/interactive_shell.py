@@ -24,7 +24,8 @@ def print_callback(data):
 	sys.stdout.write(data)
 	sys.stdout.flush()
 
-
+@compatibility("all")
+@category("manage")
 class InteractiveShell(PupyModule):
 	"""
 		open an interactive command shell. tty are well handled for targets running *nix

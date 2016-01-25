@@ -6,6 +6,7 @@ from modules.lib.utils.shell_exec import shell_exec
 __class_name__="PsModule"
 
 @compatibility("all")
+@category("general")
 class PsModule(PupyModule):
 	""" list processes """
 

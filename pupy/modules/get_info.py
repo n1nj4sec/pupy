@@ -3,6 +3,7 @@ from pupylib.PupyModule import *
 
 __class_name__="GetInfo"
 
+@category("gather")
 class GetInfo(PupyModule):
 	""" get some informations about one or multiple clients """
 	def init_argparse(self):

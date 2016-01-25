@@ -12,6 +12,7 @@ import os.path
 __class_name__="Mimikatz"
 
 @compatibility("windows")
+@category("exploit")
 class Mimikatz(MemoryExec):
 	""" 
 		execute mimikatz from memory
