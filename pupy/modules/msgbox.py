@@ -4,6 +4,8 @@ from pupylib.PupyModule import *
 __class_name__="MsgBoxPopup"
 
 @compatibility("windows")
+@category("troll")
+@tags("message","popup")
 class MsgBoxPopup(PupyModule):
 	""" Pop up a custom message box """
 	dependencies=["pupwinutils.msgbox"]

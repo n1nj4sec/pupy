@@ -19,6 +19,7 @@ from .PupyErrors import PupyModuleExit
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 import StringIO
 import textwrap
+import inspect
 
 class PupyArgumentParser(argparse.ArgumentParser):
 	def __init__(self, *args, **kwargs):
@@ -68,6 +69,9 @@ class PupyModule(object):
 	daemon=False #if your module is meant to run in background, set this to True and override the stop_daemon method.
 	unique_instance=False # if True, don't start a new module and use another instead
 	dependencies=[] #dependencies to push on the remote target. same as calling self.client.load_package
+	compatible_systems=[] #should be changed by
+	category=None # to sort modules by categories
+	tags=[] # to add search keywords
 
 	def __init__(self, client, job, formatter=None, stdout=None):
 		""" client must be a PupyClient instance """
@@ -86,6 +90,15 @@ class PupyModule(object):
 			self.del_close=False
 		self.init_argparse()
 
+	@classmethod
+	def get_name(cls):
+		""" return module name by looking parents classes """
+		#example when using class context managers :
+		#(<class 'pupylib.PupyModule.NewClass'>, <class 'pupylib.PupyModule.NewClass'>, <class 'msgbox.MsgBoxPopup'>, <class 'pupylib.PupyModule.PupyModule'>, <type 'object'>)
+		for cls in inspect.getmro(cls):
+			if cls.__name__!="NewClass":
+				return cls.__module__
+
 	def __del__(self):
 		if self.del_close:
 			self.stdout.close()
@@ -99,7 +112,19 @@ class PupyModule(object):
 
 	def is_compatible(self):
 		""" override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
-		return (True, "")
+		if "all" in compatible_systems or len(compatible_systems)==0:
+			return (True,"")
+		elif "android" in compatible_systems and self.client.is_android():
+			return (True,"")
+		elif "windows" in compatible_systems and self.client.is_windows():
+			return (True,"")
+		elif "linux" in compatible_systems and self.client.is_linux():
+			return (True,"")
+		elif ("darwin" in compatible_systems or "osx" in systems) and self.client.is_darwin():
+			return (True,"")
+		elif "unix" in compatible_systems and self.client.is_unix():
+			return (True,"")
+		return (False, "This module currently only support the following systems: %s"%(','.join(self.compatible_systems)))
 
 	def is_daemon(self):
 		return self.daemon
@@ -140,6 +165,7 @@ class PupyModule(object):
 def daemon():
 	def class_rebuilder(cls):
 		class NewClass(cls):
+			__doc__=cls.__doc__
 			daemon=True
 		return NewClass
 	return class_rebuilder
@@ -147,6 +173,7 @@ def daemon():
 def max_clients(nb):
 	def class_rebuilder(cls):
 		class NewClass(cls):
+			__doc__=cls.__doc__
 			max_clients=nb
 		return NewClass
 	return class_rebuilder
@@ -156,21 +183,26 @@ def compatibility(*systems):
 	def class_rebuilder(cls):
 		class NewClass(cls):
 			__doc__=cls.__doc__
-			def is_compatible(self):
-				if "all" in systems:
-					return (True,"")
-				elif "android" in systems and self.client.is_android():
-					return (True,"")
-				elif "windows" in systems and self.client.is_windows():
-					return (True,"")
-				elif "linux" in systems and self.client.is_linux():
-					return (True,"")
-				elif ("darwin" in systems or "osx" in systems) and self.client.is_darwin():
-					return (True,"")
-				elif "unix" in systems and self.client.is_unix():
-					return (True,"")
-				return (False, "This module currently only support the following systems: %s"%(','.join(systems)))
+			compatible_systems=systems
 		return NewClass
 	return class_rebuilder
+
+def category(cat):
+	def class_rebuilder(cls):
+		class NewClass(cls):
+			__doc__=cls.__doc__
+			category=cat
+		return NewClass
+	return class_rebuilder
+
+def tags(*t):
+	def class_rebuilder(cls):
+		class NewClass(cls):
+			__doc__=cls.__doc__
+			tags=t
+		return NewClass
+	return class_rebuilder
+	
+
 	
 

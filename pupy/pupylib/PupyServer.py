@@ -23,6 +23,7 @@ import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
 from .PupyCmd import color_real
+from .PupyCategories import PupyCategories
 from network.conf import transports
 from pupylib.utils.rpyc_utils import obtain
 
@@ -55,6 +56,7 @@ class PupyServer(threading.Thread):
 		self.handler=None
 		self.handler_registered=threading.Event()
 		self.transport=transport
+		self.categories=PupyCategories(self)
 
 	def register_handler(self, instance):
 		""" register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -232,18 +234,13 @@ class PupyServer(threading.Thread):
 	def get_clients_list(self):
 		return self.clients
 
-	def list_modules(self):
+	def iter_modules(self):
+		""" iterate over all modules """
 		l=[]
 		for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):
 			if module_name=="lib":
 				continue
-			module=self.get_module(module_name)
-			doc=module.__doc__
-			if not doc:
-				doc=""
-			doc=doc.strip()
-			l.append((module_name, textwrap.dedent(doc)))
-		return l
+			yield self.get_module(module_name)
 
 	def get_module_completer(self, module_name):
 		""" return the module PupyCompleter if any is defined"""
