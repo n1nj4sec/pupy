@@ -248,6 +248,14 @@ class PupyServer(threading.Thread):
 		ps=module(None,None)
 		return ps.arg_parser.get_completer()
 
+	def get_module_name_from_category(self, path):
+		""" take a category virtual path and return the module's name or the path untouched if not found """
+		mod=self.categories.get_module_from_path(path)
+		if mod:
+			return mod.get_name()
+		else:
+			return path
+
 	def get_module(self, name):
 		script_found=False
 		for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):

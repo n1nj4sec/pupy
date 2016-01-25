@@ -112,17 +112,17 @@ class PupyModule(object):
 
 	def is_compatible(self):
 		""" override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
-		if "all" in compatible_systems or len(compatible_systems)==0:
+		if "all" in self.compatible_systems or len(self.compatible_systems)==0:
 			return (True,"")
-		elif "android" in compatible_systems and self.client.is_android():
+		elif "android" in self.compatible_systems and self.client.is_android():
 			return (True,"")
-		elif "windows" in compatible_systems and self.client.is_windows():
+		elif "windows" in self.compatible_systems and self.client.is_windows():
 			return (True,"")
-		elif "linux" in compatible_systems and self.client.is_linux():
+		elif "linux" in self.compatible_systems and self.client.is_linux():
 			return (True,"")
-		elif ("darwin" in compatible_systems or "osx" in systems) and self.client.is_darwin():
+		elif ("darwin" in self.compatible_systems or "osx" in systems) and self.client.is_darwin():
 			return (True,"")
-		elif "unix" in compatible_systems and self.client.is_unix():
+		elif "unix" in self.compatible_systems and self.client.is_unix():
 			return (True,"")
 		return (False, "This module currently only support the following systems: %s"%(','.join(self.compatible_systems)))
 

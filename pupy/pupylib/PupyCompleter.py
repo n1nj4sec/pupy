@@ -49,14 +49,15 @@ def path_completer(text, line, begidx, endidx):
 	return l
 
 class PupyCompleter(object):
-	def __init__(self, aliases, pupysrv):
+	def __init__(self, aliases, pupsrv):
 		self.aliases=aliases
-		self.pupysrv=pupysrv
+		self.pupsrv=pupsrv
 
 	def get_module_completer(self, name):
+		name=self.pupsrv.get_module_name_from_category(name)
 		if name in self.aliases:
 			name=self.aliases[name].split()[0]
-		return self.pupysrv.get_module_completer(name)
+		return self.pupsrv.get_module_completer(name)
 		
 	def complete(self, text, line, begidx, endidx):
 		try:
@@ -99,7 +100,7 @@ class PupyCompleter(object):
 			if joker<0:
 				return
 		if ((len(text)>0 and joker==0) or (len(text)==0 and not found_module and joker<=1)):
-			return [re.sub(r"(.*)\.pyc?$",r"\1",x)+" " for x in os.listdir("modules") if x.startswith(text) and not x in ["__init__.py", "__init__.pyc", '__pycache__', 'lib']]
+			return self.pupsrv.categories.get_shell_list(text)
 
 		
 class PupyModCompleter(object):

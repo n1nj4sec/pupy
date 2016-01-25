@@ -549,7 +549,7 @@ class PupyCmd(cmd.Cmd):
 		selected_clients="*"
 		if modargs.filter:
 			selected_clients=modargs.filter
-
+		modargs.module=self.pupsrv.get_module_name_from_category(modargs.module)
 		try:
 			mod=self.pupsrv.get_module(modargs.module)
 		except Exception as e:
@@ -647,36 +647,6 @@ class PupyCmd(cmd.Cmd):
 				return self.completion_matches[state]
 		except IndexError:
 			return None
-
-	#text : word match
-	#line : complete line
-	def complete_run(self, text, line, begidx, endidx):
-		pmc=PupyModCompleter(None)
-		try:
-			res=pmc.complete(text, line, begidx, endidx)
-		except Exception as e:
-			print e
-		return res
-		mline = line.partition(' ')[2]
-
-		joker=1
-		found_module=False
-
-		#handle autocompletion of modules with --filter argument
-		for x in shlex.split(mline):
-			if x in ("-f", "--filter"):#arguments with a param
-				joker+=1
-			elif x in ("--bg",):#arguments without parameter
-				pass
-			else:
-				joker-=1
-			if not x.startswith("-") and joker==0:
-				found_module=True
-			if joker<0:
-				return
-
-		if ((len(text)>0 and joker==0) or (len(text)==0 and not found_module and joker<=1)):
-			return [re.sub(r"(.*)\.pyc?$",r"\1",x) for x in os.listdir("./modules") if x.startswith(text) and not x=="__init__.py" and not x=="__init__.pyc"]
 
 	def do_exit(self, arg):
 		""" Quit Pupy Shell """
