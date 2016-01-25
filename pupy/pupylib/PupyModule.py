@@ -70,7 +70,7 @@ class PupyModule(object):
 	unique_instance=False # if True, don't start a new module and use another instead
 	dependencies=[] #dependencies to push on the remote target. same as calling self.client.load_package
 	compatible_systems=[] #should be changed by
-	category=None # to sort modules by categories
+	category="general" # to sort modules by categories
 	tags=[] # to add search keywords
 
 	def __init__(self, client, job, formatter=None, stdout=None):

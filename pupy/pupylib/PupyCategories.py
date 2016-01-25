@@ -18,17 +18,15 @@ class PupyCategories(object):
 	def parse_categories(self):
 		#init categories dic
 		for mod in self.pupsrv.iter_modules():
-			if mod.category:
-				cat=mod.category
-			else:
-				cat="general"
-			if not cat in self.get_categories():
+			if not mod.category:
+				mod.category="general"
+			if not mod.category in self.get_categories():
 				logging.warning("Undefined category \"%s\" for module %s"%(mod.category, mod.get_name()))
 				self.categories["general"].append(mod)
 			else:
-				self.categories[cat].append(mod)
+				self.categories[mod.category].append(mod)
 			#fill shell_list for fast auto-completion:
-			self.shell_list.append("%s/%s"%(cat,mod.get_name()))
+			self.shell_list.append("%s/%s"%(mod.category,mod.get_name()))
 
 	def get_module_from_path(self, shell_path):
 		""" take a auto-completed path and return the corresponding module """

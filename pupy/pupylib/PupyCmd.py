@@ -423,12 +423,12 @@ class PupyCmd(cmd.Cmd):
 	
 	def do_list_modules(self, arg):
 		""" List available modules with a brief description (the first description line) """
-		for mod in self.pupsrv.iter_modules():
+		for mod in sorted([x for x in self.pupsrv.iter_modules()], key=(lambda x:x.category)):
 			doc=mod.__doc__
 			if not doc:
 				doc=""
 			doc=doc.strip()
-			self.stdout.write("{:<20}	{}\n".format(mod.get_name(), color(doc.split("\n",1)[0],'grey')))
+			self.stdout.write("{:<20}	{}\n".format("%s/%s"%(mod.category,mod.get_name()), color(doc.split("\n",1)[0],'grey')))
 			
 	def do_clients(self, arg):
 		""" alias for sessions """
