@@ -131,7 +131,8 @@ def get_edit_apk(path, new_path, conf):
 			updateZip(new_path, "assets/private.mp3", t.read())
 		
 		#signing the tar
-		res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword -tsa http://timestamp.digicert.com '%s' pupy_key"%new_path, shell=True)
+		res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%new_path, shell=True)
+		# -tsa http://timestamp.digicert.com 
 		print(res)
 	finally:
 		#cleaning up
