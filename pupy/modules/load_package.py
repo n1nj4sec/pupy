@@ -19,7 +19,7 @@ def package_completer(text, line, begidx, endidx):
 	except Exception as e:
 		print e
 
-@category("manage")
+@config(cat="manage", compat="all")
 class LoadPackageModule(PupyModule):
 	""" Load a python package onto a remote client. Packages files must be placed in one of the pupy/packages/<os>/<arch>/ repository """
 

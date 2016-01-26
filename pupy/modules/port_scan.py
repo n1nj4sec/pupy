@@ -1,12 +1,10 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
 import logging
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-from scapy.all import *
 
 __class_name__="PortScan"
 
-@category("network")
+@config(cat="network")
 class PortScan(PupyModule):
 	""" run a TCP port scan """
 	dependencies=['portscan', 'scapy']

@@ -168,8 +168,7 @@ class Socks5Server(SocketServer.TCPServer):
 class ThreadedSocks5Server(SocketServer.ThreadingMixIn, Socks5Server):
 	pass
 
-@category("network")
-@tags("pivot","proxy")
+@config(cat="network", tags=["pivot", "proxy"])
 class Socks5Proxy(PupyModule):
 	""" start a socks5 proxy going through a client """
 	max_clients=1

@@ -8,8 +8,7 @@ from pupylib.PupyModule import *
 
 __class_name__="ShellcodeExec"
 
-@compatibility("windows")
-@category("exploit")
+@config(cat="exploit", compat="windows")
 class ShellcodeExec(PupyModule):
 	""" executes the supplied shellcode on a client """
 

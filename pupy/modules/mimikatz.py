@@ -11,8 +11,7 @@ from modules.memory_exec import MemoryExec
 import os.path
 __class_name__="Mimikatz"
 
-@compatibility("windows")
-@category("exploit")
+@config(cat="exploit", compat="windows")
 class Mimikatz(MemoryExec):
 	""" 
 		execute mimikatz from memory

@@ -20,6 +20,7 @@ from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 import StringIO
 import textwrap
 import inspect
+import logging
 
 class PupyArgumentParser(argparse.ArgumentParser):
 	def __init__(self, *args, **kwargs):
@@ -161,46 +162,24 @@ class PupyModule(object):
 		self.stdout.write(self.formatter.format_info(msg))
 
 
-#define some decorators for PupyModules :
-def daemon():
-	def class_rebuilder(cls):
-		class NewClass(cls):
-			__doc__=cls.__doc__
-			daemon=True
-		return NewClass
-	return class_rebuilder
+def config(**kwargs):
+	for l in ["compat","compatibilities","compatibility","tags"]:
+		if l in kwargs:
+			if type(kwargs[l])!=list:
+				kwargs[l]=[kwargs[l]]
 
-def max_clients(nb):
 	def class_rebuilder(cls):
 		class NewClass(cls):
 			__doc__=cls.__doc__
-			max_clients=nb
+			tags=kwargs.get('tags',cls.tags)
+			category=kwargs.get('category', kwargs.get('cat', cls.category))
+			compatible_systems=kwargs.get('compatibilities',kwargs.get('compatibility',kwargs.get('compat',cls.compatible_systems)))
+			daemon=kwargs.get('daemon', cls.daemon)
+			max_clients=kwargs.get('max_clients', cls.max_clients)
 		return NewClass
-	return class_rebuilder
-
-def compatibility(*systems):
-	""" add compatibility with one or multiple os"""
-	def class_rebuilder(cls):
-		class NewClass(cls):
-			__doc__=cls.__doc__
-			compatible_systems=systems
-		return NewClass
-	return class_rebuilder
-
-def category(cat):
-	def class_rebuilder(cls):
-		class NewClass(cls):
-			__doc__=cls.__doc__
-			category=cat
-		return NewClass
-	return class_rebuilder
-
-def tags(*t):
-	def class_rebuilder(cls):
-		class NewClass(cls):
-			__doc__=cls.__doc__
-			tags=t
-		return NewClass
+	for k in kwargs.iterkeys():
+		if k not in ['tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon', 'max_clients' ]:
+			logging.warning("Unknown argument \"%s\" to @config context manager"%k)
 	return class_rebuilder
 	
 

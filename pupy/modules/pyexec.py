@@ -9,8 +9,7 @@ from pupylib.utils.rpyc_utils import redirected_stdo
 
 __class_name__="PythonExec"
 
-@compatibility("all")
-@category("exploit")
+@config(cat="admin")
 class PythonExec(PupyModule):
 	""" execute python code on a remote system """
 	def init_argparse(self):

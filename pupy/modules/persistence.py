@@ -22,8 +22,7 @@ import string
 
 __class_name__="PersistenceModule"
 
-@compatibility("windows")
-@category("manage")
+@config(cat="manage", compat="windows")
 class PersistenceModule(PupyModule):
 	""" Enables persistence via registry keys """
 	def init_argparse(self):

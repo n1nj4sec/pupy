@@ -19,8 +19,7 @@ def enqueue_output(out, queue):
 	for c in iter(lambda: out.read(1), b""):
 		queue.put(c)
 
-@compatibility("all")
-@category("exploit")
+@config(cat="admin")
 class InteractivePythonShell(PupyModule):
 	""" open an interactive python shell on the remote client """
 	max_clients=1

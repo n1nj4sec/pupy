@@ -8,8 +8,7 @@ def print_callback(data):
 	sys.stdout.write(data)
 	sys.stdout.flush()
 
-@compatibility("unix")
-@category("manage")
+@config(compat="unix", cat="manage")
 class SetPersistence(PupyModule):
 	"""Add your pp.py file to /etc/init.d/ scripts
 NOTE: the pp.py script needs to be running with root privileges in order to modify the init scripts."""

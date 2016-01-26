@@ -22,8 +22,7 @@ import time
 
 __class_name__="MemoryExec"
 
-@compatibility("windows")
-@category("exploit")
+@config(compatibilities=["windows"], category="exploit")
 class MemoryExec(PupyModule):
 	""" 
 		Execute a PE executable from memory

@@ -7,7 +7,7 @@ import os.path
 
 __class_name__="UploaderScript"
 
-@category("manage")
+@config(cat="manage")
 class UploaderScript(PupyModule):
 	""" upload a file/directory to a remote system """
 	def init_argparse(self):

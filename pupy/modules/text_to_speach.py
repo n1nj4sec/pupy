@@ -3,9 +3,7 @@ from pupylib.PupyModule import *
 
 __class_name__="AndroidTTS"
 
-@compatibility("android")
-@category("troll")
-@tags("speech", "speak", "speak")
+@config(compat="android", cat="troll", tags=["speech", "speak", "speak"])
 class AndroidTTS(PupyModule):
 	""" Pop up a custom message box """
 	dependencies=['pupydroid.text_to_speech']
