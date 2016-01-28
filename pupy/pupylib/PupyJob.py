@@ -188,6 +188,14 @@ class PupyJob(object):
 	def is_finished(self):
 		return self.worker_pool.all_finished()
 
+	def raw_result(self):
+		if len(self.pupymodules)>1:
+			raise AssertionError("raw_result is only available when the job contains a single module")
+		m=self.pupymodules[0]
+		res=m.stdout.getvalue()
+		m.stdout.truncate(0)
+		return res
+			
 	def result_summary(self):
 		res=""
 		for m in self.pupymodules:

