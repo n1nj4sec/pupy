@@ -5,6 +5,8 @@
 from jnius import autoclass
 import time
 
+__all__=["speak"]
+
 def speak(text, lang='US'):
 	""" use the text to speach API to speak text out loud :-) """
 	Locale = autoclass('java.util.Locale')
