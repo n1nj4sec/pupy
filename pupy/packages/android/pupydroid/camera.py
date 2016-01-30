@@ -7,6 +7,9 @@ import jnius
 from jnius import autoclass, PythonJavaClass, java_method
 import time
 from threading import Event
+
+__all__=["take_picture"]
+
 class PictureCallback(PythonJavaClass):
 	__javainterfaces__ = ['android/hardware/Camera$PictureCallback']
 	def __init__(self, event):
