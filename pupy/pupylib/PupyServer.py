@@ -26,7 +26,7 @@ from .PupyCmd import color_real
 from .PupyCategories import PupyCategories
 from network.conf import transports
 from pupylib.utils.rpyc_utils import obtain
-import triggers
+from .PupyTriggers import on_connect
 
 try:
 	import ConfigParser as configparser
@@ -184,7 +184,7 @@ class PupyServer(threading.Thread):
 				self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port))
 			self.current_id += 1
 		if pc:
-			triggers.on_connect(pc)
+			on_connect(pc)
 
 	def remove_client(self, client):
 		with self.clients_lock:
