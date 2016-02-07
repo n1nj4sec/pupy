@@ -210,7 +210,7 @@ class PupyClient(object):
 		if not mod:
 			raise Exception("unknown module %s !"%modargs.module)
 		pj=None
-		modjobs=[x for x in self.pupsrv.jobs.itervalues() if str(type(x.pupymodules[0]))== str(mod) and x.pupymodules[0].client==self]
+		modjobs=[x for x in self.pupsrv.jobs.itervalues() if x.pupymodules[0].get_name() == mod.get_name() and x.pupymodules[0].client==self]
 		if mod.daemon and mod.unique_instance and modjobs:
 			pj=modjobs[0]
 		else:

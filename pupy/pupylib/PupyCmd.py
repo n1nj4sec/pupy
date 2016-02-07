@@ -576,8 +576,7 @@ class PupyCmd(cmd.Cmd):
 			self.display_error("This module is limited to %s client(s) at a time and you selected %s clients"%(mod.max_clients, len(l)))
 			return
 
-		modjobs=[x for x in self.pupsrv.jobs.itervalues() if str(type(x.pupymodules[0]))== str(mod) and x.pupymodules[0].client in l]
-
+		modjobs=[x for x in self.pupsrv.jobs.itervalues() if x.pupymodules[0].get_name() == mod.get_name() and x.pupymodules[0].client in l]
 		pj=None
 		try:
 			interactive=False
@@ -593,7 +592,11 @@ class PupyCmd(cmd.Cmd):
 					for c in l:
 						ps=mod(c, pj)
 						pj.add_module(ps)
-			pj.start(args)
+			try:
+				pj.start(args)
+			except Exception as e:
+				self.display_error(e)
+				pj.stop()
 			if not mod.unique_instance:
 				if modargs.bg:
 					self.pupsrv.add_job(pj)
