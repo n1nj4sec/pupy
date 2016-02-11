@@ -71,8 +71,11 @@ class PupyCategories(object):
 		""" return a list of modules sorted for shell auto completion """
 		for k in self.os_shell_lists.iterkeys():
 			if start_text.startswith(k):
-				return [x for x in self.os_shell_lists[k] if x.startswith(start_text)]
-		return [x for x in self.shell_list if x.startswith(start_text)]+[x+"/" for x in self.os_shell_lists.iterkeys() if x.startswith(start_text)]
+				return [x+" " for x in self.os_shell_lists[k] if x.startswith(start_text)]
+		l=[x+" " for x in self.shell_list if x.startswith(start_text)]+[x+"/" for x in self.os_shell_lists.iterkeys() if x.startswith(start_text)]
+		if not l:
+			l+=[x.rsplit("/",1)[1]+" " for x in self.shell_list if x.rsplit("/",1)[1].startswith(start_text)]
+		return l
 
 
 
