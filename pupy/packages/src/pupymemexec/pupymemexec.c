@@ -37,8 +37,10 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args)
 	char *cmd_line;
 	char *pe_raw_bytes;
 	int pe_raw_bytes_len;
+	long dupHandleAddress=0;
+	HANDLE dupHandle = NULL;
 
-	if (!PyArg_ParseTuple(args, "ss#|OO", &cmd_line, &pe_raw_bytes, &pe_raw_bytes_len, &py_redirect_stdio, &py_hidden))
+	if (!PyArg_ParseTuple(args, "ss#|OOl", &cmd_line, &pe_raw_bytes, &pe_raw_bytes_len, &py_redirect_stdio, &py_hidden, &dupHandleAddress)) // the address of the handle is directly passed with ctypes
 		return NULL;
 
 	memset(&si,0,sizeof(STARTUPINFO));
@@ -64,8 +66,16 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args)
 		inherit=TRUE;
 	}
 
-	if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)){
-		return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d", GetLastError());
+	if(dupHandleAddress==0){
+		if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)){
+			return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d", GetLastError());
+		}
+	}
+	else{
+		dupHandle=(HANDLE) *((void **)dupHandleAddress);
+		if(!CreateProcessAsUser(dupHandle, NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)){
+			return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d dupHandle %x", GetLastError(), dupHandle);
+		}
 	}
 	if (!MapNewExecutableRegionInProcess(pi.hProcess, pi.hThread, pe_raw_bytes)){
 		return PyErr_Format(PyExc_Exception, "Error in MapNewExecutableRegionInProcess: Errno %d", GetLastError());

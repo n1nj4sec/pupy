@@ -38,9 +38,10 @@ class MemoryExec(PupyModule):
 		#self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
 		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved')
 		self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
+		self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
 		self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
 		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
-		self.arg_parser.add_argument('args', nargs='*', help='optional arguments to pass to the exe')
+		self.arg_parser.add_argument('args', help='optional arguments to pass to the exe')
 
 	def interrupt(self):
 		self.info("interrupting remote process, please wait ...")
@@ -50,7 +51,7 @@ class MemoryExec(PupyModule):
 			self.log(res)
 
 
-	def exec_pe(self, path, prog_args, interactive=False, fork=False, timeout=None):
+	def exec_pe(self, path, prog_args, interactive=False, fork=False, timeout=None, use_impersonation=False):
 		pe_arch=get_pe_arch(path)
 		proc_arch=self.client.desc["proc_arch"]
 		if pe_arch!=proc_arch:
@@ -68,8 +69,15 @@ class MemoryExec(PupyModule):
 		self.client.load_package("pupwinutils.memexec")
 
 		res=""
-		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=prog_args, hidden=True, redirect_stdio=redirect_stdio)
-		self.mp.run()
+		dupHandle=None
+		if use_impersonation:
+			dupHandle=self.client.impersonated_dupHandle
+			if dupHandle is None:
+				self.error("No token has been impersonated on this session. use impersonate module first")
+				return
+		self.mp=self.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=prog_args, hidden=True, redirect_stdio=redirect_stdio, dupHandle=dupHandle)
+		with redirected_stdio(self.client.conn):
+			self.mp.run()
 		if not fork:
 			if interactive:
 				try:
@@ -90,5 +98,5 @@ class MemoryExec(PupyModule):
 				self.log(res)
 				
 	def run(self, args):
-		self.exec_pe(args.path, args.args, interactive=args.interactive, fork=args.fork, timeout=args.timeout)
+		self.exec_pe(args.path, args.args, interactive=args.interactive, fork=args.fork, timeout=args.timeout, use_impersonation=args.impersonate)
 

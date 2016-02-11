@@ -196,7 +196,8 @@ def getSidToken(token_sid):
 				raise WinError(error)
 
 			hToken = HANDLE(INVALID_HANDLE_VALUE)
-			windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+			if not windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken)):
+				raise WinError()
 
 			##If token SID is the SID of SYSTEM, return the token handle.
 			#print "sid: %s %s"%(pid,GetTokenSid(hToken))
@@ -228,6 +229,12 @@ def impersonate_sid(sid, close=True):
 		windll.kernel32.CloseHandle(hTokendupe)
 	return hTokendupe
 
+global_ref=None
+def impersonate_sid_long_handle(*args, **kwargs):
+	global global_ref
+	hTokendupe=impersonate_sid(*args, **kwargs)
+	global_ref=hTokendupe
+	return addressof(hTokendupe)
 
 def impersonate_token(hToken):
 	if not windll.Shell32.IsUserAnAdmin():
@@ -237,7 +244,8 @@ def impersonate_token(hToken):
 	hTokendupe = HANDLE( INVALID_HANDLE_VALUE )
 	SecurityImpersonation = 2
 	TokenPrimary = 1
-	windll.advapi32.DuplicateTokenEx( hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref( hTokendupe ) )
+	if not windll.advapi32.DuplicateTokenEx( hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref( hTokendupe ) ):
+		WinError()
 	windll.kernel32.CloseHandle(hToken)
 	try:
 		EnablePrivilege("SeAssignPrimaryTokenPrivilege", hToken = hTokendupe)
@@ -251,7 +259,8 @@ def impersonate_token(hToken):
 		EnablePrivilege("SeImpersonatePrivilege")
 	except Exception as e:
 		print e
-	windll.advapi32.ImpersonateLoggedOnUser(hTokendupe)
+	if not windll.advapi32.ImpersonateLoggedOnUser(hTokendupe):
+		WinError()
 	return hTokendupe
 
 def create_proc_as_sid(sid, prog="cmd.exe"):
@@ -267,19 +276,18 @@ def getsystem(prog="cmd.exe"):
 
 def start_proc_with_token(args, hTokendupe, hidden=True):
 	##Start the process with the token.
-	try:
-		lpProcessInformation = PROCESS_INFORMATION()
-		lpStartupInfo = STARTUPINFO()
-		if hidden:
-			lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
-			lpStartupInfo.wShowWindow = subprocess.SW_HIDE
-		CREATE_NEW_CONSOLE = 0x00000010
+	lpProcessInformation = PROCESS_INFORMATION()
+	lpStartupInfo = STARTUPINFO()
+	if hidden:
+		lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
+		lpStartupInfo.wShowWindow = subprocess.SW_HIDE
+	CREATE_NEW_CONSOLE = 0x00000010
 
-		windll.advapi32.CreateProcessAsUserA(hTokendupe, None, ' '.join(args), None, None, True, CREATE_NEW_CONSOLE, None, None, byref(lpStartupInfo), byref(lpProcessInformation))
-		print "[+] process created PID: " + str(lpProcessInformation.dwProcessId)
-		return lpProcessInformation.dwProcessId
-	except WindowsError, e :
-		print "[!] Error:" + str(e)
+	success=windll.advapi32.CreateProcessAsUserA(hTokendupe, None, ' '.join(args), None, None, True, CREATE_NEW_CONSOLE, None, None, byref(lpStartupInfo), byref(lpProcessInformation))
+	if not success:
+		raise WinError()
+	print "[+] process created PID: " + str(lpProcessInformation.dwProcessId)
+	return lpProcessInformation.dwProcessId
 
 def rev2self():
 	windll.advapi32.RevertToSelf()
