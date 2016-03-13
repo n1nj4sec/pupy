@@ -222,6 +222,13 @@ def get_current_process():
 	#return "[ PID: %s - %s - %s ]" % (process_id, executable.value, window_title.value)
 	return executable.value, window_title.value
 
+def get_mouselogger():
+	if not hasattr(sys, 'MOUSELOGGER_THREAD'):
+		sys.MOUSELOGGER_THREAD=MouseLogger()
+	return sys.MOUSELOGGER_THREAD
+	
+	
+
 if __name__=="__main__":
 	ml = MouseLogger()
 	ml.start()
