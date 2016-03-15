@@ -157,25 +157,33 @@ def EnablePrivilege(privilegeStr, hToken = None):
 		raise WinError(e)
 
 def ListSids():
-	pids = [int(x) for x in psutil.pids() if int(x)>4]
-	sids=set()
-	for pid in pids:
-		try:
-			hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
-			error=GetLastError()
-			if error!=0:
-				raise WinError(error)
+	sids=[]
 
+	for proc in psutil.process_iter():
+	    try:
+		pinfo = proc.as_dict(attrs=['pid', 'username', 'name'])
+	    except psutil.NoSuchProcess:
+		pass
+	    else:
+		if pinfo['pid']<=4:
+			continue
+		if pinfo['username'] is None:
+			continue
+		try:
+			hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pinfo['pid']))
 			hToken = HANDLE(INVALID_HANDLE_VALUE)
 			windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
 
-			sids.add(GetTokenSid(hToken))
-
+			try:
+				sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
+			except:
+				pass
 			windll.kernel32.CloseHandle(hToken)
 			windll.kernel32.CloseHandle(hProcess)
-		except Exception:
-			pass
+		except Exception as e:
+			print e
 	return list(sids)
+
 
 def getProcessToken(pid):
 	hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
@@ -233,6 +241,22 @@ global_ref=None
 def impersonate_sid_long_handle(*args, **kwargs):
 	global global_ref
 	hTokendupe=impersonate_sid(*args, **kwargs)
+	try:
+		if global_ref is not None:
+			windll.kernel32.CloseHandle(global_ref)
+	except:
+		pass
+	global_ref=hTokendupe
+	return addressof(hTokendupe)
+
+def impersonate_pid_long_handle(*args, **kwargs):
+	global global_ref
+	hTokendupe=impersonate_pid(*args, **kwargs)
+	try:
+		if global_ref is not None:
+			windll.kernel32.CloseHandle(global_ref)
+	except:
+		pass
 	global_ref=hTokendupe
 	return addressof(hTokendupe)
 
@@ -290,6 +314,13 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
 	return lpProcessInformation.dwProcessId
 
 def rev2self():
+	global global_ref
 	windll.advapi32.RevertToSelf()
+	try:
+		if global_ref is not None:
+			windll.kernel32.CloseHandle(global_ref)
+	except:
+		pass
+	global_ref=None
 	print "\t[+] Running as: " + GetUserName()
 

