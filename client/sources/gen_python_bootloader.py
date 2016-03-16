@@ -22,7 +22,7 @@ sys.stderr = Blackhole()
 del Blackhole
 """
 if len(sys.argv)==2 and sys.argv[1].strip().lower()=="debug":
-	remove_stdout=""
+	remove_stdout="print 'DEBUG activated'\n"
 def get_load_module_code(code, modulename):
 	loader="""
 import imp, sys
@@ -45,7 +45,7 @@ if __name__=="__main__":
 		code=f.read()
 	code_bytes.append(compile(get_load_module_code(code,"pupyimporter")+"\n", "<string>", "exec"))
 	code_bytes.append(compile("import pupyimporter;pupyimporter.install();pupyimporter.load_pywintypes()\n", "<string>", "exec"))
-	#code_bytes.append(compile("import platform; print platform.uname()\n", "<string>", "exec"))
+	#code_bytes.append(compile("print 'plop'\n", "<string>", "exec"))
 	with open(os.path.join("..",'..','pupy',"pp.py")) as f:
 		code=f.read()
 	code_bytes.append(compile(code+"\n", "<string>", "exec"))
