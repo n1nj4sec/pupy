@@ -11,7 +11,7 @@ Pupy is an opensource, multi-platform (Windows, Linux, OSX, Android) Remote Admi
   - We can also access remote objects interactively from the pupy shell and you even get auto-completion of remote attributes!
 - Communication transports are modular and pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
 - All the non interactive modules can be dispatched to multiple hosts in one command
-- Multi-platform (tested on windows 7, windows xp, kali linux, ubuntu, osx)
+- Multi-platform (tested on windows 8.1, windows 7, windows xp, kali linux, ubuntu, osx)
 - Modules can be executed as background jobs and their output be retrieved later
 - Commands and scripts running on remote hosts are interruptible
 - Auto-completion for commands and arguments
