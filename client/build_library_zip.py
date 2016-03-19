@@ -20,13 +20,13 @@ if sys.argv[1]=="x86":
 elif sys.argv[1]=="x64":
 	arch="x64"
 	print "copying installed python version to sources\\resources\\python27_x64.dll"
-	shutil.copy("C:\\Windows\SysNative\python27.dll", "sources\\resources\\python27_x64.dll")
+	shutil.copy("C:\\Windows\system32\python27.dll", "sources\\resources\\python27_x64.dll")
 else:
 	exit("usage: python %s (x86|x64)"%sys.argv[0])
 	
 
 all_dependencies=list(set([x.split(".")[0] for x in sys.modules.iterkeys()]))
-all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "_yaml"])
+all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "_yaml", "rpyc"])
 all_dependencies=list(set(all_dependencies))
 
 zf = zipfile.ZipFile(os.path.join("sources","resources","library%s.zip"%arch), mode='w', compression=zipfile.ZIP_DEFLATED)
@@ -36,7 +36,7 @@ try:
 		zf.write("C:\\Windows\\SysWOW64\\pywintypes27.dll", "pywintypes27.dll")
 	else:
 		print("adding pywintypes.dll")
-		zf.write("C:\\Windows\\SysNative\\pywintypes27.dll", "pywintypes27.dll")
+		zf.write("C:\\Windows\\system32\\pywintypes27.dll", "pywintypes27.dll")
 	for dep in all_dependencies:
 		found=False
 		for path in sys.path:
