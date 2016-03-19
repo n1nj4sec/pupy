@@ -34,10 +34,11 @@ except ImportError:
 
 def get_module_files(fullname):
 	""" return the file to load """
+	global modules
 	f=fullname.replace(".","/")
 	files=[]
 	for x in modules.iterkeys():
-		if x.rsplit(".",1)[0]==f or f+"/__init__.py"==x or f+"/__init__.pyc"==x:
+		if x.rsplit(".",1)[0]==f or f+"/__init__.py"==x or f+"/__init__.pyc"==x or f+"/__init__.pyo"==x:
 			files.append(x)
 	return files
 
@@ -84,7 +85,6 @@ class PupyPackageLoader:
 				mod.__loader__ = self
 				if self.is_pkg:
 					mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
-					#mod.__path__ = [mod.__file__]
 					mod.__package__ = fullname
 				else:
 					mod.__package__ = fullname.rsplit('.', 1)[0]
@@ -133,7 +133,7 @@ class PupyPackageFinder:
 				return None
 			selected=None
 			for f in files:
-				if f.endswith("/__init__.pyc") or f.endswith("/__init__.py"):
+				if f.endswith("/__init__.pyc") or f.endswith("/__init__.py") or f.endswith("/__init__.pyo"):
 					selected=f # we select packages in priority
 			if not selected:
 				for f in files:
@@ -150,7 +150,7 @@ class PupyPackageFinder:
 			content=self.modules[selected]
 			extension=selected.rsplit(".",1)[1].strip().lower()
 			is_pkg=False
-			if selected.endswith("/__init__.py") or selected.endswith("/__init__.pyc"):
+			if selected.endswith("/__init__.py") or selected.endswith("/__init__.pyc") or selected.endswith("/__init__.pyo"):
 				is_pkg=True
 			#print "--> Loading %s(%s).%s is_package:%s"%(fullname,selected,extension, is_pkg)
 			return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
