@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -15,8 +13,12 @@ from . import _common
 from . import _psposix
 from . import _psutil_osx as cext
 from . import _psutil_posix as cext_posix
-from ._common import conn_tmap, usage_percent, isfile_strict
-from ._common import sockfam_to_enum, socktype_to_enum
+from ._common import conn_tmap
+from ._common import isfile_strict
+from ._common import parse_environ_block
+from ._common import sockfam_to_enum
+from ._common import socktype_to_enum
+from ._common import usage_percent
 
 
 __extra__all__ = []
@@ -56,7 +58,8 @@ svmem = namedtuple(
     'svmem', ['total', 'available', 'percent', 'used', 'free',
               'active', 'inactive', 'wired'])
 
-pextmem = namedtuple('pextmem', ['rss', 'vms', 'pfaults', 'pageins'])
+pmem = namedtuple('pmem', ['rss', 'vms', 'pfaults', 'pageins'])
+pfullmem = namedtuple('pfullmem', pmem._fields + ('uss', ))
 
 pmmap_grouped = namedtuple(
     'pmmap_grouped',
@@ -115,6 +118,13 @@ def cpu_count_logical():
 def cpu_count_physical():
     """Return the number of physical CPUs in the system."""
     return cext.cpu_count_phys()
+
+
+def cpu_stats():
+    ctx_switches, interrupts, soft_interrupts, syscalls, traps = \
+        cext.cpu_stats()
+    return _common.scpustats(
+        ctx_switches, interrupts, soft_interrupts, syscalls)
 
 
 def boot_time():
@@ -197,10 +207,6 @@ def wrap_exceptions(fun):
         try:
             return fun(self, *args, **kwargs)
         except OSError as err:
-            # support for private module import
-            if (NoSuchProcess is None or AccessDenied is None or
-                    ZombieProcess is None):
-                raise
             if err.errno == errno.ESRCH:
                 if not pid_exists(self.pid):
                     raise NoSuchProcess(self.pid, self._name)
@@ -237,6 +243,12 @@ class Process(object):
         return cext.proc_cmdline(self.pid)
 
     @wrap_exceptions
+    def environ(self):
+        if not pid_exists(self.pid):
+            raise NoSuchProcess(self.pid, self._name)
+        return parse_environ_block(cext.proc_environ(self.pid))
+
+    @wrap_exceptions
     def ppid(self):
         return cext.proc_ppid(self.pid)
 
@@ -265,18 +277,20 @@ class Process(object):
 
     @wrap_exceptions
     def memory_info(self):
-        rss, vms = cext.proc_memory_info(self.pid)[:2]
-        return _common.pmem(rss, vms)
+        rss, vms, pfaults, pageins = cext.proc_memory_info(self.pid)
+        return pmem(rss, vms, pfaults, pageins)
 
     @wrap_exceptions
-    def memory_info_ex(self):
-        rss, vms, pfaults, pageins = cext.proc_memory_info(self.pid)
-        return pextmem(rss, vms, pfaults * PAGESIZE, pageins * PAGESIZE)
+    def memory_full_info(self):
+        basic_mem = self.memory_info()
+        uss = cext.proc_memory_uss(self.pid)
+        return pfullmem(*basic_mem + (uss, ))
 
     @wrap_exceptions
     def cpu_times(self):
         user, system = cext.proc_cpu_times(self.pid)
-        return _common.pcputimes(user, system)
+        # Children user/system times are not retrievable (set to 0).
+        return _common.pcputimes(user, system, 0, 0)
 
     @wrap_exceptions
     def create_time(self):
@@ -330,9 +344,6 @@ class Process(object):
         try:
             return _psposix.wait_pid(self.pid, timeout)
         except _psposix.TimeoutExpired:
-            # support for private module import
-            if TimeoutExpired is None:
-                raise
             raise TimeoutExpired(timeout, self.pid, self._name)
 
     @wrap_exceptions

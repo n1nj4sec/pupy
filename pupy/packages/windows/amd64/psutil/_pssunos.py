@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -17,12 +15,15 @@ from . import _common
 from . import _psposix
 from . import _psutil_posix as cext_posix
 from . import _psutil_sunos as cext
-from ._common import isfile_strict, socktype_to_enum, sockfam_to_enum
+from ._common import isfile_strict
+from ._common import sockfam_to_enum
+from ._common import socktype_to_enum
 from ._common import usage_percent
+from ._compat import b
 from ._compat import PY3
 
 
-__extra__all__ = ["CONN_IDLE", "CONN_BOUND"]
+__extra__all__ = ["CONN_IDLE", "CONN_BOUND", "PROCFS_PATH"]
 
 PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
 AF_LINK = cext_posix.AF_LINK
@@ -58,17 +59,29 @@ TCP_STATUSES = {
 }
 
 scputimes = namedtuple('scputimes', ['user', 'system', 'idle', 'iowait'])
+pcputimes = namedtuple('pcputimes',
+                       ['user', 'system', 'children_user', 'children_system'])
 svmem = namedtuple('svmem', ['total', 'available', 'percent', 'used', 'free'])
-pextmem = namedtuple('pextmem', ['rss', 'vms'])
-pmmap_grouped = namedtuple('pmmap_grouped', ['path', 'rss', 'anon', 'locked'])
+pmem = namedtuple('pmem', ['rss', 'vms'])
+pfullmem = pmem
+pmmap_grouped = namedtuple('pmmap_grouped',
+                           ['path', 'rss', 'anonymous', 'locked'])
 pmmap_ext = namedtuple(
     'pmmap_ext', 'addr perms ' + ' '.join(pmmap_grouped._fields))
+
 
 # set later from __init__.py
 NoSuchProcess = None
 ZombieProcess = None
 AccessDenied = None
 TimeoutExpired = None
+
+
+# --- utils
+
+def get_procfs_path():
+    return sys.modules['psutil'].PROCFS_PATH
+
 
 # --- functions
 
@@ -97,13 +110,13 @@ def swap_memory():
     # ...nevertheless I can't manage to obtain the same numbers as 'swap'
     # cmdline utility, so let's parse its output (sigh!)
     p = subprocess.Popen(['/usr/bin/env', 'PATH=/usr/sbin:/sbin:%s' %
-                          os.environ['PATH'], 'swap', '-l', '-k'],
+                          os.environ['PATH'], 'swap', '-l'],
                          stdout=subprocess.PIPE)
     stdout, stderr = p.communicate()
     if PY3:
         stdout = stdout.decode(sys.stdout.encoding)
     if p.returncode != 0:
-        raise RuntimeError("'swap -l -k' failed (retcode=%s)" % p.returncode)
+        raise RuntimeError("'swap -l' failed (retcode=%s)" % p.returncode)
 
     lines = stdout.strip().split('\n')[1:]
     if not lines:
@@ -112,10 +125,8 @@ def swap_memory():
     for line in lines:
         line = line.split()
         t, f = line[-2:]
-        t = t.replace('K', '')
-        f = f.replace('K', '')
-        total += int(int(t) * 1024)
-        free += int(int(f) * 1024)
+        total += int(int(t) * 512)
+        free += int(int(f) * 512)
     used = total - free
     percent = usage_percent(used, total, _round=1)
     return _common.sswap(total, used, free, percent,
@@ -124,7 +135,7 @@ def swap_memory():
 
 def pids():
     """Returns a list of PIDs currently running on the system."""
-    return [int(x) for x in os.listdir('/proc') if x.isdigit()]
+    return [int(x) for x in os.listdir(b(get_procfs_path())) if x.isdigit()]
 
 
 def pid_exists(pid):
@@ -156,6 +167,13 @@ def cpu_count_logical():
 def cpu_count_physical():
     """Return the number of physical CPUs in the system."""
     return cext.cpu_count_phys()
+
+
+def cpu_stats():
+    ctx_switches, interrupts, syscalls, traps = cext.cpu_stats()
+    soft_interrupts = 0
+    return _common.scpustats(ctx_switches, interrupts, soft_interrupts,
+                             syscalls)
 
 
 def boot_time():
@@ -215,7 +233,7 @@ def net_connections(kind, _pid=-1):
         raise ValueError("invalid %r kind argument; choose between %s"
                          % (kind, ', '.join([repr(x) for x in cmap])))
     families, types = _common.conn_tmap[kind]
-    rawlist = cext.net_connections(_pid, families, types)
+    rawlist = cext.net_connections(_pid)
     ret = set()
     for item in rawlist:
         fd, fam, type_, laddr, raddr, status, pid = item
@@ -253,10 +271,6 @@ def wrap_exceptions(fun):
         try:
             return fun(self, *args, **kwargs)
         except EnvironmentError as err:
-            # support for private module import
-            if (NoSuchProcess is None or AccessDenied is None or
-                    ZombieProcess is None):
-                raise
             # ENOENT (no such file or directory) gets raised on open().
             # ESRCH (no such process) can get raised on read() if
             # process is gone in meantime.
@@ -274,21 +288,27 @@ def wrap_exceptions(fun):
 class Process(object):
     """Wrapper class around underlying C implementation."""
 
-    __slots__ = ["pid", "_name", "_ppid"]
+    __slots__ = ["pid", "_name", "_ppid", "_procfs_path"]
 
     def __init__(self, pid):
         self.pid = pid
         self._name = None
         self._ppid = None
+        self._procfs_path = get_procfs_path()
 
     @wrap_exceptions
     def name(self):
         # note: max len == 15
-        return cext.proc_name_and_args(self.pid)[0]
+        return cext.proc_name_and_args(self.pid, self._procfs_path)[0]
 
     @wrap_exceptions
     def exe(self):
-        # Will be guess later from cmdline but we want to explicitly
+        try:
+            return os.readlink(
+                "%s/%s/path/a.out" % (self._procfs_path, self.pid))
+        except OSError:
+            pass    # continue and guess the exe name from the cmdline
+        # Will be guessed later from cmdline but we want to explicitly
         # invoke cmdline here in order to get an AccessDenied
         # exception if the user has not enough privileges.
         self.cmdline()
@@ -296,15 +316,16 @@ class Process(object):
 
     @wrap_exceptions
     def cmdline(self):
-        return cext.proc_name_and_args(self.pid)[1].split(' ')
+        return cext.proc_name_and_args(
+            self.pid, self._procfs_path)[1].split(' ')
 
     @wrap_exceptions
     def create_time(self):
-        return cext.proc_basic_info(self.pid)[3]
+        return cext.proc_basic_info(self.pid, self._procfs_path)[3]
 
     @wrap_exceptions
     def num_threads(self):
-        return cext.proc_basic_info(self.pid)[5]
+        return cext.proc_basic_info(self.pid, self._procfs_path)[5]
 
     @wrap_exceptions
     def nice_get(self):
@@ -337,32 +358,36 @@ class Process(object):
 
     @wrap_exceptions
     def ppid(self):
-        return cext.proc_basic_info(self.pid)[0]
+        return cext.proc_basic_info(self.pid, self._procfs_path)[0]
 
     @wrap_exceptions
     def uids(self):
-        real, effective, saved, _, _, _ = cext.proc_cred(self.pid)
+        real, effective, saved, _, _, _ = \
+            cext.proc_cred(self.pid, self._procfs_path)
         return _common.puids(real, effective, saved)
 
     @wrap_exceptions
     def gids(self):
-        _, _, _, real, effective, saved = cext.proc_cred(self.pid)
+        _, _, _, real, effective, saved = \
+            cext.proc_cred(self.pid, self._procfs_path)
         return _common.puids(real, effective, saved)
 
     @wrap_exceptions
     def cpu_times(self):
-        user, system = cext.proc_cpu_times(self.pid)
-        return _common.pcputimes(user, system)
+        times = cext.proc_cpu_times(self.pid, self._procfs_path)
+        return _common.pcputimes(*times)
 
     @wrap_exceptions
     def terminal(self):
+        procfs_path = self._procfs_path
         hit_enoent = False
         tty = wrap_exceptions(
-            cext.proc_basic_info(self.pid)[0])
+            cext.proc_basic_info(self.pid, self._procfs_path)[0])
         if tty != cext.PRNODEV:
             for x in (0, 1, 2, 255):
                 try:
-                    return os.readlink('/proc/%d/path/%d' % (self.pid, x))
+                    return os.readlink(
+                        '%s/%d/path/%d' % (procfs_path, self.pid, x))
                 except OSError as err:
                     if err.errno == errno.ENOENT:
                         hit_enoent = True
@@ -370,7 +395,7 @@ class Process(object):
                     raise
         if hit_enoent:
             # raise NSP if the process disappeared on us
-            os.stat('/proc/%s' % self.pid)
+            os.stat('%s/%s' % (procfs_path, self.pid))
 
     @wrap_exceptions
     def cwd(self):
@@ -378,39 +403,40 @@ class Process(object):
         # it exists (ls shows it). If that's the case and the process
         # is still alive return None (we can return None also on BSD).
         # Reference: http://goo.gl/55XgO
+        procfs_path = self._procfs_path
         try:
-            return os.readlink("/proc/%s/path/cwd" % self.pid)
+            return os.readlink("%s/%s/path/cwd" % (procfs_path, self.pid))
         except OSError as err:
             if err.errno == errno.ENOENT:
-                os.stat("/proc/%s" % self.pid)
+                os.stat("%s/%s" % (procfs_path, self.pid))
                 return None
             raise
 
     @wrap_exceptions
     def memory_info(self):
-        ret = cext.proc_basic_info(self.pid)
+        ret = cext.proc_basic_info(self.pid, self._procfs_path)
         rss, vms = ret[1] * 1024, ret[2] * 1024
-        return _common.pmem(rss, vms)
+        return pmem(rss, vms)
 
-    # it seems Solaris uses rss and vms only
-    memory_info_ex = memory_info
+    memory_full_info = memory_info
 
     @wrap_exceptions
     def status(self):
-        code = cext.proc_basic_info(self.pid)[6]
+        code = cext.proc_basic_info(self.pid, self._procfs_path)[6]
         # XXX is '?' legit? (we're not supposed to return it anyway)
         return PROC_STATUSES.get(code, '?')
 
     @wrap_exceptions
     def threads(self):
+        procfs_path = self._procfs_path
         ret = []
-        tids = os.listdir('/proc/%d/lwp' % self.pid)
+        tids = os.listdir('%s/%d/lwp' % (procfs_path, self.pid))
         hit_enoent = False
         for tid in tids:
             tid = int(tid)
             try:
                 utime, stime = cext.query_process_thread(
-                    self.pid, tid)
+                    self.pid, tid, procfs_path)
             except EnvironmentError as err:
                 # ENOENT == thread gone in meantime
                 if err.errno == errno.ENOENT:
@@ -422,15 +448,16 @@ class Process(object):
                 ret.append(nt)
         if hit_enoent:
             # raise NSP if the process disappeared on us
-            os.stat('/proc/%s' % self.pid)
+            os.stat('%s/%s' % (procfs_path, self.pid))
         return ret
 
     @wrap_exceptions
     def open_files(self):
         retlist = []
         hit_enoent = False
-        pathdir = '/proc/%d/path' % self.pid
-        for fd in os.listdir('/proc/%d/fd' % self.pid):
+        procfs_path = self._procfs_path
+        pathdir = '%s/%d/path' % (procfs_path, self.pid)
+        for fd in os.listdir('%s/%d/fd' % (procfs_path, self.pid)):
             path = os.path.join(pathdir, fd)
             if os.path.islink(path):
                 try:
@@ -446,7 +473,7 @@ class Process(object):
                         retlist.append(_common.popenfile(file, int(fd)))
         if hit_enoent:
             # raise NSP if the process disappeared on us
-            os.stat('/proc/%s' % self.pid)
+            os.stat('%s/%s' % (procfs_path, self.pid))
         return retlist
 
     def _get_unix_sockets(self, pid):
@@ -490,7 +517,8 @@ class Process(object):
         # process is no longer active so we force NSP in case the PID
         # is no longer there.
         if not ret:
-            os.stat('/proc/%s' % self.pid)  # will raise NSP if process is gone
+            # will raise NSP if process is gone
+            os.stat('%s/%s' % (self._procfs_path, self.pid))
 
         # UNIX sockets
         if kind in ('all', 'unix'):
@@ -507,15 +535,17 @@ class Process(object):
             return '%s-%s' % (hex(start)[2:].strip('L'),
                               hex(end)[2:].strip('L'))
 
+        procfs_path = self._procfs_path
         retlist = []
-        rawlist = cext.proc_memory_maps(self.pid)
+        rawlist = cext.proc_memory_maps(self.pid, procfs_path)
         hit_enoent = False
         for item in rawlist:
             addr, addrsize, perm, name, rss, anon, locked = item
             addr = toaddr(addr, addrsize)
             if not name.startswith('['):
                 try:
-                    name = os.readlink('/proc/%s/path/%s' % (self.pid, name))
+                    name = os.readlink(
+                        '%s/%s/path/%s' % (procfs_path, self.pid, name))
                 except OSError as err:
                     if err.errno == errno.ENOENT:
                         # sometimes the link may not be resolved by
@@ -524,30 +554,28 @@ class Process(object):
                         # unresolved link path.
                         # This seems an incosistency with /proc similar
                         # to: http://goo.gl/55XgO
-                        name = '/proc/%s/path/%s' % (self.pid, name)
+                        name = '%s/%s/path/%s' % (procfs_path, self.pid, name)
                         hit_enoent = True
                     else:
                         raise
             retlist.append((addr, perm, name, rss, anon, locked))
         if hit_enoent:
             # raise NSP if the process disappeared on us
-            os.stat('/proc/%s' % self.pid)
+            os.stat('%s/%s' % (procfs_path, self.pid))
         return retlist
 
     @wrap_exceptions
     def num_fds(self):
-        return len(os.listdir("/proc/%s/fd" % self.pid))
+        return len(os.listdir("%s/%s/fd" % (self._procfs_path, self.pid)))
 
     @wrap_exceptions
     def num_ctx_switches(self):
-        return _common.pctxsw(*cext.proc_num_ctx_switches(self.pid))
+        return _common.pctxsw(
+            *cext.proc_num_ctx_switches(self.pid, self._procfs_path))
 
     @wrap_exceptions
     def wait(self, timeout=None):
         try:
             return _psposix.wait_pid(self.pid, timeout)
         except _psposix.TimeoutExpired:
-            # support for private module import
-            if TimeoutExpired is None:
-                raise
             raise TimeoutExpired(timeout, self.pid, self._name)

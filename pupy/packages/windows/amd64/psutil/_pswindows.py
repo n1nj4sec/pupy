@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -14,15 +12,22 @@ from collections import namedtuple
 
 from . import _common
 from . import _psutil_windows as cext
-from ._common import conn_tmap, usage_percent, isfile_strict
-from ._common import sockfam_to_enum, socktype_to_enum
-from ._compat import PY3, xrange, lru_cache, long
-from ._psutil_windows import (ABOVE_NORMAL_PRIORITY_CLASS,
-                              BELOW_NORMAL_PRIORITY_CLASS,
-                              HIGH_PRIORITY_CLASS,
-                              IDLE_PRIORITY_CLASS,
-                              NORMAL_PRIORITY_CLASS,
-                              REALTIME_PRIORITY_CLASS)
+from ._common import conn_tmap
+from ._common import isfile_strict
+from ._common import parse_environ_block
+from ._common import sockfam_to_enum
+from ._common import socktype_to_enum
+from ._common import usage_percent
+from ._compat import long
+from ._compat import lru_cache
+from ._compat import PY3
+from ._compat import xrange
+from ._psutil_windows import ABOVE_NORMAL_PRIORITY_CLASS
+from ._psutil_windows import BELOW_NORMAL_PRIORITY_CLASS
+from ._psutil_windows import HIGH_PRIORITY_CLASS
+from ._psutil_windows import IDLE_PRIORITY_CLASS
+from ._psutil_windows import NORMAL_PRIORITY_CLASS
+from ._psutil_windows import REALTIME_PRIORITY_CLASS
 
 if sys.version_info >= (3, 4):
     import enum
@@ -77,12 +82,15 @@ if enum is not None:
 
     globals().update(Priority.__members__)
 
-scputimes = namedtuple('scputimes', ['user', 'system', 'idle'])
+scputimes = namedtuple('scputimes',
+                       ['user', 'system', 'idle', 'interrupt', 'dpc'])
 svmem = namedtuple('svmem', ['total', 'available', 'percent', 'used', 'free'])
-pextmem = namedtuple(
-    'pextmem', ['num_page_faults', 'peak_wset', 'wset', 'peak_paged_pool',
-                'paged_pool', 'peak_nonpaged_pool', 'nonpaged_pool',
-                'pagefile', 'peak_pagefile', 'private'])
+pmem = namedtuple(
+    'pmem', ['rss', 'vms',
+             'num_page_faults', 'peak_wset', 'wset', 'peak_paged_pool',
+             'paged_pool', 'peak_nonpaged_pool', 'nonpaged_pool',
+             'pagefile', 'peak_pagefile', 'private'])
+pfullmem = namedtuple('pfullmem', pmem._fields + ('uss', ))
 pmmap_grouped = namedtuple('pmmap_grouped', ['path', 'rss'])
 pmmap_ext = namedtuple(
     'pmmap_ext', 'addr perms ' + ' '.join(pmmap_grouped._fields))
@@ -90,6 +98,7 @@ ntpinfo = namedtuple(
     'ntpinfo', ['num_handles', 'ctx_switches', 'user_time', 'kernel_time',
                 'create_time', 'num_threads', 'io_rcount', 'io_wcount',
                 'io_rbytes', 'io_wbytes'])
+
 
 # set later from __init__.py
 NoSuchProcess = None
@@ -174,15 +183,19 @@ def disk_partitions(all):
 def cpu_times():
     """Return system CPU times as a named tuple."""
     user, system, idle = cext.cpu_times()
-    return scputimes(user, system, idle)
+    # Internally, GetSystemTimes() is used, and it doesn't return
+    # interrupt and dpc times. cext.per_cpu_times() does, so we
+    # rely on it to get those only.
+    percpu_summed = scputimes(*[sum(n) for n in zip(*cext.per_cpu_times())])
+    return scputimes(user, system, idle,
+                     percpu_summed.interrupt, percpu_summed.dpc)
 
 
 def per_cpu_times():
     """Return system per-CPU times as a list of named tuples."""
     ret = []
-    for cpu_t in cext.per_cpu_times():
-        user, system, idle = cpu_t
-        item = scputimes(user, system, idle)
+    for user, system, idle, interrupt, dpc in cext.per_cpu_times():
+        item = scputimes(user, system, idle, interrupt, dpc)
         ret.append(item)
     return ret
 
@@ -195,6 +208,14 @@ def cpu_count_logical():
 def cpu_count_physical():
     """Return the number of physical CPUs in the system."""
     return cext.cpu_count_phys()
+
+
+def cpu_stats():
+    """Return CPU statistics."""
+    ctx_switches, interrupts, dpcs, syscalls = cext.cpu_stats()
+    soft_interrupts = 0
+    return _common.scpustats(ctx_switches, interrupts, soft_interrupts,
+                             syscalls)
 
 
 def boot_time():
@@ -277,9 +298,6 @@ def wrap_exceptions(fun):
         try:
             return fun(self, *args, **kwargs)
         except OSError as err:
-            # support for private module import
-            if NoSuchProcess is None or AccessDenied is None:
-                raise
             if err.errno in ACCESS_DENIED_SET:
                 raise AccessDenied(self.pid, self._name)
             if err.errno == errno.ESRCH:
@@ -337,6 +355,10 @@ class Process(object):
         else:
             return [py2_strencode(s) for s in ret]
 
+    @wrap_exceptions
+    def environ(self):
+        return parse_environ_block(cext.proc_environ(self.pid))
+
     def ppid(self):
         try:
             return ppid_map()[self.pid]
@@ -355,16 +377,19 @@ class Process(object):
 
     @wrap_exceptions
     def memory_info(self):
-        # on Windows RSS == WorkingSetSize and VSM == PagefileUsage
-        # fields of PROCESS_MEMORY_COUNTERS struct:
-        # http://msdn.microsoft.com/en-us/library/windows/desktop/
-        #     ms684877(v=vs.85).aspx
+        # on Windows RSS == WorkingSetSize and VSM == PagefileUsage.
+        # Underlying C function returns fields of PROCESS_MEMORY_COUNTERS
+        # struct.
         t = self._get_raw_meminfo()
-        return _common.pmem(t[2], t[7])
+        rss = t[2]  # wset
+        vms = t[7]  # pagefile
+        return pmem(*(rss, vms, ) + t)
 
     @wrap_exceptions
-    def memory_info_ex(self):
-        return pextmem(*self._get_raw_meminfo())
+    def memory_full_info(self):
+        basic_mem = self.memory_info()
+        uss = cext.proc_memory_uss(self.pid)
+        return pfullmem(*basic_mem + (uss, ))
 
     def memory_maps(self):
         try:
@@ -400,9 +425,6 @@ class Process(object):
             timeout = int(timeout * 1000)
         ret = cext.proc_wait(self.pid, timeout)
         if ret == WAIT_TIMEOUT:
-            # support for private module import
-            if TimeoutExpired is None:
-                raise RuntimeError("timeout expired")
             raise TimeoutExpired(timeout, self.pid, self._name)
         return ret
 
@@ -440,14 +462,15 @@ class Process(object):
     @wrap_exceptions
     def cpu_times(self):
         try:
-            ret = cext.proc_cpu_times(self.pid)
+            user, system = cext.proc_cpu_times(self.pid)
         except OSError as err:
             if err.errno in ACCESS_DENIED_SET:
                 nt = ntpinfo(*cext.proc_info(self.pid))
-                ret = (nt.user_time, nt.kernel_time)
+                user, system = (nt.user_time, nt.kernel_time)
             else:
                 raise
-        return _common.pcputimes(*ret)
+        # Children user/system times are not retrievable (set to 0).
+        return _common.pcputimes(user, system, 0, 0)
 
     @wrap_exceptions
     def suspend(self):
