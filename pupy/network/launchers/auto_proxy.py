@@ -100,22 +100,18 @@ def get_proxies(wpad_timeout=600):
 		user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$",env_proxy).groups()
 		yield ('HTTP', proxy, user, passwd)
 
-	try:
-		python_proxies = urllib.getproxies()
-	except:
-		python_proxies = urllib.request.getproxies()    
+	python_proxies = urllib.getproxies()    
     
-	if len(python_proxies) > 0:
-		for key in python_proxies:
-			if key.upper() in ('HTTP', 'HTTPS', 'SOCKS') and python_proxies[key] != '':
-				user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$",python_proxies[key]).groups()
-				
-				if key.upper() == 'SOCKS':
-					key = 'SOCKS4'
-				elif key.upper() == 'HTTPS':
-					key = 'HTTP'	
-				    
-				yield(key.upper(), proxy, user, passwd)
+	for key in python_proxies:
+		if key.upper() in ('HTTP', 'HTTPS', 'SOCKS') and python_proxies[key] != '':
+			user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$",python_proxies[key]).groups()
+			
+			if key.upper() == 'SOCKS':
+				key = 'SOCKS4'
+			elif key.upper() == 'HTTPS':
+				key = 'HTTP'	
+			    
+			yield(key.upper(), proxy, user, passwd)
 
 	if last_wpad is None or time.time()-last_wpad > wpad_timeout: # to avoid flooding the network with wpad requests :)
 		last_wpad=time.time()
