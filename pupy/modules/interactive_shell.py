@@ -54,11 +54,10 @@ class InteractiveShell(PupyModule):
 				program="/system/bin/sh"
 			elif self.client.is_windows():
 				program="cmd.exe"
-				encoding="cp437"
 			if args.program:
 				program=args.program
 			with redirected_stdio(self.client.conn):
-				self.client.conn.modules.interactive_shell.interactive_open(program=program, encoding=encoding)
+				self.client.conn.modules.interactive_shell.interactive_open(program=program)
 		else: #handling tty
 			self.client.load_package("ptyshell")
 			self.ps=self.client.conn.modules['ptyshell'].PtyShell()

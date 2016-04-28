@@ -7,6 +7,8 @@ from threading  import Thread
 from Queue import Queue, Empty
 import time
 import traceback
+import locale
+import re
 import rpyc
 import os
 
@@ -48,17 +50,23 @@ def flush_loop(queue, encoding):
 
 def interactive_open(program=None, encoding=None):
 	try:
-		if program is None:
+		if program is None or program=="cmd.exe":
 			if "win" in sys.platform.lower():
 				program="cmd.exe"
-				encoding="cp437"
+				try:
+					#couldn't find a better way, none of the following methods worked for me : kernel32.SetConsoleOutputCP(), locale.getpreferredencoding(), sys.stdout.encoding
+					encoding="cp"+str(re.findall(r".*:\s*([0-9]+)",subprocess.check_output("chcp", shell=True))[0])
+				except:
+					pass
 			else:
 				if "SHELL" in os.environ:
 					program=os.environ["SHELL"]
 				else:
 					program="/bin/sh"
 				encoding=None
-		print "Opening interactive %s ... (encoding : %s)"%(program,encoding)
+		if encoding is None:
+			encoding=locale.getpreferredencoding()
+		print "Opening interactive %s (with encoding %s)..."%(program,encoding)
 		if sys.platform=="win32":
 			startupinfo = subprocess.STARTUPINFO()
 			startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW
