@@ -11,10 +11,10 @@ def shell_exec(client, cmdline, shell=None):
 			if shell is None:
 				shell="/system/bin/sh"
 		if shell is None:
-			res=client.conn.modules.subprocess.check_output(cmdline, stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=True, universal_newlines=True)
+			res=client.conn.modules.subprocess.check_output(cmdline, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, shell=True, universal_newlines=True)
 		else:
 			command=[shell, '-c'] + cmdline.split()
-			res=client.conn.modules.subprocess.check_output(command, stderr=subprocess.PIPE, stdin=subprocess.PIPE, universal_newlines=True)
+			res=client.conn.modules.subprocess.check_output(command, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, universal_newlines=True)
 	except Exception as e:
 		if hasattr(e,'output') and e.output:
 			res=e.output
