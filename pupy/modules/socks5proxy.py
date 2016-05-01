@@ -66,13 +66,19 @@ class SocketPiper(threading.Thread):
 		finally:
 			try:
 				self.write_sock.shutdown(socket.SHUT_RDWR)
+			except:
+				pass
+			try:
 				self.write_sock.close()
-			except Exception:
+			except:
 				pass
 			try:
 				self.read_sock.shutdown(socket.SHUT_RDWR)
+			except:
+				pass
+			try:
 				self.read_sock.close()
-			except Exception:
+			except:
 				pass
 		logging.debug("piper finished")
 
@@ -82,8 +88,14 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
 		port=struct.pack("!H",self.server.server_address[1])
 		self.request.sendall("\x05"+code+"\x00"+"\x01"+ip+port)
 		if terminate:
-			self.request.shutdown(socket.SHUT_RDWR)
-			self.request.close()
+			try:
+				self.request.shutdown(socket.SHUT_RDWR)
+			except:
+				pass
+			try:
+				self.request.close()
+			except:
+				pass
 
 
 	def handle(self):
