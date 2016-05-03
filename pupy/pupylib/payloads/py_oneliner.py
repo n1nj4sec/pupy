@@ -9,35 +9,9 @@ import rpyc
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.utils.network import get_local_ip
+from pupylib.payloads.python_packer import get_load_module_code, gen_package_pickled_dic
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
-
-def get_load_module_code(code, modulename):
-	loader="""
-import imp, sys
-fullname={}
-mod = imp.new_module(fullname)
-mod.__file__ = "<bootloader>\\%s" % fullname
-exec {} in mod.__dict__
-sys.modules[fullname]=mod
-	""".format(repr(modulename),repr(code))
-	return loader
-
-def gen_package_pickled_dic(path, module_name):
-	modules_dic={}
-	start_path=module_name.replace(".", "/")
-	search_path=os.path.dirname(path)
-	print "embedding %s ..."%os.path.join(search_path, start_path)
-	for root, dirs, files in os.walk(os.path.join(search_path, start_path)):
-		for f in files:
-			module_code=""
-			with open(os.path.join(root,f),'rb') as fd:
-				module_code=fd.read()
-			modprefix = root[len(search_path.rstrip(os.sep))+1:]
-			modpath = os.path.join(modprefix,f).replace("\\","/")
-			modules_dic[modpath]=module_code
-	return modules_dic
-
 
 def pack_py_payload(conf):
 	print colorize("[+] ","green")+"generating payload ..."

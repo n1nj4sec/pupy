@@ -136,6 +136,7 @@ class PupyClient(object):
 		if not self.conn.modules.pupy.load_dll(name, buf):
 			raise ImportError("load_dll: couldn't load %s"%name)
 		self.imported_dlls[name]=True
+
 	def load_package(self, module_name, force=False):
 		if module_name in packages_dependencies:
 			for t,v in packages_dependencies[module_name]:
