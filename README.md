@@ -65,6 +65,8 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 	- monitor keys and the titles of the windows the text is typed into, plus the clipboard! (thanks @golind for the updates)
 - mouselogger:
 	- takes small screenshots around the mouse at each click and send them back to the server (thanks @golind)
+- token manipulation
+- getsystem
 
 ### Android specific
 - Text to speach for Android to say stuff out loud
