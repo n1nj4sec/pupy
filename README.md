@@ -104,6 +104,6 @@ No.
 by mail: contact@n1nj4.eu  
 on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)  
 
-If some of you want to participate to pupy development, don't hesitate ! All help is greatly appreciated and I will review every pull request.
+If some of you want to participate to pupy development, don't hesitate ! All help is greatly appreciated and I will review every pull request.  
 This project is a [personal development](https://en.wikipedia.org/wiki/Personal_development), please respect its philosophy and don't use it for evil purposes!  
 
