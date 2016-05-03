@@ -34,6 +34,9 @@ class PupyClient(object):
 		self.load_pupyimporter()
 		self.imported_dlls={}
 
+		#to reuse impersonated handle in other modules
+		self.impersonated_dupHandle=None
+
 	def __str__(self):
 		return "PupyClient(id=%s, user=%s, hostname=%s, platform=%s)"%(self.desc["id"], self.desc["user"], self.desc["hostname"], self.desc["platform"])
 
@@ -133,6 +136,7 @@ class PupyClient(object):
 		if not self.conn.modules.pupy.load_dll(name, buf):
 			raise ImportError("load_dll: couldn't load %s"%name)
 		self.imported_dlls[name]=True
+
 	def load_package(self, module_name, force=False):
 		if module_name in packages_dependencies:
 			for t,v in packages_dependencies[module_name]:

@@ -41,7 +41,9 @@ import threading
 import time
 import urllib
 import urllib2
-import socks
+import getpass
+import __future__
+import bz2
 #needed for scapy :
 import new 
 import fractions

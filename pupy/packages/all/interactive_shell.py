@@ -7,6 +7,8 @@ from threading  import Thread
 from Queue import Queue, Empty
 import time
 import traceback
+import locale
+import re
 import rpyc
 import os
 
@@ -49,23 +51,34 @@ def flush_loop(queue, encoding):
 def interactive_open(program=None, encoding=None):
 	try:
 		if program is None:
-			if "win" in sys.platform.lower():
+			if sys.platform=="win32":
 				program="cmd.exe"
-				encoding="cp437"
 			else:
 				if "SHELL" in os.environ:
 					program=os.environ["SHELL"]
 				else:
 					program="/bin/sh"
 				encoding=None
-		print "Opening interactive %s ... (encoding : %s)"%(program,encoding)
+
+		fullargs=[program]
+		if sys.platform=="win32":
+			try:
+				#couldn't find a better way, none of the following methods worked for me : kernel32.SetConsoleOutputCP(), locale.getpreferredencoding(), sys.stdout.encoding
+				encoding="cp"+str(re.findall(r".*:\s*([0-9]+)",subprocess.check_output("chcp", shell=True))[0])
+			except:
+				pass
+			if program.endswith("powershell") or program.endswith("powershell.exe"):
+				fullargs=["powershell.exe", "-C", "-"] # trick to make powershell work without blocking
+		if encoding is None:
+			encoding=locale.getpreferredencoding()
+		print "Opening interactive %s (with encoding %s)..."%(program,encoding)
 		if sys.platform=="win32":
 			startupinfo = subprocess.STARTUPINFO()
 			startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW
 			startupinfo.wShowWindow = subprocess.SW_HIDE
-			p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True, startupinfo=startupinfo)
+			p = Popen(fullargs, stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True, startupinfo=startupinfo)
 		else:
-			p = Popen([program], stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True)
+			p = Popen(fullargs, stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, close_fds=ON_POSIX, universal_newlines=True)
 		q = Queue()
 		q2 = Queue()
 		t = Thread(target=write_output, args=(p.stdout, q))

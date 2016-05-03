@@ -2,3 +2,4 @@ rpyc
 pycrypto
 pefile 
 pyyaml
+image

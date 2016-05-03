@@ -430,10 +430,6 @@ class PupyCmd(cmd.Cmd):
 			doc=doc.strip()
 			self.stdout.write("{:<20}	{}\n".format("%s/%s"%(mod.category,mod.get_name()), color(doc.split("\n",1)[0],'grey')))
 			
-	def do_clients(self, arg):
-		""" alias for sessions """
-		self.do_sessions(arg)
-
 	def do_sessions(self, arg):
 		""" list/interact with established sessions """
 		arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)

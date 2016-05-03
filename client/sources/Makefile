@@ -33,8 +33,8 @@ resources\library_compressed_string_$(ARCH).txt: gen_library_compressed_string.p
 resources\library_compressed_string.txt: resources\library_compressed_string_$(ARCH).txt
 	copy $< $@
 	
-resources_library_compressed_string_txt.c: gen_resource_header.py resources\library_compressed_string.txt
-	$(PYTHON) $+
+resources_library_compressed_string_txt.c: gen_resource_header.py resources\library_compressed_string.txt resources\library${ARCH}.zip
+	$(PYTHON) gen_resource_header.py resources\library_compressed_string.txt
 
 resources\bootloader.pyc: gen_python_bootloader.py ..\..\pupy\packages\all\pupyimporter.py ..\..\pupy\pp.py
 	$(PYTHON) gen_python_bootloader.py $(DEBUG_ADD)

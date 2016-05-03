@@ -23,6 +23,9 @@ class PsModule(PupyModule):
 			if args.all:
 				columns=['username', 'pid', 'arch', 'name', 'exe', 'cmdline', 'status']
 				for dic in outputlist:
+					for c in columns:
+						if c in dic and dic[c] is None:
+							dic[c]=""
 					dic["cmdline"]=' '.join(dic['cmdline'][1:])
 			else:
 				for dic in outputlist:
