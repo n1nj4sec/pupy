@@ -12,6 +12,8 @@ import os
 import socket
 import time
 import subprocess
+import urllib
+
 try:
 	from urllib import request as urllib
 except ImportError:
@@ -92,11 +94,24 @@ def get_proxies(wpad_timeout=600):
 
 		except Exception:
 			pass
-
+    
 	env_proxy=os.environ.get('HTTP_PROXY')
 	if env_proxy:
-		user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$","http://proxy.domain.com:3128").groups()
+		user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$",env_proxy).groups()
 		yield ('HTTP', proxy, user, passwd)
+
+	python_proxies = urllib.getproxies()    
+    
+	for key in python_proxies:
+		if key.upper() in ('HTTP', 'HTTPS', 'SOCKS') and python_proxies[key] != '':
+			user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)$",python_proxies[key]).groups()
+			
+			if key.upper() == 'SOCKS':
+				key = 'SOCKS4'
+			elif key.upper() == 'HTTPS':
+				key = 'HTTP'	
+			    
+			yield(key.upper(), proxy, user, passwd)
 
 	if last_wpad is None or time.time()-last_wpad > wpad_timeout: # to avoid flooding the network with wpad requests :)
 		last_wpad=time.time()
@@ -109,7 +124,6 @@ def get_proxies(wpad_timeout=600):
 				yield ('HTTP', p, None, None)
 		except Exception as e:
 			pass
-
 
 
 class AutoProxyLauncher(BaseLauncher):
