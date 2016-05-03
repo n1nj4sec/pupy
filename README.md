@@ -76,27 +76,8 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
 ### Some screenshots (not up to date)
-#####list connected clients
-![screenshot1](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/scr1.png "screenshot1")
-#####help
-![screenshot3](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/help.png "screenshot3")
-#####execute python code on all clients
-![screenshot2](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/scr2.png "screenshot2")
-#####execute a command on all clients, exception is retrieved in case the command does not exists
-![screenshot4](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/scr3.png "screenshot4")
-#####use a filter to send a module only on selected clients
-![screenshot5](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/filters.png "screenshot5")
-#####migrate into another process
-![screenshot6](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/migrate.png "screenshot6")
-#####interactive shells
-![screenshot7](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/interactive_shell.png "screenshot7")
-![screenshot7bis](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/interactive_shell2.png "screenshot7bis")
-#####interactive python shell
-![screenshot8](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/pyshell.png "screenshot8")
-#####upload and run another PE exe from memory
-![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/memory_exec.png "screenshot9")
-#####screenshot of a android session
-![screenshot9](https://github.com/n1nj4sec/pupy/raw/master/docs/screenshots/android.png "screenshot10")
+
+[Screenshot section on the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
 ## FAQ
 > Does the server work on windows?
