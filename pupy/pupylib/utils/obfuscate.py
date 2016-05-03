@@ -6,3 +6,4 @@ import base64, zlib
 
 def compress_encode_obfs(code):
 	return "import base64,zlib;exec zlib.decompress(base64.b64decode(%s))"%repr(base64.b64encode(zlib.compress(code+"\n")))
+

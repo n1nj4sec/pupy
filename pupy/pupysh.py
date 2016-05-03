@@ -31,8 +31,8 @@ import os.path
 import network.conf
 
 __author__='Nicolas VERDIER'
-__version__='v1.1'
-__date__='Apr 28 2016'
+__version__='v1.2'
+__date__='May 04 2016'
 
 def print_version():
 	print("Pupy - %s"%(__version__))

