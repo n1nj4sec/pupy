@@ -15,6 +15,6 @@ class UploaderScript(PupyModule):
 		self.arg_parser.add_argument('local_file', metavar='<local_path>', completer=path_completer)
 		self.arg_parser.add_argument('remote_file', metavar='<remote_path>')
 	def run(self, args):
-		upload(self.client.conn, args.local_file, args.remote_file)
+		upload(self.client.conn, args.local_file, self.client.conn.modules['os.path'].expandvars(args.remote_file))
 		self.success("file local:%s uploaded to remote:%s"%(args.local_file, args.remote_file))
 
