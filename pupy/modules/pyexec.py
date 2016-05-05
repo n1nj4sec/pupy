@@ -1,11 +1,9 @@
 # -*- coding: UTF8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
-from pupylib.PupyErrors import *
+
+from pupylib import *
 import StringIO
-from pupylib.utils.rpyc_utils import redirected_stdo
 
 __class_name__="PythonExec"
 
