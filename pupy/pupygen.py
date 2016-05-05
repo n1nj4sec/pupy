@@ -45,8 +45,8 @@ def get_edit_binary(path, conf):
 
 	new_conf=get_raw_conf(conf, obfuscate=True)
 	new_conf+="\n\x00\x00\x00\x00\x00\x00\x00\x00"
-	if len(new_conf)>4092:
-		raise Exception("Error: config or offline script too long\nYou need to recompile the dll with a bigger buffer")
+	if len(new_conf)>40960-1:
+		raise Exception("Error: config or offline script too long (%s/40960 bytes)\nYou need to recompile the dll with a bigger buffer"%len(new_conf))
 	binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
 	return binary
 

