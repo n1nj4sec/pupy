@@ -44,6 +44,7 @@ if __name__=="__main__":
 	parser.add_argument('--log-lvl', '--lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
 	parser.add_argument('--version', help="print version and exit", action='store_true')
 	parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default='tcp_ssl', help="change the transport ! :-)")
+	parser.add_argument('--transport-args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
 	parser.add_argument('--port', '-p', help="change the listening port", type=int)
 	args=parser.parse_args()
 	if args.version:
@@ -61,7 +62,7 @@ if __name__=="__main__":
 	logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
 	logging.getLogger().setLevel(loglevel)
 
-	pupyServer=pupylib.PupyServer.PupyServer(args.transport, port=args.port)
+	pupyServer=pupylib.PupyServer.PupyServer(args.transport, args.transport_args, port=args.port)
 	try:
 		import __builtin__ as builtins
 	except ImportError:

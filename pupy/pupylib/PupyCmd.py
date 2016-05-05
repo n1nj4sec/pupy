@@ -176,7 +176,9 @@ class PupyCmd(cmd.Cmd):
 		self.intro += color(BANNER_INFO, 'darkgrey')
 		if sys.platform=="win32":
 			self.intro+="\n"+self.format_warning("You are running Pupy server on Windows. Pupy server works best on linux. Pupy server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but it don't always find the time to fix everything. If you find the courage to patch non portable code, I will gladly accept push requests ! :)\n")
-		self.intro += "\n"+self.format_srvinfo("Server started on %s:%s with transport %s"%(self.pupsrv.address, self.pupsrv.port, self.pupsrv.transport)).rstrip("\n")
+			
+		self.intro += "\n"+self.format_srvinfo("Server started on %s:%s with transport %s%s"%(self.pupsrv.address, self.pupsrv.port, self.pupsrv.transport, (" and transport_args=%s"%repr(self.pupsrv.transport_kwargs) if self.pupsrv.transport_kwargs else ""))).rstrip("\n")
+			
 		self.raw_prompt= color('>> ','blue')
 		self.prompt = color('>> ','blue', prompt=True)
 		self.doc_header = 'Available commands :\n'

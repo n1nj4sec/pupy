@@ -27,6 +27,7 @@ from .PupyCategories import PupyCategories
 from network.conf import transports
 from pupylib.utils.rpyc_utils import obtain
 from .PupyTriggers import on_connect
+from network.utils import parse_transports_args
 
 try:
 	import ConfigParser as configparser
@@ -37,7 +38,7 @@ import os.path
 
 
 class PupyServer(threading.Thread):
-	def __init__(self, transport, port=None):
+	def __init__(self, transport, transport_kwargs, port=None):
 		super(PupyServer, self).__init__()
 		self.daemon=True
 		self.server=None
@@ -57,6 +58,7 @@ class PupyServer(threading.Thread):
 		self.handler=None
 		self.handler_registered=threading.Event()
 		self.transport=transport
+		self.transport_kwargs=transport_kwargs
 		self.categories=PupyCategories(self)
 
 	def register_handler(self, instance):
@@ -305,11 +307,19 @@ class PupyServer(threading.Thread):
 	def run(self):
 		self.handler_registered.wait()
 		t=transports[self.transport]
+		transport_kwargs=t['server_transport_kwargs']
+		if self.transport_kwargs:
+			opt_args=parse_transports_args(self.transport_kwargs)
+			for val in opt_args:
+				if val.lower() in t['server_transport_kwargs']:
+					transport_kwargs[val.lower()]=opt_args[val]
+				else:
+					logging.warning("unknown transport argument : %s"%tab[0])
 		if t['authenticator']:
 			authenticator=t['authenticator']()
 		else:
 			authenticator=None
-		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=t['server_transport_kwargs'])
+		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs)
 		self.server.start()
 
 

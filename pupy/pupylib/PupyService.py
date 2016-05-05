@@ -46,7 +46,14 @@ class PupyService(rpyc.Service):
 			self.modules=None
 
 			#some aliases :
-			self.namespace=self._conn.root.namespace
+			try:
+				self.namespace=self._conn.root.namespace
+			except Exception:
+				if logging.getLogger().getEffectiveLevel()==logging.DEBUG:
+					raise
+				else:
+					return
+				
 			self.execute=self._conn.root.execute
 			self.exit=self._conn.root.exit
 			self.eval=self._conn.root.eval
