@@ -20,5 +20,9 @@ packages_dependencies={
 		(LOAD_PACKAGE, "win32security"),
 		(LOAD_PACKAGE, "win32con"),
 	],
+	"pyaudio" : [
+		(LOAD_PACKAGE, "_portaudio"),
+	],
+
 
 }
