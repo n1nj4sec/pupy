@@ -27,7 +27,8 @@ client/sources/resources/library_compressed_string_x64.txt
 client/sources/resources_msvcr90_dll.c
 client/sources/resources/libraryx64.zip
 client/sources/resources/libraryx86.zip
-
+client/android_sources/bin
+client/android_sources/.buildozer
 # Byte-compiled / optimized / DLL files
 __pycache__/
 client/**/*.py[cod]

