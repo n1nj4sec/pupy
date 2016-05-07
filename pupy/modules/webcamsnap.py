@@ -63,7 +63,7 @@ class WebcamSnapModule(PupyModule):
 			with open(filepath,"w") as f:
 				f.write(data)
 		if args.view:
-			subprocess.Popen(["eog",filepath])
+			subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
 		self.success("webcam picture saved to %s"%filepath)
 
 

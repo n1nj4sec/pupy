@@ -45,7 +45,7 @@ class Screenshoter(PupyModule):
 		self.arg_parser = PupyArgumentParser(prog='screenshot', description=self.__doc__)
 		self.arg_parser.add_argument('-e', '--enum', action='store_true', help='enumerate screen')
 		self.arg_parser.add_argument('-s', '--screen', type=int, default=None, help='take a screenshot on a specific screen (default all screen on one screenshot)')
-		self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the screenshot for preview')
+		self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
 
 	def run(self, args):
 		try:
@@ -70,7 +70,7 @@ class Screenshoter(PupyModule):
 		filepath=os.path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
 		pil_save(filepath, screenshot_pixels, selected_screen["width"], selected_screen["height"])
 		if args.view:
-			subprocess.Popen(["eog",filepath])
+			subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
 		self.success("screenshot saved to %s"%filepath)
 
 
