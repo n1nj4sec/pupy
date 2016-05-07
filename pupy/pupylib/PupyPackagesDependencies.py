@@ -13,5 +13,12 @@ packages_dependencies={
 	"pupwinutils.memexec" : [
 		(LOAD_PACKAGE, "pupymemexec"),
 	],
+	"memorpy" : [
+		(LOAD_PACKAGE, "win32api"),
+		(LOAD_PACKAGE, "win32console"),
+		(LOAD_PACKAGE, "win32gui"),
+		(LOAD_PACKAGE, "win32security"),
+		(LOAD_PACKAGE, "win32con"),
+	],
 
 }
