@@ -25,9 +25,7 @@ import shutil
 import platform
 import errno, stat
 import zlib
-import tempfile
 import code
-import Queue
 import glob
 import multiprocessing
 import math
@@ -38,7 +36,6 @@ import json
 import ctypes
 import ctypes.wintypes
 import threading
-import time
 import urllib
 import urllib2
 import getpass
