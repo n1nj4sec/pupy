@@ -65,7 +65,10 @@ class InteractiveShell(PupyModule):
 			if args.program:
 				program=args.program.split()
 			try:
-				self.ps.spawn(program)
+				term="xterm"
+				if "TERM" in os.environ:
+					term=os.environ["TERM"]
+				self.ps.spawn(program, term=term)
 				is_closed=Event()
 				self.ps.start_read_loop(print_callback, is_closed.set)
 				self.set_pty_size=rpyc.async(self.ps.set_pty_size)

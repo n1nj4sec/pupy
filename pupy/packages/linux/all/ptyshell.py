@@ -32,12 +32,12 @@ class PtyShell(object):
 	def __del__(self):
 		self.close()
 
-	def spawn(self, argv=None):
+	def spawn(self, argv=None, term=None):
 		if argv is None:
 			if 'SHELL' in os.environ:
 				argv = [os.environ['SHELL']]
 			elif 'PATH' in os.environ: #searching sh in the path. It can be unusual like /system/bin/sh on android
-				for shell in ["sh","bash","ksh","zsh","csh","ash"]:
+				for shell in ["bash","sh","ksh","zsh","csh","ash"]:
 					for path in os.environ['PATH'].split(':'):
 						fullpath=os.path.join(path.strip(),shell)
 						if os.path.isfile(fullpath):
@@ -47,6 +47,8 @@ class PtyShell(object):
 						break
 		if not argv:
 			argv= ['/bin/sh']
+		if term is not None:
+			os.environ['TERM']=term
 
 		master, slave = pty.openpty()
 		self.slave=slave
