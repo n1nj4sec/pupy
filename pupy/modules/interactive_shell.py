@@ -82,7 +82,11 @@ class InteractiveShell(PupyModule):
 					while True:
 						r, w, x = select.select([sys.stdin], [], [], 0)
 						if sys.stdin in r:
-							input_buf+=sys.stdin.read(1)
+							last_input=sys.stdin.read(1)
+							if last_input=="\x1b": # in case we read the escape character, we read stdin again because mysteriously, the select won't unlock before getting another character again
+								last_input+=sys.stdin.read(2)
+								
+							input_buf+=last_input
 						elif input_buf:
 							self.ps.write(input_buf)
 							input_buf=b""
