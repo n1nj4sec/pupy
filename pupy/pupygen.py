@@ -279,7 +279,7 @@ if __name__=="__main__":
 		get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
 	elif args.format=="py":
 		if not outpath:
-			outpath="pupy_packed.py"
+			outpath="payload.py"
 		packed_payload=pack_py_payload(get_raw_conf(conf))
 		with open(outpath, 'wb') as w:
 			w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
