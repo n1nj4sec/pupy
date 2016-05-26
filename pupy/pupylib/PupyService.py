@@ -73,6 +73,8 @@ class PupyService(rpyc.Service):
 	def exposed_set_modules(self, modules):
 		self.modules=modules
 
-
+class PupyBindService(PupyService):
+	def exposed_get_password(self):
+		return self.pupy_srv.config.get("pupyd", "bind_password").strip()
 
 

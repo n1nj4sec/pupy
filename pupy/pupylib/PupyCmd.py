@@ -528,6 +528,11 @@ class PupyCmd(cmd.Cmd):
 			builtins.exit=orig_exit
 			builtins.quit=orig_quit
 
+	def do_connect(self, arg):
+		""" connect on a client using a bind payload """
+		self.pupsrv.connect_on_client(arg)
+		self.display("\n")
+
 	def do_run(self, arg):
 		""" run a module on one or multiple clients"""
 		arg_parser = PupyArgumentParser(prog='run', description='run a module on one or multiple clients')
