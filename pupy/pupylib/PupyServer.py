@@ -42,7 +42,7 @@ import os.path
 
 
 class PupyServer(threading.Thread):
-	def __init__(self, transport, transport_kwargs, port=None):
+	def __init__(self, transport, transport_kwargs, port=None, ipv6=None):
 		super(PupyServer, self).__init__()
 		self.daemon=True
 		self.server=None
@@ -58,7 +58,14 @@ class PupyServer(threading.Thread):
 			self.port=self.config.getint("pupyd", "port")
 		else:
 			self.port=port
-		self.address=self.config.get("pupyd", "address")
+		if ipv6 is None:
+			self.ipv6=self.config.getboolean("pupyd", "ipv6")
+		else:
+			self.ipv6=ipv6
+		try:
+			self.address=self.config.get("pupyd", "address")
+		except configparser.NoOptionError:
+			self.address=''
 		self.handler=None
 		self.handler_registered=threading.Event()
 		self.transport=transport
@@ -341,7 +348,7 @@ class PupyServer(threading.Thread):
 			authenticator=t['authenticator']()
 		else:
 			authenticator=None
-		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs)
+		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs, ipv6=self.ipv6)
 		self.server.start()
 
 

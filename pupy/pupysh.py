@@ -43,7 +43,7 @@ if __name__=="__main__":
 	parser = argparse.ArgumentParser(prog='ptrconsole', description="Pupy console")
 	parser.add_argument('--log-lvl', '--lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
 	parser.add_argument('--version', help="print version and exit", action='store_true')
-	parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default='tcp_ssl', help="change the transport ! :-)")
+	parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default='ssl', help="change the transport ! :-)")
 	parser.add_argument('--transport-args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
 	parser.add_argument('--port', '-p', help="change the listening port", type=int)
 	args=parser.parse_args()

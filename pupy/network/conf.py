@@ -6,14 +6,19 @@ import os
 import logging
 from .servers import PupyTCPServer
 from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
-from .transports import dummy, b64
-from .transports.obfs3 import obfs3
+from .transports import dummy, b64, http
+try:
+	from .transports.obfs3 import obfs3
+except ImportError as e:
+	#to make pupy works even without scramblesuit dependencies
+	logging.warning("%s. The obfs3 transport has been disabled."%e)
+	obfs3=None
 
 try:
 	from .transports.scramblesuit import scramblesuit
 except ImportError as e:
 	#to make pupy works even without scramblesuit dependencies
-	logging.warning("%s. The transport has been disabled."%e)
+	logging.warning("%s. The scramblesuit transport has been disabled."%e)
 	scramblesuit=None
 from .streams import PupySocketStream
 from .launchers.simple import SimpleLauncher
@@ -38,8 +43,8 @@ scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
 transports={}
 launchers={}
 
-transports["tcp_ssl"]={
-		"info" : "Simple reverse TCP payload with SSL",
+transports["ssl"]={
+		"info" : "TCP transport wrapped with SSL",
 		"server" : PupyTCPServer,
 		"client": PupySSLClient,
 		"client_kwargs" : {},
@@ -50,8 +55,8 @@ transports["tcp_ssl"]={
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
 	}
-transports["tcp_ssl_proxy"]={
-		"info" : "Simple reverse TCP payload with SSL passing through a SOCKS4/SOCKS5/HTTP proxy",
+transports["ssl_proxy"]={
+		"info" : "TCP transport wrapped with SSL and passing through a SOCKS4/SOCKS5/HTTP proxy",
 		"server" : PupyTCPServer,
 		"client": PupyProxifiedSSLClient,
 		"client_kwargs" : {'proxy_addr': None, 'proxy_port': None, 'proxy_type':'HTTP'},
@@ -63,7 +68,7 @@ transports["tcp_ssl_proxy"]={
 		"server_transport_kwargs": {},
 	}
 transports["tcp_cleartext"]={
-		"info" : "Simple reverse TCP payload (cleartext)",
+		"info" : "Simple TCP transport transmitting in cleartext",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -75,7 +80,7 @@ transports["tcp_cleartext"]={
 		"server_transport_kwargs": {},
 	}
 transports["tcp_cleartext_proxy"]={
-		"info" : "Simple reverse TCP payload in cleartext passing through a SOCKS4/SOCKS5/HTTP proxy",
+		"info" : "TCP transport transmitting in cleartext and passing through a SOCKS4/SOCKS5/HTTP proxy",
 		"server" : PupyTCPServer,
 		"client": PupyProxifiedTCPClient,
 		"client_kwargs" : {'proxy_addr':'127.0.0.1', 'proxy_port':8080, 'proxy_type':'HTTP'},
@@ -87,7 +92,7 @@ transports["tcp_cleartext_proxy"]={
 		"server_transport_kwargs": {},
 	}
 transports["tcp_base64"]={
-		"info" : "Reverse TCP payload with base64 encoding",
+		"info" : "TCP transport with base64 encoding",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
@@ -98,21 +103,37 @@ transports["tcp_base64"]={
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
 	}
-transports["obfs3"]={
-		"info" : "Reverse TCP Payload using obfs3 transport",
+"""
+transports["http_cleartext"]={
+		"info" : "TCP transport using HTTP with base64 encoded payloads",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
 		"authenticator" : None,
 		"stream": PupySocketStream ,
-		"client_transport" : obfs3.Obfs3Client,
-		"server_transport" : obfs3.Obfs3Server,
+		"client_transport" : http.PupyHTTPClient,
+		"server_transport" : http.PupyHTTPServer,
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
 	}
+"""
+
+if obfs3:
+	transports["obfs3"]={
+			"info" : "TCP transport using obfsproxy's obfs3 transport",
+			"server" : PupyTCPServer,
+			"client": PupyTCPClient,
+			"client_kwargs" : {},
+			"authenticator" : None,
+			"stream": PupySocketStream ,
+			"client_transport" : obfs3.Obfs3Client,
+			"server_transport" : obfs3.Obfs3Server,
+			"client_transport_kwargs": {},
+			"server_transport_kwargs": {},
+		}
 if scramblesuit:
 	transports["scramblesuit"]={
-			"info" : "Reverse TCP Payload using scramblesuit transport",
+			"info" : "TCP transport using the obfsproxy's scramblesuit transport",
 			"server" : PupyTCPServer,
 			"client": PupyTCPClient,
 			"client_kwargs" : {},

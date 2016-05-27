@@ -21,6 +21,12 @@ class addGetPeer(object):
 	def getPeer(self):
 		return self.peer
 
+def monitor(up, down):
+	while True:
+		print "up: %s"%len(up)
+		print "down: %s"%len(down)
+		time.sleep(2)
+
 class PupySocketStream(SocketStream):
 	def __init__(self, sock, transport_class, transport_kwargs={}):
 		super(PupySocketStream, self).__init__(sock)
@@ -30,6 +36,10 @@ class PupySocketStream(SocketStream):
 		#buffers for transport
 		self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
 		self.downstream=Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(sock.getpeername()))
+
+		t=threading.Thread(target=monitor, args=(self.upstream, self.downstream))
+		t.daemon=True
+		t.start()
 
 		self.transport=transport_class(self, **transport_kwargs)
 		self.on_connect()

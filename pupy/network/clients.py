@@ -10,19 +10,18 @@ class PupyClient(object):
 		raise NotImplementedError("connect not implemented")
 
 class PupyTCPClient(PupyClient):
-	def __init__(self, family = socket.AF_INET, socktype = socket.SOCK_STREAM, proto = 0, timeout = 3, nodelay = False, keepalive = False):
+	def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM, timeout = 3, nodelay = False, keepalive = False):
 		super(PupyTCPClient, self).__init__()
 		self.sock=None
 
-		self.family=socket.AF_INET
-		self.socktype=socket.SOCK_STREAM
-		self.proto=proto
+		self.family=family
+		self.socktype=socktype
 		self.timeout=timeout
 		self.nodelay=nodelay
 		self.keepalive=keepalive
 
 	def connect(self, host, port):
-		family, socktype, proto, _, sockaddr = socket.getaddrinfo(host, port, self.family, self.socktype, self.proto)[0]
+		family, socktype, proto, _, sockaddr = socket.getaddrinfo(host, port, self.family, self.socktype)[0]
 		s = socket.socket(family, socktype, proto)
 		s.settimeout(self.timeout)
 		s.connect(sockaddr)
@@ -32,7 +31,7 @@ class PupyTCPClient(PupyClient):
 			s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 			# Linux specific: after 10 idle minutes, start sending keepalives every 5 minutes. 
 			# Drop connection after 10 failed keepalives
-		if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT")    :
+		if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT"):
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10 * 60)
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
@@ -57,7 +56,7 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 
 	def connect(self, host, port):
 		socks.set_default_proxy(proxy_type=socks.PROXY_TYPES[self.proxy_type], addr=self.proxy_addr, port=self.proxy_port, rdns=True, username=self.proxy_username, password=self.proxy_password)
-		family, socktype, proto, _, sockaddr = socket.getaddrinfo(host, port, self.family, self.socktype, self.proto)[0]
+		family, socktype, proto, _, sockaddr = socket.getaddrinfo(host, port, self.family, self.socktype)[0]
 		s=socks.socksocket(family, socktype, proto)
 		s.settimeout(self.timeout)
 		s.connect(sockaddr)
@@ -67,7 +66,7 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 			s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 			# Linux specific: after 10 idle minutes, start sending keepalives every 5 minutes. 
 			# Drop connection after 10 failed keepalives
-		if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT")    :
+		if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT"):
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10 * 60)
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
 			s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)

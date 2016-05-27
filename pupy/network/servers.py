@@ -35,7 +35,9 @@ class PupyTCPServer(ThreadPoolServer):
 		else:
 			credentials = None
 		# build a connection
-		h, p = sock.getpeername()
+		addrinfo = sock.getpeername()
+		h=addrinfo[0]
+		p=addrinfo[1]
 		config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
 		return Connection(self.service, Channel(self.stream_class(sock, self.transport_class, self.transport_kwargs)), config=config)
 
