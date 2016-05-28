@@ -23,4 +23,6 @@ Pupy also uses some code source/libraries from other projects under different li
 		-obfsproxy software is under the 3-Clause BSD License. Copyright 2013 George Kadianakis
 	-For the launchers :
 		-SocksiPy - Python SOCKS module. 3-Clause BSD License. Copyright 2006 Dan-Haim. (cf pupy/network/socks.py)
+	-For the pupylib:
+		-creddump software is under GPL license, you can check pupy/pupylib/creddump/COPYING.orig
 
