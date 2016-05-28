@@ -50,10 +50,9 @@ class Buffer(object):
 		"""
 		Append 'data' to the buffer.
 		"""
-		with self.waiting_lock:
-			self.buffer = self.buffer + data
-			self.on_write()
-			self.waiting.set()
+		self.buffer = self.buffer + data
+		self.on_write()
+		self.waiting.set()
 
 	def peek(self, n=-1):
 		"""

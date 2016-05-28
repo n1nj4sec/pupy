@@ -21,12 +21,6 @@ class addGetPeer(object):
 	def getPeer(self):
 		return self.peer
 
-def monitor(up, down):
-	while True:
-		print "up: %s"%len(up)
-		print "down: %s"%len(down)
-		time.sleep(2)
-
 class PupySocketStream(SocketStream):
 	def __init__(self, sock, transport_class, transport_kwargs={}):
 		super(PupySocketStream, self).__init__(sock)
@@ -36,10 +30,6 @@ class PupySocketStream(SocketStream):
 		#buffers for transport
 		self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
 		self.downstream=Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(sock.getpeername()))
-
-		t=threading.Thread(target=monitor, args=(self.upstream, self.downstream))
-		t.daemon=True
-		t.start()
 
 		self.transport=transport_class(self, **transport_kwargs)
 		self.on_connect()
@@ -79,6 +69,7 @@ class PupySocketStream(SocketStream):
 		if len(self.downstream)>0:
 			super(PupySocketStream, self).write(self.downstream.read())
 
+	"""
 	def _downstream_recv_loop(self):
 		try:
 			while True:
@@ -86,7 +77,7 @@ class PupySocketStream(SocketStream):
 				self.transport.downstream_recv(self.buf_in)
 		except EOFError as e:
 			self.upstream.set_eof(e)
-
+	"""
 
 	def read(self, count):
 		try:
@@ -96,9 +87,11 @@ class PupySocketStream(SocketStream):
 				if self.sock_poll(0):
 					self._read()
 					self.transport.downstream_recv(self.buf_in)
+
 				#it seems we can actively wait here with only perf enhancement
 				#if len(self.upstream)<count:
 				#	self.upstream.wait(0.1)#to avoid active wait
+
 			return self.upstream.read(count)
 		except Exception as e:
 			logging.debug(traceback.format_exc())

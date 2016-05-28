@@ -103,7 +103,7 @@ transports["tcp_base64"]={
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
 	}
-"""
+
 transports["http_cleartext"]={
 		"info" : "TCP transport using HTTP with base64 encoded payloads",
 		"server" : PupyTCPServer,
@@ -116,7 +116,6 @@ transports["http_cleartext"]={
 		"client_transport_kwargs": {},
 		"server_transport_kwargs": {},
 	}
-"""
 
 if obfs3:
 	transports["obfs3"]={

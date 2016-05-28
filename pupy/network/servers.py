@@ -26,7 +26,9 @@ class PupyTCPServer(ThreadPoolServer):
 		changed if rpyc evolves'''
 		# authenticate
 		if self.authenticator:
-			h, p = sock.getpeername()
+			addrinfo = sock.getpeername()
+			h=addrinfo[0]
+			p=addrinfo[1]
 			try:
 				sock, credentials = self.authenticator(sock)
 			except AuthenticationError:

