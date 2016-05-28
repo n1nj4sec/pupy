@@ -31,6 +31,9 @@ class PupySocketStream(SocketStream):
 		self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
 		self.downstream=Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(sock.getpeername()))
 
+		self.upstream_lock=threading.Lock()
+		self.downstream_lock=threading.Lock()
+
 		self.transport=transport_class(self, **transport_kwargs)
 		self.on_connect()
 		#self.async_read_thread=threading.Thread(target=self._downstream_recv_loop)
@@ -85,8 +88,9 @@ class PupySocketStream(SocketStream):
 				return self.upstream.read(count)
 			while len(self.upstream)<count:
 				if self.sock_poll(0):
-					self._read()
-					self.transport.downstream_recv(self.buf_in)
+					with self.downstream_lock:
+						self._read()
+						self.transport.downstream_recv(self.buf_in)
 
 				#it seems we can actively wait here with only perf enhancement
 				#if len(self.upstream)<count:
@@ -98,8 +102,9 @@ class PupySocketStream(SocketStream):
 
 	def write(self, data):
 		try:
-			self.buf_out.write(data)
-			self.transport.upstream_recv(self.buf_out)
+			with self.upstream_lock:
+				self.buf_out.write(data)
+				self.transport.upstream_recv(self.buf_out)
 			#The write will be done by the _upstream_recv callback on the downstream buffer
 		except Exception as e:
 			logging.debug(traceback.format_exc())
