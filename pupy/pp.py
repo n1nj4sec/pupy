@@ -211,7 +211,7 @@ def rpyc_loop(launcher):
 					while True:
 						attempt=0
 						conn.serve()
-						#time.sleep(0.001)
+						time.sleep(0.001)
 			except KeyboardInterrupt:
 				raise
 			except EOFError:

@@ -4,6 +4,7 @@ from pupylib.PupyCompleter import *
 from rpyc.utils.classic import download
 import os
 import os.path
+import time
 
 __class_name__="DownloaderScript"
 
@@ -24,6 +25,10 @@ class DownloaderScript(PupyModule):
 				pass
 			args.local_file=os.path.join(rep, os.path.basename(remote_file.replace("\\",os.sep).replace("/",os.sep).rstrip("/\\")))
 		self.info("downloading %s ..."%remote_file)
+		start_time=time.time()
 		download(self.client.conn, remote_file, args.local_file)
 		self.success("file downloaded from remote:%s to local:%s"%(remote_file, args.local_file))
+		size=os.path.getsize(args.local_file)
+		total_time=round(time.time()-start_time, 2)
+		self.info("%s bytes downloaded in: %ss. average %sKB/s"%(size, total_time, round((size/total_time)/10**3, 2)))
 
