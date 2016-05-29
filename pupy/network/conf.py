@@ -145,6 +145,7 @@ if scramblesuit:
 		}
 
 launchers["connect"]=SimpleLauncher
+launchers["simple"]=SimpleLauncher # keeped for backward-compatibility with old windows templates
 launchers["auto_proxy"]=AutoProxyLauncher
 launchers["bind"]=BindLauncher
 
