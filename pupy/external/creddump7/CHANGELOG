@@ -1,0 +1,9 @@
+Version: 0.3 Date: 8/1/2012
+
+* Fixed LM and NTLM Hash Corruption issue. Thanks to Jonathan Claudius.
+  Closes Issue 3.
+
+Version: 0.2 Date: 2/24/2011
+
+* Fixed issue with wrong format specifier being used (L instead of I), which
+  caused creddump to fail on 64-bit systems.

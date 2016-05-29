@@ -19,6 +19,8 @@ Pupy also uses some code source/libraries from other projects under different li
 			http://videocapture.sourceforge.net/
 		-psutil by Giampaolo Rodola under the BSD license
 			https://github.com/giampaolo/psutil
+	-For the external libraries in pupy/external/
+		-creddump software is under GPLv3 license, you can see the full license terms in pupy/external/creddump7/COPYING.orig
 	-For the transports :
 		-obfsproxy software is under the 3-Clause BSD License. Copyright 2013 George Kadianakis
 	-For the launchers :
