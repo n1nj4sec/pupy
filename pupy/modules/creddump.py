@@ -42,8 +42,6 @@ class CredDump(PupyModule):
 	
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog='hive', description=self.__doc__)
-		self.arg_parser.add_argument('--vista', action='store_true',
-			dest='vista', help='is the session a Vista/7 system?')
 	
 	def run(self, args):
 		# First, we download the hives...
