@@ -17,10 +17,14 @@ if sys.argv[1]=="x86":
 	arch="x86"
 	print "copying installed python version to sources\\resources\\python27_x86.dll"
 	shutil.copy("C:\\Windows\SysWOW64\python27.dll", "sources\\resources\\python27_x86.dll")
+	print "copying x86 msvcr90.dll to sources"
+	shutil.copy("C:\\Windows\\winsxs\\x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91\\msvcr90.dll", "sources\\resources\\msvcr90_x86.dll")
 elif sys.argv[1]=="x64":
 	arch="x64"
 	print "copying installed python version to sources\\resources\\python27_x64.dll"
 	shutil.copy("C:\\Windows\system32\python27.dll", "sources\\resources\\python27_x64.dll")
+	print "copying x64 msvcr90.dll to sources"
+	shutil.copy("C:\\Windows\\winsxs\\amd64_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91\\msvcr90.dll", "sources\\resources\\msvcr90_x64.dll")
 else:
 	exit("usage: python %s (x86|x64)"%sys.argv[0])
 	
