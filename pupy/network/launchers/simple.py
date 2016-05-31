@@ -21,6 +21,7 @@ class SimpleLauncher(BaseLauncher):
 		else:
 			self.rport=443
 		self.set_host("%s:%s"%(self.rhost, self.rport))
+		self.set_transport(self.args.transport)
 	def iterate(self):
 		if self.args is None:
 			raise LauncherError("parse_args needs to be called before iterate")

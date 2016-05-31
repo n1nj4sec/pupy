@@ -11,8 +11,7 @@ class GetInfo(PupyModule):
 		#self.arg_parser.add_argument('arguments', nargs='+', metavar='<command>')
 	def run(self, args):
 		infos=""
-		for k,v in self.client.desc.iteritems():
-			if k not in ["conn","id","platform"]:
-				infos+="{:<10}: {}\n".format(k,v)
+		for k in ["hostname", "user", "release", "version", "os_arch", "pid", "exec_path", "proc_arch", "address", "macaddr", "transport", "launcher", "launcher_args"]:
+			infos+="{:<10}: {}\n".format(k,self.client.desc[k])
 		self.rawlog(infos)
 

