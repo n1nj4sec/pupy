@@ -24,6 +24,7 @@ class BindLauncher(BaseLauncher):
 	def parse_args(self, args):
 		self.args=self.arg_parser.parse_args(args)
 		self.set_host("%s:%s"%(self.args.host, self.args.port))
+		self.set_transport(self.args.transport)
 
 	def iterate(self):
 		if self.args is None:
