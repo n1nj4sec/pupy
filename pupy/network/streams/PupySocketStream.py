@@ -2,9 +2,12 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
+
+__all__=["PupySocketStream"]
+
 import sys
 from rpyc.core import SocketStream
-from .buffer import Buffer
+from ..buffer import Buffer
 import socket
 import time
 import errno
@@ -12,7 +15,7 @@ import logging
 import traceback
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 import threading
-retry_errnos = (errno.EAGAIN, errno.EWOULDBLOCK)
+
 
 class addGetPeer(object):
 	""" add some functions needed by some obfsproxy transports"""
@@ -52,7 +55,7 @@ class PupySocketStream(SocketStream):
 			return
 		except socket.error:
 			ex = sys.exc_info()[1]
-			if get_exc_errno(ex) in retry_errnos:
+			if get_exc_errno(ex) in (errno.EAGAIN, errno.EWOULDBLOCK):
 				# windows just has to be a bitch
 				return
 			self.close()
@@ -72,16 +75,6 @@ class PupySocketStream(SocketStream):
 		""" called as a callback on the downstream.write """
 		if len(self.downstream)>0:
 			super(PupySocketStream, self).write(self.downstream.read())
-
-	"""
-	def _downstream_recv_loop(self):
-		try:
-			while True:
-				self._read()
-				self.transport.downstream_recv(self.buf_in)
-		except EOFError as e:
-			self.upstream.set_eof(e)
-	"""
 
 	def read(self, count):
 		try:

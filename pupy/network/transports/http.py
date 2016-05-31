@@ -31,9 +31,14 @@ def http_req2data(s):
 		decoded_data=base64.b64decode(path[1:])
 	except:
 		raise MalformedData("can't decode b64")
-	if not decoded_data:
-		raise MalformedData("empty data")
-	return decoded_data
+	cookie=None
+	try:
+		for line in s.split("\r\n"):
+			if line.startswith("Cookie"):
+				cookie=(line.split(":",1)[1]).split("=")[1].strip()
+	except:
+		pass
+	return decoded_data, cookie
 
 
 error_response_body="""<html><body><h1>It works!</h1>
@@ -54,6 +59,7 @@ class PupyHTTPTransport(BasePupyTransport):
 	pass
 
 class PupyHTTPClient(PupyHTTPTransport):
+	client=True #to start polling
 	def __init__(self, *args, **kwargs):
 		PupyHTTPTransport.__init__(self, *args, **kwargs)
 		self.headers=OrderedDict({
@@ -62,12 +68,16 @@ class PupyHTTPClient(PupyHTTPTransport):
 			"Connection" : "keep-alive",
 		})
 
+
 	def upstream_recv(self, data):
 		"""
 			raw data to HTTP request
+			need to send a request anyway in case of empty data (for pulling purpose !)
 		"""
 		try:
 			d=data.peek()
+			if data.cookie is not None:
+				self.headers['Cookie']="PHPSESSID=%s"%data.cookie
 			encoded_data=data2http_req(d, self.headers)
 			data.drain(len(d))
 			self.downstream.write(encoded_data)
@@ -94,7 +104,7 @@ class PupyHTTPClient(PupyHTTPTransport):
 					if content_length is None:
 						break
 					decoded_data+=base64.b64decode(rest[:content_length])
-					length_to_drain=content_length+4+len(headers)+len(fl)+2
+					length_to_drain=content_length+4+len(head)
 					data.drain(length_to_drain)
 					d=d[length_to_drain:]
 				except Exception as e:
@@ -103,9 +113,9 @@ class PupyHTTPClient(PupyHTTPTransport):
 		if decoded_data:
 			self.upstream.write(decoded_data)
 			
-		
 
 class PupyHTTPServer(PupyHTTPTransport):
+	client=False
 	def __init__(self, *args, **kwargs):
 		PupyHTTPTransport.__init__(self, *args, **kwargs)
 
@@ -140,7 +150,9 @@ class PupyHTTPServer(PupyHTTPTransport):
 			for req in tab:
 				try:
 					if req:
-						decoded_data += http_req2data(req)
+						newdata, cookie = http_req2data(req)
+						decoded_data+=newdata
+						data.cookie=cookie
 						data.drain(len(req)+4)
 				except MalformedData:
 					logging.debug("malformed data drained: %s"%repr(req))

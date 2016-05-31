@@ -203,15 +203,14 @@ def rpyc_loop(launcher):
 					event=threading.Event()
 					t=threading.Thread(target=check_timeout, args=(event, stream.close))
 					t.daemon=True
-					t.start()
+					#t.start()
 					try:
 						conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
 					finally:
 						event.set()
-					while True:
+					while not stream.closed:
 						attempt=0
-						conn.serve()
-						time.sleep(0.001)
+						conn.serve(0.001)
 			except KeyboardInterrupt:
 				raise
 			except EOFError:

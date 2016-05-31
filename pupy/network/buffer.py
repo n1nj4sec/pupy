@@ -16,6 +16,7 @@ class Buffer(object):
 		self.waiting_lock=threading.Lock()
 		self.waiting=threading.Event()
 		self.transport=transport_func
+		self.cookie=None
 
 
 	def on_write(self):
