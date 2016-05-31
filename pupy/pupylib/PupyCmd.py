@@ -273,6 +273,9 @@ class PupyCmd(cmd.Cmd):
 	def cmdloop(self, intro=None):
 		try:
 			cmd.Cmd.cmdloop(self, intro)
+		except ValueError:
+			self.stdout.write('\n')
+			exit(1)
 		except KeyboardInterrupt as e:
 			self.stdout.write('\n')
 			self.cmdloop(intro="")
@@ -300,9 +303,9 @@ class PupyCmd(cmd.Cmd):
 				func = getattr(self, 'help_' + arg)
 			except AttributeError:
 				try:
-					doc=getattr(self, 'do_' + arg).__doc__
-					if doc:
-						self.stdout.write("%s\n"%str(doc).strip())
+					m=self.pupsrv.get_module(self.pupsrv.get_module_name_from_category(arg))
+					if m:
+						self.do_run(arg+" --help") #quick and dirty
 						return
 				except AttributeError:
 					pass

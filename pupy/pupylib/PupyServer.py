@@ -349,7 +349,11 @@ class PupyServer(threading.Thread):
 			authenticator=t['authenticator']()
 		else:
 			authenticator=None
-		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs, ipv6=self.ipv6)
-		self.server.start()
+		try:
+			self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs, ipv6=self.ipv6)
+			self.server.start()
+		except Exception as e:
+			logging.exception(e)
+			exit(1)
 
 
