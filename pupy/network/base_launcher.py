@@ -32,6 +32,7 @@ class BaseLauncher(object):
 		self.arg_parser=None
 		self.args=None
 		self.host="unknown"
+		self.transport="unknown"
 		self.init_argparse()
 	def iterate(self):
 		""" iterate must be an iterator returning rpyc stream instances"""
@@ -40,8 +41,14 @@ class BaseLauncher(object):
 		self.arg_parser = LauncherArgumentParser(prog=self.__class__.__name__, description=self.__doc__)
 	def parse_args(self, args):
 		self.args=self.arg_parser.parse_args(args)
+
 	def set_host(self, host):
 		self.host=host
 	def get_host(self):
 		return self.host
+
+	def set_transport(self, t):
+		self.transport=t
+	def get_transport(self):
+		return self.transport
 

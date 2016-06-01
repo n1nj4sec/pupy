@@ -19,6 +19,7 @@ class BasePupyTransport(object):
 		self.upstream=stream.upstream
 		self.stream=stream
 		self.circuit=Circuit(self.stream, self)
+		self.cookie=None
 
 	def on_connect(self):
 		"""

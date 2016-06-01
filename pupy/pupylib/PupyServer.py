@@ -185,9 +185,10 @@ class PupyServer(threading.Thread):
 				"exec_path" : l[9],
 				"macaddr" : l[6],
 				"pid" : l[7],
-				"address" : conn._conn._config['connid'].split(':')[0],
+				"address" : conn._conn._config['connid'].rsplit(':',1)[0],
 				"launcher" : conn.get_infos("launcher"),
 				"launcher_args" : obtain(conn.get_infos("launcher_args")),
+				"transport" : obtain(conn.get_infos("transport")),
 			}, self)
 			self.clients.append(pc)
 			if self.handler:
@@ -348,7 +349,11 @@ class PupyServer(threading.Thread):
 			authenticator=t['authenticator']()
 		else:
 			authenticator=None
-		self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs, ipv6=self.ipv6)
-		self.server.start()
+		try:
+			self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs, ipv6=self.ipv6)
+			self.server.start()
+		except Exception as e:
+			logging.exception(e)
+			exit(1)
 
 

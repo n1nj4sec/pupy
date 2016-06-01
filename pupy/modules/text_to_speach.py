@@ -3,9 +3,9 @@ from pupylib.PupyModule import *
 
 __class_name__="AndroidTTS"
 
-@config(compat="android", cat="troll", tags=["speech", "speak", "speak"])
+@config(compat="android", cat="troll", tags=["speech", "speak", "sound"])
 class AndroidTTS(PupyModule):
-	""" Pop up a custom message box """
+	""" Use Android text to speach to say something :) """
 	dependencies=['pupydroid.text_to_speech']
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="tts", description=self.__doc__)
