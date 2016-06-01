@@ -23,42 +23,42 @@ PROCESS_VM_READ = 0x0010
 MAX_PATH=260
 
 def is_process_64(pid):
-	""" Take a pid. return True if process is 64 bits, and False otherwise. """
-	is64=False
-	if not "64" in platform.machine():
-		return False
-	hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
-	is64=is_process_64_from_handle(hProcess)
-	windll.kernel32.CloseHandle(hProcess)
-	return is64
+    """ Take a pid. return True if process is 64 bits, and False otherwise. """
+    is64=False
+    if not "64" in platform.machine():
+        return False
+    hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+    is64=is_process_64_from_handle(hProcess)
+    windll.kernel32.CloseHandle(hProcess)
+    return is64
 
 def is_process_64_from_handle(hProcess):
-	""" Take a process handle. return True if process is 64 bits, and False otherwise. """
-	iswow64 = c_bool(False)
-	if not hasattr(windll.kernel32,'IsWow64Process'):
-		return False
-	windll.kernel32.IsWow64Process(hProcess, byref(iswow64))
-	return not iswow64.value
-	
+    """ Take a process handle. return True if process is 64 bits, and False otherwise. """
+    iswow64 = c_bool(False)
+    if not hasattr(windll.kernel32,'IsWow64Process'):
+        return False
+    windll.kernel32.IsWow64Process(hProcess, byref(iswow64))
+    return not iswow64.value
+    
 def enum_processes():
-	proclist=[]
-	for proc in psutil.process_iter():
-		try:
-			pinfo = proc.as_dict(attrs=['username', 'pid', 'name', 'exe', 'cmdline', 'status'])
-			pinfo['arch']=("x64" if is_process_64(int(pinfo['pid'])) else "x32")
-			proclist.append(pinfo)
-		except psutil.NoSuchProcess:
-			pass
-	return proclist
+    proclist=[]
+    for proc in psutil.process_iter():
+        try:
+            pinfo = proc.as_dict(attrs=['username', 'pid', 'name', 'exe', 'cmdline', 'status'])
+            pinfo['arch']=("x64" if is_process_64(int(pinfo['pid'])) else "x32")
+            proclist.append(pinfo)
+        except psutil.NoSuchProcess:
+            pass
+    return proclist
 
 def start_hidden_process(path):
-	info = subprocess.STARTUPINFO()
-	info.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
-	info.wShowWindow = subprocess.SW_HIDE
-	p=subprocess.Popen(path, startupinfo=info)
-	return p
+    info = subprocess.STARTUPINFO()
+    info.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
+    info.wShowWindow = subprocess.SW_HIDE
+    p=subprocess.Popen(path, startupinfo=info)
+    return p
 
 
 if __name__ == '__main__':
-	for dic in enum_processes():
-		print dic
+    for dic in enum_processes():
+        print dic

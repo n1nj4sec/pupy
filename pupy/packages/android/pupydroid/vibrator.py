@@ -7,20 +7,20 @@ import jnius
 __all__=["vibrate"]
 
 def vibrate(self, pattern, repeat=None):
-	""" take a list of int as pattern """
-	PythonActivity = jnius.autoclass('org.renpy.android.PythonService')
-	Context = jnius.autoclass('android.content.Context')
-	activity = PythonActivity.mService
-	vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
-	if vibrator.hasVibrator():
-		try:
-			if repeat:
-				vibrator.vibrate(pattern, repeat)
-			else:
-				vibrator.vibrate(pattern)
-		except KeyboardInterrupt:
-			vibrator.cancel()
-			raise
-	else:
-		raise RuntimeError("The device does not have a vibrator")
+    """ take a list of int as pattern """
+    PythonActivity = jnius.autoclass('org.renpy.android.PythonService')
+    Context = jnius.autoclass('android.content.Context')
+    activity = PythonActivity.mService
+    vibrator = activity.getSystemService(Context.VIBRATOR_SERVICE)
+    if vibrator.hasVibrator():
+        try:
+            if repeat:
+                vibrator.vibrate(pattern, repeat)
+            else:
+                vibrator.vibrate(pattern)
+        except KeyboardInterrupt:
+            vibrator.cancel()
+            raise
+    else:
+        raise RuntimeError("The device does not have a vibrator")
 

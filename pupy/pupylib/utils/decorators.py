@@ -6,9 +6,9 @@
 import threading
 
 def threaded(fct):
-	def new(*args, **kwargs):
-		t=threading.Thread(target=fct, args=args, kwargs=kwargs)
-		t.daemon=True
-		t.start()
-		return t
-	return new
+    def new(*args, **kwargs):
+        t=threading.Thread(target=fct, args=args, kwargs=kwargs)
+        t.daemon=True
+        t.start()
+        return t
+    return new

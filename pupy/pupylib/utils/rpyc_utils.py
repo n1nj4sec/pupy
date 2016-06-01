@@ -21,73 +21,73 @@ from rpyc.utils.classic import obtain
 import textwrap
 
 def hotpatch_oswrite(conn):
-	""" some scripts/libraries use os.write(1, ...) instead of sys.stdout.write to write to stdout """
-	conn.execute(textwrap.dedent("""
-	import sys
-	import os
-	def patched_write(fd, s):
-		if fd==1:
-			return sys.stdout.write(s)
-		elif fd==2:
-			return sys.stdout.write(s)
-		else:
-			return os.write(fd, s)
-	os.write=patched_write
-	"""))
+    """ some scripts/libraries use os.write(1, ...) instead of sys.stdout.write to write to stdout """
+    conn.execute(textwrap.dedent("""
+    import sys
+    import os
+    def patched_write(fd, s):
+        if fd==1:
+            return sys.stdout.write(s)
+        elif fd==2:
+            return sys.stdout.write(s)
+        else:
+            return os.write(fd, s)
+    os.write=patched_write
+    """))
 
 @contextmanager
 def redirected_stdo(conn, stdout=None, stderr=None):
-	if stdout is None:
-		stdout=sys.stdout
-	if stderr is None:
-		stderr=sys.stderr
-	hotpatch_oswrite(conn)
-	orig_stdout = conn.modules.sys.stdout
-	orig_stderr = conn.modules.sys.stderr
-	try:
-		conn.modules.sys.stdout = restricted(stdout,["softspace", "write", "flush"])
-		conn.modules.sys.stderr = restricted(stderr,["softspace", "write", "flush"])
-		yield
-	finally:
-		conn.modules.sys.stdout = orig_stdout
-		conn.modules.sys.stderr = orig_stderr
+    if stdout is None:
+        stdout=sys.stdout
+    if stderr is None:
+        stderr=sys.stderr
+    hotpatch_oswrite(conn)
+    orig_stdout = conn.modules.sys.stdout
+    orig_stderr = conn.modules.sys.stderr
+    try:
+        conn.modules.sys.stdout = restricted(stdout,["softspace", "write", "flush"])
+        conn.modules.sys.stderr = restricted(stderr,["softspace", "write", "flush"])
+        yield
+    finally:
+        conn.modules.sys.stdout = orig_stdout
+        conn.modules.sys.stderr = orig_stderr
 
 def interact(conn):
-	"""remote interactive interpreter
-	
-	:param conn: the RPyC connection
-	:param namespace: the namespace to use (a ``dict``)
-	"""
-	with redirected_stdio(conn):
-		conn.execute("""def _rinteract():
-			def new_exit():
-				print "use ctrl+D to exit the interactive python interpreter."
-			import code
-			code.interact(local = dict({"exit":new_exit, "quit":new_exit}))""")
-		conn.namespace["_rinteract"]()
+    """remote interactive interpreter
+    
+    :param conn: the RPyC connection
+    :param namespace: the namespace to use (a ``dict``)
+    """
+    with redirected_stdio(conn):
+        conn.execute("""def _rinteract():
+            def new_exit():
+                print "use ctrl+D to exit the interactive python interpreter."
+            import code
+            code.interact(local = dict({"exit":new_exit, "quit":new_exit}))""")
+        conn.namespace["_rinteract"]()
 
 @contextmanager
 def redirected_stdio(conn):
-	r"""
-	Redirects the other party's ``stdin``, ``stdout`` and ``stderr`` to 
-	those of the local party, so remote IO will occur locally.
+    r"""
+    Redirects the other party's ``stdin``, ``stdout`` and ``stderr`` to 
+    those of the local party, so remote IO will occur locally.
 
-	Example usage::
-	
-		with redirected_stdio(conn):
-			conn.modules.sys.stdout.write("hello\n")   # will be printed locally
-	
-	"""
-	orig_stdin = conn.modules.sys.stdin
-	orig_stdout = conn.modules.sys.stdout
-	orig_stderr = conn.modules.sys.stderr
-	try:
-		conn.modules.sys.stdin =restricted(sys.stdin, ["softspace", "write", "readline", "encoding", "close"])
-		conn.modules.sys.stdout = restricted(sys.stdout, ["softspace", "write", "readline", "encoding", "close", "flush"])
-		conn.modules.sys.stderr = restricted(sys.stderr, ["softspace", "write", "readline", "encoding", "close", "flush"])
-		yield
-	finally:
-		conn.modules.sys.stdin = orig_stdin
-		conn.modules.sys.stdout = orig_stdout
-		conn.modules.sys.stderr = orig_stderr
+    Example usage::
+    
+        with redirected_stdio(conn):
+            conn.modules.sys.stdout.write("hello\n")   # will be printed locally
+    
+    """
+    orig_stdin = conn.modules.sys.stdin
+    orig_stdout = conn.modules.sys.stdout
+    orig_stderr = conn.modules.sys.stderr
+    try:
+        conn.modules.sys.stdin =restricted(sys.stdin, ["softspace", "write", "readline", "encoding", "close"])
+        conn.modules.sys.stdout = restricted(sys.stdout, ["softspace", "write", "readline", "encoding", "close", "flush"])
+        conn.modules.sys.stderr = restricted(sys.stderr, ["softspace", "write", "readline", "encoding", "close", "flush"])
+        yield
+    finally:
+        conn.modules.sys.stdin = orig_stdin
+        conn.modules.sys.stdout = orig_stdout
+        conn.modules.sys.stderr = orig_stderr
 

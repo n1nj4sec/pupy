@@ -11,44 +11,44 @@ import network.conf
 from . import utils
 
 class LauncherError(Exception):
-	pass
+    pass
 
 class LauncherArgumentParser(argparse.ArgumentParser):
-	def __init__(self, *args, **kwargs):
-		argparse.ArgumentParser.__init__(self, *args, **kwargs)
-	def exit(self, status=0, message=None):
-		#if message:
-		#	self._print_message(message, sys.stderr)
-		raise LauncherError(message)
-	def error(self, message):
-		#self.print_usage(_sys.stderr)
-		self.exit(2, str('%s: error: %s\n') % (self.prog, message))
+    def __init__(self, *args, **kwargs):
+        argparse.ArgumentParser.__init__(self, *args, **kwargs)
+    def exit(self, status=0, message=None):
+        #if message:
+        #    self._print_message(message, sys.stderr)
+        raise LauncherError(message)
+    def error(self, message):
+        #self.print_usage(_sys.stderr)
+        self.exit(2, str('%s: error: %s\n') % (self.prog, message))
 
 
 class BaseLauncher(object):
-	arg_parser=None
-	args=None
-	def __init__(self):
-		self.arg_parser=None
-		self.args=None
-		self.host="unknown"
-		self.transport="unknown"
-		self.init_argparse()
-	def iterate(self):
-		""" iterate must be an iterator returning rpyc stream instances"""
-		raise NotImplementedError("iterate launcher's method needs to be implemented")
-	def init_argparse(self):
-		self.arg_parser = LauncherArgumentParser(prog=self.__class__.__name__, description=self.__doc__)
-	def parse_args(self, args):
-		self.args=self.arg_parser.parse_args(args)
+    arg_parser=None
+    args=None
+    def __init__(self):
+        self.arg_parser=None
+        self.args=None
+        self.host="unknown"
+        self.transport="unknown"
+        self.init_argparse()
+    def iterate(self):
+        """ iterate must be an iterator returning rpyc stream instances"""
+        raise NotImplementedError("iterate launcher's method needs to be implemented")
+    def init_argparse(self):
+        self.arg_parser = LauncherArgumentParser(prog=self.__class__.__name__, description=self.__doc__)
+    def parse_args(self, args):
+        self.args=self.arg_parser.parse_args(args)
 
-	def set_host(self, host):
-		self.host=host
-	def get_host(self):
-		return self.host
+    def set_host(self, host):
+        self.host=host
+    def get_host(self):
+        return self.host
 
-	def set_transport(self, t):
-		self.transport=t
-	def get_transport(self):
-		return self.transport
+    def set_transport(self, t):
+        self.transport=t
+    def get_transport(self):
+        return self.transport
 

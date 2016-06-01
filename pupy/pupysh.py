@@ -19,9 +19,9 @@
 import pupylib.PupyServer
 import pupylib.PupyCmd
 try:
-	import pupylib.PupySignalHandler
+    import pupylib.PupySignalHandler
 except:
-	pass
+    pass
 import logging
 import time
 import traceback
@@ -35,47 +35,47 @@ __version__='v1.2'
 __date__='May 04 2016'
 
 def print_version():
-	print("Pupy - %s"%(__version__))
+    print("Pupy - %s"%(__version__))
 
 if __name__=="__main__":
-	if os.path.dirname(__file__):
-		os.chdir(os.path.dirname(__file__))
-	parser = argparse.ArgumentParser(prog='ptrconsole', description="Pupy console")
-	parser.add_argument('--log-lvl', '--lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
-	parser.add_argument('--version', help="print version and exit", action='store_true')
-	parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default='ssl', help="change the transport ! :-)")
-	parser.add_argument('--transport-args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
-	parser.add_argument('--port', '-p', help="change the listening port", type=int)
-	args=parser.parse_args()
-	if args.version:
-		print_version()
-		exit(0)
-	loglevel=logging.WARNING
-	if args.loglevel=="ERROR":
-		loglevel=logging.ERROR
-	elif args.loglevel=="DEBUG":
-		loglevel=logging.DEBUG
-	elif args.loglevel=="INFO":
-		loglevel=logging.INFO
-	else:
-		loglevel=logging.WARNING
-	logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
-	logging.getLogger().setLevel(loglevel)
+    if os.path.dirname(__file__):
+        os.chdir(os.path.dirname(__file__))
+    parser = argparse.ArgumentParser(prog='ptrconsole', description="Pupy console")
+    parser.add_argument('--log-lvl', '--lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
+    parser.add_argument('--version', help="print version and exit", action='store_true')
+    parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default='ssl', help="change the transport ! :-)")
+    parser.add_argument('--transport-args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
+    parser.add_argument('--port', '-p', help="change the listening port", type=int)
+    args=parser.parse_args()
+    if args.version:
+        print_version()
+        exit(0)
+    loglevel=logging.WARNING
+    if args.loglevel=="ERROR":
+        loglevel=logging.ERROR
+    elif args.loglevel=="DEBUG":
+        loglevel=logging.DEBUG
+    elif args.loglevel=="INFO":
+        loglevel=logging.INFO
+    else:
+        loglevel=logging.WARNING
+    logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
+    logging.getLogger().setLevel(loglevel)
 
-	pupyServer=pupylib.PupyServer.PupyServer(args.transport, args.transport_args, port=args.port)
-	try:
-		import __builtin__ as builtins
-	except ImportError:
-		import builtins
-	builtins.glob_pupyServer=pupyServer # dirty ninja trick for this particular case avoiding to touch rpyc source code
-	pcmd=pupylib.PupyCmd.PupyCmd(pupyServer)
-	pupyServer.start()
-	while True:
-		try:
-			pcmd.cmdloop()
-		except Exception as e:
-			print(traceback.format_exc())
-			time.sleep(0.1) #to avoid flood in case of exceptions in loop
-			pcmd.intro=''
+    pupyServer=pupylib.PupyServer.PupyServer(args.transport, args.transport_args, port=args.port)
+    try:
+        import __builtin__ as builtins
+    except ImportError:
+        import builtins
+    builtins.glob_pupyServer=pupyServer # dirty ninja trick for this particular case avoiding to touch rpyc source code
+    pcmd=pupylib.PupyCmd.PupyCmd(pupyServer)
+    pupyServer.start()
+    while True:
+        try:
+            pcmd.cmdloop()
+        except Exception as e:
+            print(traceback.format_exc())
+            time.sleep(0.1) #to avoid flood in case of exceptions in loop
+            pcmd.intro=''
 
-	
+    

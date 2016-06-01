@@ -25,35 +25,35 @@ __class_name__="MemoryExec"
 
 @config(compatibilities=["windows"], category="exploit")
 class MemoryExec(PupyModule):
-	""" 
-		Execute a PE executable from memory
-		The default behavior is to accept arguments and print stdout of the program once it exits or after timeout seconds
-	"""
-	interactive=1
-	def __init__(self, *args, **kwargs):
-		PupyModule.__init__(self,*args, **kwargs)
-		self.interrupted=False
-		self.mp=None
-	def init_argparse(self):
-		self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
-		#self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
-		self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved')
-		self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
-		self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
-		self.arg_parser.add_argument('-s', '--suspended-process', default="cmd.exe", help='change the suspended process to spawn (default: cmd.exe)')
-		self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
-		self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
-		self.arg_parser.add_argument('args', nargs=argparse.REMAINDER, help='optional arguments to pass to the exe')
+    """ 
+        Execute a PE executable from memory
+        The default behavior is to accept arguments and print stdout of the program once it exits or after timeout seconds
+    """
+    interactive=1
+    def __init__(self, *args, **kwargs):
+        PupyModule.__init__(self,*args, **kwargs)
+        self.interrupted=False
+        self.mp=None
+    def init_argparse(self):
+        self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
+        #self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
+        self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved')
+        self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
+        self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
+        self.arg_parser.add_argument('-s', '--suspended-process', default="cmd.exe", help='change the suspended process to spawn (default: cmd.exe)')
+        self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
+        self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
+        self.arg_parser.add_argument('args', nargs=argparse.REMAINDER, help='optional arguments to pass to the exe')
 
-	def interrupt(self):
-		self.info("interrupting remote process, please wait ...")
-		if self.mp:
-			self.mp.close()
-			res=self.mp.get_stdout()
-			self.log(res)
+    def interrupt(self):
+        self.info("interrupting remote process, please wait ...")
+        if self.mp:
+            self.mp.close()
+            res=self.mp.get_stdout()
+            self.log(res)
 
 
-				
-	def run(self, args):
-		exec_pe(self, args.args, path=args.path, interactive=args.interactive, fork=args.fork, timeout=args.timeout, use_impersonation=args.impersonate, suspended_process=args.suspended_process)
+                
+    def run(self, args):
+        exec_pe(self, args.args, path=args.path, interactive=args.interactive, fork=args.fork, timeout=args.timeout, use_impersonation=args.impersonate, suspended_process=args.suspended_process)
 

