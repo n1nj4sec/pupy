@@ -210,6 +210,7 @@ if __name__=="__main__":
 	parser.add_argument('-o', '--output', help="output path")
 	parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
 	parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, scriptlets and options")
+	parser.add_argument('-i', '--interface', default="eth0", help="The default interface to listen on")
 	parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
 	parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
 	parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
@@ -230,7 +231,7 @@ if __name__=="__main__":
 			l.parse_args(args.launcher_args)
 		except LauncherError as e:
 			if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
-				myip=get_local_ip()
+				myip=get_local_ip(args.interface)
 				if not myip:
 					sys.exit("[-] --host parameter missing and couldn't find your local IP. You must precise an ip or a fqdn manually")
 				print(colorize("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip,"grey"))

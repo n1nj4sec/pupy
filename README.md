@@ -43,7 +43,7 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - simple
 	- Just connect back
 - auto_proxy
-	- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retriaval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
+		- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retrieval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
 
 ## Implemented Modules (not up to date)
 ### All platforms:
@@ -74,7 +74,7 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - getsystem
 
 ### Android specific
-- Text to speach for Android to say stuff out loud
+- Text to speech for Android to say stuff out loud
 - webcam snapshot (front cam & back cam)
 
 ##Installation
