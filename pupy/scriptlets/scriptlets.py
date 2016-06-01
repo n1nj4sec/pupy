@@ -20,13 +20,18 @@ class Scriptlet(object):
 
     @classmethod
     def print_help(cls):
-        print("\t description: %s"%cls.__doc__)
+        print cls.get_help()
+
+    @classmethod
+    def get_help(cls):
+        res=("\tdescription: %s\n"%cls.__doc__)
         if cls.arguments:
-            print("\t arguments: ")
+            res+=("\targuments: \n")
             for arg, desc in cls.arguments.iteritems():
-                print("\t\t - %s : %s"%(arg, desc))
+                res+="\t\t- {:<10} : {}\n".format(arg, desc)
         else:
-            print("\t arguments: this scriptlet does not take any argument")
+            res+=("\targuments: this scriptlet does not take any argument\n")
+        return res
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","packages"))
 

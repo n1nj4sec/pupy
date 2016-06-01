@@ -187,20 +187,25 @@ def parse_scriptlets(args_scriptlet, debug=False):
             exit(1)
     script_code=sp.pack()
     return script_code
+
 class ListOptions(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        print "## available formats :"
-        print "- exe_86, exe_x64 : generate PE exe for windows"
-        print "- dll_86, dll_x64 : generate reflective dll for windows"
-        print "- py : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
-        print "- py_oneliner : same as \"py\" format but served over http to load it from a single command line"
+        print colorize("## available formats :", "green")
+        print "\t- exe_86, exe_x64 : generate PE exe for windows"
+        print "\t- dll_86, dll_x64 : generate reflective dll for windows"
+        print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
+        print "\t- py_oneliner     : same as \"py\" format but served over http to load it from a single command line"
+
         print ""
-        print "## available scriptlets :"
+        print colorize("## available transports :","green")
+        for name, dic in transports.iteritems():
+            print "\t- {:<20} : {}".format(name, dic["info"])
+        print ""
+        print colorize("## available scriptlets :", "green")
         scriptlets_dic=load_scriptlets()
         for name, sc in scriptlets_dic.iteritems():
-            print "- %s : "%name
-            sc.print_help()
-            print ""
+            print "\t- {:<15} : ".format(name)
+            print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
 PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner']
@@ -209,7 +214,7 @@ if __name__=="__main__":
     parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
-    parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, scriptlets and options")
+    parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-i', '--interface', default="eth0", help="The default interface to listen on")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
