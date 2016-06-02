@@ -58,6 +58,10 @@ class PupyAsyncStream(Stream):
             self.poller_thread=threading.Thread(target=self.poller_loop)
             self.poller_thread.daemon=True
             self.poller_thread.start()
+        self.on_connect()
+
+    def on_connect(self):
+        self.transport.on_connect()
     
     def close(self):
         """closes the stream, releasing any system resources associated with it"""

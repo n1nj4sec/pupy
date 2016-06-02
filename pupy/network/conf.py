@@ -116,6 +116,19 @@ transports["sync_http_cleartext"]={ #TODO fill with empty requests/response betw
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
+from base import chain_transports
+transports["test_stacking"]={
+        "info" : "test wrapping",
+        "server" : PupyTCPServer,
+        "client": PupyTCPClient,
+        "client_kwargs" : {},
+        "authenticator" : None,
+        "stream": PupySocketStream ,
+        "client_transport" : chain_transports(dummy.DummyPupyTransport, http.PupyHTTPClient, b64.B64Client, http.PupyHTTPClient),
+        "server_transport" : chain_transports(dummy.DummyPupyTransport, http.PupyHTTPServer, b64.B64Server, http.PupyHTTPServer),
+        "client_transport_kwargs": {"password": scramblesuit_passwd},
+        "server_transport_kwargs": {"password": scramblesuit_passwd},
+    }
 
 transports["async_http_cleartext"]={
         "info" : "TCP transport using HTTP with base64 encoded payloads (asynchrone with client pulling the server and multiple 3-way handshakes (slow))",
