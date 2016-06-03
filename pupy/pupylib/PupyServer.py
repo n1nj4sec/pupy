@@ -354,6 +354,5 @@ class PupyServer(threading.Thread):
             self.server.start()
         except Exception as e:
             logging.exception(e)
-            exit(1)
 
 

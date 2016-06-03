@@ -273,9 +273,6 @@ class PupyCmd(cmd.Cmd):
     def cmdloop(self, intro=None):
         try:
             cmd.Cmd.cmdloop(self, intro)
-        except ValueError:
-            self.stdout.write('\n')
-            exit(1)
         except KeyboardInterrupt as e:
             self.stdout.write('\n')
             self.cmdloop(intro="")
