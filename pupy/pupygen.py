@@ -199,8 +199,13 @@ class ListOptions(argparse.Action):
         print ""
         print colorize("## available transports :","green")
         for name, dic in transports.iteritems():
-            print "\t- {:<20} : {}".format(name, dic["info"])
-        print ""
+            print "\t- {}".format(name,)
+            print "\t       {:<15} : {}".format("description", dic["info"])
+            arguments=','.join([x for x in dic["client_kwargs"].iterkeys()])+','.join([x for x in dic["client_transport_kwargs"].iterkeys()])
+            if not arguments:
+                arguments = "none"
+            print "\t       {:<15} : {}".format("arguments" ,arguments)
+
         print colorize("## available scriptlets :", "green")
         scriptlets_dic=load_scriptlets()
         for name, sc in scriptlets_dic.iteritems():
