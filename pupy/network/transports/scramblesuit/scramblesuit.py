@@ -671,6 +671,7 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
     Extend the ScrambleSuit class.
     """
 
+    password=None
     def __init__( self, *args, **kwargs ):
         """
         Initialise a ScrambleSuitClient object.
@@ -679,8 +680,11 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
         self.weAreServer=False
         self.weAreClient=True
         self.weAreExternal=True
-
-        uniformDHSecret = kwargs['password']
+        if 'password' in kwargs:
+            uniformDHSecret = kwargs['password']
+            del kwargs['password']
+        else:
+            uniformDHSecret = self.password
         rawLength = len(uniformDHSecret)
         if rawLength != const.SHARED_SECRET_LENGTH:
             raise base.PluggableTransportError(
@@ -688,7 +692,6 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
                 % (const.SHARED_SECRET_LENGTH, rawLength))
         else:
             self.uniformDHSecret = uniformDHSecret
-        del kwargs['password']
         ScrambleSuitTransport.__init__(self, *args, **kwargs)
 
 
@@ -697,7 +700,7 @@ class ScrambleSuitServer( ScrambleSuitTransport ):
     """
     Extend the ScrambleSuit class.
     """
-
+    password=None
     def __init__( self, *args, **kwargs ):
         """
         Initialise a ScrambleSuitServer object.
@@ -707,7 +710,11 @@ class ScrambleSuitServer( ScrambleSuitTransport ):
         self.weAreClient=False
         self.weAreExternal=True
 
-        uniformDHSecret = kwargs['password']
+        if 'password' in kwargs:
+            uniformDHSecret = kwargs['password']
+            del kwargs['password']
+        else:
+            uniformDHSecret = self.password
         rawLength = len(uniformDHSecret)
         if rawLength != const.SHARED_SECRET_LENGTH:
             raise base.PluggableTransportError(
@@ -715,5 +722,4 @@ class ScrambleSuitServer( ScrambleSuitTransport ):
                 % (const.SHARED_SECRET_LENGTH, rawLength))
         else:
             self.uniformDHSecret = uniformDHSecret
-        del kwargs['password']
         ScrambleSuitTransport.__init__(self, *args, **kwargs)

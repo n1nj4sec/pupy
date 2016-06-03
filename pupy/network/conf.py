@@ -6,24 +6,31 @@ import os
 import logging
 from .servers import PupyTCPServer, PupyAsyncTCPServer
 from .clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient, PupyAsyncClient
-from .transports import dummy, b64, http
+from .transports.dummy import DummyPupyTransport
+from .transports.b64 import B64Client, B64Server, B64Transport
+from .transports.http import PupyHTTPClient, PupyHTTPServer
+from .transports.xor import XOR
+from .transports.aes import AES256
 try:
-    from .transports.obfs3 import obfs3
+    from .transports.obfs3.obfs3 import Obfs3Client, Obfs3Server
+    obfs3_available=True
 except ImportError as e:
-    #to make pupy works even without scramblesuit dependencies
+    #to make pupy works even without obfs3 dependencies
     logging.warning("%s. The obfs3 transport has been disabled."%e)
-    obfs3=None
+    obfs3_available=False
 
 try:
-    from .transports.scramblesuit import scramblesuit
+    from .transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
+    scramblesuit_available=True
 except ImportError as e:
     #to make pupy works even without scramblesuit dependencies
     logging.warning("%s. The scramblesuit transport has been disabled."%e)
-    scramblesuit=None
+    scramblesuit_available=False
 from .streams import *
 from .launchers.simple import SimpleLauncher
 from .launchers.auto_proxy import AutoProxyLauncher
 from .launchers.bind import BindLauncher
+from base import chain_transports
 try:
     import ConfigParser as configparser
 except ImportError:
@@ -50,8 +57,8 @@ transports["ssl"]={
         "client_kwargs" : {},
         "authenticator" : ssl_authenticator,
         "stream": PupySocketStream ,
-        "client_transport" : dummy.DummyPupyTransport,
-        "server_transport" : dummy.DummyPupyTransport,
+        "client_transport" : DummyPupyTransport,
+        "server_transport" : DummyPupyTransport,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
@@ -62,8 +69,8 @@ transports["ssl_proxy"]={
         "client_kwargs" : {'proxy_addr': None, 'proxy_port': None, 'proxy_type':'HTTP'},
         "authenticator" : ssl_authenticator,
         "stream": PupySocketStream ,
-        "client_transport" : dummy.DummyPupyTransport,
-        "server_transport" : dummy.DummyPupyTransport,
+        "client_transport" : DummyPupyTransport,
+        "server_transport" : DummyPupyTransport,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
@@ -74,8 +81,8 @@ transports["tcp_cleartext"]={
         "client_kwargs" : {},
         "authenticator" : None,
         "stream": PupySocketStream ,
-        "client_transport" : dummy.DummyPupyTransport,
-        "server_transport" : dummy.DummyPupyTransport,
+        "client_transport" : DummyPupyTransport,
+        "server_transport" : DummyPupyTransport,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
@@ -86,8 +93,8 @@ transports["tcp_cleartext_proxy"]={
         "client_kwargs" : {'proxy_addr':'127.0.0.1', 'proxy_port':8080, 'proxy_type':'HTTP'},
         "authenticator" : None,
         "stream": PupySocketStream ,
-        "client_transport" : dummy.DummyPupyTransport,
-        "server_transport" : dummy.DummyPupyTransport,
+        "client_transport" : DummyPupyTransport,
+        "server_transport" : DummyPupyTransport,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
@@ -98,8 +105,8 @@ transports["tcp_base64"]={
         "client_kwargs" : {},
         "authenticator" : None,
         "stream": PupySocketStream ,
-        "client_transport" : b64.B64Client,
-        "server_transport" : b64.B64Server,
+        "client_transport" : B64Client,
+        "server_transport" : B64Server,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
@@ -111,12 +118,23 @@ transports["sync_http_cleartext"]={ #TODO fill with empty requests/response betw
         "client_kwargs" : {},
         "authenticator" : None,
         "stream": PupySocketStream ,
-        "client_transport" : http.PupyHTTPClient,
-        "server_transport" : http.PupyHTTPServer,
+        "client_transport" : PupyHTTPClient,
+        "server_transport" : PupyHTTPServer,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
-from base import chain_transports
+transports["tcp_aes"]={
+        "info" : "TCP transport that encodes traffic using AES256 with a static password hashed with PBKDF2",
+        "server" : PupyTCPServer,
+        "client": PupyTCPClient,
+        "client_kwargs" : {},
+        "authenticator" : None,
+        "stream": PupySocketStream ,
+        "client_transport" : AES256,
+        "server_transport" : AES256,
+        "client_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
+        "server_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
+    }
 transports["test_stacking"]={
         "info" : "test wrapping",
         "server" : PupyTCPServer,
@@ -124,10 +142,20 @@ transports["test_stacking"]={
         "client_kwargs" : {},
         "authenticator" : None,
         "stream": PupySocketStream ,
-        "client_transport" : chain_transports(dummy.DummyPupyTransport, http.PupyHTTPClient, b64.B64Client, http.PupyHTTPClient),
-        "server_transport" : chain_transports(dummy.DummyPupyTransport, http.PupyHTTPServer, b64.B64Server, http.PupyHTTPServer),
-        "client_transport_kwargs": {"password": scramblesuit_passwd},
-        "server_transport_kwargs": {"password": scramblesuit_passwd},
+        "client_transport" : chain_transports(
+                PupyHTTPClient, 
+                AES256.set(password="plop123"),
+                XOR.set(xorkey="plop"), 
+                B64Client,
+            ),
+        "server_transport" : chain_transports(
+                PupyHTTPServer,
+                AES256.set(password="plop123"),
+                XOR.set(xorkey="plop"),
+                B64Server,
+            ),
+        "client_transport_kwargs": {},
+        "server_transport_kwargs": {},
     }
 
 transports["async_http_cleartext"]={
@@ -137,13 +165,13 @@ transports["async_http_cleartext"]={
         "client_kwargs" : {},
         "authenticator" : None,
         "stream": PupyAsyncTCPStream ,
-        "client_transport" : http.PupyHTTPClient,
-        "server_transport" : http.PupyHTTPServer,
+        "client_transport" : PupyHTTPClient,
+        "server_transport" : PupyHTTPServer,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
 
-if obfs3:
+if obfs3_available:
     transports["obfs3"]={
             "info" : "TCP transport using obfsproxy's obfs3 transport",
             "server" : PupyTCPServer,
@@ -151,12 +179,12 @@ if obfs3:
             "client_kwargs" : {},
             "authenticator" : None,
             "stream": PupySocketStream ,
-            "client_transport" : obfs3.Obfs3Client,
-            "server_transport" : obfs3.Obfs3Server,
+            "client_transport" : Obfs3Client,
+            "server_transport" : Obfs3Server,
             "client_transport_kwargs": {},
             "server_transport_kwargs": {},
         }
-if scramblesuit:
+if scramblesuit_available:
     transports["scramblesuit"]={
             "info" : "TCP transport using the obfsproxy's scramblesuit transport",
             "server" : PupyTCPServer,
@@ -164,8 +192,8 @@ if scramblesuit:
             "client_kwargs" : {},
             "authenticator" : None,
             "stream": PupySocketStream ,
-            "client_transport" : scramblesuit.ScrambleSuitClient,
-            "server_transport" : scramblesuit.ScrambleSuitServer,
+            "client_transport" : ScrambleSuitClient,
+            "server_transport" : ScrambleSuitServer,
             "client_transport_kwargs": {"password":scramblesuit_passwd}, 
             "server_transport_kwargs": {"password":scramblesuit_passwd},
         }

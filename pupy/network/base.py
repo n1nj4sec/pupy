@@ -31,6 +31,21 @@ class BasePupyTransport(object):
         self.circuit=Circuit(self.stream, self, downstream=self.downstream, upstream=self.upstream)
         self.cookie=None
 
+    @classmethod
+    def customize(cls, **kwargs):
+        """ return a class with some existing attributes customized """
+        for name, value in kwargs.iteritems():
+            if name in ["cookie", "circuit", "upstream", "downstream", "stream"]:
+                raise TransportError("you cannot customize the protected attribute %s"%name)
+            if not hasattr(cls, name):
+                raise TransportError("Transport has no attribute %s"%name)
+            setattr(cls, name, value)
+        return cls
+
+    @classmethod
+    def set(cls, **kwargs):
+        return cls.customize(**kwargs)
+
     def on_connect(self):
         """
             We just established a connection. Handshake time ! :-)
@@ -69,11 +84,15 @@ class BaseTransport(BasePupyTransport):
     """ obfsproxy style alias """
     pass
 
+class TransportError(Exception):
+    pass
+
 class PluggableTransportError(Exception):
     pass
 
 from buffer import Buffer
 from streams.PupySocketStream import addGetPeer
+import logging
 
 class TransportWrapper(BasePupyTransport):
     cls_chain=[]

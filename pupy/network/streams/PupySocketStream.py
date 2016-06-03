@@ -39,14 +39,12 @@ class PupySocketStream(SocketStream):
 
         self.transport=transport_class(self, **transport_kwargs)
         self.on_connect()
-        #self.async_read_thread=threading.Thread(target=self._downstream_recv_loop)
-        #self.async_read_thread.daemon=True
-        #self.async_read_thread.start()
+
         self.MAX_IO_CHUNK=32000
 
     def on_connect(self):
         self.transport.on_connect()
-        super(PupySocketStream, self).write(self.downstream.read())
+        #super(PupySocketStream, self).write(self.downstream.read())
 
     def _read(self):
         try:
