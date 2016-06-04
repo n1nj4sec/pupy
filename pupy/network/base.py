@@ -39,8 +39,8 @@ class BasePupyTransport(object):
                 raise TransportError("you cannot customize the protected attribute %s"%name)
             if not hasattr(cls, name):
                 raise TransportError("Transport has no attribute %s"%name)
-            setattr(cls, name, value)
-        return cls
+        NewSubClass = type('CustomizedTransport', (cls,), kwargs)
+        return NewSubClass
 
     @classmethod
     def set(cls, **kwargs):

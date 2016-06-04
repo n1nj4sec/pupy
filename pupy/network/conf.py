@@ -10,7 +10,7 @@ from .transports.dummy import DummyPupyTransport
 from .transports.b64 import B64Client, B64Server, B64Transport
 from .transports.http import PupyHTTPClient, PupyHTTPServer
 from .transports.xor import XOR
-from .transports.aes import AES256
+from .transports.aes import AES256, AES128
 try:
     from .transports.obfs3.obfs3 import Obfs3Client, Obfs3Server
     obfs3_available=True
@@ -144,14 +144,16 @@ transports["test_stacking"]={
         "stream": PupySocketStream ,
         "client_transport" : chain_transports(
                 PupyHTTPClient, 
-                AES256.set(password="plop123"),
-                XOR.set(xorkey="plop"), 
+                AES256.set(password="toto123", iterations=10000),
+                XOR.set(xorkey="trololo"), 
+                AES128.set(password="plop123", iterations=10000),
                 B64Client,
             ),
         "server_transport" : chain_transports(
                 PupyHTTPServer,
-                AES256.set(password="plop123"),
-                XOR.set(xorkey="plop"),
+                AES256.set(password="toto123", iterations=10000),
+                XOR.set(xorkey="trololo"),
+                AES128.set(password="plop123", iterations=10000),
                 B64Server,
             ),
         "client_transport_kwargs": {},
