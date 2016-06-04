@@ -26,6 +26,8 @@ def http_req2data(s):
     if not s.startswith("GET "):
         raise InvalidHTTPReq()
     first_line=s.split("\r\n")[0]
+    if not first_line.endswith(" HTTP/1.1"):
+        raise InvalidHTTPReq()
     method, path, http_ver=first_line.split()
     try:
         decoded_data=base64.b64decode(path[1:])
@@ -101,7 +103,7 @@ class PupyHTTPClient(PupyHTTPTransport):
                         if name=="Content-Length":
                             content_length=int(value)
                             break
-                    if content_length is None:
+                    if content_length is None or len(rest)<content_length:
                         break
                     decoded_data+=base64.b64decode(rest[:content_length])
                     length_to_drain=content_length+4+len(head)

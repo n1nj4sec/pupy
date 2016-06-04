@@ -109,9 +109,6 @@ class TransportWrapper(BasePupyTransport):
         #downstream chaining :
         self.insts[0].downstream=self.downstream
         self.insts[0].circuit.downstream=self.downstream
-        #overloading len of buffer with the max of all chained buff
-        #self.upstream.overload_len = (lambda s:max([len(x.upstream.buffer) for x in self.insts]))
-        #self.downstream.overload_len = (lambda s:max([len(x.downstream.buffer) for x in self.insts]))
 
     def on_connect(self):
         for ins in self.insts:

