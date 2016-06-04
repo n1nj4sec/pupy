@@ -204,7 +204,7 @@ def rpyc_loop(launcher):
                     event=threading.Event()
                     t=threading.Thread(target=check_timeout, args=(event, stream.close))
                     t.daemon=True
-                    #t.start()
+                    t.start()
                     try:
                         conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
                     finally:
