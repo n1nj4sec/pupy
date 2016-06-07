@@ -8,7 +8,6 @@ from ..base import BasePupyTransport, TransportError
 import os, logging, threading, hashlib, traceback, traceback
 import rsa
 try:
-    #raise ImportError()
     from Crypto.Cipher import AES
     from Crypto import Random
     from Crypto.Hash import SHA256, HMAC
@@ -28,9 +27,15 @@ class RSA_AESTransport(BasePupyTransport):
     iterations=1000
     key_size=32
     rsa_key_size=4096
-
+    aes_size=256
     def __init__(self, *args, **kwargs):
         super(RSA_AESTransport, self).__init__(*args, **kwargs)
+        if self.aes_size==256:
+            self.key_size=32
+        elif self.aes_size==128:
+            self.key_size=16
+        else:
+            raise TransportError("Only AES 256 and 128 are supported")
         if Random:
             self._iv_enc = Random.new().read(BLOCK_SIZE)
         else:
@@ -93,10 +98,15 @@ class RSA_AESTransport(BasePupyTransport):
 
 class RSA_AESClient(RSA_AESTransport):
     pubkey=None
+    pubkey_path=None
     def __init__(self, *args, **kwargs):
         super(RSA_AESClient, self).__init__(*args, **kwargs)
         if "pubkey" in kwargs:
             self.pubkey=kwargs["pubkey"]
+        if "pubkey_path" in kwargs:
+            self.pubkey_path=kwargs["pubkey_path"]
+        if self.pubkey_path:
+            self.pubkey=open(self.pubkey_path).read()
         if self.pubkey is None:
             raise TransportError("A public key (pem format) needs to be supplied for RSA_AESClient")
 
@@ -118,10 +128,15 @@ class RSA_AESClient(RSA_AESTransport):
 
 class RSA_AESServer(RSA_AESTransport):
     privkey=None
+    privkey_path=None
     def __init__(self, *args, **kwargs):
         super(RSA_AESServer, self).__init__(*args, **kwargs)
         if "privkey" in kwargs:
-            self.privkey=kwargs["privkey"]
+            raise TransportError("You need to pass privatekeys as a path or it could be usafe and embedded in payloads")
+        if "privkey_path" in kwargs:
+            self.privkey_path=kwargs["privkey_path"]
+        if self.privkey_path:
+            self.privkey=open(self.privkey_path).read()
         if self.privkey is None:
             raise TransportError("A private key (pem format) needs to be supplied for RSA_AESServer")
         self.pk=rsa.PrivateKey.load_pkcs1(self.privkey)
@@ -152,6 +167,4 @@ class RSA_AESServer(RSA_AESTransport):
             return
         super(RSA_AESServer, self).upstream_recv(data)
 
-class RSA_AES(RSA_AESTransport):
-    key_size=32
 

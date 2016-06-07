@@ -209,7 +209,7 @@ def rpyc_loop(launcher):
                         event.set()
                     while not stream.closed:
                         attempt=0
-                        conn.serve(0.001)
+                        conn.serve(0.01)
             except KeyboardInterrupt:
                 raise
             except EOFError:
