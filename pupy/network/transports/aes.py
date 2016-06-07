@@ -82,7 +82,7 @@ class AESTransport(BasePupyTransport):
         try:
             enc=data.peek()
             if self._iv_dec is None: #receive IV
-                if len(data)<BLOCK_SIZE:
+                if len(enc)<BLOCK_SIZE:
                     return
                 self._iv_dec=enc[0:BLOCK_SIZE]
                 if AES is not None:
