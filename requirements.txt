@@ -3,3 +3,4 @@ pycrypto
 pefile 
 pyyaml
 image
+rsa

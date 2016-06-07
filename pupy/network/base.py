@@ -50,7 +50,16 @@ class BasePupyTransport(object):
     def set(cls, **kwargs):
         return cls.customize(**kwargs)
 
-
+    def close(self):
+        try:
+            self.on_close()
+        except:
+            pass
+        try:
+            if self.stream:
+                self.stream.close()
+        except:
+            pass
     def on_connect(self):
         """
             We just established a connection. Handshake time ! :-)

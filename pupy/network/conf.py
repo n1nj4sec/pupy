@@ -11,6 +11,8 @@ from .transports.b64 import B64Client, B64Server, B64Transport
 from .transports.http import PupyHTTPClient, PupyHTTPServer
 from .transports.xor import XOR
 from .transports.aes import AES256, AES128
+from .transports.rsa_aes import RSA_AESClient, RSA_AESServer
+import rsa
 try:
     from .transports.obfs3.obfs3 import Obfs3Client, Obfs3Server
     obfs3_available=True
@@ -166,6 +168,18 @@ transports["tcp_aes"]={
         "server_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
     }
 
+transports["tcp_rsa_aes"]={
+        "info" : "TCP transport that encodes traffic using AES256 with a static password hashed with PBKDF2",
+        "server" : PupyTCPServer,
+        "client": PupyTCPClient,
+        "client_kwargs" : {},
+        "authenticator" : None,
+        "stream": PupySocketStream ,
+        "client_transport" : RSA_AESClient.custom(pubkey=open("crypto/rsa_public_key.pem").read(), rsa_key_size=4096),
+        "server_transport" : RSA_AESServer.custom(privkey=open("crypto/rsa_private_key.pem").read(), rsa_key_size=4096),
+        "client_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
+        "server_transport_kwargs": {"password": "pupy_t3st_p4s5word"},
+    }
 
 transports["trololo"]={
         "info" : "test wrapping",
