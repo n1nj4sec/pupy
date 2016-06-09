@@ -336,21 +336,25 @@ class PupyServer(threading.Thread):
 
     def run(self):
         self.handler_registered.wait()
-        t=transports[self.transport]
-        transport_kwargs=t['server_transport_kwargs']
+        t=transports[self.transport]()
+        transport_kwargs=t.server_transport_kwargs
         if self.transport_kwargs:
             opt_args=parse_transports_args(self.transport_kwargs)
             for val in opt_args:
-                if val.lower() in t['server_transport_kwargs']:
+                if val.lower() in t.server_transport_kwargs:
                     transport_kwargs[val.lower()]=opt_args[val]
                 else:
                     logging.warning("unknown transport argument : %s"%tab[0])
-        if t['authenticator']:
-            authenticator=t['authenticator']()
+        if t.authenticator:
+            authenticator=t.authenticator()
         else:
             authenticator=None
         try:
-            self.server = t['server'](PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t['stream'], transport=t['server_transport'], transport_kwargs=transport_kwargs, ipv6=self.ipv6)
+            t.parse_args(transport_kwargs)
+        except Exception as e:
+            logging.exception(e)
+        try:
+            self.server = t.server(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t.stream, transport=t.server_transport, transport_kwargs=t.server_transport_kwargs, ipv6=self.ipv6)
             self.server.start()
         except Exception as e:
             logging.exception(e)

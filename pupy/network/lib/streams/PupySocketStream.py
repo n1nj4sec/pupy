@@ -25,7 +25,7 @@ class addGetPeer(object):
         return self.peer
 
 class PupySocketStream(SocketStream):
-    def __init__(self, sock, transport_class, transport_kwargs={}):
+    def __init__(self, sock, transport_class, transport_kwargs):
         super(PupySocketStream, self).__init__(sock)
         #buffers for streams
         self.buf_in=Buffer()

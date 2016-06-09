@@ -681,10 +681,8 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
         self.weAreClient=True
         self.weAreExternal=True
         if 'password' in kwargs:
-            uniformDHSecret = kwargs['password']
-            del kwargs['password']
-        else:
-            uniformDHSecret = self.password
+            self.password=kwargs['password']
+        uniformDHSecret = self.password
         rawLength = len(uniformDHSecret)
         if rawLength != const.SHARED_SECRET_LENGTH:
             raise base.PluggableTransportError(
@@ -709,12 +707,9 @@ class ScrambleSuitServer( ScrambleSuitTransport ):
         self.weAreServer=True
         self.weAreClient=False
         self.weAreExternal=True
-
         if 'password' in kwargs:
-            uniformDHSecret = kwargs['password']
-            del kwargs['password']
-        else:
-            uniformDHSecret = self.password
+            self.password=kwargs['password']
+        uniformDHSecret = self.password
         rawLength = len(uniformDHSecret)
         if rawLength != const.SHARED_SECRET_LENGTH:
             raise base.PluggableTransportError(

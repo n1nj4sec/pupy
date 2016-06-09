@@ -29,7 +29,7 @@ def monitor(st):
 
 class PupyAsyncStream(Stream):
     """ Pupy asynchrone stream implementation """
-    def __init__(self, dstconf, transport_class, transport_kwargs={}):
+    def __init__(self, dstconf, transport_class, transport_kwargs):
         super(PupyAsyncStream, self).__init__()
         self.active=True
         #buffers for streams
