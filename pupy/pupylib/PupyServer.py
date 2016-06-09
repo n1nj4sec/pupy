@@ -27,8 +27,8 @@ from .PupyCategories import PupyCategories
 from network.conf import transports
 from pupylib.utils.rpyc_utils import obtain
 from .PupyTriggers import on_connect
-from network.utils import parse_transports_args
-from network.base_launcher import LauncherError
+from network.lib.utils import parse_transports_args
+from network.lib.base_launcher import LauncherError
 import network.conf
 import rpyc
 import shlex

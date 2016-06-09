@@ -9,7 +9,7 @@ from pupylib.utils.term import colorize
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
-from network.base_launcher import LauncherError
+from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 import scriptlets
 
