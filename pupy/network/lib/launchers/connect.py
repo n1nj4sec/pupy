@@ -6,6 +6,9 @@ from ..base_launcher import *
 
 class ConnectLauncher(BaseLauncher):
     """ simple launcher that uses TCP connect with a chosen transport """
+    def __init__(self, *args, **kwargs):
+        self.connect_on_bind_payload=kwargs.pop("connect_on_bind_payload", False)
+        super(ConnectLauncher, self).__init__(*args, **kwargs)
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="connect", description=self.__doc__)
         self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
@@ -27,7 +30,7 @@ class ConnectLauncher(BaseLauncher):
             raise LauncherError("parse_args needs to be called before iterate")
         logging.info("connecting to %s:%s using transport %s ..."%(self.rhost, self.rport, self.args.transport))
         opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
-        t=network.conf.transports[self.args.transport]()
+        t=network.conf.transports[self.args.transport](bind_payload=self.connect_on_bind_payload)
         client_args=t.client_kwargs
         transport_args=t.client_transport_kwargs
         for val in opt_args:

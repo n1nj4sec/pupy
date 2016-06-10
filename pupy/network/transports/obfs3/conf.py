@@ -11,12 +11,25 @@ class TransportConf(Transport):
     server = PupyTCPServer
     client = PupyTCPClient
     stream = PupySocketStream
-    client_transport = chain_transports(
-            Obfs3Client,
-            RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
-        )
-    server_transport = chain_transports(
-            Obfs3Server,
-            RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
-        )
+    def __init__(self, *args, **kwargs):
+        Transport.__init__(self, *args, **kwargs)
+        if self.launcher_type == LAUNCHER_TYPE_BIND: #reversing the RSA client/server for BIND payloads so the private key doesn't go on the target
+            self.client_transport = chain_transports(
+                    Obfs3Client,
+                    RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
+                )
+            self.server_transport = chain_transports(
+                    Obfs3Server,
+                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                )
+
+        else:
+            self.client_transport = chain_transports(
+                    Obfs3Client,
+                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                )
+            self.server_transport = chain_transports(
+                    Obfs3Server,
+                    RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
+                )
 

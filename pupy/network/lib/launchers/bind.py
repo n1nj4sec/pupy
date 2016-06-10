@@ -31,26 +31,22 @@ class BindLauncher(BaseLauncher):
             raise LauncherError("parse_args needs to be called before iterate")
         logging.info("binding on %s:%s using transport %s ..."%(self.args.host, self.args.port, self.args.transport))
         opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
-        t=network.conf.transports[self.args.transport]
+        t=network.conf.transports[self.args.transport](bind_payload=True)
 
-        #NOTE : no server_kwargs for now, but perhaps it will be needed ?
-        #client_args=t['client_kwargs']
-        transport_kwargs=t['server_transport_kwargs']
+        transport_kwargs=t.server_transport_kwargs
         for val in opt_args:
-            #if val.lower() in t['client_kwargs']:
-            #    client_args[val.lower()]=opt_args[val]
-            if val.lower() in t['server_transport_kwargs']:
+            if val.lower() in t.server_transport_kwargs:
                 transport_kwargs[val.lower()]=opt_args[val]
             else:
                 logging.warning("unknown transport argument : %s"%tab[0])
-        #logging.info("using client options: %s"%client_args)
+        t.parse_args(transport_kwargs)
         logging.info("using transports options: %s"%transport_kwargs)
-        if t['authenticator']:
-            authenticator=t['authenticator']()
+        if t.authenticator:
+            authenticator=t.authenticator()
         else:
             authenticator=None
 
-        yield (t['server'], self.args.port, self.args.host, authenticator, t['stream'], t['server_transport'], transport_kwargs)
+        yield (t.server, self.args.port, self.args.host, authenticator, t.stream, t.server_transport, transport_kwargs)
 
 
 

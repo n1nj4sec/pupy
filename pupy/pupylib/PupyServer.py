@@ -322,7 +322,7 @@ class PupyServer(threading.Thread):
 
     def connect_on_client(self, launcher_args):
         """ connect on a client that would be running a bind payload """
-        launcher=network.conf.launchers["connect"]()
+        launcher=network.conf.launchers["connect"](connect_on_bind_payload=True)
         try:
             launcher.parse_args(shlex.split(launcher_args))
         except LauncherError as e:

