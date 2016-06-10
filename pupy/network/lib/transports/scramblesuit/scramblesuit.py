@@ -52,7 +52,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         Initialise a ScrambleSuitTransport object.
         """
 
-        log.debug("Initialising %s." % const.TRANSPORT_NAME)
+        #log.debug("Initialising %s." % const.TRANSPORT_NAME)
 
         super(ScrambleSuitTransport, self).__init__(*args, **kwargs)
 
@@ -61,7 +61,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             self.srvState = state.load()
 
         # Initialise the protocol's state machine.
-        log.debug("Switching to state ST_WAIT_FOR_AUTH.")
+        #log.debug("Switching to state ST_WAIT_FOR_AUTH.")
         self.protoState = const.ST_WAIT_FOR_AUTH
 
         # Buffer for outgoing data.
@@ -109,9 +109,9 @@ class ScrambleSuitTransport( base.BaseTransport ):
         Called once when obfsproxy starts.
         """
 
-        log.error("\n\n################################################\n"
-                  "Do NOT rely on ScrambleSuit for strong security!\n"
-                  "################################################\n")
+        #log.error("\n\n################################################\n"
+        #          "Do NOT rely on ScrambleSuit for strong security!\n"
+        #          "################################################\n")
 
         util.setStateLocation(transportConfig.getStateLocation())
 
@@ -135,7 +135,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         if cls.weAreServer:
             if not hasattr(cls, "uniformDHSecret"):
-                log.debug("Using fallback password for descriptor file.")
+                #log.debug("Using fallback password for descriptor file.")
                 srv = state.load()
                 cls.uniformDHSecret = srv.fallbackPassword
 
@@ -160,12 +160,12 @@ class ScrambleSuitTransport( base.BaseTransport ):
         if the bridge operator did not use `ServerTransportOptions'.
         """
 
-        log.debug("Tor's transport options: %s" % str(transportOptions))
+        #log.debug("Tor's transport options: %s" % str(transportOptions))
 
         if not "password" in transportOptions:
-            log.warning("No password found in transport options (use Tor's " \
-                        "`ServerTransportOptions' to set your own password)." \
-                        "  Using automatically generated password instead.")
+            #log.warning("No password found in transport options (use Tor's " \
+            #            "`ServerTransportOptions' to set your own password)." \
+            #            "  Using automatically generated password instead.")
             srv = state.load()
             transportOptions = {"password":
                                 base64.b32encode(srv.fallbackPassword)}
@@ -184,8 +184,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         assert len(masterKey) == const.MASTER_KEY_LENGTH
 
-        log.debug("Deriving session keys from %d-byte master key." %
-                  len(masterKey))
+        #log.debug("Deriving session keys from %d-byte master key." %
+        #          len(masterKey))
 
         # We need key material for two symmetric AES-CTR keys, nonces and
         # HMACs.  In total, this equals 144 bytes of key material.
@@ -224,7 +224,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         storedTicket = ticket.findStoredTicket(bridge)
 
         if storedTicket is not None:
-            log.debug("Redeeming stored session ticket.")
+            #log.debug("Redeeming stored session ticket.")
             (masterKey, rawTicket) = storedTicket
             self.deriveSecrets(masterKey)
             self.circuit.downstream.write(ticket.createTicketMessage(rawTicket,
@@ -232,7 +232,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
             # We switch to ST_CONNECTED opportunistically since we don't know
             # yet whether the server accepted the ticket.
-            log.debug("Switching to state ST_CONNECTED.")
+            #log.debug("Switching to state ST_CONNECTED.")
             self.protoState = const.ST_CONNECTED
 
             self.flushSendBuffer()
@@ -240,11 +240,11 @@ class ScrambleSuitTransport( base.BaseTransport ):
         # Conduct an authenticated UniformDH handshake if there's no ticket.
         else:
             if self.uniformDHSecret is None:
-                log.warning("A UniformDH password is not set, most likely " \
-                            "a missing 'password' argument.")
+                #log.warning("A UniformDH password is not set, most likely " \
+                #            "a missing 'password' argument.")
                 self.circuit.close()
                 return
-            log.debug("No session ticket to redeem.  Running UniformDH.")
+            #log.debug("No session ticket to redeem.  Running UniformDH.")
             self.circuit.downstream.write(self.uniformdh.createHandshake())
 
     def sendRemote( self, data, flags=const.FLAG_PAYLOAD ):
@@ -257,7 +257,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         payload.
         """
 
-        log.debug("Processing %d bytes of outgoing data." % len(data))
+        #log.debug("Processing %d bytes of outgoing data." % len(data))
 
         # Wrap the application's data in ScrambleSuit protocol messages.
         messages = message.createProtocolMessages(data, flags=flags)
@@ -345,7 +345,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             # as the server.  That's where the polymorphism comes from.
             elif self.weAreClient and (msg.flags == const.FLAG_PRNG_SEED):
                 assert len(msg.payload) == const.PRNG_SEED_LENGTH
-                log.debug("Obtained PRNG seed.")
+                #log.debug("Obtained PRNG seed.")
                 prng = random.Random(msg.payload)
                 pktDist = probdist.new(lambda: prng.randint(const.HDR_LENGTH,
                                                             const.MTU),
@@ -356,7 +356,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
                                                seed=msg.payload)
 
             else:
-                log.warning("Invalid message flags: %d." % msg.flags)
+                #log.warning("Invalid message flags: %d." % msg.flags)
+                pass
 
     def flushSendBuffer( self ):
         """
@@ -368,12 +369,12 @@ class ScrambleSuitTransport( base.BaseTransport ):
         """
 
         if len(self.sendBuf) == 0:
-            log.debug("Send buffer is empty; nothing to flush.")
+            #log.debug("Send buffer is empty; nothing to flush.")
             return
 
         # Flush the buffered data, the application is so eager to send.
-        log.debug("Flushing %d bytes of buffered application data." %
-                  len(self.sendBuf))
+        #log.debug("Flushing %d bytes of buffered application data." %
+        #          len(self.sendBuf))
 
         self.sendRemote(self.sendBuf)
         self.sendBuf = ""
@@ -426,25 +427,25 @@ class ScrambleSuitTransport( base.BaseTransport ):
                 authenticated = True
                 break
 
-            log.debug("HMAC invalid.  Trying next epoch value.")
+            #log.debug("HMAC invalid.  Trying next epoch value.")
 
         if not authenticated:
-            log.warning("Could not verify the authentication message's HMAC.")
+            #log.warning("Could not verify the authentication message's HMAC.")
             return False
 
         # Do nothing if the ticket is replayed.  Immediately closing the
         # connection would be suspicious.
         if self.srvState.isReplayed(existingHMAC):
-            log.warning("The HMAC was already present in the replay table.")
+            #log.warning("The HMAC was already present in the replay table.")
             return False
 
         data.drain(index + const.MARK_LENGTH + const.HMAC_SHA256_128_LENGTH)
 
-        log.debug("Adding the HMAC authenticating the ticket message to the " \
-                  "replay table: %s." % existingHMAC.encode('hex'))
+        #log.debug("Adding the HMAC authenticating the ticket message to the " \
+        #          "replay table: %s." % existingHMAC.encode('hex'))
         self.srvState.registerKey(existingHMAC)
 
-        log.debug("Switching to state ST_CONNECTED.")
+        #log.debug("Switching to state ST_CONNECTED.")
         self.protoState = const.ST_CONNECTED
 
         return True
@@ -464,8 +465,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
         # Buffer data we are not ready to transmit yet.
         else:
             self.sendBuf += data.read()
-            log.debug("Buffered %d bytes of outgoing data." %
-                      len(self.sendBuf))
+            #log.debug("Buffered %d bytes of outgoing data." %
+            #          len(self.sendBuf))
 
     def sendTicketAndSeed( self ):
         """
@@ -475,8 +476,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
         authentication.  Finally, the server's send buffer is flushed.
         """
 
-        log.debug("Sending a new session ticket and the PRNG seed to the " \
-                  "client.")
+        #log.debug("Sending a new session ticket and the PRNG seed to the " \
+        #          "client.")
 
         self.sendRemote(ticket.issueTicketAndKey(self.srvState),
                         flags=const.FLAG_NEW_TICKET)
@@ -499,9 +500,9 @@ class ScrambleSuitTransport( base.BaseTransport ):
             data.drain(len(data))
 
             if self.drainedHandshake > self.srvState.closingThreshold:
-                log.info("Terminating connection after having received >= %d"
-                         " bytes because client could not "
-                         "authenticate." % self.srvState.closingThreshold)
+                #log.info("Terminating connection after having received >= %d"
+                #         " bytes because client could not "
+                #         "authenticate." % self.srvState.closingThreshold)
                 self.circuit.close()
                 return
 
@@ -509,7 +510,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
             # First, try to interpret the incoming data as session ticket.
             if self.receiveTicket(data):
-                log.debug("Ticket authentication succeeded.")
+                #log.debug("Ticket authentication succeeded.")
 
                 self.sendTicketAndSeed()
 
@@ -520,13 +521,13 @@ class ScrambleSuitTransport( base.BaseTransport ):
                 handshakeMsg = self.uniformdh.createHandshake(srvState=
                                                               self.srvState)
 
-                log.debug("Sending %d bytes of UniformDH handshake and "
-                          "session ticket." % len(handshakeMsg))
+                #log.debug("Sending %d bytes of UniformDH handshake and "
+                #          "session ticket." % len(handshakeMsg))
 
                 self.circuit.downstream.write(handshakeMsg)
-                log.debug("UniformDH authentication succeeded.")
+                #log.debug("UniformDH authentication succeeded.")
 
-                log.debug("Switching to state ST_CONNECTED.")
+                #log.debug("Switching to state ST_CONNECTED.")
                 self.protoState = const.ST_CONNECTED
 
                 self.sendTicketAndSeed()
@@ -535,25 +536,25 @@ class ScrambleSuitTransport( base.BaseTransport ):
                 self.protoState = const.ST_AUTH_FAILED
                 self.drainedHandshake = len(data)
                 data.drain(self.drainedHandshake)
-                log.info("No successful authentication after having " \
-                         "received >= %d bytes.  Now ignoring client." % \
-                         const.MAX_HANDSHAKE_LENGTH)
+                #log.info("No successful authentication after having " \
+                #         "received >= %d bytes.  Now ignoring client." % \
+                #         const.MAX_HANDSHAKE_LENGTH)
                 return
 
             else:
-                log.debug("Authentication unsuccessful so far.  "
-                          "Waiting for more data.")
+                #log.debug("Authentication unsuccessful so far.  "
+                #          "Waiting for more data.")
                 return
 
         elif self.weAreClient and (self.protoState == const.ST_WAIT_FOR_AUTH):
 
             if not self.uniformdh.receivePublicKey(data, self.deriveSecrets):
-                log.debug("Unable to finish UniformDH handshake just yet.")
+                #log.debug("Unable to finish UniformDH handshake just yet.")
                 return
 
-            log.debug("UniformDH authentication succeeded.")
+            #log.debug("UniformDH authentication succeeded.")
 
-            log.debug("Switching to state ST_CONNECTED.")
+            #log.debug("Switching to state ST_CONNECTED.")
             self.protoState = const.ST_CONNECTED
             self.flushSendBuffer()
 
@@ -629,7 +630,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         them.  As argument, we only expect a UniformDH shared secret.
         """
 
-        log.debug("Received the following arguments over SOCKS: %s." % args)
+        #log.debug("Received the following arguments over SOCKS: %s." % args)
 
         if len(args) != 1:
             raise base.SOCKSArgsError("Too many SOCKS arguments "

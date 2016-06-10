@@ -32,7 +32,7 @@ def createProtocolMessages( data, flags=const.FLAG_PAYLOAD ):
 
     messages.append(ProtocolMessage(data, flags=flags))
 
-    log.debug("Created %d protocol messages." % len(messages))
+    #log.debug("Created %d protocol messages." % len(messages))
 
     return messages
 
@@ -74,8 +74,8 @@ def isSane( totalLen, payloadLen, flags ):
 
         return True if (0 <= length <= const.MPU) else False
 
-    log.debug("Message header: totalLen=%d, payloadLen=%d, flags"
-              "=%s" % (totalLen, payloadLen, getFlagNames(flags)))
+    #log.debug("Message header: totalLen=%d, payloadLen=%d, flags"
+    #          "=%s" % (totalLen, payloadLen, getFlagNames(flags)))
 
     validFlags = [
         const.FLAG_PAYLOAD,
@@ -146,8 +146,8 @@ class ProtocolMessage( object ):
         if paddingLen == 0:
             return
 
-        log.debug("Adding %d bytes of padding to %d-byte message." %
-                  (paddingLen, const.HDR_LENGTH + self.totalLen))
+        #log.debug("Adding %d bytes of padding to %d-byte message." %
+        #          (paddingLen, const.HDR_LENGTH + self.totalLen))
         self.totalLen += paddingLen
 
     def __len__( self ):

@@ -86,9 +86,9 @@ class PacketMorpher( object ):
         if padLen < const.HDR_LENGTH:
             padLen += const.MTU
 
-        log.debug("Morphing the last %d-byte packet to %d bytes by adding %d "
-                  "bytes of padding." %
-                  (dataLen % const.MTU, sampleLen, padLen))
+        #log.debug("Morphing the last %d-byte packet to %d bytes by adding %d "
+        #          "bytes of padding." %
+        #          (dataLen % const.MTU, sampleLen, padLen))
 
         return padLen
 
