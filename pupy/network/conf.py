@@ -6,28 +6,43 @@ import os, sys, logging, pkgutil
 from .lib.launchers.connect import ConnectLauncher
 from .lib.launchers.auto_proxy import AutoProxyLauncher
 from .lib.launchers.bind import BindLauncher
+import importlib
 
 transports={}
 launchers={}
+def add_transport(module_name):
+    try:
+        confmodule=importlib.import_module("network.transports."+module_name+".conf")
+        if not hasattr(confmodule,"TransportConf"):
+            logging.error("No class TransportConf in transport network.transports.%s"%module_name)
+            return
+        t=confmodule.TransportConf
+        if t.name is None:
+            logging.warning("Transport %s has no defined attribute name. using package name as a fallback"%module_name)
+            t.name=module_name
+
+        transports[t.name]=t
+        logging.debug("[+] transport %s loaded"%t.name)
+    except Exception as e:
+        logging.warning("Could not load transport %s : %s. Transport disabled"%(module_name,e))
+
 if "network.transports" not in sys.modules:
     import transports as trlib
-    for loader, module_name, is_pkg in pkgutil.iter_modules(trlib.__path__):
-        try:
-            loader2=pkgutil.get_loader("network.transports."+module_name+".conf")
-            confmodule=loader2.load_module("conf")
-            if not hasattr(confmodule,"TransportConf"):
-                logging.error("No class TransportConf in transport network.transports.%s"%module_name)
-                continue
-            t=confmodule.TransportConf
-            if t.name is None:
-                logging.warning("Transport %s has no defined attribute name. using package name as a fallback"%module_name)
-                t.name=module_name
-
-            transports[t.name]=t
-            logging.debug("[+] transport %s loaded"%t.name)
-        except Exception as e:
-            logging.warning("Could not load transport %s : %s. Transport disabled"%(module_name,e))
-
+   
+   #importing from memory (used by payloads)
+    try:
+        import pupyimporter
+        import network.transports
+        for path in [x for x in pupyimporter.modules.iterkeys() if x.startswith("network/transports/") and x.endswith("/conf.py")]:
+            try:
+                module_name=path.rsplit('/',2)[1]
+                add_transport(module_name)
+            except Exception as e:
+                pass
+    except Exception:
+        #imports for pupygen and the pupysh server
+        for loader, module_name, is_pkg in pkgutil.iter_modules(trlib.__path__):
+            add_transport(module_name)
 
 launchers["connect"]=ConnectLauncher
 launchers["auto_proxy"]=AutoProxyLauncher
