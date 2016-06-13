@@ -7,7 +7,7 @@ from network.lib.transports.scramblesuit.scramblesuit import ScrambleSuitClient,
 
 
 class TransportConf(Transport):
-    info = "TCP transport using obfsproxy's obfs3 transport with a extra rsa+aes layer",
+    info = "TCP transport using obfsproxy's obfs3 transport with a extra rsa+aes layer"
     name = "scramblesuit"
     server = PupyTCPServer
     client = PupyTCPClient

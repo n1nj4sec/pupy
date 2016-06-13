@@ -6,7 +6,7 @@ from network.lib import *
 from network.lib.transports.obfs3.obfs3 import Obfs3Client, Obfs3Server
 
 class TransportConf(Transport):
-    info = "TCP transport using obfsproxy's obfs3 transport with a extra rsa+aes layer",
+    info = "TCP transport using obfsproxy's obfs3 transport with a extra rsa+aes layer"
     name = "obfs3"
     server = PupyTCPServer
     client = PupyTCPClient
