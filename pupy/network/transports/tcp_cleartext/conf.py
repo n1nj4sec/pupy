@@ -6,7 +6,7 @@ from network.lib import *
 
 class TransportConf(Transport):
     info = "Simple TCP transport transmitting in cleartext"
-    name="tcp"
+    name="tcp_cleartext"
     server=PupyTCPServer
     client=PupyTCPClient
     stream=PupySocketStream

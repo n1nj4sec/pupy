@@ -25,9 +25,11 @@ class Buffer(object):
 
     def wait(self, timeout=0.1):
         """ wait for a size """
-        with self.waiting_lock:
+        if len(self.buffer)>0:
+            return True
+        else:
             self.waiting.clear()
-            self.waiting.wait(timeout)
+        return self.waiting.wait(timeout)
             
     def read(self, n=-1):
         """

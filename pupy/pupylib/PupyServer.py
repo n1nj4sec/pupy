@@ -344,7 +344,7 @@ class PupyServer(threading.Thread):
                 if val.lower() in t.server_transport_kwargs:
                     transport_kwargs[val.lower()]=opt_args[val]
                 else:
-                    logging.warning("unknown transport argument : %s"%tab[0])
+                    logging.warning("unknown transport argument : %s"%val)
         if t.authenticator:
             authenticator=t.authenticator()
         else:

