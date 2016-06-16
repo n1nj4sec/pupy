@@ -316,7 +316,9 @@ if __name__=="__main__":
             w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
     elif args.format=="py_oneliner":
         packed_payload=pack_py_payload(get_raw_conf(conf))
-        serve_payload(packed_payload)
+        i=conf["launcher_args"].index("--host")+1
+        link_ip=conf["launcher_args"][i].split(":",1)[0]
+        serve_payload(packed_payload, link_ip=link_ip)
     else:
         exit("Type %s is invalid."%(args.format))
     print(colorize("[+] ","green")+"payload successfully generated with config :")
