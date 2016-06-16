@@ -157,7 +157,7 @@ class AutoProxyLauncher(BaseLauncher):
         
         #first we try without any proxy :
         try:
-            t=copy.deepcopy(network.conf.transports[self.args.transport])
+            t=network.conf.transports[self.args.transport]()
             client_args=t.client_kwargs
             transport_args=t.client_transport_kwargs
             for val in opt_args:
@@ -169,6 +169,12 @@ class AutoProxyLauncher(BaseLauncher):
                     logging.warning("unknown transport argument : %s"%tab[0])
             logging.info("using client options: %s"%client_args)
             logging.info("using transports options: %s"%transport_args)
+            try:
+                t.parse_args(transport_args)
+            except Exception as e:
+                #at this point we quit if we can't instanciate the client
+                raise SystemExit(e)
+
             try:
                 client=t.client(**client_args)
             except Exception as e:
@@ -186,7 +192,7 @@ class AutoProxyLauncher(BaseLauncher):
         #then with proxies
         for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
             try:
-                t=copy.deepcopy(network.conf.transports[self.args.transport])
+                t=network.conf.transports[self.args.transport]()
                 client_args=t.client_kwargs
                 transport_args=t.client_transport_kwargs
                 for val in opt_args:
