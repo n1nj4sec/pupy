@@ -161,27 +161,27 @@ def ListSids():
 
     for proc in psutil.process_iter():
         try:
-        pinfo = proc.as_dict(attrs=['pid', 'username', 'name'])
+            pinfo = proc.as_dict(attrs=['pid', 'username', 'name'])
         except psutil.NoSuchProcess:
-        pass
+            pass
         else:
-        if pinfo['pid']<=4:
-            continue
-        if pinfo['username'] is None:
-            continue
-        try:
-            hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pinfo['pid']))
-            hToken = HANDLE(INVALID_HANDLE_VALUE)
-            windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
-
+            if pinfo['pid']<=4:
+                continue
+            if pinfo['username'] is None:
+                continue
             try:
-                sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
-            except:
-                pass
-            windll.kernel32.CloseHandle(hToken)
-            windll.kernel32.CloseHandle(hProcess)
-        except Exception as e:
-            print e
+                hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pinfo['pid']))
+                hToken = HANDLE(INVALID_HANDLE_VALUE)
+                windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+
+                try:
+                    sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
+                except:
+                    pass
+                windll.kernel32.CloseHandle(hToken)
+                windll.kernel32.CloseHandle(hProcess)
+            except Exception as e:
+                print e
     return list(sids)
 
 
