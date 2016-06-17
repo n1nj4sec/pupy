@@ -28,13 +28,13 @@ class TransportConf(Transport):
                 )
             self.server_transport = chain_transports(
                     Obfs3Server,
-                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                    RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256),
                 )
 
         else:
             self.client_transport = chain_transports(
                     Obfs3Client,
-                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                    RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256),
                 )
             self.server_transport = chain_transports(
                     Obfs3Server,

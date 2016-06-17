@@ -26,9 +26,9 @@ class TransportConf(Transport):
         if self.launcher_type == LAUNCHER_TYPE_BIND: 
             self.client_transport = RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256)
                 
-            self.server_transport = RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256)
+            self.server_transport = RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256)
 
         else:
-            self.client_transport = RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256)
+            self.client_transport = RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256)
             self.server_transport = RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256)
 

