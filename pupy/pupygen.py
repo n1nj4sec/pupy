@@ -63,8 +63,8 @@ def get_raw_conf(conf, obfuscate=False):
         obf_func=compress_encode_obfs
 
 
-    l=launchers[args.launcher]()
-    l.parse_args(args.launcher_args)
+    l=launchers[conf['launcher']]()
+    l.parse_args(conf['launcher_args'])
     t=transports[l.get_transport()]
     creds_src=open("crypto/credentials.py","r").read()
     creds={}
