@@ -105,7 +105,10 @@ class PupySocketStream(SocketStream):
         try:
             with self.upstream_lock:
                 self.buf_out.write(data)
-                self.transport.upstream_recv(self.buf_out)
+                try:
+                    self.transport.upstream_recv(self.buf_out)
+                except EOFError as e:
+                    logging.debug(traceback.format_exc())
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
