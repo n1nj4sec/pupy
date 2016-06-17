@@ -8,7 +8,7 @@ from rpyc.utils.authenticators import AuthenticationError
 from rpyc.utils.registry import UDPRegistryClient
 from rpyc.core.stream import Stream
 from buffer import Buffer
-import threading, socket
+import threading, socket, time
 from streams.PupySocketStream import addGetPeer
 
 
@@ -235,7 +235,29 @@ class PupyTCPServer(ThreadPoolServer):
         h=addrinfo[0]
         p=addrinfo[1]
         config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
-        return Connection(self.service, Channel(self.stream_class(sock, self.transport_class, self.transport_kwargs)), config=config)
+        def check_timeout(event, cb, timeout=10):
+            start_time=time.time()
+            while True:
+                if time.time()-start_time>timeout:
+                    if not event.is_set():
+                        logging.error("timeout occured !")
+                        cb()
+                    break
+                elif event.is_set():
+                    break
+                time.sleep(0.5)
+        stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
+
+        event=threading.Event()
+        t=threading.Thread(target=check_timeout, args=(event, stream.close))
+        t.daemon=True
+        t.start()
+        try:
+            c=Connection(self.service, Channel(stream), config=config)
+        finally:
+            event.set()
+        return c
+
 
 
 class PupyUDPServer(object):

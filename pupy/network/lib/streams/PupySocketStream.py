@@ -51,7 +51,9 @@ class PupySocketStream(SocketStream):
 
     def on_connect(self):
         self.transport.on_connect()
-        super(PupySocketStream, self).write(self.downstream.read())
+        d=self.downstream.read()
+        if d:
+            super(PupySocketStream, self).write(d)
 
     def _read(self):
         try:

