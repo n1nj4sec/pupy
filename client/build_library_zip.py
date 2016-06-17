@@ -30,7 +30,7 @@ else:
 	
 
 all_dependencies=list(set([x.split(".")[0] for x in sys.modules.iterkeys()]))
-all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "_yaml", "rpyc"])
+all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "_yaml", "rpyc", "network"])
 all_dependencies=list(set(all_dependencies))
 
 zf = zipfile.ZipFile(os.path.join("sources","resources","library%s.zip"%arch), mode='w', compression=zipfile.ZIP_DEFLATED)

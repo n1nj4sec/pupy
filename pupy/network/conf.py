@@ -26,23 +26,24 @@ def add_transport(module_name):
     except Exception as e:
         logging.warning("Could not load transport %s : %s. Transport disabled"%(module_name,e))
 
-if "network.transports" not in sys.modules:
-    import transports as trlib
    
-   #importing from memory (used by payloads)
-    try:
-        import pupyimporter
-        import network.transports
-        for path in [x for x in pupyimporter.modules.iterkeys() if x.startswith("network/transports/") and x.endswith("/conf.py")]:
-            try:
-                module_name=path.rsplit('/',2)[1]
-                add_transport(module_name)
-            except Exception as e:
-                pass
-    except Exception:
-        #imports for pupygen and the pupysh server
-        for loader, module_name, is_pkg in pkgutil.iter_modules(trlib.__path__):
+#importing from memory (used by payloads)
+try:
+    import pupyimporter
+    import network.transports
+    for path in [x for x in pupyimporter.modules.iterkeys() if x.startswith("network/transports/") and x.endswith(("/conf.py","/conf.pyc"))]:
+        try:
+            module_name=path.rsplit('/',2)[1]
             add_transport(module_name)
+        except Exception as e:
+            print e
+            pass
+except Exception as e:
+    print e
+    import transports as trlib
+    #imports for pupygen and the pupysh server
+    for loader, module_name, is_pkg in pkgutil.iter_modules(trlib.__path__):
+        add_transport(module_name)
 
 launchers["connect"]=ConnectLauncher
 launchers["auto_proxy"]=AutoProxyLauncher
