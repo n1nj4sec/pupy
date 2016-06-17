@@ -99,9 +99,9 @@ class PupyAsyncServer(object):
     def handle_new_conn(self, conn):
         try:
             conn._init_service()
-            conn.serve_all()
-            #while True:
-            #    conn.serve(0.01)
+            #conn.serve_all()
+            while True:
+                conn.serve(0.01)
         except Exception as e:
             logging.error(e)
     
@@ -139,7 +139,7 @@ class PupyAsyncTCPServer(PupyAsyncServer):
                 continue
             try:
                 s.bind(sa)
-                s.listen(100)
+                s.listen(5)
             except socket.error as msg:
                 s.close()
                 s = None
@@ -322,9 +322,9 @@ class PupyUDPServer(object):
     def handle_new_conn(self, conn):
         try:
             conn._init_service()
-            conn.serve_all()
-            #while True:
-            #    conn.serve(0.01)
+            #conn.serve_all()
+            while True:
+                conn.serve(0.01)
         except Exception as e:
             logging.error(e)
         

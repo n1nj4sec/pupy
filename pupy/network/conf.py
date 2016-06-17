@@ -36,10 +36,8 @@ try:
             module_name=path.rsplit('/',2)[1]
             add_transport(module_name)
         except Exception as e:
-            print e
             pass
 except Exception as e:
-    print e
     import transports as trlib
     #imports for pupygen and the pupysh server
     for loader, module_name, is_pkg in pkgutil.iter_modules(trlib.__path__):
