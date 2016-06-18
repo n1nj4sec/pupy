@@ -30,6 +30,7 @@ class BasePupyTransport(object):
             self.stream=stream
         self.circuit=Circuit(self.stream, self, downstream=self.downstream, upstream=self.upstream)
         self.cookie=None
+        self.closed=False
 
     @classmethod
     def customize(cls, **kwargs):
@@ -51,6 +52,7 @@ class BasePupyTransport(object):
         return cls.customize(**kwargs)
 
     def close(self):
+        self.closed=True
         try:
             self.on_close()
         except:
