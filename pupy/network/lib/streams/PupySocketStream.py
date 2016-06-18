@@ -51,9 +51,7 @@ class PupySocketStream(SocketStream):
 
     def on_connect(self):
         self.transport.on_connect()
-        d=self.downstream.read()
-        if d:
-            super(PupySocketStream, self).write(d)
+        super(PupySocketStream, self).write(self.downstream.read())
 
     def _read(self):
         try:
@@ -73,10 +71,16 @@ class PupySocketStream(SocketStream):
         self.buf_in.write(BYTES_LITERAL(buf))
 
     def poll(self, timeout):
-        return super(PupySocketStream, self).poll(timeout) or len(self.upstream)>0
+        return len(self.upstream)>0 or self.sock_poll(timeout)
 
     def sock_poll(self, timeout):
-        return super(PupySocketStream, self).poll(timeout)
+        with self.downstream_lock:
+            if super(PupySocketStream, self).poll(timeout):
+                self._read()
+                self.transport.downstream_recv(self.buf_in)
+                return True
+            else:
+                return False
 
     def _upstream_recv(self):
         """ called as a callback on the downstream.write """
@@ -88,10 +92,8 @@ class PupySocketStream(SocketStream):
             if len(self.upstream)>=count:
                 return self.upstream.read(count)
             while len(self.upstream)<count:
-                if self.sock_poll(0.0001):
-                    with self.downstream_lock:
-                        self._read()
-                        self.transport.downstream_recv(self.buf_in)
+                self.sock_poll(0.1)
+                #self._read()
 
                 #it seems we can actively wait here with only perf enhancement
                 #if len(self.upstream)<count:
@@ -189,7 +191,7 @@ class PupyUDPSocketStream(object):
             while len(self.upstream)<count:
                 if self.client_side:
                     with self.downstream_lock:
-                        if self._poll_read(0.0001):
+                        if self._poll_read(1):
                             self.transport.downstream_recv(self.buf_in)
                 else:
                     time.sleep(0.0001)
