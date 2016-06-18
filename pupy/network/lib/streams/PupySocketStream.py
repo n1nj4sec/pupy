@@ -73,7 +73,7 @@ class PupySocketStream(SocketStream):
         self.buf_in.write(BYTES_LITERAL(buf))
 
     def poll(self, timeout):
-        return len(self.upstream)>0 or super(PupySocketStream, self).poll(timeout)
+        return super(PupySocketStream, self).poll(timeout) or len(self.upstream)>0
 
     def sock_poll(self, timeout):
         return super(PupySocketStream, self).poll(timeout)
@@ -88,7 +88,7 @@ class PupySocketStream(SocketStream):
             if len(self.upstream)>=count:
                 return self.upstream.read(count)
             while len(self.upstream)<count:
-                if self.sock_poll(0):
+                if self.sock_poll(0.0001):
                     with self.downstream_lock:
                         self._read()
                         self.transport.downstream_recv(self.buf_in)
@@ -189,10 +189,10 @@ class PupyUDPSocketStream(object):
             while len(self.upstream)<count:
                 if self.client_side:
                     with self.downstream_lock:
-                        if self._poll_read(0):
+                        if self._poll_read(0.0001):
                             self.transport.downstream_recv(self.buf_in)
-                #else:
-                #    time.sleep(0.01)
+                else:
+                    time.sleep(0.0001)
 
             return self.upstream.read(count)
         except Exception as e:

