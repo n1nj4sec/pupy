@@ -9,6 +9,7 @@ import logging
 import traceback
 import hashlib
 import os
+import struct
 try:
     #raise ImportError()
     from Crypto.Cipher import AES
@@ -56,6 +57,8 @@ class AESTransport(BasePupyTransport):
             self.enc_cipher = pyaes.AESModeOfOperationCBC(self._derived_key, iv = self._iv_enc)
         self.dec_cipher = None
         self._iv_dec = None
+        self.size_to_read=None
+        self.first_block=b""
 
     def on_connect(self):
         self.downstream.write(self._iv_enc) # send IV
@@ -65,16 +68,11 @@ class AESTransport(BasePupyTransport):
             cleartext=data.peek()
             tosend=b""
             i=0
-            while True:
-                b=cleartext[i:i+BLOCK_SIZE-1]
-                i+=BLOCK_SIZE-1
-                if not b:
-                    break
-                b=chr(len(b))+b
-                b+=b"\x00"*(BLOCK_SIZE-len(b))
-                tosend+=self.enc_cipher.encrypt(b)
+            packed_size=struct.pack("<I", len(cleartext))
+            tosend=packed_size+cleartext
+            tosend+=b"\x00"*(BLOCK_SIZE - (len(tosend)%BLOCK_SIZE))
             data.drain(len(cleartext))
-            self.downstream.write(tosend)
+            self.downstream.write(self.enc_cipher.encrypt(tosend))
         except Exception as e:
             logging.debug(e)
 
@@ -95,18 +93,35 @@ class AESTransport(BasePupyTransport):
                     return
             i=0
             cleartext=b""
+            full_block=b""
             while True:
-                b=enc[i:i+BLOCK_SIZE]
-                i+=BLOCK_SIZE
-                if len(b)!=BLOCK_SIZE:
+                if self.size_to_read is None:
+                    if len(enc)<BLOCK_SIZE:
+                        break
+                    self.first_block=self.dec_cipher.decrypt(enc[0:BLOCK_SIZE])
+                    data.drain(BLOCK_SIZE)
+                    self.size_to_read=struct.unpack("<I", self.first_block[0:4])[0]
+                    enc=enc[BLOCK_SIZE:]
+                if self.size_to_read is None:
                     break
-                data.drain(len(b))
-                d=self.dec_cipher.decrypt(b)
-                size=ord(d[0])
-                cleartext+=d[1:1+size]
+                if self.size_to_read <= len(self.first_block[4:]):
+                    cleartext+=self.first_block[4:4+self.size_to_read] # the remaining data is padding, just drop it
+                    self.size_to_read=None
+                    self.first_block=b""
+                    continue
+                s=(self.size_to_read-len(self.first_block[4:]))
+                blocks_to_read=s+(BLOCK_SIZE-(s%BLOCK_SIZE))
+                if len(enc) < blocks_to_read:
+                    break
+                full_block=self.first_block[4:]+self.dec_cipher.decrypt(enc[:blocks_to_read])
+                cleartext+=full_block[0:self.size_to_read] # the remaining data is padding, just drop it
+                enc=enc[blocks_to_read:]
+                data.drain(blocks_to_read)
+                self.size_to_read=None
+                self.first_block=b""
             self.upstream.write(cleartext)
         except Exception as e:
-            logging.debug(e)
+            logging.debug(traceback.format_exc())
 
 class AESClient(AESTransport):
     pass
