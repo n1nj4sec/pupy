@@ -84,8 +84,3 @@ clean:
 	del pupy$(ARCH).exe
 	del pupy$(ARCH).dll
 	del resources\bootloader.pyc
-	del resources\library_compressed_string.txt
-	del resources\library_compressed_string_x64.txt
-	del resources\library_compressed_string_x86.txt
-	del resources\python27.dll
-	del resources\msvcr90.dll

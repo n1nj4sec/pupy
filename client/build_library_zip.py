@@ -15,22 +15,26 @@ if len(sys.argv)!=2:
 	exit("usage: python %s (x86|x64)"%sys.argv[0])
 if sys.argv[1]=="x86":
 	arch="x86"
-	print "copying installed python version to sources\\resources\\python27_x86.dll"
-	shutil.copy("C:\\Windows\SysWOW64\python27.dll", "sources\\resources\\python27_x86.dll")
-	print "copying x86 msvcr90.dll to sources"
-	shutil.copy("C:\\Windows\\winsxs\\x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91\\msvcr90.dll", "sources\\resources\\msvcr90_x86.dll")
+        if not os.path.exists("sources\\resources\\python27_x86.dll"):
+            print "copying installed python version to sources\\resources\\python27_x86.dll"
+            shutil.copy("C:\\Windows\SysWOW64\python27.dll", "sources\\resources\\python27_x86.dll")
+        if not os.path.exists("sources\\resources\\msvcr90_x86.dll"):
+            print "copying x86 msvcr90.dll to sources"
+            shutil.copy("C:\\Windows\\winsxs\\x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91\\msvcr90.dll", "sources\\resources\\msvcr90_x86.dll")
 elif sys.argv[1]=="x64":
 	arch="x64"
-	print "copying installed python version to sources\\resources\\python27_x64.dll"
-	shutil.copy("C:\\Windows\system32\python27.dll", "sources\\resources\\python27_x64.dll")
-	print "copying x64 msvcr90.dll to sources"
-        shutil.copy("C:\\Windows\\winsxs\\amd64_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_750b37ff97f4f68b\\msvcr90.dll", "sources\\resources\\msvcr90_x64.dll")
+        if not os.path.exists("sources\\resources\\python27_x64.dll"):
+            print "copying installed python version to sources\\resources\\python27_x64.dll"
+            shutil.copy("C:\\Windows\system32\python27.dll", "sources\\resources\\python27_x64.dll")
+        if not os.path.exists("sources\\resources\\msvcr90_x64.dll"):
+            print "copying x64 msvcr90.dll to sources"
+            shutil.copy("C:\\Windows\\winsxs\\amd64_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_750b37ff97f4f68b\\msvcr90.dll", "sources\\resources\\msvcr90_x64.dll")
 else:
 	exit("usage: python %s (x86|x64)"%sys.argv[0])
 	
 
 all_dependencies=list(set([x.split(".")[0] for x in sys.modules.iterkeys()]))
-all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "_yaml", "rpyc", "network", "pyasn1", "rsa"])
+all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "_yaml", "rpyc", "pyasn1", "rsa"])
 all_dependencies=list(set(all_dependencies))
 
 zf = zipfile.ZipFile(os.path.join("sources","resources","library%s.zip"%arch), mode='w', compression=zipfile.ZIP_DEFLATED)
