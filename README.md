@@ -54,10 +54,12 @@ All transports in pupy are stackable. This mean that by creating a custom transp
 
 ## Implemented Launchers (not up to date, cf. ./pupygen.py -h)
 Launchers allow pupy to run custom actions before starting the reverse connection
-- simple
+- connect
 	- Just connect back
+- bind
+	- Bind payload instead of reverse
 - auto_proxy
-		- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retrieval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
+	- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retrieval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
 
 ## Implemented Modules (not up to date)
 ### All platforms:
