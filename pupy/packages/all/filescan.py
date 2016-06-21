@@ -16,22 +16,23 @@ def bytes_from_file(filename, chunksize=8192):
                     break
 
 def scan_files(fpath, ftype, fstring = ""):
-    if ftype == "extension":
-        if fpath.endswith(fext):
-            print fpath
-
-    elif ftype == "string":
-        for b in bytes_from_file(fpath):
-            if re.findall('\\b' + fstring + '\\b', b, flags=re.IGNORECASE):
+    for fstring in flist:
+        if ftype == "extension":
+            if fpath.endswith(fext):
                 print fpath
-                break
 
-    elif ftype == "mix":
-        if fpath.endswith(fext):
+        elif ftype == "string":
             for b in bytes_from_file(fpath):
                 if re.findall('\\b' + fstring + '\\b', b, flags=re.IGNORECASE):
                     print fpath
                     break
+
+        elif ftype == "mix":
+            if fpath.endswith(fext):
+                for b in bytes_from_file(fpath):
+                    if re.findall('\\b' + fstring + '\\b', b, flags=re.IGNORECASE):
+                        print fpath
+                        break
 
 def run(checkdir, dirdepth, ftype, fext, fstring):
     #https://stackoverflow.com/questions/3964681/find-all-files-in-directory-with-extension-txt-in-python
@@ -51,6 +52,6 @@ if __name__ == '__main__':
     dirdepth = "current"
     ftype = "string"
     fext = ".exe"
-    fstring = "find"
+    flist = ["find", "word"] #currently not case match
 
-    run(checkdir, dirdepth, ftype, fext, fstring)
+    run(checkdir, dirdepth, ftype, fext, flist)
