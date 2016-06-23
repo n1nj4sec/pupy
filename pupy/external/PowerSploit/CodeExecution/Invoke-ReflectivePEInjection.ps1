@@ -23,6 +23,7 @@ remote process.
 PowerSploit Function: Invoke-ReflectivePEInjection
 Author: Joe Bialek, Twitter: @JosephBialek
 Code review and modifications: Matt Graeber, Twitter: @mattifestation
+Minor code modifications: Nicolas Verdier, calling garbage collector to reduce process size
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
@@ -2523,6 +2524,7 @@ $RemoteScriptBlock = {
 		{
 			if ($RemoteLoading -eq $false)
 			{
+				[System.GC]::Collect()
 				Write-Verbose "Calling dllmain so the DLL knows it has been loaded"
 				$DllMainPtr = Add-SignedIntAsUnsigned ($PEInfo.PEHandle) ($PEInfo.IMAGE_NT_HEADERS.OptionalHeader.AddressOfEntryPoint)
 				$DllMainDelegate = Get-DelegateType @([IntPtr], [UInt32], [IntPtr]) ([Bool])
