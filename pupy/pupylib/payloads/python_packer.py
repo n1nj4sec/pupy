@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
 
-import os, os.path
+import os, os.path, logging
 
 def get_load_module_code(code, modulename):
     loader="""
@@ -18,7 +18,7 @@ def gen_package_pickled_dic(path, module_name):
     modules_dic={}
     start_path=module_name.replace(".", "/")
     search_path=os.path.dirname(path)
-    print "embedding %s ..."%os.path.join(search_path, start_path)
+    logging.info("embedding %s ..."%os.path.join(search_path, start_path))
     #TODO: remove comments from python files || compile to .pyc to make payloads lighter
     if os.path.isdir(path):
         for root, dirs, files in os.walk(os.path.join(search_path, start_path)):
