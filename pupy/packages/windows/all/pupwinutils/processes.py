@@ -57,7 +57,20 @@ def start_hidden_process(path):
     info.wShowWindow = subprocess.SW_HIDE
     p=subprocess.Popen(path, startupinfo=info)
     return p
-
+    
+def is_x64_architecture():
+	""" Return True if the architecture is x64 """
+	if "64" in platform.machine():
+		return True
+	else:
+		return False
+		
+def is_x86_architecture():
+	""" Return True if the architecture is x86 """
+	if "86" in platform.machine():
+		return True
+	else:
+		return False
 
 if __name__ == '__main__':
     for dic in enum_processes():
