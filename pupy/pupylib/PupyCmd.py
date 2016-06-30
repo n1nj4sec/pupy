@@ -468,7 +468,7 @@ class PupyCmd(cmd.Cmd):
 
         elif modargs.list or not arg:
             client_list=self.pupsrv.get_clients_list()
-            self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch","proc_arch","address"]))
+            self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch","proc_arch","uac_lvl","address"]))
 
 
     def do_jobs(self, arg):

