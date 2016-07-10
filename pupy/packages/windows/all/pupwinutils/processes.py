@@ -17,6 +17,7 @@ from ctypes import windll
 import psutil
 import platform
 import subprocess
+import os
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
@@ -71,6 +72,16 @@ def is_x86_architecture():
 		return True
 	else:
 		return False
+
+def get_current_pid():
+    p = psutil.Process(os.getpid())
+    dic = {'Name': p.name(), 'PID': os.getpid()}
+    return dic
+
+def get_current_ppid():
+    pp = psutil.Process(os.getpid()).parent()
+    dic = {'Parent Name': pp.name(), 'PPID': pp.pid}
+    return dic
 
 if __name__ == '__main__':
     for dic in enum_processes():
