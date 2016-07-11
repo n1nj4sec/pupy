@@ -13,7 +13,7 @@ def shell_exec(client, cmdline, shell=None):
         if shell is None:
             res=client.conn.modules.subprocess.check_output(cmdline, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, shell=True, universal_newlines=True)
         else:
-            command=[shell, '-c'] + cmdline.split()
+            command=[shell, '/c'] + cmdline
             res=client.conn.modules.subprocess.check_output(command, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, universal_newlines=True)
     except Exception as e:
         if hasattr(e,'output') and e.output:
