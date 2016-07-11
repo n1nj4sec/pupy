@@ -31,9 +31,12 @@ class PsModule(PupyModule):
             all_process = shell_exec(self.client, "ps -aux")
 
         # used for posix system
+        ppid=self.client.conn.modules['os'].getppid()
         for process in all_process.split('\n'):
             p = re.split(r' +', process)
-            pid = p[1]
-            if pid == str(os.getppid()):
-                self.log(process)
-                break
+            if len(p)>1:
+                pid = p[1]
+                if pid == str(ppid):
+                    self.log("%s"%(process))
+                    break
+
