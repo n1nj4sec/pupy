@@ -432,6 +432,15 @@ class PupyCmd(cmd.Cmd):
             doc=doc.strip()
             self.stdout.write("{:<20}    {}\n".format("%s/%s"%(mod.category,mod.get_name()), color(doc.split("\n",1)[0],'grey')))
             
+    def isClientExists(self, id):
+        client_list=self.pupsrv.get_clients_list()
+        objectClient = [x.desc for x in client_list]
+        for client in objectClient:
+            if int(id) == int(client['id']):
+                return True
+        self.display_error("No client with id %s found" % str(id))
+        return False
+
     def do_sessions(self, arg):
         """ list/interact with established sessions """
         arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
@@ -439,6 +448,7 @@ class PupyCmd(cmd.Cmd):
         arg_parser.add_argument('-g', '--global-reset', action='store_true', help="reset --interact to the default global behavior")
         arg_parser.add_argument('-l', dest='list', action='store_true', help='List all active sessions')
         arg_parser.add_argument('-k', dest='kill', metavar='<id>', type=int, help='Kill the selected session')
+        arg_parser.add_argument('-K', dest='killall', action='store_true', help='Kill all sessions')
         arg_parser.add_argument('-d', dest='drop', metavar='<id>', type=int, help='Drop the connection (abruptly close the socket)')
         try:
             modargs=arg_parser.parse_args(shlex.split(arg))
@@ -449,9 +459,13 @@ class PupyCmd(cmd.Cmd):
             self.default_filter=None
             self.display_success("default filter reset to global !")
         elif modargs.interact:
+            if not self.isClientExists(modargs.interact):
+                return
             self.default_filter=modargs.interact
             self.display_success("default filter set to %s"%self.default_filter)
         elif modargs.kill:
+            if not self.isClientExists(modargs.kill):
+                return
             selected_client = self.pupsrv.get_clients(modargs.kill)
             if selected_client:
                 try:
@@ -459,6 +473,8 @@ class PupyCmd(cmd.Cmd):
                 except Exception:
                     pass
         elif modargs.drop:
+            if not self.isClientExists(modargs.drop):
+                return
             selected_client = self.pupsrv.get_clients(modargs.drop)
             if selected_client:
                 try:
@@ -470,6 +486,14 @@ class PupyCmd(cmd.Cmd):
             client_list=self.pupsrv.get_clients_list()
             self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch","proc_arch","intgty_lvl","address"]))
 
+        elif modargs.killall:
+            client_list=self.pupsrv.get_clients_list()
+            objectClient = [x.desc for x in client_list]
+            for client in objectClient:
+                try:
+                    self.pupsrv.get_clients(client['id'])[0].conn.exit()
+                except Exception:
+                    pass
 
     def do_jobs(self, arg):
         """ manage jobs """
