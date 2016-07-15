@@ -9,6 +9,7 @@ try:
 except ImportError:
     import configparser
 from rpyc.utils.authenticators import SSLAuthenticator
+import logging
 
 class TransportConf(Transport):
     info = "TCP transport wrapped with SSL"
@@ -20,7 +21,11 @@ class TransportConf(Transport):
     server_transport=DummyPupyTransport
 
     def authenticator(self):
-        config = configparser.ConfigParser()
-        config.read("pupy.conf")
-        return SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
+        if not os.path.isfile("pupy.conf"): 
+            logging.warning("Impossible to read the file pupy.conf in authenticator")
+            return SSLAuthenticator("bindserver.pem", "bindcert.pem", ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
+        else:
+            config = configparser.ConfigParser()
+            config.read("pupy.conf")
+            return SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
 

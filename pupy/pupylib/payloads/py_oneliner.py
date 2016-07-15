@@ -10,6 +10,11 @@ from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.utils.network import get_local_ip
 from pupylib.payloads.python_packer import get_load_module_code, gen_package_pickled_dic
+try:
+    import ConfigParser as configparser
+except ImportError:
+    import configparser
+import logging
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
@@ -75,4 +80,19 @@ def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
         server.socket.close()
         exit()
 
-
+def get_bind_certificates(configFile="pupy.conf"):
+    '''
+    Returns list [server.pem, cert.pem] from pupy.conf
+    server.pem and cert.pem are keys for bind
+    server.pem and cert.pem are string
+    '''
+    if not os.path.isfile(configFile): logging.critical("Impossible to read the file pupy.conf in get_certificates")
+    config = configparser.ConfigParser()
+    config.read(configFile)
+    keyfile, certfile = config.get("pupyd","bindkeyfile"), config.get("pupyd","bindcertfile")
+    print colorize("[+] ","green")+"Loading {0} and {1}".format(keyfile, certfile)
+    with open(keyfile) as f:
+        key=f.read()
+    with open(certfile) as f:
+        cert=f.read()
+    return [key,cert]
