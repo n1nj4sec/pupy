@@ -431,15 +431,6 @@ class PupyCmd(cmd.Cmd):
                 doc=""
             doc=doc.strip()
             self.stdout.write("{:<20}    {}\n".format("%s/%s"%(mod.category,mod.get_name()), color(doc.split("\n",1)[0],'grey')))
-            
-    def isClientExists(self, id):
-        client_list=self.pupsrv.get_clients_list()
-        objectClient = [x.desc for x in client_list]
-        for client in objectClient:
-            if int(id) == int(client['id']):
-                return True
-        self.display_error("No client with id %s found" % str(id))
-        return False
 
     def do_sessions(self, arg):
         """ list/interact with established sessions """
@@ -459,13 +450,9 @@ class PupyCmd(cmd.Cmd):
             self.default_filter=None
             self.display_success("default filter reset to global !")
         elif modargs.interact:
-            if not self.isClientExists(modargs.interact):
-                return
             self.default_filter=modargs.interact
             self.display_success("default filter set to %s"%self.default_filter)
         elif modargs.kill:
-            if not self.isClientExists(modargs.kill):
-                return
             selected_client = self.pupsrv.get_clients(modargs.kill)
             if selected_client:
                 try:
@@ -473,8 +460,6 @@ class PupyCmd(cmd.Cmd):
                 except Exception:
                     pass
         elif modargs.drop:
-            if not self.isClientExists(modargs.drop):
-                return
             selected_client = self.pupsrv.get_clients(modargs.drop)
             if selected_client:
                 try:
