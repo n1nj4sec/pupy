@@ -44,8 +44,8 @@ import logging
 import shlex
 try:
     import additional_imports #additional imports needed to package with pyinstaller
-except ImportError:
-    pass
+except Exception as e:
+    logging.warning(e)
 logging.getLogger().setLevel(logging.ERROR)
 
 LAUNCHER="connect" # the default launcher to start when no argv
