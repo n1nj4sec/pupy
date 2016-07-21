@@ -8,7 +8,7 @@ try:
     import ConfigParser as configparser
 except ImportError:
     import configparser
-from rpyc.utils.authenticators import SSLAuthenticator
+from network.transports.ssl.conf import ssl_authenticator
 
 class TransportConf(Transport):
     info = "TCP transport wrapped with SSL with an additional pupy's rsa layer"
@@ -16,13 +16,10 @@ class TransportConf(Transport):
     server = PupyTCPServer
     client = PupySSLClient
     stream=PupySocketStream
-    credentials = ["RSA_PUB_KEY"]
+    credentials = ["RSA_PUB_KEY", "SSL_BIND_KEY", "SSL_BIND_CERT"]
 
     def authenticator(self):
-        config = configparser.ConfigParser()
-        config.read("pupy.conf")
-        return SSLAuthenticator(config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep), config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep), ciphers="SHA256+AES256:SHA1+AES256:@STRENGTH")
-
+        return ssl_authenticator()
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
         try:

