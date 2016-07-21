@@ -18,7 +18,7 @@ def search_file(path, search_strings):
                         if i==-1:
                             break
                         start=i+1
-                        yield (line_nb, line[i-50:i+50].strip())
+                        yield (line_nb+1, line[i:i+50].strip())
                 line_nb+=1
     except Exception:
         pass
