@@ -53,6 +53,13 @@ def get_edit_binary(path, conf):
     binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
     return binary
 
+def get_credential(name):
+    creds_src=open("crypto/credentials.py","r").read()
+    creds={}
+    exec creds_src in {}, creds
+    if name in creds:
+        return creds[name]
+    return None
 
 def get_raw_conf(conf, obfuscate=False):
     if not "offline_script" in conf:
@@ -74,7 +81,10 @@ def get_raw_conf(conf, obfuscate=False):
     creds={}
     exec creds_src in {}, creds
     cred_src=b""
-    for c in t.credentials:
+    creds_list=t.credentials
+    if conf['launcher']=="bind":
+        creds_list.append("BIND_PAYLOADS_PASSWORD")
+    for c in creds_list:
         if c in creds:
             print colorize("[+] ", "green")+"Embedding credentials %s"%c
             cred_src+=obf_func("%s=%s"%(c, repr(creds[c])))+"\n"
