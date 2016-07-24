@@ -17,4 +17,4 @@ class CheckVM(PupyModule):
         content = open(os.path.join(ROOT, "external", "Nishang", "Check-VM.ps1"), 'r').read()
         function = 'Check-VM'
         output = execute_powershell_script(self, content, function)
-        self.success("Output of the script: \n%s" % output)
+        self.success("%s" % output)

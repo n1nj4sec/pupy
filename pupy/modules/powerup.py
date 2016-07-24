@@ -23,4 +23,4 @@ class PowerUp(PupyModule):
         
         # parse output depending on the PowerUp output
         output = output.replace('\r\n\r\n\r\n', '\r\n\r\n').replace("\n\n", "\n").replace("\n\n", "\n")
-        self.success("Output of the script: \n%s" % output)
+        self.success("%s" % output)
