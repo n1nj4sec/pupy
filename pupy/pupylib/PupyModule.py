@@ -142,24 +142,30 @@ class PupyModule(object):
         """ 
         raise NotImplementedError("PupyModule's run method has not been implemented !")
 
+    def encode(self, msg):
+        if type(msg) == unicode:
+            return msg
+        else:
+            return str(msg).decode('utf8', errors="replace")
+
     def rawlog(self, msg):
         """ log data to the module stdout """
-        self.stdout.write(msg)
+        self.stdout.write(self.encode(msg))
 
     def log(self, msg):
-        self.stdout.write(self.formatter.format_log(msg))
+        self.stdout.write(self.encode(self.formatter.format_log(msg)))
 
     def error(self, msg):
-        self.stdout.write(self.formatter.format_error(msg))
+        self.stdout.write(self.encode(self.formatter.format_error(msg)))
 
     def warning(self, msg):
-        self.stdout.write(self.formatter.format_warning(msg))
+        self.stdout.write(self.encode(self.formatter.format_warning(msg)))
 
     def success(self, msg):
-        self.stdout.write(self.formatter.format_success(msg))
+        self.stdout.write(self.encode(self.formatter.format_success(msg)))
 
     def info(self, msg):
-        self.stdout.write(self.formatter.format_info(msg))
+        self.stdout.write(self.encode(self.formatter.format_info(msg)))
 
 
 def config(**kwargs):

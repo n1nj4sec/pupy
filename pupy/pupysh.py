@@ -31,8 +31,8 @@ import os.path
 import network.conf
 
 __author__='Nicolas VERDIER'
-__version__='v1.2'
-__date__='May 04 2016'
+__version__='v1.3'
+__date__='Jun 17 2016'
 
 def print_version():
     print("Pupy - %s"%(__version__))
@@ -40,11 +40,11 @@ def print_version():
 if __name__=="__main__":
     if os.path.dirname(__file__):
         os.chdir(os.path.dirname(__file__))
-    parser = argparse.ArgumentParser(prog='ptrconsole', description="Pupy console")
+    parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
     parser.add_argument('--log-lvl', '--lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
     parser.add_argument('--version', help="print version and exit", action='store_true')
-    parser.add_argument('--transport', choices=[x for x in network.conf.transports.iterkeys()], default='ssl', help="change the transport ! :-)")
-    parser.add_argument('--transport-args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
+    parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default='ssl', help="change the transport ! :-)")
+    parser.add_argument('--ta', '--transport-args', dest='transport_args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
     parser.add_argument('--port', '-p', help="change the listening port", type=int)
     args=parser.parse_args()
     if args.version:

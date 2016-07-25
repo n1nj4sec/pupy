@@ -1,9 +1,8 @@
 # Pupy
-Pupy is an opensource, multi-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) mainly written in python. It features a all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
+Pupy is an opensource, multi-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features a all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
-Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, apk, ...  
-When you package a payload, you can choose to embbed python scriptlets to perform various tasks offline (without requiring a session), like adding persistence, starting a keylogger, detecting a sandbox, ...
-
+Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, powershell, apk, ...
+When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like adding persistence, starting a keylogger, detecting a sandbox, ...
 
 ## Features
 - On windows, the Pupy payload is compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
@@ -13,9 +12,10 @@ When you package a payload, you can choose to embbed python scriptlets to perfor
 - A lot of awesome modules are already implemented!
 - Pupy uses [rpyc](https://github.com/tomerfiliba/rpyc) and a module can directly access python objects on the remote client
   - We can also access remote objects interactively from the pupy shell and you even get auto-completion of remote attributes!
-- Communication transports are modular and pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
+- Communication transports are modular, stackable and awesome. You could exfiltrate data using HTTP over HTTP over AES over XOR. Or any combination of the available transports !
+- Pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
 - All the non interactive modules can be dispatched to multiple hosts in one command
-- Multi-platform (tested on windows 7, windows xp, kali linux, ubuntu, osx, android)
+- Multi-platform (tested on windows xp, 7, 8, 10, kali linux, ubuntu, osx, android)
 - Commands and scripts running on remote hosts are interruptible
 - Auto-completion for commands and arguments
 - Nice colored output :-)
@@ -23,27 +23,43 @@ When you package a payload, you can choose to embbed python scriptlets to perfor
 - Interactive python shells with auto-completion on the all in memory remote python interpreter can be opened
 - Interactive shells (cmd.exe, /bin/bash, ...) can be opened remotely. Remote shells on Unix clients have a real tty with all keyboard signals working fine just like a ssh shell
 - Pupy can execute PE exe remotely and from memory (cf. ex with mimikatz)
-- Pupy can generate payloads in multiple formats : exe (x86, x64), dll(x86, x64), python, python one-liner, apk, ...
+- Pupy can generate payloads in multiple formats : exe (x86, x64), dll(x86, x64), python, apk, ...
+- Pupy can be deployed in memory, from a single command line using pupygen.py's python or powershell one-liners.
 - "scriptlets" can be embeded in generated payloads to perform some tasks without needing network connectivity (ex: start keylogger, add persistence, execute custom python script, check_vm ...)
 - tons of other features, check out the implemented modules
 
 ## Implemented Transports
-- tcp_cleartext
-	- A good example to look at, it's a protocol that does nothing
-- tcp_base64
-	- Another simple example
-- tcp_ssl (the default one)
+All transports in pupy are stackable. This mean that by creating a custom transport conf (pupy/network/transport/<transport_name>/conf.py), you can make you pupy session looks like anything. For example you could stack HTTP over HTTP over base64 over HTTP over AES over obfs3 :o)
+
+- rsa
+	- A layer with authentication & encryption using RSA and AES256, often stacked with other layers
+- aes
+	- layer using a static AES256 key
+- ssl (the default one)
+	- TCP transport wrapped with SSL
+- ssl_rsa 
+	- same as ssl but stacked with a rsa layer
+- http
+	- layer making the traffic look like HTTP traffic. HTTP is stacked with a rsa layer
 - obfs3
 	- [A protocol to keep a third party from telling what protocol is in use based on message contents](https://gitweb.torproject.org/pluggable-transports/obfsproxy.git/tree/doc/obfs3/obfs3-protocol-spec.txt)
+	- obfs3 is stacked with a rsa layer for a better security
 - scramblesuit
 	- [A Polymorphic Network Protocol to Circumvent Censorship](http://www.cs.kau.se/philwint/scramblesuit/)
+	- scramblesuit is stacked with a rsa layer for a better security
+- udp
+	- rsa layer but over UDP (could be buggy, it doesn't handle packet loss yet)
+- other
+	- Other layers doesn't really have any interest and are given for code examples : (dummy, base64, XOR, ...)
 
 ## Implemented Launchers (not up to date, cf. ./pupygen.py -h)
 Launchers allow pupy to run custom actions before starting the reverse connection
-- simple
+- connect
 	- Just connect back
+- bind
+	- Bind payload instead of reverse
 - auto_proxy
-		- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retrieval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
+	- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retrieval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
 
 ## Implemented Modules (not up to date)
 ### All platforms:

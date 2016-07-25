@@ -17,6 +17,7 @@ from ctypes import windll
 import psutil
 import platform
 import subprocess
+import os
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
@@ -57,7 +58,30 @@ def start_hidden_process(path):
     info.wShowWindow = subprocess.SW_HIDE
     p=subprocess.Popen(path, startupinfo=info)
     return p
+    
+def is_x64_architecture():
+	""" Return True if the architecture is x64 """
+	if "64" in platform.machine():
+		return True
+	else:
+		return False
+		
+def is_x86_architecture():
+	""" Return True if the architecture is x86 """
+	if "86" in platform.machine():
+		return True
+	else:
+		return False
 
+def get_current_pid():
+    p = psutil.Process(os.getpid())
+    dic = {'Name': p.name(), 'PID': os.getpid()}
+    return dic
+
+def get_current_ppid():
+    pp = psutil.Process(os.getpid()).parent()
+    dic = {'Parent Name': pp.name(), 'PPID': pp.pid}
+    return dic
 
 if __name__ == '__main__':
     for dic in enum_processes():

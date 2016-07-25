@@ -273,9 +273,6 @@ class PupyCmd(cmd.Cmd):
     def cmdloop(self, intro=None):
         try:
             cmd.Cmd.cmdloop(self, intro)
-        except ValueError:
-            self.stdout.write('\n')
-            exit(1)
         except KeyboardInterrupt as e:
             self.stdout.write('\n')
             self.cmdloop(intro="")
@@ -434,7 +431,7 @@ class PupyCmd(cmd.Cmd):
                 doc=""
             doc=doc.strip()
             self.stdout.write("{:<20}    {}\n".format("%s/%s"%(mod.category,mod.get_name()), color(doc.split("\n",1)[0],'grey')))
-            
+
     def do_sessions(self, arg):
         """ list/interact with established sessions """
         arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
@@ -442,6 +439,8 @@ class PupyCmd(cmd.Cmd):
         arg_parser.add_argument('-g', '--global-reset', action='store_true', help="reset --interact to the default global behavior")
         arg_parser.add_argument('-l', dest='list', action='store_true', help='List all active sessions')
         arg_parser.add_argument('-k', dest='kill', metavar='<id>', type=int, help='Kill the selected session')
+        arg_parser.add_argument('-K', dest='killall', action='store_true', help='Kill all sessions')
+        arg_parser.add_argument('-d', dest='drop', metavar='<id>', type=int, help='Drop the connection (abruptly close the socket)')
         try:
             modargs=arg_parser.parse_args(shlex.split(arg))
         except PupyModuleExit:
@@ -460,10 +459,26 @@ class PupyCmd(cmd.Cmd):
                     selected_client[0].conn.exit()
                 except Exception:
                     pass
+        elif modargs.drop:
+            selected_client = self.pupsrv.get_clients(modargs.drop)
+            if selected_client:
+                try:
+                    selected_client[0].conn._conn.close()
+                except Exception:
+                    pass
+
         elif modargs.list or not arg:
             client_list=self.pupsrv.get_clients_list()
-            self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch", "address"]))
+            self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch","proc_arch","intgty_lvl","address"]))
 
+        elif modargs.killall:
+            client_list=self.pupsrv.get_clients_list()
+            objectClient = [x.desc for x in client_list]
+            for client in objectClient:
+                try:
+                    self.pupsrv.get_clients(client['id'])[0].conn.exit()
+                except Exception:
+                    pass
 
     def do_jobs(self, arg):
         """ manage jobs """

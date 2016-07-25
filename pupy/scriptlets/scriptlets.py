@@ -24,13 +24,14 @@ class Scriptlet(object):
 
     @classmethod
     def get_help(cls):
-        res=("\tdescription: %s\n"%cls.__doc__)
+        res=("\tdescription : %s\n"%cls.__doc__)
         if cls.arguments:
-            res+=("\targuments: \n")
+            res+=("\targuments   : \n")
             for arg, desc in cls.arguments.iteritems():
-                res+="\t\t- {:<10} : {}\n".format(arg, desc)
+                res+="\t\t\t{:<10} : {}\n".format(arg, desc)
         else:
-            res+=("\targuments: this scriptlet does not take any argument\n")
+            res+=("\targuments   : \n")
+            res+="\t\t\t{:<10}\n".format("no arguments")
         return res
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","packages"))

