@@ -80,13 +80,17 @@ class ThreadPool(object):
 
     def join(self):
         while True:
-            allok=True
-            for t in self.thread_pool:
-                if t.isAlive():
-                    t.join(0.5)
-                    allok=False
-            if allok:
-                break
+            try:
+                allok=True
+                for t in self.thread_pool:
+                    if t.isAlive():
+                        t.join(0.5)
+                        allok=False
+                if allok:
+                    break
+            except KeyboardInterrupt:
+                print "Press [ENTER] to interrupt the job"
+                pass
 
     def all_finished(self):
         for t in self.thread_pool:

