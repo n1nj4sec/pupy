@@ -204,7 +204,8 @@ class PupyJob(object):
         res=""
         for m in self.pupymodules:
             res+=m.formatter.format_section(str(m.client))
-            res+=m.stdout.getvalue()
+            gv=m.stdout.getvalue()
+            res+=gv.encode('utf8', errors="replace")
             res+="\n"
             m.stdout.truncate(0)
         return res
