@@ -36,6 +36,7 @@ class Credentials():
             json_db.write(json.dumps(db))
 
     def show(self):
+        res=""
         tool = ""
         with open(self.db) as json_db:    
             data = json.load(json_db)
@@ -45,20 +46,24 @@ class Credentials():
         for creds in data:
             if "Tool" in creds:
                 if tool != creds["Tool"]:
-                    print '\n---------- %s ---------- \n' % creds["Tool"]
+                    res+= '\n---------- %s ---------- \n\n' % creds["Tool"]
                     tool = creds["Tool"]
                 del creds["Tool"]
             
             if tool == 'Creddump':
                 for cred in creds:
                     if creds[cred]:
-                        print '%s' % creds[cred]
+                        res+= '%s\n' % creds[cred]
             else:
                 for cred in creds:
                     if creds[cred]:
-                        print '%s: %s' % (cred, creds[cred])
-                print
-        print
+                        res+= '%s: %s\n' % (cred, creds[cred])
+                res+="\n"
+
+        if not res.strip():
+            print "The credential database is empty !"
+        else:
+            print res
 
     def flush(self):
         if os.path.exists(self.db):
