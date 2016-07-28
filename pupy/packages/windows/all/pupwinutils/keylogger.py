@@ -59,7 +59,10 @@ VK_RETURN       = 0x0D # ENTER key
 VK_ESCAPE       = 0x1B
 
 # Base Win API
-SetWindowsHookEx    = user32.SetWindowsHookExW
+SetWindowsHookEx = user32.SetWindowsHookExW
+SetWindowsHookEx.argtypes = (c_int, HOOKPROC, HINSTANCE, DWORD)
+SetWindowsHookEx.restype = HHOOK
+
 UnhookWindowsHookEx = user32.UnhookWindowsHookEx
 CallNextHookEx      = user32.CallNextHookEx
 GetMessage          = user32.GetMessageW

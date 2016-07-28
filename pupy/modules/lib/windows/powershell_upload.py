@@ -20,10 +20,11 @@ def execute_powershell_script(module, content, function):
     p.stdin.write("$a=Invoke-Expression %s | Format-Table -HideTableHeaders | Out-String\n" % function)
     p.stdin.write("$b=[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(\"$a\"))\n")
     p.stdin.write("Write-Host $b\n")
-    
+
     # Get the result
     output = ""
     for i in p.stdout.readline():
         output += i
     output = base64.b64decode(output)
+    p.stdin.write("exit\n")
     return output
