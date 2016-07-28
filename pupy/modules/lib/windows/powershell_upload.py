@@ -3,8 +3,12 @@ import base64
 from subprocess import PIPE, Popen
 import subprocess
 
-def execute_powershell_script(module, content, function):
-    fullargs=["powershell.exe", "-C", "-"]
+def execute_powershell_script(module, content, function, x64IfPossible=False):
+    path="powershell.exe"
+    if x64IfPossible:
+        if "64" in module.client.desc['os_arch'] and "32" in module.client.desc['proc_arch']:
+            path=r"C:\Windows\SysNative\WindowsPowerShell\v1.0\powershell.exe"
+    fullargs=[path, "-C", "-"]
     
     p = module.client.conn.modules.subprocess.Popen(fullargs, stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, universal_newlines=True, shell=True)
     p.stdin.write("$base64=\"\""+"\n")

