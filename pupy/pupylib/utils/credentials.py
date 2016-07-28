@@ -3,7 +3,7 @@ import json
 
 class Credentials():
     def __init__(self):
-        ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__),"..", "..", "db"))
+        ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "db"))
         dbName = 'creds.json'
 
         # check if the db exists
