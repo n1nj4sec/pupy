@@ -8,7 +8,7 @@ __class_name__="BypassUAC"
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
-@config(compat="windows", category="exploit")
+@config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
     """ try to bypass UAC with Invoke-BypassUAC.ps1, from Empire """
     dependencies=["psutil", "pupwinutils.processes"]

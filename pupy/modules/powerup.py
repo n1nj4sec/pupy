@@ -6,7 +6,7 @@ from modules.lib.windows.powershell_upload import execute_powershell_script
 __class_name__="PowerUp"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
-@config(compat="windows", category="admin")
+@config(compat="windows", category="privesc")
 class PowerUp(PupyModule):
     """ trying common Windows privilege escalation methods"""
     

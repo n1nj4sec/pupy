@@ -13,6 +13,14 @@ from pupylib.payloads.python_packer import get_load_module_code, gen_package_pic
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
+def getLinuxImportedModules():
+    '''
+    '''
+    lines = ""
+    with open(os.path.join(ROOT,"conf","imports_done.py")) as f:
+        lines=f.read()
+    return lines
+
 def pack_py_payload(conf):
     print colorize("[+] ","green")+"generating payload ..."
     fullpayload=[]
@@ -74,5 +82,3 @@ def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
         print 'KeyboardInterrupt received, shutting down the web server'
         server.socket.close()
         exit()
-
-
