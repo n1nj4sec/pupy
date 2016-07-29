@@ -4,6 +4,10 @@ from subprocess import PIPE, Popen
 import subprocess
 
 def execute_powershell_script(module, content, function, x64IfPossible=False):
+    '''
+    To get function output, Write-Output should be used (stdout output). 
+    If you use Write-Verbose in your code for example, the output will be not captured because the output is not done over stdout (with Write-Verbose)
+    '''
     path="powershell.exe"
     if x64IfPossible:
         if "64" in module.client.desc['os_arch'] and "32" in module.client.desc['proc_arch']:
@@ -21,7 +25,7 @@ def execute_powershell_script(module, content, function, x64IfPossible=False):
 
     p.stdin.write("$d=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64))\n")
     p.stdin.write("Invoke-Expression $d\n")
-    p.stdin.write("$a=Invoke-Expression %s | Format-Table -HideTableHeaders | Out-String\n" % function)
+    p.stdin.write("$a=Invoke-Expression \"%s\" | Format-Table -HideTableHeaders | Out-String\n" % function)
     p.stdin.write("$b=[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(\"$a\"))\n")
     p.stdin.write("Write-Host $b\n")
 
