@@ -5,7 +5,7 @@ import os
 __class_name__="Creds"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
-# @config(category="admin")
+@config(category="creds")
 class Creds(PupyModule):
     """ database containing all passwords found """
     

