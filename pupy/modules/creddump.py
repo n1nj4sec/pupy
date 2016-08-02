@@ -34,7 +34,7 @@ from modules.lib.windows.creddump.win32.lsasecrets import get_file_secrets
 
 __class_name__="CredDump"
 
-@config(cat="gather", compatibilities=["windows"], tags=['creds',
+@config(cat="creds", compatibilities=["windows"], tags=['creds',
     'credentials', 'password', 'gather', 'hives'])
 class CredDump(PupyModule):
     

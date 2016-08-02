@@ -8,7 +8,7 @@ from pupylib.utils.credentials import Credentials
 __class_name__="Mimikatz_Powershell"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
-@config(compat="windows", category="admin")
+@config(compat="windows", category="creds")
 class Mimikatz_Powershell(PupyModule):
     """ 
         execute mimikatz using powershell

@@ -9,7 +9,7 @@ import os.path
 
 __class_name__="LaZagne"
 
-@config(cat="exploit")
+@config(cat="creds")
 class LaZagne(PupyModule):
     """ 
         execute LaZagne (Windows / Linux)
@@ -72,6 +72,8 @@ class LaZagne(PupyModule):
         toSave = False
         ishashes = False
         cpt = 0
+        user = ""
+        category = ""
         for line in output.split('\n'):
             if not toSave:
                 if "##########" in line:
@@ -80,7 +82,7 @@ class LaZagne(PupyModule):
                 if "---------" in line:
                     category='%s' % line.replace('-', '').strip()
 
-                if " found !!!" in line:
+                if " found !!!" in line and "not found !!!" not in line:
                     toSave = True
                     cred = {}
             else:
@@ -92,8 +94,10 @@ class LaZagne(PupyModule):
                         ishashes = False
                         if cred:
                             cred['Tool']="LaZagne"
-                            cred['System user'] = user
-                            cred['Category'] = category
+                            if user:
+                                cred['System user'] = user
+                            if category:
+                                cred['Category'] = category
                             creds.append(cred)
                 else:
                     # not store hashes => creddump already does it

@@ -83,6 +83,12 @@ def get_current_ppid():
     dic = {'Parent Name': pp.name(), 'PPID': pp.pid}
     return dic
 
+def isUserAdmin():
+    if windll.Shell32.IsUserAnAdmin():
+        return True
+    else:
+        return False
+
 if __name__ == '__main__':
     for dic in enum_processes():
         print dic
