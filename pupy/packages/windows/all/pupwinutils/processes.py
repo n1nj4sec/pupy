@@ -12,16 +12,22 @@
 # 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
-from ctypes import byref, c_bool
-from ctypes import windll
+from ctypes import byref, c_bool, windll, c_void_p, POINTER, WinError
 import psutil
 import platform
 import subprocess
 import os
 
+INVALID_HANDLE_VALUE = c_void_p(-1).value
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
 MAX_PATH=260
+
+IsWow64Process=None
+if hasattr(windll.kernel32,'IsWow64Process'):
+    IsWow64Process=windll.kernel32.IsWow64Process
+    IsWow64Process.restype = c_bool
+    IsWow64Process.argtypes = [c_void_p, POINTER(c_bool)]
 
 def is_process_64(pid):
     """ Take a pid. return True if process is 64 bits, and False otherwise. """
@@ -29,6 +35,8 @@ def is_process_64(pid):
     if not "64" in platform.machine():
         return False
     hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+    if hProcess==INVALID_HANDLE_VALUE:
+        raise WinError("can't OpenProcess for PROCESS_QUERY_INFORMATION. Insufficient privileges ?")
     is64=is_process_64_from_handle(hProcess)
     windll.kernel32.CloseHandle(hProcess)
     return is64
@@ -36,9 +44,10 @@ def is_process_64(pid):
 def is_process_64_from_handle(hProcess):
     """ Take a process handle. return True if process is 64 bits, and False otherwise. """
     iswow64 = c_bool(False)
-    if not hasattr(windll.kernel32,'IsWow64Process'):
+    if IsWow64Process is None:
         return False
-    windll.kernel32.IsWow64Process(hProcess, byref(iswow64))
+    if not IsWow64Process(hProcess, byref(iswow64)):
+        raise WinError()
     return not iswow64.value
     
 def enum_processes():
@@ -46,7 +55,12 @@ def enum_processes():
     for proc in psutil.process_iter():
         try:
             pinfo = proc.as_dict(attrs=['username', 'pid', 'name', 'exe', 'cmdline', 'status'])
-            pinfo['arch']=("x64" if is_process_64(int(pinfo['pid'])) else "x32")
+            arch="?"
+            try:
+                arch=("x64" if is_process_64(int(pinfo['pid'])) else "x32")
+            except WindowsError:
+                pass
+            pinfo['arch']=arch
             proclist.append(pinfo)
         except psutil.NoSuchProcess:
             pass
