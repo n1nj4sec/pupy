@@ -85,6 +85,13 @@ def get_raw_conf(conf, obfuscate=False):
     creds_list=t.credentials
     if conf['launcher']=="bind":
         creds_list.append("BIND_PAYLOADS_PASSWORD")
+
+    if conf['launcher']!="bind": #TODO more flexible warning handling
+        if "SSL_BIND_KEY" in creds_list:
+            creds_list.remove("SSL_BIND_KEY")
+        if "SSL_BIND_CERT" in creds_list:
+            creds_list.remove("SSL_BIND_CERT")
+
     for c in creds_list:
         if c in creds:
             print colorize("[+] ", "green")+"Embedding credentials %s"%c
