@@ -581,7 +581,7 @@ DWORD inject_dll( DWORD dwPid, LPVOID lpDllBuffer, DWORD dwDllLenght, char * cpC
 			BREAK_ON_ERROR( "[INJECT] inject_dll. WriteProcessMemory 2 failed" ); 
 
 		// add the offset to ReflectiveLoader() to the remote library address...
-		lpReflectiveLoader = (LPVOID)( (DWORD)lpRemoteLibraryBuffer + (DWORD)dwReflectiveLoaderOffset );
+		lpReflectiveLoader = (LPTHREAD_START_ROUTINE)( (ULONG_PTR)lpRemoteLibraryBuffer + dwReflectiveLoaderOffset );
 
 		// First we try to inject by directly creating a remote thread in the target process
 		if( inject_via_remotethread( hProcess, remoteProcessArch, lpReflectiveLoader, lpRemoteCommandLine ) != ERROR_SUCCESS )
