@@ -121,11 +121,14 @@ class PupyPackageFinder:
     def find_module(self, fullname, path=None):
         imp.acquire_lock()
         try:
+            files=[]
             if fullname in ("pywintypes", "pythoncom"):
                 fullname = fullname + "%d%d" % sys.version_info[:2]
                 fullname = fullname.replace(".", "\\") + ".dll"
+                files=[fullname]
+            else:
+                files=get_module_files(fullname)
             #print "find_module(\"%s\",\"%s\")"%(fullname,path)
-            files=get_module_files(fullname)
             if not builtin_memimporter:
                 files=[f for f in files if not f.lower().endswith((".pyd",".dll"))]
             if not files:

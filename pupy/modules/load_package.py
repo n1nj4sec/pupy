@@ -26,12 +26,19 @@ class LoadPackageModule(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="load_package", description=self.__doc__)
         self.arg_parser.add_argument('-f', '--force', action='store_true', help='force package to reload even if it has already been loaded')
+        self.arg_parser.add_argument('-d', '--dll', action='store_true', help='load a dll instead')
         self.arg_parser.add_argument('package', completer=package_completer, help='package name (example: psutil, scapy, ...)')
 
 
     def run(self, args):
-        if self.client.load_package(args.package, force=args.force):
-            self.success("package loaded !")
+        if args.dll:
+            if self.client.load_dll(args.package):
+                self.success("dll loaded !")
+            else:
+                self.error("the dll was already loaded")
         else:
-            self.error("package is already loaded !")
+            if self.client.load_package(args.package, force=args.force):
+                self.success("package loaded !")
+            else:
+                self.error("package is already loaded !")
 

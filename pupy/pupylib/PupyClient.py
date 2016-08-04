@@ -125,17 +125,19 @@ class PupyClient(object):
 
     def load_dll(self, path):
         """ 
-            load python dll like pywintypes27.dll necessary for some pywin32 .pyd to work
+            load some dll from memory like sqlite3.dll needed for some .pyd to work
+            Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
         """
         name=os.path.basename(path)
         if name in self.imported_dlls:
-            return
+            return False
         buf=b""
         with open(path,'rb') as f:
             buf=f.read()
         if not self.conn.modules.pupy.load_dll(name, buf):
             raise ImportError("load_dll: couldn't load %s"%name)
         self.imported_dlls[name]=True
+        return True
 
     def load_package(self, module_name, force=False):
         if module_name in packages_dependencies:
@@ -173,7 +175,7 @@ class PupyClient(object):
                             modules_dic[modpath]=module_code
                         package_found=True
                 else: # loading a simple file
-                    for ext in [".py",".pyc",".pyd"]:
+                    for ext in [".py",".pyc",".pyd", "27.dll"]: #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
                         filepath=os.path.join(search_path,start_path+ext)
                         if os.path.isfile(filepath):
                             module_code=""
