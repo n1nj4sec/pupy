@@ -34,8 +34,8 @@ class outlook():
 	def __connect__(self):
 		'''
 		'''
-		#self.outlook = self.module.client.conn.modules['win32com.client'].Dispatch("Outlook.Application")
-		self.outlook = self.module.client.conn.modules['win32com.client.gencache'].EnsureDispatch("Outlook.Application")
+		self.outlook = self.module.client.conn.modules['win32com.client'].Dispatch("Outlook.Application")
+		#self.outlook = self.module.client.conn.modules['win32com.client.gencache'].EnsureDispatch("Outlook.Application")
 		self.mapi = self.outlook.GetNamespace("MAPI")
 		if self.folderId == None : self.setDefaultFolder(folderIndex=self.folderIndex)
 		else : self.setFolderFromId(folderId=self.folderId)
