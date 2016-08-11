@@ -243,7 +243,7 @@ class ListOptions(argparse.Action):
         print colorize("## available formats :", "green")+" usage: -f <format>"
         print "\t- exe_86, exe_x64 : generate PE exe for windows"
         print "\t- dll_86, dll_x64 : generate reflective dll for windows"
-        print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
+        print "\t- py              : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all the os needs is the python interpreter installed"
         print "\t- pyinst          : generate a python file compatible with pyinstaller"
         print "\t- py_oneliner     : same as \"py\" format but served over http to load it from memory with a single command line."
         print "\t- ps1             : generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process."
