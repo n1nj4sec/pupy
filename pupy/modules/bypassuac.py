@@ -27,6 +27,6 @@ class BypassUAC(PupyModule):
 			bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
 			bypassUasModule.bypassuac_through_EventVwrBypass()
 		else:
-			self.success("Trying to bypass UAC with PowerSploitBypassUAC method (bypass UAC using the trusted publisher certificate through process injection), wind7-8.1 targets...")
+			self.success("Trying to bypass UAC with sysprep method (bypass UAC using the trusted publisher certificate through process injection), wind7-8.1 targets...")
 			bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
 			bypassUasModule.bypassuac_through_PowerSploitBypassUAC()
