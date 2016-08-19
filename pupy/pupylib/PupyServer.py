@@ -29,6 +29,8 @@ from pupylib.utils.rpyc_utils import obtain
 from .PupyTriggers import on_connect
 from network.lib.utils import parse_transports_args
 from network.lib.base_launcher import LauncherError
+from os import path
+from shutil import copyfile
 import network.conf
 import rpyc
 import shlex
@@ -53,6 +55,8 @@ class PupyServer(threading.Thread):
         self.clients_lock=threading.Lock()
         self.current_id=1
         self.config = configparser.ConfigParser()
+        if not path.exists('pupy.conf'):
+            copyfile('pupy.conf.default', 'pupy.conf')
         self.config.read("pupy.conf")
         if port is None:
             self.port=self.config.getint("pupyd", "port")
