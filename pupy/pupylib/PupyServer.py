@@ -494,13 +494,10 @@ class PupyServer(threading.Thread):
         except Exception as e:
             logging.exception(e)
         
-        if self.port < 1024 and os.getuid() != 0:
-            logging.error('[-] Failed to start the server on port %s, you need admin rights !' % str(self.port))
-        else:
-            try:
-                self.server = t.server(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t.stream, transport=t.server_transport, transport_kwargs=t.server_transport_kwargs, ipv6=self.ipv6)
-                self.server.start()
-            except Exception as e:
-                logging.exception(e)
+        try:
+            self.server = t.server(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t.stream, transport=t.server_transport, transport_kwargs=t.server_transport_kwargs, ipv6=self.ipv6)
+            self.server.start()
+        except Exception as e:
+            logging.exception(e)
 
 
