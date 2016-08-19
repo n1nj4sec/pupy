@@ -187,7 +187,7 @@ __all__ = [
 ]
 __all__.extend(_psplatform.__extra__all__)
 __author__ = "Giampaolo Rodola'"
-__version__ = "4.1.0"
+__version__ = "4.3.0"
 version_info = tuple([int(num) for num in __version__.split('.')])
 AF_LINK = _psplatform.AF_LINK
 _TOTAL_PHYMEM = None
@@ -461,12 +461,11 @@ class Process(object):
         excluded_names = set(
             ['send_signal', 'suspend', 'resume', 'terminate', 'kill', 'wait',
              'is_running', 'as_dict', 'parent', 'children', 'rlimit'])
+        valid_names = _process_attrnames - excluded_names
         retdict = dict()
-        ls = set(attrs or [x for x in dir(self)])
+        ls = set(attrs) if attrs else _process_attrnames
         for name in ls:
-            if name.startswith('_'):
-                continue
-            if name in excluded_names:
+            if name not in valid_names:
                 continue
             try:
                 attr = getattr(self, name)
@@ -1274,6 +1273,9 @@ class Popen(Process):
         return ret
 
 
+_process_attrnames = set([x for x in dir(Process) if not x.startswith('_')])
+
+
 # =====================================================================
 # --- system processes related functions
 # =====================================================================
@@ -1984,6 +1986,29 @@ def users():
     return _psplatform.users()
 
 
+# =====================================================================
+# --- Windows services
+# =====================================================================
+
+
+if WINDOWS:
+
+    def win_service_iter():
+        """Return a generator yielding a WindowsService instance for all
+        Windows services installed.
+        """
+        return _psplatform.win_service_iter()
+
+    def win_service_get(name):
+        """Get a Windows service by name.
+        Raise NoSuchProcess if no service with such name exists.
+        """
+        return _psplatform.win_service_get(name)
+
+
+# =====================================================================
+
+
 def test():  # pragma: no cover
     """List info of all currently running processes emulating ps aux
     output.
@@ -2041,8 +2066,8 @@ def test():  # pragma: no cover
 
 
 del memoize, division, deprecated_method
-if sys.version_info < (3, 0):
-    del num
+if sys.version_info[0] < 3:
+    del num, x
 
 if __name__ == "__main__":
     test()

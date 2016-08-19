@@ -26,7 +26,11 @@ from ._compat import which
 
 __extra__all__ = []
 
+
+# =====================================================================
 # --- constants
+# =====================================================================
+
 
 if FREEBSD:
     PROC_STATUSES = {
@@ -92,6 +96,12 @@ else:
     PAGESIZE = os.sysconf("SC_PAGE_SIZE")
 AF_LINK = cext_posix.AF_LINK
 
+
+# =====================================================================
+# --- named tuples
+# =====================================================================
+
+
 # extend base mem ntuple with BSD-specific memory metrics
 svmem = namedtuple(
     'svmem', ['total', 'available', 'percent', 'used', 'free',
@@ -116,11 +126,21 @@ else:
                                      'read_bytes', 'write_bytes'])
 
 
-# set later from __init__.py
+# =====================================================================
+# --- exceptions
+# =====================================================================
+
+
+# these get overwritten on "import psutil" from the __init__.py file
 NoSuchProcess = None
 ZombieProcess = None
 AccessDenied = None
 TimeoutExpired = None
+
+
+# =====================================================================
+# --- memory
+# =====================================================================
 
 
 def virtual_memory():
@@ -132,9 +152,9 @@ def virtual_memory():
         # The C ext set them to 0.
         with open('/proc/meminfo', 'rb') as f:
             for line in f:
-                if line.startswith("Buffers:"):
+                if line.startswith(b'Buffers:'):
                     buffers = int(line.split()[1]) * 1024
-                elif line.startswith("MemShared:"):
+                elif line.startswith(b'MemShared:'):
                     shared = int(line.split()[1]) * 1024
     avail = inactive + cached + free
     used = active + wired + cached
@@ -149,6 +169,11 @@ def swap_memory():
     total, used, free, sin, sout = [x * pagesize for x in cext.swap_mem()]
     percent = usage_percent(used, total, _round=1)
     return _common.sswap(total, used, free, percent, sin, sout)
+
+
+# =====================================================================
+# --- CPU
+# =====================================================================
 
 
 def cpu_times():
@@ -225,6 +250,8 @@ else:
 
 def cpu_stats():
     if FREEBSD:
+        # Note: the C ext is returning some metrics we are not exposing:
+        # traps.
         ctxsw, intrs, soft_intrs, syscalls, traps = cext.cpu_stats()
     elif NETBSD:
         # XXX
@@ -234,8 +261,8 @@ def cpu_stats():
         #
         # Note about syscalls: the C extension always sets it to 0 (?).
         #
-        # Note: the C ext is returning two metrics we are not returning:
-        # faults and forks.
+        # Note: the C ext is returning some metrics we are not exposing:
+        # traps, faults and forks.
         ctxsw, intrs, soft_intrs, syscalls, traps, faults, forks = \
             cext.cpu_stats()
         with open('/proc/stat', 'rb') as f:
@@ -243,16 +270,16 @@ def cpu_stats():
                 if line.startswith(b'intr'):
                     intrs = int(line.split()[1])
     elif OPENBSD:
-        # Note: the C ext is returning two metrics we are not returning:
-        # faults and forks.
+        # Note: the C ext is returning some metrics we are not exposing:
+        # traps, faults and forks.
         ctxsw, intrs, soft_intrs, syscalls, traps, faults, forks = \
             cext.cpu_stats()
     return _common.scpustats(ctxsw, intrs, soft_intrs, syscalls)
 
 
-def boot_time():
-    """The system boot time expressed in seconds since the epoch."""
-    return cext.boot_time()
+# =====================================================================
+# --- disks
+# =====================================================================
 
 
 def disk_partitions(all=False):
@@ -270,16 +297,29 @@ def disk_partitions(all=False):
     return retlist
 
 
-def users():
-    retlist = []
-    rawlist = cext.users()
-    for item in rawlist:
-        user, tty, hostname, tstamp = item
-        if tty == '~':
-            continue  # reboot or shutdown
-        nt = _common.suser(user, tty or None, hostname, tstamp)
-        retlist.append(nt)
-    return retlist
+disk_usage = _psposix.disk_usage
+disk_io_counters = cext.disk_io_counters
+
+
+# =====================================================================
+# --- network
+# =====================================================================
+
+
+net_io_counters = cext.net_io_counters
+net_if_addrs = cext_posix.net_if_addrs
+
+
+def net_if_stats():
+    """Get NIC stats (isup, duplex, speed, mtu)."""
+    names = net_io_counters().keys()
+    ret = {}
+    for name in names:
+        isup, duplex, speed, mtu = cext_posix.net_if_stats(name)
+        if hasattr(_common, 'NicDuplex'):
+            duplex = _common.NicDuplex(duplex)
+        ret[name] = _common.snicstats(isup, duplex, speed, mtu)
+    return ret
 
 
 def net_connections(kind):
@@ -322,17 +362,34 @@ def net_connections(kind):
     return list(ret)
 
 
-def net_if_stats():
-    """Get NIC stats (isup, duplex, speed, mtu)."""
-    names = net_io_counters().keys()
-    ret = {}
-    for name in names:
-        isup, duplex, speed, mtu = cext_posix.net_if_stats(name)
-        if hasattr(_common, 'NicDuplex'):
-            duplex = _common.NicDuplex(duplex)
-        ret[name] = _common.snicstats(isup, duplex, speed, mtu)
-    return ret
+# =====================================================================
+#  --- other system functions
+# =====================================================================
 
+
+def boot_time():
+    """The system boot time expressed in seconds since the epoch."""
+    return cext.boot_time()
+
+
+def users():
+    retlist = []
+    rawlist = cext.users()
+    for item in rawlist:
+        user, tty, hostname, tstamp = item
+        if tty == '~':
+            continue  # reboot or shutdown
+        nt = _common.suser(user, tty or None, hostname, tstamp)
+        retlist.append(nt)
+    return retlist
+
+
+# =====================================================================
+# --- processes
+# =====================================================================
+
+
+pids = cext.pids
 
 if OPENBSD or NETBSD:
     def pid_exists(pid):
@@ -345,13 +402,6 @@ if OPENBSD or NETBSD:
             return True
 else:
     pid_exists = _psposix.pid_exists
-
-
-pids = cext.pids
-disk_usage = _psposix.disk_usage
-net_io_counters = cext.net_io_counters
-disk_io_counters = cext.disk_io_counters
-net_if_addrs = cext_posix.net_if_addrs
 
 
 def wrap_exceptions(fun):
@@ -453,7 +503,7 @@ class Process(object):
     @wrap_exceptions
     def terminal(self):
         tty_nr = cext.proc_tty_nr(self.pid)
-        tmap = _psposix._get_terminal_map()
+        tmap = _psposix.get_terminal_map()
         try:
             return tmap[tty_nr]
         except KeyError:
@@ -461,7 +511,8 @@ class Process(object):
 
     @wrap_exceptions
     def ppid(self):
-        return cext.proc_ppid(self.pid)
+        self._ppid = cext.proc_ppid(self.pid)
+        return self._ppid
 
     @wrap_exceptions
     def uids(self):

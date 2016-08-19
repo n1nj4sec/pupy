@@ -4,6 +4,7 @@
 
 """Windows platform implementation."""
 
+import contextlib
 import errno
 import functools
 import os
@@ -36,19 +37,26 @@ else:
 
 # process priority constants, import from __init__.py:
 # http://msdn.microsoft.com/en-us/library/ms686219(v=vs.85).aspx
-__extra__all__ = ["ABOVE_NORMAL_PRIORITY_CLASS", "BELOW_NORMAL_PRIORITY_CLASS",
-                  "HIGH_PRIORITY_CLASS", "IDLE_PRIORITY_CLASS",
-                  "NORMAL_PRIORITY_CLASS", "REALTIME_PRIORITY_CLASS",
-                  "CONN_DELETE_TCB",
-                  "AF_LINK",
-                  ]
+__extra__all__ = [
+    "win_service_iter", "win_service_get",
+    "ABOVE_NORMAL_PRIORITY_CLASS", "BELOW_NORMAL_PRIORITY_CLASS",
+    "HIGH_PRIORITY_CLASS", "IDLE_PRIORITY_CLASS",
+    "NORMAL_PRIORITY_CLASS", "REALTIME_PRIORITY_CLASS",
+    "CONN_DELETE_TCB",
+    "AF_LINK",
+]
 
-# --- module level constants (gets pushed up to psutil module)
+
+# =====================================================================
+# --- constants
+# =====================================================================
+
 
 CONN_DELETE_TCB = "DELETE_TCB"
 WAIT_TIMEOUT = 0x00000102  # 258 in decimal
 ACCESS_DENIED_SET = frozenset([errno.EPERM, errno.EACCES,
                                cext.ERROR_ACCESS_DENIED])
+
 if enum is None:
     AF_LINK = -1
 else:
@@ -82,6 +90,12 @@ if enum is not None:
 
     globals().update(Priority.__members__)
 
+
+# =====================================================================
+# --- named tuples
+# =====================================================================
+
+
 scputimes = namedtuple('scputimes',
                        ['user', 'system', 'idle', 'interrupt', 'dpc'])
 svmem = namedtuple('svmem', ['total', 'available', 'percent', 'used', 'free'])
@@ -100,10 +114,20 @@ ntpinfo = namedtuple(
                 'io_rbytes', 'io_wbytes'])
 
 
-# set later from __init__.py
+# =====================================================================
+# --- exceptions
+# =====================================================================
+
+
+# these get overwritten on "import psutil" from the __init__.py file
 NoSuchProcess = None
 AccessDenied = None
 TimeoutExpired = None
+
+
+# =====================================================================
+# --- utils
+# =====================================================================
 
 
 @lru_cache(maxsize=512)
@@ -111,7 +135,7 @@ def _win32_QueryDosDevice(s):
     return cext.win32_QueryDosDevice(s)
 
 
-def _convert_raw_path(s):
+def convert_dos_path(s):
     # convert paths using native DOS format like:
     # "\Device\HarddiskVolume1\Windows\systemew\file.txt"
     # into: "C:\Windows\systemew\file.txt"
@@ -134,7 +158,9 @@ def py2_strencode(s, encoding=sys.getfilesystemencoding()):
             return s
 
 
-# --- public functions
+# =====================================================================
+# --- memory
+# =====================================================================
 
 
 def virtual_memory():
@@ -160,6 +186,14 @@ def swap_memory():
     return _common.sswap(total, used, free, percent, 0, 0)
 
 
+# =====================================================================
+# --- disk
+# =====================================================================
+
+
+disk_io_counters = cext.disk_io_counters
+
+
 def disk_usage(path):
     """Return disk usage associated with path."""
     try:
@@ -178,6 +212,11 @@ def disk_partitions(all):
     """Return disk partitions."""
     rawlist = cext.disk_partitions(all)
     return [_common.sdiskpart(*x) for x in rawlist]
+
+
+# =====================================================================
+# --- CPU
+# =====================================================================
 
 
 def cpu_times():
@@ -218,9 +257,9 @@ def cpu_stats():
                              syscalls)
 
 
-def boot_time():
-    """The system boot time expressed in seconds since the epoch."""
-    return cext.boot_time()
+# =====================================================================
+# --- network
+# =====================================================================
 
 
 def net_connections(kind, _pid=-1):
@@ -271,6 +310,16 @@ def net_if_addrs():
     return ret
 
 
+# =====================================================================
+# --- other system functions
+# =====================================================================
+
+
+def boot_time():
+    """The system boot time expressed in seconds since the epoch."""
+    return cext.boot_time()
+
+
 def users():
     """Return currently connected users as a list of namedtuples."""
     retlist = []
@@ -283,10 +332,198 @@ def users():
     return retlist
 
 
+# =====================================================================
+# --- Windows services
+# =====================================================================
+
+
+def win_service_iter():
+    """Return a list of WindowsService instances."""
+    for name, display_name in cext.winservice_enumerate():
+        yield WindowsService(name, display_name)
+
+
+def win_service_get(name):
+    """Open a Windows service and return it as a WindowsService instance."""
+    service = WindowsService(name, None)
+    service._display_name = service._query_config()['display_name']
+    return service
+
+
+class WindowsService(object):
+    """Represents an installed Windows service."""
+
+    def __init__(self, name, display_name):
+        self._name = name
+        self._display_name = display_name
+
+    def __str__(self):
+        details = "(name=%r, display_name=%r)" % (
+            self._name, self._display_name)
+        return "%s%s" % (self.__class__.__name__, details)
+
+    def __repr__(self):
+        return "<%s at %s>" % (self.__str__(), id(self))
+
+    def __eq__(self, other):
+        # Test for equality with another WindosService object based
+        # on name.
+        if not isinstance(other, WindowsService):
+            return NotImplemented
+        return self._name == other._name
+
+    def __ne__(self, other):
+        return not self == other
+
+    def _query_config(self):
+        with self._wrap_exceptions():
+            display_name, binpath, username, start_type = \
+                cext.winservice_query_config(self._name)
+        # XXX - update _self.display_name?
+        return dict(
+            display_name=display_name,
+            binpath=binpath,
+            username=username,
+            start_type=start_type)
+
+    def _query_status(self):
+        with self._wrap_exceptions():
+            status, pid = cext.winservice_query_status(self._name)
+        if pid == 0:
+            pid = None
+        return dict(status=status, pid=pid)
+
+    @contextlib.contextmanager
+    def _wrap_exceptions(self):
+        """Ctx manager which translates bare OSError and WindowsError
+        exceptions into NoSuchProcess and AccessDenied.
+        """
+        try:
+            yield
+        except WindowsError as err:
+            NO_SUCH_SERVICE_SET = (cext.ERROR_INVALID_NAME,
+                                   cext.ERROR_SERVICE_DOES_NOT_EXIST)
+            if err.errno in ACCESS_DENIED_SET:
+                raise AccessDenied(
+                    pid=None, name=self._name,
+                    msg="service %r is not querable (not enough privileges)" %
+                        self._name)
+            elif err.errno in NO_SUCH_SERVICE_SET or \
+                    err.winerror in NO_SUCH_SERVICE_SET:
+                raise NoSuchProcess(
+                    pid=None, name=self._name,
+                    msg="service %r does not exist)" % self._name)
+            else:
+                raise
+
+    # config query
+
+    def name(self):
+        """The service name. This string is how a service is referenced
+        and can be passed to win_service_get() to get a new
+        WindowsService instance.
+        """
+        return self._name
+
+    def display_name(self):
+        """The service display name. The value is cached when this class
+        is instantiated.
+        """
+        return self._display_name
+
+    def binpath(self):
+        """The fully qualified path to the service binary/exe file as
+        a string, including command line arguments.
+        """
+        return self._query_config()['binpath']
+
+    def username(self):
+        """The name of the user that owns this service."""
+        return self._query_config()['username']
+
+    def start_type(self):
+        """A string which can either be "automatic", "manual" or
+        "disabled".
+        """
+        return self._query_config()['start_type']
+
+    # status query
+
+    def pid(self):
+        """The process PID, if any, else None. This can be passed
+        to Process class to control the service's process.
+        """
+        return self._query_status()['pid']
+
+    def status(self):
+        """Service status as a string."""
+        return self._query_status()['status']
+
+    def description(self):
+        """Service long description."""
+        return cext.winservice_query_descr(self.name())
+
+    # utils
+
+    def as_dict(self):
+        """Utility method retrieving all the information above as a
+        dictionary.
+        """
+        d = self._query_config()
+        d.update(self._query_status())
+        d['name'] = self.name()
+        d['display_name'] = self.display_name()
+        d['description'] = self.description()
+        return d
+
+    # actions
+    # XXX: the necessary C bindings for start() and stop() are implemented
+    # but for now I prefer not to expose them.
+    # I may change my mind in the future. Reasons:
+    # - they require Administrator privileges
+    # - can't implement a timeout for stop() (unless by using a thread,
+    #   which sucks)
+    # - would require adding ServiceAlreadyStarted and
+    #   ServiceAlreadyStopped exceptions, adding two new APIs.
+    # - we might also want to have modify(), which would basically mean
+    #   rewriting win32serviceutil.ChangeServiceConfig, which involves a
+    #   lot of stuff (and API constants which would pollute the API), see:
+    #   http://pyxr.sourceforge.net/PyXR/c/python24/lib/site-packages/
+    #       win32/lib/win32serviceutil.py.html#0175
+    # - psutil is tipically about "read only" monitoring stuff;
+    #   win_service_* APIs should only be used to retrieve a service and
+    #   check whether it's running
+
+    # def start(self, timeout=None):
+    #     with self._wrap_exceptions():
+    #         cext.winservice_start(self.name())
+    #         if timeout:
+    #             giveup_at = time.time() + timeout
+    #             while True:
+    #                 if self.status() == "running":
+    #                     return
+    #                 else:
+    #                     if time.time() > giveup_at:
+    #                         raise TimeoutExpired(timeout)
+    #                     else:
+    #                         time.sleep(.1)
+
+    # def stop(self):
+    #     # Note: timeout is not implemented because it's just not
+    #     # possible, see:
+    #     # http://stackoverflow.com/questions/11973228/
+    #     with self._wrap_exceptions():
+    #         return cext.winservice_stop(self.name())
+
+
+# =====================================================================
+# --- processes
+# =====================================================================
+
+
 pids = cext.pids
 pid_exists = cext.pid_exists
-disk_io_counters = cext.disk_io_counters
-ppid_map = cext.ppid_map  # not meant to be public
+ppid_map = cext.ppid_map  # used internally by Process.children()
 
 
 def wrap_exceptions(fun):
@@ -345,7 +582,7 @@ class Process(object):
         # see https://github.com/giampaolo/psutil/issues/528
         if self.pid in (0, 4):
             raise AccessDenied(self.pid, self._name)
-        return py2_strencode(_convert_raw_path(cext.proc_exe(self.pid)))
+        return py2_strencode(convert_dos_path(cext.proc_exe(self.pid)))
 
     @wrap_exceptions
     def cmdline(self):
@@ -404,7 +641,7 @@ class Process(object):
             raise
         else:
             for addr, perm, path, rss in raw:
-                path = _convert_raw_path(path)
+                path = convert_dos_path(path)
                 addr = hex(addr)
                 yield (addr, perm, path, rss)
 
@@ -500,7 +737,7 @@ class Process(object):
         # (e.g. "C:\") by using Windows's QueryDosDevice()
         raw_file_names = cext.proc_open_files(self.pid)
         for _file in raw_file_names:
-            _file = _convert_raw_path(_file)
+            _file = convert_dos_path(_file)
             if isfile_strict(_file):
                 if not PY3:
                     _file = py2_strencode(_file)

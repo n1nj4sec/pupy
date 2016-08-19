@@ -54,7 +54,11 @@ __extra__all__ = [
     "CONN_FIN_WAIT2", "CONN_TIME_WAIT", "CONN_CLOSE", "CONN_CLOSE_WAIT",
     "CONN_LAST_ACK", "CONN_LISTEN", "CONN_CLOSING", ]
 
+
+# =====================================================================
 # --- constants
+# =====================================================================
+
 
 HAS_SMAPS = os.path.exists('/proc/%s/smaps' % os.getpid())
 HAS_PRLIMIT = hasattr(cext, "linux_prlimit")
@@ -128,14 +132,49 @@ TCP_STATUSES = {
     "0B": _common.CONN_CLOSING
 }
 
-# set later from __init__.py
+
+# =====================================================================
+# -- exceptions
+# =====================================================================
+
+
+# these get overwritten on "import psutil" from the __init__.py file
 NoSuchProcess = None
 ZombieProcess = None
 AccessDenied = None
 TimeoutExpired = None
 
 
+# =====================================================================
+# --- named tuples
+# =====================================================================
+
+
+svmem = namedtuple(
+    'svmem', ['total', 'available', 'percent', 'used', 'free',
+              'active', 'inactive', 'buffers', 'cached', 'shared'])
+sdiskio = namedtuple(
+    'sdiskio', ['read_count', 'write_count',
+                'read_bytes', 'write_bytes',
+                'read_time', 'write_time',
+                'read_merged_count', 'write_merged_count',
+                'busy_time'])
+popenfile = namedtuple(
+    'popenfile', ['path', 'fd', 'position', 'mode', 'flags'])
+pmem = namedtuple('pmem', 'rss vms shared text lib data dirty')
+pfullmem = namedtuple('pfullmem', pmem._fields + ('uss', 'pss', 'swap'))
+pmmap_grouped = namedtuple(
+    'pmmap_grouped',
+    ['path', 'rss', 'size', 'pss', 'shared_clean', 'shared_dirty',
+     'private_clean', 'private_dirty', 'referenced', 'anonymous', 'swap'])
+pmmap_ext = namedtuple(
+    'pmmap_ext', 'addr perms ' + ' '.join(pmmap_grouped._fields))
+
+
+# =====================================================================
 # --- utils
+# =====================================================================
+
 
 def open_binary(fname, **kwargs):
     return open(fname, "rb", **kwargs)
@@ -153,6 +192,14 @@ def open_text(fname, **kwargs):
         kwargs.setdefault('encoding', FS_ENCODING)
         kwargs.setdefault('errors', ENCODING_ERRORS_HANDLER)
     return open(fname, "rt", **kwargs)
+
+
+if PY3:
+    def decode(s):
+        return s.decode(encoding=FS_ENCODING, errors=ENCODING_ERRORS_HANDLER)
+else:
+    def decode(s):
+        return s
 
 
 def get_procfs_path():
@@ -203,8 +250,6 @@ def get_sector_size():
 SECTOR_SIZE = get_sector_size()
 
 
-# --- named tuples
-
 @memoize
 def set_scputimes_ntuple(procfs_path):
     """Return a namedtuple of variable fields depending on the
@@ -238,64 +283,69 @@ except Exception:
     scputimes = namedtuple('scputimes', 'user system idle')(0.0, 0.0, 0.0)
 
 
-svmem = namedtuple(
-    'svmem', ['total', 'available', 'percent', 'used', 'free',
-              'active', 'inactive', 'buffers', 'cached'])
-sdiskio = namedtuple('sdiskio', ['read_count', 'write_count',
-                                 'read_bytes', 'write_bytes',
-                                 'read_time', 'write_time',
-                                 'read_merged_count', 'write_merged_count',
-                                 'busy_time'])
-popenfile = namedtuple('popenfile',
-                       ['path', 'fd', 'position', 'mode', 'flags'])
-pmem = namedtuple('pmem', 'rss vms shared text lib data dirty')
-pfullmem = namedtuple('pfullmem', pmem._fields + ('uss', 'pss', 'swap'))
-pmmap_grouped = namedtuple(
-    'pmmap_grouped', ['path', 'rss', 'size', 'pss', 'shared_clean',
-                      'shared_dirty', 'private_clean', 'private_dirty',
-                      'referenced', 'anonymous', 'swap'])
-
-pmmap_ext = namedtuple(
-    'pmmap_ext', 'addr perms ' + ' '.join(pmmap_grouped._fields))
-
-
+# =====================================================================
 # --- system memory
+# =====================================================================
+
 
 def virtual_memory():
     total, free, buffers, shared, _, _, unit_multiplier = cext.linux_sysinfo()
     total *= unit_multiplier
     free *= unit_multiplier
     buffers *= unit_multiplier
-    # XXX: tis is currently not used (neither returned) because it's
-    # always 0. It would be nice to have though ('free' provides it).
-    # shared *= unit_multiplier
+    # Note: this (on my Ubuntu 14.04, kernel 3.13 at least) may be 0.
+    # If so, it will be determined from /proc/meminfo.
+    shared *= unit_multiplier or None
+    if shared == 0:
+        shared = None
 
     cached = active = inactive = None
     with open_binary('%s/meminfo' % get_procfs_path()) as f:
         for line in f:
-            if line.startswith(b"Cached:"):
+            if cached is None and line.startswith(b"Cached:"):
                 cached = int(line.split()[1]) * 1024
-            elif line.startswith(b"Active:"):
+            elif active is None and line.startswith(b"Active:"):
                 active = int(line.split()[1]) * 1024
-            elif line.startswith(b"Inactive:"):
+            elif inactive is None and line.startswith(b"Inactive:"):
                 inactive = int(line.split()[1]) * 1024
-            if (cached is not None and
-                    active is not None and
-                    inactive is not None):
-                break
-        else:
-            # we might get here when dealing with exotic Linux flavors, see:
-            # https://github.com/giampaolo/psutil/issues/313
-            msg = "'cached', 'active' and 'inactive' memory stats couldn't " \
-                  "be determined and were set to 0"
-            warnings.warn(msg, RuntimeWarning)
-            cached = active = inactive = 0
+            # From "man free":
+            # The shared memory column represents either the MemShared
+            # value (2.4 kernels) or the Shmem value (2.6+ kernels) taken
+            # from the /proc/meminfo file. The value is zero if none of
+            # the entries is exported by the kernel.
+            elif shared is None and \
+                    line.startswith(b"MemShared:") or \
+                    line.startswith(b"Shmem:"):
+                shared = int(line.split()[1]) * 1024
 
+    missing = []
+    if cached is None:
+        missing.append('cached')
+        cached = 0
+    if active is None:
+        missing.append('active')
+        active = 0
+    if inactive is None:
+        missing.append('inactive')
+        inactive = 0
+    if shared is None:
+        missing.append('shared')
+        shared = 0
+    if missing:
+        msg = "%s memory stats couldn't be determined and %s set to 0" % (
+            ", ".join(missing),
+            "was" if len(missing) == 1 else "were")
+        warnings.warn(msg, RuntimeWarning)
+
+    # Note: this value matches "htop" perfectly.
     avail = free + buffers + cached
+    # Note: this value matches "free", but not all the time, see:
+    # https://github.com/giampaolo/psutil/issues/685#issuecomment-202914057
     used = total - free
+    # Note: this value matches "htop" perfectly.
     percent = usage_percent((total - avail), total, _round=1)
     return svmem(total, avail, percent, used, free,
-                 active, inactive, buffers, cached)
+                 active, inactive, buffers, cached, shared)
 
 
 def swap_memory():
@@ -336,7 +386,10 @@ def swap_memory():
     return _common.sswap(total, used, free, percent, sin, sout)
 
 
+# =====================================================================
 # --- CPUs
+# =====================================================================
+
 
 def cpu_times():
     """Return a named tuple representing the following system-wide
@@ -448,52 +501,13 @@ def cpu_stats():
         ctx_switches, interrupts, soft_interrupts, syscalls)
 
 
-# --- other system functions
-
-def users():
-    """Return currently connected users as a list of namedtuples."""
-    retlist = []
-    rawlist = cext.users()
-    for item in rawlist:
-        user, tty, hostname, tstamp, user_process = item
-        # note: the underlying C function includes entries about
-        # system boot, run level and others.  We might want
-        # to use them in the future.
-        if not user_process:
-            continue
-        if hostname == ':0.0' or hostname == ':0':
-            hostname = 'localhost'
-        nt = _common.suser(user, tty or None, hostname, tstamp)
-        retlist.append(nt)
-    return retlist
-
-
-def boot_time():
-    """Return the system boot time expressed in seconds since the epoch."""
-    global BOOT_TIME
-    with open_binary('%s/stat' % get_procfs_path()) as f:
-        for line in f:
-            if line.startswith(b'btime'):
-                ret = float(line.strip().split()[1])
-                BOOT_TIME = ret
-                return ret
-        raise RuntimeError(
-            "line 'btime' not found in %s/stat" % get_procfs_path())
-
-
-# --- processes
-
-def pids():
-    """Returns a list of PIDs currently running on the system."""
-    return [int(x) for x in os.listdir(b(get_procfs_path())) if x.isdigit()]
-
-
-def pid_exists(pid):
-    """Check For the existence of a unix pid."""
-    return _psposix.pid_exists(pid)
-
-
+# =====================================================================
 # --- network
+# =====================================================================
+
+
+net_if_addrs = cext_posix.net_if_addrs
+
 
 class _Ipv6UnsupportedError(Exception):
     pass
@@ -780,10 +794,13 @@ def net_if_stats():
     return ret
 
 
-net_if_addrs = cext_posix.net_if_addrs
-
-
+# =====================================================================
 # --- disks
+# =====================================================================
+
+
+disk_usage = _psposix.disk_usage
+
 
 def disk_io_counters():
     """Return disk I/O statistics for every disk installed on the
@@ -884,10 +901,56 @@ def disk_partitions(all=False):
     return retlist
 
 
-disk_usage = _psposix.disk_usage
+# =====================================================================
+# --- other system functions
+# =====================================================================
 
 
-# --- decorators
+def users():
+    """Return currently connected users as a list of namedtuples."""
+    retlist = []
+    rawlist = cext.users()
+    for item in rawlist:
+        user, tty, hostname, tstamp, user_process = item
+        # note: the underlying C function includes entries about
+        # system boot, run level and others.  We might want
+        # to use them in the future.
+        if not user_process:
+            continue
+        if hostname == ':0.0' or hostname == ':0':
+            hostname = 'localhost'
+        nt = _common.suser(user, tty or None, hostname, tstamp)
+        retlist.append(nt)
+    return retlist
+
+
+def boot_time():
+    """Return the system boot time expressed in seconds since the epoch."""
+    global BOOT_TIME
+    with open_binary('%s/stat' % get_procfs_path()) as f:
+        for line in f:
+            if line.startswith(b'btime'):
+                ret = float(line.strip().split()[1])
+                BOOT_TIME = ret
+                return ret
+        raise RuntimeError(
+            "line 'btime' not found in %s/stat" % get_procfs_path())
+
+
+# =====================================================================
+# --- processes
+# =====================================================================
+
+
+def pids():
+    """Returns a list of PIDs currently running on the system."""
+    return [int(x) for x in os.listdir(b(get_procfs_path())) if x.isdigit()]
+
+
+def pid_exists(pid):
+    """Check For the existence of a unix pid."""
+    return _psposix.pid_exists(pid)
+
 
 def wrap_exceptions(fun):
     """Decorator which translates bare OSError and IOError exceptions
@@ -920,12 +983,39 @@ class Process(object):
         self._ppid = None
         self._procfs_path = get_procfs_path()
 
+    def _parse_stat_file(self):
+        """Parse /proc/{pid}/stat file. Return a list of fields where
+        process name is in position 0.
+        Using "man proc" as a reference: where "man proc" refers to
+        position N, always subscract 2 (e.g starttime pos 22 in
+        'man proc' == pos 20 in the list returned here).
+        """
+        with open_binary("%s/%s/stat" % (self._procfs_path, self.pid)) as f:
+            data = f.read()
+        # Process name is between parentheses. It can contain spaces and
+        # other parentheses. This is taken into account by looking for
+        # the first occurrence of "(" and the last occurence of ")".
+        rpar = data.rfind(b')')
+        name = data[data.find(b'(') + 1:rpar]
+        fields_after_name = data[rpar + 2:].split()
+        return [name] + fields_after_name
+
+    def _read_status_file(self):
+        with open_binary("%s/%s/status" % (self._procfs_path, self.pid)) as f:
+            return f.read()
+
+    def _read_smaps_file(self):
+        with open_binary("%s/%s/smaps" % (self._procfs_path, self.pid),
+                         buffering=BIGGER_FILE_BUFFERING) as f:
+            return f.read().strip()
+
     @wrap_exceptions
     def name(self):
-        with open_text("%s/%s/stat" % (self._procfs_path, self.pid)) as f:
-            data = f.read()
+        name = self._parse_stat_file()[0]
+        if PY3:
+            name = decode(name)
         # XXX - gets changed later and probably needs refactoring
-        return data[data.find('(') + 1:data.rfind(')')]
+        return name
 
     def exe(self):
         try:
@@ -965,9 +1055,8 @@ class Process(object):
 
     @wrap_exceptions
     def terminal(self):
-        tmap = _psposix._get_terminal_map()
-        with open_binary("%s/%s/stat" % (self._procfs_path, self.pid)) as f:
-            tty_nr = int(f.read().split(b' ')[6])
+        tty_nr = int(self._parse_stat_file()[5])
+        tmap = _psposix.get_terminal_map()
         try:
             return tmap[tty_nr]
         except KeyError:
@@ -1000,15 +1089,11 @@ class Process(object):
 
     @wrap_exceptions
     def cpu_times(self):
-        with open_binary("%s/%s/stat" % (self._procfs_path, self.pid)) as f:
-            st = f.read().strip()
-        # ignore the first two values ("pid (exe)")
-        st = st[st.find(b')') + 2:]
-        values = st.split(b' ')
-        utime = float(values[11]) / CLOCK_TICKS
-        stime = float(values[12]) / CLOCK_TICKS
-        children_utime = float(values[13]) / CLOCK_TICKS
-        children_stime = float(values[14]) / CLOCK_TICKS
+        values = self._parse_stat_file()
+        utime = float(values[12]) / CLOCK_TICKS
+        stime = float(values[13]) / CLOCK_TICKS
+        children_utime = float(values[14]) / CLOCK_TICKS
+        children_stime = float(values[15]) / CLOCK_TICKS
         return _common.pcputimes(utime, stime, children_utime, children_stime)
 
     @wrap_exceptions
@@ -1020,18 +1105,14 @@ class Process(object):
 
     @wrap_exceptions
     def create_time(self):
-        with open_binary("%s/%s/stat" % (self._procfs_path, self.pid)) as f:
-            st = f.read().strip()
-        # ignore the first two values ("pid (exe)")
-        st = st[st.rfind(b')') + 2:]
-        values = st.split(b' ')
+        values = self._parse_stat_file()
         # According to documentation, starttime is in field 21 and the
         # unit is jiffies (clock ticks).
         # We first divide it for clock ticks and then add uptime returning
         # seconds since the epoch, in UTC.
         # Also use cached value if available.
         bt = BOOT_TIME or boot_time()
-        return (float(values[19]) / CLOCK_TICKS) + bt
+        return (float(values[20]) / CLOCK_TICKS) + bt
 
     @wrap_exceptions
     def memory_info(self):
@@ -1066,9 +1147,7 @@ class Process(object):
             # line by line.
             # XXX: on Python 3 the 2 regexes are 30% slower than on
             # Python 2 though. Figure out why.
-            with open_binary("%s/%s/smaps" % (self._procfs_path, self.pid),
-                             buffering=BIGGER_FILE_BUFFERING) as f:
-                smaps_data = f.read()
+            #
             # You might be tempted to calculate USS by subtracting
             # the "shared" value from the "resident" value in
             # /proc/<pid>/statm. But at least on Linux, statm's "shared"
@@ -1076,6 +1155,9 @@ class Process(object):
             # little to do with whether the pages are actually shared.
             # /proc/self/smaps on the other hand appears to give us the
             # correct information.
+            smaps_data = self._read_smaps_file()
+            # Note: smaps file can be empty for certain processes.
+            # The code below will not crash though and will result to 0.
             uss = sum(map(int, _private_re.findall(smaps_data))) * 1024
             pss = sum(map(int, _pss_re.findall(smaps_data))) * 1024
             swap = sum(map(int, _swap_re.findall(smaps_data))) * 1024
@@ -1088,93 +1170,99 @@ class Process(object):
 
         @wrap_exceptions
         def memory_maps(self):
-            """Return process's mapped memory regions as a list of named tuples.
-            Fields are explained in 'man proc'; here is an updated (Apr 2012)
-            version: http://goo.gl/fmebo
+            """Return process's mapped memory regions as a list of named
+            tuples. Fields are explained in 'man proc'; here is an updated
+            (Apr 2012) version: http://goo.gl/fmebo
             """
-            with open_text("%s/%s/smaps" % (self._procfs_path, self.pid),
-                           buffering=BIGGER_FILE_BUFFERING) as f:
-                first_line = f.readline()
-                current_block = [first_line]
-
-                def get_blocks():
-                    data = {}
-                    for line in f:
-                        fields = line.split(None, 5)
-                        if not fields[0].endswith(':'):
-                            # new block section
-                            yield (current_block.pop(), data)
-                            current_block.append(line)
-                        else:
-                            try:
-                                data[fields[0]] = int(fields[1]) * 1024
-                            except ValueError:
-                                if fields[0].startswith('VmFlags:'):
-                                    # see issue #369
-                                    continue
-                                else:
-                                    raise ValueError("don't know how to inte"
-                                                     "rpret line %r" % line)
-                    yield (current_block.pop(), data)
-
-                ls = []
-                if first_line:  # smaps file can be empty
-                    for header, data in get_blocks():
-                        hfields = header.split(None, 5)
+            def get_blocks(lines, current_block):
+                data = {}
+                for line in lines:
+                    fields = line.split(None, 5)
+                    if not fields[0].endswith(b':'):
+                        # new block section
+                        yield (current_block.pop(), data)
+                        current_block.append(line)
+                    else:
                         try:
-                            addr, perms, offset, dev, inode, path = hfields
+                            data[fields[0]] = int(fields[1]) * 1024
                         except ValueError:
-                            addr, perms, offset, dev, inode, path = \
-                                hfields + ['']
-                        if not path:
-                            path = '[anon]'
-                        else:
-                            path = path.strip()
-                            if (path.endswith(' (deleted)') and not
-                                    path_exists_strict(path)):
-                                path = path[:-10]
-                        ls.append((
-                            addr, perms, path,
-                            data['Rss:'],
-                            data.get('Size:', 0),
-                            data.get('Pss:', 0),
-                            data.get('Shared_Clean:', 0),
-                            data.get('Shared_Dirty:', 0),
-                            data.get('Private_Clean:', 0),
-                            data.get('Private_Dirty:', 0),
-                            data.get('Referenced:', 0),
-                            data.get('Anonymous:', 0),
-                            data.get('Swap:', 0)
-                        ))
+                            if fields[0].startswith(b'VmFlags:'):
+                                # see issue #369
+                                continue
+                            else:
+                                raise ValueError("don't know how to inte"
+                                                 "rpret line %r" % line)
+                yield (current_block.pop(), data)
+
+            data = self._read_smaps_file()
+            # Note: smaps file can be empty for certain processes.
+            if not data:
+                return []
+            lines = data.split(b'\n')
+            ls = []
+            first_line = lines.pop(0)
+            current_block = [first_line]
+            for header, data in get_blocks(lines, current_block):
+                hfields = header.split(None, 5)
+                try:
+                    addr, perms, offset, dev, inode, path = hfields
+                except ValueError:
+                    addr, perms, offset, dev, inode, path = \
+                        hfields + ['']
+                if not path:
+                    path = '[anon]'
+                else:
+                    if PY3:
+                        path = decode(path)
+                    path = path.strip()
+                    if (path.endswith(' (deleted)') and not
+                            path_exists_strict(path)):
+                        path = path[:-10]
+                ls.append((
+                    decode(addr), decode(perms), path,
+                    data[b'Rss:'],
+                    data.get(b'Size:', 0),
+                    data.get(b'Pss:', 0),
+                    data.get(b'Shared_Clean:', 0),
+                    data.get(b'Shared_Dirty:', 0),
+                    data.get(b'Private_Clean:', 0),
+                    data.get(b'Private_Dirty:', 0),
+                    data.get(b'Referenced:', 0),
+                    data.get(b'Anonymous:', 0),
+                    data.get(b'Swap:', 0)
+                ))
             return ls
+
+    else:
+        def memory_maps(self):
+            raise NotImplementedError(
+                "/proc/%s/smaps does not exist on kernels < 2.6.14 or "
+                "if CONFIG_MMU kernel configuration option is not "
+                "enabled." % self.pid)
 
     @wrap_exceptions
     def cwd(self):
         return readlink("%s/%s/cwd" % (self._procfs_path, self.pid))
 
     @wrap_exceptions
-    def num_ctx_switches(self):
-        vol = unvol = None
-        with open_binary("%s/%s/status" % (self._procfs_path, self.pid)) as f:
-            for line in f:
-                if line.startswith(b"voluntary_ctxt_switches"):
-                    vol = int(line.split()[1])
-                elif line.startswith(b"nonvoluntary_ctxt_switches"):
-                    unvol = int(line.split()[1])
-                if vol is not None and unvol is not None:
-                    return _common.pctxsw(vol, unvol)
+    def num_ctx_switches(self, _ctxsw_re=re.compile(b'ctxt_switches:\t(\d+)')):
+        data = self._read_status_file()
+        ctxsw = _ctxsw_re.findall(data)
+        if not ctxsw:
             raise NotImplementedError(
                 "'voluntary_ctxt_switches' and 'nonvoluntary_ctxt_switches'"
-                "fields were not found in /proc/%s/status; the kernel is "
+                "lines were not found in /proc/%s/status; the kernel is "
                 "probably older than 2.6.23" % self.pid)
+        else:
+            return _common.pctxsw(int(ctxsw[0]), int(ctxsw[1]))
 
     @wrap_exceptions
-    def num_threads(self):
-        with open_binary("%s/%s/status" % (self._procfs_path, self.pid)) as f:
-            for line in f:
-                if line.startswith(b"Threads:"):
-                    return int(line.split()[1])
-            raise NotImplementedError("line not found")
+    def num_threads(self, _num_threads_re=re.compile(b'Threads:\t(\d+)')):
+        # Note: on Python 3 using a re is faster than iterating over file
+        # line by line. On Python 2 is the exact opposite, and iterating
+        # over a file on Python 3 is slower than on Python 2.
+        data = self._read_status_file()
+        return int(_num_threads_re.findall(data)[0])
 
     @wrap_exceptions
     def threads(self):
@@ -1310,15 +1398,11 @@ class Process(object):
 
     @wrap_exceptions
     def status(self):
-        with open_binary("%s/%s/status" % (self._procfs_path, self.pid)) as f:
-            for line in f:
-                if line.startswith(b"State:"):
-                    letter = line.split()[1]
-                    if PY3:
-                        letter = letter.decode()
-                    # XXX is '?' legit? (we're not supposed to return
-                    # it anyway)
-                    return PROC_STATUSES.get(letter, '?')
+        letter = self._parse_stat_file()[1]
+        if PY3:
+            letter = letter.decode()
+        # XXX is '?' legit? (we're not supposed to return it anyway)
+        return PROC_STATUSES.get(letter, '?')
 
     @wrap_exceptions
     def open_files(self):
@@ -1372,30 +1456,16 @@ class Process(object):
 
     @wrap_exceptions
     def ppid(self):
-        fpath = "%s/%s/status" % (self._procfs_path, self.pid)
-        with open_binary(fpath) as f:
-            for line in f:
-                if line.startswith(b"PPid:"):
-                    # PPid: nnnn
-                    return int(line.split()[1])
-            raise NotImplementedError("line 'PPid' not found in %s" % fpath)
+        return int(self._parse_stat_file()[2])
 
     @wrap_exceptions
-    def uids(self):
-        fpath = "%s/%s/status" % (self._procfs_path, self.pid)
-        with open_binary(fpath) as f:
-            for line in f:
-                if line.startswith(b'Uid:'):
-                    _, real, effective, saved, fs = line.split()
-                    return _common.puids(int(real), int(effective), int(saved))
-            raise NotImplementedError("line 'Uid' not found in %s" % fpath)
+    def uids(self, _uids_re=re.compile(b'Uid:\t(\d+)\t(\d+)\t(\d+)')):
+        data = self._read_status_file()
+        real, effective, saved = _uids_re.findall(data)[0]
+        return _common.puids(int(real), int(effective), int(saved))
 
     @wrap_exceptions
-    def gids(self):
-        fpath = "%s/%s/status" % (self._procfs_path, self.pid)
-        with open_binary(fpath) as f:
-            for line in f:
-                if line.startswith(b'Gid:'):
-                    _, real, effective, saved, fs = line.split()
-                    return _common.pgids(int(real), int(effective), int(saved))
-            raise NotImplementedError("line 'Gid' not found in %s" % fpath)
+    def gids(self, _gids_re=re.compile(b'Gid:\t(\d+)\t(\d+)\t(\d+)')):
+        data = self._read_status_file()
+        real, effective, saved = _gids_re.findall(data)[0]
+        return _common.pgids(int(real), int(effective), int(saved))
