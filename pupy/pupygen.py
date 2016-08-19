@@ -8,6 +8,7 @@ from pupylib.utils.network import get_local_ip
 from pupylib.utils.term import colorize
 from pupylib.payloads.python_packer import gen_package_pickled_dic
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
+from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
@@ -15,7 +16,8 @@ from scriptlets.scriptlets import ScriptletArgumentError
 from modules.lib.windows.powershell_upload import obfuscatePowershellScript
 import scriptlets
 import cPickle
-import base64, configparser
+import base64
+
 
 
 def get_edit_pupyx86_dll(conf):
@@ -249,6 +251,7 @@ class ListOptions(argparse.Action):
         print "\t- py_oneliner     : same as \"py\" format but served over http to load it from memory with a single command line."
         print "\t- ps1             : generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process."
         print "\t- ps1_oneliner    : load pupy remotely from memory with a single command line using powershell."
+        print "\t- rubber_ducky    : generate a Rubber Ducky script and inject.bin file (Windows Only)."
 
         print ""
         print colorize("## available transports :","green")+" usage: -t <transport>"
@@ -265,7 +268,7 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner']
+PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner','rubber_ducky']
 if __name__=="__main__":
     if os.path.dirname(__file__):
         os.chdir(os.path.dirname(__file__))
@@ -393,6 +396,8 @@ if __name__=="__main__":
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
         serve_ps1_payload(conf, link_ip=link_ip)
+    elif args.format=="rubber_ducky":
+        rubber_ducky(conf).generateAllForOStarget()
     else:
         exit("Type %s is invalid."%(args.format))
     print(colorize("[+] ","green")+"payload successfully generated with config :")
