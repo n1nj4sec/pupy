@@ -268,9 +268,6 @@ class ListOptions(argparse.Action):
 
 PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner']
 if __name__=="__main__":
-    if os.path.dirname(__file__):
-        os.chdir(os.path.dirname(__file__))
-
     parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
     parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
     parser.add_argument('-o', '--output', help="output path")
@@ -281,12 +278,14 @@ if __name__=="__main__":
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     if os.name == 'posix':
         parser.add_argument('--daemonize', default=False, action='store_true', help='Daemonize pupy on start')
+    parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
     parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
     args=parser.parse_args()
 
-
+    if args.workdir:
+        os.chdir(args.workdir)
 
     script_code=""
     if args.scriptlet:
