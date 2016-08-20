@@ -17,8 +17,9 @@ import binascii
 import bz2
 import code
 import collections
-import configparser
+import contextlib
 import copy
+import ConfigParser
 import cPickle
 import Crypto.Cipher
 import Crypto.Cipher.AES
@@ -40,7 +41,7 @@ import json
 import logging
 import math
 import multiprocessing
-import new 
+import new
 import os
 import pkgutil
 import platform
