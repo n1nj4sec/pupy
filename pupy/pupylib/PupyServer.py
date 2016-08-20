@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
@@ -336,6 +336,7 @@ class PupyServer(threading.Thread):
                 "launcher" : conn.get_infos("launcher"),
                 "launcher_args" : obtain(conn.get_infos("launcher_args")),
                 "transport" : obtain(conn.get_infos("transport")),
+                "daemonize" : obtain(conn.get_infos("daemonize")),
             }, self)
             self.clients.append(pc)
             if self.handler:

