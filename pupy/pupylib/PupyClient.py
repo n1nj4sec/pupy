@@ -1,16 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
@@ -24,6 +24,8 @@ import traceback
 import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC
 from .PupyJob import PupyJob
+
+ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
@@ -86,27 +88,27 @@ class PupyClient(object):
         path=[]
         if self.is_windows():
             if self.is_proc_arch_64_bits():
-                path.append(os.path.join("packages","windows","amd64"))
+                path.append(os.path.join(ROOT, "packages","windows","amd64"))
             else:
-                path.append(os.path.join("packages","windows","x86"))
-            path.append(os.path.join("packages","windows","all"))
+                path.append(os.path.join(ROOT, "packages","windows","x86"))
+            path.append(os.path.join(ROOT, "packages","windows","all"))
         elif self.is_unix():
             if self.is_proc_arch_64_bits():
-                path.append(os.path.join("packages","linux","amd64"))
+                path.append(os.path.join(ROOT, "packages","linux","amd64"))
             else:
-                path.append(os.path.join("packages","linux","x86"))
-            path.append(os.path.join("packages","linux","all"))
+                path.append(os.path.join(ROOT, "packages","linux","x86"))
+            path.append(os.path.join(ROOT, "packages","linux","all"))
         if self.is_android():
-            path.append(os.path.join("packages","android"))
+            path.append(os.path.join(ROOT, "packages","android"))
 
-        path.append(os.path.join("packages","all"))
+        path.append(os.path.join(ROOT, "packages","all"))
         return path
 
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
         if "pupyimporter" not in self.conn.modules.sys.modules:
             pupyimporter_code=""
-            with open(os.path.join("packages","all","pupyimporter.py"),'rb') as f:
+            with open(os.path.join(ROOT, "packages","all","pupyimporter.py"),'rb') as f:
                 pupyimporter_code=f.read()
             self.conn.execute(textwrap.dedent(
             """
@@ -124,7 +126,7 @@ class PupyClient(object):
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
     def load_dll(self, path):
-        """ 
+        """
             load some dll from memory like sqlite3.dll needed for some .pyd to work
             Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
         """
@@ -152,7 +154,7 @@ class PupyClient(object):
                     raise PupyModuleError("Unknown package loading method %s"%t)
         return self._load_package(module_name, force)
     def _load_package(self, module_name, force=False):
-        """ 
+        """
             load a python module into memory depending on what OS the client is.
             This function can load all types of modules in memory for windows both x86 and amd64 including .pyd C extensions
             For other platforms : loading .so in memory is not supported yet.
@@ -186,7 +188,7 @@ class PupyClient(object):
                                 if not cur+rep+"/__init__.py" in modules_dic:
                                     modules_dic[rep+"/__init__.py"]=""
                                 cur+=rep+"/"
-                                
+
                             modules_dic[start_path+ext]=module_code
                             package_found=True
                             break
@@ -226,5 +228,3 @@ class PupyClient(object):
             self.pupsrv.add_job(pj)
         pj.start(args)
         return pj
-
-
