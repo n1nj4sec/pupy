@@ -74,9 +74,17 @@ class PupyServer(threading.Thread):
             self.address=self.config.get("pupyd", "address")
         except configparser.NoOptionError:
             self.address=''
+        if not transport:
+            try:
+                self.transport=self.config.get("pupyd", "transport")
+                if ' ' in self.transport:
+                    self.transport, self.transport_kwargs = self.transport.split(' ', 1)
+            except configparser.NoOptionError:
+                self.transport='ssl'
+        else:
+            self.transport = transport
         self.handler=None
         self.handler_registered=threading.Event()
-        self.transport=transport
         self.transport_kwargs=transport_kwargs
         self.categories=PupyCategories(self)
 
