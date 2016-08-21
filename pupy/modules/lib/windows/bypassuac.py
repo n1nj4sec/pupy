@@ -1,5 +1,6 @@
 # -*- coding: UTF8 -*-
-#by @bobsesq
+#Author: @bobsecq
+#Contributor(s):
 
 import os, logging
 import platform

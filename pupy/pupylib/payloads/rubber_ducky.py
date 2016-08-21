@@ -1,4 +1,7 @@
 # -*- coding: UTF8 -*-
+#Author: @bobsecq
+#Contributor(s):
+
 from pupylib.utils.term import colorize
 import subprocess
 try:

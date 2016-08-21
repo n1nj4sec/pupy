@@ -1,4 +1,6 @@
 # -*- coding: UTF8 -*-
+#Author: @bobsecq
+#Contributor(s):
 
 import os
 from pupylib.PupyModule import *

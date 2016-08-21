@@ -1,4 +1,6 @@
 # -*- coding: UTF8 -*-
+#Author: @bobsecq
+#Contributor(s):
 
 import os, logging, sys, time
 from rpyc.utils.classic import download
