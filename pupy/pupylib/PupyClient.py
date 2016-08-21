@@ -89,19 +89,25 @@ class PupyClient(object):
         if self.is_windows():
             if self.is_proc_arch_64_bits():
                 path.append(os.path.join(ROOT, "packages","windows","amd64"))
+                path.append(os.path.join("packages","windows","amd64"))
             else:
                 path.append(os.path.join(ROOT, "packages","windows","x86"))
-            path.append(os.path.join(ROOT, "packages","windows","all"))
+            path.append(os.path.join("packages","windows","all"))
         elif self.is_unix():
             if self.is_proc_arch_64_bits():
                 path.append(os.path.join(ROOT, "packages","linux","amd64"))
+                path.append(os.path.join("packages","linux","amd64"))
             else:
                 path.append(os.path.join(ROOT, "packages","linux","x86"))
+                path.append(os.path.join("packages","linux","x86"))
             path.append(os.path.join(ROOT, "packages","linux","all"))
+            path.append(os.path.join("packages","linux","all"))
         if self.is_android():
             path.append(os.path.join(ROOT, "packages","android"))
+            path.append(os.path.join("packages","android"))
 
         path.append(os.path.join(ROOT, "packages","all"))
+        path.append(os.path.join("packages","all"))
         return path
 
     def load_pupyimporter(self):

