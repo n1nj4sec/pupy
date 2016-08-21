@@ -1,14 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
 
 __class_name__="LoadPackageModule"
 
+ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
 def package_completer(text, line, begidx, endidx):
     try:
         l=[]
         for p in ["packages/all", "packages/linux/all/", "packages/windows/all", "packages/windows/x86", "packages/windows/amd64", "packages/android"]:
-            for pkg in os.listdir(p):
+            for pkg in os.listdir(os.path.join(ROOT, p)):
                 if pkg.endswith(".py"):
                     pkg=pkg[:-3]
                 elif pkg.endswith((".pyc",".pyd")):
@@ -41,4 +43,3 @@ class LoadPackageModule(PupyModule):
                 self.success("package loaded !")
             else:
                 self.error("package is already loaded !")
-
