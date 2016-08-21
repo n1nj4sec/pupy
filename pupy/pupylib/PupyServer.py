@@ -264,9 +264,10 @@ class PupyServer(threading.Thread):
             uacLevel = None
             integrity_level_win = None
             try:
-                user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
                 if sys.platform=="win32":
                     user=GetUserName().decode(encoding=os_encoding).encode("utf8")
+                else:
+                    user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
             except Exception as e:
                 user=str(e)
                 pass
