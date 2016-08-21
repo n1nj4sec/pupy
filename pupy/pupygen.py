@@ -112,7 +112,7 @@ def get_raw_conf(conf, obfuscate=False):
 
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
-    if os.name == 'posix':
+    if os.name == 'posix' and 'daemonize' in conf:
         new_conf+=obf_func("DAEMONIZE=%s"%(repr(conf['daemonize'])))+"\n"
     new_conf+=offline_script
     new_conf+="\n"
