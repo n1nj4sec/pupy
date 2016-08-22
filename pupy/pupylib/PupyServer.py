@@ -58,7 +58,7 @@ class PupyServer(threading.Thread):
         if not path.exists('pupy.conf'):
             copyfile(
                 path.join(
-                    path.dirname(__file__), '..', 'pupy.conf'
+                    path.dirname(__file__), '..', 'pupy.conf.default'
                 ),
             'pupy.conf')
         self.config.read("pupy.conf")
