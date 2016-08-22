@@ -112,8 +112,6 @@ def get_raw_conf(conf, obfuscate=False):
 
     new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
     new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
-    if os.name == 'posix' and 'daemonize' in conf:
-        new_conf+=obf_func("DAEMONIZE=%s"%(repr(conf['daemonize'])))+"\n"
     new_conf+=offline_script
     new_conf+="\n"
 
@@ -276,8 +274,6 @@ if __name__=="__main__":
     parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
-    if os.name == 'posix':
-        parser.add_argument('--daemonize', default=False, action='store_true', help='Daemonize pupy on start')
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
     parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
@@ -315,8 +311,6 @@ if __name__=="__main__":
     conf['launcher']=args.launcher
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
-    if os.name == 'posix':
-        conf['daemonize']=args.daemonize
     outpath=args.output
     if args.format=="exe_x86":
         binary=get_edit_pupyx86_exe(conf)
@@ -404,5 +398,3 @@ if __name__=="__main__":
     print("LAUNCHER = %s"%repr(args.launcher))
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
-    if os.name == 'posix':
-        print("DAEMONIZE = %s"%(args.daemonize) )

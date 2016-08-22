@@ -345,7 +345,7 @@ class PupyServer(threading.Thread):
                 "launcher" : conn.get_infos("launcher"),
                 "launcher_args" : obtain(conn.get_infos("launcher_args")),
                 "transport" : obtain(conn.get_infos("transport")),
-                "daemonize" : obtain(conn.get_infos("daemonize")),
+                "daemonize" : (True if obtain(conn.get_infos("daemonize")) else False),
             }, self)
             self.clients.append(pc)
             if self.handler:
