@@ -32,6 +32,9 @@ try:
                             zf.write(os.path.join(root, f+ext), os.path.join(root[len(path)+1:], f+ext))
                             break
         else:
+            if '<memimport>' in mdep.__file__:
+                continue
+
             _, ext = os.path.splitext(mdep.__file__)
             print('adding %s -> %s'%(mdep.__file__, dep+ext))
             zf.write(mdep.__file__, dep+ext)
