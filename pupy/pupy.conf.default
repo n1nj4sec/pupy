@@ -40,3 +40,9 @@ getppid = getppid
 pwd = pyexec -c 'import os;print os.getcwd()'
 #tasklist = shell_exec 'tasklist /v'
 creds = creds -S
+
+[rubber_ducky]
+#path to the encoder.jar file of Rubber-Ducky project (see https://github.com/hak5darren/USB-Rubber-Ducky/blob/master/Encoder/encoder.jar)
+encoder_path = TO_FILL
+#Path to the keyboard layout for generating inject.bin file (see https://github.com/hak5darren/USB-Rubber-Ducky/tree/master/Encoder/resources)
+default_keyboard_layout_path = TO_FILL
