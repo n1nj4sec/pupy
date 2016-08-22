@@ -17,4 +17,7 @@ class CheckVM(PupyModule):
         content = open(os.path.join(ROOT, "external", "Nishang", "Check-VM.ps1"), 'r').read()
         function = 'Check-VM'
         output = execute_powershell_script(self, content, function)
-        self.success("%s" % output)
+        if output.strip():
+            self.success("%s" % output)
+        else:
+            self.success("No virtual machine detected")
