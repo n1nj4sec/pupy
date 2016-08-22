@@ -23,7 +23,7 @@ class BypassUAC(PupyModule):
 		if self.client.desc['proc_arch'] == '32bit' and self.client.conn.modules['pupwinutils.processes'].is_x64_architecture():
 			self.error("You are using a x86 process while the os architecture is x64")
 			self.error("Migrate to a x64 process before trying to bypass UAC")
-		elif args.method == "Eventvwr" or (self.client.desc['release'] == '10' and args.method == None):
+		elif args.method == "eventvwr" or (self.client.desc['release'] == '10' and args.method == None):
 			self.success("Trying to bypass UAC with Eventvwr method (UAC Bypass using eventvwr.exe and Registry Hijacking), wind7-10 targets...")
 			bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
 			bypassUasModule.bypassuac_through_EventVwrBypass()
