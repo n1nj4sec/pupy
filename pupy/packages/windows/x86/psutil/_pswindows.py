@@ -490,7 +490,7 @@ class WindowsService(object):
     #   lot of stuff (and API constants which would pollute the API), see:
     #   http://pyxr.sourceforge.net/PyXR/c/python24/lib/site-packages/
     #       win32/lib/win32serviceutil.py.html#0175
-    # - psutil is tipically about "read only" monitoring stuff;
+    # - psutil is typically about "read only" monitoring stuff;
     #   win_service_* APIs should only be used to retrieve a service and
     #   check whether it's running
 
@@ -656,11 +656,11 @@ class Process(object):
     @wrap_exceptions
     def wait(self, timeout=None):
         if timeout is None:
-            timeout = cext.INFINITE
+            cext_timeout = cext.INFINITE
         else:
             # WaitForSingleObject() expects time in milliseconds
-            timeout = int(timeout * 1000)
-        ret = cext.proc_wait(self.pid, timeout)
+            cext_timeout = int(timeout * 1000)
+        ret = cext.proc_wait(self.pid, cext_timeout)
         if ret == WAIT_TIMEOUT:
             raise TimeoutExpired(timeout, self.pid, self._name)
         return ret
