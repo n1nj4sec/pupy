@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <alloca.h>
@@ -22,9 +23,9 @@
 static inline
 const char *gettemptpl() {
 	static const char *templates[] = {
-		"/dev/shm/XXXXXXXX",
-		"/tmp/XXXXXXXX",
-		"/var/tmp/XXXXXXXX",
+		"/dev/shm/XXXXXX",
+		"/tmp/XXXXXX",
+		"/var/tmp/XXXXXX",
 		NULL
 	};
 
@@ -71,7 +72,34 @@ bool search_library(void *pState, void *pData) {
 	return false;
 }
 
-void *memdlopen(const char *soname, const char *buffer, size_t size) {
+bool drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
+	const char *template = gettemptpl();
+
+	if (path_size < strlen(template))
+		return false;
+
+	strcpy(path, template);
+
+	int fd = mkstemp(path);
+	if (fd == -1) {
+		return false;
+	}
+
+	while (size > 0) {
+		size_t n = write(fd, buffer, size);
+		if (n == -1) {
+			dprint("Write failed: %d left, error = %m, buffer = %p, tmpfile = %s\n", size, buffer, path);
+			abort();
+		}
+		buffer += n;
+		size -= n;
+	}
+	close(fd);
+
+	return true;
+}
+
+void *memdlopen(const char *soname, const char *buffer, size_t size, int flags) {
 	dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
 
 	static PLIST libraries = NULL;
@@ -89,46 +117,39 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 		return search.base;
 	}
 
-	void *base = dlopen(soname, RTLD_NOW);
+	void *base = dlopen(soname, RTLD_NOLOAD);
 	if (base) {
+		dprint("Library \"%s\" loaded from OS\n", soname);
 		return base;
 	}
 
-	const char *template = gettemptpl();
-	char *buf = alloca(strlen(template)+1);
-	strcpy(buf, template);
-
-	int fd = mkstemp(buf);
-	if (fd == -1) {
-		abort();
-	}
-
-	while (size > 0) {
-		size_t n = write(fd, buffer, size);
-		if (n == -1) {
-			dprint("Write failed: %d left, error = %m, buffer = %p, tmpfile = %s\n", size, buffer, buf);
-			abort();
-		}
-		buffer += n;
-		size -= n;
-	}
-	close(fd);
-
-	base = dlopen(buf, RTLD_NOW);
-	if (!base) {
-		dprint("Couldn't load library %s: %m\n", soname);
+	char buf[PATH_MAX]={};
+	if (!drop_library(buf, PATH_MAX, buffer, size)) {
+		dprint("Couldn't drop library %s: %m\n", soname);
 		return NULL;
 	}
+
+	dprint("Library \"%s\" dropped to \"%s\"\n", soname, buf);
+
+	base = dlopen(buf, flags);
+	if (!base) {
+		dprint("Couldn't load library %s (%s): %s\n", soname, buf, dlerror());
+#ifndef DEBUG
+		unlink(buf);
+#endif
+		return NULL;
+	}
+
+	dprint("Library %s loaded to %p\n", soname, base);
 
 	library_t *record = (library_t *) malloc(sizeof(library_t));
 	record->name = strdup(soname);
 	record->base = base;
-
-	dprint("Library %s loaded to %p\n", soname, base);
-
 	list_add(libraries, record);
 
+#ifndef DEBUG
 	unlink(buf);
+#endif
 
 	return base;
 }

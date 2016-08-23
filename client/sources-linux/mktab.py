@@ -2,9 +2,11 @@
 #
 decls = '''
 void, Py_Initialize, (void)
+void, Py_InitializeEx, (int)
 int, PyRun_SimpleString, (char *)
 void, Py_Finalize, (void)
 char *, Py_GetPath, (void)
+void, PySys_SetPath, (char *)
 void, Py_SetPythonHome, (char *)
 void, Py_SetProgramName, (char *)
 PyObject *, PyMarshal_ReadObjectFromString, (char *, Py_ssize_t)
@@ -33,6 +35,8 @@ int, PyObject_IsInstance, (PyObject *, PyObject *)
 
 PyObject, PyInt_Type
 PyObject, _Py_NoneStruct
+PyObject, _Py_ZeroStruct
+
 PyObject *, PyExc_ImportError
 PyObject *, PyExc_Exception
 char *, _Py_PackageContext
@@ -66,8 +70,8 @@ PyObject *, PyThreadState_GetDict, (void)
 int, PyObject_IsTrue, (PyObject *)
 void, PyErr_SetString, (PyObject *, const char *)
 void, PyEval_InitThreads, (void)
+void, PySys_SetArgvEx, (int, char **, int)
 '''.strip().splitlines()
-
 
 import string
 

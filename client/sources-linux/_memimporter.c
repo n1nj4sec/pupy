@@ -24,13 +24,17 @@ import_module(const char *initfuncname, char *modname, const char *data, size_t 
 	dprint("import_module: init=%s mod=%s (%p:%lu)\n",
 			initfuncname, modname, data, size);
 
-	void *hmem=memdlopen(modname, data, size);
+	void *hmem=memdlopen(modname, data, size, RTLD_NOW);
 	if (!hmem) {
 		dprint("Couldn't load %s: %m\n", modname);
 		return false;
 	}
 
 	void (*do_init)() = dlsym(hmem, initfuncname);
+	if (!do_init) {
+		do_init = dlsym(hmem, 'init');
+	}
+
 	if (!do_init) {
 		dprint("Couldn't find sym %s in %s: %m\n", initfuncname, modname);
 		dlclose(hmem);

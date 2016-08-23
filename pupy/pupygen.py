@@ -30,14 +30,20 @@ def get_edit_pupyx64_dll(conf):
 def get_edit_pupyx86_exe(conf):
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.exe"), conf)
 
+def get_edit_pupyx64_exe(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.exe"), conf)
+
 def get_edit_pupyx86_lin(conf):
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.lin"), conf)
 
 def get_edit_pupyx64_lin(conf):
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.lin"), conf)
 
-def get_edit_pupyx64_exe(conf):
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.exe"), conf)
+def get_edit_pupyx86_so(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.so"), conf)
+
+def get_edit_pupyx64_so(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.so"), conf)
 
 def get_edit_binary(path, conf):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
@@ -422,4 +428,3 @@ if __name__=="__main__":
     print("LAUNCHER = %s"%repr(args.launcher))
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
-

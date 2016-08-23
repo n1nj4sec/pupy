@@ -1,5 +1,8 @@
-The windows reflective DLL and exe payload for pupy contains source code from differents projects with differents licenses.
-All the files not from one of these projects is under pupy's license (BSD 3-Clause license)
+The DLL, SO and executable payloads for pupy contains source code from differents projects with differents licenses.
+All the files not from one of these projects is under pupy's license (BSD 3-Clause license) except linux-inject (GPLv2).
+Maybe I'll just reuse my code from (https://bitbucket.org/alxchk/ptrace-utils/src) but I'm too lasy for that stuff. 
+Anyway. Who cares?
+
 These projects include :
 
 ----------------------------------------------------------------------------------
@@ -90,4 +93,16 @@ These projects include :
 	TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+----------------------------------------------------------------------------------
 
+-linux-inject (GPLv2)
+
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 2, June 1991
+
+ Copyright (C) 1989, 1991 Free Software Foundation, Inc.,
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                             ...

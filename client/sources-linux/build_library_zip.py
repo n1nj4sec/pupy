@@ -26,11 +26,15 @@ try:
             path, root = os.path.split(mdep.__path__[0])
             for root, dirs, files in os.walk(mdep.__path__[0]):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
+                    found=False
                     for ext in ('.pyc', '.so', '.pyo', '.py'):
+                        if ext == '.py' and found:
+                            continue
                         if os.path.exists(os.path.join(root,f+ext)):
-                            print('adding file : %s'%os.path.join(root[len(path)+1:], f+ext))
-                            zf.write(os.path.join(root, f+ext), os.path.join(root[len(path)+1:], f+ext))
-                            break
+                            zipname = os.path.join(root[len(path)+1:], f.split('.', 1)[0] + ext)
+                            print('adding file : {}'.format(zipname))
+                            zf.write(os.path.join(root, f+ext), zipname)
+                            found=True
         else:
             if '<memimport>' in mdep.__file__:
                 continue

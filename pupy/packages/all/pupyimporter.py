@@ -18,6 +18,10 @@
 #
 import sys, imp, zlib, marshal
 
+sep = '\\'
+if 'linux' in sys.platform:
+    sep = '/'
+
 builtin_memimporter=False
 try:
     import _memimporter
@@ -70,10 +74,10 @@ class PupyPackageLoader:
             if self.extension=="py":
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
+                mod.__file__ = ("<memimport>/%s" % self.path).replace("/",sep)
                 mod.__loader__ = self
                 if self.is_pkg:
-                    mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
+                    mod.__path__ = [mod.__file__.rsplit(sep,1)[0]]
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
@@ -83,10 +87,10 @@ class PupyPackageLoader:
             elif self.extension in ["pyc","pyo"]:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
+                mod.__file__ = ("<memimport>/%s" % self.path).replace("/",sep)
                 mod.__loader__ = self
                 if self.is_pkg:
-                    mod.__path__ = [mod.__file__.rsplit("\\",1)[0]]
+                    mod.__path__ = [mod.__file__.rsplit(sep,1)[0]]
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
@@ -100,7 +104,7 @@ class PupyPackageLoader:
                 #print "init:%s, %s.%s"%(initname,fullname,self.extension)
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
                 mod.__name__=fullname
-                mod.__file__ = "<memimport>\\%s" % self.path.replace("/","\\")
+                mod.__file__ = ("<memimport>/%s" % self.path).replace("/",sep)
                 mod.__loader__ = self
                 mod.__package__ = fullname.rsplit('.',1)[0]
                 sys.modules[fullname]=mod
@@ -108,6 +112,8 @@ class PupyPackageLoader:
             if fullname in sys.modules:
                 del sys.modules[fullname]
             import traceback
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_tb(exc_traceback)
             print "PupyPackageLoader: Error while loading package %s (%s) : %s"%(fullname, self.extension, str(e))
             raise e
         finally:
@@ -126,7 +132,7 @@ class PupyPackageFinder:
             files=[]
             if fullname in ("pywintypes", "pythoncom"):
                 fullname = fullname + "%d%d" % sys.version_info[:2]
-                fullname = fullname.replace(".", "\\") + ".dll"
+                fullname = fullname.replace(".", sep) + ".dll"
                 files=[fullname]
             else:
                 files=get_module_files(fullname)

@@ -42,12 +42,13 @@ if __name__=="__main__":
 	code=""
 	#code_bytes.append(compile("import sys; print repr(sys._GetCompressedLibraryString())"+"\n", "<string>", "exec"))
 	code_bytes.append(compile(remove_stdout, "<string>", "exec"))
-	code_bytes.append(compile("import sys;sys.argv=[]", "<string>", "exec"))
+	code_bytes.append(compile("import sys; sys.path = []; "
+								  "sys.argv_orig = []; sys.argv = sys.argv[:1]", "<string>", "exec"))
 	with open(os.path.join("..", "..", "pupy", "packages","all", "pupyimporter.py")) as f:
 		code=f.read()
 	code_bytes.append(compile(get_load_module_code(code,"pupyimporter")+"\n", "<string>", "exec"))
 	code_bytes.append(compile("import pupyimporter;pupyimporter.install();\n", "<string>", "exec"))
-	code_bytes.append(compile("sys.argv = [ '' ];\n", "<string>", "exec"))
+	code_bytes.append(compile("import encodings;\n", "<string>", "exec"))
 	with open(os.path.join("..",'..','pupy',"pp.py")) as f:
 		code=f.read()
 	code_bytes.append(compile(code+"\n", "<string>", "exec"))

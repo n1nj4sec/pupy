@@ -4,3 +4,6 @@
 [submodule "pupy/payload_templates"]
 	path = pupy/payload_templates
 	url = git://github.com/n1nj4sec/pupy-binaries.git
+[submodule "client/sources-linux/linux-inject"]
+	path = client/sources-linux/linux-inject
+	url = https://github.com/gaffe23/linux-inject.git

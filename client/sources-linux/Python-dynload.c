@@ -1,4 +1,6 @@
 /* **************** Python-dynload.c **************** */
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include "Python-dynload.h"
@@ -6,6 +8,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <string.h>
+#include "debug.h"
 
 struct IMPORT imports[] = {
 #include "import-tab.c"
@@ -29,58 +32,45 @@ void Py_XINCREF(PyObject *ob)
 		Py_BuildValue("O", ob);
 }
 
-int _load_python_FromFile(const char *dllname)
-{
-	int i;
-	struct IMPORT *p = imports;
-	void *hmod;
-
-	// In some cases (eg, ISAPI filters), Python may already be
-	// in our process.  If so, we don't want it to try and
-	// load a new one!  (Actually, we probably should not even attempt
-	// to load an 'embedded' Python should GetModuleHandle work - but
-	// that is less clear than this straight-forward case)
-	// Get the basename of the DLL.
-	const char *dllbase = dllname + strlen(dllname);
-	while (dllbase != dllname && (*dllbase != '\\' || *dllbase != '/'))
-		dllbase--;
-	if (*dllbase=='\\' || *dllbase=='/')
-		++dllbase;
-	hmod = dlopen(dllbase, RTLD_NOW);
-	if (hmod == NULL)
-		hmod = dlopen(dllname, RTLD_NOW);
-	if (hmod == NULL) {
-		return 0;
-	}
-
-	for (i = 0; p->name; ++i, ++p) {
-		p->proc = (void (*)()) dlsym(hmod, p->name);
-		if (p->proc == NULL) {
-			fprintf(stderr, "undefined symbol %s -> exit(-1)\n", p->name);
-			return 0;
-		}
-	}
-
-	return 1;
-}
+typedef struct python_search {
+	const char *libname;
+	void *base;
+} python_search_t;
 
 int _load_python(const char *dllname, const char *bytes, size_t size)
 {
 	int i;
 	struct IMPORT *p = imports;
 	void * hmod;
-	if (!bytes)
-		return _load_python_FromFile(dllname);
 
-	hmod = memdlopen(dllname, bytes, size);
+	bool resolved = true;
+
+	dprint("Trying to find python symbols in current process\n");
+	for (i = 0; p->name && resolved; ++i, ++p) {
+		p->proc = (void (*)()) dlsym(NULL, p->name);
+		if (p->proc == NULL) {
+			dprint("undefined symbol %s -> exit(-1). Fallback to built-in python\n", p->name);
+			resolved = false;
+		}
+	}
+
+	if (resolved) {
+		return 1;
+	}
+
+	dprint("Trying to load embedded python library\n");
+	hmod = memdlopen(dllname, bytes, size, RTLD_NOW | RTLD_GLOBAL);
 	if (hmod == NULL) {
+		dprint("Couldn't load embedded python library: %s\n", dlerror());
 		return 0;
 	}
 
+	p = imports;
 	for (i = 0; p->name; ++i, ++p) {
 		p->proc = (void (*)()) dlsym(hmod, p->name);
+		dprint("Python: %s -> %p\n", p->name, p->proc);
 		if (p->proc == NULL) {
-			fprintf(stderr, "undefined symbol %s -> exit(-1)\n", p->name);
+			dprint("undefined symbol %s -> exit(-1)\n", p->name);
 			return 0;
 		}
 	}
