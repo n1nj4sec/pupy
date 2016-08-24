@@ -1,5 +1,6 @@
 /* **************** Python-dynload.h **************** */
 #include <sys/types.h>
+#include <stdio.h>
 #include "Python-version.h"
 
 typedef void *PyObject;

@@ -3,6 +3,7 @@
 
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 pid_t daemonize(bool exit_parent);
 

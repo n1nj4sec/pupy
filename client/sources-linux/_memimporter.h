@@ -4,8 +4,7 @@
 #include <stdbool.h>
 
 bool
-import_module(const char *initfuncname, char *modname, const char *data, size_t size);
+import_module(const char *initfuncname, char *modname, const char *data, size_t size, bool compressed);
 void init_memimporter(void);
 
 #endif
-

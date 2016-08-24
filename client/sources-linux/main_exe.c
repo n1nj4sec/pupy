@@ -6,5 +6,5 @@ int main(int argc, char *argv[]) {
     daemonize(true);
 #endif
 
-	return mainThread(argc, argv);
+	return mainThread(argc, argv, false);
 }

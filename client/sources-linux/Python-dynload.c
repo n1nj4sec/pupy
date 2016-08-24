@@ -59,7 +59,7 @@ int _load_python(const char *dllname, const char *bytes, size_t size)
 	}
 
 	dprint("Trying to load embedded python library\n");
-	hmod = memdlopen(dllname, bytes, size, RTLD_NOW | RTLD_GLOBAL);
+	hmod = memdlopen(dllname, bytes, size, true);
 	if (hmod == NULL) {
 		dprint("Couldn't load embedded python library: %s\n", dlerror());
 		return 0;

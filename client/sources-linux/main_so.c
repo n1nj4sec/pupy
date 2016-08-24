@@ -16,7 +16,7 @@ static char ** __argv = NULL;
 static void *
 thread_start(void *arg)
 {
-	return (void *) mainThread(__argc, __argv);
+	return (void *) mainThread(__argc, __argv, true);
 }
 
 static

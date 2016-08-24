@@ -66,11 +66,11 @@ int daemonize(bool exit_parent) {
     if (chdir ("/") == -1)
         return -1;
 
+#ifndef DEBUG
     /* close all open files--NR_OPEN is overkill, but works */
     for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
         close (i);
 
-#ifndef DEBUG
     /* redirect fd's 0,1,2 to /dev/null */
     open ("/dev/null", O_RDWR);
     /* stdin */

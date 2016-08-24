@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/wait.h>
 #include "debug.h"
 #include "Python-dynload.h"
 #include "daemonize.h"

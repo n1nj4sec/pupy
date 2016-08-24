@@ -12,6 +12,8 @@
 #include "tmplibrary.h"
 #include "debug.h"
 
+#include "decompress.h"
+
 /*
 
   So.. We don't want to bother with reflective bla-bla-bla. Just
@@ -72,7 +74,7 @@ bool search_library(void *pState, void *pData) {
 	return false;
 }
 
-bool drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
+bool drop_library(char *path, size_t path_size, const char *buffer, size_t size, bool compressed) {
 	const char *template = gettemptpl();
 
 	if (path_size < strlen(template))
@@ -85,21 +87,35 @@ bool drop_library(char *path, size_t path_size, const char *buffer, size_t size)
 		return false;
 	}
 
-	while (size > 0) {
-		size_t n = write(fd, buffer, size);
-		if (n == -1) {
-			dprint("Write failed: %d left, error = %m, buffer = %p, tmpfile = %s\n", size, buffer, path);
-			abort();
+	bool result = true;
+
+	if (compressed) {
+		dprint("Decompressing library %s\n", path);
+		int r = decompress(fd, buffer, size);
+		result = r == 0;
+		if (!result) {
+			dprint("Decompress error: %d\n", r);
 		}
-		buffer += n;
-		size -= n;
+
+	} else {
+		while (size > 0) {
+			size_t n = write(fd, buffer, size);
+			if (n == -1) {
+				dprint("Write failed: %d left, error = %m, buffer = %p, tmpfile = %s\n", size, buffer, path);
+				result = false;
+				break;
+			}
+			buffer += n;
+			size -= n;
+		}
 	}
+
 	close(fd);
 
-	return true;
+	return result;
 }
 
-void *memdlopen(const char *soname, const char *buffer, size_t size, int flags) {
+void *memdlopen(const char *soname, const char *buffer, size_t size, bool compressed) {
 	dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
 
 	static PLIST libraries = NULL;
@@ -124,14 +140,14 @@ void *memdlopen(const char *soname, const char *buffer, size_t size, int flags) 
 	}
 
 	char buf[PATH_MAX]={};
-	if (!drop_library(buf, PATH_MAX, buffer, size)) {
+	if (!drop_library(buf, PATH_MAX, buffer, size, compressed)) {
 		dprint("Couldn't drop library %s: %m\n", soname);
 		return NULL;
 	}
 
 	dprint("Library \"%s\" dropped to \"%s\"\n", soname, buf);
 
-	base = dlopen(buf, flags);
+	base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
 	if (!base) {
 		dprint("Couldn't load library %s (%s): %s\n", soname, buf, dlerror());
 #ifndef DEBUG
