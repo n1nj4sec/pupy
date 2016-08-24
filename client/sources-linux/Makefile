@@ -43,7 +43,7 @@ endif
 COMMON_OBJS += linux-inject/ptrace.o
 COMMON_OBJS += linux-inject/utils.o
 
-ZLIB := $(shell python -c 'import zlib; print zlib.__file__ if "__file__" in zlib.__dict__ else "built-in"')
+ZLIB := $(shell $(PYTHON) -c 'import zlib; print zlib.__file__ if "__file__" in zlib.__dict__ else "built-in"')
 
 ifneq ($(ZLIB),built-in)
 COMMON_OBJS += resources_zlib_so.o

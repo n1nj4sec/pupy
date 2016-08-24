@@ -40,7 +40,6 @@ sys.modules[fullname]=mod
 if __name__=="__main__":
 	code_bytes=[]
 	code=""
-	#code_bytes.append(compile("import sys; print repr(sys._GetCompressedLibraryString())"+"\n", "<string>", "exec"))
 	code_bytes.append(compile(remove_stdout, "<string>", "exec"))
 	code_bytes.append(compile("import sys; sys.path = [];", "<string>", "exec"))
 	with open(os.path.join("..", "..", "pupy", "packages","all", "pupyimporter.py")) as f:

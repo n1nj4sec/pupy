@@ -18,13 +18,13 @@ static char module_doc[] =
 "Importer which can load extension modules from memory";
 
 bool
-import_module(const char *initfuncname, char *modname, const char *data, size_t size, bool compressed) {
+import_module(const char *initfuncname, char *modname, const char *data, size_t size) {
 	char *oldcontext;
 
-	dprint("import_module: init=%s mod=%s (%p:%lu) / compressed = %d\n",
-		   initfuncname, modname, data, size, compressed);
+	dprint("import_module: init=%s mod=%s (%p:%lu)\n",
+		   initfuncname, modname, data, size);
 
-	void *hmem=memdlopen(modname, data, size, compressed);
+	void *hmem=memdlopen(modname, data, size);
 	if (!hmem) {
 		dprint("Couldn't load %s: %m\n", modname);
 		return false;
@@ -65,7 +65,7 @@ Py_import_module(PyObject *self, PyObject *args) {
 
     dprint("DEBUG! %s@%s\n", initfuncname, modname);
 
-    if (!import_module(initfuncname, modname, data, size, false)) {
+    if (!import_module(initfuncname, modname, data, size)) {
 		PyErr_Format(PyExc_ImportError,
 			     "Could not find function %s", initfuncname);
 		return NULL;

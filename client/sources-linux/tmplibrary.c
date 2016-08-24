@@ -74,7 +74,7 @@ bool search_library(void *pState, void *pData) {
 	return false;
 }
 
-bool drop_library(char *path, size_t path_size, const char *buffer, size_t size, bool compressed) {
+bool drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
 	const char *template = gettemptpl();
 
 	if (path_size < strlen(template))
@@ -89,7 +89,7 @@ bool drop_library(char *path, size_t path_size, const char *buffer, size_t size,
 
 	bool result = true;
 
-	if (compressed) {
+	if (size > 2 && buffer[0] == '\x1f' && buffer[1] == '\x8b') {
 		dprint("Decompressing library %s\n", path);
 		int r = decompress(fd, buffer, size);
 		result = r == 0;
@@ -115,7 +115,7 @@ bool drop_library(char *path, size_t path_size, const char *buffer, size_t size,
 	return result;
 }
 
-void *memdlopen(const char *soname, const char *buffer, size_t size, bool compressed) {
+void *memdlopen(const char *soname, const char *buffer, size_t size) {
 	dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
 
 	static PLIST libraries = NULL;
@@ -140,7 +140,7 @@ void *memdlopen(const char *soname, const char *buffer, size_t size, bool compre
 	}
 
 	char buf[PATH_MAX]={};
-	if (!drop_library(buf, PATH_MAX, buffer, size, compressed)) {
+	if (!drop_library(buf, PATH_MAX, buffer, size)) {
 		dprint("Couldn't drop library %s: %m\n", soname);
 		return NULL;
 	}

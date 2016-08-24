@@ -45,3 +45,5 @@ import new
 import fractions
 import Crypto
 import pty
+import rsa
+import pyasn1

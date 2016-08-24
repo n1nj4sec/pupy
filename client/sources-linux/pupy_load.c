@@ -91,7 +91,9 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 		}
 
 		PySys_SetPath(".");
+#ifndef DEBUG
 		PySys_SetObject("frozen", PyBool_FromLong(1));
+#endif
 
 		dprint("Py_Initialize() complete\n");
 	}
@@ -104,7 +106,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 
 #ifdef _PYZLIB_DYNLOAD
 	dprint("load zlib\n");
-    if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size, true)) {
+    if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size)) {
         dprint("ZLib load failed.\n");
     }
 #endif
