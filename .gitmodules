@@ -1,6 +1,12 @@
 [submodule "pupy/packages/src/scapy"]
 	path = pupy/packages/src/scapy
 	url = https://github.com/secdev/scapy
+	shallow = true
 [submodule "pupy/payload_templates"]
 	path = pupy/payload_templates
 	url = https://github.com/n1nj4sec/pupy-binaries.git
+	shallow = true
+[submodule "pupy/external/LaZagne"]
+	path = pupy/external/LaZagne
+	url = https://github.com/AlessandroZ/LaZagne
+	shallow = true
