@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys
@@ -18,12 +18,13 @@ import array
 
 def prepare():
     os.setsid()
+    fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
 
 class PtyShell(object):
     def __init__(self):
-        self.prog=None
-        self.master=None
-        self.real_stdout=sys.stdout
+        self.prog = None
+        self.master = None
+        self.real_stdout = sys.stdout
 
     def close(self):
         if self.prog is not None and self.prog.returncode is None:
@@ -47,6 +48,7 @@ class PtyShell(object):
                         break
         if not argv:
             argv= ['/bin/sh']
+
         if term is not None:
             os.environ['TERM']=term
 
@@ -57,11 +59,17 @@ class PtyShell(object):
         assert flags>=0
         flags = fcntl.fcntl(self.master, fcntl.F_SETFL , flags | os.O_NONBLOCK)
         assert flags>=0
-        self.prog = subprocess.Popen(shell=False, args=argv, stdin=slave, stdout=slave, stderr=subprocess.STDOUT, preexec_fn=prepare)
+        self.prog = subprocess.Popen(
+            shell=False,
+            args=argv,
+            stdin=slave,
+            stdout=slave,
+            stderr=subprocess.STDOUT,
+            preexec_fn=prepare
+        )
 
     def write(self, data):
-        self.master.write(data)
-        self.master.flush()
+        os.write(self.master.fileno(), data)
 
     def set_pty_size(self, p1, p2, p3, p4):
         buf = array.array('h', [p1, p2, p3, p4])
@@ -69,12 +77,12 @@ class PtyShell(object):
         fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
 
     def _read_loop(self, print_callback, close_callback):
-        cb=rpyc.async(print_callback)
-        close_cb=rpyc.async(close_callback)
+        cb = rpyc.async(print_callback)
+        close_cb = rpyc.async(close_callback)
         while True:
             r, w, x = select.select([self.master], [], [], 1)
             if self.master in r:
-                data=self.master.read(1024)
+                data = os.read(self.master.fileno(), 8192)
                 if not data:
                     break
                 cb(data)
@@ -85,14 +93,20 @@ class PtyShell(object):
                     break
 
     def start_read_loop(self, print_callback, close_callback):
-        t=threading.Thread(target=self._read_loop, args=(print_callback, close_callback))
+        t=threading.Thread(
+            target=self._read_loop,
+            args=(print_callback, close_callback)
+        )
+
         t.daemon=True
         t.start()
 
     def interact(self):
         """ doesn't work remotely with rpyc. use read_loop and write instead """
         try:
+            mfd=self.master.fileno()
             fd=sys.stdin.fileno()
+            fdo=sys.stdout.fileno()
             f=os.fdopen(fd,'r')
             old_settings = termios.tcgetattr(fd)
             try:
@@ -100,12 +114,11 @@ class PtyShell(object):
                 while True:
                     r, w, x = select.select([sys.stdin, self.master], [], [], 0.1)
                     if self.master in r:
-                        data=self.master.read(50)
-                        sys.stdout.write(data)
-                        sys.stdout.flush()
+                        data=os.read(mfd, 1024)
+                        os.write(fdo)
                     if sys.stdin in r:
-                        data=sys.stdin.read(1)
-                        self.master.write(data)
+                        ch = os.read(fd, 1)
+                        os.write(mfd, 1)
                     self.prog.poll()
                     if self.prog.returncode is not None:
                         sys.stdout.write("\n")
@@ -114,8 +127,6 @@ class PtyShell(object):
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         finally:
             self.close()
-
-
 
 if __name__=="__main__":
     ps=PtyShell()

