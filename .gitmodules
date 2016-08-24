@@ -10,3 +10,7 @@
 	path = pupy/external/LaZagne
 	url = https://github.com/AlessandroZ/LaZagne
 	shallow = true
+[submodule "pupy/external/impacket"]
+	path = pupy/external/impacket
+	url = https://github.com/CoreSecurity/impacket
+	shallow = true
