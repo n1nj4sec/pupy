@@ -212,7 +212,7 @@ def rpyc_loop(launcher):
                     s.start()
                 else: # connect payload
                     stream=ret
-                    def check_timeout(event, cb, timeout=10):
+                    def check_timeout(event, cb, timeout=60):
                         start_time=time.time()
                         while True:
                             if time.time()-start_time>timeout:

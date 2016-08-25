@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys, logging
@@ -93,7 +93,7 @@ class PupyAsyncServer(object):
             resp=self.clients[cookie].downstream.read()
         if not resp: # No data to send, so we send the default page with no data
             resp=self.void_stream.encode_data("", cookie)
-            
+
         return resp
 
     def handle_new_conn(self, conn):
@@ -104,7 +104,7 @@ class PupyAsyncServer(object):
                 conn.serve(0.01)
         except Exception as e:
             logging.error(e)
-    
+
     def accept(self):
         """ Should call dispatch_data on data retrieved. Data must contain a \"cookie\" to define to which connection the packet of data belongs to """
         raise NotImplementedError()
@@ -235,7 +235,7 @@ class PupyTCPServer(ThreadPoolServer):
         h=addrinfo[0]
         p=addrinfo[1]
         config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
-        def check_timeout(event, cb, timeout=10):
+        def check_timeout(event, cb, timeout=60):
             start_time=time.time()
             while True:
                 if time.time()-start_time>timeout:
@@ -349,7 +349,7 @@ class PupyUDPServer(object):
                 conn.serve(0.01)
         except Exception as e:
             logging.error(e)
-        
+
     def start(self):
         self.listen()
         self.active=True
@@ -368,5 +368,3 @@ class PupyUDPServer(object):
     def close(self):
         self.active=False
         self.sock.close()
-
-
