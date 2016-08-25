@@ -187,7 +187,7 @@ __all__ = [
 ]
 __all__.extend(_psplatform.__extra__all__)
 __author__ = "Giampaolo Rodola'"
-__version__ = "4.3.1"
+__version__ = "4.3.0"
 version_info = tuple([int(num) for num in __version__.split('.')])
 AF_LINK = _psplatform.AF_LINK
 _TOTAL_PHYMEM = None
@@ -458,26 +458,21 @@ class Process(object):
         AccessDenied or ZombieProcess exception is raised when
         retrieving that particular process information.
         """
-        valid_names = _as_dict_attrnames
-        if attrs is not None:
-            if not isinstance(attrs, (list, tuple, set, frozenset)):
-                raise TypeError("invalid attrs type %s" % type(attrs))
-            attrs = set(attrs)
-            invalid_names = attrs - valid_names
-            if invalid_names:
-                raise ValueError("invalid attr name%s %s" % (
-                    "s" if len(invalid_names) > 1 else "",
-                    ", ".join(map(repr, invalid_names))))
-
+        excluded_names = set(
+            ['send_signal', 'suspend', 'resume', 'terminate', 'kill', 'wait',
+             'is_running', 'as_dict', 'parent', 'children', 'rlimit'])
+        valid_names = _process_attrnames - excluded_names
         retdict = dict()
-        ls = attrs or valid_names
+        ls = set(attrs) if attrs else _process_attrnames
         for name in ls:
+            if name not in valid_names:
+                continue
             try:
-                if name == 'pid':
-                    ret = self.pid
+                attr = getattr(self, name)
+                if callable(attr):
+                    ret = attr()
                 else:
-                    meth = getattr(self, name)
-                    ret = meth()
+                    ret = attr
             except (AccessDenied, ZombieProcess):
                 ret = ad_value
             except NotImplementedError:
@@ -1241,7 +1236,7 @@ class Popen(Process):
     For method names common to both classes such as kill(), terminate()
     and wait(), psutil.Process implementation takes precedence.
 
-    Unlike subprocess.Popen this class pre-emptively checks whether PID
+    Unlike subprocess.Popen this class pre-emptively checks wheter PID
     has been reused on send_signal(), terminate() and kill() so that
     you don't accidentally terminate another process, fixing
     http://bugs.python.org/issue6973.
@@ -1278,12 +1273,7 @@ class Popen(Process):
         return ret
 
 
-# The valid attr names which can be processed by Process.as_dict().
-_as_dict_attrnames = set(
-    [x for x in dir(Process) if not x.startswith('_') and x not in
-     ['send_signal', 'suspend', 'resume', 'terminate', 'kill', 'wait',
-      'is_running', 'as_dict', 'parent', 'children', 'rlimit',
-      'memory_info_ex']])
+_process_attrnames = set([x for x in dir(Process) if not x.startswith('_')])
 
 
 # =====================================================================
@@ -1920,7 +1910,7 @@ def net_if_addrs():
     'address' is the primary address and it is always set.
     'netmask' and 'broadcast' and 'ptp' may be None.
     'ptp' stands for "point to point" and references the destination
-    address on a point to point interface (typically a VPN).
+    address on a point to point interface (tipically a VPN).
     'broadcast' and 'ptp' are mutually exclusive.
 
     Note: you can have more than one address of the same family
