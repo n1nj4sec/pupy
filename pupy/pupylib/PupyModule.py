@@ -106,7 +106,7 @@ class PupyModule(object):
 
     def import_dependencies(self):
         if type(self.dependencies) == dict:
-            dependencies = self.dependencies.get(self.client.platform, [])
+            dependencies = self.dependencies.get(self.client.platform(), [])
         else:
             dependencies = self.dependencies
 
