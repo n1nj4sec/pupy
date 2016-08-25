@@ -79,11 +79,15 @@ class InteractiveShell(PupyModule):
                 self._signal_winch(None, None) # set the remote tty sie to the current terminal size
                 try:
                     tty.setraw(fd)
+                    buf=b''
                     while True:
                         r, w, x = select.select([sys.stdin], [], [], 0)
                         if sys.stdin in r:
                             ch = os.read(fd, 1)
-                            self.ps.write(ch)
+                            buf += ch
+                        elif buf:
+                            self.ps.write(buf)
+                            buf=b''
                         elif is_closed.is_set():
                             break
                         else:
