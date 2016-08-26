@@ -78,6 +78,6 @@ class PupyBindService(PupyService):
     def exposed_get_password(self):
         c=get_credential("BIND_PAYLOADS_PASSWORD")
         if c is None:
-            from network.transports import *
+            from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
             c=DEFAULT_BIND_PAYLOADS_PASSWORD
         return c
