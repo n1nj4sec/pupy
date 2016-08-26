@@ -80,7 +80,6 @@ class InteractiveShell(PupyModule):
                 try:
                     tty.setraw(fd)
                     buf=b''
-                    print self.client.conn.__dict__
                     while True:
                         r, w, x = select.select([sys.stdin], [], [], 0.01)
                         if sys.stdin in r:
