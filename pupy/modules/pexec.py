@@ -69,11 +69,8 @@ class PExec(PupyModule):
             ]
 
         cmdenv = {
-            'stdin': subprocess.PIPE,
             'stderr': (None if args.n else subprocess.STDOUT),
-            'stdout': subprocess.PIPE,
             'universal_newlines': False,
-            'bufsize': 1,
         }
 
         if self.client.is_windows():

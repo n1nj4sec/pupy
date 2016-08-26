@@ -17,8 +17,12 @@ def read_pipe(queue, pipe):
             print('Exception: {}'.format(e))
             continue
 
-        data = pipe.stdout.read() \
-          if completed else pipe.stdout.readline()
+        try:
+            data = pipe.stdout.read() \
+              if completed else pipe.stdout.readline()
+        except Exception:
+            returncode = pipe.poll()
+            break
 
         queue.put(data)
 
@@ -35,17 +39,26 @@ class SafePopen(object):
 
     def execute(self, poll_delay=0.5):
         try:
+            kwargs = self._popen_kwargs
+            # Setup some required arguments
+            kwargs.update({
+                'stdout': subprocess.PIPE,
+                'bufsize': 1
+            })
+
             self._pipe = subprocess.Popen(
                 *self._popen_args,
-                **self._popen_kwargs
+                **kwargs
             )
         except OSError as e:
             yield "Error: {}".format(e.strerror)
-            self.returncode = -e.errno
-            return
+            try:
+                returncode = self._pipe.poll()
+            except Exception:
+                pass
 
-        if self._pipe.stdin:
-            self._pipe.stdin.close()
+            self.returncode = returncode if returncode != None else -e.errno
+            return
 
         queue = Queue.Queue()
         self._reader = threading.Thread(
