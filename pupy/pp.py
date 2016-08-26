@@ -106,8 +106,9 @@ class ReverseSlaveService(Service):
             self._conn.close()
         except:
             pass
-        raise KeyboardInterrupt
+        raise
     def exposed_exit(self):
+        print "exiting ..."
         raise SystemExit
     def exposed_execute(self, text):
         """execute arbitrary code (using ``exec``)"""
