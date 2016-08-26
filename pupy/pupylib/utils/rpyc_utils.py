@@ -17,8 +17,19 @@
 import sys
 from contextlib import contextmanager
 from rpyc.utils.helpers import restricted
-from rpyc.utils.classic import obtain
 import textwrap
+import json
+
+
+def safe_obtain(proxy):
+    """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
+    if type(proxy) in [list, str, bytes, dict, set, type(None)]:
+        return proxy
+    conn = object.__getattribute__(proxy, "____conn__")()
+    return json.loads(conn.root.json_dumps(proxy)) # should prevent any code execution
+
+def obtain(proxy):
+    return safe_obtain(proxy)
 
 def hotpatch_oswrite(conn):
     """ some scripts/libraries use os.write(1, ...) instead of sys.stdout.write to write to stdout """
