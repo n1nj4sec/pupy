@@ -234,17 +234,13 @@ class PupyTCPServer(ThreadPoolServer):
         h=addrinfo[0]
         p=addrinfo[1]
         config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
+
         def check_timeout(event, cb, timeout=60):
-            start_time=time.time()
-            while True:
-                if time.time()-start_time>timeout:
-                    if not event.is_set():
-                        logging.error("timeout occured !")
-                        cb()
-                    break
-                elif event.is_set():
-                    break
-                time.sleep(0.5)
+            time.sleep(timeout)
+            if not event.is_set():
+                logging.error("timeout occured !")
+                cb()
+
         stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
 
         event=multiprocessing.Event()
@@ -256,8 +252,6 @@ class PupyTCPServer(ThreadPoolServer):
         finally:
             event.set()
         return c
-
-
 
 class PupyUDPServer(object):
     def __init__(self, service, **kwargs):

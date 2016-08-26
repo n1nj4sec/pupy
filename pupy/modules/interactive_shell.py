@@ -80,8 +80,9 @@ class InteractiveShell(PupyModule):
                 try:
                     tty.setraw(fd)
                     buf=b''
+                    print self.client.conn.__dict__
                     while True:
-                        r, w, x = select.select([sys.stdin], [], [], 0)
+                        r, w, x = select.select([sys.stdin], [], [], 0.01)
                         if sys.stdin in r:
                             ch = os.read(fd, 1)
                             buf += ch
@@ -90,8 +91,6 @@ class InteractiveShell(PupyModule):
                             buf=b''
                         elif is_closed.is_set():
                             break
-                        else:
-                            time.sleep(0.01)
                 finally:
                     termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
                     pupylib.PupySignalHandler.set_signal_winch(old_handler)
