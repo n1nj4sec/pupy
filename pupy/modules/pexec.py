@@ -7,6 +7,7 @@ from pupylib.PupyModule import *
 import subprocess
 import time
 import datetime
+import os
 
 __class_name__="PExec"
 
@@ -26,7 +27,8 @@ class PExec(PupyModule):
         self.arg_parser = PupyArgumentParser(prog='pexec', description=self.__doc__)
         self.arg_parser.add_argument(
             '-log',
-            help='Save output to file',
+            help='Save output to file. You can use vars: '
+            '%h - host, %m - mac, %p - platform, %u - user, %a - ip address',
         )
         self.arg_parser.add_argument(
             '-n',
@@ -99,7 +101,32 @@ class PExec(PupyModule):
 
         log = None
         if args.log:
-            log = open(args.log, 'w')
+            log = args.log.replace(
+                '%m', self.client.desc['macaddr']
+            ).replace(
+                '%p', self.client.desc['platform']
+            ).replace(
+                '%a', self.client.desc['address']
+            ).replace(
+                '%h', self.client.desc['hostname'].replace(
+                    '..', '__'
+                ).replace(
+                    '/', '_'
+                )
+            ).replace(
+                '%u', self.client.desc['user'].replace(
+                    '..', '__'
+                ).replace(
+                    '/', '_'
+                )
+            )
+
+            dirname = os.path.dirname(log)
+
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+
+            log = open(log, 'w')
 
         for data in self.pipe.execute():
             if data:
