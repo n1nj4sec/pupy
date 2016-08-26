@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys, logging
@@ -8,9 +8,8 @@ from rpyc.utils.authenticators import AuthenticationError
 from rpyc.utils.registry import UDPRegistryClient
 from rpyc.core.stream import Stream
 from buffer import Buffer
-import threading, socket, time
+import multiprocessing, socket, time
 from streams.PupySocketStream import addGetPeer
-
 
 class PseudoStreamDecoder(Stream):
     def __init__(self, transport_class, transport_kwargs):
@@ -19,8 +18,8 @@ class PseudoStreamDecoder(Stream):
         self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.transport=transport_class(self, **transport_kwargs)
-        self.lockin=threading.Lock()
-        self.lockout=threading.Lock()
+        self.lockin=multiprocessing.Lock()
+        self.lockout=multiprocessing.Lock()
 
     def decode_data(self, data):
         with self.lockin:
@@ -83,9 +82,9 @@ class PupyAsyncServer(object):
             self.clients[cookie].buf_in.cookie=cookie
             self.clients[cookie].buf_out.cookie=cookie
             conn=Connection(self.service, Channel(self.clients[cookie]), config=config, _lazy=True)
-            t = threading.Thread(target = self.handle_new_conn, args=(conn,))
-            t.daemon=True
-            t.start()
+            p = multiprocessing.Process(target=self.handle_new_conn, args=(conn,))
+            p.daemon=True
+            p.start()
         resp=None
         with self.clients[cookie].upstream_lock:
             self.clients[cookie].upstream.write(decoded)
@@ -93,18 +92,18 @@ class PupyAsyncServer(object):
             resp=self.clients[cookie].downstream.read()
         if not resp: # No data to send, so we send the default page with no data
             resp=self.void_stream.encode_data("", cookie)
-            
+
         return resp
 
     def handle_new_conn(self, conn):
         try:
             conn._init_service()
-            #conn.serve_all()
-            while True:
-                conn.serve(0.01)
+            conn.serve_all()
+            # while True:
+                # conn.serve(0.01)
         except Exception as e:
             logging.error(e)
-    
+
     def accept(self):
         """ Should call dispatch_data on data retrieved. Data must contain a \"cookie\" to define to which connection the packet of data belongs to """
         raise NotImplementedError()
@@ -153,7 +152,7 @@ class PupyAsyncTCPServer(PupyAsyncServer):
     def accept(self):
         try:
             s, addr = self.sock.accept()
-            t=threading.Thread(target=self.serve_request, args=(s, addr,))
+            t=multiprocessing.Process(target=self.serve_request, args=(s, addr,))
             t.daemon=True
             t.start()
             #TODO : make a pool of threads
@@ -235,21 +234,17 @@ class PupyTCPServer(ThreadPoolServer):
         h=addrinfo[0]
         p=addrinfo[1]
         config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
-        def check_timeout(event, cb, timeout=10):
-            start_time=time.time()
-            while True:
-                if time.time()-start_time>timeout:
-                    if not event.is_set():
-                        logging.error("timeout occured !")
-                        cb()
-                    break
-                elif event.is_set():
-                    break
-                time.sleep(0.5)
+
+        def check_timeout(event, cb, timeout=60):
+            time.sleep(timeout)
+            if not event.is_set():
+                logging.error("timeout occured !")
+                cb()
+
         stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
 
-        event=threading.Event()
-        t=threading.Thread(target=check_timeout, args=(event, stream.close))
+        event=multiprocessing.Event()
+        t=multiprocessing.Process(target=check_timeout, args=(event, stream.close))
         t.daemon=True
         t.start()
         try:
@@ -257,8 +252,6 @@ class PupyTCPServer(ThreadPoolServer):
         finally:
             event.set()
         return c
-
-
 
 class PupyUDPServer(object):
     def __init__(self, service, **kwargs):
@@ -334,7 +327,7 @@ class PupyUDPServer(object):
                     raise
             self.clients[addr]=self.stream_class((self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False)
             conn=Connection(self.service, Channel(self.clients[addr]), config=config, _lazy=True)
-            t = threading.Thread(target = self.handle_new_conn, args=(conn,))
+            t = multiprocessing.Process(target = self.handle_new_conn, args=(conn,))
             t.daemon=True
             t.start()
         with self.clients[addr].downstream_lock:
@@ -344,12 +337,12 @@ class PupyUDPServer(object):
     def handle_new_conn(self, conn):
         try:
             conn._init_service()
-            #conn.serve_all()
-            while True:
-                conn.serve(0.01)
+            conn.serve_all()
+            # while True:
+            #     conn.serve(0.01)
         except Exception as e:
             logging.error(e)
-        
+
     def start(self):
         self.listen()
         self.active=True
@@ -368,5 +361,3 @@ class PupyUDPServer(object):
     def close(self):
         self.active=False
         self.sock.close()
-
-

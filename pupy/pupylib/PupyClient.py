@@ -78,6 +78,18 @@ class PupyClient(object):
             return True
         return False
 
+    def platform(self):
+        if self.is_android():
+            return 'android'
+        elif self.is_windows():
+            return 'windows'
+        elif self.is_linux():
+            return 'linux'
+        elif self.is_darwin():
+            return 'darwin'
+        elif self.is_unix():
+            return 'unix'
+
     def is_proc_arch_64_bits(self):
         if "64" in self.desc["proc_arch"]:
             return True
@@ -92,6 +104,9 @@ class PupyClient(object):
                 path.append(os.path.join("packages","windows","amd64"))
             else:
                 path.append(os.path.join(ROOT, "packages","windows","x86"))
+                path.append(os.path.join("packages","windows","x86"))
+
+            path.append(os.path.join(ROOT, "packages","windows","all"))
             path.append(os.path.join("packages","windows","all"))
         elif self.is_unix():
             if self.is_proc_arch_64_bits():
@@ -100,6 +115,7 @@ class PupyClient(object):
             else:
                 path.append(os.path.join(ROOT, "packages","linux","x86"))
                 path.append(os.path.join("packages","linux","x86"))
+
             path.append(os.path.join(ROOT, "packages","linux","all"))
             path.append(os.path.join("packages","linux","all"))
         if self.is_android():
@@ -207,7 +223,7 @@ class PupyClient(object):
             raise PupyModuleError("pupyimporter module does not exists on the remote side !")
         #print modules_dic
         if not modules_dic:
-            raise PupyModuleError("Couldn't load package %s : no such file or directory (path=%s)"%(module_name,repr(self.get_packages_path())))
+            raise PupyModuleError("Couldn't load package %s : no such file or directory \(path=%s)"%(module_name,repr(self.get_packages_path())))
         if force or ( module_name not in self.conn.modules.sys.modules ):
             self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not authorized to iterate/access to the dictionary declared on this side and because it is more efficient
             logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))

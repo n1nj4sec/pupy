@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 
 import socket
 import ssl
@@ -17,7 +17,7 @@ class PupyAsyncClient(object):
         return self.host, self.port, self.timeout
 
 class PupyTCPClient(PupyClient):
-    def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM, timeout = 3, nodelay = False, keepalive = False):
+    def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM, timeout = 3, nodelay = False, keepalive = True):
         super(PupyTCPClient, self).__init__()
         self.sock=None
 
@@ -36,16 +36,16 @@ class PupyTCPClient(PupyClient):
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         if self.keepalive:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            # Linux specific: after 10 idle minutes, start sending keepalives every 5 minutes. 
+            # Linux specific: after 1 idle minutes, start sending keepalives every 5 minutes.
             # Drop connection after 10 failed keepalives
         if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT"):
-            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10 * 60)
+            s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1 * 60)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
         self.sock=s
         return s
 
-    
+
 class PupyProxifiedTCPClient(PupyTCPClient):
     def __init__(self, *args, **kwargs):
         self.proxy_addr=kwargs.pop('proxy_addr', None)
@@ -71,7 +71,7 @@ class PupyProxifiedTCPClient(PupyTCPClient):
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         if self.keepalive:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            # Linux specific: after 10 idle minutes, start sending keepalives every 5 minutes. 
+            # Linux specific: after 10 idle minutes, start sending keepalives every 5 minutes.
             # Drop connection after 10 failed keepalives
         if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT"):
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 10 * 60)
@@ -103,11 +103,11 @@ class PupySSLClient(PupyTCPClient):
     def connect(self, host, port):
         s=super(PupySSLClient, self).connect(host, port)
         return ssl.wrap_socket(s, **self.ssl_kwargs)
-    
+
 class PupyProxifiedSSLClient(PupySSLClient, PupyProxifiedTCPClient):
     pass
 
-        
+
 class PupyUDPClient(PupyClient):
     def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_DGRAM, timeout=3):
         self.sock=None
@@ -125,4 +125,3 @@ class PupyUDPClient(PupyClient):
         s.connect(sockaddr)
         self.sock=s
         return s, (host, port)
-

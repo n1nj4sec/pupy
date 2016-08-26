@@ -1,0 +1,12 @@
+import-tab.c
+import-tab.h
+resources_bootloader_pyc.c
+resources_library_compressed_string_txt.c
+resources_python27_so.c
+resources_zlib_so.c
+resources/bootloader.pyc
+resources/library.zip
+resources/library_compressed_string.txt
+resources/python27.so
+*.pyc
+*.o

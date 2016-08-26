@@ -33,7 +33,6 @@ __extra__all__ = ["CONN_IDLE", "CONN_BOUND", "PROCFS_PATH"]
 
 PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
 AF_LINK = cext_posix.AF_LINK
-IS_64_BIT = sys.maxsize > 2**32
 
 CONN_IDLE = "IDLE"
 CONN_BOUND = "BOUND"
@@ -427,20 +426,7 @@ class Process(object):
 
     @wrap_exceptions
     def cpu_times(self):
-        try:
-            times = cext.proc_cpu_times(self.pid, self._procfs_path)
-        except OSError as err:
-            if err.errno == errno.EOVERFLOW and not IS_64_BIT:
-                # We may get here if we attempt to query a 64bit process
-                # with a 32bit python.
-                # Error originates from read() and also tools like "cat"
-                # fail in the same way (!).
-                # Since there simply is no way to determine CPU times we
-                # return 0.0 as a fallback. See:
-                # https://github.com/giampaolo/psutil/issues/857
-                times = (0.0, 0.0, 0.0, 0.0)
-            else:
-                raise
+        times = cext.proc_cpu_times(self.pid, self._procfs_path)
         return _common.pcputimes(*times)
 
     @wrap_exceptions
@@ -504,15 +490,6 @@ class Process(object):
                 utime, stime = cext.query_process_thread(
                     self.pid, tid, procfs_path)
             except EnvironmentError as err:
-                if err.errno == errno.EOVERFLOW and not IS_64_BIT:
-                    # We may get here if we attempt to query a 64bit process
-                    # with a 32bit python.
-                    # Error originates from read() and also tools like "cat"
-                    # fail in the same way (!).
-                    # Since there simply is no way to determine CPU times we
-                    # return 0.0 as a fallback. See:
-                    # https://github.com/giampaolo/psutil/issues/857
-                    continue
                 # ENOENT == thread gone in meantime
                 if err.errno == errno.ENOENT:
                     hit_enoent = True
@@ -612,20 +589,7 @@ class Process(object):
 
         procfs_path = self._procfs_path
         retlist = []
-        try:
-            rawlist = cext.proc_memory_maps(self.pid, procfs_path)
-        except OSError as err:
-            if err.errno == errno.EOVERFLOW and not IS_64_BIT:
-                # We may get here if we attempt to query a 64bit process
-                # with a 32bit python.
-                # Error originates from read() and also tools like "cat"
-                # fail in the same way (!).
-                # Since there simply is no way to determine CPU times we
-                # return 0.0 as a fallback. See:
-                # https://github.com/giampaolo/psutil/issues/857
-                return []
-            else:
-                raise
+        rawlist = cext.proc_memory_maps(self.pid, procfs_path)
         hit_enoent = False
         for item in rawlist:
             addr, addrsize, perm, name, rss, anon, locked = item

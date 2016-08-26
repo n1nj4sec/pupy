@@ -2,3 +2,4 @@ rpyc
 pycrypto
 psutil
 pyaml
+rsa

