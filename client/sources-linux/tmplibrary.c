@@ -7,6 +7,8 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 #include "list.h"
 #include "tmplibrary.h"
@@ -38,11 +40,33 @@ const char *gettemptpl() {
 			char *buf = alloca(strlen(templates[i]+1));
 			strcpy(buf, templates[i]);
 			int fd = mkstemp(buf);
+			int found = 0;
 			if (fd != -1) {
+				int page_size = sysconf(_SC_PAGESIZE);
+				if (ftruncate(fd, page_size) != -1) {
+					void *map = mmap(
+						NULL,
+						page_size,
+						PROT_READ|PROT_EXEC,
+						MAP_PRIVATE|MAP_DENYWRITE,
+						fd,
+						0
+					);
+					if (map != MAP_FAILED) {
+						munmap(map, page_size);
+						found = 1;
+					} else {
+						dprint("Couldn't use %s -> %m\n", buf);
+					}
+				}
+
 				unlink(buf);
 				close(fd);
-				tmpdir = templates[i];
-				break;
+
+				if (found) {
+					tmpdir = templates[i];
+					break;
+				}
 			}
 			dprint("TRY: %s -> %d (%m)\n", buf, fd);
 
