@@ -8,9 +8,8 @@ from rpyc.utils.authenticators import AuthenticationError
 from rpyc.utils.registry import UDPRegistryClient
 from rpyc.core.stream import Stream
 from buffer import Buffer
-import threading, socket, time
+import multiprocessing, socket, time
 from streams.PupySocketStream import addGetPeer
-
 
 class PseudoStreamDecoder(Stream):
     def __init__(self, transport_class, transport_kwargs):
@@ -19,8 +18,8 @@ class PseudoStreamDecoder(Stream):
         self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.transport=transport_class(self, **transport_kwargs)
-        self.lockin=threading.Lock()
-        self.lockout=threading.Lock()
+        self.lockin=multiprocessing.Lock()
+        self.lockout=multiprocessing.Lock()
 
     def decode_data(self, data):
         with self.lockin:
@@ -83,9 +82,9 @@ class PupyAsyncServer(object):
             self.clients[cookie].buf_in.cookie=cookie
             self.clients[cookie].buf_out.cookie=cookie
             conn=Connection(self.service, Channel(self.clients[cookie]), config=config, _lazy=True)
-            t = threading.Thread(target = self.handle_new_conn, args=(conn,))
-            t.daemon=True
-            t.start()
+            p = multiprocessing.Process(target=self.handle_new_conn, args=(conn,))
+            p.daemon=True
+            p.start()
         resp=None
         with self.clients[cookie].upstream_lock:
             self.clients[cookie].upstream.write(decoded)
@@ -99,9 +98,9 @@ class PupyAsyncServer(object):
     def handle_new_conn(self, conn):
         try:
             conn._init_service()
-            #conn.serve_all()
-            while True:
-                conn.serve(0.01)
+            conn.serve_all()
+            # while True:
+                # conn.serve(0.01)
         except Exception as e:
             logging.error(e)
 
@@ -153,7 +152,7 @@ class PupyAsyncTCPServer(PupyAsyncServer):
     def accept(self):
         try:
             s, addr = self.sock.accept()
-            t=threading.Thread(target=self.serve_request, args=(s, addr,))
+            t=multiprocessing.Process(target=self.serve_request, args=(s, addr,))
             t.daemon=True
             t.start()
             #TODO : make a pool of threads
@@ -248,8 +247,8 @@ class PupyTCPServer(ThreadPoolServer):
                 time.sleep(0.5)
         stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
 
-        event=threading.Event()
-        t=threading.Thread(target=check_timeout, args=(event, stream.close))
+        event=multiprocessing.Event()
+        t=multiprocessing.Process(target=check_timeout, args=(event, stream.close))
         t.daemon=True
         t.start()
         try:
@@ -334,7 +333,7 @@ class PupyUDPServer(object):
                     raise
             self.clients[addr]=self.stream_class((self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False)
             conn=Connection(self.service, Channel(self.clients[addr]), config=config, _lazy=True)
-            t = threading.Thread(target = self.handle_new_conn, args=(conn,))
+            t = multiprocessing.Process(target = self.handle_new_conn, args=(conn,))
             t.daemon=True
             t.start()
         with self.clients[addr].downstream_lock:
@@ -344,9 +343,9 @@ class PupyUDPServer(object):
     def handle_new_conn(self, conn):
         try:
             conn._init_service()
-            #conn.serve_all()
-            while True:
-                conn.serve(0.01)
+            conn.serve_all()
+            # while True:
+            #     conn.serve(0.01)
         except Exception as e:
             logging.error(e)
 

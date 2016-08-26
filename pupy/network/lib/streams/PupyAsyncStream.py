@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
@@ -7,7 +7,7 @@ __all__=["PupyAsyncTCPStream", "PupyAsyncUDPStream"]
 
 from rpyc.core.stream import Stream
 from ..buffer import Buffer
-import sys, socket, time, errno, logging, traceback, string, random, threading
+import sys, socket, time, errno, logging, traceback, string, random, multiprocessing
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 from PupySocketStream import addGetPeer
 
@@ -43,26 +43,25 @@ class PupyAsyncStream(Stream):
         #buffers for transport
         self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-        self.upstream_lock=threading.Lock()
-        self.downstream_lock=threading.Lock()
+        self.upstream_lock=multiprocessing.Lock()
+        self.downstream_lock=multiprocessing.Lock()
         self.transport=transport_class(self, **transport_kwargs)
 
         self.max_pull_interval=2
         self.pull_interval=0
-        self.pull_event=threading.Event()
+        self.pull_event=multiprocessing.Event()
         self.MAX_IO_CHUNK=32000*100 #3Mo because it is a async transport
 
-        #threading.Thread(target=monitor, args=(self,)).start()
         self.client_side=self.transport.client
         if self.client_side:
-            self.poller_thread=threading.Thread(target=self.poller_loop)
+            self.poller_thread=multiprocessing.Process(target=self.poller_loop)
             self.poller_thread.daemon=True
             self.poller_thread.start()
         self.on_connect()
 
     def on_connect(self):
         self.transport.on_connect()
-    
+
     def close(self):
         """closes the stream, releasing any system resources associated with it"""
         print "closing stream !"
@@ -80,7 +79,7 @@ class PupyAsyncStream(Stream):
         raise NotImplementedError()
 
     def poll(self, timeout):
-        """indicates whether the stream has data to read (within *timeout* 
+        """indicates whether the stream has data to read (within *timeout*
         seconds)"""
         return (len(self.upstream) > 0) or self.closed
 
@@ -254,4 +253,3 @@ class PupyAsyncUDPStream(PupyAsyncStream):
         #print "received: %s"%repr(total_received)
         s.close()
         return total_received
-
