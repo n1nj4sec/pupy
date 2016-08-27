@@ -28,7 +28,7 @@ class PExec(PupyModule):
         self.arg_parser.add_argument(
             '-log',
             help='Save output to file. You can use vars: '
-            '%h - host, %m - mac, %p - platform, %u - user, %a - ip address',
+            '%%h - host, %%m - mac, %%p - platform, %%u - user, %%a - ip address',
         )
         self.arg_parser.add_argument(
             '-n',
