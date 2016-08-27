@@ -85,6 +85,8 @@ class InteractiveShell(PupyModule):
                         if sys.stdin in r:
                             ch = os.read(fd, 1)
                             buf += ch
+                        elif buf.endswith('\x03'*8):
+                            break
                         elif buf:
                             self.ps.write(buf)
                             buf=b''
