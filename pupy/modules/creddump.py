@@ -118,7 +118,7 @@ class CredDump(PupyModule):
 
         db = Credentials()
         db.add([
-            {'hashes':hsh, 'Tool': 'Creddump'} for hsh in hashes
+            {'hashes':hsh, 'Tool': 'Creddump', 'uid':self.client.short_name()} for hsh in hashes
         ])
 
         for hsh in hashes:
@@ -192,7 +192,7 @@ class CredDump(PupyModule):
             if not lmhash: lmhash = empty_lm
             if not nthash: nthash = empty_nt
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
-            hashes.append({'hashes': "%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')), 'Tool': 'Creddump'})
+            hashes.append({'hashes': "%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')), 'Tool': 'Creddump', 'uid':self.client.short_name()})
 
         db = Credentials()
         db.add(hashes)

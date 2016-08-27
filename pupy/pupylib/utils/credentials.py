@@ -1,7 +1,8 @@
+from __future__ import unicode_literals
 import os
 import json
 
-class Credentials():
+class Credentials(object):
     def __init__(self):
         ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "db"))
         dbName = 'creds.json'
@@ -43,6 +44,8 @@ class Credentials():
         
         # List sorted by Tools
         data = sorted(data['creds'], key=lambda d: d["Tool"], reverse=True)
+        max_uid_len = max([len(x.get("uid","?")) for x in data])
+
         for creds in data:
             if "Tool" in creds:
                 if tool != creds["Tool"]:
@@ -51,13 +54,11 @@ class Credentials():
                 del creds["Tool"]
             
             if tool == 'Creddump':
-                for cred in creds:
-                    if creds[cred]:
-                        res+= '%s\n' % creds[cred]
+                res+= ('{:<%s} / {}\n'%(max_uid_len)).format(creds.get("uid", "?"), creds["hashes"].strip())
             else:
                 for cred in creds:
                     if creds[cred]:
-                        res+= '%s: %s\n' % (cred, creds[cred])
+                        res+= '%s: %s\n' % (cred.strip(), creds[cred].strip())
                 res+="\n"
 
         if not res.strip():

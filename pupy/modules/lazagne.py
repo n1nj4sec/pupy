@@ -102,6 +102,7 @@ class LaZagne(PupyModule):
             for cred in creds:
                 clean_cred = {}
                 clean_cred['Tool'] = 'Lazagne'
+                clean_cred['uid']=self.client.short_name()
                 for c in cred.keys():
                     clean_cred[c] = cred[c].encode('utf-8')
                     print "%s: %s" % (c, cred[c])
@@ -141,6 +142,7 @@ class LaZagne(PupyModule):
                         ishashes = False
                         if cred:
                             cred['Tool']="LaZagne"
+                            cred['uid']=self.client.short_name()
                             if user:
                                 cred['System user'] = user
                             if category:
