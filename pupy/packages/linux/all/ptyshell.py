@@ -69,7 +69,8 @@ class PtyShell(object):
         )
 
     def write(self, data):
-        os.write(self.master.fileno(), data)
+        self.master.write(data)
+        self.master.flush()
 
     def set_pty_size(self, p1, p2, p3, p4):
         buf = array.array('h', [p1, p2, p3, p4])
