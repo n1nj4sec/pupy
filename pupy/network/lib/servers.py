@@ -229,27 +229,38 @@ class PupyTCPServer(ThreadPoolServer):
         Note that this code is cut and paste from the rpyc internals and may have to be
         changed if rpyc evolves'''
         # authenticate
+        addrinfo = sock.getpeername()
+        h=addrinfo[0]
+        p=addrinfo[1]
+
         if self.authenticator:
-            addrinfo = sock.getpeername()
-            h=addrinfo[0]
-            p=addrinfo[1]
             try:
                 sock, credentials = self.authenticator(sock)
+            except KeyboardInterrupt:
+                pass
             except AuthenticationError:
                 self.logger.info("%s:%s failed to authenticate, rejecting connection", h, p)
                 return None
         else:
             credentials = None
+
         # build a connection
-        addrinfo = sock.getpeername()
-        h=addrinfo[0]
-        p=addrinfo[1]
         config = dict(self.protocol_config, credentials=credentials, connid="%s:%d"%(h, p))
 
         def check_timeout(event, cb, timeout=60):
-            time.sleep(timeout)
+            begin = time.time()
+            duration = 0
+            while duration < timeout:
+                try:
+                    time.sleep(timeout - duration)
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    duration = time.time() - begin
+
             if not event.is_set():
-                logging.error("timeout occured !")
+                logging.info("({}:{}) timeout occured ({}) !".format(
+                    h, p, duration))
                 cb()
 
         stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
@@ -260,6 +271,8 @@ class PupyTCPServer(ThreadPoolServer):
         t.start()
         try:
             c=Connection(self.service, Channel(stream), config=config)
+        except KeyboardInterrupt:
+            pass
         finally:
             event.set()
         return c
