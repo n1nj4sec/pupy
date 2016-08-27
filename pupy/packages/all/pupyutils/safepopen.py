@@ -51,20 +51,7 @@ class SafePopen(object):
         self._bufsize = 8196
         self.returncode = None
 
-        if hasattr(subprocess, 'STARTUPINFO'):
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            self._popen_kwargs.update({
-                'startupinfo': startupinfo,
-            })
-
-    def _execute(self, read_cb, close_cb):
-        if read_cb:
-            read_cb = rpyc.async(read_cb)
-
-        if close_cb:
-            close_cb = rpyc.async(close_cb)
-
+    def execute(self, poll_delay=0.5):
         returncode = None
         try:
             kwargs = self._popen_kwargs
