@@ -38,6 +38,7 @@ class SafePopen(object):
         self.returncode = None
 
     def execute(self, poll_delay=0.5):
+        returncode = None
         try:
             kwargs = self._popen_kwargs
             # Setup some required arguments
