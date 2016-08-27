@@ -585,13 +585,15 @@ class PupyCmd(cmd.Cmd):
         except PupyModuleExit:
             return
 
-        l=self.pupsrv.get_clients(selected_clients)
-        if not l:
-            if not self.pupsrv.clients:
-                self.display_error("no clients currently connected")
-            else:
-                self.display_error("no clients match this search!")
-            return
+        l=[None]
+        if mod.need_at_least_one_client:
+            l=self.pupsrv.get_clients(selected_clients)
+            if not l:
+                if not self.pupsrv.clients:
+                    self.display_error("no clients currently connected")
+                else:
+                    self.display_error("no clients match this search!")
+                return
         
         if mod.max_clients!=0 and len(l)>mod.max_clients:
             self.display_error("This module is limited to %s client(s) at a time and you selected %s clients"%(mod.max_clients, len(l)))

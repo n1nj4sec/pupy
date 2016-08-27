@@ -67,12 +67,13 @@ class PupyModule(object):
         daemon_script -> script that will continue running in background once started
     """
     max_clients=0 #define on how much clients you module can be run in one command. For example an interactive module should be 1 client max at a time. set to 0 for unlimited
+    need_at_least_one_client=True #set to False if your module doesn't need any client connected
     daemon=False #if your module is meant to run in background, set this to True and override the stop_daemon method.
     unique_instance=False # if True, don't start a new module and use another instead
     dependencies=[] #dependencies to push on the remote target. same as calling self.client.load_package
-    compatible_systems=[] #should be changed by
-    category="general" # to sort modules by categories
-    tags=[] # to add search keywords
+    compatible_systems=[] #should be changed by decorator @config
+    category="general" # to sort modules by categories. should be changed by decorator @config
+    tags=[] # to add search keywords. should be changed by decorator @config
 
     def __init__(self, client, job, formatter=None, stdout=None):
         """ client must be a PupyClient instance """
