@@ -8,7 +8,7 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def migrate(module, pid, keep=False):
+def migrate(module, pid, keep=False, timeout=30):
     module.client.load_package("psutil")
     module.client.load_package("pupwinutils.processes")
     dllbuf=b""
@@ -31,14 +31,18 @@ def migrate(module, pid, keep=False):
     if keep:
         return
     module.success("waiting for a connection from the DLL ...")
-    while True:
-        c=has_proc_migrated(module.client, pid)
+    time_end = time.time() + timeout
+    c = False
+    while time.time() < time_end:
+	c=has_proc_migrated(module.client, pid)
         if c:
-            module.success("got a connection from migrated DLL !")
-            c.desc["id"]=module.client.desc["id"]
-            break
-        time.sleep(0.1)
-    try:
-        module.client.conn.exit()
-    except Exception:
-        pass
+		module.success("got a connection from migrated DLL !")
+		c.desc["id"]=module.client.desc["id"]
+		time.sleep(0.1)
+		try:
+			module.client.conn.exit()
+		except Exception:
+			pass
+		break
+    if not c:
+	module.error("migration failed")
