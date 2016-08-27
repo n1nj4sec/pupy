@@ -36,7 +36,7 @@ else:
 all_dependencies=list(set([x.split(".")[0] for x,m in sys.modules.iteritems() if not "(built-in)" in str(m) and x != "__main__"]))
 all_dependencies.extend(["win32file", "win32pipe", "Crypto", "yaml", "rpyc", "pyasn1", "rsa"])
 all_dependencies=list(set(all_dependencies))
-
+all_dependencies.remove("pupy") # blacklist the built-in pupy import
 zf = zipfile.ZipFile(os.path.join("sources","resources","library%s.zip"%arch), mode='w', compression=zipfile.ZIP_DEFLATED)
 try:
     if arch=="x86":
