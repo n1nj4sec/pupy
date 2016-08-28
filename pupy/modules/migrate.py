@@ -20,8 +20,8 @@ class MigrateModule(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="migrate", description=self.__doc__)
-        self.arg_parser.add_argument('-w', '--wait', action='store_true', default=False,
-                            help='Hook exit thread function and wait until pupy exists (Linux)')
+        self.arg_parser.add_argument('--no-wait', action='store_false', default=True,
+                            help='Does not Hook exit thread function and wait until pupy exists (Linux)')
 
         group = self.arg_parser.add_mutually_exclusive_group(required=True)
         group.add_argument('-c', '--create', metavar='<exe_path>',
@@ -44,8 +44,8 @@ class MigrateModule(PupyModule):
             win_migrate(self, pid, args.keep, args.timeout)
         elif self.client.is_linux():
             if args.create:
-                self.success("Migrating to new linux process")
-                ld_preload(self, args.create, wait_thread=args.wait, keep=args.keep)
+                self.success("Migrating to new linux process using LD_PRELOAD")
+                ld_preload(self, args.create, wait_thread=args.no_wait, keep=args.keep)
             else:
                 self.success("Migrating to existing linux process")
                 lin_migrate(self, args.pid, args.keep)
