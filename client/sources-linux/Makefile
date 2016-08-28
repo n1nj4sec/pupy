@@ -19,6 +19,7 @@ LINUX_INJECT_CFLAGS := -include debug.h -include fixes.h -Dmain=linux_inject_mai
 ifneq ($(DEBUG),)
 DEBUG_ADD := debug
 CFLAGS += -DDEBUG -O0 -g
+NAME   := "$(NAME)d"
 else
 CFLAGS += -O2
 LINUX_INJECT_CFLAGS += -Dprintf=dprint -Dfprintf=dfprint
