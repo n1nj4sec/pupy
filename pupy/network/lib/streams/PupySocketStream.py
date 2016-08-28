@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
@@ -92,7 +92,9 @@ class PupySocketStream(SocketStream):
             if len(self.upstream)>=count:
                 return self.upstream.read(count)
             while len(self.upstream)<count:
-                self.sock_poll(0.1)
+                if not self.sock_poll(0.1) and self.closed:
+                    return None
+
                 #self._read()
 
                 #it seems we can actively wait here with only perf enhancement
@@ -208,5 +210,3 @@ class PupyUDPSocketStream(object):
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
-
-
