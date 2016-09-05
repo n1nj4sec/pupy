@@ -32,8 +32,19 @@ def parse_win_proxy(val):
     return l
 
 last_wpad=None
-def get_proxies(wpad_timeout=600):
+def get_proxies(wpad_timeout=600, additional_proxies=[]):
     global last_wpad
+
+    for p in additional_proxies:
+        np=p
+        login=None
+        password=None
+        if "@" in np:
+            tab=p.split(":", 1)
+            login, password=tab[0].split()
+            np=tab[1]
+        tab=np.split(":")
+        yield tab[0].upper(), tab[1]+":"+tab[2], login, password
 
     if sys.platform=="win32":
         #TODO retrieve all users proxy settings, not only HKCU
@@ -136,8 +147,10 @@ class AutoProxyLauncher(BaseLauncher):
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="auto_proxy", description=self.__doc__)
         self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
-        self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys() if not x.endswith("_proxy")], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
-        self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex for proxy transports: proxy_addr=192.168.0.1 proxy_port=8080 proxy_type=HTTP")
+        self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
+        self.arg_parser.add_argument('--add-proxy', action='append', help=" add a hardcoded proxy TYPE:address:port ex: SOCKS5:127.0.0.1:1080")
+        self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
+
     def parse_args(self, args):
         self.args=self.arg_parser.parse_args(args)
         self.rhost, self.rport=None,None
@@ -149,24 +162,25 @@ class AutoProxyLauncher(BaseLauncher):
             self.rport=443
         self.set_host("%s:%s"%(self.rhost, self.rport))
         self.set_transport(self.args.transport)
+
     def iterate(self):
         if self.args is None:
             raise LauncherError("parse_args needs to be called before iterate")
 
         opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
-        
+
         #first we try without any proxy :
         try:
             t=network.conf.transports[self.args.transport]()
-            client_args=t.client_kwargs
-            transport_args=t.client_transport_kwargs
+            client_args=copy.copy(t.client_kwargs)
+            transport_args=copy.copy(t.client_transport_kwargs)
             for val in opt_args:
                 if val.lower() in t.client_kwargs:
                     client_args[val.lower()]=opt_args[val]
                 elif val.lower() in t.client_transport_kwargs:
                     transport_args[val.lower()]=opt_args[val]
                 else:
-                    logging.warning("unknown transport argument : %s"%tab[0])
+                    logging.warning("unknown transport argument : %s"%val)
             logging.info("using client options: %s"%client_args)
             logging.info("using transports options: %s"%transport_args)
             try:
@@ -174,7 +188,6 @@ class AutoProxyLauncher(BaseLauncher):
             except Exception as e:
                 #at this point we quit if we can't instanciate the client
                 raise SystemExit(e)
-
             try:
                 client=t.client(**client_args)
             except Exception as e:
@@ -190,11 +203,11 @@ class AutoProxyLauncher(BaseLauncher):
             logging.error(e)
 
         #then with proxies
-        for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
+        for proxy_type, proxy, proxy_username, proxy_password in get_proxies(additional_proxies=self.args.add_proxy):
             try:
                 t=network.conf.transports[self.args.transport]()
-                client_args=t.client_kwargs
-                transport_args=t.client_transport_kwargs
+                client_args=copy.copy(t.client_kwargs)
+                transport_args=copy.copy(t.client_transport_kwargs)
                 for val in opt_args:
                     if val.lower() in t.client_transport_kwargs:
                         transport_args[val.lower()]=opt_args[val]

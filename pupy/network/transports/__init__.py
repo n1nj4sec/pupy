@@ -92,8 +92,6 @@ class Transport(object):
     stream=None
     client_transport=None
     server_transport=None
-    client_transport_kwargs={}
-    server_transport_kwargs={}
     dependencies=[] # dependencies needed when generating payloads
     credentials=[] # list of credentials to embbed during payload generation
     name=None
@@ -104,6 +102,8 @@ class Transport(object):
         self.bind_payload=bind_payload
         if self.bind_payload:
             self.launcher_type=LAUNCHER_TYPE_BIND
+        self.client_transport_kwargs={}
+        self.server_transport_kwargs={}
 
     def parse_args(self, args):
         """ parse arguments and raise an error if there is missing/incorrect arguments """
