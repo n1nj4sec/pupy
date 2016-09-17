@@ -8,7 +8,18 @@ from rpyc.utils.authenticators import AuthenticationError
 from rpyc.utils.registry import UDPRegistryClient
 from rpyc.core.stream import Stream
 from buffer import Buffer
-import multiprocessing, socket, time
+import socket, time
+try:
+    import multiprocessing
+    Process=multiprocessing.Process
+    Lock=multiprocessing.Lock
+    Event=multiprocessing.Event
+except ImportError: #multiprocessing not available on android ?
+    import threading
+    Process=threading.Thread
+    Lock=threading.Lock
+    Event=threading.Event
+
 from streams.PupySocketStream import addGetPeer
 
 class PseudoStreamDecoder(Stream):
@@ -18,8 +29,8 @@ class PseudoStreamDecoder(Stream):
         self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.transport=transport_class(self, **transport_kwargs)
-        self.lockin=multiprocessing.Lock()
-        self.lockout=multiprocessing.Lock()
+        self.lockin=Lock()
+        self.lockout=Lock()
 
     def decode_data(self, data):
         with self.lockin:
@@ -82,7 +93,7 @@ class PupyAsyncServer(object):
             self.clients[cookie].buf_in.cookie=cookie
             self.clients[cookie].buf_out.cookie=cookie
             conn=Connection(self.service, Channel(self.clients[cookie]), config=config, _lazy=True)
-            p = multiprocessing.Process(target=self.handle_new_conn, args=(conn,))
+            p = Process(target=self.handle_new_conn, args=(conn,))
             p.daemon=True
             p.start()
         resp=None
@@ -152,7 +163,7 @@ class PupyAsyncTCPServer(PupyAsyncServer):
     def accept(self):
         try:
             s, addr = self.sock.accept()
-            t=multiprocessing.Process(target=self.serve_request, args=(s, addr,))
+            t=Process(target=self.serve_request, args=(s, addr,))
             t.daemon=True
             t.start()
             #TODO : make a pool of threads
@@ -243,8 +254,8 @@ class PupyTCPServer(ThreadPoolServer):
 
         stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
 
-        event=multiprocessing.Event()
-        t=multiprocessing.Process(target=check_timeout, args=(event, stream.close))
+        event=Event()
+        t=Process(target=check_timeout, args=(event, stream.close))
         t.daemon=True
         t.start()
         try:
@@ -327,7 +338,7 @@ class PupyUDPServer(object):
                     raise
             self.clients[addr]=self.stream_class((self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False)
             conn=Connection(self.service, Channel(self.clients[addr]), config=config, _lazy=True)
-            t = multiprocessing.Process(target = self.handle_new_conn, args=(conn,))
+            t = Process(target = self.handle_new_conn, args=(conn,))
             t.daemon=True
             t.start()
         with self.clients[addr].downstream_lock:

@@ -7,9 +7,20 @@ __all__=["PupyAsyncTCPStream", "PupyAsyncUDPStream"]
 
 from rpyc.core.stream import Stream
 from ..buffer import Buffer
-import sys, socket, time, errno, logging, traceback, string, random, multiprocessing
+import sys, socket, time, errno, logging, traceback, string, random
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 from PupySocketStream import addGetPeer
+try:
+    import multiprocessing
+    Process=multiprocessing.Process
+    Lock=multiprocessing.Lock
+    Event=multiprocessing.Event
+except ImportError: #multiprocessing not available on android ?
+    import threading
+    Process=threading.Thread
+    Lock=threading.Lock
+    Event=threading.Event
+
 
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports"""
@@ -43,18 +54,18 @@ class PupyAsyncStream(Stream):
         #buffers for transport
         self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
         self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-        self.upstream_lock=multiprocessing.Lock()
-        self.downstream_lock=multiprocessing.Lock()
+        self.upstream_lock=Lock()
+        self.downstream_lock=Lock()
         self.transport=transport_class(self, **transport_kwargs)
 
         self.max_pull_interval=2
         self.pull_interval=0
-        self.pull_event=multiprocessing.Event()
+        self.pull_event=Event()
         self.MAX_IO_CHUNK=32000*100 #3Mo because it is a async transport
 
         self.client_side=self.transport.client
         if self.client_side:
-            self.poller_thread=multiprocessing.Process(target=self.poller_loop)
+            self.poller_thread=Process(target=self.poller_loop)
             self.poller_thread.daemon=True
             self.poller_thread.start()
         self.on_connect()
