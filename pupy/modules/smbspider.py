@@ -2,7 +2,7 @@
 # Code modified from the awesome tool CrackMapExec: /cme/spider/smbspider.py
 # Thank you to byt3bl33d3r for its work
 from pupylib.PupyModule import *
-from netaddr import *
+#from netaddr import *
 
 __class_name__="SMBSpider"
 
