@@ -8,7 +8,7 @@ __class_name__="Pywerview"
 @config(cat="gather")
 class Pywerview(PupyModule):
     """ Rewriting of some PowerView's functionalities in Python """
-
+    dependencies=["pywerview", "impacket", "unicodedata", "calendar", "bs4", "pdb", "cmd", "bdb", "repr", "pprint", "htmlentitydefs", "HTMLParser", "markupbase", "OpenSSL", "six","cryptography","enum", "_cffi_backend", "pkg_resources", "plistlib", "uu", "quopri", "ipaddress", "idna"]
     def init_argparse(self):
 
         # changes from original main :
@@ -335,9 +335,6 @@ class Pywerview(PupyModule):
             if k not in ('func', 'hashes'):
                 parsed_args[k] = v
          
-        # load dependency
-        self.client.load_package("pywerview")
-
         # call the fcorrect function
         function = getattr(self.client.conn.modules['pywerview.cli.helpers'], args.func)
         results = function(**parsed_args)

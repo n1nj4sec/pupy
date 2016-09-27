@@ -17,3 +17,6 @@
 [submodule "client/sources-linux/linux-inject"]
 	path = client/sources-linux/linux-inject
 	url = https://github.com/gaffe23/linux-inject.git
+[submodule "pupy/external/pywerview"]
+	path = pupy/external/pywerview
+	url = https://github.com/the-useless-one/pywerview.git
