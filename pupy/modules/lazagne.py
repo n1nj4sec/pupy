@@ -25,11 +25,12 @@ class LaZagne(PupyModule):
         platform=self.client.desc["platform"]
         if "Windows" in platform:
             if "64" in self.client.desc["proc_arch"]:
-                self.error('Not yet implemented for a x64 bits process, migrate to a 32 bits process and try again ! \nEx: run migrate -c \'C:\\Windows\\SysWOW64\\notepad.exe\'')
-                return
+                arch = "amd64"
+            else:
+                arch = "x86"
 
             # load all dependency
-            self.client.load_dll(os.path.abspath(os.path.join(os.path.dirname(__file__),"..", "packages", "windows", "x86", "sqlite3.dll")))
+            self.client.load_dll(os.path.abspath(os.path.join(os.path.dirname(__file__),"..", "packages", "windows", arch, "sqlite3.dll")))
             self.client.load_package("sqlite3")
             self.client.load_package("_sqlite3")
             self.client.load_package("xml")
