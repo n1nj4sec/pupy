@@ -4,3 +4,4 @@ pefile
 pyyaml
 image
 rsa
+netaddr
