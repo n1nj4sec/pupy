@@ -57,3 +57,20 @@ def list_drives():
 		)
 
 	print
+
+
+def shared_folders():
+	c = wmi.WMI()
+	shared = c.query("Select * from Win32_Share Where Type=0")
+	if not shared:
+		print '[-] No shared folders in this computer'
+		return 	
+
+	print '\n%s%s' % ('Name'.ljust(12), 'Path'.ljust(15))
+	print '%s%s' % ('----'.ljust(12), '----'.ljust(15))
+	for s in shared:
+		print '%s%s' % (
+			s.Name.ljust(12), 
+			s.Path.ljust(15)
+		)
+	print
