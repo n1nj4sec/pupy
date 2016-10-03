@@ -12,8 +12,7 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
 @config(compat="windows", category="gather")
 class Outlook(PupyModule):
-	'''
-	'''
+	""" interact with Outlook session of the targeted user """
 	dependencies=["win32api","win32com","pythoncom","winerror"]
 	
 	OL_SAVE_AS_TYPE={'olTXT': 0,'olRTF':1,'olTemplate': 2,'olMSG': 3,'olDoc':4,'olHTML':5,'olVCard': 6,'olVCal':7,'olICal': 8}
