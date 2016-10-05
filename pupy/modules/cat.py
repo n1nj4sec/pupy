@@ -6,7 +6,7 @@ __class_name__="cat"
 
 @config(cat="admin")
 class cat(PupyModule):
-	""" remove a file or a directory """
+	""" show contents of a file """
 
 	def init_argparse(self):
 		self.arg_parser = PupyArgumentParser(prog="cat", description=self.__doc__)		
