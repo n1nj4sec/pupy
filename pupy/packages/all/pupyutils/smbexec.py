@@ -348,28 +348,6 @@ class RemoteShellwmi():
         self.__outputBuffer = ''
         return result
 
-def _listShares(smb, passwd):
-    permissions = dict()
-    root = ntpath.normpath("\\{}".format(PERM_DIR))
-    
-    for share in smb.listShares():
-        share_name = str(share['shi1_netname'][:-1])
-        permissions[share_name] = "NO ACCESS"
-
-        try:
-            if smb.listPath(share_name, '', passwd):
-                permissions[share_name] = "READ"
-        except:
-            pass
-
-        try:
-            if smb.createDirectory(share_name, root):
-                smb.deleteDirectory(share_name, root)
-                permissions[share_name] = "READ, WRITE"
-        except:
-            pass
-
-    return permissions
 
 def upload_file(smbconn, host, src, dst):
     dst = string.replace(dst,'/','\\')
