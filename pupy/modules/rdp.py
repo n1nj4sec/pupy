@@ -30,7 +30,7 @@ class Rdp(PupyModule):
         remote.add_argument('--target', '-t', dest='target', required=True, help='remote host or range for checking RDP connection')
         remote.add_argument('-d', dest='domain', default='workgroup', help='domain used for checking RDP connection')
         remote.add_argument('-u', dest='username', required=True, help='username used for checking RDP connection')
-        remote.add_argument('-p', dest='password', help='password used for checking RDP connection')
+        remote.add_argument('-p', dest='password', default= '', help='password used for checking RDP connection')
         remote.add_argument('-H', dest='hashes', help='NTLM hashes used for checking RDP connection')
 
     def run(self, args):
