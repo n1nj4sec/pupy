@@ -66,6 +66,7 @@ class Rdp(PupyModule):
             self.client.load_package("pupyutils.rdp_check")
             self.client.load_package("impacket")
             self.client.load_package("calendar")
+            self.client.load_package("six")
             self.client.load_package("OpenSSL")
             for host in hosts:
                 with redirected_stdio(self.client.conn):
