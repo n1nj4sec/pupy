@@ -48,14 +48,20 @@ class LaZagne(PupyModule):
             self.client.load_package("lazagne")
 
             db = Credentials()
-
+            
+            passwordsFound = False
             moduleNames = self.client.conn.modules["lazagne.config.manageModules"].get_modules()
             for module in moduleNames:
                 if args.verbose:
                     self.info("running module %s"%(str(module).split(' ',1)[0].strip('<')))
                 passwords = module.run(module.options['dest'].capitalize())
-                self.print_results(module.options['dest'].capitalize(), passwords, db)
+                if passwords:
+                	passwordsFound = True
+                	self.print_results(module.options['dest'].capitalize(), passwords, db)
             
+            if not passwordsFound:
+                self.warning("no passwords found !")
+        
         elif "Linux" in platform:
             isWindows = False
             if "64" in self.client.desc["os_arch"]:
