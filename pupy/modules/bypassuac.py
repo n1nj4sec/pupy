@@ -12,7 +12,7 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
-    """ try to bypass UAC with Invoke-BypassUAC.ps1, from Empire """
+    """try to bypass UAC with sysprep or eventvwr method"""
     dependencies=["psutil", "pupwinutils.processes"]
     METHODS = ["eventvwr", "sysprep"]
     def init_argparse(self):

