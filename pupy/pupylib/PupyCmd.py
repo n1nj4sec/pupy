@@ -189,6 +189,8 @@ class PupyCmd(cmd.Cmd):
         except Exception:
             pass
         self.aliases={}
+        for m in self.pupsrv.get_aliased_modules():
+            self.aliases[m]=m
         try:
             for command, alias in self.config.items("aliases"):
                 logging.debug("adding alias: %s => %s"%(command, alias))
@@ -258,7 +260,7 @@ class PupyCmd(cmd.Cmd):
                 if left:
                     newargs_str+=" "+' '.join(left)
                 if modargs.arguments:
-                    newargs_str+=" '"+(' '.join(modargs.arguments)).replace("'","'\\''")+"'"
+                    newargs_str+=' '+' '.join(["'"+x.replace("'","'\\''")+"'" for x in modargs.arguments])
                 self.do_run(newargs_str.strip())
         else:
             self.display_error("Unknown syntax: %s"%line)

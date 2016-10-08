@@ -74,6 +74,7 @@ class PupyModule(object):
     compatible_systems=[] #should be changed by decorator @config
     category="general" # to sort modules by categories. should be changed by decorator @config
     tags=[] # to add search keywords. should be changed by decorator @config
+    is_module=True # if True, module have to be run with "run <module_name", if False it can be called directly without run
 
     def __init__(self, client, job, formatter=None, stdout=None):
         """ client must be a PupyClient instance """

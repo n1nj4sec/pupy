@@ -437,6 +437,14 @@ class PupyServer(threading.Thread):
         else:
             return path
 
+    def get_aliased_modules(self):
+        """ return a list of aliased module names that have to be displayed as commands """
+        l=[]
+        for m in self.iter_modules():
+            if not m.is_module:
+                l.append(m.get_name())
+        return l
+
     def get_module(self, name):
         script_found=False
         for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):

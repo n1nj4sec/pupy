@@ -9,6 +9,7 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 class Creds(PupyModule):
     """ database containing all passwords found """
     need_at_least_one_client=False
+    is_module=False
     
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="Creds", description=self.__doc__)
