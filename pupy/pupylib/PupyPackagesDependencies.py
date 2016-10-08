@@ -23,6 +23,21 @@ packages_dependencies={
     "pyaudio" : [
         (LOAD_PACKAGE, "_portaudio"),
     ],
+    "OpenSSL" : [
+        (LOAD_PACKAGE, "six"),
+        (LOAD_PACKAGE, "enum"),
+        (LOAD_PACKAGE, "cryptography"),
+        (LOAD_PACKAGE, "_cffi_backend"),
+        (LOAD_PACKAGE, "plistlib"),
+        (LOAD_PACKAGE, "uu"),
+        (LOAD_PACKAGE, "quopri"),
+        (LOAD_PACKAGE, "pyparsing"),
+        (LOAD_PACKAGE, "pkg_resources"),
+        (LOAD_PACKAGE, "pprint"),
+        (LOAD_PACKAGE, "ipaddress"),
+        (LOAD_PACKAGE, "idna"),
+        (LOAD_PACKAGE, "unicodedata"),
+    ],
 
 
 }

@@ -8,7 +8,7 @@ __class_name__="Pywerview"
 @config(cat="gather")
 class Pywerview(PupyModule):
     """ Rewriting of some PowerView's functionalities in Python """
-    dependencies=["pywerview", "impacket", "unicodedata", "calendar", "bs4", "pdb", "cmd", "bdb", "repr", "pprint", "htmlentitydefs", "HTMLParser", "markupbase", "OpenSSL", "six","cryptography","enum", "_cffi_backend", "pkg_resources", "plistlib", "uu", "quopri", "ipaddress", "idna"]
+    dependencies=["pywerview", "impacket", "calendar", "bs4", "pdb", "cmd", "bdb", "repr", "pprint", "htmlentitydefs", "HTMLParser", "markupbase", "OpenSSL"]
     def init_argparse(self):
 
         # changes from original main :
