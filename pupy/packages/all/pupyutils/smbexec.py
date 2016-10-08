@@ -24,7 +24,7 @@ DUMMY_SHARE     = 'TMP'
 class SMBServer():
     def __init__(self):
         if os.geteuid() != 0:
-            exit('[!] Error: ** SMB Server must be run as root **')
+            raise('[!] Error: ** SMB Server must be run as root **')
 
     def cleanup_server(self):
         print '[*] Cleaning up..'
@@ -95,7 +95,7 @@ class RemoteShellsmbexec():
             self.__scmr.connect()
         except Exception as e:
             print "[!] {}".format(e)
-            sys.exit(1)
+            raise
 
         s = rpc.get_smb_connection()
 
