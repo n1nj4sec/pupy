@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
+# Code inspired from the awesome tool CrackMapExec: https://github.com/byt3bl33d3r/CrackMapExec/blob/b1e83227047a64cbe45145b8ebf5054640822317/cme/modules/pe_inject.py
+# Thanks to byt3bl33d3r
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import os.path
 from pupylib.utils.term import colorize
