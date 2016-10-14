@@ -28,6 +28,7 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
         self.desc=desc
+        self.powershell={'x64': {'object': None, 'scripts_loaded': []}, 'x86': {'object': None, 'scripts_loaded': []}}
         #alias
         self.conn=self.desc["conn"]
         self.pupsrv=pupsrv
@@ -42,6 +43,11 @@ class PupyClient(object):
 
     def __del__(self):
         del self.desc
+        # close the powershell interpreter
+        for arch in ['x64', 'x86']:
+            if self.powershell[arch]['object']:
+                self.powershell[arch]['object'].stdin.write("exit\n")
+        del self.powershell
 
     def get_conf(self):
         dic={}
