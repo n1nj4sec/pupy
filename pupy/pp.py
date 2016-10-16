@@ -234,6 +234,8 @@ def rpyc_loop(launcher):
                         conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
                     finally:
                         event.set()
+                        t.terminate()
+
                     attempt=0
                     conn.serve_all()
             except KeyboardInterrupt:
