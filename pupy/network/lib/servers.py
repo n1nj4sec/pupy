@@ -15,44 +15,16 @@ import socket, time
 import errno
 import random
 
-from select import select
-
 try:
     import multiprocessing
     Process=multiprocessing.Process
-    Lock=multiprocessing.Lock
     Event=multiprocessing.Event
 except ImportError: #multiprocessing not available on android ?
     import threading
     Process=threading.Thread
-    Lock=threading.Lock
     Event=threading.Event
 
 from streams.PupySocketStream import addGetPeer
-
-class PseudoStreamDecoder(Stream):
-    def __init__(self, transport_class, transport_kwargs):
-        self.bufin=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-        self.bufout=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-        self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-        self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-        self.transport=transport_class(self, **transport_kwargs)
-        self.lockin=Lock()
-        self.lockout=Lock()
-
-    def decode_data(self, data):
-        with self.lockin:
-            self.bufin.drain()
-            self.bufin.write(data)
-            self.transport.downstream_recv(self.bufin)
-            return self.upstream.read()
-
-    def encode_data(self, data):
-        with self.lockout:
-            self.bufout.drain()
-            self.bufout.write(data)
-            self.transport.upstream_recv(self.bufout)
-            return self.downstream.read()
 
 class PupyTCPServer(ThreadPoolServer):
     def __init__(self, *args, **kwargs):
@@ -111,12 +83,13 @@ class PupyTCPServer(ThreadPoolServer):
                     h, p, duration))
                 cb()
 
-        stream=self.stream_class(sock, self.transport_class, self.transport_kwargs)
+        stream = self.stream_class(sock, self.transport_class, self.transport_kwargs)
 
-        event=Event()
-        t=Process(target=check_timeout, args=(event, stream.close))
-        t.daemon=True
+        event = Event()
+        t = Process(target=check_timeout, args=(event, stream.close))
+        t.daemon = True
         t.start()
+
         try:
             c=Connection(self.service, Channel(stream), config=config)
         except KeyboardInterrupt:
@@ -124,6 +97,7 @@ class PupyTCPServer(ThreadPoolServer):
         finally:
             event.set()
             t.terminate()
+
         return c
 
 class PupyUDPServer(object):
