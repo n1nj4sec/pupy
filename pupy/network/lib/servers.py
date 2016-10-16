@@ -123,6 +123,7 @@ class PupyTCPServer(ThreadPoolServer):
             pass
         finally:
             event.set()
+            t.terminate()
         return c
 
 class PupyUDPServer(object):
