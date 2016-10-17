@@ -69,21 +69,60 @@ class outlook():
 		Returns Dictionnary
 		'''
 		info = OrderedDict()
-		info['CurrentProfileName']=self.mapi.CurrentProfileName
+		try:
+			info['CurrentProfileName']=self.mapi.CurrentProfileName
+		except Exception,e:
+				logging.debug("Impossible to get CurrentProfileName configuration: {0}".format(e))
+				info['CurrentProfileName']=""
 		#info['CurrentUserAddress']=repr(self.mapi.CurrentUser) #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
-		info['SessionType']=self.outlook.Session.Type
+		try:
+			info['SessionType']=self.outlook.Session.Type
+		except Exception,e:
+			logging.debug("Impossible to get SessionType configuration: {0}".format(e))
+			info['SessionType']=""
 		for i, anAccount in enumerate(self.outlook.Session.Accounts):
-			info['Account{0}-DisplayName'.format(i)]=anAccount.DisplayName
-			info['Account{0}-SmtpAddress'.format(i)]=anAccount.SmtpAddress
-			info['Account{0}-AutoDiscoverXml'.format(i)]=anAccount.AutoDiscoverXml
-			info['Account{0}-AccountType'.format(i)]=self.OL_ACCOUNT_TYPES[anAccount.AccountType]
+			try:
+				info['Account{0}-DisplayName'.format(i)]=anAccount.DisplayName
+			except Exception,e:
+				logging.debug("Impossible to get DisplayName configuration: {0}".format(e))
+				info['Account{0}-DisplayName'.format(i)]=""
+			try:
+				info['Account{0}-SmtpAddress'.format(i)]=anAccount.SmtpAddress
+			except Exception,e:
+				logging.debug("Impossible to get SmtpAddress configuration: {0}".format(e))
+				info['Account{0}-SmtpAddress'.format(i)]=""
+			try: 
+				info['Account{0}-AutoDiscoverXml'.format(i)]=anAccount.AutoDiscoverXml
+			except Exception,e:
+				logging.debug("Impossible to get AutoDiscoverXml configuration: {0}".format(e))
+				info['Account{0}-AutoDiscoverXml'.format(i)]=""
+			try: 
+				info['Account{0}-AccountType'.format(i)]=self.OL_ACCOUNT_TYPES[anAccount.AccountType]
+			except Exception,e:
+				logging.debug("Impossible to get AccountType configuration: {0}".format(e))
+				info['Account{0}-AccountType'.format(i)]=""
 			#info['Account{0}-UserName'.format(i)]=anAccount.UserName #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
-		info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
-		info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
-		info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
-		info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
-		self.mapi.SendAndReceive(True)
-		print repr(self.mapi)
+		try:
+			info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
+		except Exception,e:
+				logging.debug("Impossible to get ExchangeMailboxServerName configuration: {0}".format(e))
+				info['ExchangeMailboxServerName'.format(i)]=""
+		try:
+			info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
+		except Exception,e:
+				logging.debug("Impossible to get ExchangeMailboxServerVersion configuration: {0}".format(e))
+				info['ExchangeMailboxServerVersion'.format(i)]=""
+		try:
+			info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
+		except Exception,e:
+				logging.debug("Impossible to get Offline configuration: {0}".format(e))
+				info['Offline'.format(i)]=""
+		try:
+			info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
+			self.mapi.SendAndReceive(True)
+		except Exception,e:
+				logging.debug("Impossible to get ExchangeConnectionMode configuration: {0}".format(e))
+				info['ExchangeConnectionMode']=None
 		return info
 		
 		
