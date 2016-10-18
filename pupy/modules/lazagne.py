@@ -56,8 +56,8 @@ class LaZagne(PupyModule):
                     self.info("running module %s"%(str(module).split(' ',1)[0].strip('<')))
                 passwords = module.run(module.options['dest'].capitalize())
                 if passwords:
-                	passwordsFound = True
-                	self.print_results(module.options['dest'].capitalize(), passwords, db)
+                    passwordsFound = True
+                    self.print_results(module.options['dest'].capitalize(), passwords, db)
             
             if not passwordsFound:
                 self.warning("no passwords found !")
@@ -108,12 +108,19 @@ class LaZagne(PupyModule):
             clean_creds = []
             for cred in creds:
                 clean_cred = {}
-                clean_cred['Tool'] = 'Lazagne'
+                clean_cred['Category'] = '%s' % module
                 clean_cred['uid']=self.client.short_name()
                 for c in cred.keys():
                     clean_cred[c] = cred[c].encode('utf-8')
                     print "%s: %s" % (c, cred[c])
+                    if c == "Password":
+                        clean_cred['CredType'] = 'plaintext'
+                    elif c == 'Hash':
+                        clean_cred['CredType'] = 'hash'
                 print
+                # manage when no password found
+                if 'CredType' not in clean_cred:
+                    clean_cred['CredType'] = 'empty'
                 clean_creds.append(clean_cred)
 
             try:
