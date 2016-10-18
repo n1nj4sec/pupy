@@ -12,8 +12,16 @@ class Creds(PupyModule):
     is_module=False
     
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="Creds", description=self.__doc__)
-        self.arg_parser.add_argument('--show','-S',  action='store_true', help='print all passwords on the database')
+    	example = 'Examples:\n'
+        example += '>> creds --search gmail\n'
+        example += '>> creds --search plaintext\n'
+        example += '>> creds --search hash\n'
+        example += '>> creds --search <UID>\n'
+        example += '>> creds --sort --search plaintext\n'
+
+        self.arg_parser = PupyArgumentParser(prog="Creds", description=self.__doc__, epilog=example)
+        self.arg_parser.add_argument('-s', '--search', default="all", metavar='string', help='default: all (search in any possible field, plaintext or hash word can be specify)')
+        self.arg_parser.add_argument('--sort', action='store_true', default=False, help='sort by host')
         self.arg_parser.add_argument('--flush', '-F', action='store_true', help='flush the entire database')
     
     def run(self, args):
@@ -24,7 +32,7 @@ class Creds(PupyModule):
                 self.success("Database removed")
             else:
                  self.warning("Nothing done")
-        elif args.show:
-            Credentials().show()
-
+        else:
+            Credentials().display(search=args.search, isSorted=args.sort)
+        
         
