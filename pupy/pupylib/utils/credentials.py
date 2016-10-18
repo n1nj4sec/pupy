@@ -34,37 +34,93 @@ class Credentials(object):
                 db['creds'].append(d)
 
         with open(self.db, 'w') as json_db: 
-            json_db.write(json.dumps(db))
+            json_db.write(json.dumps(db, indent=4))
 
-    def show(self):
-        res=""
-        tool = ""
+    def display(self, search='all', isSorted=False):
         with open(self.db) as json_db:    
             data = json.load(json_db)
         
-        # List sorted by Tools
-        data = sorted(data['creds'], key=lambda d: d["Tool"], reverse=True)
-        max_uid_len = max([len(x.get("uid","?")) for x in data])
-
-        for creds in data:
-            if "Tool" in creds:
-                if tool != creds["Tool"]:
-                    res+= '\n---------- %s ---------- \n\n' % creds["Tool"]
-                    tool = creds["Tool"]
-                del creds["Tool"]
-            
-            if tool == 'Creddump':
-                res+= ('{:<%s} / {}\n'%(max_uid_len)).format(creds.get("uid", "?"), creds["hashes"].strip())
-            else:
-                for cred in creds:
-                    if creds[cred]:
-                        res+= '%s: %s\n' % (cred.strip(), creds[cred].strip())
-                res+="\n"
-
-        if not res.strip():
-            print "The credential database is empty !"
+        if isSorted:
+            data = sorted(data['creds'], key=lambda d: d["uid"], reverse=True)
         else:
-            print res
+            data = sorted(data['creds'], key=lambda d: d["CredType"], reverse=True)
+        
+        if not data:
+            print "The credential database is empty !"
+            return
+        
+        if not isSorted:
+            print "\nCredentials:\n"
+            print "Category          Username                                Password                      URL/Hostname"
+            print "--------          --------                                --------                      ------------"
+
+        if search != 'all':
+            dataToSearch = search
+            found = False
+        else:
+            dataToSearch = None
+        
+        tmp_uid = ''
+        for creds in data:
+            found = False
+            c = {'category': '', 'login': '', 'credtype': '', 'password': '', 'url': '', 'uid': ''}
+            c['category'] = creds['Category']
+            c['uid'] = creds['uid']
+            more_info = []
+            
+            if 'Login' in creds:
+                c['login'] = creds['Login']
+                if 'Domain' in creds:
+                    c['login'] = '%s\\%s' % (creds['Domain'], c['login'])
+            
+            if 'Password' in creds:
+                c['credtype'] = 'plaintext'
+                c['password'] = creds['Password']
+            
+            if 'Hash' in creds:
+                c['credtype'] = 'hash'
+                c['password'] = creds['Hash']
+            
+            if 'URL' in creds:
+                c['url'] = creds['URL']
+            elif 'Host' in creds:
+                c['url'] = creds['Host']
+
+            if 'Port' in creds:
+                more_info.append('port: %s' % creds['Port'])
+
+            if 'SID' in creds:
+                more_info.append('SID: %s' % creds['SID'])
+
+            if 'Driver' in creds:
+                more_info.append('Driver: %s' % creds['Driver'])
+
+            if more_info:
+                c['url'] += ' / ' + ' / '.join(more_info)
+            
+            # check if in the research 
+            if dataToSearch:
+                for value in c:
+                    if dataToSearch.lower() in c[value].lower():
+                        found = True
+                        break
+            
+            # print only data with password and remove false positive
+            if c['password'] and len(c['password']) < 150:
+                if (dataToSearch and found) or not dataToSearch:
+                    if (tmp_uid != c['uid']) and isSorted:
+                        tmp_uid = c['uid']
+                        print '\nHost: %s' % c['uid']
+                        print '-' * (len('Host') + len(c['uid']) + 2) + '\n'
+
+                    print u"{}{}{}{}".format(
+                           '{:<18}'.format(c['category']), 
+                           '{:<40}'.format(c['login']),
+                           '{:<30}'.format(c['password']), 
+                           '{:<40}'.format(c['url']),
+                    )
+        
+        print 
 
     def flush(self):
         if os.path.exists(self.db):
