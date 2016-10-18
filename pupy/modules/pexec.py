@@ -78,7 +78,7 @@ class PExec(PupyModule):
                     ros = self.client.conn.modules['os']
 
                 if local == '$SELF$':
-                    platform = self.client.platform()
+                    platform = self.client.platform
                     if not platform in ('windows', 'linux'):
                         self.error('Couldn\'t use $SELF$ on platform {}'.format(platform))
                     xlocal = '$SELF$'
@@ -107,7 +107,7 @@ class PExec(PupyModule):
 
         for local, remote, mode in to_upload:
             if local == '$SELF$':
-                platform = self.client.platform()
+                platform = self.client.platform
                 arch = ''
                 config = self.client.get_conf()
 

