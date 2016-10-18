@@ -108,15 +108,17 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                         domain = hostDomain
                         sid = domainSid
 
+                    category = ''
                     if self.validate_ntlm(password):
-                        credType = "hash"
+                        credType = "Hash"
+                        category = 'NTLM hash'
 
                     else:
-                        credType = "password"
-
+                        credType = "Password"
+                        category = 'System password'
                     # ignore machine account plaintexts
-                    if not (credType == "password" and username.endswith("$")):
-                        creds.append({'domain': domain, 'user': username, credType:password, 'hostName': hostName, 'sid':sid, 'Tool': 'mimikatz'})
+                    if not (credType == "Password" and username.endswith("$")):
+                        creds.append({'Domain': domain, 'Login': username, credType:password, 'CredType': credType.lower(), 'Host': hostName, 'sid':sid, 'Category': category, 'uid': self.client.short_name()})
 
         if len(creds) == 0:
             # check if we have lsadump output to check for krbtgt
@@ -142,7 +144,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                                 break
 
                         if krbtgtHash != "":
-                            creds.append({'domain': domain, 'user': user, 'krbtgt hash': krbtgtHash, 'hostName': hostName, 'sid':sid, 'Tool': 'mimikatz'})
+                            creds.append({'Domain': domain, 'Login': user, 'Hash': krbtgtHash, 'Host': hostName, 'CredType': 'hash', 'sid':sid, 'Category': 'krbtgt hash', 'uid': self.client.short_name()})
                     except Exception as e:
                         pass
 
@@ -167,7 +169,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                         pass
 
                 if domain != "" and userHash != "":
-                    creds.append({'domain': domain, 'user': user, 'hash': userHash, 'dcName': dcName, 'sid':sid, 'Tool': 'mimikatz'})
+                    creds.append({'Domain': domain, 'Login': user, 'Hash': userHash, 'Host': dcName, 'CredType': 'hash', 'SID':sid, 'Category': 'NTLM hash', 'uid': self.client.short_name()})
 
         return creds
 
