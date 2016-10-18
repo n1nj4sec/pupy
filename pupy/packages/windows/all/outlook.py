@@ -6,7 +6,7 @@ import os, logging, sys, time
 from collections import OrderedDict
 import win32com
 import win32com.client
-import glob
+import glob, re
 
 class outlook():
 	'''
@@ -57,12 +57,6 @@ class outlook():
 			return True
 		except Exception,e:
 			return False
-	
-	def close(self):
-		'''
-		'''
-		logging.debug("Closing Outlook link...")
-		self.outlook.Quit()
 		
 	def getInformation(self):
 		'''
@@ -191,7 +185,6 @@ class outlook():
 		filename = "{0}_{1}_{2}.{3}".format(receivedTime, ctime, subjectCleaned[:100], 'msg')
 		path = os.path.join(self.remoteTempFolder,filename)
 		logging.debug('Saving temporarily the email on the remote path {0}'.format(path))
-		#mailItem.SaveAs(path, self.OL_SAVE_AS_TYPE['olMSG'])
 		mailItem.SaveAs(path, outlook.OL_SAVE_AS_TYPE[self.msgSaveType])
 		try:
 			os.rename(path, path) #test if the file is not opened by another process
@@ -203,8 +196,12 @@ class outlook():
 	def deleteTempMailFile(self,path):
 		'''
 		'''
-		os.remove(path)
-	
+		try:
+			os.remove(path)
+		except OSError as e:
+			time.sleep(self.sleepTime)
+			os.remove(path)
+			
 	"""
 	def getAllSubjects(self):
 		'''
@@ -258,3 +255,29 @@ class outlook():
 				logging.info('OST file found in {0}'.format(ostFileFound))
 				paths.append([os.path.basename(aFile), ostFileFound])
 		return paths
+		
+	
+	def searchStringsInEmails(self, strings, separator=','):
+		'''
+		Returns emails when aString in subject or body
+		'''
+		emails= []
+		stringsSplited = strings.split(separator)
+		for aString in stringsSplited:
+			results = self.searchAStringInEmails(aString)
+			emails = emails + results
+		return emails
+	
+	def searchAStringInEmails(self, aString):
+		'''
+		Returns emails when aString in subject or body
+		'''
+		body, subject, emails = "", "", []
+		logging.debug("Searching {1} over {0} emails...".format(self.getNbOfEmails(), aString))
+		for anEmail in self.inbox.Items:
+			outEmail = {'body':anEmail.Body, 'subject':anEmail.Subject}
+			if bool(re.search(aString, anEmail.Subject))==True:
+				emails.append(outEmail)
+			elif bool(re.search(aString, anEmail.Body))==True:
+				emails.append(outEmail)
+		return emails
