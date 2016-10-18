@@ -5,7 +5,7 @@
 import sys, logging
 
 from rpyc.utils.server import ThreadedServer
-from rpyc.core import Channel, Connection
+from rpyc.core import Channel, Connection, consts
 from rpyc.utils.authenticators import AuthenticationError
 from rpyc.utils.registry import UDPRegistryClient
 from rpyc.core.stream import Stream
@@ -19,6 +19,48 @@ from Queue import Queue, Empty
 from threading import Thread, Event
 
 from streams.PupySocketStream import addGetPeer
+
+class PupyConnection(Connection):
+    def __init__(self, *args, **kwargs):
+        self._sync_events = {}
+        Connection.__init__(self, *args, **kwargs)
+
+    def sync_request(self, handler, *args):
+        seq = self._send_request(handler, args)
+        while not self._sync_events[seq].is_set():
+            if not self.poll(timeout=None):
+                self._sync_events[seq].wait()
+        del self._sync_events[seq]
+
+        isexc, obj = self._sync_replies.pop(seq)
+        if isexc:
+            raise obj
+        else:
+            return obj
+
+    def _send_request(self, handler, args, async=False):
+        seq = next(self._seqcounter)
+        if async:
+            self._async_callbacks[seq] = callback
+        else:
+            self._sync_events[seq] = Event()
+
+        self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
+        return seq
+
+    def _async_request(self, handler, args = (), callback = (lambda a, b: None)):
+        seq = self._send_request(handler, args)
+        return seq
+
+    def _dispatch_reply(self, seq, raw):
+        Connection._dispatch_reply(self, seq, raw)
+        if not seq in self._async_callbacks:
+            self._sync_events[seq].set()
+
+    def _dispatch_exception(self, seq, raw):
+        Connection._dispatch_exception(self, seq, raw)
+        if not seq in self._async_callbacks:
+            self._sync_events[seq].set()
 
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):
@@ -65,7 +107,7 @@ class PupyTCPServer(ThreadedServer):
         try:
             self.logger.debug('{}:{} Authenticated. Starting connection'.format(h, p))
 
-            connection = Connection(
+            connection = PupyConnection(
                 self.service,
                 Channel(stream),
                 config=config,
@@ -96,7 +138,8 @@ class PupyTCPServer(ThreadedServer):
             if connection:
                 connection._init_service()
                 self.logger.debug('{}:{} Serving'.format(h, p))
-                connection.serve_all()
+                while True:
+                    connection.serve(None)
 
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
