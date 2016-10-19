@@ -53,12 +53,11 @@ class PtyShell(object):
             os.environ['TERM']=term
 
         master, slave = pty.openpty()
-        self.slave=slave
         self.master = os.fdopen(master, 'rb+wb', 0) # open file in an unbuffered mode
         flags = fcntl.fcntl(self.master, fcntl.F_GETFL)
-        assert flags>=0
+        assert flags >= 0
         flags = fcntl.fcntl(self.master, fcntl.F_SETFL , flags | os.O_NONBLOCK)
-        assert flags>=0
+        assert flags >= 0
         self.prog = subprocess.Popen(
             shell=False,
             args=argv,
@@ -67,10 +66,14 @@ class PtyShell(object):
             stderr=subprocess.STDOUT,
             preexec_fn=prepare
         )
+        os.close(slave)
 
     def write(self, data):
-        self.master.write(data)
-        self.master.flush()
+        try:
+            self.master.write(data)
+            self.master.flush()
+        except:
+            self.master.close()
 
     def set_pty_size(self, p1, p2, p3, p4):
         buf = array.array('h', [p1, p2, p3, p4])
@@ -80,18 +83,30 @@ class PtyShell(object):
     def _read_loop(self, print_callback, close_callback):
         cb = rpyc.async(print_callback)
         close_cb = rpyc.async(close_callback)
-        while True:
-            r, w, x = select.select([self.master], [], [], 1)
-            if self.master in r:
-                data = os.read(self.master.fileno(), 8192)
-                if not data:
-                    break
-                cb(data)
-            else:
+        not_eof = True
+
+        while not_eof:
+            r, _, x = select.select([self.master], [], [self.master], None)
+            if r:
+                try:
+                    data = self.master.read(8192)
+                except:
+                    data = None
+
+                if data:
+                    cb(data)
+                else:
+                    not_eof = False
+
+            if x:
+                not_eof = False
+
                 self.prog.poll()
-                if self.prog.returncode is not None:
-                    close_cb()
-                    break
+
+            if not_eof:
+                not_eof = self.prog.returncode is None
+
+        close_cb()
 
     def start_read_loop(self, print_callback, close_callback):
         t=threading.Thread(
@@ -105,25 +120,33 @@ class PtyShell(object):
     def interact(self):
         """ doesn't work remotely with rpyc. use read_loop and write instead """
         try:
-            mfd=self.master.fileno()
-            fd=sys.stdin.fileno()
-            fdo=sys.stdout.fileno()
-            f=os.fdopen(fd,'r')
+            mfd = self.master.fileno()
+            fd = sys.stdin.fileno()
+            fdo = sys.stdout.fileno()
+            f = os.fdopen(fd,'r')
             old_settings = termios.tcgetattr(fd)
             try:
                 tty.setraw(fd)
-                while True:
-                    r, w, x = select.select([sys.stdin, self.master], [], [], 0.1)
+                not_eof = True
+                while not_eof:
+                    r, _, x = select.select([sys.stdin, self.master], [], [sys.stdin, self.master], None)
                     if self.master in r:
-                        data=os.read(mfd, 1024)
-                        os.write(fdo)
+                        data = os.read(mfd, 1024)
+                        if data:
+                            os.write(fdo, data)
+                        else:
+                            not_eof = False
                     if sys.stdin in r:
                         ch = os.read(fd, 1)
-                        os.write(mfd, 1)
+                        if ch:
+                            os.write(mfd, ch)
+                        else:
+                            not_eof = False
+
                     self.prog.poll()
                     if self.prog.returncode is not None:
+                        not_eof = False
                         sys.stdout.write("\n")
-                        break
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         finally:
