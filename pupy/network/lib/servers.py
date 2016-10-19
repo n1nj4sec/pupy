@@ -146,7 +146,7 @@ class PupyTCPServer(ThreadedServer):
             self.logger.debug('{}:{} Timeout'.format(h, p))
 
         except Exception as e:
-            self.logger.exception('{}:{} Exception: {}'.format(h, p, type(e)))
+            self.logger.debug('{}:{} Exception: {}'.format(h, p, type(e)))
 
         finally:
             self.logger.debug('{}:{} Shutting down'.format(h, p))
