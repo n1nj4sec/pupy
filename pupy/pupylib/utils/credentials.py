@@ -28,7 +28,7 @@ class Credentials(object):
     def add(self, data):
         with open(self.db) as json_db:
             db = json.load(json_db)
-        
+
         for d in data:
             if not self.checkIfExists(d, db['creds']):
                 db['creds'].append(d)
