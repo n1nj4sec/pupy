@@ -28,23 +28,28 @@ class Credentials(object):
     def add(self, data):
         with open(self.db) as json_db:
             db = json.load(json_db)
-        
+
         for d in data:
             if not self.checkIfExists(d, db['creds']):
                 db['creds'].append(d)
 
-        with open(self.db, 'w') as json_db: 
+        with open(self.db, 'w') as json_db:
             json_db.write(json.dumps(db))
 
     def show(self):
         res=""
         tool = ""
-        with open(self.db) as json_db:    
+        with open(self.db) as json_db:
             data = json.load(json_db)
-        
+
         # List sorted by Tools
         data = sorted(data['creds'], key=lambda d: d["Tool"], reverse=True)
-        max_uid_len = max([len(x.get("uid","?")) for x in data])
+        uid_lens = [ len(x.get("uid","?")) for x in data ]
+
+        if not uid_lens:
+            return
+
+        max_uid_len = max(uid_lens)
 
         for creds in data:
             if "Tool" in creds:
@@ -52,7 +57,7 @@ class Credentials(object):
                     res+= '\n---------- %s ---------- \n\n' % creds["Tool"]
                     tool = creds["Tool"]
                 del creds["Tool"]
-            
+
             if tool == 'Creddump':
                 res+= ('{:<%s} / {}\n'%(max_uid_len)).format(creds.get("uid", "?"), creds["hashes"].strip())
             else:
