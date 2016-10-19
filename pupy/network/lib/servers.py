@@ -38,10 +38,10 @@ class PupyConnection(Connection):
         else:
             return obj
 
-    def _send_request(self, handler, args, async=False):
+    def _send_request(self, handler, args, async=None):
         seq = next(self._seqcounter)
         if async:
-            self._async_callbacks[seq] = callback
+            self._async_callbacks[seq] = async
         else:
             self._sync_events[seq] = Event()
 
@@ -49,17 +49,18 @@ class PupyConnection(Connection):
         return seq
 
     def _async_request(self, handler, args = (), callback = (lambda a, b: None)):
-        seq = self._send_request(handler, args)
-        return seq
+        self._send_request(handler, args, async=callback)
 
     def _dispatch_reply(self, seq, raw):
+        sync = seq not in self._async_callbacks
         Connection._dispatch_reply(self, seq, raw)
-        if not seq in self._async_callbacks:
+        if sync:
             self._sync_events[seq].set()
 
     def _dispatch_exception(self, seq, raw):
+        sync = seq not in self._async_callbacks
         Connection._dispatch_exception(self, seq, raw)
-        if not seq in self._async_callbacks:
+        if sync:
             self._sync_events[seq].set()
 
 class PupyTCPServer(ThreadedServer):
