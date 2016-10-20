@@ -27,11 +27,11 @@ if len(sys.argv)==2 and sys.argv[1].strip().lower()=="debug":
 
 def get_load_module_code(code, modulename):
 	loader="""
-import imp, sys
+import marshal, imp, sys
 fullname={}
 mod = imp.new_module(fullname)
 mod.__file__ = "<bootloader>\\%s" % fullname
-exec {} in mod.__dict__
+exec marshal.loads({}) in mod.__dict__
 sys.modules[fullname]=mod
 	""".format(repr(modulename),repr(code))
 	return loader
@@ -44,6 +44,9 @@ if __name__=="__main__":
 	code_bytes.append(compile("import sys; sys.path = [];", "<string>", "exec"))
 	with open(os.path.join("..", "..", "pupy", "packages","all", "pupyimporter.py")) as f:
 		code=f.read()
+
+	code=marshal.dumps(compile(code, '<string>', 'exec'))
+
 	code_bytes.append(compile(get_load_module_code(code,"pupyimporter")+"\n", "<string>", "exec"))
 	code_bytes.append(compile("import pupyimporter;pupyimporter.install();\n", "<string>", "exec"))
 	code_bytes.append(compile("import encodings;\n", "<string>", "exec"))
