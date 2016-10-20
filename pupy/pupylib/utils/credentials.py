@@ -72,7 +72,10 @@ class Credentials(object):
                 c['login'] = creds['Login']
                 if 'Domain' in creds:
                     c['login'] = '%s\\%s' % (creds['Domain'], c['login'])
-            
+            else:
+                if 'SSID' in creds:
+                    c['login'] = 'SSID: %s' % creds['SSID']
+
             if 'Password' in creds:
                 c['credtype'] = 'plaintext'
                 c['password'] = creds['Password']
