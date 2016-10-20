@@ -55,7 +55,7 @@ class SMBSpider(PupyModule):
         
         for host in hosts:
             if args.verbose:
-                self.info("Connection on the remote host: %s:%s" % (host, str(args.port)))
+                self.info("Connecting to the remote host: %s:%s" % (host, str(args.port)))
 
             smbspider = self.client.conn.modules["pupyutils.smbspider"].SMBSpider(host, args.domain, args.port, args.user, args.passwd, args.hash, args.content, args.regex, args.share, args.exclude_dirs, exts, args.pattern, args.max_size)
             logged = smbspider.login()
