@@ -27,10 +27,13 @@ class PupyConnection(Connection):
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
-        while not self._sync_events[seq].is_set():
-            if not self.poll(timeout=None):
+        while not ( self._sync_events[seq].is_set() or self.closed ):
+            if not ( self.poll(timeout=None) or self.closed ):
                 self._sync_events[seq].wait()
         del self._sync_events[seq]
+
+        if self.closed:
+            raise EOFError()
 
         isexc, obj = self._sync_replies.pop(seq)
         if isexc:
@@ -62,6 +65,13 @@ class PupyConnection(Connection):
         Connection._dispatch_exception(self, seq, raw)
         if sync:
             self._sync_events[seq].set()
+
+    def close(self, *args):
+        try:
+            Connection.close(self, *args)
+        finally:
+            for lock in self._sync_events.itervalues():
+                lock.set()
 
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):
@@ -139,7 +149,7 @@ class PupyTCPServer(ThreadedServer):
             if connection:
                 connection._init_service()
                 self.logger.debug('{}:{} Serving'.format(h, p))
-                while True:
+                while not connection.closed:
                     connection.serve(None)
 
         except Empty:

@@ -4,6 +4,7 @@
 
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdio
+from rpyc.core.async import AsyncResultTimeout
 import sys
 import os
 if sys.platform!="win32":
@@ -60,6 +61,16 @@ class InteractiveShell(PupyModule):
         return b''.join(buf)
 
     def _read_loop(self, write_cb, complete):
+        try:
+            self._read_loop_base(write_cb, complete)
+        except AsyncResultTimeout:
+            pass
+        finally:
+            sys.stdout.write('\r\n')
+            complete.set()
+
+
+    def _read_loop_base(self, write_cb, complete):
         lastbuf = b''
         write_cb = rpyc.async(write_cb)
 
@@ -78,7 +89,6 @@ class InteractiveShell(PupyModule):
                                 lastbuf = vbuf
                                 continue
                             elif vbuf.startswith(b'\r~.'):
-                                sys.stdout.write('\r\n')
                                 break
                             elif vbuf.startswith(b'\r~,'):
                                 self.client.conn._conn.ping(timeout=1)
@@ -86,17 +96,12 @@ class InteractiveShell(PupyModule):
                                 if not buf:
                                     continue
 
-                    try:
-                        write_cb(buf)
-                    except:
-                        break
-
+                    write_cb(buf)
                     lastbuf = buf
 
-        complete.set()
-
-    def _remote_read(self, data):
-        os.write(sys.stdout.fileno(), data)
+    def _remote_read(self, data, complete):
+        if not complete.is_set():
+            os.write(sys.stdout.fileno(), data)
 
     def run(self, args):
         if self.client.is_windows() or args.pseudo_tty:
@@ -134,7 +139,7 @@ class InteractiveShell(PupyModule):
                 self._signal_winch(None, None) # set the remote tty sie to the current terminal size
                 tty.setraw(fd)
 
-                ps.start_read_loop(self._remote_read, closed.set)
+                ps.start_read_loop(lambda data: self._remote_read(data, closed), closed.set)
                 self._start_read_loop(ps.write, closed)
 
                 closed.wait()
