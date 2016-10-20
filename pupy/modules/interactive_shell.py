@@ -60,6 +60,8 @@ class InteractiveShell(PupyModule):
         return b''.join(buf)
 
     def _read_loop(self, write_cb, complete):
+        lastbuf = b''
+
         while not complete.is_set():
             r, _, x = select.select([sys.stdin], [], [sys.stdin], None)
             if x:
@@ -68,10 +70,27 @@ class InteractiveShell(PupyModule):
             if r:
                 if not complete.is_set():
                     buf = self._read_stdin_non_block()
+                    if lastbuf.startswith(b'\r'):
+                        vbuf = lastbuf + buf
+                        if vbuf.startswith(b'\r~'):
+                            if len(vbuf) < 3:
+                                lastbuf = vbuf
+                                continue
+                            elif vbuf.startswith(b'\r~.'):
+                                sys.stdout.write('\r\n')
+                                break
+                            elif vbuf.startswith(b'\r~,'):
+                                self.client.conn._conn.ping(timeout=1)
+                                buf = buf[3:]
+                                if not buf:
+                                    continue
+
                     try:
                         write_cb(buf)
                     except:
                         break
+
+                    lastbuf = buf
 
         complete.set()
 
