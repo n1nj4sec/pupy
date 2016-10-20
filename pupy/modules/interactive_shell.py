@@ -61,6 +61,7 @@ class InteractiveShell(PupyModule):
 
     def _read_loop(self, write_cb, complete):
         lastbuf = b''
+        write_cb = rpyc.async(write_cb)
 
         while not complete.is_set():
             r, _, x = select.select([sys.stdin], [], [sys.stdin], None)
