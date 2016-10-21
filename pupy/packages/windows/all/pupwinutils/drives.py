@@ -76,7 +76,7 @@ def list_drives():
             )
         )
 
-    return '\n'.join(output)
+    return '\n'.join(output)+'\n'
 
 def shared_folders():
     c = wmi.WMI()
@@ -91,4 +91,4 @@ def shared_folders():
         '%s%s' % (s.Name.ljust(12), s.Path.ljust(15)) for s in shared
     ]
 
-    return '\n'.join(output)
+    return '\n'.join(output)+'\n'
