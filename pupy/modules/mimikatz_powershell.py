@@ -99,27 +99,40 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                     except:
                         pass
 
-                if username != "" and password != "" and password != "(null)":
-                    
-                    sid = ""
+                    if password:
+                        if username != "" and password != "" and password != "(null)":
+                            
+                            sid = ""
 
-                    # substitute the FQDN in if it matches
-                    if hostDomain.startswith(domain.lower()):
-                        domain = hostDomain
-                        sid = domainSid
+                            # substitute the FQDN in if it matches
+                            if hostDomain.startswith(domain.lower()):
+                                domain = hostDomain
+                                sid = domainSid
 
-                    category = ''
-                    if self.validate_ntlm(password):
-                        credType = "Hash"
-                        category = 'NTLM hash'
+                            store = False
+                            category = ''
+                            if self.validate_ntlm(password):
+                                credType = "Hash"
+                                category = 'NTLM hash'
+                                if not username.endswith("$"):
+                                    store = True
 
-                    else:
-                        credType = "Password"
-                        category = 'System password'
-                    # ignore machine account plaintexts
-                    if not (credType == "Password" and username.endswith("$")):
-                        creds.append({'Domain': domain, 'Login': username, credType:password, 'CredType': credType.lower(), 'Host': hostName, 'sid':sid, 'Category': category, 'uid': self.client.short_name()})
+                            else:
+                                credType = "Password"
+                                category = 'System password'
+                                # ignore big hex password
+                                if  len(password) < 300:
+                                    store = True
 
+                            result = {'Domain': domain, 'Login': username, credType:password, 'CredType': credType.lower(), 'Host': hostName, 'sid':sid, 'Category': category, 'uid': self.client.short_name()}
+                            # do not store password if it has already been stored
+                            for c in creds:
+                                if c == result:
+                                    store = False
+                            if store:
+                                creds.append(result)
+                        username, domain, password = "", "", ""
+                        
         if len(creds) == 0:
             # check if we have lsadump output to check for krbtgt
             # happens on domain controller hashdumps
