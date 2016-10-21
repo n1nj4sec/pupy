@@ -3,6 +3,7 @@
 #Contributor(s): @bobsecq
 
 import sys, os
+from ctypes import wintypes
 from ctypes import *
 import subprocess
 import psutil
@@ -67,7 +68,7 @@ class SID_AND_ATTRIBUTES(Structure):
 class TOKEN_USER(Structure):
     _fields_ = [
         ("User", SID_AND_ATTRIBUTES),]
-        
+
 SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
 SE_PRIVILEGE_ENABLED            = (0x00000002)
 SE_PRIVILEGE_REMOVED            = (0x00000004)
@@ -110,7 +111,7 @@ class TOKEN_PRIVILEGES(Structure):
         ("PrivilegeCount",  DWORD),
         ("Privileges",      LUID_AND_ATTRIBUTES),
     ]
-    
+
 class TOKEN_PRIVS(Structure):
     _fields_ = [
         ("PrivilegeCount",  DWORD),
@@ -212,7 +213,7 @@ def EnablePrivilege(privilegeStr, hToken = None):
     laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
     tp  = TOKEN_PRIVILEGES(1, laa)
 
-    windll.advapi32.AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)  
+    windll.advapi32.AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)
     e=GetLastError()
     if e!=0:
         raise WinError(e)
@@ -256,7 +257,7 @@ def getProcessToken(pid):
     windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
     windll.kernel32.CloseHandle(hProcess)
     return hToken
-    
+
 def get_process_token():
     """
     Get the current process token
@@ -299,7 +300,7 @@ def getSidToken(token_sid):
                 else:
                     return None
 
-    # trying to impersonate a token 
+    # trying to impersonate a token
     else:
         pids = [int(x) for x in psutil.pids() if int(x)>4]
 
@@ -383,7 +384,7 @@ def isSystem():
     sids = ListSids()
     isSystem = False
     for sid in sids:
-        if sid[0] == os.getpid():       
+        if sid[0] == os.getpid():
             if sid[2] == "S-1-5-18":
                 isSystem = True
     return isSystem
@@ -414,11 +415,11 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
     if hidden:
         lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
         lpStartupInfo.wShowWindow = subprocess.SW_HIDE
-    
+
     CREATE_NEW_CONSOLE = 0x00000010
     CREATE_UNICODE_ENVIRONMENT = 0x00000400
     NORMAL_PRIORITY_CLASS = 0x00000020
-    
+
     dwCreationflag = NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE
 
     userenv = WinDLL('userenv', use_last_error=True)
@@ -433,7 +434,7 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
     success = windll.advapi32.CreateProcessAsUserA(hTokendupe, None, ' '.join(args), None, None, True, dwCreationflag, cenv, None, byref(lpStartupInfo), byref(lpProcessInformation))
     if not success:
         raise WinError()
-    
+
     print "[+] process created PID: " + str(lpProcessInformation.dwProcessId)
     return lpProcessInformation.dwProcessId
 
@@ -478,7 +479,7 @@ def get_currents_privs():
     assert res > 0, "Error in second GetTokenInformation (%d)" % res
     privileges = ctypes.cast(buffer, ctypes.POINTER(TOKEN_PRIVS)).contents
     return privileges
-    
+
 def can_get_admin_access():
     """
     Check if the user may be able to get administrator access.
