@@ -21,7 +21,7 @@ endif
 
 ifdef DEBUG
 DEBUG_ADD   :=DEBUG
-CFLAGS      := $(CFLAGS) /DDEBUG
+CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
 LINKER_OPTS :=
 PPARCH      := $(PPARCH)d
 else
@@ -79,7 +79,7 @@ resources_msvcr90_dll.c: resources/msvcr90.dll gen_resource_header.py $(BUILDENV
 	$(PYTHON) gen_resource_header.py $<
 
 $(PYOBJS): %.obj: %.c
-	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)/include $<
+	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
 
 main_exe.obj: main_exe.c
 	$(CC) /c $(CFLAGS) $<

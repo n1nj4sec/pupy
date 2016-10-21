@@ -3,7 +3,10 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
+#ifndef DEBUG
 #define QUIET // uncomment to avoid debug prints
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -50,10 +53,10 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	PyGILState_STATE restore_state;
 
 	if(!GetModuleHandle("msvcr90.dll")){
+		int r = _load_msvcr90(resources_msvcr90_dll_start);
 		#ifndef QUIET
-		fprintf(stderr,"loading msvcr90.dll\n");
+		fprintf(stderr,"loading msvcr90.dll: %d\n", r);
 		#endif
-		_load_msvcr90(resources_msvcr90_dll_start);
 	}
 	else{
 		#ifndef QUIET
@@ -162,4 +165,3 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 
 	return 0;
 }
-
