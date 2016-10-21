@@ -18,9 +18,9 @@
 #
 import sys, imp, zlib, marshal
 
-sep = '\\'
-if 'linux' in sys.platform:
-    sep = '/'
+sep = '/'
+if 'win' in sys.platform:
+    sep = '\\'
 
 builtin_memimporter=False
 try:
@@ -41,10 +41,10 @@ except ImportError:
 def get_module_files(fullname):
     """ return the file to load """
     global modules
-    f=fullname.replace(".","/")
+    f=fullname.replace(".",sep)
     files=[]
     for x in modules.iterkeys():
-        if x.rsplit(".",1)[0]==f or f+"/__init__.py"==x or f+"/__init__.pyc"==x or f+"/__init__.pyo"==x:
+        if x.rsplit(".",1)[0]==f or f+sep+"__init__.py"==x or f+sep+"__init__.pyc"==x or f+sep+"__init__.pyo"==x:
             files.append(x)
     return files
 
@@ -74,7 +74,7 @@ class PupyPackageLoader:
             if self.extension=="py":
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = ("<memimport>/%s" % self.path).replace("/",sep)
+                mod.__file__ = '<memimport>{}{}'.format(sep, self.path)
                 mod.__loader__ = self
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit(sep,1)[0]]
@@ -87,7 +87,7 @@ class PupyPackageLoader:
             elif self.extension in ["pyc","pyo"]:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = ("<memimport>/%s" % self.path).replace("/",sep)
+                mod.__file__ = '<memimport>{}{}'.format(sep, self.path)
                 mod.__loader__ = self
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit(sep,1)[0]]
@@ -99,12 +99,12 @@ class PupyPackageLoader:
                 exec c in mod.__dict__
             elif self.extension in ("dll","pyd","so"):
                 initname = "init" + fullname.rsplit(".",1)[-1]
-                path=fullname.replace(".","/")+"."+self.extension
+                path=fullname.replace(".",sep)+"."+self.extension
                 #print "Loading %s from memory"%fullname
                 #print "init:%s, %s.%s"%(initname,fullname,self.extension)
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
                 mod.__name__=fullname
-                mod.__file__ = ("<memimport>/%s" % self.path).replace("/",sep)
+                mod.__file__ = '<memimport>{}{}'.format(sep, self.path)
                 mod.__loader__ = self
                 mod.__package__ = fullname.rsplit('.',1)[0]
                 sys.modules[fullname]=mod
@@ -144,7 +144,7 @@ class PupyPackageFinder:
                 return None
             selected=None
             for f in files:
-                if f.endswith("/__init__.pyc") or f.endswith("/__init__.py") or f.endswith("/__init__.pyo"):
+                if f.endswith(sep+"__init__.pyc") or f.endswith(sep+"__init__.py") or f.endswith(sep+"__init__.pyo"):
                     selected=f # we select packages in priority
             if not selected:
                 for f in files:
@@ -161,7 +161,7 @@ class PupyPackageFinder:
             content=self.modules[selected]
             extension=selected.rsplit(".",1)[1].strip().lower()
             is_pkg=False
-            if selected.endswith("/__init__.py") or selected.endswith("/__init__.pyc") or selected.endswith("/__init__.pyo"):
+            if selected.endswith(sep+"__init__.py") or selected.endswith(sep+"__init__.pyc") or selected.endswith(sep+"__init__.pyo"):
                 is_pkg=True
             #print "--> Loading %s(%s).%s is_package:%s"%(fullname,selected,extension, is_pkg)
             return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
