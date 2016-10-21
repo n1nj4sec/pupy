@@ -27,8 +27,8 @@ try:
             for root, dirs, files in os.walk(mdep.__path__[0]):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
                     found=False
-                    for ext in ('.pyc', '.so', '.pyo', '.py'):
-                        if ext == '.py' and found:
+                    for ext in ('.pyo', '.so', '.pyc', '.py'):
+                        if ( ext == '.py' or ext == '.pyc' ) and found:
                             continue
                         if os.path.exists(os.path.join(root,f+ext)):
                             zipname = os.path.join(root[len(path)+1:], f.split('.', 1)[0] + ext)

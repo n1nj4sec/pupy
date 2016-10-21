@@ -48,29 +48,37 @@ for dist in $PYTHON32 $PYTHON64 $PYTHONVC $WINETRICKS; do
 done
 
 for prefix in $WINE32 $WINE64; do
-    rm -f $prefix/dosdevices/d:
-    rm -f $prefix/dosdevices/e:
-    ln -s ../../downloads $prefix/dosdevices/d:
-    ln -s $SOURCES $prefix/dosdevices/e:
+    rm -f $prefix/dosdevices/y:
+    rm -f $prefix/dosdevices/x:
+    ln -s ../../downloads $prefix/dosdevices/y:
+    ln -s $SOURCES $prefix/dosdevices/x:
 done
+
+WINEPREFIX=$WINE32 wineserver -k
+
+[ ! -f $WINE32/drive_c/.python ] && \
+    WINEPREFIX=$WINE32 msiexec /i Y:\\python-2.7.12.msi /q && \
+    touch $WINE32/drive_c/.python
+
+WINEPREFIX=$WINE32 wineboot -r
+WINEPREFIX=$WINE32 wineserver -k
+
+[ ! -f $WINE64/drive_c/.python ] && \
+    WINEPREFIX=$WINE64 msiexec /i Y:\\python-2.7.12.amd64.msi /q && \
+    touch $WINE64/drive_c/.python
+
+WINEPREFIX=$WINE64 wineboot -r
+WINEPREFIX=$WINE64 wineserver -k
 
 for prefix in $WINE32 $WINE64; do
     [ ! -f $prefix/drive_c/.vc ] && \
-	WINEPREFIX=$prefix msiexec /i D:\\VCForPython27.msi /q && \
+	WINEPREFIX=$prefix msiexec /i Y:\\VCForPython27.msi /q && \
 	touch $prefix/drive_c/.vc
 done
 
-[ ! -f $WINE32/drive_c/.python ] && \
-    WINEPREFIX=$WINE32 msiexec /i D:\\python-2.7.12.msi /q && \
-    touch $WINE32/drive_c/.python
-
-[ ! -f $WINE64/drive_c/.python ] && \
-    WINEPREFIX=$WINE64 msiexec /i D:\\python-2.7.12.amd64.msi /q && \
-    touch $WINE64/drive_c/.python
-
 for prefix in $WINE32 $WINE64; do
-    WINEPREFIX=$prefix wine python -m pip install --upgrade pip
-    WINEPREFIX=$prefix wine pip install --upgrade $PACKAGES
+    WINEPREFIX=$prefix wine python -O -m pip install --upgrade pip
+    WINEPREFIX=$prefix wine python -O -m pip install --upgrade $PACKAGES
 done
 
 WINEPREFIX=$WINE32 wine easy_install -Z $PYCRYPTO32
@@ -86,6 +94,7 @@ chmod +x $WINE32/python.sh
 
 cat >$WINE32/cl.sh <<EOF
 #!/bin/sh
+unset WINEARCH
 export WINEPREFIX=$WINE32
 export VCINSTALLDIR="C:\\\\Program Files\\\\Common Files\\\\Microsoft\\\\Visual C++ for Python\\\\9.0\\\\VC"
 export WindowsSdkDir="C:\\\\Program Files\\\\Common Files\\\\Microsoft\\\\Visual C++ for Python\\\\9.0\\\\WinSDK"
@@ -97,6 +106,7 @@ EOF
 chmod +x $WINE32/cl.sh
 
 cat >$WINE64/python.sh <<EOF
+#!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE64
 exec wine python.exe "\$@"
@@ -104,12 +114,14 @@ EOF
 chmod +x $WINE64/python.sh
 
 cat >$WINE64/cl.sh <<EOF
+#!/bin/sh
+unset WINEARCH
 export WINEPREFIX=$WINE64
 export VCINSTALLDIR="C:\\\\Program Files (x86)\\\\Common Files\\\\Microsoft\\\\Visual C++ for Python\\\\9.0\\\\VC"
 export WindowsSdkDir="C:\\\\Program Files (x86)\\\\Common Files\\\\Microsoft\\\\Visual C++ for Python\\\\9.0\\\\WinSDK"
 export INCLUDE="\$VCINSTALLDIR\\\\Include;\$WindowsSdkDir\\\\Include"
 export LIB="\$VCINSTALLDIR\\\\Lib\\\\amd64;\$WindowsSdkDir\\\\Lib\\\\x64"
-export LIBPATH="\$VCINSTALLDIR\\\\Lib\\\\amd64;\$WindowsSdkDir\\\\Lib\\\\x64
+export LIBPATH="\$VCINSTALLDIR\\\\Lib\\\\amd64;\$WindowsSdkDir\\\\Lib\\\\x64"
 exec wine "\$VCINSTALLDIR\\\\bin\\\\amd64\\\\cl.exe" "\$@"
 EOF
 chmod +x $WINE64/cl.sh

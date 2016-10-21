@@ -8,15 +8,15 @@ import shutil
 sys.path.insert(0, os.path.join('resources','library_patches'))
 sys.path.insert(0, os.path.join('..','..','pupy'))
 
-import pp
 import additional_imports
 import Crypto
+import pp
 
 all_dependencies=set(
     [
         x.split('.')[0] for x,m in sys.modules.iteritems() if not '(built-in)' in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa'
+        'win32file', 'win32pipe', 'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa'
     ]
 )
 
@@ -38,8 +38,8 @@ try:
             for root, dirs, files in os.walk(mdep.__path__[0]):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
                     found=False
-                    for ext in ('.pyc', '.pyd', '.pyo', '.py', '.dll', '.so'):
-                        if ext == '.py' and found:
+                    for ext in ('.pyo', '.pyd', '.pyc', '.py', '.dll', '.so'):
+                        if ( ext == '.py' or ext == '.pyc' ) and found:
                             continue
                         if os.path.exists(os.path.join(root,f+ext)):
                             zipname = os.path.join(root[len(path)+1:], f.split('.', 1)[0] + ext)
