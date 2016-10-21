@@ -16,20 +16,38 @@ import errno
 import random
 
 from Queue import Queue, Empty
-from threading import Thread, Event
+from threading import Thread, Event, RLock
 
 from streams.PupySocketStream import addGetPeer
 
 class PupyConnection(Connection):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, lock, *args, **kwargs):
         self._sync_events = {}
+        self._connection_serve_lock = lock
+        self._last_recv = time.time()
         Connection.__init__(self, *args, **kwargs)
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
+        logging.debug('Sync request: {}'.format(seq))
         while not ( self._sync_events[seq].is_set() or self.closed ):
-            if not ( self.poll(timeout=None) or self.closed ):
-                self._sync_events[seq].wait()
+            logging.debug('Sync poll until: {}'.format(seq))
+            if self._connection_serve_lock.acquire(False):
+                try:
+                    logging.debug('Sync poll serve: {}'.format(seq))
+                    if not self.serve(10):
+                        logging.debug('Sync poll serve interrupted: {}/inactive={}'.format(
+                            seq, self.inactive))
+                finally:
+                    logging.debug('Sync poll serve complete. release: {}'.format(seq))
+                    self._connection_serve_lock.release()
+            else:
+                logging.debug('Sync poll wait: {}'.format(seq))
+                self._sync_events[seq].wait(timeout=10)
+
+            logging.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))
+
+        logging.debug('Sync request handled: {}'.format(seq))
         del self._sync_events[seq]
 
         if self.closed:
@@ -44,8 +62,10 @@ class PupyConnection(Connection):
     def _send_request(self, handler, args, async=None):
         seq = next(self._seqcounter)
         if async:
+            logging.debug('Async request: {}'.format(seq))
             self._async_callbacks[seq] = async
         else:
+            logging.debug('Sync request: {}'.format(seq))
             self._sync_events[seq] = Event()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
@@ -55,12 +75,14 @@ class PupyConnection(Connection):
         self._send_request(handler, args, async=callback)
 
     def _dispatch_reply(self, seq, raw):
+        self._last_recv = time.time()
         sync = seq not in self._async_callbacks
         Connection._dispatch_reply(self, seq, raw)
         if sync:
             self._sync_events[seq].set()
 
     def _dispatch_exception(self, seq, raw):
+        self._last_recv = time.time()
         sync = seq not in self._async_callbacks
         Connection._dispatch_exception(self, seq, raw)
         if sync:
@@ -72,6 +94,10 @@ class PupyConnection(Connection):
         finally:
             for lock in self._sync_events.itervalues():
                 lock.set()
+
+    @property
+    def inactive(self):
+        return time.time() - self._last_recv
 
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):
@@ -92,7 +118,7 @@ class PupyTCPServer(ThreadedServer):
 
         ThreadedServer.__init__(self, *args, **kwargs)
 
-    def _setup_connection(self, sock, queue):
+    def _setup_connection(self, lock, sock, queue):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
         Note that this code is cut and paste from the rpyc internals and may have to be
         changed if rpyc evolves'''
@@ -119,6 +145,7 @@ class PupyTCPServer(ThreadedServer):
             self.logger.debug('{}:{} Authenticated. Starting connection'.format(h, p))
 
             connection = PupyConnection(
+                lock,
                 self.service,
                 Channel(stream),
                 config=config,
@@ -132,8 +159,9 @@ class PupyTCPServer(ThreadedServer):
 
     def _authenticate_and_serve_client(self, sock):
         queue = Queue(maxsize=1)
+        lock = RLock()
 
-        authentication = Thread(target=self._setup_connection, args=(sock, queue))
+        authentication = Thread(target=self._setup_connection, args=(lock, sock, queue))
         authentication.daemon = True
         authentication.start()
 
@@ -147,16 +175,19 @@ class PupyTCPServer(ThreadedServer):
             connection, wrapper, credentials = queue.get(block=True, timeout=60)
             self.logger.debug('{}:{} Wait complete: {}'.format(h, p, connection))
             if connection:
+                self.logger.debug('{}:{} Initializing service...')
                 connection._init_service()
-                self.logger.debug('{}:{} Serving'.format(h, p))
-                while not connection.closed:
-                    connection.serve(None)
-
+                self.logger.debug('{}:{} Initializing service... complete. Locking')
+                with lock:
+                    self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
+                        h, p, connection.inactive))
+                    while not connection.closed:
+                        connection.serve(10)
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
 
-        except Exception as e:
-            self.logger.debug('{}:{} Exception: {}'.format(h, p, type(e)))
+        except EOFError:
+            pass
 
         finally:
             self.logger.debug('{}:{} Shutting down'.format(h, p))

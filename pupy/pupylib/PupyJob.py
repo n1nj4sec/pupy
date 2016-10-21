@@ -1,16 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
@@ -31,7 +31,7 @@ def _async_raise(tid, exctype):
     if res == 0:
         raise ValueError("invalid thread id")
     elif res != 1:
-        # """if it returns a number greater than one, you're in trouble, 
+        # """if it returns a number greater than one, you're in trouble,
         # and you should call it again with exc=NULL to revert the effect"""
         ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
@@ -41,25 +41,25 @@ class Thread(threading.Thread):
         """determines this (self's) thread id"""
         if not self.isAlive():
             raise threading.ThreadError("the thread is not active")
-        
+
         # do we have it cached?
         if hasattr(self, "_thread_id"):
             return self._thread_id
-        
+
         # no, look for it in the _active dict
         for tid, tobj in threading._active.items():
             if tobj is self:
                 self._thread_id = tid
                 return tid
-        
+
         raise AssertionError("could not determine the thread's id")
-    
+
     def raise_exc(self, exctype):
         """raises the given exception type in the context of this thread"""
         _async_raise(self._get_my_tid(), exctype)
-    
+
     def stop(self):
-        """raises SystemExit in the context of the given thread, which should 
+        """raises SystemExit in the context of the given thread, which should
         cause the thread to exit silently (unless caught)"""
         self.raise_exc(KeyboardInterrupt)
 
@@ -188,6 +188,8 @@ class PupyJob(object):
                     break
                 except KeyboardInterrupt:
                     continue
+                except EOFError:
+                    break
                 except rpyc.AsyncResultTimeout:
                     logging.debug("connection %s seems blocked, reinitialising..."%str(m))
                     m.client.conn._conn.close()
@@ -203,7 +205,7 @@ class PupyJob(object):
         res=m.stdout.getvalue()
         m.stdout.truncate(0)
         return res
-            
+
     def result_summary(self):
         res=""
         for m in self.pupymodules:
@@ -224,4 +226,3 @@ class PupyJob(object):
 
     def __str__(self):
         return "< %s >"%(self.name)
-
