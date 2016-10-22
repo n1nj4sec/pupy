@@ -16,7 +16,7 @@ def get_encoded_library_string():
 	modules = dict([
 		(z.filename, zip.open(z.filename,).read()) for z in zip.infolist() \
 		if os.path.splitext(z.filename)[1] in [
-			".py",".pyd",".dll",".pyc",".pyo"
+			'.py', '.pyd', '.dll', '.pyc', '.pyo', '.so'
 		]
 	])
 
