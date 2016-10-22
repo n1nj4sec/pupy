@@ -2,7 +2,7 @@ GZIP ?= gzip
 CC ?= gcc
 
 CFLAGS := $(shell pkg-config --cflags python-2.7) -fPIC $(CFLAGS_EXTRA)
-LDFLAGS := -pthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
+LDFLAGS := -lpthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
 PFLAGS := -O
 PIE ?= -pie
 
@@ -22,9 +22,10 @@ DEBUG_ADD := -debug
 CFLAGS += -DDEBUG -O0 -g
 NAME   := "$(NAME)d"
 else
-CFLAGS += -O2
+CFLAGS += -Os
 LINUX_INJECT_CFLAGS += -Dprintf=dprint -Dfprintf=dfprint
-LDFLAGS += -O1 -s
+LDFLAGS += -O1 -Wl,-s -Wl,-x -Wl,--gc-sections -Wl,--no-undefined
+LDFLAGS += -Wl,-z,now -Wl,-z,combreloc -Wl,--enable-new-dtags
 endif
 
 
