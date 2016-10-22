@@ -6,7 +6,8 @@ __class_name__="ExitModule"
 
 class ExitModule(PupyModule):
     """ exit the client on the other side """
-
+    is_module=False
+    
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="exit", description=self.__doc__)
         self.arg_parser.add_argument('--yes', action="store_true", help='exit confirmation')
