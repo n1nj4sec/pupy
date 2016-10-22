@@ -205,7 +205,7 @@ class PupyClient(object):
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
         modules_dic={}
         if os.path.isdir(os.path.join(search_path,start_path)): # loading a real package with multiple files
-            for root, dirs, files in os.walk(os.path.join(search_path,start_path)):
+            for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
                 for f in files:
                     if pure_python_only:
                         if f.endswith((".so",".pyd",".dll")): #avoid loosing shells when looking for packages in sys.path and unfortunatelly pushing a .so ELF on a remote windows
@@ -218,9 +218,9 @@ class PupyClient(object):
                     modules_dic[modpath]=module_code
                 package_found=True
         else: # loading a simple file
-            extlist=[".py",".pyc"]
+            extlist=[ ".py", ".pyc", ".pyo" ]
             if not pure_python_only:
-                extlist+=[".pyd", "27.dll"] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
+                extlist+=[ ".so", ".pyd", "27.dll" ] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
             for ext in extlist:
                 filepath=os.path.join(search_path,start_path+ext)
                 if os.path.isfile(filepath):
@@ -271,7 +271,7 @@ class PupyClient(object):
         if not modules_dic:
             raise PupyModuleError("Couldn't load package %s : no such file or directory neither in \(path=%s) or sys.path"%(module_name,repr(self.get_packages_path())))
         if force or ( module_name not in self.conn.modules.sys.modules ):
-            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not authorized to iterate/access to the dictionary declared on this side and because it is more efficient
+            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
             logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
             if force and  module_name in self.conn.modules.sys.modules:
                 self.conn.modules.sys.modules.pop(module_name)
