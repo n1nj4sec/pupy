@@ -20,7 +20,7 @@ PPARCH := x86
 endif
 
 ifdef DEBUG
-DEBUG_ADD   :=DEBUG
+DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
 LINKER_OPTS :=
 PPARCH      := $(PPARCH)d
@@ -49,22 +49,22 @@ COMMON_OBJS := \
 all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll
 
 $(BUILDENV_READY):
-	./buildenv.sh $(BUILDENV)
+	./buildenv.sh "$(BUILDENV)"
 
-resources/library_compressed_string.txt: gen_library_compressed_string.py resources/library.zip $(BUILDENV_READY)
-	$(PYTHON) gen_library_compressed_string.py
+resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip $(BUILDENV_READY)
+	$(PYTHON) ../gen_library_compressed_string.py
 
-resources/library.zip: build_library_zip.py $(BUILDENV_READY)
-	$(PYTHON) build_library_zip.py
+resources/library.zip: ../build_library_zip.py $(BUILDENV_READY)
+	$(PYTHON) ../build_library_zip.py -windows
 
-resources_library_compressed_string_txt.c: gen_resource_header.py resources/library_compressed_string.txt resources/library.zip $(BUILDENV_READY)
-	$(PYTHON) gen_resource_header.py resources/library_compressed_string.txt
+resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip $(BUILDENV_READY)
+	$(PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt
 
-resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py gen_python_bootloader.py $(BUILDENV_READY)
-	$(PYTHON) gen_python_bootloader.py $(DEBUG_ADD)
+resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py $(BUILDENV_READY)
+	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
-resources_bootloader_pyc.c: resources/bootloader.pyc gen_resource_header.py $(BUILDENV_READY)
-	$(PYTHON) gen_resource_header.py $<
+resources_bootloader_pyc.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
+	$(PYTHON) ../gen_resource_header.py $<
 
 resources/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
 	cp $< $@
@@ -72,11 +72,11 @@ resources/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUIL
 resources/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDENV_READY)
 	cp $< $@
 
-resources_python27_dll.c: resources/python27.dll gen_resource_header.py $(BUILDENV_READY)
-	$(PYTHON) gen_resource_header.py $<
+resources_python27_dll.c: resources/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
+	$(PYTHON) ../gen_resource_header.py $<
 
-resources_msvcr90_dll.c: resources/msvcr90.dll gen_resource_header.py $(BUILDENV_READY)
-	$(PYTHON) gen_resource_header.py $<
+resources_msvcr90_dll.c: resources/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
+	$(PYTHON) ../gen_resource_header.py $<
 
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
@@ -98,16 +98,14 @@ $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll: main_reflective.obj $(PYOBJS) Reflect
 
 .PHONY: clean
 
-ifneq "$(QUICK)" "1"
-.PHONY: resources/python27.dll resources/msvcr90.dll
-endif
-
 clean:
 	rm -f *.obj
 	rm -f *.pyo
 	rm -f *.pyc
 	rm -f *.txt
 	rm -f *_txt.c
+	rm -f *_pyc.c
+	rm -f *_dll.c
 	rm -f resources/*.pyo
 	rm -f resources/*.pyc
 	rm -f resources/*.txt

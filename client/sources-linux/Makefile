@@ -18,7 +18,7 @@ endif
 LINUX_INJECT_CFLAGS := -include debug.h -include fixes.h -Dmain=linux_inject_main
 
 ifneq ($(DEBUG),)
-DEBUG_ADD := debug
+DEBUG_ADD := -debug
 CFLAGS += -DDEBUG -O0 -g
 NAME   := "$(NAME)d"
 else
@@ -58,7 +58,7 @@ ifneq ($(ZLIB),built-in)
 resources/zlib.so: $(ZLIB)
 	$(GZIP) -9 -c $< >$@
 
-resources_zlib_so.c: gen_resource_header.py resources/zlib.so
+resources_zlib_so.c: ../gen_resource_header.py resources/zlib.so
 	$(PYTHON) $(PFLAGS) $+
 endif
 
@@ -68,16 +68,16 @@ import-tab.c import-tab.h: mktab.py
 Python-dynload.o: Python-dynload.c import-tab.c import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-resources/library_compressed_string.txt: gen_library_compressed_string.py resources/library.zip
-	$(PYTHON) $(PFLAGS) gen_library_compressed_string.py
+resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip
+	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py
 
-resources_library_compressed_string_txt.c: gen_resource_header.py resources/library_compressed_string.txt resources/library.zip
-	$(PYTHON) $(PFLAGS) gen_resource_header.py resources/library_compressed_string.txt
+resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip
+	$(PYTHON) $(PFLAGS) ../gen_resource_header.py resources/library_compressed_string.txt
 
-resources/bootloader.pyc: gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
-	$(PYTHON) $(PFLAGS) gen_python_bootloader.py $(DEBUG_ADD)
+resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
+	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
 
-resources_bootloader_pyc.c: gen_resource_header.py resources/bootloader.pyc
+resources_bootloader_pyc.c: ../gen_resource_header.py resources/bootloader.pyc
 	$(PYTHON) $(PFLAGS) $+
 
 linux-inject/%.o: linux-inject/%.c
@@ -89,10 +89,10 @@ resources/python27.so: $(LIBPYTHON)
 	$(GZIP) -9 -c $@.tmp >$@
 	rm -f $@.tmp
 
-resources/library.zip: build_library_zip.py additional_imports.py
+resources/library.zip: ../build_library_zip.py ../additional_imports.py
 	$(PYTHON) $(PFLAGS) $<
 
-resources_python27_so.c: gen_resource_header.py resources/python27.so
+resources_python27_so.c: ../gen_resource_header.py resources/python27.so
 	$(PYTHON) $(PFLAGS) $+
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin: main_exe.o $(PYOBJS) $(COMMON_OBJS)

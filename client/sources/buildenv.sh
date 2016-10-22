@@ -2,7 +2,7 @@
 
 unset WINEARCH WINEPREFIX
 
-set -e
+set -xe
 
 SELF=`readlink -f $0`
 CWD=`dirname $0`
