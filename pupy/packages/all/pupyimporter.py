@@ -57,7 +57,13 @@ def pupy_add_package(pkdic):
     """ update the modules dictionary to allow remote imports of new packages """
     import cPickle
     global modules
-    modules.update(cPickle.loads(pkdic))
+
+    module = cPickle.loads(pkdic)
+
+    if __debug:
+        print 'Adding package: {}'.format([ x for x in module.iterkeys() ])
+
+    modules.update(module)
 
 class PupyPackageLoader:
     def __init__(self, fullname, contents, extension, is_pkg, path):
