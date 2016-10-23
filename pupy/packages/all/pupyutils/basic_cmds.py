@@ -2,10 +2,11 @@
 import os
 from datetime import datetime
 import shutil
+import getpass
 
 # -------------------------- For ls functions --------------------------
 
-def sizeof_fmt(num, suffix='B'):
+def size_human_readable(num, suffix='B'):
     try:
         num = int(num)
         for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
@@ -16,51 +17,62 @@ def sizeof_fmt(num, suffix='B'):
     except:
         return '0.00 B'
 
-def list_file(real_name, path):
-    category = '      '
-    if os.path.isdir(path):
-        category = '<REP> '
-
+def file_timestamp(path):
     try:
         d = datetime.fromtimestamp(os.path.getmtime(path))
-        date = str(d.strftime("%d/%m/%y"))
+        return str(d.strftime("%d/%m/%y"))
     except:
-        date = '00/00/00'
-    
-    try:
-        size = sizeof_fmt(os.path.getsize(path))
-        s = str(size)
-        while len(s) < 10:
-            s = s + ' '
-    except:
-        s =  '          '
+        return '00/00/00'
 
-    return ' ' + date + '  ' + category + '  ' + s + '  ' + real_name + '\n'
+def output_format(file):
+    return u'  {}{}{}{}\n'.format(
+                   '{:<10}'.format(file['timestamp']), 
+                   '{:<7}'.format(file['isDir']),
+                   '{:<10}'.format(file['size']), 
+                   '{:<40}'.format(file['name']),
+            )
 
-def list_dir(path):
-    output = ''
+def list_file(path):
+    file = {'isDir': '', 'name': '', 'size': 'N/A', 'timestamp': ''}
+    file['size'] = size_human_readable(os.path.getsize(path))
+    file['name'] = path.split(os.sep)[-1]
+    file['timestamp'] = file_timestamp(path)
+    return output_format(file)
+
+def list_dir(path, followlinks=False):
+    # import this lib only for this function
+    from scandir import scandir
+
+    results = ''
     try:
-        ff = ""
-        for f in os.listdir(path):
-            ff += list_file(f, path + os.sep + f)
+        for entry in scandir(path):
+            file = {'isDir': '', 'name': '', 'size': 'N/A', 'timestamp': ''}
+            
+            if entry.is_dir(follow_symlinks=followlinks):
+                file['isDir'] = '<REP>'
+            
+            file['size'] = size_human_readable(entry.stat(follow_symlinks=False).st_size)
+            file['name'] = entry.name
+            file['timestamp'] = file_timestamp(os.path.join(path, entry.name))
+            results += output_format(file)
     except:
-        ff = '\n[-] You need more permission to show the content of the file'
-    
-    return ff
+        pass
+    return results
     
 def ls(path=None):
     if not path:
-        path = "."
+        path = os.getcwd()
     
     if not os.path.exists(path):
         raise IOError("The path \"%s\" does not exist" % path)
 
     if os.path.isdir(path):
-        allfiles = list_dir(path)
+        current_path = 'Listing files from %s' % path
+        return current_path, list_dir(path)
+
     elif os.path.isfile(path):
-        allfiles = list_file(path, os.getcwd() + os.sep + path)
-    
-    return "%s" % allfiles
+        current_path = 'File: %s' % path
+        return current_path, list_file(path)
     
 # -------------------------- For cd function --------------------------
 
@@ -150,3 +162,9 @@ def cat(path):
                     
     else:
         return "[-] The file \"%s\" does not exists" % path
+
+
+# -------------------------- For getuid function --------------------------
+
+def getuid():
+    return getpass.getuser()
