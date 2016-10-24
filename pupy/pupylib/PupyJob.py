@@ -188,11 +188,13 @@ class PupyJob(object):
                     break
                 except KeyboardInterrupt:
                     continue
-                except EOFError:
-                    break
-                except rpyc.AsyncResultTimeout:
+                except (rpyc.AsyncResultTimeout, ReferenceError, EOFError):
                     logging.debug("connection %s seems blocked, reinitialising..."%str(m))
-                    m.client.conn._conn.close()
+                    try:
+                        m.client.conn._conn.close()
+                    except (rpyc.AsyncResultTimeout, ReferenceError, EOFError):
+                        pass
+
                     break
 
     def is_finished(self):
