@@ -23,6 +23,7 @@ TODO: create buildenv.sh for linux builds
    13. PyGObject (latest?/3.2.2)
    14. DBus-python (0.84)
    15. pip (latest/get-pip.py)
+   16. sqlite3 (latest)
 4. Patches
    1. Python
    2. GLib/DBus (to build it at all)
