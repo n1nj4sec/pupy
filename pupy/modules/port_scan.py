@@ -1,5 +1,6 @@
 # -*- coding: UTF8 -*-
 from pupylib.PupyModule import *
+from modules.lib.windows.winpcap import init_winpcap
 import logging
 
 __class_name__="PortScan"
@@ -16,9 +17,11 @@ class PortScan(PupyModule):
         self.arg_parser.add_argument('address', metavar="ip/range", help='IP/range')
 
     def run(self, args):
+        init_winpcap(self)
         ps=self.client.conn.modules['portscan'].PortScanner()
         ports=[int(x) for x in args.ports.split(',')]
         res=ps.scan(args.address, ports, timeout=float(args.timeout))
-        self.rawlog(res)
+        if res:
+            self.rawlog(res)
         self.success("Scan finished !")
 

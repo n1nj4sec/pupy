@@ -8,6 +8,7 @@ import threading
 import Queue
 import time
 import readline
+from modules.lib.windows.winpcap import init_winpcap
 from pupylib import *
 
 __class_name__="InteractiveScapyShell"
@@ -25,14 +26,8 @@ class InteractiveScapyShell(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='scapy', description=self.__doc__)
     def run(self, args):
+        init_winpcap(self)
         try:
-            if self.client.is_windows():
-                if not self.client.conn.modules["os.path"].exists("C:\\Windows\\system32\\Packet.dll") and not self.client.conn.modules["os.path"].exists("C:\\Windows\\system32\\NPcap\\Packet.dll"):
-                    raise PupyModuleError("WinPcap is not installed !. You should download/upload NPcap (https://github.com/nmap/npcap/releases) and install it silently (with the /S flag) ")
-                if self.client.conn.modules["os.path"].exists("C:\\Windows\\system32\\NPcap"):
-                    self.client.conn.modules["os"].environ["Path"]+=";C:\\Windows\\system32\\NPcap"
-                if not self.client.conn.modules['ctypes'].windll.Shell32.IsUserAnAdmin():
-                    self.warning("you are running this module without beeing admin")
             with redirected_stdo(self.client.conn):
                 old_completer=readline.get_completer()
                 try:

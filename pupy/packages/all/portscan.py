@@ -18,10 +18,8 @@ class PortScanner(object):
         pass
     def scan(self, address, ports, timeout=4, iface=None):
         res=""
-        '''
         ans,unans=sr(IP(dst=address)/TCP(flags="S",dport=list(ports)), verbose=False, iface=iface, timeout=timeout)
         for req,resp in ans:
             res+=format_response(resp)
         return res
-        '''
                 

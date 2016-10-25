@@ -31,7 +31,7 @@ packages_dependencies={
     "scapy" : [
         (LOAD_PACKAGE, "gzip"),
         (LOAD_PACKAGE, "_strptime"),
-
+        (LOAD_PACKAGE, "calendar"),
     ],
     "OpenSSL" : [
         (LOAD_PACKAGE, "six"),
