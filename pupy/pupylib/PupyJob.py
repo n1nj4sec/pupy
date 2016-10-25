@@ -183,6 +183,9 @@ class PupyJob(object):
         self.worker_pool.join()
         for m in self.pupymodules:
             while True:
+                if not m.client:
+                    break
+
                 try:
                     m.client.conn._conn.ping(timeout=2)
                     break
