@@ -47,3 +47,6 @@ if 'win' in sys.platform:
     import ctypes.wintypes
 else:
     import pty
+    import dbus
+    import pydbus
+    import pyexpat
