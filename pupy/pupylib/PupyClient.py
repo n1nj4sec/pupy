@@ -182,10 +182,22 @@ class PupyClient(object):
         if name in self.imported_dlls:
             return False
         buf=b""
+
+        if not os.path.exists(path):
+            path = None
+            for packages_path in self.get_packages_path():
+                packages_path = os.path.join(packages_path, name)
+                if os.path.exists(packages_path):
+                        path = packages_path
+
+        if not path:
+            raise ImportError("load_dll: couldn't find {}".format(name))
+
         with open(path,'rb') as f:
             buf=f.read()
         if not self.conn.modules.pupy.load_dll(name, buf):
-            raise ImportError("load_dll: couldn't load %s"%name)
+            raise ImportError("load_dll: couldn't load {}".format(name))
+
         self.imported_dlls[name]=True
         return True
 
