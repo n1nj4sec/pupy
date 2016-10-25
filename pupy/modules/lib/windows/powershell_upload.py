@@ -85,3 +85,14 @@ def obfuscatePowershellScript(code):
     if "function Invoke-ReflectivePEInjection" in newCode:
         newCode = newCode.replace("$TypeBuilder.DefineLiteral('IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE', [UInt16] 0x0040) | Out-Null", "$TypeBuilder.DefineLiteral('IMAGE_DLL_CHARACTERIS'+'TICS_DYNAMIC_BASE', [UInt16] 0x0040) | Out-Null")
     return newCode
+    
+def obfs_ps_script(script):
+    """
+    Strip block comments, line comments, empty lines, verbose statements,
+    and debug statements from a PowerShell source file.
+    """
+    # strip block comments
+    strippedCode = re.sub(re.compile('<#.*?#>', re.DOTALL), '', script)
+    # strip blank lines, lines starting with #, and verbose/debug statements
+    strippedCode = "\n".join([line for line in strippedCode.split('\n') if ((line.strip() != '') and (not line.strip().startswith("#")) and (not line.strip().lower().startswith("write-verbose ")) and (not line.strip().lower().startswith("write-debug ")) )])
+    return strippedCode

@@ -6,7 +6,7 @@ import os, logging, sys, time
 from collections import OrderedDict
 import win32com
 import win32com.client
-import glob
+import glob, re
 
 class outlook():
 	'''
@@ -57,33 +57,66 @@ class outlook():
 			return True
 		except Exception,e:
 			return False
-	
-	def close(self):
-		'''
-		'''
-		logging.debug("Closing Outlook link...")
-		self.outlook.Quit()
 		
 	def getInformation(self):
 		'''
 		Returns Dictionnary
 		'''
 		info = OrderedDict()
-		info['CurrentProfileName']=self.mapi.CurrentProfileName
+		try:
+			info['CurrentProfileName']=self.mapi.CurrentProfileName
+		except Exception,e:
+				logging.debug("Impossible to get CurrentProfileName configuration: {0}".format(e))
+				info['CurrentProfileName']=""
 		#info['CurrentUserAddress']=repr(self.mapi.CurrentUser) #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
-		info['SessionType']=self.outlook.Session.Type
+		try:
+			info['SessionType']=self.outlook.Session.Type
+		except Exception,e:
+			logging.debug("Impossible to get SessionType configuration: {0}".format(e))
+			info['SessionType']=""
 		for i, anAccount in enumerate(self.outlook.Session.Accounts):
-			info['Account{0}-DisplayName'.format(i)]=anAccount.DisplayName
-			info['Account{0}-SmtpAddress'.format(i)]=anAccount.SmtpAddress
-			info['Account{0}-AutoDiscoverXml'.format(i)]=anAccount.AutoDiscoverXml
-			info['Account{0}-AccountType'.format(i)]=self.OL_ACCOUNT_TYPES[anAccount.AccountType]
+			try:
+				info['Account{0}-DisplayName'.format(i)]=anAccount.DisplayName
+			except Exception,e:
+				logging.debug("Impossible to get DisplayName configuration: {0}".format(e))
+				info['Account{0}-DisplayName'.format(i)]=""
+			try:
+				info['Account{0}-SmtpAddress'.format(i)]=anAccount.SmtpAddress
+			except Exception,e:
+				logging.debug("Impossible to get SmtpAddress configuration: {0}".format(e))
+				info['Account{0}-SmtpAddress'.format(i)]=""
+			try: 
+				info['Account{0}-AutoDiscoverXml'.format(i)]=anAccount.AutoDiscoverXml
+			except Exception,e:
+				logging.debug("Impossible to get AutoDiscoverXml configuration: {0}".format(e))
+				info['Account{0}-AutoDiscoverXml'.format(i)]=""
+			try: 
+				info['Account{0}-AccountType'.format(i)]=self.OL_ACCOUNT_TYPES[anAccount.AccountType]
+			except Exception,e:
+				logging.debug("Impossible to get AccountType configuration: {0}".format(e))
+				info['Account{0}-AccountType'.format(i)]=""
 			#info['Account{0}-UserName'.format(i)]=anAccount.UserName #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
-		info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
-		info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
-		info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
-		info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
-		self.mapi.SendAndReceive(True)
-		print repr(self.mapi)
+		try:
+			info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
+		except Exception,e:
+				logging.debug("Impossible to get ExchangeMailboxServerName configuration: {0}".format(e))
+				info['ExchangeMailboxServerName'.format(i)]=""
+		try:
+			info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
+		except Exception,e:
+				logging.debug("Impossible to get ExchangeMailboxServerVersion configuration: {0}".format(e))
+				info['ExchangeMailboxServerVersion'.format(i)]=""
+		try:
+			info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
+		except Exception,e:
+				logging.debug("Impossible to get Offline configuration: {0}".format(e))
+				info['Offline'.format(i)]=""
+		try:
+			info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
+			self.mapi.SendAndReceive(True)
+		except Exception,e:
+				logging.debug("Impossible to get ExchangeConnectionMode configuration: {0}".format(e))
+				info['ExchangeConnectionMode']=None
 		return info
 		
 		
@@ -152,7 +185,6 @@ class outlook():
 		filename = "{0}_{1}_{2}.{3}".format(receivedTime, ctime, subjectCleaned[:100], 'msg')
 		path = os.path.join(self.remoteTempFolder,filename)
 		logging.debug('Saving temporarily the email on the remote path {0}'.format(path))
-		#mailItem.SaveAs(path, self.OL_SAVE_AS_TYPE['olMSG'])
 		mailItem.SaveAs(path, outlook.OL_SAVE_AS_TYPE[self.msgSaveType])
 		try:
 			os.rename(path, path) #test if the file is not opened by another process
@@ -164,8 +196,12 @@ class outlook():
 	def deleteTempMailFile(self,path):
 		'''
 		'''
-		os.remove(path)
-	
+		try:
+			os.remove(path)
+		except OSError as e:
+			time.sleep(self.sleepTime)
+			os.remove(path)
+			
 	"""
 	def getAllSubjects(self):
 		'''
@@ -219,3 +255,29 @@ class outlook():
 				logging.info('OST file found in {0}'.format(ostFileFound))
 				paths.append([os.path.basename(aFile), ostFileFound])
 		return paths
+		
+	
+	def searchStringsInEmails(self, strings, separator=','):
+		'''
+		Returns emails when aString in subject or body
+		'''
+		emails= []
+		stringsSplited = strings.split(separator)
+		for aString in stringsSplited:
+			results = self.searchAStringInEmails(aString)
+			emails = emails + results
+		return emails
+	
+	def searchAStringInEmails(self, aString):
+		'''
+		Returns emails when aString in subject or body
+		'''
+		body, subject, emails = "", "", []
+		logging.debug("Searching {1} over {0} emails...".format(self.getNbOfEmails(), aString))
+		for anEmail in self.inbox.Items:
+			outEmail = {'body':anEmail.Body, 'subject':anEmail.Subject}
+			if bool(re.search(aString, anEmail.Subject))==True:
+				emails.append(outEmail)
+			elif bool(re.search(aString, anEmail.Body))==True:
+				emails.append(outEmail)
+		return emails
