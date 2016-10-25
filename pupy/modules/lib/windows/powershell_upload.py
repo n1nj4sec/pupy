@@ -1,32 +1,50 @@
 # -*- coding: UTF8 -*-
-
 from rpyc.utils.classic import upload
 import base64, re, subprocess
 from subprocess import PIPE, Popen
 
-def execute_powershell_script(module, content, function, x64IfPossible=False):
+def execute_powershell_script(module, content, function, x64IfPossible=False, script_name=None):
     '''
     To get function output, Write-Output should be used (stdout output). 
     If you use Write-Verbose in your code for example, the output will be not captured because the output is not done over stdout (with Write-Verbose)
     '''
+    # content = re.sub("Write-Verbose ","Write-Output ", content, flags=re.I) # could break the output with mimikatz
+    content = re.sub("Write-Error ","Write-Output ", content, flags=re.I)
+    content = re.sub("Write-Warning ","Write-Output ", content, flags=re.I)
+
     path="powershell.exe"
+    arch = 'x64'
     if x64IfPossible:
         if "64" in module.client.desc['os_arch'] and "32" in module.client.desc['proc_arch']:
-            path=r"C:\Windows\SysNative\WindowsPowerShell\v1.0\powershell.exe"
-    fullargs=[path, "-C", "-"]
+            path=r"C:\\Windows\\SysNative\\WindowsPowerShell\\v1.0\\powershell.exe"
+    elif "32" in module.client.desc['proc_arch']:
+        arch = 'x86'
     
-    p = module.client.conn.modules.subprocess.Popen(fullargs, stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, universal_newlines=True, shell=True)
-    p.stdin.write("$base64=\"\""+"\n")
-    n = 20000
-    line = base64.b64encode(content)
-    tab = [line[i:i+n] for i in range(0, len(line), n)]
-    for t in tab:
-        p.stdin.write("$base64+=\"%s\"\n" % t)
-        p.stdin.flush()   
+    fullargs=[path, "-C", "-"]
 
-    p.stdin.write("$d=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64))\n")
-    p.stdin.write("Invoke-Expression $d\n")
-    p.stdin.write("$a=Invoke-Expression \"%s\" | Format-Table -HideTableHeaders | Out-String\n" % function)
+    # create and store the powershell object if it not exists
+    if not module.client.powershell[arch]['object']:
+        p = module.client.conn.modules.subprocess.Popen(fullargs, stdout=PIPE, stderr=PIPE, stdin=PIPE, bufsize=0, universal_newlines=True, shell=True)
+        module.client.powershell[arch]['object'] = p
+    else:
+        p = module.client.powershell[arch]['object']
+
+    if script_name not in module.client.powershell[arch]['scripts_loaded']:
+        module.client.powershell[arch]['scripts_loaded'].append(script_name)
+        p.stdin.write("$base64=\"\""+"\n")
+        n = 20000
+        line = base64.b64encode(content)
+        tab = [line[i:i+n] for i in range(0, len(line), n)]
+        for t in tab:
+            p.stdin.write("$base64+=\"%s\"\n" % t)
+            p.stdin.flush()
+
+        p.stdin.write("$d=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64))\n")
+        p.stdin.write("Invoke-Expression $d\n")
+    
+    # else: the powershell script is already loaded, call the function wanted
+
+    p.stdin.write("\n$a=Invoke-Expression \"%s\" | Format-Table | Out-String\n" % function)
     p.stdin.write("$b=[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(\"$a\"))\n")
     p.stdin.write("Write-Host $b\n")
 
@@ -35,7 +53,6 @@ def execute_powershell_script(module, content, function, x64IfPossible=False):
     for i in p.stdout.readline():
         output += i
     output = base64.b64decode(output)
-    p.stdin.write("exit\n")
     return output
 
 def remove_comments(string):
