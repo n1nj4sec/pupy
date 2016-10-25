@@ -60,7 +60,10 @@ try:
                             found=True
 
                             # Remove various testcases if any
-                            if any([ '/'+x+'/' in zipname for x in ['tests', 'test', 'SelfTest']]):
+                            if any([ '/'+x+'/' in zipname for x in [
+                                'tests', 'test', 'SelfTest', 'examples'
+                                ]
+                            ]):
                                 continue
 
                             print('adding file : {}'.format(zipname))
