@@ -288,7 +288,7 @@ def getSidToken(token_sid):
             if "winlogon" in sid[1].lower():
                 hToken = gethTokenFromPid(sid[0])
                 if hToken:
-                    print "\t[+] Using PID: " + str(sid[0])
+                    print "[+] using PID: " + str(sid[0])
                     return hToken
                 else:
                     return None
@@ -301,7 +301,7 @@ def getSidToken(token_sid):
             hToken = gethTokenFromPid(pid)
             if hToken:
                 if GetTokenSid( hToken ) == token_sid:
-                    print "\t[+] Using PID: " + str(pid)
+                    print "[+] using PID: " + str(pid)
                     return hToken
 
 def impersonate_pid(pid, close=True):
