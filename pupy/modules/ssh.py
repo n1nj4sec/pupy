@@ -44,6 +44,7 @@ class SSH(PupyModule):
             return
 
         self.client.load_package("paramiko")
+        self.client.load_package("cryptography")
         self.client.load_package("ecdsa")
         self.client.load_package("ssh")
 

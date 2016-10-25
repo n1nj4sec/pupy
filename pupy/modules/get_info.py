@@ -6,7 +6,6 @@ __class_name__="GetInfo"
 @config(cat="gather")
 class GetInfo(PupyModule):
     """ get some informations about one or multiple clients """
-    dependencies=["psutil"]
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='get_info', description=self.__doc__)
         #self.arg_parser.add_argument('arguments', nargs='+', metavar='<command>')
@@ -20,6 +19,7 @@ class GetInfo(PupyModule):
         for k in commonKeys:
             infos+="{:<10}: {}\n".format(k,self.client.desc[k])
         if self.client.is_windows():
+            self.client.load_package("psutil")
             self.client.load_package("pupwinutils.security")
             for k in windKeys:
                 infos+="{:<10}: {}\n".format(k,self.client.desc[k])
