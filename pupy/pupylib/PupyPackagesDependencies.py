@@ -20,6 +20,11 @@ packages_dependencies={
         (LOAD_PACKAGE, "win32security"),
         (LOAD_PACKAGE, "win32con"),
     ],
+    "scapy" : [
+        (LOAD_PACKAGE, "gzip"),
+        (LOAD_PACKAGE, "_strptime"),
+        (LOAD_PACKAGE, "calendar"),
+    ],
     "pyaudio" : [
         (LOAD_PACKAGE, "_portaudio"),
     ],
