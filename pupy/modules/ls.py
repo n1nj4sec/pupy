@@ -14,7 +14,9 @@ class ls(PupyModule):
 
     def run(self, args):
         self.client.load_package("pupyutils.basic_cmds")
-        r=self.client.conn.modules["pupyutils.basic_cmds"].ls(args.path)
+        self.client.load_package("scandir")
+        info, r = self.client.conn.modules["pupyutils.basic_cmds"].ls(args.path)
         if r:
+            self.success(info)
             self.log(r)
 

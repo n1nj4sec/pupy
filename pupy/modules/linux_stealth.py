@@ -9,7 +9,7 @@ def print_callback(data):
 
 @config(compat="linux", cat="manage")
 class SetStealth(PupyModule):
-    """Hides the runnin process from netstat, ss, ps, lsof by using modified binaries.
+    """Hides the running process from netstat, ss, ps, lsof by using modified binaries.
 Credits to: http://www.jakoblell.com/blog/2014/05/07/hacking-contest-rootkit/
 Demo: https://vimeo.com/157356150"""
     dependencies=["linux_stealth"]
