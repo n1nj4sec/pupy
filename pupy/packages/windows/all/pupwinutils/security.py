@@ -7,6 +7,7 @@ from ctypes import *
 import subprocess
 import psutil
 import ctypes
+import platform
 
 LPVOID = c_void_p
 PVOID = LPVOID
@@ -218,6 +219,11 @@ def EnablePrivilege(privilegeStr, hToken = None):
 
 def ListSids():
     sids=[]
+
+    # A well know bug in windows version > 8 (major >= 6.2) occurs when a "GetTokenSid" function is called from a 64 bits process. Stop it before its call
+    win_version = float("%s.%s" % (sys.getwindowsversion()[0], sys.getwindowsversion()[1]))
+    if "64" in platform.architecture()[0] and win_version > 6.1:
+        raise OSError("Can't let you to do that because a well known bug is not fixed yet, migrate to a 32 bits process and run this action again.\nEx: run migrate -c \'C:\\Windows\\SysWOW64\\notepad.exe\'")
 
     for proc in psutil.process_iter():
         try:
