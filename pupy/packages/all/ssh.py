@@ -4,7 +4,7 @@ import paramiko
 import socket
 
 class SSH():
-	def __init__(self, _user, _ssh_private_key_path, _password, _file_to_parse, _ip, _verbose=False, _command=''):
+	def __init__(self, _user, _ssh_private_key_path, _password, _file_to_parse, _ip, _port, _verbose=False, _command=''):
 		self.user = _user
 		self.ssh_private_key_path = os.path.expanduser(_ssh_private_key_path) # <path to private key>
 		self.password = _password
@@ -15,6 +15,7 @@ class SSH():
 
 		self.file_to_parse = os.path.expanduser(_file_to_parse) # path to 'known_hosts' file
 		self.ip = _ip
+                self.port = _port
 		self.verbose = _verbose
 		self.command = _command
 
@@ -67,8 +68,7 @@ class SSH():
 		
 		# Connection using plain text passowrd
 		else:
-			port = 22
-			ssh = paramiko.Transport((hostname, port))
+			ssh = paramiko.Transport((hostname, self.port))
 			ssh.connect(username=self.user, password=self.password)
 			plaintext_password = True
 			if self.command:
@@ -122,7 +122,7 @@ class SSH():
 			ip_ok = []
 			for ip in ips:
 				try:
-					if self.checkOpenPort(ip, 22):
+					if self.checkOpenPort(ip, self.port):
 						output = self.sshConnect(ip)
 						if self.verbose:
 							print '[+] Successful connection : %s' % ip

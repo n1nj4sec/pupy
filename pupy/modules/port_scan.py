@@ -7,7 +7,7 @@ __class_name__="PortScan"
 @config(cat="network")
 class PortScan(PupyModule):
     """ run a TCP port scan """
-    dependencies=['gzip','portscan', 'scapy']
+    dependencies=['portscan', 'scapy']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="port_scan", description=self.__doc__)

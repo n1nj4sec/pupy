@@ -23,6 +23,11 @@ packages_dependencies={
     "pyaudio" : [
         (LOAD_PACKAGE, "_portaudio"),
     ],
+    "scapy" : [
+        (LOAD_PACKAGE, "gzip"),
+        (LOAD_PACKAGE, "_strptime"),
+
+    ],
     "OpenSSL" : [
         (LOAD_PACKAGE, "six"),
         (LOAD_PACKAGE, "enum"),
