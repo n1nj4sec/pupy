@@ -82,6 +82,7 @@ class PupyClient(object):
             return True
         return False
 
+    @property
     def platform(self):
         if self.is_android():
             return 'android'
@@ -94,6 +95,38 @@ class PupyClient(object):
         elif self.is_unix():
             return 'unix'
 
+    @property
+    def os_arch(self):
+        arch = self.desc['os_arch'].lower()
+        substitute = {
+            'x86_64': 'amd64',
+            'i386': 'x86',
+            'i686': 'x86',
+            'i486': 'x86',
+        }
+        return substitute.get(arch) or arch
+
+    @property
+    def arch(self):
+        os_arch_to_platform = {
+            'amd64': 'intel',
+            'x86': 'intel'
+        }
+
+        os_platform_to_arch = {
+            'intel': {
+                '32bit': 'x86',
+                '64bit': 'amd64'
+            }
+        }
+
+        if self.os_arch in os_arch_to_platform:
+            return os_platform_to_arch[
+                os_arch_to_platform[self.os_arch]
+            ][self.desc['proc_arch']]
+        else:
+            return None
+
     def is_proc_arch_64_bits(self):
         if "64" in self.desc["proc_arch"]:
             return True
@@ -101,34 +134,23 @@ class PupyClient(object):
 
     def get_packages_path(self):
         """ return the list of path to search packages for depending on client OS and architecture """
-        path=[]
-        if self.is_windows():
-            if self.is_proc_arch_64_bits():
-                path.append(os.path.join(ROOT, "packages","windows","amd64"))
-                path.append(os.path.join("packages","windows","amd64"))
-            else:
-                path.append(os.path.join(ROOT, "packages","windows","x86"))
-                path.append(os.path.join("packages","windows","x86"))
+        path = [
+            os.path.join('packages', self.platform),
+            os.path.join('packages', self.platform, 'all'),
+        ]
 
-            path.append(os.path.join(ROOT, "packages","windows","all"))
-            path.append(os.path.join("packages","windows","all"))
-        elif self.is_unix():
-            if self.is_proc_arch_64_bits():
-                path.append(os.path.join(ROOT, "packages","linux","amd64"))
-                path.append(os.path.join("packages","linux","amd64"))
-            else:
-                path.append(os.path.join(ROOT, "packages","linux","x86"))
-                path.append(os.path.join("packages","linux","x86"))
+        if self.arch:
+            path = path + [
+                os.path.join(p, self.arch) for p in path
+            ]
 
-            path.append(os.path.join(ROOT, "packages","linux","all"))
-            path.append(os.path.join("packages","linux","all"))
-        if self.is_android():
-            path.append(os.path.join(ROOT, "packages","android"))
-            path.append(os.path.join("packages","android"))
+        path.append(os.path.join('packages', 'all'))
 
-        path.append(os.path.join(ROOT, "packages","all"))
-        path.append(os.path.join("packages","all"))
-        return path
+        path = path + [
+            os.path.join(ROOT, p) for p in path
+        ]
+
+        return set(path)
 
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
@@ -160,10 +182,22 @@ class PupyClient(object):
         if name in self.imported_dlls:
             return False
         buf=b""
+
+        if not os.path.exists(path):
+            path = None
+            for packages_path in self.get_packages_path():
+                packages_path = os.path.join(packages_path, name)
+                if os.path.exists(packages_path):
+                        path = packages_path
+
+        if not path:
+            raise ImportError("load_dll: couldn't find {}".format(name))
+
         with open(path,'rb') as f:
             buf=f.read()
         if not self.conn.modules.pupy.load_dll(name, buf):
-            raise ImportError("load_dll: couldn't load %s"%name)
+            raise ImportError("load_dll: couldn't load {}".format(name))
+
         self.imported_dlls[name]=True
         return True
 
@@ -183,7 +217,7 @@ class PupyClient(object):
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
         modules_dic={}
         if os.path.isdir(os.path.join(search_path,start_path)): # loading a real package with multiple files
-            for root, dirs, files in os.walk(os.path.join(search_path,start_path)):
+            for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
                 for f in files:
                     if pure_python_only:
                         if f.endswith((".so",".pyd",".dll")): #avoid loosing shells when looking for packages in sys.path and unfortunatelly pushing a .so ELF on a remote windows
@@ -196,9 +230,9 @@ class PupyClient(object):
                     modules_dic[modpath]=module_code
                 package_found=True
         else: # loading a simple file
-            extlist=[".py",".pyc"]
+            extlist=[ ".py", ".pyc", ".pyo" ]
             if not pure_python_only:
-                extlist+=[".pyd", "27.dll"] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
+                extlist+=[ ".so", ".pyd", "27.dll" ] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
             for ext in extlist:
                 filepath=os.path.join(search_path,start_path+ext)
                 if os.path.isfile(filepath):
@@ -249,7 +283,7 @@ class PupyClient(object):
         if not modules_dic:
             raise PupyModuleError("Couldn't load package %s : no such file or directory neither in \(path=%s) or sys.path"%(module_name,repr(self.get_packages_path())))
         if force or ( module_name not in self.conn.modules.sys.modules ):
-            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not authorized to iterate/access to the dictionary declared on this side and because it is more efficient
+            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
             logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
             if force and  module_name in self.conn.modules.sys.modules:
                 self.conn.modules.sys.modules.pop(module_name)

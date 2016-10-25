@@ -1,0 +1,69 @@
+TODO: create buildenv.sh for linux builds
+
+1. Support USER_NS + MOUNT_NS builds
+   Jessie, Stretch - USER_NS - may be enabled, but doesn't support
+   non-root mounts from USER_NS.
+   Any upstream distro?
+2. Buildenv base distros:
+   x86_64: debian etch (couldn't find anything earlier than it for amd64)
+   x386: debian woody (covers all linux setups for last ~8-10 years)
+3. Software to replace/update/install
+   1. Make (3.82) and pkg-config (latest/0.29)
+   2. Openssl (latest, .a only)
+   3. zlib (latest, .a only)
+   4. bz2 (latest, .a only)
+   5. sqlite (latest, .a only)
+   6. libffi (latest, .a only)
+   7. GCC (latest from repo, for etch/amd64)
+   8. Python 2.7 (Link with those .a builds)
+   9. GLib (2.32.4)
+   10. DBus (1.2.12) (covers Ubuntu 9.04+)
+   11. DBus-GLib (0.88)
+   12. GObject-Introspection (1.32.2; covers Ubuntu 10.04+)
+   13. PyGObject (latest?/3.2.2)
+   14. DBus-python (0.84)
+   15. pip (latest/get-pip.py)
+   16. sqlite3 (latest)
+4. Patches
+   1. Python
+   2. GLib/DBus (to build it at all)
+   3. PyGObject (to build with static typelib)
+5. Strip all python .so modules
+
+6. Compatibility / proven to work
++-----------+-------+----------+
+| Distro    | dbus  |pydbus/gir|
++ ----------+-------+----------+
+| Ubuntu    |   +   |    -     |
+| 9.04/x86  |       |          |
++ ----------+-------+----------+
+| Ubuntu    |   +   |    -     |
+| 9.04/x64  |       |          |
++ ----------+-------+----------+
+| Ubuntu    |   +   |    +     |
+| 10.04/x86 |       |          |
++ ----------+-------+----------+
+| Ubuntu    |   +   |    -     |
+| 10.04/x64 |       |          |
++ ----------+-------+----------+
+| Ubuntu    |   +   |    +     |
+| 12.04/x64 |       |          |
++ ----------+-------+----------+
+| Ubuntu    |   +   |    +     |
+| 14.04/x86 |       |          |
++ ----------+-------+----------+
+| Ubuntu    |   +   |    +     |
+| 16.10/x64 |       |          |
++ ----------+-------+----------+
+| CentOS 5  |   +   |    -     |
+| x64       |       |          |
++ ----------+-------+----------+
+| CentOS 6  |   +   |    -     |
+| x86       |       |          |
++ ----------+-------+----------+
+| CentOS 7  |   +   |    +     |
+| x64       |       |          |
++ ----------+-------+----------+
+| Gentoo    |   +   |    +     |
+| ~amd64    |       |          |
++ ----------+-------+----------+

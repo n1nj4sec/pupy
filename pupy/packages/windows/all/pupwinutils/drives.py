@@ -1,15 +1,15 @@
 import wmi
 
 def sizeof_fmt(num, suffix='B'):
-	try:
-		num = int(num)
-		for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-			if abs(num) < 1024.0:
-				return "%3.1f %s%s" % (num, unit, suffix)
-			num /= 1024.0
-		return "%.1f %s%s" % (num, 'Yi', suffix)
-	except:
-		return '0.00 B'
+    try:
+        num = int(num)
+        for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+            if abs(num) < 1024.0:
+                return "%3.1f %s%s" % (num, unit, suffix)
+            num /= 1024.0
+        return "%.1f %s%s" % (num, 'Yi', suffix)
+    except:
+        return '0.00 B'
 
 # Drive types explaination
 # 0 => The drive type cannot be determined.
@@ -31,46 +31,64 @@ DRIVE_TYPES = """
 """
 
 def list_drives():
-	drive_types = dict((int (i), j) for (i, j) in (l.split ("\t") for l in DRIVE_TYPES.splitlines () if l))
+    output = []
+    drive_types = dict(
+        (int (i), j) for (i, j) in (l.split ("\t") for l in DRIVE_TYPES.splitlines () if l)
+    )
 
-	c = wmi.WMI()
-	wql = "SELECT Name,DriveType,Size,FreeSpace,ProviderName FROM Win32_LogicalDisk"
-	print '\n%s%s%s%s%s' % ('Name'.ljust(10), 'Type'.ljust(15), 'Size (Total)'.ljust(20), 'Size (Free)'.ljust(20), 'Mapped to'.ljust(10))
-	print '%s%s%s%s%s' % ('----'.ljust(10), '----'.ljust(15), '------------'.ljust(20), '-----------'.ljust(20), '---------'.ljust(10))
-	data  = []
-	for disk in c.query(wql):
-		unc_path = ''
-		if disk.ProviderName:
-			unc_path = disk.ProviderName
-		
-		name = disk.Name + '\\'
-		driveType = drive_types[int(disk.DriveType)]
-		size = sizeof_fmt(disk.Size)
-		free = sizeof_fmt(disk.FreeSpace)
+    c = wmi.WMI()
+    wql = 'SELECT Name,DriveType,Size,FreeSpace,ProviderName FROM Win32_LogicalDisk'
+    output = [
+        '\n%s%s%s%s%s' % (
+            'Name'.ljust(10),
+            'Type'.ljust(15),
+            'Size (Total)'.ljust(20),
+            'Size (Free)'.ljust(20),
+            'Mapped to'.ljust(10)
+        ),
+        '%s%s%s%s%s' % (
+            '----'.ljust(10),
+            '----'.ljust(15),
+            '------------'.ljust(20),
+            '-----------'.ljust(20),
+            '---------'.ljust(10)
+        )
+    ]
 
-		print '%s%s%s%s%s' % (
-			name.ljust(10), 
-			driveType.ljust(15), 
-			size.ljust(20),
-			free.ljust(20),
-			unc_path
-		)
+    data  = []
+    for disk in c.query(wql):
+        unc_path = ''
+        if disk.ProviderName:
+            unc_path = disk.ProviderName
 
-	print
+        name = disk.Name + '\\'
+        driveType = drive_types[int(disk.DriveType)]
+        size = sizeof_fmt(disk.Size)
+        free = sizeof_fmt(disk.FreeSpace)
 
+        output.append(
+            '%s%s%s%s%s' % (
+                name.ljust(10),
+                driveType.ljust(15),
+                size.ljust(20),
+                free.ljust(20),
+                unc_path
+            )
+        )
+
+    return '\n'.join(output)+'\n'
 
 def shared_folders():
-	c = wmi.WMI()
-	shared = c.query("Select * from Win32_Share Where Type=0")
-	if not shared:
-		print '[-] No shared folders in this computer'
-		return 	
+    c = wmi.WMI()
+    shared = c.query("Select * from Win32_Share Where Type=0")
+    if not shared:
+        return ''
 
-	print '\n%s%s' % ('Name'.ljust(12), 'Path'.ljust(15))
-	print '%s%s' % ('----'.ljust(12), '----'.ljust(15))
-	for s in shared:
-		print '%s%s' % (
-			s.Name.ljust(12), 
-			s.Path.ljust(15)
-		)
-	print
+    output = [
+        '%s%s' % ('Name'.ljust(12), 'Path'.ljust(15)),
+        '%s%s' % ('----'.ljust(12), '----'.ljust(15))
+    ] + [
+        '%s%s' % (s.Name.ljust(12), s.Path.ljust(15)) for s in shared
+    ]
+
+    return '\n'.join(output)+'\n'

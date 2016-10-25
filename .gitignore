@@ -30,15 +30,9 @@ client/sources/resources/libraryx86.zip
 client/android_sources/bin
 client/android_sources/.buildozer
 # Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
 __pycache__/
-client/**/*.py[cod]
-pupy/*.py[cod]
-pupy/pupylib/**/*.py[cod]
-pupy/modules/*.py[cod]
-pupy/modules/lib/*.py[cod]
-pupy/modules/lib/**/*.py[cod]
-pupy/network/**/*.pyc
-pupy/scriptlets/**/*.pyc
 pupy/pupy.conf
 
 # do not ignore package & templates files

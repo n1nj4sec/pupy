@@ -17,6 +17,7 @@ from modules.lib.windows.powershell_upload import obfuscatePowershellScript
 import scriptlets
 import cPickle
 import base64
+import os
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
@@ -160,6 +161,12 @@ def updateTar(arcpath, arcname, file_path):
         with tarfile.open(arcpath, 'r') as tfr:
             names=tfr.getnames()
             tfr.extractall(tempdir)
+            for root, dirs, files in os.walk(tempdir):
+                for dir in dirs:
+                    os.chmod(os.path.join(root, dir), 0700)
+                for file in files:
+                    os.chmod(os.path.join(root, file), 0600)
+
             with tarfile.open(arcpath+"2", 'w:gz') as tfw:
                 for n in names:
                     #print "adding %s"%n

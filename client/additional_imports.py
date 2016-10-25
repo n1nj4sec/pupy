@@ -34,7 +34,6 @@ import inspect
 import shlex
 import json
 import ctypes
-import ctypes.wintypes
 import threading
 import urllib
 import urllib2
@@ -42,5 +41,12 @@ import getpass
 import __future__
 import bz2
 #needed for scapy :
-import new 
+import new
 import fractions
+if 'win' in sys.platform:
+    import ctypes.wintypes
+else:
+    import pty
+    import dbus
+    import pydbus
+    import pyexpat
