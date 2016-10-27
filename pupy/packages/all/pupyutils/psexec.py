@@ -349,8 +349,8 @@ def upload_file(smbconn, host, src, dst):
         upFile = open(src, 'rb')
         try:
             smbconn.putFile(share, dst, upFile.read)
-            print '[+] Upload complete: %s' % dst
-            upFile.close() 
+            print '[+] Upload completed'
+            upFile.close()
             return True 
         except Exception as e:
             print '[!]', e
@@ -393,7 +393,6 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
                     for file in file_to_upload:
                         if upload_file(smb, host, src_folder + file, dst_folder + file):
                             os.remove(src_folder + file)
-                            print '[!] Do not forget to remove the file: %s' % (dst_folder + file)
                 
                 if command:
                     if execm == 'smbexec':
