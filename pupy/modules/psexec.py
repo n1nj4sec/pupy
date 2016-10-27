@@ -65,7 +65,12 @@ class PSExec(PupyModule):
             else:
                 remote_path = '/tmp/'
 
-            dst_folder = '%s\\' % args.share.replace('$', ':')
+            # write on the temp directory 
+            if args.share == 'C$':
+                dst_folder = "C:\\Windows\\TEMP\\"
+            # write on the root directory
+            else:
+                dst_folder = '%s\\' % args.share.replace('$', ':')
 
             # if executable to upload
             if args.file:
@@ -137,3 +142,7 @@ class PSExec(PupyModule):
             if args.ps1_oneliner:                
                 self.warning('stopping the local server (pid: %s)' % process.pid)
                 process.terminate()
+
+            elif args.ps1:
+                self.warning('Do not forget to remove the file: %s' % dst_folder + first_stage)
+                self.warning('Do not forget to remove the file: %s' % dst_folder + second_stage)
