@@ -1,25 +1,55 @@
-# -*- coding: UTF8 -*-
-# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from scapy.all import *
+#!/usr/bin/env python
+import socket
+import sys
+import threading
+import Queue
 
-def format_response(pkt):
-    res=""
-    if "R" in pkt.sprintf("%TCP.flags%"):
-        res+="TCP/{:<7}  closed    {}".format(pkt[TCP].sport, pkt.sprintf("{TCP:%TCP.flags%}{ICMP:%IP.src% - %ICMP.type%}"))
-    elif pkt.sprintf("%TCP.flags%")=="SA":
-        res+="TCP/{:<7}  open      {}".format(pkt[TCP].sport, pkt.sprintf("{TCP:%TCP.flags%}{ICMP:%IP.src% - %ICMP.type%}"))
-    else:
-        res+="TCP/{:<7}  filtered  {}".format(pkt[TCP].sport, pkt.sprintf("{TCP:%TCP.flags%}{ICMP:%IP.src% - %ICMP.type%}"))
-    return res+"\n"
+open_port = []
 
-class PortScanner(object):
-    def __init__(self):
-        pass
-    def scan(self, address, ports, timeout=4, iface=None):
-        res=""
-        ans,unans=sr(IP(dst=address)/TCP(flags="S",dport=list(ports)), verbose=False, iface=iface, timeout=timeout)
-        for req,resp in ans:
-            res+=format_response(resp)
-        return res
-                
+class WorkerThread(threading.Thread) :
+
+    def __init__(self, queue, tid, remote_ip, ports) :
+        threading.Thread.__init__(self)
+        self.queue = queue
+        self.tid = tid
+        self.ports = ports
+        self.remote_ip = remote_ip
+
+    def check_open_port(self, port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(4)
+        result = sock.connect_ex((self.remote_ip, port))
+        if result == 0:
+            sock.close()
+            open_port.append(port)
+
+    def run(self):
+        for port in self.ports:
+            try :
+                port = self.queue.get(timeout=1)
+            except Queue.Empty :
+                return
+            self.check_open_port(port)
+            self.queue.task_done()
+
+def scan(remote_ip, ports):
+    queue = Queue.Queue()
+    threads = []
+
+    # 10 threads
+    for i in range(1, 11):
+        worker = WorkerThread(queue, i, remote_ip, ports) 
+        worker.setDaemon(True)
+        worker.start()
+        threads.append(worker)
+        
+    for j in ports:
+        queue.put(j)
+
+    queue.join()
+
+    # wait for all threads to exit 
+    for item in threads :
+        item.join()
+
+    return open_port
