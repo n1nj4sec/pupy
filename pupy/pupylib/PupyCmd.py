@@ -1,16 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 import sys
@@ -50,11 +50,11 @@ import copy
 from functools import partial
 
 BANNER="""
-            _____                    _       _ _            
- ___ ___   |  _  |_ _ ___ _ _    ___| |_ ___| | |   ___ ___ 
+            _____                    _       _ _
+ ___ ___   |  _  |_ _ ___ _ _    ___| |_ ___| | |   ___ ___
 |___|___|  |   __| | | . | | |  |_ -|   | -_| | |  |___|___|
-           |__|  |___|  _|_  |  |___|_|_|___|_|_|           
-                     |_| |___|                              
+           |__|  |___|  _|_  |  |___|_|_|___|_|_|
+                     |_| |___|
 
                    %s (%s)
 """%(__version__, __date__)
@@ -178,7 +178,7 @@ class PupyCmd(cmd.Cmd):
             self.intro+="\n"+self.format_warning("You are running Pupy server on Windows. Pupy server works best on linux. Pupy server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but it don't always find the time to fix everything. If you find the courage to patch non portable code, I will gladly accept push requests ! :)\n")
 
         self.intro += "\n"+self.format_srvinfo("Server started on%s port %s with transport %s%s"%((" "+self.pupsrv.address if self.pupsrv.address else ""), self.pupsrv.port, self.pupsrv.transport, (" and transport_args=%s"%repr(self.pupsrv.transport_kwargs) if self.pupsrv.transport_kwargs else ""))).rstrip("\n")
-            
+
         self.raw_prompt= color('>> ','blue')
         self.prompt = color('>> ','blue', prompt=True)
         self.doc_header = 'Available commands :\n'
@@ -201,7 +201,7 @@ class PupyCmd(cmd.Cmd):
 
     @staticmethod
     def table_format(diclist, wl=[], bl=[]):
-        """ 
+        """
             this function takes a list a dictionaries to display in columns. Dictionnaries keys are the columns names.
             All dictionaries must have the same keys.
             wl is a whitelist of column names to display
@@ -295,6 +295,10 @@ class PupyCmd(cmd.Cmd):
         """ do nothing when an emptyline is entered """
         pass
 
+    def do_EOF(self, arg):
+        """ ignore EOF """
+        self.stdout.write('\n')
+
     def do_help(self, arg):
         """ show this help """
         if arg:
@@ -342,7 +346,7 @@ class PupyCmd(cmd.Cmd):
                 if doc is None:
                     doc=""
                 self.stdout.write("- {:<15}    {}\n".format(command, color(doc.title().strip(),'grey')))
-    
+
     @staticmethod
     def format_log(msg):
         """ return a formated log line """
@@ -394,7 +398,7 @@ class PupyCmd(cmd.Cmd):
                 buf_bkp=readline.get_line_buffer()
                 #nG move cursor to column n
                 #nE move cursor ro the beginning of n lines down
-                #nK Erases part of the line. If n is zero (or missing), clear from cursor to the end of the line. If n is one, clear from cursor to beginning of the line. If n is two, clear entire line. Cursor position does not change. 
+                #nK Erases part of the line. If n is zero (or missing), clear from cursor to the end of the line. If n is one, clear from cursor to beginning of the line. If n is two, clear entire line. Cursor position does not change.
                 self.stdout.write("\x1b[0G"+PupyCmd.format_srvinfo(msg)+"\x1b[0E")
                 self.stdout.write("\x1b[2K")#clear line
                 self.stdout.write(self.raw_prompt+buf_bkp)#"\x1b[2K")
@@ -424,7 +428,7 @@ class PupyCmd(cmd.Cmd):
 
     def postcmd(self, stop, line):
         readline.write_history_file('.pupy_history')
-    
+
     def do_list_modules(self, arg):
         """ List available modules with a brief description (the first description line) """
         system = ''
@@ -437,7 +441,7 @@ class PupyCmd(cmd.Cmd):
         for mod in sorted([x for x in self.pupsrv.iter_modules()], key=(lambda x:x.category)):
             if mod.is_module:
                 if (self.default_filter and (system in mod.compatible_systems or not mod.compatible_systems)) or (not self.default_filter):
-                    if mod.__doc__: 
+                    if mod.__doc__:
                         doc = mod.__doc__.strip()
                     else:
                        doc = ''
@@ -527,7 +531,7 @@ class PupyCmd(cmd.Cmd):
                     self.display_error("No jobs are currently running !")
             else: #display help
                 try:
-                    arg_parser.parse_args(["-h"]) 
+                    arg_parser.parse_args(["-h"])
                 except PupyModuleExit:
                     return
         except PupyModuleError as e:
@@ -605,7 +609,7 @@ class PupyCmd(cmd.Cmd):
                 else:
                     self.display_error("no clients match this search!")
                 return
-        
+
         if mod.max_clients!=0 and len(l)>mod.max_clients:
             self.display_error("This module is limited to %s client(s) at a time and you selected %s clients"%(mod.max_clients, len(l)))
             return
@@ -657,7 +661,7 @@ class PupyCmd(cmd.Cmd):
             self.display(pj.result_summary())
         if pj:
             del pj
-        
+
     def complete(self, text, state):
         if state == 0:
             import readline
@@ -721,5 +725,3 @@ class PupyCmd(cmd.Cmd):
         tab = line.split(' ',1)
         if len(tab)>=2:
             return self._complete_path(tab[1])
-
-
