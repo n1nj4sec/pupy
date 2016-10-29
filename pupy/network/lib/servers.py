@@ -186,7 +186,7 @@ class PupyTCPServer(ThreadedServer):
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
 
-        except EOFError:
+        except EOFError, TypeError:
             pass
 
         finally:
