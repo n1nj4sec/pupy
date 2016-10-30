@@ -4,6 +4,10 @@ import threading
 import subprocess
 import Queue
 import rpyc
+import sys
+import os
+
+ON_POSIX = 'posix' in sys.builtin_module_names
 
 def read_pipe(queue, pipe, bufsize):
     completed = False
@@ -18,8 +22,11 @@ def read_pipe(queue, pipe, bufsize):
             continue
 
         try:
-            data = pipe.stdout.read() \
-              if completed else pipe.stdout.readline(bufsize)
+            if bufsize:
+                data = pipe.stdout.read() \
+                  if completed else pipe.stdout.readline(bufsize)
+            else:
+                data = pipe.stdout.read(1)
         except Exception:
             returncode = pipe.poll()
             break
@@ -31,6 +38,7 @@ def read_pipe(queue, pipe, bufsize):
 class SafePopen(object):
     def __init__(self, *popen_args, **popen_kwargs):
         self._popen_args = popen_args
+        self._interactive = popen_kwargs.get('interactive', False)
 
         # Well, this is tricky. If I'll pass array, then
         # it will be RPyC netref, so when I'll try to start
@@ -45,18 +53,32 @@ class SafePopen(object):
             ] for args in self._popen_args
         ]
 
-        self._popen_kwargs = dict(popen_kwargs)
+        self._popen_kwargs = {
+            k:v for k,v in popen_kwargs.iteritems() \
+            if not k in ( 'interactive' )
+        }
+
         self._reader = None
         self._pipe = None
         self._bufsize = 8196
+
+        if self._interactive:
+            self._bufsize = 0
+
         self.returncode = None
 
         if hasattr(subprocess, 'STARTUPINFO'):
             startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.dwFlags |= \
+              subprocess.CREATE_NEW_CONSOLE | \
+              subprocess.STARTF_USESHOWWINDOW
+
             self._popen_kwargs.update({
                 'startupinfo': startupinfo,
             })
+
+        if not 'stderr' in self._popen_kwargs:
+            self._popen_kwargs['stderr'] = subprocess.STDOUT
 
     def _execute(self, read_cb, close_cb):
         if read_cb:
@@ -72,12 +94,22 @@ class SafePopen(object):
             kwargs.update({
                 'stdout': subprocess.PIPE,
                 'bufsize': self._bufsize,
+                'close_fds': ON_POSIX
             })
+
+            if self._interactive:
+                kwargs.update({
+                    'stdin': subprocess.PIPE
+                })
+
+            print "DEBUG: {}, {}".format(
+                self._popen_args, kwargs)
 
             self._pipe = subprocess.Popen(
                 *self._popen_args,
                 **kwargs
             )
+
         except OSError as e:
             if read_cb:
                 read_cb("Error: {}".format(e.strerror))
@@ -99,14 +131,23 @@ class SafePopen(object):
         self._reader.start()
 
         while True:
-            data = queue.get()
+            data = []
+            r = queue.get()
+            while not type(r) == int:
+                data.append(r)
+                if queue.empty():
+                    break
+                else:
+                    r = queue.get()
 
-            if type(data) == int:
-                self.returncode = data
+            print "READ: {}".format(data)
+
+            if data and read_cb:
+                read_cb(''.join(data))
+
+            if type(r) == int:
+                self.returncode = r
                 break
-            elif data:
-                if read_cb:
-                    read_cb(data)
 
         if close_cb:
             close_cb()
@@ -119,3 +160,15 @@ class SafePopen(object):
     def terminate(self):
         if not self.returncode and self._pipe:
             self._pipe.terminate()
+
+    def write(self, data):
+        print "TO WRITE: {}".format(data)
+        if self.returncode or not self._pipe or not self._interactive:
+            print "Retcode: {}, pipe: {}, writable: {}".format(
+                self.returncode, self._pipe, self._interactive
+            )
+            return
+
+        print "WRITE: {}".format(','.join(['{:02x}'.format(ord(x)) for x in data]))
+        self._pipe.stdin.write(data)
+        self._pipe.stdin.flush()
