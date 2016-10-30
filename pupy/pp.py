@@ -264,6 +264,9 @@ def rpyc_loop(launcher):
             except Exception as e:
                 logging.error(e)
 
+            finally:
+                stream.close()
+
     except EOFError:
         print "EOFError received, restarting the connection"
 
