@@ -66,7 +66,7 @@ static int dprintf(char *fmt, ...)
 #ifdef VERBOSE
 	va_list marker;
 	int i;
-	
+
 	va_start(marker, fmt);
 	for (i = 0; i < level; ++i) {
 		putchar(' ');
@@ -99,6 +99,7 @@ static LIST *_FindMemoryModule(LPCSTR name, HMODULE module)
 			lib = lib->next;
 		}
 	}
+	dprintf("_FindMemoryModule(%s, %p) -> NONE\n", name, module);
 	return NULL;
 }
 
@@ -230,4 +231,17 @@ FARPROC MyGetProcAddress(HMODULE module, LPCSTR procname)
 		return proc;
 	} else
 		return GetProcAddress(module, procname);
+}
+
+FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname)
+{
+	HCUSTOMMODULE mod = MyGetModuleHandle(modulename);
+	void *addr = NULL;
+	dprintf("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, mod);
+	if (mod) {
+		addr = MyGetProcAddress(mod, procname);
+	}
+
+	dprintf("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, addr);
+	return addr;
 }

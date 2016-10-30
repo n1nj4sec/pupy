@@ -9,5 +9,6 @@ BOOL MyFreeLibrary(HMODULE);
 
 FARPROC MyGetProcAddress(HMODULE, LPCSTR);
 
+FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 
 #endif
