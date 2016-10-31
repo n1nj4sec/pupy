@@ -21,14 +21,22 @@ import rpyc
 import cmd
 
 class CmdRepl(cmd.Cmd):
-    def __init__(self, write_cb, completion):
+    def __init__(self, write_cb, completion, CRLF=False, interpreter=None):
         self._write_cb = write_cb
         self._complete = completion
         self._write_lock = Lock()
         self.prompt = '\r'
+        self._crlf = CRLF
+        self._interpreter = interpreter
+        self._setting_prompt = False
         cmd.Cmd.__init__(self)
 
     def _con_write(self, data):
+        if self._setting_prompt:
+            if self.prompt in data:
+                self._setting_prompt = False
+            return
+
         if not self._complete.is_set():
             with self._write_lock:
                 self.stdout.write(data)
@@ -40,6 +48,12 @@ class CmdRepl(cmd.Cmd):
 
     def do_EOF(self, line):
         return True
+
+    def do_help(self, line):
+        self.default(' '.join(['help', line]))
+
+    def completenames(self):
+        return []
 
     def precmd(self, line):
         if self._complete.is_set():
@@ -56,11 +70,24 @@ class CmdRepl(cmd.Cmd):
 
     def default(self, line):
         with self._write_lock:
-            self._write_cb(line + '\n')
+            self._write_cb(line + ('\r\n' if self._crlf else '\n'))
             self.prompt = ''
 
     def postloop(self):
         self._complete.set()
+
+    def set_prompt(self, prompt='# '):
+        methods = {
+            'cmd.exe': 'set PROMPT={}'.format(prompt),
+            'sh': 'export PS1="{}"'.format(prompt)
+        }
+
+        method = methods.get(self._interpreter, None)
+        if method:
+            with self._write_lock:
+                self._setting_prompt = True
+                self.prompt = prompt
+                self._write_cb(method + ('\r\n' if self._crlf else '\n'))
 
 __class_name__="InteractiveShell"
 @config(cat="admin")
@@ -178,8 +205,16 @@ class InteractiveShell(PupyModule):
 
         sys.stdout.write('\r\nREPL started. Ctrl-C will the module \r\n')
 
-        repl = CmdRepl(self.pipe.write, self.complete)
+        if self.client.is_windows():
+            crlf = True
+            interpreter = 'cmd.exe'
+        else:
+            crlf = False
+            interpreter = 'sh'
+
+        repl = CmdRepl(self.pipe.write, self.complete, crlf, interpreter)
         self.pipe.execute(self.complete.set, repl._con_write)
+        repl.set_prompt()
 
         repl_thread = Thread(target=repl.cmdloop)
         repl_thread.daemon = True
