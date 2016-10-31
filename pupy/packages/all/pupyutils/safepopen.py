@@ -156,7 +156,10 @@ class SafePopen(object):
 
     def terminate(self):
         if not self.returncode and self._pipe:
-            self._pipe.terminate()
+            try:
+                self._pipe.terminate()
+            except:
+                pass
 
     def write(self, data):
         print "TO WRITE: {}".format(data)
