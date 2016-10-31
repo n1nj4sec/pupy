@@ -16,7 +16,7 @@ if sys.platform!="win32":
     import array
 import time
 import StringIO
-from threading import Event, Thread, Lock
+from threading import Event, Thread
 import rpyc
 import cmd
 
@@ -24,11 +24,11 @@ class CmdRepl(cmd.Cmd):
     def __init__(self, write_cb, completion, CRLF=False, interpreter=None):
         self._write_cb = write_cb
         self._complete = completion
-        self._write_lock = Lock()
         self.prompt = '\r'
-        self._crlf = CRLF
+        self._crlf = ('\r\n' if CRLF else '\n')
         self._interpreter = interpreter
         self._setting_prompt = False
+        self._last_cmd = None
         cmd.Cmd.__init__(self)
 
     def _con_write(self, data):
@@ -38,13 +38,12 @@ class CmdRepl(cmd.Cmd):
             return
 
         if not self._complete.is_set():
-            with self._write_lock:
-                self.stdout.write(data)
-                self.stdout.flush()
-                if '\n' in data:
-                    self.prompt = data.rsplit('\n', 1)[-1]
-                else:
-                    self.prompt += data
+            self.stdout.write(data)
+            self.stdout.flush()
+            if '\n' in data:
+                self.prompt = data.rsplit('\n', 1)[-1]
+            else:
+                self.prompt += data
 
     def do_EOF(self, line):
         return True
@@ -69,25 +68,23 @@ class CmdRepl(cmd.Cmd):
         pass
 
     def default(self, line):
-        with self._write_lock:
-            self._write_cb(line + ('\r\n' if self._crlf else '\n'))
-            self.prompt = ''
+        self._write_cb(line + self._crlf)
+        self.prompt = ''
 
     def postloop(self):
         self._complete.set()
 
     def set_prompt(self, prompt='# '):
         methods = {
-            'cmd.exe': 'set PROMPT={}'.format(prompt),
-            'sh': 'export PS1="{}"'.format(prompt)
+            'cmd.exe': [ 'set PROMPT={}'.format(prompt) ],
+            'sh': [ 'export PS1="{}"'.format(prompt) ]
         }
 
         method = methods.get(self._interpreter, None)
         if method:
-            with self._write_lock:
-                self._setting_prompt = True
-                self.prompt = prompt
-                self._write_cb(method + ('\r\n' if self._crlf else '\n'))
+            self._setting_prompt = True
+            self.prompt = prompt
+            self._write_cb(self._crlf.join(method) + self._crlf)
 
 __class_name__="InteractiveShell"
 @config(cat="admin")
@@ -188,16 +185,16 @@ class InteractiveShell(PupyModule):
     def repl(self, args):
         self.client.load_package('pupyutils.safepopen')
         encoding=None
-        program="/bin/sh"
+        program = [ "/bin/sh", "-i" ]
         if self.client.is_android():
-            program="/system/bin/sh"
+            program = [ "/system/bin/sh" ]
         elif self.client.is_windows():
-            program="cmd.exe"
+            program = [ 'cmd.exe', '/Q' ]
         if args.program:
-            program=args.program
+            program = [ args.program ]
 
         self.pipe = self.client.conn.modules['pupyutils.safepopen'].SafePopen(
-            [ program ],
+            program,
             interactive=True,
         )
 
