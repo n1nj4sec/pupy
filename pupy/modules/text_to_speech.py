@@ -5,7 +5,7 @@ __class_name__="AndroidTTS"
 
 @config(compat="android", cat="troll", tags=["speech", "speak", "sound"])
 class AndroidTTS(PupyModule):
-    """ Use Android text to speach to say something :) """
+    """ Use Android text to speech to say something :) """
     dependencies=['pupydroid.text_to_speech']
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="tts", description=self.__doc__)
@@ -14,5 +14,5 @@ class AndroidTTS(PupyModule):
 
     def run(self, args):
         self.client.conn.modules['pupydroid.text_to_speech'].speak(args.text, lang=args.lang)
-        self.success("The truth has been spoken !")
+        self.success("The truth has been spoken!")
 
