@@ -285,7 +285,11 @@ class PupyCmd(cmd.Cmd):
 
     def completenames(self, text, *ignored):
         dotext = 'do_'+text
-        return [a[3:]+' ' for a in self.get_names() if a.startswith(dotext)]+[x+' ' for x in self.aliases.iterkeys() if x.startswith(text)]
+        return [
+            a[3:]+' ' for a in self.get_names() if a.startswith(dotext) and not a == 'do_EOF'
+        ] + [
+            x+' ' for x in self.aliases.iterkeys() if x.startswith(text)
+        ]
 
     def pre_input_hook(self):
         #readline.redisplay()
@@ -326,7 +330,7 @@ class PupyCmd(cmd.Cmd):
             # There can be duplicates if routines overridden
             prevname = ''
             for name in names:
-                if name[:3] == 'do_':
+                if name[:3] == 'do_' and not name == 'do_EOF':
                     if name == prevname:
                         continue
                     prevname = name
