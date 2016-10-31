@@ -20,3 +20,6 @@
 [submodule "pupy/external/pywerview"]
 	path = pupy/external/pywerview
 	url = https://github.com/the-useless-one/pywerview.git
+[submodule "pupy/external/winpty"]
+	path = pupy/external/winpty
+	url = https://github.com/alxchk/winpty
