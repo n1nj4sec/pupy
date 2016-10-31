@@ -102,9 +102,6 @@ class SafePopen(object):
                     'stdin': subprocess.PIPE
                 })
 
-            print "DEBUG: {}, {}".format(
-                self._popen_args, kwargs)
-
             self._pipe = subprocess.Popen(
                 *self._popen_args,
                 **kwargs

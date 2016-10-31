@@ -201,8 +201,6 @@ class InteractiveShell(PupyModule):
             interactive=True,
         )
 
-        print "DEBUG: {}".format(self.complete.is_set())
-
         sys.stdout.write('\r\nREPL started. Ctrl-C will the module \r\n')
 
         if self.client.is_windows():
