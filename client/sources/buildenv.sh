@@ -77,18 +77,18 @@ for prefix in $WINE32 $WINE64; do
 done
 
 for prefix in $WINE32 $WINE64; do
-    WINEPREFIX=$prefix wine python -O -m pip install --upgrade pip
-    WINEPREFIX=$prefix wine python -O -m pip install --upgrade $PACKAGES
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade pip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade $PACKAGES
 done
 
-WINEPREFIX=$WINE32 wine easy_install -Z $PYCRYPTO32
-WINEPREFIX=$WINE64 wine easy_install -Z $PYCRYPTO64
+WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO32
+WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO64
 
 cat >$WINE32/python.sh <<EOF
 #!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE32
-exec wine python.exe "\$@"
+exec wine C:\\\\Python27\\\\python.exe "\$@"
 EOF
 chmod +x $WINE32/python.sh
 
@@ -109,7 +109,7 @@ cat >$WINE64/python.sh <<EOF
 #!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE64
-exec wine python.exe "\$@"
+exec wine C:\\\\Python27\\\\python.exe "\$@"
 EOF
 chmod +x $WINE64/python.sh
 
