@@ -45,7 +45,6 @@ class PupyTCPClient(PupyClient):
         self.sock=s
         return s
 
-
 class PupyProxifiedTCPClient(PupyTCPClient):
     def __init__(self, *args, **kwargs):
         self.proxy_addr=kwargs.pop('proxy_addr', None)
@@ -107,7 +106,6 @@ class PupySSLClient(PupyTCPClient):
 class PupyProxifiedSSLClient(PupySSLClient, PupyProxifiedTCPClient):
     pass
 
-
 class PupyUDPClient(PupyClient):
     def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_DGRAM, timeout=3):
         self.sock=None
@@ -125,3 +123,4 @@ class PupyUDPClient(PupyClient):
         s.connect(sockaddr)
         self.sock=s
         return s, (host, port)
+

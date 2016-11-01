@@ -60,7 +60,8 @@ class PupySocketStream(SocketStream):
         except socket.error:
             ex = sys.exc_info()[1]
             if get_exc_errno(ex) in (errno.EAGAIN, errno.EWOULDBLOCK):
-                # windows just has to be a bitch
+                # windows just has to be a b**ch
+                # edit: some politeness please ;)
                 return
             self.close()
             raise EOFError(ex)
@@ -175,7 +176,7 @@ class PupyUDPSocketStream(object):
         except socket.error:
             ex = sys.exc_info()[1]
             if get_exc_errno(ex) in (errno.EAGAIN, errno.EWOULDBLOCK):
-                # windows just has to be a bitch
+                # windows just has to be a b**ch
                 return True
             self.close()
             raise EOFError(ex)
@@ -210,3 +211,4 @@ class PupyUDPSocketStream(object):
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
+
