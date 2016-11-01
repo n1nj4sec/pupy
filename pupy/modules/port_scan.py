@@ -2,6 +2,8 @@
 from pupylib.PupyModule import *
 from modules.lib.windows.winpcap import init_winpcap
 import logging
+from datetime import datetime
+from netaddr import *
 
 __class_name__="PortScan"
 
@@ -9,19 +11,35 @@ __class_name__="PortScan"
 class PortScan(PupyModule):
     """ run a TCP port scan """
     dependencies=['portscan', 'scapy']
+    max_clients=1
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="port_scan", description=self.__doc__)
-        self.arg_parser.add_argument('--ports','-p', default="21,22,23,80,139,443,445,3389,8000,8080",  help='ports to scan ex: 22,80,443')
+        self.arg_parser.add_argument('--ports','-p', default="21,22,23,80,139,443,445,3389,7001,8000,8080",  help='ports to scan ex: 22,80,443')
         self.arg_parser.add_argument('--timeout','-t', default="2",  help='timeout (default: %(default)s)')
-        self.arg_parser.add_argument('address', metavar="ip/range", help='IP/range')
+        self.arg_parser.add_argument('target', metavar="ip/range", help='IP/range')
 
     def run(self, args):
-        init_winpcap(self)
-        ps=self.client.conn.modules['portscan'].PortScanner()
-        ports=[int(x) for x in args.ports.split(',')]
-        res=ps.scan(args.address, ports, timeout=float(args.timeout))
-        if res:
-            self.rawlog(res)
-        self.success("Scan finished !")
+        if "/" in args.target[0]:
+            hosts = IPNetwork(args.target[0])
+        else:
+            hosts = list()
+            hosts.append(args.target)
 
+        ports = [int(p.strip()) for p in args.ports.split(',')]
+        for host in hosts:
+            self.success("Scanning remote host: %s" % host)
+            
+            t1 = datetime.now()
+            open_ports = self.client.conn.modules['portscan'].scan(host, ports)
+            if open_ports:
+                self.log('PORT     STATE')
+                for p in open_ports:
+                    self.log("%s      open" % p)
+            else:
+                self.error('No open port found')
+            
+            # Checking the time again
+            t2 = datetime.now()
+            total =  t2 - t1
+            self.success('Scanning Completed in: %s' % total)
