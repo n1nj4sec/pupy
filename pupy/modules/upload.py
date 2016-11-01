@@ -28,7 +28,7 @@ class UploaderScript(PupyModule):
             remotefile = ros.path.join(tempdir, os.path.basename(localfile))
 
         if remotefile.endswith('.'):
-            remotefile = remotefile('.', args.local_file.split(os.sep)[-1])
+            remotefile = os.path.join(os.path.dirname(remotefile), args.local_file.split(os.sep)[-1])
 
         if os.path.isfile(localfile) and ros.path.isdir(remotefile):
             remotefile = ros.path.join(remotefile, os.path.basename(localfile))
