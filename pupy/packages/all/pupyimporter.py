@@ -127,7 +127,7 @@ class PupyPackageLoader:
             traceback.print_tb(exc_traceback)
             dprint('PupyPackageLoader: '
                        'Error while loading package {} ({}) : {}'.format(
-                           (fullname, self.extension, str(e))))
+                           fullname, self.extension, str(e)))
             raise e
         finally:
             imp.release_lock()
