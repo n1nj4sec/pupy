@@ -122,8 +122,8 @@ class PupyTCPServer(ThreadedServer):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
         Note that this code is cut and paste from the rpyc internals and may have to be
         changed if rpyc evolves'''
-
-        h, p, _, _ = sock.getpeername()
+        tup = sock.getpeername()
+        h, p = tup[0], tup[1] # tup can have different sizes depending on ipv4/ipv6
 
         credentials = None
         if self.authenticator:
@@ -168,7 +168,8 @@ class PupyTCPServer(ThreadedServer):
         connection = None
         wrapper = None
 
-        h, p, _, _ = sock.getpeername()
+        tup = sock.getpeername()
+        h, p = tup[0], tup[1]
 
         try:
             self.logger.debug('{}:{} Wait for authentication result'.format(h, p))
