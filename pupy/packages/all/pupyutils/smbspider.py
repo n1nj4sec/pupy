@@ -1,16 +1,14 @@
-# Code modified from the awesome tool CrackMapExec: /cme/spider/smbspider.py
-# Thank you to byt3bl33d3r for its work
-from time import time, strftime, localtime
-from impacket.smb3structs import FILE_READ_DATA
 from impacket.smbconnection import *
-from impacket.smb3structs import FILE_READ_DATA, FILE_WRITE_DATA
+from impacket.smb3structs import FILE_READ_DATA
 import re
-import traceback
+import os
+import socket
+import threading
+import Queue
 
 class RemoteFile:
-    def __init__(self, smbConnection, fileName, share='ADMIN$', access = FILE_READ_DATA | FILE_WRITE_DATA ):
+    def __init__(self, smbConnection, fileName, share='ADMIN$', access = FILE_READ_DATA ):
         self.__smbConnection = smbConnection
-        self.__share = share
         self.__access = access
         self.__fileName = fileName
         self.__tid = self.__smbConnection.connectTree(share)
@@ -19,11 +17,6 @@ class RemoteFile:
 
     def open(self):
         self.__fid = self.__smbConnection.openFile(self.__tid, self.__fileName, desiredAccess= self.__access)
-
-    def seek(self, offset, whence):
-        # Implement whence, for now it's always from the beginning of the file
-        if whence == 0:
-            self.__currentOffset = offset
 
     def read(self, bytesToRead):
         if bytesToRead > 0:
@@ -37,67 +30,40 @@ class RemoteFile:
             self.__smbConnection.closeFile(self.__tid, self.__fid)
             self.__fid = None
 
-    def delete(self):
-        self.__smbConnection.deleteFile(self.__share, self.__fileName)
-
-    def tell(self):
-        return self.__currentOffset
-
-    def __str__(self):
-        return "\\\\{}\\{}\\{}".format(self.__smbConnection.getRemoteHost(), self.__share, self.__fileName)
-
-
 class SMBSpider:
 
-    def __init__(self, _host, _domain='workgroup', _port=445, _user='', _passwd='', _hashes= '', _search_content=False, _reg=None, _share='C$', _exclude_dirs=None, _exts=[], _pattern=None, _max_size=None):
+    def __init__(self, _host, _domain, _port, _user, _passwd, _hashes, _check_content, _share, search_str, _exts, _max_size):
         
         self.smbconnection = None
-        self.results = None
-        self.regex = None
         self.host = _host
         self.domain = _domain
         self.port = _port
         self.user = _user
         self.passwd = _passwd
         self.hashes = _hashes
-        self.search_content = _search_content
-        self.reg = _reg
-        self.exclude_dirs = _exclude_dirs
-        self.pattern = _pattern
+        self.search_str = search_str
+        self.check_content = _check_content
         self.share = _share
         self.max_size = _max_size
-        if _exts:
-            self.exts=tuple(_exts)
-        else:
-            self.exts = None
+        self.files_extensions = _exts
 
     def login(self):
-        # initialize regex
-        if self.reg:
-            try:
-                self.regex = [re.compile(regex) for regex in self.reg]
-            except Exception as e:
-                print '[-] Regex compilation error: {}'.format(e)
-                return False
-
         try:
-            smb = SMBConnection(self.host, self.host, None, self.port, timeout=2)
+            self.smbconnection = SMBConnection(self.host, self.host, None, self.port, timeout=2)
             try:
-                smb.login('' , '')
+                self.smbconnection.login('' , '')
             except SessionError as e:
                 if "STATUS_ACCESS_DENIED" in e.message:
                     pass
 
-            print "[+] {}:{} is running {} (name:{}) (domain:{})".format(self.host, self.port, smb.getServerOS(), smb.getServerName(), self.domain)
+            print "[+] {}:{} is running {} (name:{}) (domain:{})".format(self.host, self.port, self.smbconnection.getServerOS(), self.smbconnection.getServerName(), self.domain)
 
             lmhash = ''
             nthash = ''
             if self.hashes:
                 lmhash, nthash = self.hashes.split(':')
 
-            smb.login(self.user, self.passwd, self.domain, lmhash, nthash)
-            self.smbconnection = smb
-
+            self.smbconnection.login(self.user, self.passwd, self.domain, lmhash, nthash)
             return True
         except Exception as e:
             print "[!] {}".format(e)
@@ -115,120 +81,194 @@ class SMBSpider:
             share_names.append(str(share['shi1_netname'][:-1]))
         return share_names
 
-    def spider(self, subfolder, depth):
-        '''
-            Apperently spiders don't like stars *!
-            who knew? damn you spiders
-        '''
+    def scanwalk(self, subfolder, depth):
+        if depth == 0:
+            return 
+
         if subfolder == '' or subfolder == '.':
             subfolder = '*'
         elif subfolder.startswith('*/'):
             subfolder = subfolder[2:] + '/*'
-
         else:
             subfolder = subfolder.replace('/*/', '/') + '/*'
         
-        filelist = None
-        try:
-            filelist = self.smbconnection.listPath(self.share, subfolder)
-            for d in self.dir_list(filelist, subfolder):
-                yield(d)
-            if depth == 0:
-                return
-        except SessionError as e:
-            if not filelist:
-                print "[-] Failed to connect to share {}: {}".format(self.share, e)
-                return 
-            pass
+        for result in self.smbconnection.listPath(self.share, subfolder):
+            
+            if result.get_longname() not in ['.', '..']:
+                
+                # check if the file contains our pattern
+                for s in self.search_str:
+                    if result.get_longname().lower().find(s) != -1:
+                        yield '%s' % os.path.join(subfolder, result.get_longname())
 
-        for result in filelist:
-            if result.is_directory() and result.get_longname() != '.' and result.get_longname() != '..':
-                if subfolder == '*' or (subfolder != '*' and (subfolder[:-2].split('/')[-1] not in self.exclude_dirs)):
-                    for r in self.spider(subfolder.replace('*', '') + result.get_longname(), depth-1):
-                        yield(r)
-        return
+                # if directory, be recursive
+                if result.is_directory():
+                    for res in self.scanwalk(subfolder.replace('*', '') + result.get_longname(), depth-1):
+                        yield res
 
-    def dir_list(self, files, path):
+                # check inside the file to found our pattern
+                elif not result.is_directory():
+                    if self.max_size > result.get_filesize():
+                        if result.get_longname().endswith(self.files_extensions):
+                            if self.check_content:
+                                for res in self.search_string(os.path.join(subfolder, result.get_longname())):
+                                    try:
+                                        res = res.encode('utf-8')
+                                        yield '%s' % res
+                                    except:
+                                        pass
+
+    def search_string(self, path):
         path = path.replace('*', '')
-        for result in files:
-            if self.exts is None or result.get_longname().lower().endswith(self.exts):
-                if self.max_size is None or result.get_filesize() < self.max_size:
-                    if self.pattern:
-                        for pattern in self.pattern:
-                            if result.get_longname().lower().find(pattern.lower()) != -1:
-                                if result.is_directory():
-                                    r = u"//{}/{}{} [dir]".format(self.share, path, result.get_longname())
-                                else:
-                                    r = u"//{}/{}{} [lastm:'{}' size:{}]".format(self.share,
-                                                                                                   path,
-                                                                                                   result.get_longname(),
-                                                                                                   strftime('%Y-%m-%d %H:%M', localtime(result.get_mtime_epoch())),
-                                                                                                   result.get_filesize())
-                                yield(r)
-                    elif self.regex:
-                        for regex in self.regex:
-                            if regex.findall(result.get_longname()):
-                                if result.is_directory():
-                                    r = u"//{}/{}{} [dir]".format(self.share, path, result.get_longname())
-                                else:
-                                    r = u"//{}/{}{} [lastm:'{}' size:{}]".format(self.share,
-                                                                                                   path,
-                                                                                                   result.get_longname(),
-                                                                                                   strftime('%Y-%m-%d %H:%M', localtime(result.get_mtime_epoch())),
-                                                                                                   result.get_filesize())
-                                yield (r)
-
-                    if self.search_content:
-                        if not result.is_directory():
-                            for s in self.search_in_content(path, result):
-                                yield(s)
-
-        return
-
-    def search_in_content(self, path, result):
-        path = path.replace('*', '') 
         try:
-            rfile = RemoteFile(self.smbconnection, 
-                               path + result.get_longname(), 
-                               self.share,
-                               access = FILE_READ_DATA)
+            rfile = RemoteFile(
+                                self.smbconnection, 
+                                path, 
+                                self.share,
+                                access = FILE_READ_DATA
+                            )
             rfile.open()
-
             while True:
-                try:
-                    contents = rfile.read(4096)
-                    if not contents:
-                        break
-                except SessionError as e:
-                    if 'STATUS_END_OF_FILE' in str(e):
-                        break
-
-                except Exception:
-                    traceback.print_exc()
+                buffer = rfile.read(4096)
+                if not buffer:
                     break
 
-                if self.pattern:
-                    for pattern in self.pattern:
-                        i = contents.lower().find(pattern.lower())
-                        if i != -1:
-                            contents = contents[i:i+50] 
-                            if '\n' in contents: 
-                                contents = contents.split('\n')[0].strip()
-                            r = "//%s/%s%s > %s" % (self.share, path, result.get_longname(), contents)
-                            yield(r)
-                elif self.regex:
-                    for regex in self.regex:
-                        reg = regex.findall(contents)
-                        if regex.findall(contents):
-                            r = "//%s/%s%s > %s" % (self.share, path, result.get_longname(), str(reg))
-                            yield(r)
+                for string in self.search_str:
+                    indexes = [m.start() for m in re.finditer(string, buffer, flags=re.IGNORECASE)]
+                    for i in indexes:
+                        r = "{path} > {content}".format(share=self.share, path=path, content=buffer[i:].strip().split('\n')[0])
+                        yield r
 
             rfile.close()
-            return
 
         except SessionError as e:
             if 'STATUS_SHARING_VIOLATION' in str(e):
                 pass
 
-        except Exception:
-            traceback.print_exc()
+        except Exception, e:
+            print e
+
+
+class Spider():
+    def __init__(self, hosts, _domain, _port, _user, _passwd, _hashes, _check_content, _share, _search_str, _exts, _max_size, _folder_to_spider, _depth):
+        self.hosts = hosts
+
+        self.domain = _domain
+        self.port = _port
+        self.user = _user
+        self.passwd = _passwd
+        self.hashes = _hashes
+        self.search_str = _search_str
+        self.check_content = _check_content
+        self.share = _share
+        self.max_size = _max_size
+        self.files_extensions = _exts
+        self.folder_to_spider = _folder_to_spider
+        self.depth = _depth
+
+    def spider_an_host(self, host):
+        smbspider = SMBSpider(host, self.domain, self.port, self.user, self.passwd, self.hashes, self.check_content, self.share, self.search_str, self.files_extensions, self.max_size)
+        logged = smbspider.login()
+        
+        if logged:
+            if self.share == 'all':
+                shares = smbspider.list_share()
+            else:
+                shares = [self.share]
+            
+            for share in shares:
+                smbspider.set_share(share)
+                try:
+                    for res in smbspider.scanwalk(self.folder_to_spider, int(self.depth)):
+                        path = "%s/%s/%s" % (host, share, res)
+                        path = path.replace('*/', '/').replace('//', '/')
+                        yield path
+                except Exception, e:
+                    # print e
+                    pass
+
+            smbspider.logoff()
+
+    def spider_all_hosts(self):
+        for host in self.hosts:
+            for files in self.spider_an_host(host):
+                yield files
+
+# Using thread = TO DO using yield
+# class WorkerThread(threading.Thread) :
+
+#     def __init__(self, queue, tid, hosts, _domain, _port, _user, _passwd, _hashes, _check_content, _share, _search_str, _exts, _max_size, _folder_to_spider, _depth) :
+#         threading.Thread.__init__(self)
+#         self.queue = queue
+#         self.tid = tid
+        
+#         self.hosts = hosts
+
+#         self.domain = _domain
+#         self.port = _port
+#         self.user = _user
+#         self.passwd = _passwd
+#         self.hashes = _hashes
+#         self.search_str = search_str
+#         self.check_content = _check_content
+#         self.share = _share
+#         self.max_size = _max_size
+#         self.files_extensions = _exts
+#         self.folder_to_spider = _folder_to_spider
+#         self.depth = _depth
+
+#     def spider_an_host(self, host):
+#         smbspider = SMBSpider(host, self.domain, self.port, self.user, self.passwd, self.hashes, self.check_content, self.share, self.search_str, self.files_extensions, self.max_size)
+#         logged = smbspider.login()
+        
+#         if logged:
+#             if self.share == 'all':
+#                 shares = smbspider.list_share()
+#             else:
+#                 shares = [self.share]
+            
+#             for share in shares:
+#                 smbspider.set_share(share)
+#                 try:
+#                     for res in smbspider.scanwalk(self.folder_to_spider, int(self.depth)):
+#                         res = res.replace('*/', '/').replace('//', '/')
+#                         yield "%s/%s/%s" % (host, share, res)
+#                 except Exception, e:
+#                     if "STATUS_ACCESS_DENIED" in e.message:
+#                         pass
+
+#             smbspider.logoff()
+
+#     def run(self):
+#         for host in self.hosts:
+#             try :
+#                 host = self.queue.get(timeout=1)
+#             except Queue.Empty:
+#                 return
+
+#             for r in self.spider_an_host(host):
+#                 print '%s' % r
+            
+#             self.queue.task_done()
+
+# def smbspider(hosts, domain, port, user, passwd, hashes, check_content, share, search_str, files_extensions, max_size, folder_to_spider, depth):
+#     queue = Queue.Queue()
+#     threads = []
+
+#     nb_thread = 5
+#     for i in range(1, nb_thread + 1):
+#         worker = WorkerThread(queue, i, hosts, domain, port, user, passwd, hashes, check_content, share, search_str, files_extensions, max_size, folder_to_spider, depth) 
+#         worker.setDaemon(True)
+#         worker.start()
+#         threads.append(worker)
+    
+#     for j in hosts:
+#         queue.put(j)
+    
+#     queue.join()
+    
+#     # wait for all threads to exit 
+#     for item in threads:
+#         item.join()
+
+# smbspider(hosts, domain, port, user, passwd, hashes, check_content, share, search_str, exts, max_size, folder_to_spider, depth)
