@@ -46,7 +46,6 @@ class bypassuac():
         
         # On a Windows 10 "C:\Windows\SysNative\WindowsPowerShell\v1.0\powershell.exe" does not exist, we cannot force to use a x64 bit powershell interpreter
         # The pupy dll upload will be a 32 bit
-        print repr(self.module.client.desc)
         if '64' in self.module.client.desc['proc_arch']:
             upload_x86_dll = False
         else:
