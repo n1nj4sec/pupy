@@ -8,16 +8,17 @@ open_port = []
 
 class WorkerThread(threading.Thread) :
 
-    def __init__(self, queue, tid, remote_ip, ports) :
+    def __init__(self, queue, tid, remote_ip, ports, settimeout) :
         threading.Thread.__init__(self)
         self.queue = queue
         self.tid = tid
         self.ports = ports
         self.remote_ip = remote_ip
+        self.timeout = settimeout
 
     def check_open_port(self, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(4)
+        sock.settimeout(self.timeout)
         result = sock.connect_ex((self.remote_ip, port))
         if result == 0:
             sock.close()
@@ -32,13 +33,12 @@ class WorkerThread(threading.Thread) :
             self.check_open_port(port)
             self.queue.task_done()
 
-def scan(remote_ip, ports):
+def scan(remote_ip, ports, nb_threads, settimeout):
     queue = Queue.Queue()
     threads = []
 
-    # 10 threads
-    for i in range(1, 11):
-        worker = WorkerThread(queue, i, remote_ip, ports) 
+    for i in range(1, nb_threads):
+        worker = WorkerThread(queue, i, remote_ip, ports, settimeout) 
         worker.setDaemon(True)
         worker.start()
         threads.append(worker)
