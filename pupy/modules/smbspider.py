@@ -1,13 +1,18 @@
 # -*- coding: UTF8 -*-
-# Code modified from the awesome tool CrackMapExec: /cme/spider/smbspider.py
-# Thank you to byt3bl33d3r for its work
 from pupylib.PupyModule import *
 from netaddr import *
+from pupylib.utils.term import colorize
+import os
+
 __class_name__="SMBSpider"
 
 @config(cat="admin")
 class SMBSpider(PupyModule):
+    
     """ walk through a smb directory and recursively search a string into files """
+    
+    dependencies = [ 'impacket', 'calendar', 'ntpath', 'pupyutils.smbspider']
+
     daemon=True
     max_clients=1
 
@@ -15,8 +20,8 @@ class SMBSpider(PupyModule):
         
         example = 'Examples:\n'
         example += '>> run smbspider 192.168.0.1 --pattern password --content\n'
-        example += '>> run smbspider 192.168.0.1 -u john -p password1 -d TEST --regex password.* pwd.* --content -e txt,ini\n'
-        example += '>> run smbspider 172.16.0.20/24 -u john --regex password.* -H \'aad3b435b51404eeaad3b435b51404ee:da76f2c4c96028b7a6111aef4a50a94d\'\n'
+        example += '>> run smbspider 192.168.0.1 -u john -p password1 pwd= -d WORKGROUP --content -e txt,ini\n'
+        example += '>> run smbspider 172.16.0.20/24 -u john --pattern password.* -H \'aad3b435b51404eeaad3b435b51404ee:da76f2c4c96028b7a6111aef4a50a94d\'\n'
 
         self.arg_parser = PupyArgumentParser(prog="smbspider", description=self.__doc__, epilog=example)
         self.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
@@ -30,49 +35,37 @@ class SMBSpider(PupyModule):
         sgroup.add_argument("-s", metavar="SHARE", dest='share', default="all", help="Specify a share (default C$)")
         sgroup.add_argument("--spider", metavar='FOLDER', nargs='?', default='.', type=str, help='Folder to spider (default: root directory)')
         sgroup.add_argument("--content", action='store_true', help='Enable file content searching')
-        sgroup.add_argument("--exclude-dirs", type=str, metavar='DIR_LIST', default='', help='Directories to exclude from spidering')
-        sgroup.add_argument("--pattern", nargs='*', help='Pattern(s) to search for in folders, filenames and file content')
-        sgroup.add_argument("--regex", nargs='*', help='Regex(s) to search for in folders, filenames and file content')
-        sgroup.add_argument('-e','--extensions',metavar='ext1,ext2,...', help='limit to some extensions')
+        sgroup.add_argument("--pattern", nargs='+', help='Pattern(s) to search for in folders, filenames and file content')
+        sgroup.add_argument('-e','--extensions',metavar='ext1,ext2,...', default='', help='Limit to some extensions')
         sgroup.add_argument("--depth", type=int, default=10, help='Spider recursion depth (default: 10)')
         sgroup.add_argument('-m','--max-size', type=int, default=7000000, help='max file size in byte (default 7 Mo)')
-        sgroup.add_argument('-v','--verbose', action='store_true', default=False, help='verbose mode')
 
     def run(self, args):
-        exts=[]
-        if args.extensions:
-            exts=args.extensions.split(',')
 
         if "/" in args.target[0]:
             hosts = IPNetwork(args.target[0])
         else:
-            hosts = list()
-            hosts.append(args.target[0])
-
-        self.client.load_package("impacket")
-        self.client.load_package("calendar")
-        self.client.load_package("pupyutils.smbspider")
+            hosts = [args.target[0]]
         
-        for host in hosts:
-            if args.verbose:
-                self.info("Connecting to the remote host: %s:%s" % (host, str(args.port)))
+        if not args.pattern:
+            self.error('Specify the pattern to look for')
+            return
 
-            smbspider = self.client.conn.modules["pupyutils.smbspider"].SMBSpider(host, args.domain, args.port, args.user, args.passwd, args.hash, args.content, args.regex, args.share, args.exclude_dirs, exts, args.pattern, args.max_size)
-            logged = smbspider.login()
-            if logged:
-                # spider all shares
-                if args.share == 'all':
-                    for share in smbspider.list_share():
-                        smbspider.set_share(share)
-                        for res in smbspider.spider(args.spider, int(args.depth)):
-                            self.success("%s > %s" % (host, res))
-                # spider only one share
-                else:
-                    for res in smbspider.spider(args.spider, int(args.depth)):
-                        self.success("%s" % res)
-                smbspider.logoff()
-                if args.verbose:
-                    self.info("Search finished !")
-            else:
-                if args.verbose:
-                    self.error("Connection failed !")
+        if args.extensions:
+            args.extensions = tuple(f.strip() for f in args.extensions.split(','))
+        
+        # if not extension is provided for find commad, try to extract it to gain time during the research
+        elif not args.content:
+            args.extensions = tuple(os.path.splitext(s)[1].strip() for s in args.pattern)    
+
+        search_str = [s.lower() for s in args.pattern]
+
+        self.info("Search started")
+        smb = self.client.conn.modules["pupyutils.smbspider"].Spider(hosts, args.domain, args.port, args.user, args.passwd, args.hash, args.content, args.share, search_str, args.extensions, args.max_size, args.spider, args.depth)
+        for files in smb.spider_all_hosts():
+            # add color
+            for s in search_str:
+                if s in files:
+                    files = files.replace(s, colorize(s,"green"))
+            self.success("%s" % files)
+        self.info("Search finished !")
