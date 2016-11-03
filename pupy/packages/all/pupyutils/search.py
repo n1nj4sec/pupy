@@ -18,15 +18,14 @@ class Search():
             self.root_path = root_path
         self.search_str = search_str
 
-    def search_string(self, path, search_str):
-        buffer_size = 4096
+    def search_string(self, path):
         buffer = None
         try:
             with open(path, 'rb') as f:    
                 while True:
-                    buffer = f.read(buffer_size)
+                    buffer = f.read(4096)
                     if buffer:
-                        for string in search_str:
+                        for string in self.search_str:
                             # no case sensitive on regex
                             indexes = [m.start() for m in re.finditer(string, buffer, flags=re.IGNORECASE)]
                             for i in indexes:
@@ -38,38 +37,47 @@ class Search():
             pass
 
     def scanwalk(self, path, followlinks=False):
+        
         ''' lists of DirEntries instead of lists of strings '''
+        
         dirs, nondirs = [], []
         try:
             for entry in scandir(path):
+                # check if the file contains our pattern
+                for s in self.search_str:
+                    if entry.name.lower().find(s) != -1:
+                        yield '%s' % entry.path
+
+                # if directory, be recursive
                 if entry.is_dir(follow_symlinks=followlinks):
-                    dirs.append(entry)
+                    for res in self.scanwalk(entry.path):
+                        yield res
+               
+               # check inside the file to found our pattern
                 else:
                     if self.max_size > entry.stat(follow_symlinks=False).st_size:
                         if entry.name.endswith(self.files_extensions):
-                            nondirs.append(entry)
-            yield path, dirs, nondirs
+                            if self.check_content:
+                                for res in self.search_string(entry.path):
+                                    try:
+                                        res = res.encode('utf-8')
+                                        yield '%s > %s' % (entry.path, res)
+                                    except:
+                                        pass
+
         # try / except used for permission denied 
         except:
             pass
-        
-        for dir in dirs:
-            for res in self.scanwalk(dir.path, followlinks=followlinks):
-                yield res
-
+    
     def run(self):
-        for root, dirs, files in self.scanwalk(self.root_path):
-            for f in files:
-                # such as find command
-                for s in self.search_str:
-                    if f.name.lower().find(s) != -1:
-                        yield 'File: %s\n\n' % os.path.join(root, f.name)
-
-                # such as grep command
-                if self.check_content:
-                    for res in self.search_string(os.path.join(root, f.name), self.search_str):
-                        try:
-                            res = res.encode('utf-8')
-                            yield 'File: %s > %s\n\n' % (os.path.join(root, f.name), res)
-                        except:
-                            pass
+        if os.path.isfile(self.root_path):
+            for res in self.search_string(self.root_path):
+                try:
+                    res = res.encode('utf-8')
+                    yield '%s > %s' % (self.root_path, res)
+                except:
+                    pass
+            
+        else:
+            for files in self.scanwalk(self.root_path):
+                yield files
