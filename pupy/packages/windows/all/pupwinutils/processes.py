@@ -74,18 +74,18 @@ def start_hidden_process(path):
     return p
     
 def is_x64_architecture():
-	""" Return True if the architecture is x64 """
-	if "64" in platform.machine():
-		return True
-	else:
-		return False
-		
+    """ Return True if the architecture is x64 """
+    if "64" in platform.machine():
+        return True
+    else:
+        return False
+        
 def is_x86_architecture():
-	""" Return True if the architecture is x86 """
-	if "86" in platform.machine():
-		return True
-	else:
-		return False
+    """ Return True if the architecture is x86 """
+    if "86" in platform.machine():
+        return True
+    else:
+        return False
 
 def get_current_pid():
     p = psutil.Process(os.getpid())
@@ -93,8 +93,10 @@ def get_current_pid():
     return dic
 
 def get_current_ppid():
+    dic = {'Parent Name': None, 'PPID': None}
     pp = psutil.Process(os.getpid()).parent()
-    dic = {'Parent Name': pp.name(), 'PPID': pp.pid}
+    if pp != None:
+        dic = {'Parent Name': pp.name(), 'PPID': pp.pid}
     return dic
 
 def isUserAdmin():
