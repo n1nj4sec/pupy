@@ -5,7 +5,7 @@ __class_name__="DNS"
 
 @config(cat="admin")
 class DNS(PupyModule):
-    """ list system files """
+    """ retrieve domain name from IP and vice versa """
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="dns", description=self.__doc__)
