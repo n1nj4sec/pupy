@@ -32,18 +32,16 @@ def parse_win_proxy(val):
     return l
 
 last_wpad=None
-def get_proxies(wpad_timeout=600, additional_proxies=[]):
+def get_proxies(wpad_timeout=600, additional_proxies=None):
     global last_wpad
 
-    for p in additional_proxies:
-        np=p
-        login=None
-        password=None
-        if "@" in np:
-            tab=p.split(":", 1)
+    if additional_proxies != None:
+        login, password = None, None
+        if "@" in additional_proxies:
+            tab=additional_proxies.split(":", 1)
             login, password=tab[0].split()
-            np=tab[1]
-        tab=np.split(":")
+            additional_proxies=tab[1]
+        tab=additional_proxies.split(":")
         yield tab[0].upper(), tab[1]+":"+tab[2], login, password
 
     if sys.platform=="win32":
