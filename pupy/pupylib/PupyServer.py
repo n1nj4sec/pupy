@@ -71,6 +71,9 @@ class PupyServer(threading.Thread):
             self.ipv6=ipv6
         try:
             self.address=self.config.get("pupyd", "address")
+            if self.ipv6 and not ":" in self.address:
+                logging.warning("ipv4 detected in pupy.conf, only binding on ipv4")
+                self.ipv6=False
         except configparser.NoOptionError:
             self.address=''
         if not transport:
