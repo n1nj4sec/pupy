@@ -5,7 +5,7 @@ import ssl
 from . import socks
 
 class PupyClient(object):
-    def connect(self, host, port, timeout=3):
+    def connect(self, host, port, timeout=4):
         """ return a socket after connection """
         raise NotImplementedError("connect not implemented")
 
@@ -17,7 +17,7 @@ class PupyAsyncClient(object):
         return self.host, self.port, self.timeout
 
 class PupyTCPClient(PupyClient):
-    def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM, timeout = 3, nodelay = False, keepalive = True):
+    def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM, timeout = 4, nodelay = False, keepalive = True):
         super(PupyTCPClient, self).__init__()
         self.sock=None
 

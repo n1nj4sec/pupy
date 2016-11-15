@@ -142,7 +142,7 @@ class PupyUDPSocketStream(object):
 
 
     def on_connect(self):
-        self.transport.on_connect()
+       self.transport.on_connect()
 
     def poll(self, timeout):
         return len(self.upstream)>0 or self._poll_read(timeout=timeout)
@@ -194,7 +194,7 @@ class PupyUDPSocketStream(object):
             while len(self.upstream)<count:
                 if self.client_side:
                     with self.downstream_lock:
-                        if self._poll_read(1):
+                        if self._poll_read(0):
                             self.transport.downstream_recv(self.buf_in)
                 else:
                     time.sleep(0.0001)
