@@ -1,5 +1,5 @@
 [submodule "pupy/packages/src/scapy"]
-	path = pupy/packages/src/scapy
+	path = pupy/external/scapy
 	url = https://github.com/secdev/scapy
 	shallow = true
 [submodule "pupy/payload_templates"]
