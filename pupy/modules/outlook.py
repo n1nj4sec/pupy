@@ -39,7 +39,7 @@ class Outlook(PupyModule):
 		'''
 		self.client.load_package("outlook")
 		localFolder=args.localOutputFolder
-		self.localFolder = os.path.join(localFolder, "{0}-{1}-{2}".format(self.client.desc['hostname'].encode('utf-8'), self.client.desc['user'].encode('utf-8'), self.client.desc['macaddr'].encode('utf-8').replace(':','')))
+		self.localFolder = os.path.join(localFolder, "{0}-{1}-{2}".format(self.client.desc['hostname'], self.client.desc['user'], self.client.desc['macaddr'].replace(':','')))
 		if not os.path.exists(self.localFolder):
 			logging.debug("Creating the {0} folder locally".format(self.localFolder))
 			os.makedirs(self.localFolder)
