@@ -8,7 +8,10 @@ __class_name__="Pywerview"
 @config(cat="gather")
 class Pywerview(PupyModule):
     """ Rewriting of some PowerView's functionalities in Python """
+    
     dependencies=["pywerview", "impacket", "calendar", "bs4", "pdb", "cmd", "bdb", "repr", "pprint", "htmlentitydefs", "HTMLParser", "markupbase", "OpenSSL"]
+    max_clients=1
+
     def init_argparse(self):
 
         # changes from original main :
