@@ -23,3 +23,6 @@
 [submodule "pupy/external/winpty"]
 	path = pupy/external/winpty
 	url = https://github.com/alxchk/winpty
+[submodule "pupy/memorpy"]
+	path = pupy/external/memorpy
+	url = https://github.com/n1nj4sec/memorpy
