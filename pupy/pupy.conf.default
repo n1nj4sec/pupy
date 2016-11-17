@@ -39,7 +39,6 @@ getpid = getpid
 getppid = getppid
 pwd = pyexec -c 'import os;print os.getcwd()'
 #tasklist = shell_exec 'tasklist /v'
-creds = creds -S
 mount = drives
 
 [rubber_ducky]
