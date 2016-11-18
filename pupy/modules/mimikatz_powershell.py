@@ -4,7 +4,6 @@ import os
 import re
 from modules.lib.windows.powershell_upload import execute_powershell_script
 from pupylib.utils.credentials import Credentials
-from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="Mimikatz_Powershell"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
@@ -32,12 +31,11 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
         # for windows 10, if the UseLogonCredential registry is not present or disable (equal to 0), not plaintext password can be retrieved using mimikatz.
         if args.wdigest:
             self.client.load_package("pupwinutils.wdigest")
-            with redirected_stdio(self.client.conn):
-                ok, message = self.client.conn.modules["pupwinutils.wdigest"].wdigest(args.wdigest)
-                if ok: 
-                    self.success(message)
-                else:
-                    self.warning(str(message))
+            ok, message = self.client.conn.modules["pupwinutils.wdigest"].wdigest(args.wdigest)
+            if ok: 
+                self.success(message)
+            else:
+                self.warning(str(message))
             return
 
         script ='mimikatz'
