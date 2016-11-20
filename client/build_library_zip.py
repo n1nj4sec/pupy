@@ -35,6 +35,7 @@ if 'win' in sys.platform:
     zf.write(r'C:\Python27\Lib\site-packages\pywin32_system32\pywintypes27.dll', 'pywintypes27.dll')
 
 try:
+    content = set()
     for dep in all_dependencies:
         mdep = __import__(dep)
         print "DEPENDENCY: ", dep, mdep
@@ -67,7 +68,11 @@ try:
                             ]):
                                 continue
 
+                            if zipname in content:
+                                continue
+
                             print('adding file : {}'.format(zipname))
+                            content.add(zipname)
                             zf.write(os.path.join(root,f+ext), zipname)
         else:
             if '<memimport>' in mdep.__file__:
