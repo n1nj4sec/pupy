@@ -68,6 +68,7 @@ class PupySocketStream(SocketStream):
         if not buf:
             self.close()
             raise EOFError("connection closed by peer")
+
         self.buf_in.write(BYTES_LITERAL(buf))
 
     # The root of evil
@@ -78,7 +79,11 @@ class PupySocketStream(SocketStream):
 
     def sock_poll(self, timeout):
         with self.downstream_lock:
-            to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
+            try:
+                to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
+            except socket.error:
+                to_close = True
+
             if to_close:
                 raise EOFError('sock_poll error')
 
@@ -211,4 +216,3 @@ class PupyUDPSocketStream(object):
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
-
