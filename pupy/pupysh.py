@@ -67,10 +67,16 @@ if __name__=="__main__":
     builtins.glob_pupyServer=pupyServer # dirty ninja trick for this particular case avoiding to touch rpyc source code
     pcmd=pupylib.PupyCmd.PupyCmd(pupyServer)
     pupyServer.start()
-    while True:
+    active = True
+
+    while active:
         try:
             pcmd.cmdloop()
+            active = False
         except Exception as e:
             print(traceback.format_exc())
             time.sleep(0.1) #to avoid flood in case of exceptions in loop
             pcmd.intro=''
+
+    pupyServer.stop()
+    pupyServer.join()

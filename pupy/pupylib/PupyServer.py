@@ -307,3 +307,6 @@ class PupyServer(threading.Thread):
             self.server.start()
         except Exception as e:
             logging.exception(e)
+
+    def stop(self):
+        self.server.close()

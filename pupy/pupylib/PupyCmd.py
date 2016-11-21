@@ -432,6 +432,7 @@ class PupyCmd(cmd.Cmd):
 
     def postcmd(self, stop, line):
         readline.write_history_file('.pupy_history')
+        return stop
 
     def do_list_modules(self, arg):
         """ List available modules with a brief description (the first description line) """
@@ -695,7 +696,7 @@ class PupyCmd(cmd.Cmd):
 
     def do_exit(self, arg):
         """ Quit Pupy Shell """
-        sys.exit()
+        return True
 
     def do_read(self, arg):
         """ execute a list of commands from a file """
