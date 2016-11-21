@@ -35,6 +35,7 @@ import marshal
 import network.conf
 import rpyc
 import shlex
+import socket
 
 try:
     import ConfigParser as configparser
@@ -270,8 +271,14 @@ class PupyServer(threading.Thread):
         except LauncherError as e:
             launcher.arg_parser.print_usage()
             return
-        stream=launcher.iterate().next()
-        self.handler.display_info("Connecting ...")
+
+        try:
+            stream=launcher.iterate().next()
+        except socket.error as e:
+            self.handler.display_error("Couldn't connect to pupy: {}".format(e))
+            return
+
+        self.handler.display_success("Connected. Starting session")
         bgsrv=PupyConnectionThread(PupyService.PupyBindService, rpyc.Channel(stream), config={})
         bgsrv.start()
 
