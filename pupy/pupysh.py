@@ -55,17 +55,9 @@ if __name__=="__main__":
     if args.version:
         print_version()
         exit(0)
-    loglevel=logging.WARNING
-    if args.loglevel=="ERROR":
-        loglevel=logging.ERROR
-    elif args.loglevel=="DEBUG":
-        loglevel=logging.DEBUG
-    elif args.loglevel=="INFO":
-        loglevel=logging.INFO
-    else:
-        loglevel=logging.WARNING
+
     logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
-    logging.getLogger().setLevel(loglevel)
+    logging.getLogger().setLevel(args.loglevel)
 
     pupyServer=pupylib.PupyServer.PupyServer(args.transport, args.transport_args, port=args.port)
     try:
