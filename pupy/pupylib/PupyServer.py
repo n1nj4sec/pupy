@@ -31,6 +31,7 @@ from network.lib.utils import parse_transports_args
 from network.lib.base_launcher import LauncherError
 from os import path
 from shutil import copyfile
+from itertools import count, ifilterfalse
 import marshal
 import network.conf
 import rpyc
@@ -54,7 +55,7 @@ class PupyServer(threading.Thread):
         self.jobs={}
         self.jobs_id=1
         self.clients_lock=threading.Lock()
-        self.current_id=1
+        self._current_id=set()
         self.config = configparser.ConfigParser()
         if not path.exists('pupy.conf'):
             copyfile(
@@ -92,6 +93,15 @@ class PupyServer(threading.Thread):
         self.transport_kwargs=transport_kwargs
         self.categories=PupyCategories(self)
 
+    def create_id(self):
+        """ return first lowest unused session id """
+        new_id = next(ifilterfalse(self._current_id.__contains__, count(1)))
+        self._current_id.add(new_id)
+        return new_id
+
+    def free_id(self, id):
+        self._current_id.remove(int(id))
+
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
         self.handler=instance
@@ -109,8 +119,9 @@ class PupyServer(threading.Thread):
         l=conn.namespace["get_uuid"]()
 
         with self.clients_lock:
+            client_id = self.create_id()
             client_info = {
-                "id": self.current_id,
+                "id": client_id,
                 "conn" : conn,
                 "address" : conn._conn._config['connid'].rsplit(':',1)[0],
                 "launcher" : conn.get_infos("launcher"),
@@ -129,12 +140,10 @@ class PupyServer(threading.Thread):
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
                 self.handler.display_srvinfo("Session {} opened ({}{}:{})".format(
-                    self.current_id,
+                    client_id,
                     '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
                     client_ip, client_port)
                 )
-
-            self.current_id += 1
         if pc:
             on_connect(pc)
 
@@ -144,6 +153,7 @@ class PupyServer(threading.Thread):
                 if c.conn is client:
                     if self.handler:
                         self.handler.display_srvinfo('Session {} closed'.format(self.clients[i].desc['id']))
+                        self.free_id(self.clients[i].desc['id'])
                     del self.clients[i]
                     break
 
