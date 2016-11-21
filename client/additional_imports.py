@@ -40,6 +40,7 @@ import urllib2
 import getpass
 import __future__
 import bz2
+import netaddr
 #needed for scapy :
 import new
 import fractions

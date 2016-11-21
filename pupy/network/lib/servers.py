@@ -21,6 +21,8 @@ from threading import Thread, RLock
 from streams.PupySocketStream import addGetPeer
 from network.lib.connection import PupyConnection
 
+from network.lib.igd import IGDClient, UPNPError
+
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):
 
@@ -34,11 +36,23 @@ class PupyTCPServer(ThreadedServer):
         self.transport_class = kwargs["transport"]
         self.transport_kwargs = kwargs["transport_kwargs"]
 
+        self.igd = None
+        self.igd_mapping = False
+
         del kwargs["stream"]
         del kwargs["transport"]
         del kwargs["transport_kwargs"]
 
         ThreadedServer.__init__(self, *args, **kwargs)
+
+        try:
+            self.igd = IGDClient()
+            if self.igd.available:
+                self.igd.AddPortMapping(self.port, 'TCP', self.port)
+                self.igd_mapping = True
+
+        except UPNPError as e:
+            self.logger.warn("Couldn't create IGD mapping: {}".format(e.description))
 
     def _setup_connection(self, lock, sock, queue):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
@@ -123,6 +137,15 @@ class PupyTCPServer(ThreadedServer):
                 wrapper.close()
 
             self.clients.discard(sock)
+
+    def close(self):
+        ThreadedServer.close(self)
+        if self.igd_mapping:
+            try:
+                self.igd.DeletePortMapping(self.port, 'TCP')
+            except Exception as e:
+                self.logger.info('IGD Exception: {}/{}'.format(type(e), e))
+
 
 class PupyUDPServer(object):
     def __init__(self, service, **kwargs):
