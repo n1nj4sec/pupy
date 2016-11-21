@@ -123,14 +123,17 @@ class PupyServer(threading.Thread):
             self.clients.append(pc)
             if self.handler:
                 addr = conn.modules['pupy'].get_connect_back_host()
-                server_ip, server_port = addr.rsplit(':', 1)
                 try:
                     client_ip, client_port = conn._conn._config['connid'].rsplit(':', 1)
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
-                self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(
-                    self.current_id, server_ip, server_port, client_ip, client_port))
+                self.handler.display_srvinfo("Session {} opened ({}{}:{})".format(
+                    self.current_id,
+                    '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
+                    client_ip, client_port)
+                )
+
             self.current_id += 1
         if pc:
             on_connect(pc)
@@ -279,7 +282,12 @@ class PupyServer(threading.Thread):
             return
 
         self.handler.display_success("Connected. Starting session")
-        bgsrv=PupyConnectionThread(PupyService.PupyBindService, rpyc.Channel(stream), config={})
+        bgsrv=PupyConnectionThread(
+            PupyService.PupyBindService,
+            rpyc.Channel(stream),
+            config={
+                'connid': launcher.args.host
+            })
         bgsrv.start()
 
     def run(self):
