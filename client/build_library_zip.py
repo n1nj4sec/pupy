@@ -7,12 +7,13 @@ sys.path.insert(0, os.path.join('..','..','pupy'))
 import additional_imports
 import Crypto
 import pp
-
+import unicodedata # this is a builtin on linux and .pyd on windows that needs to be embedded
 all_dependencies=set(
     [
         x.split('.')[0] for x,m in sys.modules.iteritems() if not '(built-in)' in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa'
+        'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa',
+        'encodings.idna', 'stringprep',
     ]
 )
 

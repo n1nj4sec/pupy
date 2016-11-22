@@ -50,10 +50,10 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
-if hasattr(sys, 'frozen') and sys.frozen:
-    logging.disable(logging.CRITICAL) # disable all logging, because it can injected pupy dll unresponsive
-else:
-    logging.getLogger().setLevel(logging.ERROR)
+#if hasattr(sys, 'frozen') and sys.frozen:
+#    logging.disable(logging.CRITICAL) # disable all logging, because it can make injected pupy dll unresponsive
+#else:
+logging.getLogger().setLevel(logging.WARNING)
 
 def add_pseudo_pupy_module():
     """ add a pseudo pupy module for *nix payloads """
