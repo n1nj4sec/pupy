@@ -143,16 +143,16 @@ def getUACLevel():
         except WindowsError:
             break
 
-        if consentPromptBehaviorAdmin == 2 and enableLUA == 1 and promptOnSecureDesktop == 1:
-            return "3/3"
-        elif consentPromptBehaviorAdmin == 5 and enableLUA == 1 and promptOnSecureDesktop == 1:
-            return "2/3"
-        elif consentPromptBehaviorAdmin == 5 and enableLUA == 1 and promptOnSecureDesktop == 0:
-            return "1/3"
-        elif enableLUA == 0:
-            return "0/3"
-        else:
-            return "?"
+    if consentPromptBehaviorAdmin == 2 and enableLUA == 1 and promptOnSecureDesktop == 1:
+        return "3/3"
+    elif consentPromptBehaviorAdmin == 5 and enableLUA == 1 and promptOnSecureDesktop == 1:
+        return "2/3"
+    elif consentPromptBehaviorAdmin == 5 and enableLUA == 1 and promptOnSecureDesktop == 0:
+        return "1/3"
+    elif enableLUA == 0:
+        return "0/3"
+    else:
+        return "?"
 
 def GetUserName():
     from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
