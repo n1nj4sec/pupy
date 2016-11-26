@@ -16,7 +16,7 @@
 # This module uses the builtins modules pupy and _memimporter to load python modules and packages from memory, including .pyd files (windows only)
 # Pupy can dynamically add new modules to the modules dictionary to allow remote importing of python modules from memory !
 #
-import sys, imp, zlib, marshal
+import sys, imp, marshal
 
 __debug = False;
 
@@ -34,8 +34,8 @@ except ImportError:
 modules={}
 try:
     import pupy
-    if not (hasattr(pupy, 'pseudo') and pupy.pseudo):
-        modules = marshal.loads(zlib.decompress(pupy._get_compressed_library_string()))
+    if not (hasattr(pupy, 'pseudo') and pupy.pseudo) and not modules:
+        modules = pupy.get_modules()
 except ImportError:
     pass
 

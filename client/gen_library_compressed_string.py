@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 import StringIO, zipfile, os.path, imp, sys
 import marshal
-import zlib
+import pylzma
+import struct
 
 def get_encoded_library_string():
 	filepath=None
@@ -20,7 +21,9 @@ def get_encoded_library_string():
 		]
 	])
 
-	return zlib.compress(marshal.dumps(modules),9)
+	payload = marshal.dumps(modules)
+	payload_len = len(payload)
+	return struct.pack('>I', payload_len) + pylzma.compress(payload,dictionary=24,fastBytes=255)
 
 with open(os.path.join("resources","library_compressed_string.txt"),'wb') as w:
 	w.write(get_encoded_library_string())

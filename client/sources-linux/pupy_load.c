@@ -23,11 +23,6 @@ extern const int resources_python27_so_size;
 extern const char resources_bootloader_pyc_start[];
 extern const int resources_bootloader_pyc_size;
 
-#ifdef _PYZLIB_DYNLOAD
-extern const char resources_zlib_so_start[];
-extern const int resources_zlib_so_size;
-#endif
-
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
 
@@ -103,13 +98,6 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 	dprint("init_memimporter()\n");
 	initpupy();
 	dprint("initpupy()\n");
-
-#ifdef _PYZLIB_DYNLOAD
-	dprint("load zlib\n");
-    if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size)) {
-        dprint("ZLib load failed.\n");
-    }
-#endif
 
 	/* We execute then in the context of '__main__' */
 	dprint("starting evaluating python code ...\n");

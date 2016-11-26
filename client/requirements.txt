@@ -4,3 +4,4 @@ psutil
 pyaml
 rsa
 netaddr
+pylzma
