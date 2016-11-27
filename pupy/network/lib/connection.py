@@ -6,12 +6,13 @@ from rpyc.core import Connection, consts
 from threading import Thread, RLock, Event
 
 class PupyConnection(Connection):
-    def __init__(self, lock, *args, **kwargs):
+    def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
         self._connection_serve_lock = lock
         self._last_recv = time.time()
         kwargs['_lazy'] = True
         Connection.__init__(self, *args, **kwargs)
+        self._local_root.pupy_srv = pupy_srv
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
@@ -89,7 +90,12 @@ class PupyConnection(Connection):
 
 class PupyConnectionThread(Thread):
     def __init__(self, *args, **kwargs):
-        self.lock = getattr(kwargs, 'lock') if hasattr(kwargs, 'lock') else RLock()
+        if hasattr(kwargs, 'lock'):
+            self.lock = getattr(kwargs, 'lock')
+            del kwargs['lock']
+        else:
+            self.lock = RLock()
+
         self.connection = PupyConnection(self.lock, *args, **kwargs)
         Thread.__init__(self)
         self.daemon = True

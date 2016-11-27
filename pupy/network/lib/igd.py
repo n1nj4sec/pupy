@@ -119,6 +119,8 @@ class IGDClient:
                 self.igdsvc = "WANIPC"
 
             self.discovery()
+            if not self.ctrlURL:
+                self.discovery(st='upnp:rootdevice')
 
         if self.available:
             self.intIP = self._getOutgoingLocalAddress()
@@ -140,11 +142,12 @@ class IGDClient:
         self.pprint = p
 
     def _getOutgoingLocalAddress(self):
-        remote_addr = netaddr.IPAddress(urlparse(self.ctrlURL).hostname)
+        ctrlurl = urlparse(self.ctrlURL)
+        remote_addr = netaddr.IPAddress(ctrlurl.hostname)
         rcon = socket.socket(
             socket.AF_INET if remote_addr.version == 4 else socket.AF_INET6,
         )
-        rcon.connect((remote_addr.format(), 1900))
+        rcon.connect((remote_addr.format(), ctrlurl.port or 1900))
         return netaddr.IPAddress(rcon.getsockname()[0])
 
     def _get1stTagText(self, xmls, tagname_list):
@@ -178,7 +181,7 @@ class IGDClient:
         err_desc = dom.find('.//control:errorDescription', self.NS)
         return (err_code.text, err_desc.text)
 
-    def discovery(self):
+    def discovery(self, st='urn:schemas-upnp-org:device:InternetGatewayDevice:1'):
         """
         Find IGD device and its control URL via UPnP multicast discovery
         """
@@ -186,7 +189,7 @@ class IGDClient:
             up_disc = '\r\n'.join([
                 'M-SEARCH * HTTP/1.1',
                 'HOST:239.255.255.250:1900',
-                'ST:upnp:rootdevice',
+                'ST:{}'.format(st),
                 'MX:2',
                 'MAN:"ssdp:discover"'
             ]) + '\r\n' * 2
@@ -236,6 +239,9 @@ class IGDClient:
             print "Discovery: ----- rx reply -----\n " + data
 
         descURL = httpparse(StringIO(data)).getheader('location')
+        if not descURL:
+            return
+
         descXMLs = urllib2.urlopen(descURL).read()
         self.pr = urlparse(descURL)
         baseURL = self.pr.scheme + "://" + self.pr.netloc

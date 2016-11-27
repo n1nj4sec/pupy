@@ -21,7 +21,6 @@ import modules
 import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
-from .PupyCmd import color_real
 from .PupyCategories import PupyCategories
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
@@ -37,6 +36,7 @@ import network.conf
 import rpyc
 import shlex
 import socket
+import errno
 
 try:
     import ConfigParser as configparser
@@ -46,7 +46,7 @@ from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, transport, transport_kwargs, port=None, ipv6=None):
+    def __init__(self, transport, transport_kwargs, port=None, ipv6=None, igd=None):
         super(PupyServer, self).__init__()
         self.daemon=True
         self.server=None
@@ -92,6 +92,8 @@ class PupyServer(threading.Thread):
         self.handler_registered=threading.Event()
         self.transport_kwargs=transport_kwargs
         self.categories=PupyCategories(self)
+        self.igd=igd
+        self.finished = threading.Event()
 
     def create_id(self):
         """ return first lowest unused session id """
@@ -293,6 +295,7 @@ class PupyServer(threading.Thread):
 
         self.handler.display_success("Connected. Starting session")
         bgsrv=PupyConnectionThread(
+            self,
             PupyService.PupyBindService,
             rpyc.Channel(stream),
             config={
@@ -321,10 +324,29 @@ class PupyServer(threading.Thread):
             logging.exception(e)
 
         try:
-            self.server = t.server(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t.stream, transport=t.server_transport, transport_kwargs=t.server_transport_kwargs, ipv6=self.ipv6)
+            self.server = t.server(
+                PupyService,
+                port=self.port, hostname=self.address,
+                authenticator=authenticator,
+                stream=t.stream,
+                transport=t.server_transport,
+                transport_kwargs=t.server_transport_kwargs,
+                pupy_srv=self,
+                ipv6=self.ipv6,
+                igd=self.igd
+            )
+
             self.server.start()
+        except socket.error as e:
+            if e.errno == errno.EACCES:
+                logging.error('Insufficient privileges to bind on port {}'.format(self.port))
+            else:
+                logging.exception(e)
         except Exception as e:
             logging.exception(e)
+        finally:
+            self.finished.set()
 
     def stop(self):
-        self.server.close()
+        if self.server:
+            self.server.close()

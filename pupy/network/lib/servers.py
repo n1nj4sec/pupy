@@ -19,7 +19,7 @@ from Queue import Queue, Empty
 from threading import Thread, RLock
 
 from streams.PupySocketStream import addGetPeer
-from network.lib.connection import PupyConnection
+from network.lib.connection import PupyConnection, PupyConnectionThread
 
 from network.lib.igd import IGDClient, UPNPError
 
@@ -35,24 +35,36 @@ class PupyTCPServer(ThreadedServer):
         self.stream_class = kwargs["stream"]
         self.transport_class = kwargs["transport"]
         self.transport_kwargs = kwargs["transport_kwargs"]
+        self.pupy_srv = kwargs["pupy_srv"]
 
-        self.igd = None
         self.igd_mapping = False
+        self.igd = None
+
+        if 'igd' in kwargs:
+            self.igd = kwargs['igd']
+            del kwargs['igd']
 
         del kwargs["stream"]
         del kwargs["transport"]
         del kwargs["transport_kwargs"]
+        del kwargs["pupy_srv"]
 
         ThreadedServer.__init__(self, *args, **kwargs)
 
-        try:
-            self.igd = IGDClient()
-            if self.igd.available:
+        if not self.igd:
+            try:
+                self.igd = IGDClient()
+            except UPNPError as e:
+                pass
+
+        if self.igd and self.igd.available:
+            try:
                 self.igd.AddPortMapping(self.port, 'TCP', self.port)
                 self.igd_mapping = True
+            except UPNPError as e:
+                self.logger.warn(
+                    "Couldn't create IGD mapping: {}".format(e.description))
 
-        except UPNPError as e:
-            self.logger.warn("Couldn't create IGD mapping: {}".format(e.description))
 
     def _setup_connection(self, lock, sock, queue):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
@@ -81,7 +93,7 @@ class PupyTCPServer(ThreadedServer):
             self.logger.debug('{}:{} Authenticated. Starting connection'.format(h, p))
 
             connection = PupyConnection(
-                lock,
+                lock, self.pupy_srv,
                 self.service,
                 Channel(stream),
                 config=config
@@ -156,9 +168,11 @@ class PupyUDPServer(object):
         self.stream_class=kwargs["stream"]
         self.transport_class=kwargs["transport"]
         self.transport_kwargs=kwargs["transport_kwargs"]
+        self.pupy_srv=kwargs["pupy_srv"]
         del kwargs["stream"]
         del kwargs["transport"]
         del kwargs["transport_kwargs"]
+        del kwargs["pupy_srv"]
 
         self.authenticator=kwargs.get("authenticator", None)
         self.protocol_config=kwargs.get("protocol_config", {})
@@ -218,21 +232,16 @@ class PupyUDPServer(object):
                 except AuthenticationError:
                     logging.info("failed to authenticate, rejecting data")
                     raise
-            self.clients[addr]=self.stream_class((self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False)
-            conn=Connection(self.service, Channel(self.clients[addr]), config=config, _lazy=True)
-            t = Thread(target = self.handle_new_conn, args=(conn,))
+            self.clients[addr] = self.stream_class(
+                (self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False
+            )
+
+            t = PupyConnectionThread(self.pupy_srv, self.service, Channel(self.clients[addr]), config=config)
             t.daemon=True
             t.start()
         with self.clients[addr].downstream_lock:
             self.clients[addr].buf_in.write(data_received)
             self.clients[addr].transport.downstream_recv(self.clients[addr].buf_in)
-
-    def handle_new_conn(self, conn):
-        try:
-            conn._init_service()
-            conn.serve_all()
-        except Exception as e:
-            logging.error(e)
 
     def start(self):
         self.listen()

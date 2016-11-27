@@ -26,7 +26,7 @@ from pupygen import get_credential
 class PupyService(rpyc.Service):
     def __init__(self, *args, **kwargs):
         super(PupyService, self).__init__(*args, **kwargs)
-        self.pupy_srv=glob_pupyServer
+
     def on_connect(self):
         try:
             # code that runs when a connection is created

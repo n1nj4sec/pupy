@@ -88,12 +88,8 @@ def get_edit_binary(path, conf):
     return binary
 
 def get_credential(name):
-    creds_src=open("crypto/credentials.py","r").read()
-    creds={}
-    exec creds_src in {}, creds
-    if name in creds:
-        return creds[name]
-    return None
+    credentials = Credentials()
+    return credentials[name]
 
 def get_raw_conf(conf, obfuscate=False):
     if not "offline_script" in conf:
