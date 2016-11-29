@@ -39,8 +39,8 @@ try:
     for dep in all_dependencies:
         mdep = __import__(dep)
         print "DEPENDENCY: ", dep, mdep
-        if hasattr(mdep, '__path__'):
-            print('adding package %s'%dep)
+        if hasattr(mdep, '__path__') and getattr(mdep, '__path__'):
+            print('adding package %s / %s'%(dep, mdep.__path__))
             path, root = os.path.split(mdep.__path__[0])
             for root, dirs, files in os.walk(mdep.__path__[0]):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
@@ -52,7 +52,7 @@ try:
                         pypath = os.path.join(root,f+ext)
                         if os.path.exists(pypath):
                             if ext == '.py':
-                                compileall.compile_file(pypath)
+                                compileall.compile_file(os.path.relpath(pypath))
                                 for extc in ( '.pyc', '.pyo' ):
                                     if os.path.exists(os.path.join(root,f+extc)):
                                         ext = extc
