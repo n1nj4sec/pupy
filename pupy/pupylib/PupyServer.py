@@ -22,6 +22,7 @@ import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
 from .PupyCategories import PupyCategories
+from .PupyConfig import PupyConfig
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
@@ -37,62 +38,41 @@ import rpyc
 import shlex
 import socket
 import errno
-
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
 from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, transport, transport_kwargs, port=None, ipv6=None, igd=None):
+    def __init__(self, transport, transport_kwargs, port=None, igd=None):
         super(PupyServer, self).__init__()
-        self.daemon=True
-        self.server=None
-        self.authenticator=None
-        self.clients=[]
-        self.jobs={}
-        self.jobs_id=1
-        self.clients_lock=threading.Lock()
-        self._current_id=set()
-        self.config = configparser.ConfigParser()
-        if not path.exists('pupy.conf'):
-            copyfile(
-                path.join(
-                    path.dirname(__file__), '..', 'pupy.conf.default'
-                ),
-            'pupy.conf')
-        self.config.read("pupy.conf")
-        if port is None:
-            self.port=self.config.getint("pupyd", "port")
+        self.daemon = True
+        self.server = None
+        self.authenticator = None
+        self.clients = []
+        self.jobs = {}
+        self.jobs_id = 1
+        self.clients_lock = threading.Lock()
+        self._current_id = set()
+
+        self.config = PupyConfig()
+        self.port = port or self.config.getint('pupyd', 'port')
+        self.address = self.config.getip('pupyd', 'address') or ''
+        if self.address:
+            self.ipv6 = self.address.version == 6
         else:
-            self.port=port
-        if ipv6 is None:
-            self.ipv6=self.config.getboolean("pupyd", "ipv6")
-        else:
-            self.ipv6=ipv6
-        try:
-            self.address=self.config.get("pupyd", "address")
-            if self.ipv6 and not ":" in self.address:
-                logging.warning("ipv4 detected in pupy.conf, only binding on ipv4")
-                self.ipv6=False
-        except configparser.NoOptionError:
-            self.address=''
-        if not transport:
-            try:
-                self.transport=self.config.get("pupyd", "transport")
-                if ' ' in self.transport:
-                    self.transport, self.transport_kwargs = self.transport.split(' ', 1)
-            except configparser.NoOptionError:
-                self.transport='ssl'
-        else:
-            self.transport = transport
-        self.handler=None
-        self.handler_registered=threading.Event()
-        self.transport_kwargs=transport_kwargs
-        self.categories=PupyCategories(self)
-        self.igd=igd
+            self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
+
+        transport_args = (
+            transport or self.config.get('pupyd', 'transport')
+        ).split(' ', 1)
+
+        self.transport = transport_args[0]
+        self.transport_kwargs = transport_args[1] if len(transport_args) > 1 else None
+
+        self.handler = None
+        self.handler_registered = threading.Event()
+        self.transport_kwargs = transport_kwargs
+        self.categories = PupyCategories(self)
+        self.igd = igd
         self.finished = threading.Event()
 
     def create_id(self):
@@ -111,7 +91,7 @@ class PupyServer(threading.Thread):
 
     def add_client(self, conn):
         pc=None
-        with open(path.join(path.dirname(__file__), 'PupyClientInitializer.py')) as initializer:
+        with open(path.join(self.config.root, 'pupylib', 'PupyClientInitializer.py')) as initializer:
             conn.execute(
                 'import marshal;exec marshal.loads({})'.format(
                     repr(marshal.dumps(compile(initializer.read(), '<loader>', 'exec')))

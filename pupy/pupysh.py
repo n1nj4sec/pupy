@@ -97,8 +97,8 @@ if __name__=="__main__":
             igd=igd,
             port=dnsport,
             connect_host=args.external_ip,
-            connect_port=args.port or 443,
-            connect_transport=args.transport or 'ssl',
+            connect_port=args.port,
+            connect_transport=args.transport,
         )
 
     pupycmd = PupyCmdThread(pupyServer, pupyDnsCnc)

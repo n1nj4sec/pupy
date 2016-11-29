@@ -23,10 +23,6 @@ import os
 import os.path
 import traceback
 import platform
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
 import random
 import code
 try:
@@ -134,13 +130,12 @@ class WindowsColoredStdout(object):
         sys.stdout.read(*args, **kwargs)
 
 class PupyCmd(cmd.Cmd):
-    def __init__(self, pupsrv, dnscnc=None, configFile="pupy.conf"):
+    def __init__(self, pupsrv, dnscnc=None):
         cmd.Cmd.__init__(self)
         self.pupsrv=pupsrv
         self.dnscnc=dnscnc
         self.pupsrv.register_handler(self)
-        self.config = configparser.ConfigParser()
-        self.config.read(configFile)
+        self.config = pupsrv.config
         self.init_readline()
         global color
         try:

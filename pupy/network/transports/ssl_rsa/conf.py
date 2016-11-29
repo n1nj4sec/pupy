@@ -1,13 +1,9 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import os
 from network.transports import *
 from network.lib import *
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
 from network.transports.ssl.conf import ssl_authenticator
 
 class TransportConf(Transport):
@@ -34,4 +30,3 @@ class TransportConf(Transport):
         else:
             self.client_transport = RSA_AESClient.custom(pubkey=rsa_pub_key, rsa_key_size=4096, aes_size=256)
             self.server_transport = RSA_AESServer.custom(privkey_path="crypto/rsa_private_key.pem", rsa_key_size=4096, aes_size=256)
-
