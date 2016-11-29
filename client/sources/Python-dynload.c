@@ -5,6 +5,7 @@
 #include "MemoryModule.h"
 #include "actctx.h"
 #include <stdio.h>
+#include "debug.h"
 
 struct IMPORT imports[] = {
 #include "import-tab.c"
@@ -56,11 +57,11 @@ int _load_python_FromFile(char *dllname)
 		p->proc = (void (*)())GetProcAddress(hmod, p->name);
 		if (p->proc == NULL) {
 			OutputDebugString("undef symbol");
-			fprintf(stderr, "undefined symbol %s -> exit(-1)\n", p->name);
+			dfprint(stderr, "undefined symbol %s -> exit(-1)\n", p->name);
 			return 0;
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -90,7 +91,7 @@ int _load_python(char *dllname, char *bytes)
 	ULONG_PTR cookie = 0;
 	if (!bytes)
 		return _load_python_FromFile(dllname);
-   
+
 
 	cookie = _My_ActivateActCtx();//try some windows manifest magic...
 	//hmod = MemoryLoadLibrary(bytes);
@@ -99,17 +100,16 @@ int _load_python(char *dllname, char *bytes)
 	if (hmod == NULL) {
 		return 0;
 	}
-	
+
 	for (i = 0; p->name; ++i, ++p) {
 		//p->proc = (void (*)())MemoryGetProcAddress(hmod, p->name);
 		p->proc = (void (*)())MyGetProcAddress(hmod, p->name);
 		if (p->proc == NULL) {
 			OutputDebugString("undef symbol");
-			fprintf(stderr, "undefined symbol %s -> exit(-1)\n", p->name);
+			dfprint(stderr, "undefined symbol %s -> exit(-1)\n", p->name);
 			return 0;
 		}
 	}
-	
+
 	return 1;
 }
-

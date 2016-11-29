@@ -217,8 +217,10 @@ def load_pywintypes():
 def install(debug=False):
     global __debug
     __debug = debug
-    sys.meta_path.append(PupyPackageFinder(modules))
+    sys.meta_path = [ PupyPackageFinder(modules) ]
+    sys.path = []
     sys.path_importer_cache.clear()
+
     if 'win' in sys.platform:
         load_pywintypes()
     if __debug:

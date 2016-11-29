@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -68,7 +68,7 @@ def get_proxies(wpad_timeout=600, additional_proxies=None):
             if value:
                 for p in parse_win_proxy(value):
                     yield p
-        except Exception: 
+        except Exception:
             pass
         finally:
             CloseKey(aKey)
@@ -107,23 +107,23 @@ def get_proxies(wpad_timeout=600, additional_proxies=None):
 
         except Exception:
             pass
-    
+
     env_proxy=os.environ.get('HTTP_PROXY')
     if env_proxy:
         user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$",env_proxy).groups()
         yield ('HTTP', proxy, user, passwd)
 
-    python_proxies = urllib.getproxies()    
-    
+    python_proxies = urllib.getproxies()
+
     for key in python_proxies:
         if key.upper() in ('HTTP', 'HTTPS', 'SOCKS') and python_proxies[key] != '':
             user, passwd, proxy=re.match("^(?:https?://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$",python_proxies[key]).groups()
-            
+
             if key.upper() == 'SOCKS':
                 key = 'SOCKS4'
             elif key.upper() == 'HTTPS':
-                key = 'HTTP'    
-                
+                key = 'HTTP'
+
             yield(key.upper(), proxy, user, passwd)
 
     if last_wpad is None or time.time()-last_wpad > wpad_timeout: # to avoid flooding the network with wpad requests :)
@@ -140,10 +140,11 @@ def get_proxies(wpad_timeout=600, additional_proxies=None):
 
 
 class AutoProxyLauncher(BaseLauncher):
-    """ 
-        Automatically search a HTTP/SOCKS proxy on the system and use that proxy with the specified TCP transport. 
+    """
+        Automatically search a HTTP/SOCKS proxy on the system and use that proxy with the specified TCP transport.
         Also try without proxy if none of them are available/working
     """
+
     def __init__(self, *args, **kwargs):
         super(AutoProxyLauncher, self).__init__(*args, **kwargs)
     def init_argparse(self):
@@ -249,5 +250,3 @@ class AutoProxyLauncher(BaseLauncher):
                 raise
             except Exception as e:
                 logging.error(e)
-
-

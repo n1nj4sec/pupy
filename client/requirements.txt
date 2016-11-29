@@ -4,4 +4,4 @@ psutil
 pyaml
 rsa
 netaddr
-pylzma
+tinyec

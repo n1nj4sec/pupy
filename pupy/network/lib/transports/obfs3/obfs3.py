@@ -255,6 +255,3 @@ class Obfs3Server(Obfs3Transport):
         self.send_magic_const = "Responder magic"
         self.recv_magic_const = "Initiator magic"
         self.we_are_initiator = False
-
-
-

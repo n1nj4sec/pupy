@@ -34,6 +34,7 @@ import network.conf
 from pupylib import PupyServer
 from pupylib import PupyDnsCnc
 from pupylib import PupyCmdThread
+from pupylib import PupyCredentials
 from pupylib import __version__
 
 from network.lib.igd import IGDClient, UPNPError
@@ -71,6 +72,8 @@ if __name__=="__main__":
 
     logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
     logging.getLogger().setLevel(args.loglevel)
+
+    PupyCredentials.DEFAULT_ROLE = 'CONTROL'
 
     try:
         igd = IGDClient()

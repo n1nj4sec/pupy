@@ -14,7 +14,7 @@ PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-
 PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
 PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc psutil pyaml rsa pefile image rsa netaddr pypiwin32 win_inet_pton netaddr"
+PACKAGES="rpyc psutil pyaml rsa pefile image rsa netaddr pypiwin32 win_inet_pton netaddr tinyec uptime"
 
 BUILDENV=${1:-`pwd`/buildenv}
 

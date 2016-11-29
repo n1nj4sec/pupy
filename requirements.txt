@@ -10,3 +10,5 @@ tinyec
 uptime
 netifaces
 mss
+m2crypto
+pylzma

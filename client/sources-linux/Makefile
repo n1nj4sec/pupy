@@ -1,4 +1,3 @@
-GZIP ?= gzip
 CC ?= gcc
 
 CFLAGS := $(shell pkg-config --cflags python-2.7) -I../lzma -fPIC $(CFLAGS_EXTRA)
@@ -33,9 +32,7 @@ PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 
 PYOBJS := _memimporter.o Python-dynload.o pupy_load.o pupy.o
-COMMON_OBJS := resources_bootloader_pyc.o resources_python27_so.o \
-    resources_library_compressed_string_txt.o list.o tmplibrary.o daemonize.o \
-    decompress.o LzmaDec.o
+COMMON_OBJS := list.o tmplibrary.o daemonize.o decompress.o LzmaDec.o
 
 ifeq ($(ARCH),64)
 COMMON_OBJS += linux-inject/inject-x86_64.o
@@ -47,6 +44,9 @@ COMMON_OBJS += linux-inject/ptrace.o
 COMMON_OBJS += linux-inject/utils.o
 
 all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so
+
+pupy.c: resources_library_compressed_string_txt.c
+pupy_load.c: resources_bootloader_pyc.c resources_python27_so.c
 
 import-tab.c import-tab.h: mktab.py
 	$(PYTHON) $(PFLAGS) $<
@@ -76,7 +76,7 @@ resources/python27.so: $(LIBPYTHON)
 	cp -vf $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
-	$(GZIP) -9 -c $@.tmp >$@
+	mv $@.tmp $@
 	rm -f $@.tmp
 
 resources/library.zip: ../build_library_zip.py ../additional_imports.py

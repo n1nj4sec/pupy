@@ -6,6 +6,9 @@ from ..base_launcher import *
 
 class BindLauncher(BaseLauncher):
     """ start a simple bind launcher with the specified transport """
+
+    credentials = [ 'BIND_PAYLOADS_PASSWORD' ]
+
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="bind", description=self.__doc__)
         self.arg_parser.add_argument('--port', metavar='<port>', type=int, required=True, help='the port to bind on')

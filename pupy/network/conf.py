@@ -32,7 +32,11 @@ def add_transport(module_name):
 try:
     import pupyimporter
     import network.transports
-    for path in [x for x in pupyimporter.modules.iterkeys() if x.startswith("network/transports/") and x.endswith(("/conf.py","/conf.pyc"))]:
+    for path in [
+            x for x in pupyimporter.modules.iterkeys() \
+            if x.startswith('network/transports/') and x.endswith(
+                ('/conf.py', '/conf.pyc', '/conf.pyo'))
+        ]:
         try:
             module_name=path.rsplit('/',2)[1]
             add_transport(module_name)

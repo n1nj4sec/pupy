@@ -782,11 +782,12 @@ class PupyCmd(cmd.Cmd):
                     'BOOTED': '{}s'.format(
                         session.system_info['boottime'].ctime() if \
                         session.system_info['boottime'] else '?'
-                    )
+                    ),
+                    'CMDS': '{}'.format(len(session.commands))
                 })
 
             columns = [
-                'NODE', 'OS', 'ONLINE', 'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED'
+                'NODE', 'OS', 'ONLINE', 'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED', 'CMDS'
             ]
 
             self.display(

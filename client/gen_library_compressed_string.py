@@ -21,9 +21,7 @@ def get_encoded_library_string():
 		]
 	])
 
-	payload = marshal.dumps(modules)
-	payload_len = len(payload)
-	return struct.pack('>I', payload_len) + pylzma.compress(payload,dictionary=24,fastBytes=255)
+	return marshal.dumps(modules)
 
 with open(os.path.join("resources","library_compressed_string.txt"),'wb') as w:
 	w.write(get_encoded_library_string())

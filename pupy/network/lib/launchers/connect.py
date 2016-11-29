@@ -6,6 +6,9 @@ from ..base_launcher import *
 
 class ConnectLauncher(BaseLauncher):
     """ simple launcher that uses TCP connect with a chosen transport """
+
+    credentials = [ 'SSL_BIND_CERT' ]
+
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop("connect_on_bind_payload", False)
         super(ConnectLauncher, self).__init__(*args, **kwargs)

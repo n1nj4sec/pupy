@@ -139,7 +139,7 @@ class RSA_AESClient(RSA_AESTransport):
         self.downstream.write(rsa.encrypt(self.aes_key, pk))
         self.downstream.write(self._iv_enc)
 
-        
+
 
 class RSA_AESServer(RSA_AESTransport):
     privkey=None
@@ -177,9 +177,8 @@ class RSA_AESServer(RSA_AESTransport):
             super(RSA_AESServer, self).downstream_recv(data)
         except Exception as e:
             logging.debug(e)
+
     def upstream_recv(self, data):
         if self.enc_cipher is None:
             return
         super(RSA_AESServer, self).upstream_recv(data)
-
-

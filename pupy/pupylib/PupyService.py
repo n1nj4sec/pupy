@@ -21,7 +21,8 @@ import sys
 import ssl
 import logging
 import traceback
-from pupygen import get_credential
+
+from pupylib.PupyCredentials import Credentials
 
 class PupyService(rpyc.Service):
     def __init__(self, *args, **kwargs):
@@ -76,8 +77,5 @@ class PupyService(rpyc.Service):
 
 class PupyBindService(PupyService):
     def exposed_get_password(self):
-        c=get_credential("BIND_PAYLOADS_PASSWORD")
-        if c is None:
-            from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
-            c=DEFAULT_BIND_PAYLOADS_PASSWORD
-        return c
+        credentials = Credentials()
+        return credentials['BIND_PAYLOADS_PASSWORD']

@@ -1,23 +1,31 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.join('resources','library_patches'))
+PATCHES = os.path.join('..','library_patches')
+
+sys.path.insert(0, PATCHES)
 sys.path.insert(0, os.path.join('..','..','pupy'))
 
 import additional_imports
 import Crypto
 import pp
 import unicodedata # this is a builtin on linux and .pyd on windows that needs to be embedded
+import site
+
 all_dependencies=set(
     [
-        x.split('.')[0] for x,m in sys.modules.iteritems() if not '(built-in)' in str(m) and x != '__main__'
+        x.split('.')[0] for x,m in [
+            (x,m) for x,m in sys.modules.iteritems()
+        ] if not '(built-in)' in str(m) and x != '__main__'
     ] + [
         'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa',
         'encodings.idna', 'stringprep',
     ]
 )
 
-all_dependencies = list(set(all_dependencies))
+all_dependencies.add('site')
+
+all_dependencies = sorted(list(set(all_dependencies)))
 all_dependencies.remove('pupy')
 all_dependencies.remove('additional_imports')
 
@@ -28,6 +36,8 @@ from glob import glob
 import zipfile
 import shutil
 import compileall
+
+compileall.compile_dir(PATCHES)
 
 zf = zipfile.ZipFile(os.path.join('resources','library.zip'), mode='w', compression=zipfile.ZIP_DEFLATED)
 
@@ -52,7 +62,10 @@ try:
                         pypath = os.path.join(root,f+ext)
                         if os.path.exists(pypath):
                             if ext == '.py':
-                                compileall.compile_file(os.path.relpath(pypath))
+                                try:
+                                    compileall.compile_file(os.path.relpath(pypath))
+                                except ValueError:
+                                    compileall.compile_file(pypath)
                                 for extc in ( '.pyc', '.pyo' ):
                                     if os.path.exists(os.path.join(root,f+extc)):
                                         ext = extc
@@ -71,6 +84,11 @@ try:
                             if zipname in content:
                                 continue
 
+                            for extp in ( '.pyo', '.pyc', '.py' ):
+                                if os.path.exists(os.path.join(PATCHES, f+extp)):
+                                    root = PATCHES
+                                    ext = extp
+
                             print('adding file : {}'.format(zipname))
                             content.add(zipname)
                             zf.write(os.path.join(root,f+ext), zipname)
@@ -78,9 +96,19 @@ try:
             if '<memimport>' in mdep.__file__:
                 continue
 
-            _, ext = os.path.splitext(mdep.__file__)
-            print('adding %s -> %s'%(mdep.__file__, dep+ext))
-            zf.write(mdep.__file__, dep+ext)
+            found_patch = None
+            for extp in ( '.pyo', '.pyc', '.py' ):
+                if os.path.exists(os.path.join(PATCHES, dep+extp)):
+                    found_patch = (os.path.join(PATCHES, dep+extp), extp)
+                    break
+
+            if found_patch:
+                print('adding [PATCH] %s -> %s'%(found_patch[0], dep+found_patch[1]))
+                zf.write(found_patch[0], dep+found_patch[1])
+            else:
+                _, ext = os.path.splitext(mdep.__file__)
+                print('adding %s -> %s'%(mdep.__file__, dep+ext))
+                zf.write(mdep.__file__, dep+ext)
 
 finally:
     zf.close()

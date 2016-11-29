@@ -7,9 +7,9 @@ import binascii
 import time
 import datetime
 import platform
-import requests
 import uuid
 import uptime
+import urllib2
 
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
@@ -131,7 +131,11 @@ class SystemInfo(Command):
         self.system = system or platform.system()
         self.arch = arch or platform.machine()
         self.node = node or uuid.getnode()
-        self.boottime = boottime or uptime.boottime()
+        try:
+            self.boottime = boottime or uptime.boottime()
+        except:
+            self.boottime = datetime.datetime.fromtimestamp(0)
+
         self.internet = bool(internet)
         self.external_ip = external_ip
         if external_ip is not None:
@@ -140,11 +144,12 @@ class SystemInfo(Command):
             else:
                 self.external_ip = netaddr.IPAddress(external_ip)
         else:
-            response = requests.get('http://ifconfig.co', headers={
-                'User-Agent': 'curl/7.50.0'
-            })
-            if response.ok:
-                self.external_ip = netaddr.IPAddress(response.content)
+            proxy = urllib2.ProxyHandler()
+            opener = urllib2.build_opener(proxy)
+            opener.addheaders = [('User-agent', 'curl/7.50.0')]
+            response = opener.open('http://ifconfig.co')
+            if response.code == 200:
+                self.external_ip = netaddr.IPAddress(response.read())
                 self.internet = True
 
     def pack(self):
