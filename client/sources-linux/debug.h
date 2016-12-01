@@ -26,6 +26,8 @@ static inline int dfprint(FILE *stream, const char *fmt, ...) {
 
 #define dprint(...)	do {} while (0)
 #define dfprint(...) do {} while (0)
+#define printf(...)	do {} while (0)
+#define fprintf(...) do {} while (0)
 
 #endif
 

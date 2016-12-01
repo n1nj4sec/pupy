@@ -2,10 +2,10 @@ CC ?= gcc
 
 CFLAGS := $(shell pkg-config --cflags python-2.7) -I../lzma -fPIC $(CFLAGS_EXTRA)
 LDFLAGS := -lpthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
-PFLAGS := -O
+PFLAGS := -OO
 PIE ?= -pie
 
-LIBPYTHON ?= $(shell ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
+LIBPYTHON ?= $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
 
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
 ifeq ($(ARCH),64)
@@ -55,7 +55,7 @@ Python-dynload.o: Python-dynload.c import-tab.c import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 LzmaDec.o: ../lzma/LzmaDec.c
-	$(CC) -O3 -c -o $@ $<
+	$(CC) -O3 -fPIC -c -o $@ $<
 
 resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip
 	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py
@@ -94,11 +94,10 @@ $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so: main_so.o $(PYOBJS) $(COMMON_OBJS)
 .PHONY: clean all
 
 clean:
-	find -name "*.pyc" | xargs rm -f
-	find -name "*.pyo" | xargs rm -f
-	find -name "*.o" | xargs rm -f
 	rm -f $(COMMON_OBJS)
 	rm -f pupy pupy.so
+	rm -f *.o
+	rm -f linux-inject/*.o
 	rm -f resources/library.zip
 	rm -f resources/*.so
 	rm -f resources/*.txt

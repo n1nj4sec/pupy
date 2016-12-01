@@ -28,7 +28,9 @@ client/sources/resources_msvcr90_dll.c
 client/sources/resources/libraryx64.zip
 client/sources/resources/libraryx86.zip
 client/sources/buildenv/
+client/sources-linux/buildenv/
 client/sources/resources/library.zip
+client/sources-linux/resources/library.zip
 client/android_sources/bin
 client/android_sources/.buildozer
 

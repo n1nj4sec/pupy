@@ -109,7 +109,6 @@ clean:
 	rm -f *.obj
 	rm -f *.pyo
 	rm -f *.pyc
-	rm -f *.txt
 	rm -f *_txt.c
 	rm -f *_pyc.c
 	rm -f *_dll.c
@@ -120,3 +119,4 @@ clean:
 	rm -f resources/library.zip
 	rm -f resources/python27.dll
 	rm -f resources/msvcr90.dll
+	rm -f $(PYOBJS) $(COMMON_OBJS)
