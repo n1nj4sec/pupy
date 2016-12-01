@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from tinyec import ec, registry
 import os
 import math

