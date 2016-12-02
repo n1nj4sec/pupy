@@ -4,8 +4,6 @@
 transport = ssl
 port = 443
 ipv6 = true
-keyfile = crypto/server.pem
-certfile = crypto/cert.pem
 
 [cmdline]
 display_banner = yes
@@ -13,7 +11,9 @@ colors = yes
 
 [paths]
 prefer_workdir = no
-# downloads = /tmp/downloads/%
+downloads = data/downloads/%c
+screenshots = data/screenshots/%c
+creds = data/db/%c
 
 [on_connect]
 #run_module = gather/keylogger start

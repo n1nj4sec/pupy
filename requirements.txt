@@ -12,3 +12,4 @@ netifaces
 mss
 m2crypto
 pylzma
+mss
