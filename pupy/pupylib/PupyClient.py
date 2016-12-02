@@ -221,7 +221,10 @@ class PupyClient(object):
             for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
                 for f in files:
                     if pure_python_only:
-                        if f.endswith((".so",".pyd",".dll")): #avoid loosing shells when looking for packages in sys.path and unfortunatelly pushing a .so ELF on a remote windows
+                        # avoid loosing shells when looking for packages in
+                        # sys.path and unfortunatelly pushing a .so ELF on a
+                        # remote windows
+                        if f.endswith((".so",".pyd",".dll")) or f.startswith('.#'):
                             continue
                     module_code=""
                     with open(os.path.join(root,f),'rb') as fd:
