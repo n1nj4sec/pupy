@@ -38,6 +38,7 @@ ULONG_PTR = WPARAM
 HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
 user32 = windll.user32
 kernel32 = windll.kernel32
+psapi = windll.psapi 
 
 # Base constans
 # https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
