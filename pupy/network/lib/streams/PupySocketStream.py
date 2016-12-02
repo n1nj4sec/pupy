@@ -79,10 +79,15 @@ class PupySocketStream(SocketStream):
 
     def sock_poll(self, timeout):
         with self.downstream_lock:
-            try:
-                to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
-            except socket.error:
-                to_close = True
+            to_close = None
+            to_read = None
+
+            while not (to_close or to_read or self.closed):
+                try:
+                    to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
+                except select_error as r:
+                    if not r.args[0] == errno.EINTR:
+                        to_close = True
 
             if to_close:
                 raise EOFError('sock_poll error')
