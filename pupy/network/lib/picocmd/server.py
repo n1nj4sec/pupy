@@ -357,6 +357,11 @@ class DnsCommandServerHandler(BaseResolver):
             reply.header.rcode = RCODE.NXDOMAIN
             return reply
 
+        except TypeError:
+            # Usually - invalid padding
+            reply.header.rcode = RCODE.NXDOMAIN
+            return reply
+
         except Exception as e:
             logging.exception(e)
             reply.header.rcode = RCODE.NXDOMAIN
