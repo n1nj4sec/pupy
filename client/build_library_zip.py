@@ -12,11 +12,14 @@ import pp
 import unicodedata # this is a builtin on linux and .pyd on windows that needs to be embedded
 import site
 
+sys_modules = [
+    (x,sys.modules[x]) for x in sys.modules.keys()
+]
+
 all_dependencies=set(
     [
-        x.split('.')[0] for x,m in [
-            (x,m) for x,m in sys.modules.iteritems()
-        ] if not '(built-in)' in str(m) and x != '__main__'
+        x.split('.')[0] for x,m in sys_modules \
+    		if not '(built-in)' in str(m) and x != '__main__'
     ] + [
         'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa',
         'encodings.idna', 'stringprep',
