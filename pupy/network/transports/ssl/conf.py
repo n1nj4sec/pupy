@@ -40,6 +40,8 @@ class PupySSLAuthenticator(object):
         os.write(fd_ca_path, self.castr)
         os.close(fd_ca_path)
 
+        exception = None
+
         try:
             wrapped_socket = ssl.wrap_socket(
                 sock,
@@ -52,14 +54,15 @@ class PupySSLAuthenticator(object):
                 ciphers=self.ciphers
             )
         except ssl.SSLError:
-            ex = sys.exc_info()[1]
-            raise AuthenticationError(str(ex))
+            exception = sys.exc_info()[1]
 
         finally:
             os.unlink(tmp_cert_path)
             os.unlink(tmp_key_path)
             os.unlink(tmp_ca_path)
 
+        if exception:
+            raise AuthenticationError(str(exception))
 
         peer = wrapped_socket.getpeercert()
         peer_role = ''
