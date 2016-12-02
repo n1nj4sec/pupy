@@ -207,6 +207,7 @@ class SystemInfo(Command):
 
         return SystemInfo(
             system=SystemInfo.well_known_os_names_decode[osid],
+            node=node,
             arch=SystemInfo.well_known_cpu_archs_decode[archid],
             internet=internet,
             external_ip=ip,
