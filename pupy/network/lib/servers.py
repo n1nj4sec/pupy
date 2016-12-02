@@ -260,4 +260,5 @@ class PupyUDPServer(object):
 
     def close(self):
         self.active=False
-        self.sock.close()
+        if self.sock:
+            self.sock.close()
