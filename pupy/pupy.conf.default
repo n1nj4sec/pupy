@@ -11,6 +11,10 @@ certfile = crypto/cert.pem
 display_banner = yes
 colors = yes
 
+[paths]
+prefer_workdir = no
+# downloads = /tmp/downloads/%
+
 [on_connect]
 #run_module = gather/keylogger start
 
