@@ -44,7 +44,7 @@ from .PupyVersion import BANNER, BANNER_INFO
 from argparse import REMAINDER
 import copy
 from functools import partial
-from threading import Thread, Event
+from threading import Event
 
 def color_real(s, color, prompt=False, colors_enabled=True):
     """ color a string using ansi escape characters. set prompt to true to add marks for readline to see invisible portions of the prompt
@@ -621,6 +621,7 @@ class PupyCmd(cmd.Cmd):
             except Exception as e:
                 self.display_error(e)
                 pj.stop()
+
             if not mod.unique_instance:
                 if modargs.bg:
                     self.pupsrv.add_job(pj)
@@ -906,17 +907,14 @@ class PupyCmd(cmd.Cmd):
         if len(tab)>=2:
             return self._complete_path(tab[1])
 
-class PupyCmdThread(Thread):
+class PupyCmdLoop(object):
     def __init__(self, pupyServer, pupyDnsCnc):
-        Thread.__init__(self)
-        self.daemon = True
         self.cmd = PupyCmd(pupyServer, pupyDnsCnc)
         self.pupysrv = pupyServer
         self.stopped = Event()
 
-    def run(self):
-
-        while not self.stopped.is_set():
+    def loop(self):
+        while not self.stopped.is_set() and not self.pupysrv.finished.is_set():
             try:
                 self.cmd.cmdloop()
                 self.stopped.set()

@@ -33,7 +33,7 @@ import network.conf
 
 from pupylib import PupyServer
 from pupylib import PupyDnsCnc
-from pupylib import PupyCmdThread
+from pupylib import PupyCmdLoop
 from pupylib import PupyCredentials
 from pupylib import __version__
 
@@ -104,14 +104,9 @@ if __name__=="__main__":
             connect_transport=args.transport,
         )
 
-    pupycmd = PupyCmdThread(pupyServer, pupyDnsCnc)
+    pupycmd = PupyCmdLoop(pupyServer, pupyDnsCnc)
 
     pupyServer.start()
-    pupycmd.start()
-
-    try:
-        pupyServer.finished.wait()
-    except KeyboardInterrupt:
-        pass
-
-    pupycmd.stop()
+    pupycmd.loop()
+    pupyServer.stop()
+    pupyServer.finished.wait()
