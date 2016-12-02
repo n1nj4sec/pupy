@@ -6,6 +6,7 @@ except ImportError:
 
 from os import path, makedirs
 from netaddr import IPAddress
+import platform
 
 class PupyConfig(ConfigParser):
     def __init__(self, config='pupy.conf'):
@@ -36,6 +37,9 @@ class PupyConfig(ConfigParser):
             retfolder = path.join(self.user_root, folder)
 
         for key, value in substitutions.iteritems():
+            value = value.replace('/', '_').replace('..', '_')
+            if platform.system == 'Windows':
+                value = value.replace(':', '_')
             retfolder = retfolder.replace(key, value)
 
         if path.isdir(retfolder):
