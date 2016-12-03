@@ -76,8 +76,15 @@ for prefix in $WINE32 $WINE64; do
 	touch $prefix/drive_c/.vc
 done
 
+WINEPREFIX=$WINE64 wine reg add \
+          'HKCU\Software\Microsoft\DevDiv\VCForPython\9.0' \
+          /t REG_SZ /v installdir \
+          /d 'C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0' \
+          /f
+
 for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade pip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade $PACKAGES
 done
 
