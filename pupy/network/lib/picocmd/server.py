@@ -29,6 +29,8 @@ class Session(object):
         self._last_access = 0
         self.system_info = None
         self.commands = commands
+        self.last_nonce = None
+        self.last_qname = None
 
     @property
     def idle(self):
@@ -321,6 +323,11 @@ class DnsCommandServerHandler(BaseResolver):
         qname = request.q.qname
         reply = request.reply()
 
+        if request.q.qtype != QTYPE.A:
+            reply.header.rcode = RCODE.NXDOMAIN
+            logging.debug('Request unknown qtype: {}'.format(QTYPE.get(request.q.qtype)))
+            return reply
+
         # TODO:
         # Resolve NS?, DS, SOA somehow
         if not qname.matchSuffix(self.domain):
@@ -342,9 +349,24 @@ class DnsCommandServerHandler(BaseResolver):
 
         try:
             request, session, nonce = self._q_page_decoder(qname)
+            if session and session.last_nonce:
+                if nonce < session.last_nonce:
+                    logging.error('Ignore nonce from past: {} < {}'.format(
+                        nonce, session.last_nonce))
+                    reply.header.rcode = RCODE.NXDOMAIN
+                    return reply
+                elif session.last_nonce == nonce and session.last_qname != qname:
+                    logging.error('Last nonce but different qname: {} != {}'.format(
+                        session.last_qname, qname))
+                    reply.header.rcode = RCODE.NXDOMAIN
+                    return reply
+
             for command in Parcel.unpack(request):
                 for response in self._cmd_processor(command, session):
                     responses.append(response)
+
+            if session:
+                session.last_nonce = nonce
 
         except DnsCommandServerException as e:
             nonce = e.nonce
