@@ -13,6 +13,8 @@ import hashlib
 import functools
 import logging
 
+import socket
+
 from dnslib import DNSRecord, RR, QTYPE, A, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
