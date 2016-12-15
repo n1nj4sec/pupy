@@ -1,13 +1,18 @@
 # -*- coding: UTF8 -*-
-import subprocess
-import re
-
+import netifaces
 def get_local_ip(iface = None):
+    '''
+    Returns local ip address (no 127.0.0.1) or None
+    '''
     try:
-        if iface:
-            return re.findall("[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", subprocess.check_output(["ifconfig", iface]).split("\n")[1])[0]
+        if iface != None:
+            ifaces = [iface]
         else:
-            return [ x for x in re.findall("inet addr:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})", subprocess.check_output(["ifconfig"])) if x!="127.0.0.1"][0]
-        #TODO same for windows
+            ifaces = netifaces.interfaces()
+        for anInt in ifaces:
+            addr = netifaces.ifaddresses(anInt)[netifaces.AF_INET][0]['addr']
+            if addr != "127.0.0.1":
+                return addr
+        return None
     except Exception:
         return None

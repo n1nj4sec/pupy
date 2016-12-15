@@ -226,7 +226,7 @@ class outlook():
 		'''
 		folders = {}
 		for inx, folder in enumerate(list(self.mapi.Folders)):
-			logging.debug("New folder: {0}({1})".format(folder.Name, folder.EntryID))
+			logging.debug("New folder: {0}({1})".format(folder.Name.encode('utf-8'), folder.EntryID))
 			folders[folder.Name] = {}
 			if "Dossiers publics" not in folder.Name and "Public folders" not in folder.Name: #Bug in my version of outlook when getting emails in public folder
 				for inx,subfolder in enumerate(list(folder.Folders)):
