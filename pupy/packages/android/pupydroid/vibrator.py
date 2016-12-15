@@ -6,7 +6,7 @@ import jnius
 
 __all__=["vibrate"]
 
-def vibrate(self, pattern, repeat=None):
+def vibrate(pattern, repeat=None):
     """ take a list of int as pattern """
     PythonActivity = jnius.autoclass('org.renpy.android.PythonService')
     Context = jnius.autoclass('android.content.Context')
@@ -15,9 +15,9 @@ def vibrate(self, pattern, repeat=None):
     if vibrator.hasVibrator():
         try:
             if repeat:
-                vibrator.vibrate(pattern, repeat)
+                vibrator.vibrate(list(pattern), repeat)
             else:
-                vibrator.vibrate(pattern)
+                vibrator.vibrate(list(pattern), -1)
         except KeyboardInterrupt:
             vibrator.cancel()
             raise
