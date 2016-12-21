@@ -4,7 +4,7 @@ from netaddr import *
 
 __class_name__="Shares"
 
-@config(category="admin", compat="windows")
+@config(category="admin", compat=["windows", "linux"])
 class Shares(PupyModule):
 	""" List local and remote shared folder and permission """
 
