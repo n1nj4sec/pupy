@@ -21,11 +21,21 @@ class PictureCallback(PythonJavaClass):
         self.result=data.tostring()
         self.event.set()
 
+def numberOfCameras():
+    try:
+        Camera=autoclass("android.hardware.Camera")
+        return Camera.getNumberOfCameras()
+    except Exception,e:
+        return "?"
+    
 #ref: http://developer.android.com/reference/android/hardware/Camera.html
-def take_picture(cam_id=0):
+def take_picture(cam_id=0, jpegQuality=90):
     Camera=autoclass("android.hardware.Camera")
     c = Camera.open(cam_id)
     try:
+        params = Camera.getParameters();
+        params.setJpegQuality(jpegQuality);
+        Camera.setParameters(params);
         SurfaceTexture=autoclass("android.graphics.SurfaceTexture")
         c.setPreviewTexture(SurfaceTexture(0))
         c.startPreview()
