@@ -34,6 +34,9 @@ class WorkerThread(threading.Thread) :
             self.queue.task_done()
 
 def scan(remote_ip, ports, nb_threads, settimeout):
+    global open_port
+    open_port = []
+    
     queue = Queue.Queue()
     threads = []
 
