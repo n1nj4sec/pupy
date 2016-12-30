@@ -7,43 +7,48 @@ LOAD_PACKAGE=1
 LOAD_DLL=2
 EXEC=3
 
+ALL_OS=1
+WINDOWS=2
+LINUX=4
+ANDROID=8
+
 # dependencies to load for each modules
 packages_dependencies={
 
     "pupwinutils.memexec" : [
-        (LOAD_PACKAGE, "pupymemexec"),
+        (LOAD_PACKAGE, ALL_OS, "pupymemexec"),
     ],
     "memorpy" : [
-        (LOAD_PACKAGE, "win32api"),
-        (LOAD_PACKAGE, "win32security"),
+        (LOAD_PACKAGE, WINDOWS, "win32api"),
+        (LOAD_PACKAGE, WINDOWS, "win32security"),
     ],
     "scapy" : [
-        (LOAD_PACKAGE, "gzip"),
-        (LOAD_PACKAGE, "_strptime"),
-        (LOAD_PACKAGE, "calendar"),
+        (LOAD_PACKAGE, ALL_OS, "gzip"),
+        (LOAD_PACKAGE, ALL_OS, "_strptime"),
+        (LOAD_PACKAGE, ALL_OS, "calendar"),
     ],
     "pyaudio" : [
-        (LOAD_PACKAGE, "_portaudio"),
+        (LOAD_PACKAGE, ALL_OS, "_portaudio"),
     ],
     "scapy" : [
-        (LOAD_PACKAGE, "gzip"),
-        (LOAD_PACKAGE, "_strptime"),
-        (LOAD_PACKAGE, "calendar"),
+        (LOAD_PACKAGE, ALL_OS, "gzip"),
+        (LOAD_PACKAGE, ALL_OS, "_strptime"),
+        (LOAD_PACKAGE, ALL_OS, "calendar"),
     ],
     "OpenSSL" : [
-        (LOAD_PACKAGE, "six"),
-        (LOAD_PACKAGE, "enum"),
-        (LOAD_PACKAGE, "cryptography"),
-        (LOAD_PACKAGE, "_cffi_backend"),
-        (LOAD_PACKAGE, "plistlib"),
-        (LOAD_PACKAGE, "uu"),
-        (LOAD_PACKAGE, "quopri"),
-        (LOAD_PACKAGE, "pyparsing"),
-        (LOAD_PACKAGE, "pkg_resources"),
-        (LOAD_PACKAGE, "pprint"),
-        (LOAD_PACKAGE, "ipaddress"),
-        (LOAD_PACKAGE, "idna"),
-        (LOAD_PACKAGE, "unicodedata"),
+        (LOAD_PACKAGE, ALL_OS, "six"),
+        (LOAD_PACKAGE, ALL_OS, "enum"),
+        (LOAD_PACKAGE, ALL_OS, "cryptography"),
+        (LOAD_PACKAGE, ALL_OS, "_cffi_backend"),
+        (LOAD_PACKAGE, ALL_OS, "plistlib"),
+        (LOAD_PACKAGE, ALL_OS, "uu"),
+        (LOAD_PACKAGE, ALL_OS, "quopri"),
+        (LOAD_PACKAGE, ALL_OS, "pyparsing"),
+        (LOAD_PACKAGE, ALL_OS, "pkg_resources"),
+        (LOAD_PACKAGE, ALL_OS, "pprint"),
+        (LOAD_PACKAGE, ALL_OS, "ipaddress"),
+        (LOAD_PACKAGE, ALL_OS, "idna"),
+        (LOAD_PACKAGE, ALL_OS, "unicodedata"),
     ],
 
 

@@ -20,7 +20,7 @@ import cPickle
 from .PupyErrors import PupyModuleError
 import traceback
 import textwrap
-from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC
+from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -203,15 +203,16 @@ class PupyClient(object):
 
     def load_package(self, module_name, force=False):
         if module_name in packages_dependencies:
-            for t,v in packages_dependencies[module_name]:
-                if t==LOAD_PACKAGE:
-                    self._load_package(v, force)
-                elif t==LOAD_DLL:
-                    self.load_dll(v)
-                elif t==EXEC:
-                    self.conn.execute(v)
-                else:
-                    raise PupyModuleError("Unknown package loading method %s"%t)
+            for t,o,v in packages_dependencies[module_name]:
+                if o==ALL_OS or (o==ANDROID and self.is_android()) or (o==WINDOWS and self.is_windows()) or (o==LINUX and self.is_linux()):
+                    if t==LOAD_PACKAGE:
+                        self._load_package(v, force)
+                    elif t==LOAD_DLL:
+                        self.load_dll(v)
+                    elif t==EXEC:
+                        self.conn.execute(v)
+                    else:
+                        raise PupyModuleError("Unknown package loading method %s"%t)
         return self._load_package(module_name, force)
 
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
