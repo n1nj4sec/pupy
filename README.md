@@ -111,6 +111,18 @@ Pupy server works best on linux. The server on windows has not been really teste
 
 Have a look at the Installation section in the wiki
 
+> I have the following error when starting pupy.sh: ImportError: No module named creddump.win32.domcachedump
+
+Follow the Installations steps in the wiki, you missed the git submodules initialisation/updates
+
+> I have the following error when using pupygen : IOError: [Errno 2] No such file or directory: '/full-path/pupy-master/pupy/payload_templates/pupyx86.exe'
+
+Follow the Installations steps in the wiki, you missed the git submodules initialisation/updates
+
+> I have another error at installation
+
+Follow the Installations steps in the wiki
+
 > Hey, I love pupy and I was wondering if I could offer you a beer !
 
 Sure ! thank you !  
