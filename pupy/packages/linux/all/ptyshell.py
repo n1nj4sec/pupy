@@ -9,11 +9,9 @@ import pty
 import tty
 import fcntl
 import subprocess
-import time
 import threading
 import select
 import rpyc
-import logging
 import array
 
 def prepare():
@@ -38,15 +36,20 @@ class PtyShell(object):
             if 'SHELL' in os.environ:
                 argv = [os.environ['SHELL']]
             elif 'PATH' in os.environ: #searching sh in the path. It can be unusual like /system/bin/sh on android
-                for shell in ["bash","sh","ksh","zsh","csh","ash"]:
+                for shell in [ "bash", "sh", "ksh", "zsh", "csh", "ash" ]:
                     for path in os.environ['PATH'].split(':'):
                         fullpath=os.path.join(path.strip(),shell)
                         if os.path.isfile(fullpath):
                             argv=[fullpath]
                             break
+
                     if argv:
                         break
-        if not argv:
+        if argv:
+            shell = argv[0].split('/')[-1]
+            if shell == 'bash':
+                argv = [ argv[0], '--noprofile', '--norc' ] + argv[1:]
+        else:
             argv= ['/bin/sh']
 
         if term is not None:
@@ -58,13 +61,22 @@ class PtyShell(object):
         assert flags >= 0
         flags = fcntl.fcntl(self.master, fcntl.F_SETFL , flags | os.O_NONBLOCK)
         assert flags >= 0
+
+        env = os.environ.copy()
+        env['HISTFILE'] = '/dev/null'
+        env['PATH'] = ':'.join([
+            '/bin', '/sbin', '/usr/bin', '/usr/sbin',
+            '/usr/local/bin', '/usr/local/sbin'
+        ]) + ':' + env['PATH']
+
         self.prog = subprocess.Popen(
             shell=False,
             args=argv,
             stdin=slave,
             stdout=slave,
             stderr=subprocess.STDOUT,
-            preexec_fn=prepare
+            preexec_fn=prepare,
+            env=env
         )
         os.close(slave)
 
