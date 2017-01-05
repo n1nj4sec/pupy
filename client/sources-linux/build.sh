@@ -1,5 +1,7 @@
 #!/bin/sh
-UID=`id -u`
+if [ -z "$UID" ]; then
+    UID=`id -u`
+fi
 
 if [ ! $UID -eq 0 ]; then
     echo "[!] You need to be root to run this script"
