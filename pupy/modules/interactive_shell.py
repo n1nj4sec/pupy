@@ -237,6 +237,8 @@ class InteractiveShell(PupyModule):
         if args.program:
             program=args.program.split()
 
+        old_handler = None
+
         try:
             term = os.environ.get('TERM', 'xterm')
 
@@ -255,7 +257,8 @@ class InteractiveShell(PupyModule):
             self.complete.wait()
 
         finally:
-            pupylib.PupySignalHandler.set_signal_winch(old_handler)
+            if old_handler:
+                pupylib.PupySignalHandler.set_signal_winch(old_handler)
             try:
                 self.ps.close()
             except Exception:
