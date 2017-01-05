@@ -50,3 +50,4 @@ else:
     import dbus
     import pydbus
     import pyexpat
+    import ptrace

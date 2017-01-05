@@ -207,7 +207,7 @@ make install
 
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
-       paramiko uptime pylzma pydbus \
+       paramiko uptime pylzma pydbus python-ptrace \
        --upgrade --no-binary :all:
 
 cd /usr/lib/python2.7
@@ -395,7 +395,7 @@ make install
 
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
-       paramiko uptime pylzma pydbus \
+       paramiko uptime pylzma pydbus python-ptrace \
        --upgrade --no-binary :all:
 
 cd /usr/lib/python2.7
