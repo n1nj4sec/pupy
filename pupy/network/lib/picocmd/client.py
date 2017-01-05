@@ -188,7 +188,7 @@ class DnsCommandsClient(Thread):
                     request = self.encoder.generate_kex_request()
                     kex = Kex(request)
                     response = self._request(kex)
-                    if not len(response) == 1 and not isinstance(response[0], Kex):
+                    if not len(response) == 1 or not isinstance(response[0], Kex):
                     	logging.error('KEX sequence failed. Got {} instead of Kex'.format(
                             response))
                         return
