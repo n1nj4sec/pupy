@@ -91,7 +91,7 @@ class DnsCommandServerHandler(BaseResolver):
                 '=',
             ])))
 
-        self.interval = 5
+        self.interval = 30
         self.kex = True
         self.timeout = timeout
         self.commands = []
