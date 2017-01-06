@@ -23,6 +23,8 @@ import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
 
+import compileall
+
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 class BinaryObjectError(ValueError):
@@ -222,8 +224,10 @@ class PupyClient(object):
         modules_dic = {}
         found_files = set()
 
-        if os.path.isdir(os.path.join(search_path,start_path)): # loading a real package with multiple files
-            for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
+        module_path = os.path.join(search_path, start_path)
+        if os.path.isdir(module_path): # loading a real package with multiple files
+            compileall.compile_dir(module_path, force=1, quiet=1)
+            for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
                     if f.startswith('.#') or '/test/' in f or '/tests/' in f or '/example' in f:
                         continue
@@ -238,7 +242,7 @@ class PupyClient(object):
                         continue
 
                     module_code = b''
-                    with open(os.path.join(root,f), 'rb') as fd:
+                    with open(os.path.join(root, f), 'rb') as fd:
                         module_code = fd.read()
 
                     modprefix = root[len(search_path.rstrip(os.sep))+1:]
@@ -266,13 +270,16 @@ class PupyClient(object):
 
                 package_found=True
         else: # loading a simple file
+            if os.path.exists(module_path+'.py'):
+                compileall.compile_file(module_path+'.py', force=1, quiet=1)
+
             extlist=[ '.pyo', '.pyc', '.py'  ]
             if not pure_python_only:
                 #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
                 extlist+=[ '.so', '.pyd', '27.dll' ]
 
             for ext in extlist:
-                filepath = os.path.join(search_path,start_path+ext)
+                filepath = os.path.join(module_path+ext)
                 if os.path.isfile(filepath):
                     module_code = ''
                     with open(filepath,'rb') as f:
@@ -312,6 +319,7 @@ class PupyClient(object):
                     break
             except Exception as e:
                 raise PupyModuleError("Error while loading package %s : %s"%(module_name, traceback.format_exc()))
+
         if not modules_dic: # in last resort, attempt to load the package from the server's sys.path if it exists
             for search_path in sys.path:
                 try:
@@ -339,7 +347,6 @@ class PupyClient(object):
                 except Exception as e:
                     raise PupyModuleError("Couldn't find package {} in \(path={}) and sys.path / python = {}".format(
                         module_name, repr(self.get_packages_path()), e))
-
 
         if force or ( module_name not in self.conn.modules.sys.modules ):
             self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
