@@ -261,6 +261,10 @@ class PupyClient(object):
             For other platforms : loading .so in memory is not supported yet.
         """
         # start path should only use "/" as separator
+
+        if module_name in self.conn.modules.sys.modules and not force:
+            return
+
         start_path=module_name.replace(".", "/")
         package_found=False
         package_path=None
@@ -284,8 +288,19 @@ class PupyClient(object):
                     raise PupyModuleError("Error while loading package from sys.path %s : %s"%(module_name, traceback.format_exc()))
         if "pupyimporter" not in self.conn.modules.sys.modules:
             raise PupyModuleError("pupyimporter module does not exists on the remote side !")
+
         if not modules_dic:
-            raise PupyModuleError("Couldn't load package %s : no such file or directory neither in \(path=%s) or sys.path"%(module_name,repr(self.get_packages_path())))
+            if self.desc['native']:
+                raise PupyModuleError("Couldn't find package {} in \(path={}) and sys.path / native".format(
+                    module_name, repr(self.get_packages_path())))
+            else:
+                try:
+                    self.conn.modules.pupyimporter.native_import(module_name)
+                except Exception as e:
+                    raise PupyModuleError("Couldn't find package {} in \(path={}) and sys.path / python = {}".format(
+                        module_name, repr(self.get_packages_path()), e))
+
+
         if force or ( module_name not in self.conn.modules.sys.modules ):
             self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
             logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
@@ -293,6 +308,7 @@ class PupyClient(object):
                 self.conn.modules.sys.modules.pop(module_name)
                 logging.debug("package removed from sys.modules to force reloading")
             return True
+
         return False
 
     def run_module(self, module_name, args):

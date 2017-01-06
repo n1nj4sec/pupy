@@ -65,6 +65,9 @@ def pupy_add_package(pkdic):
 
     modules.update(module)
 
+def native_import(name):
+    __import__(name)
+
 class PupyPackageLoader:
     def __init__(self, fullname, contents, extension, is_pkg, path):
         self.fullname = fullname

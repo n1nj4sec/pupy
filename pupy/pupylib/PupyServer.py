@@ -111,6 +111,7 @@ class PupyServer(threading.Thread):
                 "launcher_args" : obtain(conn.get_infos("launcher_args")),
                 "transport" : obtain(conn.get_infos("transport")),
                 "daemonize" : (True if obtain(conn.get_infos("daemonize")) else False),
+                "native": conn.get_infos("native"),
             }
             client_info.update(l)
             pc=PupyClient.PupyClient(client_info, self)
