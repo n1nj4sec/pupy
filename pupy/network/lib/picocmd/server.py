@@ -210,8 +210,8 @@ class DnsCommandServerHandler(BaseResolver):
             raise ValueError('Interval should not be less then 30s to avoid DNS storm')
 
         self.interval = interval or self.interval
-        self.timeout = max(timeout, self.interval*3) if timeout else self.timeout
-        self.kex = kex if ( not kex is None ) else self.kex
+        self.timeout = max(timeout if timeout else self.timeout, self.interval*3)
+        self.kex = kex if ( kex is not None ) else self.kex
 
         cmd = Policy(self.interval, self.kex)
         return self.add_command(cmd)
