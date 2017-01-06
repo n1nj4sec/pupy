@@ -205,6 +205,8 @@ rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.l
 make -k
 make install
 
+cp -vrf /compat/* /usr/include/
+
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace psutil \
@@ -225,7 +227,7 @@ __CMDS__
 mount -t proc proc buildenv/lin32/proc
 mount -t devtmpfs devtmpfs buildenv/lin32/dev
 
-cp -vf compat/* buildenv/lin32/usr/include/
+cp -vfr compat buildenv/lin32/
 
 chroot buildenv/lin32 /bin/bash -x /deploy.sh
 
