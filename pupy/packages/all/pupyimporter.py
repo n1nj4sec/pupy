@@ -31,7 +31,8 @@ try:
 except ImportError:
     builtin_memimporter = False
 
-modules={}
+modules = {}
+
 try:
     import pupy
     if not (hasattr(pupy, 'pseudo') and pupy.pseudo) and not modules:
@@ -61,9 +62,20 @@ def pupy_add_package(pkdic):
     module = cPickle.loads(pkdic)
 
     if __debug:
-        print 'Adding package: {}'.format([ x for x in module.iterkeys() ])
+        print 'Adding files: {}'.format([ x for x in module.iterkeys() ])
 
     modules.update(module)
+
+def has_module(name):
+    global module
+    return name in sys.modules
+
+def invalidate_module(name):
+    global module
+    if not name in sys.modules:
+        raise ValueError('Module {} is not loaded yet'.format(name))
+
+    del sys.modules[name]
 
 def native_import(name):
     __import__(name)
@@ -83,6 +95,7 @@ class PupyPackageLoader:
             dprint('loading module {}'.format(fullname))
             if fullname in sys.modules:
                 return sys.modules[fullname]
+
             mod=None
             c=None
             if self.extension=="py":
@@ -132,17 +145,15 @@ class PupyPackageLoader:
                        'Error while loading package {} ({}) : {}'.format(
                            fullname, self.extension, str(e)))
             raise e
+
         finally:
             imp.release_lock()
-        mod = sys.modules[fullname] # reread the module in case it changed itself
-        return mod
+
+        return sys.modules[fullname]
 
 class PupyPackageFinder:
     def __init__(self, modules):
         self.modules = modules
-        self.modules_list=[
-            x.rsplit(".",1)[0] for x in self.modules.iterkeys()
-        ]
 
     def find_module(self, fullname, path=None):
         imp.acquire_lock()
@@ -201,7 +212,9 @@ class PupyPackageFinder:
 
             dprint('--> Loading {} ({}) package={}'.format(
                 fullname, selected, is_pkg))
+
             return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
+
         except Exception as e:
             raise e
         finally:

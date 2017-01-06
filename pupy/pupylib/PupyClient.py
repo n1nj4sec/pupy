@@ -305,8 +305,16 @@ class PupyClient(object):
         """
         # start path should only use "/" as separator
 
-        if module_name in self.conn.modules.sys.modules and not force:
-            return
+        update = False
+
+        pupyimporter = self.conn.modules.pupyimporter
+
+        if pupyimporter.has_module(module_name):
+            if not force:
+                return
+            else:
+                update = True
+                pupyimporter.invalidate_module(module_name)
 
         start_path=module_name.replace(".", "/")
         package_found=False
@@ -334,8 +342,6 @@ class PupyClient(object):
 
                 except Exception as e:
                     raise PupyModuleError("Error while loading package from sys.path %s : %s"%(module_name, traceback.format_exc()))
-        if "pupyimporter" not in self.conn.modules.sys.modules:
-            raise PupyModuleError("pupyimporter module does not exists on the remote side !")
 
         if not modules_dic:
             if self.desc['native']:
@@ -343,20 +349,20 @@ class PupyClient(object):
                     module_name, repr(self.get_packages_path())))
             else:
                 try:
-                    self.conn.modules.pupyimporter.native_import(module_name)
+                    pupyimporter.native_import(module_name)
                 except Exception as e:
                     raise PupyModuleError("Couldn't find package {} in \(path={}) and sys.path / python = {}".format(
                         module_name, repr(self.get_packages_path()), e))
 
-        if force or ( module_name not in self.conn.modules.sys.modules ):
-            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
-            logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
-            if force and  module_name in self.conn.modules.sys.modules:
-                self.conn.modules.sys.modules.pop(module_name)
-                logging.debug("package removed from sys.modules to force reloading")
-            return True
+        # we have to pickle the dic for two reasons : because the remote side is
+        # not aut0horized to iterate/access to the dictionary declared on this
+        # side and because it is more efficient
+        pupyimporter.pupy_add_package(cPickle.dumps(modules_dic))
+        logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
+        if update:
+            self.conn.modules.__invalidate__(module_name)
 
-        return False
+        return True
 
     def run_module(self, module_name, args):
         """ start a module on this unique client and return the corresponding job """
