@@ -256,6 +256,7 @@ def main():
     pupy.infos['launcher_args'] = LAUNCHER_ARGS
     pupy.infos['launcher_inst'] = launcher
     pupy.infos['transport'] = launcher.get_transport()
+    pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
 
     exited = False
 
