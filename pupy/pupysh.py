@@ -29,6 +29,7 @@ import traceback
 import argparse
 import os
 import os.path
+import sys
 import network.conf
 
 from pupylib import PupyServer
@@ -38,6 +39,10 @@ from pupylib import PupyCredentials
 from pupylib import __version__
 
 from network.lib.igd import IGDClient, UPNPError
+
+sys.path.append(
+    os.path.join(os.path.abspath(os.path.dirname(__file__)), 'external', 'scapy')
+)
 
 def print_version():
     print("Pupy - %s"%(__version__))
