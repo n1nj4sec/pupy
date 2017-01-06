@@ -90,7 +90,7 @@ __class_name__="InteractiveShell"
 @config(cat="admin")
 class InteractiveShell(PupyModule):
     """
-        open an interactive command shell. tty are well handled for targets running *nix
+        open an interactive command shell with a nice tty
     """
     max_clients=1
     pipe = None
