@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
 from pupylib.utils.term import colorize
@@ -8,7 +8,9 @@ __class_name__="SearchModule"
 @config(cat="gather")
 class SearchModule(PupyModule):
     """ walk through a directory and recursively search a string into files """
-    daemon=True
+    daemon = True
+    dependencies = [ 'pupyutils.search', 'scandir' ]
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="search", description=self.__doc__)
         self.arg_parser.add_argument('--path', default='.', help='root path to start (default: current path)')
@@ -18,14 +20,11 @@ class SearchModule(PupyModule):
         self.arg_parser.add_argument('--content', action='store_true', help='check inside files (such as grep)')
 
     def run(self, args):
-        self.client.load_package("pupyutils.search", force=True)
-        self.client.load_package("scandir")
-  
         if args.extensions:
             args.extensions = tuple(f.strip() for f in args.extensions.split(','))
         # if not extension is provided for find commad, try to extract it to gain time during the research
         elif not args.content:
-            args.extensions = tuple(os.path.splitext(s)[1].strip() for s in args.strings)    
+            args.extensions = tuple(os.path.splitext(s)[1].strip() for s in args.strings)
 
         search_str = [s.lower() for s in args.strings]
 

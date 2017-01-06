@@ -37,8 +37,11 @@ __class_name__="CredDump"
 @config(cat="creds", compatibilities=['windows', 'linux', 'darwin'], tags=['creds',
     'credentials', 'password', 'gather', 'hives'])
 class CredDump(PupyModule):
-
     """ download the hives from a remote windows system and dump creds """
+
+    dependencies = {
+        'linux': [ 'pupyutils.safepopen' ]
+    }
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='hive', description=self.__doc__)
@@ -112,7 +115,6 @@ class CredDump(PupyModule):
         except Exception as e:
             self.error('/etc/shadow is not accessible: {}'.format(e))
 
-        self.client.load_package('pupyutils.safepopen')
         sopen = self.client.conn.modules['pupyutils.safepopen'].SafePopen
 
         try:

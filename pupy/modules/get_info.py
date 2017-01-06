@@ -33,7 +33,6 @@ class GetInfo(PupyModule):
             infos.append((k,self.client.desc[k]))
 
         if self.client.is_windows():
-            self.client.load_package("pupwinutils.security")
             for k in windKeys:
                 infos.append((k,self.client.desc[k]))
 

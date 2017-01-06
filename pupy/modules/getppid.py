@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import obtain
 from modules.lib.utils.shell_exec import shell_exec
@@ -10,12 +10,15 @@ __class_name__="PsModule"
 class PsModule(PupyModule):
     """ list parent process information """
 
+    dependencies = {
+        'windows': [ 'pupwinutils.processes' ]
+    }
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="getppid", description=self.__doc__)
 
     def run(self, args):
         if self.client.is_windows():
-            self.client.load_package("pupwinutils.processes")
             outputlist=self.client.conn.modules["pupwinutils.processes"].get_current_ppid()
             outputlist=obtain(outputlist) #pickle the list of proxy objects with obtain is really faster
             for out in outputlist:
