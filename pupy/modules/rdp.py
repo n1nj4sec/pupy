@@ -5,7 +5,7 @@ from netaddr import *
 
 __class_name__="Rdp"
 
-@config(cat="admin")
+@config(cat="admin", compat="windows")
 class Rdp(PupyModule):
     """ Enable / Disable rdp connection or check for valid credentials on a remote host """
 
@@ -35,7 +35,7 @@ class Rdp(PupyModule):
 
     def run(self, args):
         
-        # TO DO: enable multi RDP session
+        # TO DO: enable multi RDP session, see MIMIKATZ for example
 
         if args.local:
             if args.enable or args.disable:

@@ -8,7 +8,7 @@ import datetime
 
 __class_name__="NetCreds"
 
-@config(cat="gather")
+@config(cat="gather", compat=["linux", "windows"])
 class NetCreds(PupyModule):
     """ 
         Sniffs cleartext passwords from interface

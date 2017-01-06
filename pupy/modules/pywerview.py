@@ -5,7 +5,7 @@ from pupylib.PupyModule import *
 
 __class_name__="Pywerview"
 
-@config(cat="gather")
+@config(cat="gather", compat="windows")
 class Pywerview(PupyModule):
     """ Rewriting of some PowerView's functionalities in Python """
     

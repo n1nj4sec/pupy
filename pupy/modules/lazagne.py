@@ -13,7 +13,7 @@ import sys
 
 __class_name__="LaZagne"
 
-@config(cat="creds")
+@config(cat="creds", compat=["linux", "windows"])
 class LaZagne(PupyModule):
     """
         retrieve passwords stored on the target
