@@ -7,7 +7,6 @@ __class_name__="GetInfo"
 class GetInfo(PupyModule):
     """ get some informations about one or multiple clients """
     dependencies = {
-        'all': [ ],
         'windows': [ "pupwinutils.security" ],
     }
 
@@ -34,7 +33,6 @@ class GetInfo(PupyModule):
             infos.append((k,self.client.desc[k]))
 
         if self.client.is_windows():
-            self.client.load_package("psutil")
             self.client.load_package("pupwinutils.security")
             for k in windKeys:
                 infos.append((k,self.client.desc[k]))

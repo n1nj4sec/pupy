@@ -15,14 +15,13 @@ class PsModule(PupyModule):
 
     def run(self, args):
         if self.client.is_windows():
-            self.client.load_package("psutil")
             self.client.load_package("pupwinutils.processes")
             outputlist=self.client.conn.modules["pupwinutils.processes"].get_current_pid()
             outputlist=obtain(outputlist) #pickle the list of proxy objects with obtain is really faster
             for out in outputlist:
                 self.log('%s: %s' % (out, outputlist[out]))
-            return # quit 
-        
+            return # quit
+
         elif self.client.is_android():
             all_process = shell_exec(self.client, "ps")
         elif self.client.is_darwin():

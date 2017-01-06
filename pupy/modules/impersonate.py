@@ -10,7 +10,7 @@ __class_name__="ImpersonateModule"
 class ImpersonateModule(PupyModule):
     """ list/impersonate process tokens """
     max_clients=1
-    dependencies=["psutil", "pupwinutils.security"]
+    dependencies=["pupwinutils.security"]
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="impersonate", description=self.__doc__)
         self.arg_parser.add_argument("-l", "--list", action='store_true', help="list available Sids")
@@ -37,5 +37,3 @@ class ImpersonateModule(PupyModule):
             self.success("rev2self called")
         else:
             self.error("no option supplied")
-
-

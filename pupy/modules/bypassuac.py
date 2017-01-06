@@ -13,8 +13,8 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
     """try to bypass UAC """
-    dependencies=["psutil", "pupwinutils.processes", "pupwinutils.security"]
-    
+    dependencies=["pupwinutils.processes", "pupwinutils.security"]
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="bypassuac", description=self.__doc__)
         self.arg_parser.add_argument('-m', dest='method', choices=["eventvwr", "dll_hijacking"], default=None, help="Default: the technic will be choosen for you. 'dll_hijacking' for wind7-8.1 and 'eventvwr' for wind7-10.")
@@ -35,7 +35,7 @@ class BypassUAC(PupyModule):
                 registry_hijacking = True
             else:
                 dll_hijacking = True
-        elif args.method == "eventvwr":     
+        elif args.method == "eventvwr":
             registry_hijacking = True
         else:
             dll_hijacking = True

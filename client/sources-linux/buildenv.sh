@@ -207,7 +207,7 @@ make install
 
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
-       paramiko uptime pylzma pydbus python-ptrace \
+       paramiko uptime pylzma pydbus python-ptrace psutil \
        --upgrade --no-binary :all:
 
 cd /usr/lib/python2.7
@@ -224,6 +224,8 @@ __CMDS__
 
 mount -t proc proc buildenv/lin32/proc
 mount -t devtmpfs devtmpfs buildenv/lin32/dev
+
+cp -vf compat/* buildenv/lin32/usr/include/
 
 chroot buildenv/lin32 /bin/bash -x /deploy.sh
 
@@ -395,7 +397,7 @@ make install
 
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
-       paramiko uptime pylzma pydbus python-ptrace \
+       paramiko uptime pylzma pydbus python-ptrace psutil \
        --upgrade --no-binary :all:
 
 cd /usr/lib/python2.7

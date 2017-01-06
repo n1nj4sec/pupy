@@ -23,10 +23,10 @@ class LaZagne(PupyModule):
         'all': [ 'sqlite3', '_sqlite3', 'xml', '_elementtree',
                      'calendar', 'xml', 'xml.etree', 'lazagne', 'colorama', 'laZagne', 'memorpy'],
         'windows': [ 'win32crypt', 'win32api', 'win32con', 'win32cred',
-                         'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip', 'psutil' ],
+                         'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip' ],
         'linux': [ 'dbus', 'secretstorage', 'crypt' ]
     }
-    
+
     def init_argparse(self):
         header = '|====================================================================|\n'
         header += '|                                                                    |\n'
@@ -48,7 +48,7 @@ class LaZagne(PupyModule):
         for r in self.client.conn.modules["laZagne"].runLaZagne():
             if r[0] == 'User':
                 print colorize('\n########## User: %s ##########' % r[1].encode('utf-8', errors='replace'), "yellow")
-                
+
             elif r[2] or args.verbose:
                 self.print_module_title(r[1])
 

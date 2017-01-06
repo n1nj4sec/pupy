@@ -15,7 +15,6 @@ class PsModule(PupyModule):
 
     def run(self, args):
         if self.client.is_windows():
-            self.client.load_package("psutil")
             self.client.load_package("pupwinutils.processes")
             outputlist=self.client.conn.modules["pupwinutils.processes"].enum_processes()
             outputlist=obtain(outputlist) #pickle the list of proxy objects with obtain is really faster
@@ -40,4 +39,3 @@ class PsModule(PupyModule):
             self.log(shell_exec(self.client, "ps aux"))
         else:
             self.log(shell_exec(self.client, "ps -aux"))
-
