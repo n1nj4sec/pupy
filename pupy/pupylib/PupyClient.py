@@ -25,6 +25,9 @@ from .PupyJob import PupyJob
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+class BinaryObjectError(ValueError):
+    pass
+
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
         self.desc=desc
@@ -216,42 +219,75 @@ class PupyClient(object):
         return self._load_package(module_name, force)
 
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
-        modules_dic={}
+        modules_dic = {}
+        found_files = set()
+
         if os.path.isdir(os.path.join(search_path,start_path)): # loading a real package with multiple files
             for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
                 for f in files:
-                    if pure_python_only:
+                    if f.startswith('.#') or '/test/' in f or '/tests/' in f or '/example' in f:
+                        continue
+
+                    if pure_python_only and f.endswith((".so",".pyd",".dll")):
                         # avoid loosing shells when looking for packages in
                         # sys.path and unfortunatelly pushing a .so ELF on a
                         # remote windows
-                        if f.endswith((".so",".pyd",".dll")) or f.startswith('.#'):
-                            continue
-                    module_code=""
-                    with open(os.path.join(root,f),'rb') as fd:
-                        module_code=fd.read()
+                        raise BinaryObjectError('Path contains binary objects: {}'.format(f))
+
+                    if not f.endswith(('.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
+                        continue
+
+                    module_code = b''
+                    with open(os.path.join(root,f), 'rb') as fd:
+                        module_code = fd.read()
+
                     modprefix = root[len(search_path.rstrip(os.sep))+1:]
                     modpath = os.path.join(modprefix,f).replace("\\","/")
-                    modules_dic[modpath]=module_code
+
+                    base, ext = modpath.rsplit('.', 1)
+
+                    if ext == '.pyo':
+                        if base+'.py' in modules_dic:
+                            del modules_dic[base+'.py']
+                        if base+'.pyc' in modules_dic:
+                            del modules_dic[base+'.pyc']
+                    elif ext == '.pyc':
+                        if base+'.py' in modules_dic:
+                            del modules_dic[base+'.py']
+                        if base+'.pyo' in modules_dic:
+                            continue
+                    elif ext == '.py':
+                        if base+'.pyc' in modules_dic:
+                            continue
+                        if base+'.pyo' in modules_dic:
+                            continue
+
+                    modules_dic[modpath] = module_code
+
                 package_found=True
         else: # loading a simple file
-            extlist=[ ".py", ".pyc", ".pyo" ]
+            extlist=[ '.pyo', '.pyc', '.py'  ]
             if not pure_python_only:
-                extlist+=[ ".so", ".pyd", "27.dll" ] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
+                #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
+                extlist+=[ '.so', '.pyd', '27.dll' ]
+
             for ext in extlist:
-                filepath=os.path.join(search_path,start_path+ext)
+                filepath = os.path.join(search_path,start_path+ext)
                 if os.path.isfile(filepath):
-                    module_code=""
+                    module_code = ''
                     with open(filepath,'rb') as f:
                         module_code=f.read()
-                    cur=""
-                    for rep in start_path.split("/")[:-1]:
-                        if not cur+rep+"/__init__.py" in modules_dic:
-                            modules_dic[rep+"/__init__.py"]=""
-                        cur+=rep+"/"
+
+                    cur = ''
+                    for rep in start_path.split('/')[:-1]:
+                        if not cur+rep+'/__init__.py' in modules_dic:
+                            modules_dic[rep+'/__init__.py']=''
+                        cur+=rep+'/'
 
                     modules_dic[start_path+ext]=module_code
                     package_found=True
                     break
+
         return modules_dic
 
     def _load_package(self, module_name, force=False):
@@ -284,6 +320,10 @@ class PupyClient(object):
                         logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..."%module_name)
                         package_path=search_path
                         break
+
+                except BinaryObjectError as e:
+                    logging.warning(e)
+
                 except Exception as e:
                     raise PupyModuleError("Error while loading package from sys.path %s : %s"%(module_name, traceback.format_exc()))
         if "pupyimporter" not in self.conn.modules.sys.modules:
