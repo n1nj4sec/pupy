@@ -192,7 +192,10 @@ class PupyServer(threading.Thread):
         for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
             if module_name=="lib":
                 continue
-            yield self.get_module(module_name)
+            try:
+                yield self.get_module(module_name)
+            except ImportError as e:
+                logging.warning("%s : module %s disabled"%(e, module_name))
 
     def get_module_completer(self, module_name):
         """ return the module PupyCompleter if any is defined"""

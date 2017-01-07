@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
+from pupylib import *
 
 def init_winpcap(module):
     if module.client.is_windows():

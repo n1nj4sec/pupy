@@ -15,7 +15,7 @@ class Powerview(PupyModule):
     
     def init_argparse(self):
 
-        commands_available = '''
+        self.commands_available = '''
 Commandes available:\n
 Set-MacAttribute -FilePath c:\\test\\newfile -OldFilePath c:\\test\\oldfile
 Set-MacAttribute -FilePath c:\\demo\\test.xt -All "01/03/2006 12:12 pm"
@@ -148,6 +148,7 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
 '''
         self.arg_parser = PupyArgumentParser(prog="Powerview", description=self.__doc__)
         self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command')
+        self.arg_parser.add_argument("-l", "--list-available-commands", action='store_true', help="list all available commands")
         
         self.arg_parser.add_argument("--Get-Proxy", dest='GetProxy', action='store_true', help='Returns proxy configuration')
         self.arg_parser.add_argument("--Get-NetComputer", dest='GetNetComputer', action='store_true', help='Returns the current computers in current domain')
@@ -179,6 +180,9 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
     def run(self, args):
         script = 'powerview'
         command = ""
+        if args.list_available_commands:
+            self.log(self.commands_available)
+            return
 
         # check if file has been already uploaded to the target
         for arch in ['x64', 'x86']:
