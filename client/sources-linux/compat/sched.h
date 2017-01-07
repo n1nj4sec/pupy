@@ -121,11 +121,13 @@ extern int sched_rr_get_interval (__pid_t __pid, struct timespec *__t) __THROW;
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
+static inline
 int sched_setaffinity (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
     return syscall(__NR_sched_setaffinity, 3, pid, cpusetsize, cpuset);
 }
 
+static inline
 int sched_getaffinity (pid_t pid, size_t cpusetsize, const cpu_set_t *cpuset)
 {
     int res = syscall(__NR_sched_getaffinity, pid, MIN(INT_MAX, cpusetsize), cpuset);

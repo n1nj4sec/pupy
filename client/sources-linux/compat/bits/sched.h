@@ -204,11 +204,13 @@ typedef struct
 
 __BEGIN_DECLS
 
-static inline cpu_set_t * __sched_cpualloc (size_t count) {
+static inline 
+cpu_set_t * __sched_cpualloc (size_t count) {
     return malloc (__CPU_ALLOC_SIZE (count));
 }
 
-static int __sched_cpucount (size_t setsize, const cpu_set_t *setp)
+static inline
+int __sched_cpucount (size_t setsize, const cpu_set_t *setp)
 {
   int s = 0;
   const __cpu_mask *p = setp->__bits;
@@ -246,6 +248,7 @@ static int __sched_cpucount (size_t setsize, const cpu_set_t *setp)
   return s;
 }
 
+static inline
 void __sched_cpufree (cpu_set_t *__set) {
     free(__set);
 }
