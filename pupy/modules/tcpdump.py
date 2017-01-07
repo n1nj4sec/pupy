@@ -8,6 +8,8 @@ import Queue
 import time
 import readline
 from modules.lib.windows.winpcap import init_winpcap
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import *
 import datetime
 from pupylib import * # placed after scapy inport to avoid scapy's config collision
