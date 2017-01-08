@@ -8,13 +8,13 @@ SELF=`readlink -f $0`
 CWD=`dirname $0`
 SOURCES=`readlink -f $CWD/../../`
 
-PYTHON64="https://www.python.org/ftp/python/2.7.12/python-2.7.12.amd64.msi"
-PYTHON32="https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi"
+PYTHON64="https://www.python.org/ftp/python/2.7.13/python-2.7.13.amd64.msi"
+PYTHON32="https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi"
 PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi"
-PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
-PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
+# PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
+# PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc pyaml rsa pefile image rsa netaddr pypiwin32 win_inet_pton netaddr tinyec uptime"
+PACKAGES="rpyc pyaml rsa pefile image rsa netaddr pypiwin32 win_inet_pton netaddr tinyec uptime pycrypto"
 
 BUILDENV=${1:-`pwd`/buildenv}
 
@@ -57,14 +57,14 @@ done
 WINEPREFIX=$WINE32 wineserver -k
 
 [ ! -f $WINE32/drive_c/.python ] && \
-    WINEPREFIX=$WINE32 msiexec /i Y:\\python-2.7.12.msi /q && \
+    WINEPREFIX=$WINE32 msiexec /i Y:\\python-2.7.13.msi /q && \
     touch $WINE32/drive_c/.python
 
 WINEPREFIX=$WINE32 wineboot -r
 WINEPREFIX=$WINE32 wineserver -k
 
 [ ! -f $WINE64/drive_c/.python ] && \
-    WINEPREFIX=$WINE64 msiexec /i Y:\\python-2.7.12.amd64.msi /q && \
+    WINEPREFIX=$WINE64 msiexec /i Y:\\python-2.7.13.amd64.msi /q && \
     touch $WINE64/drive_c/.python
 
 WINEPREFIX=$WINE64 wineboot -r
@@ -89,8 +89,8 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade --no-binary :all: psutil
 done
 
-WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO32
-WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO64
+# WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO32
+# WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO64
 
 cat >$WINE32/python.sh <<EOF
 #!/bin/sh
