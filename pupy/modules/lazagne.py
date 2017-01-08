@@ -21,10 +21,11 @@ class LaZagne(PupyModule):
 
     dependencies = {
         'all': [ 'sqlite3', '_sqlite3', 'xml', '_elementtree',
-                     'calendar', 'xml', 'xml.etree', 'lazagne', 'colorama', 'laZagne', 'memorpy'],
+                     'calendar', 'xml', 'xml.etree', 'lazagne', 'colorama', 'laZagne',
+                     'memorpy', 'ConfigParser' ],
         'windows': [ 'win32crypt', 'win32api', 'win32con', 'win32cred',
                          'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip' ],
-        'linux': [ 'dbus', 'secretstorage', 'crypt' ]
+        'linux': [ 'secretstorage', 'crypt' ]
     }
 
     def init_argparse(self):
