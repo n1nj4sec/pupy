@@ -13,3 +13,5 @@ mss
 m2crypto
 pylzma
 mss
+colorama
+pyOpenSSL
