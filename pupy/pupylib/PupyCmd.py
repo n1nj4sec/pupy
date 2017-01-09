@@ -872,6 +872,9 @@ class PupyCmd(cmd.Cmd):
 
     def do_exit(self, arg):
         """ Quit Pupy Shell """
+        for job in self.pupsrv.jobs.itervalues():
+            job.stop()
+
         return True
 
     def do_read(self, arg):

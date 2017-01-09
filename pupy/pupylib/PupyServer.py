@@ -75,6 +75,8 @@ class PupyServer(threading.Thread):
         self.categories = PupyCategories(self)
         self.igd = igd
         self.finished = threading.Event()
+        self._cleanups = []
+        self._singles = {}
 
     def create_id(self):
         """ return first lowest unused session id """
@@ -329,7 +331,24 @@ class PupyServer(threading.Thread):
         finally:
             self.finished.set()
 
+    def register_cleanup(self, cleanup):
+        self._cleanups.append(cleanup)
+
+    def single(self, ctype, *args, **kwargs):
+        single = self._singles.get(ctype)
+        if not single:
+            single = ctype(*args, **kwargs)
+            self._singles[ctype] = single
+
+        return single
+
     def stop(self):
+        for cleanup in self._cleanups:
+            cleanup()
+
+        self._cleanups = []
+
         if self.server:
             self.server.close()
+
         self.finished.set()
