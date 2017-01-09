@@ -213,7 +213,12 @@ class PupyPackageFinder:
             dprint('--> Loading {} ({}) package={}'.format(
                 fullname, selected, is_pkg))
 
-            return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
+            module = PupyPackageLoader(fullname, content, extension, is_pkg, selected)
+
+            for file in files:
+                del self.modules[file]
+
+            return module
 
         except Exception as e:
             raise e

@@ -22,8 +22,7 @@ import traceback
 import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
-
-import compileall
+import marshal
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -226,7 +225,6 @@ class PupyClient(object):
 
         module_path = os.path.join(search_path, start_path)
         if os.path.isdir(module_path): # loading a real package with multiple files
-            compileall.compile_dir(module_path, force=1, quiet=1)
             for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
                     if f.startswith('.#') or '/test/' in f or '/tests/' in f or '/example' in f:
@@ -266,13 +264,15 @@ class PupyClient(object):
                         if base+'.pyo' in modules_dic:
                             continue
 
+                        module_code = '\0'*8 + marshal.dumps(
+                            compile(module_code, modpath, 'exec')
+                        )
+                        modpath = base+'.pyc'
+
                     modules_dic[modpath] = module_code
 
                 package_found=True
         else: # loading a simple file
-            if os.path.exists(module_path+'.py'):
-                compileall.compile_file(module_path+'.py', force=1, quiet=1)
-
             extlist=[ '.pyo', '.pyc', '.py'  ]
             if not pure_python_only:
                 #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
@@ -291,7 +291,14 @@ class PupyClient(object):
                             modules_dic[rep+'/__init__.py']=''
                         cur+=rep+'/'
 
-                    modules_dic[start_path+ext]=module_code
+                    if ext == '.py':
+                        module_code = '\0'*8 + marshal.dumps(
+                            compile(module_code, start_path+ext, 'exec')
+                        )
+                        ext = '.pyc'
+
+                    modules_dic[start_path+ext] = module_code
+
                     package_found=True
                     break
 
