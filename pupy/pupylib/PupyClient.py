@@ -365,17 +365,23 @@ class PupyClient(object):
                         '',
                         'site-packages/win32/lib',
                         'site-packages/win32',
-                        'site-packages/win32_system',
+                        'site-packages/pywin32_system32',
                         'site-packages',
                         'lib-dynload'
                     )
 
+                    endings = (
+                        '/', '.pyo', '.pyc', '.py', '.pyd', '.so', '.dll'
+                    )
+
+                    # Horrible pywin32..
+                    if module_name in ( 'pythoncom', 'pythoncomloader', 'pywintypes' ):
+                        endings = tuple([ '27.dll' ])
+
                     start_paths = tuple([
                         ('/'.join([x, start_path])).strip('/')+y \
                             for x in possible_prefixes \
-                            for y in (
-                                '/', '.pyo', '.pyc', '.py', '.pyd', '.so', '.dll'
-                            )
+                            for y in endings
                     ])
 
                     for info in bundle.infolist():
