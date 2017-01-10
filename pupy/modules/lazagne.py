@@ -23,7 +23,7 @@ class LaZagne(PupyModule):
         'all': [ 'sqlite3', '_sqlite3', 'xml', '_elementtree',
                      'calendar', 'xml', 'xml.etree', 'lazagne', 'colorama', 'laZagne',
                      'memorpy', 'ConfigParser' ],
-        'windows': [ 'win32crypt', 'win32api', 'win32con', 'win32cred',
+        'windows': [ 'sqlite3.dll', 'win32crypt', 'win32api', 'win32con', 'win32cred',
                          'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip' ],
         'linux': [ 'secretstorage', 'crypt' ]
     }
@@ -41,9 +41,6 @@ class LaZagne(PupyModule):
         self.arg_parser.add_argument("-v", "--verbose", action='store_true')
 
     def run(self, args):
-        if self.client.is_windows():
-            self.client.load_dll('sqlite3.dll')
-
         db = Credentials()
         passwordsFound = False
         for r in self.client.conn.modules["laZagne"].runLaZagne():
