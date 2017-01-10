@@ -23,6 +23,11 @@
  * Joachim Bauch. All Rights Reserved.
  *
  */
+
+#ifdef DEBUG
+#define DEBUG_OUTPUT
+#endif
+
 #include <windows.h>
 #include <winnt.h>
 #include <stddef.h>
@@ -512,7 +517,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
 		int (WINAPI *GetNativeSystemInfo) (SYSTEM_INFO *systemInfo);
 		GetNativeSystemInfo = (void *) GetProcAddress (hModule, "GetNativeSystemInfo");
 		GetNativeSystemInfo(&sysInfo);
-	} 
+	}
     result->pageSize = sysInfo.dwPageSize;
 
     // commit memory for headers
