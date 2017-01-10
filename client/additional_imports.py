@@ -41,14 +41,8 @@ import getpass
 import __future__
 import netaddr
 import psutil
-#needed for scapy :
-import new
-import fractions
 if 'win' in sys.platform:
     import ctypes.wintypes
 else:
     import pty
     import dbus
-    import pydbus
-    import pyexpat
-    import ptrace
