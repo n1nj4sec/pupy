@@ -114,7 +114,7 @@ class PupyModule(object):
             dependencies = self.dependencies
 
         for d in dependencies:
-            if d.lower().endswith('.dll'):
+            if d.lower().endswith(('.dll', '.so')):
                 self.client.load_dll(d)
             else:
                 self.client.load_package(d)
