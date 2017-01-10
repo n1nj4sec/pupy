@@ -13,8 +13,11 @@ PYTHON32="https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi"
 PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi"
 # PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
 # PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
+# PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
+# PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc pyaml rsa pefile image rsa netaddr pypiwin32 win_inet_pton netaddr tinyec uptime pycrypto"
+PACKAGES="rpyc pyaml rsa pefile image rsa netaddr win_inet_pton netaddr tinyec uptime pycrypto cryptography pypiwin32"
+PACKAGES="$PACKAGES asyncoro mss"
 
 BUILDENV=${1:-`pwd`/buildenv}
 
@@ -22,6 +25,8 @@ if [ -f $BUILDENV/.ready ]; then
     echo "Buildenv at $BUILDENV already prepared"
     exit 0
 fi
+
+exec < /dev/null
 
 WINE=${WINE:-wine}
 WINE32="$BUILDENV/win32"
@@ -54,21 +59,21 @@ for prefix in $WINE32 $WINE64; do
     ln -s $SOURCES $prefix/dosdevices/x:
 done
 
-WINEPREFIX=$WINE32 wineserver -k
+WINEPREFIX=$WINE32 wineserver -k || true
 
 [ ! -f $WINE32/drive_c/.python ] && \
     WINEPREFIX=$WINE32 msiexec /i Y:\\python-2.7.13.msi /q && \
     touch $WINE32/drive_c/.python
 
 WINEPREFIX=$WINE32 wineboot -r
-WINEPREFIX=$WINE32 wineserver -k
+WINEPREFIX=$WINE32 wineserver -k  || true
 
 [ ! -f $WINE64/drive_c/.python ] && \
     WINEPREFIX=$WINE64 msiexec /i Y:\\python-2.7.13.amd64.msi /q && \
     touch $WINE64/drive_c/.python
 
 WINEPREFIX=$WINE64 wineboot -r
-WINEPREFIX=$WINE64 wineserver -k
+WINEPREFIX=$WINE64 wineserver -k || true
 
 for prefix in $WINE32 $WINE64; do
     [ ! -f $prefix/drive_c/.vc ] && \
@@ -87,10 +92,11 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade $PACKAGES
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade --no-binary :all: psutil
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m compileall C:\\Python27\\Lib || true
 done
 
-# WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO32
-# WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO64
+# WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYWIN32
+# WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYWIN64
 
 cat >$WINE32/python.sh <<EOF
 #!/bin/sh
@@ -138,18 +144,31 @@ echo "[+] Creating bundles"
 
 TEMPLATES=`readlink -f ../../pupy/payload_templates`
 
-cd buildenv/win32/drive_c/Python27/Lib
-zip -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
-    -x "*test/*" -x "*tests/*" -x "*examples/*" \
-    -r9 ${TEMPLATES}/windows-x86.zip . ../libs
-cd -
+OPWD=`pwd`
 
-cd buildenv/win64/drive_c/Python27/Lib
-zip -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
-    -x "*test/*" -x "*tests/*" -x "*examples/*" \
-    -r9 ${TEMPLATES}/windows-amd64.zip . ../libs
-cd -
+cd $OPWD/buildenv/win32/drive_c/Python27
+rm -f ${TEMPLATES}/windows-x86.zip
+for dir in Lib DLLs; do
+    cd $dir
+    zip -y \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
+	-x "*test/*" -x "*tests/*" -x "*examples/*" \
+	-r9 ${TEMPLATES}/windows-x86.zip .
+    cd -
+done
+
+cd $OPWD/buildenv/win64/drive_c/Python27
+rm -f ${TEMPLATES}/windows-amd64.zip
+
+for dir in Lib DLLs; do
+    cd $dir
+    zip -y \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
+	-x "*test/*" -x "*tests/*" -x "*examples/*" \
+	-r9 ${TEMPLATES}/windows-amd64.zip .
+    cd -
+done
+
+cd $OPWD/
 
 touch $BUILDENV/.ready
