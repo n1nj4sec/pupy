@@ -22,6 +22,7 @@ import traceback
 import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
+from zipfile import ZipFile
 import marshal
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -334,6 +335,25 @@ class PupyClient(object):
                     break
             except Exception as e:
                 raise PupyModuleError("Error while loading package %s : %s"%(module_name, traceback.format_exc()))
+
+        if not modules_dic and self.arch:
+            arch_bundle = os.path.join(
+                'payload_templates', self.platform+'-'+self.arch+'.zip'
+            )
+
+            if os.path.exists(arch_bundle):
+                modules_dic = {}
+                with ZipFile(arch_bundle, 'r') as bundle:
+                    start_paths = tuple([
+                        ('/'.join([x, start_path])).strip('/') for x in (
+                            # ../libs - for windows bundles, to use simple zip command
+                            '', '../libs', 'site-packages', 'lib-dynload'
+                        )
+                    ])
+
+                    for info in bundle.infolist():
+                        if info.filename.startswith(start_paths):
+                            modules_dic[info.filename] = bundle.read(info.filename)
 
         if not modules_dic: # in last resort, attempt to load the package from the server's sys.path if it exists
             for search_path in sys.path:

@@ -425,4 +425,22 @@ umount buildenv/lin64/dev
 touch buildenv/lin64/.ready
 fi
 
+echo "[+] Creating bundles"
+
+TEMPLATES=`readlink -f ../../pupy/payload_templates`
+
+cd buildenv/lin64/usr/lib/python2.7
+zip -y \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
+    -x "*test/*" -x "*tests/*" -x "*examples/*" \
+    -r9 ${TEMPLATES}/linux-amd64.zip .
+cd -
+
+cd buildenv/lin32/usr/lib/python2.7
+zip -y \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
+    -x "*test/*" -x "*tests/*" -x "*examples/*" \
+    -r9 ${TEMPLATES}/linux-x86.zip .
+cd -
+
 echo "[+] We are done"

@@ -134,4 +134,22 @@ exec wine "\$VCINSTALLDIR\\\\bin\\\\amd64\\\\cl.exe" "\$@"
 EOF
 chmod +x $WINE64/cl.sh
 
+echo "[+] Creating bundles"
+
+TEMPLATES=`readlink -f ../../pupy/payload_templates`
+
+cd buildenv/win32/drive_c/Python27/Lib
+zip -y \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
+    -x "*test/*" -x "*tests/*" -x "*examples/*" \
+    -r9 ${TEMPLATES}/windows-x86.zip . ../libs
+cd -
+
+cd buildenv/win64/drive_c/Python27/Lib
+zip -y \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
+    -x "*test/*" -x "*tests/*" -x "*examples/*" \
+    -r9 ${TEMPLATES}/windows-amd64.zip . ../libs
+cd -
+
 touch $BUILDENV/.ready
