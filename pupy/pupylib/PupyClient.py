@@ -227,7 +227,7 @@ class PupyClient(object):
         if os.path.isdir(module_path): # loading a real package with multiple files
             for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
-                    if f.startswith('.#') or '/test/' in f or '/tests/' in f or '/example' in f:
+                    if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
                         continue
 
                     if pure_python_only and f.endswith((".so",".pyd",".dll")):
