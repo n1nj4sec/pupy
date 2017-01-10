@@ -183,23 +183,36 @@ class PupyClient(object):
             load some dll from memory like sqlite3.dll needed for some .pyd to work
             Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
         """
-        name=os.path.basename(path)
+        name = os.path.basename(path)
         if name in self.imported_dlls:
             return False
-        buf=b""
+
+        buf = b""
 
         if not os.path.exists(path):
             path = None
             for packages_path in self.get_packages_path():
                 packages_path = os.path.join(packages_path, name)
                 if os.path.exists(packages_path):
-                        path = packages_path
+                    with open(packages_path, 'rb') as f:
+                        buf = f.read()
+                        break
 
-        if not path:
+        if not buf and self.arch:
+            arch_bundle = os.path.join(
+                'payload_templates', self.platform+'-'+self.arch+'.zip'
+            )
+
+            if os.path.exists(arch_bundle):
+                with ZipFile(arch_bundle, 'r') as bundle:
+                    for info in bundle.infolist():
+                        if info.filename.endswith('/'+name) or info.filename == name:
+                            buf = bundle.read(info.filename)
+                            break
+
+        if not buf:
             raise ImportError("load_dll: couldn't find {}".format(name))
 
-        with open(path,'rb') as f:
-            buf=f.read()
         if not self.conn.modules.pupy.load_dll(name, buf):
             raise ImportError("load_dll: couldn't load {}".format(name))
 
@@ -343,17 +356,70 @@ class PupyClient(object):
 
             if os.path.exists(arch_bundle):
                 modules_dic = {}
+
                 with ZipFile(arch_bundle, 'r') as bundle:
+
+                    # ../libs - for windows bundles, to use simple zip command
+                    # site-packages/win32 - for pywin32
+                    possible_prefixes = (
+                        '',
+                        'site-packages/win32/lib',
+                        'site-packages/win32',
+                        'site-packages/win32_system',
+                        'site-packages',
+                        'lib-dynload'
+                    )
+
                     start_paths = tuple([
-                        ('/'.join([x, start_path])).strip('/') for x in (
-                            # ../libs - for windows bundles, to use simple zip command
-                            '', '../libs', 'site-packages', 'lib-dynload'
-                        )
+                        ('/'.join([x, start_path])).strip('/')+y \
+                            for x in possible_prefixes \
+                            for y in (
+                                '/', '.pyo', '.pyc', '.py', '.pyd', '.so', '.dll'
+                            )
                     ])
 
                     for info in bundle.infolist():
                         if info.filename.startswith(start_paths):
-                            modules_dic[info.filename] = bundle.read(info.filename)
+                            module_name = info.filename
+                            for prefix in possible_prefixes:
+                                if module_name.startswith(prefix+'/'):
+                                    module_name = module_name[len(prefix)+1:]
+                                    break
+
+                            try:
+                                base, ext = module_name.rsplit('.', 1)
+                            except:
+                                continue
+
+                            # Garbage removing
+                            if ext == 'py' and ( base+'.pyc' in modules_dic or base+'.pyo' in modules_dic ):
+                                continue
+
+                            elif ext == 'pyc':
+                                if base+'.py' in modules_dic:
+                                    del modules_dic[base+'.py']
+
+                                if base+'.pyo' in modules_dic:
+                                    continue
+                            elif ext == 'pyo':
+                                if base+'.py' in modules_dic:
+                                    del modules_dic[base+'.py']
+
+                                if base+'.pyc' in modules_dic:
+                                    del modules_dic[base+'.pyc']
+
+                            # Special case with pyd loaders
+                            elif ext == 'pyd':
+                                if base+'.py' in modules_dic:
+                                    del modules_dic[base+'.py']
+
+                                if base+'.pyc' in modules_dic:
+                                    del modules_dic[base+'.pyc']
+
+                                if base+'.pyo' in modules_dic:
+                                    del modules_dic[base+'.pyo']
+
+                            modules_dic[module_name] = bundle.read(info.filename)
 
         if not modules_dic: # in last resort, attempt to load the package from the server's sys.path if it exists
             for search_path in sys.path:
