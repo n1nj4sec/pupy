@@ -124,11 +124,11 @@ class PupyPackageLoader:
                 sys.modules[fullname]=mod
                 c=marshal.loads(self.contents[8:])
                 exec c in mod.__dict__
-            elif self.extension in ("dll","pyd","so"):
+            elif self.extension in ("dll", "pyd", "so"):
                 initname = "init" + fullname.rsplit(".",1)[-1]
-                path=fullname.replace(".",'/')+"."+self.extension
+                path = self.fullname.rsplit('.', 1)[0].replace(".",'/') + "." + self.extension
                 dprint('Loading {} from memory'.format(fullname))
-                dprint('init:{}, {}.{}'.format(initname,fullname,self.extension))
+                dprint('init={} fullname={} path={}'.format(initname, fullname, path))
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
                 mod.__name__=fullname
                 mod.__file__ = '<memimport>/{}'.format(self.path)
@@ -160,8 +160,7 @@ class PupyPackageFinder:
         try:
             files=[]
             if fullname in ( 'pywintypes', 'pythoncom' ):
-                fullname = fullname + "%d%d" % sys.version_info[:2]
-                fullname = fullname.replace(".", '/') + ".dll"
+                fullname = fullname + "%d%d.dll" % sys.version_info[:2]
                 files = [ fullname ]
             else:
                 files = get_module_files(fullname)
@@ -213,27 +212,12 @@ class PupyPackageFinder:
             dprint('--> Loading {} ({}) package={}'.format(
                 fullname, selected, is_pkg))
 
-            module = PupyPackageLoader(fullname, content, extension, is_pkg, selected)
-
-            for file in files:
-                del self.modules[file]
-
-            return module
+            return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
 
         except Exception as e:
             raise e
         finally:
             imp.release_lock()
-
-def load_pywintypes():
-    #loading pywintypes27.dll :-)
-    global modules
-    try:
-        import pupy
-        pupy.load_dll("pywintypes27.dll", modules["pywintypes27.dll"])
-    except Exception as e:
-        dprint('Loading pywintypes27.dll.. failed: {}'.format(e))
-        pass
 
 def install(debug=False):
     global __debug
@@ -247,7 +231,7 @@ def install(debug=False):
         sys.meta_path.append(PupyPackageFinder(modules))
 
     if 'win' in sys.platform:
-        load_pywintypes()
+        import pywintypes
     if __debug:
         print 'Bundled modules:'
         for module in modules.iterkeys():
