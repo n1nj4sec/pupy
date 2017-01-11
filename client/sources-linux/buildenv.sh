@@ -210,6 +210,7 @@ cp -vrf /compat/* /usr/include/
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace psutil scandir \
+       scapy colorama pyOpenSSL \
        --upgrade --no-binary :all:
 
 cd /usr/lib/python2.7
@@ -400,6 +401,7 @@ make install
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace psutil scandir \
+       scapy colorama pyOpenSSL \
        --upgrade --no-binary :all:
 
 cd /usr/lib/python2.7
