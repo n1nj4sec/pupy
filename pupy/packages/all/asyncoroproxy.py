@@ -764,22 +764,29 @@ class Socks5Client(Ingress):
         addr, port = destination
         addr = IPAddress(addr)
         port = int(port)
-        yield self.socket.sendall(
-            struct.pack(
-                'BBBB', 0x5,
-                0, 0,
-                ADDR_IPV4 if addr.version == 4 else ADDR_IPV6
-            ) + addr.packed + struct.pack('>H', port)
-        )
+        try:
+            yield self.socket.sendall(
+                struct.pack(
+                    'BBBB', 0x5,
+                    0, 0,
+                    ADDR_IPV4 if addr.version == 4 else ADDR_IPV6
+                ) + addr.packed + struct.pack('>H', port)
+            )
+        except:
+            self.control.close()
+
         self._socks5_complete = True
         super(Socks5Client, self).connected(destination)
 
     @hybrid(result=False)
     def closed(self, reason):
         if not self._socks5_complete and self._socks5_request_header:
-            yield self.socket.sendall(struct.pack(
-                'BB', 0x5, ERRNO_TO_SOCKS5.get(reason, CODE_GENERAL_SRV_FAILURE)
-            ) + self._socks5_request_header[2:])
+            try:
+                yield self.socket.sendall(struct.pack(
+                    'BB', 0x5, ERRNO_TO_SOCKS5.get(reason, CODE_GENERAL_SRV_FAILURE)
+                ) + self._socks5_request_header[2:])
+            except:
+                pass
 
         super(Socks5Client, self).closed(reason)
 
@@ -799,7 +806,11 @@ class Socks5Client(Ingress):
             yield self.control.close()
             return
 
-        methods = yield self.socket.recvall(nmethods)
+        try:
+            methods = yield self.socket.recvall(nmethods)
+        except:
+            yield self.control.close()
+            return
 
         try:
             methods = struct.unpack_from('B'*nmethods, methods)
@@ -807,19 +818,24 @@ class Socks5Client(Ingress):
             yield self.control.close()
             return
 
-        if not METHOD_NO_AUTH in methods:
-            yield self.socket.sendall(
-                struct.pack('BB', 0x5, METHOD_NO_ACCEPTABLE_METHOD)
-            )
+        try:
+            if not METHOD_NO_AUTH in methods:
+                yield self.socket.sendall(
+                    struct.pack('BB', 0x5, METHOD_NO_ACCEPTABLE_METHOD)
+                )
+                yield self.control.close()
+                return
+
+            else:
+                yield self.socket.sendall(
+                    struct.pack('BB', 0x5, METHOD_NO_AUTH)
+                )
+        except:
             yield self.control.close()
             return
-        else:
-            yield self.socket.sendall(
-                struct.pack('BB', 0x5, METHOD_NO_AUTH)
-            )
 
-        header = yield self.socket.recvall(4+2)
         try:
+            header = yield self.socket.recvall(4+2)
             ver, cmd, rsv, atyp = struct.unpack_from('BBBB', header)
         except:
             yield self.control.close()
@@ -845,7 +861,12 @@ class Socks5Client(Ingress):
             addr_len = ord(header[4])
             addr_offt = 1
 
-        rest = yield self.socket.recvall(addr_len+addr_offt)
+        try:
+            rest = yield self.socket.recvall(addr_len+addr_offt)
+        except:
+            yield self.control.close()
+            return
+
         header += rest
 
         self._socks5_request_header = header
