@@ -28,13 +28,15 @@ def __getLocation__(**kwargs):
 
 class GpsTracker(Thread):    
     
-    def __init__(self, period=15):
+    def __init__(self, period=15, inMemory=False):
         '''
         '''
         Thread.__init__(self)
         gps.configure(on_location=__getLocation__)
         self.stopFollow=False
         self.period=period
+        self.inMemory=inMemory
+        self.filename = "keflfjezomef.csv"
         self.Context = autoclass('android.content.Context')
         self.PythonActivity = autoclass('org.renpy.android.PythonService')
         self.LocationManager = autoclass('android.location.LocationManager')
@@ -79,20 +81,22 @@ class GpsTracker(Thread):
         global TRACES
         self.enable()
         lastLat, lastLon = None, None 
-        #filename = "GPS_potions.csv"
-        #if os.path.isfile(filename) == False:
-        #    f = open(filename,'w')
-        #    f.write("date, latitude, longitude\n")
-        #    f.close()
+        if self.inMemory==False:
+            if os.path.isfile(self.filename) == False:
+                f = open(self.filename,'w')
+                f.write("date,latitude,longitude\n")
+                f.close()
         while self.stopFollow == False:
             lat, lon = self.getCurrentLocation()
             #print "follow current:{0},{1}".format(lat, lon)
             if (lat!=None and lon!=None) and (lastLat!=lat or lastLon!=lon):
                 #print "follow modified:{0},{1}".format(lat, lon)
-                #f = open(filename,'a+')
-                #f.write("{0}, {1}, {2}\n".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), lat, lon))
-                #f.close()
-                TRACES.append([datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), lat, lon])
+                if self.inMemory==False:
+                    f = open(self.filename,'a+')
+                    f.write("{0},{1},{2}\n".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), lat, lon))
+                    f.close()
+                else:
+                    TRACES.append([datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), lat, lon])
             lastLat, lastLon = lat, lon
             sleep(self.period)
         self.disable()
@@ -107,6 +111,7 @@ class GpsTracker(Thread):
             return False
         else:
             return True
+            
 
 def startGpsTracker(period):
     '''
@@ -137,6 +142,7 @@ def stopGpsTracker():
    
 def dumpGpsTracker():
     '''
+    When inMeory is enabled
     '''
     global TRACES
     return TRACES 
@@ -151,3 +157,15 @@ def statusGpsTracker():
         return False
     else:
         return True
+
+def deleteFile():
+    '''
+    '''
+    if GPSTRACKER_THREAD != None and GPSTRACKER_THREAD.isFollowing() == False:
+        try:
+            os.remove(GPSTRACKER_THREAD.filename)
+        except OSError:
+            return False
+        return True
+    else:
+        return False
