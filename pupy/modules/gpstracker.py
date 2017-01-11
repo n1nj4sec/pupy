@@ -114,6 +114,7 @@ class gpstracker(PupyModule):
         if args.get_position == True:
             if gpsTracker.isNetworkProviderEnabled() == False and gpsTracker.isGPSenabled()==False:
                 self.error("GPS or Network Provider is not enabled on the device. You should not be able to get location!")
+                return
             else:
                 self.success("GPS or Network Provider is enabled on the device. You should be able to get location!")
             lat, lon = None, None
