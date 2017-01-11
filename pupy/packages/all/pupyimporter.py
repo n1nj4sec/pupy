@@ -60,10 +60,16 @@ def get_module_files(fullname):
 
     return files
 
-def pupy_add_package(pkdic):
+def pupy_add_package(pkdic, compressed=False):
     """ update the modules dictionary to allow remote imports of new packages """
     import cPickle
+    import zlib
+
     global modules
+
+
+    if compressed:
+        pkdic = zlib.decompress(pkdic)
 
     module = cPickle.loads(pkdic)
 

