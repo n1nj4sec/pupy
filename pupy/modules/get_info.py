@@ -7,8 +7,9 @@ __class_name__="GetInfo"
 class GetInfo(PupyModule):
     """ get some informations about one or multiple clients """
     dependencies = {
-        'all': [ "psutil" ],
+        'all': [ ],
         'windows': [ "pupwinutils.security" ],
+        'android': [ "pupydroid.utils" ],
     }
 
     def init_argparse(self):
@@ -57,6 +58,11 @@ class GetInfo(PupyModule):
         elif self.client.is_darwin():
             for k in macKeys:
                 infos.append((k,self.client.desc[k]))
+        elif self.client.is_android():
+            battery=self.client.conn.modules["pupydroid.utils"].getBatteryStats()
+            build=self.client.conn.modules["pupydroid.utils"].getInfoBuild()
+            infos.append(("battery", battery))
+            infos.append(("build", build))
 
         for k in pupyKeys:
             infos.append((k,self.client.desc[k]))
