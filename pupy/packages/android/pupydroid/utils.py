@@ -95,6 +95,7 @@ def getSimInfo():
 
 def getNetworkOperatorName():
     '''
+    Returns the alphabetic name of current registered operator
     Returns None if an error
     '''
     try:

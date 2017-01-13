@@ -8,6 +8,7 @@ from pupylib.PupyModule import *
 from time import sleep
 import os, datetime, csv
 from rpyc.utils.classic import download
+from pupylib.utils.common import getLocalAndroidPath
 
 KML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -98,12 +99,8 @@ class gpstracker(PupyModule):
     def run(self, args):
         self.client.load_package("pupydroid.gpsTracker")
         self.client.load_package("pupydroid.utils")
-        self.localFolder=args.localOutputFolder
         androidID = self.client.conn.modules['pupydroid.utils'].getAndroidID()
-        self.localFolder = os.path.join(self.localFolder, "{0}-{1}".format(androidID, self.client.desc['user']))
-        if not os.path.exists(self.localFolder):
-            logging.debug("Creating the {0} folder locally".format(self.localFolder))
-            os.makedirs(self.localFolder)
+        self.localFolder = getLocalAndroidPath(localFolder=args.localOutputFolder, androidID=androidID, userName=self.client.desc['user'])
         gpsTracker = self.client.conn.modules['pupydroid.gpsTracker'].GpsTracker(period=args.period, inMemory=args.in_memory)
         if args.is_GPS_enabled == True:
             self.success("Is GPS enabled?")
