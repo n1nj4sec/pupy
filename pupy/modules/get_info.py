@@ -98,7 +98,7 @@ class GetInfo(PupyModule):
                 networkOperatorName = self.client.conn.modules["pupydroid.utils"].getNetworkOperatorName()
                 infos.append(("network_operator",networkOperatorName))
                 isNetworkRoaming = self.client.conn.modules["pupydroid.utils"].isNetworkRoaming()
-                infos.append(("device_id",isNetworkRoaming))
+                infos.append(("is_roaming",isNetworkRoaming))
             else:
                 #Print N/A when not applicable. These following lines can be removed from info if needed
                 infos.append(("phone_nb","N/A"))
