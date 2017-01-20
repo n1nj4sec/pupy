@@ -25,7 +25,7 @@ def gen_cb_function(pcap_writer=None, print_summary=True):
             print pkt.summary()
     return pkt_callback
 
-@config(cat=["network"], tags=["sniff", "pcap"])
+@config(cat="network", tags=["sniff", "pcap"])
 class TcpdumpModule(PupyModule):
     """ module to reproduce some of the classic tcpdump tool functions """
 
