@@ -33,6 +33,7 @@ class Session(object):
         self.commands = commands
         self.last_nonce = None
         self.last_qname = None
+        self.cache = {}
 
     @property
     def idle(self):
@@ -107,6 +108,8 @@ class DnsCommandServerHandler(BaseResolver):
                         to_remove.append(spi)
                 for spi in to_remove:
                     del self.sessions[spi]
+
+                self.cache = {}
 
             time.sleep(self.timeout)
 
@@ -341,6 +344,17 @@ class DnsCommandServerHandler(BaseResolver):
             return [Error('NO_POLICY')]
 
     def resolve(self, request, handler):
+        with self.lock:
+            data = request.q.qname
+            part = data.stripSuffix(self.domain).idna()[:-1]
+            if part in self.cache:
+                return self.cache[part]
+
+            response = self._resolve(request, handler)
+            self.cache[part] = response
+            return response
+
+    def _resolve(self, request, handler):
         qname = request.q.qname
         reply = request.reply()
 
