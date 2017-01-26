@@ -254,7 +254,7 @@ class DnsCommandServerHandler(BaseResolver):
             bits = ( struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0] ) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
             address = '.'.join(['{}'.format(int(x)) for x in packed])
-            response.append(RR('.', QTYPE.A, rdata=A(address), ttl=0))
+            response.append(RR('.', QTYPE.A, rdata=A(address), ttl=30))
 
         return response
 
