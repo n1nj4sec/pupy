@@ -242,7 +242,11 @@ class IGDClient:
         if not descURL:
             return
 
-        descXMLs = urllib2.urlopen(descURL).read()
+        try:
+            descXMLs = urllib2.urlopen(descURL, None, self.timeout).read()
+        except:
+            return
+
         self.pr = urlparse(descURL)
         baseURL = self.pr.scheme + "://" + self.pr.netloc
         dom = fromstring(descXMLs)
