@@ -15,7 +15,7 @@ class PortScan(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="port_scan", description=self.__doc__)
-        self.arg_parser.add_argument('--ports','-p', default="21,22,23,80,139,443,445,3389,7001,8000,8080",  help='ports to scan ex: 22,80,443')
+        self.arg_parser.add_argument('--ports','-p', default="21,22,23,80,139,443,445,1433,1521,3389,7001,8000,8080",  help='ports to scan ex: 22,80,443')
         self.arg_parser.add_argument('--timeout', default=4,  help='timeout (default: %(default)s)')
         self.arg_parser.add_argument('--threads', default=10,  help='number of threads (default: %(default)s)')
         self.arg_parser.add_argument('target', metavar="ip/range", help='IP/range')
