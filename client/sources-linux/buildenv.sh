@@ -4,7 +4,7 @@ export XID=`id -u`
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
 OPENSSL_SRC="http://http.debian.net/debian/pool/main/o/openssl/openssl_1.0.2j.orig.tar.gz"
-ZLIB_SRC="http://zlib.net/zlib-1.2.10.tar.gz"
+ZLIB_SRC="http://zlib.net/zlib-1.2.11.tar.gz"
 SQLITE_SRC="http://www.sqlite.org/2016/sqlite-autoconf-3150200.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
 PYTHON_SRC="https://www.python.org/ftp/python/2.7.13/Python-2.7.13.tgz"
@@ -111,8 +111,8 @@ export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
-tar zxf zlib-1.2.10.tar.gz
-cd /usr/src/zlib-1.2.10
+tar zxf zlib-1.2.11.tar.gz
+cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
@@ -220,7 +220,7 @@ find -name "*.so" | while read f; do strip $f; done
 
 cd /
 
-rm -rf /usr/src
+# rm -rf /usr/src
 
 ldconfig
 __CMDS__
@@ -411,7 +411,7 @@ find -name "*.so" | while read f; do strip $f; done
 
 cd /
 
-rm -rf /usr/src
+# rm -rf /usr/src
 
 ldconfig
 __CMDS__
