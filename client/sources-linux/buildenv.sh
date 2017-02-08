@@ -3,7 +3,7 @@
 export XID=`id -u`
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
-OPENSSL_SRC="http://http.debian.net/debian/pool/main/o/openssl/openssl_1.0.2j.orig.tar.gz"
+OPENSSL_SRC="http://http.debian.net/debian/pool/main/o/openssl/openssl_1.0.2k.orig.tar.gz"
 ZLIB_SRC="http://zlib.net/zlib-1.2.11.tar.gz"
 SQLITE_SRC="http://www.sqlite.org/2016/sqlite-autoconf-3150200.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
@@ -116,8 +116,8 @@ cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
-tar zxf openssl_1.0.2j.orig.tar.gz
-cd /usr/src/openssl-1.0.2j/
+tar zxf openssl_1.0.2k.orig.tar.gz
+cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx no-shared \
     no-dso no-krb5 no-hw no-asm no-ssl2 linux-generic32
 make depend; make; make install
@@ -207,6 +207,7 @@ make install
 
 cp -vrf /compat/* /usr/include/
 
+python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace psutil scandir \
@@ -216,7 +217,7 @@ python -OO -m pip install \
 cd /usr/lib/python2.7
 python -OO -m compileall
 
-find -name "*.so" | while read f; do strip $f; done
+find -name "*.so" | while read f; do strip \$f; done
 
 cd /
 
@@ -304,13 +305,13 @@ export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
-tar zxf zlib-1.2.10.tar.gz
-cd /usr/src/zlib-1.2.10
+tar zxf zlib-1.2.11.tar.gz
+cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
-tar zxf openssl_1.0.2j.orig.tar.gz
-cd /usr/src/openssl-1.0.2j/
+tar zxf openssl_1.0.2k.orig.tar.gz
+cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx no-shared \
     no-dso no-krb5 no-hw no-asm no-ssl2 linux-generic64
 make depend; make; make install
@@ -398,6 +399,7 @@ rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.l
 make -k
 make install
 
+python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace psutil scandir \
@@ -407,7 +409,7 @@ python -OO -m pip install \
 cd /usr/lib/python2.7
 python -OO -m compileall
 
-find -name "*.so" | while read f; do strip $f; done
+find -name "*.so" | while read f; do strip \$f; done
 
 cd /
 
