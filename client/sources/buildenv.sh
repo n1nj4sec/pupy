@@ -17,7 +17,7 @@ PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
 PACKAGES="rpyc pyaml rsa pefile image rsa netaddr win_inet_pton netaddr tinyec uptime pycrypto cryptography pypiwin32"
-PACKAGES="$PACKAGES asyncoro mss pyaudio scapy pyOpenSSL colorama pypcap"
+PACKAGES="$PACKAGES asyncoro mss pyaudio scapy pyOpenSSL colorama"
 
 BUILDENV=${1:-`pwd`/buildenv}
 
