@@ -109,7 +109,7 @@ class Credentials(object):
                         break
             
             # print only data with password and remove false positive
-            if c['password'] and len(c['password']) < 150:
+            if c['password']:
                 if (dataToSearch and found) or not dataToSearch:
                     if (tmp_uid != c['uid']) and isSorted:
                         tmp_uid = c['uid']
