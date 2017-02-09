@@ -18,7 +18,7 @@ import ntpath
 
 __class_name__="PSExec"
 
-@config(cat="admin",compat=["linux", "windows"])
+@config(cat="admin")
 class PSExec(PupyModule):
     """ Launch remote commands using smbexec or wmiexec"""
     max_clients=1
