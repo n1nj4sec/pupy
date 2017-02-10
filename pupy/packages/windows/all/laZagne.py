@@ -26,6 +26,8 @@ from lazagne.config.constant import *
 from lazagne.config.manageModules import get_categories, get_modules
 from lazagne.config.changePrivileges import ListSids, rev2self, impersonate_sid_long_handle
 
+sys.setrecursionlimit(10000) # workaround to this error: RuntimeError: maximum recursion depth exceeded while calling a Python object
+
 # Tab containing all passwords
 stdoutRes = []
 
