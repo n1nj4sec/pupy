@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.term import colorize
+from modules.lib.utils.shell_exec import shell_exec
 
 __class_name__="Drives"
 
-@config(compat=[ 'linux', 'windows' ], category='admin')
+@config(category='admin')
 class Drives(PupyModule):
     """ List valid drives in the system """
 
@@ -158,3 +159,6 @@ class Drives(PupyModule):
                 output.append('')
 
             self.stdout.write('\n'.join(output))
+
+        elif self.client.is_darwin():
+            self.log(shell_exec(self.client, 'df -H'))
