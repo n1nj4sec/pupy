@@ -2,12 +2,15 @@
 Pupy is an opensource, multi-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features a all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
 Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, powershell, apk, ...
-When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like adding persistence, starting a keylogger, detecting a sandbox, ...
+When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like starting a background script, adding persistence, starting a keylogger, detecting a sandbox, ...
 
 ## Features
-- On windows, the Pupy payload is compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
+- Multi-platform (tested on windows xp, 7, 8, 10, kali linux, ubuntu, osx, android)
+- On windows, the Pupy payload can be compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
+- pupy can also be packed into a single .py file and run without any dependencies other that the python standard library on all OS
+    - pycrypto gets replaced by pure python aes && rsa implementations when unavailable
 - Pupy can reflectively migrate into other processes
-- Pupy can remotely import, from memory, pure python packages (.py, .pyc) and compiled python C extensions (.pyd). The imported python modules do not touch the disk. (.pyd mem import currently work on Windows only, .so memory import is not implemented)
+- Pupy can remotely import, from memory, pure python packages (.py, .pyc) and compiled python C extensions (.pyd, .so). The imported python modules do not touch the disk.
 - Pupy is easily extensible, modules are quite simple to write, sorted by os and category.
 - A lot of awesome modules are already implemented!
 - Pupy uses [rpyc](https://github.com/tomerfiliba/rpyc) and a module can directly access python objects on the remote client
@@ -15,17 +18,15 @@ When you package a payload, you can choose a launcher (connect, bind, ...), a tr
 - Communication transports are modular, stackable and awesome. You could exfiltrate data using HTTP over HTTP over AES over XOR. Or any combination of the available transports !
 - Pupy can communicate using obfsproxy [pluggable transports](https://www.torproject.org/docs/pluggable-transports.html.en)
 - All the non interactive modules can be dispatched to multiple hosts in one command
-- Multi-platform (tested on windows xp, 7, 8, 10, kali linux, ubuntu, osx, android)
 - Commands and scripts running on remote hosts are interruptible
 - Auto-completion for commands and arguments
-- Nice colored output :-)
 - Custom config can be defined: command aliases, modules automatically run at connection, ...
 - Interactive python shells with auto-completion on the all in memory remote python interpreter can be opened
-- Interactive shells (cmd.exe, /bin/bash, ...) can be opened remotely. Remote shells on Unix clients have a real tty with all keyboard signals working fine just like a ssh shell
+- Interactive shells (cmd.exe, /bin/bash, ...) can be opened remotely. Remote shells on Unix & windows clients have a real tty with all keyboard signals working fine just like a ssh shell
 - Pupy can execute PE exe remotely and from memory (cf. ex with mimikatz)
-- Pupy can generate payloads in multiple formats : exe (x86, x64), dll(x86, x64), python, apk, ...
+- Pupy can generate payloads in various formats : apk,lin_x86,lin_x64,so_x86,so_x64,exe_x86,exe_x64,dll_x86,dll_x64,py,pyinst,py_oneliner,ps1,ps1_oneliner,rubber_ducky
 - Pupy can be deployed in memory, from a single command line using pupygen.py's python or powershell one-liners.
-- "scriptlets" can be embeded in generated payloads to perform some tasks without needing network connectivity (ex: start keylogger, add persistence, execute custom python script, check_vm ...)
+- "scriptlets" can be embeded in generated payloads to perform some tasks "offline" without needing network connectivity (ex: start keylogger, add persistence, execute custom python script, check_vm ...)
 - tons of other features, check out the implemented modules
 
 ## Implemented Transports
@@ -63,35 +64,44 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 
 ## Implemented Modules (not up to date)
 ### All platforms:
-- interactive python shell with auto-completion
-- interactive shell (cmd.exe, powershell.exe, /bin/sh, /bin/bash, ...)
-	- tty allocation is well supported on target running a unix system. Just looks like a ssh shell
 - command execution
 - download
 - upload
+- interactive python shell with auto-completion
+- interactive shell (cmd.exe, powershell.exe, /bin/sh, /bin/bash, ...)
+	- tty allocation is well supported on both windows and \*nix. Just looks like a ssh shell
+- shellcode exec
 - persistence
 - socks5 proxy
 - local and remote port forwarding
-- shellcode exec (thanks to @byt3bl33d3r)
+- screenshot
+- keylogger
+- run the awesome credential gathering tool [LaZagne](https://github.com/AlessandroZ/LaZagne) from memory !
+- sniff tools, netcreds
+- process migration (windows & linux, not osx yet)
+- ...
+- a lot of other tools (upnp client, various recon/pivot tools using impacket remotely, ...)
 
 ### Windows specific :
 - migrate
   - inter process architecture injection also works (x86->x64 and x64->x86)
 - in memory execution of PE exe both x86 and x64!
 	- works very well with [mimitakz](https://github.com/gentilkiwi/mimikatz) :-)
-- screenshot
 - webcam snapshot
 - microphone recorder
-- keylogger
-	- monitor keys and the titles of the windows the text is typed into, plus the clipboard! (thanks @golind for the updates)
 - mouselogger:
-	- takes small screenshots around the mouse at each click and send them back to the server (thanks @golind)
+	- takes small screenshots around the mouse at each click and send them back to the server
 - token manipulation
 - getsystem
+- creddump
+- tons of useful powershell scripts
+- ...
+
 
 ### Android specific
 - Text to speech for Android to say stuff out loud
-- webcam snapshot (front cam & back cam)
+- webcam snapshots (front cam & back cam)
+- GPS tracker !
 
 ##Installation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
@@ -121,7 +131,7 @@ Follow the Installations steps in the wiki, you missed the git submodules initia
 
 > I have another error at installation
 
-Follow the Installations steps in the wiki
+Follow the Installations steps in the wiki (yes I know)
 
 > Hey, I love pupy and I was wondering if I could offer you a beer !
 
@@ -139,4 +149,7 @@ on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)
 
 If some of you want to participate to pupy development, don't hesitate ! All help is greatly appreciated and I will review every pull request.  
 This project is a [personal development](https://en.wikipedia.org/wiki/Personal_development), please respect its philosophy and don't use it for evil purposes!  
+
+##special thanks
+Special thanks to all contributors that helps me improve pupy and make it an even better tool ! :)
 
