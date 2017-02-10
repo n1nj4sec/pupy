@@ -30,7 +30,7 @@ class PsModule(PupyModule):
             else:
                 for dic in outputlist:
                     if 'exe' in dic and not dic['exe'] and 'name' in dic and dic['name']:
-                        dic['exe']=dic['name']
+                        dic['exe']=dic['name'].encode('utf-8', errors='replace')
                     if 'username' in dic and dic['username'] is None:
                         dic['username']=""
             self.rawlog(self.formatter.table_format(outputlist, wl=columns))
