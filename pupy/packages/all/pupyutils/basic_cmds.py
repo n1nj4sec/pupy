@@ -79,8 +79,11 @@ def ls(path=None):
 def cd(path=None):
     if not path:
         home = os.path.expanduser("~")
-        os.chdir(home)
-        return
+        try:
+            os.chdir(home)
+            return
+        except:
+            return "[-] Home directory not found (or access denied): %s" % home
     
     path = os.path.join(os.getcwd(), path)
     if os.path.isdir(path):
