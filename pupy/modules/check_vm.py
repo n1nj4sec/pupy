@@ -6,7 +6,7 @@ from modules.lib.windows.powershell_upload import execute_powershell_script
 __class_name__="CheckVM"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
-@config(compat=['linux', 'windows'], category="gather")
+@config(category="gather")
 class CheckVM(PupyModule):
     """ check if running on Virtual Machine """
     
@@ -29,3 +29,12 @@ class CheckVM(PupyModule):
                 self.success('This appears to be a %s virtual machine' % vm)
             else:
                 self.success('This does not appear to be a virtual machine')
+        elif self.client.is_darwin():
+            self.client.load_package("checkvm")
+            self.info('Be patient, could take a while')
+            vm = self.client.conn.modules["checkvm"].checkvm()
+            if vm:
+                self.success('This appears to be a %s virtual machine' % vm)
+            else:
+                self.success('This does not appear to be a virtual machine')
+
