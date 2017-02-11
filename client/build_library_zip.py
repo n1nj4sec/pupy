@@ -45,7 +45,10 @@ compileall.compile_dir(PATCHES)
 zf = zipfile.ZipFile(os.path.join('resources','library.zip'), mode='w', compression=zipfile.ZIP_DEFLATED)
 
 if 'win' in sys.platform:
-    zf.write(r'C:\Python27\Lib\site-packages\pywin32_system32\pywintypes27.dll', 'pywintypes27.dll')
+    for root, _, files in os.walk(r'C:\Python27\Lib\site-packages'):
+        for file in files:
+            if file.lower() == 'pywintypes27.dll':
+                zf.write(os.path.join(root, file), 'pywintypes27.dll')
 
 try:
     content = set()
