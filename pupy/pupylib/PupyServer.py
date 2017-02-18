@@ -30,6 +30,7 @@ from network.lib.utils import parse_transports_args
 from network.lib.base_launcher import LauncherError
 from os import path
 from shutil import copyfile
+from datetime import datetime
 import marshal
 import network.conf
 import rpyc
@@ -127,8 +128,8 @@ class PupyServer(threading.Thread):
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
-                self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(
-                    self.current_id, server_ip, server_port, client_ip, client_port))
+                self.handler.display_srvinfo("[{}] Session {} ({}@{}) opened ({}:{} <- {}:{})".format(
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'), self.current_id, client_info['user'], client_info['hostname'], server_ip, server_port, client_ip, client_port))
             self.current_id += 1
         if pc:
             on_connect(pc)
