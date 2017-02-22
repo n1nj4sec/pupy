@@ -46,6 +46,7 @@ if __name__=="__main__":
     parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], help="change the transport ! :-)")
     parser.add_argument('--ta', '--transport-args', dest='transport_args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
     parser.add_argument('--port', '-p', help="change the listening port", type=int)
+    parser.add_argument('--web', '-w', action='store_true', help="enable the web interface")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     args=parser.parse_args()
 
@@ -66,19 +67,25 @@ if __name__=="__main__":
         loglevel=logging.WARNING
     logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
     logging.getLogger().setLevel(loglevel)
-
     pupyServer=pupylib.PupyServer.PupyServer(args.transport, args.transport_args, port=args.port)
     try:
         import __builtin__ as builtins
     except ImportError:
         import builtins
     builtins.glob_pupyServer=pupyServer # dirty ninja trick for this particular case avoiding to touch rpyc source code
-    pcmd=pupylib.PupyCmd.PupyCmd(pupyServer)
-    pupyServer.start()
-    while True:
-        try:
-            pcmd.cmdloop()
-        except Exception as e:
-            print(traceback.format_exc())
-            time.sleep(0.1) #to avoid flood in case of exceptions in loop
-            pcmd.intro=''
+
+    if args.web:
+        from websrv.web import PupyWebServer
+        w=PupyWebServer(pupyServer)
+        pupyServer.start()
+        w.start()
+    else:
+        pcmd=pupylib.PupyCmd.PupyCmd(pupyServer)
+        pupyServer.start()
+        while True:
+            try:
+                pcmd.cmdloop()
+            except Exception as e:
+                print(traceback.format_exc())
+                time.sleep(0.1) #to avoid flood in case of exceptions in loop
+                pcmd.intro=''

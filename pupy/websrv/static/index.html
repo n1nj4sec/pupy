@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+    <script src="js/jquery-3.1.1.min.js"></script>
+	<script type="text/javascript">
+        var pupyHandler = null;
+        var PUPYHANDLER = function () {
+            var self = this;
+
+            PUPYHANDLER.prototype.print=(function (msg){
+                    $('#messages').append(msg+'<br />');
+            });
+
+            PUPYHANDLER.prototype.start=(function (){
+                if ("WebSocket" in window) {
+                    self.ws = new WebSocket("ws://"+window.location.hostname+":9000/ws?Id=123456789");
+                    self.ws.onopen = function() {
+                        self.print("Websocket connected !");
+                    };
+                    self.ws.onmessage = function (evt) { 
+                        var data = jQuery.parseJSON(evt.data);
+                        if('srvinfo' in data)
+                            self.print(data.srvinfo);
+                    };
+                    self.ws.onclose = function() { 
+                        self.print("Connection is closed...");
+                    };
+                } else {
+                    self.print("WebSocket NOT supported by your Browser!");
+                }
+            });
+
+            PUPYHANDLER.prototype.listClients=(function (){
+                    self.ws.send("sessions");
+            });
+
+            self.start();
+        }
+        $(document).ready(function() {
+            if (!("WebSocket" in window)) {
+                    $('#messages').append("Your browser does not support websocket !");
+            }
+            else{
+                pupyHandler=new PUPYHANDLER();
+            }
+        });
+
+        function WebSocketConnect() {
+                pupyHandler=new PUPYHANDLER();
+        }
+        function ListClients() {
+            pupyHandler.listClients();
+        }
+
+    </script>
+    </head>
+    <body>
+        <a href="javascript:WebSocketConnect()">connect</a>
+        <a href="javascript:ListClients()">list clients</a>
+        <div id="messages" style="height:200px;background:black;color:white;"></div>
+    </body>
+</html>
