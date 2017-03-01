@@ -434,26 +434,30 @@ class DnsCommandServerHandler(BaseResolver):
 
         return reply
 
-class DnsCommandServer(Thread):
+class DnsCommandServer(object):
     def __init__(self, handler, port=5454, address='0.0.0.0'):
         self.handler = handler
 
-        self.server = socketserver.UDPServer((address, port), DNSHandler)
-        self.server.allow_reuse_address = True
-        self.server.resolver = handler
-        self.server.logger = DNSLogger(log='log_error',prefix=False)
+        self.udp_server = socketserver.UDPServer((address, port), DNSHandler)
+        self.udp_server.allow_reuse_address = True
+        self.udp_server.resolver = handler
+        self.udp_server.logger = DNSLogger(log='log_error',prefix=False)
 
-        Thread.__init__(self)
-        self.daemon = True
+        self.tcp_server = socketserver.TCPServer((address, port), DNSHandler)
+        self.tcp_server.allow_reuse_address = True
+        self.tcp_server.resolver = handler
+        self.tcp_server.logger = DNSLogger(log='log_error',prefix=False)
+
+        self.udp_server_thread = Thread(target=self.udp_server.serve_forever)
+        self.udp_server_thread.daemon = True
+
+        self.tcp_server_thread = Thread(target=self.tcp_server.serve_forever)
+        self.tcp_server_thread.daemon = True
 
         self.cleaner = Thread(target=handler.cleanup)
         self.cleaner.daemon = True
 
-    def run(self):
+    def start(self):
         self.cleaner.start()
-        try:
-            self.server.serve_forever()
-        except:
-            pass
-        finally:
-            self.handler.finished.set()
+        self.tcp_server_thread.start()
+        self.udp_server_thread.start()
