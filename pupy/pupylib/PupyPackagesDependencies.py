@@ -30,11 +30,6 @@ packages_dependencies={
     "pyaudio" : [
         (LOAD_PACKAGE, ALL_OS, "_portaudio"),
     ],
-    "scapy" : [
-        (LOAD_PACKAGE, ALL_OS, "gzip"),
-        (LOAD_PACKAGE, ALL_OS, "_strptime"),
-        (LOAD_PACKAGE, ALL_OS, "calendar"),
-    ],
     "OpenSSL" : [
         (LOAD_PACKAGE, ALL_OS, "six"),
         (LOAD_PACKAGE, ALL_OS, "enum"),
