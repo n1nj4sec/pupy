@@ -208,6 +208,8 @@ class DnsCommandsClient(Thread):
                 self.on_error(command.error, command.message)
             elif isinstance(command, Disconnect):
                 self.on_disconnect()
+            elif isinstance(command, Sleep):
+                time.sleep(command.timeout)
             elif isinstance(command, Exit):
                 self.active = False
                 self.on_exit()

