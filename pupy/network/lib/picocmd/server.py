@@ -14,6 +14,7 @@ import functools
 import logging
 
 import socket
+import socketserver
 
 from dnslib import DNSRecord, RR, QTYPE, A, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
@@ -436,12 +437,12 @@ class DnsCommandServerHandler(BaseResolver):
 class DnsCommandServer(Thread):
     def __init__(self, handler, port=5454, address='0.0.0.0'):
         self.handler = handler
-        self.server = DNSServer(
-            handler,
-            address=address,
-            port=port,
-            logger=DNSLogger(log='log_error',prefix=False)
-        )
+
+        self.server = socketserver.UDPServer((address, port), DNSHandler)
+        self.server.allow_reuse_address = True
+        self.server.resolver = handler
+        self.server.logger = DNSLogger(log='log_error',prefix=False)
+
         Thread.__init__(self)
         self.daemon = True
 
@@ -451,7 +452,7 @@ class DnsCommandServer(Thread):
     def run(self):
         self.cleaner.start()
         try:
-            self.server.start()
+            self.server.serve_forever()
         except:
             pass
         finally:
