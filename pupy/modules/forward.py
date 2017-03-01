@@ -6,7 +6,7 @@ from pupylib.PupyJob import PupyJob
 from threading import Thread
 
 try:
-    import asyncoroproxy
+    import pyuvproxy
 except ImportError:
     packages_all = os.path.abspath(
         os.path.join(
@@ -15,7 +15,7 @@ except ImportError:
     )
 
     sys.path.append(packages_all)
-    import asyncoroproxy
+    import pyuvproxy
 
 __class_name__ = 'Forward'
 
@@ -24,10 +24,7 @@ class Forward(PupyModule):
     ''' Forward local/remote network points '''
     is_module = False
     dependencies = {
-        'all': [ 'asyncoro', 'asyncoroproxy' ],
-        'windows': [
-            'pywintypes', 'win32file', 'win32event', 'winerror'
-        ]
+        'all': [ 'pyuv', 'pyuvproxy' ],
     }
 
     def init_argparse(self):
@@ -35,22 +32,14 @@ class Forward(PupyModule):
             prog='forward', description=self.__doc__
         )
 
-        protocols = parser.add_mutually_exclusive_group(required=False)
-        protocols.add_argument(
-            '-F', '--forward', action='store_true', default=False, help='Port forwarding'
-        )
-        protocols.add_argument(
-            '-5', '--socks5', action='store_true', default=False, help='Socks5 server (default)'
-        )
-
         actions = parser.add_mutually_exclusive_group(required=True)
         actions.add_argument(
             '-CL', '--cancel-local',
-            help='Cancel local forwarding ([LHOST:]LPORT)'
+            help='Cancel local forwarding (LPORT)'
         )
         actions.add_argument(
             '-CR', '--cancel-remote',
-            help='Cancel remote forwarding ([RHOST:]RPORT)'
+            help='Cancel remote forwarding (RPORT)'
         )
 
         actions.add_argument(
@@ -70,48 +59,39 @@ class Forward(PupyModule):
         self.arg_parser = parser
 
     def run(self, args):
-        state = self.client.conn.single(asyncoroproxy.PairState)
+        try:
+            self._run(args)
+        except Exception, e:
+            import traceback
+            print 'PIZDA: {}'.format(e)
+            traceback.print_exc()
+
+    def _run(self, args):
+        state = self.client.conn.single(pyuvproxy.PairState)
 
         if args.list:
             if not state.local:
                 self.info('Forwarding was not enabled')
                 return
 
-            for stype, name, acceptors in state.local.control.list(filter_by_local_id=state.local_id):
-                for pair, kwargs, address in acceptors:
-                    self.success('L: {} {}{}'.format(
-                        name, address, '/ {}'.format(kwargs) if kwargs else '')
-                    )
+            for port, forward in state.local.list(filter_by_local_id=state.local_id):
+                self.success('L: {} -> {}'.format(port, forward))
 
-            for stype, name, acceptors in state.remote.control.list():
-                for pair, kwargs, address in acceptors:
-                    self.success('R: {} {}{}'.format(
-                        name, address, '/ {}'.format(kwargs) if kwargs else '')
-                    )
+            for port, forward in state.remote.list():
+                self.success('R: {} -> {}'.format(port, forward))
+
         elif args.local or args.remote or args.cancel_local or args.cancel_remote:
             if len(self.job.pupymodules) > 1 and (args.local or args.cancel_local):
                 raise ValueError('Adding local forward for multiple modules is not supported')
 
-            if not (args.socks5 or args.forward):
-                args.socks5 = True
-
             if args.cancel_local or args.cancel_remote:
                 config = args.cancel_local or args.cancel_remote
-                parts = config.split(':')
-                lhost = '127.0.0.1'
-                lport = 1080
-                if len(parts) == 1:
-                    lport, = parts
-                elif len(parts) == 2:
-                    lhost, lport = parts
-                else:
-                    raise ValueError('Invalid configuration: {}'.format(config))
-                lport = int(lport)
-
+                lport = int(config)
             else:
                 config = args.local or args.remote
                 parts = config.split(':')
-                lport, lhost, rport, rhost = 1080, '127.0.0.1', 1080, '127.0.0.1'
+                lport, lhost = 1080, '127.0.0.1'
+                rport, rhost = None, None
 
                 if len(parts) == 1:
                     lport = int(parts[0])
@@ -133,8 +113,8 @@ class Forward(PupyModule):
                 else:
                     raise ValueError('Invalid configuration: {}'.format(config))
 
-            manager = self.client.pupsrv.single(asyncoroproxy.ManagerState)
-            rasyncoroproxy = self.client.conn.modules.asyncoroproxy
+            manager = self.client.pupsrv.single(pyuvproxy.ManagerState)
+            rpyuvproxy = self.client.conn.modules.pyuvproxy
 
             if args.cancel_local or args.cancel_remote:
                 local, remote, local_id, remote_id = state.get()
@@ -148,68 +128,55 @@ class Forward(PupyModule):
                 else:
                     manager = remote
 
-                stype = None
-                if args.socks5:
-                    stype = manager.SOCKS5
-                elif args.forward:
-                    stype = manager.FORWARD
-
                 try:
-                    manager.control.unbind(stype, (lhost, lport))
-                    self.success('Forwarding {} removed'.format(lhost, lport))
+                    lport = int(lport)
+                    if manager.unbind(lport):
+                        self.success('Forwarding {} removed'.format(lport))
+                    else:
+                        self.error('Removal failed: port {} not found'.format(lport))
                 except Exception, e:
                     self.error('Removal failed: {}'.format(e))
 
                 return
 
-
             if not manager.manager:
-                manager.manager = asyncoroproxy.Manager()
+                manager.manager = pyuvproxy.Manager()
+                manager.manager.start()
                 self.client.pupsrv.register_cleanup(manager.cleanup)
-
 
             if not state.local:
                 state.local = manager.manager
-                state.remote = rasyncoroproxy.Manager()
-                state.local_id, state.remote_id = state.local.pair(state.remote)
+                state.remote = rpyuvproxy.Manager()
+                state.remote.start()
+                state.remote_id, state.local_id = state.local.pair(state.remote)
 
                 self.client.conn.register_local_cleanup(state.cleanup)
                 self.client.conn.register_remote_cleanup(
-                    state.remote.control.shutdown
+                    state.remote.force_stop
                 )
 
             local, remote, local_id, remote_id = state.get()
+            print 'STATE: {} -> {}, {} -> {}'.format(local, remote, local_id, remote_id)
 
             if args.local:
                 manager = local
                 id = local_id
-                networkaddress = asyncoroproxy.NetworkAddress
             else:
                 manager = remote
                 id = remote_id
-                networkaddress = rasyncoroproxy.NetworkAddress
 
             try:
-                if args.socks5:
-                    manager.control.bind(
-                        manager.SOCKS5,
-                        id,
-                        networkaddress(
-                            (lhost, lport)
-                        )
-                    )
-                elif args.forward:
-                    manager.control.bind(
-                        manager.FORWARD,
-                        id,
-                        networkaddress(
-                            (lhost, lport)
-                        ),
-                        connect=networkaddress(
-                            (rhost, rport)
-                        )
-                    )
+                if rport and rhost:
+                    forward = (rhost, rport)
+                else:
+                    forward = None
 
+                print 'Bind {}/{} {}:{} -> {}'.format(manager, id, lhost, lport, forward)
+
+                manager.bind(id, host=lhost, port=lport, forward=forward)
                 self.success('Forwarding added')
+
             except Exception, e:
-                self.error('Forwarding failed: {}'.format(e))
+                self.error('Forwarding failed: {}:{}'.format(type(e), e))
+                for n in manager.neighbors:
+                    print '{}: {}'.format(n, manager.neighbors[n].local_id)

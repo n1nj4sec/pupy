@@ -10,6 +10,9 @@ LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.ori
 PYTHON_SRC="https://www.python.org/ftp/python/2.7.13/Python-2.7.13.tgz"
 PKGCONFIG_SRC="https://pkg-config.freedesktop.org/releases/pkg-config-0.29.1.tar.gz"
 XZ_SRC="http://tukaani.org/xz/xz-5.2.2.tar.gz"
+M4_SRC="https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"
+AUTOCONF_SRC="https://ftp.gnu.org/gnu/autoconf/autoconf-2.69.tar.gz"
+AUTOMAKE_SRC="https://ftp.gnu.org/gnu/automake/automake-1.15.tar.gz"
 
 # VERSIONS ARE IMPORTANT
 MAKE_SRC="http://ftp.gnu.org/gnu/make/make-3.82.tar.gz"
@@ -26,7 +29,8 @@ if [ ! -d buildenv/downloads ]; then
     for bin in "$MAKE_SRC" "$OPENSSL_SRC" "$ZLIB_SRC" "$SQLITE_SRC" "$LIBFFI_SRC" \
                            "$PYTHON_SRC" "$PKGCONFIG_SRC" "$GLIB_SRC" "$XZ_SRC"  \
                            "$DBUS_SRC" "$DBUS_GLIB_SRC" "$GOBJECT_INTROSPECTION" \
-                           "$PYGOBJECT" "$DBUS_PYTHON"; do
+                           "$PYGOBJECT" "$DBUS_PYTHON" "$M4_SRC" "$AUTOCONF_SRC" \
+			   "$AUTOMAKE_SRC" ; do
         wget -c "$bin"
     done
     cd -
@@ -87,7 +91,8 @@ useradd -u $XID -m pupy
 export TERM=
 export DEBIAN_FRONTEND=noninteractive
 /bin/sh -c "apt-get --force-yes -y install gcc-3.0 make libc-dev \
- perl m4 gettext libexpat1-dev flex bison file libstdc++2.10-dev < /dev/null"
+ perl m4 gettext libexpat1-dev flex bison file libstdc++2.10-dev \
+ libtool patch < /dev/null"
 
 cd /
 gcc -fPIC -o /wrap.so -shared /wrap.c
@@ -151,7 +156,7 @@ cd /usr/src/Python-2.7.13
 ./configure --prefix=/usr \
   --without-doc-strings --without-tsc --without-pymalloc \
   --with-fpectl --with-ensurepip=install --with-signal-module \
-  --enable-ipv6 --enable-shared
+  --enable-ipv6 --enable-shared --enable-unicode=ucs4
 make; make install
 cd /usr/src
 
@@ -207,12 +212,53 @@ make install
 
 cp -vrf /compat/* /usr/include/
 
+cat >>/usr/include/pthread.h <<__EOF__
+#ifndef __pthread_condattr_setclock__ 
+#define __pthread_condattr_setclock__ 
+#define _GNU_SOURCE
+#include <dlfcn.h>
+
+static int (*_pthread_condattr_setclock) (pthread_condattr_t *attr, clockid_t clock_id) = NULL;
+
+static inline
+int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
+    if (_pthread_condattr_setclock == -1) return -1;
+    if (_pthread_condattr_setclock == NULL) _pthread_condattr_setclock = dlsym(
+       RTLD_NEXT, "pthread_condattr_setclock");
+    if (_pthread_condattr_setclock == NULL) {
+        _pthread_condattr_setclock = -1;
+        return -1;
+    }
+}
+#endif
+__EOF__
+
 python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace psutil scandir \
        scapy colorama pyOpenSSL \
        --upgrade --no-binary :all:
+
+/bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
+
+cd /usr/src
+tar zxf m4-1.4.18.tar.gz
+cd /usr/src/m4-1.4.18
+./configure --prefix=/usr; make; make install
+
+cd /usr/src
+tar zxf autoconf-2.69.tar.gz
+cd /usr/src/autoconf-2.69
+./configure --prefix=/usr; make; make install
+
+cd /usr/src
+tar zxf automake-1.15.tar.gz
+cd /usr/src/automake-1.15
+./configure --prefix=/usr; make; make install
+
+CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
+ python -O -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
 python -OO -m compileall
@@ -284,7 +330,7 @@ useradd -u $XID -m pupy
 export TERM=
 export DEBIAN_FRONTEND=noninteractive
 /bin/sh -c "apt-get --force-yes -y install build-essential make libc-dev \
- perl m4 gettext libexpat1-dev flex bison file < /dev/null"
+ perl m4 gettext libexpat1-dev flex bison file libtool patch < /dev/null"
 
 cd /
 gcc -fPIC -o /wrap.so -shared /wrap.c
@@ -345,7 +391,7 @@ cd /usr/src/Python-2.7.13
 ./configure --prefix=/usr \
   --without-doc-strings --without-tsc --without-pymalloc \
   --with-fpectl --with-ensurepip=install --with-signal-module \
-  --enable-ipv6 --enable-shared
+  --enable-ipv6 --enable-shared --enable-unicode=ucs4
 make; make install
 cd /usr/src
 
@@ -406,6 +452,25 @@ python -OO -m pip install \
        scapy colorama pyOpenSSL \
        --upgrade --no-binary :all:
 
+/bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
+
+cd /usr/src
+tar zxf m4-1.4.18.tar.gz
+cd /usr/src/m4-1.4.18
+./configure --prefix=/usr; make; make install
+
+cd /usr/src
+tar zxf autoconf-2.69.tar.gz
+cd /usr/src/autoconf-2.69
+./configure --prefix=/usr; make; make install
+
+cd /usr/src
+tar zxf automake-1.15.tar.gz
+cd /usr/src/automake-1.15
+./configure --prefix=/usr; make; make install
+
+python -O -m pip install pyuv --no-binary :all:
+
 cd /usr/lib/python2.7
 python -OO -m compileall
 
@@ -413,7 +478,7 @@ find -name "*.so" | while read f; do strip \$f; done
 
 cd /
 
-# rm -rf /usr/src
+rm -rf /usr/src
 
 ldconfig
 __CMDS__

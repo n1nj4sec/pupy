@@ -16,3 +16,4 @@ mss
 colorama
 pyOpenSSL
 scapy
+pyuv
