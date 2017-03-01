@@ -28,8 +28,50 @@ def dprint(msg):
 try:
     import _memimporter
     builtin_memimporter = True
+    allow_system_packages = False
 except ImportError:
     builtin_memimporter = False
+    allow_system_packages = True
+    import pkg_resources
+    from tempfile import mkstemp
+    from os import chmod, unlink, close, write
+
+    class MemImporter(object):
+        def __init__(self):
+            self.dir = None
+
+            for dir in ['/dev/shm', '/tmp', '/var/tmp', '/run']:
+                try:
+                    fd, name = mkstemp(dir=dir)
+                except:
+                    continue
+
+                try:
+                    chmod(name, 0777)
+                    self.dir = dir
+                    break
+
+                finally:
+                    close(fd)
+                    unlink(name)
+
+        def import_module(self, data, initfuncname, fullname, path):
+            fd, name = mkstemp(dir=self.dir)
+            try:
+                write(fd, data)
+                imp.load_dynamic(fullname, name)
+
+            except:
+                self.dir = None
+
+            finally:
+                close(fd)
+                unlink(name)
+
+    _memimporter = MemImporter()
+    if _memimporter.dir:
+        print 'TMP DIR: {}'.format(_memimporter.dir)
+        builtin_memimporter = True
 
 modules = {}
 
@@ -141,11 +183,12 @@ class PupyPackageLoader:
                 dprint('Loading {} from memory'.format(fullname))
                 dprint('init={} fullname={} path={}'.format(initname, fullname, path))
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
-                mod.__name__=fullname
-                mod.__file__ = '<memimport>/{}'.format(self.path)
-                mod.__loader__ = self
-                mod.__package__ = fullname.rsplit('.',1)[0]
-                sys.modules[fullname]=mod
+                if mod:
+                    mod.__name__=fullname
+                    mod.__file__ = '<memimport>/{}'.format(self.path)
+                    mod.__loader__ = self
+                    mod.__package__ = fullname.rsplit('.',1)[0]
+                    sys.modules[fullname]=mod
 
         except Exception as e:
             if fullname in sys.modules:
@@ -247,12 +290,12 @@ def install(debug=False):
     global __debug
     __debug = debug
 
-    if builtin_memimporter:
+    if allow_system_packages:
+        sys.meta_path.append(PupyPackageFinder(modules))
+    else:
         sys.meta_path = [ PupyPackageFinder(modules) ]
         sys.path = []
         sys.path_importer_cache.clear()
-    else:
-        sys.meta_path.append(PupyPackageFinder(modules))
 
     if 'win' in sys.platform:
         import pywintypes

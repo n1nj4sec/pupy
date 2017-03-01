@@ -79,9 +79,6 @@ try:
     import pupy
 except ImportError, e:
     print 'Couldnt load pupy: {}'.format(e)
-    import traceback
-    traceback.print_stack()
-
     mod = imp.new_module("pupy")
     mod.__name__ = "pupy"
     mod.__file__ = "<memimport>\\\\pupy"
