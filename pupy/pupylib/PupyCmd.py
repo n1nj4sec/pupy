@@ -765,9 +765,11 @@ class PupyCmd(cmd.Cmd):
 
             objects = []
 
-            for session in sessions:
+            for idx, session in enumerate(sessions_:
                 objects.append({
+                    '#': '{:03d}'.format(idx),
                     'NODE': '{:012x}'.format(session.system_info['node']),
+                    'SESSION': '{:08x}'.format(session.spi),
                     'EXTERNAL IP': '{}'.format(
                         session.system_info['external_ip'] or '?'
                     ),
@@ -788,7 +790,8 @@ class PupyCmd(cmd.Cmd):
                 })
 
             columns = [
-                'NODE', 'OS', 'ONLINE', 'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED', 'CMDS'
+                '#', 'NODE', 'SESSION', 'OS', 'ONLINE',
+                'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED', 'CMDS'
             ]
 
             self.display(
