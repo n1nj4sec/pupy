@@ -765,7 +765,7 @@ class PupyCmd(cmd.Cmd):
 
             objects = []
 
-            for idx, session in enumerate(sessions_:
+            for idx, session in enumerate(sessions):
                 objects.append({
                     '#': '{:03d}'.format(idx),
                     'NODE': '{:012x}'.format(session.system_info['node']),
