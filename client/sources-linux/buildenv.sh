@@ -92,7 +92,7 @@ export TERM=
 export DEBIAN_FRONTEND=noninteractive
 /bin/sh -c "apt-get --force-yes -y install gcc-3.0 make libc-dev \
  perl m4 gettext libexpat1-dev flex bison file libstdc++2.10-dev \
- libtool patch < /dev/null"
+ libtool patch xutils < /dev/null"
 
 cd /
 gcc -fPIC -o /wrap.so -shared /wrap.c
@@ -112,7 +112,7 @@ cd /usr/src
 tar zxf make-3.82.tar.gz
 cd /usr/src/make-3.82
 ./configure; make; make install
-export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
@@ -123,9 +123,17 @@ cd /usr/src
 
 tar zxf openssl_1.0.2k.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
-CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx no-shared \
-    no-dso no-krb5 no-hw no-asm no-ssl2 linux-generic32
+CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
+    no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic32
 make depend; make; make install
+cp libssl.so.1.0.0 /usr/lib/libssl.so
+cp libcrypto.so.1.0.0  /usr/lib/libcrypto.so
+mkdir -p /usr/lib/pkgconfig/
+cp *.pc /usr/lib/pkgconfig/
+cd /usr/lib
+ldconfig -n .
+ln -s /usr/lib/libssl.so /usr/lib/libssl.so.1
+ln -s /usr/lib/libcrypto.so /usr/lib/libcrypto.so.1
 cd /usr/src
 
 tar zxf xz-5.2.2.tar.gz
@@ -334,7 +342,7 @@ useradd -u $XID -m pupy
 export TERM=
 export DEBIAN_FRONTEND=noninteractive
 /bin/sh -c "apt-get --force-yes -y install build-essential make libc-dev \
- perl m4 gettext libexpat1-dev flex bison file libtool patch < /dev/null"
+ perl m4 gettext libexpat1-dev flex bison file libtool patch xutils < /dev/null"
 
 cd /
 gcc -fPIC -o /wrap.so -shared /wrap.c
@@ -351,7 +359,7 @@ cd /usr/src
 tar zxf make-3.82.tar.gz
 cd /usr/src/make-3.82
 ./configure; make; make install
-export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
@@ -362,9 +370,17 @@ cd /usr/src
 
 tar zxf openssl_1.0.2k.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
-CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx no-shared \
-    no-dso no-krb5 no-hw no-asm no-ssl2 linux-generic64
+CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
+    no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic64
 make depend; make; make install
+cp libssl.so.1.0.0 /usr/lib/libssl.so
+cp libcrypto.so.1.0.0  /usr/lib/libcrypto.so
+mkdir -p /usr/lib/pkgconfig/
+cp *.pc /usr/lib/pkgconfig/
+cd /usr/lib
+ldconfig -n .
+ln -s /usr/lib/libssl.so /usr/lib/libssl.so.1
+ln -s /usr/lib/libcrypto.so /usr/lib/libcrypto.so.1
 cd /usr/src
 
 tar zxf xz-5.2.2.tar.gz

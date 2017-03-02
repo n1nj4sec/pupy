@@ -6,6 +6,8 @@ PFLAGS := -OO
 PIE ?= -pie
 
 LIBPYTHON ?= $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
+LIBCRYPTO ?= $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
+LIBSSL ?= $(shell /sbin/ldconfig -p  | awk '/libssl.so.1.0.0/{print $$4}' | head -n 1)
 
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
 ifeq ($(ARCH),64)
@@ -46,7 +48,8 @@ COMMON_OBJS += linux-inject/utils.o
 all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so
 
 pupy.c: resources_library_compressed_string_txt.c
-pupy_load.c: resources_bootloader_pyc.c resources_python27_so.c
+pupy_load.c: resources_bootloader_pyc.c resources_python27_so.c \
+	resources_libssl_so.c resources_libcrypto_so.c
 
 import-tab.c import-tab.h: mktab.py
 	$(PYTHON) $(PFLAGS) $<
@@ -79,10 +82,30 @@ resources/python27.so: $(LIBPYTHON)
 	mv $@.tmp $@
 	rm -f $@.tmp
 
+resources/libcrypto.so: $(LIBCRYPTO)
+	cp -vf $< $@.tmp
+	-chmod 600 $@.tmp
+	-strip $@.tmp
+	mv $@.tmp $@
+	rm -f $@.tmp
+
+resources/libssl.so: $(LIBSSL)
+	cp -vf $< $@.tmp
+	-chmod 600 $@.tmp
+	-strip $@.tmp
+	mv $@.tmp $@
+	rm -f $@.tmp
+
 resources/library.zip: ../build_library_zip.py ../additional_imports.py
 	$(PYTHON) $(PFLAGS) $<
 
 resources_python27_so.c: ../gen_resource_header.py resources/python27.so
+	$(PYTHON) $(PFLAGS) $+
+
+resources_libssl_so.c: ../gen_resource_header.py resources/libssl.so
+	$(PYTHON) $(PFLAGS) $+
+
+resources_libcrypto_so.c: ../gen_resource_header.py resources/libcrypto.so
 	$(PYTHON) $(PFLAGS) $+
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin: main_exe.o $(PYOBJS) $(COMMON_OBJS)

