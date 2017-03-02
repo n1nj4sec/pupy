@@ -32,6 +32,10 @@
 #define DEFAULT_ARGV0 "/usr/sbin/atd"
 #endif
 
+#ifndef DEFAULT_SAFE_PATH
+#define DEFAULT_SAFE_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+#endif
+
 #include "daemonize.h"
 
 int daemonize(bool exit_parent) {
@@ -125,7 +129,7 @@ int daemonize(bool exit_parent) {
     }
 
     /* Set default "safe" path */
-    setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin", 1);
+    setenv("PATH", DEFAULT_SAFE_PATH, 1);
 
     /* Daemonize */
 
