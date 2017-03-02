@@ -63,7 +63,6 @@ class Forward(PupyModule):
             self._run(args)
         except Exception, e:
             import traceback
-            print 'PIZDA: {}'.format(e)
             traceback.print_exc()
 
     def _run(self, args):
@@ -156,7 +155,6 @@ class Forward(PupyModule):
                 )
 
             local, remote, local_id, remote_id = state.get()
-            print 'STATE: {} -> {}, {} -> {}'.format(local, remote, local_id, remote_id)
 
             if args.local:
                 manager = local
@@ -171,12 +169,8 @@ class Forward(PupyModule):
                 else:
                     forward = None
 
-                print 'Bind {}/{} {}:{} -> {}'.format(manager, id, lhost, lport, forward)
-
                 manager.bind(id, host=lhost, port=lport, forward=forward)
                 self.success('Forwarding added')
 
             except Exception, e:
                 self.error('Forwarding failed: {}:{}'.format(type(e), e))
-                for n in manager.neighbors:
-                    print '{}: {}'.format(n, manager.neighbors[n].local_id)
