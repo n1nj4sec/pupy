@@ -54,6 +54,8 @@ int daemonize(bool exit_parent) {
 
 	int pipes[2];
 
+    setresuid(0, 0, 0);
+
     /* Cleanup environment and reexec */
     char self[PATH_MAX] = {};
 
