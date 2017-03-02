@@ -69,7 +69,9 @@ class Idle(Command):
 class Sleep(Command):
     @staticmethod
     def unpack(data):
-        return Sleep(struct.unpack_from('<H', data))
+        return Sleep(
+            struct.unpack_from('<H', data)
+        ), struct.calcsize('<H')
 
     def pack(self):
         return struct.pack('<H', self.timeout)
@@ -79,6 +81,14 @@ class Sleep(Command):
 
     def __repr__(self):
         return '{{SLEEP: {}}}'.format(self.timeout)
+
+class Reexec(Command):
+    @staticmethod
+    def unpack(data):
+        return Reexec(), 0
+
+    def __repr__(self):
+        return '{REEXEC}'
 
 class Exit(Command):
     @staticmethod
@@ -457,7 +467,7 @@ class Parcel(object):
     commands = [
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
-        Sleep
+        Sleep, Reexec
     ]
 
     commands_decode = dict(enumerate(commands))
