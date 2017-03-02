@@ -218,6 +218,10 @@ cat >>/usr/include/pthread.h <<__EOF__
 #define _GNU_SOURCE
 #include <dlfcn.h>
 
+#ifndef RTLD_NEXT
+#define RTLD_NEXT ((void *) -1l)
+#endif
+
 static int (*_pthread_condattr_setclock) (pthread_condattr_t *attr, clockid_t clock_id) = NULL;
 
 static inline
