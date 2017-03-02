@@ -213,7 +213,7 @@ int daemonize(bool exit_parent) {
     dup (0);
     /* stderror */
 
-    prctl(3, 0, 0, 0, 0);
+    prctl(4, 0, 0, 0, 0);
     prctl(31, 0, 0, 0, 0);
 #endif
 
