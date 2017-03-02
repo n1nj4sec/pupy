@@ -32,13 +32,34 @@ try:
 except ImportError:
     builtin_memimporter = False
     allow_system_packages = True
+    import ctypes
+    import platform
     import pkg_resources
+    libc = ctypes.CDLL(None)
+    syscall = libc.syscall
     from tempfile import mkstemp
     from os import chmod, unlink, close, write
 
     class MemImporter(object):
         def __init__(self):
             self.dir = None
+            self.memfd = None
+            self.ready = False
+
+            if platform.system() == 'Linux':
+                maj, min = platform.release().split('.')[:2]
+                if maj >= 3 and min >= 13:
+                    __NR_memfd_create = None
+                    machine = platform.machine()
+                    if machine == 'x86_64':
+                        __NR_memfd_create = 319
+                    elif machine == '__i386__':
+                        __NR_memfd_create = 356
+
+                    if __NR_memfd_create:
+                        self.memfd = lambda: syscall(__NR_memfd_create, 'heap', 0x1)
+                        self.ready = True
+                        return
 
             for dir in ['/dev/shm', '/tmp', '/var/tmp', '/run']:
                 try:
@@ -49,6 +70,7 @@ except ImportError:
                 try:
                     chmod(name, 0777)
                     self.dir = dir
+                    self.ready = True
                     break
 
                 finally:
@@ -56,7 +78,17 @@ except ImportError:
                     unlink(name)
 
         def import_module(self, data, initfuncname, fullname, path):
-            fd, name = mkstemp(dir=self.dir)
+            fd = -1
+            closefd = True
+            if self.memfd:
+                fd = self.memfd()
+                if fd != -1:
+                    name = '/proc/self/fd/{}'.format(fd)
+                    closefd = False
+
+            if fd == -1:
+                fd, name = mkstemp(dir=self.dir)
+
             try:
                 write(fd, data)
                 imp.load_dynamic(fullname, name)
@@ -65,13 +97,12 @@ except ImportError:
                 self.dir = None
 
             finally:
-                close(fd)
-                unlink(name)
+                if closefd:
+                    close(fd)
+                    unlink(name)
 
     _memimporter = MemImporter()
-    if _memimporter.dir:
-        print 'TMP DIR: {}'.format(_memimporter.dir)
-        builtin_memimporter = True
+    builtin_memimporter = _memimporter.ready
 
 modules = {}
 
