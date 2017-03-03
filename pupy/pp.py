@@ -62,7 +62,6 @@ from network.lib.connection import PupyConnection
 import logging
 import shlex
 import marshal
-import signal
 
 try:
     # additional imports needed to package with pyinstaller
@@ -143,6 +142,13 @@ class ReverseSlaveService(Service):
         except Exception as e:
             logging.exception(e)
             raise
+
+        try:
+            while True:
+                os.waitpid(-1, os.WNOHANG)
+        except OSError:
+            pass
+
 
     def exposed_exit(self):
         os._exit(0)
@@ -282,8 +288,6 @@ def main():
     pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
 
     exited = False
-
-    signal.signal(signal.SIGCHLD, handle_sigchld)
 
     while not exited:
         try:
