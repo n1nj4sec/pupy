@@ -18,7 +18,7 @@
 #
 import sys, imp, marshal
 
-__debug = False;
+__debug = False
 
 def dprint(msg):
     global __debug
@@ -105,6 +105,7 @@ except ImportError:
     builtin_memimporter = _memimporter.ready
 
 modules = {}
+remote_load_package = None
 
 try:
     import pupy
@@ -133,12 +134,13 @@ def get_module_files(fullname):
 
     return files
 
-def pupy_add_package(pkdic, compressed=False):
+def pupy_add_package(pkdic, compressed=False, name=None):
     """ update the modules dictionary to allow remote imports of new packages """
     import cPickle
     import zlib
 
     global modules
+    global __debug
 
     if compressed:
         pkdic = zlib.decompress(pkdic)
@@ -146,9 +148,15 @@ def pupy_add_package(pkdic, compressed=False):
     module = cPickle.loads(pkdic)
 
     if __debug:
-        print 'Adding files: {}'.format([ x for x in module.iterkeys() ])
+        dprint('Adding files: {}'.format(module.keys()))
 
     modules.update(module)
+
+    if name:
+        try:
+            __import__(name)
+        except:
+            pass
 
 def has_module(name):
     global module
@@ -185,7 +193,7 @@ class PupyPackageLoader:
             if self.extension=="py":
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = '<memimport>/{}'.format(self.path)
+                mod.__file__ = 'pupy://{}'.format(self.path)
                 mod.__loader__ = self
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
@@ -198,7 +206,7 @@ class PupyPackageLoader:
             elif self.extension in ["pyc","pyo"]:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = '<memimport>/{}'.format(self.path)
+                mod.__file__ = 'pupy://{}'.format(self.path)
                 mod.__loader__ = self
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
@@ -216,7 +224,7 @@ class PupyPackageLoader:
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
                 if mod:
                     mod.__name__=fullname
-                    mod.__file__ = '<memimport>/{}'.format(self.path)
+                    mod.__file__ = 'pupy://{}'.format(self.path)
                     mod.__loader__ = self
                     mod.__package__ = fullname.rsplit('.',1)[0]
                     sys.modules[fullname]=mod
@@ -238,11 +246,16 @@ class PupyPackageLoader:
 
         return sys.modules[fullname]
 
-class PupyPackageFinder:
-    def __init__(self, modules):
-        self.modules = modules
+class PupyPackageFinderImportError(ImportError):
+    pass
 
-    def find_module(self, fullname, path=None):
+class PupyPackageFinder:
+    def __init__(self, path=None):
+        if path and not path.startswith('pupy://'):
+            raise PupyPackageFinderImportError()
+
+    def find_module(self, fullname, path=None, second_pass=False):
+        global modules
         imp.acquire_lock()
         try:
             files=[]
@@ -259,7 +272,23 @@ class PupyPackageFinder:
                 ]
 
             if not files:
-                dprint('{} not found in {} - no files'.format(fullname,path))
+                dprint('{} not found in {}: not in {} files'.format(
+                    fullname, files, len(files)))
+
+                if remote_load_package and not second_pass and not fullname.startswith('exposed_'):
+                    parts = fullname.split('.')[:-1]
+
+                    for i in xrange(len(parts)):
+                        part = '.'.join(parts[:i+1])
+                        if part in modules or part in sys.modules:
+                            return None
+
+                    try:
+                        if remote_load_package(fullname):
+                            return self.find_module(fullname, second_pass=True)
+                    except Exception as e:
+                        dprint('Exception: {}'.format(e))
+
                 return None
 
             criterias = [
@@ -288,17 +317,15 @@ class PupyPackageFinder:
                         break
 
             if not selected:
-                dprint('{} not found in {}: not in {} files'.format(
-                    fullname, selected, len(files)))
                 return None
 
             dprint('{} found in {}'.format(fullname, selected))
-            content = self.modules[selected]
+            content = modules[selected]
 
             # Don't delete network.conf module
             if not selected.startswith('network/'):
                 dprint('{} remove {} from bundle'.format(fullname, selected))
-                del self.modules[selected]
+                del modules[selected]
 
             extension = selected.rsplit(".",1)[1].strip().lower()
             is_pkg = any([
@@ -317,15 +344,27 @@ class PupyPackageFinder:
         finally:
             imp.release_lock()
 
+def register_package_request_hook(hook):
+    global remote_load_package
+    remote_load_package = hook
+
+def unregister_package_request_hook():
+    global remote_load_package
+    remote_load_package = None
+
 def install(debug=False):
     global __debug
     __debug = debug
 
     if allow_system_packages:
-        sys.meta_path.append(PupyPackageFinder(modules))
+        sys.path_hooks.append(PupyPackageFinder)
+        sys.path.append('pupy://')
     else:
-        sys.meta_path = [ PupyPackageFinder(modules) ]
+        sys.meta_path = []
         sys.path = []
+        sys.path_hooks = []
+        sys.path_hooks = [PupyPackageFinder]
+        sys.path.append('pupy://')
         sys.path_importer_cache.clear()
 
     if 'win' in sys.platform:
