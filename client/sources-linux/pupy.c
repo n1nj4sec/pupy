@@ -80,7 +80,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
 
 	dprint("Program to execute in child context: %s\n", cmdline);
 
-	pid_t pid = daemonize(false);
+	pid_t pid = daemonize(0, NULL, NULL, false);
 	if (pid == 0) {
 		/* Daemonized context */
 		execl("/bin/sh", "/bin/sh", "-c", cmdline, NULL);

