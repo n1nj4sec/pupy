@@ -75,7 +75,7 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-	if (fd_str && fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
+	if (fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
 #ifdef USE_ENV_ARGS
         char *set_argv0 = getenv(DEFAULT_ENV_SA0);
 		char *set_cwd = getenv(DEFAULT_ENV_SCWD);
@@ -102,7 +102,7 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
             };
 #endif
 
-        unsetenv("_");
+        putenv("_=0");
 
         int fd = -1;
 
@@ -173,9 +173,7 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
             char fdenv_pass[PATH_MAX] = {};
             int r = pipe(envpipe);
 
-            if (r == 0) {
-                snprintf(fdenv_pass, sizeof(fdenv_pass), "_=%d", envpipe[0]);
-            }
+            snprintf(fdenv_pass, sizeof(fdenv_pass), "_=%d", r? 0: envpipe[0]);
 
             char *const env[] = {
                 r == 0? fdenv_pass : NULL,
