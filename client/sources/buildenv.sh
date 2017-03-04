@@ -33,6 +33,11 @@ WINE32="$BUILDENV/win32"
 WINE64="$BUILDENV/win64"
 DOWNLOADS="$BUILDENV/downloads"
 
+MINGW64=${MINGW64:-x86_64-w64-mingw32-g++}
+MINGW32=${MINGW32:-i686-w64-mingw32-g++}
+
+WINPTY=../../pupy/external/winpty
+
 mkdir -p "$BUILDENV"
 mkdir -p "$DOWNLOADS"
 
@@ -140,13 +145,33 @@ exec wine "\$VCINSTALLDIR\\\\bin\\\\amd64\\\\cl.exe" "\$@"
 EOF
 chmod +x $WINE64/cl.sh
 
+$WINE32/cl.sh \
+    ../../pupy/packages/src/pupymemexec/pupymemexec.c \
+    /LD /D_WIN32 /IC:\\Python27\\Include \
+    C:\\Python27\\libs\\python27.lib advapi32.lib \
+    /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
+
+$WINE64/cl.sh \
+    ../../pupy/packages/src/pupymemexec/pupymemexec.c \
+    /LD /D_WIN64 /IC:\\Python27\\Include \
+    C:\\Python27\\libs\\python27.lib advapi32.lib \
+    /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
+
+make -C $WINPTY clean
+make -C $WINPTY MINGW_CXX="${MINGW32} -Os -s" build/winpty.dll
+mv $WINPTY/build/winpty.dll $BUILDENV/win32/drive_c/Python27/DLLs/
+
+make -C $WINPTY clean
+make -C $WINPTY MINGW_CXX="${MINGW64} -Os -s" build/winpty.dll
+mv $WINPTY/build/winpty.dll $BUILDENV/win64/drive_c/Python27/DLLs/
+
 echo "[+] Creating bundles"
 
 TEMPLATES=`readlink -f ../../pupy/payload_templates`
 
 OPWD=`pwd`
 
-cd $OPWD/buildenv/win32/drive_c/Python27
+cd $WINE32/drive_c/Python27
 rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
     cd $dir
@@ -157,7 +182,7 @@ for dir in Lib DLLs; do
     cd -
 done
 
-cd $OPWD/buildenv/win64/drive_c/Python27
+cd $WINE64/drive_c/Python27
 rm -f ${TEMPLATES}/windows-amd64.zip
 
 for dir in Lib DLLs; do
@@ -168,7 +193,5 @@ for dir in Lib DLLs; do
 	-r9 ${TEMPLATES}/windows-amd64.zip .
     cd -
 done
-
-cd $OPWD/
 
 touch $BUILDENV/.ready
