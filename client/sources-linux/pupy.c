@@ -12,6 +12,7 @@
 #include "daemonize.h"
 #include <arpa/inet.h>
 #include "tmplibrary.h"
+#include <sys/mman.h>
 
 #include "resources_library_compressed_string_txt.c"
 
@@ -27,20 +28,33 @@ extern const uint32_t dwPupyArch;
 
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
-	return PyObject_lzmaunpack(
-		resources_library_compressed_string_txt_start,
-		resources_library_compressed_string_txt_size
-	);
+	static PyObject *modules = NULL;
+	if (!modules) {
+		modules = PyObject_lzmaunpack(
+			resources_library_compressed_string_txt_start,
+			resources_library_compressed_string_txt_size
+		);
+
+		munmap(resources_library_compressed_string_txt_start,
+			resources_library_compressed_string_txt_size);
+	}
+
+	return modules;
 }
 
 static PyObject *
 Py_get_pupy_config(PyObject *self, PyObject *args)
 {
-	size_t compressed_size = ntohl(
-		*((unsigned int *) pupy_config)
-	);
+	static PyObject *config = NULL;
+	if (!config) {
+		size_t compressed_size = ntohl(
+			*((unsigned int *) pupy_config)
+		);
 
-	return PyObject_lzmaunpack(pupy_config+sizeof(int), compressed_size);
+		config = PyObject_lzmaunpack(pupy_config+sizeof(int), compressed_size);
+	}
+
+	return config;
 }
 
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
