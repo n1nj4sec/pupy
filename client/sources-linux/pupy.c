@@ -37,6 +37,8 @@ static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 
 		munmap(resources_library_compressed_string_txt_start,
 			resources_library_compressed_string_txt_size);
+
+		Py_XINCREF(modules);
 	}
 
 	return modules;
@@ -52,6 +54,8 @@ Py_get_pupy_config(PyObject *self, PyObject *args)
 		);
 
 		config = PyObject_lzmaunpack(pupy_config+sizeof(int), compressed_size);
+
+		Py_XINCREF(config);
 	}
 
 	return config;
