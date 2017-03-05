@@ -164,7 +164,9 @@ class Credentials(object):
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
 
-        ECPV_RC4_PRIVATE_KEY, ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
+        CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
+            curve='brainpoolP384r1')
+        CLIENT_ECPV_RC4_PRIVATE_KEY, CLIENT_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
             curve='brainpoolP384r1')
 
         RSA_PRIVATE_KEY_1, RSA_PUBLIC_KEY_1, _ = self._generate_rsa_keypair(bits=4096)
@@ -209,8 +211,10 @@ class Credentials(object):
             'CLIENT_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_1,
             'CLIENT_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_2,
             'CONTROL_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_2,
-            'ECPV_RC4_PRIVATE_KEY': ECPV_RC4_PRIVATE_KEY,
-            'ECPV_RC4_PUBLIC_KEY': ECPV_RC4_PUBLIC_KEY,
+            'CONTROL_ECPV_RC4_PRIVATE_KEY': CONTROL_ECPV_RC4_PRIVATE_KEY,
+            'CONTROL_ECPV_RC4_PUBLIC_KEY': CONTROL_ECPV_RC4_PUBLIC_KEY,
+            'CLIENT_ECPV_RC4_PRIVATE_KEY': CLIENT_ECPV_RC4_PRIVATE_KEY,
+            'CLIENT_ECPV_RC4_PUBLIC_KEY': CLIENT_ECPV_RC4_PUBLIC_KEY,
         }
 
         try:

