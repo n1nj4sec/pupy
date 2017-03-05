@@ -84,8 +84,8 @@ class Credentials(object):
     def _generate_bind_payloads_password(self):
         return self._generate_password(20)
 
-    def _generate_ecpv_keypair(self):
-        return ECPV().generate_key()
+    def _generate_ecpv_keypair(self, curve='brainpoolP160r1'):
+        return ECPV(curve=curve).generate_key()
 
     def _generate_rsa_keypair(self, bits=1024):
         key = RSA.gen_key(bits, 65537)
@@ -163,6 +163,10 @@ class Credentials(object):
         logging.warning("Generating credentials to {}".format(self.USER_CONFIG))
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
+
+        ECPV_RC4_PRIVATE_KEY, ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
+            curve='brainpoolP384r1')
+
         RSA_PRIVATE_KEY_1, RSA_PUBLIC_KEY_1, _ = self._generate_rsa_keypair(bits=4096)
         RSA_PRIVATE_KEY_2, RSA_PUBLIC_KEY_2, _ = self._generate_rsa_keypair(bits=4096)
 
@@ -205,6 +209,8 @@ class Credentials(object):
             'CLIENT_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_1,
             'CLIENT_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_2,
             'CONTROL_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_2,
+            'ECPV_RC4_PRIVATE_KEY': ECPV_RC4_PRIVATE_KEY,
+            'ECPV_RC4_PUBLIC_KEY': ECPV_RC4_PUBLIC_KEY,
         }
 
         try:

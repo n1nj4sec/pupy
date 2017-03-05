@@ -9,3 +9,4 @@ from .transports.http import PupyHTTPClient, PupyHTTPServer
 from .transports.xor import XOR
 from .transports.aes import AES256, AES128
 from .transports.rsa_aes import RSA_AESClient, RSA_AESServer
+from .transports.ec4 import EC4TransportServer, EC4TransportClient

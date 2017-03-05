@@ -19,19 +19,23 @@ class ECPV(object):
         self._hash = hash
         if not self._hash().block_size >= self._bytes:
             raise ValueError('Incompatible hash function')
+
         if private_key:
-            pass
-        self._private_key = None
-        if private_key and not public_key:
             self._private_key = self._from_bytes(base64.decodestring(private_key))
+        else:
+            self._private_key = None
+
+        if private_key and not public_key:
             self._public_key = self._curve.g * self._private_key
         elif public_key:
             self._public_key = self._osp2ec(base64.decodestring(public_key))
         else:
             self._public_key = None
+
         self._kex_shared_key = None
         self._kex_public_key = None
         self._kex_private_key = None
+
         if self._public_key:
             self._public_key_digest = self._mgf2(self._ec2osp(self._public_key), AES.block_size)
         else:
@@ -249,24 +253,24 @@ class ECPV(object):
         return self._ec2osp(self._kex_public_key)
 
 
-    def process_kex_request(self, request, nonce=None, encrypt=False):
+    def process_kex_request(self, request, nonce=None, encrypt=False, key_size=AES.block_size):
         if request == self._cached_kex_request and self._kex_shared_key:
             return self._cached_kex_response, self._kex_shared_key
 
         self._cached_kex_request = request
         response = self.generate_kex_request()
-        self.process_kex_response(request, nonce=nonce, decrypt=False)
+        self.process_kex_response(request, nonce=nonce, decrypt=False, key_size=key_size)
         self._kex_shared_key = list(x for x in reversed(self._kex_shared_key))
         self._cached_kex_response = \
           self.pack(response, nonce) if encrypt else response
         return self._cached_kex_response, self._kex_shared_key
 
 
-    def process_kex_response(self, response, nonce=None, decrypt=False):
+    def process_kex_response(self, response, nonce=None, decrypt=False, key_size=AES.block_size):
         if decrypt:
             response = self.unpack(response, nonce)
         P1 = self._osp2ec(response)
-        key = self._mgf2(self._ec2osp(P1 * self._kex_private_key), AES.block_size)
+        key = self._mgf2(self._ec2osp(P1 * self._kex_private_key), key_size)
         self._kex_shared_key = (key, b''.join(reversed(key)))
         return self._kex_shared_key
 
@@ -345,8 +349,10 @@ class ECPV(object):
 
 
 if __name__ == '__main__':
+    import hashlib
+
     for x in xrange(1, 10):
-        x = ECPV()
+        x = ECPV(curve='brainpoolP384r1', hash=hashlib.sha384)
         priv, pub = x.generate_key()
         print "PRIV:", priv
         print "PUB:", pub
@@ -356,8 +362,8 @@ if __name__ == '__main__':
             print "VRFY1 FAIL: ", msg2
             break
 
-        signer = ECPV(private_key=priv)
-        verifier = ECPV(public_key=pub)
+        signer = ECPV(private_key=priv, curve='brainpoolP384r1', hash=hashlib.sha384)
+        verifier = ECPV(public_key=pub, curve='brainpoolP384r1', hash=hashlib.sha384)
 
         if not signer._public_key_digest == verifier._public_key_digest:
             print "PSK FAIL"
