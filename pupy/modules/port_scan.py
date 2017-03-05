@@ -25,11 +25,14 @@ class PortScan(PupyModule):
         self.arg_parser.add_argument('target', metavar="ip/range", help='IP/range')
 
     def run(self, args):
-        if "/" in args.target[0]:
-            hosts = IPNetwork(args.target[0])
+        scan_range = False
+
+        if '/' in args.target:
+            hosts = [ str(x) for x in IPNetwork(args.target) ]
+            scan_range = True
+            self.log('Scanning range {}: {} hosts'.format(args.target, len(hosts)))
         else:
-            hosts = list()
-            hosts.append(args.target)
+            hosts = [ args.target ]
 
         ports = [
             p for prange in args.ports.split(',') for p in (
@@ -44,30 +47,36 @@ class PortScan(PupyModule):
         ports = list(set(ports))
         random.shuffle(ports)
 
-        for host in hosts:
-            scanner = self.client.conn.modules['network.lib.scan']
+        scanner = self.client.conn.modules['network.lib.scan']
 
-            def set_connectable(ports):
-                self.connectable = ports
-                self.terminated.set()
+        def set_connectable(addrs):
+            self.connectable = addrs
+            self.terminated.set()
 
-            self.abort = scanner.scanthread(
-                str(host), ports, set_connectable, timeout=args.timeout, portion=args.portion
-            )
+        self.connectable = []
 
-            self.terminated.wait()
+        self.abort = scanner.scanthread(
+            hosts, ports, set_connectable, timeout=args.timeout, portion=args.portion
+        )
 
-            ports = sorted(self.connectable)
+        self.terminated.wait()
 
-            if ports:
-                self.log('{}: {}'.format(host, ', '.join([str(x) for x in ports])))
-            else:
-                self.log('{}: closed'.format(host))
+        if self.connectable:
+            connectable = {}
+            for host, port in self.connectable:
+                if host in connectable:
+                    connectable[host].add(port)
+                else:
+                    connectable[host] = set([port])
 
-            if self.abort.is_set():
-                break
+            for host in sorted(connectable.keys()):
+                ports = ', '.join([str(port) for port in sorted(list(connectable[host]))])
+                self.log('{}: {}'.format(host, ports))
 
-            self.abort = None
+        elif not scan_range:
+            self.log('{}: closed'.format(args.target))
+
+        self.abort = None
 
     def interrupt(self):
         if self.abort:
