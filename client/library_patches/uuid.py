@@ -334,6 +334,24 @@ def _find_mac(command, args, hw_identifiers, get_index):
     except IOError:
         pass
 
+def _sysfs_getnode():
+    """Get the hardware address on Unix by running ifconfig."""
+    import os
+    try:
+        ifaces = sorted([
+            (
+                int(open('/sys/class/net/{}/ifindex'.format(x)).read()),
+                open('/sys/class/net/{}/address'.format(x)).read().strip()
+            ) for x in os.listdir(
+                '/sys/class/net'
+            ) if int(open('/sys/class/net/{}/type'.format(x)).read()) == 1 ])[:1]
+
+        if ifaces:
+            return int(ifaces[0][1].replace(':', ''), 16)
+
+    except:
+        pass
+
 def _ifconfig_getnode():
     """Get the hardware address on Unix by running ifconfig."""
     # This works on Linux ('' or '-a'), Tru64 ('-av'), but not all Unixes.
@@ -558,8 +576,8 @@ def getnode():
     if sys.platform == 'win32':
         getters = [_windll_getnode, _netbios_getnode, _ipconfig_getnode]
     else:
-        getters = [_unixdll_getnode, _ifconfig_getnode, _arp_getnode,
-                   _lanscan_getnode, _netstat_getnode]
+        getters = [_unixdll_getnode, _sysfs_getnode, _ifconfig_getnode,
+                       _arp_getnode, _lanscan_getnode, _netstat_getnode]
 
     for getter in getters + [_random_getnode]:
         try:

@@ -367,6 +367,12 @@ def install(debug=False):
         sys.path.append('pupy://')
         sys.path_importer_cache.clear()
 
+        import platform
+        platform._syscmd_uname = lambda *args, **kwargs: ''
+        platform.architecture = lambda *args, **kwargs: (
+            '32bit' if pupy.get_arch() is 'x86' else '64bit', ''
+        )
+
     if 'win' in sys.platform:
         import pywintypes
     if __debug:
