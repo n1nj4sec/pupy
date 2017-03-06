@@ -189,8 +189,24 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 
 	dprint("Library \"%s\" dropped to \"%s\" (memfd=%d) \n", soname, buf, is_memfd);
 
-	base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
+#ifndef NO_MEMFD_DLOPEN_WORKAROUND
+	if (is_memfd) {
+		char *fake_path = tempnam("/dev/shm", NULL);
+		if (!fake_path) {
+			fake_path = tempnam("/tmp", NULL);
+		}
+		if (fake_path) {
+			if (!symlink(buf, fake_path)) {
+				strncpy(buf, fake_path, sizeof(buf)-1);
+				is_memfd = false;
 
+			}
+			free(fake_path);
+		}
+	}
+#endif
+
+	base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
 	if (!is_memfd) {
 		close(fd);
 	}
