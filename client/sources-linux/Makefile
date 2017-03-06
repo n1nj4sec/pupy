@@ -18,7 +18,8 @@ else
 NAME := 86
 endif
 
-LINUX_INJECT_CFLAGS := -include debug.h -include fixes.h -Dmain=linux_inject_main
+LINUX_INJECT_CFLAGS := -include debug.h -include fixes.h \
+	-Dmain=linux_inject_main "-Drealpath=realpath2"
 
 ifneq ($(DEBUG),)
 DEBUG_ADD := -debug
@@ -115,7 +116,7 @@ $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin: main_exe.o $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so: main_so.o $(PYOBJS) $(COMMON_OBJS)
-	$(CC) -shared $+ -o $@ $(LDFLAGS)
+	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).so
 
 .PHONY: clean all
 

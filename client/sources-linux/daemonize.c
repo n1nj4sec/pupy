@@ -75,7 +75,7 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-	if (fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
+	if (fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1 && exit_parent) {
 #ifdef USE_ENV_ARGS
         char *set_argv0 = getenv(DEFAULT_ENV_SA0);
 		char *set_cwd = getenv(DEFAULT_ENV_SCWD);
@@ -234,11 +234,8 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         close(fdenv);
     }
 
-    /* Set default "safe" path */
-    setenv("PATH", DEFAULT_SAFE_PATH, 1);
 
     /* Daemonize */
-
 	if (!exit_parent) {
 		if (pipe(pipes) == -1) {
 			return -1;
