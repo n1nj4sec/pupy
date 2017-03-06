@@ -83,7 +83,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
 		return NULL;
 
 	char ldobject[PATH_MAX]={};
-	if (!drop_library(ldobject, PATH_MAX, lpDllBuffer, dwDllLenght)) {
+	if (drop_library(ldobject, PATH_MAX, lpDllBuffer, dwDllLenght) < 0) {
 		dprint("Couldn't drop library: %m\n");
 		return NULL;
 	}
