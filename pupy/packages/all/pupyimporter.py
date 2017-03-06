@@ -370,7 +370,7 @@ def install(debug=False):
         import platform
         platform._syscmd_uname = lambda *args, **kwargs: ''
         platform.architecture = lambda *args, **kwargs: (
-            '32bit' if pupy.get_arch() is 'x86' else '64bit', ''
+            '32bit' if pupy.get_arch() == 'x86' else '64bit', ''
         )
 
     if 'win' in sys.platform:
