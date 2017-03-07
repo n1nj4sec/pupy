@@ -3,8 +3,7 @@
 
 import os
 import zlib
-
-from pupylib.utils.rpyc_utils import redirected_stdio
+import threading
 
 def mexec(module, path, argv, argv0=None, interactive=False):
     data = zlib.compress(open(path).read())
@@ -16,11 +15,24 @@ def mexec(module, path, argv, argv0=None, interactive=False):
         compressed = True
     )
 
-    with redirected_stdio(module.client.conn):
-        module.mp.run()
-        if interactive:
-            module.mp.get_shell()
-        else:
-            log = module.mp.get_stdout()
-            module.log(log)
-            return log
+    module.mp.run()
+
+    completed = threading.Event()
+
+    if interactive:
+        def on_read(data, error=False):
+            module.log(data)
+
+        def on_exit():
+            completed.set()
+
+        stdin = module.mp.get_shell(on_read, on_exit)
+
+        while not completed.is_set():
+            data = raw_input()
+            stdin.write(data+'\n')
+
+    else:
+        log = module.mp.get_stdout()
+        module.log(log)
+        return log

