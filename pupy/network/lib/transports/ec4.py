@@ -6,6 +6,8 @@ from ..base import BasePupyTransport, TransportError
 from ...lib.picocmd.ecpv import ECPV
 
 import struct
+import time
+import random
 
 from Crypto.Cipher import ARC4
 
@@ -41,10 +43,18 @@ class EC4TransportServer(BasePupyTransport):
             request = data.read(2 + length)
 
             response, key = self.encoder.process_kex_request(request[2:], 0, key_size=128)
+
+            # Add jitter, tinyec is quite horrible
+            time.sleep(random.random())
             self.downstream.write(struct.pack('H', len(response)) + response)
 
             self.encryptor = ARC4.new(key=key[0])
             self.decryptor = ARC4.new(key=key[1])
+
+            # https://wikileaks.org/ciav7p1/cms/files/NOD%20Cryptographic%20Requirements%20v1.1%20TOP%20SECRET.pdf
+            # Okay...
+            self.encryptor.encrypt('\x00'*3072)
+            self.decryptor.decrypt('\x00'*3072)
 
             if len(data):
                 rcv = self.decryptor.decrypt(data.read())
@@ -105,6 +115,9 @@ class EC4TransportClient(BasePupyTransport):
 
             self.encryptor = ARC4.new(key=key[0])
             self.decryptor = ARC4.new(key=key[1])
+
+            self.encryptor.encrypt('\x00'*3072)
+            self.decryptor.decrypt('\x00'*3072)
 
             if len(data):
                 rcv = self.decryptor.decrypt(data.read())
