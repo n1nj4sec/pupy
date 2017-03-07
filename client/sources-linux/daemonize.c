@@ -11,6 +11,7 @@
 #include <sys/prctl.h>
 #include <string.h>
 #include <errno.h>
+#include "memfd.h"
 
 #ifndef DEFAULT_MTIME_FROM
  #define DEFAULT_MTIME_FROM "/bin/sh"
@@ -105,6 +106,10 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         putenv("_=0");
 
         int fd = -1;
+
+		if (strstr(self, "/memfd")) {
+			snprintf(self, sizeof(self), "/proc/%d/exe", getpid());
+		}
 
         struct stat _stat = {};
         stat(mtime_from, &_stat);

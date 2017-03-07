@@ -108,6 +108,10 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 		dprint("INVOCATION NAME: %s\n", program_invocation_name);
 
 		if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
+			if (strstr(exe, "/memfd:")) {
+				snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
+			}
+
 			Py_SetProgramName(exe);
 		}
 
