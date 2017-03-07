@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.join('..','..','pupy'))
 import additional_imports
 import Crypto
 import pp
-import unicodedata # this is a builtin on linux and .pyd on windows that needs to be embedded
 import site
 
 sys_modules = [
