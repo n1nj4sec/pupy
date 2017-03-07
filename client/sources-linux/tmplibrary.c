@@ -12,6 +12,9 @@
 #include <sys/mman.h>
 #include <link.h>
 #include <dlfcn.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <errno.h>
 
 #include "list.h"
 #include "tmplibrary.h"
@@ -20,6 +23,8 @@
 #include "memfd.h"
 
 #include "decompress.h"
+
+extern char **environ;
 
 /*
 
@@ -152,6 +157,156 @@ int drop_library(char *path, size_t path_size, const char *buffer, size_t size) 
 	}
 
 	return fd;
+}
+
+static inline int
+set_cloexec_flag (int desc) {
+	int oldflags = fcntl (desc, F_GETFD, 0);
+	if (oldflags < 0)
+		return oldflags;
+	oldflags |= FD_CLOEXEC;
+	return fcntl (desc, F_SETFD, oldflags);
+}
+
+pid_t memexec(const char *buffer, size_t size, const char *argv[], int stdior[3], bool redirected_stdio, bool detach) {
+	dprint("memexec(%p, %ull, %d)\n", buffer, size, redirected_stdio);
+
+	char buf[PATH_MAX]={};
+	int fd = drop_library(buf, PATH_MAX, buffer, size);
+	if (fd < 0) {
+		dprint("Couldn't drop executable: %m\n");
+		return NULL;
+	}
+
+	int p_wait[2];
+	int p_stdin[2];
+	int p_stdout[2];
+	int p_stderr[2];
+
+	if (pipe(p_wait) < 0) {
+		dprint("Couldn't create wait pipe: %m\n");
+		goto _lbClose;
+	}
+
+	if (redirected_stdio) {
+		if (pipe(p_stdin) < 0)
+			goto _lbClose0;
+
+		if (pipe(p_stdout) < 0)
+			goto _lbClose1;
+
+		if (pipe(p_stderr) < 0)
+			goto _lbClose2;
+	}
+
+	pid_t pid = 0;
+	if (detach) {
+		pid = fork();
+		if (pid == -1) {
+			dprint("Couldn't fork: %m\n");
+			goto _lbClose3;
+		}
+	}
+
+	if (!pid) {
+		pid = fork();
+		if (pid == -1) {
+			exit(1);
+		}
+
+		if (pid) {
+			if (detach) {
+				write(p_wait[1], &pid, sizeof(pid));
+				exit(0);
+			}
+		} else {
+			if (redirected_stdio) {
+				dup2(p_stdin[0], 0);  close(p_stdin[1]);
+				dup2(p_stdout[1], 1); close(p_stdout[0]);
+				dup2(p_stderr[1], 2); close(p_stderr[0]);
+			}
+
+			close(p_wait[0]);
+			set_cloexec_flag(p_wait[1]);
+
+			fexecve(fd, argv, environ);
+			execv(buffer, argv);
+
+			int status = errno;
+			write(p_wait[1], &status, sizeof(status));
+			exit(1);
+		}
+	}
+
+	close(p_wait[1]);
+	p_wait[1] = -1;
+
+	int status = 0;
+	int error = 0;
+	pid_t child_pid = 0;
+
+	if (detach) {
+		if (read(p_wait[0], &child_pid, sizeof(child_pid)) < 0) {
+			dprint("Reading child pid failed: %m\n");
+			goto _lbClose3;
+		}
+
+		if (waitpid(pid, &status, 0) < 0 || WEXITSTATUS(status) != 0) {
+			dprint("Invalid child state\n");
+			goto _lbClose3;
+		}
+	} else {
+		child_pid = pid;
+	}
+
+	dprint("Wait exec status...\n");
+	if (read(p_wait[0], &error, sizeof(error)) < 0) {
+		dprint("Reading error failed: %m\n");
+		goto _lbClose3;
+	}
+
+	dprint("Child error status: %d\n", error);
+	if (error)
+		goto _lbClose3;
+
+	dprint("Child at %d\n", child_pid);
+	if (redirected_stdio) {
+		close(p_stdin[0]);  stdior[0] = p_stdin[1];
+		close(p_stdout[1]); stdior[1] = p_stdout[0];
+		close(p_stderr[1]); stdior[2] = p_stderr[0];
+	}
+
+	close(p_wait[0]);
+	close(fd);
+
+	if (!is_memfd_path(buf)) {
+		sleep(1);
+		unlink(buf);
+	}
+
+	return child_pid;
+
+ _lbClose3:
+	if (redirected_stdio)
+		close(p_stderr[0]); close(p_stderr[1]);
+ _lbClose2:
+	if (redirected_stdio)
+		close(p_stdout[0]); close(p_stdout[1]);
+ _lbClose1:
+	if (redirected_stdio)
+		close(p_stdin[0]); close(p_stdin[1]);
+ _lbClose0:
+	if (p_wait[0] > 0)
+		close(p_wait[0]);
+	if (p_wait[1] > 0)
+		close(p_wait[1]);
+
+ _lbClose:
+	close(fd);
+	unlink(buf);
+
+	dprint("Exited with error\n");
+	return -1;
 }
 
 void *memdlopen(const char *soname, const char *buffer, size_t size) {

