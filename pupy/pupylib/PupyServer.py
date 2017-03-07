@@ -52,7 +52,8 @@ class PupyServer(threading.Thread):
         self.jobs = {}
         self.jobs_id = 1
         self.clients_lock = threading.Lock()
-        self._current_id = set()
+        self._current_id = []
+        self._current_id_lock = threading.Lock()
 
         self.config = PupyConfig()
         self.port = port or self.config.getint('pupyd', 'port')
@@ -80,15 +81,39 @@ class PupyServer(threading.Thread):
 
     def create_id(self):
         """ return first lowest unused session id """
-        new_id = next(ifilterfalse(self._current_id.__contains__, count(1)))
-        self._current_id.add(new_id)
-        return new_id
+        with self._current_id_lock:
+            new_id = next(ifilterfalse(self._current_id.__contains__, count(1)))
+            self._current_id.append(new_id)
+            return new_id
+
+    def move_id(self, dst_id, src_id):
+        """ return first lowest unused session id """
+        with self.clients_lock:
+            if isinstance(dst_id, int):
+                dst_client = [ x for x in self.clients if x.desc['id'] == dst_id ]
+                if not dst_client:
+                    raise ValueError('Client with id {} not found'.format(dst_id))
+                dst_client = dst_client[0]
+            else:
+                dst_client = dst_id
+
+            if isinstance(src_id, int):
+                dst_client = [ x for x in self.clients if x.desc['id'] == src_id ]
+                if not src_client:
+                    raise ValueError('Client with id {} not found'.format(src_id))
+                src_client = src_client[0]
+            else:
+                src_client = src_id
+
+            with self._current_id_lock:
+                self._current_id.remove(dst_client.desc['id'])
+                self._current_id.append(src_client.desc['id'])
+
+            dst_client.desc['id'] = src_client.desc['id']
 
     def free_id(self, id):
-        try:
+        with self._current_id_lock:
             self._current_id.remove(int(id))
-        except KeyError:
-            pass
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -136,15 +161,19 @@ class PupyServer(threading.Thread):
         if pc:
             on_connect(pc)
 
-    def remove_client(self, client):
+    def remove_client(self, conn):
         with self.clients_lock:
-            for i,c in enumerate(self.clients):
-                if c.conn is client:
-                    if self.handler:
-                        self.handler.display_srvinfo('Session {} closed'.format(self.clients[i].desc['id']))
-                        self.free_id(self.clients[i].desc['id'])
-                    del self.clients[i]
-                    break
+            client = [ x for x in self.clients if x.conn is conn ]
+            if not len(client) == 1:
+                raise ValueError('More than #1 connection matches remove_client request: {}'.format(conn))
+
+            client = client[0]
+
+            self.clients.remove(client)
+            self.free_id(client.desc['id'])
+
+            if self.handler:
+                self.handler.display_srvinfo('Session {} closed'.format(client.desc['id']))
 
     def get_clients(self, search_criteria):
         """ return a list of clients corresponding to the search criteria. ex: platform:*win* """

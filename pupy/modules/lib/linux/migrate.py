@@ -41,13 +41,14 @@ def wait_connect(module, pid):
         c = has_proc_migrated(module.client, pid)
         if c:
             module.success("got a connection from migrated DLL !")
-            c.desc["id"] = module.client.desc["id"]
+            c.pupsrv.move_id(c, module.client)
             try:
                 module.client.conn.exit()
             except Exception:
                 pass
 
             break
+
         time.sleep(1)
 
 def ld_preload(module, command, wait_thread=False, keep=False):
