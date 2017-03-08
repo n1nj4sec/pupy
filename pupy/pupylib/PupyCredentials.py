@@ -4,7 +4,7 @@ if __name__ == '__main__':
     import sys
     sys.path.append('..')
 
-from os import path, urandom, chmod, makedirs
+from os import path, urandom, chmod, makedirs, unlink
 
 import logging
 import string
@@ -18,6 +18,62 @@ from M2Crypto import X509, EVP, RSA, ASN1, BIO
 import rsa
 
 DEFAULT_ROLE='CLIENT'
+PASSWORD = None
+
+class EncryptionError(Exception):
+    pass
+
+# http://stackoverflow.com/questions/16761458/how-to-aes-encrypt-decrypt-files-using-python-pycrypto-in-an-openssl-compatible
+# M2Crypto simply generate garbage instead of AES.. Crazy situation
+
+from hashlib import md5
+from Crypto.Cipher import AES
+from Crypto import Random
+from StringIO import StringIO
+
+def derive_key_and_iv(password, salt, key_length, iv_length):
+    d = d_i = ''
+    while len(d) < key_length + iv_length:
+        d_i = md5(d_i + password + salt).digest()
+        d += d_i
+    return d[:key_length], d[key_length:key_length+iv_length]
+
+def encrypt(in_file, out_file, password, key_length=32):
+    bs = AES.block_size
+    salt = Random.new().read(bs - len('Salted__'))
+    key, iv = derive_key_and_iv(password, salt, key_length, bs)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    out_file.write('Salted__' + salt)
+    finished = False
+    while not finished:
+        chunk = in_file.read(1024 * bs)
+        if len(chunk) == 0 or len(chunk) % bs != 0:
+            padding_length = bs - (len(chunk) % bs)
+            chunk += padding_length * chr(padding_length)
+            finished = True
+        out_file.write(cipher.encrypt(chunk))
+
+def decrypt(in_file, out_file, password, key_length=32):
+    bs = AES.block_size
+    salt = in_file.read(bs)[len('Salted__'):]
+    key, iv = derive_key_and_iv(password, salt, key_length, bs)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    next_chunk = ''
+    finished = False
+    while not finished:
+        chunk, next_chunk = next_chunk, cipher.decrypt(in_file.read(1024 * bs))
+        if len(next_chunk) == 0:
+            padding_length = ord(chunk[-1])
+            if padding_length < 1 or padding_length > bs:
+               raise ValueError("bad decrypt pad (%d)" % padding_length)
+            # all the pad-bytes must be the same
+            if chunk[-padding_length:] != (padding_length * chr(padding_length)):
+               # this is similar to the bad decrypt:evp_enc.c from openssl program
+               raise ValueError("bad decrypt")
+            chunk = chunk[:-padding_length]
+            finished = True
+        out_file.write(chunk)
+
 
 class Credentials(object):
     USER_CONFIG = path.expanduser(
@@ -31,6 +87,8 @@ class Credentials(object):
     ]
 
     def __init__(self, role=None):
+        global PASSWORD
+
         self._generate()
 
         role = role or DEFAULT_ROLE
@@ -42,8 +100,22 @@ class Credentials(object):
         self._credentials = {}
         for config in self.CONFIG_FILES:
             if path.exists(config):
-                with open(config) as creds:
-                    exec creds.read() in self._credentials
+                with open(config, 'rb') as creds:
+                    content = creds.read()
+                    if not content:
+                        raise ValueError('Corrupted file: {}'.format(config))
+
+                    if content.startswith('Salted__'):
+                        if not PASSWORD:
+                            raise EncryptionError(
+                                'Encrpyted credential storage: {}'.format(config)
+                            )
+
+                        fcontent = StringIO()
+                        decrypt(StringIO(content), fcontent, PASSWORD)
+                        content = fcontent.getvalue()
+
+                    exec content in self._credentials
 
     def __getitem__(self, key):
         env = globals()
@@ -120,7 +192,7 @@ class Credentials(object):
         cert.set_pubkey(pk)
         cert.add_ext(X509.new_extension('basicConstraints', 'CA:TRUE'))
         cert.add_ext(X509.new_extension('subjectKeyIdentifier', cert.get_fingerprint()))
-        cert.sign(pk, 'sha1')
+        cert.sign(pk, 'sha256')
 
         return pk.as_pem(cipher=None), cert.as_pem(), pk, cert
 
@@ -152,11 +224,13 @@ class Credentials(object):
         else:
             cert.add_ext(X509.new_extension('keyUsage', 'critical,keyEncipherment'))
             cert.add_ext(X509.new_extension('nsCertType', 'server'))
-        cert.sign(ca_key, 'sha1')
+        cert.sign(ca_key, 'sha256')
 
         return pk.as_pem(cipher=None), cert.as_pem()
 
     def _generate(self, force=False):
+        global PASSWORD
+
         if path.exists(self.USER_CONFIG) and not force:
             return
 
@@ -223,14 +297,16 @@ class Credentials(object):
             if not e.errno == errno.EEXIST:
                 raise
 
-        with open(self.USER_CONFIG, 'w') as user_config:
+        with open(self.USER_CONFIG, 'wb') as user_config:
             chmod(self.USER_CONFIG, 0600)
+            content = '\n'.join([
+                '{}={}\n'.format(k, repr(v)) for k,v in credentials.iteritems()
+            ]) + '\n'
 
-            for k, v in sorted(credentials.iteritems()):
-                if '\n' in v:
-                    user_config.write('{}={}\n'.format(k, repr(v)))
-                else:
-                    user_config.write('{}={}\n'.format(k, repr(v)))
+            if PASSWORD:
+                encrypt(StringIO(content), user_config, PASSWORD)
+            else:
+                user_config.write(content)
 
 if __name__ == '__main__':
     credentials = Credentials()

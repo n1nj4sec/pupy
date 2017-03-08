@@ -31,6 +31,7 @@ import os
 import os.path
 import sys
 import network.conf
+import getpass
 
 from pupylib import PupyServer
 from pupylib import PupyDnsCnc
@@ -66,6 +67,7 @@ if __name__=="__main__":
     parser.add_argument('--dns', '-d', help='enable dnscnc server. FDQN:port', type=str)
     parser.add_argument('--external-ip', '-e', help='setup external ip address', type=str)
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
+    parser.add_argument('-NE', '--not-encrypt', help='Do not encrypt configuration', action='store_true')
     args = parser.parse_args()
 
     if args.workdir:
@@ -79,6 +81,8 @@ if __name__=="__main__":
     logging.getLogger().setLevel(args.loglevel)
 
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
+    if not args.not_encrypt:
+        PupyCredentials.PASSWORD = getpass.getpass('Credentials password: ')
 
     try:
         igd = IGDClient()

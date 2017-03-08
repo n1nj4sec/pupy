@@ -14,7 +14,8 @@ from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 from modules.lib.windows.powershell_upload import obfuscatePowershellScript
-from pupylib.PupyCredentials import Credentials
+from pupylib.PupyCredentials import Credentials, EncryptionError
+from pupylib import PupyCredentials
 
 import marshal
 import scriptlets
@@ -23,6 +24,7 @@ import base64
 import os
 import pylzma
 import struct
+import getpass
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
@@ -67,7 +69,11 @@ def get_edit_binary(path, conf):
     return binary
 
 def get_raw_conf(conf, obfuscate=False):
-    credentials = Credentials(role='client')
+    try:
+        credentials = Credentials(role='client')
+    except EncryptionError:
+        PupyCredentials.PASSWORD = getpass.getpass('Credentials password: ')
+        credentials = Credentials(role='client')
 
     if not "offline_script" in conf:
         offline_script=""
