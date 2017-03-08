@@ -24,10 +24,10 @@ def create_socket(host, port):
     sock = socket.socket()
     sock.setblocking(0)
     try:
-        r = sock.connect_ex((host, port))
+        r = sock.connect_ex((host, int(port)))
     except Exception, e:
+        print "Exception: {}/{}".format(e, type(e))
         return None, None
-
     return sock, r
 
 def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_open_port=None):
@@ -46,7 +46,11 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                 continue
 
             if r:
-                if r in (errno.EAGAIN, errno.EINPROGRESS):
+                ok = [errno.EAGAIN, errno.EINPROGRESS]
+                if 'WSAEWOULDBLOCK' in errno.__dict__:
+                    ok.append(errno.WSAEWOULDBLOCK)
+
+                if r in ok:
                     sockets[sock] = (host, port)
                 else:
                     sock.close()
