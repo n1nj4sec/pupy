@@ -74,6 +74,9 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             except Exception as e:
                 logging.exception(e)
 
+    def on_checkconnect(self, host, port_start, port_end=None):
+        pass
+
     def on_connect(self, ip, port, transport):
         with self.lock:
             self.commands.append(('connect', ip, port, transport))
