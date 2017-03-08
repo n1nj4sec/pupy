@@ -110,7 +110,7 @@ class PupyClient(object):
             'i686': 'x86',
             'i486': 'x86',
         }
-        return substitute.get(arch) or arch
+        return substitute.get(arch, arch)
 
     @property
     def arch(self):

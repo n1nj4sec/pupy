@@ -208,20 +208,37 @@ def get_edit_apk(path, conf):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False):
+def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None):
     TEMPLATE_FMT = 'pupy{arch}{debug}.{ext}'
     ARCH_CONVERT = {
         'amd64': 'x64', 'x86_64': 'x64',
         'i386': 'x86', 'i486': 'x86', 'i586': 'x86', 'i686': 'x86',
     }
 
+    TO_PLATFORM = {
+        'x64': 'intel',
+        'x86': 'intel'
+    }
+
+    TO_ARCH = {
+        'intel': {
+            '32bit': 'x86',
+            '64bit': 'x64'
+        }
+    }
+
+    arch = arch.lower()
     arch = ARCH_CONVERT.get(arch, arch)
+    if bits:
+        arch = TO_ARCH[TO_PLATFORM[arch]]
 
     CLIENTS = {
         'android': (get_edit_apk, 'pupy.apk', False),
         'linux': (get_edit_binary, TEMPLATE_FMT, True),
         'windows': (get_edit_binary, TEMPLATE_FMT, False),
     }
+
+    osname = osname.lower()
 
     if not osname in CLIENTS.keys():
         raise ValueError('Unknown OS ({}), known = '.format(
@@ -247,6 +264,9 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
 
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
+
+    for k, v in config.iteritems():
+        print "[C] {}: {}".format(k, v)
 
     return generator(template, config), filename, makex
 

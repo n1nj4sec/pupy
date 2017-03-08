@@ -151,7 +151,10 @@ class ReverseSlaveService(Service):
 
 
     def exposed_exit(self):
-        os._exit(0)
+        try:
+            return True
+        finally:
+            os._exit(0)
 
     def exposed_register_cleanup(self, method):
         self.exposed_cleanups.append(method)
@@ -164,7 +167,6 @@ class ReverseSlaveService(Service):
         execute(text, self.exposed_namespace)
 
     def exposed_get_infos(self, s):
-        """execute arbitrary code (using ``exec``)"""
         import pupy
         if s not in pupy.infos:
             return None

@@ -5,14 +5,15 @@ import os
 import zlib
 import threading
 
-def mexec(module, path, argv, argv0=None, interactive=False):
-    data = zlib.compress(open(path).read())
+def mexec(module, path, argv, argv0=None, interactive=False, stdout=True, raw=False, terminate=True):
+    data = zlib.compress(path if raw else open(path).read())
 
     module.mp = module.client.conn.modules.memexec.MExec(
         data, argv0, args = argv,
         no_stdin = not interactive,
-        no_stdor = False,
-        compressed = True
+        no_stdor = not stdout,
+        compressed = True,
+        terminate = terminate
     )
 
     module.mp.run()
@@ -32,7 +33,7 @@ def mexec(module, path, argv, argv0=None, interactive=False):
             data = raw_input()
             stdin.write(data+'\n')
 
-    else:
+    elif stdout:
         log = module.mp.get_stdout()
         module.log(log)
         return log

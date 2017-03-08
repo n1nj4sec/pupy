@@ -15,7 +15,7 @@ from fcntl import fcntl, F_GETFL, F_SETFL
 from os import O_NONBLOCK, read
 
 class MExec(object):
-    def __init__(self, data, argv0, args=[], no_stdin=True, no_stdor=False, redirect_stdio=True, compressed=False):
+    def __init__(self, data, argv0, args=[], no_stdin=True, no_stdor=False, redirect_stdio=True, compressed=False, terminate=True):
         self.argv = [ argv0 ] + [ x for x in args ]
         self.data = zlib.decompress(data) if compressed else compressed
         self.redirect_stdio = redirect_stdio
@@ -24,17 +24,17 @@ class MExec(object):
         self.stdin = None
         self.stdout = None
         self.stderr = None
+        self.terminate = terminate
         self.pid = -1
         self.EOF = threading.Event()
         self._saved_stdout = ''
         self._closed = False
 
     def close(self):
-        print 'Closing...'
         if self._closed:
             return
 
-        if self.pid:
+        if self.pid and self.terminate:
             try:
                 os.kill(self.pid, 9)
             except OSError:
