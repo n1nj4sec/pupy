@@ -184,8 +184,11 @@ class Connection(object):
 
     def close(self, reason, mutual=True):
         if mutual:
-            self.loop.queue_work(lambda: self.socket.shutdown(
-                lambda handle, error: self._report_close_remote(reason)))
+            try:
+                self.loop.queue_work(lambda: self.socket.shutdown(
+                    lambda handle, error: self._report_close_remote(reason)))
+            except:
+                self.socket.close()
         else:
             self.socket.close()
 
