@@ -14,6 +14,7 @@ prefer_workdir = no
 downloads = data/downloads/%c
 screenshots = data/screenshots/%c
 creds = data/db/%c
+crypto = crypto
 
 [on_connect]
 #run_module = gather/keylogger start
@@ -26,11 +27,6 @@ sound_player = totem
 #these are kali 2.0 default path
 exe_Win32=/usr/share/mimikatz/Win32/mimikatz.exe
 exe_x64=/usr/share/mimikatz/x64/mimikatz.exe
-
-[lazagne]
-win=/usr/share/lazagne/laZagne.exe
-linux_32=/usr/share/lazagne/LaZagne-32bits
-linux_64=/usr/share/lazagne/LaZagne-64bits
 
 [aliases]
 info = get_info

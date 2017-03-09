@@ -4,6 +4,8 @@ if __name__ == '__main__':
     import sys
     sys.path.append('..')
 
+from PupyConfig import PupyConfig
+
 from os import path, urandom, chmod, makedirs, unlink
 
 import logging
@@ -95,18 +97,15 @@ class Encryptor(object):
 ENCRYPTOR = Encryptor.instance
 
 class Credentials(object):
-    USER_CONFIG = path.expanduser(
-        path.join('~', '.config', 'pupy', 'credentials.py')
-    )
-
-    CONFIG_FILES = [
-        path.join(path.dirname(__file__), '..', 'crypto', 'credentials.py'),
-        path.join('crypto', 'credentials.py'),
-        USER_CONFIG,
-    ]
+    SYSTEM_CONFIG = path.join(path.dirname(__file__), '..', 'crypto', 'credentials.py')
 
     def __init__(self, role=None, password=None):
-        self._generate(password=password)
+        config = PupyConfig()
+        configfile = path.join(config.get_folder('crypto'), 'credentials.py')
+
+        self._generate(password=password, configfile=configfile)
+
+        configfiles = [ self.SYSTEM_CONFIG, configfile ]
 
         role = role or DEFAULT_ROLE
         self.role = role.upper() if role else 'ANY'
@@ -115,7 +114,7 @@ class Credentials(object):
             raise ValueError('Unsupported role: {}'.format(self.role))
 
         self._credentials = {}
-        for config in self.CONFIG_FILES:
+        for config in configfiles:
             if path.exists(config):
                 with open(config, 'rb') as creds:
                     content = creds.read()
@@ -246,11 +245,13 @@ class Credentials(object):
 
         return pk.as_pem(cipher=None), cert.as_pem()
 
-    def _generate(self, force=False, password=None):
-        if path.exists(self.USER_CONFIG) and not force:
+    def _generate(self, force=False, password=None, configfile=None):
+        if path.exists(configfile) and not force:
             return
 
-        logging.warning("Generating credentials to {}".format(self.USER_CONFIG))
+        configdir = path.dirname(configfile)
+
+        logging.warning("Generating credentials to {}".format(configfile))
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
 
@@ -308,13 +309,13 @@ class Credentials(object):
         }
 
         try:
-            makedirs(path.dirname(self.USER_CONFIG))
+            makedirs(path.dirname(configfile))
         except OSError as e:
             if not e.errno == errno.EEXIST:
                 raise
 
-        with open(self.USER_CONFIG, 'wb') as user_config:
-            chmod(self.USER_CONFIG, 0600)
+        with open(configfile, 'wb') as user_config:
+            chmod(configfile, 0600)
             content = '\n'.join([
                 '{}={}\n'.format(k, repr(v)) for k,v in credentials.iteritems()
             ]) + '\n'
