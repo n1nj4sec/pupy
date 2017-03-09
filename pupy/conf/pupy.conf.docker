@@ -1,0 +1,42 @@
+[pupyd]
+transport = ec4
+port = 9999
+ipv6 = false
+
+[cmdline]
+display_banner = no
+colors = yes
+
+[paths]
+prefer_workdir = yes
+downloads = data/downloads/%c
+screenshots = data/screenshots/%c
+creds = data/db/%c
+crypto = crypto
+
+[on_connect]
+#run_module = gather/keylogger start
+
+[default_viewers]
+image_viewer = eog
+sound_player = totem
+
+[mimikatz]
+exe_Win32=/opt/mimikatz/Win32/mimikatz.exe
+exe_x64=/opt/mimikatz/x64/mimikatz.exe
+
+[aliases]
+info = get_info
+pyexec = pyexec
+exec = shell_exec
+ps = ps
+migrate = migrate
+shell = interactive_shell
+kill = process_kill
+getpid = getpid
+getppid = getppid
+mount = drives
+
+[rubber_ducky]
+encoder_path = TO_FILL
+default_keyboard_layout_path = TO_FILL
