@@ -13,12 +13,12 @@ import time
 
 from network.transports import *
 from network.lib.picocmd.ecpv import ECPV
+from getpass import getpass
 
 from M2Crypto import X509, EVP, RSA, ASN1, BIO
 import rsa
 
 DEFAULT_ROLE='CLIENT'
-PASSWORD = None
 
 class EncryptionError(Exception):
     pass
@@ -31,49 +31,68 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from StringIO import StringIO
 
-def derive_key_and_iv(password, salt, key_length, iv_length):
-    d = d_i = ''
-    while len(d) < key_length + iv_length:
-        d_i = md5(d_i + password + salt).digest()
-        d += d_i
-    return d[:key_length], d[key_length:key_length+iv_length]
+class Encryptor(object):
+    _instance = None
+    _getpass = getpass
 
-def encrypt(in_file, out_file, password, key_length=32):
-    bs = AES.block_size
-    salt = Random.new().read(bs - len('Salted__'))
-    key, iv = derive_key_and_iv(password, salt, key_length, bs)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    out_file.write('Salted__' + salt)
-    finished = False
-    while not finished:
-        chunk = in_file.read(1024 * bs)
-        if len(chunk) == 0 or len(chunk) % bs != 0:
-            padding_length = bs - (len(chunk) % bs)
-            chunk += padding_length * chr(padding_length)
-            finished = True
-        out_file.write(cipher.encrypt(chunk))
+    def __init__(self, password):
+        self.password = password
 
-def decrypt(in_file, out_file, password, key_length=32):
-    bs = AES.block_size
-    salt = in_file.read(bs)[len('Salted__'):]
-    key, iv = derive_key_and_iv(password, salt, key_length, bs)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    next_chunk = ''
-    finished = False
-    while not finished:
-        chunk, next_chunk = next_chunk, cipher.decrypt(in_file.read(1024 * bs))
-        if len(next_chunk) == 0:
-            padding_length = ord(chunk[-1])
-            if padding_length < 1 or padding_length > bs:
-               raise ValueError("bad decrypt pad (%d)" % padding_length)
-            # all the pad-bytes must be the same
-            if chunk[-padding_length:] != (padding_length * chr(padding_length)):
-               # this is similar to the bad decrypt:evp_enc.c from openssl program
-               raise ValueError("bad decrypt")
-            chunk = chunk[:-padding_length]
-            finished = True
-        out_file.write(chunk)
+    @staticmethod
+    def instance(password=None, getpass_hook=None):
+        if not Encryptor._instance:
+            if not password:
+                getpass_hook = getpass_hook or getpass
+                password = getpass_hook('[I] Credentials password: ')
 
+            Encryptor._instance = Encryptor(password)
+
+        return Encryptor._instance
+
+    def derive_key_and_iv(self, salt, key_length, iv_length):
+        d = d_i = ''
+        while len(d) < key_length + iv_length:
+            d_i = md5(d_i + self.password + salt).digest()
+            d += d_i
+        return d[:key_length], d[key_length:key_length+iv_length]
+
+    def encrypt(self, in_file, out_file, key_length=32):
+        bs = AES.block_size
+        salt = Random.new().read(bs - len('Salted__'))
+        key, iv = self.derive_key_and_iv(salt, key_length, bs)
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        out_file.write('Salted__' + salt)
+        finished = False
+        while not finished:
+            chunk = in_file.read(1024 * bs)
+            if len(chunk) == 0 or len(chunk) % bs != 0:
+                padding_length = bs - (len(chunk) % bs)
+                chunk += padding_length * chr(padding_length)
+                finished = True
+            out_file.write(cipher.encrypt(chunk))
+
+    def decrypt(self, in_file, out_file, key_length=32):
+        bs = AES.block_size
+        salt = in_file.read(bs)[len('Salted__'):]
+        key, iv = self.derive_key_and_iv(salt, key_length, bs)
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        next_chunk = ''
+        finished = False
+        while not finished:
+            chunk, next_chunk = next_chunk, cipher.decrypt(in_file.read(1024 * bs))
+            if len(next_chunk) == 0:
+                padding_length = ord(chunk[-1])
+                if padding_length < 1 or padding_length > bs:
+                   raise ValueError("bad decrypt pad (%d)" % padding_length)
+                # all the pad-bytes must be the same
+                if chunk[-padding_length:] != (padding_length * chr(padding_length)):
+                   # this is similar to the bad decrypt:evp_enc.c from openssl program
+                   raise ValueError("bad decrypt")
+                chunk = chunk[:-padding_length]
+                finished = True
+            out_file.write(chunk)
+
+ENCRYPTOR = Encryptor.instance
 
 class Credentials(object):
     USER_CONFIG = path.expanduser(
@@ -86,10 +105,8 @@ class Credentials(object):
         USER_CONFIG,
     ]
 
-    def __init__(self, role=None):
-        global PASSWORD
-
-        self._generate()
+    def __init__(self, role=None, password=None):
+        self._generate(password=password)
 
         role = role or DEFAULT_ROLE
         self.role = role.upper() if role else 'ANY'
@@ -106,13 +123,14 @@ class Credentials(object):
                         raise ValueError('Corrupted file: {}'.format(config))
 
                     if content.startswith('Salted__'):
-                        if not PASSWORD:
+                        if not ENCRYPTOR:
                             raise EncryptionError(
                                 'Encrpyted credential storage: {}'.format(config)
                             )
 
                         fcontent = StringIO()
-                        decrypt(StringIO(content), fcontent, PASSWORD)
+                        encryptor = ENCRYPTOR(password=password)
+                        encryptor.decrypt(StringIO(content), fcontent)
                         content = fcontent.getvalue()
 
                     exec content in self._credentials
@@ -228,9 +246,7 @@ class Credentials(object):
 
         return pk.as_pem(cipher=None), cert.as_pem()
 
-    def _generate(self, force=False):
-        global PASSWORD
-
+    def _generate(self, force=False, password=None):
         if path.exists(self.USER_CONFIG) and not force:
             return
 
@@ -303,8 +319,9 @@ class Credentials(object):
                 '{}={}\n'.format(k, repr(v)) for k,v in credentials.iteritems()
             ]) + '\n'
 
-            if PASSWORD:
-                encrypt(StringIO(content), user_config, PASSWORD)
+            if ENCRYPTOR:
+                encryptor = ENCRYPTOR(password=password)
+                encryptor.encrypt(StringIO(content), user_config)
             else:
                 user_config.write(content)
 

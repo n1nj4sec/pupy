@@ -81,8 +81,11 @@ if __name__=="__main__":
     logging.getLogger().setLevel(args.loglevel)
 
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
-    if not args.not_encrypt:
-        PupyCredentials.PASSWORD = getpass.getpass('Credentials password: ')
+    if args.not_encrypt:
+        PupyCredentials.ENCRYPTOR = None
+
+    # Try to initialize credentials before CMD loop
+    PupyCredentials.Credentials()
 
     try:
         igd = IGDClient()
