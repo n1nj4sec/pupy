@@ -2,6 +2,7 @@
 transport = ec4
 port = 9999
 ipv6 = false
+igd = false
 
 [cmdline]
 display_banner = no

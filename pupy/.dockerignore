@@ -1,0 +1,11 @@
+Dockerfile
+.dockerignore
+*.git
+*.gitignore
+*.pyc
+*.pyo
+crypto
+data
+external/winpty
+*/__pycache__*
+packages/src/*

@@ -1,24 +1,44 @@
-FROM debian:stretch-slim
+FROM debian:jessie-slim
 
 LABEL maintainer "alxchk@gmail.com"
 
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential python-dev python-pip openssh-server tmux libssh-dev libssl1.0-dev autoconf automake libffi-dev unzip && apt-get clean && rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
+RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -t jessie-backports --no-install-recommends -y build-essential \
+    python-dev python-pip openssh-server tmux sslh libssl-dev \
+    autoconf automake libffi-dev unzip libtool locales ncurses-term bash && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
+RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
 RUN python -m pip install --upgrade setuptools wheel pip
-RUN useradd -m -d /home/pupy pupy
+RUN useradd -m -d /home/pupy -s /bin/bash pupy
 RUN mkdir -p /var/run/sshd /home/pupy/.config/pupy /home/pupy/projects/default /home/pupy/.ssh
 RUN ln -sf /home/pupy/projects/keys/authorized_keys /home/pupy/.ssh/authorized_keys
-COPY conf/pupy.conf.docker /home/pupy/.config/pupy/pupy.conf.default
-COPY conf/pupyenv.sh /pupyenv.sh
-ADD . /opt/pupy
-RUN chown pupy:pupy -R /home/pupy; chmod 700 /home/pupy/.ssh
-RUN chmod +x /pupyenv.sh
-ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.0-20170305/mimikatz_trunk.zip /opt/mimikatz/mimikatz.zip
-RUN cd /opt/mimikatz; unzip /opt/mimikatz/mimikatz.zip
-RUN pip install -r /opt/pupy/requirements.txt
-RUN apt-get remove -y autoconf automake python-dev build-essential libssh-dev libssl-dev; apt-get -y autoremove; rm -rf /root/.cache/pip
 
-EXPOSE 22 53 9999
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt --no-binary :all:
+
+RUN chown pupy:pupy -R /home/pupy; chmod 700 /home/pupy/.ssh
+
+COPY conf/pupy.conf.docker /home/pupy/.config/pupy/pupy.conf
+COPY conf/.bashrc /home/pupy/.bashrc.pupy
+RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
+
+COPY . /opt/pupy
+RUN cd /opt/pupy && python -OO -m compileall
+
+ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.0-20170305/mimikatz_trunk.zip \
+    /opt/mimikatz/mimikatz.zip
+RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
+RUN apt-get remove -y autoconf automake python-dev libtool build-essential libssl-dev && \
+    apt-get -y autoremove && rm -rf /root/.cache/pip && \
+    rm -f /etc/ssh/ssh_host_*; rm -f /tmp/requirements.txt
+
+ENV LANG en_US.UTF-8
+ENV LC_ALL en_US.UTF-8
+
+EXPOSE 22 53 9999 53/udp
 VOLUME /home/pupy/projects
 
-ENTRYPOINT [ "/pupyenv.sh" ]
+ENTRYPOINT [ "/opt/pupy/conf/pupyenv.sh" ]
