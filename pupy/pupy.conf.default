@@ -4,6 +4,7 @@
 transport = ssl
 port = 443
 ipv6 = true
+igd = true
 
 [cmdline]
 display_banner = yes

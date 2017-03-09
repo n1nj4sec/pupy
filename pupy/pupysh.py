@@ -37,6 +37,7 @@ from pupylib import PupyServer
 from pupylib import PupyDnsCnc
 from pupylib import PupyCmdLoop
 from pupylib import PupyCredentials
+from pupylib import PupyConfig
 from pupylib import __version__
 
 from network.lib.igd import IGDClient, UPNPError
@@ -87,8 +88,12 @@ if __name__=="__main__":
     # Try to initialize credentials before CMD loop
     PupyCredentials.Credentials()
 
+    config = PupyConfig()
+
     try:
-        igd = IGDClient()
+        igd = IGDClient(
+            available=config.getboolean('pupyd', 'igd')
+        )
     except UPNPError as e:
         pass
 
