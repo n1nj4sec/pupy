@@ -8,22 +8,11 @@ import threading
 import rpyc
 import logging
 
-def chunks(l, n):
-    chunk = []
-    for i in l:
-        if len(chunk) == n:
-            yield chunk
-            chunk = []
-        else:
-            chunk.append(i)
-
-    if chunk:
-        yield chunk
-
 def create_socket(host, port):
     sock = socket.socket()
     sock.setblocking(0)
     try:
+        print 'Try: {}:{}'.format(host, int(port))
         r = sock.connect_ex((host, int(port)))
     except Exception, e:
         print "Exception: {}/{}".format(e, type(e))
@@ -32,15 +21,23 @@ def create_socket(host, port):
 
 def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_open_port=None):
     connectable=[]
-    for portion in chunks(((x, y) for x in hosts for y in ports), portion):
-        if not portion:
-            continue
+    targets = ((x, y) for x in hosts for y in ports)
+    sockets = {}
+    while targets:
+        free = portion - len(sockets)
+        chunk = []
+        while free:
+            try:
+                chunk.append(next(targets))
+                free -= 1
+            except StopIteration:
+                targets = None
+                break
 
         if abort and abort.is_set():
             break
 
-        sockets = {}
-        for host, port in portion:
+        for host, port in chunk:
             sock, r = create_socket(host, port)
             if sock is None:
                 continue
@@ -51,7 +48,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                     ok.append(errno.WSAEWOULDBLOCK)
 
                 if r in ok:
-                    sockets[sock] = (host, port)
+                    sockets[sock] = (host, port, time.time())
                 else:
                     sock.close()
                     continue
@@ -63,25 +60,33 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                 sock.close()
 
         if sockets:
-            start = time.time()
-            while sockets and time.time() - start < timeout:
-                socks = list(sockets.iterkeys())
-                _, w, _ = select.select([], socks, [], timeout - (time.time() - start))
+            socks = list(sockets.iterkeys())
+            _, w, _ = select.select([], socks, [], timeout)
 
-                for sock in w:
-                    try:
-                        errcode = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-                        if errcode == 0:
-                            if on_open_port:
-                                on_open_port(sockets[sock])
+            for sock in w:
+                try:
+                    errcode = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+                    if errcode == 0:
+                        if on_open_port:
+                            on_open_port(sockets[sock][:2])
 
-                            connectable.append(sockets[sock])
-                    except:
-                        pass
+                        connectable.append(sockets[sock][:2])
+                except:
+                    pass
 
-                    finally:
-                        sock.close()
-                        del sockets[sock]
+                finally:
+                    sock.close()
+                    del sockets[sock]
+
+            now = time.time()
+            for sock in socks:
+                if sock in w:
+                    continue
+
+                if now - sockets[sock][2] > timeout:
+                    sock.close()
+                    del sockets[sock]
+
 
     if on_complete:
         if abort and not abort.is_set():
