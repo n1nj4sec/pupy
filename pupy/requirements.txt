@@ -19,3 +19,4 @@ scapy
 pyuv
 dnslib
 http-parser
+cerberus
