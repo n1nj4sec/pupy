@@ -31,7 +31,7 @@ if [ ! -d buildenv/downloads ]; then
                            "$DBUS_SRC" "$DBUS_GLIB_SRC" "$GOBJECT_INTROSPECTION" \
                            "$PYGOBJECT" "$DBUS_PYTHON" "$M4_SRC" "$AUTOCONF_SRC" \
 			   "$AUTOMAKE_SRC" ; do
-        wget -c "$bin"
+        wget -qc "$bin"
     done
     cd -
     

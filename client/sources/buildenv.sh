@@ -54,7 +54,7 @@ if [ ! $? -eq 0 ]; then
 fi
 
 for dist in $PYTHON32 $PYTHON64 $PYTHONVC $WINETRICKS; do
-    wget -cP $DOWNLOADS $dist
+    wget -qcP $DOWNLOADS $dist
 done
 
 for prefix in $WINE32 $WINE64; do
@@ -97,7 +97,7 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade $PACKAGES
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade --no-binary :all: psutil
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m compileall C:\\Python27\\Lib || true
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m compileall -q C:\\Python27\\Lib || true
 done
 
 # WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYWIN32
@@ -175,7 +175,7 @@ cd $WINE32/drive_c/Python27
 rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
     cd $dir
-    zip -y \
+    zip -q -y \
 	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
 	-x "*test/*" -x "*tests/*" -x "*examples/*" \
 	-r9 ${TEMPLATES}/windows-x86.zip .
@@ -187,7 +187,7 @@ rm -f ${TEMPLATES}/windows-amd64.zip
 
 for dir in Lib DLLs; do
     cd $dir
-    zip -y \
+    zip -q -y \
 	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
 	-x "*test/*" -x "*tests/*" -x "*examples/*" \
 	-r9 ${TEMPLATES}/windows-amd64.zip .
