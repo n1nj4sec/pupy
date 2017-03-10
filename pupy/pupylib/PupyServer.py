@@ -29,6 +29,8 @@ from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
 from .PupyTriggers import on_connect
 from network.lib.utils import parse_transports_args
+from network.lib.base import chain_transports
+from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
 from os import path
 from shutil import copyfile
@@ -43,11 +45,12 @@ from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, transport, transport_kwargs, port=None, igd=None):
+    def __init__(self, transport, transport_kwargs, port=None, igd=None, httpd=None):
         super(PupyServer, self).__init__()
         self.daemon = True
         self.server = None
         self.authenticator = None
+        self.httpd = httpd
         self.clients = []
         self.jobs = {}
         self.jobs_id = 1
@@ -325,7 +328,14 @@ class PupyServer(threading.Thread):
 
     def run(self):
         self.handler_registered.wait()
-        t=transports[self.transport]()
+        t = transports[self.transport]()
+
+        if self.httpd:
+            t.server_transport = chain_transports(
+                PupyHTTPWrapperServer.custom(root=self.httpd),
+                t.server_transport
+            )
+
         transport_kwargs=t.server_transport_kwargs
         if self.transport_kwargs:
             opt_args=parse_transports_args(self.transport_kwargs)

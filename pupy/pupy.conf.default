@@ -5,6 +5,7 @@ transport = ssl
 port = 443
 ipv6 = true
 igd = true
+httpd = true
 
 [cmdline]
 display_banner = yes
@@ -16,6 +17,7 @@ downloads = data/downloads/%c
 screenshots = data/screenshots/%c
 creds = data/db/%c
 crypto = crypto
+http = data/http
 
 [on_connect]
 #run_module = gather/keylogger start

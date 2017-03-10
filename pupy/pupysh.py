@@ -97,11 +97,16 @@ if __name__=="__main__":
     except UPNPError as e:
         pass
 
+    httpd = None
+    if config.getboolean('pupyd', 'httpd'):
+        http_root = config.get_folder('http')
+
     pupyServer = PupyServer(
         args.transport,
         args.transport_args,
         port=args.port,
         igd=igd,
+        httpd=http_root
     )
 
     pupyDnsCnc = None

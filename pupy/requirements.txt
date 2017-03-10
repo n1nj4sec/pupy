@@ -18,3 +18,4 @@ pyOpenSSL
 scapy
 pyuv
 dnslib
+http-parser
