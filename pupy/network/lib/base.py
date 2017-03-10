@@ -2,6 +2,9 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+class ReleaseChainedTransport(Exception):
+    pass
+
 class Circuit(object):
     """ alias for obfsproxy style syntax"""
     def __init__(self, stream, transport, downstream=None, upstream=None):
@@ -131,8 +134,9 @@ class TransportWrapper(BasePupyTransport):
             klass(None, **kwargs) for klass in self.__class__._linearize()
         ]
 
-        self.len = len(self.chain)
+        self._setup_callbacks()
 
+    def _setup_callbacks(self):
         for idx, klass in enumerate(self.chain):
             klass.upstream.on_write = self._generate_write_callback(klass.upstream, idx, up=True)
             klass.downstream.on_write = self._generate_write_callback(klass.downstream, idx, up=False)
@@ -169,18 +173,21 @@ class TransportWrapper(BasePupyTransport):
 
         super(TransportWrapper, self).close()
 
-
     def downstream_recv(self, data, idx=0):
-        if idx == self.len:
+        if idx > len(self.chain) - 1:
             if len(data):
                 self.upstream.write(data.read())
         else:
             if len(data):
-                self.chain[idx].downstream_recv(data)
+                try:
+                    self.chain[idx].downstream_recv(data)
+                except ReleaseChainedTransport:
+                    self.chain = self.chain[:idx] + self.chain[idx+1:]
+                    self._setup_callbacks()
 
     def upstream_recv(self, data, idx=None):
         if idx is None:
-            idx = self.len - 1
+            idx = len(self.chain) - 1
 
         if idx < 0:
             if len(data):

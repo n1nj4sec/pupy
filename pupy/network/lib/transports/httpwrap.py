@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..base import BasePupyTransport
+from ..base import BasePupyTransport, ReleaseChainedTransport
 from .utils import *
 from http_parser.parser import HttpParser
 from os import path, stat
@@ -8,7 +8,7 @@ from os import path, stat
 class PupyHTTPWrapperServer(BasePupyTransport):
     path = '/index.php?d='
     allowed_methods = ( 'GET' )
-    root = '/tmp'
+    server = None
     headers = {
         'Content-Type' : 'text/html; charset=utf-8',
         'Server' : 'Apache',
@@ -68,8 +68,9 @@ class PupyHTTPWrapperServer(BasePupyTransport):
 
         if self.parser.is_headers_complete():
             try:
-                if not self.parser.get_method() in ('GET'):
+                if not self.parser.get_method() in self.allowed_methods:
                     self._http_response(405, 'Method Not Allowed')
+
                 else:
                     urlpath = self.parser.get_path()
                     urlpath = path.sep.join([
@@ -78,18 +79,36 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                         )
                     ])
 
-                    filepath = path.join(self.root, urlpath)
+                    if not urlpath:
+                        urlpath = 'index.html'
+
+                    root = self.server.config.get_folder('wwwroot')
+                    log = self.server.config.getboolean('httpd', 'log')
+
+                    filepath = path.join(root, urlpath)
+
                     if path.exists(filepath):
                         self._handle_file(filepath)
+                        if log:
+                            self.server.handler.display_success('{}: GET {}'.format(
+                                '{}:{}'.format(*self.downstream.transport.peer[:2]), filepath))
+
                     else:
                         self._handle_not_found()
+                        if log:
+                            self.server.handler.display_error('{}: GET {}'.format(
+                                '{}:{}'.format(*self.downstream.transport.peer[:2]), filepath))
+
+            except Exception, e:
+                print "Exception: {}".format(e)
+
             finally:
                 self.close()
 
     def downstream_recv(self, data):
         payload = data.read()
 
-        if self.is_http is None:
+        if self.server and self.is_http is None:
             self.is_http = payload.startswith(
                 ('GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE')
             ) and not payload.startswith(self.path)
@@ -98,8 +117,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
             self._handle_http(payload)
         else:
             self.upstream.write(payload)
+            raise ReleaseChainedTransport()
 
     def upstream_recv(self, data):
-        payload = data.read()
-        if payload:
-            self.downstream.write(payload)
+        self.downstream.write(data.read())
