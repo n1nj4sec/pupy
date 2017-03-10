@@ -13,6 +13,7 @@ from urlparse import urlparse
 import ctypes
 import os
 import netaddr
+import logging
 
 def str2bool(bstr):
     return bool(int(bstr))
@@ -191,6 +192,7 @@ class IGDClient:
         """
         Find IGD device and its control URL via UPnP multicast discovery
         """
+        logging.warning("Sending multicast traffic looking for IGD Devices / forwarding TCP port ...")
         if not self.isv6:
             up_disc = '\r\n'.join([
                 'M-SEARCH * HTTP/1.1',
