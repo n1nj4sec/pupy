@@ -5,7 +5,7 @@ transport = ssl
 port = 443
 ipv6 = true
 igd = true
-httpd = true
+httpd = false
 dnscnc = localhost:5454
 
 [httpd]
