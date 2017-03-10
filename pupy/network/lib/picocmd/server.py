@@ -481,10 +481,14 @@ class DnsCommandServer(object):
         self.tcp_server.resolver = handler
         self.tcp_server.logger = DNSLogger(log='log_error',prefix=False)
 
-        self.udp_server_thread = Thread(target=self.udp_server.serve_forever)
+        self.udp_server_thread = Thread(
+            target=self.udp_server.serve_forever, kwargs={ 'poll_interval': 5000 }
+        )
         self.udp_server_thread.daemon = True
 
-        self.tcp_server_thread = Thread(target=self.tcp_server.serve_forever)
+        self.tcp_server_thread = Thread(
+            target=self.tcp_server.serve_forever, kwargs={ 'poll_interval': 5000 }
+        )
         self.tcp_server_thread.daemon = True
 
         self.cleaner = Thread(target=handler.cleanup)
@@ -494,3 +498,7 @@ class DnsCommandServer(object):
         self.cleaner.start()
         self.tcp_server_thread.start()
         self.udp_server_thread.start()
+
+    def stop(self):
+        self.tcp_server.server_close()
+        self.udp_server.server_close()
