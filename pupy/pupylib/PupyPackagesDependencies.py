@@ -22,11 +22,6 @@ packages_dependencies={
         (LOAD_PACKAGE, WINDOWS, "win32api"),
         (LOAD_PACKAGE, WINDOWS, "win32security"),
     ],
-    "scapy" : [
-        (LOAD_PACKAGE, ALL_OS, "gzip"),
-        (LOAD_PACKAGE, ALL_OS, "_strptime"),
-        (LOAD_PACKAGE, ALL_OS, "calendar"),
-    ],
     "pyaudio" : [
         (LOAD_PACKAGE, ALL_OS, "_portaudio"),
     ],
@@ -55,3 +50,4 @@ packages_dependencies={
 
 
 }
+
