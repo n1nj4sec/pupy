@@ -14,6 +14,9 @@ import threading
 import select
 import rpyc
 import array
+import json
+from pupy import obtain
+
 
 def prepare():
     os.setsid()
@@ -57,6 +60,9 @@ class PtyShell(object):
 
                     if argv:
                         break
+        else:
+            argv=obtain(argv) #this transforms a rpyc netref list into a list
+
         if argv:
             shell = argv[0].split('/')[-1]
             if shell == 'bash':

