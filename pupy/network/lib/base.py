@@ -21,8 +21,10 @@ class Circuit(object):
 class BasePupyTransport(object):
     def __init__(self, stream, **kwargs):
         if stream is None:
-            self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-            self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
+            upstream_peer = kwargs.get('upstream_peer', ("127.0.0.1", 443))
+            downstream_peer = kwargs.get('downstream_peer', ("127.0.0.1", 443))
+            self.downstream=Buffer(transport_func=addGetPeer(downstream_peer))
+            self.upstream=Buffer(transport_func=addGetPeer(upstream_peer))
             self.stream = None
         else:
             self.downstream=stream.downstream
@@ -119,6 +121,11 @@ class TransportWrapper(BasePupyTransport):
 
     def __init__(self, stream, **kwargs):
         super(TransportWrapper, self).__init__(stream, **kwargs)
+
+        kwargs.update({
+            'upstream_peer': self.upstream.transport.peer,
+            'downstream_peer': self.downstream.transport.peer
+        })
 
         self.chain = [
             klass(None, **kwargs) for klass in self.__class__._linearize()
