@@ -7,5 +7,6 @@ Dockerfile
 crypto
 data
 external/winpty
+external/scapy
 */__pycache__*
 packages/src/*

@@ -13,8 +13,8 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sou
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
 RUN python -m pip install --upgrade setuptools wheel pip
 RUN useradd -m -d /home/pupy -s /bin/bash pupy
-RUN mkdir -p /var/run/sshd /home/pupy/.config/pupy /home/pupy/projects/default /home/pupy/.ssh
-RUN ln -sf /home/pupy/projects/keys/authorized_keys /home/pupy/.ssh/authorized_keys
+RUN mkdir -p /var/run/sshd /home/pupy/.config/pupy /home/pupy/.ssh /projects
+RUN ln -sf /projects/keys/authorized_keys /home/pupy/.ssh/authorized_keys
 
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt --no-binary :all:
@@ -26,7 +26,7 @@ COPY conf/.bashrc /home/pupy/.bashrc.pupy
 RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
 
 COPY . /opt/pupy
-RUN cd /opt/pupy && python -OO -m compileall
+RUN cd /opt/pupy && python -O -m compileall -qf && python -OO -m compileall -qf
 
 ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.0-20170305/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
@@ -39,6 +39,7 @@ ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
 EXPOSE 22 53 9999 53/udp
-VOLUME /home/pupy/projects
+VOLUME [ "/projects" ]
 
 ENTRYPOINT [ "/opt/pupy/conf/pupyenv.sh" ]
+CMD [ "default" ]
