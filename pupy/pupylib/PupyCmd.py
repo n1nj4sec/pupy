@@ -676,6 +676,73 @@ class PupyCmd(cmd.Cmd):
         except IndexError:
             return None
 
+    def do_config(self, arg):
+        """ Work with configuration file """
+
+        arg_parser = PupyArgumentParser(prog='config', description=self.do_config.__doc__)
+        commands = arg_parser.add_subparsers(title='commands', dest='command')
+
+        cmdlist = commands.add_parser('list', help='list configured options')
+        cmdlist.add_argument('section', help='list section', nargs='?', default='')
+        cmdlist.add_argument('-s', '--sections', help='list sections', action='store_true')
+
+        cmdset = commands.add_parser('set', help='set config option')
+        cmdset.add_argument('-w', '--write-project', action='store_true',
+                                    default=False, help='save config to project folder')
+        cmdset.add_argument('-W', '--write-user', action='store_true',
+                                    default=False, help='save config to user folder')
+        cmdset.add_argument('-r', '--restart', action='store_true', default=False, help='restart pupy')
+        cmdset.add_argument('section', help='config section')
+        cmdset.add_argument('key', help='config key')
+        cmdset.add_argument('value', nargs=REMAINDER, help='value')
+
+        cmdunset = commands.add_parser('unset', help='unset config option')
+        cmdunset.add_argument('-w', '--write-project', action='store_true',
+                                    default=False, help='save config to project folder')
+        cmdunset.add_argument('-W', '--write-user', action='store_true',
+                                    default=False, help='save config to user folder')
+        cmdunset.add_argument('-r', '--restart', action='store_true', default=False, help='restart pupy')
+        cmdunset.add_argument('section', help='config section')
+        cmdunset.add_argument('key', help='config key')
+
+        cmdsave = commands.add_parser('save', help='save config')
+        cmdsave.add_argument('-w', '--write-project', action='store_true',
+                                     default=True, help='save config to project folder')
+        cmdsave.add_argument('-W', '--write-user', action='store_true',
+                                     default=False, help='save config to user folder')
+        cmdsave.add_argument('-r', '--restart', action='store_true', default=False, help='restart pupy')
+
+        try:
+            commands = arg_parser.parse_args(shlex.split(arg))
+        except PupyModuleExit:
+            return
+
+        if commands.command == 'list':
+            for section in self.config.sections():
+                if commands.section and commands.section != section:
+                    continue
+
+                self.display('[{}]'.format(section))
+                if commands.sections:
+                    continue
+
+                for variable in self.config.options(section):
+                    self.display('{} = {}'.format(variable, self.config.get(section, variable)))
+
+                self.display(' ')
+
+        elif commands.command == 'set':
+            self.config.set(commands.section, commands.key, ' '.join(commands.value))
+            self.config.save(project=commands.write_project, user=commands.write_user)
+
+        elif commands.command == 'unset':
+            self.config.remove_option(commands.section, commands.key)
+            self.config.save(project=commands.write_project, user=commands.write_user)
+
+        elif commands.command == 'save':
+            self.config.save(project=commands.write_project, user=commands.write_user)
+
+
     def do_dnscnc(self, arg):
         """ DNSCNC commands """
         if not self.dnscnc:
