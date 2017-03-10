@@ -16,6 +16,7 @@ class PupyConfig(ConfigParser):
             path.join(self.root, config+'.default'),
             path.join(self.root, config),
             path.join(self.user_root, config),
+            path.join('config', config),
             config
         ]
 
