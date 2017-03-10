@@ -38,25 +38,37 @@ class LaZagne(PupyModule):
         header += '|====================================================================|\n\n'
 
         self.arg_parser = PupyArgumentParser(prog="lazagne", description=header + self.__doc__)
-        self.arg_parser.add_argument("-v", "--verbose", action='store_true')
 
     def run(self, args):
         db = Credentials()
+        first_user = True
         passwordsFound = False
         for r in self.client.conn.modules["laZagne"].runLaZagne():
+            
             if r[0] == 'User':
+                if not passwordsFound and not first_user:
+                    self.warning("no passwords found !")
+
+                first_user = False
+                passwordsFound = False
                 print colorize('\n########## User: %s ##########' % r[1].encode('utf-8', errors='replace'), "yellow")
 
             elif r[2] or args.verbose:
                 self.print_module_title(r[1])
+                
+            elif r[2]:
+                # Fix false positive with keepass
+                # Remove 'Get-Process' dict
+                [r[2][i].pop('Get-Process', None) for i in range(0, len(r[2]))]
+                # Remove empty value
+                r = (r[0], r[1], [i for i in r[2] if i])
 
                 if r[2]:
+                    self.print_module_title(r[1])
                     passwordsFound = True
                     self.print_results(r[0], r[1], r[2], db)
-                elif args.verbose:
-                    print '[!] no passwords found !'
 
-
+        # print passwordsFound
         if not passwordsFound:
             self.warning("no passwords found !")
 
