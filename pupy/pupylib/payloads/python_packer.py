@@ -22,7 +22,7 @@ def gen_package_pickled_dic(path, module_name):
     module_dir = os.path.join(search_path, start_path)
 
     if os.path.isdir(path):
-        compileall.compile_dir(os.path.relpath(module_dir), force=True)
+        compileall.compile_dir(os.path.relpath(module_dir), force=True, quiet=True)
         for root, dirs, files in os.walk(module_dir):
             to_embedd = set()
             for f in files:
@@ -32,7 +32,7 @@ def gen_package_pickled_dic(path, module_name):
                 elif base+'.pyo' in files and not ext == '.pyo':
                     continue
                 else:
-                     to_embedd.add(f)
+                    to_embedd.add(f)
 
             for f in to_embedd:
                 module_code=""
