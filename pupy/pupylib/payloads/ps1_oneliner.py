@@ -124,7 +124,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     def set(self,conf, link_ip, port, ssl, useTargetProxy):
         self.payload_conf = conf
         self.link_ip=link_ip
-        self.link_port=link_port
+        self.link_port=port
         self.random_reflectivepeinj_name=''.join([random.choice(string.ascii_lowercase+string.ascii_uppercase+string.digits) for _ in range(0,random.randint(8,12))])
         self.useTargetProxy = useTargetProxy
         if ssl:
