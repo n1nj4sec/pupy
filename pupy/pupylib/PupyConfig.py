@@ -43,14 +43,14 @@ class PupyConfig(ConfigParser):
             retfolder = retfolder.replace(key, value)
 
         if path.isdir(retfolder):
-            return retfolder
+            return path.abspath(retfolder)
         elif path.exists(retfolder):
             raise ValueError('{} is not a folder'.format(retfolder))
         elif create:
             makedirs(retfolder)
-            return retfolder
+            return path.abspath(retfolder)
         else:
-            return retfolder
+            return path.abspath(retfolder)
 
     def get(self, *args, **kwargs):
         try:
