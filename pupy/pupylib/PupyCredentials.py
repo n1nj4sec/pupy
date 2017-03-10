@@ -99,8 +99,8 @@ ENCRYPTOR = Encryptor.instance
 class Credentials(object):
     SYSTEM_CONFIG = path.join(path.dirname(__file__), '..', 'crypto', 'credentials.py')
 
-    def __init__(self, role=None, password=None):
-        config = PupyConfig()
+    def __init__(self, role=None, password=None, config=None):
+        config = config or PupyConfig()
         configfile = path.join(config.get_folder('crypto'), 'credentials.py')
 
         self._generate(password=password, configfile=configfile)

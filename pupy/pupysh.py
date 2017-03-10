@@ -106,7 +106,8 @@ if __name__=="__main__":
         args.transport_args,
         port=args.port,
         igd=igd,
-        httpd=http_root
+        httpd=http_root,
+        config=config
     )
 
     pupyDnsCnc = None
@@ -124,6 +125,7 @@ if __name__=="__main__":
             connect_host=args.external_ip,
             connect_port=args.port,
             connect_transport=args.transport,
+            config=config
         )
 
     pupycmd = PupyCmdLoop(pupyServer, pupyDnsCnc)

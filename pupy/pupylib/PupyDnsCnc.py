@@ -58,11 +58,12 @@ class PupyDnsCnc(object):
     def __init__(
             self, domain, igd=None, connect_host=None,
             recursor='8.8.8.8', port=5353, listen='0.0.0.0',
-            connect_transport='ssl', connect_port=443
+            connect_transport='ssl', connect_port=443,
+            config=None, credentials=None
         ):
 
-        credentials = Credentials()
-        config = PupyConfig()
+        credentials = credentials or Credentials()
+        config = config or PupyConfig()
 
         connect_host = connect_host or config.getip('pupyd', 'address')
 
