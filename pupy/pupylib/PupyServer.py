@@ -159,8 +159,10 @@ class PupyServer(threading.Thread):
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
-                self.handler.display_srvinfo("Session {} opened ({}{}:{})".format(
+                self.handler.display_srvinfo("Session {} opened ({}@{}) ({}{}:{})".format(
                     client_id,
+                    client_info.get('user','?'),
+                    client_info.get('hostname','?'),
                     '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
                     client_ip, client_port)
                 )
