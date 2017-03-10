@@ -130,10 +130,10 @@ class WindowsColoredStdout(object):
         sys.stdout.read(*args, **kwargs)
 
 class PupyCmd(cmd.Cmd):
-    def __init__(self, pupsrv, dnscnc=None):
+    def __init__(self, pupsrv):
         cmd.Cmd.__init__(self)
-        self.pupsrv=pupsrv
-        self.dnscnc=dnscnc
+        self.pupsrv = pupsrv
+        self.dnscnc = pupsrv.dnscnc
         self.pupsrv.register_handler(self)
         self.config = pupsrv.config
         self.init_readline()
@@ -676,6 +676,21 @@ class PupyCmd(cmd.Cmd):
         except IndexError:
             return None
 
+    def do_restart(self, arg):
+        """ Restart with same command line arguments """
+        argv0 = os.readlink('/proc/self/exe')
+        argv = [ x for x in open('/proc/self/cmdline').read().split('\x00') if x ]
+
+        if self.dnscnc:
+            self.display_success('Stopping DNSCNC')
+            self.dnscnc.stop()
+
+        self.display_success('Stopping listener')
+        self.pupsrv.server.close()
+
+        self.display_success('Restarting')
+        os.execv(argv0, argv)
+
     def do_config(self, arg):
         """ Work with configuration file """
 
@@ -734,14 +749,19 @@ class PupyCmd(cmd.Cmd):
         elif commands.command == 'set':
             self.config.set(commands.section, commands.key, ' '.join(commands.value))
             self.config.save(project=commands.write_project, user=commands.write_user)
+            if commands.restart:
+                self.do_restart(None)
 
         elif commands.command == 'unset':
             self.config.remove_option(commands.section, commands.key)
             self.config.save(project=commands.write_project, user=commands.write_user)
+            if commands.restart:
+                self.do_restart(None)
 
         elif commands.command == 'save':
             self.config.save(project=commands.write_project, user=commands.write_user)
-
+            if commands.restart:
+                self.do_restart(None)
 
     def do_dnscnc(self, arg):
         """ DNSCNC commands """
@@ -983,6 +1003,13 @@ class PupyCmd(cmd.Cmd):
         for job in self.pupsrv.jobs.itervalues():
             job.stop()
 
+        if self.dnscnc:
+            self.display_success('Stopping DNSCNC')
+            self.dnscnc.stop()
+
+        self.display_success('Stopping listener')
+        self.pupsrv.server.close()
+
         return True
 
     def do_read(self, arg):
@@ -1019,8 +1046,8 @@ class PupyCmd(cmd.Cmd):
             return self._complete_path(tab[1])
 
 class PupyCmdLoop(object):
-    def __init__(self, pupyServer, pupyDnsCnc):
-        self.cmd = PupyCmd(pupyServer, pupyDnsCnc)
+    def __init__(self, pupyServer):
+        self.cmd = PupyCmd(pupyServer)
         self.pupysrv = pupyServer
         self.stopped = Event()
 
