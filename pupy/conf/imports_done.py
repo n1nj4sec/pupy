@@ -14,7 +14,6 @@ from struct import Struct
 import argparse
 import base64
 import binascii
-import bz2
 import code
 import collections
 import contextlib

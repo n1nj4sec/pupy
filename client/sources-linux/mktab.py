@@ -71,6 +71,11 @@ int, PyObject_IsTrue, (PyObject *)
 void, PyErr_SetString, (PyObject *, const char *)
 void, PyEval_InitThreads, (void)
 void, PySys_SetArgvEx, (int, char **, int)
+
+PyObject *, PyFile_FromFile, (FILE *fp, char *name, char *mode, int (*close)(FILE*))
+void, PyFile_SetBufSize, (PyObject *, int)
+PyObject *, PyErr_NewException, (char *name, PyObject *base, PyObject *dict)
+int, PyModule_AddObject, (PyObject *, const char *, PyObject *)
 '''.strip().splitlines()
 
 import string

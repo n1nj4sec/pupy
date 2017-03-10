@@ -108,13 +108,16 @@ class PupyModule(object):
 
     def import_dependencies(self):
         if type(self.dependencies) == dict:
-            dependencies = self.dependencies.get('all', []) + \
-              self.dependencies.get(self.client.platform, [])
+            dependencies = self.dependencies.get(self.client.platform, []) + \
+              self.dependencies.get('all', [])
         else:
             dependencies = self.dependencies
 
         for d in dependencies:
-            self.client.load_package(d)
+            if d.lower().endswith(('.dll', '.so')):
+                self.client.load_dll(d)
+            else:
+                self.client.load_package(d)
 
     def init_argparse(self):
         """ Override this class to define your own arguments. """

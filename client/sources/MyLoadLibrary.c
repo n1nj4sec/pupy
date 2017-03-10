@@ -61,9 +61,9 @@ static LIST *libraries;
 
 int level;
 
+#ifdef VERBOSE
 static int dprintf(char *fmt, ...)
 {
-#ifdef VERBOSE
 	va_list marker;
 	int i;
 
@@ -73,10 +73,10 @@ static int dprintf(char *fmt, ...)
 		putchar(' ');
 	}
 	return vfprintf(stderr, fmt, marker) + 2*level;
-#else
-	return 0;
-#endif
 }
+#else
+#define dprintf(...)	do {} while (0)
+#endif
 
 #define PUSH() level++
 #define POP()  level--

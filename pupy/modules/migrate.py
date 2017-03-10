@@ -15,7 +15,7 @@ class MigrateModule(PupyModule):
     """ Migrate pupy into another process using reflective DLL injection """
     max_clients=1
     dependencies={
-        'windows': ['psutil', 'pupwinutils.processes']
+        'windows': ['pupwinutils.processes']
     }
 
     def init_argparse(self):

@@ -1,6 +1,9 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+
+class ReleaseChainedTransport(Exception):
+    pass
 
 class Circuit(object):
     """ alias for obfsproxy style syntax"""
@@ -21,8 +24,10 @@ class Circuit(object):
 class BasePupyTransport(object):
     def __init__(self, stream, **kwargs):
         if stream is None:
-            self.downstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
-            self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
+            upstream_peer = kwargs.get('upstream_peer', ("127.0.0.1", 443))
+            downstream_peer = kwargs.get('downstream_peer', ("127.0.0.1", 443))
+            self.downstream=Buffer(transport_func=addGetPeer(downstream_peer))
+            self.upstream=Buffer(transport_func=addGetPeer(upstream_peer))
             self.stream = None
         else:
             self.downstream=stream.downstream
@@ -57,11 +62,15 @@ class BasePupyTransport(object):
             self.on_close()
         except:
             pass
+
         try:
             if self.stream:
                 self.stream.close()
+            else:
+                raise EOFError()
         except:
-            pass
+            raise EOFError()
+
     def on_connect(self):
         """
             We just established a connection. Handshake time ! :-)
@@ -112,40 +121,80 @@ import logging
 
 class TransportWrapper(BasePupyTransport):
     cls_chain=[]
+
     def __init__(self, stream, **kwargs):
         super(TransportWrapper, self).__init__(stream, **kwargs)
-        self.insts=[]
-        for c in self.cls_chain:
-            self.insts.append(c(None, **kwargs))
 
-        #upstream chaining :
-        self.insts[-1].upstream=self.upstream
-        self.insts[-1].circuit.upstream=self.upstream
+        kwargs.update({
+            'upstream_peer': self.upstream.transport.peer,
+            'downstream_peer': self.downstream.transport.peer
+        })
 
-        #downstream chaining :
-        self.insts[0].downstream=self.downstream
-        self.insts[0].circuit.downstream=self.downstream
+        self.chain = [
+            klass(None, **kwargs) for klass in self.__class__._linearize()
+        ]
+
+        self._setup_callbacks()
+
+    def _setup_callbacks(self):
+        for idx, klass in enumerate(self.chain):
+            klass.upstream.on_write = self._generate_write_callback(klass.upstream, idx, up=True)
+            klass.downstream.on_write = self._generate_write_callback(klass.downstream, idx, up=False)
+
+    @classmethod
+    def _linearize(cls):
+        for klass in cls.cls_chain:
+            if issubclass(klass, TransportWrapper):
+                for subklass in klass.cls_chain:
+                    yield subklass
+            else:
+                yield klass
+
+    def _generate_write_callback(self, buffer, idx, up=False):
+        if up:
+            return lambda: self.downstream_recv(buffer, idx+1)
+        else:
+            return lambda: self.upstream_recv(buffer, idx-1)
 
     def on_connect(self):
-        for ins in self.insts:
-            ins.on_connect()
+        for klass in self.chain:
+            klass.on_connect()
 
     def on_close(self):
-        for ins in self.insts:
-            ins.on_close()
+        for klass in self.chain:
+            klass.on_close()
 
-    def downstream_recv(self, data):
-        self.insts[0].downstream_recv(data)
-        for i,ins in enumerate(self.insts[1:]):
-            ins.downstream_recv(self.insts[i].upstream)
-            self.cookie=ins.cookie
-        
-    def upstream_recv(self, data):
-        self.insts[-1].upstream_recv(data)
-        i=len(self.insts)-2
-        while i>=0:
-            self.insts[i].upstream_recv(self.insts[i+1].downstream)
-            i-=1
+    def close(self):
+        for klass in self.chain:
+            try:
+                klass.close()
+            except Exception, e:
+                pass
+
+        super(TransportWrapper, self).close()
+
+    def downstream_recv(self, data, idx=0):
+        if idx > len(self.chain) - 1:
+            if len(data):
+                self.upstream.write(data.read())
+        else:
+            if len(data):
+                try:
+                    self.chain[idx].downstream_recv(data)
+                except ReleaseChainedTransport:
+                    self.chain = self.chain[:idx] + self.chain[idx+1:]
+                    self._setup_callbacks()
+
+    def upstream_recv(self, data, idx=None):
+        if idx is None:
+            idx = len(self.chain) - 1
+
+        if idx < 0:
+            if len(data):
+                self.downstream.write(data.read())
+        else:
+            if len(data):
+                self.chain[idx].upstream_recv(data)
 
 def chain_transports(*args):
     """ chain 2 or more transports in such a way that the first argument is the transport seen at network level like t1(t2(t3(...(raw_data)...)))"""
@@ -154,4 +203,3 @@ def chain_transports(*args):
     class WrappedTransport(TransportWrapper):
         cls_chain=list(args)
     return WrappedTransport
-

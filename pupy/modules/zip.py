@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdio
 
@@ -8,6 +8,10 @@ __class_name__="Zip"
 class Zip(PupyModule):
     """ zip / unzip file or directory """
 
+    dependencies = [
+        'pupyutils.zip'
+    ]
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="zip", description=self.__doc__)
         self.arg_parser.add_argument('source', type=str, help='path of the source file or directory to zip')
@@ -16,7 +20,6 @@ class Zip(PupyModule):
         self.arg_parser.add_argument('-d', dest='destination', help='path of the destination file (default: current directory)')
 
     def run(self, args):
-        self.client.load_package("pupyutils.zip")
         with redirected_stdio(self.client.conn):
             # zip
             if not args.u:

@@ -1,7 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-__all__=["Transport", "LAUNCHER_TYPE_ALL", "LAUNCHER_TYPE_BIND", "LAUNCHER_TYPE_CONNECT", "DEFAULT_RSA_PUB_KEY", "DEFAULT_SSL_BIND_CERT", "DEFAULT_SSL_BIND_KEY", "DEFAULT_BIND_PAYLOADS_PASSWORD"]
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root
+# of the project for the detailed licence terms
+
+__all__=[
+    "Transport",
+    "LAUNCHER_TYPE_ALL",
+    "LAUNCHER_TYPE_BIND", "LAUNCHER_TYPE_CONNECT", "LAUNCHER_TYPE_DNSCNC",
+    "DEFAULT_RSA_PUB_KEY", "DEFAULT_SSL_BIND_CERT", "DEFAULT_SSL_BIND_KEY",
+    "DEFAULT_DNSCNC_PUB_KEY", "DEFAULT_DNSCNC_PRIV_KEY",
+    "DEFAULT_BIND_PAYLOADS_PASSWORD"
+]
 
 class TransportException(Exception):
     pass
@@ -9,8 +18,12 @@ class TransportException(Exception):
 LAUNCHER_TYPE_ALL=0
 LAUNCHER_TYPE_CONNECT=1
 LAUNCHER_TYPE_BIND=2
+LAUNCHER_TYPE_DNSCNC=3
 
 DEFAULT_BIND_PAYLOADS_PASSWORD="PuPyD3f4ultP4sSw0rd"
+
+DEFAULT_DNSCNC_PUB_KEY='v6iJnUBFI1qeQ9jrP2NZsTd4qwYB'
+DEFAULT_DNSCNC_PRIV_KEY='XqYoPdC5LR8Ct0givPQRBlKv41o='
 
 DEFAULT_RSA_PUB_KEY="""
 -----BEGIN RSA PUBLIC KEY-----
@@ -109,4 +122,3 @@ class Transport(object):
         """ parse arguments and raise an error if there is missing/incorrect arguments """
         self.client_transport_kwargs.update(args)
         self.server_transport_kwargs.update(args)
-

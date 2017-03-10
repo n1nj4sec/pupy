@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -31,6 +31,8 @@ packages_dependencies={
         (LOAD_PACKAGE, ALL_OS, "_portaudio"),
     ],
     "scapy" : [
+        (LOAD_PACKAGE, ALL_OS, "new"),
+        (LOAD_PACKAGE, ALL_OS, "fractions"),
         (LOAD_PACKAGE, ALL_OS, "gzip"),
         (LOAD_PACKAGE, ALL_OS, "_strptime"),
         (LOAD_PACKAGE, ALL_OS, "calendar"),

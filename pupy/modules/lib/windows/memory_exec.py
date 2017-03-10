@@ -24,8 +24,6 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, fork=F
         raw_pe=b""
         with open(path,'rb') as f:
             raw_pe=f.read()
-    module.client.load_package("pupymemexec")
-    module.client.load_package("pupwinutils.memexec")
 
     res=""
     dupHandle=None

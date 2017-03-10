@@ -23,7 +23,7 @@ struct IMPORT {
 	void (*proc)();
 };
 
-extern int _load_python(const char *dllname, const char *dllbytes, size_t size);
+extern int _load_python(void *hmod);
 
 extern struct IMPORT imports[];
 

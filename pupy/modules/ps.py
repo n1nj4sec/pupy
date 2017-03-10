@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import obtain
 from modules.lib.utils.shell_exec import shell_exec
@@ -9,14 +9,16 @@ __class_name__="PsModule"
 class PsModule(PupyModule):
     """ list processes """
 
+    dependencies = {
+        'windows': ['pupwinutils.processes']
+    }
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="ps", description=self.__doc__)
         self.arg_parser.add_argument('--all', '-a', action='store_true', help='more info')
 
     def run(self, args):
         if self.client.is_windows():
-            self.client.load_package("psutil")
-            self.client.load_package("pupwinutils.processes")
             outputlist=self.client.conn.modules["pupwinutils.processes"].enum_processes()
             outputlist=obtain(outputlist) #pickle the list of proxy objects with obtain is really faster
             columns=['username', 'pid', 'arch', 'exe']
@@ -40,4 +42,3 @@ class PsModule(PupyModule):
             self.log(shell_exec(self.client, "ps aux"))
         else:
             self.log(shell_exec(self.client, "ps -aux"))
-

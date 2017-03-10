@@ -22,8 +22,14 @@ import traceback
 import textwrap
 from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
+from zipfile import ZipFile
+import zlib
+import marshal
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+class BinaryObjectError(ValueError):
+    pass
 
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
@@ -104,7 +110,7 @@ class PupyClient(object):
             'i686': 'x86',
             'i486': 'x86',
         }
-        return substitute.get(arch) or arch
+        return substitute.get(arch, arch)
 
     @property
     def arch(self):
@@ -173,28 +179,45 @@ class PupyClient(object):
                 """))
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
+        pupyimporter = self.conn.modules.pupyimporter
+        pupyimporter.register_package_request_hook(self.remote_load_package)
+        self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
+
     def load_dll(self, path):
         """
             load some dll from memory like sqlite3.dll needed for some .pyd to work
             Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
         """
-        name=os.path.basename(path)
+        name = os.path.basename(path)
         if name in self.imported_dlls:
             return False
-        buf=b""
+
+        buf = b""
 
         if not os.path.exists(path):
             path = None
             for packages_path in self.get_packages_path():
                 packages_path = os.path.join(packages_path, name)
                 if os.path.exists(packages_path):
-                        path = packages_path
+                    with open(packages_path, 'rb') as f:
+                        buf = f.read()
+                        break
 
-        if not path:
+        if not buf and self.arch:
+            arch_bundle = os.path.join(
+                'payload_templates', self.platform+'-'+self.arch+'.zip'
+            )
+
+            if os.path.exists(arch_bundle):
+                with ZipFile(arch_bundle, 'r') as bundle:
+                    for info in bundle.infolist():
+                        if info.filename.endswith('/'+name) or info.filename == name:
+                            buf = bundle.read(info.filename)
+                            break
+
+        if not buf:
             raise ImportError("load_dll: couldn't find {}".format(name))
 
-        with open(path,'rb') as f:
-            buf=f.read()
         if not self.conn.modules.pupy.load_dll(name, buf):
             raise ImportError("load_dll: couldn't load {}".format(name))
 
@@ -215,49 +238,114 @@ class PupyClient(object):
                         raise PupyModuleError("Unknown package loading method %s"%t)
         return self._load_package(module_name, force)
 
+    def remote_load_package(self, module_name):
+        return self._load_package(module_name, force=False, remote=True)
+
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
-        modules_dic={}
-        if os.path.isdir(os.path.join(search_path,start_path)): # loading a real package with multiple files
-            for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
+        modules_dic = {}
+        found_files = set()
+
+        module_path = os.path.join(search_path, start_path)
+        if os.path.isdir(module_path): # loading a real package with multiple files
+            for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
-                    if pure_python_only:
-                        if f.endswith((".so",".pyd",".dll")): #avoid loosing shells when looking for packages in sys.path and unfortunatelly pushing a .so ELF on a remote windows
-                            continue
-                    module_code=""
-                    with open(os.path.join(root,f),'rb') as fd:
-                        module_code=fd.read()
+                    if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
+                        continue
+
+                    if pure_python_only and f.endswith((".so",".pyd",".dll")):
+                        # avoid loosing shells when looking for packages in
+                        # sys.path and unfortunatelly pushing a .so ELF on a
+                        # remote windows
+                        raise BinaryObjectError('Path contains binary objects: {}'.format(f))
+
+                    if not f.endswith(('.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
+                        continue
+
+                    module_code = b''
+                    with open(os.path.join(root, f), 'rb') as fd:
+                        module_code = fd.read()
+
                     modprefix = root[len(search_path.rstrip(os.sep))+1:]
                     modpath = os.path.join(modprefix,f).replace("\\","/")
-                    modules_dic[modpath]=module_code
+
+                    base, ext = modpath.rsplit('.', 1)
+
+                    if ext == '.pyo':
+                        if base+'.py' in modules_dic:
+                            del modules_dic[base+'.py']
+                        if base+'.pyc' in modules_dic:
+                            del modules_dic[base+'.pyc']
+                    elif ext == '.pyc':
+                        if base+'.py' in modules_dic:
+                            del modules_dic[base+'.py']
+                        if base+'.pyo' in modules_dic:
+                            continue
+                    elif ext == '.py':
+                        if base+'.pyc' in modules_dic:
+                            continue
+                        if base+'.pyo' in modules_dic:
+                            continue
+
+                        module_code = '\0'*8 + marshal.dumps(
+                            compile(module_code, modpath, 'exec')
+                        )
+                        modpath = base+'.pyc'
+
+                    modules_dic[modpath] = module_code
+
                 package_found=True
         else: # loading a simple file
-            extlist=[ ".py", ".pyc", ".pyo" ]
+            extlist=[ '.pyo', '.pyc', '.py'  ]
             if not pure_python_only:
-                extlist+=[ ".so", ".pyd", "27.dll" ] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
+                #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
+                extlist+=[ '.so', '.pyd', '27.dll' ]
+
             for ext in extlist:
-                filepath=os.path.join(search_path,start_path+ext)
+                filepath = os.path.join(module_path+ext)
                 if os.path.isfile(filepath):
-                    module_code=""
+                    module_code = ''
                     with open(filepath,'rb') as f:
                         module_code=f.read()
-                    cur=""
-                    for rep in start_path.split("/")[:-1]:
-                        if not cur+rep+"/__init__.py" in modules_dic:
-                            modules_dic[rep+"/__init__.py"]=""
-                        cur+=rep+"/"
 
-                    modules_dic[start_path+ext]=module_code
+                    cur = ''
+                    for rep in start_path.split('/')[:-1]:
+                        if not cur+rep+'/__init__.py' in modules_dic:
+                            modules_dic[rep+'/__init__.py']=''
+                        cur+=rep+'/'
+
+                    if ext == '.py':
+                        module_code = '\0'*8 + marshal.dumps(
+                            compile(module_code, start_path+ext, 'exec')
+                        )
+                        ext = '.pyc'
+
+                    modules_dic[start_path+ext] = module_code
+
                     package_found=True
                     break
+
         return modules_dic
 
-    def _load_package(self, module_name, force=False):
+    def _load_package(self, module_name, force=False, remote=False):
         """
             load a python module into memory depending on what OS the client is.
             This function can load all types of modules in memory for windows both x86 and amd64 including .pyd C extensions
             For other platforms : loading .so in memory is not supported yet.
         """
         # start path should only use "/" as separator
+
+        update = False
+        pupyimporter = self.conn.modules.pupyimporter
+        inital_module_name = module_name
+
+        if not remote:
+            if pupyimporter.has_module(module_name):
+                if not force:
+                    return
+                else:
+                    update = True
+                    pupyimporter.invalidate_module(module_name)
+
         start_path=module_name.replace(".", "/")
         package_found=False
         package_path=None
@@ -268,29 +356,137 @@ class PupyClient(object):
                     package_path=search_path
                     break
             except Exception as e:
-                raise PupyModuleError("Error while loading package %s : %s"%(module_name, traceback.format_exc()))
-        if not modules_dic: # in last resort, attempt to load the package from the server's sys.path if it exists
+                if remote:
+                    return
+                else:
+                    raise PupyModuleError(
+                        "Error while loading package {}: {}".format(
+                            module_name, traceback.format_exc()))
+
+        if not modules_dic and self.arch:
+            arch_bundle = os.path.join(
+                'payload_templates', self.platform+'-'+self.arch+'.zip'
+            )
+
+            if os.path.exists(arch_bundle):
+                modules_dic = {}
+
+                with ZipFile(arch_bundle, 'r') as bundle:
+
+                    # ../libs - for windows bundles, to use simple zip command
+                    # site-packages/win32 - for pywin32
+                    possible_prefixes = (
+                        '',
+                        'site-packages/win32/lib',
+                        'site-packages/win32',
+                        'site-packages/pywin32_system32',
+                        'site-packages',
+                        'lib-dynload'
+                    )
+
+                    endings = (
+                        '/', '.pyo', '.pyc', '.py', '.pyd', '.so', '.dll'
+                    )
+
+                    # Horrible pywin32..
+                    if module_name in ( 'pythoncom', 'pythoncomloader', 'pywintypes' ):
+                        endings = tuple([ '27.dll' ])
+
+                    start_paths = tuple([
+                        ('/'.join([x, start_path])).strip('/')+y \
+                            for x in possible_prefixes \
+                            for y in endings
+                    ])
+
+                    for info in bundle.infolist():
+                        if info.filename.startswith(start_paths):
+                            module_name = info.filename
+                            for prefix in possible_prefixes:
+                                if module_name.startswith(prefix+'/'):
+                                    module_name = module_name[len(prefix)+1:]
+                                    break
+
+                            try:
+                                base, ext = module_name.rsplit('.', 1)
+                            except:
+                                continue
+
+                            # Garbage removing
+                            if ext == 'py' and ( base+'.pyc' in modules_dic or base+'.pyo' in modules_dic ):
+                                continue
+
+                            elif ext == 'pyc':
+                                if base+'.py' in modules_dic:
+                                    del modules_dic[base+'.py']
+
+                                if base+'.pyo' in modules_dic:
+                                    continue
+                            elif ext == 'pyo':
+                                if base+'.py' in modules_dic:
+                                    del modules_dic[base+'.py']
+
+                                if base+'.pyc' in modules_dic:
+                                    del modules_dic[base+'.pyc']
+
+                            # Special case with pyd loaders
+                            elif ext == 'pyd':
+                                if base+'.py' in modules_dic:
+                                    del modules_dic[base+'.py']
+
+                                if base+'.pyc' in modules_dic:
+                                    del modules_dic[base+'.pyc']
+
+                                if base+'.pyo' in modules_dic:
+                                    del modules_dic[base+'.pyo']
+
+                            modules_dic[module_name] = bundle.read(info.filename)
+
+        # in last resort, attempt to load the package from the server's sys.path if it exists
+        if not modules_dic and not remote:
             for search_path in sys.path:
                 try:
-                    modules_dic=self._get_module_dic(search_path, start_path, pure_python_only=True)
+                    modules_dic = self._get_module_dic(
+                        search_path, start_path, pure_python_only=True
+                    )
+
                     if modules_dic:
-                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..."%module_name)
+                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..." % module_name)
                         package_path=search_path
                         break
+
+                except BinaryObjectError as e:
+                    logging.warning(e)
+
                 except Exception as e:
-                    raise PupyModuleError("Error while loading package from sys.path %s : %s"%(module_name, traceback.format_exc()))
-        if "pupyimporter" not in self.conn.modules.sys.modules:
-            raise PupyModuleError("pupyimporter module does not exists on the remote side !")
+                    if remote:
+                        return
+                    else:
+                        raise PupyModuleError(
+                            "Error while loading package from sys.path {}: {}".format(
+                                module_name, traceback.format_exc()))
+
         if not modules_dic:
-            raise PupyModuleError("Couldn't load package %s : no such file or directory neither in \(path=%s) or sys.path"%(module_name,repr(self.get_packages_path())))
-        if force or ( module_name not in self.conn.modules.sys.modules ):
-            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
-            logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
-            if force and  module_name in self.conn.modules.sys.modules:
-                self.conn.modules.sys.modules.pop(module_name)
-                logging.debug("package removed from sys.modules to force reloading")
-            return True
-        return False
+            if remote:
+                return
+            else:
+                raise PupyModuleError("Couldn't find package: {}".format(module_name))
+
+        # we have to pickle the dic for two reasons : because the remote side is
+        # not aut0horized to iterate/access to the dictionary declared on this
+        # side and because it is more efficient
+        pupyimporter.pupy_add_package(
+            zlib.compress(cPickle.dumps(modules_dic), 9),
+            compressed=True,
+            # Use None to prevent import-then-clean-then-search behavior
+            name=(None if remote else inital_module_name)
+        )
+
+        logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
+
+        if update:
+            self.conn.modules.__invalidate__(module_name)
+
+        return True
 
     def run_module(self, module_name, args):
         """ start a module on this unique client and return the corresponding job """

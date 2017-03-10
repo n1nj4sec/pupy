@@ -207,7 +207,7 @@ class PExec(PupyModule):
         close_event = threading.Event()
 
         def on_read(data):
-            self.log(data)
+            self.stdout.write(data)
             if not self.terminate.is_set():
                 log.write(data)
 

@@ -10,10 +10,10 @@ __class_name__="LootMemory"
 
 @config(cat="creds", compat=["windows", "linux"])
 class LootMemory(PupyModule):
-    """ 
+    """
         crawl processes memory and look for cleartext credentials
     """
-    dependencies=['memorpy', 'loot_memory', 'psutil']
+    dependencies=['memorpy', 'loot_memory']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='loot_memory', description=self.__doc__)
@@ -25,4 +25,3 @@ class LootMemory(PupyModule):
                 self.info("%s crawled :"%browser)
                 for i, passwords in dic.iteritems():
                     self.success("%s:\n\t%s"%(i, '\n\t'.join(passwords)))
-            

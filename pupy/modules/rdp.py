@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdio
 from netaddr import *
@@ -8,6 +8,13 @@ __class_name__="Rdp"
 @config(cat="admin", compat="windows")
 class Rdp(PupyModule):
     """ Enable / Disable rdp connection or check for valid credentials on a remote host """
+
+    dependencies = {
+        'windows': [ 'pupwinutils.rdp' ],
+        'all': [
+            'pupyutils.rdp_check', 'impacket', 'calendar', 'OpenSSL'
+        ]
+    }
 
     def init_argparse(self):
 
@@ -34,7 +41,6 @@ class Rdp(PupyModule):
         remote.add_argument('-H', dest='hashes', help='NTLM hashes used for checking RDP connection')
 
     def run(self, args):
-        
         # TO DO: enable multi RDP session, see MIMIKATZ for example
 
         if args.local:
@@ -42,9 +48,7 @@ class Rdp(PupyModule):
                 if not self.client.is_windows():
                     self.error("This option could be used only on windows hosts")
                     return
-                
-                self.client.load_package("pupwinutils.rdp")
-                
+
                 # check if admin
                 if not self.client.conn.modules["pupwinutils.rdp"].check_if_admin():
                     self.error("Admin privileges are required")
@@ -63,10 +67,8 @@ class Rdp(PupyModule):
                 hosts = list()
                 hosts.append(args.target)
 
-            self.client.load_package("pupyutils.rdp_check")
-            self.client.load_package("impacket")
-            self.client.load_package("calendar")
-            self.client.load_package("OpenSSL")
             for host in hosts:
                 with redirected_stdio(self.client.conn):
-                    self.client.conn.modules["pupyutils.rdp_check"].check_rdp(host, args.username, args.password, args.domain, args.hashes)
+                    self.client.conn.modules["pupyutils.rdp_check"].check_rdp(
+                        host, args.username, args.password, args.domain, args.hashes
+                    )

@@ -5,7 +5,6 @@ import struct
 from zlib import compress, crc32
 
 def _to_png(data, width, height):
-    
     # From MSS
     line = width * 3
     png_filter = struct.pack('>B', 0)

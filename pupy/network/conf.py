@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -6,6 +6,7 @@ import os, sys, logging, pkgutil, traceback
 from .lib.launchers.connect import ConnectLauncher
 from .lib.launchers.auto_proxy import AutoProxyLauncher
 from .lib.launchers.bind import BindLauncher
+from .lib.launchers.dnscnc import DNSCncLauncher
 import importlib
 
 transports={}
@@ -26,12 +27,16 @@ def add_transport(module_name):
     except Exception as e:
         logging.warning("Could not load transport %s : %s. Transport disabled"%(module_name,traceback.format_exc()))
 
-   
+
 #importing from memory (used by payloads)
 try:
     import pupyimporter
     import network.transports
-    for path in [x for x in pupyimporter.modules.iterkeys() if x.startswith("network/transports/") and x.endswith(("/conf.py","/conf.pyc"))]:
+    for path in [
+            x for x in pupyimporter.modules.iterkeys() \
+            if x.startswith('network/transports/') and x.endswith(
+                ('/conf.py', '/conf.pyc', '/conf.pyo'))
+        ]:
         try:
             module_name=path.rsplit('/',2)[1]
             add_transport(module_name)
@@ -46,4 +51,4 @@ except Exception as e:
 launchers["connect"]=ConnectLauncher
 launchers["auto_proxy"]=AutoProxyLauncher
 launchers["bind"]=BindLauncher
-
+launchers["dnscnc"]=DNSCncLauncher

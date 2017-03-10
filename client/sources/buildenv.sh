@@ -8,13 +8,16 @@ SELF=`readlink -f $0`
 CWD=`dirname $0`
 SOURCES=`readlink -f $CWD/../../`
 
-PYTHON64="https://www.python.org/ftp/python/2.7.12/python-2.7.12.amd64.msi"
-PYTHON32="https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi"
+PYTHON64="https://www.python.org/ftp/python/2.7.13/python-2.7.13.amd64.msi"
+PYTHON32="https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi"
 PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi"
-PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
-PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
+# PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
+# PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
+# PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
+# PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc psutil pyaml rsa pefile image rsa netaddr pypiwin32 win_inet_pton"
+PACKAGES="rpyc pyaml rsa pefile image rsa netaddr win_inet_pton netaddr tinyec uptime pycrypto cryptography pypiwin32"
+PACKAGES="$PACKAGES asyncoro mss pyaudio scapy pyOpenSSL colorama pyuv"
 
 BUILDENV=${1:-`pwd`/buildenv}
 
@@ -23,10 +26,17 @@ if [ -f $BUILDENV/.ready ]; then
     exit 0
 fi
 
+exec < /dev/null
+
 WINE=${WINE:-wine}
 WINE32="$BUILDENV/win32"
 WINE64="$BUILDENV/win64"
 DOWNLOADS="$BUILDENV/downloads"
+
+MINGW64=${MINGW64:-x86_64-w64-mingw32-g++}
+MINGW32=${MINGW32:-i686-w64-mingw32-g++}
+
+WINPTY=../../pupy/external/winpty
 
 mkdir -p "$BUILDENV"
 mkdir -p "$DOWNLOADS"
@@ -54,21 +64,21 @@ for prefix in $WINE32 $WINE64; do
     ln -s $SOURCES $prefix/dosdevices/x:
 done
 
-WINEPREFIX=$WINE32 wineserver -k
+WINEPREFIX=$WINE32 wineserver -k || true
 
 [ ! -f $WINE32/drive_c/.python ] && \
-    WINEPREFIX=$WINE32 msiexec /i Y:\\python-2.7.12.msi /q && \
+    WINEPREFIX=$WINE32 msiexec /i Y:\\python-2.7.13.msi /q && \
     touch $WINE32/drive_c/.python
 
 WINEPREFIX=$WINE32 wineboot -r
-WINEPREFIX=$WINE32 wineserver -k
+WINEPREFIX=$WINE32 wineserver -k  || true
 
 [ ! -f $WINE64/drive_c/.python ] && \
-    WINEPREFIX=$WINE64 msiexec /i Y:\\python-2.7.12.amd64.msi /q && \
+    WINEPREFIX=$WINE64 msiexec /i Y:\\python-2.7.13.amd64.msi /q && \
     touch $WINE64/drive_c/.python
 
 WINEPREFIX=$WINE64 wineboot -r
-WINEPREFIX=$WINE64 wineserver -k
+WINEPREFIX=$WINE64 wineserver -k || true
 
 for prefix in $WINE32 $WINE64; do
     [ ! -f $prefix/drive_c/.vc ] && \
@@ -76,13 +86,22 @@ for prefix in $WINE32 $WINE64; do
 	touch $prefix/drive_c/.vc
 done
 
+WINEPREFIX=$WINE64 wine reg add \
+          'HKCU\Software\Microsoft\DevDiv\VCForPython\9.0' \
+          /t REG_SZ /v installdir \
+          /d 'C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0' \
+          /f
+
 for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade pip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade $PACKAGES
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade --no-binary :all: psutil
+    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m compileall C:\\Python27\\Lib || true
 done
 
-WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO32
-WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYCRYPTO64
+# WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYWIN32
+# WINEPREFIX=$WINE64 wine C:\\Python27\\python.exe -m easy_install -Z $PYWIN64
 
 cat >$WINE32/python.sh <<EOF
 #!/bin/sh
@@ -125,5 +144,54 @@ export LIBPATH="\$VCINSTALLDIR\\\\Lib\\\\amd64;\$WindowsSdkDir\\\\Lib\\\\x64"
 exec wine "\$VCINSTALLDIR\\\\bin\\\\amd64\\\\cl.exe" "\$@"
 EOF
 chmod +x $WINE64/cl.sh
+
+$WINE32/cl.sh \
+    ../../pupy/packages/src/pupymemexec/pupymemexec.c \
+    /LD /D_WIN32 /IC:\\Python27\\Include \
+    C:\\Python27\\libs\\python27.lib advapi32.lib \
+    /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
+
+$WINE64/cl.sh \
+    ../../pupy/packages/src/pupymemexec/pupymemexec.c \
+    /LD /D_WIN64 /IC:\\Python27\\Include \
+    C:\\Python27\\libs\\python27.lib advapi32.lib \
+    /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
+
+make -C $WINPTY clean
+make -C $WINPTY MINGW_CXX="${MINGW32} -Os -s" build/winpty.dll
+mv $WINPTY/build/winpty.dll $BUILDENV/win32/drive_c/Python27/DLLs/
+
+make -C $WINPTY clean
+make -C $WINPTY MINGW_CXX="${MINGW64} -Os -s" build/winpty.dll
+mv $WINPTY/build/winpty.dll $BUILDENV/win64/drive_c/Python27/DLLs/
+
+echo "[+] Creating bundles"
+
+TEMPLATES=`readlink -f ../../pupy/payload_templates`
+
+OPWD=`pwd`
+
+cd $WINE32/drive_c/Python27
+rm -f ${TEMPLATES}/windows-x86.zip
+for dir in Lib DLLs; do
+    cd $dir
+    zip -y \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
+	-x "*test/*" -x "*tests/*" -x "*examples/*" \
+	-r9 ${TEMPLATES}/windows-x86.zip .
+    cd -
+done
+
+cd $WINE64/drive_c/Python27
+rm -f ${TEMPLATES}/windows-amd64.zip
+
+for dir in Lib DLLs; do
+    cd $dir
+    zip -y \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
+	-x "*test/*" -x "*tests/*" -x "*examples/*" \
+	-r9 ${TEMPLATES}/windows-amd64.zip .
+    cd -
+done
 
 touch $BUILDENV/.ready

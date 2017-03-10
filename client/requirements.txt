@@ -3,3 +3,5 @@ pycrypto
 psutil
 pyaml
 rsa
+netaddr
+tinyec

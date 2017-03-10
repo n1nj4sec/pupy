@@ -18,8 +18,7 @@
 import sys
 if sys.version_info[0]!=2:
     exit("Pupy only support Python 2.x")
-import pupylib.PupyServer
-import pupylib.PupyCmd
+
 try:
     import pupylib.PupySignalHandler
 except:
@@ -30,24 +29,42 @@ import traceback
 import argparse
 import os
 import os.path
+import sys
 import network.conf
+import getpass
 
-__author__='Nicolas VERDIER'
-__version__='v1.3'
-__date__='Jun 17 2016'
+from pupylib import PupyServer
+from pupylib import PupyCmdLoop
+from pupylib import PupyCredentials
+from pupylib import PupyConfig
+from pupylib import __version__
+
+sys.path.append(
+    os.path.join(os.path.abspath(os.path.dirname(__file__)), 'external', 'scapy')
+)
 
 def print_version():
     print("Pupy - %s"%(__version__))
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
-    parser.add_argument('--log-lvl', '--lvl', help="change log verbosity", dest="loglevel", choices=["DEBUG","INFO","WARNING","ERROR"], default="WARNING")
-    parser.add_argument('--version', help="print version and exit", action='store_true')
-    parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], help="change the transport ! :-)")
-    parser.add_argument('--ta', '--transport-args', dest='transport_args', help="... --transport-args 'OPTION1=value OPTION2=val ...' ...")
-    parser.add_argument('--port', '-p', help="change the listening port", type=int)
+    parser.add_argument(
+        '--log-lvl', '--lvl',
+        help='change log verbosity', dest='loglevel',
+        choices=['DEBUG','INFO','WARNING','ERROR'],
+        default='WARNING')
+    parser.add_argument('--version', help='print version and exit', action='store_true')
+    parser.add_argument(
+        '-t', '--transport',
+        choices=[x for x in network.conf.transports.iterkeys()],
+        help='change the transport ! :-)')
+    parser.add_argument(
+        '--ta', '--transport-args', dest='transport_args',
+        help='... --transport-args " OPTION1=value OPTION2=val ..." ...')
+    parser.add_argument('--port', '-p', help='change the listening port', type=int)
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
-    args=parser.parse_args()
+    parser.add_argument('-NE', '--not-encrypt', help='Do not encrypt configuration', action='store_true')
+    args = parser.parse_args()
 
     if args.workdir:
        os.chdir(args.workdir)
@@ -55,30 +72,29 @@ if __name__=="__main__":
     if args.version:
         print_version()
         exit(0)
-    loglevel=logging.WARNING
-    if args.loglevel=="ERROR":
-        loglevel=logging.ERROR
-    elif args.loglevel=="DEBUG":
-        loglevel=logging.DEBUG
-    elif args.loglevel=="INFO":
-        loglevel=logging.INFO
-    else:
-        loglevel=logging.WARNING
-    logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
-    logging.getLogger().setLevel(loglevel)
 
-    pupyServer=pupylib.PupyServer.PupyServer(args.transport, args.transport_args, port=args.port)
-    try:
-        import __builtin__ as builtins
-    except ImportError:
-        import builtins
-    builtins.glob_pupyServer=pupyServer # dirty ninja trick for this particular case avoiding to touch rpyc source code
-    pcmd=pupylib.PupyCmd.PupyCmd(pupyServer)
+    logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
+    logging.getLogger().setLevel(args.loglevel)
+
+    PupyCredentials.DEFAULT_ROLE = 'CONTROL'
+    if args.not_encrypt:
+        PupyCredentials.ENCRYPTOR = None
+
+    # Try to initialize credentials before CMD loop
+    PupyCredentials.Credentials()
+
+    config = PupyConfig()
+
+    pupyServer = PupyServer(
+        args.transport,
+        args.transport_args,
+        port=args.port,
+        config=config
+    )
+
+    pupycmd = PupyCmdLoop(pupyServer)
+
     pupyServer.start()
-    while True:
-        try:
-            pcmd.cmdloop()
-        except Exception as e:
-            print(traceback.format_exc())
-            time.sleep(0.1) #to avoid flood in case of exceptions in loop
-            pcmd.intro=''
+    pupycmd.loop()
+    pupyServer.stop()
+    pupyServer.finished.wait()

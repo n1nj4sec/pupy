@@ -21,12 +21,13 @@ class LaZagne(PupyModule):
 
     dependencies = {
         'all': [ 'sqlite3', '_sqlite3', 'xml', '_elementtree',
-                     'calendar', 'xml', 'xml.etree', 'lazagne', 'colorama', 'laZagne', 'memorpy'],
-        'windows': [ 'win32crypt', 'win32api', 'win32con', 'win32cred',
-                         'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip', 'psutil' ],
-        'linux': [ 'dbus', 'secretstorage', 'crypt' ]
+                     'calendar', 'xml', 'xml.etree', 'lazagne', 'colorama', 'laZagne',
+                     'memorpy', 'ConfigParser' ],
+        'windows': [ 'sqlite3.dll', 'win32crypt', 'win32api', 'win32con', 'win32cred',
+                         'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip' ],
+        'linux': [ 'secretstorage', 'crypt' ]
     }
-    
+
     def init_argparse(self):
         header = '|====================================================================|\n'
         header += '|                                                                    |\n'
@@ -40,15 +41,12 @@ class LaZagne(PupyModule):
         self.arg_parser.add_argument("-v", "--verbose", action='store_true')
 
     def run(self, args):
-        if self.client.is_windows():
-            self.client.load_dll('sqlite3.dll')
-
         db = Credentials()
         passwordsFound = False
         for r in self.client.conn.modules["laZagne"].runLaZagne():
             if r[0] == 'User':
                 print colorize('\n########## User: %s ##########' % r[1].encode('utf-8', errors='replace'), "yellow")
-                
+
             elif r[2] or args.verbose:
                 self.print_module_title(r[1])
 
