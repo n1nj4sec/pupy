@@ -6,6 +6,10 @@ port = 443
 ipv6 = true
 igd = true
 httpd = true
+dnscnc = localhost:5454
+
+[httpd]
+log = true
 
 [cmdline]
 display_banner = yes
@@ -17,7 +21,7 @@ downloads = data/downloads/%c
 screenshots = data/screenshots/%c
 creds = data/db/%c
 crypto = crypto
-http = data/http
+wwwroot = data/wwwroot
 
 [on_connect]
 #run_module = gather/keylogger start

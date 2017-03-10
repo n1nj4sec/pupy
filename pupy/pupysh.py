@@ -34,13 +34,10 @@ import network.conf
 import getpass
 
 from pupylib import PupyServer
-from pupylib import PupyDnsCnc
 from pupylib import PupyCmdLoop
 from pupylib import PupyCredentials
 from pupylib import PupyConfig
 from pupylib import __version__
-
-from network.lib.igd import IGDClient, UPNPError
 
 sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), 'external', 'scapy')
@@ -65,8 +62,6 @@ if __name__=="__main__":
         '--ta', '--transport-args', dest='transport_args',
         help='... --transport-args " OPTION1=value OPTION2=val ..." ...')
     parser.add_argument('--port', '-p', help='change the listening port', type=int)
-    parser.add_argument('--dns', '-d', help='enable dnscnc server. FDQN:port', type=str)
-    parser.add_argument('--external-ip', '-e', help='setup external ip address', type=str)
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument('-NE', '--not-encrypt', help='Do not encrypt configuration', action='store_true')
     args = parser.parse_args()
@@ -90,45 +85,14 @@ if __name__=="__main__":
 
     config = PupyConfig()
 
-    try:
-        igd = IGDClient(
-            available=config.getboolean('pupyd', 'igd')
-        )
-    except UPNPError as e:
-        pass
-
-    httpd = None
-    if config.getboolean('pupyd', 'httpd'):
-        http_root = config.get_folder('http')
-
     pupyServer = PupyServer(
         args.transport,
         args.transport_args,
         port=args.port,
-        igd=igd,
-        httpd=http_root,
         config=config
     )
 
-    pupyDnsCnc = None
-    if args.dns:
-        if ':' in args.dns:
-            fdqn, dnsport = args.dns.split(':')
-        else:
-            fdqn = args.dns.strip()
-            dnsport = 5454
-
-        pupyDnsCnc = PupyDnsCnc(
-            fdqn,
-            igd=igd,
-            port=dnsport,
-            connect_host=args.external_ip,
-            connect_port=args.port,
-            connect_transport=args.transport,
-            config=config
-        )
-
-    pupycmd = PupyCmdLoop(pupyServer, pupyDnsCnc)
+    pupycmd = PupyCmdLoop(pupyServer)
 
     pupyServer.start()
     pupycmd.loop()

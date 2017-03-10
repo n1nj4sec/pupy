@@ -92,6 +92,9 @@ class PupyDnsCnc(object):
 
         self.server.start()
 
+    def stop(self):
+        self.server.stop()
+
     def list(self, node=None):
         return [ session for session in self.handler.find_sessions(node=node) ]
 
