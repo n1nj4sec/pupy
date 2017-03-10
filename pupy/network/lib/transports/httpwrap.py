@@ -21,6 +21,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         self.parser = HttpParser()
         self.is_http = None
         self.body = []
+        self.downstream_buffer = ''
 
     def _http_response(self, code, status, headers=None, datasize=None, content=None):
         headers = {}
@@ -117,7 +118,15 @@ class PupyHTTPWrapperServer(BasePupyTransport):
             self._handle_http(payload)
         else:
             self.upstream.write(payload)
+            if self.downstream_buffer:
+                self.downstream.write(self.downstream_buffer)
+                self.downstream_buffer = ''
             raise ReleaseChainedTransport()
 
     def upstream_recv(self, data):
-        self.downstream.write(data.read())
+        if self.is_http is None:
+            self.downstream_buffer = data.read()
+        elif not self.is_http:
+            self.downstream.write(data.read())
+        else:
+            pass
