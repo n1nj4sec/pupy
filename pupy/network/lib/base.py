@@ -57,11 +57,15 @@ class BasePupyTransport(object):
             self.on_close()
         except:
             pass
+
         try:
             if self.stream:
                 self.stream.close()
+            else:
+                raise EOFError()
         except:
-            pass
+            raise EOFError()
+
     def on_connect(self):
         """
             We just established a connection. Handshake time ! :-)
@@ -148,6 +152,16 @@ class TransportWrapper(BasePupyTransport):
     def on_close(self):
         for klass in self.chain:
             klass.on_close()
+
+    def close(self):
+        for klass in self.chain:
+            try:
+                klass.close()
+            except Exception, e:
+                pass
+
+        super(TransportWrapper, self).close()
+
 
     def downstream_recv(self, data, idx=0):
         if idx == self.len:
