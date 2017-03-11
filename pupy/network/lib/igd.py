@@ -90,13 +90,13 @@ class IGDClient:
 
     def __init__(
             self,
-            available=True,
             bindIP='0.0.0.0',
             ctrlURL=None,
             service="WANIPC",
             edebug=False,
             pprint=False,
-            timeout=2.0):
+            timeout=2.0,
+            available=True):
         """
         - intIP is the source address of the request packet, which implies the source interface
         - ctrlURL is the the control URL of IGD server, client will do discovery if it is None
