@@ -34,6 +34,14 @@ if [ ! -d "/projects/$1" ]; then
     chown pupy "/projects/$1"
 fi
 
+/sbin/setcap cap_net_broadcast,cap_net_raw,cap_net_bind_service+eip /usr/bin/python2.7
+/usr/bin/python2.7 --version >/dev/null 2>/dev/null
+if [ ! $? -eq 0 ]; then
+    echo "[!] Xattrs not supported"
+    echo "[!] You can start container with --priviliged option"
+    /sbin/setcap -r /usr/bin/python2.7
+fi
+
 echo "$1" >/home/pupy/.project
 
 cd /opt/pupy

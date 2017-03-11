@@ -1,4 +1,4 @@
-export PATH=$PATH:~/.local/bin
+export PATH=$PATH:/bin:/usr/sbin:~/.local/bin
 
 alias pupysh=/opt/pupy/pupysh.py
 alias pupygen=/opt/pupy/pupygen.py
