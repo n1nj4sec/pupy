@@ -1,8 +1,8 @@
 # -*- coding: utf-8-*-
 try:
-    from ConfigParser import ConfigParser, Error
+    from ConfigParser import ConfigParser, Error, NoSectionError
 except ImportError:
-    from configparser import ConfigParser, Error
+    from configparser import ConfigParser, Error, NoSectionError
 
 from os import path, makedirs
 from netaddr import IPAddress
@@ -11,6 +11,8 @@ import random
 import string
 
 class PupyConfig(ConfigParser):
+    NoSectionError = NoSectionError
+
     def __init__(self, config='pupy.conf'):
         self.root = path.abspath(path.join(path.dirname(__file__), '..'))
         self.user_root = path.expanduser(path.join('~', '.config', 'pupy'))
@@ -75,22 +77,34 @@ class PupyConfig(ConfigParser):
         else:
             return path.abspath(retfolder)
 
-    def set(self, section, key, value):
+    def set(self, section, key, value, **kwargs):
         if section != 'randoms':
             ConfigParser.set(self, section, key, value)
         else:
+            if not key:
+                N = kwargs.get('random', 10)
+                while True:
+                    key = ''.join(random.choice(
+                        string.ascii_letters + string.digits) for _ in range(N))
+
+                    if not key in self.randoms:
+                        break
+
             self.randoms[key] = value
+            return key
 
     def get(self, *args, **kwargs):
         try:
             if args[0] == 'randoms':
                 if not args[1] in self.randoms:
                     N = kwargs.get('random', 10)
-                    self.randoms[args[1]] = ''.join(
-                        random.choice(
-                            string.ascii_letters + string.digits) for _ in range(N))
+                    new = kwargs.get('new', True)
+                    if new:
+                        self.randoms[args[1]] = ''.join(
+                            random.choice(
+                                string.ascii_letters + string.digits) for _ in range(N))
 
-                return self.randoms[args[1]]
+                return self.randoms.get(args[1], None)
 
             return ConfigParser.get(self, *args, **kwargs)
         except Error as e:

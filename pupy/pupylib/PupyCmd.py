@@ -749,16 +749,24 @@ class PupyCmd(cmd.Cmd):
                 self.display(' ')
 
         elif commands.command == 'set':
-            self.config.set(commands.section, commands.key, ' '.join(commands.value))
-            self.config.save(project=commands.write_project, user=commands.write_user)
-            if commands.restart:
-                self.do_restart(None)
+            try:
+                self.config.set(commands.section, commands.key, ' '.join(commands.value))
+                self.config.save(project=commands.write_project, user=commands.write_user)
+                if commands.restart:
+                    self.do_restart(None)
+
+            except self.config.NoSectionError:
+                self.display_error('No section: {}'.format(commands.section))
 
         elif commands.command == 'unset':
-            self.config.remove_option(commands.section, commands.key)
-            self.config.save(project=commands.write_project, user=commands.write_user)
-            if commands.restart:
-                self.do_restart(None)
+            try:
+                self.config.remove_option(commands.section, commands.key)
+                self.config.save(project=commands.write_project, user=commands.write_user)
+                if commands.restart:
+                    self.do_restart(None)
+
+            except self.config.NoSectionError:
+                self.display_error('No section: {}'.format(commands.section))
 
         elif commands.command == 'save':
             self.config.save(project=commands.write_project, user=commands.write_user)
@@ -768,7 +776,16 @@ class PupyCmd(cmd.Cmd):
     def do_gen(self, arg):
         """ Generate payload with pupygen.py """
 
-        arg_parser = pupygen.get_parser(PupyArgumentParser)
+        default_format = self.config.get('gen', 'format')
+        default_os = self.config.get('gen', 'os')
+        default_arch = self.config.get('gen', 'arch')
+
+        arg_parser = pupygen.get_parser(
+            PupyArgumentParser,
+            default_os=default_os,
+            default_arch=default_arch,
+            default_format=default_format
+        )
         arg_parser.add_argument('-L', '--launcher', default='connect', help='Launcher')
         arg_parser.add_argument('-t', '--transport', default=self.pupsrv.transport, help='Transport')
         arg_parser.add_argument(
@@ -781,12 +798,29 @@ class PupyCmd(cmd.Cmd):
         except PupyModuleExit:
             return
 
-        if not args.output_dir:
-            args.output_dir = self.config.get_folder('wwwroot')
+        if self.pupsrv.httpd:
+            wwwroot = self.config.get_folder('wwwroot')
+            if not args.output_dir:
+                args.output_dir = wwwroot
 
         args.default_port = self.pupsrv.port
 
-        pupygen.pupygen(args)
+        try:
+            output = pupygen.pupygen(args)
+        except Exception, e:
+            self.display_error('payload generation failed: {}'.format(e))
+            return
+
+        if self.pupsrv.httpd and output.startswith(wwwroot):
+            wwwpath = os.path.relpath(output, wwwroot)
+            if self.config.getboolean('httpd', 'secret'):
+                wwwpath = '/'.join([
+                    self.config.get('randoms', 'wwwsecret', random=5)
+                ] + [
+                    self.config.set('randoms', None, x, random=5) for x in wwwpath.split('/')
+                ])
+
+            self.display_success('payload uri: /{}'.format(wwwpath))
 
     def do_dnscnc(self, arg):
         """ DNSCNC commands """

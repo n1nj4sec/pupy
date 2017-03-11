@@ -347,11 +347,11 @@ PAYLOAD_FORMATS = [
 CLIENT_OS = [ 'android', 'windows', 'linux' ]
 CLIENT_ARCH = [ 'x86', 'x64' ]
 
-def get_parser(base_parser):
+def get_parser(base_parser, default_arch='x86', default_os='windows', default_format='client'):
     parser = base_parser(description='Generate payloads for windows, linux, osx and android.')
-    parser.add_argument('-f', '--format', default='client', choices=PAYLOAD_FORMATS, help="(default: client)")
-    parser.add_argument('-O', '--os', default='windows', choices=CLIENT_OS, help='Target OS (default: windows)')
-    parser.add_argument('-A', '--arch', default='x86', choices=CLIENT_ARCH, help='Target arch (default: x86)')
+    parser.add_argument('-f', '--format', default=default_format, choices=PAYLOAD_FORMATS, help="(default: client)")
+    parser.add_argument('-O', '--os', default=default_os, choices=CLIENT_OS, help='Target OS (default: windows)')
+    parser.add_argument('-A', '--arch', default=default_arch, choices=CLIENT_ARCH, help='Target arch (default: x86)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-D', '--output-dir', default='', help="output folder")
@@ -484,6 +484,7 @@ def pupygen(args):
     print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
     print("SCRIPTLETS = %s"%args.scriptlet)
     print("DEBUG = %s"%args.debug)
+    return os.path.abspath(outpath)
 
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'

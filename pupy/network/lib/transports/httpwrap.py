@@ -74,11 +74,11 @@ class PupyHTTPWrapperServer(BasePupyTransport):
 
                 else:
                     urlpath = self.parser.get_path()
-                    urlpath = path.sep.join([
+                    urlpath = [
                         x.strip() for x in urlpath.split('/') if (
                             x and not str(x) in ('.', '..')
                         )
-                    ])
+                    ]
 
                     root = self.server.config.get_folder('wwwroot')
                     secret = self.server.config.getboolean('httpd', 'secret')
@@ -86,14 +86,18 @@ class PupyHTTPWrapperServer(BasePupyTransport):
 
                     if secret:
                         wwwsecret = self.server.config.get('randoms', 'wwwsecret', random=5)
-                        if not (urlpath == wwwsecret or urlpath.startswith(wwwsecret+path.sep)):
+                        if not (urlpath and urlpath[0] == wwwsecret):
                             self._handle_not_found()
                             if log:
                                 self.server.handler.display_error('{}: GET {} | SECRET = {}'.format(
                                     '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath, wwwsecret))
                             return
 
-                        urlpath = urlpath[len(wwwsecret+path.sep):]
+                        urlpath = urlpath[1:]
+
+                    urlpath = path.sep.join([
+                        self.server.config.get('randoms', x, new=False) or x for x in urlpath
+                    ])
 
                     if not urlpath:
                         urlpath = 'index.html'

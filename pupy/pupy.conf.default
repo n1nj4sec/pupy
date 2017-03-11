@@ -12,6 +12,11 @@ dnscnc = localhost:5454
 log = true
 secret = false
 
+[gen]
+format = client
+os = windows
+arch = x86
+
 [cmdline]
 display_banner = yes
 colors = yes
