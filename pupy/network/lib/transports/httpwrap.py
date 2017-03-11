@@ -80,11 +80,23 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                         )
                     ])
 
+                    root = self.server.config.get_folder('wwwroot')
+                    secret = self.server.config.getboolean('httpd', 'secret')
+                    log = self.server.config.getboolean('httpd', 'log')
+
+                    if secret:
+                        wwwsecret = self.server.config.get('randoms', 'wwwsecret', random=5)
+                        if not (urlpath == wwwsecret or urlpath.startswith(wwwsecret+path.sep)):
+                            self._handle_not_found()
+                            if log:
+                                self.server.handler.display_error('{}: GET {} | SECRET = {}'.format(
+                                    '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath, wwwsecret))
+                            return
+
+                        urlpath = urlpath[len(wwwsecret+path.sep):]
+
                     if not urlpath:
                         urlpath = 'index.html'
-
-                    root = self.server.config.get_folder('wwwroot')
-                    log = self.server.config.getboolean('httpd', 'log')
 
                     filepath = path.join(root, urlpath)
 
@@ -92,13 +104,13 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                         self._handle_file(filepath)
                         if log:
                             self.server.handler.display_success('{}: GET {}'.format(
-                                '{}:{}'.format(*self.downstream.transport.peer[:2]), filepath))
+                                '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath))
 
                     else:
                         self._handle_not_found()
                         if log:
                             self.server.handler.display_error('{}: GET {}'.format(
-                                '{}:{}'.format(*self.downstream.transport.peer[:2]), filepath))
+                                '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath))
 
             except Exception, e:
                 print "Exception: {}".format(e)
