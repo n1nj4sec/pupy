@@ -687,8 +687,9 @@ class PupyCmd(cmd.Cmd):
             self.display_success('Stopping DNSCNC')
             self.dnscnc.stop()
 
-        self.display_success('Stopping listener')
-        self.pupsrv.server.close()
+        if self.pupsrv.server:
+            self.display_success('Stopping listener')
+            self.pupsrv.server.close()
 
         self.display_success('Restarting')
         os.execv(argv0, argv)
@@ -786,17 +787,23 @@ class PupyCmd(cmd.Cmd):
             default_arch=default_arch,
             default_format=default_format
         )
-        arg_parser.add_argument('-t', '--transport', default=self.pupsrv.transport, help='Transport')
-        arg_parser.add_argument('launcher', nargs='?', default='connect', help='Launcher')
-        arg_parser.add_argument(
-            'launcher_args', nargs=REMAINDER,
-            default=self.pupsrv.transport_kwargs, help='Transport args'
-        )
+
+        print "DEBUG: {} / {}/{}".format(self.pupsrv.transport,
+                                             self.pupsrv.transport_kwargs, type(self.pupsrv.transport_kwargs))
 
         try:
             args = arg_parser.parse_args(shlex.split(arg))
         except PupyModuleExit:
             return
+
+        print "DEBUG: After parse: {}".format(args.launcher_args)
+        if not args.launcher_args:
+            args.launcher_args = [
+                x for x in [
+                    '-t', self.pupsrv.transport,
+                    self.pupsrv.transport_kwargs
+                ] if x
+            ]
 
         if self.pupsrv.httpd:
             wwwroot = self.config.get_folder('wwwroot')
@@ -1070,8 +1077,9 @@ class PupyCmd(cmd.Cmd):
             self.display_success('Stopping DNSCNC')
             self.dnscnc.stop()
 
-        self.display_success('Stopping listener')
-        self.pupsrv.server.close()
+        if self.pupsrv.server:
+            self.display_success('Stopping listener')
+            self.pupsrv.server.close()
 
         return True
 

@@ -365,6 +365,13 @@ def get_parser(base_parser, default_arch='x86', default_os='windows', default_fo
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
+    parser.add_argument(
+        'launcher', choices=[
+            x for x in launchers.iterkeys()
+        ], default='connect', nargs='?',
+        help="Choose a launcher. Launchers make payloads behave differently at startup."
+    )
+    parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
 
     return parser
 
@@ -382,6 +389,7 @@ def pupygen(args):
     l=launchers[args.launcher]()
     while True:
         try:
+            print "LAUNCHER ARGS: {}".format(args.launcher_args)
             l.parse_args(args.launcher_args)
         except LauncherError as e:
             if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
@@ -499,13 +507,6 @@ def pupygen(args):
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'
     parser = get_parser(argparse.ArgumentParser)
-    parser.add_argument(
-        'launcher', choices=[
-            x for x in launchers.iterkeys()
-        ], default='auto_proxy',
-        help="Choose a launcher. Launchers make payloads behave differently at startup."
-    )
-    parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
     try:
         pupygen(parser.parse_args())
     except Exception, e:
