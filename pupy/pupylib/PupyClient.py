@@ -205,7 +205,7 @@ class PupyClient(object):
 
         if not buf and self.arch:
             arch_bundle = os.path.join(
-                'payload_templates', self.platform+'-'+self.arch+'.zip'
+                ROOT, 'payload_templates', self.platform+'-'+self.arch+'.zip'
             )
 
             if os.path.exists(arch_bundle):
@@ -365,7 +365,7 @@ class PupyClient(object):
 
         if not modules_dic and self.arch:
             arch_bundle = os.path.join(
-                'payload_templates', self.platform+'-'+self.arch+'.zip'
+                ROOT, 'payload_templates', self.platform+'-'+self.arch+'.zip'
             )
 
             if os.path.exists(arch_bundle):
