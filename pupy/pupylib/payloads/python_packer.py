@@ -22,7 +22,7 @@ def gen_package_pickled_dic(path, module_name):
     module_dir = os.path.join(search_path, start_path)
 
     if os.path.isdir(path):
-        compileall.compile_dir(os.path.relpath(module_dir), force=True, quiet=True)
+        compileall.compile_dir(os.path.relpath(module_dir), force=False, quiet=True)
         for root, dirs, files in os.walk(module_dir):
             to_embedd = set()
             for f in files:
