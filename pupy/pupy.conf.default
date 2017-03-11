@@ -10,6 +10,7 @@ dnscnc = localhost:5454
 
 [httpd]
 log = true
+secret = false
 
 [cmdline]
 display_banner = yes

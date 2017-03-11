@@ -7,7 +7,7 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sou
     apt-get update && \
     apt-get install -t jessie-backports --no-install-recommends -y build-essential \
     python-dev python-pip openssh-server tmux sslh libssl-dev \
-    autoconf automake libffi-dev unzip libtool locales ncurses-term bash && \
+    autoconf automake libffi-dev unzip libtool locales ncurses-term bash tcpdump && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
@@ -38,7 +38,7 @@ RUN apt-get remove -y autoconf automake python-dev libtool build-essential libss
 ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
-EXPOSE 22 53 9999 53/udp
+EXPOSE 22 1080 5454 5454/udp 8080
 VOLUME [ "/projects" ]
 
 ENTRYPOINT [ "/opt/pupy/conf/pupyenv.sh" ]

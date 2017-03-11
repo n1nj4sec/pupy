@@ -1,19 +1,19 @@
 [pupyd]
 transport = ec4
-port = 9999
+port = 8080
 ipv6 = false
 igd = false
+httpd = true
 
 [cmdline]
 display_banner = no
 colors = yes
 
+[httpd]
+secret = true
+
 [paths]
 prefer_workdir = yes
-downloads = data/downloads/%c
-screenshots = data/screenshots/%c
-creds = data/db/%c
-crypto = crypto
 
 [on_connect]
 #run_module = gather/keylogger start
