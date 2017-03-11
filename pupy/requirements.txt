@@ -20,3 +20,4 @@ pyuv
 dnslib
 http-parser
 cerberus
+logutils
