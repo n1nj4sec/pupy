@@ -28,7 +28,7 @@ colors = yes
 prefer_workdir = no
 downloads = data/downloads/%c
 screenshots = data/screenshots/%c
-creds = data/db/%c
+creds = data/creds
 crypto = crypto
 wwwroot = data/wwwroot
 

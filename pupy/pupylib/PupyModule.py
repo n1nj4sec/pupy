@@ -17,6 +17,7 @@ import argparse
 import sys
 from .PupyErrors import PupyModuleExit
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
+from .PupyConfig import PupyConfig
 import StringIO
 import textwrap
 import inspect
@@ -80,6 +81,7 @@ class PupyModule(object):
         """ client must be a PupyClient instance """
         self.client=client
         self.job=job
+
         if formatter is None:
             from .PupyCmd import PupyCmd
             self.formatter=PupyCmd
@@ -92,6 +94,13 @@ class PupyModule(object):
             self.stdout=stdout
             self.del_close=False
         self.init_argparse()
+
+    @property
+    def config(self):
+        try:
+            return self.job.pupsrv.config
+        except:
+            return PupyConfig()
 
     @classmethod
     def get_name(cls):

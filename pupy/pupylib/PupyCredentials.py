@@ -41,6 +41,10 @@ class Encryptor(object):
         self.password = password
 
     @staticmethod
+    def initialized():
+        return not ( Encryptor._instance is None )
+
+    @staticmethod
     def instance(password=None, getpass_hook=None):
         if not Encryptor._instance:
             if not password:

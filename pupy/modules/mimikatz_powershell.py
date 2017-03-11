@@ -55,7 +55,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
         self.success("%s" % output)
 
         creds = self.parse_mimikatz(output)
-        db = Credentials()
+        db = Credentials(client=self.client.short_name(), config=self.config)
         db.add(creds)
         self.success("Credentials stored on the database")
 
@@ -134,7 +134,16 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                                 if  len(password) < 300:
                                     store = True
 
-                            result = {'Domain': domain, 'Login': username, credType:password, 'CredType': credType.lower(), 'Host': hostName, 'sid':sid, 'Category': category, 'uid': self.client.short_name()}
+                            result = {
+                                'Domain': domain,
+                                'Login': username,
+                                credType:password,
+                                'CredType': credType.lower(),
+                                'Host': hostName,
+                                'sid':sid,
+                                'Category': category,
+                                'uid': self.client.short_name()
+                            }
                             # do not store password if it has already been stored
                             for c in creds:
                                 if c == result:

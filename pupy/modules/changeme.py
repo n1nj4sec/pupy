@@ -17,18 +17,18 @@ class Changeme(PupyModule):
         Default Credential Scanner
     """
     dependencies = {
-        'all': [ 
+        'all': [
                 'OpenSSL',
-                'ftplib', 'zipfile', 'telnetlib', 
+                'ftplib', 'zipfile', 'telnetlib',
                 '_LWPCookieJar', '_MozillaCookieJar', 'Cookie', 'cookielib',
                 'cgi', 'mimetypes', 'email', 'logutils',
-                'urllib3', 'requests', 
-                'xml','_elementtree', 'calendar', 'xml', 'xml.etree', 
+                'urllib3', 'requests',
+                'xml','_elementtree', 'calendar', 'xml', 'xml.etree',
                 'changeme'
             ]
     }
 
-    
+
     def init_argparse(self):
         header = """
  #####################################################
@@ -102,7 +102,7 @@ Examples:
                 protocol=args.protocol,
                 category=args.category,
                 name=args.name,
-                targets=targets_list, 
+                targets=targets_list,
                 port=args.port,
                 ssl=args.ssl,
                 proxy=proxy,
@@ -117,8 +117,8 @@ Examples:
             )
 
             if pwd_found:
-                db = Credentials()
-                
+                db = Credentials(client=self.client.short_name(), config=self.config)
+
                 clean_creds = []
                 for pwd in pwd_found:
                     self.success('%s' % pwd['name'])
@@ -127,7 +127,6 @@ Examples:
 
                     clean_cred = {}
                     clean_cred['Category'] = '%s' % pwd['name']
-                    clean_cred['uid']=self.client.short_name()
                     clean_cred['CredType'] = 'plaintext'
                     clean_cred['URL'] = pwd['url']
                     clean_cred['Login'] = pwd['username']
