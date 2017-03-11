@@ -7,6 +7,8 @@ except ImportError:
 from os import path, makedirs
 from netaddr import IPAddress
 import platform
+import random
+import string
 
 class PupyConfig(ConfigParser):
     def __init__(self, config='pupy.conf'):
@@ -21,6 +23,7 @@ class PupyConfig(ConfigParser):
             self.project_path,
             config
         ]
+        self.randoms = {}
 
         ConfigParser.__init__(self)
         self.read(self.files)
@@ -72,8 +75,23 @@ class PupyConfig(ConfigParser):
         else:
             return path.abspath(retfolder)
 
+    def set(self, section, key, value):
+        if section != 'randoms':
+            ConfigParser.set(self, section, key, value)
+        else:
+            self.randoms[key] = value
+
     def get(self, *args, **kwargs):
         try:
+            if args[0] == 'randoms':
+                if not args[1] in self.randoms:
+                    N = kwargs.get('random', 10)
+                    self.randoms[args[1]] = ''.join(
+                        random.choice(
+                            string.ascii_letters + string.digits) for _ in range(N))
+
+                return self.randoms[args[1]]
+
             return ConfigParser.get(self, *args, **kwargs)
         except Error as e:
             return None
@@ -83,3 +101,14 @@ class PupyConfig(ConfigParser):
         if not ip:
             return None
         return IPAddress(ip)
+
+    def sections(self):
+        sections = ConfigParser.sections(self)
+        sections.append('randoms')
+        return sections
+
+    def options(self, section):
+        if section != 'randoms':
+            return ConfigParser.options(self, section)
+
+        return self.randoms.keys()
