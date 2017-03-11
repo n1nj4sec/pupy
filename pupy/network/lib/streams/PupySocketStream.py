@@ -74,6 +74,8 @@ class PupySocketStream(SocketStream):
     # The root of evil
     def poll(self, timeout):
         # Just ignore timeout
+        if self.closed:
+            raise EOFError('polling on already closed connection')
         result = ( len(self.upstream)>0 or self.sock_poll(timeout) )
         return result
 
@@ -113,20 +115,20 @@ class PupySocketStream(SocketStream):
                     return None
 
             return self.upstream.read(count)
+
         except Exception as e:
             logging.debug(traceback.format_exc())
+            self.close()
 
     def write(self, data):
         try:
             with self.upstream_lock:
                 self.buf_out.write(data)
-                try:
-                    self.transport.upstream_recv(self.buf_out)
-                except EOFError as e:
-                    logging.debug(traceback.format_exc())
+                self.transport.upstream_recv(self.buf_out)
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
+            self.close()
 
 class PupyUDPSocketStream(object):
     def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True):
@@ -210,6 +212,7 @@ class PupyUDPSocketStream(object):
                     time.sleep(0.0001)
 
             return self.upstream.read(count)
+
         except Exception as e:
             logging.debug(traceback.format_exc())
 
