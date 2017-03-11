@@ -824,7 +824,7 @@ class PupyCmd(cmd.Cmd):
                     self.config.set('randoms', None, x, random=5) for x in wwwpath.split('/')
                 ])
 
-            self.display_success('payload uri: /{}'.format(wwwpath))
+            self.display_success('WWW URI PATH: /{}'.format(wwwpath))
 
     def do_dnscnc(self, arg):
         """ DNSCNC commands """
