@@ -8,6 +8,9 @@ igd = true
 httpd = false
 dnscnc = localhost:5454
 
+[ssl]
+client_cert_required = true
+
 [httpd]
 log = true
 secret = false

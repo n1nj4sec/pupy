@@ -14,12 +14,14 @@ import ssl
 from rpyc.utils.authenticators import AuthenticationError
 
 class PupySSLAuthenticator(object):
-    def __init__(self, role, keystr, certstr, castr):
+    def __init__(self, role, keystr, certstr, castr, client_cert_required=True):
         self.keystr = keystr.strip()
         self.certstr = certstr.strip()
         self.castr = castr.strip()
         self.ciphers = 'SHA256+AES256:SHA1+AES256:@STRENGTH'
-        self.cert_reqs = ssl.CERT_REQUIRED
+        self.client_cert_required = client_cert_required
+        self.cert_reqs = ssl.CERT_REQUIRED \
+          if self.client_cert_required else ssl.CERT_OPTIONAL
         self.ssl_version = ssl.PROTOCOL_TLSv1
         self.ROLE = role
 
@@ -67,19 +69,21 @@ class PupySSLAuthenticator(object):
         peer = wrapped_socket.getpeercert()
         peer_role = ''
 
-        for (item) in peer['subject']:
-            if item[0][0] == 'organizationalUnitName':
-                peer_role = item[0][1]
+        if self.client_cert_required:
+            for (item) in peer['subject']:
+                if item[0][0] == 'organizationalUnitName':
+                    peer_role = item[0][1]
 
-        if not ( self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or \
-          self.ROLE == 'CONTROL' and peer_role == 'CLIENT' ):
-          raise AuthenticationError('Invalid peer role: {}'.format(peer_role))
+            if not ( self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or \
+              self.ROLE == 'CONTROL' and peer_role == 'CLIENT' ):
+              raise AuthenticationError('Invalid peer role: {}'.format(peer_role))
 
         return wrapped_socket, peer
 
 def ssl_authenticator():
     keystr = b''
     certstr = b''
+    client_cert_required = True
 
     try:
         import pupy_credentials
@@ -95,13 +99,18 @@ def ssl_authenticator():
         config = PupyConfig()
         credentials = Credentials()
 
+        client_cert_required = config.getboolean('ssl', 'client_cert_required')
+
         keystr = credentials['SSL_BIND_KEY']
         certstr = credentials['SSL_BIND_CERT']
         castr = credentials['SSL_CA_CERT']
 
         role = credentials.role
 
-    return PupySSLAuthenticator(role, keystr, certstr, castr)
+    return PupySSLAuthenticator(
+        role, keystr, certstr, castr,
+        client_cert_required=client_cert_required
+    )
 
 
 class TransportConf(Transport):
