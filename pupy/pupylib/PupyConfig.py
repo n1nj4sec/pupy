@@ -77,6 +77,15 @@ class PupyConfig(ConfigParser):
         else:
             return path.abspath(retfolder)
 
+    def remove_option(self, section, key):
+        if section != 'randoms':
+            ConfigParser.unset(self, section, key)
+        else:
+            if key in self.randoms:
+                del self.randoms[key]
+            elif key == 'all':
+                self.randoms = {}
+
     def set(self, section, key, value, **kwargs):
         if section != 'randoms':
             ConfigParser.set(self, section, key, value)
