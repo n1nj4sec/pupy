@@ -49,7 +49,7 @@ echo "USER XID: $XID"
 
 if [ ! -f buildenv/lin32/.ready ]; then
 
-debootstrap --arch i386 woody buildenv/lin32 http://archive.debian.org/debian
+debootstrap --arch i386 woody buildenv/lin32 http://archive.debian.org/debian >/dev/null
 mkdir -p buildenv/lin32/usr/src
 cp -vfp buildenv/downloads/* buildenv/lin32/usr/src/
 
@@ -111,21 +111,21 @@ cd /usr/src
 
 tar zxf make-3.82.tar.gz
 cd /usr/src/make-3.82
-./configure; make; make install
+./configure; make >/dev/null; make install
 export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
 tar zxf zlib-1.2.11.tar.gz
 cd /usr/src/zlib-1.2.11
-./configure --prefix=/usr --static; make; make install
+./configure --prefix=/usr --static; make >/dev/null; make install
 cd /usr/src
 
 tar zxf openssl_1.0.2k.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic32
-make depend; make; make install
+make depend >/dev/null; make >/dev/null; make install >/dev/null
 cp libssl.so.1.0.0 /usr/lib/libssl.so
 cp libcrypto.so.1.0.0  /usr/lib/libcrypto.so
 mkdir -p /usr/lib/pkgconfig/
@@ -138,25 +138,25 @@ cd /usr/src
 
 tar zxf xz-5.2.2.tar.gz
 cd /usr/src/xz-5.2.2
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 cd /usr/src
 
 tar zxf pkg-config-0.29.1.tar.gz
 cd /usr/src/pkg-config-0.29.1
 ./configure --with-internal-glib --prefix=/usr
-make install
+make install >/dev/null
 cd /usr/src
 
 tar zxf libffi_3.2.1.orig.tar.gz
 cd /usr/src/libffi-3.2.1
 ./configure --enable-static --prefix=/usr
-make install
+make install >/dev/null
 cd /usr/src
 
 tar zxf sqlite-autoconf-3150200.tar.gz
 cd /usr/src/sqlite-autoconf-3150200
 ./configure --prefix=/usr --disable-static-shell --disable-dynamic-extensions
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf Python-2.7.13.tgz
@@ -165,7 +165,7 @@ cd /usr/src/Python-2.7.13
   --without-doc-strings --without-tsc --without-pymalloc \
   --with-fpectl --with-ensurepip=install --with-signal-module \
   --enable-ipv6 --enable-shared --enable-unicode=ucs4
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 xz -d glib-2.32.4.tar.xz
@@ -173,7 +173,7 @@ tar xf glib-2.32.4.tar
 cd /usr/src/glib-2.32.4
 CFLAGS="\$CFLAGS -DPR_SET_NAME=15 -DPR_GET_NAME=16" ./configure \
   --prefix=/usr --disable-xattr --disable-fam --disable-selinux --enable-static
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf dbus-1.2.12.tar.gz
@@ -181,26 +181,26 @@ cd /usr/src/dbus-1.2.12
 ./configure   --prefix=/usr --disable-selinux --disable-libaudit \
 --disable-dnotify --disable-inotify --disable-kqueue \
 --disable-userdb-cache --enable-abstract-sockets
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf dbus-glib-0.88.tar.gz
 cd /usr/src/dbus-glib-0.88
 ./configure --prefix=/usr
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 xz -d gobject-introspection-1.32.1.tar.xz
 tar xf gobject-introspection-1.32.1.tar
 cd /usr/src/gobject-introspection-1.32.1
 ./configure --prefix=/usr --disable-tests
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf dbus-python-0.84.0.tar.gz
 cd /usr/src/dbus-python-0.84.0
 ./configure --prefix=/usr
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 xz -d pygobject-3.2.2.tar.xz
@@ -208,14 +208,14 @@ tar xf pygobject-3.2.2.tar
 cd /usr/src/pygobject-3.2.2
 ./configure --disable-glibtest --disable-cairo \
  --prefix=/usr --enable-static
-make -k
+make -k  >/dev/null
 rm -f ./gi/_glib/.libs/libpyglib-gi-2.0-python.so{,.0,.0.0.0}
 ln -s libpyglib-gi-2.0-python.a ./gi/_glib/.libs/libpyglib-gi-2.0-python.so
 ln -s libpyglib-gi-2.0-python.a ./gi/_glib/.libs/libpyglib-gi-2.0-python.so.0
 ln -s libpyglib-gi-2.0-python.a ./gi/_glib/.libs/libpyglib-gi-2.0-python.so.0.0.0
 rm -f ./gi/_gi.la ./gi/_gobject/_gobject.la ./gi/_glib/_glib.la
 rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.la
-make -k
+make -k  >/dev/null
 make install
 
 cp -vrf /compat/* /usr/include/
@@ -257,29 +257,29 @@ python -OO -m pip install \
 cd /usr/src
 tar zxf m4-1.4.18.tar.gz
 cd /usr/src/m4-1.4.18
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 
 cd /usr/src
 tar zxf autoconf-2.69.tar.gz
 cd /usr/src/autoconf-2.69
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 
 cd /usr/src
 tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 
 CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
  python -O -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
-python -OO -m compileall
+python -OO -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
 
 cd /
 
-# rm -rf /usr/src
+rm -rf /usr/src
 
 ldconfig
 __CMDS__
@@ -299,7 +299,7 @@ touch buildenv/lin32/.ready
 fi
 
 if [ ! -f buildenv/lin64/.ready ]; then
-debootstrap --no-check-gpg --arch amd64 etch buildenv/lin64 http://archive.debian.org/debian
+debootstrap --no-check-gpg --arch amd64 etch buildenv/lin64 http://archive.debian.org/debian >/dev/null
 
 mkdir -p buildenv/lin64/usr/src
 cp -vfp buildenv/downloads/* buildenv/lin64/usr/src/
@@ -358,21 +358,21 @@ cd /usr/src
 
 tar zxf make-3.82.tar.gz
 cd /usr/src/make-3.82
-./configure; make; make install
+./configure; make >/dev/null; make install
 export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
 tar zxf zlib-1.2.11.tar.gz
 cd /usr/src/zlib-1.2.11
-./configure --prefix=/usr --static; make; make install
+./configure --prefix=/usr --static; make >/dev/null; make install
 cd /usr/src
 
 tar zxf openssl_1.0.2k.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic64
-make depend; make; make install
+make depend >/dev/null; make >/dev/null; make install >/dev/null
 cp libssl.so.1.0.0 /usr/lib/libssl.so
 cp libcrypto.so.1.0.0  /usr/lib/libcrypto.so
 mkdir -p /usr/lib/pkgconfig/
@@ -385,25 +385,25 @@ cd /usr/src
 
 tar zxf xz-5.2.2.tar.gz
 cd /usr/src/xz-5.2.2
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 cd /usr/src
 
 tar zxf pkg-config-0.29.1.tar.gz
 cd /usr/src/pkg-config-0.29.1
 ./configure --with-internal-glib --prefix=/usr
-make install
+make install >/dev/null
 cd /usr/src
 
 tar zxf libffi_3.2.1.orig.tar.gz
 cd /usr/src/libffi-3.2.1
 ./configure --enable-static --prefix=/usr
-make install
+make install >/dev/null
 cd /usr/src
 
 tar zxf sqlite-autoconf-3150200.tar.gz
 cd /usr/src/sqlite-autoconf-3150200
 ./configure --prefix=/usr --disable-static-shell --disable-dynamic-extensions
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf Python-2.7.13.tgz
@@ -412,7 +412,7 @@ cd /usr/src/Python-2.7.13
   --without-doc-strings --without-tsc --without-pymalloc \
   --with-fpectl --with-ensurepip=install --with-signal-module \
   --enable-ipv6 --enable-shared --enable-unicode=ucs4
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 xz -d glib-2.32.4.tar.xz
@@ -420,7 +420,7 @@ tar xf glib-2.32.4.tar
 cd /usr/src/glib-2.32.4
 CFLAGS="\$CFLAGS -DPR_SET_NAME=15 -DPR_GET_NAME=16" ./configure \
   --prefix=/usr --disable-xattr --disable-fam --disable-selinux --enable-static
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf dbus-1.2.12.tar.gz
@@ -428,26 +428,26 @@ cd /usr/src/dbus-1.2.12
 ./configure   --prefix=/usr --disable-selinux --disable-libaudit \
 --disable-dnotify --disable-inotify --disable-kqueue \
 --disable-userdb-cache --enable-abstract-sockets
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf dbus-glib-0.88.tar.gz
 cd /usr/src/dbus-glib-0.88
 ./configure --prefix=/usr
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 xz -d gobject-introspection-1.32.1.tar.xz
 tar xf gobject-introspection-1.32.1.tar
 cd /usr/src/gobject-introspection-1.32.1
 ./configure --prefix=/usr --disable-tests
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 tar zxf dbus-python-0.84.0.tar.gz
 cd /usr/src/dbus-python-0.84.0
 ./configure --prefix=/usr
-make; make install
+make >/dev/null; make install
 cd /usr/src
 
 xz -d pygobject-3.2.2.tar.xz
@@ -455,14 +455,14 @@ tar xf pygobject-3.2.2.tar
 cd /usr/src/pygobject-3.2.2
 ./configure --disable-glibtest --disable-cairo \
  --prefix=/usr --enable-static
-make -k
+make -k >/dev/null
 rm -f ./gi/_glib/.libs/libpyglib-gi-2.0-python.so{,.0,.0.0.0}
 ln -s libpyglib-gi-2.0-python.a ./gi/_glib/.libs/libpyglib-gi-2.0-python.so
 ln -s libpyglib-gi-2.0-python.a ./gi/_glib/.libs/libpyglib-gi-2.0-python.so.0
 ln -s libpyglib-gi-2.0-python.a ./gi/_glib/.libs/libpyglib-gi-2.0-python.so.0.0.0
 rm -f ./gi/_gi.la ./gi/_gobject/_gobject.la ./gi/_glib/_glib.la
 rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.la
-make -k
+make -k >/dev/null
 make install
 
 python -OO -m pip install six packaging appdirs
@@ -477,22 +477,22 @@ python -OO -m pip install \
 cd /usr/src
 tar zxf m4-1.4.18.tar.gz
 cd /usr/src/m4-1.4.18
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 
 cd /usr/src
 tar zxf autoconf-2.69.tar.gz
 cd /usr/src/autoconf-2.69
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 
 cd /usr/src
 tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
-./configure --prefix=/usr; make; make install
+./configure --prefix=/usr; make >/dev/null; make install
 
 python -O -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
-python -OO -m compileall
+python -OO -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
 
