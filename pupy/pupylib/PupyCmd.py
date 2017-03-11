@@ -788,15 +788,11 @@ class PupyCmd(cmd.Cmd):
             default_format=default_format
         )
 
-        print "DEBUG: {} / {}/{}".format(self.pupsrv.transport,
-                                             self.pupsrv.transport_kwargs, type(self.pupsrv.transport_kwargs))
-
         try:
             args = arg_parser.parse_args(shlex.split(arg))
         except PupyModuleExit:
             return
 
-        print "DEBUG: After parse: {}".format(args.launcher_args)
         if not args.launcher_args:
             args.launcher_args = [
                 x for x in [
