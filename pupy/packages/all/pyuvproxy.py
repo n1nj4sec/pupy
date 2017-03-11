@@ -174,7 +174,10 @@ class Connection(object):
             self.forward()
 
     def _start_connect(self, address):
-        self.socket.connect(address, self._on_connected)
+        try:
+            self.socket.connect(address, self._on_connected)
+        except:
+            self._on_connected(None, -1)
 
     def connect(self, address):
         self.loop.queue_work(lambda: self._start_connect(address))
