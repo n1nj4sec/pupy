@@ -37,7 +37,7 @@ class IGDCMDClient(object):
                             columnlen = len(column) - 3
                         else:
                             columnlen = len(column)
-                            
+
                         columns.append(column)
                         column_sizes[column] = max(len(str(cvalue)), columnlen)
                     else:
@@ -52,13 +52,13 @@ class IGDCMDClient(object):
                 header += colorize(fmt.format(column), 'yellow')
             lines.append(header)
 
-            for value in values:                    
+            for value in values:
                 row = ''
                 for column in columns:
                     fmt = ' {{:<{}}} '.format(column_sizes[column])
                     row += fmt.format(value[column])
                 lines.append(row)
-                
+
             self.log('\n'.join(lines))
 
     def addPM(self, args):
@@ -195,7 +195,7 @@ class IGDClient(PupyModule):
 
     def init_argparse(self):
         cli = IGDCMDClient()
-        
+
         parser = PupyArgumentParser(
             prog='igdc',
             description=self.__doc__
@@ -409,6 +409,10 @@ class IGDClient(PupyModule):
         igdc = self.client.conn.modules['network.lib.igd'].IGDClient
         UPNPError = self.client.conn.modules['network.lib.igd'].UPNPError
         self.cli.init(igdc, args, self.log)
+        if not self.cli.igdc.available:
+            self.error('IGD: Not found in LAN')
+            return
+
         self.cli.igdc.enableDebug(args.DEBUG)
         self.cli.igdc.enablePPrint(args.pretty_print)
         try:
