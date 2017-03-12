@@ -17,7 +17,8 @@ class Credentials(object):
         )
 
         if Encryptor.initialized() or password:
-            self.encryptor = Encryptor.instance(password=password)
+            self.encryptor = Encryptor.instance(
+                password=password, config=self.config)
         else:
             self.encryptor = None
 

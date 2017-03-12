@@ -37,29 +37,50 @@ import secretstorage
 
 class GnomeKeyring(object):
     def __init__(self):
-        self.bus=secretstorage.dbus_init()
+        try:
+            self.bus = secretstorage.dbus_init()
+        except:
+            self.bus = None
+
+        self.collection = {'application':'pupy'}
+
     def get_pass(self):
+        if not self.bus:
+            return
+
         try:
             collection = secretstorage.get_default_collection(self.bus)
             if collection.is_locked():
                 collection.unlock() # will open a gnome-keyring popup
-            x=collection.search_items({'application':'pupy'}).next()
+            x=collection.search_items(self.collection).next()
             return x.get_secret()
+
+        except StopIteration:
+            pass
+
         except Exception as e:
             logging.warning("Error with GnomeKeyring get_pass : %s"%e)
+
     def store_pass(self, password):
+        if not self.bus:
+            return
+
         try:
             collection = secretstorage.get_default_collection(self.bus)
             if collection.is_locked():
                 collection.unlock()
-            collection.create_item('pupy_credentials', {'application' : 'pupy'}, password)
+            collection.create_item('pupy_credentials', self.collection, password)
         except Exception as e:
             logging.warning("Error with GnomeKeyring store_pass : %s"%e)
+
     def del_pass(self):
+        if not self.bus:
+            return
+
         collection = secretstorage.get_default_collection(self.bus)
         if collection.is_locked():
             collection.unlock()
-        x=collection.search_items({'application':'pupy'}).next()
+        x=collection.search_items(self.collection).next()
         x.delete()
 
 class Encryptor(object):
@@ -74,22 +95,24 @@ class Encryptor(object):
         return not ( Encryptor._instance is None )
 
     @staticmethod
-    def instance(password=None, getpass_hook=None):
+    def instance(password=None, getpass_hook=None, config=None):
         if not Encryptor._instance:
             if not password:
-                config=PupyConfig()
-                use_gnome_keyring=config.getboolean('pupyd', 'use_gnome_keyring')
+                config = config or PupyConfig()
+                use_gnome_keyring = config.getboolean('pupyd', 'use_gnome_keyring')
+
                 if use_gnome_keyring:
-                    gkr=GnomeKeyring()
-                    password=gkr.get_pass()
-                if not password: 
+                    gkr = GnomeKeyring()
+                    password = gkr.get_pass()
+
+                if not password:
                     getpass_hook = getpass_hook or getpass
                     if use_gnome_keyring:
                         print '[I] use_gnome_keyring is true, the password will be stored in the Gnome-Keyring'
+
                     password = getpass_hook('[I] Credentials password: ')
                     if use_gnome_keyring:
                         gkr.store_pass(password)
-                        
 
             Encryptor._instance = Encryptor(password)
 
@@ -162,21 +185,21 @@ class Credentials(object):
             raise ValueError('Unsupported role: {}'.format(self.role))
 
         self._credentials = {}
-        for config in configfiles:
-            if path.exists(config):
-                with open(config, 'rb') as creds:
+        for configfile in configfiles:
+            if path.exists(configfile):
+                with open(configfile, 'rb') as creds:
                     content = creds.read()
                     if not content:
-                        raise ValueError('Corrupted file: {}'.format(config))
+                        raise ValueError('Corrupted file: {}'.format(configfile))
 
                     if content.startswith('Salted__'):
                         if not ENCRYPTOR:
                             raise EncryptionError(
-                                'Encrpyted credential storage: {}'.format(config)
+                                'Encrpyted credential storage: {}'.format(configfile)
                             )
 
                         fcontent = StringIO()
-                        encryptor = ENCRYPTOR(password=password)
+                        encryptor = ENCRYPTOR(password=password, config=config)
                         encryptor.decrypt(StringIO(content), fcontent)
                         content = fcontent.getvalue()
 
