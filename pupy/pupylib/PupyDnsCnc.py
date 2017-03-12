@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import logging
 from PupyCredentials import Credentials
 from network.lib.picocmd.server import *
 from network.lib.picocmd.picocmd import *
@@ -64,6 +64,7 @@ class PupyDnsCnc(object):
 
         credentials = credentials or Credentials()
         config = config or PupyConfig()
+        self.config = config
 
         connect_host = connect_host or config.getip('pupyd', 'address')
 
@@ -201,7 +202,8 @@ class PupyDnsCnc(object):
     def _external_ip(self):
         if self.igd and self.igd.available:
             return self.igd.GetExternalIP()['NewExternalIPAddress']
-        else:
+        elif self.config.getboolean('pupyd', 'allow_requests_to_external_services'):
+            logging.warning("Sending HTTP request to http://ifconfig.co to retrieve public IP ...")
             response = requests.get('http://ifconfig.co', headers={
                 'User-Agent': 'curl/7.50.0'
             })
