@@ -33,7 +33,10 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from StringIO import StringIO
 
-import secretstorage
+try:
+    import secretstorage
+except:
+    pass
 
 class GnomeKeyring(object):
     def __init__(self):
