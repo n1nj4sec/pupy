@@ -4,6 +4,9 @@ port = 8080
 ipv6 = false
 igd = false
 httpd = true
+dnscnc = localhost:5454
+use_gnome_keyring = false
+allow_requests_to_external_services = true
 
 [cmdline]
 display_banner = no
