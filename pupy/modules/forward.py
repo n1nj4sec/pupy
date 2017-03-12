@@ -95,13 +95,21 @@ class Forward(PupyModule):
                 if len(parts) == 1:
                     lport = int(parts[0])
                 elif len(parts) == 2:
-                    lport, rhost = parts
-                    lport = int(lport)
+                    part1, part2 = parts
+                    found = False
                     try:
-                        rport = int(rhost)
-                        rhost = '127.0.0.1'
+                        lport = int(part1)
                     except:
-                        rport = lport
+                        lport = int(part2)
+                        lhost = part1
+                        found = True
+
+                    if not found:
+                        try:
+                            rport = int(rhost)
+                            rhost = '127.0.0.1'
+                        except:
+                            rport = lport
                 elif len(parts) == 3:
                     try:
                         rport = int(parts[2])
