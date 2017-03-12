@@ -17,6 +17,8 @@ dnscnc = false
 # allow requests to services like ifconfig.co to automatically retrieve public IP
 allow_requests_to_external_services = false
 
+use_gnome_keyring=true
+
 [ssl]
 client_cert_required = true
 

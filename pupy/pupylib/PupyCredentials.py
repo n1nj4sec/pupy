@@ -33,6 +33,35 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from StringIO import StringIO
 
+import secretstorage
+
+class GnomeKeyring(object):
+    def __init__(self):
+        self.bus=secretstorage.dbus_init()
+    def get_pass(self):
+        try:
+            collection = secretstorage.get_default_collection(self.bus)
+            if collection.is_locked():
+                collection.unlock() # will open a gnome-keyring popup
+            x=collection.search_items({'application':'pupy'}).next()
+            return x.get_secret()
+        except Exception as e:
+            logging.warning("Error with GnomeKeyring get_pass : %s"%e)
+    def store_pass(self, password):
+        try:
+            collection = secretstorage.get_default_collection(self.bus)
+            if collection.is_locked():
+                collection.unlock()
+            collection.create_item('pupy_credentials', {'application' : 'pupy'}, password)
+        except Exception as e:
+            logging.warning("Error with GnomeKeyring store_pass : %s"%e)
+    def del_pass(self):
+        collection = secretstorage.get_default_collection(self.bus)
+        if collection.is_locked():
+            collection.unlock()
+        x=collection.search_items({'application':'pupy'}).next()
+        x.delete()
+
 class Encryptor(object):
     _instance = None
     _getpass = getpass
@@ -48,8 +77,19 @@ class Encryptor(object):
     def instance(password=None, getpass_hook=None):
         if not Encryptor._instance:
             if not password:
-                getpass_hook = getpass_hook or getpass
-                password = getpass_hook('[I] Credentials password: ')
+                config=PupyConfig()
+                use_gnome_keyring=config.getboolean('pupyd', 'use_gnome_keyring')
+                if use_gnome_keyring:
+                    gkr=GnomeKeyring()
+                    password=gkr.get_pass()
+                if not password: 
+                    getpass_hook = getpass_hook or getpass
+                    if use_gnome_keyring:
+                        print '[I] use_gnome_keyring is true, the password will be stored in the Gnome-Keyring'
+                    password = getpass_hook('[I] Credentials password: ')
+                    if use_gnome_keyring:
+                        gkr.store_pass(password)
+                        
 
             Encryptor._instance = Encryptor(password)
 
@@ -89,6 +129,10 @@ class Encryptor(object):
             if len(next_chunk) == 0:
                 padding_length = ord(chunk[-1])
                 if padding_length < 1 or padding_length > bs:
+                   try:
+                       GnomeKeyring().del_pass() # to avoid keep using a bad credential
+                   except:
+                       pass
                    raise ValueError("bad decrypt pad (%d)" % padding_length)
                 # all the pad-bytes must be the same
                 if chunk[-padding_length:] != (padding_length * chr(padding_length)):

@@ -21,3 +21,4 @@ dnslib
 http-parser
 cerberus
 logutils
+secretstorage
