@@ -26,6 +26,7 @@ class PupyConfig(ConfigParser):
             config
         ]
         self.randoms = {}
+        self.command_line = {}
 
         ConfigParser.__init__(self)
         self.read(self.files)
@@ -80,6 +81,10 @@ class PupyConfig(ConfigParser):
     def remove_option(self, section, key):
         if section != 'randoms':
             ConfigParser.unset(self, section, key)
+        elif section in self.command_line and key in self.command_line[section]:
+            del self.command_line[section][key]
+            if not self.command_line[section]:
+                del self.command_line[section]
         else:
             if key in self.randoms:
                 del self.randoms[key]
@@ -87,7 +92,16 @@ class PupyConfig(ConfigParser):
                 self.randoms = {}
 
     def set(self, section, key, value, **kwargs):
-        if section != 'randoms':
+        if kwargs.get('cmd', False):
+            if not section in self.command_line:
+                self.command_line[section] = {}
+            self.command_line[section][key] = str(value)
+        elif section != 'randoms':
+            if section in self.command_line and key in self.command_line[section]:
+                del self.command_line[section][key]
+                if not self.command_line[section]:
+                    del self.command_line[section]
+
             ConfigParser.set(self, section, key, value)
         else:
             if not key:
@@ -115,6 +129,9 @@ class PupyConfig(ConfigParser):
 
                 return self.randoms.get(args[1], None)
 
+            elif args[0] in self.command_line and args[1] in self.command_line[args[0]]:
+                return self.command_line[args[0]][args[1]]
+
             return ConfigParser.get(self, *args, **kwargs)
         except Error as e:
             return None
@@ -128,10 +145,20 @@ class PupyConfig(ConfigParser):
     def sections(self):
         sections = ConfigParser.sections(self)
         sections.append('randoms')
+        for section in self.command_line:
+            if not section in sections:
+                sections.append(section)
+
         return sections
 
     def options(self, section):
         if section != 'randoms':
             return ConfigParser.options(self, section)
 
-        return self.randoms.keys()
+        keys = self.randoms.keys()
+        if section in self.command_line:
+            for key in self.command_line[section]:
+                if not key in keys:
+                    keys.append(key)
+
+        return keys

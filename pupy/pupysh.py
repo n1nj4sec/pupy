@@ -85,12 +85,16 @@ if __name__=="__main__":
 
     config = PupyConfig()
 
-    pupyServer = PupyServer(
-        args.transport,
-        args.transport_args,
-        port=args.port,
-        config=config
-    )
+    if args.port:
+        config.set('pupyd', 'port', args.port, cmd=True)
+
+    if args.transport:
+        config.set('pupyd', 'transport', args.transport, cmd=True)
+
+    if args.transport_args:
+        config.set('pupyd', 'transport_args', args.transport_args, cmd=True)
+
+    pupyServer = PupyServer(config)
 
     pupycmd = PupyCmdLoop(pupyServer)
 

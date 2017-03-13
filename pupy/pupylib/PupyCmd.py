@@ -777,39 +777,20 @@ class PupyCmd(cmd.Cmd):
     def do_gen(self, arg):
         """ Generate payload with pupygen.py """
 
-        default_format = self.config.get('gen', 'format')
-        default_os = self.config.get('gen', 'os')
-        default_arch = self.config.get('gen', 'arch')
-
-        arg_parser = pupygen.get_parser(
-            PupyArgumentParser,
-            default_os=default_os,
-            default_arch=default_arch,
-            default_format=default_format
-        )
+        arg_parser = pupygen.get_parser(PupyArgumentParser, config=self.config)
 
         try:
             args = arg_parser.parse_args(shlex.split(arg))
         except PupyModuleExit:
             return
 
-        if not args.launcher_args:
-            args.launcher_args = [
-                x for x in [
-                    '-t', self.pupsrv.transport,
-                    self.pupsrv.transport_kwargs
-                ] if x
-            ]
-
         if self.pupsrv.httpd:
             wwwroot = self.config.get_folder('wwwroot')
             if not args.output_dir:
                 args.output_dir = wwwroot
 
-        args.default_port = self.pupsrv.port
-
         try:
-            output = pupygen.pupygen(args)
+            output = pupygen.pupygen(args, config=self.config)
         except Exception, e:
             self.display_error('payload generation failed: {}'.format(e))
             return

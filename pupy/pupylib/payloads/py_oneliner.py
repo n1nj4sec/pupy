@@ -8,7 +8,6 @@ import cPickle, re, os.path
 import rpyc, rsa, pyasn1, yaml
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
-from pupylib.utils.network import get_local_ip
 from pupylib.payloads.python_packer import get_load_module_code, gen_package_pickled_dic
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))

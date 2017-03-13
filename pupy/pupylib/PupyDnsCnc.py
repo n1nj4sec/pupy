@@ -6,6 +6,7 @@ from network.lib.picocmd.picocmd import *
 from Queue import Queue
 
 from pupylib.PupyConfig import PupyConfig
+from pupylib.utils.network import get_listener_ip
 
 import requests
 import netifaces
@@ -71,7 +72,12 @@ class PupyDnsCnc(object):
         self.igd = igd
         self.transport = connect_transport or config.get('pupyd', 'transport')
         self.port = int(connect_port  or config.getint('pupyd', 'port'))
-        self.host = [ connect_host ] if connect_host else self._all_ip()
+        self.host = connect_host if connect_host else get_listener_ip(
+            external=True, config=config, igd=igd
+        )
+        if self.host:
+            self.host = [ str(self.host) ]
+
         self.dns_domain = domain
         self.dns_port = port
         self.dns_listen = listen
@@ -180,33 +186,3 @@ class PupyDnsCnc(object):
     @property
     def commands(self):
         return self.handler.commands
-
-    def _all_ip(self):
-        ips = []
-        for interface in netifaces.interfaces():
-            for family in [ socket.AF_INET ]:
-                if interface.startswith('lo'):
-                    continue
-
-                addresses = netifaces.ifaddresses(interface)
-                if family in addresses:
-                    for address in addresses[family]:
-                        ips.append(address['addr'])
-
-        external_ip = self._external_ip()
-        if external_ip:
-            ips.append(external_ip)
-
-        return set(ips)
-
-    def _external_ip(self):
-        if self.igd and self.igd.available:
-            return self.igd.GetExternalIP()['NewExternalIPAddress']
-        elif self.config.getboolean('pupyd', 'allow_requests_to_external_services'):
-            logging.warning("Sending HTTP request to http://ifconfig.co to retrieve public IP ...")
-            response = requests.get('http://ifconfig.co', headers={
-                'User-Agent': 'curl/7.50.0'
-            })
-
-            if response.ok:
-                return response.content.strip()

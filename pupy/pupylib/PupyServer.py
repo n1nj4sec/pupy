@@ -47,7 +47,7 @@ from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, transport, transport_kwargs, port=None, config=None):
+    def __init__(self, config):
         super(PupyServer, self).__init__()
         self.daemon = True
         self.server = None
@@ -61,23 +61,25 @@ class PupyServer(threading.Thread):
         self._current_id_lock = threading.Lock()
 
         self.config = config or PupyConfig()
-        self.port = port or self.config.getint('pupyd', 'port')
+        self.port = self.config.getint('pupyd', 'port')
         self.address = self.config.getip('pupyd', 'address') or ''
+
         if self.address:
             self.ipv6 = self.address.version == 6
         else:
             self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
 
-        transport_args = (
-            transport or self.config.get('pupyd', 'transport')
-        ).split(' ', 1)
+        transport_args = self.config.get('pupyd', 'transport_args')
+        if transport_args:
+            transport_args = [ x.strip() for x in transport_args.split(' ', 1) if x ]
+        else:
+            transport_args = []
 
-        self.transport = transport_args[0]
+        self.transport = self.config.get('pupyd', 'transport')
         self.transport_kwargs = transport_args[1] if len(transport_args) > 1 else None
 
         self.handler = None
         self.handler_registered = threading.Event()
-        self.transport_kwargs = transport_kwargs
         self.categories = PupyCategories(self)
         self.igd = None
         self.finished = threading.Event()

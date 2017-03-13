@@ -1,6 +1,8 @@
 [pupyd]
 #listen on all interfaces by default
 #address = 192.168.0.1
+#external = 1.2.3.4
+#external_port = 444
 transport = ssl
 port = 443
 ipv6 = true
@@ -30,6 +32,10 @@ secret = false
 format = client
 os = windows
 arch = x86
+external = false
+#output =
+#launcher =
+#launcher_args = 
 
 [cmdline]
 display_banner = yes
