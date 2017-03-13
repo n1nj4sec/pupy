@@ -34,21 +34,13 @@ def add_registry_startup(cmd, name='Updater'):
         return False
 
 def remove_registry_startup(name='Updater'):
-    code = 'Remove-ItemProperty -Path HKCU:Software\Microsoft\Windows\CurrentVersion\Run\ -Name %s' % name
-    result = execute_powershell(code)
-    if not result:
+    try:
+        key = OpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
+        DeleteValue(key, name)
+        CloseKey(key)
         return True
-    else:
+    except Exception, e:
         return False
-
-    # TO DO: develop this function in pure python (not work yet)
-    # try:
-    #     aKey = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
-    #     DeleteKey(aKey, name)
-    #     CloseKey(aKey)
-    #     return True, ""
-    # except Exception, e:
-    #     return False, str(e)
 
 # ---------------- Persistence using WMI event ----------------
 
