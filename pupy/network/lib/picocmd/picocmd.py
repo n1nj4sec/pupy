@@ -10,11 +10,11 @@ import time
 import datetime
 import platform
 import uuid
-import uptime
 import urllib2
 import urlparse
 import StringIO
 import socket
+import psutil
 
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
@@ -199,7 +199,7 @@ class SystemInfo(Command):
         self.arch = arch or platform.machine()
         self.node = node or uuid.getnode()
         try:
-            self.boottime = boottime or uptime.boottime()
+            self.boottime = boottime or psutil.boot_time()
         except:
             self.boottime = datetime.datetime.fromtimestamp(0)
 
@@ -256,9 +256,25 @@ class SystemInfo(Command):
         archid = (block >> 1) & 7
         internet = bool(block & 1)
         node = from_bytes(node)
-        ip, boottime = struct.unpack('>II', rest)
-        boottime = datetime.datetime.fromtimestamp(boottime)
-        ip = netaddr.IPAddress(ip)
+
+        ip = 0
+        boottime = 0
+
+        try:
+            ip, boottime = struct.unpack('>II', rest)
+
+            try:
+                boottime = datetime.datetime.fromtimestamp(boottime)
+            except:
+                pass
+
+            try:
+                ip = netaddr.IPAddress(ip)
+            except:
+                pass
+
+        except:
+            pass
 
         return SystemInfo(
             system=SystemInfo.well_known_os_names_decode[osid],
