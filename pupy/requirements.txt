@@ -7,9 +7,8 @@ netaddr
 ecdsa==0.13
 paramiko==2.0.2
 tinyec
-uptime
+psutil
 netifaces
-mss
 m2crypto
 pylzma
 mss
