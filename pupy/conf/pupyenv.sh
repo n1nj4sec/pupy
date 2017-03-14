@@ -46,7 +46,7 @@ echo "$1" >/home/pupy/.project
 
 cd /opt/pupy
 
-find -type f -exec md5sum {} >/projects/integrity.txt
+find -type f -exec md5sum {} ';' >/projects/integrity.txt
 
 python -O -m compileall -qf
 python -OO -m compileall -qf
