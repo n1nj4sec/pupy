@@ -72,6 +72,9 @@ class Session(object):
 class DnsNoCommandServerException(Exception):
     pass
 
+class DnsPingRequest(Exception):
+    pass
+
 class DnsCommandServerException(Exception):
     def __init__(self, message, nonce):
         self.message = message
@@ -295,10 +298,23 @@ class DnsCommandServerHandler(BaseResolver):
         return response
 
     def _q_page_decoder(self, data):
+        parts = data.stripSuffix(self.domain).idna()[:-1].split('.')
+
+        if len(parts) == 0:
+            raise DnsPingRequest(1)
+        elif len(parts) == 1 and parts[0].startswith('ping'):
+            if len(parts[0]) == 4:
+                raise DnsPingRequest(15)
+            else:
+                raise DnsPingRequest(int(parts[0][4:]))
+
+        elif len(parts) not in (2,3):
+            raise DnsNoCommandServerException()
+
         parts = [
             base64.b32decode(''.join([
                 self.translation[x] for x in part
-            ])) for part in data.stripSuffix(self.domain).idna()[:-1].split('.')
+            ])) for part in parts
         ]
 
         if len(parts) == 2:
@@ -316,14 +332,12 @@ class DnsCommandServerHandler(BaseResolver):
                     raise DnsCommandServerException('NO_SESSION', nonce)
                 session = self.sessions[spi]
             encoder = session.encoder
-        else:
-            raise DnsNoCommandServerException()
 
         return encoder.decode(data, nonce, symmetric=True), session, nonce
 
 
     def _cmd_processor(self, command, session):
-        logging.debug('dnscnc:command={} session={}'.format(command, session))
+        logging.debug('dnscnc:commands={} session={}'.format(command, session))
 
         if isinstance(command, Poll) and session is None:
             return [Policy(self.interval, self.kex), Poll()]
@@ -341,12 +355,16 @@ class DnsCommandServerHandler(BaseResolver):
             return [Exit()]
 
         elif isinstance(command, Poll) and (session is not None):
-            self.on_keep_alive(session.system_info)
+            if session.system_info:
+                self.on_keep_alive(session.system_info)
+
             commands = session.commands
             return commands
 
         elif isinstance(command, Ack) and (session is not None):
-            self.on_keep_alive(session.system_info)
+            if session.system_info:
+                self.on_keep_alive(session.system_info)
+
             if command.amount > len(session.commands):
                 logging.info('ACK: invalid amount of commands: {} > {}'.format(
                     command.amount, len(session.commands)))
@@ -378,10 +396,18 @@ class DnsCommandServerHandler(BaseResolver):
             return [Error('NO_POLICY')]
 
     def resolve(self, request, handler):
+        if request.q.qtype != QTYPE.A:
+            reply = request.reply()
+            reply.header.rcode = RCODE.NXDOMAIN
+            logging.debug('Request unknown qtype: {}'.format(QTYPE.get(request.q.qtype)))
+            return reply
+
         with self.lock:
             data = request.q.qname
             part = data.stripSuffix(self.domain).idna()[:-1]
             if part in self.cache:
+                response = self.cache[part]
+                response.header.id = request.header.id
                 return self.cache[part]
 
             response = self._resolve(request, handler)
@@ -391,11 +417,6 @@ class DnsCommandServerHandler(BaseResolver):
     def _resolve(self, request, handler):
         qname = request.q.qname
         reply = request.reply()
-
-        if request.q.qtype != QTYPE.A:
-            reply.header.rcode = RCODE.NXDOMAIN
-            logging.debug('Request unknown qtype: {}'.format(QTYPE.get(request.q.qtype)))
-            return reply
 
         # TODO:
         # Resolve NS?, DS, SOA somehow
@@ -449,6 +470,16 @@ class DnsCommandServerHandler(BaseResolver):
             reply.header.rcode = RCODE.NXDOMAIN
             return reply
 
+        except DnsPingRequest, e:
+            for i in xrange(e.args[0]):
+                x = (i % 65536) >> 8
+                y = i % 256
+                a = RR('.', QTYPE.A, rdata=A('127.0.{}.{}'.format(x, y)), ttl=10)
+                a.rname = qname
+                reply.add_answer(a)
+
+            return reply
+
         except TypeError:
             # Usually - invalid padding
             reply.header.rcode = RCODE.NXDOMAIN
@@ -458,6 +489,8 @@ class DnsCommandServerHandler(BaseResolver):
             logging.exception(e)
             reply.header.rcode = RCODE.NXDOMAIN
             return reply
+
+        logging.debug('dnscnc:responses={} session={}'.format(responses, session))
 
         encoder = session.encoder if session else self.encoder
         for rr in self._a_page_encoder(Parcel(*responses).pack(), encoder, nonce):
