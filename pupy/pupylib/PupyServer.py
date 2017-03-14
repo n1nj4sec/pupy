@@ -66,6 +66,7 @@ class PupyServer(threading.Thread):
 
         if self.address:
             self.ipv6 = self.address.version == 6
+            self.address = str(self.address)
         else:
             self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
 
