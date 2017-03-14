@@ -95,7 +95,8 @@ class PupyDnsCnc(object):
         )
 
         if self.igd and self.igd.available:
-            self.igd.AddPortMapping(int(port), 'UDP', int(port))
+            self.igd.AddPortMapping(int(port), 'UDP', 53)
+            self.igd.AddPortMapping(int(port), 'TCP', 53)
 
         self.server.start()
 
