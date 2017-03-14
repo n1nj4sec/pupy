@@ -276,7 +276,7 @@ CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U
 
 cd /usr/lib/python2.7
 python -O -m compileall -q
-python -OO -m compileall -q
+python -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
 
@@ -498,7 +498,7 @@ python -O -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
 python -O -m compileall -q
-python -OO -m compileall -q
+python -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
 

@@ -48,8 +48,8 @@ cd /opt/pupy
 
 find -type f -exec md5sum {} ';' >/projects/integrity.txt
 
-python -O -m compileall -qf 1>/dev/null 2>/dev/null
-python -OO -m compileall -qf 1>/dev/null 2>/dev/null
+python -m compileall . -qf 1>/dev/null 2>/dev/null
+python -O -m compileall . -qf 1>/dev/null 2>/dev/null
 
 echo 'Copy your authorized_keys here!' >/projects/keys/README
 
