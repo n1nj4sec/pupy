@@ -15,6 +15,7 @@ httpd = false
 
 #dnscnc = localhost:5454 starts the DNS cnc listener on the port 5454.
 dnscnc = false
+recursor = false
 
 # allow requests to services like ifconfig.co to automatically retrieve public IP
 allow_requests_to_external_services = false

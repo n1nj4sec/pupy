@@ -81,8 +81,7 @@ if __name__=="__main__":
         PupyCredentials.ENCRYPTOR = None
 
     # Try to initialize credentials before CMD loop
-    PupyCredentials.Credentials()
-
+    credentials = PupyCredentials.Credentials()
     config = PupyConfig()
 
     if args.port:
@@ -94,8 +93,7 @@ if __name__=="__main__":
     if args.transport_args:
         config.set('pupyd', 'transport_args', args.transport_args, cmd=True)
 
-    pupyServer = PupyServer(config)
-
+    pupyServer = PupyServer(config, credentials)
     pupycmd = PupyCmdLoop(pupyServer)
 
     pupyServer.start()
