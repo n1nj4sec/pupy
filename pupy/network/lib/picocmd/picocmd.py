@@ -199,7 +199,9 @@ class SystemInfo(Command):
         self.arch = arch or platform.machine()
         self.node = node or uuid.getnode()
         try:
-            self.boottime = boottime or psutil.boot_time()
+            self.boottime = boottime or datetime.datetime.fromtimestamp(
+                psutil.boot_time()
+            )
         except:
             self.boottime = datetime.datetime.fromtimestamp(0)
 
