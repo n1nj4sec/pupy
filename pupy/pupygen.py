@@ -360,7 +360,7 @@ def get_parser(base_parser, config):
     parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
-    parser.add_argument('-E', '--prefer-external', default=config.get('gen', 'external'),
+    parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
     parser.add_argument('--ps1-oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner listener (default: %(default)s)")

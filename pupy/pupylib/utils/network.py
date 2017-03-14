@@ -58,7 +58,6 @@ def get_listener_ip(cache=True, external=False, config=None, igd=None):
                         igd.GetExternalIP()['NewExternalIPAddress']
                     )
                 except:
-                    print "pizda!"
                     pass
 
     elif config and not external:
