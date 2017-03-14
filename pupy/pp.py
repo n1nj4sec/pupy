@@ -157,8 +157,10 @@ class ReverseSlaveService(Service):
             raise
 
         try:
-            while True:
-                os.waitpid(-1, os.WNOHANG)
+            pid = os.waitpid(-1, os.WNOHANG)
+            while pid:
+                pid = os.waitpid(-1, os.WNOHANG)
+
         except OSError:
             pass
 
