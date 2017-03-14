@@ -16,7 +16,7 @@ PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-
 # PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc pyaml rsa pefile image rsa netaddr win_inet_pton netaddr tinyec pycrypto cryptography pypiwin32"
+PACKAGES="rpyc pyaml rsa pefile rsa netaddr win_inet_pton netaddr tinyec pycrypto cryptography pypiwin32"
 PACKAGES="$PACKAGES mss pyaudio scapy pyOpenSSL colorama pyuv"
 
 BUILDENV=${1:-`pwd`/buildenv}
@@ -235,8 +235,10 @@ rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
     cd $dir
     zip -q -y \
-	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
-	-x "*test/*" -x "*tests/*" -x "*examples/*" \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" -x "*.chm" \
+	-x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
+	-x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
+	-x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
 	-r9 ${TEMPLATES}/windows-x86.zip .
     cd -
 done
@@ -247,8 +249,10 @@ rm -f ${TEMPLATES}/windows-amd64.zip
 for dir in Lib DLLs; do
     cd $dir
     zip -q -y \
-	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" \
-	-x "*test/*" -x "*tests/*" -x "*examples/*" \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" -x "*.chm" \
+	-x "*test/*" -x "*tests/*" -x "*examples/*"  -x "pythonwin/*" \
+	-x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
+	-x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
 	-r9 ${TEMPLATES}/windows-amd64.zip .
     cd -
 done

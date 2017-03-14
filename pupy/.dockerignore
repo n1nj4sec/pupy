@@ -11,3 +11,5 @@ external/scapy
 **/__pycache__*
 **/test?
 packages/src
+**/*.pyc
+**/*.pyo

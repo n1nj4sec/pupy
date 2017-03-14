@@ -275,6 +275,7 @@ CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U
  python -O -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
+python -O -m compileall -q
 python -OO -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
@@ -496,6 +497,7 @@ cd /usr/src/automake-1.15
 python -O -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
+python -O -m compileall -q
 python -OO -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
@@ -526,6 +528,8 @@ cd buildenv/lin64/usr/lib/python2.7
 zip -y \
     -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
+    -x "*.egg-info/*" -x "*.dist-info/*" \
+    -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
     -r9 ${TEMPLATES}/linux-amd64.zip .
 cd -
 
@@ -533,6 +537,8 @@ cd buildenv/lin32/usr/lib/python2.7
 zip -y \
     -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
+    -x "*.egg-info/*" -x "*.dist-info/*" \
+    -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" -x "*.la" \
     -r9 ${TEMPLATES}/linux-x86.zip .
 cd -
 

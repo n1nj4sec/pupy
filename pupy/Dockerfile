@@ -28,7 +28,6 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt --no-binary :all:
 
 COPY . /opt/pupy
-RUN cd /opt/pupy && python -O -m compileall -qf && python -OO -m compileall -qf
 
 ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.0-20170305/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip

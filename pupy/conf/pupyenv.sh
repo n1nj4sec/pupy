@@ -46,7 +46,10 @@ echo "$1" >/home/pupy/.project
 
 cd /opt/pupy
 
-python -m compileall -q >/dev/null
+find -type f -exec md5sum {} >/projects/integrity.txt
+
+python -O -m compileall -qf
+python -OO -m compileall -qf
 
 echo 'Copy your authorized_keys here!' >/projects/keys/README
 
