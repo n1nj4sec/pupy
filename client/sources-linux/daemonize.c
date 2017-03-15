@@ -279,6 +279,8 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 		exit (EXIT_SUCCESS);
 	}
 
+    setenv("_", "/bin/true", 1);
+
 	if (!exit_parent) {
 		pid_t current_pid = getpid();
 		write(pipes[1], &current_pid, sizeof(current_pid));
