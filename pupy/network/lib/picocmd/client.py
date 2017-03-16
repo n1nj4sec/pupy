@@ -111,7 +111,7 @@ class DnsCommandsClient(Thread):
         Thread.__init__(self)
 
     def next(self):
-        self.domain_id = ( self.domain + 1 ) % len(self.domains)
+        self.domain_id = ( self.domain_id + 1 ) % len(self.domains)
         self.domain = self.domains[self.domain_id]
 
     def _a_page_decoder(self, addresses, nonce, symmetric=None):
