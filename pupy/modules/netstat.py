@@ -29,15 +29,10 @@ class NetStatModule(PupyModule):
 
     def run(self, args):
         try:
-            data = obtain(self.client.conn.modules.pupyps.connections())
-
-            families = {
-                v:k for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
-            }
-
-            sock = {
-                v:k for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
-            }
+            rpupyps = self.client.conn.modules.pupyps
+            data = obtain(rpupyps.connections())
+            sock = { int(x):y for x,y in obtain(rpupyps.socktypes).iteritems() }
+            families = { int(x):y for x,y in obtain(rpupyps.families).iteritems() }
 
             limit = []
 
@@ -55,8 +50,8 @@ class NetStatModule(PupyModule):
                     continue
 
                 color = ""
-                family = families[connection['family']][3:]
-                stype = sock[connection['type']][5:]
+                family = families[connection['family']]
+                stype = sock[connection['type']]
 
                 if limit and not stype in limit:
                     continue

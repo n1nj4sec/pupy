@@ -6,6 +6,17 @@ import collections
 import sys
 import os
 import time
+import socket
+
+families = {
+    v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
+}
+families.update({-1: 'LINK'})
+
+socktypes = {
+    v:k[5:] for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
+}
+
 
 def pstree():
     data = {}

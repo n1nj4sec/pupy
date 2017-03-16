@@ -23,15 +23,11 @@ class IPModule(PupyModule):
 
     def run(self, args):
         try:
-            data = obtain(self.client.conn.modules.pupyps.interfaces())
+            rpupyps = self.client.conn.modules.pupyps
+            data = obtain(rpupyps.interfaces())
+            families = { int(x):y for x,y in obtain(rpupyps.families).iteritems() }
 
             addrlen = max([len(x) for x in data['addrs']])+1
-
-            families = {
-                v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
-            }
-
-            families.update({-1: 'LINK'})
 
             familylen = max([len(v)-3 for v in families.itervalues()])+1
 
