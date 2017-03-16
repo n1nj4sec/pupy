@@ -521,12 +521,12 @@ class DnsCommandServer(object):
         self.tcp_server.logger = DNSLogger(log='log_error',prefix=False)
 
         self.udp_server_thread = Thread(
-            target=self.udp_server.serve_forever, kwargs={ 'poll_interval': 5000 }
+            target=self.udp_server.serve_forever, kwargs={ 'poll_interval': 50000 }
         )
         self.udp_server_thread.daemon = True
 
         self.tcp_server_thread = Thread(
-            target=self.tcp_server.serve_forever, kwargs={ 'poll_interval': 5000 }
+            target=self.tcp_server.serve_forever, kwargs={ 'poll_interval': 50000 }
         )
         self.tcp_server_thread.daemon = True
 
