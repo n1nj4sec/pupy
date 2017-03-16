@@ -119,5 +119,19 @@ def connections():
 
     return connections
 
+def interfaces():
+    return {
+        'addrs': {
+            x:[
+                { k:v for k,v in z.__dict__.iteritems() } for z in y
+            ] for x,y in psutil.net_if_addrs().iteritems()
+        },
+        'stats': {
+            x:{
+                k:v for k,v in y.__dict__.iteritems()
+            } for x,y in psutil.net_if_stats().iteritems()
+        }
+    }
+
 if __name__ == '__main__':
     print users()
