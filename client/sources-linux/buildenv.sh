@@ -57,6 +57,7 @@ mkdir -p buildenv/lin32/etc/ssl/certs
 for file in /etc/ssl/certs/*.0; do
     cat $file >buildenv/lin32/etc/ssl/certs/`basename "$file"`
 done
+cp /etc/ssl/certs/ca-* buildenv/lin32/etc/ssl/certs/
 
 cat /etc/resolv.conf >buildenv/lin32/etc/resolv.conf
 
@@ -313,6 +314,7 @@ mkdir -p buildenv/lin64/etc/ssl/certs
 for file in /etc/ssl/certs/*.0; do
     cat $file >buildenv/lin64/etc/ssl/certs/`basename "$file"`
 done
+cp /etc/ssl/certs/ca-* buildenv/lin64/etc/ssl/certs/
 
 cat /etc/resolv.conf >buildenv/lin64/etc/resolv.conf
 
