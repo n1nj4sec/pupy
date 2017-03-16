@@ -11,18 +11,18 @@
 /*! @brief Container struct for data the lives in a list. */
 typedef struct _NODE
 {
-	struct _NODE * next;  ///< Pointer to the next node in the list.
-	struct _NODE * prev;  ///< Pointer to the previous node in the list.
-	void *data;          ///< Reference to the data in the list node.
+    struct _NODE * next;  ///< Pointer to the next node in the list.
+    struct _NODE * prev;  ///< Pointer to the previous node in the list.
+    void *data;          ///< Reference to the data in the list node.
 } NODE, *PNODE;
 
 /*! @brief Container structure for a list instance. */
 typedef struct _LIST
 {
-	NODE * start;   ///< Pointer to the first node in the list.
-	NODE * end;     ///< Pointer to the last node in the list.
-	unsigned int count;    ///< Count of elements in the list.
-	pthread_mutex_t lock;    ///< Reference to the list's synchronisation lock.
+    NODE * start;   ///< Pointer to the first node in the list.
+    NODE * end;     ///< Pointer to the last node in the list.
+    unsigned int count;    ///< Count of elements in the list.
+    pthread_mutex_t lock;    ///< Reference to the list's synchronisation lock.
 } LIST, *PLIST;
 
 typedef bool (*PLISTENUMCALLBACK)(void * pState, void * pData);

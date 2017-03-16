@@ -20,16 +20,16 @@
  */
 PLIST list_create(void)
 {
-	PLIST pList = (PLIST)malloc(sizeof(LIST));
+    PLIST pList = (PLIST)malloc(sizeof(LIST));
 
-	if (pList != NULL)
-	{
-		pList->start = NULL;
-		pList->end = NULL;
-		pList->count = 0;
-		pthread_mutex_init(&pList->lock, NULL);
-	}
-	return pList;
+    if (pList != NULL)
+    {
+        pList->start = NULL;
+        pList->end = NULL;
+        pList->count = 0;
+        pthread_mutex_init(&pList->lock, NULL);
+    }
+    return pList;
 }
 
 /*!
@@ -40,36 +40,36 @@ PLIST list_create(void)
  */
 void list_destroy(PLIST pList)
 {
-	PNODE current_node;
-	PNODE next_node;
+    PNODE current_node;
+    PNODE next_node;
 
-	if (pList != NULL)
-	{
-		pthread_mutex_lock(&pList->lock);
+    if (pList != NULL)
+    {
+        pthread_mutex_lock(&pList->lock);
 
-		current_node = pList->start;
+        current_node = pList->start;
 
-		while (current_node != NULL)
-		{
-			next_node = current_node->next;
+        while (current_node != NULL)
+        {
+            next_node = current_node->next;
 
-			current_node->next = NULL;
+            current_node->next = NULL;
 
-			current_node->prev = NULL;
+            current_node->prev = NULL;
 
-			free(current_node);
+            free(current_node);
 
-			current_node = next_node;
-		}
+            current_node = next_node;
+        }
 
-		pList->count = 0;
+        pList->count = 0;
 
-		pthread_mutex_unlock(&pList->lock);
+        pthread_mutex_unlock(&pList->lock);
 
-		pthread_mutex_destroy(&pList->lock);
+        pthread_mutex_destroy(&pList->lock);
 
-		free(pList);
-	}
+        free(pList);
+    }
 }
 
 /*!
@@ -81,18 +81,18 @@ void list_destroy(PLIST pList)
  */
 unsigned int list_count(PLIST pList)
 {
-	unsigned int count = 0;
+    unsigned int count = 0;
 
-	if (pList != NULL)
-	{
-		pthread_mutex_lock(&pList->lock);
+    if (pList != NULL)
+    {
+        pthread_mutex_lock(&pList->lock);
 
-		count = pList->count;
+        count = pList->count;
 
-		pthread_mutex_unlock(&pList->lock);
-	}
+        pthread_mutex_unlock(&pList->lock);
+    }
 
-	return count;
+    return count;
 }
 
 /*!
@@ -105,42 +105,42 @@ unsigned int list_count(PLIST pList)
  */
 void * list_get(PLIST pList, unsigned int index)
 {
-	void * data = NULL;
-	PNODE current_node = NULL;
+    void * data = NULL;
+    PNODE current_node = NULL;
 
-	if (pList == NULL)
-		return NULL;
+    if (pList == NULL)
+        return NULL;
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
-	if (pList->count <= index)
-	{
-		pthread_mutex_unlock(&pList->lock);
-		return NULL;
-	}
+    if (pList->count <= index)
+    {
+        pthread_mutex_unlock(&pList->lock);
+        return NULL;
+    }
 
-	current_node = pList->start;
+    current_node = pList->start;
 
-	while (current_node != NULL)
-	{
-		if (index == 0)
-		{
-			break;
-		}
+    while (current_node != NULL)
+    {
+        if (index == 0)
+        {
+            break;
+        }
 
-		current_node = current_node->next;
+        current_node = current_node->next;
 
-		index--;
-	}
+        index--;
+    }
 
-	if (current_node != NULL)
-	{
-		data = current_node->data;
-	}
+    if (current_node != NULL)
+    {
+        data = current_node->data;
+    }
 
-	pthread_mutex_unlock(&pList->lock);
+    pthread_mutex_unlock(&pList->lock);
 
-	return data;
+    return data;
 }
 
 /*!
@@ -152,7 +152,7 @@ void * list_get(PLIST pList, unsigned int index)
  */
 bool list_add(PLIST pList, void * data)
 {
-	return list_push(pList, data);
+    return list_push(pList, data);
 }
 
 /*!
@@ -164,44 +164,44 @@ bool list_add(PLIST pList, void * data)
  */
 bool list_remove_node(PLIST pList, PNODE pNode)
 {
-	if (pList == NULL || pNode == NULL)
-	{
-		return false;
-	}
+    if (pList == NULL || pNode == NULL)
+    {
+        return false;
+    }
 
-	if (pList->count - 1 == 0)
-	{
-		pList->start = NULL;
-		pList->end = NULL;
-	}
-	else
-	{
-		if (pList->start == pNode)
-		{
-			pList->start = pList->start->next;
-			pList->start->prev = NULL;
-		}
-		else if (pList->end == pNode)
-		{
-			pList->end = pList->end->prev;
-			pList->end->next = NULL;
-		}
-		else
-		{
-			pNode->next->prev = pNode->prev;
-			pNode->prev->next = pNode->next;
-		}
-	}
+    if (pList->count - 1 == 0)
+    {
+        pList->start = NULL;
+        pList->end = NULL;
+    }
+    else
+    {
+        if (pList->start == pNode)
+        {
+            pList->start = pList->start->next;
+            pList->start->prev = NULL;
+        }
+        else if (pList->end == pNode)
+        {
+            pList->end = pList->end->prev;
+            pList->end->next = NULL;
+        }
+        else
+        {
+            pNode->next->prev = pNode->prev;
+            pNode->prev->next = pNode->next;
+        }
+    }
 
-	pList->count -= 1;
+    pList->count -= 1;
 
-	pNode->next = NULL;
+    pNode->next = NULL;
 
-	pNode->prev = NULL;
+    pNode->prev = NULL;
 
-	free(pNode);
+    free(pNode);
 
-	return true;
+    return true;
 }
 
 /*!
@@ -214,33 +214,33 @@ bool list_remove_node(PLIST pList, PNODE pNode)
  */
 bool list_remove(PLIST pList, void * data)
 {
-	bool result = false;
-	PNODE current_node = NULL;
+    bool result = false;
+    PNODE current_node = NULL;
 
-	if (pList == NULL || data == NULL)
-	{
-		return false;
-	}
+    if (pList == NULL || data == NULL)
+    {
+        return false;
+    }
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
-	current_node = pList->start;
+    current_node = pList->start;
 
-	while (current_node != NULL)
-	{
-		if (current_node->data == data)
-		{
-			break;
-		}
+    while (current_node != NULL)
+    {
+        if (current_node->data == data)
+        {
+            break;
+        }
 
-		current_node = current_node->next;
-	}
+        current_node = current_node->next;
+    }
 
-	result = list_remove_node(pList, current_node);
+    result = list_remove_node(pList, current_node);
 
-	pthread_mutex_unlock(&pList->lock);
+    pthread_mutex_unlock(&pList->lock);
 
-	return result;
+    return result;
 }
 
 /*!
@@ -251,38 +251,38 @@ bool list_remove(PLIST pList, void * data)
  */
 bool list_delete(PLIST pList, unsigned int index)
 {
-	bool result = false;
-	void * data = NULL;
-	PNODE current_node = NULL;
+    bool result = false;
+    void * data = NULL;
+    PNODE current_node = NULL;
 
-	if (pList == NULL)
-	{
-		return false;
-	}
+    if (pList == NULL)
+    {
+        return false;
+    }
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
-	if (pList->count > index)
-	{
-		current_node = pList->start;
+    if (pList->count > index)
+    {
+        current_node = pList->start;
 
-		while (current_node != NULL)
-		{
-			if (index == 0)
-			{
-				result = list_remove_node(pList, current_node);
-				break;
-			}
+        while (current_node != NULL)
+        {
+            if (index == 0)
+            {
+                result = list_remove_node(pList, current_node);
+                break;
+            }
 
-			current_node = current_node->next;
+            current_node = current_node->next;
 
-			index--;
-		}
-	}
+            index--;
+        }
+    }
 
-	pthread_mutex_unlock(&pList->lock);
+    pthread_mutex_unlock(&pList->lock);
 
-	return result;
+    return result;
 }
 
 /*!
@@ -293,42 +293,42 @@ bool list_delete(PLIST pList, unsigned int index)
  */
 bool list_push(PLIST pList, void * data)
 {
-	PNODE pNode = NULL;
+    PNODE pNode = NULL;
 
-	if (pList == NULL)
-		return false;
+    if (pList == NULL)
+        return false;
 
-	pNode = (PNODE)malloc(sizeof(NODE));
-	if (pNode == NULL)
-	{
-		return false;
-	}
+    pNode = (PNODE)malloc(sizeof(NODE));
+    if (pNode == NULL)
+    {
+        return false;
+    }
 
-	pNode->data = data;
-	pNode->next = NULL;
-	pNode->prev = NULL;
+    pNode->data = data;
+    pNode->next = NULL;
+    pNode->prev = NULL;
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
-	if (pList->end != NULL)
-	{
-		pList->end->next = pNode;
+    if (pList->end != NULL)
+    {
+        pList->end->next = pNode;
 
-		pNode->prev = pList->end;
+        pNode->prev = pList->end;
 
-		pList->end = pNode;
-	}
-	else
-	{
-		pList->start = pNode;
-		pList->end = pNode;
-	}
+        pList->end = pNode;
+    }
+    else
+    {
+        pList->start = pNode;
+        pList->end = pNode;
+    }
 
-	pList->count += 1;
+    pList->count += 1;
 
-	pthread_mutex_unlock(&pList->lock);
+    pthread_mutex_unlock(&pList->lock);
 
-	return true;
+    return true;
 }
 
 /*!
@@ -339,25 +339,25 @@ bool list_push(PLIST pList, void * data)
  */
 void * list_pop(PLIST pList)
 {
-	void * data = NULL;
+    void * data = NULL;
 
-	if (pList == NULL)
-	{
-		return NULL;
-	}
+    if (pList == NULL)
+    {
+        return NULL;
+    }
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
-	if (pList->end != NULL)
-	{
-		data = pList->end->data;
+    if (pList->end != NULL)
+    {
+        data = pList->end->data;
 
-		list_remove_node(pList, pList->end);
-	}
+        list_remove_node(pList, pList->end);
+    }
 
-	pthread_mutex_unlock(&pList->lock);
+    pthread_mutex_unlock(&pList->lock);
 
-	return data;
+    return data;
 }
 
 /*!
@@ -368,25 +368,25 @@ void * list_pop(PLIST pList)
  */
 void * list_shift(PLIST pList)
 {
-	void * data = NULL;
+    void * data = NULL;
 
-	if (pList == NULL)
-	{
-		return NULL;
-	}
+    if (pList == NULL)
+    {
+        return NULL;
+    }
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
-	if (pList->start != NULL)
-	{
-		data = pList->start->data;
+    if (pList->start != NULL)
+    {
+        data = pList->start->data;
 
-		list_remove_node(pList, pList->start);
-	}
+        list_remove_node(pList, pList->start);
+    }
 
-	pthread_mutex_unlock(&pList->lock);
+    pthread_mutex_unlock(&pList->lock);
 
-	return data;
+    return data;
 }
 
 /*!
@@ -397,25 +397,25 @@ void * list_shift(PLIST pList)
  */
 bool list_enumerate(PLIST pList, PLISTENUMCALLBACK pCallback, void * pState)
 {
-	PNODE pCurrent;
-	bool bResult;
-	if (pList == NULL || pCallback == NULL)
-	{
-		return false;
-	}
+    PNODE pCurrent;
+    bool bResult;
+    if (pList == NULL || pCallback == NULL)
+    {
+        return false;
+    }
 
-	pthread_mutex_lock(&pList->lock);
+    pthread_mutex_lock(&pList->lock);
 
 
-	pCurrent=pList->start;
-	bResult = false;
+    pCurrent=pList->start;
+    bResult = false;
 
-	while (pCurrent != NULL)
-	{
-		bResult = pCallback(pState, pCurrent->data) || bResult;
-		pCurrent = pCurrent->next;
-	}
+    while (pCurrent != NULL)
+    {
+        bResult = pCallback(pState, pCurrent->data) || bResult;
+        pCurrent = pCurrent->next;
+    }
 
-	pthread_mutex_unlock(&pList->lock);
-	return bResult;
+    pthread_mutex_unlock(&pList->lock);
+    return bResult;
 }

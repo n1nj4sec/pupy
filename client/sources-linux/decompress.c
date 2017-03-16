@@ -6,8 +6,8 @@
 #define CHUNK 8196
 
 int decompress(int fd, const char *buf, size_t size) {
-	int ret;
-	unsigned have;
+    int ret;
+    unsigned have;
     z_stream strm;
     unsigned char in[CHUNK];
     unsigned char out[CHUNK];
@@ -31,9 +31,9 @@ int decompress(int fd, const char *buf, size_t size) {
 
         strm.next_in = buf;
 
-		buf += strm.avail_in;
-		size -= strm.avail_in;
-		
+        buf += strm.avail_in;
+        size -= strm.avail_in;
+
         do {
             strm.avail_out = CHUNK;
             strm.next_out = out;
@@ -47,16 +47,16 @@ int decompress(int fd, const char *buf, size_t size) {
                 return ret;
             }
             have = CHUNK - strm.avail_out;
-			unsigned char *ptr = out;
-			while (have) {
-				int n = write(fd, ptr, have);
-				if (n == -1) {
-					(void)inflateEnd(&strm);
-					return Z_ERRNO;
-				}
-				have -= n;
-				ptr += n;
-			}
+            unsigned char *ptr = out;
+            while (have) {
+                int n = write(fd, ptr, have);
+                if (n == -1) {
+                    (void)inflateEnd(&strm);
+                    return Z_ERRNO;
+                }
+                have -= n;
+                ptr += n;
+            }
 
         } while (strm.avail_out == 0);
 

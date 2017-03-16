@@ -29,18 +29,18 @@
 
 inline static int pupy_memfd_create(char *path, unsigned int path_size)
 {
-	int fd = syscall(__NR_memfd_create, "heap", MFD_CLOEXEC | MFD_ALLOW_SEALING);
-	if (fd == -1) {
-		return -1;
-	}
+    int fd = syscall(__NR_memfd_create, "heap", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    if (fd == -1) {
+        return -1;
+    }
 
-	snprintf(path, path_size, MEMFD_FILE_PATH "%d", fd);
-	return fd;
+    snprintf(path, path_size, MEMFD_FILE_PATH "%d", fd);
+    return fd;
 }
 
 inline static bool is_memfd_path(const char *path)
 {
-	return !strncmp(path, MEMFD_FILE_PATH, strlen(MEMFD_FILE_PATH));
+    return !strncmp(path, MEMFD_FILE_PATH, strlen(MEMFD_FILE_PATH));
 }
 
 #endif

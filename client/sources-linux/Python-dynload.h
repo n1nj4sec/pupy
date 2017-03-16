@@ -12,15 +12,15 @@ typedef
     enum {PyGILState_LOCKED, PyGILState_UNLOCKED}
         PyGILState_STATE;
 typedef struct {
-	char *ml_name;
-	PyCFunction ml_meth;
-	int ml_flags;
-	char *ml_doc;
+    char *ml_name;
+    PyCFunction ml_meth;
+    int ml_flags;
+    char *ml_doc;
 } PyMethodDef;
 
 struct IMPORT {
-	char *name;
-	void (*proc)();
+    char *name;
+    void (*proc)();
 };
 
 extern int _load_python(void *hmod);
@@ -56,5 +56,5 @@ extern void Py_XDECREF(PyObject *ob);
 #define DL_EXPORT(x) x
 
 #define Py_InitModule3(name, methods, doc) \
-	Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
-		       PYTHON_API_VERSION)
+    Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
+               PYTHON_API_VERSION)

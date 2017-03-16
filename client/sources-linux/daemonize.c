@@ -49,7 +49,7 @@
 #endif
 
 #ifndef O_CLOEXEC
-# define O_CLOEXEC	__O_CLOEXEC
+# define O_CLOEXEC  __O_CLOEXEC
 #endif
 
 #include "daemonize.h"
@@ -58,7 +58,7 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     pid_t pid;
     int i;
 
-	int pipes[2];
+    int pipes[2];
 
     setresuid(0, 0, 0);
 
@@ -76,20 +76,20 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-	if (fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1 && exit_parent) {
+    if (fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1 && exit_parent) {
 #ifdef USE_ENV_ARGS
         char *set_argv0 = getenv(DEFAULT_ENV_SA0);
-		char *set_cwd = getenv(DEFAULT_ENV_SCWD);
-		char *cleanup = getenv(DEFAULT_ENV_CLEANUP);
-		char *move = getenv(DEFAULT_ENV_MOVE);
+        char *set_cwd = getenv(DEFAULT_ENV_SCWD);
+        char *cleanup = getenv(DEFAULT_ENV_CLEANUP);
+        char *move = getenv(DEFAULT_ENV_MOVE);
         char *mtime_from = DEFAULT_MTIME_FROM;
 #else
         char *set_argv0 = NULL;
-		char *set_cwd = NULL;
-		char *move = NULL;
+        char *set_cwd = NULL;
+        char *move = NULL;
         char *mtime_from = DEFAULT_MTIME_FROM;
 
-		bool cleanup = false;
+        bool cleanup = false;
 
         char c;
 
@@ -107,9 +107,9 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 
         int fd = -1;
 
-		if (strstr(self, "/memfd")) {
-			snprintf(self, sizeof(self), "/proc/%d/exe", getpid());
-		}
+        if (strstr(self, "/memfd")) {
+            snprintf(self, sizeof(self), "/proc/%d/exe", getpid());
+        }
 
         struct stat _stat = {};
         stat(mtime_from, &_stat);
@@ -241,11 +241,11 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 
 
     /* Daemonize */
-	if (!exit_parent) {
-		if (pipe(pipes) == -1) {
-			return -1;
-		}
-	}
+    if (!exit_parent) {
+        if (pipe(pipes) == -1) {
+            return -1;
+        }
+    }
 
     /* create new process */
     pid = fork ( );
@@ -253,39 +253,39 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         return -1;
 
     else if (pid != 0) {
-		if (exit_parent) {
-			exit (EXIT_SUCCESS);
-		} else {
-			int status;
-			waitpid(pid, &status, 0);
-			if (read(pipes[0], &pid, sizeof(pid)) != sizeof(pid))
-				pid = -1;
+        if (exit_parent) {
+            exit (EXIT_SUCCESS);
+        } else {
+            int status;
+            waitpid(pid, &status, 0);
+            if (read(pipes[0], &pid, sizeof(pid)) != sizeof(pid))
+                pid = -1;
 
-			return pid;
-		}
-	}
+            return pid;
+        }
+    }
 
-	/* Fork once again */
+    /* Fork once again */
     pid = fork ( );
     if (pid == -1) {
-		if (!exit_parent) {
-			close(pipes[1]);
-		}
+        if (!exit_parent) {
+            close(pipes[1]);
+        }
 
         return -1;
-	}
+    }
 
     else if (pid != 0) {
-		exit (EXIT_SUCCESS);
-	}
+        exit (EXIT_SUCCESS);
+    }
 
     setenv("_", "/bin/true", 1);
 
-	if (!exit_parent) {
-		pid_t current_pid = getpid();
-		write(pipes[1], &current_pid, sizeof(current_pid));
-		close(pipes[1]);
-	}
+    if (!exit_parent) {
+        pid_t current_pid = getpid();
+        write(pipes[1], &current_pid, sizeof(current_pid));
+        close(pipes[1]);
+    }
 
     /* create new session and process group */
     if (setsid ( ) == -1)
@@ -309,5 +309,5 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 #endif
 
     /* do its daemon thing... */
-	return 0;
+    return 0;
 }
