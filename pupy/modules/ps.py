@@ -54,7 +54,8 @@ def gen_output_line(columns, info, record, width):
     template = ' '.join('{{{}}}'.format(x) for x in info)
     output = template.format(**columns)
     if width:
-        output = output[:width]
+        diff = len(output) - len(output.decode('utf-8', 'replace'))
+        output = output[:width+diff]
 
     if color:
         output = colorize(output, color)
@@ -164,9 +165,6 @@ class PsModule(PupyModule):
             hide = [
                 int(x) if x.isdigit() else x for x in args.hide
             ]
-            show = [
-                int(x) if x.isdigit() else x for x in args.show
-            ]
 
             if not args.all and self.client.is_linux():
                 hide.append(2)
@@ -175,7 +173,7 @@ class PsModule(PupyModule):
                 info = [ 'username', 'cpu_percent', 'memory_percent' ] + info
 
             if args.tree:
-                show = show or [ root ]
+                show = args.show or [ root ]
 
                 for item in show:
                     print_pstree(
@@ -184,7 +182,10 @@ class PsModule(PupyModule):
                         hide=hide, first=(item == root)
                     )
             else:
-                data = [ x for x in data if x in args.show ] if args.show else data
+                data = {
+                    x:y for x,y in data.iteritems() if x in args.show
+                } if args.show else data
+
                 print_ps(
                     self.stdout, data, width=None if args.wide else width,
                     colinfo=colinfo, info=info, hide=hide
