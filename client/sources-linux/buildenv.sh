@@ -94,7 +94,7 @@ export TERM=
 export DEBIAN_FRONTEND=noninteractive
 /bin/sh -c "apt-get --force-yes -y install gcc-3.0 make libc-dev \
  perl m4 gettext libexpat1-dev flex bison file libstdc++2.10-dev \
- libtool patch xutils < /dev/null"
+ libtool patch xutils xlibs-dev < /dev/null"
 
 cd /
 gcc -fPIC -o /wrap.so -shared /wrap.c
@@ -106,6 +106,8 @@ ln -sf /usr/lib/libffi.a /opt/static/
 ln -sf /usr/lib/libutil.a /opt/static/
 ln -sf /usr/bin/gcc-3.0 /usr/bin/gcc
 ln -sf /usr/bin/gcc-3.0 /usr/bin/cc
+ln -sf /usr/X11R6/lib/libX11.so /usr/lib/
+ln -sf /usr/X11R6/lib/libXss.a /usr/lib/
 
 export CFLAGS="-Os -fPIC -pipe -L/opt/static" CXXFLAGS="-Os -fPIC -pipe" LDFLAGS="-s -O1 -fPIC -L/opt/static"
 
@@ -251,7 +253,7 @@ python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy colorama pyOpenSSL \
+       scapy colorama pyOpenSSL xprintidle \
        --upgrade --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
@@ -347,7 +349,8 @@ useradd -u $XID -m pupy
 export TERM=
 export DEBIAN_FRONTEND=noninteractive
 /bin/sh -c "apt-get --force-yes -y install build-essential make libc-dev \
- perl m4 gettext libexpat1-dev flex bison file libtool patch xutils < /dev/null"
+ perl m4 gettext libexpat1-dev flex bison file libtool patch xutils \
+ libx11-dev libxss-dev < /dev/null"
 
 cd /
 gcc -fPIC -o /wrap.so -shared /wrap.c
@@ -474,7 +477,7 @@ python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy colorama pyOpenSSL \
+       scapy colorama pyOpenSSL xprintidle \
        --upgrade --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
