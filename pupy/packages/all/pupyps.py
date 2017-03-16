@@ -98,9 +98,19 @@ def users():
     return info
 
 def connections():
-    info = {}
-    me = psutil.Process()
+    connections = []
 
+    for connection in psutil.net_connections():
+        obj = { k:v for k,v in connection.__dict__.iteritems() }
+        if connection.pid:
+            obj.update(
+                psutil.Process(connection.pid).as_dict({
+                    'pid', 'exe', 'name', 'username'
+                })
+            )
+        connections.append(obj)
+
+    return connections
 
 if __name__ == '__main__':
     print users()
