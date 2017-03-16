@@ -63,7 +63,7 @@ class WModule(PupyModule):
                             object.update({
                                 'IDLE': colorize(str(timedelta(seconds=session['idle'])), color),
                                 'PID': colorize(str(session.get('pid', '')), color),
-                                'WHAT': colorize(what, color)
+                                'WHAT': colorize(what[:30]+'…' if len(what) > 30 else what, color)
                             })
 
                         tablein.append(object)
