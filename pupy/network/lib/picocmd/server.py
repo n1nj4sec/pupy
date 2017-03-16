@@ -32,6 +32,7 @@ class Session(object):
         self._last_access = 0
         self._timeout = timeout
         self.system_info = None
+        self.system_status = None
         self.commands = commands
         self.last_nonce = None
         self.last_qname = None
@@ -354,9 +355,14 @@ class DnsCommandServerHandler(BaseResolver):
 
             return [Exit()]
 
-        elif isinstance(command, Poll) and (session is not None):
+        elif (
+                isinstance(command, Poll) or isinstance(command, SystemStatus)
+            ) and (session is not None):
             if session.system_info:
                 self.on_keep_alive(session.system_info)
+
+            if isinstance(command, SystemStatus):
+                session.system_status = command.get_dict()
 
             commands = session.commands
             return commands

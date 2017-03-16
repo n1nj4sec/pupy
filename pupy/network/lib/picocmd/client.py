@@ -259,7 +259,11 @@ class DnsCommandsClient(Thread):
         pass
 
     def process(self):
-        commands = list(self._request(Poll()))
+        if self.spi:
+            commands = list(self._request(SystemStatus()))
+        else:
+            commands = list(self._request(Poll()))
+
     	logging.debug('commands: {}'.format(commands))
         ack = self._request(Ack(len(commands)))
         if not ( len(ack) == 1 and isinstance(ack[0], Ack)):
@@ -283,6 +287,10 @@ class DnsCommandsClient(Thread):
                     self.spi = kex.spi
             elif isinstance(command, Poll):
                 ack = self._request(SystemInfo())
+                if not len(response) == 1 and not isinstance(response[0], Ack):
+                    logging.error('SystemInfo: ACK expected but {} found'.format(
+                        response))
+                ack = self._request(SystemStatus())
                 if not len(response) == 1 and not isinstance(response[0], Ack):
                     logging.error('SystemInfo: ACK expected but {} found'.format(
                         response))

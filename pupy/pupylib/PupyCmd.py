@@ -831,6 +831,8 @@ class PupyCmd(cmd.Cmd):
         status = commands.add_parser('status', help='DNSCNC status')
         clist = commands.add_parser('list', help='List known DNSCNC clients')
 
+        info = commands.add_parser('info', help='List known DNSCNC clients system status')
+
         policy = commands.add_parser('set', help='Change policy (polling, timeout)')
         policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
         policy.add_argument('-k', '--kex', type=bool, help='Enable KEX')
@@ -896,6 +898,44 @@ class PupyCmd(cmd.Cmd):
                 self.display('\nDEFAULT COMMANDS:\n'+'\n'.join([
                     '{:03d} {}'.format(i, cmd) for i, cmd in enumerate(self.dnscnc.commands)
                 ]))
+
+        elif args.command == 'info':
+            sessions = self.dnscnc.list()
+            if not sessions:
+                self.display_success('No active DNSCNC sesisons found')
+                return
+
+            objects = []
+
+            for idx, session in enumerate(sessions):
+                if not ( session.system_status and session.system_info ):
+                    continue
+
+                objects.append({
+                    '#': '{:03d}'.format(idx),
+                    'NODE': '{:012x}'.format(session.system_info['node']),
+                    'SESSION': '{:08x}'.format(session.spi),
+                    'IP': ', '.join(self.dnscnc.host),
+                    'OS': '{}/{}'.format(
+                        session.system_info['os'],
+                        session.system_info['arch']
+                    ),
+                    'CPU': '{:d}%'.format(session.system_status['cpu']),
+                    'MEM': '{:d}%'.format(session.system_status['mem']),
+                    'LIS': '{:d}'.format(session.system_status['listen']),
+                    'EST': '{:d}'.format(session.system_status['remote']),
+                    'USERS': '{:d}'.format(session.system_status['users']),
+                    'IDLE': '{}'.format(session.system_status['idle']),
+                })
+
+            columns = [
+                '#', 'NODE', 'SESSION', 'IP', 'OS',
+                'CPU', 'MEM', 'LIS', 'EST', 'USERS', 'IDLE'
+            ]
+
+            self.display(
+                PupyCmd.table_format(objects, wl=columns)
+            )
 
         elif args.command == 'list':
             sessions = self.dnscnc.list()
