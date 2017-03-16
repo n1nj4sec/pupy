@@ -52,6 +52,7 @@ class WModule(PupyModule):
                                 
                             object.update({
                                 'IDLE': str(timedelta(seconds=session['idle'])),
+                                'PID': session.get('pid', ''),
                                 'WHAT': what
                             })
                             
