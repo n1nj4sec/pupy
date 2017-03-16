@@ -61,7 +61,9 @@ class NetStatModule(PupyModule):
                 if limit and not stype in limit:
                     continue
 
-                if connection['status'] in ('CLOSE_WAIT', 'TIME_WAIT', 'TIME_WAIT2'):
+                if connection.get('me'):
+                    color = 'green'
+                elif connection['status'] in ('CLOSE_WAIT', 'TIME_WAIT', 'TIME_WAIT2'):
                     color = 'darkgrey'
                 elif ( '127.0.0.1' in connection['laddr'] or '::1' in connection['laddr'] ):
                     color = 'grey'

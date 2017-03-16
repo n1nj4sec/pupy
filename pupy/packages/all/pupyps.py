@@ -100,6 +100,8 @@ def users():
 def connections():
     connections = []
 
+    me = psutil.Process()
+
     for connection in psutil.net_connections():
         obj = { k:v for k,v in connection.__dict__.iteritems() }
         if connection.pid:
@@ -108,6 +110,11 @@ def connections():
                     'pid', 'exe', 'name', 'username'
                 })
             )
+            if connection.pid == me.pid:
+                obj.update({
+                    'me': True
+                })
+
         connections.append(obj)
 
     return connections
