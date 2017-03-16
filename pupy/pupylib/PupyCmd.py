@@ -87,10 +87,14 @@ def get_columns_size(l):
         for i,k in d.iteritems():
             if type(k) is not str:
                 k=str(k)
+
+            escalign=len(''.join(re.findall('(\033[^m]+m)', k)))
+            l = len(k) - escalign
+
             if not i in size_dic:
-                size_dic[i]=len(k)
-            elif size_dic[i]<len(k):
-                size_dic[i]=len(k)
+                size_dic[i]=l
+            elif size_dic[i]<l:
+                size_dic[i]=l
     return size_dic
 
 def obj2utf8(obj):
@@ -219,7 +223,8 @@ class PupyCmd(cmd.Cmd):
                     else:
                         value=c[name].strip()
                     utf8align=len(value)-len(value.decode('utf8',errors='replace'))
-                    res+=value.ljust(colsize[name]+2+utf8align)
+                    escalign=len(''.join(re.findall('(\033[^m]+m)', value)))
+                    res+=value.ljust(colsize[name]+2+utf8align+escalign)
                 res+="\n"
         return res
 
