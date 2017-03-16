@@ -15,7 +15,7 @@ def gen_columns(record, colinfo):
     columns['name'] = record.get('name') or '?'
     columns['cmdline'] = ' '.join([
         x for x in record['cmdline'][1:] if x.strip()
-    ]) if 'cmdline' in record else ''
+    ]) if record.get('cmdline') else ''
     columns['exe'] = record.get('exe') or '{{{}}}'.format(columns['name'])
     columns['username'] = record.get('username') or ''
     cpu = record.get('cpu_percent')
@@ -92,6 +92,7 @@ def print_pstree(fout, parent, tree, data,
             prefix=indent+('┌' if first else '├'), indent=indent + '│ ', width=width,
             colinfo=colinfo, info=info, hide=hide
         )
+        first = False
 
     child = tree[parent][-1]
     print_pstree(
@@ -123,6 +124,7 @@ class PsModule(PupyModule):
     """ list processes """
 
     dependencies = [ 'pupyps' ]
+    is_module=False
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="ps", description=self.__doc__)
