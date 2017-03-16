@@ -4,6 +4,8 @@ import psutil
 
 import collections
 import sys
+import os
+import time
 
 def pstree():
     data = {}
@@ -51,5 +53,54 @@ def pstree():
 
     return min(tree), tree, data
 
+def users():
+    info = {}
+    me = psutil.Process()
+    terminals = {}
+
+    if hasattr(me, 'terminal'):
+        for p in psutil.process_iter():
+            pinfo = p.as_dict(['terminal', 'pid', 'exe', 'name', 'cmdline'])
+            if pinfo.get('terminal'):
+                terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
+
+    me = me.username()
+
+    for term in psutil.users():
+        terminfo = {
+            k:v for k,v in term.__dict__.iteritems() if v and k not in ('host', 'name')
+        }
+
+        if 'terminal' in terminfo:
+            try:
+                terminfo['idle'] = int(time.time()) - int(os.stat(
+                    '/dev/{}'.format(terminfo['terminal'])
+                ).st_atime)
+            except Exception, e:
+                pass
+
+            if terminfo['terminal'] in terminals:
+                terminfo.update(terminals[terminfo['terminal']])
+
+        host = term.host or '-'
+
+        if not term.name in info:
+            info[term.name] = {}
+
+        if not host in info[term.name]:
+            info[term.name][host] = []
+
+        if term.name == me or me.endswith('\\'+term.name):
+            terminfo['me'] = True
+
+        info[term.name][host].append(terminfo)
+
+    return info
+
+def connections():
+    info = {}
+    me = psutil.Process()
+
+
 if __name__ == '__main__':
-    print pstree()
+    print users()
