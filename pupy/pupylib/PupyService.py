@@ -22,6 +22,7 @@ import ssl
 import logging
 import traceback
 import json
+import zlib
 
 from pupylib.PupyCredentials import Credentials
 
@@ -96,8 +97,12 @@ class PupyService(rpyc.Service):
     def exposed_set_modules(self, modules):
         self.modules=modules
 
-    def exposed_json_dumps(self, js):
-        return json.dumps(js)
+    def exposed_json_dumps(self, js, compressed=False):
+        data = json.dumps(js)
+        if compressed:
+            data = zlib.compress(data)
+
+        return data
 
 class PupyBindService(PupyService):
     def exposed_get_password(self):

