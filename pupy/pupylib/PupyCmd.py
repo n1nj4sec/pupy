@@ -920,7 +920,7 @@ class PupyCmd(cmd.Cmd):
                     '#': '{:03d}'.format(idx),
                     'NODE': '{:012x}'.format(session.system_info['node']),
                     'SESSION': '{:08x}'.format(session.spi),
-                    'IP': ', '.join(self.dnscnc.host),
+                    'IP': session.system_info['external_ip'] or '?',
                     'OS': '{}/{}'.format(
                         session.system_info['os'],
                         session.system_info['arch']
