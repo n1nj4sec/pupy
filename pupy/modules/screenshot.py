@@ -73,9 +73,9 @@ class screenshoter(PupyModule):
             self.success('number of monitor detected: %s' % str(len(screenshots)))
             # Tring to make the directory before attempting to save there
             try:
-                makedirs(path.join("data", "webcam_snaps"))
+                makedirs(path.join("data", "screenshots"))
             except Exception as e:
-                self.error("Couldn't create the directory data/webcam_snaps %s" % error)
+                self.error("Couldn't create the directory data/screenshots %s" % error)
 
             for screenshot in screenshots:
                 filepath = path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".png")
