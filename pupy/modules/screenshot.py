@@ -71,10 +71,11 @@ class screenshoter(PupyModule):
             self.error(error)
         else:
             self.success('number of monitor detected: %s' % str(len(screenshots)))
-            # Tring to make the directory before attempting to save there
             try:
-                makedirs(path.join("data", "screenshots"))
-            except Exception as e:
+                # If the directory doesnt exist then try to create it
+                if not path.isdir("data/screenshots"):
+                    makedirs(path.join("data", "screenshots"))
+            except Exception as error:
                 self.error("Couldn't create the directory data/screenshots %s" % error)
 
             for screenshot in screenshots:
