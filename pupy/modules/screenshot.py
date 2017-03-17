@@ -31,7 +31,7 @@
 # --------------------------------------------------------------
 
 from pupylib.PupyModule import *
-from os import path
+from os import path, makedirs
 
 import time
 import datetime
@@ -71,7 +71,13 @@ class screenshoter(PupyModule):
             self.error(error)
         else:
             self.success('number of monitor detected: %s' % str(len(screenshots)))
-            
+            try:
+                # If the directory doesnt exist then try to create it
+                if not path.isdir("data/screenshots"):
+                    makedirs(path.join("data", "screenshots"))
+            except Exception as error:
+                self.error("Couldn't create the directory data/screenshots %s" % error)
+
             for screenshot in screenshots:
                 filepath = path.join("data","screenshots","scr_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".png")
                 with open(filepath, 'w') as out:
