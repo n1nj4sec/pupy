@@ -17,6 +17,49 @@ socktypes = {
     v:k[5:] for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
 }
 
+def psinfo(pids):
+    garbage = ( 'num_ctx_switches', 'memory_full_info', 'cpu_affinity' )
+    data = {}
+
+    for pid in pids:
+        try:
+            process = psutil.Process(pid)
+        except:
+            continue
+
+        info = {}
+        for key, val in process.as_dict().iteritems():
+            if key in garbage:
+                continue
+
+            newv = None
+            if type(val) == list:
+                newv = []
+                for item in val:
+                    if hasattr(item, '__dict__'):
+                        newv.append({
+                            k:v for k,v in item.__dict__.iteritems()
+                        })
+                    else:
+                        newv.append(item)
+
+                if all([type(x) in (str, unicode) for x in newv]):
+                    newv = ' '.join(newv)
+            else:
+                if hasattr(val, '__dict__'):
+                    newv = [{
+                        'KEY': k, 'VALUE':v
+                    } for k,v in val.__dict__.iteritems()]
+                else:
+                    newv = val
+
+            info.update({key: newv})
+
+        data.update({
+            pid: info
+        })
+
+    return data
 
 def pstree():
     data = {}
@@ -145,4 +188,4 @@ def interfaces():
     }
 
 if __name__ == '__main__':
-    print users()
+    print psinfo([os.getpid()])[os.getpid()].keys()
