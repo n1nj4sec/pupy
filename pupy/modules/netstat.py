@@ -78,7 +78,7 @@ class NetStatModule(PupyModule):
 
             self.stdout.write(
                 PupyCmd.table_format(objects, wl=[
-                    'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'EXE'
+                    'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'PID', 'EXE'
                 ]))
 
         except Exception, e:
