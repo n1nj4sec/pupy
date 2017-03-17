@@ -61,7 +61,9 @@ class WModule(PupyModule):
                                 what = ''
 
                             object.update({
-                                'IDLE': colorize(str(timedelta(seconds=session['idle'])), color),
+                                'IDLE': colorize(
+                                    str(timedelta(seconds=session['idle'])), color
+                                ) if session.get('idle') else '',
                                 'PID': colorize(str(session.get('pid', '')), color),
                                 'WHAT': colorize(what[:30]+'…' if len(what) > 30 else what, color)
                             })
