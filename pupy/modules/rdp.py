@@ -5,7 +5,7 @@ from netaddr import *
 
 __class_name__="Rdp"
 
-@config(cat="admin", compat="windows")
+@config(cat="admin")
 class Rdp(PupyModule):
     """ Enable / Disable rdp connection or check for valid credentials on a remote host """
 
