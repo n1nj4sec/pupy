@@ -1,7 +1,3 @@
-[submodule "pupy/packages/src/scapy"]
-	path = pupy/external/scapy
-	url = https://github.com/secdev/scapy
-	shallow = false
 [submodule "pupy/payload_templates"]
 	path = pupy/payload_templates
 	url = ../pupy-binaries.git
@@ -13,10 +9,6 @@
 [submodule "pupy/external/changeme"]
 	path = pupy/external/changeme
 	url = https://github.com/AlessandroZ/changeme
-	shallow = false
-[submodule "pupy/external/impacket"]
-	path = pupy/external/impacket
-	url = https://github.com/CoreSecurity/impacket
 	shallow = false
 [submodule "client/sources-linux/linux-inject"]
 	path = client/sources-linux/linux-inject

@@ -254,7 +254,7 @@ python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy colorama pyOpenSSL xprintidle \
+       scapy impacket colorama pyOpenSSL \
        --upgrade --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
@@ -479,7 +479,7 @@ python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy colorama pyOpenSSL xprintidle \
+       scapy impacket colorama pyOpenSSL \
        --upgrade --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"

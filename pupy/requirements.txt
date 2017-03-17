@@ -15,6 +15,7 @@ mss
 colorama
 pyOpenSSL
 scapy
+impacket
 pyuv
 dnslib
 http-parser

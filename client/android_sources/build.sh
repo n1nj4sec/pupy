@@ -4,6 +4,9 @@ if [ "$1" = "restart" ]; then
 adb shell am start -S -n org.pupy.pupy/org.renpy.android.PythonActivity -a org.renpy.android.PythonActivity
 exit 0
 fi
+
+[ ! -f buildozer.spec ] && cp -vf buildozer.spec.example buildozer.spec
+
 buildozer # for initialisation
 #startup bootloader
 ANDROID_MANIFEST="./.buildozer/android/platform/python-for-android/dist/pupy/templates/AndroidManifest.tmpl.xml"
