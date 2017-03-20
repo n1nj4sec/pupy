@@ -7,6 +7,10 @@ import sys
 import os
 import time
 import socket
+import pwd
+import struct
+import netaddr
+import time
 
 families = {
     v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
@@ -187,5 +191,137 @@ def interfaces():
         }
     }
 
+def cstring(string):
+    return string[:string.find('\x00')]
+
+def convrecord(item):
+    return item if type(item) in (int,long) else cstring(item)
+
+def wtmp(input='/var/log/wtmp'):
+    retval = []
+    WTmp = struct.Struct('hi32s4s32s256shhiii4I20s')
+
+    login_type = {
+        0: None,
+        1: 'runlevel',
+        2: 'boot',
+        3: 'time_new',
+        4: 'time_old',
+        5: 'init',
+        6: 'session',
+        7: 'process',
+        8: 'terminated',
+        9: 'accounting',
+    }
+
+    now = time.time()
+
+    with open('/var/log/wtmp') as wtmp:
+        while True:
+            data = wtmp.read(WTmp.size)
+            if not data or len(data) != WTmp.size:
+                break
+
+            items = [ convrecord(x) for x in WTmp.unpack(data) ]
+            itype = login_type[items[0]]
+            if not itype:
+                continue
+
+            if itype in ('runlevel', 'terminated'):
+                for record in retval:
+                    if record['end'] == -1:
+                        if itype == 'runlevel' and items[4] == 'shutdown':
+                            record['end'] = items[9]
+                            record['duration'] = record['end'] - record['start']
+                        elif itype == 'terminated':
+                            if items[1] == 0:
+                                if record['line'] == items[2]:
+                                    record['end'] = items[9]
+                                    record['duration'] = record['end'] - record['start']
+                                    break
+                            else:
+                                if record['type'] in ('session', 'process') and record['pid'] == items[1]:
+                                    record['end'] = items[9]
+                                    record['duration'] = record['end'] - record['start']
+                                    record['termination'] = items[6]
+                                    record['exit'] = items[7]
+                                    break
+
+                    if record['type'] == 'runlevel' and record['user'] == 'shutdown':
+                        break
+
+            ipbin = items[11:15]
+            if all([x==0 for x in ipbin[1:]]):
+                ipaddr = str(netaddr.IPAddress(socket.htonl(ipbin[0])))
+            else:
+                data = struct.pack('IIII', *ipbin).encode('hex')
+                ipaddr = ''
+                while data is not '':
+                    ipaddr = ipaddr + ':'
+                    ipaddr = ipaddr + data[:4]
+                    data = data[4:]
+                ipaddr = str(netaddr.IPAddress(ipaddr[1:]))
+
+            retval.insert(0, {
+                'type': itype,
+                'pid': items[1],
+                'line': items[2],
+                'id': items[3],
+                'user': items[4],
+                'host': items[5],
+                'termination': items[6],
+                'exit': items[7],
+                'session': items[8],
+                'start': items[9],
+                'ip': ipaddr,
+                'end': -1,
+                'duration': now - items[9]
+            })
+
+    return {
+        'now': now,
+        'records': retval
+    }
+
+def lastlog():
+    result = {}
+    LastLog = struct.Struct('I32s256s')
+
+    with open('/var/log/lastlog') as lastlog:
+        uid = 0
+        while True:
+            data = lastlog.read(LastLog.size)
+            if not data or len(data) != LastLog.size:
+                break
+
+            time, line, host = LastLog.unpack(data)
+            line = cstring(line)
+            host = cstring(host)
+            if time:
+                try:
+                    name = pwd.getpwuid(uid).pw_name
+                except:
+                    name = uid
+
+                result[name] = {
+                    'time': time,
+                    'line': line,
+                    'host': host,
+                }
+            uid += 1
+
+    return result
+
 if __name__ == '__main__':
-    print psinfo([os.getpid()])[os.getpid()].keys()
+    import datetime
+    for result in wtmp():
+        if result['type'] in ('process', 'boot'):
+            print '{:12s} {:5d} {:7} {:8s} {:8s} {:16s} {:3} {:3} {} - {}'.format(
+                result['type'],
+                result['pid'],
+                result['id'],
+                result['user'], result['line'], result['host'],
+                result['termination'], result['exit'],
+                datetime.datetime.fromtimestamp(result['start']),
+                datetime.datetime.fromtimestamp(result['end']) if result['end'] != -1 else 'logged in',
+            )
