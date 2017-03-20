@@ -37,6 +37,9 @@ def gen_colinfo(data):
 def gen_columns(record, colinfo):
     columns = {}
 
+    if type(record['cmdline']) is not list:
+        record['cmdline'] = [record['cmdline']]
+
     columns['name'] = record.get('name') or '?'
     columns['cmdline'] = ' '.join([
         x for x in record['cmdline'][1:] if x.strip()
@@ -97,8 +100,9 @@ def print_psinfo(fout, pupyps, data, colinfo, width=80, sections=[]):
     ) else ( 1 if (y in keys and not x in keys) else cmp(x, y))
 
     for pid, info in data.iteritems():
-        fout.write('\n --- PID: {} ---- \n\n'.format(pid))
         if sections is not None:
+            fout.write('\n --- PID: {} ---- \n\n'.format(pid))
+
             infosecs = {
                 'general': []
             }

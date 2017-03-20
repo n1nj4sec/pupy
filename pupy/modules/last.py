@@ -50,7 +50,7 @@ class LastModule(PupyModule):
                 if record['end'] == -1:
                     if record['user'] == 'root':
                         color = 'lightred'
-                    elif record['duration'] < 24*60*60:
+                    elif record['duration'] < 60*60:
                         color = 'lightgreen'
                     elif record['duration'] > 7*24*60*60:
                         color = 'cyan'
