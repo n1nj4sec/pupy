@@ -18,7 +18,7 @@ sys_modules = [
 all_dependencies=set(
     [
         x.split('.')[0] for x,m in sys_modules \
-    		if not '(built-in)' in str(m) and x != '__main__'
+            if not '(built-in)' in str(m) and x != '__main__' and not x.startswith('cffi')
     ] + [
         'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa',
         'encodings.idna', 'stringprep',
@@ -29,7 +29,6 @@ all_dependencies.add('site')
 
 all_dependencies = sorted(list(set(all_dependencies)))
 all_dependencies.remove('pupy')
-all_dependencies.remove('cffi')
 all_dependencies.remove('additional_imports')
 
 print "ALLDEPS: ", all_dependencies
