@@ -951,7 +951,7 @@ class PupyCmd(cmd.Cmd):
                     color = 'lightgreen'
                 elif not session.system_status['idle']:
                     color = 'lightyellow'
-                elif session.system_status['cpu'] or session.system_status['mem'] > 90:
+                elif session.system_status['cpu'] > 90 or session.system_status['mem'] > 90:
                     color = 'lightred'
 
                 if color:
