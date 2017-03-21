@@ -89,6 +89,8 @@ def colorize(s, color):
         res="\033[32;1m"+s+COLOR_STOP
     elif color.lower()=="yellow":
         res="\033[33m"+s+COLOR_STOP
+    elif color.lower()=="lightyellow":
+        res="\033[1;33m"+s+COLOR_STOP
     elif color.lower()=="magenta":
         res="\033[35m"+s+COLOR_STOP
     elif color.lower()=="cyan":

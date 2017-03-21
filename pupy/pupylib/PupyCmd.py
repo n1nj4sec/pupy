@@ -45,6 +45,7 @@ from argparse import REMAINDER
 import copy
 from functools import partial
 from threading import Event
+from pupylib.utils.term import colorize
 
 import pupygen
 
@@ -916,8 +917,9 @@ class PupyCmd(cmd.Cmd):
                 if not ( session.system_status and session.system_info ):
                     continue
 
-                objects.append({
+                object = {
                     '#': '{:03d}'.format(idx),
+                    'P': '',
                     'NODE': '{:012x}'.format(session.system_info['node']),
                     'SESSION': '{:08x}'.format(session.spi),
                     'IP': session.system_info['external_ip'] or '?',
@@ -931,10 +933,34 @@ class PupyCmd(cmd.Cmd):
                     'EST': '{:d}'.format(session.system_status['remote']),
                     'USERS': '{:d}'.format(session.system_status['users']),
                     'IDLE': '{}'.format(session.system_status['idle']),
-                })
+                }
+
+                pupy_session = None
+                for c in self.pupsrv.clients:
+                    if c.desc['macaddr'].replace(':','').lower() == \
+                      '{:012x}'.format(session.system_info['node']):
+                      pupy_session = c.desc['id']
+                      objects
+                      break
+
+                color = ''
+                if pupy_session:
+                    object.update({
+                        'P': pupy_session
+                    })
+                    color = 'lightgreen'
+                elif not session.system_status['idle']:
+                    color = 'lightyellow'
+                elif session.system_status['cpu'] or session.system_status['mem'] > 90:
+                    color = 'lightred'
+
+                if color:
+                    object = { k:colorize(v, color) for k,v in object.iteritems() }
+
+                objects.append(object)
 
             columns = [
-                '#', 'NODE', 'SESSION', 'IP', 'OS',
+                '#', 'P', 'NODE', 'SESSION', 'IP', 'OS',
                 'CPU', 'MEM', 'LIS', 'EST', 'USERS', 'IDLE'
             ]
 
@@ -951,8 +977,9 @@ class PupyCmd(cmd.Cmd):
             objects = []
 
             for idx, session in enumerate(sessions):
-                objects.append({
+                object = {
                     '#': '{:03d}'.format(idx),
+                    'P': '',
                     'NODE': '{:012x}'.format(session.system_info['node']),
                     'SESSION': '{:08x}'.format(session.spi),
                     'EXTERNAL IP': '{}'.format(
@@ -972,10 +999,37 @@ class PupyCmd(cmd.Cmd):
                         session.system_info['boottime'] else '?'
                     ),
                     'CMDS': '{}'.format(len(session.commands))
-                })
+                }
+
+                pupy_session = None
+                for c in self.pupsrv.clients:
+                    if c.desc['macaddr'].replace(':','').lower() == \
+                      '{:012x}'.format(session.system_info['node']):
+                      pupy_session = c.desc['id']
+                      objects
+                      break
+
+                color = None
+
+                if pupy_session:
+                    object.update({
+                        'P': pupy_session
+                    })
+                    color = 'lightgreen'
+                elif session.idle > self.dnscnc.policy['interval']:
+                    color = 'grey'
+                elif not session.system_info['internet']:
+                    color = 'lightred'
+                elif len(session.commands) > 0:
+                    color = 'yellow'
+
+                if color:
+                    object = { k:colorize(v, color) for k,v in object.iteritems() }
+
+                objects.append(object)
 
             columns = [
-                '#', 'NODE', 'SESSION', 'OS', 'ONLINE',
+                '#', 'P', 'NODE', 'SESSION', 'OS', 'ONLINE',
                 'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED', 'CMDS'
             ]
 
