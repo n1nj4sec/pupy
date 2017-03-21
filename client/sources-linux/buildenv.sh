@@ -252,7 +252,7 @@ __EOF__
 
 python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
-       rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
+       rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
        --upgrade --no-binary :all:
@@ -477,7 +477,7 @@ make install
 
 python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
-       rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
+       rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
        --upgrade --no-binary :all:
