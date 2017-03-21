@@ -65,17 +65,14 @@ int _load_python_FromFile(char *dllname)
 	return 1;
 }
 
-int _load_dll(char *name, char *bytes){
+HMODULE _load_dll(char *name, char *bytes){
 
 	HMODULE hmod;
 	ULONG_PTR cookie = 0;
 	cookie = _My_ActivateActCtx();
 	hmod = MyLoadLibrary(name, bytes, NULL);
-	if (hmod == NULL) {
-		return 0;
-	}
 	_My_DeactivateActCtx(cookie);
-	return 1;
+	return hmod;
 }
 
 int _load_msvcr90(char *bytes)

@@ -29,6 +29,7 @@ try:
     import _memimporter
     builtin_memimporter = True
     allow_system_packages = False
+
 except ImportError:
     builtin_memimporter = False
     allow_system_packages = True
@@ -78,8 +79,15 @@ except ImportError:
                     unlink(name)
 
         def import_module(self, data, initfuncname, fullname, path):
+            self.load_library(data, fullname, dlopen=False)
+
+
+        def load_library(self, data, fullname, dlopen=True):
             fd = -1
             closefd = True
+
+            result = False
+
             if self.memfd:
                 fd = self.memfd()
                 if fd != -1:
@@ -91,7 +99,11 @@ except ImportError:
 
             try:
                 write(fd, data)
-                imp.load_dynamic(fullname, name)
+                if dlopen:
+                    result = CDLL(fullname)
+                else:
+                    imp.load_dynamic(fullname, name)
+                    result = True
 
             except:
                 self.dir = None
@@ -100,6 +112,8 @@ except ImportError:
                 if closefd:
                     close(fd)
                     unlink(name)
+
+            return result
 
     _memimporter = MemImporter()
     builtin_memimporter = _memimporter.ready
@@ -352,9 +366,12 @@ def unregister_package_request_hook():
     global remote_load_package
     remote_load_package = None
 
-def install(debug=False):
+def install(debug=None):
     global __debug
-    __debug = debug
+    global modules
+
+    if debug:
+        __debug = True
 
     if allow_system_packages:
         sys.path_hooks.append(PupyPackageFinder)
@@ -372,6 +389,80 @@ def install(debug=False):
         platform.architecture = lambda *args, **kwargs: (
             '32bit' if pupy.get_arch() == 'x86' else '64bit', ''
         )
+
+    import ctypes
+    import ctypes.util
+    import os
+
+    ctypes._system_dlopen = ctypes._dlopen
+    ctypes.util._system_find_library = ctypes.util.find_library
+
+    def pupy_make_path(name):
+        if 'pupy:' in name:
+            name = name[name.find('pupy:')+5:]
+            name = os.path.relpath(name)
+            name = '/'.join([
+                x for x in name.split(os.path.sep) if x and not x in ( '.', '..' )
+            ])
+
+        return name
+
+    def pupy_find_library(name):
+        dprint("FIND LIBRARY: {}".format(name))
+        if name in modules:
+            return name
+        else:
+            return ctypes.util._system_find_library(name)
+
+    def pupy_dlopen(name, *args, **kwargs):
+        dprint("ctypes dlopen: {}".format(name))
+        from_pupy = False
+        name = pupy_make_path(name)
+        dprint("ctypes dlopen / pupyized: {}".format(name))
+
+        if name in modules:
+            if hasattr(_memimporter, 'load_library'):
+                try:
+                    return _memimporter.load_library(modules[name], name)
+                except:
+                    pass
+            elif hasattr(pupy, 'load_dll'):
+                try:
+                    return pupy.load_dll(name, modules[name])
+                except:
+                    pass
+
+        if not from_pupy:
+            return ctypes._system_dlopen(name, *args, **kwargs)
+
+
+    if hasattr(pupy, 'find_function_address'):
+        ctypes.CDLL_ORIG = ctypes.CDLL
+
+        class PupyCDLL(ctypes.CDLL_ORIG):
+            def __init__(self, name, **kwargs):
+                super(PupyCDLL, self).__init__(name, **kwargs)
+                self._FuncPtr_orig = self._FuncPtr
+                self._FuncPtr = self._find_function_address
+                self._name = pupy_make_path(self._name)
+
+            def _find_function_address(self, search_tuple):
+                name, handle = search_tuple
+                dprint("PupyCDLL._find_function_address: {}".format(name))
+                if not type(name) in (str, unicode):
+                    return self._FuncPtr_orig(search_tuple)
+                else:
+                    addr = pupy.find_function_address(self._name, name)
+                    dprint("PupyCDLL._find_function_address: {} = {}".format(name, addr))
+                    if addr:
+                        return self._FuncPtr_orig(addr)
+                    else:
+                        return self._FuncPtr_orig(search_tuple)
+
+        ctypes.CDLL = PupyCDLL
+
+    ctypes._dlopen = pupy_dlopen
+    ctypes.util.find_library = pupy_find_library
 
     if 'win' in sys.platform:
         import pywintypes
