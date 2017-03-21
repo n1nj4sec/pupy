@@ -71,7 +71,7 @@ resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/l
 		resources/library_compressed_string.txt $(XZARGS)
 
 resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
-	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
+	$(PYTHON) -OO $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources_bootloader_pyc.c: ../gen_resource_header.py resources/bootloader.pyc
 	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
@@ -101,7 +101,7 @@ resources/libssl.so: $(LIBSSL)
 	rm -f $@.tmp
 
 resources/library.zip: ../build_library_zip.py ../additional_imports.py
-	$(PYTHON) $(PFLAGS) $<
+	$(PYTHON) -OO $(PFLAGS) $<
 
 resources_python27_so.c: ../gen_resource_header.py resources/python27.so
 	$(PYTHON) $(PFLAGS) $+ $(XZARGS)

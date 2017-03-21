@@ -9,7 +9,7 @@ $(error You must specify an architecture - win64 or win32)
 endif
 
 CC := $(BUILDENV)/$(ARCH)/cl.sh
-PYTHON := $(BUILDENV)/$(ARCH)/python.sh -O
+PYTHON := $(BUILDENV)/$(ARCH)/python.sh
 HOST_PYTHON := python
 
 ifeq "$(ARCH)" "win64"

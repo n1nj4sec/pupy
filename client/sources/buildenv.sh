@@ -152,13 +152,13 @@ sed -i $WINEPREFIX/system.reg -e 's@"ProductName"="Microsoft Windows XP"@"Produc
 unset WINEPREFIX
 
 for prefix in $WINE32 $WINE64; do
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade pip
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade setuptools
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade $PACKAGES
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip install --upgrade --no-binary :all: psutil
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m pip uninstall -y cffi
-    WINEPREFIX=$prefix wine C:\\Python27\\python -O -m compileall -q C:\\Python27\\Lib || true
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade pip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade setuptools
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade $PACKAGES
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade --no-binary :all: psutil
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip uninstall -y cffi
     WINEPREFIX=$prefix wine C:\\Python27\\python -m compileall -q C:\\Python27\\Lib || true
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m compileall -q C:\\Python27\\Lib || true
 done
 
 # WINEPREFIX=$WINE32 wine C:\\Python27\\python.exe -m easy_install -Z $PYWIN32
@@ -168,7 +168,7 @@ cat >$WINE32/python.sh <<EOF
 #!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE32
-exec wine C:\\\\Python27\\\\python.exe "\$@"
+exec wine C:\\\\Python27\\\\python.exe -OO "\$@"
 EOF
 chmod +x $WINE32/python.sh
 
@@ -189,7 +189,7 @@ cat >$WINE64/python.sh <<EOF
 #!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE64
-exec wine C:\\\\Python27\\\\python.exe "\$@"
+exec wine C:\\\\Python27\\\\python.exe -OO "\$@"
 EOF
 chmod +x $WINE64/python.sh
 
@@ -237,7 +237,7 @@ rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
     cd $dir
     zip -q -y \
-	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" -x "*.chm" \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
 	-x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
 	-x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
 	-x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
@@ -251,7 +251,7 @@ rm -f ${TEMPLATES}/windows-amd64.zip
 for dir in Lib DLLs; do
     cd $dir
     zip -q -y \
-	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" -x "*.chm" \
+	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
 	-x "*test/*" -x "*tests/*" -x "*examples/*"  -x "pythonwin/*" \
 	-x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
 	-x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \

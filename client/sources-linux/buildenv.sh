@@ -275,13 +275,13 @@ cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
 CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
- python -O -m pip install pyuv --no-binary :all:
+ python -OO -m pip install pyuv --no-binary :all:
 
-python -O -m pip uninstall -y cffi
+python -OO -m pip uninstall -y cffi
 
 cd /usr/lib/python2.7
-python -O -m compileall -q
 python -m compileall -q
+python -OO -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
 
@@ -501,13 +501,13 @@ tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
-python -O -m pip install pyuv --no-binary :all:
+python -OO -m pip install pyuv --no-binary :all:
 
-python -O -m pip uninstall -y cffi
+python -OO -m pip uninstall -y cffi
 
 cd /usr/lib/python2.7
-python -O -m compileall -q
 python -m compileall -q
+python -OO -m compileall -q
 
 find -name "*.so" | while read f; do strip \$f; done
 
@@ -535,7 +535,7 @@ TEMPLATES=`readlink -f ../../pupy/payload_templates`
 
 cd buildenv/lin64/usr/lib/python2.7
 zip -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
     -x "*.egg-info/*" -x "*.dist-info/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
@@ -544,7 +544,7 @@ cd -
 
 cd buildenv/lin32/usr/lib/python2.7
 zip -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyo" \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
     -x "*.egg-info/*" -x "*.dist-info/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" -x "*.la" \
