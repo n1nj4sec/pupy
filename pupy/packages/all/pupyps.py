@@ -7,7 +7,6 @@ import sys
 import os
 import time
 import socket
-import pwd
 import struct
 import netaddr
 import time
@@ -284,6 +283,8 @@ def wtmp(input='/var/log/wtmp'):
     }
 
 def lastlog():
+    import pwd
+
     result = {}
     LastLog = struct.Struct('I32s256s')
 
