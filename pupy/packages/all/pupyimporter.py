@@ -436,7 +436,7 @@ def install(debug=None):
             return ctypes._system_dlopen(name, *args, **kwargs)
 
 
-    if hasattr(pupy, 'find_function_address'):
+    if 'pupy' in sys.modules and hasattr(pupy, 'find_function_address'):
         ctypes.CDLL_ORIG = ctypes.CDLL
 
         class PupyCDLL(ctypes.CDLL_ORIG):
