@@ -22,3 +22,9 @@
 [submodule "pupy/memorpy"]
 	path = pupy/external/memorpy
 	url = https://github.com/n1nj4sec/memorpy
+[submodule "pupy/external/Windows-Exploit-Suggester"]
+	path = pupy/external/Windows-Exploit-Suggester
+	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
+[submodule "pupy/external/linux-exploit-suggester"]
+	path = pupy/external/linux-exploit-suggester
+	url = https://github.com/mzet-/linux-exploit-suggester
