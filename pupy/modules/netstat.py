@@ -69,10 +69,10 @@ class NetStatModule(PupyModule):
                     'LADDR': colorize(':'.join([str(x) for x in connection['laddr']]), color),
                     'RADDR': colorize(':'.join([str(x) for x in connection['raddr']]), color),
                     'PID': colorize(connection.get('pid', ''), color),
-                    'USER': colorize(connection.get('username', ''), color),
+                    'USER': colorize(connection.get('username', '').encode('utf8','replace'), color),
                     'EXE': colorize(
                         connection.get(
-                            'exe', connection.get('name', '')
+                            'exe', connection.get('name', '').encode('utf8','replace')
                         ), color)
                 })
 
