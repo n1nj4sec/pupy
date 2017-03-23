@@ -20,9 +20,12 @@ def gen_colinfo(data):
             if '_percent' in column:
                 colinfo[column] = 4
                 continue
+            if type(data[pid][column]) not in (str,unicode,int,float):
+                continue
 
-            if type(data[pid][column] not in (str,unicode,int,float)):
-                pass
+            #fix ascii encode errors
+            if type(data[pid][column]) == unicode:
+                data[pid][column]=data[pid][column].encode('utf8', 'replace')
 
             l = len(str(data[pid][column]))
             if not column in colinfo:
