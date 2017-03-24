@@ -31,6 +31,10 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 class BinaryObjectError(ValueError):
     pass
 
+def safe_file_exists(f):
+    """ some file systems like vmhgfs are case insensitive and os.isdir() return True for "lAzAgNE", so we need this check for modules like LaZagne.py and lazagne gets well imported """
+    return os.path.basename(f) in os.listdir(os.path.dirname(f))
+
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
         self.desc=desc
@@ -246,7 +250,8 @@ class PupyClient(object):
         found_files = set()
 
         module_path = os.path.join(search_path, start_path)
-        if os.path.isdir(module_path): # loading a real package with multiple files
+        # loading a real package with multiple files
+        if os.path.isdir(module_path) and safe_file_exists(module_path):
             for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
                     if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
@@ -302,7 +307,7 @@ class PupyClient(object):
 
             for ext in extlist:
                 filepath = os.path.join(module_path+ext)
-                if os.path.isfile(filepath):
+                if os.path.isfile(filepath) and safe_file_exists(filepath):
                     module_code = ''
                     with open(filepath,'rb') as f:
                         module_code=f.read()
