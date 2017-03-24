@@ -5,6 +5,8 @@ import time, logging
 from rpyc.core import Connection, consts
 from threading import Thread, RLock, Event
 
+DEBUG_NETWORK=False
+
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
@@ -17,25 +19,33 @@ class PupyConnection(Connection):
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
-        logging.debug('Sync request: {}'.format(seq))
+        if DEBUG_NETWORK:
+            logging.debug('Sync request: {}'.format(seq))
         while not ( self._sync_events[seq].is_set() or self.closed ):
-            logging.debug('Sync poll until: {}'.format(seq))
+            if DEBUG_NETWORK:
+                logging.debug('Sync poll until: {}'.format(seq))
             if self._connection_serve_lock.acquire(False):
                 try:
-                    logging.debug('Sync poll serve: {}'.format(seq))
+                    if DEBUG_NETWORK:
+                        logging.debug('Sync poll serve: {}'.format(seq))
                     if not self.serve(10):
-                        logging.debug('Sync poll serve interrupted: {}/inactive={}'.format(
-                            seq, self.inactive))
+                        if DEBUG_NETWORK:
+                            logging.debug('Sync poll serve interrupted: {}/inactive={}'.format(
+                                seq, self.inactive))
                 finally:
-                    logging.debug('Sync poll serve complete. release: {}'.format(seq))
+                    if DEBUG_NETWORK:
+                        logging.debug('Sync poll serve complete. release: {}'.format(seq))
                     self._connection_serve_lock.release()
             else:
-                logging.debug('Sync poll wait: {}'.format(seq))
+                if DEBUG_NETWORK:
+                    logging.debug('Sync poll wait: {}'.format(seq))
                 self._sync_events[seq].wait(timeout=10)
 
-            logging.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))
+            if DEBUG_NETWORK:
+                logging.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))
 
-        logging.debug('Sync request handled: {}'.format(seq))
+        if DEBUG_NETWORK:
+            logging.debug('Sync request handled: {}'.format(seq))
         if seq in self._sync_events:
             del self._sync_events[seq]
 
@@ -51,10 +61,12 @@ class PupyConnection(Connection):
     def _send_request(self, handler, args, async=None):
         seq = next(self._seqcounter)
         if async:
-            logging.debug('Async request: {}'.format(seq))
+            if DEBUG_NETWORK:
+                logging.debug('Async request: {}'.format(seq))
             self._async_callbacks[seq] = async
         else:
-            logging.debug('Sync request: {}'.format(seq))
+            if DEBUG_NETWORK:
+                logging.debug('Sync request: {}'.format(seq))
             self._sync_events[seq] = Event()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))

