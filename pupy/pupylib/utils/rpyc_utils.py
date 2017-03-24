@@ -38,14 +38,16 @@ def hotpatch_oswrite(conn):
     conn.execute(textwrap.dedent("""
     import sys
     import os
-    def patched_write(fd, s):
-        if fd==1:
-            return sys.stdout.write(s)
-        elif fd==2:
-            return sys.stdout.write(s)
-        else:
-            return os.write(fd, s)
-    os.write=patched_write
+    if not hasattr(os, 'real_write'):
+        setattr(os, 'real_write', os.write)
+        def patched_write(fd, s):
+            if fd==1:
+                return sys.stdout.write(s)
+            elif fd==2:
+                return sys.stdout.write(s)
+            else:
+                return os.real_write(fd, s)
+        os.write=patched_write
     """))
 
 @contextmanager
