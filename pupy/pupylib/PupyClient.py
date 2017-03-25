@@ -245,6 +245,7 @@ class PupyClient(object):
         return self._load_package(module_name, force)
 
     def remote_load_package(self, module_name):
+        logging.debug("remote module_name asked for : %s"%module_name)
         return self._load_package(module_name, force=False, remote=True)
 
     def remote_print_error(self, msg):
@@ -257,7 +258,6 @@ class PupyClient(object):
         module_path = os.path.join(search_path, start_path)
         # loading a real package with multiple files
         if os.path.isdir(module_path) and safe_file_exists(module_path):
-            logging.debug("getting module dic for directory: %s"%module_path)
             for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
                     if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
@@ -301,7 +301,6 @@ class PupyClient(object):
                             compile(module_code, modpath, 'exec')
                         )
                         modpath = base+'.pyc'
-                    logging.debug("adding to dic file %s"%modpath)
                     modules_dic[modpath] = module_code
 
                 package_found=True
