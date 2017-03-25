@@ -184,10 +184,10 @@ class PupyClient(object):
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
         pupyimporter = self.conn.modules.pupyimporter
-        pupyimporter.register_package_request_hook(self.remote_load_package)
         self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
-        pupyimporter.register_package_error_hook(self.remote_print_error)
+        pupyimporter.register_package_request_hook(self.remote_load_package)
         self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_error_hook)
+        pupyimporter.register_package_error_hook(self.remote_print_error)
 
     def load_dll(self, path):
         """
