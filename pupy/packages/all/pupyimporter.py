@@ -120,6 +120,7 @@ except ImportError:
 
 modules = {}
 remote_load_package = None
+remote_print_error = None
 
 try:
     import pupy
@@ -253,6 +254,11 @@ class PupyPackageLoader:
             dprint('PupyPackageLoader: '
                        'Error while loading package {} ({}) : {}'.format(
                            fullname, self.extension, str(e)))
+            if remote_print_error:
+                try:
+                    remote_print_error("Error loading package {} ({}) : {}".format(fullname, self.extension, str(e)))
+                except:
+                    pass
             raise e
 
         finally:
@@ -361,6 +367,15 @@ class PupyPackageFinder:
 def register_package_request_hook(hook):
     global remote_load_package
     remote_load_package = hook
+
+def register_package_error_hook(hook):
+    global remote_print_error
+    import rpyc
+    remote_print_error = rpyc.async(hook)
+
+def unregister_package_error_hook(hook):
+    global remote_print_error
+    remote_print_error = None
 
 def unregister_package_request_hook():
     global remote_load_package
