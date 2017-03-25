@@ -49,6 +49,7 @@ class RSA_AESTransport(BasePupyTransport):
 
     def on_connect(self):
         self.downstream.write(self._iv_enc) # send IV
+        logging.debug("IV sent to Client")
 
     def upstream_recv(self, data):
         try:
@@ -137,7 +138,9 @@ class RSA_AESClient(RSA_AESTransport):
         else:
             self.enc_cipher = pyaes.AESModeOfOperationCBC(self.aes_key, iv = self._iv_enc)
         self.downstream.write(rsa.encrypt(self.aes_key, pk))
+        logging.debug("AES key crypted with RSA public key and sent to server")
         self.downstream.write(self._iv_enc)
+        logging.debug("IV sent to Server")
 
 
 
@@ -155,6 +158,7 @@ class RSA_AESServer(RSA_AESTransport):
         if self.privkey is None:
             raise TransportError("A private key (pem format) needs to be supplied for RSA_AESServer")
         self.pk=rsa.PrivateKey.load_pkcs1(self.privkey)
+        self.post_handshake_callbacks=[]
 
     def downstream_recv(self, data):
         try:
@@ -174,11 +178,18 @@ class RSA_AESServer(RSA_AESTransport):
                     self.enc_cipher = AES.new(self.aes_key, AES.MODE_CBC, self._iv_enc)
                 else:
                     self.enc_cipher = pyaes.AESModeOfOperationCBC(self.aes_key, iv = self._iv_enc)
+                logging.debug("client AES key received && decrypted from RSA private key")
+                for f, args in self.post_handshake_callbacks:
+                    f(*args)
+                self.post_handshake_callbacks=[]
             super(RSA_AESServer, self).downstream_recv(data)
         except Exception as e:
             logging.debug(e)
 
     def upstream_recv(self, data):
         if self.enc_cipher is None:
+            logging.debug("data received but enc_cipher is not available yet")
+            self.post_handshake_callbacks.append((self.upstream_recv, (data,)))
             return
         super(RSA_AESServer, self).upstream_recv(data)
+
