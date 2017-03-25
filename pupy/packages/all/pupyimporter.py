@@ -256,7 +256,7 @@ class PupyPackageLoader:
                            fullname, self.extension, str(e)))
             if remote_print_error:
                 try:
-                    remote_print_error("Error loading package {} ({}) : {}".format(fullname, self.extension, str(e)))
+                    remote_print_error("Error loading package {} ({}) : {}".format(fullname, self.path, str(e)))
                 except:
                     pass
             raise e
@@ -373,7 +373,7 @@ def register_package_error_hook(hook):
     import rpyc
     remote_print_error = rpyc.async(hook)
 
-def unregister_package_error_hook(hook):
+def unregister_package_error_hook():
     global remote_print_error
     remote_print_error = None
 
