@@ -6,7 +6,11 @@ import os, sys, logging, pkgutil, traceback
 from .lib.launchers.connect import ConnectLauncher
 from .lib.launchers.auto_proxy import AutoProxyLauncher
 from .lib.launchers.bind import BindLauncher
-from .lib.launchers.dnscnc import DNSCncLauncher
+try:
+    from .lib.launchers.dnscnc import DNSCncLauncher
+except Exception as e:
+    logging.warning("%s: DNSCncLauncher disabled"%(str(e)))
+    DNSCncLauncher=None
 import importlib
 
 transports={}
@@ -51,4 +55,6 @@ except Exception as e:
 launchers["connect"]=ConnectLauncher
 launchers["auto_proxy"]=AutoProxyLauncher
 launchers["bind"]=BindLauncher
-launchers["dnscnc"]=DNSCncLauncher
+if DNSCncLauncher:
+    launchers["dnscnc"]=DNSCncLauncher
+

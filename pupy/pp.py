@@ -74,7 +74,7 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.WARNING)
 
 try:
     import pupy

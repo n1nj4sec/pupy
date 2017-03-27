@@ -1,3 +1,4 @@
+import logging
 from .streams import *
 from .base import chain_transports
 from .servers import PupyTCPServer, PupyUDPServer
@@ -9,4 +10,15 @@ from .transports.http import PupyHTTPClient, PupyHTTPServer
 from .transports.xor import XOR
 from .transports.aes import AES256, AES128
 from .transports.rsa_aes import RSA_AESClient, RSA_AESServer
-from .transports.ec4 import EC4TransportServer, EC4TransportClient
+try:
+    from .transports.ec4 import EC4TransportServer, EC4TransportClient
+except Exception as e:
+    logging.warning("%s : Transport ec4 disabled"%str(e))
+    EC4TransportServer=None
+    EC4TransportClient=None
+try:
+    from .transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
+except Exception as e:
+    logging.warning("%s : Transport scramblesuit disabled"%str(e))
+    ScrambleSuitClient=None
+    ScrambleSuitServer=None
