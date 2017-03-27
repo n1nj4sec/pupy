@@ -23,7 +23,7 @@ def read_file(dic):
 def check_result(dic, output):
 	for vms_artifacts in dic[1]:
 		for vms_artifact in vms_artifacts.split(','):
-			if vms_artifact.strip() in output:
+			if vms_artifact.strip().lower() in output.lower():
 				return dic[1][vms_artifacts]
 
 # Check DMi Info
