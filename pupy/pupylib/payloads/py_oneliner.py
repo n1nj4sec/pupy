@@ -5,7 +5,7 @@
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import cPickle, re, os.path
-import rpyc, rsa, pyasn1, yaml
+import rpyc, rsa, pyasn1, yaml, netaddr
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.payloads.python_packer import get_load_module_code, gen_package_pickled_dic
@@ -41,6 +41,9 @@ def pack_py_payload(conf):
     fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
 
     modules_dic=gen_package_pickled_dic(yaml.__path__[0],"yaml")
+    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+
+    modules_dic=gen_package_pickled_dic(netaddr.__path__[0],"netaddr")
     fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
 
     with open(os.path.join(ROOT,"pp.py")) as f:

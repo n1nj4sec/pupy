@@ -35,7 +35,6 @@ except ImportError:
     allow_system_packages = True
     import ctypes
     import platform
-    import pkg_resources
     libc = ctypes.CDLL(None)
     syscall = libc.syscall
     from tempfile import mkstemp
@@ -79,10 +78,10 @@ except ImportError:
                     unlink(name)
 
         def import_module(self, data, initfuncname, fullname, path):
-            self.load_library(data, fullname, dlopen=False)
+            return self.load_library(data, fullname, dlopen=False, initfuncname=initfuncname)
 
 
-        def load_library(self, data, fullname, dlopen=True):
+        def load_library(self, data, fullname, dlopen=True, initfuncname=None):
             fd = -1
             closefd = True
 
@@ -102,11 +101,14 @@ except ImportError:
                 if dlopen:
                     result = CDLL(fullname)
                 else:
-                    imp.load_dynamic(fullname, name)
-                    result = True
+                    if initfuncname:
+                        result = imp.load_dynamic(initfuncname[4:], name)
+                    else:
+                        result = imp.load_dynamic(fullname, name)
 
-            except:
+            except Exception as e:
                 self.dir = None
+                raise e
 
             finally:
                 if closefd:
@@ -245,6 +247,7 @@ class PupyPackageLoader:
                     sys.modules[fullname]=mod
 
         except Exception as e:
+
             if fullname in sys.modules:
                 del sys.modules[fullname]
 
@@ -253,12 +256,13 @@ class PupyPackageLoader:
             traceback.print_tb(exc_traceback)
             dprint('PupyPackageLoader: '
                        'Error while loading package {} ({}) : {}'.format(
-                           fullname, self.extension, str(e)))
+                           fullname, self.path, str(e)))
             if remote_print_error:
                 try:
-                    remote_print_error("Error loading package {} ({}) : {}".format(fullname, self.path, str(e)))
+                    remote_print_error("Error loading package {} ({} pkg={}) : {}".format(fullname, self.path, self.is_pkg, str(traceback.format_exc())))
                 except:
                     pass
+
             raise e
 
         finally:

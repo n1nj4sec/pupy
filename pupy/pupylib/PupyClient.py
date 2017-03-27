@@ -25,8 +25,12 @@ from .PupyJob import PupyJob
 from zipfile import ZipFile
 import zlib
 import marshal
+import imp
+import platform
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+LIBS_AUTHORIZED_PATHS = [x for x in sys.path if x != ''] + [os.path.join(ROOT,'packages')] + ['packages/']
+logging.debug("LIBS_AUTHORIZED_PATHS=%s"%repr(LIBS_AUTHORIZED_PATHS))
 
 class BinaryObjectError(ValueError):
     pass
@@ -142,6 +146,15 @@ class PupyClient(object):
             return True
         return False
 
+    def match_server_arch(self):
+        try:
+            if self.desc['platform']==platform.system() and self.desc['proc_arch']==platform.architecture()[0] and self.desc['os_arch']==platform.machine():
+                return True
+                
+        except Exception as e:
+            logging.error(e)
+        return False
+
     def get_packages_path(self):
         """ return the list of path to search packages for depending on client OS and architecture """
         path = [
@@ -246,22 +259,37 @@ class PupyClient(object):
 
     def remote_load_package(self, module_name):
         logging.debug("remote module_name asked for : %s"%module_name)
-        return self._load_package(module_name, force=False, remote=True)
+        dic=self._load_package(module_name, force=False, remote=True)
+        if not dic:
+            logging.debug("no package %s found for remote client"%module_name)
+        return dic
 
     def remote_print_error(self, msg):
         self.pupsrv.handler.display_error(msg)
 
-    def _get_module_dic(self, search_path, start_path, pure_python_only=False):
+    def _get_module_dic(self, search_path, start_path, pure_python_only=False, remote=False, check_server_arch=False):
         modules_dic = {}
         found_files = set()
-
         module_path = os.path.join(search_path, start_path)
+
+        if remote:
+            if ".." in module_path or not module_path.startswith(tuple(LIBS_AUTHORIZED_PATHS)):
+                logging.warning("Attempt to retrieve lib from unsafe path: %s"%module_path)
+                return {}
+
         # loading a real package with multiple files
         if os.path.isdir(module_path) and safe_file_exists(module_path):
             for root, dirs, files in os.walk(module_path, followlinks=True):
                 for f in files:
                     if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
                         continue
+
+                    if check_server_arch:
+                        # allow uploading compiled python extension from sys.path only if client arch match server arch
+                        if f.endswith((".pyd",".dll")) and not (self.is_windows() and self.match_server_arch()):
+                            raise BinaryObjectError('Path contains unsafe binary objects: {}'.format(f))
+                        elif f.endswith(".so") and not (self.is_linux() and self.match_server_arch()):
+                            raise BinaryObjectError('Path contains unsafe binary objects: {}'.format(f))
 
                     if pure_python_only and f.endswith((".so",".pyd",".dll")):
                         # avoid loosing shells when looking for packages in
@@ -280,23 +308,35 @@ class PupyClient(object):
                     modpath = os.path.join(modprefix,f).replace("\\","/")
 
                     base, ext = modpath.rsplit('.', 1)
+                    
+                    # Garbage removing
+                    if ext == 'py' and ( base+'.pyc' in modules_dic or base+'.pyo' in modules_dic ):
+                        continue
 
-                    if ext == '.pyo':
+                    elif ext == 'pyc':
                         if base+'.py' in modules_dic:
                             del modules_dic[base+'.py']
+
+                        if base+'.pyo' in modules_dic:
+                            continue
+                    elif ext == 'pyo':
+                        if base+'.py' in modules_dic:
+                            del modules_dic[base+'.py']
+
                         if base+'.pyc' in modules_dic:
                             del modules_dic[base+'.pyc']
-                    elif ext == '.pyc':
+
+                    # Special case with pyd loaders
+                    elif ext == 'pyd':
                         if base+'.py' in modules_dic:
                             del modules_dic[base+'.py']
-                        if base+'.pyo' in modules_dic:
-                            continue
-                    elif ext == '.py':
-                        if base+'.pyc' in modules_dic:
-                            continue
-                        if base+'.pyo' in modules_dic:
-                            continue
 
+                        if base+'.pyc' in modules_dic:
+                            del modules_dic[base+'.pyc']
+
+                        if base+'.pyo' in modules_dic:
+                            del modules_dic[base+'.pyo']
+                    if ext == "py":
                         module_code = '\0'*8 + marshal.dumps(
                             compile(module_code, modpath, 'exec')
                         )
@@ -313,6 +353,12 @@ class PupyClient(object):
             for ext in extlist:
                 filepath = os.path.join(module_path+ext)
                 if os.path.isfile(filepath) and safe_file_exists(filepath):
+                    if check_server_arch:
+                        # allow uploading compiled python extension from sys.path only if client arch match server arch
+                        if filepath.endswith((".pyd",".dll")) and not (self.is_windows() and self.match_server_arch()):
+                            continue
+                        elif filepath.endswith(".so") and not (self.is_linux() and self.match_server_arch()):
+                            continue
                     module_code = ''
                     with open(filepath,'rb') as f:
                         module_code=f.read()
@@ -361,7 +407,7 @@ class PupyClient(object):
         package_path=None
         for search_path in self.get_packages_path():
             try:
-                modules_dic=self._get_module_dic(search_path, start_path)
+                modules_dic=self._get_module_dic(search_path, start_path, remote=remote)
                 if modules_dic:
                     package_path=search_path
                     break
@@ -452,11 +498,11 @@ class PupyClient(object):
                             modules_dic[module_name] = bundle.read(info.filename)
 
         # in last resort, attempt to load the package from the server's sys.path if it exists
-        if not modules_dic and not remote:
+        if not modules_dic:
             for search_path in sys.path:
                 try:
                     modules_dic = self._get_module_dic(
-                        search_path, start_path, pure_python_only=True
+                        search_path, start_path, pure_python_only=False, remote=remote, check_server_arch=True
                     )
 
                     if modules_dic:
@@ -474,7 +520,6 @@ class PupyClient(object):
                         raise PupyModuleError(
                             "Error while loading package from sys.path {}: {}".format(
                                 initial_module_name, traceback.format_exc()))
-
         if not modules_dic:
             if remote:
                 return
