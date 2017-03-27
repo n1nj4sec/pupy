@@ -460,7 +460,7 @@ class PupyClient(object):
                     )
 
                     if modules_dic:
-                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..." % module_name)
+                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..." % initial_module_name)
                         package_path=search_path
                         break
 
@@ -473,7 +473,7 @@ class PupyClient(object):
                     else:
                         raise PupyModuleError(
                             "Error while loading package from sys.path {}: {}".format(
-                                module_name, traceback.format_exc()))
+                                initial_module_name, traceback.format_exc()))
 
         if not modules_dic:
             if remote:
@@ -491,10 +491,10 @@ class PupyClient(object):
             name=(None if remote else initial_module_name)
         )
 
-        logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
+        logging.debug("package %s loaded on %s from path=%s"%(initial_module_name, self.short_name(), package_path))
 
         if update:
-            self.conn.modules.__invalidate__(module_name)
+            self.conn.modules.__invalidate__(initial_module_name)
 
         return True
 
