@@ -118,6 +118,7 @@ def get_raw_conf(conf, obfuscate=False):
         'import network.conf',
         'LAUNCHER={}'.format(repr(conf['launcher'])),
         'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
+        offline_script
     ])
 
     return obf_func(config)
