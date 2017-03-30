@@ -44,7 +44,7 @@ def execute_powershell_script(module, content, function, x64IfPossible=False, sc
     
     # else: the powershell script is already loaded, call the function wanted
 
-    p.stdin.write("\n$a=Invoke-Expression \"%s\" | Format-Table | Out-String\n" % function)
+    p.stdin.write("\n$a=Invoke-Expression \"%s\" | Format-Table -Property * -AutoSize | Out-String -Width 4076\n" % function)
     p.stdin.write("$b=[System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(\"$a\"))\n")
     p.stdin.write("Write-Host $b\n")
 
