@@ -22,6 +22,10 @@ packages_dependencies={
         (LOAD_PACKAGE, WINDOWS, "win32api"),
         (LOAD_PACKAGE, WINDOWS, "win32security"),
     ],
+    "scapy" : [
+        (LOAD_PACKAGE, WINDOWS, "pythoncom"),
+        (LOAD_PACKAGE, WINDOWS, "cryptography"),
+    ],
     "pyaudio" : [
         (LOAD_PACKAGE, ALL_OS, "_portaudio"),
     ],
