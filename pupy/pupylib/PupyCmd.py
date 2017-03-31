@@ -565,6 +565,18 @@ class PupyCmd(cmd.Cmd):
         self.pupsrv.connect_on_client(arg)
         self.display("\n")
 
+    def do_logging(self, arg):
+        """ change pupysh logging level """
+        arg_parser = PupyArgumentParser(prog='logging', description='change pupysh logging level')
+        arg_parser.add_argument('level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], help="module")
+        try:
+            modargs=arg_parser.parse_args(shlex.split(arg))
+        except PupyModuleExit:
+            return
+        if modargs.level:
+            logging.getLogger().setLevel(modargs.level)
+            self.display_success("logging level set to %s"%modargs.level)
+
     def do_run(self, arg):
         """ run a module on one or multiple clients"""
         arg_parser = PupyArgumentParser(prog='run', description='run a module on one or multiple clients')
