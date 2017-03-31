@@ -156,7 +156,7 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade $PACKAGES
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade --no-binary :all: psutil
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip uninstall -y cffi
+#    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip uninstall -y cffi
     WINEPREFIX=$prefix wine C:\\Python27\\python -m compileall -q C:\\Python27\\Lib || true
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m compileall -q C:\\Python27\\Lib || true
 done
