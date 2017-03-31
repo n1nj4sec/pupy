@@ -9,7 +9,7 @@
 #include "base_inject.h"
 static char module_doc[] = "Builtins utilities for pupy";
 
-char pupy_config[8192]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup
+char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup. scriptlets also takes more space !
 extern const DWORD dwPupyArch;
 
 #include "resources_library_compressed_string_txt.c"

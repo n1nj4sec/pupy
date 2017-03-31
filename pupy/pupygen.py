@@ -29,6 +29,7 @@ import getpass
 import json
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
+HARDCODED_CONF_SIZE=32768
 
 def get_edit_binary(path, conf):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
@@ -55,16 +56,17 @@ def get_edit_binary(path, conf):
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
 
-    if new_conf_len > 8192:
+    
+    if new_conf_len > HARDCODED_CONF_SIZE:
         raise Exception(
-            'Error: config or offline script too long ({}/8192 bytes)'
-            'You need to recompile the dll with a bigger buffer'.format(new_conf_len)
+            'Error: config or offline script too long ({}/{} bytes)'
+            'You need to recompile the dll with a bigger buffer'.format(new_conf_len, HARDCODED_CONF_SIZE)
         )
 
-    new_conf = new_conf + os.urandom(8192-new_conf_len)
+    new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
 
     offset = offsets[0]
-    binary = binary[0:offset]+new_conf+binary[offset+8192:]
+    binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
 def get_raw_conf(conf, obfuscate=False):
