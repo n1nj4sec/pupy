@@ -43,19 +43,25 @@ def migrate(module, pid, keep=False, timeout=30):
     module.success("waiting for a connection from the DLL ...")
     time_end = time.time() + timeout
     c = False
-    mexit = rpyc.async(module.client.conn.exit)
-    while time.time() < time_end:
+    mexit = rpyc.timed(module.client.conn.exit, 5)
+    while True:
         c = has_proc_migrated(module.client, pid)
         if c:
             module.success("got a connection from migrated DLL !")
             c.pupsrv.move_id(c, module.client)
-            time.sleep(0.5)
             try:
-                mexit()
+                try:
+                    mexit()
+                except:
+                    pass
                 module.success("migration completed")
+                module.client.conn._conn.close() # force the socket to close and clean sessions list
             except Exception:
                 pass
 
             break
+        elif time.time() > time_end:
+            module.error("migration timed out !")
+            break
+        time.sleep(0.5)
 
-        time.sleep(1)
