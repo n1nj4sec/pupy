@@ -339,7 +339,7 @@ class ListOptions(argparse.Action):
             print "\t- {:<15} : ".format(name)
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
 
-        raise ValueError('Invalid options')
+        exit(0)
 
 PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
