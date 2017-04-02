@@ -755,7 +755,7 @@ class PupyCmd(cmd.Cmd):
 
         try:
             commands = arg_parser.parse_args(shlex.split(arg))
-        except PupyModuleExit:
+        except pupygen.InvalidOptions, PupyModuleExit:
             return
 
         if commands.command == 'list':
@@ -804,7 +804,7 @@ class PupyCmd(cmd.Cmd):
 
         try:
             args = arg_parser.parse_args(shlex.split(arg))
-        except PupyModuleExit:
+        except pupygen.InvalidOptions, PupyModuleExit:
             return
 
         if self.pupsrv.httpd:

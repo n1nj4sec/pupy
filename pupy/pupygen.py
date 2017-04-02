@@ -56,7 +56,7 @@ def get_edit_binary(path, conf):
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
 
-    
+
     if new_conf_len > HARDCODED_CONF_SIZE:
         raise Exception(
             'Error: config or offline script too long ({}/{} bytes)'
@@ -317,6 +317,9 @@ def parse_scriptlets(args_scriptlet, debug=False):
     script_code=sp.pack()
     return script_code
 
+class InvalidOptions(Exception):
+    pass
+
 class ListOptions(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         print colorize("## available formats :", "green")+" usage: -f <format>"
@@ -341,7 +344,7 @@ class ListOptions(argparse.Action):
             print "\t- {:<15} : ".format(name)
             print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
 
-        exit(0)
+        raise InvalidOptions
 
 PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
@@ -532,6 +535,8 @@ if __name__ == '__main__':
     parser = get_parser(argparse.ArgumentParser, config)
     try:
         pupygen(parser.parse_args(), config)
+    except InvalidOptions:
+        sys.exit(0)
     except Exception, e:
         logging.exception(e)
         sys.exit(str(e))
