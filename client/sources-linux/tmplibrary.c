@@ -337,7 +337,10 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     }
 
     char buf[PATH_MAX]={};
+	strncpy(buf, soname, sizeof(buf));
+
     int fd = drop_library(buf, PATH_MAX, buffer, size);
+
     if (fd < 0) {
         dprint("Couldn't drop library %s: %m\n", soname);
         return NULL;
@@ -351,16 +354,22 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     if (is_memfd) {
         char fake_path[PATH_MAX] = {};
         snprintf(fake_path, sizeof(fake_path), "/dev/shm/memfd:%s", soname);
+		for (int i=16; fake_path[i]; i++)
+			if (fake_path[i] == '/')
+				fake_path[i] = '!';
+
         if (!symlink(buf, fake_path)) {
             strncpy(buf, fake_path, sizeof(buf)-1);
             is_memfd = false;
-
-        }
-    }
+        } else {
+			dprint("symlink error %s -> %s: %m\n", buf, fake_path);
+		}
+	}
 #endif
 
     base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
     if (!is_memfd) {
+        dprint("Close fd: %d\n", fd);
         close(fd);
     }
 

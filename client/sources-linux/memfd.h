@@ -29,7 +29,16 @@
 
 inline static int pupy_memfd_create(char *path, unsigned int path_size)
 {
-    int fd = syscall(__NR_memfd_create, "heap", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    int fd = syscall(
+		__NR_memfd_create,
+#ifdef DEBUG
+		path,
+#else
+		"heap",
+#endif
+		MFD_CLOEXEC | MFD_ALLOW_SEALING
+	);
+
     if (fd == -1) {
         return -1;
     }
