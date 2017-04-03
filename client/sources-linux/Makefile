@@ -18,8 +18,8 @@ else
 NAME := 86
 endif
 
-LINUX_INJECT_CFLAGS := -include debug.h -include fixes.h \
-	-Dmain=linux_inject_main "-Drealpath=fakepath"
+LINUX_INJECT_CFLAGS := -include fixes.h -include debug.h \
+	-Dmain=linux_inject_main -Drealpath=fakepath
 
 ifneq ($(DEBUG),)
 DEBUG_ADD := -debug
@@ -31,7 +31,6 @@ LINUX_INJECT_CFLAGS += -Dprintf=dprint -Dfprintf=dfprint
 LDFLAGS += -O1 -Wl,-s -Wl,-x -Wl,--gc-sections -Wl,--no-undefined
 LDFLAGS += -Wl,-z,now -Wl,-z,combreloc -Wl,--enable-new-dtags
 endif
-
 
 PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
@@ -50,8 +49,8 @@ COMMON_OBJS += linux-inject/utils.o
 
 all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so
 
-pupy.c: resources_library_compressed_string_txt.c
-pupy_load.c: resources_bootloader_pyc.c resources_python27_so.c \
+pupy.o: resources_library_compressed_string_txt.c
+pupy_load.o: resources_bootloader_pyc.c resources_python27_so.c \
 	resources_libssl_so.c resources_libcrypto_so.c
 
 import-tab.c import-tab.h: mktab.py
@@ -71,7 +70,7 @@ resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/l
 		resources/library_compressed_string.txt $(XZARGS)
 
 resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
-	$(PYTHON) -OO $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
+	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources_bootloader_pyc.c: ../gen_resource_header.py resources/bootloader.pyc
 	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
