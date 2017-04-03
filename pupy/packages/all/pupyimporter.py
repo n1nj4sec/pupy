@@ -16,14 +16,36 @@
 # This module uses the builtins modules pupy and _memimporter to load python modules and packages from memory, including .pyd files (windows only)
 # Pupy can dynamically add new modules to the modules dictionary to allow remote importing of python modules from memory !
 #
-import sys, imp, marshal
+import sys, imp, marshal, gc
 
 __debug = False
+__trace = False
 
 def dprint(msg):
     global __debug
     if __debug:
         print msg
+
+def memtrace(msg):
+    global __debug
+    global __trace
+    if __debug and __trace:
+        import time
+        import os
+        import cPickle
+        import gc
+
+        msg = msg or 'unknown'
+        msg = msg.replace('/', '_')
+
+        gc.collect()
+        snapshot = __trace.take_snapshot()
+
+        if not os.path.isdir('/tmp/pupy-traces'):
+            os.makedirs('/tmp/pupy-traces')
+
+        with open('/tmp/pupy-traces/{}-{}'.format(time.time(), msg), 'w+b') as out:
+            cPickle.dump(snapshot, out)
 
 try:
     import _memimporter
@@ -99,7 +121,7 @@ except ImportError:
             try:
                 write(fd, data)
                 if dlopen:
-                    result = CDLL(fullname)
+                    result = ctypes.CDLL(fullname)
                 else:
                     if initfuncname:
                         result = imp.load_dynamic(initfuncname[4:], name)
@@ -157,15 +179,13 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     import zlib
 
     global modules
-    global __debug
 
     if compressed:
         pkdic = zlib.decompress(pkdic)
 
     module = cPickle.loads(pkdic)
 
-    if __debug:
-        dprint('Adding files: {}'.format(module.keys()))
+    dprint('Adding files: {}'.format(module.keys()))
 
     modules.update(module)
 
@@ -174,6 +194,10 @@ def pupy_add_package(pkdic, compressed=False, name=None):
             __import__(name)
         except:
             pass
+
+    gc.collect()
+
+    memtrace(name)
 
 def has_module(name):
     global module
@@ -219,7 +243,7 @@ class PupyPackageLoader:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
                 sys.modules[fullname]=mod
                 code = compile(self.contents, mod.__file__, "exec")
-                exec code in mod.__dict__
+                exec (code, mod.__dict__)
             elif self.extension in ["pyc","pyo"]:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
@@ -231,8 +255,7 @@ class PupyPackageLoader:
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
                 sys.modules[fullname]=mod
-                c=marshal.loads(self.contents[8:])
-                exec c in mod.__dict__
+                exec (marshal.loads(self.contents[8:]), mod.__dict__)
             elif self.extension in ("dll", "pyd", "so"):
                 initname = "init" + fullname.rsplit(".",1)[-1]
                 path = self.fullname.rsplit('.', 1)[0].replace(".",'/') + "." + self.extension
@@ -245,6 +268,11 @@ class PupyPackageLoader:
                     mod.__loader__ = self
                     mod.__package__ = fullname.rsplit('.',1)[0]
                     sys.modules[fullname]=mod
+
+            try:
+                memtrace(fullname)
+            except Exception, e:
+                dprint('memtrace failed: {}'.format(e))
 
         except Exception as e:
 
@@ -259,7 +287,8 @@ class PupyPackageLoader:
                            fullname, self.path, str(e)))
             if remote_print_error:
                 try:
-                    remote_print_error("Error loading package {} ({} pkg={}) : {}".format(fullname, self.path, self.is_pkg, str(traceback.format_exc())))
+                    remote_print_error("Error loading package {} ({} pkg={}) : {}".format(
+                        fullname, self.path, self.is_pkg, str(traceback.format_exc())))
                 except:
                     pass
 
@@ -267,6 +296,9 @@ class PupyPackageLoader:
 
         finally:
             imp.release_lock()
+            gc.collect()
+
+            self.contents = None
 
         return sys.modules[fullname]
 
@@ -281,6 +313,8 @@ class PupyPackageFinder:
     def find_module(self, fullname, path=None, second_pass=False):
         global modules
         imp.acquire_lock()
+        selected = None
+
         try:
             files=[]
             if fullname in ( 'pywintypes', 'pythoncom' ):
@@ -343,13 +377,8 @@ class PupyPackageFinder:
             if not selected:
                 return None
 
-            dprint('{} found in {}'.format(fullname, selected))
             content = modules[selected]
-
-            # Don't delete network.conf module
-            if not selected.startswith('network/'):
-                dprint('{} remove {} from bundle'.format(fullname, selected))
-                del modules[selected]
+            dprint('{} found in "{}" / size = {}'.format(fullname, selected, len(content)))
 
             extension = selected.rsplit(".",1)[1].strip().lower()
             is_pkg = any([
@@ -366,7 +395,13 @@ class PupyPackageFinder:
             raise e
 
         finally:
+            # Don't delete network.conf module
+            if selected and not selected.startswith('network/'):
+                dprint('XXX {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
+                del modules[selected]
+
             imp.release_lock()
+            gc.collect()
 
 def register_package_request_hook(hook):
     global remote_load_package
@@ -385,12 +420,16 @@ def unregister_package_request_hook():
     global remote_load_package
     remote_load_package = None
 
-def install(debug=None):
+def install(debug=None, trace=False):
     global __debug
+    global __trace
     global modules
 
     if debug:
         __debug = True
+
+    if trace:
+        __trace = trace
 
     if allow_system_packages:
         sys.path_hooks.append(PupyPackageFinder)
@@ -408,6 +447,18 @@ def install(debug=None):
         platform.architecture = lambda *args, **kwargs: (
             '32bit' if pupy.get_arch() == 'x86' else '64bit', ''
         )
+
+    try:
+        if __trace:
+            __trace = __import__('tracemalloc')
+
+        if __debug and __trace:
+            dprint('tracemalloc enabled')
+            __trace.start(10)
+
+    except Exception, e:
+        dprint('tracemalloc init failed: {}'.format(e))
+        __trace = None
 
     import ctypes
     import ctypes.util
