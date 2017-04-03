@@ -1,7 +1,8 @@
 #ifndef ___FIXES_H
 #define ___FIXES_H
 
-
+#include <linux/limits.h>
+#include <string.h>
 #include <sys/ptrace.h>
 
 #ifndef PTRACE_GETSIGINFO
@@ -9,8 +10,13 @@
 #endif
 
 static inline
-char *realpath2(const char *path, char *resolved_path) {
-	return path;
+char *fakepath(const char *path, char *resolved_path) {
+	if (resolved_path) {
+		strncpy(resolved_path, path, PATH_MAX);
+		return resolved_path;
+	} else {
+		return strdup(path);
+	}
 }
 
 #endif

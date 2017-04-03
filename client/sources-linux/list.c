@@ -252,7 +252,6 @@ bool list_remove(PLIST pList, void * data)
 bool list_delete(PLIST pList, unsigned int index)
 {
     bool result = false;
-    void * data = NULL;
     PNODE current_node = NULL;
 
     if (pList == NULL)

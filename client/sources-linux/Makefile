@@ -1,6 +1,6 @@
 CC ?= gcc
 
-CFLAGS := $(shell pkg-config --cflags python-2.7) -I../lzma -fPIC $(CFLAGS_EXTRA)
+CFLAGS := $(shell pkg-config --cflags python-2.7) -I../lzma -fPIC $(CFLAGS_EXTRA) -pipe -Wall
 LDFLAGS := -lpthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
 PFLAGS := -OO
 PIE ?= -pie
@@ -19,7 +19,7 @@ NAME := 86
 endif
 
 LINUX_INJECT_CFLAGS := -include debug.h -include fixes.h \
-	-Dmain=linux_inject_main "-Drealpath=realpath2"
+	-Dmain=linux_inject_main "-Drealpath=fakepath"
 
 ifneq ($(DEBUG),)
 DEBUG_ADD := -debug

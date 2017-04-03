@@ -65,10 +65,6 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 
     int rc = 0;
     PyObject *m=NULL, *d=NULL, *seq=NULL;
-    PyObject *mod;
-    char * ppath;
-    FILE * f;
-    uintptr_t cookie = 0;
     PyGILState_STATE restore_state;
 
     struct rlimit lim;
@@ -89,9 +85,9 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
         );
     }
 
-    munmap(resources_libcrypto_so_start, resources_libcrypto_so_size);
-    munmap(resources_libssl_so_start, resources_libssl_so_size);
-    munmap(resources_python27_so_start, resources_python27_so_size);
+    munmap((char *) resources_libcrypto_so_start, resources_libcrypto_so_size);
+    munmap((char *) resources_libssl_so_start, resources_libssl_so_size);
+    munmap((char *) resources_python27_so_start, resources_python27_so_size);
 
     dprint("calling PyEval_InitThreads() ...\n");
     PyEval_InitThreads();
@@ -155,7 +151,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
         resources_bootloader_pyc_size
     );
 
-    munmap(resources_bootloader_pyc_start, resources_bootloader_pyc_size);
+    munmap((char *) resources_bootloader_pyc_start, resources_bootloader_pyc_size);
 
     if (seq) {
         Py_ssize_t i, max = PySequence_Length(seq);
@@ -179,5 +175,5 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     PyGILState_Release(restore_state);
     Py_Finalize();
     dprint("exit ...\n");
-    return 0;
+    return rc;
 }

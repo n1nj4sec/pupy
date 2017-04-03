@@ -9,7 +9,6 @@ int decompress(int fd, const char *buf, size_t size) {
     int ret;
     unsigned have;
     z_stream strm;
-    unsigned char in[CHUNK];
     unsigned char out[CHUNK];
 
     /* allocate inflate state */
@@ -29,7 +28,7 @@ int decompress(int fd, const char *buf, size_t size) {
         if (strm.avail_in == 0)
             break;
 
-        strm.next_in = buf;
+        strm.next_in = (unsigned char *) buf;
 
         buf += strm.avail_in;
         size -= strm.avail_in;

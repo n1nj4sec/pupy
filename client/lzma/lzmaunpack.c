@@ -7,13 +7,12 @@ static void _lzfree(void *p, void *address) { p = p; free(address); }
 static ISzAlloc _lzallocator = { _lzalloc, _lzfree };
 
 static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_size) {
-	char *uncompressed = NULL;
+	unsigned char *uncompressed = NULL;
 	size_t uncompressed_size = 0;
 
-	const Byte *wheader = data + sizeof(unsigned int);
-	const Byte *woheader = wheader + LZMA_PROPS_SIZE;
+	const Byte *wheader = (Byte *) data + sizeof(unsigned int);
+	const Byte *woheader = (Byte *) wheader + LZMA_PROPS_SIZE;
 
-	CLzmaDec state;
 	ELzmaStatus status;
 	size_t srcLen;
 	int res;

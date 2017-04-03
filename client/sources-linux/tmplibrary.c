@@ -168,14 +168,14 @@ set_cloexec_flag (int desc) {
     return fcntl (desc, F_SETFD, oldflags);
 }
 
-pid_t memexec(const char *buffer, size_t size, const char *argv[], int stdior[3], bool redirected_stdio, bool detach) {
+pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdior[3], bool redirected_stdio, bool detach) {
     dprint("memexec(%p, %ull, %d)\n", buffer, size, redirected_stdio);
 
     char buf[PATH_MAX]={};
     int fd = drop_library(buf, PATH_MAX, buffer, size);
     if (fd < 0) {
         dprint("Couldn't drop executable: %m\n");
-        return NULL;
+        return -1;
     }
 
     int p_wait[2];
@@ -229,8 +229,8 @@ pid_t memexec(const char *buffer, size_t size, const char *argv[], int stdior[3]
             close(p_wait[0]);
             set_cloexec_flag(p_wait[1]);
 
-            fexecve(fd, argv, environ);
-            execv(buffer, argv);
+            fexecve(fd, (char *const *) argv, environ);
+            execv(buffer, (char *const *) argv);
 
             int status = errno;
             write(p_wait[1], &status, sizeof(status));
@@ -287,14 +287,17 @@ pid_t memexec(const char *buffer, size_t size, const char *argv[], int stdior[3]
     return child_pid;
 
  _lbClose3:
-    if (redirected_stdio)
+    if (redirected_stdio) {
         close(p_stderr[0]); close(p_stderr[1]);
+    }
  _lbClose2:
-    if (redirected_stdio)
+    if (redirected_stdio) {
         close(p_stdout[0]); close(p_stdout[1]);
+    }
  _lbClose1:
-    if (redirected_stdio)
+    if (redirected_stdio) {
         close(p_stdin[0]); close(p_stdin[1]);
+    }
  _lbClose0:
     if (p_wait[0] > 0)
         close(p_wait[0]);
@@ -346,17 +349,12 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 
 #ifndef NO_MEMFD_DLOPEN_WORKAROUND
     if (is_memfd) {
-        char *fake_path = tempnam("/dev/shm", NULL);
-        if (!fake_path) {
-            fake_path = tempnam("/tmp", NULL);
-        }
-        if (fake_path) {
-            if (!symlink(buf, fake_path)) {
-                strncpy(buf, fake_path, sizeof(buf)-1);
-                is_memfd = false;
+        char fake_path[PATH_MAX] = {};
+        snprintf(fake_path, sizeof(fake_path), "/dev/shm/memfd:%s", soname);
+        if (!symlink(buf, fake_path)) {
+            strncpy(buf, fake_path, sizeof(buf)-1);
+            is_memfd = false;
 
-            }
-            free(fake_path);
         }
     }
 #endif
