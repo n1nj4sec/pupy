@@ -235,7 +235,6 @@ class PupyPackageLoader:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
                 mod.__file__ = 'pupy://{}'.format(self.path)
-                mod.__loader__ = self
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
                     mod.__package__ = fullname
@@ -249,7 +248,6 @@ class PupyPackageLoader:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
                 mod.__file__ = 'pupy://{}'.format(self.path)
-                mod.__loader__ = self
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
                     mod.__package__ = fullname
@@ -267,7 +265,6 @@ class PupyPackageLoader:
                 if mod:
                     mod.__name__=fullname
                     mod.__file__ = 'pupy://{}'.format(self.path)
-                    mod.__loader__ = self
                     mod.__package__ = fullname.rsplit('.',1)[0]
                     sys.modules[fullname] = mod
 

