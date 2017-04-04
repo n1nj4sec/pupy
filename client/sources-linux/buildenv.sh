@@ -167,7 +167,7 @@ cd /usr/src
 tar zxf Python-2.7.13.tgz
 cd /usr/src/Python-2.7.13
 ./configure --prefix=/usr \
-  --without-doc-strings --without-tsc --without-pymalloc \
+  --without-doc-strings --without-tsc \
   --with-fpectl --with-ensurepip=install --with-signal-module \
   --enable-ipv6 --enable-shared --enable-unicode=ucs4
 make; make install
@@ -419,7 +419,7 @@ cd /usr/src
 tar zxf Python-2.7.13.tgz
 cd /usr/src/Python-2.7.13
 ./configure --prefix=/usr \
-  --without-doc-strings --without-tsc --without-pymalloc \
+  --without-doc-strings --without-tsc \
   --with-fpectl --with-ensurepip=install --with-signal-module \
   --enable-ipv6 --enable-shared --enable-unicode=ucs4
 make; make install
