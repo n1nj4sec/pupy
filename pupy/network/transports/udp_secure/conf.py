@@ -6,7 +6,7 @@ from network.lib import *
 
 class TransportConf(Transport):
     info = "Simple UDP transport transmitting in cleartext"
-    name="udp"
+    name="udp_secure"
     server=PupyUDPServer
     client=PupyUDPClient
     stream=PupyUDPSocketStream
