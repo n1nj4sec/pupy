@@ -295,10 +295,9 @@ class PupyPackageLoader:
             raise e
 
         finally:
+            self.contents = None
             imp.release_lock()
             gc.collect()
-
-            self.contents = None
 
         return sys.modules[fullname]
 
