@@ -352,9 +352,11 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 
 #ifndef NO_MEMFD_DLOPEN_WORKAROUND
     if (is_memfd) {
+		int i;
+
         char fake_path[PATH_MAX] = {};
         snprintf(fake_path, sizeof(fake_path), "/dev/shm/memfd:%s", soname);
-		for (int i=16; fake_path[i]; i++)
+		for (i=16; fake_path[i]; i++)
 			if (fake_path[i] == '/')
 				fake_path[i] = '!';
 
