@@ -197,8 +197,12 @@ class PupyClient(object):
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
         pupyimporter = self.conn.modules.pupyimporter
-        self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
-        pupyimporter.register_package_request_hook(self.remote_load_package)
+
+        try:
+            self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
+            pupyimporter.register_package_request_hook(self.remote_load_package)
+        except:
+            pass
 
         try:
             self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_error_hook)
