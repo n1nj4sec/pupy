@@ -387,7 +387,7 @@ class SystemInfo(Command):
 
 class Connect(Command):
     well_known_transports_decode = dict(enumerate([
-        'obfs3','udp','http','tcp_cleartext','rsa',
+        'obfs3','udp_secure','http','tcp_cleartext','rsa',
         'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4'
     ], 1))
 
