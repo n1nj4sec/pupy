@@ -396,7 +396,7 @@ class PupyPackageFinder:
 
         finally:
             # Don't delete network.conf module
-            if selected and not selected.startswith('network/'):
+            if selected and not selected.startswith('network/conf'):
                 dprint('XXX {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
                 del modules[selected]
 
