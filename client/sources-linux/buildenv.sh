@@ -277,8 +277,6 @@ cd /usr/src/automake-1.15
 CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
  python -OO -m pip install pyuv --no-binary :all:
 
-python -OO -m pip uninstall -y cffi
-
 cd /usr/lib/python2.7
 python -m compileall -q
 python -OO -m compileall -q
@@ -502,8 +500,6 @@ cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
 python -OO -m pip install pyuv --no-binary :all:
-
-python -OO -m pip uninstall -y cffi
 
 cd /usr/lib/python2.7
 python -m compileall -q
