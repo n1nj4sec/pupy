@@ -23,12 +23,17 @@ import zlib
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
+
     if type(proxy) in [list, str, bytes, dict, set, type(None)]:
         return proxy
+
     conn = object.__getattribute__(proxy, "____conn__")()
     data = conn.root.json_dumps(proxy, compressed=True)
     data = zlib.decompress(data)
-    return json.loads(data) # should prevent any code execution
+    data = data.decode('latin1')
+    data = json.loads(data) # should prevent any code execution
+
+    return data
 
 def obtain(proxy):
     return safe_obtain(proxy)

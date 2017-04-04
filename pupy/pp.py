@@ -201,7 +201,7 @@ class ReverseSlaveService(Service):
         return __import__(name, None, None, "*")
 
     def exposed_json_dumps(self, obj, compressed=False):
-        data = json.dumps(obj)
+        data = json.dumps(obj, ensure_ascii=False)
         if compressed:
             data = zlib.compress(data)
 
