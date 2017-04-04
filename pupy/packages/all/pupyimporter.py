@@ -241,9 +241,10 @@ class PupyPackageLoader:
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
-                sys.modules[fullname]=mod
                 code = compile(self.contents, mod.__file__, "exec")
+                sys.modules[fullname] = mod
                 exec (code, mod.__dict__)
+
             elif self.extension in ["pyc","pyo"]:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
@@ -254,8 +255,9 @@ class PupyPackageLoader:
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
-                sys.modules[fullname]=mod
+                sys.modules[fullname] = mod
                 exec (marshal.loads(self.contents[8:]), mod.__dict__)
+
             elif self.extension in ("dll", "pyd", "so"):
                 initname = "init" + fullname.rsplit(".",1)[-1]
                 path = self.fullname.rsplit('.', 1)[0].replace(".",'/') + "." + self.extension
@@ -267,12 +269,13 @@ class PupyPackageLoader:
                     mod.__file__ = 'pupy://{}'.format(self.path)
                     mod.__loader__ = self
                     mod.__package__ = fullname.rsplit('.',1)[0]
-                    sys.modules[fullname]=mod
+                    sys.modules[fullname] = mod
 
             try:
                 memtrace(fullname)
             except Exception, e:
                 dprint('memtrace failed: {}'.format(e))
+
 
         except Exception as e:
 
@@ -429,6 +432,8 @@ def install(debug=None, trace=False):
 
     if trace:
         __trace = trace
+
+    gc.set_threshold(128)
 
     if allow_system_packages:
         sys.path_hooks.append(PupyPackageFinder)
