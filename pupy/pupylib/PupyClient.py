@@ -150,7 +150,7 @@ class PupyClient(object):
         try:
             if self.desc['platform']==platform.system() and self.desc['proc_arch']==platform.architecture()[0] and self.desc['os_arch']==platform.machine():
                 return True
-                
+
         except Exception as e:
             logging.error(e)
         return False
@@ -199,8 +199,12 @@ class PupyClient(object):
         pupyimporter = self.conn.modules.pupyimporter
         self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
         pupyimporter.register_package_request_hook(self.remote_load_package)
-        self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_error_hook)
-        pupyimporter.register_package_error_hook(self.remote_print_error)
+
+        try:
+            self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_error_hook)
+            pupyimporter.register_package_error_hook(self.remote_print_error)
+        except:
+            pass
 
     def load_dll(self, path):
         """
@@ -308,7 +312,7 @@ class PupyClient(object):
                     modpath = os.path.join(modprefix,f).replace("\\","/")
 
                     base, ext = modpath.rsplit('.', 1)
-                    
+
                     # Garbage removing
                     if ext == 'py' and ( base+'.pyc' in modules_dic or base+'.pyo' in modules_dic ):
                         continue
