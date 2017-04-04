@@ -304,7 +304,7 @@ class PupyPackageLoader:
 class PupyPackageFinderImportError(ImportError):
     pass
 
-class PupyPackageFinder:
+class PupyPackageFinder(object):
     def __init__(self, path=None):
         if path and not path.startswith('pupy://'):
             raise PupyPackageFinderImportError()
