@@ -18,7 +18,7 @@ sys_modules = [
 all_dependencies=set(
     [
         x.split('.')[0] for x,m in sys_modules \
-            if not '(built-in)' in str(m) and x != '__main__' and not x.startswith('cffi')
+            if not '(built-in)' in str(m) and x != '__main__'
     ] + [
         'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa',
         'encodings.idna', 'stringprep',
@@ -79,9 +79,13 @@ try:
                             zipname = zipname.replace('\\', '/')
                             found=True
 
+                            if zipname.startswith('network/transports/') and \
+                              not zipname.startswith('network/transports/__init__.py'):
+                                continue
+
                             # Remove various testcases if any
                             if any([ '/'+x+'/' in zipname for x in [
-                                'tests', 'test', 'SelfTest', 'examples'
+                                'tests', 'test', 'SelfTest', 'SelfTests', 'examples'
                                 ]
                             ]):
                                 continue

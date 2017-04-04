@@ -88,11 +88,17 @@ def get_raw_conf(conf, obfuscate=False):
       if hasattr(l, 'credentials') else set([])
 
     transport = l.get_transport()
-    if transport and transports[transport].credentials:
-        for name in transports[transport].credentials:
-            required_credentials.add(name)
+    transports_list = []
+
+    if transport:
+        transports_list = [ transport ]
+        if transports[transport].credentials:
+            for name in transports[transport].credentials:
+                required_credentials.add(name)
     elif not transport:
-        for t in transports.itervalues():
+        for n, t in transports.iteritems():
+            transports_list.append(n)
+
             if t.credentials:
                 for name in t.credentials:
                     required_credentials.add(name)
@@ -111,10 +117,12 @@ def get_raw_conf(conf, obfuscate=False):
             repr(cPickle.dumps({
                 'pupy_credentials.py' : embedded_credentials
             }))),
-        'pupyimporter.pupy_add_package({})'.format(
-            repr(cPickle.dumps(gen_package_pickled_dic(
-                ROOT+os.sep, 'network.transports.{}'.format(l.get_transport())
-            )))) if transport else '',
+        '\n'.join([
+            'pupyimporter.pupy_add_package({})'.format(
+                repr(cPickle.dumps(gen_package_pickled_dic(
+                    ROOT+os.sep, 'network.transports.{}'.format(transport)
+                    )))) for transport in transports_list
+        ]),
         'import sys',
         'sys.modules.pop("network.conf")',
         'import network.conf',
