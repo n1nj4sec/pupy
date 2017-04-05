@@ -63,7 +63,7 @@ if __name__=="__main__":
         remove_stdout if not args.debug else 'print "DEBUG"\n',
         'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[];' + (
             'sys.argv = [];' if not args.pass_argv else ''
-        ) + 'sys.prefix = ""; \n',
+        ) + 'sys.prefix = ""; sys.flags.optimize=1;\n',
         pupyload.format('pupyimporter', repr(pupyimporter)),
         'import pupyimporter\n'
         'pupyimporter.install({})\n'.format(args.debug),
