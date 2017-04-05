@@ -337,9 +337,13 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     }
 
     char buf[PATH_MAX]={};
-	strncpy(buf, soname, sizeof(buf));
 
-    int fd = drop_library(buf, PATH_MAX, buffer, size);
+#ifdef DEBUG
+	if (soname)
+		strncpy(buf, soname, sizeof(buf)-1);
+#endif
+
+    int fd = drop_library(buf, sizeof(buf)-1, buffer, size);
 
     if (fd < 0) {
         dprint("Couldn't drop library %s: %m\n", soname);
@@ -351,12 +355,14 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     dprint("Library \"%s\" dropped to \"%s\" (memfd=%d) \n", soname, buf, is_memfd);
 
 #ifndef NO_MEMFD_DLOPEN_WORKAROUND
+	#define DROP_PATH "/dev/shm/memfd:"
+
     if (is_memfd) {
 		int i;
 
         char fake_path[PATH_MAX] = {};
-        snprintf(fake_path, sizeof(fake_path), "/dev/shm/memfd:%s", soname);
-		for (i=16; fake_path[i]; i++)
+        snprintf(fake_path, sizeof(fake_path), DROP_PATH "%s", soname);
+		for (i=sizeof(DROP_PATH)-1; fake_path[i]; i++)
 			if (fake_path[i] == '/')
 				fake_path[i] = '!';
 
