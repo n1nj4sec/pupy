@@ -30,18 +30,11 @@
 inline static int pupy_memfd_create(char *path, unsigned int path_size)
 {
 #ifndef DEBUG
-	static const char heap[] = "heap";
+	memset(path, 0x0, path_size);
+	strncpy(path, "heap", path_size);
 #endif
 
-    int fd = syscall(
-		__NR_memfd_create,
-#ifdef DEBUG
-		path,
-#else
-		heap,
-#endif
-		MFD_CLOEXEC | MFD_ALLOW_SEALING
-	);
+    int fd = syscall(__NR_memfd_create, path, MFD_CLOEXEC | MFD_ALLOW_SEALING);
 
     if (fd == -1) {
         return -1;

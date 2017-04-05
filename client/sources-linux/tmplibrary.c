@@ -172,7 +172,7 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     dprint("memexec(%p, %ull, %d)\n", buffer, size, redirected_stdio);
 
     char buf[PATH_MAX]={};
-    int fd = drop_library(buf, PATH_MAX, buffer, size);
+    int fd = drop_library(buf, sizeof(buf), buffer, size);
     if (fd < 0) {
         dprint("Couldn't drop executable: %m\n");
         return -1;

@@ -22,7 +22,7 @@ int linux_inject_main(int argc, char **argv);
 
 static const char module_doc[] = "Builtins utilities for pupy";
 
-static const char pupy_config[32764]="####---PUPY_CONFIG_COMES_HERE---####\n";
+static const char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n";
 
 static PyObject *ExecError;
 
