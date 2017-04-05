@@ -278,8 +278,8 @@ CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U
  python -OO -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
-python -m compileall -q
-python -OO -m compileall -q
+find -name "*.py" | python -m compileall -qfi -
+find -name "*.py" | python -OO -m compileall -qfi -
 
 find -name "*.so" | while read f; do strip \$f; done
 
@@ -502,8 +502,8 @@ cd /usr/src/automake-1.15
 python -OO -m pip install pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
-python -m compileall -q
-python -OO -m compileall -q
+find -name "*.py" | python -m compileall -qfi -
+find -name "*.py" | python -OO -m compileall -qfi -
 
 find -name "*.so" | while read f; do strip \$f; done
 
