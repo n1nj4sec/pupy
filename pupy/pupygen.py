@@ -425,8 +425,12 @@ if __name__=="__main__":
     elif args.format=="py_oneliner":
         packed_payload=pack_py_payload(get_raw_conf(conf))
         i=conf["launcher_args"].index("--host")+1
-        link_ip=conf["launcher_args"][i].split(":",1)[0]
-        serve_payload(packed_payload, link_ip=link_ip)
+        link=conf["launcher_args"][i].split(":",1)
+	link_ip=link[0]
+	link_port=8080
+	if len(link) > 1:
+        	link_port=int(link[1])
+	serve_payload(packed_payload, link_ip=link_ip, port=link_port)
     elif args.format=="ps1":
         SPLIT_SIZE = 100000
         x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
