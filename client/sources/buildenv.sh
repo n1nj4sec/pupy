@@ -88,6 +88,12 @@ done
 
 export WINEPREFIX=$WINE64
 
+mkdir -p $WINE64/drive_c/windows/Microsoft.NET/Framework
+mkdir -p $WINE64/drive_c/windows/Microsoft.NET/Framework64
+
+touch $WINE64/drive_c/windows/Microsoft.NET/Framework/empty.txt
+touch $WINE64/drive_c/windows/Microsoft.NET/Framework64/empty.txt
+
 wine reg delete 'HKLM\Software\Microsoft\Windows\CurrentVersion' /v SubVersionNumber /f || true
 wine reg delete 'HKLM\Software\Microsoft\Windows\CurrentVersion' /v VersionNumber /f || true
 wine reg delete 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CSDVersion /f || true
@@ -152,10 +158,10 @@ sed -i $WINEPREFIX/system.reg -e 's@"ProductName"="Microsoft Windows XP"@"Produc
 unset WINEPREFIX
 
 for prefix in $WINE32 $WINE64; do
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade pip
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade setuptools
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade $PACKAGES
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install --upgrade --no-binary :all: psutil
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade pip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade $PACKAGES
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil
     WINEPREFIX=$prefix wine C:\\Python27\\python -m compileall -q C:\\Python27\\Lib || true
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m compileall -q C:\\Python27\\Lib || true
 done

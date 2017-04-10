@@ -250,8 +250,8 @@ int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
 #endif
 __EOF__
 
-python -OO -m pip install six packaging appdirs
-python -OO -m pip install \
+python -OO -m pip install -q six packaging appdirs
+python -OO -m pip install -q \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
@@ -275,7 +275,7 @@ cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
 CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
- python -OO -m pip install pyuv --no-binary :all:
+ python -OO -m pip install -q pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
@@ -475,8 +475,8 @@ rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.l
 make -k
 make install
 
-python -OO -m pip install six packaging appdirs
-python -OO -m pip install \
+python -OO -m pip install -q six packaging appdirs
+python -OO -m pip install -q \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
@@ -499,7 +499,7 @@ tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
-python -OO -m pip install pyuv --no-binary :all:
+python -OO -m pip install -q pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
