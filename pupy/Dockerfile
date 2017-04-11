@@ -7,6 +7,7 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sou
     apt-get update && \
     apt-get install -t jessie-backports --no-install-recommends -y build-essential \
     python-dev python-pip openssh-server tmux sslh libssl-dev libcap2-bin \
+    john vim-nox less \
     autoconf automake libffi-dev unzip libtool locales ncurses-term bash tcpdump libpam-cap && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
