@@ -28,3 +28,6 @@
 [submodule "pupy/external/linux-exploit-suggester"]
 	path = pupy/external/linux-exploit-suggester
 	url = https://github.com/mzet-/linux-exploit-suggester
+[submodule "pupy/external/mimipy"]
+	path = pupy/external/mimipy
+	url = https://github.com/n1nj4sec/mimipy.git
