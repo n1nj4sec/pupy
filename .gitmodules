@@ -21,7 +21,7 @@
 	url = https://github.com/alxchk/winpty
 [submodule "pupy/memorpy"]
 	path = pupy/external/memorpy
-	url = https://github.com/n1nj4sec/memorpy
+	url = https://github.com/alxchk/memorpy
 [submodule "pupy/external/Windows-Exploit-Suggester"]
 	path = pupy/external/Windows-Exploit-Suggester
 	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
