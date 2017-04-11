@@ -11,9 +11,9 @@ def try_int(x):
     except:
         return x
 
-def find_strings(targets, min_length=4, max_length=51, omit='isxr'):
+def iterate_strings(targets, min_length=4, max_length=51, omit='isxr', portions=4096, nodup=True, terminate=None):
     if not targets:
-        return {}
+        return
 
     if type(targets) == (str, int):
         targets = [ targets ]
@@ -24,26 +24,39 @@ def find_strings(targets, min_length=4, max_length=51, omit='isxr'):
     printable = re.compile('^[\x20-\x7e]{{{},{}}}$'.format(min_length, max_length))
 
     for process in memorpy.Process.list():
+        if terminate is not None and terminate.is_set():
+            break
+
         if not (
             os.path.basename(process.get('name')) in targets or process.get('pid') in targets
         ):
             continue
 
         strings = []
-        results[process.get('pid')] = {
-            'name': process.get('name'),
-            'strings': strings
-        }
+        pid = process.get('pid')
+        name = process.get('name')
 
         mw = memorpy.MemWorker(pid=process.get('pid'))
         duplicates = set()
         for _, (cstring,) in mw.mem_search('([^\x00]+)', ftype='groups', optimizations=omit):
-            if printable.match(cstring):
-                if not cstring in duplicates:
-                    duplicates.add(cstring)
-                    strings.append(cstring)
+            if terminate is not None and terminate.is_set():
+                break
 
-    return results
+            if printable.match(cstring):
+                if nodup:
+                    if cstring in duplicates:
+                        continue
+
+                    duplicates.add(cstring)
+
+                strings.append(cstring)
+                if len(strings) >= portions:
+                    yield pid, name, strings
+                    strings = []
+
+        if strings:
+            yield pid, name, strings
+            strings = []
 
 if __name__=="__main__":
     import sys
