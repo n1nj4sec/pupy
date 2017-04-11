@@ -5,7 +5,7 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="MemStrings"
 
-@config(cat="memstrings", compat=["windows", "linux"])
+@config(cat="creds", compat=["windows", "linux"])
 class MemStrings(PupyModule):
     """
         Dump printable strings from process memory for futher analysis
@@ -15,8 +15,21 @@ class MemStrings(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='memstrings', description=self.__doc__)
         action = self.arg_parser.add_mutually_exclusive_group(required=True)
-        action.add_argument('-p', '--pid', nargs='*', type=int, default=[])
-        action.add_argument('-n', '--name', nargs='*', default=[])
+        action.add_argument('-p', '--pid', nargs='*', type=int, default=[],
+                                help='Include processes with specified pids')
+        action.add_argument('-n', '--name', nargs='*', default=[],
+                                help='Include processes with specified names')
+        self.arg_parser.add_argument('-o', '--omit', type=str, default='isrx',
+                                help='Avoid scanning: '
+                                'i - ranges with file mapping; '
+                                's - ranges with shared region; '
+                                'x - ranges with executable region; '
+                                'r - ranges with read-only region')
+        self.arg_parser.add_argument('-l', '--min-length', type=int, default=4,
+                                help='Show only strings which are longer then specified length')
+        self.arg_parser.add_argument('-m', '--max-length', type=int, default=51,
+                                help='Show only strings which are shorter then specified length')
+
         self.arg_parser.add_argument(
             '-log',
             help='Save output to file. Omit output to stdout. You can use vars: '
@@ -26,7 +39,12 @@ class MemStrings(PupyModule):
 
     def run(self, args):
         targets = args.pid + args.name
-        dump = self.client.conn.modules.memstrings.find_strings(targets)
+        dump = self.client.conn.modules.memstrings.find_strings(
+            targets,
+            min_length=args.min_length,
+            max_length=args.max_length,
+            omit=args.omit
+        )
         dump = obtain(dump)
         if not dump:
             self.error('No dumps received')

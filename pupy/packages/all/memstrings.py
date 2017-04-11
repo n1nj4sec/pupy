@@ -11,7 +11,7 @@ def try_int(x):
     except:
         return x
 
-def find_strings(targets, min_length=4):
+def find_strings(targets, min_length=4, max_length=51, omit='isxr'):
     if not targets:
         return {}
 
@@ -21,8 +21,9 @@ def find_strings(targets, min_length=4):
     targets = set([ try_int(x) for x in targets ])
     results = {}
 
+    printable = re.compile('^[\x20-\x7e]{{{},{}}}$'.format(min_length, max_length))
+
     for process in memorpy.Process.list():
-        print os.path.basename(process.get('name')), process.get('name'), targets
         if not (
             os.path.basename(process.get('name')) in targets or process.get('pid') in targets
         ):
@@ -35,9 +36,8 @@ def find_strings(targets, min_length=4):
         }
 
         mw = memorpy.MemWorker(pid=process.get('pid'))
-        printable = re.compile('^[\x20-\x7e]{{{},}}$'.format(min_length))
         duplicates = set()
-        for _, (cstring,) in mw.mem_search('([^\x00]+)', ftype='groups', optimizations='i'):
+        for _, (cstring,) in mw.mem_search('([^\x00]+)', ftype='groups', optimizations=omit):
             if printable.match(cstring):
                 if not cstring in duplicates:
                     duplicates.add(cstring)
