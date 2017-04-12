@@ -8,32 +8,45 @@ __class_name__="SearchModule"
 @config(cat="gather")
 class SearchModule(PupyModule):
     """ walk through a directory and recursively search a string into files """
-    daemon = True
     dependencies = [ 'pupyutils.search', 'scandir' ]
+
+    terminate = None
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="search", description=self.__doc__)
-        self.arg_parser.add_argument('--path', default='.', help='root path to start (default: current path)')
-        self.arg_parser.add_argument('-e','--extensions',metavar='ext1,ext2,...', default= '', help='limit to some extensions')
-        self.arg_parser.add_argument('strings', nargs='+', metavar='string', help='strings to search')
+        self.arg_parser.add_argument('-p', '--path', default='.', help='root path to start (default: current path)')
         self.arg_parser.add_argument('-m','--max-size', type=int, default=20000000, help='max file size (default 20 Mo)')
-        self.arg_parser.add_argument('--content', action='store_true', help='check inside files (such as grep)')
+        self.arg_parser.add_argument('-b', '--binary', action='store_true', help='search content inside binary files')
+        self.arg_parser.add_argument('-L', '--links', action='store_true', help='follow symlinks')
+        self.arg_parser.add_argument('-N', '--no-content', action='store_true', help='if string matches, output just filename')
+        self.arg_parser.add_argument('filename', type=str, metavar='filename', help='regex to search (filename)')
+        self.arg_parser.add_argument('strings', nargs='*', default=[], type=str,
+                                         metavar='string', help='regex to search (content)')
 
     def run(self, args):
-        if args.extensions:
-            args.extensions = tuple(f.strip() for f in args.extensions.split(','))
-        # if not extension is provided for find commad, try to extract it to gain time during the research
-        elif not args.content:
-            args.extensions = tuple(os.path.splitext(s)[1].strip() for s in args.strings)
+        self.terminate = self.client.conn.modules['threading'].Event()
 
-        search_str = [s.lower() for s in args.strings]
+        s = self.client.conn.modules['pupyutils.search'].Search(
+            args.filename,
+            strings=args.strings,
+            max_size=args.max_size,
+            root_path=args.path,
+            follow_symlinks=args.links,
+            no_content=args.no_content,
+            terminate=self.terminate
+        )
 
-        s = self.client.conn.modules['pupyutils.search'].Search(files_extensions=args.extensions, max_size=args.max_size, check_content=args.content, root_path=args.path, search_str=search_str)
-        self.info("searching strings %s in %s ..."%(args.strings, args.path))
         for res in s.run():
-            # add color
-            for s in search_str:
-                if s in res:
-                    res = res.replace(s, colorize(s,"green"))
-            self.success("%s" % res)
-        self.info("search finished !")
+            if args.strings and not args.no_content:
+                self.success('{}: {}'.format(*res))
+            else:
+                self.success('{}'.format(res))
+
+            if self.terminate.is_set():
+                break
+
+        self.info("complete")
+
+    def interrupt(self):
+        if self.terminate:
+            self.terminate.set()

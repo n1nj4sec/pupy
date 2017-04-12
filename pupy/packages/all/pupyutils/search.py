@@ -5,70 +5,109 @@ import time
 import os
 import re
 import sys
+import mmap
 
 class Search():
-    def __init__(self, files_extensions='', max_size=20000000, check_content=False, root_path='.', search_str=[]):
-        # By default max size is 20 Mo
-        self.max_size = max_size
-        self.files_extensions = files_extensions
-        self.check_content = check_content
+    def __init__(self, path,
+                     strings=[], max_size=20000000, root_path='.', no_content=False,
+                     binary=False, follow_symlinks=False, terminate=None):
+        self.max_size = int(max_size)
+        self.follow_symlinks = follow_symlinks
+        self.no_content = no_content
+        self.binary = binary
+
+        path = os.path.expandvars(os.path.expanduser(path))
+
+        if os.path.isdir(path):
+            root_path = path
+            self.name = None
+            self.path = None
+        elif path.startswith('/'):
+            root_path = os.path.dirname(path)
+            self.name = re.compile(os.path.basename(path))
+            self.path = None
+        elif '/' in path:
+            self.path = re.compile(path)
+            self.name = None
+        else:
+            self.name = re.compile(path)
+            self.path = None
+
+        self.strings = [
+            re.compile(string) for string in strings
+        ]
+
+        self.terminate = terminate
+
         if root_path == '.':
             self.root_path = os.getcwd()
         else:
             self.root_path = root_path
-        self.search_str = search_str
 
-    def search_string(self, path):
-        buffer = None
+    def search_string(self, path, size):
         try:
-            with open(path, 'rb') as f:    
-                while True:
-                    buffer = f.read(4096)
-                    if buffer:
-                        for string in self.search_str:
-                            # no case sensitive on regex
-                            indexes = [m.start() for m in re.finditer(string, buffer, flags=re.IGNORECASE)]
-                            for i in indexes:
-                                # return the entire line
-                                yield buffer[i:].strip().split('\n')[0]
-                    else:
-                        break
-        except:
+            with open(path, 'rb') as f:
+                m = mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ)
+                try:
+                    if not self.binary:
+                        sample_size = min(size, 4096)
+                        sample = m[:sample_size]
+                        sample_zeros = len([ x for x in sample if ord(x) == '\x00' ])
+                        if not sample_zeros in (0, sample_size/2):
+                            return
+
+                    for string in self.strings:
+                        for match in string.finditer(m):
+                            yield match.group()
+                finally:
+                    m.close()
+
+        except Exception, e:
             pass
 
     def scanwalk(self, path, followlinks=False):
-        
+
         ''' lists of DirEntries instead of lists of strings '''
-        
-        dirs, nondirs = [], []
+
         try:
             for entry in scandir(path):
-                # check if the file contains our pattern
-                for s in self.search_str:
-                    if entry.name.lower().find(s) != -1:
-                        yield '%s' % entry.path
+                if self.terminate and self.terminate.is_set():
+                    break
 
-                # if directory, be recursive
+                any_file = not self.name or self.path
+
+                if (
+                    (self.name and self.name.match(entry.name)) or
+                    (self.path and self.path.match(entry.path)) or
+                    any_file
+                ):
+                    if not self.strings or not (self.strings and entry.is_file() ):
+                        if not any_file:
+                            yield entry.path
+                    else:
+                        size = entry.stat().st_size
+                        if size > self.max_size:
+                            continue
+
+                        for string in self.search_string(entry.path, min(size, self.max_size)):
+                            if string:
+                                if self.no_content:
+                                    yield entry.path
+                                    break
+                                else:
+                                    yield (entry.path, string)
+
                 if entry.is_dir(follow_symlinks=followlinks):
                     for res in self.scanwalk(entry.path):
-                        yield res
-               
-               # check inside the file to found our pattern
-                else:
-                    if self.max_size > entry.stat(follow_symlinks=False).st_size:
-                        if entry.name.endswith(self.files_extensions):
-                            if self.check_content:
-                                for res in self.search_string(entry.path):
-                                    try:
-                                        res = res.encode('utf-8')
-                                        yield '%s > %s' % (entry.path, res)
-                                    except:
-                                        pass
+                        if self.strings and not self.no_content:
+                            yield (res, 'DIR')
+                        else:
+                            yield res
 
-        # try / except used for permission denied 
-        except:
+        # try / except used for permission denied
+        except Exception, e:
             pass
-    
+
     def run(self):
         if os.path.isfile(self.root_path):
             for res in self.search_string(self.root_path):
@@ -77,7 +116,7 @@ class Search():
                     yield '%s > %s' % (self.root_path, res)
                 except:
                     pass
-            
+
         else:
-            for files in self.scanwalk(self.root_path):
+            for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
                 yield files
