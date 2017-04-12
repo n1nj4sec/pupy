@@ -51,6 +51,8 @@ if 'win' in sys.platform:
 
 try:
     content = set()
+    content.add('_cffi_backend.so')
+
     for dep in all_dependencies:
         mdep = __import__(dep)
         print "DEPENDENCY: ", dep, mdep
@@ -112,10 +114,16 @@ try:
                     break
 
             if found_patch:
+                if dep+found_patch[1] in content:
+                    continue
+
                 print('adding [PATCH] %s -> %s'%(found_patch[0], dep+found_patch[1]))
                 zf.write(found_patch[0], dep+found_patch[1])
             else:
                 _, ext = os.path.splitext(mdep.__file__)
+                if dep+ext in content:
+                    continue
+
                 print('adding %s -> %s'%(mdep.__file__, dep+ext))
                 zf.write(mdep.__file__, dep+ext)
 
