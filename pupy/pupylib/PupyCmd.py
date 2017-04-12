@@ -581,6 +581,7 @@ class PupyCmd(cmd.Cmd):
         """ run a module on one or multiple clients"""
         arg_parser = PupyArgumentParser(prog='run', description='run a module on one or multiple clients')
         arg_parser.add_argument('module', metavar='<module>', help="module")
+        arg_parser.add_argument('-1', '--once', default=False, action='store_true', help='Unload new deps after usage')
         arg_parser.add_argument('-f', '--filter', metavar='<client filter>', default=self.default_filter ,help="filter to a subset of all clients. All fields available in the \"info\" module can be used. example: run get_info -f 'platform:win release:7 os_arch:64'")
         arg_parser.add_argument('--bg', action='store_true', help="run in background")
         arg_parser.add_argument('arguments', nargs=REMAINDER, metavar='<arguments>', help="module arguments")
@@ -632,7 +633,7 @@ class PupyCmd(cmd.Cmd):
             if mod.daemon and mod.unique_instance and modjobs:
                 pj=modjobs[0]
             else:
-                pj=PupyJob(self.pupsrv,"%s %s"%(modargs.module, args))
+                pj=PupyJob(self.pupsrv, "%s %s"%(modargs.module, args))
                 if len(l)==1 and not modargs.bg and not mod.daemon:
                     ps=mod(l[0], pj, stdout=self.stdout)
                     pj.add_module(ps)
@@ -642,7 +643,7 @@ class PupyCmd(cmd.Cmd):
                         ps=mod(c, pj)
                         pj.add_module(ps)
             try:
-                pj.start(args)
+                pj.start(args, once=modargs.once)
             except Exception as e:
                 self.display_error(e)
                 pj.stop()

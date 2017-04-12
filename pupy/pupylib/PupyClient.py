@@ -251,19 +251,31 @@ class PupyClient(object):
         self.imported_dlls[name]=True
         return True
 
-    def load_package(self, module_name, force=False):
+    def load_package(self, module_name, force=False, new_deps=[]):
         if module_name in packages_dependencies:
             for t,o,v in packages_dependencies[module_name]:
                 if o==ALL_OS or (o==ANDROID and self.is_android()) or (o==WINDOWS and self.is_windows()) or (o==LINUX and self.is_linux()):
                     if t==LOAD_PACKAGE:
-                        self._load_package(v, force)
+                        if (self._load_package(v, force)):
+                            new_deps.append(v)
+                        else:
+                            return False
+
                     elif t==LOAD_DLL:
                         self.load_dll(v)
                     elif t==EXEC:
                         self.conn.execute(v)
                     else:
                         raise PupyModuleError("Unknown package loading method %s"%t)
-        return self._load_package(module_name, force)
+
+        if self._load_package(module_name, force):
+            new_deps.append(module_name)
+            return True
+
+        return False
+
+    def unload_package(self, module_name):
+        self.conn.modules.pupyimporter.invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
         logging.debug("remote module_name asked for : %s"%module_name)
@@ -405,7 +417,7 @@ class PupyClient(object):
         if not remote:
             if pupyimporter.has_module(module_name):
                 if not force:
-                    return
+                    return False
                 else:
                     update = True
                     pupyimporter.invalidate_module(module_name)
@@ -421,7 +433,7 @@ class PupyClient(object):
                     break
             except Exception as e:
                 if remote:
-                    return
+                    return False
                 else:
                     raise PupyModuleError(
                         "Error while loading package {}: {}".format(
@@ -523,14 +535,14 @@ class PupyClient(object):
 
                 except Exception as e:
                     if remote:
-                        return
+                        return False
                     else:
                         raise PupyModuleError(
                             "Error while loading package from sys.path {}: {}".format(
                                 initial_module_name, traceback.format_exc()))
         if not modules_dic:
             if remote:
-                return
+                return False
             else:
                 raise PupyModuleError("Couldn't find package: {}".format(module_name))
 
@@ -545,9 +557,6 @@ class PupyClient(object):
         )
 
         logging.debug("package %s loaded on %s from path=%s"%(initial_module_name, self.short_name(), package_path))
-
-        if update:
-            self.conn.modules.__invalidate__(initial_module_name)
 
         return True
 

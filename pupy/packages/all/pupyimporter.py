@@ -200,15 +200,38 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     memtrace(name)
 
 def has_module(name):
-    global module
     return name in sys.modules
 
 def invalidate_module(name):
-    global module
-    if not name in sys.modules:
-        raise ValueError('Module {} is not loaded yet'.format(name))
+    global modules
+    global __debug
 
-    del sys.modules[name]
+    for item in modules.keys():
+        if item == name or item.startswith(name+'.'):
+            dprint('Remove {} from pupyimporter.modules'.format(item))
+            del modules[item]
+
+    for item in sys.modules.keys():
+        if not (item == name or item.startswith(name+'.')):
+            continue
+
+        mid = id(sys.modules[item])
+
+        dprint('Remove {} from sys.modules'.format(item))
+        del sys.modules[item]
+
+        if hasattr(pupy, 'namespace'):
+            dprint('Remove {} from rpyc namespace'.format(item))
+            pupy.namespace.__invalidate__(item)
+
+        if __debug:
+            for obj in gc.get_objects():
+                if id(obj) == mid:
+                    dprint('Module {} still referenced by {}'.format(
+                        item, [ id(x) for x in gc.get_referrers(obj) ]
+                    ))
+
+    gc.collect()
 
 def native_import(name):
     __import__(name)

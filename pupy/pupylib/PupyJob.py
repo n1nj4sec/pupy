@@ -119,7 +119,7 @@ class PupyJob(object):
         self.pupsrv.del_job(self.jid)
         self.interrupt()
 
-    def module_worker(self, module, args):
+    def module_worker(self, module, args, once):
         try:
             module.import_dependencies()
             module.run(args)
@@ -133,8 +133,11 @@ class PupyJob(object):
         except Exception as e:
             self.error_happened.set()
             module.error(str(e))
+        finally:
+            if once:
+                module.clean_dependencies()
 
-    def start(self, args):
+    def start(self, args, once=False):
         #if self.started.is_set():
         #    raise RuntimeError("job %s has already been started !"%str(self))
         for m in self.pupymodules:
@@ -155,7 +158,7 @@ class PupyJob(object):
             if not comp:
                 m.error("Compatibility error : %s"%comp_exp)
                 continue
-            self.worker_pool.apply_async(self.module_worker, (m, margs))
+            self.worker_pool.apply_async(self.module_worker, (m, margs, once))
         self.started.set()
 
     def interrupt(self):

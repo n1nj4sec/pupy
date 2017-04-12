@@ -4,6 +4,7 @@
 import memorpy
 import re
 import os
+import logging
 
 def try_int(x):
     try:
@@ -36,23 +37,26 @@ def iterate_strings(targets, min_length=4, max_length=51, omit='isxr', portions=
         pid = process.get('pid')
         name = process.get('name')
 
-        mw = memorpy.MemWorker(pid=process.get('pid'))
-        duplicates = set()
-        for _, (cstring,) in mw.mem_search('([^\x00]+)', ftype='groups', optimizations=omit):
-            if terminate is not None and terminate.is_set():
-                break
+        try:
+            mw = memorpy.MemWorker(pid=process.get('pid'))
+            duplicates = set()
+            for _, (cstring,) in mw.mem_search('([^\x00]+)', ftype='groups', optimizations=omit):
+                if terminate is not None and terminate.is_set():
+                    break
 
-            if printable.match(cstring):
-                if nodup:
-                    if cstring in duplicates:
-                        continue
+                if printable.match(cstring):
+                    if nodup:
+                        if cstring in duplicates:
+                            continue
 
-                    duplicates.add(cstring)
+                        duplicates.add(cstring)
 
-                strings.append(cstring)
-                if len(strings) >= portions:
-                    yield pid, name, strings
-                    strings = []
+                    strings.append(cstring)
+                    if len(strings) >= portions:
+                        yield pid, name, strings
+                        strings = []
+        except Exception, e:
+            logging.exception('MemWorker failed: {}'.format(e))
 
         if strings:
             yield pid, name, strings

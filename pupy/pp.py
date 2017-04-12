@@ -90,6 +90,7 @@ except ImportError, e:
     import pupy
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
+pupy.namespace = None
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -142,8 +143,9 @@ class ReverseSlaveService(Service):
         self.exposed_namespace = {}
         self.exposed_cleanups = []
         self._conn._config.update(REVERSE_SLAVE_CONF)
-        self._conn.root.set_modules(
-            UpdatableModuleNamespace(self.exposed_getmodule))
+
+        pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
+        self._conn.root.set_modules(pupy.namespace)
 
     def on_disconnect(self):
         print "disconnecting !"
@@ -231,9 +233,8 @@ class BindSlaveService(ReverseSlaveService):
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
 
-        self._conn.root.set_modules(
-            UpdatableModuleNamespace(self.exposed_getmodule))
-
+        pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
+        self._conn.root.set_modules(pupy.namespace)
 
 def get_next_wait(attempt):
     if attempt < 120:

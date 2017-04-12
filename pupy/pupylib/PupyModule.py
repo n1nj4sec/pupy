@@ -81,6 +81,7 @@ class PupyModule(object):
         """ client must be a PupyClient instance """
         self.client=client
         self.job=job
+        self.new_deps = []
 
         if formatter is None:
             from .PupyCmd import PupyCmd
@@ -126,7 +127,14 @@ class PupyModule(object):
             if d.lower().endswith(('.dll', '.so')):
                 self.client.load_dll(d)
             else:
-                self.client.load_package(d)
+                self.client.load_package(d, new_deps=self.new_deps)
+
+    def clean_dependencies(self):
+        for d in self.new_deps:
+            try:
+                self.client.unload_package(d)
+            except Exception, e:
+                logging.exception('Dependency unloading failed: {}'.format(e))
 
     def init_argparse(self):
         """ Override this class to define your own arguments. """
