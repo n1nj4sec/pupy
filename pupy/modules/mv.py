@@ -16,7 +16,6 @@ class mv(PupyModule):
         self.arg_parser.add_argument('dst', type=str, action='store')
 
     def run(self, args):
-        self.client.load_package("")
         r = self.client.conn.modules["pupyutils.basic_cmds"].mv(args.src, args.dst)
         if r:
             self.log(r)
