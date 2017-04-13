@@ -86,12 +86,13 @@ class MountInfo(object):
             ])
         ]
 
-    def __repr__(self):
-		return ' '.join([
-            '"{}"'.format(getattr(self, x)) for x in [
-                'src', 'dst', 'fsname', 'free'
-            ] + ','.join([ '='.join(kv) for kv in self._options ])
-        ])
+    def as_dict(self):
+        result = {
+            k:v for k,v in self.__dict__.iteritems() if not k.startswith('_')
+        }
+        result.update({'options': self.options})
+        return result
+
 
 def mounts():
     mountinfo = {}
@@ -99,7 +100,7 @@ def mounts():
         for line in mounts:
             info = MountInfo(line)
             if not info.fstype in mountinfo:
-                mountinfo[info.fstype] = [ info ]
+                mountinfo[info.fstype] = [ info.as_dict() ]
             else:
-                mountinfo[info.fstype].append(info)
+                mountinfo[info.fstype].append(info.as_dict())
     return mountinfo
