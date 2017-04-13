@@ -43,7 +43,7 @@ class UploaderScript(PupyModule):
             )
         )
 
-        upload(self.client.conn, localfile, remotefile, chunk_size=min(size, 8*1024*1024))
+        upload(self.client.conn, localfile, remotefile, chunk_size=8*1024*1024)
 
         self.success("file local:%s uploaded to remote:%s"%(localfile, remotefile))
 

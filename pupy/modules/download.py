@@ -2,12 +2,30 @@
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
 from pupylib.PupyConfig import PupyConfig
-from rpyc.utils.classic import download
+from rpyc.utils.classic import download_file
 import os
 import os.path
 import time
 
 __class_name__="DownloaderScript"
+
+def download(conn, remotepath, localpath, filter = None, ignore_invalid = False, chunk_size = 16000):
+    if conn.modules.os.path.isdir(remotepath):
+        download_dir(conn, remotepath, localpath, filter, chunk_size)
+    elif conn.modules.os.path.isfile(remotepath):
+        download_file(conn, remotepath, localpath, chunk_size)
+    else:
+        if not ignore_invalid:
+            raise ValueError("cannot download %r" % (remotepath,))
+
+def download_dir(conn, remotepath, localpath, filter=None, chunk_size=16000):
+    if not os.path.isdir(localpath):
+        os.makedirs(localpath)
+    for fn in conn.modules.os.listdir(remotepath):
+        if not filter or filter(fn):
+            rfn = conn.modules.os.path.join(remotepath, fn)
+            lfn = os.path.join(localpath, fn)
+            download(conn, rfn, lfn, filter=filter, ignore_invalid=True, chunk_size=chunk_size)
 
 @config(category="manage")
 class DownloaderScript(PupyModule):
@@ -38,8 +56,10 @@ class DownloaderScript(PupyModule):
 
         self.info('downloading %s ...'%remote_file)
         start_time = time.time()
-        size = ros.path.getsize(remote_file)
-        download(self.client.conn, remote_file, local_file, chunk_size=min(size, 8*1024*1024))
+
+        download(self.client.conn, remote_file, local_file, chunk_size=8*1024*1024)
+
+        size = os.path.getsize(local_file)
         self.success('file downloaded from remote:%s to local:%s'%(remote_file, local_file))
         total_time=round(time.time()-start_time, 2)
         self.info(
