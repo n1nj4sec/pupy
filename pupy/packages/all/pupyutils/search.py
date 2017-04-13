@@ -99,10 +99,7 @@ class Search():
 
                 if entry.is_dir(follow_symlinks=followlinks):
                     for res in self.scanwalk(entry.path):
-                        if self.strings and not self.no_content:
-                            yield (res, 'DIR')
-                        else:
-                            yield res
+                        yield res
 
         # try / except used for permission denied
         except Exception, e:
