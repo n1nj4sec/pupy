@@ -45,6 +45,8 @@ colors = yes
 [paths]
 prefer_workdir = no
 downloads = data/downloads/%c
+memstrings = data/memstrings/%c
+searches = data/searches/%c
 screenshots = data/screenshots/%c
 creds = data/creds
 crypto = crypto

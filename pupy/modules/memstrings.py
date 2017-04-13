@@ -35,19 +35,17 @@ class MemStrings(PupyModule):
                                 help='Strings portion block')
         self.arg_parser.add_argument('-d', '--no-duplication', default=False, action='store_true',
                                 help='Enable strings deduplication (will increase memory usage)')
-        self.arg_parser.add_argument(
-            '-o', '--output',
-            help='Save output to file. Omit output to stdout. You can use vars: '
-            '%%h - host, %%m - mac, %%P - platform, %%u - user, %%a - ip address'
-            '%%p - pid, %%n - name'
-        )
+        self.arg_parser.add_argument('-S', '--stdout', help='Show strings on stdout')
 
     def run(self, args):
         targets = args.pid + args.name
 
         self.termevent = self.client.conn.modules.threading.Event()
 
-        logs = {}
+        last_pid = None
+        last_log = None
+
+        config = self.client.pupsrv.config or PupyConfig()
 
         for pid, name, strings in self.client.conn.modules.memstrings.iterate_strings(
                 targets,
@@ -67,57 +65,35 @@ class MemStrings(PupyModule):
                 self.error('No dumps received')
                 return
 
-            if args.output:
-                if not pid in logs:
-                    log = args.output.replace(
-                        '%m', self.client.desc['macaddr']
-                    ).replace(
-                        '%P', self.client.desc['platform']
-                    ).replace(
-                        '%a', self.client.desc['address']
-                    ).replace(
-                        '%h', self.client.desc['hostname'].replace(
-                            '..', '__'
-                        ).replace(
-                            '/', '_'
-                        )
-                    ).replace(
-                        '%u', self.client.desc['user'].replace(
-                            '..', '__'
-                        ).replace(
-                            '/', '_'
-                        )
-                    ).replace(
-                        '%p', str(pid),
-                    ).replace(
-                        '%n', name.replace(
-                            '..', '__'
-                        ).replace(
-                            '/', '_'
-                        ),
-                    )
-
-                    dirname = os.path.dirname(log)
-                    if not os.path.exists(dirname):
-                        os.makedirs(dirname)
-
-                    self.success('Dumping {}:{} -> {}'.format(name, pid, log))
-                    logs[pid] = open(log, 'a+')
-
-                for s in strings:
-                    logs[pid].write(s+'\n')
-
-                logs[pid].flush()
-
-            else:
+            if args.stdout:
                 self.success('Strings {}:{}'.format(name, pid))
                 for s in strings:
                     self.stdout.write(s+'\n')
 
                 self.stdout.write('\n')
+            else:
+                if last_pid != pid:
+                    last_pid = pid
+                    if last_log:
+                        last_log.close()
 
-        for log in logs.itervalues():
-            log.close()
+                    try:
+                        folder = config.get_folder('memstrings', {'%c': self.client.short_name()})
+                        path = name.replace('!','!!').replace('/', '!').replace('\\', '!')
+                        path = os.path.join(folder, '{}.{}.strings'.format(path, pid))
+                        last_log = open(path, 'w+')
+                        self.success('{} {} -> {}'.format(name, pid, path))
+
+                    except Exception, e:
+                        self.error('{} {}: {}'.format(name, pid, e))
+
+                for s in strings:
+                    last_log.write(s+'\n')
+
+                last_log.flush()
+
+        if last_log:
+            last_log.close()
 
     def interrupt(self):
         if self.termevent:
