@@ -95,7 +95,7 @@ class InteractiveShell(PupyModule):
     max_clients=1
     pipe = None
     complete = Event()
-    asciinema = True
+    rec = 'ttyrec'
 
     dependencies = {
         'windows': [ 'winpty.dll', 'winpty' ],
@@ -113,7 +113,7 @@ class InteractiveShell(PupyModule):
 
     def init(self, cmdline, args):
         if args.pseudo_tty:
-            self.asciinema = False
+            self.rec = None
 
         PupyModule.init(self, cmdline, args)
 

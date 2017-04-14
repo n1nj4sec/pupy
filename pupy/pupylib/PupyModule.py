@@ -27,6 +27,8 @@ import time
 import os
 import json
 import re
+import struct
+import math
 
 class PupyArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
@@ -67,12 +69,14 @@ class PupyArgumentParser(argparse.ArgumentParser):
     #TODO handle completer kw for add_mutually_exclusive_group (ex modules/pyexec.py)
 
 class Log(object):
-    def __init__(self, out, log, close_out=False, asciinema=False, command=None, args=None, title=None):
+    def __init__(self, out, log, close_out=False, rec=None, command=None, args=None, title=None):
         self.out = out
         self.log = log
         self.close_out = close_out
         self.closed = False
-        self.asciinema = asciinema and self.out.isatty()
+        self.rec = None
+        if rec and self.out.isatty() and rec in ('asciinema', 'ttyrec'):
+            self.rec = rec
         self.last = 0
         self.start = 0
         self.cleaner = re.compile('(\033[^m]+m)')
@@ -80,7 +84,7 @@ class Log(object):
         if command and args:
             command = command + ' ' + ' '.join(args)
 
-        if self.asciinema:
+        if self.rec == 'asciinema':
             h, l = consize(self.out)
             self.log.write(
                 '{{'
@@ -91,6 +95,8 @@ class Log(object):
                 )
             )
             self.start = time.time()
+        elif self.rec == 'ttyrec':
+            self.last = time.time()
         else:
             if command:
                 self.log.write('> ' + command + '\n')
@@ -103,9 +109,14 @@ class Log(object):
             return
 
         self.out.write(data)
+        now = time.time()
 
-        if self.asciinema:
-            now = time.time()
+        if self.rec == 'ttyrec':
+            usec, sec = math.modf(now)
+            usec = int(usec * 10**6)
+            sec = int(sec)
+            self.log.write(struct.pack('<III', sec, usec, len(data)) + data)
+        elif self.rec == 'asciinema':
             if self.last:
                 duration = now - self.last
                 self.log.write(',')
@@ -113,7 +124,6 @@ class Log(object):
                 duration = 0
 
             self.log.write(json.dumps([duration, data]))
-            self.last = now
         else:
             seqs = set()
             for seqgroups in self.cleaner.finditer(data):
@@ -123,6 +133,8 @@ class Log(object):
                 data = data.replace(seq, '')
 
             self.log.write(data)
+
+        self.last = now
 
     def flush(self):
         if self.closed:
@@ -138,7 +150,7 @@ class Log(object):
         if self.close_out:
             self.out.close()
 
-        if self.asciinema:
+        if self.rec == 'asciinema':
             self.log.write('],"duration":{}}}'.format(
                 time.time() - self.start
             ))
@@ -195,7 +207,7 @@ class PupyModule(object):
     category="general" # to sort modules by categories. should be changed by decorator @config
     tags=[] # to add search keywords. should be changed by decorator @config
     is_module=True # if True, module have to be run with "run <module_name", if False it can be called directly without run
-    asciinema=False
+    rec=None
 
     def __init__(self, client, job, formatter=None, stdout=None, log=None):
         """ client must be a PupyClient instance """
@@ -244,7 +256,7 @@ class PupyModule(object):
                 self.stdout,
                 log,
                 close_out=self.del_close,
-                asciinema=self.asciinema,
+                rec=self.rec,
                 command=None if self.log_file else self.get_name(),
                 args=None if self.log_file else cmdline
             )
