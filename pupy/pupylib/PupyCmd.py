@@ -482,8 +482,24 @@ class PupyCmd(cmd.Cmd):
                     pass
 
         elif modargs.list or not arg:
-            client_list=self.pupsrv.get_clients_list()
-            self.display(PupyCmd.table_format([x.desc for x in client_list], wl=["id", "user", "hostname", "platform", "release", "os_arch","proc_arch","intgty_lvl","address"]))
+            client_list = self.pupsrv.get_clients_list()
+
+            if self.default_filter:
+                filtered_clients = self.pupsrv.get_clients(self.default_filter)
+            else:
+                filtered_clients = client_list
+
+            columns = [
+                'id', 'user', 'hostname', 'platform', 'release', 'os_arch',
+                'proc_arch', 'intgty_lvl', 'address'
+            ]
+
+            self.display(PupyCmd.table_format([
+                {
+                    k:colorize(v, 'white' if x in filtered_clients else 'darkgrey')
+                    for k,v in x.desc.iteritems() if k in columns
+                }  for x in client_list
+            ], wl=columns))
 
         elif modargs.killall:
             client_list=self.pupsrv.get_clients_list()
