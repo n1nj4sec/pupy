@@ -29,6 +29,7 @@ import json
 import re
 import struct
 import math
+import io
 
 class PupyArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
@@ -69,7 +70,7 @@ class PupyArgumentParser(argparse.ArgumentParser):
     #TODO handle completer kw for add_mutually_exclusive_group (ex modules/pyexec.py)
 
 class Log(object):
-    def __init__(self, out, log, close_out=False, rec=None, command=None, args=None, title=None):
+    def __init__(self, out, log, close_out=False, rec=None, command=None, args=None, title=None, unicode=False):
         self.out = out
         self.log = log
         self.close_out = close_out
@@ -79,6 +80,7 @@ class Log(object):
             self.rec = rec
         self.last = 0
         self.start = 0
+        self.unicode = unicode
         self.cleaner = re.compile('(\033[^m]+m)')
 
         if command and args:
@@ -99,6 +101,9 @@ class Log(object):
             self.last = time.time()
         else:
             if command:
+                if self.unicode:
+                    command = command.decode('utf-8', errors='replace')
+
                 self.log.write('> ' + command + '\n')
 
     def write(self, data):
@@ -110,6 +115,10 @@ class Log(object):
 
         self.out.write(data)
         now = time.time()
+
+        if self.unicode:
+            if type(data) != unicode:
+                data = data.decode('utf-8', errors='ignore')
 
         if self.rec == 'ttyrec':
             usec, sec = math.modf(now)
@@ -250,7 +259,12 @@ class PupyModule(object):
             else:
                 log = self.config.get_file('logs', replacements)
 
-            log = open(log, 'w+')
+            if self.rec:
+                log = open(log, 'w+')
+                unicode = False
+            else:
+                log = io.open(log, 'w+', encoding='utf8')
+                unicode = True
 
             self.stdout = Log(
                 self.stdout,
@@ -258,7 +272,8 @@ class PupyModule(object):
                 close_out=self.del_close,
                 rec=self.rec,
                 command=None if self.log_file else self.get_name(),
-                args=None if self.log_file else cmdline
+                args=None if self.log_file else cmdline,
+                unicode=unicode
             )
 
             self.del_close = True
