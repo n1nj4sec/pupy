@@ -19,8 +19,7 @@ class ShellExec(PupyModule):
 
     def run(self, args):
         if not args.hide:
-            shell_exec(self.client, args.argument, shell=args.shell)
-            self.log(log)
+            self.log(shell_exec(self.client, args.argument, shell=args.shell))
         elif args.hide and self.client.is_windows():
             try:
                 self.client.load_package("pupwinutils.processes")
