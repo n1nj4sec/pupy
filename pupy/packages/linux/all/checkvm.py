@@ -3,7 +3,7 @@ import subprocess
 import os
 # inspired from the checkvm.rb from the metasploit framework
 
-def execute_command(dic):
+def execute_command(dic, case=False):
 	vm = ''
 	try:
 		output = subprocess.check_output(dic[0].split(' '))
@@ -14,20 +14,26 @@ def execute_command(dic):
 	except:
 		return ''
 
-def read_file(dic):
+def read_file(dic, case=False):
 	try:
 		vm = ''
 		content = open(dic[0]).read()
 		if content:
-			vm = check_result(dic, content)
+			vm = check_result(dic, content, case)
 			return vm
 	except:
 		return ''
 
-def check_result(dic, output):
+def check_result(dic, output, case=False):
+	if not case:
+		output = output.lower()
+
 	for vms_artifacts in dic[1]:
 		for vms_artifact in vms_artifacts.split(','):
-			if vms_artifact.strip().lower() in output.lower():
+			vms_artifact = vms_artifact.strip()
+			if not case:
+				vms_artifact = vms_artifact.lower()
+			if vms_artifact in output:
 				return dic[1][vms_artifacts]
 
 def check_sysfs_dmi():
@@ -71,7 +77,7 @@ def check_sysfs_devices():
 						'xen': 'Xen',
 						'VirtualBox': 'VirtualBox',
 						'VBOX': 'VirtualBox',
-				}])
+				}], case=True)
 				if vm:
 					return vm
 	return ''
