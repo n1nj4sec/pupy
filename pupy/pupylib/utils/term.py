@@ -7,7 +7,7 @@ import struct
 import platform
 
 # https://gist.githubusercontent.com/jtriley/1108174/raw/6ec4c846427120aa342912956c7f717b586f1ddb/terminalsize.py
-def consize():
+def consize(file=None):
     """ getTerminalSize()
      - get width and height of console
      originally retrieved from:
@@ -16,14 +16,14 @@ def consize():
     current_os = platform.system()
     tuple_xy = None
     if current_os == 'Windows':
-        tuple_xy = _size_windows()
+        tuple_xy = _size_windows(file)
 
     if current_os in ['Linux', 'Darwin'] or current_os.startswith('CYGWIN'):
-        tuple_xy = _size_linux()
+        tuple_xy = _size_linux(file)
 
     return tuple_xy or (None, None)
 
-def _size_windows():
+def _size_windows(file=None):
     try:
         from ctypes import windll, create_string_buffer
         h = windll.kernel32.GetStdHandle(-12)
@@ -39,7 +39,7 @@ def _size_windows():
     except:
         pass
 
-def _size_linux():
+def _size_linux(file=None):
     def ioctl_GWINSZ(fd):
         try:
             import fcntl
@@ -51,14 +51,17 @@ def _size_linux():
         except:
             pass
 
-    cr = ioctl_GWINSZ(0) or ioctl_GWINSZ(1) or ioctl_GWINSZ(2)
-    if not cr:
-        try:
-            fd = os.open(os.ctermid(), os.O_RDONLY)
-            cr = ioctl_GWINSZ(fd)
-            os.close(fd)
-        except:
-            pass
+    if file:
+        cr = ioctl_GWINSZ(file.fileno())
+    else:
+        cr = ioctl_GWINSZ(0) or ioctl_GWINSZ(1) or ioctl_GWINSZ(2)
+        if not cr:
+            try:
+                fd = os.open(os.ctermid(), os.O_RDONLY)
+                cr = ioctl_GWINSZ(fd)
+                os.close(fd)
+            except:
+                pass
 
     if not cr:
         try:

@@ -21,7 +21,7 @@ import rpyc
 import cmd
 
 class CmdRepl(cmd.Cmd):
-    def __init__(self, write_cb, completion, CRLF=False, interpreter=None):
+    def __init__(self, stdout, write_cb, completion, CRLF=False, interpreter=None):
         self._write_cb = write_cb
         self._complete = completion
         self.prompt = '\r'
@@ -29,7 +29,7 @@ class CmdRepl(cmd.Cmd):
         self._interpreter = interpreter
         self._setting_prompt = False
         self._last_cmd = None
-        cmd.Cmd.__init__(self)
+        cmd.Cmd.__init__(self, stdout=stdout)
 
     def _con_write(self, data):
         if self._setting_prompt:
@@ -95,6 +95,7 @@ class InteractiveShell(PupyModule):
     max_clients=1
     pipe = None
     complete = Event()
+    asciinema = True
 
     dependencies = {
         'windows': [ 'winpty.dll', 'winpty' ],
@@ -104,10 +105,17 @@ class InteractiveShell(PupyModule):
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self,*args, **kwargs)
         self.set_pty_size=None
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(description=self.__doc__)
         self.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
         self.arg_parser.add_argument('program', nargs='?', help="open a specific program. Default for windows is cmd.exe and for linux it depends on the remote SHELL env var")
+
+    def init(self, cmdline, args):
+        if args.pseudo_tty:
+            self.asciinema = False
+
+        PupyModule.init(self, cmdline, args)
 
     def _signal_winch(self, signum, frame):
         if self.set_pty_size is not None:
@@ -139,7 +147,7 @@ class InteractiveShell(PupyModule):
         except AsyncResultTimeout, ReferenceError:
             pass
         finally:
-            sys.stdout.write('\r\n')
+            self.stdout.write('\r\n')
             self.complete.set()
 
     def _read_loop_base(self, write_cb):
@@ -172,7 +180,8 @@ class InteractiveShell(PupyModule):
 
     def _remote_read(self, data):
         if not self.complete.is_set():
-            os.write(sys.stdout.fileno(), data)
+            self.stdout.write(data)
+            self.stdout.flush()
 
     def run(self, args):
         if 'linux' in sys.platform and not args.pseudo_tty:
@@ -203,7 +212,7 @@ class InteractiveShell(PupyModule):
             interactive=True,
         )
 
-        sys.stdout.write('\r\nREPL started. Ctrl-C will the module \r\n')
+        self.stdout.write('\r\nREPL started. Ctrl-C will the module \r\n')
 
         if self.client.is_windows():
             crlf = True
@@ -212,7 +221,13 @@ class InteractiveShell(PupyModule):
             crlf = False
             interpreter = 'sh'
 
-        repl = CmdRepl(self.pipe.write, self.complete, crlf, interpreter)
+        repl = CmdRepl(
+            self.stdout,
+            self.pipe.write,
+            self.complete,
+            crlf, interpreter
+        )
+
         self.pipe.execute(self.complete.set, repl._con_write)
         repl.set_prompt()
 
@@ -227,7 +242,7 @@ class InteractiveShell(PupyModule):
         # new 100500 threads which will wrap stdin, poll each other...
         # Just press the fucked enter to avoid this crap
 
-        sys.stdout.write('\r\nPress Enter to close to REPL\r\n')
+        self.stdout.write('\r\nPress Enter to close to REPL\r\n')
 
     def raw_pty(self, args):
         ps = self.client.conn.modules['ptyshell'].PtyShell()

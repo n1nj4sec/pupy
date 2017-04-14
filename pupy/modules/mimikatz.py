@@ -19,7 +19,6 @@ class Mimikatz(MemoryExec):
     """
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="mimikatz", description=self.__doc__)
-        self.arg_parser.add_argument('-log', help="Save log to specified path")
         self.arg_parser.add_argument('args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
 
 
@@ -43,7 +42,4 @@ class Mimikatz(MemoryExec):
         else:
             mimikatz_args.append('exit')
 
-        log = exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
-        if args.log:
-            with open(args.log, 'wb') as output:
-                output.write(log)
+        exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)

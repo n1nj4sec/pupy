@@ -20,7 +20,7 @@ class ImpersonateModule(PupyModule):
 
     def run(self, args):
         if args.list:
-            #with redirected_stdo(self.client.conn):
+            #with redirected_stdo(self):
             l=obtain(self.client.conn.modules["pupwinutils.security"].ListSids())
             #self.log('\n'.join(["%s : %s"%x for x in l]))
             self.rawlog(self.formatter.table_format([{"pid": x[0], "process":x[1], "sid" : x[2], "username":x[3]} for x in l], wl=["pid", "process", "username", "sid"]))

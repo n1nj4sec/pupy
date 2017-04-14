@@ -52,7 +52,7 @@ class SSH(PupyModule):
 
         ssh = self.client.conn.modules["ssh"].SSH(args.user, args.private_key, args.password, args.file, args.ip, args.port, args.verbose, args.command)
         if args.verbose:
-            with redirected_stdio(self.client.conn):
+            with redirected_stdio(self):
                 error_code, result = ssh.ssh_client()
         else:
             error_code, result = ssh.ssh_client()

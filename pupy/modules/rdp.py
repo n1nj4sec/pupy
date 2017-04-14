@@ -53,7 +53,7 @@ class Rdp(PupyModule):
                 if not self.client.conn.modules["pupwinutils.rdp"].check_if_admin():
                     self.error("Admin privileges are required")
 
-                with redirected_stdio(self.client.conn):
+                with redirected_stdio(self):
                     if args.enable:
                         self.client.conn.modules["pupwinutils.rdp"].enable_rdp()
 
@@ -68,7 +68,7 @@ class Rdp(PupyModule):
                 hosts.append(args.target)
 
             for host in hosts:
-                with redirected_stdio(self.client.conn):
+                with redirected_stdio(self):
                     self.client.conn.modules["pupyutils.rdp_check"].check_rdp(
                         host, args.username, args.password, args.domain, args.hashes
                     )

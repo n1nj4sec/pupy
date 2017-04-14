@@ -48,35 +48,53 @@ class PupyConfig(ConfigParser):
             with open(self.user_path, 'w') as config:
                 self.write(config)
 
-    def get_folder(self, folder='data', substitutions={}, create=True):
+    def get_path(self, filepath, substitutions, create=True, dir=False):
         prefer_workdir = self.getboolean('paths', 'prefer_workdir')
-        from_config = self.get('paths', folder)
+        from_config = self.get('paths', filepath)
 
-        retfolder = ''
+        retfilepath = ''
         if from_config:
-            retfolder = from_config
-        elif path.isabs(folder):
-            retfolder = folder
+            retfilepath = from_config
+        elif path.isabs(filepath):
+            retfilepath = filepath
         elif prefer_workdir:
-            retfolder = folder
+            retfilepath = filepath
         else:
-            retfolder = path.join(self.user_root, folder)
+            retfilepath = path.join(self.user_root, filepath)
 
         for key, value in substitutions.iteritems():
-            value = value.replace('/', '_').replace('..', '_')
-            if platform.system == 'Windows':
-                value = value.replace(':', '_')
-            retfolder = retfolder.replace(key, value)
+            try:
+                value = value.replace('/', '_').replace('..', '_')
+                if platform.system == 'Windows':
+                    value = value.replace(':', '_')
+            except:
+                pass
 
-        if path.isdir(retfolder):
-            return path.abspath(retfolder)
-        elif path.exists(retfolder):
-            raise ValueError('{} is not a folder'.format(retfolder))
+            retfilepath = retfilepath.replace(key, str(value))
+
+        if dir and path.isdir(retfilepath):
+            return path.abspath(retfilepath)
+        elif not dir and path.isfile(retfilepath):
+            return path.abspath(retfilepath)
+        elif path.exists(retfilepath):
+            raise ValueError('{} is not a file/idr'.format(retfilepath))
         elif create:
-            makedirs(retfolder)
-            return path.abspath(retfolder)
+            if dir:
+                makedirs(retfilepath)
+            else:
+                dirpath = path.dirname(retfilepath)
+                if not path.isdir(dirpath):
+                    makedirs(dirpath)
+
+            return path.abspath(retfilepath)
         else:
-            return path.abspath(retfolder)
+            return path.abspath(retfilepath)
+
+    def get_folder(self, folder='data', substitutions={}, create=True):
+        return self.get_path(folder, substitutions, create, True)
+
+    def get_file(self, folder='data', substitutions={}, create=True):
+        return self.get_path(folder, substitutions, create)
 
     def remove_option(self, section, key):
         if section != 'randoms':

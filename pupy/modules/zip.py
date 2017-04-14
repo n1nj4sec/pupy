@@ -20,7 +20,7 @@ class Zip(PupyModule):
         self.arg_parser.add_argument('-d', dest='destination', help='path of the destination file (default: current directory)')
 
     def run(self, args):
-        with redirected_stdio(self.client.conn):
+        with redirected_stdio(self):
             # zip
             if not args.u:
                 self.client.conn.modules["pupyutils.zip"].zip(args.source, args.destination)

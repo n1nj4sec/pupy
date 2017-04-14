@@ -33,11 +33,6 @@ class PExec(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='pexec', description=self.__doc__)
         self.arg_parser.add_argument(
-            '-log',
-            help='Save output to file. You can use vars: '
-            '%%h - host, %%m - mac, %%p - platform, %%u - user, %%a - ip address',
-        )
-        self.arg_parser.add_argument(
             '-n',
             action='store_true',
             help='Don\'t catch stderr',
@@ -175,41 +170,10 @@ class PExec(PupyModule):
             x if not ' ' in x else "'" + x + "'" for x in cmdargs
         ) if not cmdenv['shell'] else cmdargs))
 
-        log = None
-        if args.log:
-            log = args.log.replace(
-                '%m', self.client.desc['macaddr']
-            ).replace(
-                '%p', self.client.desc['platform']
-            ).replace(
-                '%a', self.client.desc['address']
-            ).replace(
-                '%h', self.client.desc['hostname'].replace(
-                    '..', '__'
-                ).replace(
-                    '/', '_'
-                )
-            ).replace(
-                '%u', self.client.desc['user'].replace(
-                    '..', '__'
-                ).replace(
-                    '/', '_'
-                )
-            )
-
-            dirname = os.path.dirname(log)
-
-            if not os.path.exists(dirname):
-                os.makedirs(dirname)
-
-            log = open(log, 'w')
-
         close_event = threading.Event()
 
         def on_read(data):
             self.stdout.write(data)
-            if not self.terminate.is_set():
-                log.write(data)
 
         def on_close():
             close_event.set()
@@ -217,9 +181,6 @@ class PExec(PupyModule):
         self.pipe.execute(on_close, None if args.N else on_read)
         while not ( self.terminate.is_set() or close_event.is_set() ):
             close_event.wait()
-
-        if log:
-            log.close()
 
         if self.pipe.returncode == 0:
             self.success('Successful at {}: '.format(datetime.datetime.now()))

@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys
@@ -30,11 +30,5 @@ class NbnsSpoofModule(PupyModule):
     def run(self, args):
         init_winpcap(self)
 
-        with redirected_stdo(self.client.conn):
+        with redirected_stdo(self):
             self.client.conn.modules['nbnsspoof'].start_nbnsspoof(args.ip, args.srcmac, timeout=args.timeout, verbose=True, interface=args.iface, name_regexp=args.regex)
-
-                
-
-
-
-

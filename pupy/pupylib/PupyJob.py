@@ -20,6 +20,7 @@ import inspect
 import ctypes
 import logging
 from .PupyErrors import PupyModuleError, PupyModuleExit
+from .PupyConfig import PupyConfig
 import rpyc
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
@@ -102,13 +103,15 @@ class PupyJob(object):
     """ a job handle a group of modules """
 
     def __init__(self, pupsrv, name):
-        self.name=name
-        self.pupsrv=pupsrv
-        self.pupymodules=[]
-        self.worker_pool=ThreadPool()
-        self.started=threading.Event()
-        self.error_happened=threading.Event()
-        self.jid=None
+        self.name = name
+        self.pupsrv = pupsrv
+        self.config = pupsrv.config or PupyConfig()
+        self.pupymodules = []
+        self.worker_pool = ThreadPool()
+        self.started = threading.Event()
+        self.error_happened = threading.Event()
+        self.jid = None
+        self.destroyed = False
 
     def add_module(self, mod):
         self.pupymodules.append(mod)
@@ -119,9 +122,10 @@ class PupyJob(object):
         self.pupsrv.del_job(self.jid)
         self.interrupt()
 
-    def module_worker(self, module, args, once):
+    def module_worker(self, module, cmdline, args, once):
         try:
             module.import_dependencies()
+            module.init(cmdline, args)
             module.run(args)
         except PupyModuleExit as e:
             return
@@ -158,7 +162,7 @@ class PupyJob(object):
             if not comp:
                 m.error("Compatibility error : %s"%comp_exp)
                 continue
-            self.worker_pool.apply_async(self.module_worker, (m, margs, once))
+            self.worker_pool.apply_async(self.module_worker, (m, args, margs, once))
         self.started.set()
 
     def interrupt(self):
@@ -219,15 +223,26 @@ class PupyJob(object):
         for m in self.pupymodules:
             res+=m.formatter.format_section(str(m.client))
             gv=m.stdout.getvalue()
-            res+=gv.decode('utf8', errors="replace")
+            try:
+                res+=gv.decode('utf8', errors="replace")
+            except:
+                res+=gv.decode('latin1', errors="replace")
             res+="\n"
             m.stdout.truncate(0)
         return res
 
-    def __del__(self):
+    def free(self):
+        if self.destroyed:
+            return
+
+        self.destroyed = True
         for m in self.pupymodules:
+            m.free()
             del m
         del self.pupymodules
+
+    def __del__(self):
+        self.free()
 
     def get_clients_nb(self):
         return len(self.pupymodules)

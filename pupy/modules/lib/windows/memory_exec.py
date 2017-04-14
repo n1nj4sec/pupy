@@ -35,12 +35,12 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, fork=F
     if not hasattr(module, 'mp'):
         setattr(module, 'mp', None)
     module.mp=module.client.conn.modules['pupwinutils.memexec'].MemoryPE(raw_pe, args=prog_args, hidden=True, redirect_stdio=redirect_stdio, suspended_process=suspended_process, dupHandle=dupHandle)
-    with redirected_stdio(module.client.conn):
+    with redirected_stdio(module):
         module.mp.run()
     if not fork:
         if interactive:
             try:
-                with redirected_stdio(module.client.conn):
+                with redirected_stdio(module):
                     module.mp.get_shell()
             finally:
                 module.mp.close()

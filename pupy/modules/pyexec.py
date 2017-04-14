@@ -1,9 +1,8 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 from pupylib import *
-import StringIO
 
 __class_name__="PythonExec"
 
@@ -25,17 +24,6 @@ class PythonExec(PupyModule):
             code=args.code
         else:
             raise PupyModuleError("--code or --file argument is mandatory")
-        stdout=StringIO.StringIO()
-        stderr=StringIO.StringIO()
-        try:
-            with redirected_stdo(self.client.conn, stdout, stderr):
-                self.client.conn.execute(code+"\n")
-        finally:
-            res=stdout.getvalue()
-            err=stderr.getvalue()
-            if err.strip():
-                err="\n"+err
-            self.rawlog(res+err)
-            stdout.close()
-            stderr.close()
 
+        with redirected_stdo(self):
+            self.client.conn.execute(code+"\n")

@@ -582,6 +582,10 @@ class PupyCmd(cmd.Cmd):
         arg_parser = PupyArgumentParser(prog='run', description='run a module on one or multiple clients')
         arg_parser.add_argument('module', metavar='<module>', help="module")
         arg_parser.add_argument('-1', '--once', default=False, action='store_true', help='Unload new deps after usage')
+        arg_parser.add_argument('-o', '--output', help='save command output to file.'
+                                    '%%t - timestamp, %%h - host, %%m - mac, '
+                                    '%%c - client shortname, %%M - module name, '
+                                    '%%p - platform, %%u - user, %%a - ip address')
         arg_parser.add_argument('-f', '--filter', metavar='<client filter>', default=self.default_filter ,help="filter to a subset of all clients. All fields available in the \"info\" module can be used. example: run get_info -f 'platform:win release:7 os_arch:64'")
         arg_parser.add_argument('--bg', action='store_true', help="run in background")
         arg_parser.add_argument('arguments', nargs=REMAINDER, metavar='<arguments>', help="module arguments")
@@ -635,7 +639,7 @@ class PupyCmd(cmd.Cmd):
             else:
                 pj=PupyJob(self.pupsrv, "%s %s"%(modargs.module, args))
                 if len(l)==1 and not modargs.bg and not mod.daemon:
-                    ps=mod(l[0], pj, stdout=self.stdout)
+                    ps=mod(l[0], pj, stdout=self.stdout, log=modargs.output)
                     pj.add_module(ps)
                     interactive=True
                 else:
@@ -673,6 +677,7 @@ class PupyCmd(cmd.Cmd):
         if not interactive:
             self.display(pj.result_summary())
         if pj:
+            pj.free()
             del pj
 
     def complete(self, text, state):
@@ -756,7 +761,7 @@ class PupyCmd(cmd.Cmd):
 
         try:
             commands = arg_parser.parse_args(shlex.split(arg))
-        except pupygen.InvalidOptions, PupyModuleExit:
+        except (pupygen.InvalidOptions, PupyModuleExit):
             return
 
         if commands.command == 'list':

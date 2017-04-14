@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -28,7 +28,7 @@ class InteractiveScapyShell(PupyModule):
     def run(self, args):
         init_winpcap(self)
         try:
-            with redirected_stdo(self.client.conn):
+            with redirected_stdo(self):
                 old_completer=readline.get_completer()
                 try:
                     psc=self.client.conn.modules['pyshell.controller'].PyShellController()
@@ -43,8 +43,3 @@ class InteractiveScapyShell(PupyModule):
                     readline.parse_and_bind('tab: complete')
         except KeyboardInterrupt:
             pass
-                
-
-
-
-

