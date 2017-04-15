@@ -147,8 +147,9 @@ class InteractiveShell(PupyModule):
         except AsyncResultTimeout, ReferenceError:
             pass
         finally:
-            self.stdout.write('\r\n')
-            self.complete.set()
+            if not self.complete.is_set():
+                self.stdout.write('\r\n')
+                self.complete.set()
 
     def _read_loop_base(self, write_cb):
         lastbuf = b''
@@ -278,6 +279,8 @@ class InteractiveShell(PupyModule):
             except Exception:
                 pass
             self.set_pty_size=None
+            self.complete.set()
 
     def interrupt(self):
-        self.complete.set()
+        if self.complete:
+            self.complete.set()
