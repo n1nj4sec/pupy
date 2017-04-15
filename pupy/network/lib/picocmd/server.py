@@ -207,7 +207,7 @@ class DnsCommandServerHandler(BaseResolver):
                 spi = [ spi ]
 
         if node:
-            if type(node) in type(str,unicode):
+            if type(node) in (str,unicode):
                 node = [ int(x, 16) for x in node.split(',') ]
             elif type(node) == int:
                 node = [ node ]
@@ -219,13 +219,13 @@ class DnsCommandServerHandler(BaseResolver):
             ]
         elif spi:
             return [
-                self.sessions.get(x) for x in spi
+                self.sessions.get(x) for x in spi if x in self.sessions
             ]
         elif node:
             return [
                 session for session in self.sessions.itervalues() \
                     if session.system_info and \
-                        session.system_info['node'] in node
+                        session.system_info['node'] in set(node)
             ]
 
     @locked
