@@ -136,10 +136,6 @@ class DnsCommandServerHandler(BaseResolver):
 
     @locked
     def add_command(self, command, session=None, default=False):
-        if session:
-            if type(session) in (str, unicode):
-                session = int(session, 16)
-
         if default:
             self.commands.append(command)
 
@@ -204,18 +200,32 @@ class DnsCommandServerHandler(BaseResolver):
 
     @locked
     def find_sessions(self, spi=None, node=None):
+        if spi:
+            if type(spi) in (str,unicode):
+                spi = [ int(x, 16) for x in spi.split(',') ]
+            elif type(spi) == int:
+                spi = [ spi ]
+
+        if node:
+            if type(node) in type(str,unicode):
+                node = [ int(x, 16) for x in node.split(',') ]
+            elif type(node) == int:
+                node = [ node ]
+
         if not (spi or node):
             return [
                 session for session in self.sessions.itervalues() \
                 if session.system_info is not None
             ]
         elif spi:
-            return self.sessions.get(spi)
+            return [
+                self.sessions.get(x) for x in spi
+            ]
         elif node:
             return [
                 session for session in self.sessions.itervalues() \
                     if session.system_info and \
-                        session.system_info['node'] == node
+                        session.system_info['node'] in node
             ]
 
     @locked

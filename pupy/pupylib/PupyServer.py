@@ -222,13 +222,16 @@ class PupyServer(threading.Thread):
         """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
         #if the criteria is a simple id we return the good client
         try:
-            index=int(search_criteria)
-            for c in self.clients:
-                if int(c.desc["id"])==index:
-                    return [c]
-            return []
+            indexes = set(
+                int(x) for x in search_criteria.split(',')
+            )
+
+            return [
+                c for c in self.clients if c.desc['id'] in indexes
+            ]
         except Exception:
             pass
+
         l=set([])
         if search_criteria=="*":
             return self.clients
