@@ -56,7 +56,7 @@ class DropManager(object):
             ) == 0 )
 
             self._is_xdg = True
-        except CalledProcessError as e:
+        except (subprocess.CalledProcessError, OSError) as e:
             self._is_xdg = False
             self._xdg_error = str(e)
 
@@ -83,7 +83,7 @@ class DropManager(object):
 
             return ( subprocess.check_call(cmd, **penv) == 0 )
 
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, OSError):
             return None
 
     def _check_systemd(self):
