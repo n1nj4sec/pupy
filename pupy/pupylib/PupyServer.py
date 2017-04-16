@@ -237,7 +237,7 @@ class PupyServer(threading.Thread):
             return self.clients
         for c in self.clients:
             take=False
-            for sc in search_criteria.split():
+            for sc in str(search_criteria).split():
                 tab=sc.split(":",1)
                 if len(tab)==2 and tab[0] in [x for x in c.desc.iterkeys()]:#if the field is specified we search for the value in this field
                     take=True
