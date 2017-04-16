@@ -289,7 +289,8 @@ rm -rf /usr/src
 
 ldconfig
 __CMDS__
-
+mkdir -p buildenv/lin32/proc
+mkdir -p buildenv/lin32/dev
 mount -t proc proc buildenv/lin32/proc
 mount -t devtmpfs devtmpfs buildenv/lin32/dev
 
@@ -513,7 +514,8 @@ rm -rf /usr/src
 
 ldconfig
 __CMDS__
-
+mkdir -p buildenv/lin64/proc
+mkdir -p buildenv/lin64/dev
 mount -t proc proc buildenv/lin64/proc
 mount -t devtmpfs devtmpfs buildenv/lin64/dev
 
