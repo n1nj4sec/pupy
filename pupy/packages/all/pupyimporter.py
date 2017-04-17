@@ -57,8 +57,9 @@ except ImportError:
     allow_system_packages = True
     import ctypes
     import platform
-    libc = ctypes.CDLL(None)
-    syscall = libc.syscall
+    if sys.platform!="win32":
+        libc = ctypes.CDLL(None)
+        syscall = libc.syscall
     from tempfile import mkstemp
     from os import chmod, unlink, close, write
 
@@ -447,8 +448,8 @@ def install(debug=None, trace=False):
     global __trace
     global modules
 
-    if debug:
-        __debug = True
+    #if debug:
+    #    __debug = True
 
     if trace:
         __trace = trace
@@ -492,6 +493,8 @@ def install(debug=None, trace=False):
     ctypes.util._system_find_library = ctypes.util.find_library
 
     def pupy_make_path(name):
+        if not name:
+            return
         if 'pupy:' in name:
             name = name[name.find('pupy:')+5:]
             name = os.path.relpath(name)
