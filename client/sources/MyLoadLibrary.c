@@ -61,7 +61,7 @@ static LIST *libraries;
 
 int level;
 
-#ifdef VERBOSE
+#ifdef VERBOSE_NOP
 static int dprintf(char *fmt, ...)
 {
 	va_list marker;

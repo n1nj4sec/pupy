@@ -94,11 +94,12 @@ try:
 
                             if zipname in content:
                                 continue
-
                             for extp in ( '.pyo', '.pyc', '.py' ):
                                 if os.path.exists(os.path.join(PATCHES, f+extp)):
+                                    print('found [PATCH] for {}'.format(f))
                                     root = PATCHES
                                     ext = extp
+                                    break
 
                             print('adding file : {}'.format(zipname))
                             content.add(zipname)
