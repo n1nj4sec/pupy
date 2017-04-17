@@ -16,7 +16,7 @@ PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-
 # PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc pyaml rsa pefile rsa netaddr win_inet_pton netaddr tinyec pycrypto cryptography pypiwin32"
+PACKAGES="rpyc pyaml rsa pefile rsa netaddr win_inet_pton netaddr tinyec pycryptodome cryptography pypiwin32"
 PACKAGES="$PACKAGES mss pyaudio https://github.com/secdev/scapy/archive/6aaf9ef98424a713b3c21e9f32a31a1358e1d6c8.zip impacket pyOpenSSL colorama pyuv"
 
 BUILDENV=${1:-`pwd`/buildenv}

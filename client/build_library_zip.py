@@ -52,6 +52,7 @@ if 'win' in sys.platform:
 try:
     content = set()
     content.add('_cffi_backend.so')
+    content.add('_cffi_backend.pyd')
 
     for dep in all_dependencies:
         mdep = __import__(dep)
