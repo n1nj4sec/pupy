@@ -15,7 +15,7 @@ try:
     from Crypto.Protocol.KDF import PBKDF2
     from Crypto.Hash import SHA256, HMAC
 except ImportError as e:
-    logging.warning("pycrypto not available, using pure python libraries (slower)")
+    logging.warning("pycrypto not available, using pure python libraries for PBKDF2 (slower)")
     PBKDF2=None
     Random=None
     from cryptoutils.pbkdf2 import pbkdf2_bin

@@ -8,7 +8,7 @@ import logging
 try:
     from Crypto.Cipher import AES
 except ImportError as e:
-    logging.warning("pycrypto not available, using pure python libraries (slower)")
+    logging.warning("pycrypto not available, using pure python libraries for AES (slower)")
     AES=None
     Random=None
 from .pyaes import AESModeOfOperationCBC

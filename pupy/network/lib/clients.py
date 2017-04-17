@@ -5,8 +5,11 @@ import ssl
 import tempfile
 import os
 import logging
-
-from . import socks
+try:
+    from . import socks
+except ImportError as e:
+    logging.warning("%s: socks module disabled, auto_connect unavailable"%e)
+    socks=None
 
 class PupyClient(object):
     def connect(self, host, port, timeout=4):
