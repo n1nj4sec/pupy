@@ -79,7 +79,7 @@ class Connection(object):
     def __init__(self, neighbor, remote_id=None, socket=None, buffer=None, socks5=False, timeout=5):
         self.neighbor = neighbor
         self.loop = self.neighbor.manager.loop
-        self.socket = socket or pyuv.TCP(self.loop)
+        self.socket = socket
         self.local_id = hash(self)
         self.remote_id = remote_id
         self.remote_local_address = None
@@ -166,21 +166,20 @@ class Connection(object):
             pass
 
         try:
-           self.neighbor.callbacks.on_connected(
-               self.neighbor.remote_id,
-               self.remote_id,
-               self.socket.getsockname() if not error else None,
-               error=error
-           )
+            self.neighbor.callbacks.on_connected(
+                self.neighbor.remote_id,
+                self.remote_id,
+                self.socket.getsockname() if not error else None,
+                error=error
+            )
+            if error:
+                try:
+                    self.socket.close()
+                except:
+                    pass
 
-           if error:
-               try:
-                   self.socket.close()
-               except:
-                   pass
-
-           else:
-               self.forward()
+            else:
+                self.forward()
 
         except EOFError:
             self.neighbor.stop(dead=True)
@@ -188,7 +187,28 @@ class Connection(object):
     def connect(self, address):
         try:
             self.timer.start(self._connection_timeout, self.timeout, 0)
-            self.socket.connect(address, self._on_connected)
+            if type(address) in (str, unicode):
+                self.socket = pyuv.Pipe(self.loop, True)
+                self.socket.getsockname = lambda: ''
+
+                if os.name == 'nt':
+                    self.socket.connect(address, self._on_connected)
+                else:
+                    if address[0] == '@':
+                        address = '\x00' + address[1:]
+                    fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+                    try:
+                        fd.setblocking(0)
+                        self.socket.open(os.dup(fd.fileno()))
+                    except Exception, e:
+                        fd.close()
+                        self._on_connected(None, -1)
+
+                self.socket.connect(address, self._on_connected)
+            else:
+                self.socket = pyuv.TCP(self.loop)
+                self.socket.connect(address, self._on_connected)
+
         except Exception, e:
             self._on_connected(None, -1)
 
@@ -230,10 +250,25 @@ class Acceptor(object):
         self.local_address = local_address
         self.forward_address = forward_address
         self.associaction = {}
-        self.socket = pyuv.TCP(self.loop)
+        if type(local_address) in (str, unicode):
+            self.socket = pyuv.Pipe(self.loop, True)
+        else:
+            self.socket = pyuv.TCP(self.loop)
 
     def start(self):
-        self.socket.bind(self.local_address)
+        if not os.name == 'nt' and type(self.socket) == pyuv.Pipe:
+            try:
+                fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+                if self.local_address[0] == '@':
+                    self.local_address = '\x00' + self.local_address[1:]
+                fd.bind(self.local_address)
+                fd.setblocking(0)
+                self.socket.open(os.dup(fd.fileno()))
+            finally:
+                fd.close()
+        else:
+            self.socket.bind(self.local_address)
+
         self.socket.listen(self._on_connection)
 
     def _on_connection(self, handle, error):
@@ -241,7 +276,10 @@ class Acceptor(object):
             logging.error('_on_connection: {}'.format(error))
             return
 
-        client = pyuv.TCP(self.loop)
+        if type(self.socket) == pyuv.TCP:
+            client = pyuv.TCP(self.loop)
+        else:
+            client = pyuv.Pipe(self.loop, True)
 
         self.socket.accept(client)
 
@@ -390,8 +428,16 @@ class Acceptor(object):
             self.neighbor.stop(dead=True)
 
     def close(self):
+        if type(self.socket) == pyuv.Pipe:
+            try:
+                if os.path.exists(self.local_address):
+                    os.unlink(self.local_address)
+            except:
+                pass
+
         self.socket.close()
         self.neighbor.unregister_acceptor(self)
+
 
 class Callbacks(object):
     def __init__(self, ref):
@@ -411,8 +457,8 @@ class Neighbor(object):
         self.remote_id = None
 
     def stop(self, dead=False):
-        for port in self.acceptors.keys():
-            acceptor = self.acceptors[port]
+        for path_or_port in self.acceptors.keys():
+            acceptor = self.acceptors[path_or_port]
             acceptor.close()
 
         for connection in self.connections.keys():
@@ -449,27 +495,27 @@ class Neighbor(object):
         if connection.local_id in self.connections:
             del self.connections[connection.local_id]
 
-    def register_acceptor(self, acceptor, port):
-        self.acceptors[port] = acceptor
+    def register_acceptor(self, acceptor, path_or_port):
+        self.acceptors[path_or_port] = acceptor
 
-    def unregister_acceptor(self, acceptor_or_port):
-        if type(acceptor_or_port) == int:
+    def unregister_acceptor(self, acceptor_or_path_or_port):
+        if type(acceptor_or_path_or_port) in (str, unicode, int):
             try:
-                self.acceptors[acceptor_or_port].close()
+                self.acceptors[acceptor_or_path_or_port].close()
                 return True
 
             except Exception, e:
                 return False
         else:
             for k in self.acceptors.keys():
-                if self.acceptors[k] == acceptor_or_port:
+                if self.acceptors[k] == acceptor_or_path_or_port:
                     del self.acceptors[k]
                     return True
 
         return False
 
-    def uses_port(self, port):
-        return port in self.acceptors
+    def uses_port(self, path_or_port):
+        return path_or_port in self.acceptors
 
 class Manager(Thread):
     def __init__(self):
@@ -522,23 +568,28 @@ class Manager(Thread):
 
         return self.neighbors[neighbor_id]
 
-    def _bind(self, neighbor_id, host, port, forward):
+    def _bind(self, neighbor_id, local_address, forward):
         neighbor = self.get_neighbor(neighbor_id)
         acceptor = Acceptor(
             neighbor,
-            local_address=(host, port),
+            local_address=local_address,
             forward_address=forward,
         )
 
-        neighbor.register_acceptor(acceptor, port)
+        if type(local_address) in (str, unicode):
+            neighbor.register_acceptor(acceptor, local_address)
+        else:
+            host, port = local_address
+            neighbor.register_acceptor(acceptor, port)
+
         acceptor.start()
 
-    def bind(self, neighbor_id, host='127.0.0.1', port=8080, forward=None):
-        self.defer(self._bind, neighbor_id, host, port, forward)
+    def bind(self, neighbor_id, local_address=('127.0.0.1', 8080), forward=None):
+        self.defer(self._bind, neighbor_id, local_address, forward)
 
-    def unbind(self, port):
+    def unbind(self, path_or_port):
         for neighbor in self.neighbors.itervalues():
-            if neighbor.unregister_acceptor(port):
+            if neighbor.unregister_acceptor(path_or_port):
                 return True
         return False
 

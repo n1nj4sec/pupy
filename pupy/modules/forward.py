@@ -35,11 +35,11 @@ class Forward(PupyModule):
         actions = parser.add_mutually_exclusive_group(required=True)
         actions.add_argument(
             '-CL', '--cancel-local',
-            help='Cancel local forwarding (LPORT)'
+            help='Cancel local forwarding (LPORT/LPATH)'
         )
         actions.add_argument(
             '-CR', '--cancel-remote',
-            help='Cancel remote forwarding (RPORT)'
+            help='Cancel remote forwarding (RPORT/RPATH)'
         )
 
         actions.add_argument(
@@ -50,10 +50,12 @@ class Forward(PupyModule):
 
         actions.add_argument(
             '-L', '--local', help='Local port forwarding ([LHOST]:LPORT[:RHOST[:RPORT]])'
+            '; LPATH:RPATH'
         )
 
         actions.add_argument(
             '-R', '--remote', help='Remote port forwarding ([RHOST:]RPORT[:LHOST[:LPORT]])'
+            '; RPATH:LPATH'
         )
 
         self.arg_parser = parser
@@ -79,18 +81,24 @@ class Forward(PupyModule):
             for port, forward in state.remote.list():
                 self.success('R: {} -> {}'.format(port, forward))
 
-        elif args.local or args.remote or args.cancel_local or args.cancel_remote:
+        else:
             if len(self.job.pupymodules) > 1 and (args.local or args.cancel_local):
                 raise ValueError('Adding local forward for multiple modules is not supported')
 
             if args.cancel_local or args.cancel_remote:
                 config = args.cancel_local or args.cancel_remote
-                lport = int(config)
+                try:
+                    lport = int(config)
+                    lhost = None
+                except:
+                    lport = None
+                    lhost = config
             else:
                 config = args.local or args.remote
                 parts = config.split(':')
                 lport, lhost = 1080, '127.0.0.1'
                 rport, rhost = None, None
+                lpath, rpath = None, None
 
                 if len(parts) == 1:
                     lport = int(parts[0])
@@ -99,17 +107,25 @@ class Forward(PupyModule):
                     found = False
                     try:
                         lport = int(part1)
+                        try:
+                            rport = int(part2)
+                            rhost = '127.0.0.1'
+                            fount = True
+                        except:
+                            rhost = part2
+                            rport = lport
+                            found = True
                     except:
-                        lport = int(part2)
-                        lhost = part1
-                        found = True
+                        try:
+                            lport = int(part2)
+                            lhost = part1
+                            found = True
+                        except:
+                            pass
 
                     if not found:
-                        try:
-                            rport = int(rhost)
-                            rhost = '127.0.0.1'
-                        except:
-                            rport = lport
+                        lpath, rpath = parts
+
                 elif len(parts) == 3:
                     try:
                         rport = int(parts[2])
@@ -142,11 +158,11 @@ class Forward(PupyModule):
                     manager = remote
 
                 try:
-                    lport = int(lport)
-                    if manager.unbind(lport):
-                        self.success('Forwarding {} removed'.format(lport))
+                    idx = lhost or lport
+                    if manager.unbind(idx):
+                        self.success('Forwarding {} removed'.format(idx))
                     else:
-                        self.error('Removal failed: port {} not found'.format(lport))
+                        self.error('Removal failed: port {} not found'.format(idx))
                 except Exception, e:
                     self.error('Removal failed: {}'.format(e))
 
@@ -183,7 +199,11 @@ class Forward(PupyModule):
                 else:
                     forward = None
 
-                manager.bind(id, host=lhost, port=lport, forward=forward)
+                if lpath and rpath:
+                    manager.bind(id, local_address=lpath, forward=rpath)
+                else:
+                    manager.bind(id, local_address=(lhost, lport), forward=forward)
+
                 self.success('Forwarding added')
 
             except Exception, e:
