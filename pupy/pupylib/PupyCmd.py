@@ -455,6 +455,8 @@ class PupyCmd(cmd.Cmd):
         arg_parser.add_argument('-k', dest='kill', metavar='<id>', type=int, help='Kill the selected session')
         arg_parser.add_argument('-K', dest='killall', action='store_true', help='Kill all sessions')
         arg_parser.add_argument('-d', dest='drop', metavar='<id>', type=int, help='Drop the connection (abruptly close the socket)')
+        arg_parser.add_argument('-D', dest='dropall', action='store_true', help='Drop all connections')
+
         try:
             modargs=arg_parser.parse_args(shlex.split(arg))
         except PupyModuleExit:
@@ -478,6 +480,14 @@ class PupyCmd(cmd.Cmd):
             if selected_client:
                 try:
                     selected_client[0].conn._conn.close()
+                except Exception:
+                    pass
+
+        elif modargs.dropall:
+            clients = list(self.pupsrv.get_clients_list())
+            for client in clients:
+                try:
+                    client.conn._conn.close()
                 except Exception:
                     pass
 
