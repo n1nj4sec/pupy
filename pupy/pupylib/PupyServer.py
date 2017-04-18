@@ -223,21 +223,24 @@ class PupyServer(threading.Thread):
         #if the criteria is a simple id we return the good client
         try:
             indexes = set(
-                int(x) for x in search_criteria.split(',')
+                int(x) for x in str(search_criteria).split(',')
             )
 
             return [
                 c for c in self.clients if c.desc['id'] in indexes
             ]
-        except Exception:
+        except Exception, e:
             pass
+
+        if not type(search_criteria) in (str, unicode):
+            return
 
         l=set([])
         if search_criteria=="*":
             return self.clients
         for c in self.clients:
             take=False
-            for sc in str(search_criteria).split():
+            for sc in search_criteria.split():
                 tab=sc.split(":",1)
                 if len(tab)==2 and tab[0] in [x for x in c.desc.iterkeys()]:#if the field is specified we search for the value in this field
                     take=True
