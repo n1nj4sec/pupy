@@ -102,7 +102,10 @@ def list_dir(path):
     ]
 
 def ls(path=None,listdir=True):
-    if not path:
+    if path:
+        path = os.path.expanduser(path)
+        path = os.path.expandvars(path)
+    else:
         path = os.getcwd()
 
     results = []
@@ -142,7 +145,10 @@ def ls(path=None,listdir=True):
 # -------------------------- For cd function --------------------------
 
 def cd(path=None):
-    if not path:
+    if path:
+        path = os.path.expanduser(path)
+        path = os.path.expandvars(path)
+    else:
         home = os.path.expanduser("~")
         try:
             os.chdir(home)
@@ -150,7 +156,6 @@ def cd(path=None):
         except:
             return "[-] Home directory not found (or access denied): %s" % home
 
-    path = os.path.join(os.getcwd(), path)
     if os.path.isdir(path):
         try:
             os.chdir(path)
