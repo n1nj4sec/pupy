@@ -109,11 +109,16 @@ class InteractiveShell(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(description=self.__doc__)
         self.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
+        self.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
+                                         choices=['ttyrec', 'asciinema', 'none'],
+                                         help="Change tty recorder")
         self.arg_parser.add_argument('program', nargs='?', help="open a specific program. Default for windows is cmd.exe and for linux it depends on the remote SHELL env var")
 
     def init(self, cmdline, args):
-        if args.pseudo_tty:
+        if args.pseudo_tty or args.recorder == 'none':
             self.rec = None
+        else:
+            self.rec = args.recorder
 
         PupyModule.init(self, cmdline, args)
 
