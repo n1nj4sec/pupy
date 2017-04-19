@@ -366,7 +366,7 @@ class Acceptor(object):
                 elif atyp == ADDR_IPV6:
                     addr_len = 16
                 elif atyp == ADDR_HOSTNAME:
-                    addr_len = ord(header[4])
+                    addr_len = ord(packet[4])
                     addr_offt = 1
 
                 if len(packet) < 4 + 2 + addr_len + addr_offt:
