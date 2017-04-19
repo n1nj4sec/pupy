@@ -104,9 +104,9 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - webcam snapshots (front cam & back cam)
 - GPS tracker !
 
-##Installation
+## Installation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
-##Documentation
+## Documentation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
 ### Some screenshots (not up to date)
