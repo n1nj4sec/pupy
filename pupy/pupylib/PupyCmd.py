@@ -1102,11 +1102,12 @@ class PupyCmd(cmd.Cmd):
 
                 pupy_session = None
                 for c in self.pupsrv.clients:
-                    if c.desc['macaddr'].replace(':','').lower() == \
-                      '{:012x}'.format(session.system_info['node']):
-                      pupy_session = c.desc['id']
-                      objects
-                      break
+                    if 'spi' in c.desc:
+                        if c.desc['spi'] == '{:08x}'.format(session.spi):
+                            pupy_session = c.desc['id']
+                    elif c.node() == '{:012x}'.format(session.system_info['node']):
+                        pupy_session = c.desc['id']
+                        break
 
                 color = None
 

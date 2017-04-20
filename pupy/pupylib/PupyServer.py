@@ -169,21 +169,29 @@ class PupyServer(threading.Thread):
                 )
             )
 
-        l=conn.namespace["get_uuid"]()
-
         with self.clients_lock:
             client_id = self.create_id()
-            client_info = {
+            try:
+                client_info = conn.get_infos()
+                client_info = obtain(client_info)
+            except:
+                client_info = {
+                    "launcher" : str(conn.get_infos("launcher")),
+                    "launcher_args" : [ x for x in conn.get_infos("launcher_args") ],
+                    "transport" : str(conn.get_infos("transport")),
+                    "daemonize" : bool(conn.get_infos("daemonize")),
+                    "native": bool(conn.get_infos("native")),
+                    "sid": conn.get_infos("sid") or '',
+                }
+
+            client_info.update({
                 "id": client_id,
                 "conn" : conn,
                 "address" : conn._conn._config['connid'].rsplit(':',1)[0],
-                "launcher" : str(conn.get_infos("launcher")),
-                "launcher_args" : [ x for x in conn.get_infos("launcher_args") ],
-                "transport" : str(conn.get_infos("transport")),
-                "daemonize" : bool(conn.get_infos("daemonize")),
-                "native": bool(conn.get_infos("native")),
-            }
-            client_info.update(l)
+            })
+
+            client_info.update(conn.namespace["get_uuid"]())
+
             pc=PupyClient.PupyClient(client_info, self)
             self.clients.append(pc)
             if self.handler:

