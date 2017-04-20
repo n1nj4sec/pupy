@@ -446,6 +446,48 @@ class PupyCmd(cmd.Cmd):
                        doc = ''
                     self.stdout.write("{:<25}    {}\n".format("%s/%s"%(mod.category,mod.get_name()), color(doc.title().split("\n",1)[0],'grey')))
 
+    def do_tag(self, arg):
+        """ add tag to current session """
+        arg_parser = PupyArgumentParser(prog='sessions', description=self.do_tag.__doc__)
+        arg_parser.add_argument('-a', '--add', metavar='tag', nargs='+', help='Add tags')
+        arg_parser.add_argument('-r', '--remove', metavar='tag', nargs='+', help='Remove tags')
+        arg_parser.add_argument('-w', '--write-project', action='store_true',
+                                    default=False, help='save config to project folder')
+        arg_parser.add_argument('-W', '--write-user', action='store_true',
+                                    default=False, help='save config to user folder')
+
+        try:
+            modargs = arg_parser.parse_args(shlex.split(arg))
+        except PupyModuleExit:
+            return
+
+        data = []
+
+        clients = self.pupsrv.get_clients(self.default_filter)
+
+        if not clients:
+            return
+
+        for client in clients:
+            tags = self.pupsrv.config.tags(client.node())
+
+            if modargs.remove:
+                tags.remove(*modargs.remove)
+
+            if modargs.add:
+                tags.add(*modargs.add)
+
+            data.append({
+                'ID': client.node(),
+                'TAGS': tags
+            })
+
+        self.config.save(project=modargs.write_project, user=modargs.write_user)
+
+        self.display(
+            PupyCmd.table_format(data)
+        )
+
     def do_sessions(self, arg):
         """ list/interact with established sessions """
         arg_parser = PupyArgumentParser(prog='sessions', description=self.do_sessions.__doc__)
@@ -501,15 +543,26 @@ class PupyCmd(cmd.Cmd):
 
             columns = [
                 'id', 'user', 'hostname', 'platform', 'release', 'os_arch',
-                'proc_arch', 'intgty_lvl', 'address'
+                'proc_arch', 'intgty_lvl', 'address', 'tags'
             ]
 
-            self.display(PupyCmd.table_format([
-                {
-                    k:colorize(v, 'white' if x in filtered_clients else 'darkgrey')
-                    for k,v in x.desc.iteritems() if k in columns
-                }  for x in client_list
-            ], wl=columns))
+            content = []
+
+            for client in client_list:
+                color = 'white' if client in filtered_clients else 'darkgrey'
+
+                data = {
+                    k:colorize(v, color)
+                    for k,v in client.desc.iteritems() if k in columns
+                }
+
+                data.update({
+                    'tags': colorize(self.config.tags(client.node()), color)
+                })
+
+                content.append(data)
+
+            self.display(PupyCmd.table_format(content, wl=columns))
 
         elif modargs.killall:
             client_list=self.pupsrv.get_clients_list()
@@ -950,7 +1003,7 @@ class PupyCmd(cmd.Cmd):
                 ]))
 
         elif args.command == 'info':
-            sessions = self.dnscnc.list()
+            sessions = self.dnscnc.list(args.node)
             if not sessions:
                 self.display_success('No active DNSCNC sesisons found')
                 return
@@ -977,15 +1030,17 @@ class PupyCmd(cmd.Cmd):
                     'EST': '{:d}'.format(session.system_status['remote']),
                     'USERS': '{:d}'.format(session.system_status['users']),
                     'IDLE': '{}'.format(session.system_status['idle']),
+                    'TAGS': '{}'.format(self.config.tags(session.system_info['node']))
                 }
 
                 pupy_session = None
                 for c in self.pupsrv.clients:
-                    if c.desc['macaddr'].replace(':','').lower() == \
-                      '{:012x}'.format(session.system_info['node']):
-                      pupy_session = c.desc['id']
-                      objects
-                      break
+                    if 'spi' in c.desc:
+                        if c.desc['spi'] == '{:08x}'.format(session.spi):
+                            pupy_session = c.desc['id']
+                    elif c.node() == '{:012x}'.format(session.system_info['node']):
+                        pupy_session = c.desc['id']
+                        break
 
                 color = ''
                 if pupy_session:
@@ -1005,7 +1060,7 @@ class PupyCmd(cmd.Cmd):
 
             columns = [
                 '#', 'P', 'NODE', 'SESSION', 'IP', 'OS',
-                'CPU', 'MEM', 'LIS', 'EST', 'USERS', 'IDLE'
+                'CPU', 'MEM', 'LIS', 'EST', 'USERS', 'IDLE', 'TAGS'
             ]
 
             self.display(
@@ -1013,7 +1068,7 @@ class PupyCmd(cmd.Cmd):
             )
 
         elif args.command == 'list':
-            sessions = self.dnscnc.list()
+            sessions = self.dnscnc.list(args.node)
             if not sessions:
                 self.display_success('No active DNSCNC sesisons found')
                 return

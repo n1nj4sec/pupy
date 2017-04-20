@@ -107,6 +107,9 @@ class Connection(object):
                         struct.pack(
                             'BB', 0x5, ERRNO_TO_SOCKS5.get(error, CODE_GENERAL_SRV_FAILURE)
                             ) + self.socks5[2:])
+            except:
+                pass
+
             finally:
                 self.close(error, mutual=False)
         else:

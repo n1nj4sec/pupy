@@ -221,6 +221,10 @@ class PupyServer(threading.Thread):
     def get_clients(self, search_criteria):
         """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
         #if the criteria is a simple id we return the good client
+
+        if not search_criteria:
+            return self.clients
+
         try:
             indexes = set(
                 int(x) for x in str(search_criteria).split(',')
@@ -236,32 +240,47 @@ class PupyServer(threading.Thread):
             return
 
         l=set([])
+
         if search_criteria=="*":
             return self.clients
+
         for c in self.clients:
-            take=False
+            take = False
+            tags = self.config.tags(c.node())
             for sc in search_criteria.split():
-                tab=sc.split(":",1)
-                if len(tab)==2 and tab[0] in [x for x in c.desc.iterkeys()]:#if the field is specified we search for the value in this field
+                tab = sc.split(":",1)
+                #if the field is specified we search for the value in this field
+                if len(tab)==2 and tab[0] in c.desc:
                     take=True
                     if not tab[1].lower() in str(c.desc[tab[0]]).lower():
                         take=False
                         break
+                elif len(tab)==2 and tab[0] == 'tag' and tab[1] in tags:
+                    take = True
+                elif len(tab)==2 and tab[0] == 'tags':
+                    if '&' in tab[1]:
+                        take = all(x in tags for x in tab[1].split('&') if x)
+                    else:
+                        take = any(x in tags for x in tab[1].split(',') if x)
                 elif len(tab)!=2:#if there is no field specified we search in every field for at least one match
                     take=False
-                    for k,v in c.desc.iteritems():
-                        if type(v) is unicode or type(v) is str:
-                            if tab[0].lower() in v.decode('utf8').lower():
-                                take=True
-                                break
-                        else:
-                            if tab[0].lower() in str(v).decode('utf8').lower():
-                                take=True
-                                break
-                    if not take:
-                        break
+                    if tab[0] in tags:
+                        take = True
+                    else:
+                        for k,v in c.desc.iteritems():
+                            if type(v) is unicode or type(v) is str:
+                                if tab[0].lower() in v.decode('utf8').lower():
+                                    take=True
+                                    break
+                            else:
+                                if tab[0].lower() in str(v).decode('utf8').lower():
+                                    take=True
+                                    break
+                        if not take:
+                            break
             if take:
                 l.add(c)
+
         return list(l)
 
     def get_clients_list(self):
