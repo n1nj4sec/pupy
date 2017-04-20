@@ -197,7 +197,7 @@ class ReverseSlaveService(Service):
         if not s:
             return {
                 k:v for k,v in pupy.infos.iteritems() if not k in (
-                    'launcher_inst'
+                    'launcher_inst',
                 )
             }
 
