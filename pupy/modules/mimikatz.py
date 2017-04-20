@@ -17,6 +17,9 @@ class Mimikatz(MemoryExec):
     """
         execute mimikatz from memory
     """
+
+    dependencies = [ 'pupymemexec', 'pupwinutils.memexec' ]
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="mimikatz", description=self.__doc__)
         self.arg_parser.add_argument('args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
