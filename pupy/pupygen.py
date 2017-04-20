@@ -128,6 +128,7 @@ def get_raw_conf(conf, obfuscate=False):
         'import network.conf',
         'LAUNCHER={}'.format(repr(conf['launcher'])),
         'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
+        'debug={}'.format(bool(conf.get('debug', False))),
         offline_script
     ])
 
@@ -446,6 +447,7 @@ def pupygen(args, config):
     conf['launcher']=args.launcher
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
+    conf['debug']=args.debug
     outpath=args.output
     if args.format=="client":
         print ok+"Generate client: {}/{}".format(args.os, args.arch)

