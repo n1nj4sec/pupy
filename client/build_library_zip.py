@@ -20,7 +20,7 @@ all_dependencies=set(
         x.split('.')[0] for x,m in sys_modules \
             if not '(built-in)' in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'yaml', 'rpyc', 'pyasn1', 'rsa',
+        'Crypto', 'rpyc', 'rsa',
         'encodings.idna', 'stringprep',
     ]
 )
