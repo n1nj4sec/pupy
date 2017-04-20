@@ -208,6 +208,9 @@ class ReverseSlaveService(Service):
     def exposed_json_dumps(self, obj, compressed=False):
         data = json.dumps(obj, ensure_ascii=False)
         if compressed:
+            if type(data) == unicode:
+                data = data.encode('utf-8')
+
             data = zlib.compress(data)
 
         return data

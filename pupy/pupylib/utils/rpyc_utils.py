@@ -30,7 +30,12 @@ def safe_obtain(proxy):
     conn = object.__getattribute__(proxy, "____conn__")()
     data = conn.root.json_dumps(proxy, compressed=True)
     data = zlib.decompress(data)
-    data = data.decode('latin1')
+
+    try:
+        data = data.decode('utf-8')
+    except:
+        data = data.decode('latin1')
+
     data = json.loads(data) # should prevent any code execution
 
     return data
