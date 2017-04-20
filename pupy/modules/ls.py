@@ -24,15 +24,22 @@ def size_human_readable(num, suffix='B'):
     except:
         return '0.00 B'
 
-def output_format(file):
-    out = u'  {}{}{}{}{}{}{}'.format(
-        '{:<10}'.format(file_timestamp(file['ts'])),
-        '{:<3}'.format(file['type']),
-        '{:<5}'.format(file['uid']),
-        '{:<5}'.format(file['gid']),
-        ' {:06o} '.format(file['mode']),
-        '{:<11}'.format(size_human_readable(file['size'])),
-        '{:<40}'.format(file['name']))
+def output_format(file, windows=False):
+    if windows:
+        out = u'  {}{}{}{}'.format(
+            u'{:<10}'.format(file_timestamp(file['ts'])),
+            u'{:<3}'.format(file['type']),
+            u'{:<11}'.format(size_human_readable(file['size'])),
+            u'{:<40}'.format(file['name']))
+    else:
+        out = u'  {}{}{}{}{}{}{}'.format(
+            u'{:<10}'.format(file_timestamp(file['ts'])),
+            u'{:<3}'.format(file['type']),
+            u'{:<5}'.format(file['uid']),
+            u'{:<5}'.format(file['gid']),
+            u' {:06o} '.format(file['mode']),
+            u'{:<11}'.format(size_human_readable(file['size'])),
+            u'{:<40}'.format(file['name']))
 
     if file['type'] == 'D':
         out=colorize(out, 'lightyellow')
@@ -54,7 +61,7 @@ def output_format(file):
         out=colorize(out, 'darkgrey')
     elif 'E' in file['spec']:
         out=colorize(out, 'lightgreen')
-    elif 'W' in file['spec']:
+    elif 'W' in file['spec'] and not windows:
         out=colorize(out, 'blue')
 
     return out
@@ -81,6 +88,7 @@ class ls(PupyModule):
             args.path, args.dir
         )
         results = obtain(results)
+        windows = self.client.is_windows()
 
         if not results:
             return
@@ -99,13 +107,13 @@ class ls(PupyModule):
                     ]
 
                     for f in sorted(dirs, key=lambda x: x['name'], reverse=args.reverse):
-                        self.log(output_format(f))
+                        self.log(output_format(f, windows))
 
                     for f in sorted(files, key=lambda x: x['name'], reverse=args.reverse):
-                        self.log(output_format(f))
+                        self.log(output_format(f, windows))
                 else:
                     for f in sorted(r['files'], key=lambda x: x[args.sort], reverse=args.reverse):
-                        self.log(output_format(f))
+                        self.log(output_format(f, windows))
 
             else:
-                self.log(output_format(r['file']))
+                self.log(output_format(r['file'], windows))
