@@ -20,7 +20,7 @@ all_dependencies=set(
         x.split('.')[0] for x,m in sys_modules \
             if not '(built-in)' in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'rpyc', 'rsa',
+        'Crypto', 'rpyc', 'pyasn1', 'rsa',
         'encodings.idna', 'stringprep',
     ]
 )
@@ -88,7 +88,8 @@ try:
 
                             # Remove various testcases if any
                             if any([ '/'+x+'/' in zipname for x in [
-                                'tests', 'test', 'SelfTest', 'SelfTests', 'examples'
+                                'tests', 'test', 'SelfTest', 'SelfTests', 'examples',
+                                'experimental'
                                 ]
                             ]):
                                 continue
