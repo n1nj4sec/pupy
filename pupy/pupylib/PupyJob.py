@@ -223,11 +223,13 @@ class PupyJob(object):
         for m in self.pupymodules:
             res+=m.formatter.format_section(str(m.client))
             gv=m.stdout.getvalue()
-            try:
-                res+=gv.decode('utf8', errors="replace")
-            except:
-                res+=gv.decode('latin1', errors="replace")
-            res+="\n"
+            if not type(gv) == unicode:
+                try:
+                    gv = gv.decode('utf8', errors="replace")
+                except:
+                    gv = gv.decode('latin1', errors="replace")
+
+            res += gv+'\n'
             m.stdout.truncate(0)
         return res
 

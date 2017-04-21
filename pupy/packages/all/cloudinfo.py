@@ -100,9 +100,14 @@ def metadata():
 
         user_data = get('', section='user-data')
         if user_data:
-            result.update({
-                'user-data': dict(x.split('=', 1) for x in user_data.split(';'))
-            })
+            try:
+                result.update({
+                    'user-data': dict(x.split('=', 1) for x in user_data.split(';'))
+                })
+            except:
+                result.update({
+                    'user-data': user_data
+                })
 
         result.update({
             'dynamic': as_dict('/', section='dynamic')

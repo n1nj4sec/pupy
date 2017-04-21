@@ -77,6 +77,9 @@ class PupyClient(object):
         except Exception:
             return "unknown"
 
+    def node(self):
+        return self.desc['macaddr'].replace(':', '').lower()
+
     def is_unix(self):
         return not self.is_windows()
 

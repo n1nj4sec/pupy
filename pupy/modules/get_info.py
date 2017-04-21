@@ -20,7 +20,7 @@ class GetInfo(PupyModule):
         commonKeys = [
             "hostname", "user", "release", "version",
             "os_arch", "proc_arch", "pid", "exec_path",
-            "address", "macaddr"
+            "address", "macaddr", "spi"
         ]
         pupyKeys = [ "transport", "launcher", "launcher_args" ]
         windKeys = [ "uac_lvl","intgty_lvl" ]
@@ -30,7 +30,8 @@ class GetInfo(PupyModule):
         infos = []
 
         for k in commonKeys:
-            infos.append((k,self.client.desc[k]))
+            if k in self.client.desc:
+                infos.append((k,self.client.desc[k]))
 
         if self.client.is_windows():
             for k in windKeys:
@@ -105,7 +106,8 @@ class GetInfo(PupyModule):
                 infos.append(("device_id","N/A"))
 
         for k in pupyKeys:
-            infos.append((k,self.client.desc[k]))
+            if k in self.client.desc:
+                infos.append((k, self.client.desc[k]))
 
         infos.append(('platform', '{}/{}'.format(
             self.client.platform, self.client.arch or '?'

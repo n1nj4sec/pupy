@@ -27,10 +27,8 @@ import errno, stat
 import zlib
 import code
 import glob
-import multiprocessing
 import math
 import binascii
-import inspect
 import shlex
 import json
 import ctypes

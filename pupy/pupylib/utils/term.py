@@ -74,7 +74,10 @@ def _size_linux(file=None):
 def colorize(s, color):
     if s is None:
         return ""
-    s=str(s)
+
+    if type(s) not in (str, unicode):
+        s = str(s)
+
     res=s
     COLOR_STOP="\033[0m"
     if color.lower()=="random":

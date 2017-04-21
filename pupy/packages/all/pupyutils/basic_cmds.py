@@ -21,13 +21,25 @@ class FakeStat(object):
     st_size = -1
     st_mtime = 0
 
+def try_unicode(path):
+    if type(path) != unicode:
+        try:
+            return path.decode('utf-8')
+        except UnicodeDecodeError:
+            pass
+
+    return path
+
 def safe_stat(path):
+    path = try_unicode(path)
     try:
         return os.lstat(path)
     except:
         return FakeStat()
 
 def safe_listdir(path):
+    path = try_unicode(path)
+
     try:
         return os.listdir(path)
     except:
@@ -71,6 +83,8 @@ def special_to_letter(mode):
     return l
 
 def list_file(path):
+    path = try_unicode(path)
+
     _stat = safe_stat(path)
     if path.endswith(os.path.sep):
         name = os.path.dirname(
@@ -97,12 +111,18 @@ def list_file(path):
     }
 
 def list_dir(path):
+    path = try_unicode(path)
+
     return [
         list_file(os.path.join(path, x)) for x in safe_listdir(path)
     ]
 
 def ls(path=None,listdir=True):
-    if not path:
+    if path:
+        path = try_unicode(path)
+        path = os.path.expanduser(path)
+        path = os.path.expandvars(path)
+    else:
         path = os.getcwd()
 
     results = []
@@ -142,7 +162,11 @@ def ls(path=None,listdir=True):
 # -------------------------- For cd function --------------------------
 
 def cd(path=None):
-    if not path:
+    if path:
+        path = try_unicode(path)
+        path = os.path.expanduser(path)
+        path = os.path.expandvars(path)
+    else:
         home = os.path.expanduser("~")
         try:
             os.chdir(home)
@@ -150,7 +174,6 @@ def cd(path=None):
         except:
             return "[-] Home directory not found (or access denied): %s" % home
 
-    path = os.path.join(os.getcwd(), path)
     if os.path.isdir(path):
         try:
             os.chdir(path)
@@ -163,6 +186,8 @@ def cd(path=None):
 # -------------------------- For mkdir function --------------------------
 
 def mkdir(directory):
+    directory = try_unicode(directory)
+
     directory = os.path.expanduser(directory)
     directory = os.path.expandvars(directory)
 
@@ -174,11 +199,13 @@ def mkdir(directory):
 # -------------------------- For cp function --------------------------
 
 def cp(src, dst):
+    dst = try_unicode(dst)
     dst = os.path.expanduser(dst)
     dst = os.path.expandvars(dst)
 
     found = False
 
+    src = try_unicode(src)
     src = os.path.expanduser(src)
     src = os.path.expandvars(src)
 
@@ -208,11 +235,13 @@ def cp(src, dst):
 # -------------------------- For mv function --------------------------
 
 def mv(src, dst):
+    dst = try_unicode(dst)
     dst = os.path.expanduser(dst)
     dst = os.path.expandvars(dst)
 
     found = False
 
+    src = try_unicode(src)
     src = os.path.expanduser(src)
     src = os.path.expandvars(src)
 
@@ -237,6 +266,7 @@ def mv(src, dst):
 # -------------------------- For mv function --------------------------
 
 def rm(path):
+    path = try_unicode(path)
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
 
@@ -258,6 +288,7 @@ def rm(path):
 # -------------------------- For cat function --------------------------
 
 def cat(path):
+    path = try_unicode(path)
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
 

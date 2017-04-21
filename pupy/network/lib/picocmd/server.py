@@ -166,10 +166,6 @@ class DnsCommandServerHandler(BaseResolver):
 
     @locked
     def reset_commands(self, session=None, default=False):
-        if session:
-            if type(session) in (str, unicode):
-                session = int(session, 16)
-
         if default:
             self.commands = []
 

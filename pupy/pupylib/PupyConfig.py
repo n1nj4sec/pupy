@@ -10,6 +10,48 @@ import platform
 import random
 import string
 
+class Tags(object):
+    def __init__(self, config, node):
+        self.config = config
+        self.node = node
+
+    def __iter__(self):
+        return iter(self.get())
+
+    def get(self):
+        try:
+            return set(self.config.get('tags', self.node).split(','))
+        except:
+            return set()
+
+    def set(self, tags):
+        return self.config.set('tags', self.node, ','.join([
+            str(x) for x in tags
+        ]))
+
+    def add(self, *tags):
+        current_tags = self.get()
+        for tag in tags:
+            current_tags.add(tag)
+        self.set(current_tags)
+
+    def remove(self, *tags):
+        current_tags = self.get()
+        for tag in tags:
+            if tag in current_tags:
+                current_tags.remove(tag)
+
+        if current_tags:
+            self.set(current_tags)
+        else:
+            self.clear()
+
+    def clear(self):
+        self.config.remove_option('tags', self.node)
+
+    def __str__(self):
+        return ','.join(self.get())
+
 class PupyConfig(ConfigParser):
     NoSectionError = NoSectionError
 
@@ -30,6 +72,35 @@ class PupyConfig(ConfigParser):
 
         ConfigParser.__init__(self)
         self.read(self.files)
+
+    def tags(self, node):
+        if type(node) in (int, long):
+            node = '{:012x}'.format(node)
+
+        return Tags(self, node)
+
+    def by_tags(self, tags):
+        available_tags = {
+            k:self.get('tags', k).split(',') for k in self.options('tags')
+        }
+
+        if '&' in tags:
+            tags = tags.split('&')
+            op_filter = all
+        elif '|' in tags:
+            tags = tags.split('|')
+            op_filter = any
+        else:
+            tags = tags.split(',')
+            op_filter = any
+
+        result = []
+
+        for node, node_tags in available_tags.iteritems():
+            if op_filter(x in node_tags for x in tags):
+                result.append(node)
+
+        return result
 
     def save(self, project=True, user=False):
         if project:
@@ -98,7 +169,8 @@ class PupyConfig(ConfigParser):
 
     def remove_option(self, section, key):
         if section != 'randoms':
-            ConfigParser.unset(self, section, key)
+            ConfigParser.remove_option(self, section, key)
+
         elif section in self.command_line and key in self.command_line[section]:
             del self.command_line[section][key]
             if not self.command_line[section]:
@@ -120,7 +192,12 @@ class PupyConfig(ConfigParser):
                 if not self.command_line[section]:
                     del self.command_line[section]
 
-            ConfigParser.set(self, section, key, value)
+            try:
+                ConfigParser.set(self, section, key, value)
+            except NoSectionError:
+                ConfigParser.add_section(self, section)
+                ConfigParser.set(self, section, key, value)
+
         else:
             if not key:
                 N = kwargs.get('random', 10)

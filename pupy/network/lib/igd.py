@@ -8,7 +8,7 @@ import argparse
 import urllib2
 from StringIO import StringIO
 from httplib import HTTPResponse
-from xml.etree.cElementTree import fromstring
+from xml.etree.ElementTree import fromstring
 from urlparse import urlparse
 import ctypes
 import os

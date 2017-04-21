@@ -1,7 +1,3 @@
-[submodule "pupy/payload_templates"]
-	path = pupy/payload_templates
-	url = ../pupy-binaries.git
-	shallow = false
 [submodule "pupy/external/LaZagne"]
 	path = pupy/external/LaZagne
 	url = https://github.com/AlessandroZ/LaZagne

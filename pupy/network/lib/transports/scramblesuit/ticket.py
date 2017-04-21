@@ -20,7 +20,6 @@ The 64-byte encrypted state contains:
 import os
 import time
 import const
-import yaml
 import struct
 import random
 import datetime
@@ -79,78 +78,6 @@ def issueTicketAndKey( srvState ):
     newTicket = (SessionTicket(masterKey, srvState)).issue()
 
     return masterKey + newTicket
-
-
-def storeNewTicket( masterKey, ticket, bridge ):
-    """
-    Store a new session ticket and the according master key for future use.
-
-    This method is only called by clients.  The given data, `masterKey',
-    `ticket' and `bridge', is YAMLed and stored in the global ticket
-    dictionary.  If there already is a ticket for the given `bridge', it is
-    overwritten.
-    """
-
-    assert len(masterKey) == const.MASTER_KEY_LENGTH
-    assert len(ticket) == const.TICKET_LENGTH
-
-    ticketFile = const.STATE_LOCATION + const.CLIENT_TICKET_FILE
-
-    log.debug("Storing newly received ticket in `%s'." % ticketFile)
-
-    # Add a new (key, ticket) tuple with the given bridge as hash key.
-    tickets = dict()
-    content = util.readFromFile(ticketFile)
-    if (content is not None) and (len(content) > 0):
-        tickets = yaml.safe_load(content)
-
-    # We also store a timestamp so we later know if our ticket already expired.
-    tickets[str(bridge)] = [int(time.time()), masterKey, ticket]
-    util.writeToFile(yaml.dump(tickets), ticketFile)
-
-
-def findStoredTicket( bridge ):
-    """
-    Retrieve a previously stored ticket from the ticket dictionary.
-
-    The global ticket dictionary is loaded and the given `bridge' is used to
-    look up the ticket and the master key.  If the ticket dictionary does not
-    exist (yet) or the ticket data could not be found, `None' is returned.
-    """
-
-    assert bridge
-
-    ticketFile = const.STATE_LOCATION + const.CLIENT_TICKET_FILE
-
-    log.debug("Attempting to read master key and ticket from file `%s'." %
-              ticketFile)
-
-    # Load the ticket hash table from file.
-    yamlBlurb = util.readFromFile(ticketFile)
-    if (yamlBlurb is None) or (len(yamlBlurb) == 0):
-        return None
-    tickets = yaml.safe_load(yamlBlurb)
-
-    try:
-        timestamp, masterKey, ticket = tickets[str(bridge)]
-    except KeyError:
-        log.info("Found no ticket for bridge `%s'." % str(bridge))
-        return None
-
-    # We can remove the ticket now since we are about to redeem it.
-    log.debug("Deleting ticket since it is about to be redeemed.")
-    del tickets[str(bridge)]
-    util.writeToFile(yaml.dump(tickets), ticketFile)
-
-    # If our ticket is expired, we can't redeem it.
-    ticketAge = int(time.time()) - timestamp
-    if ticketAge > const.SESSION_TICKET_LIFETIME:
-        log.warning("We did have a ticket but it already expired %s ago." %
-                    str(datetime.timedelta(seconds=
-                        (ticketAge - const.SESSION_TICKET_LIFETIME))))
-        return None
-
-    return (masterKey, ticket)
 
 
 def checkKeys( srvState ):
@@ -357,35 +284,3 @@ class SessionTicket( object ):
 
 # Alias class name in order to provide a more intuitive API.
 new = SessionTicket
-
-
-# Give ScrambleSuit server operators a way to manually issue new session
-# tickets for out-of-band distribution.
-if __name__ == "__main__":
-
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("ip_addr", type=str, help="The IPv4 address of the "
-                        "%s server." % const.TRANSPORT_NAME)
-    parser.add_argument("tcp_port", type=int, help="The TCP port of the %s "
-                        "server." % const.TRANSPORT_NAME)
-    parser.add_argument("ticket_file", type=str, help="The file, the newly "
-                        "issued ticket is written to.")
-    args = parser.parse_args()
-
-    print "[+] Loading server state file."
-    serverState = state.load()
-
-    print "[+] Generating new session ticket."
-    masterKey = mycrypto.strongRandom(const.MASTER_KEY_LENGTH)
-    ticket = SessionTicket(masterKey, serverState).issue()
-
-    print "[+] Writing new session ticket to `%s'." % args.ticket_file
-    tickets = dict()
-    server = IPv4Address('TCP', args.ip_addr, args.tcp_port)
-    tickets[str(server)] = [int(time.time()), masterKey, ticket]
-
-    util.writeToFile(yaml.dump(tickets), args.ticket_file)
-
-    print "[+] Success."
