@@ -5,6 +5,16 @@ Pupy modules can transparently access remote python objects using rpyc to perfor
 Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, powershell, apk, ...
 When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like starting a background script, adding persistence, starting a keylogger, detecting a sandbox, ...
 
+## Installation
+```
+git clone https://github.com/n1nj4sec/pupy.git pupy
+cd pupy
+git submodule init
+git submodule update
+pip install -r pupy/requirements.txt
+```
+or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
+
 ## Features
 - Multi-platform (tested on windows xp, 7, 8, 10, kali linux, ubuntu, osx, android)
 - On windows, the Pupy payload can be compiled as a reflective DLL and the whole python interpreter is loaded from memory. Pupy does not touch the disk :)
@@ -104,8 +114,6 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - webcam snapshots (front cam & back cam)
 - GPS tracker !
 
-## Installation
-[Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 ## Documentation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
