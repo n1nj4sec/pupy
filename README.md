@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/n1nj4sec/pupy.svg?branch=master)](https://travis-ci.org/n1nj4sec/pupy)
 # Pupy
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features a all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
@@ -103,9 +104,9 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - webcam snapshots (front cam & back cam)
 - GPS tracker !
 
-##Installation
+## Installation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
-##Documentation
+## Documentation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
 ### Some screenshots (not up to date)
