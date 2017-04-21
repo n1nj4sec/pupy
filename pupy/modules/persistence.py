@@ -39,6 +39,7 @@ class PersistenceModule(PupyModule):
         example += '>> run persistence -m wmi --remove\n'
         self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__, epilog=example)
         self.arg_parser.add_argument('-e', '--exe', help='Use an alternative file and set persistency', completer=path_completer)
+        self.arg_parser.add_argument('-c', '--cmd', help='Use a command instead of a file')
         self.arg_parser.add_argument('-s', '--shared', action='store_true', default=False,
                                          help='prefer shared object')
         self.arg_parser.add_argument('--remove', action='store_true', help='try to remove persistency instead of enabling it')
