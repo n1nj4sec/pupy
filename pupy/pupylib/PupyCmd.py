@@ -692,9 +692,10 @@ class PupyCmd(cmd.Cmd):
             self.display_warning("job interrupted")
         if not interactive:
             self.display(pj.result_summary())
-        if pj:
-            pj.free()
-            del pj
+        else:
+            if pj:
+                pj.free()
+                del pj
 
     def complete(self, text, state):
         if state == 0:
