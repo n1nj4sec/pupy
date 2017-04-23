@@ -30,7 +30,7 @@ class ScriptletGenerator(Scriptlet):
                     f.write(text)
             def flush(self):
                 pass
-        path=os.path.join(os.path.expandvars({}))
+        path=os.path.expandvars({})
         sys.stdout = RedirToFile(path)
         sys.stderr = RedirToFile(path)
 

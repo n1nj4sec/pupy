@@ -24,6 +24,9 @@ all_dependencies=set(
         'encodings.idna', 'stringprep',
     ]
 )
+if 'win' in sys.platform:
+    #unicodedata is not builtin on windows and stringprep need this, (pupy.dll injected in a process crash without unicodedata)
+    all_dependencies.add("unicodedata")
 
 all_dependencies.add('site')
 
