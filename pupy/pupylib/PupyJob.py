@@ -219,17 +219,13 @@ class PupyJob(object):
         return res
 
     def result_summary(self):
-        res=""
+        res=b""
         for m in self.pupymodules:
             res+=m.formatter.format_section(str(m.client))
             gv=m.stdout.getvalue()
-            if not type(gv) == unicode:
-                try:
-                    gv = gv.decode('utf8', errors="replace")
-                except:
-                    gv = gv.decode('latin1', errors="replace")
-
-            res += gv+'\n'
+            if type(gv) == unicode:
+                gv = gv.encode('utf8', errors="replace")
+            res += gv+b'\n'
             m.stdout.truncate(0)
         return res
 
