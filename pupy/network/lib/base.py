@@ -45,7 +45,7 @@ class BasePupyTransport(object):
                 raise TransportError("you cannot customize the protected attribute %s"%name)
             if not hasattr(cls, name):
                 raise TransportError("Transport has no attribute %s"%name)
-        NewSubClass = type('CustomizedTransport', (cls,), kwargs)
+        NewSubClass = type('Customized_{}'.format(cls.__name__), (cls,), kwargs)
         return NewSubClass
 
     @classmethod
@@ -138,8 +138,8 @@ class TransportWrapper(BasePupyTransport):
 
     def _setup_callbacks(self):
         for idx, klass in enumerate(self.chain):
-            klass.upstream.on_write = self._generate_write_callback(klass.upstream, idx, up=True)
-            klass.downstream.on_write = self._generate_write_callback(klass.downstream, idx, up=False)
+            klass.upstream.on_write_f = self._generate_write_callback(klass.upstream, idx, up=True)
+            klass.downstream.on_write_f = self._generate_write_callback(klass.downstream, idx, up=False)
 
     @classmethod
     def _linearize(cls):
@@ -189,11 +189,10 @@ class TransportWrapper(BasePupyTransport):
         if idx is None:
             idx = len(self.chain) - 1
 
-        if idx < 0:
-            if len(data):
+        if len(data):
+            if idx < 0:
                 self.downstream.write(data.read())
-        else:
-            if len(data):
+            else:
                 self.chain[idx].upstream_recv(data)
 
 def chain_transports(*args):

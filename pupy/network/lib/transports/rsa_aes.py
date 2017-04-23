@@ -43,10 +43,6 @@ class RSA_AESTransport(BasePupyTransport):
         self.size_to_read=None
         self.first_block=b""
 
-    def on_connect(self):
-        self.downstream.write(self._iv_enc) # send IV
-        logging.debug("IV sent to Client")
-
     def upstream_recv(self, data):
         try:
             cleartext=data.peek()
@@ -133,7 +129,6 @@ class RSA_AESClient(RSA_AESTransport):
         logging.debug("IV sent to Server")
 
 
-
 class RSA_AESServer(RSA_AESTransport):
     privkey=None
     privkey_path=None
@@ -166,6 +161,9 @@ class RSA_AESServer(RSA_AESTransport):
 
                 self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
                 logging.debug("client AES key received && decrypted from RSA private key")
+                self.downstream.write(self._iv_enc) # send IV
+                logging.debug("IV sent to Client")
+
                 for f, args in self.post_handshake_callbacks:
                     f(*args)
                 self.post_handshake_callbacks=[]
@@ -179,4 +177,3 @@ class RSA_AESServer(RSA_AESTransport):
             self.post_handshake_callbacks.append((self.upstream_recv, (data,)))
             return
         super(RSA_AESServer, self).upstream_recv(data)
-
