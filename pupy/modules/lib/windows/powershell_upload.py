@@ -20,7 +20,7 @@ def execute_powershell_script(module, content, function, x64IfPossible=False, sc
     elif "32" in module.client.desc['proc_arch']:
         arch = 'x86'
     
-    fullargs=[path, "-C", "-"]
+    fullargs=[path, "-W", "hidden", "-C", "-"]
 
     # create and store the powershell object if it not exists
     if not module.client.powershell[arch]['object']:
