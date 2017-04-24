@@ -23,13 +23,13 @@ endif
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
-LINKER_OPTS :=
+LINKER_OPTS := /NXCOMPAT:NO
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
-LINKER_OPTS :=/link /subsystem:windows /ENTRY:mainCRTStartup /LTGC
+LINKER_OPTS := /NXCOMPAT:NO /link /subsystem:windows /ENTRY:mainCRTStartup /LTCG
 PPARCH      := $(PPARCH)
-CFLAGS      := $(CFLAGS) /O1 /GL
+CFLAGS      := $(CFLAGS) /O1 /GL /GS-
 endif
 
 CFLAGS      := $(CFLAGS) /I..\\lzma

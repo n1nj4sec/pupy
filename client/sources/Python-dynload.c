@@ -65,7 +65,7 @@ int _load_python_FromFile(char *dllname)
 	return 1;
 }
 
-HMODULE _load_dll(char *name, char *bytes){
+HMODULE _load_dll(const char *name, const char *bytes){
 
 	HMODULE hmod;
 	ULONG_PTR cookie = 0;
@@ -75,7 +75,7 @@ HMODULE _load_dll(char *name, char *bytes){
 	return hmod;
 }
 
-int _load_msvcr90(char *bytes)
+HMODULE _load_msvcr90(char *bytes)
 {
 	return _load_dll("msvcr90.dll", bytes);
 }

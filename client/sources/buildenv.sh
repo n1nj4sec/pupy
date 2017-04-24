@@ -16,7 +16,8 @@ PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-
 # PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc pyaml rsa pefile rsa netaddr win_inet_pton netaddr tinyec pycryptodome cryptography pypiwin32"
+PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32"
+PACKAGES_BUILD="pycryptodome psutil cryptography"
 PACKAGES="$PACKAGES mss pyaudio https://github.com/secdev/scapy/archive/6aaf9ef98424a713b3c21e9f32a31a1358e1d6c8.zip impacket pyOpenSSL colorama pyuv"
 
 BUILDENV=${1:-`pwd`/buildenv}
@@ -86,6 +87,9 @@ for prefix in $WINE32 $WINE64; do
 	touch $prefix/drive_c/.vc
 done
 
+
+WINEPREFIX=$WINE32 wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d ''
+
 export WINEPREFIX=$WINE64
 
 mkdir -p $WINE64/drive_c/windows/Microsoft.NET/Framework
@@ -94,6 +98,7 @@ mkdir -p $WINE64/drive_c/windows/Microsoft.NET/Framework64
 touch $WINE64/drive_c/windows/Microsoft.NET/Framework/empty.txt
 touch $WINE64/drive_c/windows/Microsoft.NET/Framework64/empty.txt
 
+wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d ''
 wine reg delete 'HKLM\Software\Microsoft\Windows\CurrentVersion' /v SubVersionNumber /f || true
 wine reg delete 'HKLM\Software\Microsoft\Windows\CurrentVersion' /v VersionNumber /f || true
 wine reg delete 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CSDVersion /f || true
@@ -161,7 +166,7 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade pip
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade $PACKAGES
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: $PACKAGES_BUILD
     WINEPREFIX=$prefix wine C:\\Python27\\python -m compileall -q C:\\Python27\\Lib || true
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m compileall -q C:\\Python27\\Lib || true
 done
@@ -173,6 +178,8 @@ cat >$WINE32/python.sh <<EOF
 #!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE32
+export LINK="/NXCOMPAT:NO /LTCG"
+export CL="/O1 /GL /GS-"
 exec wine C:\\\\Python27\\\\python.exe -OO "\$@"
 EOF
 chmod +x $WINE32/python.sh
@@ -186,6 +193,8 @@ export WindowsSdkDir="C:\\\\Program Files\\\\Common Files\\\\Microsoft\\\\Visual
 export INCLUDE="\$VCINSTALLDIR\\\\Include;\$WindowsSdkDir\\\\Include"
 export LIB="\$VCINSTALLDIR\\\\Lib;\$WindowsSdkDir\\\\Lib"
 export LIBPATH="\$VCINSTALLDIR\\\\Lib;\$WindowsSdkDir\\\\Lib"
+export LINK="/NXCOMPAT:NO /LTCG"
+export CL="/GL /GS-"
 exec wine "\$VCINSTALLDIR\\\\bin\\\\cl.exe" "\$@"
 EOF
 chmod +x $WINE32/cl.sh
@@ -194,6 +203,8 @@ cat >$WINE64/python.sh <<EOF
 #!/bin/sh
 unset WINEARCH
 export WINEPREFIX=$WINE64
+export LINK="/NXCOMPAT:NO /LTCG"
+export CL="/O1 /GL /GS-"
 exec wine C:\\\\Python27\\\\python.exe -OO "\$@"
 EOF
 chmod +x $WINE64/python.sh
@@ -207,6 +218,8 @@ export WindowsSdkDir="C:\\\\Program Files (x86)\\\\Common Files\\\\Microsoft\\\\
 export INCLUDE="\$VCINSTALLDIR\\\\Include;\$WindowsSdkDir\\\\Include"
 export LIB="\$VCINSTALLDIR\\\\Lib\\\\amd64;\$WindowsSdkDir\\\\Lib\\\\x64"
 export LIBPATH="\$VCINSTALLDIR\\\\Lib\\\\amd64;\$WindowsSdkDir\\\\Lib\\\\x64"
+export LINK="/NXCOMPAT:NO /LTCG"
+export CL="/GL /GS-"
 exec wine "\$VCINSTALLDIR\\\\bin\\\\amd64\\\\cl.exe" "\$@"
 EOF
 chmod +x $WINE64/cl.sh
@@ -223,13 +236,13 @@ $WINE64/cl.sh \
     C:\\Python27\\libs\\python27.lib advapi32.lib \
     /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
 
-make -C $WINPTY clean
-make -C $WINPTY MINGW_CXX="${MINGW32} -Os -s" build/winpty.dll
-mv $WINPTY/build/winpty.dll $BUILDENV/win32/drive_c/Python27/DLLs/
+make -C ${WINPTY} clean
+make -C ${WINPTY} MINGW_CXX="${MINGW32} -Os -s" build/winpty.dll
+mv $WINPTY/build/winpty.dll ${BUILDENV}/win32/drive_c/Python27/DLLs/
 
-make -C $WINPTY clean
-make -C $WINPTY MINGW_CXX="${MINGW64} -Os -s" build/winpty.dll
-mv $WINPTY/build/winpty.dll $BUILDENV/win64/drive_c/Python27/DLLs/
+make -C ${WINPTY} clean
+make -C ${WINPTY} MINGW_CXX="${MINGW64} -Os -s" build/winpty.dll
+mv ${WINPTY}/build/winpty.dll ${BUILDENV}/win64/drive_c/Python27/DLLs/
 
 echo "[+] Creating bundles"
 
