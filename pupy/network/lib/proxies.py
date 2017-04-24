@@ -6,7 +6,7 @@ import time
 import urllib
 
 PROXY_MATCHER = re.compile(
-    '^(?:(?P<schema>[a-z]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
+    '^(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
 )
 
 PROXY_ENV = [
@@ -248,22 +248,26 @@ def get_proxies(additional_proxies=None):
 
     if additional_proxies != None:
         for proxy_str in additional_proxies:
+            if not proxy_str:
+                continue
+
             login, password = None, None
 
             # HTTP:login:password@ip:port
             if '://' in proxy_str:
                 for proxy in parse_env_proxies(proxy_str):
                     yield proxy
-
-            elif '@' in proxy_str:
-                tab=proxy_str.split(':',1)
-                proxy_type=tab[0]
-                login, password=(tab[1].split('@')[0]).split(':',1)
-                address, port = tab[1].split('@')[1].split(':',1)
             else:
-                #HTTP:ip:port
-                proxy_type, address, port = proxy_str.split(':')
-            yield proxy_type.upper(), address+':'+port, login, password
+                if '@' in proxy_str:
+                    tab=proxy_str.split(':',1)
+                    proxy_type=tab[0]
+                    login, password=(tab[1].split('@')[0]).split(':',1)
+                    address, port = tab[1].split('@')[1].split(':',1)
+                else:
+                    #HTTP:ip:port
+                    proxy_type, address, port = proxy_str.split(':')
+
+                yield proxy_type.upper(), address+':'+port, login, password
 
     for proxy in get_python_proxies():
         yield proxy
