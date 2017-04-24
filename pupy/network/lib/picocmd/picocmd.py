@@ -439,6 +439,9 @@ class SetProxy(Command):
         return SetProxy(scheme, ip, port, user, password), sip+user_len+pass_len+2
 
     def __repr__(self):
+        if self.scheme == 'none':
+            return '{{PROXY: DISABLED}}'
+
         if self.user and self.password:
             auth = '{}:{}@'.format(self.user, self.password)
         else:

