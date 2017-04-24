@@ -288,7 +288,7 @@ class PupyClient(object):
         return dic
 
     def remote_print_error(self, msg):
-        self.pupsrv.handler.display_error(msg)
+        self.pupsrv.handler.display_warning(msg)
 
     def _get_module_dic(self, search_path, start_path, pure_python_only=False, remote=False, check_server_arch=False):
         modules_dic = {}
