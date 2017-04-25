@@ -53,8 +53,8 @@ $(BUILDENV_READY):
 	./buildenv.sh "$(BUILDENV)"
 
 revision.h:
-	rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
-	 echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
+	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
+	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
 pupy.c: resources_library_compressed_string_txt.c revision.h
 pupy_load.c: resources_msvcr90_dll.c resources_python27_dll.c resources_bootloader_pyc.c revision.h
