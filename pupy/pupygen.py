@@ -480,6 +480,11 @@ def pupygen(args, config):
                 delete=False
             )
         else:
+            try:
+                os.unlink(outpath)
+            except:
+                pass
+
             outfile = open(outpath, 'w+b')
 
         outfile.write(data)
@@ -500,6 +505,11 @@ def pupygen(args, config):
                 delete=False
             )
         else:
+            try:
+                os.unlink(outpath)
+            except:
+                pass
+
             outfile = open(outpath, 'w+b')
 
         if args.format=="pyinst" :
@@ -527,6 +537,11 @@ def pupygen(args, config):
                 delete=False
             )
         else:
+            try:
+                os.unlink(outpath)
+            except:
+                pass
+
             outfile = open(outpath, 'w+b')
 
         outpath = outfile.name
