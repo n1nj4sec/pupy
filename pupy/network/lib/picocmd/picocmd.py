@@ -282,10 +282,19 @@ class SystemInfo(Command):
     }
     # Same question.
     well_known_cpu_archs_decode = dict(enumerate([
-        'x86', 'i386', 'x86_64', 'AMD64'
+        'x86', 'x64'
     ]))
     well_known_cpu_archs_encode = {
         v:k for k,v in well_known_cpu_archs_decode.iteritems()
+    }
+
+    well_known_machines_equality = {
+        'i386': 'x86',
+        'i486': 'x86',
+        'i586': 'x86',
+        'i686': 'x86',
+        'x86_64': 'x64',
+        'amd64': 'x64',
     }
 
     def __init__(
@@ -294,7 +303,9 @@ class SystemInfo(Command):
             internet=False, boottime=None
         ):
         self.system = system or platform.system()
-        self.arch = arch or platform.machine()
+        self.arch = arch or platform.machine().lower()
+        self.arch = self.well_known_machines_equality.get(self.arch, self.arch)
+
         self.node = node or uuid.getnode()
         try:
             self.boottime = boottime or datetime.datetime.fromtimestamp(
