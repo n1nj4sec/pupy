@@ -161,8 +161,11 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
             if (seq) {
                 PyObject *discard = PyEval_EvalCode((PyCodeObject *)sub, d, d);
                 if (!discard) {
-                    dprint("discard\n");
-                    PyErr_Print();
+#ifdef DEBUG
+                    PyObject *ptype, *pvalue, *ptraceback;
+                    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                    dprint("SEQ %d EXCEPTION: %s\n", i, PyString_AsString(pvalue));
+#endif
                     rc = 255;
                 }
                 Py_XDECREF(discard);

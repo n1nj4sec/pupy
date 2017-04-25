@@ -30,6 +30,7 @@ PyObject *, Py_BuildValue, (char *, ...)
 PyObject *, PyObject_Call, (PyObject *, PyObject *, PyObject *)
 void, PySys_WriteStderr, (const char *, ...)
 PyObject *, PyErr_Occurred, (void)
+void, PyErr_Fetch, (PyObject **, PyObject **, PyObject **)
 void, PyErr_Clear, (void)
 int, PyObject_IsInstance, (PyObject *, PyObject *)
 
