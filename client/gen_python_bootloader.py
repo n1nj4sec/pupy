@@ -59,6 +59,9 @@ if __name__=="__main__":
         compile(pupyimporter, '<string>', 'exec')
     )
 
+    if not args.debug:
+        print 'Generate bootloader with blackholed stderr/stdout'
+
     bootloader = [
         remove_stdout if not args.debug else 'print "DEBUG"\n',
         'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[];' + (

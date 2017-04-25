@@ -129,6 +129,8 @@ clean:
 	rm -f *.o
 	rm -f linux-inject/*.o
 	rm -f resources/library.zip
+	rm -f resources/*.pyc
+	rm -f resources/*.pyo
 	rm -f resources/*.so
 	rm -f resources/*.txt
 	rm -f resources_*.c
