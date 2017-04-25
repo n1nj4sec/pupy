@@ -77,6 +77,7 @@ PyObject *, PyFile_FromFile, (FILE *fp, char *name, char *mode, int (*close)(FIL
 void, PyFile_SetBufSize, (PyObject *, int)
 PyObject *, PyErr_NewException, (char *name, PyObject *base, PyObject *dict)
 int, PyModule_AddObject, (PyObject *, const char *, PyObject *)
+int, PyModule_AddStringConstant, (PyObject *module, const char *name, const char *value)
 '''.strip().splitlines()
 
 import string

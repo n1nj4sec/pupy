@@ -18,6 +18,8 @@
 
 #include "resources_library_compressed_string_txt.c"
 
+#include "revision.h"
+
 int linux_inject_main(int argc, char **argv);
 
 static const char module_doc[] = "Builtins utilities for pupy";
@@ -301,6 +303,7 @@ initpupy(void)
         return;
     }
 
+    PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
     ExecError = PyErr_NewException("pupy.error", NULL, NULL);
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
