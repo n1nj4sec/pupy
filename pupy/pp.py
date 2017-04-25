@@ -299,14 +299,8 @@ def main():
         if not debug:
             debug = bool(args.debug)
 
-        if debug:
-            logging.getLogger().setLevel(logging.DEBUG)
-
         LAUNCHER = args.launcher
         LAUNCHER_ARGS = shlex.split(' '.join(args.launcher_args))
-
-    if LAUNCHER not in conf.launchers:
-        exit("No such launcher: %s" % LAUNCHER)
 
     if hasattr(pupy, 'get_pupy_config'):
         try:
@@ -315,6 +309,12 @@ def main():
         except ImportError, e:
             logging.warning(
                 "ImportError: Couldn't load pupy config: {}".format(e))
+
+    if LAUNCHER not in conf.launchers:
+        exit("No such launcher: %s" % LAUNCHER)
+
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     launcher = conf.launchers[LAUNCHER]()
     try:
