@@ -282,7 +282,7 @@ class SystemInfo(Command):
     }
     # Same question.
     well_known_cpu_archs_decode = dict(enumerate([
-        'x86', 'x64'
+        'x86', 'x86', 'x64', 'x64'
     ]))
     well_known_cpu_archs_encode = {
         v:k for k,v in well_known_cpu_archs_decode.iteritems()
