@@ -120,7 +120,7 @@ def get_env_proxies():
         if not var:
             continue
 
-        for proxy in parse_env_proxies():
+        for proxy in parse_env_proxies(var):
             yield proxy
 
 
