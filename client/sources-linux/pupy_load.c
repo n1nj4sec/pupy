@@ -170,6 +170,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
                     PyObject *ptype, *pvalue, *ptraceback;
                     PyErr_Fetch(&ptype, &pvalue, &ptraceback);
                     dprint("SEQ %d EXCEPTION: %s\n", i, PyString_AsString(pvalue));
+                    PyErr_Print();
 #endif
                     rc = 255;
                 }
