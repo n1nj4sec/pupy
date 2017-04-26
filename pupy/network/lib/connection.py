@@ -12,10 +12,57 @@ class PupyConnection(Connection):
         self._sync_events = {}
         self._connection_serve_lock = lock
         self._last_recv = time.time()
+        self._ping = False
+        self._ping_timeout = 2
+        self._serve_timeout = 10
+
+        if 'ping' in kwargs:
+            ping = kwargs.get('ping')
+            del kwargs['ping']
+        else:
+            ping = None
+
+        if 'timeout' in kwargs:
+            timeout = kwargs.get('timeout')
+            del kwargs['timeout']
+        else:
+            timeout = None
+
+        if ping or timeout:
+            self.set_pings(ping, timeout)
+
         kwargs['_lazy'] = True
         Connection.__init__(self, *args, **kwargs)
         if pupy_srv:
             self._local_root.pupy_srv = pupy_srv
+
+    def set_pings(self, ping=None, timeout=None):
+        if ping is not None:
+            try:
+                self._serve_timeout = int(ping)
+            except:
+                self._serve_timeout = 10
+
+                self._ping = ping and ping not in (
+                    '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
+                )
+
+            self._ping = bool(ping)
+
+
+        if timeout:
+            try:
+                self._ping_timeout = int(timeout)
+            except:
+                self._ping_timeout = 2
+
+        return self.get_pings()
+
+    def get_pings(self):
+        if self._ping:
+            return self._serve_timeout, self._ping_timeout
+        else:
+            return None, None
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
@@ -28,10 +75,13 @@ class PupyConnection(Connection):
                 try:
                     if DEBUG_NETWORK:
                         logging.debug('Sync poll serve: {}'.format(seq))
-                    if not self.serve(10):
+                    if not self.serve(self._serve_timeout):
                         if DEBUG_NETWORK:
                             logging.debug('Sync poll serve interrupted: {}/inactive={}'.format(
                                 seq, self.inactive))
+                        if self._ping:
+                            self.ping(self._ping_timeout)
+
                 finally:
                     if DEBUG_NETWORK:
                         logging.debug('Sync poll serve complete. release: {}'.format(seq))
@@ -39,7 +89,9 @@ class PupyConnection(Connection):
             else:
                 if DEBUG_NETWORK:
                     logging.debug('Sync poll wait: {}'.format(seq))
-                self._sync_events[seq].wait(timeout=10)
+                self._sync_events[seq].wait(timeout=self._serve_timeout)
+                if self._ping:
+                    self.ping(self._ping_timeout)
 
             if DEBUG_NETWORK:
                 logging.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))

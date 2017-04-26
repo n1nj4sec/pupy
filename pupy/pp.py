@@ -409,7 +409,10 @@ def rpyc_loop(launcher):
                 attempt = 0
                 with lock:
                     while not conn.closed:
-                        conn.serve(10)
+                        interval, timeout = conn.get_pings()
+                        conn.serve(interval or 10)
+                        if interval:
+                            conn.ping(timeout)
 
         except SystemExit:
             raise

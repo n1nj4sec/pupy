@@ -73,7 +73,6 @@ class PupySocketStream(SocketStream):
 
     # The root of evil
     def poll(self, timeout):
-        # Just ignore timeout
         if self.closed:
             raise EOFError('polling on already closed connection')
         result = ( len(self.upstream)>0 or self.sock_poll(timeout) )
@@ -90,6 +89,9 @@ class PupySocketStream(SocketStream):
                 except select_error as r:
                     if not r.args[0] == errno.EINTR:
                         to_close = True
+                    continue
+
+                break
 
             if to_close:
                 raise EOFError('sock_poll error')

@@ -44,6 +44,22 @@ class PupyTCPServer(ThreadedServer):
             self.igd = kwargs['igd']
             del kwargs['igd']
 
+        ping = self.pupy_srv.config.get('pupyd', 'ping')
+        self.ping = ping and ping not in (
+            '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
+        )
+
+        if self.ping:
+            try:
+                self.ping_interval = int(ping)
+            except:
+                self.ping_interval = 2
+
+            self.ping_timeout = self.pupy_srv.config.get('pupyd', 'ping_interval')
+        else:
+            self.ping_interval = None
+            self.ping_timeout = None
+
         del kwargs["stream"]
         del kwargs["transport"]
         del kwargs["transport_kwargs"]
@@ -96,6 +112,8 @@ class PupyTCPServer(ThreadedServer):
                 lock, self.pupy_srv,
                 self.service,
                 Channel(stream),
+                ping=self.ping_interval,
+                timeout=self.ping_timeout,
                 config=config
             )
 
@@ -129,8 +147,14 @@ class PupyTCPServer(ThreadedServer):
                 with lock:
                     self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
                         h, p, connection.inactive))
+
+                    interval, timeout = connection.get_pings()
+
                     while not connection.closed:
-                        connection.serve(10)
+                        connection.serve(interval or 10)
+                        if interval:
+                            connection.ping(timeout)
+
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
 
@@ -173,6 +197,22 @@ class PupyUDPServer(object):
         del kwargs["transport"]
         del kwargs["transport_kwargs"]
         del kwargs["pupy_srv"]
+
+        ping = self.pupy_srv.config.get('pupyd', 'ping')
+        self.ping = ping and ping not in (
+            '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
+        )
+
+        if self.ping:
+            try:
+                self.ping_interval = int(ping)
+            except:
+                self.ping_interval = 2
+
+            self.ping_timeout = self.pupy_srv.config.get('pupyd', 'ping_interval')
+        else:
+            self.ping_interval = None
+            self.ping_timeout = None
 
         self.authenticator=kwargs.get("authenticator", None)
         self.protocol_config=kwargs.get("protocol_config", {})
@@ -236,7 +276,14 @@ class PupyUDPServer(object):
                 (self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False
             )
 
-            t = PupyConnectionThread(self.pupy_srv, self.service, Channel(self.clients[addr]), config=config)
+            t = PupyConnectionThread(
+                self.pupy_srv,
+                self.service,
+                Channel(self.clients[addr]),
+                ping=self.ping_interval,
+                timeout=self.ping_timeout,
+                config=config
+            )
             t.daemon=True
             t.start()
         with self.clients[addr].downstream_lock:
