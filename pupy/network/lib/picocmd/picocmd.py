@@ -20,13 +20,15 @@ import os
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
 
-def to_bytes(value):
+def to_bytes(value, size=0):
     value = long(value)
     bytes = []
     while value:
         bytes.append(chr(value % 256))
         value = value >> 8
-    return ''.join(bytes)
+    bytes = ''.join(bytes)
+    bytes += '\x00'*(size-len(bytes))
+    return bytes
 
 class Command(object):
     session_required = False
@@ -341,7 +343,7 @@ class SystemInfo(Command):
         archid = self.well_known_cpu_archs_encode[self.arch]
         block = osid << 4 | archid << 1 | int(bool(self.internet))
         boottime = int(time.mktime(self.boottime.timetuple()))
-        return struct.pack('B', block) + to_bytes(self.node) + \
+        return struct.pack('B', block) + to_bytes(self.node, 6) + \
           struct.pack('>II', int(self.external_ip or 0), boottime)
 
     def get_dict(self):
