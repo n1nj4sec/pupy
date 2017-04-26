@@ -11,6 +11,8 @@ SOURCES=`readlink -f $CWD/../../`
 PYTHON64="https://www.python.org/ftp/python/2.7.13/python-2.7.13.amd64.msi"
 PYTHON32="https://www.python.org/ftp/python/2.7.13/python-2.7.13.msi"
 PYTHONVC="https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi"
+WINETRICKS="https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks"
+
 # PYCRYPTO32="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win32-py2.7.exe"
 # PYCRYPTO64="http://www.voidspace.org.uk/downloads/pycrypto26/pycrypto-2.6.win-amd64-py2.7.exe"
 # PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
@@ -87,6 +89,8 @@ for prefix in $WINE32 $WINE64; do
 	touch $prefix/drive_c/.vc
 done
 
+WINEPREFIX=$WINE32 sh $DOWNLOADS/winetricks winxp
+WINEPREFIX=$WINE64 sh $DOWNLOADS/winetricks win7
 
 WINEPREFIX=$WINE32 wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d ''
 
@@ -99,17 +103,6 @@ touch $WINE64/drive_c/windows/Microsoft.NET/Framework/empty.txt
 touch $WINE64/drive_c/windows/Microsoft.NET/Framework64/empty.txt
 
 wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d ''
-wine reg delete 'HKLM\Software\Microsoft\Windows\CurrentVersion' /v SubVersionNumber /f || true
-wine reg delete 'HKLM\Software\Microsoft\Windows\CurrentVersion' /v VersionNumber /f || true
-wine reg delete 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CSDVersion /f || true
-wine reg delete 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v ProductName /f || true
-wine reg delete 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CurrentBuildNumber /f || true
-wine reg delete 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' /v CurrentVersion /f || true
-wine reg delete 'HKLM\System\CurrentControlSet\Control\ProductOptions' /v ProductType /f || true
-wine reg delete 'HKLM\System\CurrentControlSet\Control\ServiceCurrent' /v OS /f || true
-wine reg delete 'HKLM\System\CurrentControlSet\Control\Windows' /v CSDVersion /f || true
-wine reg delete 'HKCU\Software\Wine' /v Version /f || true
-wine reg delete 'HKLM\System\\CurrentControlSet\\Control\\ProductOptions' /v ProductType /f || true
 
 wine reg add \
      'HKCU\Software\Microsoft\DevDiv\VCForPython\9.0' \
@@ -117,48 +110,8 @@ wine reg add \
      /d 'C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0' \
      /f
 
-wine reg add \
-     'HKLM\System\CurrentControlSet\Control\ProductOptions' \
-     /v ProductType /d "WinNT" /f
-
-wine reg add \
-     'HKLM\Software\Microsoft\Windows NT\CurrentVersion' \
-     /t REG_SZ /v CSDVersion \
-     /d 'Service Pack 1' \
-     /f
-
-wine reg add \
-     'HKLM\Software\Microsoft\Windows NT\CurrentVersion' \
-     /t REG_SZ /v ProductName \
-     /d 'Microsoft Windows 7' \
-     /f
-
-wine reg add \
-     'HKLM\Software\Microsoft\Windows NT\CurrentVersion' \
-     /t REG_SZ /v CurrentBuildNumber \
-     /d '7601' \
-     /f
-
-wine reg add \
-     'HKLM\Software\Microsoft\Windows NT\CurrentVersion' \
-     /t REG_SZ /v CurrentVersion \
-     /d '6.1' \
-     /f
-
-wine reg add \
-     'HKLM\System\CurrentControlSet\Control\Windows' \
-     /t REG_DWORD /v CSDVersion \
-     /d 256 \
-     /f
-
 wineboot -fr
 wineserver -k || true
-
-# Well, some strange goes on, so let's ensure it was changed
-sed -i $WINEPREFIX/system.reg -e 's@"CurrentBuildNumber"="3790"@"CurrentBuildNumber"="7601"@g'
-sed -i $WINEPREFIX/system.reg -e 's@"CSDVersion"="Service Pack 2"@"CSDVersion"="Service Pack 1"@g'
-sed -i $WINEPREFIX/system.reg -e 's@"CurrentVersion"="5.2"@"CurrentVersion"="6.1"@g'
-sed -i $WINEPREFIX/system.reg -e 's@"ProductName"="Microsoft Windows XP"@"ProductName"="Microsoft Windows 7"@g'
 
 unset WINEPREFIX
 

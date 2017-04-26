@@ -17,8 +17,8 @@ cache:
 - apt: true
 script:
 - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/*
-- cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh && sudo -E ./build.sh
 - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh && ./build.sh
+- cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh && sudo -E ./build.sh
 after_success:
 - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
 - export REPO=alxchk/pupy
