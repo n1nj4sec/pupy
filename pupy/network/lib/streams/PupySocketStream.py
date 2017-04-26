@@ -48,6 +48,8 @@ class PupySocketStream(SocketStream):
 
         self.MAX_IO_CHUNK=32000
 
+        self.compress = True
+
     def on_connect(self):
         self.transport.on_connect()
         self._upstream_recv()
@@ -70,6 +72,36 @@ class PupySocketStream(SocketStream):
             raise EOFError("connection closed by peer")
 
         self.buf_in.write(BYTES_LITERAL(buf))
+
+    def recv(self):
+        """ Recv logic with interruptions """
+
+        packet = self.stream.read(self.FRAME_HEADER.size)
+        # If no packet - then just return
+        if not packet:
+            return None
+
+        header = packet
+
+        while len(header) != self.FRAME_HEADER.size:
+            packet = self.stream.read(len(header) - self.FRAME_HEADER.size)
+            if packet:
+                header += packet
+
+        data = b''
+        required_length = length + len(self.FLUSHER)
+        while len(data) != required_length:
+            packet = self.stream.read(len(data) - required_length)
+            if packet:
+                data += packet
+
+        length, compressed = self.FRAME_HEADER.unpack(header)
+        data = self.stream.read(length + len(self.FLUSHER))[:-len(self.FLUSHER)]
+
+        if compressed:
+            data = zlib.decompress(data)
+
+        return data
 
     # The root of evil
     def poll(self, timeout):
