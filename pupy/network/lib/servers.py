@@ -5,7 +5,6 @@
 import sys, logging
 
 from rpyc.utils.server import ThreadedServer
-from rpyc.core import Channel
 from rpyc.utils.authenticators import AuthenticationError
 from rpyc.utils.registry import UDPRegistryClient
 from rpyc.core.stream import Stream
@@ -18,7 +17,7 @@ import random
 from Queue import Queue, Empty
 from threading import Thread, RLock
 
-from streams.PupySocketStream import addGetPeer
+from streams.PupySocketStream import addGetPeer, PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread
 
 from network.lib.igd import IGDClient, UPNPError
@@ -111,7 +110,7 @@ class PupyTCPServer(ThreadedServer):
             connection = PupyConnection(
                 lock, self.pupy_srv,
                 self.service,
-                Channel(stream),
+                PupyChannel(stream),
                 ping=self.ping_interval,
                 timeout=self.ping_timeout,
                 config=config
