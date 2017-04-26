@@ -19,7 +19,7 @@ WINETRICKS="https://raw.githubusercontent.com/Winetricks/winetricks/master/src/w
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
 PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32"
-PACKAGES_BUILD="pycryptodome psutil cryptography"
+PACKAGES_BUILD="pycryptodome cryptography"
 PACKAGES="$PACKAGES mss pyaudio https://github.com/secdev/scapy/archive/6aaf9ef98424a713b3c21e9f32a31a1358e1d6c8.zip impacket pyOpenSSL colorama pyuv"
 
 BUILDENV=${1:-`pwd`/buildenv}
@@ -120,6 +120,12 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade $PACKAGES
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: $PACKAGES_BUILD
+done
+
+WINEPREFIX=$WINE32 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil==4.4.2
+WINEPREFIX=$WINE64 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil
+
+for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -m compileall -q C:\\Python27\\Lib || true
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m compileall -q C:\\Python27\\Lib || true
 done
