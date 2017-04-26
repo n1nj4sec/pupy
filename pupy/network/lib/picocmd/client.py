@@ -287,6 +287,8 @@ class DnsCommandsClient(Thread):
     def on_set_proxy(self, scheme, ip, port, user, password):
         if not scheme or scheme.lower() == 'none':
             self.proxy = None
+        elif scheme.lower() == 'any':
+            self.proxy = True
         else:
             if user and password:
                 auth = '{}:{}@'.format(user, password)

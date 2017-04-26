@@ -400,7 +400,7 @@ class SystemInfo(Command):
 
 class SetProxy(Command):
     well_known_proxy_schemes_decode = dict(enumerate([
-        'none', 'socks4', 'socks5', 'http'
+        'none', 'socks4', 'socks5', 'http', 'any'
     ], 1))
 
     well_known_proxy_schemes_encode = {
@@ -454,6 +454,8 @@ class SetProxy(Command):
     def __repr__(self):
         if self.scheme == 'none':
             return '{{PROXY: DISABLED}}'
+        elif self.scheme == 'any':
+            return '{{PROXY: ENABLED}}'
 
         if self.user and self.password:
             auth = '{}:{}@'.format(self.user, self.password)
