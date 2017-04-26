@@ -29,6 +29,7 @@ class PSExec(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="psexec", description=self.__doc__)
         self.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
         self.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
+        self.arg_parser.add_argument("-c", metavar="CODEPAGE", dest='codepage', default='cp437', help="Codepage")
         self.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         self.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
         self.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
@@ -139,7 +140,11 @@ class PSExec(PupyModule):
         with redirected_stdo(self):
             for host in hosts:
                 self.info("Connecting to the remote host: %s" % host)
-                self.client.conn.modules["pupyutils.psexec"].connect(host, args.port, args.user, args.passwd, args.hash, args.share, file_to_upload, remote_path, dst_folder, args.command, args.domain, args.execm)
+                self.client.conn.modules["pupyutils.psexec"].connect(
+                    host, args.port, args.user, args.passwd, args.hash,
+                    args.share, file_to_upload, remote_path, dst_folder,
+                    args.command, args.domain, args.execm, args.codepage
+                )
 
             if args.ps1_oneliner:
                 self.warning('stopping the local server (pid: %s)' % process.pid)
