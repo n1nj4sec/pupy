@@ -111,7 +111,7 @@ class PSExec(PupyModule):
                 dst = remote_path + file
 
                 self.info("Uploading file to {0}".format(dst))
-                upload(self.client.conn, src, dst)
+                upload(self.client.conn, src, dst, chunk_size=4*1024*1024)
                 self.success("File uploaded")
 
         if args.ps1_oneliner:
