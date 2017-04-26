@@ -371,10 +371,12 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
 
         print "[+] {}:{} is running {} (name:{}) (domain:{})".format(host, port, smb.getServerOS(), smb.getServerName(), domain)
 
-        if file_to_upload:
+        if file_to_upload and not command:
             # execute exe file
             if len(file_to_upload) == 1:
-                command = '"%s"' % file_to_upload[0]
+                command = os.path.join(
+                    dst_folder, file_to_upload[0]
+                )
 
             # execute ps1 file
             else:
@@ -395,6 +397,8 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
                             os.remove(src_folder + file)
 
                 if command:
+                    print "Execute: {}".format(command)
+
                     if execm == 'smbexec':
                         executer = CMDEXEC('{}/SMB'.format(port), user, passwd, domain, hash, share, command)
                         result = executer.run(host)
