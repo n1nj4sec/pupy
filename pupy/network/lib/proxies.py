@@ -246,6 +246,8 @@ def get_wpad_proxies(wpad_timeout=600):
 def get_proxies(additional_proxies=None):
     global PROXY_MATCHER
 
+    dups = set()
+
     if additional_proxies != None:
         for proxy_str in additional_proxies:
             if not proxy_str:
@@ -256,7 +258,9 @@ def get_proxies(additional_proxies=None):
             # HTTP:login:password@ip:port
             if '://' in proxy_str:
                 for proxy in parse_env_proxies(proxy_str):
-                    yield proxy
+                    if not proxy in dups:
+                        yield proxy
+                        dups.add(proxy)
             else:
                 if '@' in proxy_str:
                     tab=proxy_str.split(':',1)
@@ -267,23 +271,39 @@ def get_proxies(additional_proxies=None):
                     #HTTP:ip:port
                     proxy_type, address, port = proxy_str.split(':')
 
-                yield proxy_type.upper(), address+':'+port, login, password
+                proxy = proxy_type.upper(), address+':'+port, login, password
+                if not proxy in dups:
+                    yield proxy
+                    dups.add(proxy)
 
     for proxy in get_python_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
 
     for proxy in get_env_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
 
     for proxy in get_wpad_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
 
     if os.name == 'nt':
         for proxy in get_win_proxies():
-            yield proxy
+            if not proxy in dups:
+                yield proxy
+                dups.add(proxy)
+
     elif os.name == 'posix':
         for proxy in get_gio_proxies():
-            yield proxy
+            if not proxy in dups:
+                yield proxy
+                dups.add(proxy)
 
     for proxy in get_processes_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
