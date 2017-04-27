@@ -122,7 +122,7 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: $PACKAGES_BUILD
 done
 
-WINEPREFIX=$WINE32 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil==4.4.2
+WINEPREFIX=$WINE32 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil==4.3.1
 WINEPREFIX=$WINE64 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil
 
 for prefix in $WINE32 $WINE64; do
