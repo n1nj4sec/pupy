@@ -217,7 +217,23 @@ class ReverseSlaveService(Service):
         return __import__(name, None, None, "*")
 
     def exposed_json_dumps(self, obj, compressed=False):
-        data = json.dumps(obj, ensure_ascii=False)
+        try:
+            data = json.dumps(obj, ensure_ascii=False)
+        except:
+            try:
+                import locale
+                data = json.dumps(
+                    obj,
+                    ensure_ascii=False,
+                    encoding=locale.getpreferredencoding()
+                )
+            except:
+                data = json.dumps(
+                    obj,
+                    ensure_ascii=False,
+                    encoding='latin1'
+                )
+
         if compressed:
             if type(data) == unicode:
                 data = data.encode('utf-8')
