@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 __author__='Nicolas VERDIER'
-__version__='v1.4'
+__version__='v1.5'
 __date__='Apr 23 2017'
 
 BANNER="""
