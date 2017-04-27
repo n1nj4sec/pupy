@@ -69,7 +69,7 @@ if os.name == 'nt':
         import win_inet_pton
         import socket
     except ImportError:
-        raise ImportError('To run PySocks under windows you need to install win_inet_pton') 
+        raise ImportError('To run PySocks under windows you need to install win_inet_pton')
 else:
     import socket
 
@@ -537,7 +537,11 @@ class socksocket(_BaseSocket):
         # Well it's not an IP number, so it's probably a DNS name.
         if rdns:
             # Resolve remotely
-            host_bytes = host.encode('idna')
+            try:
+                host_bytes = host.encode('idna')
+            except:
+                host_bytes = host
+
             file.write(b"\x03" + chr(len(host_bytes)).encode() + host_bytes)
         else:
             # Resolve locally
@@ -603,7 +607,12 @@ class socksocket(_BaseSocket):
             # NOTE: This is actually an extension to the SOCKS4 protocol
             # called SOCKS4A and may not be supported in all cases.
             if remote_resolve:
-                writer.write(dest_addr.encode('idna') + b"\x00")
+                try:
+                    dest_addr = dest_addr.encode('idna')
+                except:
+                    pass
+
+                writer.write(dest_addr + b"\x00")
             writer.flush()
 
             # Get the response from the server
@@ -637,10 +646,19 @@ class socksocket(_BaseSocket):
 
         # If we need to resolve locally, we do this now
         addr = dest_addr if rdns else socket.gethostbyname(dest_addr)
+        try:
+            addr = addr.encode('idna')
+        except:
+            pass
+
+        try:
+            dest_addr = dest_addr.encode('idna')
+        except:
+            pass
 
         http_headers = [
-            b"CONNECT " + addr.encode('idna') + b":" + str(dest_port).encode() + b" HTTP/1.1",
-            b"Host: " + dest_addr.encode('idna')
+            b"CONNECT " + addr + b":" + str(dest_port).encode() + b" HTTP/1.1",
+            b"Host: " + dest_addr
         ]
 
         if username and password:
@@ -775,4 +793,3 @@ class socksocket(_BaseSocket):
         if not proxy_port:
             raise GeneralProxyError("Invalid proxy type")
         return proxy_addr, proxy_port
-

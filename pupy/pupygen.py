@@ -322,8 +322,11 @@ def parse_scriptlets(args_scriptlet, debug=False):
                 raise ValueError("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
 
         if name not in scriptlets_dic:
-            print(colorize("[-] ","red")+"unknown scriptlet %s, valid choices are : %s"%(repr(name), [x for x in scriptlets_dic.iterkeys()]))
-            exit(1)
+            raise ValueError("unknown scriptlet %s, valid choices are : %s"%(
+                repr(name), [
+                    x for x in scriptlets_dic.iterkeys()
+                ]))
+
         print colorize("[+] ","green")+"loading scriptlet %s with args %s"%(repr(name), sc_args)
         try:
             sp.add_scriptlet(scriptlets_dic[name](**sc_args))
@@ -390,7 +393,7 @@ def get_parser(base_parser, config):
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
-    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by oneliner listeners ps1,py (default: %(default)s)")    
+    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by oneliner listeners ps1,py (default: %(default)s)")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
@@ -477,6 +480,11 @@ def pupygen(args, config):
                 delete=False
             )
         else:
+            try:
+                os.unlink(outpath)
+            except:
+                pass
+
             outfile = open(outpath, 'w+b')
 
         outfile.write(data)
@@ -497,6 +505,11 @@ def pupygen(args, config):
                 delete=False
             )
         else:
+            try:
+                os.unlink(outpath)
+            except:
+                pass
+
             outfile = open(outpath, 'w+b')
 
         if args.format=="pyinst" :
@@ -524,6 +537,11 @@ def pupygen(args, config):
                 delete=False
             )
         else:
+            try:
+                os.unlink(outpath)
+            except:
+                pass
+
             outfile = open(outpath, 'w+b')
 
         outpath = outfile.name

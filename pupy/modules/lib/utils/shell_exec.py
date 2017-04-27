@@ -4,7 +4,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import subprocess
 
-def shell_exec(client, cmdline, shell=None, env=None):
+def shell_exec(client, cmdline, shell=None, env=None, encoding=None):
     """ cmdline can be either a list of arguments or a string """
     res=""
     try:
@@ -40,9 +40,9 @@ def shell_exec(client, cmdline, shell=None, env=None):
         else:
             res=str(e)
 
-    if client.is_windows():
+    if encoding:
         try:
-            res=res.decode('cp437')
+            res = res.decode(encoding)
         except Exception:
             pass
 

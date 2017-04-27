@@ -23,6 +23,9 @@ allow_requests_to_external_services = false
 
 use_gnome_keyring=false
 
+ping = 0
+ping_timeout = 2
+
 [ssl]
 client_cert_required = true
 

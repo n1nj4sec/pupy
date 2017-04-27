@@ -36,45 +36,41 @@ def parse_win_proxy(val):
     return l
 
 def get_win_proxies():
-    #TODO retrieve all users proxy settings, not only HKCU
     try:
-        from _winreg import OpenKey, CloseKey, QueryValueEx, HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER, KEY_QUERY_VALUE
+        from _winreg import EnumKey, OpenKey, CloseKey, QueryValueEx
+        from _winreg import HKEY_LOCAL_MACHINE, HKEY_USERS, KEY_QUERY_VALUE
     except:
         return
 
-    aKey = OpenKey(
-        HKEY_CURRENT_USER, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings',
-        0, KEY_QUERY_VALUE
-    )
+    duplicates = set()
 
-    try:
-        value = QueryValueEx(aKey, 'ProxyServer')[0]
-        if value:
-            for p in parse_win_proxy(value):
-                yield p
+    i = 0
+    while True:
+        try:
+            user = EnumKey(HKEY_USERS, i)
+            i += 1
+        except:
+            break
 
-    except Exception:
-        pass
+        if user.endswith('_classes'):
+            continue
 
-    finally:
-        CloseKey(aKey)
+        try:
+            key = '{}\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'.format(user)
+            aKey = OpenKey(HKEY_USERS, key, 0, KEY_QUERY_VALUE)
+            value = QueryValueEx(aKey, 'ProxyServer')[0]
+            if value:
+                for p in parse_win_proxy(value):
+                    if p not in duplicates:
+                        yield p
+                        duplicates.add(p)
 
-    aKey = OpenKey(
-        HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings',
-        0, KEY_QUERY_VALUE
-    )
+        except Exception:
+            pass
 
-    try:
-        value=QueryValueEx(aKey,'ProxyServer')[0]
-        if value:
-            for p in parse_win_proxy(value):
-                yield p
+        finally:
+            CloseKey(aKey)
 
-    except Exception:
-        pass
-
-    finally:
-        CloseKey(aKey)
 
 def get_python_proxies():
     global PROXY_MATCHER
@@ -120,7 +116,7 @@ def get_env_proxies():
         if not var:
             continue
 
-        for proxy in parse_env_proxies():
+        for proxy in parse_env_proxies(var):
             yield proxy
 
 
@@ -246,6 +242,8 @@ def get_wpad_proxies(wpad_timeout=600):
 def get_proxies(additional_proxies=None):
     global PROXY_MATCHER
 
+    dups = set()
+
     if additional_proxies != None:
         for proxy_str in additional_proxies:
             if not proxy_str:
@@ -256,7 +254,9 @@ def get_proxies(additional_proxies=None):
             # HTTP:login:password@ip:port
             if '://' in proxy_str:
                 for proxy in parse_env_proxies(proxy_str):
-                    yield proxy
+                    if not proxy in dups:
+                        yield proxy
+                        dups.add(proxy)
             else:
                 if '@' in proxy_str:
                     tab=proxy_str.split(':',1)
@@ -267,23 +267,39 @@ def get_proxies(additional_proxies=None):
                     #HTTP:ip:port
                     proxy_type, address, port = proxy_str.split(':')
 
-                yield proxy_type.upper(), address+':'+port, login, password
+                proxy = proxy_type.upper(), address+':'+port, login, password
+                if not proxy in dups:
+                    yield proxy
+                    dups.add(proxy)
 
     for proxy in get_python_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
 
     for proxy in get_env_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
 
     for proxy in get_wpad_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)
 
     if os.name == 'nt':
         for proxy in get_win_proxies():
-            yield proxy
+            if not proxy in dups:
+                yield proxy
+                dups.add(proxy)
+
     elif os.name == 'posix':
         for proxy in get_gio_proxies():
-            yield proxy
+            if not proxy in dups:
+                yield proxy
+                dups.add(proxy)
 
     for proxy in get_processes_proxies():
-        yield proxy
+        if not proxy in dups:
+            yield proxy
+            dups.add(proxy)

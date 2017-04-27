@@ -109,11 +109,14 @@ class PupyServer(threading.Thread):
                 fdqn = dnscnc.strip()
                 dnsport = 5454
 
-            self.dnscnc = PupyDnsCnc(
-                igd=self.igd,
-                config=self.config,
-                credentials=self.credentials
-            )
+            try:
+                self.dnscnc = PupyDnsCnc(
+                    igd=self.igd,
+                    config=self.config,
+                    credentials=self.credentials
+                )
+            except Exception, e:
+                logging.error('DnsCNC failed: {}'.format(e))
 
 
     def create_id(self):

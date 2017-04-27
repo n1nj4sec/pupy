@@ -20,13 +20,15 @@ import os
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
 
-def to_bytes(value):
+def to_bytes(value, size=0):
     value = long(value)
     bytes = []
     while value:
         bytes.append(chr(value % 256))
         value = value >> 8
-    return ''.join(bytes)
+    bytes = ''.join(bytes)
+    bytes += '\x00'*(size-len(bytes))
+    return bytes
 
 class Command(object):
     session_required = False
@@ -282,10 +284,19 @@ class SystemInfo(Command):
     }
     # Same question.
     well_known_cpu_archs_decode = dict(enumerate([
-        'x86', 'i386', 'x86_64', 'AMD64'
+        'x86', 'x86', 'x64', 'x64'
     ]))
     well_known_cpu_archs_encode = {
         v:k for k,v in well_known_cpu_archs_decode.iteritems()
+    }
+
+    well_known_machines_equality = {
+        'i386': 'x86',
+        'i486': 'x86',
+        'i586': 'x86',
+        'i686': 'x86',
+        'x86_64': 'x64',
+        'amd64': 'x64',
     }
 
     def __init__(
@@ -294,7 +305,9 @@ class SystemInfo(Command):
             internet=False, boottime=None
         ):
         self.system = system or platform.system()
-        self.arch = arch or platform.machine()
+        self.arch = arch or platform.machine().lower()
+        self.arch = self.well_known_machines_equality.get(self.arch, self.arch)
+
         self.node = node or uuid.getnode()
         try:
             self.boottime = boottime or datetime.datetime.fromtimestamp(
@@ -330,7 +343,7 @@ class SystemInfo(Command):
         archid = self.well_known_cpu_archs_encode[self.arch]
         block = osid << 4 | archid << 1 | int(bool(self.internet))
         boottime = int(time.mktime(self.boottime.timetuple()))
-        return struct.pack('B', block) + to_bytes(self.node) + \
+        return struct.pack('B', block) + to_bytes(self.node, 6) + \
           struct.pack('>II', int(self.external_ip or 0), boottime)
 
     def get_dict(self):
@@ -387,7 +400,7 @@ class SystemInfo(Command):
 
 class SetProxy(Command):
     well_known_proxy_schemes_decode = dict(enumerate([
-        'none', 'socks4', 'socks5', 'http'
+        'none', 'socks4', 'socks5', 'http', 'any'
     ], 1))
 
     well_known_proxy_schemes_encode = {
@@ -439,6 +452,11 @@ class SetProxy(Command):
         return SetProxy(scheme, ip, port, user, password), sip+user_len+pass_len+2
 
     def __repr__(self):
+        if self.scheme == 'none':
+            return '{{PROXY: DISABLED}}'
+        elif self.scheme == 'any':
+            return '{{PROXY: ENABLED}}'
+
         if self.user and self.password:
             auth = '{}:{}@'.format(self.user, self.password)
         else:

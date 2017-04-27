@@ -3,13 +3,12 @@ import getpass
 
 if os.name == 'nt':
     import win32net
-    import socket
+    import win32api
 
     def users():
         result = []
-        hostname = socket.gethostname()
-        users, _, _ = win32net.NetUserEnum(hostname, 1)
-        current = getpass.getuser()
+        users, _, _ = win32net.NetUserEnum(None, 1)
+        current = win32api.GetUserName()
 
         UF_ACCOUNT_DISABLE = 2
         UF_LOCKOUT = 16
@@ -20,7 +19,7 @@ if os.name == 'nt':
 
             result.append({
                 'name': user['name'],
-                'groups': win32net.NetUserGetLocalGroups(hostname, user['name']),
+                'groups': win32net.NetUserGetLocalGroups(None, user['name']),
                 'admin': user['priv'] == 2
             })
 

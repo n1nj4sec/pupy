@@ -81,8 +81,8 @@ class RemoteShellsmbexec():
     def __init__(self, share, rpc, mode, serviceName, command):
         self.__share = share
         self.__mode = mode
-        self.__output = '\\Windows\\Temp\\' + OUTPUT_FILENAME 
-        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME 
+        self.__output = '\\Windows\\Temp\\' + OUTPUT_FILENAME
+        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME
         self.__outputBuffer = ''
         self.__command = command
         self.__shell = '%COMSPEC% /Q /c '
@@ -122,7 +122,7 @@ class RemoteShellsmbexec():
         # Just in case the service is still created
         try:
            self.__scmr = self.__rpc.get_dce_rpc()
-           self.__scmr.connect() 
+           self.__scmr.connect()
            self.__scmr.bind(svcctl.MSRPC_UUID_SVCCTL)
            resp = scmr.hROpenSCManagerW(self.__scmr)
            self.__scHandle = resp['lpScHandle']
@@ -150,7 +150,7 @@ class RemoteShellsmbexec():
              #           pass
              #       else:
              #           print str(e)
-             #           pass 
+             #           pass
             self.transferClient.deleteFile(self.__share, self.__output)
 
         else:
@@ -160,7 +160,7 @@ class RemoteShellsmbexec():
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
     def execute_remote(self, data):
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile 
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
         command += ' & ' + 'del ' + self.__batchFile
@@ -223,7 +223,7 @@ class CMDEXEC:
             stringbinding = protodef[0] % addr
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
             rpctransport.set_dport(port)
-            
+
             if hasattr(rpctransport,'preferred_dialect'):
                rpctransport.preferred_dialect(SMB_DIALECT)
 
@@ -288,7 +288,7 @@ class WMIEXEC:
 class RemoteShellwmi():
     def __init__(self, share, win32Process, smbConnection):
         self.__share = share
-        self.__output = '\\' + OUTPUT_FILENAME 
+        self.__output = '\\' + OUTPUT_FILENAME
         self.__outputBuffer = ''
         self.__shell = 'cmd.exe /Q /c '
         self.__win32Process = win32Process
@@ -320,7 +320,7 @@ class RemoteShellwmi():
                     pass
                 else:
                     #print str(e)
-                    pass 
+                    pass
         self.__transferClient.deleteFile(self.__share, self.__output)
 
     def execute_remote(self, data):
@@ -351,16 +351,16 @@ def upload_file(smbconn, host, src, dst):
             smbconn.putFile(share, dst, upFile.read)
             print '[+] Upload completed'
             upFile.close()
-            return True 
+            return True
         except Exception as e:
             print '[!]', e
             print '[!] Error uploading file, you need to include destination file name in the path'
-            upFile.close() 
+            upFile.close()
     else:
         print '[!] Invalid source. File does not exist'
     return False
 
-def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, dst_folder, command, domain="workgroup", execm="smbexec"):
+def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, dst_folder, command, domain="workgroup", execm="smbexec", codepage='cp437'):
     try:
         smb = SMBConnection(host, host, None, port, timeout=2)
         try:
@@ -371,11 +371,13 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
 
         print "[+] {}:{} is running {} (name:{}) (domain:{})".format(host, port, smb.getServerOS(), smb.getServerName(), domain)
 
-        if file_to_upload:
+        if file_to_upload and not command:
             # execute exe file
             if len(file_to_upload) == 1:
-                command = '"%s"' % file_to_upload[0]
-            
+                command = os.path.join(
+                    dst_folder, file_to_upload[0]
+                )
+
             # execute ps1 file
             else:
                 command = 'powershell.exe -ExecutionPolicy Bypass -windowstyle hidden /c "cat %s | Out-String | IEX"' % (dst_folder + file_to_upload[0])
@@ -393,8 +395,10 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
                     for file in file_to_upload:
                         if upload_file(smb, host, src_folder + file, dst_folder + file):
                             os.remove(src_folder + file)
-                
+
                 if command:
+                    print "Execute: {}".format(command)
+
                     if execm == 'smbexec':
                         executer = CMDEXEC('{}/SMB'.format(port), user, passwd, domain, hash, share, command)
                         result = executer.run(host)
@@ -402,8 +406,9 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
                     elif execm == 'wmi':
                         executer = WMIEXEC(command, user, passwd, domain, hash, share)
                         result = executer.run(host, smb)
-                    
-                    if result: print result
+
+                    if result:
+                        print result.decode(codepage)
 
                 smb.logoff()
 
@@ -414,4 +419,3 @@ def connect(host, port, user, passwd, hash, share, file_to_upload, src_folder, d
 
     except Exception as e:
         print "[!] {}".format(e)
-            

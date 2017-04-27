@@ -30,6 +30,7 @@ PyObject *, Py_BuildValue, (char *, ...)
 PyObject *, PyObject_Call, (PyObject *, PyObject *, PyObject *)
 void, PySys_WriteStderr, (const char *, ...)
 PyObject *, PyErr_Occurred, (void)
+void, PyErr_Fetch, (PyObject **, PyObject **, PyObject **)
 void, PyErr_Clear, (void)
 int, PyObject_IsInstance, (PyObject *, PyObject *)
 
@@ -76,6 +77,7 @@ PyObject *, PyFile_FromFile, (FILE *fp, char *name, char *mode, int (*close)(FIL
 void, PyFile_SetBufSize, (PyObject *, int)
 PyObject *, PyErr_NewException, (char *name, PyObject *base, PyObject *dict)
 int, PyModule_AddObject, (PyObject *, const char *, PyObject *)
+int, PyModule_AddStringConstant, (PyObject *module, const char *name, const char *value)
 '''.strip().splitlines()
 
 import string
