@@ -10,7 +10,7 @@ class Users(PupyModule):
     """ Get interactive users """
 
     dependencies = {
-        'windows': ['win32net'],
+        'windows': ['win32net', 'win32api'],
         'all': ['pupyutils.users']
     }
 
