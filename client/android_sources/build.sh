@@ -21,7 +21,8 @@ cp MyBroadcastReceiver.java .buildozer/android/platform/python-for-android/dist/
 #hidden notification
 cp PythonService.java .buildozer/android/platform/python-for-android/dist/pupy/src/org/renpy/android/PythonService.java
 
-cp PythonActivity.java .buildozer/android/platform/python-for-android/src/src/org/renpy/android/PythonActivity.java
+#cp PythonActivity.java .buildozer/android/platform/python-for-android/src/src/org/renpy/android/PythonActivity.java
+cp PythonActivity.java .buildozer/android/platform/python-for-android/dist/pupy/src/org/renpy/android/PythonActivity.java
 
 if [ "$1" = "debug" ]; then
 rm bin/*.apk
