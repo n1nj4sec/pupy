@@ -114,8 +114,8 @@ def get_raw_conf(conf, obfuscate=False):
                 for name in t.credentials:
                     required_credentials.add(name)
 
-    print colorize("[+] ", "red") + 'Required credentials:\n{}'.format(
-        colorize("[+] ", "red") + ', '.join(required_credentials)
+    print colorize("[+] ", "green") + 'Required credentials:\n{}'.format(
+        colorize("[+] ", "green") + ', '.join(required_credentials)
     )
 
     embedded_credentials = '\n'.join([
