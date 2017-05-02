@@ -6,6 +6,10 @@
 	path = pupy/external/changeme
 	url = https://github.com/AlessandroZ/changeme
 	shallow = false
+[submodule "pupy/external/BeRoot"]
+	path = pupy/external/BeRoot
+	url = https://github.com/AlessandroZ/BeRoot
+	shallow = false
 [submodule "client/sources-linux/linux-inject"]
 	path = client/sources-linux/linux-inject
 	url = https://github.com/gaffe23/linux-inject.git
