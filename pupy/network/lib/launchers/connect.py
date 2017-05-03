@@ -57,7 +57,7 @@ class ConnectLauncher(BaseLauncher):
                 except Exception as e:
                     raise SystemExit(e)
 
-                logging.debug("Trying: " + str(server))
+                #logging.debug("Trying: " + str(server))
 
                 try:
                     host= server.rsplit(":", 1)
@@ -77,4 +77,4 @@ class ConnectLauncher(BaseLauncher):
 
             if self.args.delay > 0:
                 delay = float(self.args.delay) * 60.0 * uniform(1.00, 1.05)
-                logging.debug("Delay: " + str(delay))
+                #logging.debug("Delay: " + str(delay))
