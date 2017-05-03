@@ -3,7 +3,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 from ..base_launcher import *
-from random import randint
+from random import uniform
 import time
 
 class ConnectLauncher(BaseLauncher):
@@ -19,7 +19,7 @@ class ConnectLauncher(BaseLauncher):
         self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to. Add redundant servers with additional --host entries', action='append')
         self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
         self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
-        self.arg_parser.add_argument('--delay', metavar='<multiplier>', required=False, help='enable time delay between connection attempts. Multiplier is multiplied by a random number of seconds (1 to 10)')
+        self.arg_parser.add_argument('--delay', metavar='<integer>', required=False, help='sleeps X number of min between connection attempts with some randomization thrown in')
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
@@ -57,6 +57,8 @@ class ConnectLauncher(BaseLauncher):
                 except Exception as e:
                     raise SystemExit(e)
 
+                logging.debug("Trying: " + str(server))
+
                 try:
                     host= server.rsplit(":", 1)
                     self.rhost = host[0]
@@ -70,6 +72,8 @@ class ConnectLauncher(BaseLauncher):
                     yield stream
                 except Exception as e:
                     count+=1
-                    if self.args.delay > 0:
-                        delay = float(self.args.delay) * float(randint(1, 10))
-                        time.sleep(delay)
+                    time.sleep(30)
+
+            if self.args.delay > 0:
+                delay = float(self.args.delay) * 60.0 * uniform(1.00, 1.05)
+                logging.debug("Delay: " + str(delay))
