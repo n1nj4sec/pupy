@@ -58,7 +58,7 @@ class Beroot(PupyModule):
                         if 'list' in str(type(results[result])):
                             st += '%s\n' % str(result)
                             for w in results[result]:
-                                st += '- %s\n' % w
+                                st += '\t- %s\n' % w
                         st += '\n'
 
                 elif 'list' in str(type(results)):
@@ -66,11 +66,11 @@ class Beroot(PupyModule):
                         if 'str' in str(type(result)):
                             st += '%s\n' % result
                         else:
-                            for r in result:
+                            for r in sorted(result, key=result.get, reverse=True):
                                 if 'list' in str(type(result[r])):
                                     st += '%s:\n' % r
                                     for w in result[r]:
-                                        st += '- %s\n' % w
+                                        st += '\t- %s\n' % w
                                 else:
                                     st += '%s: %s\n' % (r, str(result[r]))
                             st += '\n'
