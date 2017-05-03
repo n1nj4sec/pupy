@@ -214,6 +214,15 @@ class MyParser(argparse.ArgumentParser):
 		self.print_help()
 		sys.exit(2)
 
+def clean_temporary_files():
+	# try to remove all temporary files
+	for h in constant.hives:
+		try:
+			os.remove(constant.hives[h])
+			print_debug('DEBUG', 'Temporary file removed: %s' % constant.hives[h])
+		except:
+			pass
+
 def runLaZagne(category_choosed='all'):
 
 	# ------ Part used for user impersonation ------ 

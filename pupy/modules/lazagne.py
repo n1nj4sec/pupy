@@ -63,6 +63,9 @@ class LaZagne(PupyModule):
         if not passwordsFound:
             self.warning("no passwords found !")
 
+        # clean temporary file if present
+        self.client.conn.modules["laZagne"].clean_temporary_files()
+
     def print_module_title(self, module):
         print colorize("\n------------------- %s passwords -------------------\n" % module.encode('utf-8', errors="replace"), "yellow")
 
