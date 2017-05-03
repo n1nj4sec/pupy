@@ -78,3 +78,4 @@ class ConnectLauncher(BaseLauncher):
             if self.args.delay > 0:
                 delay = float(self.args.delay) * 60.0 * uniform(1.00, 1.05)
                 #logging.debug("Delay: " + str(delay))
+                time.sleep(delay)
