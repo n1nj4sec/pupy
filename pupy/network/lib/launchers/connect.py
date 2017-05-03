@@ -72,7 +72,8 @@ class ConnectLauncher(BaseLauncher):
                     yield stream
                 except Exception as e:
                     count+=1
-                    time.sleep(30)
+                    if self.args.delay > 0:
+                        time.sleep(30)
 
             if self.args.delay > 0:
                 delay = float(self.args.delay) * 60.0 * uniform(1.00, 1.05)
