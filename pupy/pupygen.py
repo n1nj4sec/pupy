@@ -599,6 +599,8 @@ if __name__ == '__main__':
         pupygen(parser.parse_args(), config)
     except InvalidOptions:
         sys.exit(0)
+    except EncryptionError, e:
+        logging.error(e)
     except Exception, e:
         logging.exception(e)
         sys.exit(str(e))

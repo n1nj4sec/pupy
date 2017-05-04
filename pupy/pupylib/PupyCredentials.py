@@ -203,7 +203,13 @@ class Credentials(object):
 
                         fcontent = StringIO()
                         encryptor = ENCRYPTOR(password=password, config=config)
-                        encryptor.decrypt(StringIO(content), fcontent)
+                        try:
+                            encryptor.decrypt(StringIO(content), fcontent)
+                        except:
+                            raise EncryptionError(
+                                'Invalid password or corrupted data'
+                            )
+
                         content = fcontent.getvalue()
 
                     exec content in self._credentials

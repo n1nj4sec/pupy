@@ -81,7 +81,12 @@ if __name__=="__main__":
         PupyCredentials.ENCRYPTOR = None
 
     # Try to initialize credentials before CMD loop
-    credentials = PupyCredentials.Credentials()
+    try:
+        credentials = PupyCredentials.Credentials()
+    except PupyCredentials.EncryptionError, e:
+        logging.error(e)
+        exit(1)
+
     config = PupyConfig()
 
     if args.port:
