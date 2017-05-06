@@ -12,7 +12,7 @@ services:
 - docker
 os:
 - linux
-dist: stretch
+dist: trusty
 cache:
 - apt: true
 script:
