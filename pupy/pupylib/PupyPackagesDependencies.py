@@ -26,6 +26,9 @@ packages_dependencies={
         (LOAD_PACKAGE, WINDOWS, "pythoncom"),
         (LOAD_PACKAGE, WINDOWS, "cryptography"),
     ],
+    "win32com" : [
+        (LOAD_PACKAGE, WINDOWS, "pythoncom"),
+    ],
     "pyaudio" : [
         (LOAD_PACKAGE, ALL_OS, "_portaudio"),
     ],
@@ -47,4 +50,3 @@ packages_dependencies={
 
 
 }
-

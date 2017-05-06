@@ -276,7 +276,8 @@ class PupyClient(object):
         return False
 
     def unload_package(self, module_name):
-        self.conn.modules.pupyimporter.invalidate_module(module_name)
+        if not module_name.endswith(('.so', '.dll')):
+            self.conn.modules.pupyimporter.invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
         logging.debug("remote module_name asked for : %s"%module_name)
@@ -415,7 +416,7 @@ class PupyClient(object):
         pupyimporter = self.conn.modules.pupyimporter
         initial_module_name = module_name
 
-        if not remote:
+        if not remote and not module_name.endswith(('.dll', '.so')):
             if pupyimporter.has_module(module_name):
                 if not force:
                     return False
