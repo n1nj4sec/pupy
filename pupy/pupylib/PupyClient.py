@@ -261,8 +261,6 @@ class PupyClient(object):
                     if t==LOAD_PACKAGE:
                         if (self._load_package(v, force)):
                             new_deps.append(v)
-                        else:
-                            return False
 
                     elif t==LOAD_DLL:
                         self.load_dll(v)
