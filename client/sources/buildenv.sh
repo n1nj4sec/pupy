@@ -92,7 +92,7 @@ done
 WINEPREFIX=$WINE32 sh $DOWNLOADS/winetricks winxp
 WINEPREFIX=$WINE64 sh $DOWNLOADS/winetricks win7
 
-WINEPREFIX=$WINE32 wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d ''
+WINEPREFIX=$WINE32 wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d '' /f
 
 export WINEPREFIX=$WINE64
 
@@ -102,7 +102,7 @@ mkdir -p $WINE64/drive_c/windows/Microsoft.NET/Framework64
 touch $WINE64/drive_c/windows/Microsoft.NET/Framework/empty.txt
 touch $WINE64/drive_c/windows/Microsoft.NET/Framework64/empty.txt
 
-wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d ''
+wine reg add 'HKCU\Software\Wine\DllOverrides' /t REG_SZ /v dbghelp /d '' /f
 
 wine reg add \
      'HKCU\Software\Microsoft\DevDiv\VCForPython\9.0' \
