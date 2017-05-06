@@ -15,8 +15,16 @@
  */
 //#include "precomp.h"
 
+#ifndef UINTPTR
+ #ifndef _WIN32
+   typedef DWORD UINTPTR;
+ #else
+   typedef ULONGLONG UINTPTR;
+ #endif
+#endif
+
 #ifndef _WIN32
-typedef ULONG NTSTATUS;
+ typedef ULONG NTSTATUS;
 #endif
 
 typedef enum _PROCESSINFOCLASS
@@ -98,12 +106,12 @@ BOOL MapNewExecutableRegionInProcess(
 	DosHeader = (PIMAGE_DOS_HEADER)NewExecutableRawImage;
 	if (DosHeader->e_magic == IMAGE_DOS_SIGNATURE)
 	{
-		NtHeader64 = (PIMAGE_NT_HEADERS64)((DWORD)NewExecutableRawImage + DosHeader->e_lfanew);
+		NtHeader64 = (PIMAGE_NT_HEADERS64)((UINTPTR)NewExecutableRawImage + DosHeader->e_lfanew);
 		if (NtHeader64->Signature == IMAGE_NT_SIGNATURE)
 		{
 			RtlZeroMemory(&BasicInformation, sizeof(PROCESS_INFORMATION));
 			ThreadContext = (PCONTEXT)VirtualAlloc(NULL, sizeof(ThreadContext) + 4, MEM_COMMIT, PAGE_READWRITE);
-			ThreadContext = (PCONTEXT)Align((DWORD)ThreadContext, 4);
+			ThreadContext = (PCONTEXT)Align((UINTPTR)ThreadContext, 4);
 			ThreadContext->ContextFlags = CONTEXT_FULL;
 			if (GetThreadContext(TargetThreadHandle, ThreadContext)) //used to be LPCONTEXT(ThreadContext)
 			{
@@ -293,4 +301,3 @@ BOOL MapNewExecutableRegionInProcess(
 }
 
 #endif /* _WIN64 */
-
