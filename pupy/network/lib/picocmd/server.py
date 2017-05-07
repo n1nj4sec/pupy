@@ -14,7 +14,7 @@ import functools
 import logging
 
 import socket
-import socketserver
+import SocketServer
 
 from dnslib import DNSRecord, RR, QTYPE, A, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
