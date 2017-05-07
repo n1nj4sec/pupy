@@ -9,6 +9,7 @@ import argparse
 
 remove_stdout='''
 import sys
+sys.tracebacklimit = 0
 class Blackhole(object):
     softspace = 0
     def read(self):
