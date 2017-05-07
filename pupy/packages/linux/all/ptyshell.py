@@ -17,8 +17,17 @@ import array
 import json
 from pupy import obtain
 
+def prepare(suid=None):
+    if suid is not None:
+        try:
+            if not type(suid) in (int, long):
+                import pwd
+                suid = pwd.getpwnam(suid).pw_uid
 
-def prepare():
+            os.setresuid(suid, suid, suid)
+        except:
+            pass
+
     os.setsid()
     fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
 
@@ -46,7 +55,7 @@ class PtyShell(object):
     def __del__(self):
         self.close()
 
-    def spawn(self, argv=None, term=None):
+    def spawn(self, argv=None, term=None, suid=None):
         if argv is None:
             if 'SHELL' in os.environ:
                 argv = [os.environ['SHELL']]
@@ -93,7 +102,7 @@ class PtyShell(object):
             stdin=slave,
             stdout=slave,
             stderr=subprocess.STDOUT,
-            preexec_fn=prepare,
+            preexec_fn=lambda: prepare(suid),
             env=env
         )
         os.close(slave)
