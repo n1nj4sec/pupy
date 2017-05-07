@@ -20,6 +20,11 @@ from pupy import obtain
 def prepare(suid=None):
     if suid is not None:
         try:
+            suid = int(suid)
+        except:
+            pass
+
+        try:
             if not type(suid) in (int, long):
                 import pwd
                 suid = pwd.getpwnam(suid).pw_uid
