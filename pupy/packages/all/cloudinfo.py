@@ -14,7 +14,7 @@ def get(path, version='latest', section='meta-data'):
 
     try:
         return urllib2.urlopen('http://169.254.169.254/{}/{}/{}'.format(
-            version, section, path)
+            version, section, path), timeout=2
         ).read()
 
     except:
