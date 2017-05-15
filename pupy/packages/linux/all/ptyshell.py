@@ -32,7 +32,7 @@ def prepare(suid, slave):
 
         try:
             if slave:
-                path = os.getttyname(slave)
+                path = os.ttyname(slave)
                 os.chown(path, suid)
         except:
             pass
