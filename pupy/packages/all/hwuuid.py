@@ -5,7 +5,7 @@ import uuid
 def get_hw_uuid():
     zero_uuid = uuid.UUID('00000000-0000-0000-0000-000000000000')
 
-    if 'win' in sys.platform:
+    if sys.platform=='win32':
         try:
             import win32com
 
