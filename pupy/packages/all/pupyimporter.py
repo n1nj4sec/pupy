@@ -565,7 +565,7 @@ def install(debug=None, trace=False):
     ctypes._dlopen = pupy_dlopen
     ctypes.util.find_library = pupy_find_library
 
-    if 'win' in sys.platform:
+    if sys.platform == 'win32':
         import pywintypes
     if __debug:
         print 'Bundled modules:'
