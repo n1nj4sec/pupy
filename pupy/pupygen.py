@@ -80,7 +80,7 @@ def get_edit_binary(path, conf):
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
-def get_raw_conf(conf, obfuscate=False):
+def get_raw_conf(conf, obfuscate=False, verbose=False):
     credentials = Credentials(role='client')
 
     if not "offline_script" in conf:
@@ -122,6 +122,10 @@ def get_raw_conf(conf, obfuscate=False):
         '{}={}'.format(credential, repr(credentials[credential])) \
         for credential in required_credentials if credentials[credential] is not None
     ])+'\n'
+
+    if verbose:
+        for k, v in conf.iteritems():
+            print colorize("[C] {}: {}".format(k, v), "yellow")
 
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
@@ -500,7 +504,7 @@ def pupygen(args, config):
         if not outpath:
             outfile = tempfile.NamedTemporaryFile(
                 dir=args.output_dir or '.',
-                prefix='pupy',
+                prefix='pupy_',
                 suffix='.py',
                 delete=False
             )
@@ -514,7 +518,7 @@ def pupygen(args, config):
 
         if args.format=="pyinst" :
             linux_modules = getLinuxImportedModules()
-        packed_payload=pack_py_payload(get_raw_conf(conf))
+        packed_payload=pack_py_payload(get_raw_conf(conf, verbose=True))
 
         outfile.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+linux_modules+"\n"+packed_payload)
         outfile.close()
@@ -522,7 +526,7 @@ def pupygen(args, config):
         outpath = outfile.name
 
     elif args.format=="py_oneliner":
-        packed_payload=pack_py_payload(get_raw_conf(conf))
+        packed_payload=pack_py_payload(get_raw_conf(conf, verbose=True))
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
         serve_payload(packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
@@ -532,7 +536,7 @@ def pupygen(args, config):
         if not outpath:
             outfile = tempfile.NamedTemporaryFile(
                 dir=args.output_dir or '.',
-                prefix='pupy',
+                prefix='pupy_',
                 suffix='.ps1',
                 delete=False
             )
