@@ -18,11 +18,11 @@ class PupySSLAuthenticator(object):
         self.keystr = keystr.strip()
         self.certstr = certstr.strip()
         self.castr = castr.strip()
-        self.ciphers = 'SHA256+AES256:SHA1+AES256:@STRENGTH'
+        self.ciphers = 'HIGH:!aNULL:!MD5:!RC4:!3DES:!DES:!AES128@STRENGTH'
         self.client_cert_required = client_cert_required
         self.cert_reqs = ssl.CERT_REQUIRED \
           if self.client_cert_required else ssl.CERT_OPTIONAL
-        self.ssl_version = ssl.PROTOCOL_TLSv1
+        self.ssl_version = ssl.PROTOCOL_SSLv23
         self.ROLE = role
 
     def __call__(self, sock):

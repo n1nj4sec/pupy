@@ -118,10 +118,9 @@ class PupySSLClient(PupyTCPClient):
             self.SSL_CLIENT_KEY = credentials['SSL_CLIENT_KEY']
             self.SSL_CA_CERT = credentials['SSL_CA_CERT']
             self.ROLE = credentials.role
-
-        self.ciphers = 'SHA256+AES256:SHA1+AES256:@STRENGTH'
+        self.ciphers = 'HIGH:!aNULL:!MD5:!RC4:!3DES:!DES:!AES128@STRENGTH'
         self.cert_reqs = ssl.CERT_REQUIRED
-        self.ssl_version = ssl.PROTOCOL_TLSv1
+        self.ssl_version = ssl.PROTOCOL_SSLv23 #alias for PROTOCOL_TLS for recent versions of python but works with older version missing TLS
 
         super(PupySSLClient, self).__init__(*args, **kwargs)
 
