@@ -49,6 +49,8 @@ def become(user):
 
     if os.path.exists(user_dbus_socket):
         os.environ['DBUS_SESSION_BUS_ADDRESS'] = user_dbus_socket
+    else:
+        del os.environ['DBUS_SESSION_BUS_ADDRESS']
 
     for var in os.environ.keys():
         if var.startswith(('XDG_', 'GDM', 'DESKTOP_')):
