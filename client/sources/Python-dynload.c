@@ -7,6 +7,14 @@
 #include <stdio.h>
 #include "debug.h"
 
+#ifndef UINTPTR
+ #ifndef _WIN32
+   typedef DWORD UINTPTR;
+ #else
+   typedef ULONGLONG UINTPTR;
+ #endif
+#endif
+
 struct IMPORT imports[] = {
 #include "import-tab.c"
 	{ NULL, NULL }, /* sentinel */
@@ -65,7 +73,7 @@ int _load_python_FromFile(char *dllname)
 	return 1;
 }
 
-HMODULE _load_dll(const char *name, const char *bytes){
+UINTPTR _load_dll(const char *name, const char *bytes){
 
 	HMODULE hmod;
 	ULONG_PTR cookie = 0;
