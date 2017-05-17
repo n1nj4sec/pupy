@@ -12,7 +12,7 @@ class DropManager(object):
         self._systemd_error = None
         self._is_xdg = False
         self._xdg_error = None
-        self._uid = os.getuid()
+        self._uid = os.geteuid()
         self._user = self._uid != 0
         try:
             self._home = pwd.getpwuid(self._uid).pw_dir
