@@ -115,9 +115,9 @@ def guess_displays():
                     userinfos[info['username']].pw_dir, '.Xauthority'
                 )
 
-            if check_display(DISPLAY, XAUTHORITY):
-                displays[DISPLAY].add((info['username'], XAUTHORITY))
-
+            pair = (info['username'], XAUTHORITY)
+            if not pair in displays[DISPLAY] and check_display(DISPLAY, XAUTHORITY):
+                displays[DISPLAY].add(pair)
 
     for user, hosts in pupyps.users().iteritems():
         for host, terminals in hosts.iteritems():
@@ -146,11 +146,12 @@ def guess_displays():
                     if not DISPLAY:
                         continue
 
+                    pair = (user, Xauthority)
                     if not DISPLAY in displays:
                         displays[DISPLAY] = set()
 
-                    if check_display(DISPLAY, Xauthority):
-                        displays[DISPLAY].add((user, Xauthority))
+                    if not pair in displays[DISPLAY] and check_display(DISPLAY, Xauthority):
+                        displays[DISPLAY].add(pair)
 
                 except Exception, e:
                     pass
