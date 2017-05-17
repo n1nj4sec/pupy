@@ -14,16 +14,20 @@ class SearchModule(PupyModule):
     terminate = None
 
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="search", description=self.__doc__)
+        example = 'Examples:\n'
+        example += '>> run search .*ini passw.*=.*\n'
+        example += '>> run search .* passw.*=.* -I\n'
+
+        self.arg_parser = PupyArgumentParser(prog="search", description=self.__doc__, epilog=example)
         self.arg_parser.add_argument('-p', '--path', default='.', help='root path to start (default: current path)')
         self.arg_parser.add_argument('-m','--max-size', type=int, default=20000000, help='max file size (default 20 Mo)')
         self.arg_parser.add_argument('-b', '--binary', action='store_true', help='search content inside binary files')
         self.arg_parser.add_argument('-L', '--links', action='store_true', help='follow symlinks')
         self.arg_parser.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
         self.arg_parser.add_argument('-N', '--no-content', action='store_true', help='if string matches, output just filename')
+        self.arg_parser.add_argument('-I', '--insensitive', action='store_true', default=False, help='no case sensitive')
         self.arg_parser.add_argument('filename', type=str, metavar='filename', help='regex to search (filename)')
-        self.arg_parser.add_argument('strings', nargs='*', default=[], type=str,
-                                         metavar='string', help='regex to search (content)')
+        self.arg_parser.add_argument('strings', nargs='*', default=[], type=str, metavar='string', help='regex to search (content)')
 
     def run(self, args):
         self.terminate = self.client.conn.modules['threading'].Event()
@@ -38,6 +42,8 @@ class SearchModule(PupyModule):
             root_path=args.path,
             follow_symlinks=args.links,
             no_content=args.no_content,
+            case=args.insensitive,
+            binary=args.binary,
             terminate=self.terminate
         )
 
@@ -51,7 +57,8 @@ class SearchModule(PupyModule):
 
         for res in s.run():
             if args.strings and not args.no_content:
-                self.success('{}: {}'.format(*res))
+                if type(res) == tuple:
+                    self.success('{}: {}'.format(*res))
             else:
                 if args.download and download is not None and ros is not None:
                     dest = res.replace('!', '!!').replace('/', '!').replace('\\', '!')
