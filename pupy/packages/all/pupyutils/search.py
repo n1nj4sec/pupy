@@ -10,11 +10,17 @@ import mmap
 class Search():
     def __init__(self, path,
                      strings=[], max_size=20000000, root_path='.', no_content=False,
-                     binary=False, follow_symlinks=False, terminate=None):
+                     case=False, binary=False, follow_symlinks=False, terminate=None):
         self.max_size = int(max_size)
         self.follow_symlinks = follow_symlinks
         self.no_content = no_content
         self.binary = binary
+        self.case = case
+
+        if self.case:
+            i = re.IGNORECASE
+        else:
+            i = 0
 
         path = os.path.expandvars(os.path.expanduser(path))
 
@@ -24,17 +30,17 @@ class Search():
             self.path = None
         elif path.startswith('/'):
             root_path = os.path.dirname(path)
-            self.name = re.compile(os.path.basename(path))
+            self.name = re.compile(os.path.basename(path), i)
             self.path = None
         elif '/' in path:
-            self.path = re.compile(path)
+            self.path = re.compile(path, i)
             self.name = None
         else:
-            self.name = re.compile(path)
+            self.name = re.compile(path, i)
             self.path = None
 
         self.strings = [
-            re.compile(string) for string in strings
+            re.compile(string, i) for string in strings
         ]
 
         self.terminate = terminate
