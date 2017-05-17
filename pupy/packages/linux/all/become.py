@@ -44,11 +44,11 @@ def become(user):
     )
 
     user_dbus_socket = os.path.join(
-        'var', 'run', 'user', str(userinfo.pw_uid), 'dbus', 'user_bus_socket'
+        '/', 'var', 'run', 'user', str(userinfo.pw_uid), 'dbus', 'user_bus_socket'
     )
 
     if os.path.exists(user_dbus_socket):
-        os.environ['DBUS_SESSION_BUS_ADDRESS'] = user_dbus_socket
+        os.environ['DBUS_SESSION_BUS_ADDRESS'] = 'unix:path='+user_dbus_socket
     else:
         del os.environ['DBUS_SESSION_BUS_ADDRESS']
 
