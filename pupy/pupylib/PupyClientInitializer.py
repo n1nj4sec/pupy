@@ -240,6 +240,11 @@ def get_uuid():
         pass
 
     try:
+        osname=os.name
+    except Exception:
+        pass
+
+    try:
         proc_arch=platform.architecture()[0]
     except Exception:
         pass
@@ -267,6 +272,7 @@ def get_uuid():
         'release': release,
         'version': version,
         'os_arch': machine,
+        'os_name': osname,
         'macaddr': macaddr,
         'pid': pid,
         'proc_arch': proc_arch,

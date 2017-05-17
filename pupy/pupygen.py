@@ -1,4 +1,4 @@
-#!/usr/bin/python -O
+#!/usr/bin/env python -O
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
@@ -262,7 +262,14 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     CLIENTS = {
         'android': (get_edit_apk, 'pupy.apk', False),
         'linux': (get_edit_binary, TEMPLATE_FMT, True),
+        'solaris': (get_edit_binary, TEMPLATE_FMT, True),
         'windows': (get_edit_binary, TEMPLATE_FMT, False),
+    }
+
+    SUFFIXES = {
+        'windows': ( 'exe', 'dll' ),
+        'linux':   ( 'lin', 'lin.so' ),
+        'solaris': ( 'sun', 'sun.so' ),
     }
 
     osname = osname.lower()
@@ -276,13 +283,19 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     if '{arch}' in template and not arch:
         raise ValueError('arch required for the target OS ({})'.format(osname))
 
-    shared_ext = 'dll' if osname == 'windows' else 'so'
-    non_shared_ext = 'exe' if osname == 'windows' else 'lin'
-    ext = shared_ext if shared else non_shared_ext
+    shared_ext = 'xxx'
+    non_shared_ext = 'xxx'
+
+    if osname in SUFFIXES:
+        non_shared_ext, shared_ext = SUFFIXES[osname]
+
     debug = 'd' if debug else ''
 
     if shared:
         makex = False
+        ext = shared_ext
+    else:
+        ext = non_shared_ext
 
     filename = template.format(arch=arch, debug=debug, ext=ext)
     template = os.path.join(
@@ -377,7 +390,7 @@ PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
 ]
 
-CLIENT_OS = [ 'android', 'windows', 'linux' ]
+CLIENT_OS = [ 'android', 'windows', 'linux', 'solaris' ]
 CLIENT_ARCH = [ 'x86', 'x64' ]
 
 def get_parser(base_parser, config):

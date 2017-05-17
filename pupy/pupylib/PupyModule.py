@@ -339,6 +339,8 @@ class PupyModule(object):
             return (True,"")
         elif "unix" in self.compatible_systems and self.client.is_unix():
             return (True,"")
+        elif "posix"in self.compatible_systems and self.client.is_posix():
+            return (True, "")
         return (False, "This module currently only support the following systems: %s"%(','.join(self.compatible_systems)))
 
     def is_daemon(self):

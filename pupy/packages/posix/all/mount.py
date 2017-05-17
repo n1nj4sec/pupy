@@ -96,11 +96,32 @@ class MountInfo(object):
 
 def mounts():
     mountinfo = {}
-    with open('/proc/self/mounts', 'r') as mounts:
-        for line in mounts:
-            info = MountInfo(line)
-            if not info.fstype in mountinfo:
-                mountinfo[info.fstype] = [ info.as_dict() ]
-            else:
-                mountinfo[info.fstype].append(info.as_dict())
+    try:
+        with open('/proc/self/mounts', 'r') as mounts:
+            for line in mounts:
+                info = MountInfo(line)
+                if not info.fstype in mountinfo:
+                    mountinfo[info.fstype] = [ info.as_dict() ]
+                else:
+                    mountinfo[info.fstype].append(info.as_dict())
+    except:
+        pass
+
+    if not mountinfo:
+        try:
+            import psutil
+            for part in psutil.disk_partitions():
+                info = MountInfo('{} {} {} {} 0 0'.format(
+                    part.device.replace(' ', r'\040'),
+                    part.mountpoint.replace(' ', r'\040'),
+                    part.fstype.replace(' ', r'\040'),
+                    part.opts.replace(' ', r'\040'),
+                ))
+                if not info.fstype in mountinfo:
+                    mountinfo[info.fstype] = [ info.as_dict() ]
+                else:
+                    mountinfo[info.fstype].append(info.as_dict())
+        except:
+            pass
+
     return mountinfo

@@ -86,7 +86,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 
     if(!Py_IsInitialized) {
         _load_python(
-            xz_dynload("libpython2.7.so", resources_python27_so_start, resources_python27_so_size)
+            xz_dynload("libpython2.7.so.1.0", resources_python27_so_start, resources_python27_so_size)
         );
     }
 
@@ -98,7 +98,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     PyEval_InitThreads();
     dprint("PyEval_InitThreads() called\n");
 
-    char exe[PATH_MAX] = {};
+    char exe[PATH_MAX] = { '\0' };
 
     if(!Py_IsInitialized()) {
         dprint("Py_IsInitialized\n");
@@ -106,6 +106,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
         Py_IgnoreEnvironmentFlag = 1;
         Py_NoSiteFlag = 1; /* remove site.py auto import */
 
+#if defined(Linux)
         dprint("INVOCATION NAME: %s\n", program_invocation_name);
 
         if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
@@ -113,8 +114,11 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
                 snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
             }
 
-            Py_SetProgramName(exe);
         }
+#elif defined(SunOS)
+        strcpy(exe, getexecname());
+#endif
+        Py_SetProgramName(exe);
 
         dprint("Initializing python.. (%p)\n", Py_Initialize);
         Py_InitializeEx(0);

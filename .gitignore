@@ -30,6 +30,7 @@ client/sources/resources/libraryx64.zip
 client/sources/resources/libraryx86.zip
 client/sources/buildenv/
 client/sources-linux/buildenv/
+client/sources-linux/buildenv-sunos/
 client/sources/resources/library.zip
 client/sources-linux/resources/library.zip
 client/android_sources/bin

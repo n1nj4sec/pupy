@@ -130,7 +130,8 @@ tar zxf openssl_1.0.2k.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic32
-make depend; make; make install
+make depend >/dev/null 2>/dev/null; 
+make; make install
 cp libssl.so.1.0.0 /usr/lib/libssl.so
 cp libcrypto.so.1.0.0  /usr/lib/libcrypto.so
 mkdir -p /usr/lib/pkgconfig/
@@ -383,7 +384,8 @@ tar zxf openssl_1.0.2k.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic64
-make depend; make; make install
+make depend >/dev/null 2>/dev/null
+make; make install
 cp libssl.so.1.0.0 /usr/lib/libssl.so
 cp libcrypto.so.1.0.0  /usr/lib/libcrypto.so
 mkdir -p /usr/lib/pkgconfig/
@@ -537,7 +539,7 @@ zip -y \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
     -x "*.egg-info/*" -x "*.dist-info/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
-    -r9 ${TEMPLATES}/linux-amd64.zip .
+    -r9 ${TEMPLATES}/linux-amd64.zip . >/dev/null
 cd -
 
 cd buildenv/lin32/usr/lib/python2.7
@@ -546,7 +548,7 @@ zip -y \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
     -x "*.egg-info/*" -x "*.dist-info/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" -x "*.la" \
-    -r9 ${TEMPLATES}/linux-x86.zip .
+    -r9 ${TEMPLATES}/linux-x86.zip . >/dev/null
 cd -
 
 echo "[+] We are done"

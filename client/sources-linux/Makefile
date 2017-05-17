@@ -1,9 +1,14 @@
 CC ?= gcc
 
+OS ?= $(shell uname -s)
+SUFFIX ?= $(shell echo $(OS) | cut -c -3 | tr '[:upper:]' '[:lower:]')
+
 CFLAGS := $(shell pkg-config --cflags python-2.7) -I../lzma -fPIC $(CFLAGS_EXTRA) -pipe -Wall
 LDFLAGS := -lpthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
 PFLAGS := -OO
 PIE ?= -pie
+
+CFLAGS += -D$(OS) -std=gnu99
 
 LIBPYTHON ?= $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
 LIBCRYPTO ?= $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
@@ -28,8 +33,12 @@ NAME   := "$(NAME)d"
 else
 CFLAGS += -Os
 LINUX_INJECT_CFLAGS += -Dprintf=dprint -Dfprintf=dfprint
+ifeq ($(OS),Linux)
 LDFLAGS += -O1 -Wl,-s -Wl,-x -Wl,--gc-sections -Wl,--no-undefined
 LDFLAGS += -Wl,-z,now -Wl,-z,combreloc -Wl,--enable-new-dtags
+else
+LDFLAGS += -s
+endif
 endif
 
 PYTHON ?= python
@@ -38,6 +47,7 @@ TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 PYOBJS := _memimporter.o Python-dynload.o pupy_load.o pupy.o
 COMMON_OBJS := list.o tmplibrary.o daemonize.o decompress.o LzmaDec.o
 
+ifeq ($(OS),Linux)
 ifeq ($(ARCH),64)
 COMMON_OBJS += linux-inject/inject-x86_64.o
 else
@@ -46,12 +56,13 @@ endif
 
 COMMON_OBJS += linux-inject/ptrace.o
 COMMON_OBJS += linux-inject/utils.o
+endif
 
-all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so
+all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX) $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so
 
 revision.h:
-	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
-	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
+	if [ x"$$COMMIT" = x"" ]; then rev=`cat ../../.git/\`cat ../../.git/HEAD | cut -f 2 -d \ \` | cut -c 1-8`; \
+		else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
 pupy.o: resources_library_compressed_string_txt.c revision.h
 pupy_load.o: resources_bootloader_pyc.c resources_python27_so.c \
@@ -83,21 +94,21 @@ linux-inject/%.o: linux-inject/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
 
 resources/python27.so: $(LIBPYTHON)
-	cp -vf $< $@.tmp
+	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
 	mv $@.tmp $@
 	rm -f $@.tmp
 
 resources/libcrypto.so: $(LIBCRYPTO)
-	cp -vf $< $@.tmp
+	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
 	mv $@.tmp $@
 	rm -f $@.tmp
 
 resources/libssl.so: $(LIBSSL)
-	cp -vf $< $@.tmp
+	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
 	mv $@.tmp $@
@@ -115,11 +126,11 @@ resources_libssl_so.c: ../gen_resource_header.py resources/libssl.so
 resources_libcrypto_so.c: ../gen_resource_header.py resources/libcrypto.so
 	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).lin: main_exe.o $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): main_exe.o $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).so: main_so.o $(PYOBJS) $(COMMON_OBJS)
-	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).so
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: main_so.o $(PYOBJS) $(COMMON_OBJS)
+	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).$(SUFFIX).so
 
 .PHONY: clean all
 

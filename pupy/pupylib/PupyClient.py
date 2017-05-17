@@ -83,6 +83,9 @@ class PupyClient(object):
     def is_unix(self):
         return not self.is_windows()
 
+    def is_posix(self):
+        return self.desc['os_name'].lower() == 'posix'
+
     def is_linux(self):
         return "linux" in self.desc["platform"].lower()
 
@@ -93,6 +96,9 @@ class PupyClient(object):
         if "windows" in self.desc["platform"].lower():
             return True
         return False
+
+    def is_solaris(self):
+        return "sunos" in self.desc["platform"].lower()
 
     def is_darwin(self):
         if "darwin" in self.desc["platform"].lower():
@@ -109,6 +115,8 @@ class PupyClient(object):
             return 'linux'
         elif self.is_darwin():
             return 'darwin'
+        elif self.is_solaris():
+            return 'solaris'
         elif self.is_unix():
             return 'unix'
 
@@ -127,13 +135,17 @@ class PupyClient(object):
     def arch(self):
         os_arch_to_platform = {
             'amd64': 'intel',
-            'x86': 'intel'
+            'x86': 'intel',
+            'i86pc': 'sun-intel',
         }
 
         os_platform_to_arch = {
             'intel': {
                 '32bit': 'x86',
                 '64bit': 'amd64'
+            },
+            'sun-intel': {
+                '32bit': 'i86pc'
             }
         }
 
@@ -164,6 +176,11 @@ class PupyClient(object):
             os.path.join('packages', self.platform),
             os.path.join('packages', self.platform, 'all'),
         ]
+
+        if self.is_posix() and not self.platform == 'posix':
+            path.append(
+                os.path.join('packages', 'posix', 'all')
+            )
 
         if self.arch:
             path = path + [

@@ -155,7 +155,6 @@ class PtyShell(object):
 
     def set_pty_size(self, p1, p2, p3, p4):
         buf = array.array('h', [p1, p2, p3, p4])
-        #fcntl.ioctl(pty.STDOUT_FILENO, termios.TIOCSWINSZ, buf)
         fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
 
     def _read_loop(self, print_callback, close_callback):
@@ -164,7 +163,12 @@ class PtyShell(object):
         not_eof = True
 
         while not_eof:
-            r, _, x = select.select([self.master], [], [self.master], None)
+            try:
+                r, _, x = select.select([self.master], [], [self.master], None)
+            except:
+                r, x = None, None
+                not_eof = False
+
             if r:
                 try:
                     data = self.master.read(8192)
@@ -179,9 +183,8 @@ class PtyShell(object):
             if x:
                 not_eof = False
 
-                self.prog.poll()
-
             if not_eof:
+                self.prog.poll()
                 not_eof = self.prog.returncode is None
 
         close_cb()
@@ -202,7 +205,11 @@ class PtyShell(object):
             fd = sys.stdin.fileno()
             fdo = sys.stdout.fileno()
             f = os.fdopen(fd,'r')
-            old_settings = termios.tcgetattr(fd)
+            try:
+                old_settings = termios.tcgetattr(fd)
+            except:
+                pass
+
             try:
                 tty.setraw(fd)
                 not_eof = True
@@ -226,7 +233,10 @@ class PtyShell(object):
                         not_eof = False
                         sys.stdout.write("\n")
             finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                try:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                except:
+                    pass
         finally:
             self.close()
 
