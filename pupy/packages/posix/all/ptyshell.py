@@ -44,13 +44,21 @@ def prepare(suid, slave):
             pass
 
         try:
-            os.setresgid(suid, suid, sgid)
-            os.setresuid(suid, suid, sgid)
+            if hasattr(os, 'setresuid'):
+                os.setresgid(suid, suid, sgid)
+                os.setresuid(suid, suid, sgid)
+            else:
+                os.setgid(suid)
+                os.setuid(suid)
         except:
             pass
 
     os.setsid()
-    fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
+    try:
+        fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
+    except:
+        # No life without control terminal :(
+        os._exit(-1)
 
 class PtyShell(object):
     def __init__(self):
@@ -155,7 +163,10 @@ class PtyShell(object):
 
     def set_pty_size(self, p1, p2, p3, p4):
         buf = array.array('h', [p1, p2, p3, p4])
-        fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
+        try:
+            fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
+        except:
+            pass
 
     def _read_loop(self, print_callback, close_callback):
         cb = rpyc.async(print_callback)
@@ -163,11 +174,14 @@ class PtyShell(object):
         not_eof = True
 
         while not_eof:
+            r, x = None, None
+
             try:
                 r, _, x = select.select([self.master], [], [self.master], None)
-            except:
-                r, x = None, None
+            except IOError:
                 not_eof = False
+            except:
+                pass
 
             if r:
                 try:
@@ -184,8 +198,7 @@ class PtyShell(object):
                 not_eof = False
 
             if not_eof:
-                self.prog.poll()
-                not_eof = self.prog.returncode is None
+                not_eof = self.prog.poll() is None
 
         close_cb()
 
@@ -197,50 +210,3 @@ class PtyShell(object):
 
         t.daemon=True
         t.start()
-
-    def interact(self):
-        """ doesn't work remotely with rpyc. use read_loop and write instead """
-        try:
-            mfd = self.master.fileno()
-            fd = sys.stdin.fileno()
-            fdo = sys.stdout.fileno()
-            f = os.fdopen(fd,'r')
-            try:
-                old_settings = termios.tcgetattr(fd)
-            except:
-                pass
-
-            try:
-                tty.setraw(fd)
-                not_eof = True
-                while not_eof:
-                    r, _, x = select.select([sys.stdin, self.master], [], [sys.stdin, self.master], None)
-                    if self.master in r:
-                        data = os.read(mfd, 1024)
-                        if data:
-                            os.write(fdo, data)
-                        else:
-                            not_eof = False
-                    if sys.stdin in r:
-                        ch = os.read(fd, 1)
-                        if ch:
-                            os.write(mfd, ch)
-                        else:
-                            not_eof = False
-
-                    self.prog.poll()
-                    if self.prog.returncode is not None:
-                        not_eof = False
-                        sys.stdout.write("\n")
-            finally:
-                try:
-                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                except:
-                    pass
-        finally:
-            self.close()
-
-if __name__=="__main__":
-    ps=PtyShell()
-    ps.spawn(['/bin/bash'])
-    ps.interact()
