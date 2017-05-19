@@ -19,6 +19,8 @@ XZARGS ?= "aligned(0x1000)" 'section(".xzrodata")'
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
 ifeq ($(ARCH),64)
 NAME := 64
+CFLAGS += -m64
+LDFLAGS += -m64
 else
 NAME := 86
 endif
@@ -75,7 +77,7 @@ Python-dynload.o: Python-dynload.c import-tab.c import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 LzmaDec.o: ../lzma/LzmaDec.c
-	$(CC) -O3 -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) -O3 -fPIC -c -o $@ $<
 
 resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip
 	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py

@@ -145,7 +145,10 @@ class PupyClient(object):
                 '64bit': 'amd64'
             },
             'sun-intel': {
-                '32bit': 'i86pc'
+                # Yes.. Just one arch supported
+                # The script is for amd64
+                '32bit': 'i86pc',
+                '64bit': 'i86pc'
             }
         }
 

@@ -16,9 +16,9 @@ SQLITE_SRC="http://www.sqlite.org/2016/sqlite-autoconf-3150200.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
 PYTHON_SRC="https://www.python.org/ftp/python/2.7.13/Python-2.7.13.tgz"
 
-export PATH="$BUILDENV/build/bin:/opt/csw/bin/:/usr/sfw/bin/:/usr/xpg4/bin/:/usr/sfw/i386-sun-solaris2.10/bin/:$PATH"
+export PATH="$BUILDENV/build/bin:/opt/csw/bin/:/usr/sfw/bin/:/usr/xpg4/bin/:$PATH"
 
-pkgutil -y -i wget automake autoconf pkgconfig xz libtool git
+# pkgutil -y -i wget automake autoconf pkgconfig xz libtool git
 
 if [ ! -d $BUILDENV/src ]; then
     mkdir -p $BUILDENV/build $BUILDENV/src
@@ -30,25 +30,25 @@ if [ ! -d $BUILDENV/src ]; then
 fi
 
 export LD_LIBRARY_PATH=$BUILDENV/build/lib
-export CFLAGS="-fPIC -DSUNOS_NO_IFADDRS -I$BUILDENV/build/include -I$BUILDENV/build/lib/libffi-3.2.1/include"
-export LDFLAGS="-fPIC -L$BUILDENV/build/lib"
+export CFLAGS="-m64 -fPIC -DSUNOS_NO_IFADDRS -DHAVE_AS_X86_64_UNWIND_SECTION_TYPE -I$BUILDENV/build/lib/libffi-3.2.1/include -I$BUILDENV/build/include"
+export LDFLAGS="-m64 -fPIC -L$BUILDENV/build/lib"
 export PKG_CONFIG_PATH="$BUILDENV/build/lib/pkgconfig"
 set -x
 
 cd $BUILDENV/src/zlib-1.2.11
-./configure --static --prefix=$BUILDENV/build; gmake; gmake install
+./configure --64 --static --prefix=$BUILDENV/build; gmake; gmake install
+
+cd $BUILDENV/src/libffi-3.2.1
+./configure --enable-static --disable-shared --prefix=$BUILDENV/build; make; make install
 
 cd $BUILDENV/src/sqlite-autoconf-3150200
 ./configure --enable-static --disable-shared --prefix=$BUILDENV/build; gmake; gmake install
 
 cd $BUILDENV/src/openssl-1.0.2k
-./Configure --openssldir=$BUILDENV/build/ shared solaris-x86-gcc; gmake; gmake install
-
-cd $BUILDENV/src/libffi-3.2.1
-./configure --enable-static --disable-shared --prefix=$BUILDENV/build; make; make install
+./Configure --openssldir=$BUILDENV/build/ shared solaris64-x86_64-gcc; gmake; gmake install
 
 cd $BUILDENV/src/Python-2.7.13
-./configure --with-ensurepip=install --enable-unicode=ucs4 --enable-ipv6  --with-system-ffi --enable-shared --prefix=$BUILDENV/build
+./configure --with-ensurepip=install --enable-unicode=ucs4 --with-system-ffi --enable-ipv6 --enable-shared --prefix=$BUILDENV/build
 gmake; gmake install
 
 python -OO -m pip install six packaging appdirs
