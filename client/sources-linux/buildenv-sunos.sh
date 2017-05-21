@@ -51,14 +51,13 @@ cd $BUILDENV/src/Python-2.7.13
 ./configure --with-ensurepip=install --enable-unicode=ucs4 --with-system-ffi --enable-ipv6 --enable-shared --prefix=$BUILDENV/build
 gmake; gmake install
 
+python -OO -m pip install git+https://github.com/alxchk/psutil.git
 python -OO -m pip install six packaging appdirs
 python -OO -m pip install \
        rpyc pycrypto pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime pylzma pydbus python-ptrace scandir \
        scapy colorama pyOpenSSL \
        --upgrade --no-binary :all:
-
-python -OO -m pip install git+https://github.com/alxchk/psutil.git
 
 export LDFLAGS="$LDFLAGS -lsendfile -lkstat"
 python -OO -m pip install git+https://github.com/alxchk/pyuv.git
