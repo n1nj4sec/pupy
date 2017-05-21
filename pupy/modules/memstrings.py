@@ -5,7 +5,7 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="MemStrings"
 
-@config(cat="creds", compat=["windows", "linux"])
+@config(cat="creds", compat=["windows", "linux", "solaris"])
 class MemStrings(PupyModule):
     """
         Dump printable strings from process memory for futher analysis

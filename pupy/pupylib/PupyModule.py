@@ -335,6 +335,8 @@ class PupyModule(object):
             return (True,"")
         elif "linux" in self.compatible_systems and self.client.is_linux():
             return (True,"")
+        elif "solaris" in self.compatible_systems and self.client.is_solaris():
+            return (True,"")
         elif ("darwin" in self.compatible_systems or "osx" in self.compatible_systems) and self.client.is_darwin():
             return (True,"")
         elif "unix" in self.compatible_systems and self.client.is_unix():
