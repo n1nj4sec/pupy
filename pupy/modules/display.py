@@ -4,7 +4,7 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Display"
 
-@config(compat="linux", cat="admin")
+@config(compat="posix", cat="admin")
 class Display(PupyModule):
     """ Set display variable """
 

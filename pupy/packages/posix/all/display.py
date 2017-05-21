@@ -93,7 +93,11 @@ def guess_displays():
     userinfos = {}
 
     for process in psutil.process_iter():
-        info = process.as_dict(['username', 'environ'])
+        try:
+            info = process.as_dict(['username', 'environ'])
+        except:
+            continue
+
         if info['username'] and info['environ']:
             if not 'DISPLAY' in info['environ']:
                 continue
