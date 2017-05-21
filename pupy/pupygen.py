@@ -299,8 +299,13 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
 
     filename = template.format(arch=arch, debug=debug, ext=ext)
     template = os.path.join(
-        ROOT, 'payload_templates', filename
+        'payload_templates', filename
     )
+
+    if not os.path.isfile(template):
+        template = os.path.join(
+            ROOT, 'payload_templates', filename
+        )
 
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))

@@ -255,10 +255,15 @@ class PupyClient(object):
 
         if not buf and self.arch:
             arch_bundle = os.path.join(
-                ROOT, 'payload_templates', self.platform+'-'+self.arch+'.zip'
+                'payload_templates', self.platform+'-'+self.arch+'.zip'
             )
 
-            if os.path.exists(arch_bundle):
+            if not os.path.isfile(arch_bundle):
+                arch_bundle = os.path.join(
+                    ROOT, 'payload_templates', self.platform+'-'+self.arch+'.zip'
+                )
+
+            if os.path.isfile(arch_bundle):
                 with ZipFile(arch_bundle, 'r') as bundle:
                     for info in bundle.infolist():
                         if info.filename.endswith('/'+name) or info.filename == name:
