@@ -26,6 +26,8 @@ class NetStatModule(PupyModule):
         self.arg_parser.add_argument('-l', '--listen', action='store_true', help='Show listening sockets')
         self.arg_parser.add_argument('-t', '--tcp', action='store_true', help='Show TCP')
         self.arg_parser.add_argument('-u', '--udp', action='store_true', help='Show UDP')
+        self.arg_parser.add_argument('-s', '--show', nargs='+', default=[], help='Filter by word')
+        self.arg_parser.add_argument('-x', '--hide', nargs='+', default=[], help='Filter out by word')
 
     def run(self, args):
         try:
@@ -63,7 +65,11 @@ class NetStatModule(PupyModule):
                 elif ( '127.0.0.1' in connection['laddr'] or '::1' in connection['laddr'] ):
                     color = 'grey'
 
-                objects.append({
+                deny = False
+                if args.show or '*' in args.hide:
+                    deny = True
+
+                connection = {
                     'AF': colorize(family, color),
                     'TYPE': colorize(stype, color),
                     'LADDR': colorize(':'.join([str(x) for x in connection['laddr']]), color),
@@ -74,7 +80,16 @@ class NetStatModule(PupyModule):
                         connection.get(
                             'exe', (connection.get('name') or '').encode('utf8','replace')
                         ), color)
-                })
+                }
+
+                for v in connection.itervalues():
+                    if any(h in v for h in args.hide):
+                        deny = True
+                    if any(h in v for h in args.show):
+                        deny = False
+
+                if not deny:
+                    objects.append(connection)
 
             self.stdout.write(
                 PupyCmd.table_format(objects, wl=[
