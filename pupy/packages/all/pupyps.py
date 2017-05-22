@@ -164,7 +164,11 @@ def connections():
     me = psutil.Process()
 
     for connection in psutil.net_connections():
-        obj = { k:v for k,v in connection.__dict__.iteritems() }
+        obj = {
+            k:getattr(connection, k) for k in (
+                'family', 'type', 'laddr', 'raddr', 'status'
+            )
+        }
         try:
              if connection.pid:
                  obj.update(
