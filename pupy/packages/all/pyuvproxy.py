@@ -87,8 +87,15 @@ class Connection(object):
         self.socks5 = socks5
         self.timer = pyuv.Timer(self.loop)
         self.timeout = timeout
+        self.resolving = None
 
     def _connection_timeout(self, handle):
+        try:
+            if self.resolving:
+                self.resolving.cancel()
+        except:
+            pass
+
         try:
             handle.stop()
         except:
@@ -187,7 +194,7 @@ class Connection(object):
         except EOFError:
             self.neighbor.stop(dead=True)
 
-    def connect(self, address):
+    def connect(self, address, dns):
         try:
             self.timer.start(self._connection_timeout, self.timeout, 0)
             if type(address) in (str, unicode):
@@ -210,10 +217,25 @@ class Connection(object):
                 self.socket.connect(address, self._on_connected)
             else:
                 self.socket = pyuv.TCP(self.loop)
-                self.socket.connect(address, self._on_connected)
+                if dns and len(address) == 2:
+                    host, port = address
+                    self.resolving = pyuv.dns.getaddrinfo(
+                        self.loop,
+                        host, port,
+                        0, 0, socket.IPPROTO_TCP,
+                        callback=self._on_resolved
+                    )
+                else:
+                    self.socket.connect(address, self._on_connected)
 
         except Exception, e:
             self._on_connected(None, -1)
+
+    def _on_resolved(self, address, error):
+        if error or not address:
+            self._on_connected(None, -1)
+        else:
+            self.socket.connect(address[0][4], self._on_connected)
 
     def forward(self):
         self.socket.start_read(self._on_read_data)
@@ -364,6 +386,8 @@ class Acceptor(object):
                 addr_offt = 0
                 addr_len = 0
 
+                dns = False
+
                 if atyp == ADDR_IPV4:
                     addr_len = 4
                 elif atyp == ADDR_IPV6:
@@ -371,6 +395,7 @@ class Acceptor(object):
                 elif atyp == ADDR_HOSTNAME:
                     addr_len = ord(packet[4])
                     addr_offt = 1
+                    dns = True
 
                 if len(packet) < 4 + 2 + addr_len + addr_offt:
                     return
@@ -394,13 +419,13 @@ class Acceptor(object):
                 handle.stop_read()
 
                 self.on_connection(
-                    handle, (dst_addr, dst_port), socks5=context['header']
+                    handle, (dst_addr, dst_port), socks5=context['header'], dns=dns
                 )
 
         else:
             handle.close()
 
-    def on_connection(self, client, address=None, buffer=None, socks5=None):
+    def on_connection(self, client, address=None, buffer=None, socks5=None, dns=False):
         address = address or self.forward_address
 
         connection = Connection(
@@ -424,7 +449,8 @@ class Acceptor(object):
             self.neighbor.callbacks.connect(
                 self.neighbor.remote_id,
                 connection.remote_id,
-                address
+                address,
+                dns
             )
 
         except EOFError:
@@ -605,14 +631,15 @@ class Manager(Thread):
             neighbor_id
         ).create_connection(remote_id=remote_id)
 
-    def connect(self, neighbor_id, connection_id, address):
+    def connect(self, neighbor_id, connection_id, address, dns):
         self.defer(
             self.get_neighbor(
                 neighbor_id
             ).get_connection(
                 connection_id
             ).connect,
-            address
+            address,
+            dns
         )
 
     def forward(self, neighbor_id, connection_id):
