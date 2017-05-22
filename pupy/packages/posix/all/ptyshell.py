@@ -199,7 +199,10 @@ class PtyShell(object):
 
             if not_eof:
                 not_eof = self.prog.poll() is None
+            else:
+                break
 
+        self.close()
         close_cb()
 
     def start_read_loop(self, print_callback, close_callback):
