@@ -6,6 +6,8 @@ import os
 import re
 import sys
 import mmap
+import threading
+import rpyc
 
 class Search():
     def __init__(self, path,
@@ -68,7 +70,6 @@ class Search():
     def scanwalk(self, path, followlinks=False):
 
         ''' lists of DirEntries instead of lists of strings '''
-
         try:
             for entry in scandir(path):
                 if self.terminate and self.terminate.is_set():
@@ -117,3 +118,27 @@ class Search():
         else:
             for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
                 yield files
+
+    def _run_thread(self, on_data, on_completed):
+        for result in self.run():
+            try:
+                on_data(result)
+            except:
+                break
+
+        on_completed()
+
+    def stop(self):
+        if self.terminate:
+            self.terminate.set()
+
+    def run_cb(self, on_data, on_completed):
+        if not self.terminate:
+            self.terminate = threading.Event()
+
+        on_data = rpyc.async(on_data)
+        on_completed = rpyc.async(on_completed)
+
+        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
+        search.daemon = False
+        search.start()

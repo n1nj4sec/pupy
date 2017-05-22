@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
+import threading
 from pupylib.utils.term import colorize
 from rpyc.utils.classic import download
 
@@ -26,7 +27,7 @@ class SearchModule(PupyModule):
                                          metavar='string', help='regex to search (content)')
 
     def run(self, args):
-        self.terminate = self.client.conn.modules['threading'].Event()
+        self.terminate = threading.Event()
 
         if args.download:
             args.no_content = True
@@ -37,8 +38,7 @@ class SearchModule(PupyModule):
             max_size=args.max_size,
             root_path=args.path,
             follow_symlinks=args.links,
-            no_content=args.no_content,
-            terminate=self.terminate
+            no_content=args.no_content
         )
 
         download_folder = None
@@ -49,7 +49,10 @@ class SearchModule(PupyModule):
             download_folder = config.get_folder('searches', {'%c': self.client.short_name()})
             ros = self.client.conn.modules['os']
 
-        for res in s.run():
+        def on_data(res):
+            if self.terminate.is_set():
+                return
+
             if args.strings and not args.no_content:
                 self.success('{}: {}'.format(*res))
             else:
@@ -69,10 +72,14 @@ class SearchModule(PupyModule):
                 else:
                     self.success('{}'.format(res))
 
-            if self.terminate.is_set():
-                break
+        def on_completed():
+            self.terminate.set()
+            self.info("complete")
 
-        self.info("complete")
+        s.run_cb(on_data, on_completed)
+        self.info("Search started. Use ^C to interrupt")
+        self.terminate.wait()
+        s.stop()
 
     def interrupt(self):
         if self.terminate:
