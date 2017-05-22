@@ -144,7 +144,16 @@ class InteractiveShell(PupyModule):
             if not r:
                 break
 
-            buf.append(os.read(fd, 1))
+            buf_ = array.array('i', [0])
+
+            if fcntl.ioctl(sys.stdin, termios.FIONREAD, buf_, 1) == -1:
+                break
+
+            if not buf_[0]:
+                continue
+
+            chars = os.read(fd, buf_[0])
+            buf.append(chars)
         return b''.join(buf)
 
     def _read_loop(self, write_cb):
@@ -260,6 +269,8 @@ class InteractiveShell(PupyModule):
 
         old_handler = None
 
+        self.client.conn.register_remote_cleanup(ps.close)
+
         try:
             term = os.environ.get('TERM', 'xterm')
 
@@ -280,10 +291,17 @@ class InteractiveShell(PupyModule):
         finally:
             if old_handler:
                 pupylib.PupySignalHandler.set_signal_winch(old_handler)
+
             try:
                 self.ps.close()
             except Exception:
                 pass
+
+            try:
+                self.client.conn.unregister_remote_cleanup(ps.close)
+            except:
+                pass
+
             self.set_pty_size=None
             self.complete.set()
 

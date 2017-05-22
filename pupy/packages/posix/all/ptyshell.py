@@ -15,6 +15,7 @@ import select
 import rpyc
 import array
 import pwd
+import errno
 from pupy import obtain
 
 def prepare(suid, slave):
@@ -68,11 +69,20 @@ class PtyShell(object):
 
     def close(self):
         if self.prog is not None:
-            self.prog.poll()
+            try:
+                rc = self.prog.poll()
+            except:
+                pass
 
-            if self.prog.returncode is None:
+            if rc is None:
                 try:
                     self.prog.terminate()
+                except:
+                    pass
+
+                try:
+                    if self.prog.poll() is None:
+                        self.prog.kill()
                 except:
                     pass
 
@@ -178,14 +188,15 @@ class PtyShell(object):
 
             try:
                 r, _, x = select.select([self.master], [], [self.master], None)
-            except IOError:
-                not_eof = False
-            except:
-                pass
+            except Exception, e:
+                break
 
-            if r:
+            if x or r:
                 try:
                     data = self.master.read(8192)
+                except IOError, e:
+                    if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                        continue
                 except:
                     data = None
 
@@ -193,9 +204,6 @@ class PtyShell(object):
                     cb(data)
                 else:
                     not_eof = False
-
-            if x:
-                not_eof = False
 
             if not_eof:
                 not_eof = self.prog.poll() is None
