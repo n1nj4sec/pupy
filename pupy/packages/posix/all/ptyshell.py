@@ -18,7 +18,7 @@ import pwd
 import errno
 from pupy import obtain
 
-def prepare(suid, slave):
+def prepare(suid):
     if suid is not None:
         try:
             if not type(suid) in (int, long):
@@ -32,10 +32,9 @@ def prepare(suid, slave):
             pass
 
         try:
-            if slave:
-                path = os.ttyname(slave)
-                os.chown(path, suid, sgid)
-        except:
+            path = os.ttyname(sys.stdin.fileno())
+            os.chown(path, suid, sgid)
+        except Exception, e:
             pass
 
         try:
@@ -159,7 +158,7 @@ class PtyShell(object):
             stdin=slave,
             stdout=slave,
             stderr=subprocess.STDOUT,
-            preexec_fn=lambda: prepare(suid, slave),
+            preexec_fn=lambda: prepare(suid),
             env=env
         )
         os.close(slave)
