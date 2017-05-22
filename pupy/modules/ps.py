@@ -215,17 +215,32 @@ def print_pstree(fout, parent, tree, data,
     )
 
 def print_ps(fout, data, width=80, colinfo={},
-                 info=['exe', 'cmdline'], hide=[]):
+                 info=['exe', 'cmdline'], hide=[], show=[]):
 
     outcols = [ 'pid' ] + [
         x for x in info if x in ('cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline')
     ]
 
+    default_deny = False
+
+    if '*' in hide or ( not hide and show ):
+        default_deny = True
+    if '*' in show or ( not show and hide ):
+        default_deny = False
+
     for process in sorted(data):
         data[process]['pid'] = process
         columns = gen_columns(data[process], colinfo)
 
+        deny = default_deny
+
         if ( columns['name'] in hide ) or ( columns['exe'] in hide ) or ( process in hide ):
+            deny = True
+
+        if ( columns['name'] in show ) or ( columns['exe'] in show ) or ( process in show ):
+            deny = False
+
+        if deny:
             continue
 
         fout.write(gen_output_line(columns, outcols, data[process], width)+'\n')
@@ -246,16 +261,18 @@ class PsModule(PupyModule):
                                          default=None, help='print info for sections (-s only)')
         self.arg_parser.add_argument('-a', '--all', action='store_true', help='show kthread')
         self.arg_parser.add_argument('-w', '--wide', action='store_true', help='show all arguments')
+        self.arg_parser.add_argument('-x', '--hide', nargs='+', default=[], help='hide processes by pid/name/exe')
         filtering = self.arg_parser.add_mutually_exclusive_group()
-        filtering.add_argument('-x', '--hide', nargs='+', default=[], help='hide processes by pid/name/exe')
-        filtering.add_argument('-s', '--show', nargs='+', type=int, default=[],
-                                         help='show process info (or subtree) by pid')
+        filtering.add_argument('-s', '--show', nargs='+', default=[],
+                                         help='show process info (or subtree) by pid/name/exe')
+        filtering.add_argument('-S', '--show-pid', nargs='+', type=int, default=[],
+                                         help='show extended process info (or subtree) by pid')
 
     def run(self, args):
         width, _ = terminal_size()
         rpupyps = self.client.conn.modules.pupyps
-        if args.show and not args.tree:
-            data = rpupyps.psinfo(args.show)
+        if args.show_pid and not args.tree:
+            data = rpupyps.psinfo(args.show_pid)
         else:
             root, tree, data = rpupyps.pstree()
             tree = { int(k):v for k,v in obtain(tree).iteritems() }
@@ -268,15 +285,18 @@ class PsModule(PupyModule):
             hide = [
                 int(x) if x.isdigit() else x for x in args.hide
             ]
+            show = [
+                int(x) if x.isdigit() else x for x in args.show
+            ]
 
-            if not args.all and self.client.is_linux():
+            if not args.all and not args.show and self.client.is_linux():
                 hide.append(2)
 
             if args.info:
                 info = [ 'username', 'cpu_percent', 'memory_percent' ] + info
 
             if args.tree:
-                show = args.show or [ root ]
+                show = args.show_pid or [ root ]
 
                 for item in show:
                     print_pstree(
@@ -285,7 +305,7 @@ class PsModule(PupyModule):
                         hide=hide, first=(item == root)
                     )
             else:
-                if args.show:
+                if args.show_pid:
                     print_psinfo(
                         self.stdout, rpupyps, data, colinfo,
                         width=None if args.wide else width,
@@ -295,12 +315,12 @@ class PsModule(PupyModule):
                     )
                 else:
                     data = {
-                        x:y for x,y in data.iteritems() if x in args.show
-                    } if args.show else data
+                        x:y for x,y in data.iteritems() if x in args.show_pid
+                    } if args.show_pid else data
 
                     print_ps(
                         self.stdout, data, width=None if args.wide else width,
-                        colinfo=colinfo, info=info, hide=hide
+                        colinfo=colinfo, info=info, hide=hide, show=show
                     )
 
         except Exception, e:
