@@ -15,8 +15,8 @@ class MountInfo(object):
 
         try:
             vfsstat = os.statvfs(self.dst)
-            self.free = vfsstat.f_bfree*vfsstat.f_bsize
-            self.total = vfsstat.f_blocks*vfsstat.f_bsize
+            self.free = vfsstat.f_bfree*vfsstat.f_frsize
+            self.total = vfsstat.f_blocks*vfsstat.f_frsize
             self.files = vfsstat.f_files
             self.exception = None
 
