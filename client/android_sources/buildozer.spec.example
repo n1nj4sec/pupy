@@ -36,7 +36,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
-requirements = pycrypto,plyer,psutil,tinyec,netaddr,rpyc
+requirements = pycrypto,plyer,psutil,tinyec,netaddr,rpyc,pyjnius,pyuv
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -122,7 +122,7 @@ p4a.local_recipes = python-for-android/pythonforandroid/recipes
 #p4a.hook =
 
 # (list) python-for-android whitelist
-#android.p4a_whitelist =
+android.p4a_whitelist = lib-dynload/termios.so,lib-dynload/mmap.so,lib-dynload/_json.so,lib-dynload/pyexpat.so
 
 # (bool) If True, then skip trying to update the Android sdk
 # This can be useful to avoid excess Internet downloads or save time

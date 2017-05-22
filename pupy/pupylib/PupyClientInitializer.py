@@ -214,12 +214,6 @@ def get_uuid():
         pass
 
     try:
-        from kivy.utils import platform as kivy_plat#support for android
-        plat=bytes(kivy_plat)
-    except ImportError:
-        pass
-
-    try:
         release=platform.release()
     except Exception:
         pass
