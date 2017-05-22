@@ -182,22 +182,26 @@ class PtyShell(object):
         cb = rpyc.async(print_callback)
         close_cb = rpyc.async(close_callback)
         not_eof = True
+        fd = self.master.fileno()
 
         while not_eof:
             r, x = None, None
 
             try:
                 r, _, x = select.select([self.master], [], [self.master], None)
+            except OSError, e:
+                if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                    continue
             except Exception, e:
                 break
 
             if x or r:
                 try:
-                    data = self.master.read(8192)
-                except IOError, e:
+                    data = os.read(fd, 8192)
+                except OSError, e:
                     if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                         continue
-                except:
+                except Exception:
                     data = None
 
                 if data:
