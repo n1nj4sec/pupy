@@ -1,6 +1,6 @@
 [submodule "pupy/external/LaZagne"]
 	path = pupy/external/LaZagne
-	url = https://github.com/AlessandroZ/LaZagne
+	url = https://github.com/alxchk/LaZagne
 	shallow = false
 [submodule "pupy/external/changeme"]
 	path = pupy/external/changeme
