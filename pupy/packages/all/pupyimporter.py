@@ -21,6 +21,8 @@ import sys, imp, marshal, gc
 __debug = False
 __trace = False
 
+modules = {}
+
 def dprint(msg):
     global __debug
     if __debug:
@@ -143,7 +145,6 @@ except ImportError:
     _memimporter = MemImporter()
     builtin_memimporter = _memimporter.ready
 
-modules = {}
 remote_load_package = None
 remote_print_error = None
 
@@ -234,9 +235,6 @@ def invalidate_module(name):
 
     gc.collect()
 
-def native_import(name):
-    __import__(name)
-
 class PupyPackageLoader:
     def __init__(self, fullname, contents, extension, is_pkg, path):
         self.fullname = fullname
@@ -247,6 +245,8 @@ class PupyPackageLoader:
         self.archive="" #need this attribute
 
     def load_module(self, fullname):
+        global remote_print_error
+
         imp.acquire_lock()
         try:
             dprint('loading module {}'.format(fullname))
@@ -329,12 +329,17 @@ class PupyPackageFinderImportError(ImportError):
     pass
 
 class PupyPackageFinder(object):
+    search_lock = None
+    search_set = set()
+
     def __init__(self, path=None):
         if path and not path.startswith('pupy://'):
             raise PupyPackageFinderImportError()
 
     def find_module(self, fullname, path=None, second_pass=False):
         global modules
+        global remote_load_package
+
         imp.acquire_lock()
         selected = None
 
@@ -364,11 +369,24 @@ class PupyPackageFinder(object):
                         if part in modules or part in sys.modules:
                             return None
 
+                    if not PupyPackageFinder.search_lock is None:
+                        with PupyPackageFinder.search_lock:
+                            if fullname in PupyPackageFinder.search_set:
+                                return None
+                            else:
+                                PupyPackageFinder.search_set.add(fullname)
+
                     try:
                         if remote_load_package(fullname):
                             return self.find_module(fullname, second_pass=True)
+
                     except Exception as e:
                         dprint('Exception: {}'.format(e))
+
+                    finally:
+                        if not PupyPackageFinder.search_lock is None:
+                            with PupyPackageFinder.search_lock:
+                                PupyPackageFinder.search_set.remove(fullname)
 
                 return None
 
@@ -415,6 +433,8 @@ class PupyPackageFinder(object):
 
         except Exception as e:
             dprint('--> Loading {} failed: {}'.format(fullname, e))
+            import traceback
+            traceback.print_exc(e)
             raise e
 
         finally:
@@ -427,6 +447,26 @@ class PupyPackageFinder(object):
 
             imp.release_lock()
             gc.collect()
+
+def native_import(name):
+    if not PupyPackageFinder.search_lock is None:
+        with PupyPackageFinder.search_lock:
+            if name in PupyPackageFinder.search_set:
+                return False
+            else:
+                PupyPackageFinder.search_set.add(name)
+
+    try:
+        __import__(name)
+        return True
+
+    except:
+        return False
+
+    finally:
+        if not PupyPackageFinder.search_lock is None:
+            with PupyPackageFinder.search_lock:
+                PupyPackageFinder.search_set.remove(name)
 
 def register_package_request_hook(hook):
     global remote_load_package
@@ -490,6 +530,9 @@ def install(debug=None, trace=False):
     import ctypes
     import ctypes.util
     import os
+    import threading
+
+    PupyPackageFinder.search_lock = threading.Lock()
 
     ctypes._system_dlopen = ctypes._dlopen
     ctypes.util._system_find_library = ctypes.util.find_library
@@ -568,6 +611,4 @@ def install(debug=None, trace=False):
     if sys.platform == 'win32':
         import pywintypes
     if __debug:
-        print 'Bundled modules:'
         for module in modules.iterkeys():
-            print '+ {}'.format(module)

