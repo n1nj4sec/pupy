@@ -289,7 +289,9 @@ class PsModule(PupyModule):
                 int(x) if x.isdigit() else x for x in args.show
             ]
 
-            if not args.all and not args.show and self.client.is_linux():
+            if not args.all and not args.show and (
+                    self.client.is_linux() or self.client.is_android()
+            ):
                 hide.append(2)
 
             if args.info:
