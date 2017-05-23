@@ -113,7 +113,7 @@ android.permissions = INTERNET,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,VIBR
 #android.ant_path =
 
 # (str) python-for-android git clone directory (if empty, it will be automatically cloned from github)
-android.p4a_dir = python-for-android
+p4a.source_dir = python-for-android
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
 p4a.local_recipes = python-for-android/pythonforandroid/recipes
@@ -122,7 +122,7 @@ p4a.local_recipes = python-for-android/pythonforandroid/recipes
 #p4a.hook =
 
 # (list) python-for-android whitelist
-android.p4a_whitelist = lib-dynload/termios.so,lib-dynload/mmap.so,lib-dynload/_json.so,lib-dynload/pyexpat.so
+android.whitelist = lib-dynload/termios.so,lib-dynload/mmap.so,lib-dynload/_json.so,lib-dynload/pyexpat.so
 
 # (bool) If True, then skip trying to update the Android sdk
 # This can be useful to avoid excess Internet downloads or save time
@@ -130,7 +130,7 @@ android.p4a_whitelist = lib-dynload/termios.so,lib-dynload/mmap.so,lib-dynload/_
 android.skip_update = True
 
 # (str) Bootstrap to use for android builds (android_new only)
-android.bootstrap = badservice
+p4a.bootstrap = badservice
 
 # (str) Android entry point, default is ok for Kivy-based app
 #android.entrypoint = org.renpy.android.PythonActivity
