@@ -137,6 +137,8 @@ class PupyClient(object):
             'amd64': 'intel',
             'x86': 'intel',
             'i86pc': 'sun-intel',
+            'armv7l': 'arm',
+            'aarch64': 'arm',
         }
 
         os_platform_to_arch = {
@@ -149,6 +151,10 @@ class PupyClient(object):
                 # The script is for amd64
                 '32bit': 'i86pc',
                 '64bit': 'i86pc'
+            },
+            'arm': {
+                '32bit': 'arm',
+                '64bit': 'aarch64'
             }
         }
 

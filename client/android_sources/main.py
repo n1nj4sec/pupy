@@ -5,18 +5,19 @@
 
 import os
 import platform
+import time
 
 os.environ['KIVY_NO_FILELOG']='yes'
 platform.system = lambda: 'android'
 
 if __name__ == '__main__':
     import pp
+    import sys
+    setattr(sys, 'executable', 'PythonService')
     while True:
         try:
-            print "starting pupy ..."
             pp.main()
-            print "pupy exit"
         except Exception, e:
-            print "pupy crashed: ", e
             import traceback
             traceback.print_exc(e)
+            time.sleep(10)
