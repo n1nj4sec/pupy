@@ -205,6 +205,8 @@ def has_module(name):
     return name in sys.modules
 
 def invalidate_module(name):
+    import pupy
+
     global modules
     global __debug
 
