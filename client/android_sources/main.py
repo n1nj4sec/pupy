@@ -12,6 +12,11 @@ platform.system = lambda: 'android'
 if __name__ == '__main__':
     import pp
     while True:
-        print "starting pupy ..."
-        pp.main()
-        print "pupy exit"
+        try:
+            print "starting pupy ..."
+            pp.main()
+            print "pupy exit"
+        except Exception, e:
+            print "pupy crashed: ", e
+            import traceback
+            traceback.print_exc(e)

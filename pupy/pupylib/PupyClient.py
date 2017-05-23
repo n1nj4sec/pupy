@@ -442,11 +442,6 @@ class PupyClient(object):
         pupyimporter = self.conn.modules.pupyimporter
         initial_module_name = module_name
 
-        if not self.desc.get('native', False):
-            # If this is not light-weight "client", then try to load native libs frist
-            if pupyimporter.native_import(module_name):
-                return True
-
         if not remote and not module_name.endswith(('.dll', '.so')):
             if pupyimporter.has_module(module_name):
                 if not force:
@@ -454,6 +449,11 @@ class PupyClient(object):
                 else:
                     update = True
                     pupyimporter.invalidate_module(module_name)
+
+        if not self.desc.get('native', False):
+            # If this is not light-weight "client", then try to load native libs frist
+            if pupyimporter.native_import(module_name):
+                return True
 
         start_path=module_name.replace(".", "/")
         package_found=False

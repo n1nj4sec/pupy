@@ -610,5 +610,3 @@ def install(debug=None, trace=False):
 
     if sys.platform == 'win32':
         import pywintypes
-    if __debug:
-        for module in modules.iterkeys():
