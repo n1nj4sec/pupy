@@ -90,6 +90,10 @@ class PtyShell(object):
                 except:
                     pass
 
+        if self.master:
+            self.master.close()
+            self.master = None
+
     def __del__(self):
         self.close()
 
@@ -164,13 +168,19 @@ class PtyShell(object):
         os.close(slave)
 
     def write(self, data):
+        if not self.master:
+            return
+
         try:
             self.master.write(data)
             self.master.flush()
         except:
-            self.master.close()
+            self.close()
 
     def set_pty_size(self, p1, p2, p3, p4):
+        if not self.master:
+            return
+
         buf = array.array('h', [p1, p2, p3, p4])
         try:
             fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
@@ -183,7 +193,7 @@ class PtyShell(object):
         not_eof = True
         fd = self.master.fileno()
 
-        while not_eof:
+        while not_eof and self.master:
             r, x = None, None
 
             try:
