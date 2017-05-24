@@ -36,6 +36,16 @@ def gen_colinfo(data):
 
     return colinfo
 
+def to_string(value):
+    if type(value) == unicode:
+        return value
+    elif type(value) != str:
+        return str(value)
+
+    try:
+        return value.decode('utf-8')
+    except:
+        return value.decode('latin1')
 
 def gen_columns(record, colinfo):
     columns = {}
@@ -82,11 +92,11 @@ def gen_output_line(columns, info, record, width):
     else:
         color = None
 
-    template = ' '.join('{{{}}}'.format(x) for x in info)
+    template = u' '.join(u'{{{}}}'.format(x) for x in info)
+    columns = {k:to_string(v) for k,v in columns.iteritems()}
     output = template.format(**columns)
     if width:
-        diff = len(output) - len(output.decode('utf-8', 'replace'))
-        output = output[:width+diff]
+        output = output[:width]
 
     if color:
         output = colorize(output, color)
