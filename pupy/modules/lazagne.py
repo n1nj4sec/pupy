@@ -105,10 +105,14 @@ class LaZagne(PupyModule):
                     except:
                         print u'%s: %s' % (c, clean_cred[c])
 
-                    if c == "Password":
+                    if c.lower() == "password":
                         clean_cred['CredType'] = 'plaintext'
-                    elif c == 'Hash':
+                    elif c.lower() == 'hash':
                         clean_cred['CredType'] = 'hash'
+                    elif c.lower() == 'key':
+                        clean_cred['CredType'] = 'key'
+                    elif c.lower() == 'cmd':
+                        clean_cred['CredType'] = 'cmd'
                 print
 
                 # manage when no password found
