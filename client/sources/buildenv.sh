@@ -19,8 +19,8 @@ WINETRICKS="https://raw.githubusercontent.com/Winetricks/winetricks/master/src/w
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
 PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32"
-PACKAGES_BUILD="pycryptodome cryptography"
-PACKAGES="$PACKAGES mss pyaudio https://github.com/secdev/scapy/archive/6aaf9ef98424a713b3c21e9f32a31a1358e1d6c8.zip impacket pyOpenSSL colorama pyuv"
+PACKAGES_BUILD="pycryptodome cryptography netifaces"
+PACKAGES="$PACKAGES mss pyaudio https://github.com/secdev/scapy/archive/master.zip impacket pyOpenSSL colorama pyuv"
 
 BUILDENV=${1:-`pwd`/buildenv}
 
