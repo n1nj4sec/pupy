@@ -301,22 +301,19 @@ class PupyPackageLoader:
 
 
         except Exception as e:
-
             if fullname in sys.modules:
                 del sys.modules[fullname]
 
             import traceback
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            sys.stderr.write('Error importing %s : %s'%(fullname, traceback.format_exc()))
-            dprint('PupyPackageLoader: '
-                       'Error while loading package {} ({}) : {}'.format(
-                           fullname, self.path, str(e)))
+
             if remote_print_error:
                 try:
                     remote_print_error("Error loading package {} ({} pkg={}) : {}".format(
                         fullname, self.path, self.is_pkg, str(traceback.format_exc())))
                 except:
                     pass
+            else:
+                dprint('PupyPackageLoader: Error importing %s : %s'%(fullname, traceback.format_exc()))
 
             raise e
 
@@ -413,7 +410,7 @@ class PupyPackageFinder(object):
             selected = None
             for criteria in criterias:
                 for pyfile in files:
-                    if criteria(pyfile):
+                    if criteria(pyfile) and pyfile in modules:
                         selected = pyfile
                         break
 
@@ -434,15 +431,16 @@ class PupyPackageFinder(object):
             return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
 
         except Exception as e:
-            dprint('--> Loading {} failed: {}'.format(fullname, e))
-            import traceback
-            traceback.print_exc(e)
+            dprint('--> Loading {} failed: {}/{}'.format(fullname, e, type(e)))
+            if 'traceback' in sys.modules:
+                import traceback
+                traceback.print_exc(e)
             raise e
 
         finally:
             # Don't delete network.conf module
             if selected and \
-              not selected.startswith('network/conf') and \
+              not selected.startswith(('network/conf', 'pupytasks')) and \
               selected in modules:
                 dprint('XXX {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
                 del modules[selected]
@@ -492,8 +490,8 @@ def install(debug=None, trace=False):
     global __trace
     global modules
 
-    #if debug:
-    #    __debug = True
+    if debug:
+       __debug = True
 
     if trace:
         __trace = trace

