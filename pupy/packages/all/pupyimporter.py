@@ -202,7 +202,29 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     memtrace(name)
 
 def has_module(name):
-    return name in sys.modules
+    global modules
+
+    if name in sys.modules or name in modules:
+        return True
+
+    fsname = name.replace('.', '/')
+    fsnames = (
+        '{}.py'.format(fsname),
+        '{}/__init__.py'.format(fsname),
+        '{}.pyd'.format(fsname),
+        '{}.so'.format(fsname)
+    )
+
+    for module in modules:
+        if module.startswith(fsnames):
+            return True
+
+    return False
+
+def new_modules(names):
+    return [
+        name for name in names if not has_module(name)
+    ]
 
 def invalidate_module(name):
     import pupy
