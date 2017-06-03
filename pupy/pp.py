@@ -428,7 +428,6 @@ class ReverseSlaveService(Service):
         self._conn.root.set_modules(pupy.namespace)
 
     def on_disconnect(self):
-        print "disconnecting !"
         for cleanup in self.exposed_cleanups:
             try:
                 cleanup()
