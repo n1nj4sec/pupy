@@ -143,7 +143,13 @@ class PStore(object):
         return cls._instance
 
     def __init__(self, pstore_dir='~'):
-        seed = '{}:{}'.format(os.getuid(), uuid.getnode())
+        try:
+            import getpass
+            uid = getpass.getuser()
+        except:
+            uid = os.getuid()
+
+        seed = '{}:{}'.format(uid, uuid.getnode())
 
         h = hashlib.sha1()
         h.update(seed)
