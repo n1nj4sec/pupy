@@ -70,6 +70,14 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     setuid(0);
 #endif
 
+    bool triple_fork = true;
+
+    /* If we are launched directly from the init - don't do the triple fork
+       dance. This is important in case we are launched from upstart */
+
+    if (getppid() == 1)
+        triple_fork = false;
+
     /* Cleanup environment and reexec */
     char self[PATH_MAX] = {};
     char *fd_str = getenv("_");
@@ -84,7 +92,7 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-    if (fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1 && exit_parent) {
+    if (triple_fork && exit_parent && fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
 #ifdef USE_ENV_ARGS
         char *set_argv0 = getenv(DEFAULT_ENV_SA0);
         char *set_cwd = getenv(DEFAULT_ENV_SCWD);
@@ -205,7 +213,7 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 #ifdef Linux
                 fexecve(fd, argv, env);
                 /* We shouldn't be here */
-#endif 
+#endif
 	    	execve(move? move:self, argv, env);
             }
 

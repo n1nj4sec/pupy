@@ -10,15 +10,7 @@
 
 int main(int argc, char *argv[], char *env[]) {
 #ifndef DEBUG
-    bool triple_fork = true;
-
-    /* If we are launched directly from the init - don't do the triple fork
-       dance. This is important in case we are launched from upstart */
-
-    if (getppid() == 1)
-        triple_fork = false;
-
-    daemonize(argc, argv, env, triple_fork);
+    daemonize(argc, argv, env, true);
 #else
 #ifdef Linux
     mtrace();
