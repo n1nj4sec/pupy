@@ -23,7 +23,7 @@ class LaZagne(PupyModule):
     dependencies = {
         'all': [ 'whole', 'sqlite3', 'xml', 'calendar', 'colorama',
                      'memorpy', 'ConfigParser', 'Crypto.Util.asn1', 'Crypto.PublicKey', 'lazagne', 'laZagne'],
-        'windows': [ 'sqlite3.dll', 'win32crypt', 'win32api', 'win32con', 'win32cred',
+        'windows': [ 'win32crypt', 'win32api', 'win32con', 'win32cred',
                          'impacket', 'win32security', 'win32net', 'pyexpat', 'gzip' ],
         'linux': [ 'secretstorage', 'crypt' ]
     }

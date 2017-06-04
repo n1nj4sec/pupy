@@ -308,19 +308,9 @@ class PupyModule(object):
         else:
             dependencies = self.dependencies
 
-        packages = set()
-
-        for d in dependencies:
-            if d.lower().endswith(('.dll', '.so')):
-                self.client.load_dll(d)
-            else:
-                packages.add(d)
-
-        if packages:
-            self.client.load_package(packages, new_deps=self.new_deps)
+        self.client.load_package(dependencies, new_deps=self.new_deps)
 
     def clean_dependencies(self):
-        print "CLEAN: ", self.new_deps
         for d in self.new_deps:
             try:
                 self.client.unload_package(d)

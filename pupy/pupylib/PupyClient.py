@@ -231,51 +231,75 @@ class PupyClient(object):
         if not buf:
             raise ImportError('Shared object {} not found'.format(name))
 
-        if not self.conn.modules.pupy.load_dll(name, buf):
-            raise ImportError('Couldn\'t load shared object {}'.format(name))
+        pupyimporter = self.conn.modules.pupyimporter
+        if hasattr(pupyimporter, 'load_dll'):
+            result = pupyimporter.load_dll(name, buf)
+        else:
+            result = self.conn.modules.pupy.load_dll(name, buf)
 
-        self.imported_dlls.add(name)
+        if not result:
+            raise ImportError('Couldn\'t load shared object {}'.format(name))
+        else:
+            self.imported_dlls.add(name)
+
         return True
 
-    def filter_new_modules(self, modules, force=False):
+    def filter_new_modules(self, modules, dll, force=False):
         if force:
             return list(modules)
 
         pupyimporter = self.conn.modules.pupyimporter
 
-        if hasattr(pupyimporter, 'new_modules'):
-            return pupyimporter.new_modules(modules)
+        if dll:
+            if hasattr(pupyimporter, 'new_dlls'):
+                return pupyimporter.new_dlls(modules)
+            else:
+                return [
+                    module for module in modules if not module in self.imported_dlls
+                ]
         else:
-            return [
-                module for module in modules if not pupyimporter.has_module(module)
-            ]
+            if hasattr(pupyimporter, 'new_modules'):
+                return pupyimporter.new_modules(modules)
+            else:
+                return [
+                    module for module in modules if not pupyimporter.has_module(module)
+                ]
 
     def load_package(self, requirements, force=False, remote=False, new_deps=[]):
         pupyimporter = self.conn.modules.pupyimporter
 
         try:
-            blob, packages = dependencies.package(
+            packages, contents, dlls = dependencies.package(
                 requirements, self.platform, self.arch, remote=remote,
                 posix=self.is_posix(),
-                filter_needed_cb=lambda modules: self.filter_new_modules(modules, force)
+                filter_needed_cb=lambda modules, dll: self.filter_new_modules(
+                    modules, dll, force
+                )
             )
 
         except dependencies.NotFoundError, e:
             raise ValueError('Module not found: {}'.format(e))
 
-        if not packages:
+        if not contents:
             return False
 
-        new_deps.extend(packages)
+        if hasattr(pupyimporter, 'load_dll'):
+            for name, blob in dlls:
+                pupyimporter.load_dll(name, blob)
+        else:
+            for name, blob in dlls:
+                self.conn.modules.pupy.load_dll(name, blob)
 
         pupyimporter.pupy_add_package(
-            blob,
+            packages,
             compressed=True,
             # Use None to prevent import-then-clean-then-search behavior
             name=(
                 None if ( remote or type(requirements) != str ) else requirements
             )
         )
+
+        new_deps.extend(contents)
 
         return True
 

