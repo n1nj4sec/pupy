@@ -35,6 +35,8 @@ export LDFLAGS="-m64 -fPIC -L$BUILDENV/build/lib"
 export PKG_CONFIG_PATH="$BUILDENV/build/lib/pkgconfig"
 set -x
 
+ln -sf /usr/lib/amd64/libcrypt_i.so /usr/lib/amd64/libcrypt.so
+
 cd $BUILDENV/src/zlib-1.2.11
 ./configure --64 --static --prefix=$BUILDENV/build; gmake; gmake install
 
