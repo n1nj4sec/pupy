@@ -193,7 +193,7 @@ class PStore(object):
 
         data = None
         try:
-            with open(self._pstore_path) as pstore:
+            with open(self._pstore_path, 'rb') as pstore:
                 data = pstore.read()
 
             try:
@@ -223,7 +223,7 @@ class PStore(object):
             if not os.path.isdir(pstore_dir):
                 os.makedirs(pstore_dirs)
 
-            with open(self._pstore_path, 'w+') as pstore:
+            with open(self._pstore_path, 'w+b') as pstore:
                 data = cPickle.dumps(self._pstore)
                 data = pad(data)
                 data = AES(*self._pstore_key).encrypt(data)
@@ -597,6 +597,9 @@ def main():
             signal.signal(signal.SIGTERM, handle_sigterm)
     except:
         print_exception('[MS]')
+
+    if hasattr(pupy, 'set_exit_session_callback'):
+        pupy.set_exit_session_callback(handle_sigterm)
 
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(

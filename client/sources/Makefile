@@ -23,11 +23,11 @@ endif
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
-LINKER_OPTS := /NXCOMPAT:NO
+LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup user32.lib
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
-LINKER_OPTS := /NXCOMPAT:NO /link /subsystem:windows /ENTRY:mainCRTStartup /LTCG
+LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /LTCG user32.lib
 PPARCH      := $(PPARCH)
 CFLAGS      := $(CFLAGS) /O1 /GL /GS-
 endif

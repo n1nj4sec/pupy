@@ -37,6 +37,8 @@ PyObject *, PyExc_ImportError
 PyObject *, PyExc_Exception
 char *, _Py_PackageContext
 
+PyObject *, PyObject_CallObject, (PyObject *, PyObject *)
+
 PyGILState_STATE, PyGILState_Ensure, (void)
 void, PyGILState_Release, (PyGILState_STATE)
 
