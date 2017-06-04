@@ -137,6 +137,8 @@ class PupyJob(object):
         except Exception as e:
             self.error_happened.set()
             module.error(str(e))
+            import traceback
+            traceback.print_exc(e)
         finally:
             if once:
                 module.clean_dependencies()

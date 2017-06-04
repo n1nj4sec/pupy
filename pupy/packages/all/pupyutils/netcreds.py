@@ -95,8 +95,8 @@ def netcreds_stop():
 ############## Main class ##############
 
 class Netcreds(pupy.Task):
-    def __init__(self, interface=None, filterip=None):
-        super(Netcreds, self).__init__()
+    def __init__(self, interface=None, filterip=None, *args, **kwargs):
+        super(Netcreds, self).__init__(*args, **kwargs)
         self.interface = interface
         self.filterip = filterip
 

