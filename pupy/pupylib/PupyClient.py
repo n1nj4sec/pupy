@@ -287,10 +287,7 @@ class PupyClient(object):
         logging.debug("remote module_name asked for : %s"%module_name)
 
         try:
-            self.load_package(
-                module_name, self.platform, self.arch, remote=True,
-                filter_needed_cb=self.filter_new_modules
-            )
+            self.load_package(module_name, remote=True)
             return True
 
         except dependencies.NotFoundError:
