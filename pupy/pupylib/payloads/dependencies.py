@@ -31,6 +31,21 @@ WELL_KNOWN_DEPS = {
             'pupymemexec'
         ],
     },
+    'dbus': {
+        'linux': [
+            '_dbus_bindings', 'pyexpat'
+        ]
+    },
+    'sqlite3': {
+        'all': [ '_sqlite3' ],
+        'windows': [ 'sqlite3.dll' ],
+    },
+    'xml': {
+        'all': [ '_elementtree', 'xml.etree' ]
+    },
+    'secretstorage': {
+        'linux': [ 'dbus' ]
+    },
     'memorpy': {
         'windows': [
             'win32api',
