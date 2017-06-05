@@ -71,10 +71,14 @@ class ScriptletsPacker(object):
                     requirements.add(dependency)
 
         if requirements:
-            fullpayload += [
-                'import pupyimporter',
-                dependencies.importer(requirements, os=self.os)
-            ]
+            try:
+                fullpayload += [
+                    'import pupyimporter',
+                    dependencies.importer(requirements, os=self.os)
+                ]
+            except dependencies.NotFoundError, e:
+                raise ImportError('Module "{}" not found'.format(e))
+
 
         for scriptlet in self.scriptlets:
             if self.debug:
