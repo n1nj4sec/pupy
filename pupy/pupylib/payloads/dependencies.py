@@ -108,7 +108,7 @@ sys.modules[fullname]=mod
     
     return code
 
-def importer(dependencies, os='all', arch=None, path=None):
+def importer(dependencies, os='all', arch=None, path=None, posix=None):
     if path:
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
@@ -120,7 +120,7 @@ def importer(dependencies, os='all', arch=None, path=None):
         blob = cPickle.dumps(modules)
         blob = zlib.compress(blob, 9)
     else:
-        blob, modules, _ = package(dependencies, os, arch)
+        blob, modules, _ = package(dependencies, os, arch, posix=posix)
 
     return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
 
@@ -230,8 +230,12 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
 
     return modules_dic
 
-def paths(platform='all', arch=None, posix=False):
+def paths(platform='all', arch=None, posix=None):
     """ return the list of path to search packages for depending on client OS and architecture """
+
+    if posix is None:
+        posix = platform.lower() != 'windows'
+
     path = [
         os.path.join('packages', platform),
     ]
@@ -269,7 +273,7 @@ def _dependencies(module_name, os, dependencies):
     for dependency in mod_deps.get('all', []) + mod_deps.get(os, []):
         _dependencies(dependency, os, dependencies)
 
-def _package(modules, module_name, platform, arch, remote=False, posix=False):
+def _package(modules, module_name, platform, arch, remote=False, posix=None):
 
     initial_module_name = module_name
 
