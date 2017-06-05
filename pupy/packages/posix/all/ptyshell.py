@@ -91,7 +91,11 @@ class PtyShell(object):
                     pass
 
         if self.master:
-            self.master.close()
+            try:
+                self.master.close()
+            except:
+                pass
+
             self.master = None
 
     def __del__(self):
