@@ -244,10 +244,7 @@ class PupyClient(object):
 
         return True
 
-    def filter_new_modules(self, modules, dll, force=False):
-        if force:
-            return list(modules)
-
+    def filter_new_modules(self, modules, dll, force=None):
         pupyimporter = self.conn.modules.pupyimporter
 
         if dll:
@@ -259,21 +256,34 @@ class PupyClient(object):
                 ]
         else:
             if hasattr(pupyimporter, 'new_modules'):
-                return pupyimporter.new_modules(modules)
+                new_modules = pupyimporter.new_modules(modules)
             else:
-                return [
+                new_modules = [
                     module for module in modules if not pupyimporter.has_module(module)
                 ]
+
+            if not force is None:
+                for module in modules:
+                    if not module in new_modules:
+                        force.add(module)
+
+                return modules
+            else:
+                return new_modules
 
     def load_package(self, requirements, force=False, remote=False, new_deps=[]):
         pupyimporter = self.conn.modules.pupyimporter
 
         try:
+            forced = None
+            if force:
+                forced = set()
+
             packages, contents, dlls = dependencies.package(
                 requirements, self.platform, self.arch, remote=remote,
                 posix=self.is_posix(),
                 filter_needed_cb=lambda modules, dll: self.filter_new_modules(
-                    modules, dll, force
+                    modules, dll, forced
                 )
             )
 
@@ -289,6 +299,10 @@ class PupyClient(object):
         else:
             for name, blob in dlls:
                 self.conn.modules.pupy.load_dll(name, blob)
+
+        if forced:
+            for module in forced:
+                pupyimporter.invalidate_module(module)
 
         pupyimporter.pupy_add_package(
             packages,
