@@ -57,6 +57,8 @@ class MountInfo(object):
             self.fstype = 'dm'
         elif fsname.startswith('fuse'):
             self.fstype = 'fuse'
+        elif fsname.startswith('vboxsf'):
+            self.fstype = 'vm'
         elif self.src == 'systemd-1' and self.fsname == 'autofs':
             self.fstype = 'automount'
         elif self.src == 'sunrpc':
