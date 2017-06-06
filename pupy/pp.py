@@ -288,7 +288,7 @@ class Task(threading.Thread):
 
     @property
     def active(self):
-        if not self._stopped:
+        if self._stopped is None:
             return False
 
         try:
@@ -296,6 +296,7 @@ class Task(threading.Thread):
 
         except:
             print_exception('[T/A:{}]'.format(self.name))
+            return False
 
     def event(self, event):
         pass
