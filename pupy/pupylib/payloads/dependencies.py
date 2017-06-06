@@ -105,7 +105,7 @@ sys.modules[fullname]=mod
         repr(modulename),
         repr(marshal.dumps(compile(code, modulename, 'exec')))
     )
-    
+
     return code
 
 def importer(dependencies, os='all', arch=None, path=None, posix=None):
@@ -113,10 +113,10 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None):
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
             dependencies = [ dependencies ]
-            
+
         for dependency in dependencies:
             modules.update(from_path(path, dependency))
-        
+
         blob = cPickle.dumps(modules)
         blob = zlib.compress(blob, 9)
     else:
@@ -130,7 +130,7 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
 
     if not os.path.sep in start_path:
         start_path = start_path.replace('.', os.path.sep)
-    
+
     module_path = os.path.join(search_path, start_path)
 
     if remote:
@@ -254,6 +254,8 @@ def paths(platform='all', arch=None, posix=None):
         os.path.join(p, 'all') for p in path
     ]
 
+    path.append(os.path.join('packages', 'all'))
+
     path = path + [
         os.path.join(ROOT, p) for p in path
     ]
@@ -357,7 +359,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
                             del modules_dic[base+'.pyo']
 
                     modules_dic[module_name] = archive.read(info.filename)
-                    
+
             archive.close()
 
     # in last resort, attempt to load the package from the server's sys.path if it exists
@@ -409,16 +411,16 @@ def package(requirements, platform, arch, remote=False, posix=False, filter_need
     blob = b''
     contents = []
     dlls = []
-            
+
     if package_deps:
         modules = {}
-    
+
         for dependency in package_deps:
             _package(
                 modules, dependency, platform, arch,
                 remote=remote, posix=posix
             )
-            
+
         blob = zlib.compress(cPickle.dumps(modules), 9)
         contents = list(dependencies)
 
@@ -462,7 +464,7 @@ def dll(name, platform, arch):
                 if info.filename.endswith('/'+name) or info.filename == name:
                     buf = archive.read(info.filename)
                     break
-                
+
             archive.close()
 
     if not buf:
