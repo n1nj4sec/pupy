@@ -64,14 +64,11 @@ class Credentials(object):
 
     def add(self, data):
         db = self._load_db()
-
-        for d in data:
-            if not self.checkIfExists(d, db['creds']):
-                d.update({
-                    'uid': self.client
-                })
-                db['creds'].append(d)
-
+        db['creds'] = [
+            dict(t) for t in frozenset([
+                tuple(d.items()) for d in db['creds'] + data
+            ])
+        ]
         self._save_db(db)
 
     def display(self, search='all', isSorted=False):
