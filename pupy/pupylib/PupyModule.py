@@ -308,7 +308,8 @@ class PupyModule(object):
         else:
             dependencies = self.dependencies
 
-        self.client.load_package(dependencies, new_deps=self.new_deps)
+        if self.client:
+            self.client.load_package(dependencies, new_deps=self.new_deps)
 
     def clean_dependencies(self):
         for d in self.new_deps:
