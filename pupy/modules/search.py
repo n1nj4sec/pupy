@@ -45,7 +45,6 @@ class SearchModule(PupyModule):
             no_content=args.no_content,
             case=args.insensitive,
             binary=args.binary,
-            terminate=self.terminate
         )
 
         download_folder = None
