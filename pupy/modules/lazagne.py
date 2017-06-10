@@ -3,9 +3,10 @@
 
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
+from pupylib.PupyCmd import PupyCmd
 from rpyc.utils.classic import upload
 from pupylib.utils.credentials import Credentials
-from pupylib.utils.term import colorize
+from pupylib.utils.term import colorize, terminal_size
 from pupylib.utils.rpyc_utils import obtain
 import tempfile
 import subprocess
@@ -28,6 +29,25 @@ class LaZagne(PupyModule):
         'windows': [ 'sqlite3.dll' ],
     }
 
+    FILTER = ''.join([
+        (len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)
+    ])
+
+    TYPESMAP = {
+        'password': 'plaintext',
+        'hash': 'hash',
+        'key': 'key',
+        'cmd': 'cmd',
+    }
+
+    NON_TABLE = set([
+        'Ssh', 'Secretstorage'
+    ])
+
+    FILTER_COLUMNS = set([
+        'CredType', 'Category', 'SavePassword'
+    ])
+
     def init_argparse(self):
         header = '|====================================================================|\n'
         header += '|                                                                    |\n'
@@ -39,7 +59,6 @@ class LaZagne(PupyModule):
 
         self.arg_parser = PupyArgumentParser(prog="lazagne", description=header + self.__doc__)
         self.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
-        self.FILTER =''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
     def run(self, args):
         db = Credentials(
@@ -56,27 +75,32 @@ class LaZagne(PupyModule):
         for r in results:
             if r[0] == 'User':
                 if not passwordsFound and not first_user:
-                    self.warning("no passwords found !")
+                    self.warning('no passwords found !')
 
                 first_user = False
                 passwordsFound = False
-                print colorize('\n########## User: %s ##########' % r[1].encode('utf-8', errors='replace'), "yellow")
+                self.log(colorize('\n########## User: {} ##########'.format(
+                    r[1].encode('utf-8', errors='replace')), 'yellow'))
 
             elif r[2]:
                 passwordsFound = True
                 self.print_results(r[0], r[1], r[2], db)
 
         if not passwordsFound:
-            self.warning("no passwords found !")
+            self.warning('no passwords found !')
 
         # clean temporary file if present
         try:
-            self.client.conn.modules["laZagne"].clean_temporary_files()
+            self.client.conn.modules['laZagne'].clean_temporary_files()
         except AttributeError:
             pass
 
     def print_module_title(self, module):
-        print colorize("\n------------------- %s passwords -------------------\n" % module.encode('utf-8', errors="replace"), "yellow")
+        self.log(colorize(
+            '\n------------------- {} -------------------\n'.format(
+                module.encode('utf-8', errors='replace')
+            ), 'yellow'
+        ))
 
     # print hex value
     def dump(self, src, length=8):
@@ -91,95 +115,174 @@ class LaZagne(PupyModule):
             N += length
         return result
 
-    def print_results(self, success, module, creds, db):
-        if success:
-            clean_creds = []
-            if module.lower() == 'lsa':
-                if creds[0]:
-                    self.print_module_title(module)
+    def hashdump_to_dict(self, creds):
+        results = []
 
-                for cred in creds:
-                    for k in cred:
-                        print k
-                        print self.dump(cred[k], length=16)
-            elif module.lower() == 'cachedump' or module.lower() == 'hashdump':
-                if creds[0]:
-                    self.print_module_title(module)
+        for cred in creds:
+            for pwd in cred:
+                try:
+                    user, rid, lm, nt, _, _, _ = pwd.split(':')
+                    results.append({
+                        'Category' : 'hashdump',
+                        'CredType' : 'hash',
+                        'Login'    : user,
+                        'Hash'     : '%s:%s' % (str(lm), str(nt))
+                    })
+                except:
+                    pass
 
-                for cred in creds:
-                    for pwd in cred:
-                        print pwd
-                        if module.lower() == 'hashdump':
-                            try:
-                                user, rid, lm, nt, _, _, _ = pwd.split(':')
-                                clean_creds.append(
-                                    {
-                                        'Category' : '%s' % module,
-                                        'CredType'  : 'hash',
-                                        'Login'     : user,
-                                        'Hash'      : '%s:%s' % (str(lm), str(nt))
-                                    }
-                                )
-                            except:
-                                pass
-                        elif module.lower() == 'cachedump':
-                            try:
-                                user, d, dn, h = pwd.split(':')
-                                clean_creds.append(
-                                    {
-                                        'Category' : '%s' % module,
-                                        'CredType'  : 'hash',
-                                        'Login'     : user,
-                                        'Hash'      : '%s:%s:%s:%s' % (user.lower(), h.encode('hex'), d.lower(), dn.lower())
-                                    }
-                                )
-                            except:
-                                pass
-                    print
-            else:
-                self.print_module_title(module)
-                for cred in creds:
-                    clean_cred = { 'Category' : '%s' % module }
-                    for c in cred.keys():
-                        credvalue = cred[c]
-                        if not type(credvalue) in (unicode, str):
-                            credvalue = str(credvalue)
-                        else:
-                            try:
-                                credvalue = credvalue.strip().decode('utf-8')
-                            except:
-                                credvalue = credvalue.strip()
+        return results
 
-                        clean_cred[c] = credvalue
-                        try:
-                            print u'%s: %s' % (c, clean_cred[c])
-                        except:
-                            credvalue = credvalue.strip()
+    def cachedump_to_dict(self, creds):
+        results = []
 
-                    clean_cred[c] = credvalue
+        for cred in creds:
+            for pwd in creds:
+                try:
+                    user, d, dn, h = pwd.split(':')
+                    clean.append({
+                        'Category' : 'cachedump',
+                        'CredType' : 'hash',
+                        'Login'    : user,
+                        'Hash'     : '%s:%s:%s:%s' % (user.lower(), h.encode('hex'), d.lower(), dn.lower())
+                    })
+                except:
+                    pass
+
+        return results
+
+    def creds_to_dict(self, creds, module):
+        if module.lower() == 'hashdump':
+            return self.hashdump_to_dict(creds)
+        elif module.lower() == 'cachedump':
+            return self.cachedump_to_dict(creds)
+
+        results = []
+
+        for cred in creds:
+            result = {
+                'Category' : module
+            }
+
+            for c in cred.keys():
+                credvalue = cred[c]
+                if not type(credvalue) in (unicode, str):
+                    credvalue = str(credvalue)
+                elif type(credvalue) == str:
                     try:
-                        print u'%s: %s' % (c, clean_cred[c].encode('utf-8', errors="replace"))
+                        credvalue = credvalue.strip().decode('utf-8')
                     except:
-                        print u'%s: %s' % (c, clean_cred[c])
+                        credvalue = credvalue.strip().decode('latin1')
 
-                    if c.lower() == "password":
-                        clean_cred['CredType'] = 'plaintext'
-                    elif c.lower() == 'hash':
-                        clean_cred['CredType'] = 'hash'
-                    elif c.lower() == 'key':
-                        clean_cred['CredType'] = 'key'
-                    elif c.lower() == 'cmd':
-                        clean_cred['CredType'] = 'cmd'
-                    elif 'CredType' not in clean_cred:
-                        clean_cred['CredType'] = 'empty'
+                result[c] = credvalue
 
-                    clean_creds.append(clean_cred)
+                for t, name in self.TYPESMAP.iteritems():
+                    if t in set(x.lower() for x in result):
+                        result['CredType'] = name
+
+                if not result.get('CredType'):
+                    result['CredType'] = 'empty'
+
+                results.append(result)
+
+        return results
+
+    def try_utf8(self, value):
+        if type(value) == unicode:
+            try:
+                return value.encode('utf-8')
+            except:
+                return value.encode('latin1', errors='ignore')
+        else:
+            return str(value)
+
+    def prepare_fields(self, items, remove=[]):
+        if not items:
+            return []
+
+        items = [
+            {
+                k:self.try_utf8(v) for k,v in item.iteritems() if not k in remove
+            } for item in items
+        ]
+
+        keys = set()
+        for item in items:
+            for k in item:
+                keys.add(k)
+
+        colinfo = {
+            k:max([
+                len(item.get(k, '')) for item in items
+            ]) for k in keys
+        }
+
+        width, _ = terminal_size()
+
+        truncate = None
+
+        maxlen = sum(colinfo.values()) + len(colinfo)*2
+
+        if maxlen > width:
+            truncate = max(colinfo.keys(), key=lambda k: colinfo[k])
+            maxsize = colinfo[truncate] - (maxlen - width)
+
+        return [
+            {
+                k:(
+                    item.get(k, '')[:maxsize] if k == truncate else item.get(k, '')
+                ).strip() for k in keys
+            } for item in items
+        ]
+
+    def filter_same(self, creds):
+        return [
+            dict(t) for t in frozenset([
+                tuple(d.items()) for d in creds
+            ])
+        ]
+
+    def print_lsa(self, creds):
+        for cred in creds:
+            for name, value in cred.iteritems():
+                self.log(name)
+                self.log(self.dump(value, length=16))
+                self.log('')
+
+    def print_results(self, success, module, creds, db):
+        if not success:
+            self.error(str(creds))
+            return
+
+        if not creds or all(not cred for cred in creds):
+            return
+
+        self.print_module_title(module)
+
+        if module.lower() == 'lsa':
+            self.print_lsa(creds)
+        else:
+            creds = self.filter_same(
+                self.creds_to_dict(creds, module)
+            )
+
+            if not module in self.NON_TABLE:
+                self.log(
+                    PupyCmd.table_format(
+                        self.prepare_fields(
+                            creds, remove=self.FILTER_COLUMNS
+                        )
+                    )
+                )
+            else:
+                for cred in creds:
+                    for k, v in cred.iteritems():
+                        if k in self.FILTER_COLUMNS:
+                            continue
+                        self.log(u'{}: {}'.format(k, v))
+                    self.log('')
 
             try:
-                db.add(clean_creds)
-                self.success("Passwords stored on the database")
+                db.add(creds)
             except Exception, e:
-                print e
-        else:
-            # contains a stacktrace
-            self.error(str(creds))
+                self.error(u'{}: {}'.format(e))
