@@ -30,7 +30,7 @@ import getpass
 import json
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
-HARDCODED_CONF_SIZE=32768
+HARDCODED_CONF_SIZE=65536
 
 def check_templates_version():
     try:

