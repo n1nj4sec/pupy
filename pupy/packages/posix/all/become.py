@@ -49,7 +49,7 @@ def become(user):
 
     if os.path.exists(user_dbus_socket):
         os.environ['DBUS_SESSION_BUS_ADDRESS'] = 'unix:path='+user_dbus_socket
-    else:
+    elif 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
         del os.environ['DBUS_SESSION_BUS_ADDRESS']
 
     for var in os.environ.keys():
