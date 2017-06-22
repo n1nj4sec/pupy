@@ -23,3 +23,4 @@ cerberus
 logutils
 secretstorage
 pygments
+requests
