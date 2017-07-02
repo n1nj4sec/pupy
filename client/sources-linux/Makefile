@@ -47,7 +47,16 @@ PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 
 PYOBJS := _memimporter.o Python-dynload.o pupy_load.o pupy.o
-COMMON_OBJS := list.o tmplibrary.o daemonize.o decompress.o LzmaDec.o
+COMMON_OBJS := list.o tmplibrary.o daemonize.o decompress.o
+
+ifeq ($(UNCOMPRESSED),)
+COMMON_OBJS += LzmaDec.o
+COMPRESSED = 1
+else
+CFLAGS += -DUNCOMPRESSED
+SUFFIX := unc.$(SUFFIX)
+COMPRESSED = 0
+endif
 
 ifeq ($(OS),Linux)
 ifeq ($(ARCH),64)
@@ -76,21 +85,23 @@ import-tab.c import-tab.h: mktab.py
 Python-dynload.o: Python-dynload.c import-tab.c import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
+ifeq ($(UNCOMPRESSED),)
 LzmaDec.o: ../lzma/LzmaDec.c
 	$(CC) $(CFLAGS) -O3 -fPIC -c -o $@ $<
+endif
 
 resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip
 	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py
 
 resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip
 	$(PYTHON) $(PFLAGS) ../gen_resource_header.py \
-		resources/library_compressed_string.txt $(XZARGS)
+		resources/library_compressed_string.txt $(COMPRESSED) $(XZARGS)
 
 resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
 	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources_bootloader_pyc.c: ../gen_resource_header.py resources/bootloader.pyc
-	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
+	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
 
 linux-inject/%.o: linux-inject/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
@@ -120,13 +131,13 @@ resources/library.zip: ../build_library_zip.py ../additional_imports.py
 	$(PYTHON) -OO $(PFLAGS) $<
 
 resources_python27_so.c: ../gen_resource_header.py resources/python27.so
-	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
+	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
 
 resources_libssl_so.c: ../gen_resource_header.py resources/libssl.so
-	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
+	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
 
 resources_libcrypto_so.c: ../gen_resource_header.py resources/libcrypto.so
-	$(PYTHON) $(PFLAGS) $+ $(XZARGS)
+	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): main_exe.o $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)

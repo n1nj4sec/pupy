@@ -59,7 +59,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		);
 
 		int r = _load_msvcr90(msvcr90);
-		free(msvcr90);
+		lzmafree(msvcr90);
 
 		dfprint(stderr,"loading msvcr90.dll: %d\n", r);
 	}
@@ -81,7 +81,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		else{
 			void *python27 = lzmaunpack(resources_python27_dll_start, resources_python27_dll_size, NULL);
 			int res = _load_python("python27.dll", python27);
-			free(python27);
+			lzmafree(python27);
 			if(!res) {
 				dfprint(stderr,"loading python27.dll from memory failed\n");
 

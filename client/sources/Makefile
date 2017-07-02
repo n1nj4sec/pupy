@@ -45,9 +45,18 @@ PYOBJS := \
 COMMON_OBJS := \
 	MemoryModule.obj \
 	actctx.obj list.obj thread.obj remote_thread.obj \
-	LoadLibraryR.obj LzmaDec.obj
+	LoadLibraryR.obj
 
-all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll
+ifeq ($(UNCOMPRESSED),)
+COMMON_OBJS += LzmaDec.obj
+COMPRESSED = 1
+else
+CFLAGS += /DUNCOMPRESSED
+SUFFIX := unc.$(SUFFIX)
+COMPRESSED = 0
+endif
+
+all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
 
 $(BUILDENV_READY):
 	./buildenv.sh "$(BUILDENV)"
@@ -71,13 +80,13 @@ resources/library.zip: ../build_library_zip.py $(BUILDENV_READY)
 	$(PYTHON) ../build_library_zip.py -windows
 
 resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt
+	$(HOST_PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt $(COMPRESSED)
 
 resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py $(BUILDENV_READY)
 	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources_bootloader_pyc.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $<
+	$(HOST_PYTHON) ../gen_resource_header.py $< $(COMPRESSED)
 
 resources/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
 	cp $< $@
@@ -86,16 +95,18 @@ resources/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDE
 	cp $< $@
 
 resources_python27_dll.c: resources/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $<
+	$(HOST_PYTHON) ../gen_resource_header.py $< $(COMPRESSED)
 
 resources_msvcr90_dll.c: resources/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $<
+	$(HOST_PYTHON) ../gen_resource_header.py $< $(COMPRESSED)
 
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
 
+ifeq ($(UNCOMPRESSED),)
 LzmaDec.obj: ../lzma/LzmaDec.c
 	$(CC) /c $(CFLAGS) $<
+endif
 
 main_exe.obj: main_exe.c
 	$(CC) /c $(CFLAGS) $<
@@ -106,10 +117,10 @@ main_exe.obj: main_exe.c
 ReflectiveLoader.obj: ReflectiveLoader.c
 	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN /DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $<
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ /LD
 
 .PHONY: clean

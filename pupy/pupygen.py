@@ -42,7 +42,7 @@ def check_templates_version():
         logging.warning("Your templates are not synced with your pupy version ! , you should update them with \"git submodule update\"")
 
 
-def get_edit_binary(path, conf):
+def get_edit_binary(path, conf, compressed_config=True):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
     with open(path, 'rb') as f:
@@ -62,7 +62,8 @@ def get_edit_binary(path, conf):
 
     new_conf = marshal.dumps(compile(get_raw_conf(conf), '<config>', 'exec'))
     uncompressed = len(new_conf)
-    new_conf = pylzma.compress(new_conf)
+    if compressed_config:
+        new_conf = pylzma.compress(new_conf)
     compressed = len(new_conf)
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
@@ -194,7 +195,7 @@ def updateTar(arcpath, arcname, file_path):
     finally:
         shutil.rmtree(tempdir)
 
-def get_edit_apk(path, conf):
+def get_edit_apk(path, conf, compressed_config=None):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
@@ -236,8 +237,8 @@ def get_edit_apk(path, conf):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None):
-    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}.{ext}'
+def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None, compressed=True):
+    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}{unk}.{ext}'
     ARCH_CONVERT = {
         'amd64': 'x64', 'x86_64': 'x64',
         'i386': 'x86', 'i486': 'x86', 'i586': 'x86', 'i686': 'x86',
@@ -298,7 +299,7 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     else:
         ext = non_shared_ext
 
-    filename = template.format(arch=arch, debug=debug, ext=ext)
+    filename = template.format(arch=arch, debug=debug, ext=ext, unk='.unc' if not compressed else '')
     template = os.path.join(
         'payload_templates', filename
     )
@@ -317,7 +318,7 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
 
         print colorize("[C] {}: {}".format(k, v), "yellow")
 
-    return generator(template, config), filename, makex
+    return generator(template, config, compressed), filename, makex
 
 def load_scriptlets():
     scl={}
@@ -410,6 +411,9 @@ def get_parser(base_parser, config):
                             choices=CLIENT_OS, help='Target OS (default: windows)')
     parser.add_argument('-A', '--arch', default=config.get('gen', 'arch'),
                             choices=CLIENT_ARCH, help='Target arch (default: x86)')
+    parser.add_argument('-U', '--uncompressed', default=False, action='store_true',
+                            help='Use uncompressed template')
+    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
@@ -499,7 +503,8 @@ def pupygen(args, config):
 
         data, filename, makex = generate_binary_from_template(
             conf, args.os,
-            arch=args.arch, shared=args.shared, debug=args.debug
+            arch=args.arch, shared=args.shared, debug=args.debug,
+            compressed=not ( args.uncompressed or args.packer )
         )
 
         if not outpath:
@@ -522,7 +527,13 @@ def pupygen(args, config):
         outfile.close()
 
         if makex:
-            os.chmod(outfile.name, 0511)
+            os.chmod(outfile.name, 0711)
+
+        if args.packer:
+            subprocess.check_call(
+                args.packer.replace('%s', outfile.name),
+                shell=True
+            )
 
         outpath = outfile.name
 

@@ -53,7 +53,7 @@ static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzs
 
     void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
 
-    free(uncompressed);
+    lzmafree(uncompressed);
 
     if (!res) {
         dprint("loading %s from memory failed\n", soname);
@@ -169,17 +169,13 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
             PyObject *sub = PySequence_GetItem(seq, i);
             if (seq) {
                 PyObject *discard = PyEval_EvalCode((PyCodeObject *)sub, d, d);
+                dprint("EVAL CODE %p -> %p\n", sub, discard);
                 if (!discard) {
-#ifdef DEBUG
-                    PyObject *ptype, *pvalue, *ptraceback;
-                    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-                    dprint("SEQ %d EXCEPTION: %s\n", i, PyString_AsString(pvalue));
                     PyErr_Print();
-#endif
                     rc = 255;
+                    break;
                 }
                 Py_XDECREF(discard);
-                /* keep going even if we fail */
             }
             Py_XDECREF(sub);
         }

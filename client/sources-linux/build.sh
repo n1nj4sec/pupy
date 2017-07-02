@@ -25,6 +25,10 @@ make clean
 make PIE=
 make clean
 make DEBUG=1 PIE=
+make clean
+make PIE= UNCOMPRESSED=1
+make clean
+make DEBUG=1 PIE= UNCOMPRESSED=1
 __CMDS__
 
 umount buildenv/lin32/dev
@@ -44,6 +48,10 @@ make clean
 make
 make clean
 make DEBUG=1
+make clean
+make UNCOMPRESSED=1
+make clean
+make DEBUG=1 UNCOMPRESSED=1
 __CMDS__
 
 umount buildenv/lin64/dev
