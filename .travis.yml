@@ -34,7 +34,6 @@ after_success:
 - export REPO=alxchk/pupy
 - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH
   ; fi`
-- wget -qO $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy.apk https://github.com/n1nj4sec/pupy-binaries/raw/master/pupy.apk
 - cd $TRAVIS_BUILD_DIR/pupy && docker build -f Dockerfile -t $REPO:$COMMIT .
 - cd $TRAVIS_BUILD_DIR/pupy && docker tag $REPO:$COMMIT $REPO:$TAG
 - cd $TRAVIS_BUILD_DIR/pupy && docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
