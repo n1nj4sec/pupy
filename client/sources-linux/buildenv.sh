@@ -287,6 +287,7 @@ find -name "*.so" | while read f; do strip \$f; done
 cd /
 
 rm -rf /usr/src
+apt-get clean
 
 ldconfig
 __CMDS__
@@ -513,6 +514,7 @@ find -name "*.so" | while read f; do strip \$f; done
 cd /
 
 rm -rf /usr/src
+apt-get clean
 
 ldconfig
 __CMDS__
