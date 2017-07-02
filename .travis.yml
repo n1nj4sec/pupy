@@ -20,6 +20,10 @@ script:
 - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh && ./build.sh
 - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh && sudo -E ./build.sh
 - cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh
+- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win32/drive_c/users
+- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win64/drive_c/users
+- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win32/dosdevices
+- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win64/dosdevices
 cache:
   directories:
     - $TRAVIS_BUILD_DIR/client/sources/buildenv
