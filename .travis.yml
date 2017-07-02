@@ -28,7 +28,7 @@ cache:
   directories:
     - $TRAVIS_BUILD_DIR/client/sources/buildenv
     - $TRAVIS_BUILD_DIR/client/sources-linux/buildenv
-    - $HOME/.buildozer
+    - $HOME/.buildozer/platform/android
 after_success:
 - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
 - export REPO=alxchk/pupy
