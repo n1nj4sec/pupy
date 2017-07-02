@@ -201,7 +201,11 @@ def print_pstree(fout, parent, tree, data,
 
         outcols = [ 'pid' ] + before_tree + [ 'prefix' ] + after_tree
 
-        fout.write(gen_output_line(columns, outcols, data[parent], width)+'\n')
+        output = gen_output_line(columns, outcols, data[parent], width)+'\n'
+        if type(output) == unicode:
+            output = output.encode('utf-8', errors='replace')
+
+        fout.write(output)
 
     if parent not in tree:
         return
