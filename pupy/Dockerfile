@@ -5,10 +5,13 @@ LABEL maintainer "alxchk@gmail.com"
 ENV DEBIAN_FRONTEND noninteractive
 RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sources.list && \
     apt-get update && \
+    mkdir -p /usr/share/man/man1/ && \
     apt-get install -t jessie-backports --no-install-recommends -y build-essential \
     python-dev python-pip openssh-server tmux sslh libssl-dev libcap2-bin \
     john vim-nox less \
-    autoconf automake libffi-dev unzip libtool locales ncurses-term bash tcpdump libpam-cap && \
+    autoconf automake libffi-dev unzip libtool locales ncurses-term bash tcpdump libpam-cap \
+    mono-devel openjdk-8-jdk-headless=8u131-b11-1~bpo8+1 openjdk-8-jre-headless=8u131-b11-1~bpo8+1 \
+    ca-certificates-java=20161107~bpo8+1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
