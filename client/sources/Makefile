@@ -129,19 +129,22 @@ clean:
 	rm -f *.obj
 	rm -f *.pyo
 	rm -f *.pyc
-	rm -f *_txt.c
-	rm -f *_pyc.c
-	rm -f *_dll.c
+	rm -f resources/*.pyo
+	rm -f resources/*.pyc
+	rm -f resources_bootloader_pyc.c
+	rm -f $(PYOBJS) $(COMMON_OBJS)
+
+distclean:
 	rm -f revision.h
 	rm -f import-tab.c
 	rm -f import-tab.h
-	rm -f resources/*.pyo
-	rm -f resources/*.pyc
 	rm -f resources/*.txt
 	rm -f resources/*_txt.c
 	rm -f resources/library.zip
 	rm -f resources/python27.dll
 	rm -f resources/msvcr90.dll
-	rm -f $(PYOBJS) $(COMMON_OBJS)
+	rm -f *_txt.c
+	rm -f *_pyc.c
+	rm -f *_dll.c
 
 $(COMMON_OBJS) $(PYOBJS): import-tab.h

@@ -152,14 +152,19 @@ clean:
 	rm -f pupy pupy.so
 	rm -f *.o
 	rm -f linux-inject/*.o
-	rm -f resources/library.zip
 	rm -f resources/*.pyc
 	rm -f resources/*.pyo
-	rm -f resources/*.so
-	rm -f resources/*.txt
-	rm -f resources_*.c
+	rm -f resources/bootloader.pyc
+	rm -f resources_bootloader_pyc.c
+
+distclean: clean
 	rm -f import-tab.c
 	rm -f import-tab.h
+	rm -f resources_*.c
+	rm -f resources/*.so
+	rm -f resources/*.txt
+	rm -f resources/library.zip
+	rm -f revision.h
 
 $(COMMON_OBJS) $(PYOBJS): import-tab.h
 
