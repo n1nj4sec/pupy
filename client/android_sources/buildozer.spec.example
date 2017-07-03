@@ -127,7 +127,7 @@ android.whitelist = lib-dynload/termios.so,lib-dynload/mmap.so,lib-dynload/_json
 # (bool) If True, then skip trying to update the Android sdk
 # This can be useful to avoid excess Internet downloads or save time
 # when an update is due and you just want to test/build your package
-# android.skip_update = False
+# android.skip_update = True
 
 # (str) Bootstrap to use for android builds (android_new only)
 p4a.bootstrap = badservice
@@ -211,7 +211,7 @@ android.arch = armeabi-v7a
 [buildozer]
 
 # (int) Log level (0 = error only, 1 = info, 2 = debug (with command output))
-log_level = 0
+log_level = 1
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 0

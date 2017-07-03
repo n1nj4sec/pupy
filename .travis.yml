@@ -1,14 +1,14 @@
 sudo: required
-language: c
+language: c    
 before_install:
+- df -h
 - sudo dpkg --add-architecture i386
 - sudo apt-get update >/dev/null
-- sh -e /etc/init.d/xvfb start
-- sleep 3
 install:
 - sudo -E apt-get -y install mingw-w64 g++-mingw-w64-x86-64 g++-mingw-w64-i686 debootstrap cython
   make wine xvfb python-pip >/dev/null
-- pip install pylzma
+- pip install --user pylzma
+- pip install --user git+https://github.com/kivy/buildozer
 services:
 - docker
 os:
@@ -19,20 +19,33 @@ before_script:
   - if [ -f $HOME/.cache/win.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/sources -zxf $HOME/.cache/win.tgz; fi
   - if [ -f $HOME/.cache/lin.tgz ]; then sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zxf $HOME/.cache/lin.tgz; fi
   - if [ -f $HOME/.cache/android.tgz ]; then tar -C $HOME -zxf $HOME/.cache/android.tgz; fi
+  - if [ -f $HOME/.cache/android-app.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/android_sources -zxf $HOME/.cache/android-app.tgz; fi
 script:
-  - cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh
-  - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh
-  - cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh
-  - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh
-  - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh
+  - sh -e /etc/init.d/xvfb start || systemctl start xvfb
+  - sleep 3
+  - ( cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh ) &
+    ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh ) &
+    ( cd $TRAVIS_BUILD_DIR/client/android_sources && ln -sf buildozer.spec.example buildozer.spec && buildozer android update ) & wait
+  - ( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh ) &
+    ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh ) &
+    ( cd $TRAVIS_BUILD_DIR/client/android_sources && buildozer android release; mv .buildozer/android/platform/build/dists/pupy/bin/Wi-Fi-0.1-release-unsigned.apk ../../pupy/payload_templates/pupy.apk ) & wait
 before_cache:
-  - tar -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv
-  - sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv
-  - tar -C $HOME -zcf .buildozer
+  - ( if [ ! -f $HOME/.cache/win.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv; fi; rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv ) &
+    ( if [ ! -f $HOME/.cache/lin.tgz ]; then sudo -E tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv; fi; rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv ) &
+    ( if [ ! -f $HOME/.cache/android-app.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/android_sources -zcf .buildozer; fi; rm -rf $TRAVIS_BUILD_DIR/client/android_sources/.buildozer ) &
+    ( if [ ! -f $HOME/.cache/android.tgz ]; then
+       tar --remove-files -C $HOME -zcf $HOME/.cache/android.tgz
+         .android
+         .buildozer/android/platform/android-ndk-r9c/{build,platforms/android-19,platforms/android-9,prebuild,sources,toolchains/arm-*,ndk-*,GNUmakefile}
+         .buildozer/android/platform/android-sdk-20
+         .buildozer/android/platform/apache-ant-1.9.4;
+    fi; rm -rf $HOME/.buildozer ) & wait
 cache:
   apt: true
   directories:
     - $HOME/.cache
+after_cache:
+  - rm -f $HOME/.cache/win.tgz $HOME/.cache/lin.tgz $HOME/.cache/android.tgz
 after_success:
 - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
 - export REPO=alxchk/pupy
