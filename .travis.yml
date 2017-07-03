@@ -31,7 +31,7 @@ script:
     ( cd $TRAVIS_BUILD_DIR/client/android_sources && buildozer android release; mv .buildozer/android/platform/build/dists/pupy/bin/Wi-Fi-0.1-release-unsigned.apk ../../pupy/payload_templates/pupy.apk ) & wait
 before_cache:
   - ( if [ ! -f $HOME/.cache/win.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv; fi; rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv ) &
-    ( if [ ! -f $HOME/.cache/lin.tgz ]; then sudo -E tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv; fi; rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv ) &
+    ( if [ ! -f $HOME/.cache/lin.tgz ]; then sudo -E tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv; fi; sudo rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv ) &
     ( if [ ! -f $HOME/.cache/android-app.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/android_sources -zcf .buildozer; fi; rm -rf $TRAVIS_BUILD_DIR/client/android_sources/.buildozer ) &
     ( if [ ! -f $HOME/.cache/android.tgz ]; then
        tar --remove-files -C $HOME -zcf $HOME/.cache/android.tgz
