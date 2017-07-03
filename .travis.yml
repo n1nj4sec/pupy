@@ -36,7 +36,6 @@ before_cache:
     ( if [ ! -f $HOME/.cache/android.tgz ]; then
        tar --remove-files -C $HOME -zcf $HOME/.cache/android.tgz
          .android
-         .buildozer/android/platform/android-ndk-r9c/{build,platforms/android-19,platforms/android-9,prebuild,sources,toolchains/arm-*,ndk-*,GNUmakefile}
          .buildozer/android/platform/android-sdk-20
          .buildozer/android/platform/apache-ant-1.9.4;
     fi; rm -rf $HOME/.buildozer ) & wait
