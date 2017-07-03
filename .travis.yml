@@ -1,4 +1,5 @@
 sudo: required
+language: c
 before_install:
 - sudo dpkg --add-architecture i386
 - sudo apt-get update >/dev/null
@@ -13,22 +14,23 @@ services:
 os:
 - linux
 dist: trusty
-cache:
-- apt: true
+before_script:
+  - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/*
+  - if [ -f $HOME/.cache/win.tgz ]; then  tar -C $TRAVIS_BUILD_DIR/client/sources -zxf $HOME/.cache/win.tgz; fi
+  - if [ -f $HOME/.cache/lin.tgz ]; then sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zxf $HOME/.cache/lin.tgz; fi
+  - if [ -f $HOME/.cache/android.tgz ]; then tar -C $HOME -zxf $HOME/.cache/android.tgz; fi
 script:
-- cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/*
-- cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh
-- cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh && ./build.sh
-- cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh && sudo -E ./build.sh
-- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win32/drive_c/users
-- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win64/drive_c/users
-- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win32/dosdevices
-- rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/win64/dosdevices
+  - cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh
+  - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh && ./build.sh
+  - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh && sudo -E ./build.sh
+before_cache:
+  - tar -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv
+  - sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv
+  - tar -C $HOME -zcf .buildozer
 cache:
+  apt: true
   directories:
-    - $TRAVIS_BUILD_DIR/client/sources/buildenv
-    - $TRAVIS_BUILD_DIR/client/sources-linux/buildenv
-    - $HOME/.buildozer/platform/android
+    - $HOME/.cache
 after_success:
 - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
 - export REPO=alxchk/pupy
