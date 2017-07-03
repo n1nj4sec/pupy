@@ -10,7 +10,7 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sou
     python-dev python-pip openssh-server tmux sslh libssl-dev libcap2-bin \
     john vim-nox less \
     autoconf automake libffi-dev unzip libtool locales ncurses-term bash tcpdump libpam-cap \
-    mono-devel openjdk-8-jdk-headless=8u131-b11-1~bpo8+1 openjdk-8-jre-headless=8u131-b11-1~bpo8+1 \
+    openjdk-8-jdk-headless=8u131-b11-1~bpo8+1 openjdk-8-jre-headless=8u131-b11-1~bpo8+1 \
     ca-certificates-java=20161107~bpo8+1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
