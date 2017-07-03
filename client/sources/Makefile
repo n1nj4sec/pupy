@@ -20,6 +20,8 @@ CFLAGS:=$(CFLAGS) /DWIN_X86 /nologo
 PPARCH := x86
 endif
 
+CFLAGS += /Iresources\\$(ARCH) /Iresources
+
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
@@ -65,40 +67,42 @@ revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-pupy.c: resources_library_compressed_string_txt.c revision.h
-pupy_load.c: resources_msvcr90_dll.c resources_python27_dll.c resources_bootloader_pyc.c revision.h
+pupy.c: resources/$(ARCH)/library.c revision.h
+pupy_load.c: resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
 
 import-tab.c import-tab.h: mktab.py
 	$(HOST_PYTHON) $(PFLAGS) $<
 
 Python-dynload.obj: import-tab.c import-tab.h
 
-resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_library_compressed_string.py
+resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip $(BUILDENV_READY)
+	$(HOST_PYTHON) ../gen_library_compressed_string.py $@ resources/$(ARCH)/library.zip
 
-resources/library.zip: ../build_library_zip.py $(BUILDENV_READY)
-	$(PYTHON) ../build_library_zip.py -windows
+resources/$(ARCH)/library.zip: ../build_library_zip.py $(BUILDENV_READY)
+	$(PYTHON) ../build_library_zip.py $@
 
-resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt $(COMPRESSED)
+resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip $(BUILDENV_READY)
+	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED)
 
 resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py $(BUILDENV_READY)
 	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
-resources_bootloader_pyc.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $< $(COMPRESSED)
+resources/bootloader.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
-resources/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
+resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
+	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDENV_READY)
+resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDENV_READY)
+	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources_python27_dll.c: resources/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $< $(COMPRESSED)
+resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
-resources_msvcr90_dll.c: resources/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $< $(COMPRESSED)
+resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
@@ -129,22 +133,15 @@ clean:
 	rm -f *.obj
 	rm -f *.pyo
 	rm -f *.pyc
-	rm -f resources/*.pyo
-	rm -f resources/*.pyc
-	rm -f resources_bootloader_pyc.c
+	rm -f resources/bootloader.pyc
+	rm -f resources/bootloader.c
 	rm -f $(PYOBJS) $(COMMON_OBJS)
 
-distclean:
+distclean: clean
 	rm -f revision.h
 	rm -f import-tab.c
 	rm -f import-tab.h
-	rm -f resources/*.txt
-	rm -f resources/*_txt.c
-	rm -f resources/library.zip
-	rm -f resources/python27.dll
-	rm -f resources/msvcr90.dll
-	rm -f *_txt.c
-	rm -f *_pyc.c
-	rm -f *_dll.c
+	rm -f revision.h
+	rm -rf resources
 
 $(COMMON_OBJS) $(PYOBJS): import-tab.h

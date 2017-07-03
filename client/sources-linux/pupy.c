@@ -21,7 +21,7 @@
 int linux_inject_main(int argc, char **argv);
 #endif
 
-#include "resources_library_compressed_string_txt.c"
+#include "library.c"
 
 #include "revision.h"
 
@@ -39,12 +39,12 @@ static PyObject *Py_get_modules(PyObject *self, PyObject *args)
     static PyObject *modules = NULL;
     if (!modules) {
         modules = PyObject_lzmaunpack(
-            resources_library_compressed_string_txt_start,
-            resources_library_compressed_string_txt_size
+            library_c_start,
+            library_c_size
         );
 
-        munmap((char *) resources_library_compressed_string_txt_start,
-            resources_library_compressed_string_txt_size);
+        munmap((char *) library_c_start,
+            library_c_size);
 
         Py_XINCREF(modules);
     }

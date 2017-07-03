@@ -19,11 +19,12 @@ XZARGS ?= "aligned(0x1000)" 'section(".xzrodata")'
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
 ifeq ($(ARCH),64)
 NAME := 64
-CFLAGS += -m64
 LDFLAGS += -m64
 else
 NAME := 86
 endif
+
+CFLAGS += -Iresources/$(ARCH) -Iresources
 
 LINUX_INJECT_CFLAGS := -include fixes.h -include debug.h \
 	-Dmain=linux_inject_main -Drealpath=fakepath
@@ -75,9 +76,9 @@ revision.h:
 	if [ x"$$COMMIT" = x"" ]; then rev=`cat ../../.git/\`cat ../../.git/HEAD | cut -f 2 -d \ \` | cut -c 1-8`; \
 		else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-pupy.o: resources_library_compressed_string_txt.c revision.h
-pupy_load.o: resources_bootloader_pyc.c resources_python27_so.c \
-	resources_libssl_so.c resources_libcrypto_so.c revision.h
+pupy.o: resources/$(ARCH)/library.c revision.h
+pupy_load.o: resources/bootloader.c resources/$(ARCH)/python27.c \
+	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c revision.h
 
 import-tab.c import-tab.h: mktab.py
 	$(PYTHON) $(PFLAGS) $<
@@ -90,54 +91,56 @@ LzmaDec.o: ../lzma/LzmaDec.c
 	$(CC) $(CFLAGS) -O3 -fPIC -c -o $@ $<
 endif
 
-resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip
-	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py
+resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip
+	$(PYTHON) $(PFLAGS) ../gen_library_compressed_string.py $@ resources/$(ARCH)/library.zip
 
-resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip
-	$(PYTHON) $(PFLAGS) ../gen_resource_header.py \
-		resources/library_compressed_string.txt $(COMPRESSED) $(XZARGS)
+resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
+	$(PYTHON) $(PFLAGS) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(XZARGS)
 
 resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
 	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
 
-resources_bootloader_pyc.c: ../gen_resource_header.py resources/bootloader.pyc
-	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
+resources/bootloader.c: ../gen_resource_header.py resources/bootloader.pyc
+	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
 linux-inject/%.o: linux-inject/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
 
-resources/python27.so: $(LIBPYTHON)
+resources/$(ARCH)/python27.so: $(LIBPYTHON)
+	@mkdir -p resources/$(ARCH)
 	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
 	mv $@.tmp $@
 	rm -f $@.tmp
 
-resources/libcrypto.so: $(LIBCRYPTO)
+resources/$(ARCH)/libcrypto.so: $(LIBCRYPTO)
+	@mkdir -p resources/$(ARCH)
 	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
 	mv $@.tmp $@
 	rm -f $@.tmp
 
-resources/libssl.so: $(LIBSSL)
+resources/$(ARCH)/libssl.so: $(LIBSSL)
+	@mkdir -p resources/$(ARCH)
 	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
 	mv $@.tmp $@
 	rm -f $@.tmp
 
-resources/library.zip: ../build_library_zip.py ../additional_imports.py
-	$(PYTHON) -OO $(PFLAGS) $<
+resources/$(ARCH)/library.zip: ../build_library_zip.py ../additional_imports.py
+	$(PYTHON) -OO $(PFLAGS) $< $@
 
-resources_python27_so.c: ../gen_resource_header.py resources/python27.so
-	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
+resources/$(ARCH)/python27.c: ../gen_resource_header.py resources/$(ARCH)/python27.so
+	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-resources_libssl_so.c: ../gen_resource_header.py resources/libssl.so
-	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
+resources/$(ARCH)/libssl.c: ../gen_resource_header.py resources/$(ARCH)/libssl.so
+	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-resources_libcrypto_so.c: ../gen_resource_header.py resources/libcrypto.so
-	$(PYTHON) $(PFLAGS) $+ $(COMPRESSED) $(XZARGS)
+resources/$(ARCH)/libcrypto.c: ../gen_resource_header.py resources/$(ARCH)/libcrypto.so
+	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): main_exe.o $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)
@@ -148,23 +151,18 @@ $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: main_so.o $(PYOBJS) $(COMMON_
 .PHONY: clean all
 
 clean:
-	rm -f $(COMMON_OBJS)
+	rm -f $(COMMON_OBJS) $(PYOBJS)
 	rm -f pupy pupy.so
 	rm -f *.o
 	rm -f linux-inject/*.o
-	rm -f resources/*.pyc
-	rm -f resources/*.pyo
 	rm -f resources/bootloader.pyc
-	rm -f resources_bootloader_pyc.c
+	rm -f resources/bootloader.c
 
 distclean: clean
 	rm -f import-tab.c
 	rm -f import-tab.h
-	rm -f resources_*.c
-	rm -f resources/*.so
-	rm -f resources/*.txt
-	rm -f resources/library.zip
 	rm -f revision.h
+	rm -rf resources
 
 $(COMMON_OBJS) $(PYOBJS): import-tab.h
 

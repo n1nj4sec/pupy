@@ -44,7 +44,7 @@ import compileall
 
 compileall.compile_dir(PATCHES)
 
-zf = zipfile.ZipFile(os.path.join('resources','library.zip'), mode='w', compression=zipfile.ZIP_DEFLATED)
+zf = zipfile.ZipFile(sys.argv[1], mode='w', compression=zipfile.ZIP_DEFLATED)
 
 if 'win' in sys.platform:
     for root, _, files in os.walk(r'C:\Python27\Lib\site-packages'):

