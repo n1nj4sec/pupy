@@ -16,13 +16,15 @@ os:
 dist: trusty
 before_script:
   - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/*
-  - if [ -f $HOME/.cache/win.tgz ]; then  tar -C $TRAVIS_BUILD_DIR/client/sources -zxf $HOME/.cache/win.tgz; fi
+  - if [ -f $HOME/.cache/win.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/sources -zxf $HOME/.cache/win.tgz; fi
   - if [ -f $HOME/.cache/lin.tgz ]; then sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zxf $HOME/.cache/lin.tgz; fi
   - if [ -f $HOME/.cache/android.tgz ]; then tar -C $HOME -zxf $HOME/.cache/android.tgz; fi
 script:
   - cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh
-  - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh && ./build.sh
-  - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh && sudo -E ./build.sh
+  - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh
+  - cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh
+  - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh
+  - cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh
 before_cache:
   - tar -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv
   - sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv
