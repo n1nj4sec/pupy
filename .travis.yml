@@ -15,7 +15,7 @@ os:
 - linux
 dist: trusty
 before_script:
-  - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/*
+  - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/pupy*
   - if [ -f $HOME/.cache/win.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/sources -zxf $HOME/.cache/win.tgz; fi
   - if [ -f $HOME/.cache/lin.tgz ]; then sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zxf $HOME/.cache/lin.tgz; fi
   - if [ -f $HOME/.cache/android.tgz ]; then tar -C $HOME -zxf $HOME/.cache/android.tgz; fi
@@ -23,14 +23,23 @@ before_script:
 script:
   - sh -e /etc/init.d/xvfb start || systemctl start xvfb
   - sleep 3
+  - df -h
   - ( cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh ) &
     ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh ) &
-    ( cd $TRAVIS_BUILD_DIR/client/android_sources && ln -sf buildozer.spec.example buildozer.spec && buildozer android update ) & wait
+    ( cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh &&
+       rm -f $HOME/.buildozer/android-sdk_* &&
+       rm -rf $HOME/.buildozer/android-ndk* ) &
+    wait
+  - df -h
   - ( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh ) &
-    ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh ) &
-    ( cd $TRAVIS_BUILD_DIR/client/android_sources && buildozer android release; mv .buildozer/android/platform/build/dists/pupy/bin/Wi-Fi-0.1-release-unsigned.apk ../../pupy/payload_templates/pupy.apk ) & wait
+    ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh ) & wait
   - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates
+  - df -h
 before_cache:
+  - rm -rf $HOME/.cache && mkdir -p $HOME/.cache
+  - rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/downloads
+  - sudo rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv/downloads
+  - rm -rf $TRAVIS_BUILD_DIR/client/android_sources/.buildozer/android/app
   - ( if [ ! -f $HOME/.cache/win.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv; fi; rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv ) &
     ( if [ ! -f $HOME/.cache/lin.tgz ]; then sudo -E tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv; fi; sudo rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv ) &
     ( if [ ! -f $HOME/.cache/android-app.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/android_sources -zcf $HOME/.cache/android-app.tgz .buildozer; fi; rm -rf $TRAVIS_BUILD_DIR/client/android_sources/.buildozer ) &
@@ -40,6 +49,7 @@ before_cache:
          .buildozer/android/platform/android-sdk-20
          .buildozer/android/platform/apache-ant-1.9.4;
     fi; rm -rf $HOME/.buildozer ) & wait
+  - df -h
 cache:
   apt: true
   directories:

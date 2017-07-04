@@ -135,6 +135,7 @@ clean:
 	rm -f *.pyc
 	rm -f resources/bootloader.pyc
 	rm -f resources/*.c
+	rm -f resources/$(ARCH)/*.c
 	rm -f $(PYOBJS) $(COMMON_OBJS)
 
 distclean: clean
