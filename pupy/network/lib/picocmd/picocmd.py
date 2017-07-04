@@ -277,14 +277,14 @@ class SystemInfo(Command):
     # To do, add more? Who knows how platform.uname looks like on other platforms?
     # How many are there? Let's use 3 bits for that - 8 systems in total
     well_known_os_names_decode = dict(enumerate([
-        'Linux', 'Windows', 'SunOS'
+        'Linux', 'Windows', 'SunOS', 'android'
     ]))
     well_known_os_names_encode = {
         v:k for k,v in well_known_os_names_decode.iteritems()
     }
     # Same question.
     well_known_cpu_archs_decode = dict(enumerate([
-        'x86', 'x86', 'x64', 'x64',
+        'x86', 'x86', 'x64', 'x64', 'arm'
     ]))
     well_known_cpu_archs_encode = {
         v:k for k,v in well_known_cpu_archs_decode.iteritems()
@@ -297,7 +297,9 @@ class SystemInfo(Command):
         'i686': 'x86',
         'x86_64': 'x64',
         'amd64': 'x64',
-        'i86pc': 'x86'
+        'i86pc': 'x86',
+        'armv7l': 'arm',
+        'armv8l': 'arm',
     }
 
     def __init__(
