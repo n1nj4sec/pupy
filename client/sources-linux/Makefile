@@ -156,7 +156,7 @@ clean:
 	rm -f *.o
 	rm -f linux-inject/*.o
 	rm -f resources/bootloader.pyc
-	rm -f resources/bootloader.c
+	rm -f resources/*.c
 
 distclean: clean
 	rm -f import-tab.c

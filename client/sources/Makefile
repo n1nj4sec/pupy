@@ -134,7 +134,7 @@ clean:
 	rm -f *.pyo
 	rm -f *.pyc
 	rm -f resources/bootloader.pyc
-	rm -f resources/bootloader.c
+	rm -f resources/*.c
 	rm -f $(PYOBJS) $(COMMON_OBJS)
 
 distclean: clean
