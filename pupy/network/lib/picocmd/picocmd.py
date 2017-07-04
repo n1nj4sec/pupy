@@ -333,7 +333,7 @@ class SystemInfo(Command):
                 opener.addheaders = [('User-agent', 'curl/7.50.0')]
                 response = opener.open('http://ifconfig.co', timeout=5)
                 if response.code == 200:
-                    self.external_ip = netaddr.IPAddress(response.read())
+                    self.external_ip = netaddr.IPAddress(response.read().strip())
                     self.internet = True
             except Exception, e:
                 self.external_ip = None
