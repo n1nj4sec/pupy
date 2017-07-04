@@ -19,6 +19,142 @@ BATCH_FILENAME  = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
 SMBSERVER_DIR   = ''.join(random.sample(string.ascii_letters, 10))
 DUMMY_SHARE     = 'TMP'
 
+class FileTransfer(object):
+    def __init__(self, host, port=445, hash='', username='', password='', domain='', timeout=30):
+        self.__host = host
+        self.__nthash, self.__lmhash = '', ''
+        if hash and ':' in hash:
+            self.__lmhash, self.__nthash = hash.strip().split(':')
+        self.__port = port
+        self.__username = username
+        self.__password = password
+        self.__domain = domain
+        self.__timeout = timeout
+        self.__exception = None
+
+        try:
+            self.__conn = SMBConnection(
+                self.__host, self.__host,
+                None,
+                self.__port, timeout=self.__timeout
+            )
+
+            self.__conn.login(
+                self.__username,
+                self.__password,
+                self.__domain,
+                self.__lmhash,
+                self.__nthash
+            )
+
+        except Exception, e:
+            self.__exception = e
+
+    @property
+    def error(self):
+        return str(self.__exception)
+
+    @property
+    def ok(self):
+        return self.__exception is None
+
+    def shares(self):
+        try:
+            return [
+                x['shi1_netname'][:-1] for x in self.__conn.listShares()
+            ]
+        except Exception, e:
+            self.__exception = e
+            return []
+
+    def ls(self, share, path):
+        try:
+            listing = []
+            for f in self.__conn.listPath(share, path):
+                if f.get_longname() in ('.', '..'):
+                    continue
+
+                listing.append((
+                    f.get_longname(), f.is_directory() > 0,
+                    f.get_filesize(), time.ctime(float(f.get_mtime_epoch()))
+                ))
+            return listing
+
+        except Exception, e:
+            self.__exception = e
+            return []
+
+    def rm(self, share, path):
+        try:
+            self.__conn.deleteFile(share, path)
+        except Exception, e:
+            self.__exception = e
+
+    def mkdir(self, share, path):
+        try:
+            self.__conn.createDirectory(share, path)
+        except Exception, e:
+            self.__exception = e
+
+    def rmdir(self, share, path):
+        try:
+            self.__conn.deleteDirectory(share, path)
+        except Exception, e:
+            self.__exception = e
+
+    def get(self, share, remote, local):
+        if not self.ok:
+            raise ValueError('Connection was not established')
+
+        try:
+            if type(local) in (str, unicode):
+                local = os.path.expandvars(local)
+                local = os.path.expanduser(local)
+
+                with open(local, 'w+b') as destination:
+                    self.__conn.getFile(
+                        share,
+                        remote,
+                        destination.write
+                    )
+            else:
+                self.__conn.getFile(share, remote, local)
+
+        except Exception, e:
+            self.__exception = e
+
+    def put(self, local, share, remote):
+        if not self.ok:
+            raise ValueError('Connection was not established')
+
+        try:
+            if type(local) in (str, unicode):
+                local = os.path.expandvars(local)
+                local = os.path.expanduser(local)
+
+                if not os.path.exists(local):
+                    raise ValueError('Local file ({}) does not exists'.format(local))
+
+                with open(local, 'rb') as source:
+                    self.__conn.putFile(
+                        share,
+                        remote,
+                        source.read
+                    )
+            else:
+                self.__conn.putFile(share, remote, local)
+
+        except Exception, e:
+            self.__exception = e
+
+    def __del__(self):
+        if self.__conn:
+            try:
+                self.__conn.logoff()
+            except:
+                pass
+
+
 class RemoteShellsmbexec(object):
     def __init__(self, share, rpc, mode, serviceName, command, timeout):
         self.__share = share
@@ -85,11 +221,14 @@ class RemoteShellsmbexec(object):
             fd.close()
             os.unlink(SMBSERVER_DIR + '/' + self.__output_filename)
 
-    def execute_remote(self, data):
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile
-        if self.__mode == 'SERVER':
-            command += ' & ' + self.__copyBack
-        command += ' & ' + 'del ' + self.__batchFile
+    def execute_remote(self, data, nooutput=False):
+        if nooutput:
+            command = data
+        else:
+            command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile
+            if self.__mode == 'SERVER':
+                command += ' & ' + self.__copyBack
+            command += ' & ' + 'del ' + self.__batchFile
 
         try:
             resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName, lpBinaryPathName=command)
@@ -101,12 +240,15 @@ class RemoteShellsmbexec(object):
            scmr.hRStartServiceW(self.__scmr, service)
         except:
            pass
+
         scmr.hRDeleteService(self.__scmr, service)
         scmr.hRCloseServiceHandle(self.__scmr, service)
-        self.get_output()
 
-    def send_data(self, data):
-        self.execute_remote(data)
+        if not nooutput:
+            self.get_output()
+
+    def send_data(self, data, nooutput=False):
+        self.execute_remote(data, nooutput=nooutput)
         result = self.__outputBuffer
         self.__outputBuffer = ''
         return result
@@ -143,7 +285,7 @@ class CMDEXEC(object):
     def service_generator(self, size=6, chars=string.ascii_uppercase):
         return ''.join(random.choice(chars) for _ in range(size))
 
-    def run(self, addr):
+    def run(self, addr, nooutput):
         result = ''
         for protocol in self.__protocols:
             protodef = CMDEXEC.KNOWN_PROTOCOLS[protocol]
@@ -169,7 +311,7 @@ class CMDEXEC(object):
                     self.__share, rpctransport, self.__mode, self.__serviceName,
                     self.__command, self.__timeout
                 )
-                result = self.shell.send_data(self.__command)
+                result = self.shell.send_data(self.__command, nooutput=nooutput)
 
             except SessionError as e:
                 if 'STATUS_SHARING_VIOLATION' in str(e):
@@ -200,7 +342,7 @@ class WMIEXEC:
         if hashes:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def run(self, addr, smbConnection):
+    def run(self, addr, smbConnection, nooutput):
         result = ''
         dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, oxidResolver = True, doKerberos=self.__doKerberos)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
@@ -212,7 +354,7 @@ class WMIEXEC:
 
         try:
             self.shell = RemoteShellwmi(self.__share, win32Process, smbConnection)
-            result = self.shell.send_data(self.__command)
+            result = self.shell.send_data(self.__command, nooutput=nooutput)
         except  (Exception, KeyboardInterrupt), e:
             traceback.print_exc()
             dcom.disconnect()
@@ -268,7 +410,8 @@ class RemoteShellwmi():
         obj = self.__win32Process.Create(command, self.__pwd, None)
         self.get_output()
 
-    def send_data(self, data):
+    def send_data(self, data, nooutput=False):
+        self.__noOutput = nooutput
         self.execute_remote(data)
         result = self.__outputBuffer
         self.__outputBuffer = ''
@@ -301,7 +444,7 @@ def upload_file(smbconn, host, src, share, dst):
 
 def connect(host, port, user, passwd, hash, share, file_to_upload,
                 src_folder, dst_folder, command,
-                domain='workgroup', execm='smbexec', codepage='cp437', timeout=30):
+                domain='workgroup', execm='smbexec', codepage='cp437', timeout=30, nooutput=False):
     try:
         lmhash = ''
         nthash = ''
@@ -358,11 +501,11 @@ def connect(host, port, user, passwd, hash, share, file_to_upload,
                             '{}/SMB'.format(port), user, passwd,
                             domain, hash, share, command, timeout
                         )
-                        result = executer.run(host)
+                        result = executer.run(host, nooutput)
 
                     elif execm == 'wmi':
                         executer = WMIEXEC(command, user, passwd, domain, hash, share)
-                        result = executer.run(host, smb)
+                        result = executer.run(host, smb, nooutput)
 
                     if result:
                         print result.decode(codepage)

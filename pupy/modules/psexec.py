@@ -33,6 +33,7 @@ class PSExec(PupyModule):
         self.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         self.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
         self.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
+        self.arg_parser.add_argument("-S", dest='noout', action='store_true', help="Do not wait for command output")
         self.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
                                          help="Try to set this timeout")
         self.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
@@ -148,7 +149,7 @@ class PSExec(PupyModule):
                         host, args.port, args.user, args.passwd, args.hash,
                         args.share, file_to_upload, remote_path, dst_folder,
                         args.command, args.domain, args.execm, args.codepage,
-                        args.timeout
+                        args.timeout, args.noout
                     )
 
                 if args.ps1_oneliner:
