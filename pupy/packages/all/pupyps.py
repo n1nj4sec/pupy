@@ -196,7 +196,10 @@ def interfaces():
         },
         'stats': {
             x:{
-                k:v for k,v in y.__dict__.iteritems()
+                k:v for k,v in (
+                    y.__dict__.iteritems() if hasattr(y, '__dict__') else
+                    zip(('isup', 'duplex', 'speed', 'mtu'), y)
+            )
             } for x,y in psutil.net_if_stats().iteritems()
         }
     }
