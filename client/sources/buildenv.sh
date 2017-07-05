@@ -24,20 +24,53 @@ PACKAGES="$PACKAGES mss pyaudio https://github.com/secdev/scapy/archive/master.z
 
 BUILDENV=${1:-`pwd`/buildenv}
 
-if [ -f $BUILDENV/.ready ]; then
-    echo "Buildenv at $BUILDENV already prepared"
-    exit 0
-fi
-
-exec < /dev/null
-
 WINE=${WINE:-wine}
 WINE32="$BUILDENV/win32"
 WINE64="$BUILDENV/win64"
 DOWNLOADS="$BUILDENV/downloads"
 
+create_templates() {
+    TEMPLATES=`readlink -f ../../pupy/payload_templates`
+
+    cd $WINE32/drive_c/Python27
+    rm -f ${TEMPLATES}/windows-x86.zip
+    for dir in Lib DLLs; do
+	cd $dir
+	zip -q -y \
+	    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
+	    -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
+	    -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
+	    -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
+	    -r9 ${TEMPLATES}/windows-x86.zip .
+	cd -
+    done
+
+    cd $WINE64/drive_c/Python27
+    rm -f ${TEMPLATES}/windows-amd64.zip
+
+    for dir in Lib DLLs; do
+	cd $dir
+	zip -q -y \
+	    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
+	    -x "*test/*" -x "*tests/*" -x "*examples/*"  -x "pythonwin/*" \
+	    -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
+	    -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
+	    -r9 ${TEMPLATES}/windows-amd64.zip .
+	cd -
+    done
+}
+
+if [ -f $BUILDENV/.ready ]; then
+    echo "Buildenv at $BUILDENV already prepared"
+    create_templates
+    exit 0
+fi
+
+
 MINGW64=${MINGW64:-x86_64-w64-mingw32-g++}
 MINGW32=${MINGW32:-i686-w64-mingw32-g++}
+
+exec < /dev/null
 
 WINPTY=../../pupy/external/winpty
 
@@ -205,35 +238,8 @@ mv ${WINPTY}/build/winpty.dll ${BUILDENV}/win64/drive_c/Python27/DLLs/
 
 echo "[+] Creating bundles"
 
-TEMPLATES=`readlink -f ../../pupy/payload_templates`
-
 OPWD=`pwd`
 
-cd $WINE32/drive_c/Python27
-rm -f ${TEMPLATES}/windows-x86.zip
-for dir in Lib DLLs; do
-    cd $dir
-    zip -q -y \
-	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
-	-x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
-	-x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
-	-x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-	-r9 ${TEMPLATES}/windows-x86.zip .
-    cd -
-done
-
-cd $WINE64/drive_c/Python27
-rm -f ${TEMPLATES}/windows-amd64.zip
-
-for dir in Lib DLLs; do
-    cd $dir
-    zip -q -y \
-	-x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
-	-x "*test/*" -x "*tests/*" -x "*examples/*"  -x "pythonwin/*" \
-	-x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
-	-x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-	-r9 ${TEMPLATES}/windows-amd64.zip .
-    cd -
-done
+create_templates
 
 touch $BUILDENV/.ready
