@@ -71,7 +71,11 @@ def pstree():
     try:
         my_user = me.username()
     except:
-        my_user = None
+        try:
+            import getpass
+            my_user = getpass.getuser()
+        except:
+            my_user = None
 
     for p in psutil.process_iter():
         if not psutil.pid_exists(p.pid):
@@ -121,7 +125,14 @@ def users():
             if pinfo.get('terminal'):
                 terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
 
-    me = me.username()
+    try:
+        me = me.username()
+    except:
+        try:
+            import getpass
+            me = getpass.getuser()
+        except:
+            me = ''
 
     for term in psutil.users():
         terminfo = {
