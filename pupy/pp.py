@@ -736,7 +736,7 @@ def rpyc_loop(launcher):
                         interval, timeout = conn.get_pings()
                         conn.serve(interval or 10)
                         if interval:
-                            conn.ping(timeout)
+                            conn.ping(timeout=timeout)
 
         except SystemExit:
             raise

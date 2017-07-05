@@ -155,7 +155,7 @@ class PupyTCPServer(ThreadedServer):
                     while not connection.closed:
                         connection.serve(interval or 10)
                         if interval:
-                            connection.ping(timeout)
+                            connection.ping(timeout=timeout)
 
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
