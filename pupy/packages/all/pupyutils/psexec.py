@@ -13,11 +13,16 @@ import random
 import sys
 import os
 import string
+import encodings
 
 PERM_DIR = ''.join(random.sample(string.ascii_letters, 10))
 BATCH_FILENAME  = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
 SMBSERVER_DIR   = ''.join(random.sample(string.ascii_letters, 10))
 DUMMY_SHARE     = 'TMP'
+
+if not encodings._cache['idna']:
+    import encodings.idna
+    encodings._cache['idna'] = encodings.idna.getregentry()
 
 class FileTransfer(object):
     def __init__(self, host, port=445, hash='', username='', password='', domain='', timeout=30):

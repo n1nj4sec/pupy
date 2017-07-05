@@ -9,7 +9,7 @@ __class_name__="SMB"
 @config(cat="admin")
 class SMB(PupyModule):
     ''' Copy files via SMB protocol '''
-    
+
     max_clients = 1
     dependencies = [ 'impacket', 'pupyutils.psexec' ]
 
@@ -21,7 +21,8 @@ class SMB(PupyModule):
         self.arg_parser.add_argument('-d', '--domain', default='', help='Domain')
         self.arg_parser.add_argument('-H', '--hash', default='', help='NTLM hash')
         self.arg_parser.add_argument('-T', '--timeout', default=30, type=int, help='Timeout')
-        
+        self.arg_parser.add_argument('-c', '--codepage', default=None, help='Codepage')
+
         commands = self.arg_parser.add_subparsers(dest="command")
         cp = commands.add_parser('cp')
         cp.add_argument('src', help='Source')
@@ -75,27 +76,61 @@ class SMB(PupyModule):
         if not ft.ok:
             self.error(ft.error)
 
-    def parse_netloc(self, line):
+    def parse_netloc(self, line, partial=False, codepage=None):
         line = line.replace('\\', '/')
-
         if not line.startswith('//'):
             raise ValueError('Invalid network format')
-        
-        remote = line[2:].split('/')
-        if len(remote) < 3 or not all(remote[:2]):
-            raise ValueError('Invalid network format')
 
-        return remote[0], remote[1], ntpath.normpath('\\'.join(remote[2:]))
+        if not type(line) == unicode:
+            line = line.decode('utf-8')
+
+        if codepage:
+            line = line.encode(codepage, errors='replace')
+
+        remote = line[2:].split('/')
+
+        if partial:
+            if len(remote) == 0:
+                raise ValueError('Empty network specification')
+
+            if not (remote[0]):
+                raise ValueError('Host is empty')
+
+            host = remote[0]
+            if len(remote) > 1:
+                share = remote[1]
+            else:
+                share = ''
+
+            if len(remote) > 2:
+                path = ntpath.normpath('\\'.join(remote[2:]))
+                if remote[-1] == '':
+                    path += '\\'
+            else:
+                path = ''
+
+            return host, share, path
+
+        else:
+            if len(remote) < 3 or not all(remote[:2]):
+                raise ValueError('Invalid network format')
+
+            return remote[0], remote[1], ntpath.normpath('\\'.join(remote[2:]))
 
     def ls(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst)
+            host, share, path = self.parse_netloc(args.dst, partial=True, codepage=args.codepage)
         except Exception, e:
             self.error(str(e))
             return
 
-        if not path or path == '.':
-            path = '\\*'
+        if not share:
+            args.host = host
+            self.shares(args)
+            return
+
+        if not path or path == '.' or path.endswith('\\'):
+            path += '*'
 
         ft = self.get_ft(args, host)
         if not ft.ok:
@@ -103,16 +138,17 @@ class SMB(PupyModule):
             return
 
         for name, directory, size, ctime in obtain(ft.ls(share, path)):
-            self.log('%crw-rw-rw- %10d  %s %s' % (
-                'd' if directory > 0 else '-', size, ctime, name
-            ))
+            if args.codepage:
+                name = name.encode('utf-16le').decode(args.codepage, errors='replace')
+
+            self.log(u'%crw-rw-rw- %10d  %s %s' % ('d' if directory > 0 else '-', size, ctime, name))
 
         if not ft.ok:
             self.error(ft.error)
 
     def rm(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst)
+            host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
         except Exception, e:
             self.error(str(e))
             return
@@ -128,7 +164,7 @@ class SMB(PupyModule):
 
     def mkdir(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst)
+            host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
         except Exception, e:
             self.error(str(e))
             return
@@ -144,7 +180,7 @@ class SMB(PupyModule):
 
     def rmdir(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst)
+            host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
         except Exception, e:
             self.error(str(e))
             return
@@ -174,11 +210,11 @@ class SMB(PupyModule):
             return
 
         try:
-            host, share, path = self.parse_netloc(remote)
+            host, share, path = self.parse_netloc(remote, codepage=args.codepage)
         except Exception, e:
             self.error(e)
             return
-        
+
         local = os.path.expandvars(local)
         local = os.path.expanduser(local)
 
@@ -187,11 +223,11 @@ class SMB(PupyModule):
             return
 
         ft = self.get_ft(args, host)
-        
+
         if not ft.ok:
             self.error(ft.error)
             return
-        
+
         interval, timeout = self.client.conn._conn.root.getconn().get_pings()
         self.client.conn._conn.root.getconn().set_pings(0, 0)
 
