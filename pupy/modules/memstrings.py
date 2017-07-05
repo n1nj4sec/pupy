@@ -35,7 +35,7 @@ class MemStrings(PupyModule):
                                 help='Strings portion block')
         self.arg_parser.add_argument('-d', '--no-duplication', default=False, action='store_true',
                                 help='Enable strings deduplication (will increase memory usage)')
-        self.arg_parser.add_argument('-S', '--stdout', help='Show strings on stdout')
+        self.arg_parser.add_argument('-S', '--stdout', action='store_true', help='Show strings on stdout')
 
     def run(self, args):
         targets = args.pid + args.name
