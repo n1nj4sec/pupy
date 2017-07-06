@@ -409,9 +409,12 @@ class RemoteShellwmi():
         self.__transferClient.deleteFile(self.__share, self.__output)
 
     def execute_remote(self, data):
-        command = self.__shell + data
         if self.__noOutput is False:
+            command = self.__shell + data
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
+        else:
+            command = data
+
         obj = self.__win32Process.Create(command, self.__pwd, None)
         self.get_output()
 
