@@ -21,9 +21,10 @@ import rpyc
 import cmd
 
 class CmdRepl(cmd.Cmd):
-    def __init__(self, stdout, write_cb, completion, CRLF=False, interpreter=None):
+    def __init__(self, stdout, write_cb, completion, CRLF=False, interpreter=None, codepage=None):
         self._write_cb = write_cb
         self._complete = completion
+        self._codepage = codepage
         self.prompt = '\r'
         self._crlf = ('\r\n' if CRLF else '\n')
         self._interpreter = interpreter
@@ -38,6 +39,9 @@ class CmdRepl(cmd.Cmd):
             return
 
         if not self._complete.is_set():
+            if self._codepage:
+                data = data.decode(self._codepage, errors='replace')
+
             self.stdout.write(data)
             self.stdout.flush()
             if '\n' in data:
@@ -68,6 +72,9 @@ class CmdRepl(cmd.Cmd):
         pass
 
     def default(self, line):
+        if self._codepage:
+            line = line.decode('utf-8').encode(self._codepage)
+
         self._write_cb(line + self._crlf)
         self.prompt = ''
 
@@ -108,6 +115,7 @@ class InteractiveShell(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(description=self.__doc__)
+        self.arg_parser.add_argument('-c', '--codepage', help="Decode output with encoding")
         self.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
         self.arg_parser.add_argument('-S', '--su', help='Try to change uid (linux only)')
         self.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
@@ -241,7 +249,8 @@ class InteractiveShell(PupyModule):
             self.stdout,
             self.pipe.write,
             self.complete,
-            crlf, interpreter
+            crlf, interpreter,
+            args.codepage
         )
 
         self.pipe.execute(self.complete.set, repl._con_write)
