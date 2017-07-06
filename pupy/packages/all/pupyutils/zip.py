@@ -17,8 +17,7 @@ def zip(src, dst):
     dst = try_unicode(dst)
 
     if not os.path.exists(src):
-        print "[-] The file \"%s\" does not exists" % src
-        return
+        return False, "The file \"%s\" does not exists" % src
 
     isDir = False
     if os.path.isdir(src):
@@ -33,8 +32,7 @@ def zip(src, dst):
 
     # To not overwrite an existing file
     if os.path.exists(dst):
-        print "[-] The destination file \"%s\" already exists" % dst
-        return
+        return False, "The destination file \"%s\" already exists" % dst
 
     # Zip process
     zf = zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED)
@@ -48,8 +46,8 @@ def zip(src, dst):
     else:
         zf.write(src)
 
-    print "[+] File zipped correctly: \"%s\"" % dst
     zf.close()
+    return True, "File zipped correctly: \"%s\"" % dst
 
 
 def unzip(src, dst):
@@ -57,8 +55,7 @@ def unzip(src, dst):
     dst = try_unicode(dst)
 
     if not os.path.exists(src):
-        print "[-] The file \"%s\" does not exists" % src
-        return
+        return False, "The file \"%s\" does not exists" % src
 
     if not dst:
         d = src.split(os.sep)
@@ -66,12 +63,27 @@ def unzip(src, dst):
 
     # To not overwrite an existing file
     if os.path.exists(dst):
-        print "[-] The destination file \"%s\" already exists" % dst
-        return
+        return False, "The destination file \"%s\" already exists" % dst
 
     if zipfile.is_zipfile(src):
         with zipfile.ZipFile(src, "r") as z:
             z.extractall(dst)
-        print "[+] File unzipped correctly: \"%s\"" % dst
+        return True, "File unzipped correctly: \"%s\"" % dst
     else:
-        print '[-] The zipped file does not have a valid zip format: \"%s\"'
+        return False, 'The zipped file does not have a valid zip format: \"%s\"' % src
+
+
+def list(src):
+    src = try_unicode(src)
+    if not os.path.exists(src):
+        return False, "The file \"%s\" does not exists" % src
+
+    if zipfile.is_zipfile(src):
+        with zipfile.ZipFile(src, "r") as z:
+            return True, [
+                (
+                    i.filename, i.file_size,
+                ) for i in z.infolist()
+            ]
+    else:
+        return False, 'The zipped file does not have a valid zip format: \"%s\"' % src
