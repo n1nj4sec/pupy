@@ -1,5 +1,4 @@
 BUILDENV ?= $(PWD)/buildenv
-BUILDENV_READY = $(BUILDENV)/.ready
 PYTHONPATH := C:\\Python27
 
 TEMPLATE_OUTPUT_PATH=../../pupy/payload_templates
@@ -60,9 +59,6 @@ endif
 
 all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
 
-$(BUILDENV_READY):
-	./buildenv.sh "$(BUILDENV)"
-
 revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
@@ -75,33 +71,33 @@ import-tab.c import-tab.h: mktab.py
 
 Python-dynload.obj: import-tab.c import-tab.h
 
-resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip $(BUILDENV_READY)
+resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_library_compressed_string.py $@ resources/$(ARCH)/library.zip
 
-resources/$(ARCH)/library.zip: ../build_library_zip.py $(BUILDENV_READY)
+resources/$(ARCH)/library.zip: ../build_library_zip.py
 	$(PYTHON) ../build_library_zip.py $@
 
-resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip $(BUILDENV_READY)
+resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED)
 
-resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py $(BUILDENV_READY)
+resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py
 	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
-resources/bootloader.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
+resources/bootloader.c: resources/bootloader.pyc ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
-resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
+resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDENV_READY)
+resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
+resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
-resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
+resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
 $(PYOBJS): %.obj: %.c
