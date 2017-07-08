@@ -18,80 +18,8 @@ import time
 import StringIO
 from threading import Event, Thread
 import rpyc
-import cmd
 
-class CmdRepl(cmd.Cmd):
-    def __init__(self, stdout, write_cb, completion, CRLF=False, interpreter=None, codepage=None):
-        self._write_cb = write_cb
-        self._complete = completion
-        self._codepage = codepage
-        self.prompt = '\r'
-        self._crlf = ('\r\n' if CRLF else '\n')
-        self._interpreter = interpreter
-        self._setting_prompt = False
-        self._last_cmd = None
-        cmd.Cmd.__init__(self, stdout=stdout)
-
-    def _con_write(self, data):
-        if self._setting_prompt:
-            if self.prompt in data:
-                self._setting_prompt = False
-            return
-
-        if not self._complete.is_set():
-            if self._codepage:
-                data = data.decode(self._codepage, errors='replace')
-
-            self.stdout.write(data)
-            self.stdout.flush()
-            if '\n' in data:
-                self.prompt = data.rsplit('\n', 1)[-1]
-            else:
-                self.prompt += data
-
-    def do_EOF(self, line):
-        return True
-
-    def do_help(self, line):
-        self.default(' '.join(['help', line]))
-
-    def completenames(self):
-        return []
-
-    def precmd(self, line):
-        if self._complete.is_set():
-            return 'EOF'
-        else:
-            return line
-
-    def postcmd(self, stop, line):
-        if stop or self._complete.is_set():
-            return True
-
-    def emptyline(self):
-        pass
-
-    def default(self, line):
-        if self._codepage:
-            line = line.decode('utf-8').encode(self._codepage)
-
-        self._write_cb(line + self._crlf)
-        self.prompt = ''
-
-    def postloop(self):
-        self._complete.set()
-
-    def set_prompt(self, prompt='# '):
-        methods = {
-            'cmd.exe': [ 'set PROMPT={}'.format(prompt) ],
-            'sh': [ 'export PS1="{}"'.format(prompt) ]
-        }
-
-        method = methods.get(self._interpreter, None)
-        if method:
-            self._setting_prompt = True
-            self.prompt = prompt
-            self._write_cb(self._crlf.join(method) + self._crlf)
+from modules.lib.utils.cmdrepl import CmdRepl
 
 __class_name__="InteractiveShell"
 @config(cat="admin")
@@ -245,7 +173,7 @@ class InteractiveShell(PupyModule):
             crlf = False
             interpreter = 'sh'
 
-        repl = CmdRepl(
+        repl, _ = CmdRepl.thread(
             self.stdout,
             self.pipe.write,
             self.complete,
@@ -254,11 +182,6 @@ class InteractiveShell(PupyModule):
         )
 
         self.pipe.execute(self.complete.set, repl._con_write)
-        repl.set_prompt()
-
-        repl_thread = Thread(target=repl.cmdloop)
-        repl_thread.daemon = True
-        repl_thread.start()
 
         self.complete.wait()
         self.pipe.terminate()
