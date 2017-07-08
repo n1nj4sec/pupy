@@ -152,12 +152,13 @@ unset WINEPREFIX
 for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade pip
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade $PACKAGES
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: $PACKAGES_BUILD
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pycparser==2.17
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q $PACKAGES
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --no-binary :all: $PACKAGES_BUILD
 done
 
-WINEPREFIX=$WINE32 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil==4.3.1
-WINEPREFIX=$WINE64 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil
+WINEPREFIX=$WINE32 wine C:\\Python27\\python -OO -m pip install -q --no-binary :all: psutil==4.3.1
+WINEPREFIX=$WINE64 wine C:\\Python27\\python -OO -m pip install -q --no-binary :all: psutil
 
 for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -m compileall -q C:\\Python27\\Lib || true

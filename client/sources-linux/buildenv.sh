@@ -251,12 +251,13 @@ int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
 #endif
 __EOF__
 
+python -OO -m pip install pycparser==2.17
 python -OO -m pip install -q six packaging appdirs
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
-       --upgrade --no-binary :all:
+       --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
 
@@ -282,6 +283,7 @@ cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
 find -name "*.py" | python -OO -m compileall -qfi -
 
+set +x
 find -name "*.so" | while read f; do strip \$f; done
 
 cd /
@@ -479,12 +481,13 @@ rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.l
 make -k
 make install
 
+python -OO -m pip install pycparser==2.17
 python -OO -m pip install -q six packaging appdirs
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
-       --upgrade --no-binary :all:
+       --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
 
@@ -509,6 +512,7 @@ cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
 find -name "*.py" | python -OO -m compileall -qfi -
 
+set +x
 find -name "*.so" | while read f; do strip \$f; done
 
 cd /
