@@ -128,7 +128,7 @@ BOOL MapNewExecutableRegionInProcess(
 	if (!pNtUnmapViewOfSection)
 		return FALSE;
 
-	pNtUnmapViewOfSection(TargetProcessHandle, (PVOID)dwImageBase);
+	pNtUnmapViewOfSection(TargetProcessHandle, (LPVOID)NtHeader64->OptionalHeader.ImageBase);
 
 	pImageBase = VirtualAllocEx(
 		TargetProcessHandle,
