@@ -161,20 +161,20 @@ def GetUserName():
     from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
     DWORD = c_uint32
     nSize = DWORD(0)
-    windll.advapi32.GetUserNameA(None, byref(nSize))
+    windll.advapi32.GetUserNameW(None, byref(nSize))
     error = GetLastError()
 
     ERROR_INSUFFICIENT_BUFFER = 122
     if error != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(error)
 
-    lpBuffer = create_string_buffer('', nSize.value + 1)
+    lpBuffer = create_string_buffer('', nSize.value + 3)
 
-    success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
+    success = windll.advapi32.GetUserNameW(lpBuffer, byref(nSize))
     if not success:
         raise WinError()
 
-    return lpBuffer.value
+    return lpBuffer.value.decode('UTF-16LE')
 
 def get_uuid():
     user=None
@@ -191,15 +191,19 @@ def get_uuid():
     integrity_level = None
     try:
         if sys.platform=="win32":
-            user=GetUserName().decode(encoding=os_encoding).encode("utf8")
+            user = GetUserName().encode("utf8")
         else:
-            user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
+            user = getpass.getuser().decode(
+                encoding=os_encoding
+            ).encode("utf8")
     except Exception as e:
         user=str(e)
         pass
 
     try:
-        node=platform.node().decode(encoding=os_encoding).encode("utf8")
+        node = platform.node().decode(
+            encoding=os_encoding
+        ).encode("utf8")
     except Exception:
         pass
 
