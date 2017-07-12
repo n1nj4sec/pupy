@@ -120,6 +120,7 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade $PACKAGES
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: $PACKAGES_BUILD
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -Iv https://github.com/eliben/pycparser/archive/release_v2.17.zip
 done
 
 WINEPREFIX=$WINE32 wine C:\\Python27\\python -OO -m pip install -q --upgrade --no-binary :all: psutil==4.3.1
