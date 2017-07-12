@@ -221,7 +221,7 @@ class PStore(object):
         pstore_dir = os.path.dirname(self._pstore_path)
         try:
             if not os.path.isdir(pstore_dir):
-                os.makedirs(pstore_dirs)
+                os.makedirs(pstore_dir)
 
             with open(self._pstore_path, 'w+b') as pstore:
                 data = cPickle.dumps(self._pstore)
@@ -347,6 +347,11 @@ class Manager(object):
     def active(self, klass=None):
         name = klass.__name__
         if name in self.tasks:
+            if not self.tasks[name].stopped:
+                # Failed somewhere in the middle
+                del self.tasks[name]
+                return False
+
             return self.tasks[name].stopped.is_set()
         else:
             return False
