@@ -28,9 +28,13 @@ def iterate_strings(targets, min_length=4, max_length=51, omit='isxr', portions=
         if terminate is not None and terminate.is_set():
             break
 
-        if not (
-            os.path.basename(process.get('name')) in targets or process.get('pid') in targets
-        ):
+        try:
+            if not (
+                process.get('pid') in targets or os.path.basename(process.get('name')) in targets
+            ):
+                continue
+
+        except:
             continue
 
         strings = []
