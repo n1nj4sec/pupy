@@ -49,12 +49,12 @@ class Forward(PupyModule):
         )
 
         actions.add_argument(
-            '-L', '--local', help='Local port forwarding ([LHOST]:LPORT[:RHOST[:RPORT]])'
+            '-L', '--local', help='Local port forwarding ([LHOST]:LPORT[:RHOST[:[BPORT=]RPORT]])'
             '; LPATH:RPATH'
         )
 
         actions.add_argument(
-            '-R', '--remote', help='Remote port forwarding ([RHOST:]RPORT[:LHOST[:LPORT]])'
+            '-R', '--remote', help='Remote port forwarding ([RHOST:]RPORT[:LHOST[:[BPORT=]LPORT]])'
             '; RPATH:LPATH'
         )
 
@@ -99,6 +99,7 @@ class Forward(PupyModule):
                 lport, lhost = 1080, '127.0.0.1'
                 rport, rhost = None, None
                 lpath, rpath = None, None
+                bport = None
 
                 if len(parts) == 1:
                     lport = int(parts[0])
@@ -106,9 +107,21 @@ class Forward(PupyModule):
                     part1, part2 = parts
                     found = False
                     try:
-                        lport = int(part1)
+                        if '=' in part1:
+                            bport, lport = part1.split('=')
+                            bport = int(bport)
+                            lport = int(lport)
+                        else:
+                            lport = int(part1)
+
                         try:
-                            rport = int(part2)
+                            if '=' in part2:
+                                bport, rport = part2.split('=')
+                                bport = int(bport)
+                                rport = int(rport)
+                            else:
+                                rport = int(part2)
+
                             rhost = '127.0.0.1'
                             fount = True
                         except:
@@ -117,7 +130,13 @@ class Forward(PupyModule):
                             found = True
                     except:
                         try:
-                            lport = int(part2)
+                            if '=' in part2:
+                                bport, lport = part2.split('=')
+                                bport = int(bport)
+                                lport = int(lport)
+                            else:
+                                lport = int(part2)
+
                             lhost = part1
                             found = True
                         except:
@@ -128,17 +147,44 @@ class Forward(PupyModule):
 
                 elif len(parts) == 3:
                     try:
-                        rport = int(parts[2])
+                        if '=' in parts[2]:
+                            bport, rport = parts[2].split('=')
+                            bport = int(bport)
+                            rport = int(rport)
+                        else:
+                            rport = int(parts[2])
+
                         lport, rhost = parts[:2]
-                        lport = int(lport)
-                    except:
+
+                        if '=' in lport:
+                            bport, lport = lport.split('=')
+                            bport = int(bport)
+                            lport = int(lport)
+                        else:
+                            lport = int(lport)
+
+                    except Exception, e:
                         lhost, lport, rhost = parts
-                        lport = int(lport)
+                        if '=' in lport:
+                            bport, lport = lport.split('=')
+                            bport = int(bport)
+                            lport = int(lport)
+                        else:
+                            lport = int(lport)
+
                         rport = lport
+
                 elif len(parts) == 4:
                     lhost, lport, rhost, rport = parts
                     lport = int(lport)
-                    rport = int(rport)
+
+                    if '=' in rport:
+                        bport, rport = rport.split('=')
+                        bport = int(bport)
+                        rport = int(rport)
+                    else:
+                        rport = int(rport)
+
                 else:
                     raise ValueError('Invalid configuration: {}'.format(config))
 
@@ -200,9 +246,9 @@ class Forward(PupyModule):
                     forward = None
 
                 if lpath and rpath:
-                    manager.bind(id, local_address=lpath, forward=rpath)
+                    manager.bind(id, local_address=lpath, forward=rpath, bind=bport)
                 else:
-                    manager.bind(id, local_address=(lhost, lport), forward=forward)
+                    manager.bind(id, local_address=(lhost, lport), forward=forward, bind=bport)
 
                 self.success('Forwarding added')
 
