@@ -1,6 +1,5 @@
 #!/bin/sh
 ./buildenv.sh
-./buildenv.sh
 make -f Makefile -j ARCH=win32 clean
 make -f Makefile -j ARCH=win32
 make -f Makefile -j DEBUG=1 ARCH=win32 clean
