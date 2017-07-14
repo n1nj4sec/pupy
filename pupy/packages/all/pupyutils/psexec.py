@@ -20,7 +20,7 @@ BATCH_FILENAME  = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
 SMBSERVER_DIR   = ''.join(random.sample(string.ascii_letters, 10))
 DUMMY_SHARE     = 'TMP'
 
-if not encodings._cache['idna']:
+if not 'idna' in encodings._cache or not encodings._cache['idna']:
     import encodings.idna
     encodings._cache['idna'] = encodings.idna.getregentry()
 
