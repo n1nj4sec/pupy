@@ -277,7 +277,7 @@ cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
 CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
- python -OO -m pip install -q pyuv --no-binary :all:
+ python -OO -m pip install -q pyuv==1.3.0 --no-binary :all:
 
 cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
@@ -506,7 +506,7 @@ tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
-python -OO -m pip install -q pyuv --no-binary :all:
+python -OO -m pip install -q pyuv==1.3.0 --no-binary :all:
 
 cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
