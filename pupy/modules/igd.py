@@ -63,10 +63,10 @@ class IGDCMDClient(object):
 
     def addPM(self, args):
         self.igdc.AddPortMapping(
-            args.intIP, args.extPort,
-            args.proto, args.intPort,
+            args.extPort, args.proto, args.intPort,
             args.enabled, args.duration,
-            args.desc, args.remote)
+            args.intIP, args.desc, args.remote
+        )
 
     def delPM(self, args):
         self.igdc.DeletePortMapping(
