@@ -216,14 +216,14 @@ class IGDClient(PupyModule):
         subparsers = parser.add_subparsers()
 
         parser_start = subparsers.add_parser('add', help='add port mapping')
-        parser_start.add_argument('intIP',
-                                  help='Internal IP')
         parser_start.add_argument('intPort', type=int,
                                   help='Internal Port')
         parser_start.add_argument('extPort', type=int,
                                   help='External Port')
         parser_start.add_argument('proto', choices=['UDP', 'TCP'],
                                   help='Protocol')
+        parser_start.add_argument('intIP', nargs='?', default=None,
+                                  help='Internal IP')
         parser_start.add_argument('-r', '--remote', default='',
                                   help='remote host')
         parser_start.add_argument('-d', '--desc', default='',
