@@ -158,7 +158,7 @@ def getUACLevel():
         return "?"
 
 def GetUserName():
-    from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
+    from ctypes import windll, WinError, create_unicode_buffer, byref, c_uint32, GetLastError
     DWORD = c_uint32
     nSize = DWORD(0)
     windll.advapi32.GetUserNameW(None, byref(nSize))
@@ -168,13 +168,13 @@ def GetUserName():
     if error != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(error)
 
-    lpBuffer = create_string_buffer('', nSize.value + 3)
+    lpBuffer = create_unicode_buffer('', nSize.value + 1)
 
     success = windll.advapi32.GetUserNameW(lpBuffer, byref(nSize))
     if not success:
         raise WinError()
 
-    return lpBuffer.value.decode('UTF-16LE')
+    return lpBuffer.value
 
 def get_uuid():
     user=None
