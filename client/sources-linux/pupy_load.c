@@ -113,8 +113,13 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
             if (strstr(exe, "/memfd:")) {
                 snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
             }
-
+        } else {
+            char *upx_env = getenv("   ");
+            if (upx_env) {
+                snprintf(exe, sizeof(exe), "%s", upx_env);
+            }
         }
+
 #elif defined(SunOS)
         strcpy(exe, getexecname());
 #endif
