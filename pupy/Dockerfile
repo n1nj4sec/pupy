@@ -8,7 +8,7 @@ RUN echo 'deb http://ftp.debian.org/debian jessie-backports main' >>/etc/apt/sou
     mkdir -p /usr/share/man/man1/ && \
     apt-get install -t jessie-backports --no-install-recommends -y build-essential \
     python-dev python-pip openssh-server tmux sslh libssl-dev libcap2-bin \
-    john vim-nox less \
+    john vim-nox less osslsigncode \
     autoconf automake libffi-dev unzip libtool locales ncurses-term bash tcpdump libpam-cap \
     openjdk-8-jdk-headless=8u131-b11-1~bpo8+1 openjdk-8-jre-headless=8u131-b11-1~bpo8+1 \
     ca-certificates-java=20161107~bpo8+1 && \
