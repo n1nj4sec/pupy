@@ -5,7 +5,7 @@
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import cPickle, re, os.path, sys
-import rpyc, rsa, pyasn1, yaml, netaddr
+import rpyc, rsa, pyasn1, netaddr
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.payloads import dependencies
