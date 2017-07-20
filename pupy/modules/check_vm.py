@@ -6,7 +6,7 @@ from modules.lib.windows.powershell_upload import execute_powershell_script
 __class_name__="CheckVM"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
-@config(category="gather")
+@config(category="gather", compatibilities=['windows', 'linux', 'darwin'])
 class CheckVM(PupyModule):
     """ check if running on Virtual Machine """
 
