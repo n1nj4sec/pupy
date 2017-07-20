@@ -6,7 +6,7 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Drives"
 
-@config(category='admin')
+@config(category='admin', compatibilities=['windows', 'linux', 'darwin'])
 class Drives(PupyModule):
     """ List valid drives in the system """
 
