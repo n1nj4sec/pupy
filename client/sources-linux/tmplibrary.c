@@ -245,6 +245,16 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
                 dup2(p_stdin[0], 0);  close(p_stdin[1]);
                 dup2(p_stdout[1], 1); close(p_stdout[0]);
                 dup2(p_stderr[1], 2); close(p_stderr[0]);
+            } else {
+                if (setsid ( ) == -1)
+                    return -1;
+
+                for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
+                    close (i);
+
+                open ("/dev/null", O_RDWR);
+                dup (0);
+                dup (0);
             }
 
             close(p_wait[0]);
