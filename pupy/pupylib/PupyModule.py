@@ -217,6 +217,7 @@ class PupyModule(object):
     tags=[] # to add search keywords. should be changed by decorator @config
     is_module=True # if True, module have to be run with "run <module_name", if False it can be called directly without run
     rec=None
+    known_args=False
 
     def __init__(self, client, job, formatter=None, stdout=None, log=None):
         """ client must be a PupyClient instance """

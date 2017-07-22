@@ -351,7 +351,10 @@ class PupyServer(threading.Thread):
         """ This method is used by the PupyCmd class to verify validity of arguments passed to a specific module """
         module=self.get_module(module_name)
         ps=module(None,None)
-        return ps.arg_parser.parse_args(args)
+        if ps.known_args:
+            return ps.arg_parser.parse_known_args(args)
+        else:
+            return ps.arg_parser.parse_args(args)
 
     def del_job(self, job_id):
         if job_id is not None:
