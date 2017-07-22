@@ -14,7 +14,7 @@ from pupylib.PupyConfig import PupyConfig
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
-from modules.lib.windows.powershell_upload import obfuscatePowershellScript
+from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
 from pupylib import PupyCredentials
 from pupylib.PupyVersion import __version__
