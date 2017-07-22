@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import *
+from pupylib.utils.term import consize
 
 __class_name__="Inveigh"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))

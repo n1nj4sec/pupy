@@ -3,6 +3,7 @@ from pupylib.PupyModule import *
 import os
 import re
 from pupylib.utils.credentials import Credentials
+from pupylib.utils.term import consize
 
 __class_name__="Mimikatz_Powershell"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.utils.term import consize
 import os
 
 __class_name__="PowerUp"
