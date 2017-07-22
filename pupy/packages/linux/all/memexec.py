@@ -194,6 +194,9 @@ class MExec(object):
         self.pid = pid
         self.stdin, self.stdout, self.stderr = stdior
 
+        if not self.redirect_stdio:
+            return True
+
         if self.no_stdin:
             self.stdin.close()
             self.stdin = None

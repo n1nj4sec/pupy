@@ -13,6 +13,7 @@ def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage
         data, argv0, args = argv,
         no_stdin = not interactive,
         no_stdor = not interactive,
+        redirect_stdio = interactive,
         compressed = True,
         terminate = interactive
     )
@@ -44,3 +45,9 @@ def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage
         else:
             complete.set()
             module.error('Launch failed. Press ENTER')
+
+    else:
+        if module.mp.run():
+            module.success('Process started: {}'.format(module.mp.pid))
+        else:
+            module.error('Launch failed')
