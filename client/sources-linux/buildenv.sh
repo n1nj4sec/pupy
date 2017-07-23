@@ -1,5 +1,6 @@
 #!/bin/sh
 
+export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/sbin:/usr/local/sbin:$HOME/.local/bin
 export XID=`id -u`
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
