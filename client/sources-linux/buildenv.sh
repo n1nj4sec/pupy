@@ -1,6 +1,6 @@
 #!/bin/sh
 
-export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/sbin:/usr/local/sbin:$HOME/.local/bin
+export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/sbin:$HOME/.local/bin
 export XID=`id -u`
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
@@ -65,6 +65,7 @@ cat /etc/resolv.conf >buildenv/lin32/etc/resolv.conf
 cat > buildenv/lin32/wrap.c <<EOF
 #define _GNU_SOURCE
 #include <sys/utsname.h>
+#include <string.h>
 
 static const
 struct utsname pupy_utsname = {
@@ -81,6 +82,31 @@ int uname(struct utsname *buf) {
     return 0;
 }
 EOF
+
+cat > buildenv/lin32/gccwrap <<EOF
+#!/bin/bash
+declare -a filter=( "\$CFLAGS_FILTER" )
+declare -a outargs=()
+
+for arg; do
+  found=false
+  for filtered in \${filter[@]}; do
+     if [ "\$filtered" == "\$arg" ]; then
+        found=true
+        break
+     fi
+  done
+
+  if [ "\$found" = "false" ]; then
+        outargs[\${#outargs[@]}]="\$arg"
+  fi
+
+done
+
+exec gcc "\${outargs[@]}"
+EOF
+
+chmod +x buildenv/lin32/gccwrap
 
 cat <<__CMDS__ > buildenv/lin32/deploy.sh
 
@@ -118,7 +144,7 @@ cd /usr/src
 tar zxf make-3.82.tar.gz
 cd /usr/src/make-3.82
 ./configure; make; make install
-export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/
+export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/:/
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
@@ -252,6 +278,7 @@ int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
 #endif
 __EOF__
 
+python -OO -m pip install --upgrade setuptools
 python -OO -m pip install pycparser==2.17
 python -OO -m pip install -q six packaging appdirs
 python -OO -m pip install -q \
@@ -277,8 +304,11 @@ tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
-CFLAGS="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC -U_FILE_OFFSET_BITS" \
- python -OO -m pip install -q pyuv==1.3.0 --no-binary :all:
+CFLAGS_PYUV="-O2 -pipe -DCLOCK_MONOTONIC=1 -UHAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC"
+CFLAGS_PYUV="\$CFLAGS_PYUV -U_FILE_OFFSET_BITS -D_XOPEN_SOURCE=600 "
+CFLAGS_PYUV="\$CFLAGS_PYUV -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'"
+
+CC=/gccwrap CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64" CFLAGS="\$CFLAGS_PYUV" python -OO -m pip install -q pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -
@@ -327,6 +357,7 @@ cat /etc/resolv.conf >buildenv/lin64/etc/resolv.conf
 cat > buildenv/lin64/wrap.c <<EOF
 #define _GNU_SOURCE
 #include <sys/utsname.h>
+#include <string.h>
 
 static const
 struct utsname pupy_utsname = {
@@ -343,6 +374,31 @@ int uname(struct utsname *buf) {
     return 0;
 }
 EOF
+
+cat > buildenv/lin64/gccwrap <<EOF
+#!/bin/bash
+declare -a filter=( "\$CFLAGS_FILTER" )
+declare -a outargs=()
+
+for arg; do
+  found=false
+  for filtered in \${filter[@]}; do
+     if [ "\$filtered" == "\$arg" ]; then
+        found=true
+        break
+     fi
+  done
+
+  if [ "\$found" = "false" ]; then
+        outargs[\${#outargs[@]}]="\$arg"
+  fi
+
+done
+
+exec gcc "\${outargs[@]}"
+EOF
+
+chmod +x buildenv/lin64/gccwrap
 
 cat <<__CMDS__ > buildenv/lin64/deploy.sh
 
@@ -366,6 +422,8 @@ echo /wrap.so >/etc/ld.so.preload
 
 mkdir /opt/static
 ln -sf /usr/lib/gcc/x86_64-linux-gnu/4.1.2/libgcc.a /opt/static
+ln -sf /usr/lib/gcc/x86_64-linux-gnu/4.1.2/libssp.a /opt/static
+ln -sf /usr/lib/gcc/x86_64-linux-gnu/4.1.2/libssp_nonshared.a /opt/static
 ln -sf /usr/lib/libffi.a /opt/static/
 
 export CFLAGS="-Os -fPIC -pipe -L/opt/static" CXXFLAGS="-Os -fPIC -pipe" LDFLAGS="-s -O1 -fPIC -L/opt/static"
@@ -375,7 +433,7 @@ cd /usr/src
 tar zxf make-3.82.tar.gz
 cd /usr/src/make-3.82
 ./configure; make; make install
-export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/
+export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin/:/
 /bin/sh -c "apt-get --force-yes -y remove make << /dev/null"
 cd /usr/src
 
@@ -482,8 +540,16 @@ rm -f ./gi/.libs/_gi.la ./gi/_gobject/.libs/_gobject.la ./gi/_glib/.libs/_glib.l
 make -k
 make install
 
+export CFLAGS="$CFLAGS -Os -pipe -U_FORTIFY_SOURCE"
+export LDFLAGS="$LDFLAGS"
+
+python -OO -m pip install --upgrade setuptools
 python -OO -m pip install pycparser==2.17
-python -OO -m pip install -q six packaging appdirs
+python -OO -m pip install -q six packaging appdirs cffi
+
+CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
+ python -OO -m pip install -q cryptography --no-binary :all:
+
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
@@ -507,7 +573,8 @@ tar zxf automake-1.15.tar.gz
 cd /usr/src/automake-1.15
 ./configure --prefix=/usr; make; make install
 
-python -OO -m pip install -q pyuv==1.3.0 --no-binary :all:
+CFLAGS="\$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
+ python -OO -m pip install -q pyuv --no-binary :all:
 
 cd /usr/lib/python2.7
 find -name "*.py" | python -m compileall -qfi -

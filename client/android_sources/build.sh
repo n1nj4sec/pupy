@@ -1,4 +1,6 @@
 #!/bin/sh
+export PATH=$PATH:$HOME/.local/bin
+
 pip install --user --upgrade git+https://github.com/kivy/buildozer
 [ -f buildozer.spec ] || ln -sf buildozer.spec.example buildozer.spec
 buildozer android release
