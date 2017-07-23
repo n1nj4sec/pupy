@@ -540,6 +540,7 @@ echo "[+] Creating bundles"
 TEMPLATES=`readlink -f ../../pupy/payload_templates`
 
 cd buildenv/lin64/usr/lib/python2.7
+rm -f ${TEMPLATES}/linux-amd64.zip
 zip -y \
     -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
@@ -549,6 +550,7 @@ zip -y \
 cd -
 
 cd buildenv/lin32/usr/lib/python2.7
+rm -f ${TEMPLATES}/linux-x86.zip
 zip -y \
     -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
