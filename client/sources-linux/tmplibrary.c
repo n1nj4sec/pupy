@@ -246,6 +246,8 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
                 dup2(p_stdout[1], 1); close(p_stdout[0]);
                 dup2(p_stderr[1], 2); close(p_stderr[0]);
             } else {
+                int i;
+
                 if (setsid ( ) == -1)
                     return -1;
 
