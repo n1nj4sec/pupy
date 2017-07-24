@@ -378,6 +378,7 @@ EOF
 cat > buildenv/lin64/gccwrap <<EOF
 #!/bin/bash
 declare -a filter=( "\$CFLAGS_FILTER" )
+declare -a badargs=( "\$CFLAGS_ABORT" )
 declare -a outargs=()
 
 for arg; do
@@ -386,6 +387,13 @@ for arg; do
      if [ "\$filtered" == "\$arg" ]; then
         found=true
         break
+     fi
+  done
+
+  for bad in \${badargs[@]}; do
+     if [ "\$bad" == "\$arg" ]; then
+        echo "Unsupported argument found: \$bad"
+        exit 1
      fi
   done
 
@@ -546,6 +554,9 @@ export LDFLAGS="$LDFLAGS"
 python -OO -m pip install --upgrade setuptools
 python -OO -m pip install pycparser==2.17
 python -OO -m pip install -q six packaging appdirs cffi
+
+CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
+ python -OO -m pip install -q pynacl --no-binary :all:
 
 CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
  python -OO -m pip install -q cryptography --no-binary :all:
