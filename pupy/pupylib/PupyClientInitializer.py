@@ -158,19 +158,19 @@ def getUACLevel():
         return "?"
 
 def GetUserName():
-    from ctypes import windll, WinError, create_string_buffer, byref, c_uint32, GetLastError
+    from ctypes import windll, WinError, create_unicode_buffer, byref, c_uint32, GetLastError
     DWORD = c_uint32
     nSize = DWORD(0)
-    windll.advapi32.GetUserNameA(None, byref(nSize))
+    windll.advapi32.GetUserNameW(None, byref(nSize))
     error = GetLastError()
 
     ERROR_INSUFFICIENT_BUFFER = 122
     if error != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(error)
 
-    lpBuffer = create_string_buffer('', nSize.value + 1)
+    lpBuffer = create_unicode_buffer('', nSize.value + 1)
 
-    success = windll.advapi32.GetUserNameA(lpBuffer, byref(nSize))
+    success = windll.advapi32.GetUserNameW(lpBuffer, byref(nSize))
     if not success:
         raise WinError()
 
@@ -191,15 +191,19 @@ def get_uuid():
     integrity_level = None
     try:
         if sys.platform=="win32":
-            user=GetUserName().decode(encoding=os_encoding).encode("utf8")
+            user = GetUserName().encode("utf8")
         else:
-            user=getpass.getuser().decode(encoding=os_encoding).encode("utf8")
+            user = getpass.getuser().decode(
+                encoding=os_encoding
+            ).encode("utf8")
     except Exception as e:
         user=str(e)
         pass
 
     try:
-        node=platform.node().decode(encoding=os_encoding).encode("utf8")
+        node = platform.node().decode(
+            encoding=os_encoding
+        ).encode("utf8")
     except Exception:
         pass
 
@@ -211,12 +215,6 @@ def get_uuid():
     try:
         plat=platform.system()
     except Exception:
-        pass
-
-    try:
-        from kivy.utils import platform as kivy_plat#support for android
-        plat=bytes(kivy_plat)
-    except ImportError:
         pass
 
     try:
@@ -236,6 +234,11 @@ def get_uuid():
 
     try:
         pid=os.getpid()
+    except Exception:
+        pass
+
+    try:
+        osname=os.name
     except Exception:
         pass
 
@@ -267,6 +270,7 @@ def get_uuid():
         'release': release,
         'version': version,
         'os_arch': machine,
+        'os_name': osname,
         'macaddr': macaddr,
         'pid': pid,
         'proc_arch': proc_arch,

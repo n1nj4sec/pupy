@@ -359,8 +359,13 @@ class DnsCommandsClient(Thread):
             elif isinstance(command, CheckConnect):
                 self.on_checkconnect(command.host, command.port_start, port_end=command.port_end)
             elif isinstance(command, Reexec):
-                executable = os.readlink('/proc/self/exe')
-                args = open('/proc/self/cmdline').read().split('\x00')
+                try:
+                    executable = os.readlink('/proc/self/exe')
+                    args = open('/proc/self/cmdline').read().split('\x00')
+                except:
+                    executable = sys.executable
+                    args = sys.argv
+
                 os.execv(executable, args)
             elif isinstance(command, Exit):
                 self.active = False

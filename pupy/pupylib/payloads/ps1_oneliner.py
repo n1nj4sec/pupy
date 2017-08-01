@@ -13,7 +13,7 @@ import re
 from pupylib.PupyCredentials import Credentials
 import tempfile
 
-from modules.lib.windows.powershell_upload import obfuscatePowershellScript, obfs_ps_script
+from modules.lib.windows.powershell import obfuscatePowershellScript, obfs_ps_script
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 

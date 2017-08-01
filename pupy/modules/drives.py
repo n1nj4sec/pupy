@@ -30,8 +30,8 @@ class Drives(PupyModule):
                 self.client.conn.modules['pupwinutils.drives'].list_drives()
             )
 
-        elif self.client.is_linux():
-            tier1 = ( 'network', 'fuse', 'dm', 'block' )
+        elif self.client.is_posix():
+            tier1 = ( 'network', 'fuse', 'dm', 'block', 'vm' )
             rmount = self.client.conn.modules['mount']
             ros = self.client.conn.modules['os']
 
@@ -41,9 +41,9 @@ class Drives(PupyModule):
 
             option_colors = {
                 'rw': 'yellow',
-                'nosuid': 'green',
-                'nodev': 'green',
-                'noexec': 'green',
+                'nosuid': 'grey',
+                'nodev': 'grey',
+                'noexec': 'lightgreen',
                 'uid': {
                     '0': 'green',
                     str(uid): 'red'

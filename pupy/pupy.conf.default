@@ -38,6 +38,7 @@ format = client
 os = windows
 arch = x86
 external = false
+packer = 
 #output =
 #launcher =
 #launcher_args = 

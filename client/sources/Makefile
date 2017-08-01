@@ -1,5 +1,4 @@
 BUILDENV ?= $(PWD)/buildenv
-BUILDENV_READY = $(BUILDENV)/.ready
 PYTHONPATH := C:\\Python27
 
 TEMPLATE_OUTPUT_PATH=../../pupy/payload_templates
@@ -20,14 +19,16 @@ CFLAGS:=$(CFLAGS) /DWIN_X86 /nologo
 PPARCH := x86
 endif
 
+CFLAGS += /Iresources\\$(ARCH) /Iresources
+
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
-LINKER_OPTS := /NXCOMPAT:NO
+LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup user32.lib
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
-LINKER_OPTS := /NXCOMPAT:NO /link /subsystem:windows /ENTRY:mainCRTStartup /LTCG
+LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /LTCG user32.lib
 PPARCH      := $(PPARCH)
 CFLAGS      := $(CFLAGS) /O1 /GL /GS-
 endif
@@ -45,57 +46,67 @@ PYOBJS := \
 COMMON_OBJS := \
 	MemoryModule.obj \
 	actctx.obj list.obj thread.obj remote_thread.obj \
-	LoadLibraryR.obj LzmaDec.obj
+	LoadLibraryR.obj
 
-all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll
+ifeq ($(UNCOMPRESSED),)
+COMMON_OBJS += LzmaDec.obj
+COMPRESSED = 1
+else
+CFLAGS += /DUNCOMPRESSED
+SUFFIX := unc.$(SUFFIX)
+COMPRESSED = 0
+endif
 
-$(BUILDENV_READY):
-	./buildenv.sh "$(BUILDENV)"
+all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
 
 revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-pupy.c: resources_library_compressed_string_txt.c revision.h
-pupy_load.c: resources_msvcr90_dll.c resources_python27_dll.c resources_bootloader_pyc.c revision.h
+pupy.c: resources/$(ARCH)/library.c revision.h
+pupy_load.c: resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
 
 import-tab.c import-tab.h: mktab.py
 	$(HOST_PYTHON) $(PFLAGS) $<
 
 Python-dynload.obj: import-tab.c import-tab.h
 
-resources/library_compressed_string.txt: ../gen_library_compressed_string.py resources/library.zip $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_library_compressed_string.py
+resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip
+	$(HOST_PYTHON) ../gen_library_compressed_string.py $@ resources/$(ARCH)/library.zip
 
-resources/library.zip: ../build_library_zip.py $(BUILDENV_READY)
-	$(PYTHON) ../build_library_zip.py -windows
+resources/$(ARCH)/library.zip: ../build_library_zip.py
+	$(PYTHON) ../build_library_zip.py $@
 
-resources_library_compressed_string_txt.c: ../gen_resource_header.py resources/library_compressed_string.txt resources/library.zip $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py resources/library_compressed_string.txt
+resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
+	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED)
 
-resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py $(BUILDENV_READY)
+resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py
 	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
-resources_bootloader_pyc.c: resources/bootloader.pyc ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $<
+resources/bootloader.c: resources/bootloader.pyc ../gen_resource_header.py
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
-resources/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll $(BUILDENV_READY)
+resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll
+	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll $(BUILDENV_READY)
+resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll
+	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources_python27_dll.c: resources/python27.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $<
+resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
-resources_msvcr90_dll.c: resources/msvcr90.dll ../gen_resource_header.py $(BUILDENV_READY)
-	$(HOST_PYTHON) ../gen_resource_header.py $<
+resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
 
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
 
+ifeq ($(UNCOMPRESSED),)
 LzmaDec.obj: ../lzma/LzmaDec.c
 	$(CC) /c $(CFLAGS) $<
+endif
 
 main_exe.obj: main_exe.c
 	$(CC) /c $(CFLAGS) $<
@@ -106,10 +117,10 @@ main_exe.obj: main_exe.c
 ReflectiveLoader.obj: ReflectiveLoader.c
 	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN /DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $<
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ /LD
 
 .PHONY: clean
@@ -118,19 +129,16 @@ clean:
 	rm -f *.obj
 	rm -f *.pyo
 	rm -f *.pyc
-	rm -f *_txt.c
-	rm -f *_pyc.c
-	rm -f *_dll.c
+	rm -f resources/bootloader.pyc
+	rm -f resources/*.c
+	rm -f resources/$(ARCH)/*.c
+	rm -f $(PYOBJS) $(COMMON_OBJS)
+
+distclean: clean
 	rm -f revision.h
 	rm -f import-tab.c
 	rm -f import-tab.h
-	rm -f resources/*.pyo
-	rm -f resources/*.pyc
-	rm -f resources/*.txt
-	rm -f resources/*_txt.c
-	rm -f resources/library.zip
-	rm -f resources/python27.dll
-	rm -f resources/msvcr90.dll
-	rm -f $(PYOBJS) $(COMMON_OBJS)
+	rm -f revision.h
+	rm -rf resources
 
 $(COMMON_OBJS) $(PYOBJS): import-tab.h

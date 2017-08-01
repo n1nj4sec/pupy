@@ -45,4 +45,4 @@ class Mimikatz(MemoryExec):
         else:
             mimikatz_args.append('exit')
 
-        exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive, fork=False, timeout=timeout)
+        exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive)

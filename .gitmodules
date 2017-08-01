@@ -17,7 +17,7 @@
 	url = https://github.com/alxchk/winpty
 [submodule "pupy/memorpy"]
 	path = pupy/external/memorpy
-	url = https://github.com/n1nj4sec/memorpy
+	url = https://github.com/alxchk/memorpy
 [submodule "pupy/external/Windows-Exploit-Suggester"]
 	path = pupy/external/Windows-Exploit-Suggester
 	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
@@ -27,6 +27,9 @@
 [submodule "pupy/external/mimipy"]
 	path = pupy/external/mimipy
 	url = https://github.com/n1nj4sec/mimipy.git
-[submodule "pupy/payload_templates"]
-	path = pupy/payload_templates
-	url = https://github.com/n1nj4sec/pupy-binaries
+[submodule "client/android_sources/python-for-android"]
+	path = client/android_sources/python-for-android
+	url = https://github.com/alxchk/python-for-android.git
+[submodule "pupy/external/Inveigh"]
+	path = pupy/external/Inveigh
+	url = https://github.com/Kevin-Robertson/Inveigh.git

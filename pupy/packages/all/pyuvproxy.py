@@ -87,8 +87,15 @@ class Connection(object):
         self.socks5 = socks5
         self.timer = pyuv.Timer(self.loop)
         self.timeout = timeout
+        self.resolving = None
 
     def _connection_timeout(self, handle):
+        try:
+            if self.resolving:
+                self.resolving.cancel()
+        except:
+            pass
+
         try:
             handle.stop()
         except:
@@ -187,7 +194,7 @@ class Connection(object):
         except EOFError:
             self.neighbor.stop(dead=True)
 
-    def connect(self, address):
+    def connect(self, address, dns, bind):
         try:
             self.timer.start(self._connection_timeout, self.timeout, 0)
             if type(address) in (str, unicode):
@@ -210,10 +217,34 @@ class Connection(object):
                 self.socket.connect(address, self._on_connected)
             else:
                 self.socket = pyuv.TCP(self.loop)
-                self.socket.connect(address, self._on_connected)
+                if bind:
+                    if type(bind) in (int, long):
+                        bind = ('0.0.0.0', bind)
+
+                    try:
+                        self.socket.bind(bind)
+                    except:
+                        pass
+
+                if dns and len(address) == 2:
+                    host, port = address
+                    self.resolving = pyuv.dns.getaddrinfo(
+                        self.loop,
+                        host, port,
+                        0, 0, socket.IPPROTO_TCP,
+                        callback=self._on_resolved
+                    )
+                else:
+                    self.socket.connect(address, self._on_connected)
 
         except Exception, e:
             self._on_connected(None, -1)
+
+    def _on_resolved(self, address, error):
+        if error or not address:
+            self._on_connected(None, -1)
+        else:
+            self.socket.connect(address[0][4], self._on_connected)
 
     def forward(self):
         self.socket.start_read(self._on_read_data)
@@ -247,11 +278,12 @@ class Connection(object):
             self.neighbor.unregister_connection(self)
 
 class Acceptor(object):
-    def __init__(self, neighbor, local_address, forward_address=None):
+    def __init__(self, neighbor, local_address, forward_address=None, bind_address=None):
         self.neighbor = neighbor
         self.loop = self.neighbor.manager.loop
         self.local_address = local_address
         self.forward_address = forward_address
+        self.bind_address = bind_address
         self.associaction = {}
         if type(local_address) in (str, unicode):
             self.socket = pyuv.Pipe(self.loop, True)
@@ -364,6 +396,8 @@ class Acceptor(object):
                 addr_offt = 0
                 addr_len = 0
 
+                dns = False
+
                 if atyp == ADDR_IPV4:
                     addr_len = 4
                 elif atyp == ADDR_IPV6:
@@ -371,6 +405,7 @@ class Acceptor(object):
                 elif atyp == ADDR_HOSTNAME:
                     addr_len = ord(packet[4])
                     addr_offt = 1
+                    dns = True
 
                 if len(packet) < 4 + 2 + addr_len + addr_offt:
                     return
@@ -394,14 +429,15 @@ class Acceptor(object):
                 handle.stop_read()
 
                 self.on_connection(
-                    handle, (dst_addr, dst_port), socks5=context['header']
+                    handle, (dst_addr, dst_port), socks5=context['header'], dns=dns
                 )
 
         else:
             handle.close()
 
-    def on_connection(self, client, address=None, buffer=None, socks5=None):
+    def on_connection(self, client, address=None, buffer=None, socks5=None, dns=False):
         address = address or self.forward_address
+        bind = self.bind_address
 
         connection = Connection(
             self.neighbor, socket=client, buffer=buffer, socks5=socks5
@@ -424,7 +460,9 @@ class Acceptor(object):
             self.neighbor.callbacks.connect(
                 self.neighbor.remote_id,
                 connection.remote_id,
-                address
+                address,
+                dns,
+                bind
             )
 
         except EOFError:
@@ -563,7 +601,10 @@ class Manager(Thread):
         self.stop(dead=True)
 
     def run(self):
-        self.loop.run()
+        try:
+            self.loop.run()
+        except:
+            raise
 
     def get_neighbor(self, neighbor_id):
         if not neighbor_id in self.neighbors:
@@ -571,12 +612,13 @@ class Manager(Thread):
 
         return self.neighbors[neighbor_id]
 
-    def _bind(self, neighbor_id, local_address, forward):
+    def _bind(self, neighbor_id, local_address, forward, bind):
         neighbor = self.get_neighbor(neighbor_id)
         acceptor = Acceptor(
             neighbor,
             local_address=local_address,
             forward_address=forward,
+            bind_address=bind
         )
 
         if type(local_address) in (str, unicode):
@@ -587,8 +629,8 @@ class Manager(Thread):
 
         acceptor.start()
 
-    def bind(self, neighbor_id, local_address=('127.0.0.1', 8080), forward=None):
-        self.defer(self._bind, neighbor_id, local_address, forward)
+    def bind(self, neighbor_id, local_address=('127.0.0.1', 8080), forward=None, bind=None):
+        self.defer(self._bind, neighbor_id, local_address, forward, bind)
 
     def unbind(self, path_or_port):
         for neighbor in self.neighbors.itervalues():
@@ -605,14 +647,16 @@ class Manager(Thread):
             neighbor_id
         ).create_connection(remote_id=remote_id)
 
-    def connect(self, neighbor_id, connection_id, address):
+    def connect(self, neighbor_id, connection_id, address, dns, bind=None):
         self.defer(
             self.get_neighbor(
                 neighbor_id
             ).get_connection(
                 connection_id
             ).connect,
-            address
+            address,
+            dns,
+            bind
         )
 
     def forward(self, neighbor_id, connection_id):
