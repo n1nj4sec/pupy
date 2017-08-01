@@ -8,6 +8,7 @@ install:
 - sudo -E apt-get -y install mingw-w64 g++-mingw-w64-x86-64 g++-mingw-w64-i686 debootstrap
   make wine xvfb python-pip >/dev/null
 - pip install pylzma
+- pip install flake8
 services:
 - docker
 os:
@@ -15,6 +16,11 @@ os:
 dist: trusty
 cache:
 - apt: true
+before_script:
+# stop the build if there are Python syntax errors or undefined names
+- time flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics
+# exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
+- time flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 script:
 - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/*
 - cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh && ./build.sh
