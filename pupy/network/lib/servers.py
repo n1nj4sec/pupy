@@ -281,7 +281,7 @@ class PupyUDPServer(object):
             t = PupyConnectionThread(
                 self.pupy_srv,
                 self.service,
-                Channel(self.clients[addr]),
+                PupyChannel(self.clients[addr]),
                 ping=self.ping_interval,
                 timeout=self.ping_timeout,
                 config=config
