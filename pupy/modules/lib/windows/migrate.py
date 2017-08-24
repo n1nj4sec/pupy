@@ -49,7 +49,19 @@ def migrate(module, pid, keep=False, timeout=30):
     module.success("DLL injected !")
 
     if keep:
-        return
+        module.success("waiting for a connection from the DLL ...")
+        time_end = time.time() + timeout
+        c = False
+        while True:
+            c = has_proc_migrated(module.client, pid)
+            if c:
+                module.success("got a connection from migrated DLL !")
+                return c;
+            elif time.time() > time_end:
+                module.error("migration timed out !")
+                break
+            time.sleep(0.5)
+        return c;
 
     module.success("waiting for a connection from the DLL ...")
     time_end = time.time() + timeout

