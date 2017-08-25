@@ -337,7 +337,7 @@ class PupyCmd(cmd.Cmd):
                     else:
                         cmds_doc.append((cmd, ""))
             for name in [x for x in self.aliases.iterkeys()]:
-                cmds_doc.append((name, self.pupsrv.get_module(self.aliases[name]).__doc__))
+                cmds_doc.append((name, self.pupsrv.get_module(self.aliases[name].split()[0]).__doc__))
 
             self.stdout.write("%s\n"%str(self.doc_header))
             for command,doc in cmds_doc:

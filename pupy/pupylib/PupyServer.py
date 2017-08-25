@@ -332,20 +332,16 @@ class PupyServer(threading.Thread):
         return l
 
     def get_module(self, name):
-        script_found=False
-        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
-            if module_name==name:
-                script_found=True
-                module=loader.find_module(module_name).load_module(module_name)
-                class_name=None
-                if hasattr(module,"__class_name__"):
-                    class_name=module.__class_name__
-                    if not hasattr(module,class_name):
-                        logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
-                if not class_name:
-                    #TODO automatically search the class name in the file
-                    exit("Error : no __class_name__ for module %s"%module)
-                return getattr(module,class_name)
+        module=pkgutil.get_loader("modules."+name).load_module(name)
+        class_name=None
+        if hasattr(module,"__class_name__"):
+            class_name=module.__class_name__
+            if not hasattr(module,class_name):
+                logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
+        if not class_name:
+            #TODO automatically search the class name in the file
+            exit("Error : no __class_name__ for module %s"%module)
+        return getattr(module,class_name)
 
     def module_parse_args(self, module_name, args):
         """ This method is used by the PupyCmd class to verify validity of arguments passed to a specific module """
