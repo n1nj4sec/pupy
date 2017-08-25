@@ -31,8 +31,11 @@ class Beroot(PupyModule):
             filepath = os.path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+"-beroot.txt")
 
         with redirected_stdio(self):
-            for r in self.client.conn.modules["beRoot"].run(args.cmd, args.list, args.write):
-                self.print_output(output=r, write=args.write, file=filepath)
+            try:
+                for r in self.client.conn.modules["beRoot"].run(args.cmd, args.list, args.write):
+                    self.print_output(output=r, write=args.write, file=filepath)
+            except Exception as e:
+                print e
 
         if args.write:
             self.success(filepath)
