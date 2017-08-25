@@ -10,6 +10,10 @@ class SSH(PupyModule):
 
     max_clients=1
 
+    dependencies = [
+        'paramiko', 'cryptography', 'ecdsa', 'ssh'
+    ]
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="ssh", description=self.__doc__)
         self.arg_parser.add_argument('-u', '--user', default='', help='username')
@@ -43,17 +47,12 @@ class SSH(PupyModule):
             self.error(error)
             return
 
-        self.client.load_package("paramiko")
-        self.client.load_package("cryptography")
-        self.client.load_package("ecdsa")
-        self.client.load_package("ssh")
-
         error_code = False
         result = ''
 
         ssh = self.client.conn.modules["ssh"].SSH(args.user, args.private_key, args.password, args.file, args.ip, args.port, args.verbose, args.command)
         if args.verbose:
-            with redirected_stdio(self.client.conn):
+            with redirected_stdio(self):
                 error_code, result = ssh.ssh_client()
         else:
             error_code, result = ssh.ssh_client()

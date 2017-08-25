@@ -16,8 +16,8 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 	HANDLE hThread;
 	DWORD threadId;
     BOOL bReturnValue = TRUE;
-	switch( dwReason ) 
-    { 
+	switch( dwReason )
+    {
 		case DLL_QUERY_HMODULE:
 			if( lpReserved != NULL )
 				*(HMODULE *)lpReserved = hAppInstance;
@@ -25,7 +25,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 		case DLL_PROCESS_ATTACH:
 					//MessageBoxA(0, "injection ok", "injection ok", MB_OK | MB_ICONINFORMATION);
 			hAppInstance = hinstDLL;
-			mainThread(NULL);
+			/* mainThread(NULL); */
 			hThread = CreateThread(NULL,
 					0,		// dwStackSize
 					mainThread,	// lpStartAddress
@@ -33,7 +33,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 					0,		// dwCreationFlags (0==run right after creation)
 					&threadId
 					);
-			
+
 			break;
 		case DLL_PROCESS_DETACH:
 		case DLL_THREAD_ATTACH:
@@ -42,4 +42,3 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
     }
 	return bReturnValue;
 }
-

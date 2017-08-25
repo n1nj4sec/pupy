@@ -10,7 +10,7 @@ class Creds(PupyModule):
     """ database containing all passwords found """
     need_at_least_one_client=False
     is_module=False
-    
+
     def init_argparse(self):
     	example = 'Examples:\n'
         example += '>> creds --search gmail\n'
@@ -23,16 +23,15 @@ class Creds(PupyModule):
         self.arg_parser.add_argument('-s', '--search', default="all", metavar='string', help='default: all (search in any possible field, plaintext or hash word can be specify)')
         self.arg_parser.add_argument('--sort', action='store_true', default=False, help='sort by host')
         self.arg_parser.add_argument('--flush', '-F', action='store_true', help='flush the entire database')
-    
+
     def run(self, args):
+        credentials = Credentials(config=self.config)
         if args.flush:
             warning = raw_input("[!] Are you sure to flush the database ? [y/N]")
             if warning == 'y':
-                Credentials().flush()
+                credentials.flush()
                 self.success("Database removed")
             else:
                  self.warning("Nothing done")
         else:
-            Credentials().display(search=args.search, isSorted=args.sort)
-        
-        
+            credentials.display(search=args.search, isSorted=args.sort)

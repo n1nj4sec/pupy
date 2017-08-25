@@ -11,18 +11,15 @@ import hashlib
 import os
 import struct
 try:
-    #raise ImportError()
-    from Crypto.Cipher import AES
     from Crypto import Random
     from Crypto.Protocol.KDF import PBKDF2
     from Crypto.Hash import SHA256, HMAC
 except ImportError as e:
-    logging.warning("pycrypto not available, using pure python libraries (slower)")
+    logging.warning("pycrypto not available, using pure python libraries for PBKDF2 (slower)")
     PBKDF2=None
-    AES=None
     Random=None
     from cryptoutils.pbkdf2 import pbkdf2_bin
-    import cryptoutils.pyaes as pyaes
+from cryptoutils.aes import NewAESCipher
 
 BLOCK_SIZE=16
 
@@ -51,10 +48,7 @@ class AESTransport(BasePupyTransport):
             self._iv_enc = Random.new().read(BLOCK_SIZE)
         else:
             self._iv_enc = os.urandom(BLOCK_SIZE)
-        if AES is not None:
-            self.enc_cipher = AES.new(self._derived_key, AES.MODE_CBC, self._iv_enc)
-        else:
-            self.enc_cipher = pyaes.AESModeOfOperationCBC(self._derived_key, iv = self._iv_enc)
+        self.enc_cipher = NewAESCipher(self._derived_key, self._iv_enc)
         self.dec_cipher = None
         self._iv_dec = None
         self.size_to_read=None
@@ -83,10 +77,7 @@ class AESTransport(BasePupyTransport):
                 if len(enc)<BLOCK_SIZE:
                     return
                 self._iv_dec=enc[0:BLOCK_SIZE]
-                if AES is not None:
-                    self.dec_cipher = AES.new(self._derived_key, AES.MODE_CBC, self._iv_dec)
-                else:
-                    self.dec_cipher = pyaes.AESModeOfOperationCBC(self._derived_key, iv = self._iv_dec)
+                self.dec_cipher = NewAESCipher(self._derived_key, self._iv_dec)
                 data.drain(BLOCK_SIZE)
                 enc=enc[BLOCK_SIZE:]
                 if not enc:

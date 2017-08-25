@@ -6,13 +6,15 @@
 __all__=["PupySocketStream", "PupyUDPSocketStream"]
 
 import sys
-from rpyc.core import SocketStream, Connection
+from rpyc.core import SocketStream, Connection, Channel
 from ..buffer import Buffer
 import socket
 import time
 import errno
 import logging
 import traceback
+import zlib
+
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 import threading
 
@@ -22,6 +24,44 @@ class addGetPeer(object):
         self.peer=peer
     def getPeer(self):
         return self.peer
+
+class PupyChannel(Channel):
+    def __init__(self, *args, **kwargs):
+        super(PupyChannel, self).__init__(*args, **kwargs)
+        self.compress = True
+        self.COMPRESSION_LEVEL = 5
+
+    def recv(self):
+        """ Recv logic with interruptions """
+
+        packet = self.stream.read(self.FRAME_HEADER.size)
+        # If no packet - then just return
+        if not packet:
+            return None
+
+        header = packet
+
+        while len(header) != self.FRAME_HEADER.size:
+            packet = self.stream.read(self.FRAME_HEADER.size - len(header))
+            if packet:
+                header += packet
+
+        length, compressed = self.FRAME_HEADER.unpack(header)
+
+        data = b''
+        required_length = length + len(self.FLUSHER)
+        while len(data) != required_length:
+            packet = self.stream.read(required_length - len(data))
+            if packet:
+                data += packet
+
+        data = data[:-len(self.FLUSHER)]
+
+        if compressed:
+            data = zlib.decompress(data)
+
+        return data
+
 
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):
@@ -48,6 +88,8 @@ class PupySocketStream(SocketStream):
 
         self.MAX_IO_CHUNK=32000
 
+        self.compress = True
+
     def on_connect(self):
         self.transport.on_connect()
         self._upstream_recv()
@@ -68,17 +110,31 @@ class PupySocketStream(SocketStream):
         if not buf:
             self.close()
             raise EOFError("connection closed by peer")
+
         self.buf_in.write(BYTES_LITERAL(buf))
 
     # The root of evil
     def poll(self, timeout):
-        # Just ignore timeout
+        if self.closed:
+            raise EOFError('polling on already closed connection')
         result = ( len(self.upstream)>0 or self.sock_poll(timeout) )
         return result
 
     def sock_poll(self, timeout):
         with self.downstream_lock:
-            to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
+            to_close = None
+            to_read = None
+
+            while not (to_close or to_read or self.closed):
+                try:
+                    to_read, _, to_close = select([self.sock], [], [self.sock], timeout)
+                except select_error as r:
+                    if not r.args[0] == errno.EINTR:
+                        to_close = True
+                    continue
+
+                break
+
             if to_close:
                 raise EOFError('sock_poll error')
 
@@ -103,20 +159,20 @@ class PupySocketStream(SocketStream):
                     return None
 
             return self.upstream.read(count)
+
         except Exception as e:
             logging.debug(traceback.format_exc())
+            self.close()
 
     def write(self, data):
         try:
             with self.upstream_lock:
                 self.buf_out.write(data)
-                try:
-                    self.transport.upstream_recv(self.buf_out)
-                except EOFError as e:
-                    logging.debug(traceback.format_exc())
+                self.transport.upstream_recv(self.buf_out)
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
+            self.close()
 
 class PupyUDPSocketStream(object):
     def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True):
@@ -200,6 +256,7 @@ class PupyUDPSocketStream(object):
                     time.sleep(0.0001)
 
             return self.upstream.read(count)
+
         except Exception as e:
             logging.debug(traceback.format_exc())
 
@@ -211,4 +268,3 @@ class PupyUDPSocketStream(object):
             #The write will be done by the _upstream_recv callback on the downstream buffer
         except Exception as e:
             logging.debug(traceback.format_exc())
-

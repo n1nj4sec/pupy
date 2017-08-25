@@ -1,21 +1,58 @@
 from __future__ import unicode_literals
 import os
 import json
+from StringIO import StringIO
+
+from ..PupyConfig import PupyConfig
+from ..PupyCredentials import Encryptor
 
 class Credentials(object):
-    def __init__(self):
-        ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "db"))
-        dbName = 'creds.json'
+    def __init__(self, client=None, config=None, password=None):
+        self.config = config or PupyConfig()
+        self.client = client
+        self.db = os.path.join(
+            self.config.get_folder('creds', {
+                '%c': client or ''
+            }), 'creds.json'
+        )
 
-        # check if the db exists
-        self.db = ROOT + os.sep + dbName
-        if not os.path.exists(ROOT):
-            os.makedirs(ROOT)
+        if Encryptor.initialized() or password:
+            self.encryptor = Encryptor.instance(
+                password=password, config=self.config)
+        else:
+            self.encryptor = None
 
         if not os.path.exists(self.db):
-            f = open(self.db, "w")
-            f.write('{"creds": []}')
-            f.close()
+            self._save_db({'creds': []})
+
+    def _save_db(self, data):
+        jsondb = json.dumps(data, indent=4)
+        with open(self.db, 'w+b') as db:
+            if self.encryptor:
+                self.encryptor.encrypt(StringIO(jsondb), db)
+            else:
+                db.write(jsondb)
+
+            db.flush()
+
+    def _load_db(self):
+        try:
+            with open(self.db) as db:
+                content = db.read(8)
+                db.seek(0)
+                if content == ('Salted__'):
+                    data = StringIO()
+                    if self.encryptor:
+                        self.encryptor.decrypt(db, data)
+                    else:
+                        raise EncryptionError(
+                            'Encrpyted credential storage: {}'.format(self.db)
+                        )
+                    return json.loads(data.getvalue())
+                else:
+                    return json.load(db)
+        except:
+            return {'creds': []}
 
     # check if dictionnary already exists in dictionnary_tab
     def checkIfExists(self, dictionnary, dictionnary_tab):
@@ -26,29 +63,26 @@ class Credentials(object):
         return False
 
     def add(self, data):
-        with open(self.db) as json_db:
-            db = json.load(json_db)
-
-        for d in data:
-            if not self.checkIfExists(d, db['creds']):
-                db['creds'].append(d)
-
-        with open(self.db, 'w') as json_db: 
-            json_db.write(json.dumps(db, indent=4))
+        db = self._load_db()
+        db['creds'] = [
+            dict(t) for t in frozenset([
+                tuple(d.items()) for d in db['creds'] + data
+            ])
+        ]
+        self._save_db(db)
 
     def display(self, search='all', isSorted=False):
-        with open(self.db) as json_db:    
-            data = json.load(json_db)
-        
+        data = self._load_db()
+
         if isSorted:
             data = sorted(data['creds'], key=lambda d: d["uid"], reverse=True)
         else:
             data = sorted(data['creds'], key=lambda d: d["CredType"], reverse=True)
-        
+
         if not data:
             print "The credential database is empty !"
             return
-        
+
         if not isSorted:
             print "\nCredentials:\n"
             print "Category          Username                                Password                      URL/Hostname"
@@ -59,7 +93,7 @@ class Credentials(object):
             found = False
         else:
             dataToSearch = None
-        
+
         tmp_uid = ''
         for creds in data:
             found = False
@@ -67,7 +101,7 @@ class Credentials(object):
             c['category'] = creds['Category']
             c['uid'] = creds['uid']
             more_info = []
-            
+
             if 'Login' in creds:
                 c['login'] = creds['Login']
                 if 'Domain' in creds:
@@ -79,11 +113,11 @@ class Credentials(object):
             if 'Password' in creds:
                 c['credtype'] = 'plaintext'
                 c['password'] = creds['Password']
-            
+
             if 'Hash' in creds:
                 c['credtype'] = 'hash'
                 c['password'] = creds['Hash']
-            
+
             if 'URL' in creds:
                 c['url'] = creds['URL']
             elif 'Host' in creds:
@@ -100,14 +134,14 @@ class Credentials(object):
 
             if more_info:
                 c['url'] += ' / ' + ' / '.join(more_info)
-            
-            # check if in the research 
+
+            # check if in the research
             if dataToSearch:
                 for value in c:
                     if dataToSearch.lower() in c[value].lower():
                         found = True
                         break
-            
+
             # print only data with password and remove false positive
             if c['password']:
                 if (dataToSearch and found) or not dataToSearch:
@@ -117,13 +151,13 @@ class Credentials(object):
                         print '-' * (len('Host') + len(c['uid']) + 2) + '\n'
 
                     print u"{}{}{}{}".format(
-                           '{:<18}'.format(c['category']), 
+                           '{:<18}'.format(c['category']),
                            '{:<40}'.format(c['login']),
-                           '{:<30}'.format(c['password']), 
+                           '{:<30}'.format(c['password']),
                            '{:<40}'.format(c['url']),
                     )
-        
-        print 
+
+        print
 
     def flush(self):
         if os.path.exists(self.db):

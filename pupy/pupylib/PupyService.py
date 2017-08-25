@@ -21,12 +21,17 @@ import sys
 import ssl
 import logging
 import traceback
-from pupygen import get_credential
+import json
+import zlib
+
+from pupylib.PupyCredentials import Credentials
 
 class PupyService(rpyc.Service):
     def __init__(self, *args, **kwargs):
         super(PupyService, self).__init__(*args, **kwargs)
-        self.pupy_srv=glob_pupyServer
+        self._local_cleanups = []
+        self._singles = {}
+
     def on_connect(self):
         try:
             # code that runs when a connection is created
@@ -56,6 +61,8 @@ class PupyService(rpyc.Service):
                     return
 
             self.execute=self._conn.root.execute
+            self.register_remote_cleanup=self._conn.root.register_cleanup
+            self.unregister_remote_cleanup=self._conn.root.unregister_cleanup
             self.exit=self._conn.root.exit
             self.eval=self._conn.root.eval
             self.get_infos=self._conn.root.get_infos
@@ -68,16 +75,36 @@ class PupyService(rpyc.Service):
         except Exception as e:
             logging.error(traceback.format_exc())
 
+    def register_local_cleanup(self, cleanup):
+        self._local_cleanups.append(cleanup)
+
+    def unregister_local_cleanup(self, cleanup):
+        self._local_cleanups.remove(cleanup)
+
+    def single(self, ctype, *args, **kwargs):
+        single = self._singles.get(ctype)
+        if not single:
+            single = ctype(*args, **kwargs)
+            self._singles[ctype] = single
+
+        return single
+
     def on_disconnect(self):
         self.pupy_srv.remove_client(self)
+        for cleanup in self._local_cleanups:
+            cleanup()
 
     def exposed_set_modules(self, modules):
         self.modules=modules
 
+    def exposed_json_dumps(self, js, compressed=False):
+        data = json.dumps(js)
+        if compressed:
+            data = zlib.compress(data)
+
+        return data
+
 class PupyBindService(PupyService):
     def exposed_get_password(self):
-        c=get_credential("BIND_PAYLOADS_PASSWORD")
-        if c is None:
-            from network.transports import DEFAULT_BIND_PAYLOADS_PASSWORD
-            c=DEFAULT_BIND_PAYLOADS_PASSWORD
-        return c
+        credentials = Credentials()
+        return credentials['BIND_PAYLOADS_PASSWORD']

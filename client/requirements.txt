@@ -1,5 +1,6 @@
 rpyc
-pycrypto
+pycryptodome
 psutil
-pyaml
 rsa
+netaddr
+tinyec

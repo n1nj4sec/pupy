@@ -33,19 +33,17 @@ class UploaderScript(PupyModule):
         if os.path.isfile(localfile) and ros.path.isdir(remotefile):
             remotefile = ros.path.join(remotefile, os.path.basename(localfile))
 
+        size = os.stat(localfile).st_size
+
         self.info(
             "Uploading local:%s to remote:%s (size=%d)"%(
                 localfile,
                 remotefile,
-                os.stat(localfile).st_size
+                size
             )
         )
 
-        upload(
-            self.client.conn,
-            localfile,
-            remotefile
-        )
+        upload(self.client.conn, localfile, remotefile, chunk_size=8*1024*1024)
 
         self.success("file local:%s uploaded to remote:%s"%(localfile, remotefile))
 

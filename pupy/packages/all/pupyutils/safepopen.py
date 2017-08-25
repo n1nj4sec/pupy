@@ -18,7 +18,6 @@ def read_pipe(queue, pipe, bufsize):
             returncode = pipe.poll()
             completed = returncode != None
         except Exception as e:
-            print('Exception: {}'.format(e))
             continue
 
         try:
@@ -137,10 +136,8 @@ class SafePopen(object):
                 else:
                     r = queue.get()
 
-            print "READ: {}".format(data)
-
             if data and read_cb:
-                read_cb(''.join(data))
+                read_cb(b''.join(data))
 
             if type(r) == int:
                 self.returncode = r
@@ -162,13 +159,8 @@ class SafePopen(object):
                 pass
 
     def write(self, data):
-        print "TO WRITE: {}".format(data)
         if self.returncode or not self._pipe or not self._interactive:
-            print "Retcode: {}, pipe: {}, writable: {}".format(
-                self.returncode, self._pipe, self._interactive
-            )
             return
 
-        print "WRITE: {}".format(','.join(['{:02x}'.format(ord(x)) for x in data]))
         self._pipe.stdin.write(data)
         self._pipe.stdin.flush()

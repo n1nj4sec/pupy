@@ -1,0 +1,15 @@
+Dockerfile
+.dockerignore
+**/.git
+**/.gitignore
+**/*.exp
+**/*.lib
+crypto/credentials.py
+data
+external/winpty
+external/scapy
+**/__pycache__*
+**/test?
+packages/src
+**/*.pyc
+**/*.pyo

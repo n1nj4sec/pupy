@@ -17,10 +17,19 @@ import argparse
 import sys
 from .PupyErrors import PupyModuleExit
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
+from .PupyConfig import PupyConfig
+from .utils.term import consize
 import StringIO
 import textwrap
 import inspect
 import logging
+import time
+import os
+import json
+import re
+import struct
+import math
+import io
 
 class PupyArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
@@ -60,6 +69,138 @@ class PupyArgumentParser(argparse.ArgumentParser):
             return self.pupy_mod_completer
     #TODO handle completer kw for add_mutually_exclusive_group (ex modules/pyexec.py)
 
+class Log(object):
+    def __init__(self, out, log, close_out=False, rec=None, command=None, args=None, title=None, unicode=False):
+        self.out = out
+        self.log = log
+        self.close_out = close_out
+        self.closed = False
+        self.rec = None
+        if rec and self.out.isatty() and rec in ('asciinema', 'ttyrec'):
+            self.rec = rec
+        self.last = 0
+        self.start = 0
+        self.unicode = unicode
+        self.cleaner = re.compile('(\033[^m]+m)')
+
+        if command and args:
+            command = command + ' ' + ' '.join(args)
+
+        if self.rec == 'asciinema':
+            h, l = consize(self.out)
+            self.log.write(
+                '{{'
+                '"command":{},"title":{},"env":null,"version":1,'
+                '"width":{},"height":{},"stdout":['.format(
+                    json.dumps(command), json.dumps(title),
+                    h, l
+                )
+            )
+            self.start = time.time()
+        elif self.rec == 'ttyrec':
+            self.last = time.time()
+        else:
+            if command:
+                if self.unicode:
+                    command = command.decode('utf-8', errors='replace')
+
+                self.log.write('> ' + command + '\n')
+
+    def write(self, data):
+        if self.closed:
+            return
+
+        if not data:
+            return
+
+        self.out.write(data)
+        now = time.time()
+
+        if self.unicode:
+            if type(data) != unicode:
+                data = data.decode('utf-8', errors='ignore')
+
+        if self.rec == 'ttyrec':
+            usec, sec = math.modf(now)
+            usec = int(usec * 10**6)
+            sec = int(sec)
+            self.log.write(struct.pack('<III', sec, usec, len(data)) + data)
+        elif self.rec == 'asciinema':
+            if self.last:
+                duration = now - self.last
+                self.log.write(',')
+            else:
+                duration = 0
+
+            self.log.write(json.dumps([duration, data]))
+        else:
+            seqs = set()
+            for seqgroups in self.cleaner.finditer(data):
+                seqs.add(seqgroups.groups()[0])
+
+            for seq in seqs:
+                data = data.replace(seq, '')
+
+            self.log.write(data)
+
+        self.last = now
+
+    def flush(self):
+        if self.closed:
+            return
+
+        self.out.flush()
+        self.log.flush()
+
+    def close(self):
+        if self.closed:
+            return
+
+        if self.close_out:
+            self.out.close()
+
+        if self.rec == 'asciinema':
+            self.log.write('],"duration":{}}}'.format(
+                time.time() - self.start
+            ))
+
+        self.log.close()
+        self.closed = True
+
+    def isatty(self):
+        return self.out.isatty()
+
+    def getvalue(self):
+        value = self.out.getvalue()
+
+        if not self.closed:
+            self.log.flush()
+
+        return value
+
+    def fileno(self):
+        return self.out.fileno()
+
+    def truncate(self, size=0):
+        if self.closed:
+            return
+
+        self.out.truncate(size)
+        self.log.flush()
+
+    def readline(self, size=None):
+        return self.out.readline(size)
+
+    def readlines(self, size=None):
+        return self.out.readlines(size)
+
+    def read(self, size=None):
+        return self.out.read(size)
+
+    def __del__(self):
+        if not self.closed:
+            self.close()
+
 class PupyModule(object):
     """
         This is the class all the pupy scripts must inherit from
@@ -75,23 +216,75 @@ class PupyModule(object):
     category="general" # to sort modules by categories. should be changed by decorator @config
     tags=[] # to add search keywords. should be changed by decorator @config
     is_module=True # if True, module have to be run with "run <module_name", if False it can be called directly without run
+    rec=None
+    known_args=False
 
-    def __init__(self, client, job, formatter=None, stdout=None):
+    def __init__(self, client, job, formatter=None, stdout=None, log=None):
         """ client must be a PupyClient instance """
-        self.client=client
-        self.job=job
+        self.client = client
+        self.job = job
+        self.new_deps = []
+        self.del_close = False
+        self.log_file = log
+        self.init_argparse()
+        self.stdout = stdout
+
         if formatter is None:
             from .PupyCmd import PupyCmd
-            self.formatter=PupyCmd
+            self.formatter = PupyCmd
         else:
-            self.formatter=formatter
+            self.formatter = formatter
+
         if stdout is None:
-            self.stdout=StringIO.StringIO()
-            self.del_close=True
+            self.stdout = StringIO.StringIO()
+            self.del_close = True
         else:
-            self.stdout=stdout
-            self.del_close=False
-        self.init_argparse()
+            self.stdout = stdout
+
+    def init(self, cmdline, args):
+        if self.client and ( self.config.getboolean('pupyd', 'logs') or self.log_file ):
+            replacements = {
+                '%c': self.client.short_name(),
+                '%m': self.client.desc['macaddr'],
+                '%M': self.get_name(),
+                '%p': self.client.desc['platform'],
+                '%a': self.client.desc['address'],
+                '%h': self.client.desc['hostname'],
+                '%u': self.client.desc['user'],
+                '%t': time.time(),
+            }
+
+            if self.log_file:
+                for k,v in replacements.iteritems():
+                    log = self.log_file.replace(k, str(v))
+            else:
+                log = self.config.get_file('logs', replacements)
+
+            if self.rec:
+                log = open(log, 'w+')
+                unicode = False
+            else:
+                log = io.open(log, 'w+', encoding='utf8')
+                unicode = True
+
+            self.stdout = Log(
+                self.stdout,
+                log,
+                close_out=self.del_close,
+                rec=self.rec,
+                command=None if self.log_file else self.get_name(),
+                args=None if self.log_file else cmdline,
+                unicode=unicode
+            )
+
+            self.del_close = True
+
+    @property
+    def config(self):
+        try:
+            return self.job.pupsrv.config
+        except:
+            return PupyConfig()
 
     @classmethod
     def get_name(cls):
@@ -103,18 +296,28 @@ class PupyModule(object):
                 return cls.__module__
 
     def __del__(self):
+        self.free()
+
+    def free(self):
         if self.del_close:
             self.stdout.close()
 
     def import_dependencies(self):
         if type(self.dependencies) == dict:
-            dependencies = self.dependencies.get('all', []) + \
-              self.dependencies.get(self.client.platform, [])
+            dependencies = self.dependencies.get(self.client.platform, []) + \
+              self.dependencies.get('all', [])
         else:
             dependencies = self.dependencies
 
-        for d in dependencies:
-            self.client.load_package(d)
+        if self.client:
+            self.client.load_package(dependencies, new_deps=self.new_deps)
+
+    def clean_dependencies(self):
+        for d in self.new_deps:
+            try:
+                self.client.unload_package(d)
+            except Exception, e:
+                logging.exception('Dependency unloading failed: {}'.format(e))
 
     def init_argparse(self):
         """ Override this class to define your own arguments. """
@@ -130,10 +333,14 @@ class PupyModule(object):
             return (True,"")
         elif "linux" in self.compatible_systems and self.client.is_linux():
             return (True,"")
+        elif "solaris" in self.compatible_systems and self.client.is_solaris():
+            return (True,"")
         elif ("darwin" in self.compatible_systems or "osx" in self.compatible_systems) and self.client.is_darwin():
             return (True,"")
         elif "unix" in self.compatible_systems and self.client.is_unix():
             return (True,"")
+        elif "posix"in self.compatible_systems and self.client.is_posix():
+            return (True, "")
         return (False, "This module currently only support the following systems: %s"%(','.join(self.compatible_systems)))
 
     def is_daemon(self):

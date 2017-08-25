@@ -10,17 +10,11 @@ from ..buffer import Buffer
 import sys, socket, time, errno, logging, traceback, string, random
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 from PupySocketStream import addGetPeer
-try:
-    import multiprocessing
-    Process=multiprocessing.Process
-    Lock=multiprocessing.Lock
-    Event=multiprocessing.Event
-except ImportError: #multiprocessing not available on android ?
-    import threading
-    Process=threading.Thread
-    Lock=threading.Lock
-    Event=threading.Event
 
+import threading
+Process=threading.Thread
+Lock=threading.Lock
+Event=threading.Event
 
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports"""

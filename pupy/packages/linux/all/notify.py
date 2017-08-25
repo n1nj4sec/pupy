@@ -4,6 +4,7 @@ import dbus
 
 def notification(text, title='', timeout=5, app='System', icon='', actions='', hint=''):
     idnum = 0
+    title = title or ''
 
     bus = dbus.SessionBus()
     notif = bus.get_object(

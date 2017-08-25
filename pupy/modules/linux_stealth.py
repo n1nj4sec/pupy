@@ -16,8 +16,8 @@ Demo: https://vimeo.com/157356150"""
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="Linux Stealth Module", description=self.__doc__)
         self.arg_parser.add_argument('--port', default=None, help='The port number to which Pupy is connecting to.')
- 
+
     def run(self, args):
-        with redirected_stdio(self.client.conn):
+        with redirected_stdio(self):
             self.client.conn.modules['linux_stealth'].run(args.port)
         self.success("Module executed successfully.")

@@ -20,34 +20,41 @@ import cPickle
 from .PupyErrors import PupyModuleError
 import traceback
 import textwrap
-from .PupyPackagesDependencies import packages_dependencies, LOAD_PACKAGE, LOAD_DLL, EXEC, ALL_OS, WINDOWS, LINUX, ANDROID
 from .PupyJob import PupyJob
+import imp
+import platform
 
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+from pupylib.payloads import dependencies
+from pupylib.utils.rpyc_utils import obtain
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
-        self.desc=desc
-        self.powershell={'x64': {'object': None, 'scripts_loaded': []}, 'x86': {'object': None, 'scripts_loaded': []}}
+        self.desc = desc
         #alias
-        self.conn=self.desc["conn"]
-        self.pupsrv=pupsrv
+        self.conn = self.desc["conn"]
+        self.pupsrv = pupsrv
+        self.imported_dlls = set()
+        self.imported_modules = set()
+        self.cached_modules = set()
+        self.pupyimporter = None
+        self.has_load_dll = False
+        self.has_new_dlls = False
+        self.has_new_modules = False
         self.load_pupyimporter()
-        self.imported_dlls={}
 
         #to reuse impersonated handle in other modules
-        self.impersonated_dupHandle=None
+        self.impersonated_dupHandle = None
 
     def __str__(self):
-        return "PupyClient(id=%s, user=%s, hostname=%s, platform=%s)"%(self.desc["id"], self.desc["user"], self.desc["hostname"], self.desc["platform"])
+        return "PupyClient(id=%s, user=%s, hostname=%s, platform=%s)"%(
+            self.desc["id"], self.desc["user"],
+            self.desc["hostname"], self.desc["platform"]
+        )
 
     def __del__(self):
         del self.desc
-        # close the powershell interpreter
-        for arch in ['x64', 'x86']:
-            if self.powershell[arch]['object']:
-                self.powershell[arch]['object'].stdin.write("exit\n")
-        del self.powershell
 
     def get_conf(self):
         dic={}
@@ -59,12 +66,23 @@ class PupyClient(object):
 
     def short_name(self):
         try:
-            return self.desc["platform"][0:3].lower()+"_"+self.desc["hostname"]+"_"+self.desc["macaddr"].replace(':','')
+            return '_'.join([
+                self.desc["platform"][0:3].lower(),
+                self.desc["hostname"],
+                self.desc["macaddr"].replace(':','')
+            ])
+
         except Exception:
             return "unknown"
 
+    def node(self):
+        return self.desc['macaddr'].replace(':', '').lower()
+
     def is_unix(self):
         return not self.is_windows()
+
+    def is_posix(self):
+        return self.desc['os_name'].lower() == 'posix'
 
     def is_linux(self):
         return "linux" in self.desc["platform"].lower()
@@ -76,6 +94,9 @@ class PupyClient(object):
         if "windows" in self.desc["platform"].lower():
             return True
         return False
+
+    def is_solaris(self):
+        return "sunos" in self.desc["platform"].lower()
 
     def is_darwin(self):
         if "darwin" in self.desc["platform"].lower():
@@ -92,6 +113,8 @@ class PupyClient(object):
             return 'linux'
         elif self.is_darwin():
             return 'darwin'
+        elif self.is_solaris():
+            return 'solaris'
         elif self.is_unix():
             return 'unix'
 
@@ -104,19 +127,32 @@ class PupyClient(object):
             'i686': 'x86',
             'i486': 'x86',
         }
-        return substitute.get(arch) or arch
+        return substitute.get(arch, arch)
 
     @property
     def arch(self):
         os_arch_to_platform = {
             'amd64': 'intel',
-            'x86': 'intel'
+            'x86': 'intel',
+            'i86pc': 'sun-intel',
+            'armv7l': 'arm',
+            'aarch64': 'arm',
         }
 
         os_platform_to_arch = {
             'intel': {
                 '32bit': 'x86',
                 '64bit': 'amd64'
+            },
+            'sun-intel': {
+                # Yes.. Just one arch supported
+                # The script is for amd64
+                '32bit': 'i86pc',
+                '64bit': 'i86pc'
+            },
+            'arm': {
+                '32bit': 'arm',
+                '64bit': 'aarch64'
             }
         }
 
@@ -132,25 +168,17 @@ class PupyClient(object):
             return True
         return False
 
-    def get_packages_path(self):
-        """ return the list of path to search packages for depending on client OS and architecture """
-        path = [
-            os.path.join('packages', self.platform),
-            os.path.join('packages', self.platform, 'all'),
-        ]
+    def match_server_arch(self):
+        try:
+            return all([
+                self.desc['platform']==platform.system(),
+                self.desc['proc_arch']==platform.architecture()[0],
+                self.desc['os_arch']==platform.machine()
+            ])
 
-        if self.arch:
-            path = path + [
-                os.path.join(p, self.arch) for p in path
-            ]
-
-        path.append(os.path.join('packages', 'all'))
-
-        path = path + [
-            os.path.join(ROOT, p) for p in path
-        ]
-
-        return set(path)
+        except Exception as e:
+            logging.error(e)
+        return False
 
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
@@ -173,124 +201,166 @@ class PupyClient(object):
                 """))
             self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
 
+        self.pupyimporter = self.conn.modules.pupyimporter
+
+        try:
+            self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_request_hook)
+            self.pupyimporter.register_package_request_hook(self.remote_load_package)
+        except:
+            pass
+
+        try:
+            self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_error_hook)
+            self.pupyimporter.register_package_error_hook(self.remote_print_error)
+        except:
+            pass
+
+        self.has_load_dll = hasattr(self.pupyimporter, 'load_dll')
+        self.has_new_dlls = hasattr(self.pupyimporter, 'new_dlls')
+        self.has_new_modules = hasattr(self.pupyimporter, 'new_modules')
+
+        self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
+        self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
+
     def load_dll(self, path):
         """
             load some dll from memory like sqlite3.dll needed for some .pyd to work
             Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
         """
-        name=os.path.basename(path)
+        name = os.path.basename(path)
         if name in self.imported_dlls:
             return False
-        buf=b""
 
-        if not os.path.exists(path):
-            path = None
-            for packages_path in self.get_packages_path():
-                packages_path = os.path.join(packages_path, name)
-                if os.path.exists(packages_path):
-                        path = packages_path
+        buf = dependencies.dll(name, self.platform, self.arch)
+        if not buf:
+            raise ImportError('Shared object {} not found'.format(name))
 
-        if not path:
-            raise ImportError("load_dll: couldn't find {}".format(name))
+        if has_load_dll:
+            result = pupyimporter.load_dll(name, buf)
+        else:
+            result = self.conn.modules.pupy.load_dll(name, buf)
 
-        with open(path,'rb') as f:
-            buf=f.read()
-        if not self.conn.modules.pupy.load_dll(name, buf):
-            raise ImportError("load_dll: couldn't load {}".format(name))
+        if not result:
+            raise ImportError('Couldn\'t load shared object {}'.format(name))
+        else:
+            self.imported_dlls.add(name)
 
-        self.imported_dlls[name]=True
         return True
 
-    def load_package(self, module_name, force=False):
-        if module_name in packages_dependencies:
-            for t,o,v in packages_dependencies[module_name]:
-                if o==ALL_OS or (o==ANDROID and self.is_android()) or (o==WINDOWS and self.is_windows()) or (o==LINUX and self.is_linux()):
-                    if t==LOAD_PACKAGE:
-                        self._load_package(v, force)
-                    elif t==LOAD_DLL:
-                        self.load_dll(v)
-                    elif t==EXEC:
-                        self.conn.execute(v)
-                    else:
-                        raise PupyModuleError("Unknown package loading method %s"%t)
-        return self._load_package(module_name, force)
+    def filter_new_modules(self, modules, dll, force=None):
+        if force is None:
+            modules = set(
+                x for x in modules if not x in self.imported_modules
+            )
 
-    def _get_module_dic(self, search_path, start_path, pure_python_only=False):
-        modules_dic={}
-        if os.path.isdir(os.path.join(search_path,start_path)): # loading a real package with multiple files
-            for root, dirs, files in os.walk(os.path.join(search_path,start_path), followlinks=True):
-                for f in files:
-                    if pure_python_only:
-                        if f.endswith((".so",".pyd",".dll")): #avoid loosing shells when looking for packages in sys.path and unfortunatelly pushing a .so ELF on a remote windows
-                            continue
-                    module_code=""
-                    with open(os.path.join(root,f),'rb') as fd:
-                        module_code=fd.read()
-                    modprefix = root[len(search_path.rstrip(os.sep))+1:]
-                    modpath = os.path.join(modprefix,f).replace("\\","/")
-                    modules_dic[modpath]=module_code
-                package_found=True
-        else: # loading a simple file
-            extlist=[ ".py", ".pyc", ".pyo" ]
-            if not pure_python_only:
-                extlist+=[ ".so", ".pyd", "27.dll" ] #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
-            for ext in extlist:
-                filepath=os.path.join(search_path,start_path+ext)
-                if os.path.isfile(filepath):
-                    module_code=""
-                    with open(filepath,'rb') as f:
-                        module_code=f.read()
-                    cur=""
-                    for rep in start_path.split("/")[:-1]:
-                        if not cur+rep+"/__init__.py" in modules_dic:
-                            modules_dic[rep+"/__init__.py"]=""
-                        cur+=rep+"/"
+            modules = set(
+                module for module in modules if not any(
+                    cached_module.startswith(
+                        tuple(x.format(module.replace('.', '/')) for x in (
+                            '{}.py', '{}/__init__.py', '{}.pyd', '{}.so',
+                        ))
+                    ) for cached_module in self.cached_modules
+                )
+            )
 
-                    modules_dic[start_path+ext]=module_code
-                    package_found=True
-                    break
-        return modules_dic
+        if not modules:
+            return []
 
-    def _load_package(self, module_name, force=False):
-        """
-            load a python module into memory depending on what OS the client is.
-            This function can load all types of modules in memory for windows both x86 and amd64 including .pyd C extensions
-            For other platforms : loading .so in memory is not supported yet.
-        """
-        # start path should only use "/" as separator
-        start_path=module_name.replace(".", "/")
-        package_found=False
-        package_path=None
-        for search_path in self.get_packages_path():
-            try:
-                modules_dic=self._get_module_dic(search_path, start_path)
-                if modules_dic:
-                    package_path=search_path
-                    break
-            except Exception as e:
-                raise PupyModuleError("Error while loading package %s : %s"%(module_name, traceback.format_exc()))
-        if not modules_dic: # in last resort, attempt to load the package from the server's sys.path if it exists
-            for search_path in sys.path:
-                try:
-                    modules_dic=self._get_module_dic(search_path, start_path, pure_python_only=True)
-                    if modules_dic:
-                        logging.info("package %s not found in packages/, but found in local sys.path, attempting to push it remotely..."%module_name)
-                        package_path=search_path
-                        break
-                except Exception as e:
-                    raise PupyModuleError("Error while loading package from sys.path %s : %s"%(module_name, traceback.format_exc()))
-        if "pupyimporter" not in self.conn.modules.sys.modules:
-            raise PupyModuleError("pupyimporter module does not exists on the remote side !")
-        if not modules_dic:
-            raise PupyModuleError("Couldn't load package %s : no such file or directory neither in \(path=%s) or sys.path"%(module_name,repr(self.get_packages_path())))
-        if force or ( module_name not in self.conn.modules.sys.modules ):
-            self.conn.modules.pupyimporter.pupy_add_package(cPickle.dumps(modules_dic)) # we have to pickle the dic for two reasons : because the remote side is not aut0horized to iterate/access to the dictionary declared on this side and because it is more efficient
-            logging.debug("package %s loaded on %s from path=%s"%(module_name, self.short_name(), package_path))
-            if force and  module_name in self.conn.modules.sys.modules:
-                self.conn.modules.sys.modules.pop(module_name)
-                logging.debug("package removed from sys.modules to force reloading")
+        if dll:
+            if self.has_new_dlls:
+                return self.pupyimporter.new_dlls(modules)
+            else:
+                return [
+                    module for module in modules if not module in self.imported_dlls
+                ]
+        else:
+            if self.has_new_modules :
+                new_modules = self.pupyimporter.new_modules(modules)
+            else:
+                new_modules = [
+                    module for module in modules if not self.pupyimporter.has_module(module)
+                ]
+
+            if not force is None:
+                for module in modules:
+                    if not module in new_modules:
+                        force.add(module)
+
+                return modules
+            else:
+                return new_modules
+
+    def load_package(self, requirements, force=False, remote=False, new_deps=[]):
+        try:
+            forced = None
+            if force:
+                forced = set()
+
+            packages, contents, dlls = dependencies.package(
+                requirements, self.platform, self.arch, remote=remote,
+                posix=self.is_posix(),
+                filter_needed_cb=lambda modules, dll: self.filter_new_modules(
+                    modules, dll, forced
+                )
+            )
+
+            self.cached_modules.update(contents)
+
+        except dependencies.NotFoundError, e:
+            raise ValueError('Module not found: {}'.format(e))
+
+        if not contents and not dlls:
+            return False
+
+        if dlls:
+            if self.has_load_dll:
+                for name, blob in dlls:
+                    self.pupyimporter.load_dll(name, blob)
+            else:
+                for name, blob in dlls:
+                    self.conn.modules.pupy.load_dll(name, blob)
+
+            if not contents:
+                return True
+
+        if not contents:
+            return False
+
+        if forced:
+            for module in forced:
+                self.pupyimporter.invalidate_module(module)
+
+        self.pupyimporter.pupy_add_package(
+            packages,
+            compressed=True,
+            # Use None to prevent import-then-clean-then-search behavior
+            name=(
+                None if ( remote or type(requirements) != str ) else requirements
+            )
+        )
+
+        new_deps.extend(contents)
+
+        return True
+
+    def unload_package(self, module_name):
+        if not module_name.endswith(('.so', '.dll', '.pyd')):
+            self.pupyimporter.invalidate_module(module_name)
+
+    def remote_load_package(self, module_name):
+        logging.debug("remote module_name asked for : %s"%module_name)
+
+        try:
+            self.load_package(module_name, remote=True)
             return True
+
+        except dependencies.NotFoundError:
+            logging.debug("no package %s found for remote client"%module_name)
+
         return False
+
+    def remote_print_error(self, msg):
+        self.pupsrv.handler.display_warning(msg)
 
     def run_module(self, module_name, args):
         """ start a module on this unique client and return the corresponding job """

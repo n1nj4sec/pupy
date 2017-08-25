@@ -1,1 +1,0 @@
-../linux/all/sudo_alias.py

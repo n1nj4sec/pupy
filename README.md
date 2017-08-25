@@ -1,8 +1,19 @@
+[![Build Status](https://travis-ci.org/n1nj4sec/pupy.svg?branch=master)](https://travis-ci.org/n1nj4sec/pupy)
 # Pupy
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features a all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
 Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, powershell, apk, ...
 When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like starting a background script, adding persistence, starting a keylogger, detecting a sandbox, ...
+
+## Installation
+```
+git clone https://github.com/n1nj4sec/pupy.git pupy
+cd pupy
+git submodule init
+git submodule update
+pip install -r pupy/requirements.txt
+```
+or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 
 ## Features
 - Multi-platform (tested on windows xp, 7, 8, 10, kali linux, ubuntu, osx, android)
@@ -103,9 +114,7 @@ Launchers allow pupy to run custom actions before starting the reverse connectio
 - webcam snapshots (front cam & back cam)
 - GPS tracker !
 
-##Installation
-[Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
-##Documentation
+## Documentation
 [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki)
 
 ### Some screenshots (not up to date)
@@ -150,6 +159,6 @@ on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)
 If some of you want to participate to pupy development, don't hesitate ! All help is greatly appreciated and I will review every pull request.  
 This project is a [personal development](https://en.wikipedia.org/wiki/Personal_development), please respect its philosophy and don't use it for evil purposes!  
 
-##special thanks
+## Special thanks
 Special thanks to all contributors that helps me improve pupy and make it an even better tool ! :)
 

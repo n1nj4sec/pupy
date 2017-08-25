@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import StringIO, zipfile, os.path, imp, sys
+import StringIO, zipfile, os.path, imp, sys, os
 import marshal
-import zlib
+import pylzma
+import struct
 
-def get_encoded_library_string():
-	filepath=None
-	filepath=os.path.join("resources","library.zip")
+def get_encoded_library_string(filepath):
+	dest = os.path.dirname(filepath)
+	if not os.path.exists(dest):
+		os.makedirs(dest)
 
 	f = StringIO.StringIO()
-	f.write(open(filepath, "rb").read())
+	f.write(open(filepath, 'rb').read())
 
 	zip = zipfile.ZipFile(f)
 
@@ -20,7 +22,7 @@ def get_encoded_library_string():
 		]
 	])
 
-	return zlib.compress(marshal.dumps(modules),9)
+	return marshal.dumps(modules)
 
-with open(os.path.join("resources","library_compressed_string.txt"),'wb') as w:
-	w.write(get_encoded_library_string())
+with open(sys.argv[1],'wb') as w:
+	w.write(get_encoded_library_string(sys.argv[2]))

@@ -8,7 +8,7 @@
 # Author:
 #  Alberto Solino (@agsolino)
 #
-# Description: [MS-RDPBCGR] and [MS-CREDSSP] partial implementation 
+# Description: [MS-RDPBCGR] and [MS-CREDSSP] partial implementation
 #              just to reach CredSSP auth. This example test whether
 #              an account is valid on the target host.
 #
@@ -131,15 +131,15 @@ class TSPasswordCreds(GSSAPI):
 	def getData(self):
 		ans = pack('B', ASN1_SEQUENCE)
 		ans += asn1encode( pack('B', 0xa0) +
-						asn1encode( pack('B', ASN1_OCTET_STRING) + 
+						asn1encode( pack('B', ASN1_OCTET_STRING) +
 						asn1encode( self['domainName'].encode('utf-16le'))) +
-						pack('B', 0xa1) + 
-						asn1encode( pack('B', ASN1_OCTET_STRING) + 
+						pack('B', 0xa1) +
+						asn1encode( pack('B', ASN1_OCTET_STRING) +
 						asn1encode( self['userName'].encode('utf-16le'))) +
-						pack('B', 0xa2) + 
-						asn1encode( pack('B', ASN1_OCTET_STRING) + 
+						pack('B', 0xa2) +
+						asn1encode( pack('B', ASN1_OCTET_STRING) +
 						asn1encode( self['password'].encode('utf-16le'))) )
-		return ans 
+		return ans
 
 class TSCredentials(GSSAPI):
 # TSCredentials ::= SEQUENCE {
@@ -152,13 +152,13 @@ class TSCredentials(GSSAPI):
 
 	def getData(self):
 	 # Let's pack the credentials field
-	 credentials =  pack('B',0xa1) 
+	 credentials =  pack('B',0xa1)
 	 credentials += asn1encode(pack('B',ASN1_OCTET_STRING) +
 									asn1encode(self['credentials']))
 
-	 ans = pack('B',ASN1_SEQUENCE) 
+	 ans = pack('B',ASN1_SEQUENCE)
 	 ans += asn1encode( pack('B', 0xa0) +
-					asn1encode( pack('B', 0x02) + 
+					asn1encode( pack('B', 0x02) +
 					asn1encode( pack('B', self['credType']))) +
 					credentials)
 	 return ans
@@ -179,19 +179,19 @@ class TSRequest(GSSAPI):
 	def __init__(self, data=None):
 		 GSSAPI.__init__(self,data)
 		 del self['UUID']
-		 
+
 	def fromString(self, data = None):
 		next_byte = unpack('B',data[:1])[0]
 		if next_byte != ASN1_SEQUENCE:
 			 raise Exception('SEQUENCE expected! (%x)' % next_byte)
 		data = data[1:]
-		decode_data, total_bytes = asn1decode(data) 
+		decode_data, total_bytes = asn1decode(data)
 
 		next_byte = unpack('B',decode_data[:1])[0]
 		if next_byte !=  0xa0:
 				raise Exception('0xa0 tag not found %x' % next_byte)
 		decode_data = decode_data[1:]
-		next_bytes, total_bytes = asn1decode(decode_data)                
+		next_bytes, total_bytes = asn1decode(decode_data)
 		# The INTEGER tag must be here
 		if unpack('B',next_bytes[0])[0] != 0x02:
 			 raise Exception('INTEGER tag not found %r' % next_byte)
@@ -260,20 +260,20 @@ class TSRequest(GSSAPI):
 			authInfo = pack('B',0xa2)
 			authInfo+= asn1encode(pack('B', ASN1_OCTET_STRING) +
 							asn1encode(self['authInfo']))
-		else: 
+		else:
 			authInfo = ''
 
 		if self.fields.has_key('NegoData'):
-				negoData = pack('B',0xa1) 
+				negoData = pack('B',0xa1)
 				negoData += asn1encode(pack('B', ASN1_SEQUENCE) +
-								asn1encode(pack('B', ASN1_SEQUENCE) + 
-								asn1encode(pack('B', 0xa0) + 
-								asn1encode(pack('B', ASN1_OCTET_STRING) + 
+								asn1encode(pack('B', ASN1_SEQUENCE) +
+								asn1encode(pack('B', 0xa0) +
+								asn1encode(pack('B', ASN1_OCTET_STRING) +
 								asn1encode(self['NegoData'])))))
 		else:
 			negoData = ''
 		ans = pack('B', ASN1_SEQUENCE)
-		ans += asn1encode(pack('B',0xa0) + 
+		ans += asn1encode(pack('B',0xa0) +
 					asn1encode(pack('B',0x02) + asn1encode(pack('B',0x02))) +
 					negoData + authInfo + pubKeyAuth)
 
@@ -324,20 +324,20 @@ class SPNEGOCipher:
 		if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
 				# When NTLM2 is on, we sign the whole pdu, but encrypt just
 				# the data, not the dcerpc header. Weird..
-				sealedMessage, signature =  ntlm.SEAL(self.__flags, 
-					self.__clientSigningKey, 
-					self.__clientSealingKey,  
-					plain_data, 
-					plain_data, 
-					self.__sequence, 
+				sealedMessage, signature =  ntlm.SEAL(self.__flags,
+					self.__clientSigningKey,
+					self.__clientSealingKey,
+					plain_data,
+					plain_data,
+					self.__sequence,
 					self.__clientSealingHandle)
 		else:
-				sealedMessage, signature =  ntlm.SEAL(self.__flags, 
-					self.__clientSigningKey, 
-					self.__clientSealingKey,  
-					plain_data, 
-					plain_data, 
-					self.__sequence, 
+				sealedMessage, signature =  ntlm.SEAL(self.__flags,
+					self.__clientSigningKey,
+					self.__clientSealingKey,
+					plain_data,
+					plain_data,
+					self.__sequence,
 					self.__clientSealingHandle)
 
 		self.__sequence += 1
@@ -348,20 +348,20 @@ class SPNEGOCipher:
 		if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
 				# TODO: FIX THIS, it's not calculating the signature well
 				# Since I'm not testing it we don't care... yet
-				answer, signature =  ntlm.SEAL(self.__flags, 
-								self.__serverSigningKey, 
-								self.__serverSealingKey,  
-								answer, 
-								answer, 
-								self.__sequence, 
+				answer, signature =  ntlm.SEAL(self.__flags,
+								self.__serverSigningKey,
+								self.__serverSealingKey,
+								answer,
+								answer,
+								self.__sequence,
 								self.__serverSealingHandle)
 		else:
-				answer, signature = ntlm.SEAL(self.__flags, 
-								self.__serverSigningKey, 
-								self.__serverSealingKey, 
-								answer, 
-								answer, 
-								self.__sequence, 
+				answer, signature = ntlm.SEAL(self.__flags,
+								self.__serverSigningKey,
+								self.__serverSealingKey,
+								answer,
+								answer,
+								self.__sequence,
 								self.__serverSealingHandle)
 				self.__sequence += 1
 
@@ -395,8 +395,13 @@ def check_rdp(host, username, password, domain, hashes = None):
 
 	s = socket.socket()
 	try:
-		# s.settimeout(5) # not work adding this 
-		s.connect((host,3389))
+		# s.settimeout(5) # not work adding this
+		if ':' in host:
+			host, port = host.split(':')
+			port = int(port)
+		else:
+			port = 3389
+		s.connect((host,port))
 	except Exception as e:
 		if e.errno == 113:
 			print '[-] No route to host : %s' % host
@@ -419,14 +424,14 @@ def check_rdp(host, username, password, domain, hashes = None):
 
 	# Since we were accepted to talk PROTOCOL_HYBRID, below is its implementation
 
-	# 1. The CredSSP client and CredSSP server first complete the TLS handshake, 
-	# as specified in [RFC2246]. After the handshake is complete, all subsequent 
-	# CredSSP Protocol messages are encrypted by the TLS channel. 
-	# The CredSSP Protocol does not extend the TLS wire protocol. As part of the TLS 
-	# handshake, the CredSSP server does not request the client's X.509 certificate 
-	# (thus far, the client is anonymous). Also, the CredSSP Protocol does not require 
-	# the client to have a commonly trusted certification authority root with the 
-	# CredSSP server. Thus, the CredSSP server MAY use, for example, 
+	# 1. The CredSSP client and CredSSP server first complete the TLS handshake,
+	# as specified in [RFC2246]. After the handshake is complete, all subsequent
+	# CredSSP Protocol messages are encrypted by the TLS channel.
+	# The CredSSP Protocol does not extend the TLS wire protocol. As part of the TLS
+	# handshake, the CredSSP server does not request the client's X.509 certificate
+	# (thus far, the client is anonymous). Also, the CredSSP Protocol does not require
+	# the client to have a commonly trusted certification authority root with the
+	# CredSSP server. Thus, the CredSSP server MAY use, for example,
 	# a self-signed X.509 certificate.
 
 	# Switching to TLS now
@@ -436,25 +441,25 @@ def check_rdp(host, username, password, domain, hashes = None):
 	tls.set_connect_state()
 	tls.do_handshake()
 
-	# If you want to use Python internal ssl, uncomment this and comment 
+	# If you want to use Python internal ssl, uncomment this and comment
 	# the previous lines
 	#tls = ssl.wrap_socket(s, ssl_version=ssl.PROTOCOL_TLSv1, ciphers='RC4')
 
-	# 2. Over the encrypted TLS channel, the SPNEGO handshake between the client 
-	# and server completes mutual authentication and establishes an encryption key 
-	# that is used by the SPNEGO confidentiality services, as specified in [RFC4178]. 
-	# All SPNEGO tokens as well as the underlying encryption algorithms are opaque to 
-	# the calling application (the CredSSP client and CredSSP server). 
+	# 2. Over the encrypted TLS channel, the SPNEGO handshake between the client
+	# and server completes mutual authentication and establishes an encryption key
+	# that is used by the SPNEGO confidentiality services, as specified in [RFC4178].
+	# All SPNEGO tokens as well as the underlying encryption algorithms are opaque to
+	# the calling application (the CredSSP client and CredSSP server).
 	# The wire protocol for SPNEGO is specified in [MS-SPNG].
-	# The SPNEGO tokens exchanged between the client and the server are encapsulated 
-	# in the negoTokens field of the TSRequest structure. Both the client and the 
-	# server use this structure as many times as necessary to complete the SPNEGO 
+	# The SPNEGO tokens exchanged between the client and the server are encapsulated
+	# in the negoTokens field of the TSRequest structure. Both the client and the
+	# server use this structure as many times as necessary to complete the SPNEGO
 	# exchange.<9>
 	#
-	# Note During this phase of the protocol, the OPTIONAL authInfo field is omitted 
-	# from the TSRequest structure by the client and server; the OPTIONAL pubKeyAuth 
-	# field is omitted by the client unless the client is sending the last SPNEGO token. 
-	# If the client is sending the last SPNEGO token, the TSRequest structure MUST have 
+	# Note During this phase of the protocol, the OPTIONAL authInfo field is omitted
+	# from the TSRequest structure by the client and server; the OPTIONAL pubKeyAuth
+	# field is omitted by the client unless the client is sending the last SPNEGO token.
+	# If the client is sending the last SPNEGO token, the TSRequest structure MUST have
 	# both the negoToken and the pubKeyAuth fields filled in.
 
 	# NTLMSSP stuff
@@ -467,17 +472,17 @@ def check_rdp(host, username, password, domain, hashes = None):
 	buff = tls.recv(4096)
 	ts_request.fromString(buff)
 
-	# 3. The client encrypts the public key it received from the server (contained 
-	# in the X.509 certificate) in the TLS handshake from step 1, by using the 
-	# confidentiality support of SPNEGO. The public key that is encrypted is the 
-	# ASN.1-encoded SubjectPublicKey sub-field of SubjectPublicKeyInfo from the X.509 
-	# certificate, as specified in [RFC3280] section 4.1. The encrypted key is 
-	# encapsulated in the pubKeyAuth field of the TSRequest structure and is sent over 
-	# the TLS channel to the server. 
+	# 3. The client encrypts the public key it received from the server (contained
+	# in the X.509 certificate) in the TLS handshake from step 1, by using the
+	# confidentiality support of SPNEGO. The public key that is encrypted is the
+	# ASN.1-encoded SubjectPublicKey sub-field of SubjectPublicKeyInfo from the X.509
+	# certificate, as specified in [RFC3280] section 4.1. The encrypted key is
+	# encapsulated in the pubKeyAuth field of the TSRequest structure and is sent over
+	# the TLS channel to the server.
 	#
-	# Note During this phase of the protocol, the OPTIONAL authInfo field is omitted 
-	# from the TSRequest structure; the client MUST send its last SPNEGO token to the 
-	# server in the negoTokens field (see step 2) along with the encrypted public key 
+	# Note During this phase of the protocol, the OPTIONAL authInfo field is omitted
+	# from the TSRequest structure; the client MUST send its last SPNEGO token to the
+	# server in the negoTokens field (see step 2) along with the encrypted public key
 	# in the pubKeyAuth field.
 
 	# Last SPNEGO token calculation
@@ -504,8 +509,8 @@ def check_rdp(host, username, password, domain, hashes = None):
 		# The other end is waiting for the pubKeyAuth field, but looks like it's
 		# not needed to check whether authentication worked.
 		# If auth is unsuccessful, it throws an exception with the previous send().
-		# If auth is successful, the server waits for the pubKeyAuth and doesn't answer 
-		# anything. So, I'm sending garbage so the server returns an error. 
+		# If auth is successful, the server waits for the pubKeyAuth and doesn't answer
+		# anything. So, I'm sending garbage so the server returns an error.
 		# Luckily, it's a different error so we can determine whether or not auth worked ;)
 		buff = tls.recv(1024)
 	except Exception, err:
@@ -515,20 +520,20 @@ def check_rdp(host, username, password, domain, hashes = None):
 			print err
 		return
 
-	# 4. After the server receives the public key in step 3, it first verifies that 
-	# it has the same public key that it used as part of the TLS handshake in step 1. 
-	# The server then adds 1 to the first byte representing the public key (the ASN.1 
-	# structure corresponding to the SubjectPublicKey field, as described in step 3) 
-	# and encrypts the binary result by using the SPNEGO encryption services. 
-	# Due to the addition of 1 to the binary data, and encryption of the data as a binary 
-	# structure, the resulting value may not be valid ASN.1-encoded values. 
-	# The encrypted binary data is encapsulated in the pubKeyAuth field of the TSRequest 
-	# structure and is sent over the encrypted TLS channel to the client. 
-	# The addition of 1 to the first byte of the public key is performed so that the 
-	# client-generated pubKeyAuth message cannot be replayed back to the client by an 
+	# 4. After the server receives the public key in step 3, it first verifies that
+	# it has the same public key that it used as part of the TLS handshake in step 1.
+	# The server then adds 1 to the first byte representing the public key (the ASN.1
+	# structure corresponding to the SubjectPublicKey field, as described in step 3)
+	# and encrypts the binary result by using the SPNEGO encryption services.
+	# Due to the addition of 1 to the binary data, and encryption of the data as a binary
+	# structure, the resulting value may not be valid ASN.1-encoded values.
+	# The encrypted binary data is encapsulated in the pubKeyAuth field of the TSRequest
+	# structure and is sent over the encrypted TLS channel to the client.
+	# The addition of 1 to the first byte of the public key is performed so that the
+	# client-generated pubKeyAuth message cannot be replayed back to the client by an
 	# attacker.
 	#
-	# Note During this phase of the protocol, the OPTIONAL authInfo and negoTokens 
+	# Note During this phase of the protocol, the OPTIONAL authInfo and negoTokens
 	# fields are omitted from the TSRequest structure.
 
 	ts_request = TSRequest(buff)
@@ -536,18 +541,18 @@ def check_rdp(host, username, password, domain, hashes = None):
 	# Now we're decrypting the certificate + 1 sent by the server. Not worth checking ;)
 	signature, plain_text = cipher.decrypt(ts_request['pubKeyAuth'][16:])
 
-	# 5. After the client successfully verifies server authenticity by performing a 
-	# binary comparison of the data from step 4 to that of the data representing 
-	# the public key from the server's X.509 certificate (as specified in [RFC3280], 
-	# section 4.1), it encrypts the user's credentials (either password or smart card 
-	# PIN) by using the SPNEGO encryption services. The resulting value is 
-	# encapsulated in the authInfo field of the TSRequest structure and sent over 
+	# 5. After the client successfully verifies server authenticity by performing a
+	# binary comparison of the data from step 4 to that of the data representing
+	# the public key from the server's X.509 certificate (as specified in [RFC3280],
+	# section 4.1), it encrypts the user's credentials (either password or smart card
+	# PIN) by using the SPNEGO encryption services. The resulting value is
+	# encapsulated in the authInfo field of the TSRequest structure and sent over
 	# the encrypted TLS channel to the server.
-	# The TSCredentials structure within the authInfo field of the TSRequest 
-	# structure MAY contain either a TSPasswordCreds or a TSSmartCardCreds structure, 
+	# The TSCredentials structure within the authInfo field of the TSRequest
+	# structure MAY contain either a TSPasswordCreds or a TSSmartCardCreds structure,
 	# but MUST NOT contain both.
 	#
-	# Note During this phase of the protocol, the OPTIONAL pubKeyAuth and negoTokens 
+	# Note During this phase of the protocol, the OPTIONAL pubKeyAuth and negoTokens
 	# fields are omitted from the TSRequest structure.
 	tsp = TSPasswordCreds()
 	tsp['domainName'] = domain
@@ -563,4 +568,3 @@ def check_rdp(host, username, password, domain, hashes = None):
 	tls.send(ts_request.getData())
 	tls.close()
 	print "[+] Valid RDP credentials"
-

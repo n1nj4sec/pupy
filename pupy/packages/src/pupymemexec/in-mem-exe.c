@@ -64,6 +64,7 @@ BOOL MapNewExecutableRegionInProcess(
 		IN LPVOID NewExecutableRawImage);
 
 typedef LONG (WINAPI * NtUnmapViewOfSection)(HANDLE ProcessHandle, PVOID BaseAddress);
+typedef LONG (WINAPI *NtQueryInformationProcess)(HANDLE, PROCESSINFOCLASS, LPVOID, ULONG, PULONG);
 
 DWORD_PTR Align(DWORD_PTR Value, DWORD_PTR Alignment)
 {
@@ -88,55 +89,92 @@ BOOL MapNewExecutableRegionInProcess(
 	PIMAGE_NT_HEADERS         NtHeader64;
 	DWORD_PTR                 dwImageBase;
 	NtUnmapViewOfSection      pNtUnmapViewOfSection;
+	NtQueryInformationProcess pNtQueryInformationProcess;
 	LPVOID                    pImageBase;
 	SIZE_T                    dwBytesWritten;
 	SIZE_T                    dwBytesRead;
 	int                       Count;
 	PCONTEXT                  ThreadContext;
-	BOOL                      Success = FALSE;
+	PMINI_PEB                 ProcessPeb;
+	ULONG                     SizeOfBasicInformation;
 
 	DosHeader = (PIMAGE_DOS_HEADER)NewExecutableRawImage;
-	if (DosHeader->e_magic == IMAGE_DOS_SIGNATURE)
-	{
-		NtHeader64 = (PIMAGE_NT_HEADERS64)((DWORD)NewExecutableRawImage + DosHeader->e_lfanew);
-		if (NtHeader64->Signature == IMAGE_NT_SIGNATURE)
-		{
-			RtlZeroMemory(&BasicInformation, sizeof(PROCESS_INFORMATION));
-			ThreadContext = (PCONTEXT)VirtualAlloc(NULL, sizeof(ThreadContext) + 4, MEM_COMMIT, PAGE_READWRITE);
-			ThreadContext = (PCONTEXT)Align((DWORD)ThreadContext, 4);
-			ThreadContext->ContextFlags = CONTEXT_FULL;
-			if (GetThreadContext(TargetThreadHandle, ThreadContext)) //used to be LPCONTEXT(ThreadContext)
-			{
-				ReadProcessMemory(TargetProcessHandle, (LPCVOID)(ThreadContext->Rdx + 16), &dwImageBase, sizeof(DWORD_PTR), &dwBytesRead);
+	if (DosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+		return FALSE;
 
-				pNtUnmapViewOfSection = (NtUnmapViewOfSection)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtUnmapViewOfSection");
-				if (pNtUnmapViewOfSection)
-					pNtUnmapViewOfSection(TargetProcessHandle, (PVOID)dwImageBase);
+	NtHeader64 = (PIMAGE_NT_HEADERS64)((DWORD_PTR) NewExecutableRawImage + DosHeader->e_lfanew);
+	if (NtHeader64->Signature != IMAGE_NT_SIGNATURE)
+		return FALSE;
 
-				pImageBase = VirtualAllocEx(TargetProcessHandle, (LPVOID)NtHeader64->OptionalHeader.ImageBase, NtHeader64->OptionalHeader.SizeOfImage, 0x3000, PAGE_EXECUTE_READWRITE);
-				if (pImageBase)
-				{
-					WriteProcessMemory(TargetProcessHandle, pImageBase, (LPCVOID)NewExecutableRawImage, NtHeader64->OptionalHeader.SizeOfHeaders, &dwBytesWritten);
-					SectionHeader = IMAGE_FIRST_SECTION(NtHeader64);
-					for (Count = 0; Count < NtHeader64->FileHeader.NumberOfSections; Count++)
-					{
-						WriteProcessMemory(TargetProcessHandle, (LPVOID)((DWORD_PTR)pImageBase + SectionHeader->VirtualAddress), (LPVOID)((DWORD_PTR)NewExecutableRawImage + SectionHeader->PointerToRawData), SectionHeader->SizeOfRawData, &dwBytesWritten);
-						SectionHeader++;
-					}
-					WriteProcessMemory(TargetProcessHandle, (LPVOID)(ThreadContext->Rdx + 16), (LPVOID)&NtHeader64->OptionalHeader.ImageBase, sizeof(DWORD_PTR), &dwBytesWritten);
-					ThreadContext->Rcx = (DWORD_PTR)pImageBase + NtHeader64->OptionalHeader.AddressOfEntryPoint;
-					SetThreadContext(TargetThreadHandle, (LPCONTEXT)ThreadContext);
-					ResumeThread(TargetThreadHandle);
-					Success = TRUE;
-				}
-				else
-					TerminateProcess(TargetProcessHandle, 0);
-				//VirtualFree(ThreadContext, 0, MEM_RELEASE);
-			}
-		}
+	RtlZeroMemory(&BasicInformation, sizeof(PROCESS_INFORMATION));
+	ThreadContext = (PCONTEXT)VirtualAlloc(NULL, sizeof(ThreadContext) + 4, MEM_COMMIT, PAGE_READWRITE);
+	ThreadContext = (PCONTEXT)Align((DWORD_PTR)ThreadContext, 4);
+	ThreadContext->ContextFlags = CONTEXT_FULL;
+
+	if (!GetThreadContext(TargetThreadHandle, ThreadContext))
+		return FALSE;
+
+	if (!ReadProcessMemory(
+			TargetProcessHandle,
+			(LPCVOID)(ThreadContext->Rdx + 16),
+			&dwImageBase,
+			sizeof(DWORD_PTR),
+			&dwBytesRead))
+		return FALSE;
+
+	pNtUnmapViewOfSection = (NtUnmapViewOfSection)
+		GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtUnmapViewOfSection");
+
+	if (!pNtUnmapViewOfSection)
+		return FALSE;
+
+	pNtUnmapViewOfSection(TargetProcessHandle, (LPVOID)NtHeader64->OptionalHeader.ImageBase);
+
+	pImageBase = VirtualAllocEx(
+		TargetProcessHandle,
+		(LPVOID)NtHeader64->OptionalHeader.ImageBase,
+		NtHeader64->OptionalHeader.SizeOfImage,
+		0x3000,
+		PAGE_EXECUTE_READWRITE
+	);
+	if (!pImageBase || (DWORD_PTR) pImageBase != NtHeader64->OptionalHeader.ImageBase)
+		return FALSE;
+
+	if (!WriteProcessMemory(
+		TargetProcessHandle,
+		pImageBase,
+		(LPCVOID)NewExecutableRawImage,
+		NtHeader64->OptionalHeader.SizeOfHeaders,
+		&dwBytesWritten))
+		return FALSE;
+
+	SectionHeader = IMAGE_FIRST_SECTION(NtHeader64);
+	for (Count = 0; Count < NtHeader64->FileHeader.NumberOfSections; Count++) {
+		if (!WriteProcessMemory(
+				TargetProcessHandle,
+				(LPVOID) ((DWORD_PTR)pImageBase + SectionHeader->VirtualAddress),
+				(LPVOID)((DWORD_PTR)NewExecutableRawImage + SectionHeader->PointerToRawData),
+				SectionHeader->SizeOfRawData, &dwBytesWritten))
+			return FALSE;
+
+		SectionHeader++;
 	}
 
-	return Success;
+	WriteProcessMemory(
+		TargetProcessHandle,
+		(LPVOID)(ThreadContext->Rdx + 16),
+		(LPVOID)&NtHeader64->OptionalHeader.ImageBase,
+		sizeof(DWORD_PTR),
+		&dwBytesWritten
+	);
+
+	ThreadContext->Rcx = (DWORD_PTR) pImageBase + NtHeader64->OptionalHeader.AddressOfEntryPoint;
+	SetThreadContext(
+		TargetThreadHandle,
+		(LPCONTEXT)ThreadContext
+	);
+
+	return ResumeThread(TargetThreadHandle) != (DWORD) -1;
 }
 
 #else
@@ -293,4 +331,3 @@ BOOL MapNewExecutableRegionInProcess(
 }
 
 #endif /* _WIN64 */
-

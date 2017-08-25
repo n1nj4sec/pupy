@@ -2,6 +2,7 @@
 from pupylib.PupyModule import *
 from pupylib.utils.term import colorize
 from modules.lib.utils.shell_exec import shell_exec
+from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Drives"
 
@@ -29,20 +30,20 @@ class Drives(PupyModule):
                 self.client.conn.modules['pupwinutils.drives'].list_drives()
             )
 
-        elif self.client.is_linux():
-            tier1 = ( 'network', 'fuse', 'dm', 'block' )
+        elif self.client.is_posix():
+            tier1 = ( 'network', 'fuse', 'dm', 'block', 'vm' )
             rmount = self.client.conn.modules['mount']
             ros = self.client.conn.modules['os']
 
-            mountinfo = rmount.mounts()
+            mountinfo = obtain(rmount.mounts())
             uid = ros.getuid()
             gid = ros.getgid()
 
             option_colors = {
                 'rw': 'yellow',
-                'nosuid': 'green',
-                'nodev': 'green',
-                'noexec': 'green',
+                'nosuid': 'grey',
+                'nodev': 'grey',
+                'noexec': 'lightgreen',
                 'uid': {
                     '0': 'green',
                     str(uid): 'red'
@@ -102,9 +103,9 @@ class Drives(PupyModule):
 
                 output.append('{}:'.format(colorize(fstype, 'yellow')))
 
-                dst_max = max([len(x.dst) for x in mountinfo[fstype]])
-                fsname_max = max([len(x.fsname) for x in mountinfo[fstype]])
-                free_max = max([len(x.hfree) if x.total else 0 for x in mountinfo[fstype]])
+                dst_max = max([len(x['dst']) for x in mountinfo[fstype]])
+                fsname_max = max([len(x['fsname']) for x in mountinfo[fstype]])
+                free_max = max([len(x['hfree']) if x['total'] else 0 for x in mountinfo[fstype]])
 
                 for info in mountinfo[fstype]:
                     fmt = '{{:<{}}} {{:<{}}} {{:>{}}} {{}}'.format(
@@ -113,15 +114,15 @@ class Drives(PupyModule):
 
                     output.append(
                         fmt.format(
-                            info.dst, info.fsname, (
+                            info['dst'], info['fsname'], (
                                 colorize(
                                     ('{{:>3}}% ({{:>{}}})'.format(free_max)).format(
-                                        info.pused, info.hfree
+                                        info['pused'], info['hfree']
                                     ),
-                                    'white' if info.pused < 90 else 'yellow'
+                                    'white' if info['pused'] < 90 else 'yellow'
                                 )
-                            ) if info.total else '',
-                            ','.join([colorize_option(option) for option in info.options])
+                            ) if info['total'] else '',
+                            ','.join([colorize_option(option) for option in info['options']])
                         )
                     )
 
@@ -131,10 +132,10 @@ class Drives(PupyModule):
                 if not fstype in mountinfo:
                     continue
 
-                src_max = max([len(x.src) for x in mountinfo[fstype]])
-                dst_max = max([len(x.dst) for x in mountinfo[fstype]])
-                fsname_max = max([len(x.fsname) for x in mountinfo[fstype]])
-                free_max = max([len(x.hfree) if x.total else 0 for x in mountinfo[fstype]])
+                src_max = max([len(x['src']) for x in mountinfo[fstype]])
+                dst_max = max([len(x['dst']) for x in mountinfo[fstype]])
+                fsname_max = max([len(x['fsname']) for x in mountinfo[fstype]])
+                free_max = max([len(x['hfree']) if x['total'] else 0 for x in mountinfo[fstype]])
 
                 output.append('{}:'.format(colorize(fstype, 'green')))
                 for info in mountinfo[fstype]:
@@ -144,15 +145,15 @@ class Drives(PupyModule):
 
                     output.append(
                         fmt.format(
-                            info.dst, info.src, info.fsname, (
+                            info['dst'], info['src'], info['fsname'], (
                                 colorize(
                                     ('{{:>3}}% ({{:>{}}})'.format(free_max)).format(
-                                        info.pused, info.hfree
+                                        info['pused'], info['hfree']
                                     ),
-                                    'white' if info.pused < 90 else 'yellow'
+                                    'white' if info['pused'] < 90 else 'yellow'
                                 )
-                            ) if info.total else '',
-                            ','.join([colorize_option(option) for option in info.options])
+                            ) if info['total'] else '',
+                            ','.join([colorize_option(option) for option in info['options']])
                         )
                     )
 

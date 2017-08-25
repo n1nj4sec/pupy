@@ -1,46 +1,86 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
+
 from pupylib.PupyModule import *
-from modules.lib.windows.winpcap import init_winpcap
+from netaddr import IPNetwork, IPAddress
 import logging
-from datetime import datetime
-from netaddr import *
+import random
+import threading
 
 __class_name__="PortScan"
 
 @config(cat="network")
 class PortScan(PupyModule):
     """ run a TCP port scan """
-    dependencies=['portscan', 'scapy']
-    max_clients=1
+
+    abort = None
+    terminated = threading.Event()
+    max_clients = 1
+    connectable = []
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="port_scan", description=self.__doc__)
         self.arg_parser.add_argument('--ports','-p', default="21,22,23,80,139,443,445,1433,1521,3389,7001,8000,8080",  help='ports to scan ex: 22,80,443')
-        self.arg_parser.add_argument('--timeout', default=4,  help='timeout (default: %(default)s)')
-        self.arg_parser.add_argument('--threads', default=10,  help='number of threads (default: %(default)s)')
+        self.arg_parser.add_argument('--timeout', default=10,  help='timeout (default: %(default)s)')
+        self.arg_parser.add_argument('--portion', default=32,  help='number of ports scanned per timeout (default: %(default)s)')
         self.arg_parser.add_argument('target', metavar="ip/range", help='IP/range')
 
     def run(self, args):
-        if "/" in args.target[0]:
-            hosts = IPNetwork(args.target[0])
-        else:
-            hosts = list()
-            hosts.append(args.target)
+        scan_range = False
 
-        ports = [int(p.strip()) for p in args.ports.split(',')]
-        for host in hosts:
-            self.success("Scanning remote host: %s" % host)
-            
-            t1 = datetime.now()
-            open_ports = self.client.conn.modules['portscan'].scan(host, ports, args.threads, args.timeout)
-            if open_ports:
-                self.log('PORT     STATE')
-                for p in open_ports:
-                    self.log("%s      open" % p)
-            else:
-                self.error('No open port found')
-            
-            # Checking the time again
-            t2 = datetime.now()
-            total =  t2 - t1
-            self.success('Scanning Completed in: %s' % total)
+        if '/' in args.target:
+            hosts = [ str(x) for x in IPNetwork(args.target) ]
+            scan_range = True
+            self.log('Scanning range {}: {} hosts'.format(args.target, len(hosts)))
+        else:
+            hosts = [ args.target ]
+
+        ports = [
+            p for prange in args.ports.split(',') for p in (
+                xrange(
+                    int(prange.split('-')[0]), int(prange.split('-')[1])+1
+                ) if '-' in prange else xrange(
+                    int(prange), int(prange)+1
+                )
+            )
+        ]
+
+        ports = list(set(ports))
+        random.shuffle(ports)
+
+        scanner = self.client.conn.modules['network.lib.scan']
+
+        def set_connectable(addrs):
+            self.connectable = addrs
+            self.terminated.set()
+
+        self.connectable = []
+
+        self.abort = scanner.scanthread(
+            hosts, ports, set_connectable, timeout=args.timeout, portion=args.portion
+        )
+
+        self.terminated.wait()
+
+        if self.connectable:
+            connectable = {}
+            for host, port in self.connectable:
+                if host in connectable:
+                    connectable[host].add(port)
+                else:
+                    connectable[host] = set([port])
+
+            for host in sorted(connectable.keys()):
+                ports = ', '.join([str(port) for port in sorted(list(connectable[host]))])
+                self.log('{}: {}'.format(host, ports))
+
+        elif not scan_range:
+            self.log('{}: closed'.format(args.target))
+
+        self.abort = None
+
+    def interrupt(self):
+        if self.abort:
+            self.abort.set()
+
+        if self.terminated:
+            self.terminated.set()

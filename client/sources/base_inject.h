@@ -1,4 +1,4 @@
-/* 
+/*
  This code has been taken from meterpreter and modified to be integrated into pupy.
  original code :https://github.com/rapid7/metasploit-payloads/blob/master/c/meterpreter/source/common/arch/win/i386/
 
@@ -71,7 +71,7 @@ typedef struct _APCCONTEXT
  	union
 	{
 		LPVOID lpStartAddress;
-		BYTE bPadding1[8]; 
+		BYTE bPadding1[8];
 	} s;
 
 	union
@@ -96,7 +96,7 @@ typedef struct _WOW64CONTEXT
  	union
 	{
 		LPVOID lpStartAddress;
-		BYTE bPadding1[8]; 
+		BYTE bPadding1[8];
 	} s;
 
 	union
@@ -119,7 +119,7 @@ DWORD inject_via_remotethread(HANDLE hProcess, DWORD dwDestinationArch, LPVOID l
 
 DWORD inject_via_remotethread_wow64(HANDLE hProcess, LPVOID lpStartAddress, LPVOID lpParameter, HANDLE * pThread);
 
-DWORD inject_dll(DWORD dwPid, LPVOID lpDllBuffer, DWORD dwDllLenght, char * cpCommandLine, int is64bits);
+DWORD inject_dll(DWORD dwPid, LPVOID lpDllBuffer, DWORD dwDllLenght, const char * cpCommandLine, int is64bits);
 
 //===============================================================================================//
 #endif

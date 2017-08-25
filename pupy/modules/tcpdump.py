@@ -54,17 +54,11 @@ class TcpdumpModule(PupyModule):
             filepath=os.path.join("data","pcaps","cap_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".pcap")
             pktwriter = PcapWriter(filepath, append=True, sync=True)
             self.info("Packets printed will be streamed into %s ..."%filepath)
-            
+
 
         if args.timeout==None and args.count==0:
             raise PupyModuleError("--timeout or --count options are mandatory for now.")#TODO patch scapy to have an interruptible sniff() function
 
         self.sniff_sess=self.client.conn.modules["tcpdump"].SniffSession(gen_cb_function(pcap_writer=pktwriter), bpf=args.bpf, timeout=args.timeout, count=args.count, iface=args.iface)
-        #with redirected_stdio(self.client.conn):
+        #with redirected_stdio(self):
         self.sniff_sess.start()
-
-                
-
-
-
-

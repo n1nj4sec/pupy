@@ -8,14 +8,10 @@ from ..base import BasePupyTransport, TransportError
 import os, logging, threading, hashlib, traceback, traceback, struct
 import rsa
 try:
-    from Crypto.Cipher import AES
     from Crypto import Random
-    from Crypto.Hash import SHA256, HMAC
 except ImportError as e:
-    logging.warning("pycrypto not available, using pure python libraries (slower)")
-    AES=None
     Random=None
-    import cryptoutils.pyaes as pyaes
+from cryptoutils.aes import NewAESCipher
 
 BLOCK_SIZE=16
 
@@ -47,9 +43,6 @@ class RSA_AESTransport(BasePupyTransport):
         self.size_to_read=None
         self.first_block=b""
 
-    def on_connect(self):
-        self.downstream.write(self._iv_enc) # send IV
-
     def upstream_recv(self, data):
         try:
             cleartext=data.peek()
@@ -71,10 +64,7 @@ class RSA_AESTransport(BasePupyTransport):
                 if len(enc)<BLOCK_SIZE:
                     return
                 self._iv_dec=enc[0:BLOCK_SIZE]
-                if AES is not None:
-                    self.dec_cipher = AES.new(self.aes_key, AES.MODE_CBC, self._iv_dec)
-                else:
-                    self.dec_cipher = pyaes.AESModeOfOperationCBC(self.aes_key, iv = self._iv_dec)
+                self.dec_cipher = NewAESCipher(self.aes_key, self._iv_dec)
                 data.drain(BLOCK_SIZE)
                 enc=enc[BLOCK_SIZE:]
                 if not enc:
@@ -132,14 +122,12 @@ class RSA_AESClient(RSA_AESTransport):
         else:
             self.aes_key = os.urandom(self.key_size)
 
-        if AES is not None:
-            self.enc_cipher = AES.new(self.aes_key, AES.MODE_CBC, self._iv_enc)
-        else:
-            self.enc_cipher = pyaes.AESModeOfOperationCBC(self.aes_key, iv = self._iv_enc)
+        self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
         self.downstream.write(rsa.encrypt(self.aes_key, pk))
+        logging.debug("AES key crypted with RSA public key and sent to server")
         self.downstream.write(self._iv_enc)
+        logging.debug("IV sent to Server")
 
-        
 
 class RSA_AESServer(RSA_AESTransport):
     privkey=None
@@ -155,6 +143,7 @@ class RSA_AESServer(RSA_AESTransport):
         if self.privkey is None:
             raise TransportError("A private key (pem format) needs to be supplied for RSA_AESServer")
         self.pk=rsa.PrivateKey.load_pkcs1(self.privkey)
+        self.post_handshake_callbacks=[]
 
     def downstream_recv(self, data):
         try:
@@ -170,16 +159,21 @@ class RSA_AESServer(RSA_AESTransport):
                     return
                 data.drain(self.rsa_key_size/8)
 
-                if AES is not None:
-                    self.enc_cipher = AES.new(self.aes_key, AES.MODE_CBC, self._iv_enc)
-                else:
-                    self.enc_cipher = pyaes.AESModeOfOperationCBC(self.aes_key, iv = self._iv_enc)
+                self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
+                logging.debug("client AES key received && decrypted from RSA private key")
+                self.downstream.write(self._iv_enc) # send IV
+                logging.debug("IV sent to Client")
+
+                for f, args in self.post_handshake_callbacks:
+                    f(*args)
+                self.post_handshake_callbacks=[]
             super(RSA_AESServer, self).downstream_recv(data)
         except Exception as e:
             logging.debug(e)
+
     def upstream_recv(self, data):
         if self.enc_cipher is None:
+            logging.debug("data received but enc_cipher is not available yet")
+            self.post_handshake_callbacks.append((self.upstream_recv, (data,)))
             return
         super(RSA_AESServer, self).upstream_recv(data)
-
-

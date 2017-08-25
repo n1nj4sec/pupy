@@ -14,7 +14,6 @@ import logging
 
 import random
 import base64
-import yaml
 import argparse
 
 import probdist
@@ -23,11 +22,10 @@ import message
 import const
 import util
 import packetmorpher
-import ticket
 import uniformdh
 import state
 import fifobuf
-
+import ticket
 
 log = logging
 
@@ -221,31 +219,14 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         # The preferred authentication mechanism is a session ticket.
         bridge = self.circuit.downstream.transport.getPeer()
-        storedTicket = ticket.findStoredTicket(bridge)
-
-        if storedTicket is not None:
-            #log.debug("Redeeming stored session ticket.")
-            (masterKey, rawTicket) = storedTicket
-            self.deriveSecrets(masterKey)
-            self.circuit.downstream.write(ticket.createTicketMessage(rawTicket,
-                                                                self.sendHMAC))
-
-            # We switch to ST_CONNECTED opportunistically since we don't know
-            # yet whether the server accepted the ticket.
-            #log.debug("Switching to state ST_CONNECTED.")
-            self.protoState = const.ST_CONNECTED
-
-            self.flushSendBuffer()
-
-        # Conduct an authenticated UniformDH handshake if there's no ticket.
-        else:
-            if self.uniformDHSecret is None:
+        if self.uniformDHSecret is None:
                 #log.warning("A UniformDH password is not set, most likely " \
                 #            "a missing 'password' argument.")
-                self.circuit.close()
-                return
+            self.circuit.close()
+            return
             #log.debug("No session ticket to redeem.  Running UniformDH.")
-            self.circuit.downstream.write(self.uniformdh.createHandshake())
+
+        self.circuit.downstream.write(self.uniformdh.createHandshake())
 
     def sendRemote( self, data, flags=const.FLAG_PAYLOAD ):
         """
@@ -336,10 +317,6 @@ class ScrambleSuitTransport( base.BaseTransport ):
                 assert len(msg.payload) == (const.TICKET_LENGTH +
                                             const.MASTER_KEY_LENGTH)
                 peer = self.circuit.downstream.transport.getPeer()
-                ticket.storeNewTicket(msg.payload[0:const.MASTER_KEY_LENGTH],
-                                      msg.payload[const.MASTER_KEY_LENGTH:
-                                                  const.MASTER_KEY_LENGTH +
-                                                  const.TICKET_LENGTH], peer)
 
             # Use the PRNG seed to generate the same probability distributions
             # as the server.  That's where the polymorphism comes from.
@@ -704,7 +681,7 @@ class ScrambleSuitServer( ScrambleSuitTransport ):
         """
         Initialise a ScrambleSuitServer object.
         """
-        
+
         self.weAreServer=True
         self.weAreClient=False
         self.weAreExternal=True

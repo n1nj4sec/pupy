@@ -14,6 +14,7 @@ class Buffer(object):
         self.buffer = bytes(data)
         self.on_write_f=on_write
         self.waiting_lock=threading.Lock()
+        self.data_lock=threading.RLock()
         self.waiting=threading.Event()
         self.transport=transport_func
         self.cookie=None
@@ -30,7 +31,7 @@ class Buffer(object):
         else:
             self.waiting.clear()
         return self.waiting.wait(timeout)
-            
+
     def read(self, n=-1):
         """
         Read and return 'n' bytes from the buffer.
@@ -40,22 +41,24 @@ class Buffer(object):
         the whole buffer.
         """
 
-        if (n < 0) or (n > len(self.buffer)):
-            the_whole_buffer = self.buffer
-            self.buffer = bytes('')
-            return the_whole_buffer
+        with self.data_lock:
+            if (n < 0) or (n > len(self.buffer)):
+                the_whole_buffer = self.buffer
+                self.buffer = bytes('')
+                return the_whole_buffer
 
-        data = self.buffer[:n]
-        self.buffer = self.buffer[n:]
-        return data
+            data = self.buffer[:n]
+            self.buffer = self.buffer[n:]
+            return data
 
     def write(self, data):
         """
         Append 'data' to the buffer.
         """
-        self.buffer = self.buffer + data
-        self.on_write()
-        self.waiting.set()
+        with self.data_lock:
+            self.buffer = self.buffer + data
+            self.on_write()
+            self.waiting.set()
 
     def peek(self, n=-1):
         """
@@ -66,10 +69,11 @@ class Buffer(object):
         buffer.
         """
 
-        if (n < 0) or (n > len(self.buffer)):
-            return self.buffer
+        with self.data_lock:
+            if (n < 0) or (n > len(self.buffer)):
+                return self.buffer
 
-        return self.buffer[:n]
+            return self.buffer[:n]
 
     def drain(self, n=-1):
         """
@@ -79,21 +83,24 @@ class Buffer(object):
         If 'n' is larger than the size of the buffer, drain the whole
         buffer.
         """
-        if (n < 0) or (n > len(self.buffer)):
-            self.buffer = bytes('')
-            return
 
-        self.buffer = self.buffer[n:]
-        return
+        with self.data_lock:
+            if (n < 0) or (n > len(self.buffer)):
+                self.buffer = bytes('')
+                return
+
+            self.buffer = self.buffer[n:]
+            return
 
     def __len__(self):
         """Returns length of buffer. Used in len()."""
-        return len(self.buffer)
+        with self.data_lock:
+            return len(self.buffer)
 
     def __nonzero__(self):
         """
         Returns True if the buffer is non-empty.
         Used in truth-value testing.
         """
-        return True if len(self.buffer) else False
-
+        with self.data_lock:
+            return True if len(self.buffer) else False

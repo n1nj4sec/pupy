@@ -5,10 +5,12 @@ import marshal
 import struct
 import base64
 import os.path
+import os
 import argparse
 
 remove_stdout='''
 import sys
+sys.tracebacklimit = 0
 class Blackhole(object):
     softspace = 0
     def read(self):
@@ -59,16 +61,22 @@ if __name__=="__main__":
         compile(pupyimporter, '<string>', 'exec')
     )
 
+    if not args.debug:
+        print 'Generate bootloader with blackholed stderr/stdout'
+
     bootloader = [
         remove_stdout if not args.debug else 'print "DEBUG"\n',
-        'import sys; sys.path=[]; ' + (
+        'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[];' + (
             'sys.argv = [];' if not args.pass_argv else ''
-        ) + '\n',
+        ) + 'sys.prefix = "";\n',
         pupyload.format('pupyimporter', repr(pupyimporter)),
         'import pupyimporter\n'
         'pupyimporter.install({})\n'.format(args.debug),
         pp+'\n',
     ]
+
+    if not os.path.exists('resources'):
+        os.makedirs('resources')
 
     with open(os.path.join("resources","bootloader.pyc"),'wb') as w:
         w.write(marshal.dumps([

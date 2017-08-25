@@ -15,7 +15,7 @@ class PtyShell(object):
     def __del__(self):
         self.close()
 
-    def spawn(self, argv=None, term=None):
+    def spawn(self, argv=None, term=None, suid=None):
         if self.pty:
             return
 

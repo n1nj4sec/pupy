@@ -37,6 +37,8 @@ PyObject *, PyExc_ImportError
 PyObject *, PyExc_Exception
 char *, _Py_PackageContext
 
+PyObject *, PyObject_CallObject, (PyObject *, PyObject *)
+
 PyGILState_STATE, PyGILState_Ensure, (void)
 void, PyGILState_Release, (PyGILState_STATE)
 
@@ -66,6 +68,9 @@ PyObject *, PyThreadState_GetDict, (void)
 int, PyObject_IsTrue, (PyObject *)
 void, PyErr_SetString, (PyObject *, const char *)
 void, PyEval_InitThreads, (void)
+PyObject *, PyErr_NewException, (char *name, PyObject *base, PyObject *dict)
+int, PyModule_AddObject, (PyObject *, const char *, PyObject *)
+int, PyModule_AddStringConstant, (PyObject *module, const char *name, const char *value)
 '''.strip().splitlines()
 
 
