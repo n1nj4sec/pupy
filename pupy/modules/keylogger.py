@@ -91,7 +91,7 @@ class KeyloggerModule(PupyModule):
                 self.log(data)
 
                 with codecs.open(filepath, 'w', encoding='utf-8') as f:
-                    f.write(data)
+                    f.write(data.decode('utf8', errors='replace'))
 
         elif args.action=="stop":
             if self.client.is_windows():
