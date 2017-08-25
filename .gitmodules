@@ -9,13 +9,13 @@
 [submodule "pupy/external/BeRoot"]
 	path = pupy/external/BeRoot
 	url = https://github.com/AlessandroZ/BeRoot
-    shallow = false
+	shallow = false
 [submodule "pupy/external/Windows-Exploit-Suggester"]
-    path = pupy/external/Windows-Exploit-Suggester
-    url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
+	path = pupy/external/Windows-Exploit-Suggester
+	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
 [submodule "pupy/external/linux-exploit-suggester"]
-    path = pupy/external/linux-exploit-suggester
-    url = https://github.com/mzet-/linux-exploit-suggester
+	path = pupy/external/linux-exploit-suggester
+	url = https://github.com/mzet-/linux-exploit-suggester
 [submodule "client/sources-linux/linux-inject"]
 	path = client/sources-linux/linux-inject
 	url = https://github.com/gaffe23/linux-inject.git
@@ -37,3 +37,9 @@
 [submodule "pupy/external/Inveigh"]
 	path = pupy/external/Inveigh
 	url = https://github.com/Kevin-Robertson/Inveigh.git
+[submodule "pupy/pupy/external/BeRoot"]
+	path = pupy/pupy/external/BeRoot
+	url = https://github.com/AlessandroZ/BeRoot
+[submodule "pupy/pupy/external/changeme"]
+	path = pupy/pupy/external/changeme
+	url = https://github.com/AlessandroZ/changeme
