@@ -6,10 +6,6 @@
 	path = pupy/external/changeme
 	url = https://github.com/AlessandroZ/changeme
 	shallow = false
-[submodule "pupy/external/BeRoot"]
-	path = pupy/external/BeRoot
-	url = https://github.com/AlessandroZ/BeRoot
-	shallow = false
 [submodule "pupy/external/Windows-Exploit-Suggester"]
 	path = pupy/external/Windows-Exploit-Suggester
 	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
@@ -38,8 +34,5 @@
 	path = pupy/external/Inveigh
 	url = https://github.com/Kevin-Robertson/Inveigh.git
 [submodule "pupy/pupy/external/BeRoot"]
-	path = pupy/pupy/external/BeRoot
+	path = pupy/external/BeRoot
 	url = https://github.com/AlessandroZ/BeRoot
-[submodule "pupy/pupy/external/changeme"]
-	path = pupy/pupy/external/changeme
-	url = https://github.com/AlessandroZ/changeme

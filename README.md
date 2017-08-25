@@ -9,10 +9,12 @@ When you package a payload, you can choose a launcher (connect, bind, ...), a tr
 ```
 git clone https://github.com/n1nj4sec/pupy.git pupy
 cd pupy
+git checkout master
 git submodule init
 git submodule update
 pip install -r pupy/requirements.txt
 ```
+note: If you checkout the unstable branch be aware the templates are not up to date, you will have to build your own pupy/payload_templates
 or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 
 ## Features
