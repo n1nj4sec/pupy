@@ -85,10 +85,10 @@ def shared_folders():
         return ''
 
     output = [
-        '%s%s' % ('Name'.ljust(12), 'Path'.ljust(15)),
-        '%s%s' % ('----'.ljust(12), '----'.ljust(15))
+        '%s%s' % ('Name'.ljust(20), 'Path'.ljust(23)),
+        '%s%s' % ('----'.ljust(20), '----'.ljust(23))
     ] + [
-        '%s%s' % (s.Name.ljust(12), s.Path.ljust(15)) for s in shared
+        '%s%s' % (s.Name.ljust(20), s.Path.ljust(23)) for s in shared
     ]
 
     return '\n'.join(output)+'\n'
