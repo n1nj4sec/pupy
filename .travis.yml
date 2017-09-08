@@ -64,13 +64,18 @@ env:
   - DISPLAY=":99.0"
   - COMMIT=${TRAVIS_COMMIT::8}
 before_deploy:
-- tar -C $TRAVIS_BUILD_DIR --exclude=Dockerfile --exclude=.dockerignore --exclude=.git --exclude=winpty --exclude=scapy -Jcf $TRAVIS_BUILD_DIR/pupy-$COMMIT.txz pupy
+- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/*.lib
+- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/*.exp
+- tar -C $TRAVIS_BUILD_DIR --exclude=Dockerfile --exclude=.dockerignore --exclude=.git --exclude=winpty --exclude=scapy -Jcf $TRAVIS_BUILD_DIR/pupy.txz pupy
+- tar -C $TRAVIS_BUILD_DIR/pupy -Jcf $TRAVIS_BUILD_DIR/payload_templates.txz payload_templates
 deploy:
   provider: releases
   api_key:
     secure: E3nJgSrYLIIil6eqP0h0c67Ktaw9QN7IfNDsaIuQwstZE/kBIJe9DIY93oaN+1soosknXHm/dsLeraNZVYXJbsoE9lPuDzOdC2sBq09xAR+ZRFXdtUMXtMDv816v2ZsdHZbfbNvm5ucixE9eGXDGPpDYcJRliHpAFPavysHL3lvF0dem1rI2RQsB0LGRYGOVFwjpdpqFITZs1BZxq/clXbqBLBnJO30D3LUdbXWYCqC4M4fMIIQOsWZRLGu8JgD6stmB8t+ve7XcXy4JhE6jFNgzMP6DHYoloobeUWWk6RbsAPs4j3UYbYFCsuow+JJ9iaXP0sgv8gST3nqjZtF1xiRVYOdqTa2MIAkGIuOmH1otl55C6UuXdIZGd6SPOKlKC3ccB92KcDy+7h5QcH16mFqZKsOkYRAE4izaE9GyWejpFxlnqOZGLwN8AKsf/zpWq4bRbEAYLWayi1KYNzGlFwsbdf7BWZJ90JWmVpf1AcJ92sbNexxkoW47Jm+Ir264ZK72IWLdE9PYkNUi5wt6IhsHsshdVlUa0p3qvIgBeWdfm+fgcm7qyJbCp37SFgbYmcs4+9U9B75lPpYR7RZOdGh3NGcREFbzYVz+VpPOaDGEJ4mBWn3DXcLtnjBG4q28/eDSkvrq1QK1g8+urzml6KYHaH738tRbjV97YsHsAvM=
-  file: $TRAVIS_BUILD_DIR/pupy-$COMMIT.txz
+  file:
+    - "$TRAVIS_BUILD_DIR/pupy.txz"
+    - "$TRAVIS_BUILD_DIR/payload_templates.txz"
   skip_cleanup: true
   on:
     repo: n1nj4sec/pupy
-    branch: unstable
+    tags: true
