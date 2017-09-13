@@ -40,9 +40,9 @@ class Zip(PupyModule):
                 log = data
 
         elif not args.u:
-            result, log = self.log(self.client.conn.modules["pupyutils.zip"].zip(args.source, args.destination))
+            result, log = self.client.conn.modules["pupyutils.zip"].zip(args.source, args.destination)
         else:
-            result, log = self.log(self.client.conn.modules["pupyutils.zip"].unzip(args.source, args.destination))
+            result, log = self.client.conn.modules["pupyutils.zip"].unzip(args.source, args.destination)
 
         if result:
             self.success(log)

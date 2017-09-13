@@ -340,6 +340,7 @@ class PupyCmd(cmd.Cmd):
                 cmds_doc.append((name, self.pupsrv.get_module(self.aliases[name].split()[0]).__doc__))
 
             self.stdout.write("%s\n"%str(self.doc_header))
+            cmds_doc.sort()
             for command,doc in cmds_doc:
                 if doc is None:
                     doc=""
