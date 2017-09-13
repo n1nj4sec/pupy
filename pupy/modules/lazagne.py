@@ -166,14 +166,15 @@ class LaZagne(PupyModule):
 
             for c in cred.keys():
                 credvalue = cred[c]
-                if not type(credvalue) in (unicode, str):
-                    credvalue = str(credvalue)
-                elif type(credvalue) == str:
+                try:
+                    credvalue = credvalue.strip().encode('latin-1').decode('utf-8')
+                except:
                     try:
                         credvalue = credvalue.strip().decode('utf-8')
                     except:
-                        credvalue = credvalue.strip().decode('latin1')
 
+                        credvalue = self.try_utf8(credvalue)
+                
                 result[c] = credvalue
 
                 for t, name in self.TYPESMAP.iteritems():
