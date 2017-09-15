@@ -125,7 +125,7 @@ class Powershell(threading.Thread):
                 self._executable = native
 
         self._args = [
-            self._executable, u'-W', u'hidden', u'-I', u'Text', u'-C', u'-'
+            self._executable, u'-W', u'hidden', u'-NoProfile', u'-NoLogo', u'-I', u'Text', u'-C', u'-'
         ]
 
         self._initialize(content)

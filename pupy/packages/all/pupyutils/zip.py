@@ -14,7 +14,6 @@ def try_unicode(path):
 
 def zip(src, dst):
     src = try_unicode(src)
-    dst = try_unicode(dst)
 
     if not os.path.exists(src):
         return False, "The file \"%s\" does not exists" % src
@@ -29,6 +28,8 @@ def zip(src, dst):
             dst = d[len(d)-1] + '.zip'
         else:
             dst = src + '.zip'
+
+    dst = try_unicode(dst)
 
     # To not overwrite an existing file
     if os.path.exists(dst):
@@ -52,7 +53,6 @@ def zip(src, dst):
 
 def unzip(src, dst):
     src = try_unicode(src)
-    dst = try_unicode(dst)
 
     if not os.path.exists(src):
         return False, "The file \"%s\" does not exists" % src
@@ -60,6 +60,8 @@ def unzip(src, dst):
     if not dst:
         d = src.split(os.sep)
         dst = d[len(d)-1].replace('.zip', '')
+
+    dst = try_unicode(dst)
 
     # To not overwrite an existing file
     if os.path.exists(dst):

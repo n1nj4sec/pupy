@@ -9,7 +9,19 @@ import time
 
 __class_name__="DownloaderScript"
 
+def try_unicode(path):
+    if type(path) != unicode:
+        try:
+            return path.decode('utf-8')
+        except UnicodeDecodeError:
+            pass
+
+    return path
+
 def download(conn, remotepath, localpath, filter=None, ignore_invalid=False, chunk_size=16000, log=None):
+    remotepath = try_unicode(remotepath)
+    localpath = try_unicode(localpath)
+
     if conn.modules.os.path.isdir(remotepath):
         download_dir(conn, remotepath, localpath, filter, chunk_size, log)
     elif conn.modules.os.path.isfile(remotepath):
