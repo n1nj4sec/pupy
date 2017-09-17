@@ -423,7 +423,8 @@ def get_parser(base_parser, config):
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
-    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by oneliner listeners ps1,py (default: %(default)s)")
+    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner locally (default: %(default)s)")
+    parser.add_argument('--oneliner-no-ssl', default=False, action='store_true', help="No ssl for ps1_oneliner stages (default: %(default)s)")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
@@ -618,10 +619,11 @@ def pupygen(args, config):
     elif args.format=="ps1_oneliner":
         from pupylib.payloads.ps1_oneliner import serve_ps1_payload
         link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
-        if args.no_use_proxy == True:
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=False)
-        else:
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=True)
+        if args.oneliner_no_ssl == False : sslEnabled = True
+        else: sslEnabled = False
+        if args.no_use_proxy == False : useTargetProxy = True
+        else: useTargetProxy = False
+        serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=useTargetProxy, sslEnabled=sslEnabled)
     elif args.format=="rubber_ducky":
         rubber_ducky(conf).generateAllForOStarget()
     else:
