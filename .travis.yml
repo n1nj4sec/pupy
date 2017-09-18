@@ -36,7 +36,21 @@ script:
 - "( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh ) & ( cd $TRAVIS_BUILD_DIR/client/sources-linux
   && sudo -E ./build.sh ) & wait"
 - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.lin
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.so
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.dll
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.exe
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.lin
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.so
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.dll
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.exe
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy.apk
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/windows-amd64.zip
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/windows-x86.zip
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-amd64.zip
+- ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-x86.zip
 - df -h
+
 before_cache:
 - rm -rf $HOME/.cache && mkdir -p $HOME/.cache
 - rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/downloads
