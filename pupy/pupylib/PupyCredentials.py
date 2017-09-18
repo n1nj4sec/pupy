@@ -170,6 +170,8 @@ class Encryptor(object):
 
 ENCRYPTOR = Encryptor.instance
 
+HELP_RESET_MSG='FYI you can reset your credentials by removing crypto/credentials.py but you will have to re-generate your payloads.'
+
 class Credentials(object):
     SYSTEM_CONFIG = path.join(path.dirname(__file__), '..', 'crypto', 'credentials.py')
 
@@ -193,7 +195,7 @@ class Credentials(object):
                 with open(configfile, 'rb') as creds:
                     content = creds.read()
                     if not content:
-                        raise ValueError('Corrupted file: {}'.format(configfile))
+                        raise ValueError('Corrupted file: {}\n{}'.format(configfile, HELP_RESET_MSG))
 
                     if content.startswith('Salted__'):
                         if not ENCRYPTOR:
@@ -207,7 +209,7 @@ class Credentials(object):
                             encryptor.decrypt(StringIO(content), fcontent)
                         except:
                             raise EncryptionError(
-                                'Invalid password or corrupted data'
+                                'Invalid password or corrupted data.\n{}'.format(HELP_RESET_MSG)
                             )
 
                         content = fcontent.getvalue()
