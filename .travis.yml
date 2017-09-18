@@ -28,9 +28,7 @@ script:
 - sh -e /etc/init.d/xvfb start || systemctl start xvfb
 - sleep 3
 - df -h
-- "( cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh ) & ( cd $TRAVIS_BUILD_DIR/client/sources-linux
-  && sudo -E ./buildenv.sh ) & wait"
-- "( cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh && rm -f $HOME/.buildozer/android-sdk_* && rm -rf $HOME/.buildozer/android-ndk*)"
+- "( cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh ) & ( cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh && rm -f $HOME/.buildozer/android-sdk_* && rm -rf $HOME/.buildozer/android-ndk*) & ( cd $TRAVIS_BUILD_DIR/client/sources-linux & sudo -E ./buildenv.sh ) & wait"
 - df -h
 - "( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh )"
 - "( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh )"
