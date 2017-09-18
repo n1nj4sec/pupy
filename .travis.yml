@@ -5,9 +5,9 @@ before_install:
 - sudo dpkg --add-architecture i386
 - sudo apt-get update >/dev/null
 install:
+- sudo pip install pylzma
 - sudo -E apt-get -y install mingw-w64 g++-mingw-w64-x86-64 g++-mingw-w64-i686 debootstrap
   cython make wine xvfb python-pip >/dev/null
-- pip install --user pylzma
 - pip install --user git+https://github.com/kivy/buildozer
 services:
 - docker
