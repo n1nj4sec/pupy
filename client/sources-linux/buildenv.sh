@@ -4,7 +4,7 @@ export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/sbin:$HOME/
 export XID=`id -u`
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
-OPENSSL_SRC="http://http.debian.net/debian/pool/main/o/openssl/openssl_1.0.2k.orig.tar.gz"
+OPENSSL_SRC="http://cdn-fastly.deb.debian.org/debian/pool/main/o/openssl/openssl_1.0.2l.orig.tar.gz"
 ZLIB_SRC="http://zlib.net/zlib-1.2.11.tar.gz"
 SQLITE_SRC="http://www.sqlite.org/2016/sqlite-autoconf-3150200.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
@@ -32,7 +32,7 @@ if [ ! -d buildenv/downloads ]; then
                            "$DBUS_SRC" "$DBUS_GLIB_SRC" "$GOBJECT_INTROSPECTION" \
                            "$PYGOBJECT" "$DBUS_PYTHON" "$M4_SRC" "$AUTOCONF_SRC" \
 			   "$AUTOMAKE_SRC" ; do
-        wget -qc "$bin"
+        wget -c "$bin"
     done
     cd -
     
@@ -284,7 +284,7 @@ python -OO -m pip install -q six packaging appdirs
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy impacket colorama pyOpenSSL pylzma \
+       scapy impacket colorama pyOpenSSL \
        --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
@@ -564,7 +564,7 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy impacket colorama pyOpenSSL pylzma \
+       scapy impacket colorama pyOpenSSL \
        --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
