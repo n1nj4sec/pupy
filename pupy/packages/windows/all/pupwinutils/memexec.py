@@ -102,6 +102,7 @@ class MemoryPE(object):
             self.dupHandle = 0
 
         self.EOF = threading.Event()
+        self.stdout = ''
 
     def close(self):
         # Killing the program if he is still alive
@@ -182,6 +183,7 @@ class MemoryPE(object):
                     buffer[c_read.value] = '\x00'
 
                     if self.write_cb:
+                        self.stdout += buffer.value
                         try:
                             self.write_cb(buffer.value)
                         except:
