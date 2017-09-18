@@ -153,7 +153,7 @@ cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
-tar zxf openssl_1.0.2k.orig.tar.gz
+tar zxf openssl-1.0.2l.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic32
@@ -450,7 +450,7 @@ cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
-tar zxf openssl_1.0.2k.orig.tar.gz
+tar zxf openssl-1.0.2l.orig.tar.gz
 cd /usr/src/openssl-1.0.2k/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic64
