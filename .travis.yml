@@ -29,12 +29,11 @@ script:
 - sleep 3
 - df -h
 - "( cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh ) & ( cd $TRAVIS_BUILD_DIR/client/sources-linux
-  && sudo -E ./buildenv.sh ) & ( cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh
-  && rm -f $HOME/.buildozer/android-sdk_* && rm -rf $HOME/.buildozer/android-ndk*
-  ) & wait"
+  && sudo -E ./buildenv.sh ) & wait"
+- "( cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh && rm -f $HOME/.buildozer/android-sdk_* && rm -rf $HOME/.buildozer/android-ndk*)"
 - df -h
-- "( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh ) & ( cd $TRAVIS_BUILD_DIR/client/sources-linux
-  && sudo -E ./build.sh ) & wait"
+- "( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh )"
+- "( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh )"
 - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates
 - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.lin
 - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.so
