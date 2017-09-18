@@ -284,7 +284,7 @@ python -OO -m pip install -q six packaging appdirs
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy impacket colorama pyOpenSSL \
+       scapy impacket colorama pyOpenSSL pylzma \
        --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
@@ -564,7 +564,7 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
 python -OO -m pip install -q \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy impacket colorama pyOpenSSL \
+       scapy impacket colorama pyOpenSSL pylzma \
        --no-binary :all:
 
 /bin/sh -c "apt-get --force-yes -y remove m4 << /dev/null"
