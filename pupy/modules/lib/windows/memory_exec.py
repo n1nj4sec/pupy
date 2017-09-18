@@ -83,3 +83,6 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
             module.success('[Process launched: PID={}]'.format(pid))
         else:
             module.error('Launch failed')
+
+     
+    return module.mp.stdout
