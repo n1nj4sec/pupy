@@ -154,7 +154,7 @@ cd /usr/src/zlib-1.2.11
 cd /usr/src
 
 tar zxf openssl-1.0.2l.orig.tar.gz
-cd /usr/src/openssl-1.0.2k/
+cd /usr/src/openssl-1.0.2l/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic32
 make depend >/dev/null 2>/dev/null; 
@@ -451,7 +451,7 @@ cd /usr/src/zlib-1.2.11
 cd /usr/src
 
 tar zxf openssl-1.0.2l.orig.tar.gz
-cd /usr/src/openssl-1.0.2k/
+cd /usr/src/openssl-1.0.2l/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic64
 make depend >/dev/null 2>/dev/null
