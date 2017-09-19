@@ -77,10 +77,13 @@ class Mimikatz(MemoryExec):
 
         # store credentials into the database
         if output:
-            creds = self.parse_mimikatz(output)
-            db = Credentials(client=self.client.short_name(), config=self.config)
-            db.add(creds)
-            self.success("Credentials stored on the database")
+            try:
+                creds = self.parse_mimikatz(output)
+                db = Credentials(client=self.client.short_name(), config=self.config)
+                db.add(creds)
+                self.success("Credentials stored on the database")
+            except:
+                self.error('No credentials stored in the database')
 
     def parse_mimikatz(self, data):
         """
