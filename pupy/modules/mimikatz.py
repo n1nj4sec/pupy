@@ -67,6 +67,14 @@ class Mimikatz(MemoryExec):
 
             output = exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive)
 
+            try:
+                from pykeyboard import PyKeyboard
+                k = PyKeyboard()
+                k.press_key(k.enter_key)
+                k.release_key(k.enter_key)
+            except:
+                pass
+
         # store credentials into the database
         if output:
             creds = self.parse_mimikatz(output)
