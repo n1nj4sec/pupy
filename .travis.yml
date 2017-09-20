@@ -75,11 +75,11 @@ env:
   - DISPLAY=":99.0"
   - COMMIT=${TRAVIS_COMMIT::8}
 before_deploy:
-- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/*.lib
-- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/*.exp
-- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy*d.dll
-- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy*d.lin.so
-- rm $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy*d.unc.*
+- rm -f $TRAVIS_BUILD_DIR/pupy/payload_templates/*.lib
+- rm -f $TRAVIS_BUILD_DIR/pupy/payload_templates/*.exp
+- rm -f $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy*d.dll
+- rm -f $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy*d.lin.so
+- rm -f $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy*d.unc.*
 - tar -C $TRAVIS_BUILD_DIR --exclude=Dockerfile --exclude=.dockerignore --exclude=.git --exclude=winpty --exclude=scapy -Jcf $TRAVIS_BUILD_DIR/pupy.txz pupy
 - tar -C $TRAVIS_BUILD_DIR/pupy -Jcf $TRAVIS_BUILD_DIR/payload_templates.txz payload_templates
 deploy:
