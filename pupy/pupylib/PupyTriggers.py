@@ -10,7 +10,7 @@ import logging
 @threaded
 def on_connect(client):
     for action, command in client.pupsrv.config.items("on_connect"):
-        if action=="run_module":
+        if action:
             args=command.split()
             module_name=args.pop(0)
             job=client.run_module(module_name, args)
