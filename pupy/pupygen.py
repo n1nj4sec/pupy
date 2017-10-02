@@ -32,15 +32,6 @@ import json
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 HARDCODED_CONF_SIZE=65536
 
-def check_templates_version():
-    try:
-        with open(os.path.join(ROOT, "payload_templates", "version.txt"), 'r') as f:
-            v=f.read().strip()
-    except:
-        v="0.0"
-    if v != __version__:
-        logging.warning("Your templates are not synced with your pupy version ! , you should update them with \"git submodule update\"")
-
 
 def get_edit_binary(path, conf, compressed_config=True):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
@@ -438,7 +429,6 @@ def get_parser(base_parser, config):
     parser.add_argument(
         'launcher_args', default=config.get('gen', 'launcher_args'),
         nargs=argparse.REMAINDER, help="launcher options")
-    check_templates_version()
     return parser
 
 def pupygen(args, config):
@@ -637,7 +627,6 @@ def pupygen(args, config):
 
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'
-    check_templates_version()
     config = PupyConfig()
     parser = get_parser(argparse.ArgumentParser, config)
     try:
