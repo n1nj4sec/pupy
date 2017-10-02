@@ -59,7 +59,8 @@ crypto = crypto
 wwwroot = data/wwwroot
 
 [on_connect]
-#run_module = gather/keylogger start
+#run_module1 = gather/keylogger start
+#run_module2 = lazagne
 
 [default_viewers]
 image_viewer = eog
