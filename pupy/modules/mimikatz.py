@@ -43,8 +43,10 @@ class Mimikatz(MemoryExec):
                 self.warning(str(message))
             return
 
-        proc_arch = self.client.desc["proc_arch"]
-        mimikatz_path = None
+        proc_arch       = self.client.desc["proc_arch"]
+        mimikatz_path   = None
+        output          = ''
+        
         if "64" in proc_arch:
             mimikatz_path = self.client.pupsrv.config.get("mimikatz","exe_x64")
         else:
