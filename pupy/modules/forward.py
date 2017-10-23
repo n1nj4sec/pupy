@@ -22,7 +22,6 @@ __class_name__ = 'Forward'
 @config(cat='network', tags=['forward', 'pivot'])
 class Forward(PupyModule):
     ''' Local/remote port forwarding and SOCKS proxy '''
-    is_module = False
     dependencies = {
         'all': [ 'pyuv', 'pyuvproxy' ],
     }
