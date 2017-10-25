@@ -1,5 +1,7 @@
 #!/bin/sh
 
+sudo apt-get install wine mingw-w64
+
 unset WINEARCH WINEPREFIX
 
 set -xe
