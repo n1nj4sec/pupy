@@ -20,10 +20,7 @@ WINETRICKS="https://raw.githubusercontent.com/Winetricks/winetricks/master/src/w
 # PYWIN32="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win32-py2.7.exe"
 # PYWIN64="http://downloads.sourceforge.net/project/pywin32/pywin32/Build%20220/pywin32-220.win-amd64-py2.7.exe"
 
-PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32"
 PACKAGES_BUILD="pycryptodome cryptography netifaces"
-PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv"
-PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
 
 BUILDENV=${1:-`pwd`/buildenv}
 
@@ -155,7 +152,22 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade pip
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pycparser==2.17
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q $PACKAGES
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q rpyc
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q rsa
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pefile
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q netaddr
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q win_inet_pton
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q tinyec
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pypiwin32
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pycryptodome
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q cryptography
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q netifaces
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pyaudio
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q https://github.com/secdev/scapy/archive/master.zip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pyOpenSSL
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q colorama
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pyuv
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q https://github.com/CoreSecurity/impacket/archive/master.zip
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --no-binary :all: $PACKAGES_BUILD
 done
 
