@@ -1303,6 +1303,13 @@ class PupyCmd(cmd.Cmd):
                 self.cmdqueue.extend(f.read().splitlines())
         except Exception as e:
             self.display_error(str(e))
+            
+    def do_clear(self, arg):
+        """ clears the screen """
+        if sys.platform == 'win32':
+            os.system('cls')
+        else:
+            os.system('clear')
 
     def _complete_path(self, path=None):
         "Perform completion of filesystem path."
