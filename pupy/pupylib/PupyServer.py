@@ -34,6 +34,7 @@ from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
 from network.lib.igd import IGDClient, UPNPError
+from .PupyWeb import PupyWebServer
 from os import path
 from shutil import copyfile
 from itertools import count, ifilterfalse
@@ -53,6 +54,7 @@ class PupyServer(threading.Thread):
         self.server = None
         self.authenticator = None
         self.httpd = None
+        self.pupweb = None
         self.clients = []
         self.jobs = {}
         self.jobs_id = 1
@@ -117,6 +119,12 @@ class PupyServer(threading.Thread):
                 )
             except Exception, e:
                 logging.error('DnsCNC failed: {}'.format(e))
+
+    def start_webserver(self):
+        if self.pupweb:
+            raise RuntimeError("Pupy Web Server is already started !")
+        self.pupweb=PupyWebServer(self, self.config)
+        self.pupweb.start()
 
 
     def create_id(self):

@@ -1,0 +1,25 @@
+<html>
+<head>
+    <script src="jquery-3.2.1.min.js"></script>
+    <script src="rdesktop/rdesktop.js"></script>
+    <script type="text/javascript">
+        var rdHandler = null;
+        $(document).ready(function() {
+            if (!("WebSocket" in window)) {
+                    $('#messages').append("Your browser does not support websocket !");
+            }
+            else{
+                rdHandler=new RDHANDLER({{port}});
+            }
+        });
+    </script>
+</head>
+<body onkeypress="return myKeyPress(event)">
+    <form name="pointform" method="post">
+        <div id="screen" onclick="point_it(event)">
+            <img id="screenimg"></img>
+            <!--<img src="point.gif" id="cross" style="position:relative;visibility:hidden;z-index:2;"></div>-->
+    </form>
+    <div id="messages"></div>
+</body>
+</html>

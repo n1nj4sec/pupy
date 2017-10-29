@@ -65,6 +65,7 @@ wwwroot = data/wwwroot
 [default_viewers]
 image_viewer = eog
 sound_player = totem
+browser = firefox
 
 [mimikatz]
 #these are kali 2.0 default path

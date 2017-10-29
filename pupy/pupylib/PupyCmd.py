@@ -191,6 +191,7 @@ class PupyCmd(cmd.Cmd):
         except Exception as e:
             logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
         self.pupy_completer=PupyCompleter(self.aliases, self.pupsrv)
+        self.pupsrv.start_webserver()
 
     @staticmethod
     def table_format(diclist, wl=[], bl=[]):
