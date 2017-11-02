@@ -24,3 +24,4 @@ logutils
 secretstorage
 pygments
 requests
+pyautogui

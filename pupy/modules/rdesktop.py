@@ -8,6 +8,8 @@ import base64
 import subprocess
 import time
 import threading
+import json
+import pyautogui
 
 __class_name__="RemoteDesktopModule"
 
@@ -21,14 +23,31 @@ class RdesktopWebSocketHandler(WebSocketHandler):
         self.remote_streamer=None
 
     def on_open(self):
-        #self.set_nodelay(True)
+        self.set_nodelay(True)
         pass
-    def on_message(self, message):        
-        if message=="start_stream":
+    def on_message(self, data):
+        js=json.loads(data)
+        if js['msg']=="start_stream":
             self.width, self.height = self.client.conn.modules['rdesktop'].get_screen_size()
             self.start_stream()
+        elif js['msg']=="click":
+            logging.debug("mouse click at : (%s, %s)"%(js['x'], js['y']))
+            self.remote_streamer.click(int(js['x']), int(js['y']))
+        elif js['msg']=="keypress":
+            key=js['key'] #unicode key
+            logging.debug("key press : %s"%key)
+            try:
+                if key.lower() in pyautogui.KEYBOARD_KEYS:
+                    key=str(key)
+                    if len(key) > 1:
+                        key=key.lower()
+                    self.remote_streamer.key_press(key)
+                else:
+                    logging.error("Error: unhandled key press: %s"%key)
+            except Exception as e:
+                logging.error(e)
         else:
-            logging.error("unknown message:"+message)
+            logging.error("unknown message:"+data)
 
     def update_video_callback(self, jpg_data):
         try:

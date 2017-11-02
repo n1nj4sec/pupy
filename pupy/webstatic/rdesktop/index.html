@@ -14,12 +14,10 @@
         });
     </script>
 </head>
-<body onkeypress="return myKeyPress(event)">
-    <form name="pointform" method="post">
-        <div id="screen" onclick="point_it(event)">
-            <img id="screenimg"></img>
-            <!--<img src="point.gif" id="cross" style="position:relative;visibility:hidden;z-index:2;"></div>-->
-    </form>
+<body onkeypress="return rdHandler.on_key_press(event)">
+    <div id="screen" onclick="rdHandler.on_click(event)">
+        <img id="screenimg"></img>
+    </div>
     <div id="messages"></div>
 </body>
 </html>

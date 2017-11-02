@@ -31,7 +31,15 @@ var RDHANDLER = function (port) {
         }
     });
     RDHANDLER.prototype.start_stream=(function (){
-        self.ws.send("start_stream");
+        self.ws.send(JSON.stringify({"msg": "start_stream"}));
+    });
+    RDHANDLER.prototype.on_key_press=(function (e){
+        self.ws.send(JSON.stringify({"msg": "keypress", "key": e.key}));
+    });
+    RDHANDLER.prototype.on_click=(function (e){
+        pos_x = e.pageX-document.getElementById("screen").offsetLeft;
+        pos_y = e.pageY-document.getElementById("screen").offsetTop;
+        self.ws.send(JSON.stringify({"msg":"click", "x":pos_x, "y": pos_y}));
     });
     self.start();
 }
