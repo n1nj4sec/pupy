@@ -168,6 +168,7 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q colorama
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pyuv
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q https://github.com/CoreSecurity/impacket/archive/master.zip
+    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q Pillow
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --no-binary :all: $PACKAGES_BUILD
 done
 
