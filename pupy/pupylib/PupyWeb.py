@@ -15,6 +15,11 @@ except ImportError:
     import configparser
 import json
 
+from tornado.websocket import WebSocketHandler
+from tornado.web import RequestHandler
+
+__all__=['RequestHandler', 'WebSocketHandler', 'tornado']
+
 ROOT=os.path.join(os.path.dirname(__file__), "..")
 
 class PupyWebServer(object):
@@ -41,7 +46,6 @@ class PupyWebServer(object):
         t=threading.Thread(target=self.ioloop.start)
         t.daemon=True
         t.start()
-        print (self.app.handlers)
 
     def stop():
         self.ioloop.stop()
