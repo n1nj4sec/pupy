@@ -25,3 +25,4 @@ secretstorage
 pygments
 requests
 pyautogui
+tornado
