@@ -11,11 +11,24 @@
             else{
                 rdHandler=new RDHANDLER({{port}});
             }
+            //disable image drag
+            $("#screenimg").bind('dragstart', function(){
+                return false; 
+            });
+            $( "#screen" ).mousemove(function( event ) {
+                rdHandler.on_mouse_move(event);
+            });
+            $( "#screen" ).click(function( event ) {
+                rdHandler.on_click(event);
+            });
+            $( "body" ).keypress(function( event ) {
+                rdHandler.on_key_press(event);
+            });
         });
     </script>
 </head>
-<body onkeypress="return rdHandler.on_key_press(event)">
-    <div id="screen" onclick="rdHandler.on_click(event)">
+<body>
+    <div id="screen">
         <img id="screenimg"></img>
     </div>
     <div id="messages"></div>

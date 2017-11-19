@@ -5,7 +5,8 @@ from PIL import Image
 from io import BytesIO
 import threading
 import time
-import pyautogui
+import keyboard
+from keyboard import mouse
 
 def get_screen_size():
     screenshoter = mss.mss()
@@ -45,24 +46,26 @@ class VideoStreamer(threading.Thread):
             except:
                 break
 
-    def click(self, x, y):
-        pyautogui.moveTo(x, y)
-        pyautogui.click()
+    def move(self, x, y):
+        mouse.move(x, y)
 
-    def key_press(self, key):
-        pyautogui.press(key)
+    def click(self, x=None, y=None):
+        if x is not None and y is not None:
+            self.move(x, y)
+        mouse.click()
 
-    def key_down(self, key):
-        pyautogui.keyDown(key)
+    def kbd_send(self, *args, **kwargs):
+        keyboard.send(*args, **kwargs)
 
-    def key_up(self, key):
-        pyautogui.keyUp(key)
+    def kbd_write(self, *args, **kwargs):
+        keyboard.write(*args, **kwargs)
 
-    def key_typewrite(self, key):
-        pyautogui.typewrite(key)
+    def key_press(self, c):
+        keyboard.press(c)
 
-    def key_hotkey(self, *args):
-        pyautogui.hotkey(*args)
+    def key_release(self, key):
+        keyboard.release(c)
+
 
     def stop(self):
         self.stopped.set()

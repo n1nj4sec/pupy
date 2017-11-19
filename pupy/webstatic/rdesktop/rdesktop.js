@@ -1,5 +1,6 @@
 var RDHANDLER = function (port) {
     var self = this;
+    var last_move = null;
     RDHANDLER.prototype.print=(function (msg){
             $('#messages').append(msg+'<br />');
     });
@@ -24,7 +25,8 @@ var RDHANDLER = function (port) {
                 }
             };
             self.ws.onclose = function() { 
-                self.print("Connection is closed...");
+                self.print("Connection is closed... reconnecting ...");
+                self.start();
             };
         } else {
             self.print("WebSocket NOT supported by your Browser!");
@@ -40,6 +42,14 @@ var RDHANDLER = function (port) {
         pos_x = e.pageX-document.getElementById("screen").offsetLeft;
         pos_y = e.pageY-document.getElementById("screen").offsetTop;
         self.ws.send(JSON.stringify({"msg":"click", "x":pos_x, "y": pos_y}));
+    });
+    RDHANDLER.prototype.on_mouse_move=(function (e){
+        if (last_move==null || (Date.now()-self.last_move > 10)) {
+            self.last_move = Date.now();
+            pos_x = e.pageX-document.getElementById("screen").offsetLeft;
+            pos_y = e.pageY-document.getElementById("screen").offsetTop;
+            self.ws.send(JSON.stringify({"msg":"move", "x":pos_x, "y": pos_y}));
+        }
     });
     self.start();
 }

