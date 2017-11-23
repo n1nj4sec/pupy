@@ -8,8 +8,9 @@ from rpyc.utils.classic import upload
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.term import colorize, terminal_size
 from pupylib.utils.rpyc_utils import obtain
-import tempfile
 import subprocess
+import traceback
+import tempfile
 import os.path
 import sys
 
@@ -129,25 +130,24 @@ class LaZagne(PupyModule):
                         'Hash'     : '%s:%s' % (str(lm), str(nt))
                     })
                 except:
-                    pass
+                    traceback.print_exc()
 
         return results
 
     def cachedump_to_dict(self, creds):
         results = []
-
         for cred in creds:
-            for pwd in creds:
+            for pwd in creds[0]:
                 try:
                     user, d, dn, h = pwd.split(':')
-                    clean.append({
+                    results.append({
                         'Category' : 'cachedump',
                         'CredType' : 'hash',
                         'Login'    : user,
                         'Hash'     : '%s:%s:%s:%s' % (user.lower(), h.encode('hex'), d.lower(), dn.lower())
                     })
                 except:
-                    pass
+                    traceback.print_exc()
 
         return results
 
