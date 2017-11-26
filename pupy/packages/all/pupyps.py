@@ -71,7 +71,11 @@ def pstree():
     try:
         my_user = me.username()
     except:
-        my_user = None
+        try:
+            import getpass
+            my_user = getpass.getuser()
+        except:
+            my_user = None
 
     for p in psutil.process_iter():
         if not psutil.pid_exists(p.pid):
@@ -121,12 +125,23 @@ def users():
             if pinfo.get('terminal'):
                 terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
 
-    me = me.username()
+    try:
+        me = me.username()
+    except:
+        try:
+            import getpass
+            me = getpass.getuser()
+        except:
+            me = ''
 
     for term in psutil.users():
         terminfo = {
             k:v for k,v in term.__dict__.iteritems() if v and k not in ('host', 'name')
         }
+
+        if 'pid' in terminfo:
+            pinfo = psutil.Process(terminfo['pid']).as_dict(['exe', 'cmdline', 'name'])
+            terminfo.update(pinfo)
 
         if 'terminal' in terminfo:
             try:
@@ -160,17 +175,24 @@ def connections():
     me = psutil.Process()
 
     for connection in psutil.net_connections():
-        obj = { k:v for k,v in connection.__dict__.iteritems() }
-        if connection.pid:
-            obj.update(
-                psutil.Process(connection.pid).as_dict({
-                    'pid', 'exe', 'name', 'username'
-                })
+        obj = {
+            k:getattr(connection, k) for k in (
+                'family', 'type', 'laddr', 'raddr', 'status'
             )
-            if connection.pid == me.pid:
-                obj.update({
-                    'me': True
-                })
+        }
+        try:
+             if connection.pid:
+                 obj.update(
+                     psutil.Process(connection.pid).as_dict({
+                         'pid', 'exe', 'name', 'username'
+                     })
+                 )
+                 if connection.pid == me.pid:
+                     obj.update({
+                         'me': True
+                     })
+        except:
+            pass
 
         connections.append(obj)
 
@@ -185,7 +207,10 @@ def interfaces():
         },
         'stats': {
             x:{
-                k:v for k,v in y.__dict__.iteritems()
+                k:v for k,v in (
+                    y.__dict__.iteritems() if hasattr(y, '__dict__') else
+                    zip(('isup', 'duplex', 'speed', 'mtu'), y)
+            )
             } for x,y in psutil.net_if_stats().iteritems()
         }
     }
@@ -282,13 +307,13 @@ def wtmp(input='/var/log/wtmp'):
         'records': retval
     }
 
-def lastlog():
+def lastlog(log='/var/log/lastlog'):
     import pwd
 
     result = {}
     LastLog = struct.Struct('I32s256s')
 
-    with open('/var/log/lastlog') as lastlog:
+    with open(log) as lastlog:
         uid = 0
         while True:
             data = lastlog.read(LastLog.size)

@@ -1,5 +1,6 @@
 from PupyErrors import *
 from PupyModule import *
+from PupyWeb import *
 from PupyCompleter import *
 from PupyService import *
 from PupyCmd import *

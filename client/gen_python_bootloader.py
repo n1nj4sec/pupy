@@ -5,6 +5,7 @@ import marshal
 import struct
 import base64
 import os.path
+import os
 import argparse
 
 remove_stdout='''
@@ -73,6 +74,9 @@ if __name__=="__main__":
         'pupyimporter.install({})\n'.format(args.debug),
         pp+'\n',
     ]
+
+    if not os.path.exists('resources'):
+        os.makedirs('resources')
 
     with open(os.path.join("resources","bootloader.pyc"),'wb') as w:
         w.write(marshal.dumps([

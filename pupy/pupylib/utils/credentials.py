@@ -60,9 +60,22 @@ class Credentials(object):
             shared_items = set(d.items()) & set(dictionnary.items())
             if len(shared_items) == len(d):
                 return True
-        return False
+	return False
 
     def add(self, data):
+  #       db = self._load_db()
+        
+  #       # add uid to sort creds by host
+  #       for d in range(len(data)):
+  #           data[d].update({'uid': self.client})
+        
+  #       db['creds'] = [
+  #           dict(t) for t in frozenset([
+  #               tuple(d.items()) for d in db['creds'] + data
+  #           ])
+  #       ]
+		# self._save_db(db)
+
         db = self._load_db()
 
         for d in data:
@@ -72,7 +85,7 @@ class Credentials(object):
                 })
                 db['creds'].append(d)
 
-        self._save_db(db)
+		self._save_db(db)
 
     def display(self, search='all', isSorted=False):
         data = self._load_db()

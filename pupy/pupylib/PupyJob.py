@@ -137,6 +137,8 @@ class PupyJob(object):
         except Exception as e:
             self.error_happened.set()
             module.error(str(e))
+            import traceback
+            traceback.print_exc(e)
         finally:
             if once:
                 module.clean_dependencies()
@@ -144,9 +146,14 @@ class PupyJob(object):
     def start(self, args, once=False):
         #if self.started.is_set():
         #    raise RuntimeError("job %s has already been started !"%str(self))
+
         for m in self.pupymodules:
             try:
-                margs=m.arg_parser.parse_args(args)
+                if m.known_args:
+                    margs, unknown_args = m.arg_parser.parse_known_args(args)
+                    margs.unknown_args = unknown_args
+                else:
+                    margs = m.arg_parser.parse_args(args)
             except PupyModuleExit as e:
                 m.error("Arguments parse error : %s"%e)
                 continue

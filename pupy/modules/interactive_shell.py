@@ -18,73 +18,8 @@ import time
 import StringIO
 from threading import Event, Thread
 import rpyc
-import cmd
 
-class CmdRepl(cmd.Cmd):
-    def __init__(self, stdout, write_cb, completion, CRLF=False, interpreter=None):
-        self._write_cb = write_cb
-        self._complete = completion
-        self.prompt = '\r'
-        self._crlf = ('\r\n' if CRLF else '\n')
-        self._interpreter = interpreter
-        self._setting_prompt = False
-        self._last_cmd = None
-        cmd.Cmd.__init__(self, stdout=stdout)
-
-    def _con_write(self, data):
-        if self._setting_prompt:
-            if self.prompt in data:
-                self._setting_prompt = False
-            return
-
-        if not self._complete.is_set():
-            self.stdout.write(data)
-            self.stdout.flush()
-            if '\n' in data:
-                self.prompt = data.rsplit('\n', 1)[-1]
-            else:
-                self.prompt += data
-
-    def do_EOF(self, line):
-        return True
-
-    def do_help(self, line):
-        self.default(' '.join(['help', line]))
-
-    def completenames(self):
-        return []
-
-    def precmd(self, line):
-        if self._complete.is_set():
-            return 'EOF'
-        else:
-            return line
-
-    def postcmd(self, stop, line):
-        if stop or self._complete.is_set():
-            return True
-
-    def emptyline(self):
-        pass
-
-    def default(self, line):
-        self._write_cb(line + self._crlf)
-        self.prompt = ''
-
-    def postloop(self):
-        self._complete.set()
-
-    def set_prompt(self, prompt='# '):
-        methods = {
-            'cmd.exe': [ 'set PROMPT={}'.format(prompt) ],
-            'sh': [ 'export PS1="{}"'.format(prompt) ]
-        }
-
-        method = methods.get(self._interpreter, None)
-        if method:
-            self._setting_prompt = True
-            self.prompt = prompt
-            self._write_cb(self._crlf.join(method) + self._crlf)
+from modules.lib.utils.cmdrepl import CmdRepl
 
 __class_name__="InteractiveShell"
 @config(cat="admin")
@@ -108,6 +43,7 @@ class InteractiveShell(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(description=self.__doc__)
+        self.arg_parser.add_argument('-c', '--codepage', help="Decode output with encoding")
         self.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
         self.arg_parser.add_argument('-S', '--su', help='Try to change uid (linux only)')
         self.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
@@ -144,7 +80,16 @@ class InteractiveShell(PupyModule):
             if not r:
                 break
 
-            buf.append(os.read(fd, 1))
+            buf_ = array.array('i', [0])
+
+            if fcntl.ioctl(sys.stdin, termios.FIONREAD, buf_, 1) == -1:
+                break
+
+            if not buf_[0]:
+                continue
+
+            chars = os.read(fd, buf_[0])
+            buf.append(chars)
         return b''.join(buf)
 
     def _read_loop(self, write_cb):
@@ -228,19 +173,15 @@ class InteractiveShell(PupyModule):
             crlf = False
             interpreter = 'sh'
 
-        repl = CmdRepl(
+        repl, _ = CmdRepl.thread(
             self.stdout,
             self.pipe.write,
             self.complete,
-            crlf, interpreter
+            crlf, interpreter,
+            args.codepage
         )
 
         self.pipe.execute(self.complete.set, repl._con_write)
-        repl.set_prompt()
-
-        repl_thread = Thread(target=repl.cmdloop)
-        repl_thread.daemon = True
-        repl_thread.start()
 
         self.complete.wait()
         self.pipe.terminate()
@@ -259,6 +200,8 @@ class InteractiveShell(PupyModule):
             program=args.program.split()
 
         old_handler = None
+
+        self.client.conn.register_remote_cleanup(ps.close)
 
         try:
             term = os.environ.get('TERM', 'xterm')
@@ -280,10 +223,17 @@ class InteractiveShell(PupyModule):
         finally:
             if old_handler:
                 pupylib.PupySignalHandler.set_signal_winch(old_handler)
+
             try:
                 self.ps.close()
             except Exception:
                 pass
+
+            try:
+                self.client.conn.unregister_remote_cleanup(ps.close)
+            except:
+                pass
+
             self.set_pty_size=None
             self.complete.set()
 

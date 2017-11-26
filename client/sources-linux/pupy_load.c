@@ -21,10 +21,10 @@
 #include "tmplibrary.h"
 #include "debug.h"
 
-#include "resources_bootloader_pyc.c"
-#include "resources_python27_so.c"
-#include "resources_libssl_so.c"
-#include "resources_libcrypto_so.c"
+#include "bootloader.c"
+#include "python27.c"
+#include "libssl.c"
+#include "libcrypto.c"
 
 #include "revision.h"
 
@@ -53,7 +53,7 @@ static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzs
 
     void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
 
-    free(uncompressed);
+    lzmafree(uncompressed);
 
     if (!res) {
         dprint("loading %s from memory failed\n", soname);
@@ -81,24 +81,24 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     lim.rlim_cur = 0; lim.rlim_max = 0;
     setrlimit(RLIMIT_CORE, &lim);
 
-    xz_dynload("libcrypto.so.1.0.0", resources_libcrypto_so_start, resources_libcrypto_so_size);
-    xz_dynload("libssl.so.1.0.0", resources_libssl_so_start, resources_libssl_so_size);
+    xz_dynload("libcrypto.so.1.0.0", libcrypto_c_start, libcrypto_c_size);
+    xz_dynload("libssl.so.1.0.0", libssl_c_start, libssl_c_size);
 
     if(!Py_IsInitialized) {
         _load_python(
-            xz_dynload("libpython2.7.so", resources_python27_so_start, resources_python27_so_size)
+            xz_dynload("libpython2.7.so.1.0", python27_c_start, python27_c_size)
         );
     }
 
-    munmap((char *) resources_libcrypto_so_start, resources_libcrypto_so_size);
-    munmap((char *) resources_libssl_so_start, resources_libssl_so_size);
-    munmap((char *) resources_python27_so_start, resources_python27_so_size);
+    munmap((char *) libcrypto_c_start, libcrypto_c_size);
+    munmap((char *) libssl_c_start, libssl_c_size);
+    munmap((char *) python27_c_start, python27_c_size);
 
     dprint("calling PyEval_InitThreads() ...\n");
     PyEval_InitThreads();
     dprint("PyEval_InitThreads() called\n");
 
-    char exe[PATH_MAX] = {};
+    char exe[PATH_MAX] = { '\0' };
 
     if(!Py_IsInitialized()) {
         dprint("Py_IsInitialized\n");
@@ -106,15 +106,24 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
         Py_IgnoreEnvironmentFlag = 1;
         Py_NoSiteFlag = 1; /* remove site.py auto import */
 
+#if defined(Linux)
         dprint("INVOCATION NAME: %s\n", program_invocation_name);
 
         if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
             if (strstr(exe, "/memfd:")) {
                 snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
             }
-
-            Py_SetProgramName(exe);
+        } else {
+            char *upx_env = getenv("   ");
+            if (upx_env) {
+                snprintf(exe, sizeof(exe), "%s", upx_env);
+            }
         }
+
+#elif defined(SunOS)
+        strcpy(exe, getexecname());
+#endif
+        Py_SetProgramName(exe);
 
         dprint("Initializing python.. (%p)\n", Py_Initialize);
         Py_InitializeEx(0);
@@ -152,11 +161,11 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     m = PyImport_AddModule("__main__");
     if (m) d = PyModule_GetDict(m);
     if (d) seq = PyObject_lzmaunpack(
-        resources_bootloader_pyc_start,
-        resources_bootloader_pyc_size
+        bootloader_c_start,
+        bootloader_c_size
     );
 
-    munmap((char *) resources_bootloader_pyc_start, resources_bootloader_pyc_size);
+    munmap((char *) bootloader_c_start, bootloader_c_size);
 
     if (seq) {
         Py_ssize_t i, max = PySequence_Length(seq);
@@ -165,17 +174,13 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
             PyObject *sub = PySequence_GetItem(seq, i);
             if (seq) {
                 PyObject *discard = PyEval_EvalCode((PyCodeObject *)sub, d, d);
+                dprint("EVAL CODE %p -> %p\n", sub, discard);
                 if (!discard) {
-#ifdef DEBUG
-                    PyObject *ptype, *pvalue, *ptraceback;
-                    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-                    dprint("SEQ %d EXCEPTION: %s\n", i, PyString_AsString(pvalue));
                     PyErr_Print();
-#endif
                     rc = 255;
+                    break;
                 }
                 Py_XDECREF(discard);
-                /* keep going even if we fail */
             }
             Py_XDECREF(sub);
         }

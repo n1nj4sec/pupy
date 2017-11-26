@@ -22,9 +22,14 @@ su - pupy
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin:/usr/local/sbin
 cd /mnt/client/sources-linux
 make clean
-make PIE=
+make -j PIE=
 make clean
-make DEBUG=1 PIE=
+make -j DEBUG=1 PIE=
+make clean
+make -j PIE= UNCOMPRESSED=1
+make clean
+make -j DEBUG=1 PIE= UNCOMPRESSED=1
+make distclean
 __CMDS__
 
 umount buildenv/lin32/dev
@@ -41,9 +46,14 @@ su - pupy
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin:/usr/local/sbin
 cd /mnt/client/sources-linux
 make clean
-make
+make -j
 make clean
-make DEBUG=1
+make -j DEBUG=1
+make clean
+make -j UNCOMPRESSED=1
+make clean
+make -j DEBUG=1 UNCOMPRESSED=1
+make distclean
 __CMDS__
 
 umount buildenv/lin64/dev

@@ -11,7 +11,7 @@ from pupylib import *
 
 __class_name__="NbnsSpoofModule"
 
-@config(cat="network", tags=["netbios", "NBNS", "spoof"])
+@config(cat="network", tags=["netbios", "NBNS", "spoof"], compatibilities=['windows'])
 class NbnsSpoofModule(PupyModule):
     """ sniff for NBNS requests and spoof NBNS responses """
 

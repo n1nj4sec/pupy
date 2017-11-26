@@ -80,7 +80,7 @@ class PupyConnection(Connection):
                             logging.debug('Sync poll serve interrupted: {}/inactive={}'.format(
                                 seq, self.inactive))
                         if self._ping:
-                            self.ping(self._ping_timeout)
+                            self.ping(timeout=self._ping_timeout)
 
                 finally:
                     if DEBUG_NETWORK:
@@ -91,7 +91,7 @@ class PupyConnection(Connection):
                     logging.debug('Sync poll wait: {}'.format(seq))
                 self._sync_events[seq].wait(timeout=self._serve_timeout)
                 if self._ping:
-                    self.ping(self._ping_timeout)
+                    self.ping(timeout=self._ping_timeout)
 
             if DEBUG_NETWORK:
                 logging.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))

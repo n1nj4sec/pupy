@@ -6,15 +6,23 @@ import os
 import re
 import sys
 import mmap
+import threading
+import rpyc
 
 class Search():
     def __init__(self, path,
                      strings=[], max_size=20000000, root_path='.', no_content=False,
-                     binary=False, follow_symlinks=False, terminate=None):
+                     case=False, binary=False, follow_symlinks=False, terminate=None):
         self.max_size = int(max_size)
         self.follow_symlinks = follow_symlinks
         self.no_content = no_content
         self.binary = binary
+        self.case = case
+
+        if self.case:
+            i = re.IGNORECASE
+        else:
+            i = 0
 
         path = os.path.expandvars(os.path.expanduser(path))
 
@@ -24,17 +32,17 @@ class Search():
             self.path = None
         elif path.startswith('/'):
             root_path = os.path.dirname(path)
-            self.name = re.compile(os.path.basename(path))
+            self.name = re.compile(os.path.basename(path), i)
             self.path = None
         elif '/' in path:
-            self.path = re.compile(path)
+            self.path = re.compile(path, i)
             self.name = None
         else:
-            self.name = re.compile(path)
+            self.name = re.compile(path, i)
             self.path = None
 
         self.strings = [
-            re.compile(string) for string in strings
+            re.compile(string, i) for string in strings
         ]
 
         self.terminate = terminate
@@ -68,7 +76,6 @@ class Search():
     def scanwalk(self, path, followlinks=False):
 
         ''' lists of DirEntries instead of lists of strings '''
-
         try:
             for entry in scandir(path):
                 if self.terminate and self.terminate.is_set():
@@ -117,3 +124,27 @@ class Search():
         else:
             for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
                 yield files
+
+    def _run_thread(self, on_data, on_completed):
+        for result in self.run():
+            try:
+                on_data(result)
+            except:
+                break
+
+        on_completed()
+
+    def stop(self):
+        if self.terminate:
+            self.terminate.set()
+
+    def run_cb(self, on_data, on_completed):
+        if not self.terminate:
+            self.terminate = threading.Event()
+
+        on_data = rpyc.async(on_data)
+        on_completed = rpyc.async(on_completed)
+
+        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
+        search.daemon = False
+        search.start()
