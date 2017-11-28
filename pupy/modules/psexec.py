@@ -40,7 +40,7 @@ class PSExec(PupyModule):
         self.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
         sgroup = self.arg_parser.add_argument_group("Command Execution", "Options for executing commands on the specified host")
-        sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="smbexec", help="Method to execute the command (default: smbexec)")
+        sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi", help="Method to execute the command (default: wmi)")
         sgroup.add_argument("-x", metavar="COMMAND", dest='command', help="Execute a command")
 
         sgroupp = self.arg_parser.add_argument_group("Command Execution", "Get a remote shell")
