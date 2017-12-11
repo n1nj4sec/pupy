@@ -541,9 +541,12 @@ def pupygen(args, config):
 
                 print(colorize("[!] required argument missing, automatically adding parameter "
                                    "--host {}:{} from local or external ip address".format(myip, myport),"grey"))
-                args.launcher_args = [
-                    '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
-                ]
+                if "-t" in args.launcher_args or "--transport" in args.launcher_args:
+                    args.launcher_args += ['--host', '{}:{}'.format(myip, myport)]
+                else:
+                    args.launcher_args = [
+                        '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
+                    ]
             elif str(e).strip().endswith('--domain is required') and not '--domain' in args.launcher_args:
                 domain = config.get('pupyd', 'dnscnc').split(':')[0]
                 if not domain or '.' not in domain:
