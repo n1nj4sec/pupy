@@ -140,7 +140,10 @@ class PtyShell(object):
         env['PATH'] = ':'.join([
             '/bin', '/sbin', '/usr/bin', '/usr/sbin',
             '/usr/local/bin', '/usr/local/sbin'
-        ]) + ':' + env['PATH']
+        ])
+
+        if 'PATH' in os.environ:
+            env['PATH'] = env['PATH'] + ':' + os.environ['PATH']
 
         if suid is not None:
             try:
