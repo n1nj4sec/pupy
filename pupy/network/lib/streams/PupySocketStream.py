@@ -14,7 +14,6 @@ import errno
 import logging
 import traceback
 import zlib
-import kcp
 
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 import threading
@@ -63,10 +62,10 @@ class PupyChannel(Channel):
 
         return data
 
-
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):
         super(PupySocketStream, self).__init__(sock)
+
         #buffers for streams
         self.buf_in=Buffer()
         self.buf_out=Buffer()
@@ -175,6 +174,8 @@ class PupySocketStream(SocketStream):
 
 class PupyUDPSocketStream(object):
     def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None):
+        import kcp
+
         if not (type(sock) is tuple and len(sock)==2):
             raise Exception("dst_addr is not supplied for UDP stream, PupyUDPSocketStream needs a reply address/port")
         self.client_side = client_side
@@ -201,7 +202,7 @@ class PupyUDPSocketStream(object):
         self.transport = transport_class(self, **transport_kwargs)
         self.total_timeout = 0
 
-        self.MAX_IO_CHUNK = ( self.kcp.mtu + 24 + 4 )
+        self.MAX_IO_CHUNK = ( self.kcp.mtu + 4 - 70 )
         self.transport.mtu = self.MAX_IO_CHUNK
         self.compress = True
         self.close_callback = close_cb
