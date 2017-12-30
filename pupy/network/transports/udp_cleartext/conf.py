@@ -10,5 +10,5 @@ class TransportConf(Transport):
     server=PupyUDPServer
     client=PupyUDPClient
     stream=PupyUDPSocketStream
-    client_transport=DummyPupyPacketsTransport
-    server_transport=DummyPupyPacketsTransport
+    client_transport=DummyPupyTransport
+    server_transport=DummyPupyTransport

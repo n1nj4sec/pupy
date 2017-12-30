@@ -187,7 +187,7 @@ class PupyUDPSocketStream(object):
         else:
             dst = lambda data: self.sock.sendto(data, self.dst_addr)
 
-        self.kcp = kcp.KCP(dst, 0, interval=32, nodelay=kcp.ENABLE_NODELAY)
+        self.kcp = kcp.KCP(dst, 0, interval=64)
 
         self.buf_in=Buffer()
         self.buf_out=Buffer()
@@ -202,8 +202,7 @@ class PupyUDPSocketStream(object):
         self.transport = transport_class(self, **transport_kwargs)
         self.total_timeout = 0
 
-        self.MAX_IO_CHUNK = ( self.kcp.mtu + 4 - 70 )
-        self.transport.mtu = self.MAX_IO_CHUNK
+        self.MAX_IO_CHUNK = self.kcp.mtu
         self.compress = True
         self.close_callback = close_cb
 
@@ -253,12 +252,11 @@ class PupyUDPSocketStream(object):
     def read(self, count):
         try:
             while len(self.upstream) < count:
-                if not self.client_side:
-                    raise ValueError('Method should never be used on server side')
-
                 with self.downstream_lock:
                     if self.buf_in or self._poll_read(10):
                         self.transport.downstream_recv(self.buf_in)
+                    elif self.client_side:
+                        raise ValueError('Method should never be used on server side')
 
             return self.upstream.read(count)
 
@@ -272,8 +270,10 @@ class PupyUDPSocketStream(object):
 
         try:
             with self.upstream_lock:
-                self.buf_out.write(data)
-                self.transport.upstream_recv(self.buf_out)
+                while data:
+                    data, portion = data[self.MAX_IO_CHUNK:], data[:self.MAX_IO_CHUNK]
+                    self.buf_out.write(portion)
+                    self.transport.upstream_recv(self.buf_out)
 
         except Exception as e:
             logging.debug(traceback.format_exc())
