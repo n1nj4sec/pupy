@@ -5,7 +5,7 @@ import time, logging
 from rpyc.core import Connection, consts
 from threading import Thread, RLock, Event
 
-DEBUG_NETWORK=False
+DEBUG_NETWORK=True
 
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):

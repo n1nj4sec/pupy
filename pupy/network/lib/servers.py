@@ -188,6 +188,8 @@ class PupyTCPServer(ThreadedServer):
 
 class PupyUDPServer(object):
     def __init__(self, service, **kwargs):
+        self.kcp = __import__('kcp')
+
         if not "stream" in kwargs:
             raise ValueError("missing stream_class argument")
         if not "transport" in kwargs:
@@ -223,6 +225,8 @@ class PupyUDPServer(object):
 
         self.active=False
         self.clients = {}
+        self.kcps = {}
+
         self.sock=None
         self.hostname=kwargs['hostname']
         self.port=kwargs['port']
@@ -253,77 +257,59 @@ class PupyUDPServer(object):
         if self.sock is None:
             raise last_exc
 
+        self.sock.setblocking(0)
+
     def accept(self):
         try:
-            minwait = None
-            now = None
-            unsent = False
+            new, updated, failed = self.kcp.dispatch(self.sock.fileno(), 32, self.kcps)
+            for f in new:
+                self.clients[f] = self.new(f)
 
-            for addr, client in self.clients.iteritems():
-                if not minwait:
-                    now = client.clock
-                    minwait = client.update_in(now)
-                else:
-                    cwait = client.update_in(now)
-                    if cwait < minwait:
-                        minwait = cwait
+            for f in updated:
+                self.clients[f].consume()
 
-                if client.unsent > 0:
-                    unsent = True
+            for f in failed:
+                self.clients[f].close()
 
-            if minwait is not None:
-                minwait = minwait / 1000.0
-
-            if not unsent:
-                minwait = 1
-
-            r, _, _ = select.select([self.sock], [], [], minwait)
-            if r:
-                data, addr = self.sock.recvfrom(40960)
-                if data:
-                    self.dispatch_data(data, addr)
-                else:
-                    self.clients[addr].close()
-                    del self.clients[addr]
 
         except Exception as e:
             logging.error(e)
             raise
 
     def on_close(self, addr):
+        logging.info("client disconnected: {}".format(addr))
         self.clients[addr].wake()
         del self.clients[addr]
+        del self.kcps[addr]
 
-    def dispatch_data(self, data_received, addr):
+    def new(self, addr):
         host, port=addr[0], addr[1]
-        if addr not in self.clients:
-            logging.info("new client connected : %s:%s"%(host, port))
-            config = dict(self.protocol_config, credentials=None, connid="%s:%d"%(host, port))
-            if self.authenticator:
-                try:
-                    sock, credentials = self.authenticator(data_received)
-                    config["credentials"]=credentials
-                except AuthenticationError:
-                    logging.info("failed to authenticate, rejecting data")
-                    raise
+        logging.info("new client connected : %s:%s"%(host, port))
+        config = dict(
+            self.protocol_config,
+            credentials=None,
+            connid="{}:{}".format(host, port)
+        )
 
-            self.clients[addr] = self.stream_class(
-                (self.sock, addr), self.transport_class, self.transport_kwargs,
-                client_side=False, close_cb=self.on_close
-            )
+        client = self.stream_class(
+            (
+                self.sock, addr, self.kcps[addr]
+            ), self.transport_class, self.transport_kwargs,
+            client_side=False, close_cb=self.on_close
+        )
 
-            t = PupyConnectionThread(
-                self.pupy_srv,
-                self.service,
-                PupyChannel(self.clients[addr]),
-                ping=self.ping_interval,
-                timeout=self.ping_timeout,
-                config=config
-            )
-            t.daemon=True
-            t.start()
+        t = PupyConnectionThread(
+            self.pupy_srv,
+            self.service,
+            PupyChannel(client),
+            ping=self.ping_interval,
+            timeout=self.ping_timeout,
+            config=config
+        )
+        t.daemon=True
+        t.start()
 
-        self.clients[addr].submit(data_received)
+        return client
 
     def start(self):
         self.listen()
@@ -332,10 +318,13 @@ class PupyUDPServer(object):
             while self.active:
                 self.accept()
         except EOFError:
+            logging.error("EOF")
             pass # server closed by another thread
         except KeyboardInterrupt:
             print("")
             print "keyboard interrupt!"
+        except Exception, e:
+            logging.exception('Unknown exception {}: {}'.format(type(e), e))
         finally:
             logging.info("server has terminated")
             self.close()

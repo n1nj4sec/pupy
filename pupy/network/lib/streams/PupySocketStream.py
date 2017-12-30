@@ -176,18 +176,24 @@ class PupyUDPSocketStream(object):
     def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None):
         import kcp
 
-        if not (type(sock) is tuple and len(sock)==2):
+        if not (type(sock) is tuple and len(sock) in (2,3)):
             raise Exception("dst_addr is not supplied for UDP stream, PupyUDPSocketStream needs a reply address/port")
+
         self.client_side = client_side
 
         self.sock, self.dst_addr = sock[0], sock[1]
-        if client_side:
-            self.sock.connect(self.dst_addr)
-            dst = self.sock.fileno()
+        if len(sock) == 3:
+            self.kcp = sock[2]
         else:
-            dst = lambda data: self.sock.sendto(data, self.dst_addr)
+            if client_side:
+                dst = self.sock.fileno()
+            else:
+                # dst = lambda data: self.sock.sendto(data, self.dst_addr)
+                dst = (
+                    self.sock.fileno(), self.sock.family, self.dst_addr[0], self.dst_addr[1]
+                )
 
-        self.kcp = kcp.KCP(dst, 0, interval=64)
+            self.kcp = kcp.KCP(dst, 0, interval=64)
 
         self.buf_in=Buffer()
         self.buf_out=Buffer()
@@ -224,6 +230,9 @@ class PupyUDPSocketStream(object):
 
         self.closed = True
 
+    def flush(self):
+        self.kcp.flush()
+
     def _upstream_recv(self):
         """ called as a callback on the downstream.write """
         if len(self.downstream)>0:
@@ -255,7 +264,7 @@ class PupyUDPSocketStream(object):
                 with self.downstream_lock:
                     if self.buf_in or self._poll_read(10):
                         self.transport.downstream_recv(self.buf_in)
-                    elif self.client_side:
+                    elif not self.client_side:
                         raise ValueError('Method should never be used on server side')
 
             return self.upstream.read(count)
@@ -275,6 +284,8 @@ class PupyUDPSocketStream(object):
                     self.buf_out.write(portion)
                     self.transport.upstream_recv(self.buf_out)
 
+                self.flush()
+
         except Exception as e:
             logging.debug(traceback.format_exc())
 
@@ -282,18 +293,23 @@ class PupyUDPSocketStream(object):
     def clock(self):
         return self.kcp.clock
 
+    def consume(self):
+        with self.downstream_lock:
+            while True:
+                kcpdata = self.kcp.recv()
+                if kcpdata:
+                    self.buf_in.write(kcpdata)
+                    self.transport.downstream_recv(BYTES_LITERAL(self.buf_in))
+                else:
+                    break
+
     def submit(self, data):
         if data:
             with self.downstream_lock:
                 self.kcp.submit(data)
 
-                while True:
-                    kcpdata = self.kcp.recv()
-                    if kcpdata:
-                        self.buf_in.write(kcpdata)
-                        self.transport.downstream_recv(self.buf_in)
-                    else:
-                        break
+            self.consume()
+
     @property
     def unsent(self):
         return self.kcp.unsent
