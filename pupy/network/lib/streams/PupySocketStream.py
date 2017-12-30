@@ -14,6 +14,7 @@ import errno
 import logging
 import traceback
 import zlib
+import kcp
 
 from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
 import threading
@@ -84,11 +85,11 @@ class PupySocketStream(SocketStream):
         self.downstream_lock=threading.Lock()
 
         self.transport=transport_class(self, **transport_kwargs)
-        self.on_connect()
 
         self.MAX_IO_CHUNK=32000
-
         self.compress = True
+
+        self.on_connect()
 
     def on_connect(self):
         self.transport.on_connect()
@@ -152,8 +153,6 @@ class PupySocketStream(SocketStream):
 
     def read(self, count):
         try:
-            if len(self.upstream)>=count:
-                return self.upstream.read(count)
             while len(self.upstream)<count:
                 if not self.sock_poll(None) and self.closed:
                     return None
@@ -175,96 +174,128 @@ class PupySocketStream(SocketStream):
             self.close()
 
 class PupyUDPSocketStream(object):
-    def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True):
+    def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None):
         if not (type(sock) is tuple and len(sock)==2):
             raise Exception("dst_addr is not supplied for UDP stream, PupyUDPSocketStream needs a reply address/port")
-        self.client_side=client_side
-        self.MAX_IO_CHUNK=40960
+        self.client_side = client_side
 
-        self.sock, self.dst_addr=sock[0], sock[1]
+        self.sock, self.dst_addr = sock[0], sock[1]
+        if client_side:
+            self.sock.connect(self.dst_addr)
+            dst = self.sock.fileno()
+        else:
+            dst = lambda data: self.sock.sendto(data, self.dst_addr)
+
+        self.kcp = kcp.KCP(dst, 0, interval=32, nodelay=kcp.ENABLE_NODELAY)
+
         self.buf_in=Buffer()
         self.buf_out=Buffer()
         #buffers for transport
-        self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
+        self.upstream = Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
 
-        self.downstream=Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(self.dst_addr))
+        self.downstream = Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(self.dst_addr))
 
-        self.upstream_lock=threading.Lock()
-        self.downstream_lock=threading.Lock()
+        self.upstream_lock = threading.Lock()
+        self.downstream_lock = threading.Lock()
 
-        self.transport=transport_class(self, **transport_kwargs)
+        self.transport = transport_class(self, **transport_kwargs)
+        self.total_timeout = 0
+
+        self.MAX_IO_CHUNK = ( self.kcp.mtu + 24 + 4 )
+        self.transport.mtu = self.MAX_IO_CHUNK
+        self.compress = True
+        self.close_callback = close_cb
+
         self.on_connect()
-        self.total_timeout=0
 
+    def update_in(self, last):
+        return self.kcp.update_in(last)
 
     def on_connect(self):
-       self.transport.on_connect()
+        self.transport.on_connect()
+        self._upstream_recv()
 
     def poll(self, timeout):
-        return len(self.upstream)>0 or self._poll_read(timeout=timeout)
+        return len(self.upstream)>0 or self._poll_read(timeout)
 
     def close(self):
-        pass
+        if self.close_callback:
+            self.close_callback(self.dst_addr)
 
-    @property
-    def closed(self):
-        return self.close()
+        self.closed = True
 
     def _upstream_recv(self):
         """ called as a callback on the downstream.write """
         if len(self.downstream)>0:
-            tosend=self.downstream.read()
-            sent=self.sock.sendto(tosend, self.dst_addr)
-            if sent!=len(tosend):
-                print "TODO: error: all was not sent ! tosend: %s sent: %s"%(len(tosend), sent)
+            data = self.downstream.read()
+            self.kcp.send(data)
 
     def _poll_read(self, timeout=None):
         if not self.client_side:
-            return self.upstream.wait(timeout)
-        self.sock.settimeout(timeout)
-        try:
-            buf, addr=self.sock.recvfrom(self.MAX_IO_CHUNK)
-        except socket.timeout:
-            self.total_timeout+=timeout
-            if self.total_timeout>300:
-                self.sock.close() # too much inactivity, disconnect to let it reconnect
-            return False
-        except socket.error:
-            ex = sys.exc_info()[1]
-            if get_exc_errno(ex) in (errno.EAGAIN, errno.EWOULDBLOCK):
-                # windows just has to be a b**ch
-                return True
-            self.close()
-            raise EOFError(ex)
-        if not buf:
-            self.close()
-            raise EOFError("connection closed by peer")
-        self.buf_in.write(BYTES_LITERAL(buf))
-        self.total_timeout=0
-        return True
+            # In case of strage hangups change None to timeout
+            return self.upstream.wait(None)
+
+        buf = self.kcp.recv()
+        if buf is None:
+            if timeout is not None:
+                timeout = int(timeout) * 1000
+
+            buf = self.kcp.pollread(timeout)
+
+        if buf:
+            self.buf_in.write(buf)
+            self.total_timeout = 0
+            return True
+
+        return False
 
     def read(self, count):
         try:
-            if len(self.upstream)>=count:
-                return self.upstream.read(count)
-            while len(self.upstream)<count:
-                if self.client_side:
-                    with self.downstream_lock:
-                        if self._poll_read(0):
-                            self.transport.downstream_recv(self.buf_in)
-                else:
-                    time.sleep(0.0001)
+            while len(self.upstream) < count:
+                if not self.client_side:
+                    raise ValueError('Method should never be used on server side')
+
+                with self.downstream_lock:
+                    if self.buf_in or self._poll_read(10):
+                        self.transport.downstream_recv(self.buf_in)
 
             return self.upstream.read(count)
 
         except Exception as e:
             logging.debug(traceback.format_exc())
 
+
     def write(self, data):
+        # The write will be done by the _upstream_recv
+        # callback on the downstream buffer
+
         try:
             with self.upstream_lock:
                 self.buf_out.write(data)
                 self.transport.upstream_recv(self.buf_out)
-            #The write will be done by the _upstream_recv callback on the downstream buffer
+
         except Exception as e:
             logging.debug(traceback.format_exc())
+
+    @property
+    def clock(self):
+        return self.kcp.clock
+
+    def submit(self, data):
+        if data:
+            with self.downstream_lock:
+                self.kcp.submit(data)
+
+                while True:
+                    kcpdata = self.kcp.recv()
+                    if kcpdata:
+                        self.buf_in.write(kcpdata)
+                        self.transport.downstream_recv(self.buf_in)
+                    else:
+                        break
+    @property
+    def unsent(self):
+        return self.kcp.unsent
+
+    def wake(self):
+        self.upstream.wake()

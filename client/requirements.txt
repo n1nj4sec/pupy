@@ -4,3 +4,4 @@ psutil
 rsa
 netaddr
 tinyec
+https://github.com/alxchk/pykcp

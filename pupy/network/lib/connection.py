@@ -98,6 +98,7 @@ class PupyConnection(Connection):
 
         if DEBUG_NETWORK:
             logging.debug('Sync request handled: {}'.format(seq))
+
         if seq in self._sync_events:
             del self._sync_events[seq]
 
@@ -122,12 +123,19 @@ class PupyConnection(Connection):
             self._sync_events[seq] = Event()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
+
+        if DEBUG_NETWORK:
+            logging.debug('Request submitted: {}'.format(seq))
+
         return seq
 
     def _async_request(self, handler, args = (), callback = (lambda a, b: None)):
         self._send_request(handler, args, async=callback)
 
     def _dispatch_reply(self, seq, raw):
+        if DEBUG_NETWORK:
+            logging.debug('Dispatch reply: {}'.format(seq))
+
         self._last_recv = time.time()
         sync = seq not in self._async_callbacks
         Connection._dispatch_reply(self, seq, raw)
@@ -136,6 +144,9 @@ class PupyConnection(Connection):
                 self._sync_events[seq].set()
 
     def _dispatch_exception(self, seq, raw):
+        if DEBUG_NETWORK:
+            logging.debug('Dispatch exception: {}'.format(seq))
+
         self._last_recv = time.time()
         sync = seq not in self._async_callbacks
         Connection._dispatch_exception(self, seq, raw)
@@ -161,14 +172,34 @@ class PupyConnectionThread(Thread):
         else:
             self.lock = RLock()
 
+        if DEBUG_NETWORK:
+            logging.debug('Create connection thread')
+
         self.connection = PupyConnection(self.lock, *args, **kwargs)
         Thread.__init__(self)
         self.daemon = True
 
+        if DEBUG_NETWORK:
+            logging.debug('Create connection thread completed')
+
+
     def run(self):
+        if DEBUG_NETWORK:
+            logging.debug('Run connection thread')
+
         try:
+            if DEBUG_NETWORK:
+                logging.debug('Init connection')
+
             self.connection._init_service()
+
+            if DEBUG_NETWORK:
+                logging.debug('Init connection complete. Acquire lock')
+
             with self.lock:
+                if DEBUG_NETWORK:
+                    logging.debug('Start serve loop')
+
                 while not self.connection.closed:
                     self.connection.serve(10)
 

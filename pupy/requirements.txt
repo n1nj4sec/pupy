@@ -24,3 +24,4 @@ logutils
 secretstorage
 pygments
 requests
+https://github.com/alxchk/pykcp

@@ -30,7 +30,12 @@ class Buffer(object):
             return True
         else:
             self.waiting.clear()
-        return self.waiting.wait(timeout)
+
+        self.waiting.wait(timeout)
+        return len(self.buffer)>0
+
+    def wake(self):
+        self.waiting.set()
 
     def read(self, n=-1):
         """
