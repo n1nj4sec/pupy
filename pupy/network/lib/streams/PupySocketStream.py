@@ -208,7 +208,7 @@ class PupyUDPSocketStream(object):
         self.transport = transport_class(self, **transport_kwargs)
         self.total_timeout = 0
 
-        self.MAX_IO_CHUNK = self.kcp.mtu
+        self.MAX_IO_CHUNK = self.kcp.mtu - 24
         self.compress = True
         self.close_callback = close_cb
 
