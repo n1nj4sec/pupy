@@ -2,10 +2,8 @@
 
 import time, logging
 
-from rpyc.core import Connection, consts
+from rpyc.core import Connection, consts, AsyncResultTimeout
 from threading import Thread, RLock, Event
-
-DEBUG_NETWORK=True
 
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
@@ -13,17 +11,20 @@ class PupyConnection(Connection):
         self._connection_serve_lock = lock
         self._last_recv = time.time()
         self._ping = False
-        self._ping_timeout = 2
+        self._ping_timeout = 30
         self._serve_timeout = 10
+        self._last_ping = None
+        self._default_serve_timeout = 5
+        self.initialized = Event()
 
         if 'ping' in kwargs:
-            ping = kwargs.get('ping')
+            ping = kwargs['ping']
             del kwargs['ping']
         else:
             ping = None
 
         if 'timeout' in kwargs:
-            timeout = kwargs.get('timeout')
+            timeout = kwargs['timeout']
             del kwargs['timeout']
         else:
             timeout = None
@@ -35,6 +36,30 @@ class PupyConnection(Connection):
         Connection.__init__(self, *args, **kwargs)
         if pupy_srv:
             self._local_root.pupy_srv = pupy_srv
+
+    def consume(self):
+        self._channel.consume()
+
+    def wake(self):
+        self._channel.wake()
+
+    def initialize(self, timeout=10):
+        try:
+            Thread(
+                target=self._initialization_timeout, args=(timeout,)
+            ).start()
+
+            self._init_service()
+            self.initialized.set()
+        except EOFError, TypeError:
+            self.close()
+
+        return self.initialized.is_set()
+
+    def _initialization_timeout(self, timeout):
+        self.initialized.wait(timeout)
+        if not self.initialized.is_set():
+            self.close()
 
     def set_pings(self, ping=None, timeout=None):
         if ping is not None:
@@ -48,7 +73,6 @@ class PupyConnection(Connection):
                 )
 
             self._ping = bool(ping)
-
 
         if timeout:
             try:
@@ -66,37 +90,54 @@ class PupyConnection(Connection):
 
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Sync request: {}'.format(seq))
+
         while not ( self._sync_events[seq].is_set() or self.closed ):
-            if DEBUG_NETWORK:
+            if __debug__:
                 logging.debug('Sync poll until: {}'.format(seq))
             if self._connection_serve_lock.acquire(False):
                 try:
-                    if DEBUG_NETWORK:
+                    if __debug__:
                         logging.debug('Sync poll serve: {}'.format(seq))
+
                     if not self.serve(self._serve_timeout):
-                        if DEBUG_NETWORK:
+                        if __debug__:
                             logging.debug('Sync poll serve interrupted: {}/inactive={}'.format(
                                 seq, self.inactive))
                         if self._ping:
+                            if __debug__:
+                                logging.debug(
+                                    'Submit ping request (timeout: {}): {} - interrupted'.format(
+                                        self._serve_timeout, seq))
+
                             self.ping(timeout=self._ping_timeout)
 
+                            if __debug__:
+                                logging.debug('Submit ping request: {} - resumed'.format(seq))
+
                 finally:
-                    if DEBUG_NETWORK:
+                    if __debug__:
                         logging.debug('Sync poll serve complete. release: {}'.format(seq))
                     self._connection_serve_lock.release()
             else:
-                if DEBUG_NETWORK:
+                if __debug__:
                     logging.debug('Sync poll wait: {}'.format(seq))
+
                 self._sync_events[seq].wait(timeout=self._serve_timeout)
                 if self._ping:
+                    if __debug__:
+                        logging.debug('Send ping (timeout: {})'.format(self._ping_timeout))
+
                     self.ping(timeout=self._ping_timeout)
 
-            if DEBUG_NETWORK:
+                    if __debug__:
+                        logging.debug('Send ping (timeout: {}) - sent'.format(self._ping_timeout))
+
+            if __debug__:
                 logging.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))
 
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Sync request handled: {}'.format(seq))
 
         if seq in self._sync_events:
@@ -114,17 +155,19 @@ class PupyConnection(Connection):
     def _send_request(self, handler, args, async=None):
         seq = next(self._seqcounter)
         if async:
-            if DEBUG_NETWORK:
+            if __debug__:
                 logging.debug('Async request: {}'.format(seq))
+
             self._async_callbacks[seq] = async
         else:
-            if DEBUG_NETWORK:
+            if __debug__:
                 logging.debug('Sync request: {}'.format(seq))
+
             self._sync_events[seq] = Event()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
 
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Request submitted: {}'.format(seq))
 
         return seq
@@ -133,7 +176,7 @@ class PupyConnection(Connection):
         self._send_request(handler, args, async=callback)
 
     def _dispatch_reply(self, seq, raw):
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Dispatch reply: {}'.format(seq))
 
         self._last_recv = time.time()
@@ -144,7 +187,7 @@ class PupyConnection(Connection):
                 self._sync_events[seq].set()
 
     def _dispatch_exception(self, seq, raw):
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Dispatch exception: {}'.format(seq))
 
         self._last_recv = time.time()
@@ -164,6 +207,49 @@ class PupyConnection(Connection):
     def inactive(self):
         return time.time() - self._last_recv
 
+    def serve(self, timeout=None):
+        ''' Check timeouts every serve cycle '''
+
+        interval, ping_timeout = self.get_pings()
+
+        if timeout is None:
+            timeout = interval or self._default_serve_timeout
+
+        now = time.time()
+        mintimeout = timeout
+
+        for async_event in self._async_callbacks.itervalues():
+            if not async_event._ttl:
+                continue
+
+            etimeout = async_event._ttl - now
+
+            if mintimeout is None or etimeout < mintimeout:
+                mintimeout = etimeout
+
+        served = Connection.serve(self, timeout=mintimeout)
+
+        now = time.time()
+        for async_event in self._async_callbacks.itervalues():
+            if async_event._ttl and async_event._ttl < now:
+                raise EOFError('Async timeout!', async_event)
+
+        if interval and ping_timeout:
+            if served:
+                self._last_ping = now
+            elif not self._last_ping or now > self._last_ping + interval:
+                if __debug__:
+                    logging.debug('Send ping, interval: {}, timeout: {}'.format(interval, ping_timeout))
+                self._last_ping = self.ping(timeout=ping_timeout, now=now)
+
+        return served
+
+    def ping(self, timeout=30, now=None):
+        ''' RPyC do not have any PING handler. So.. why to wait? '''
+        now = now or time.time()
+        self.async_request(consts.HANDLE_PING, 'ping', timeout=timeout)
+        return now
+
 class PupyConnectionThread(Thread):
     def __init__(self, *args, **kwargs):
         if hasattr(kwargs, 'lock'):
@@ -172,36 +258,45 @@ class PupyConnectionThread(Thread):
         else:
             self.lock = RLock()
 
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Create connection thread')
 
         self.connection = PupyConnection(self.lock, *args, **kwargs)
+        self.Initialized = Event()
+
         Thread.__init__(self)
         self.daemon = True
 
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Create connection thread completed')
 
-
     def run(self):
-        if DEBUG_NETWORK:
+        if __debug__:
             logging.debug('Run connection thread')
 
-        try:
-            if DEBUG_NETWORK:
-                logging.debug('Init connection')
+        if __debug__:
+            logging.debug('Init connection')
 
-            self.connection._init_service()
+        if not self.connection.initialize():
+            logging.debug('Initialization failed')
+            return
 
-            if DEBUG_NETWORK:
-                logging.debug('Init connection complete. Acquire lock')
+        if __debug__:
+            logging.debug('Init connection complete. Acquire lock')
 
-            with self.lock:
-                if DEBUG_NETWORK:
-                    logging.debug('Start serve loop')
+        with self.lock:
+            if __debug__:
+                logging.debug('Start serve loop')
 
-                while not self.connection.closed:
-                    self.connection.serve(10)
+            while not self.connection.closed:
+                try:
+                    self.connection.serve()
+                except EOFError, TypeError:
+                    if __debug__:
+                        logging.debug('Start serve loop')
 
-        except EOFError, TypeError:
-            pass
+                    self.connection.close()
+                    break
+
+                except Exception, e:
+                    logging.exception(e)

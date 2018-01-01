@@ -340,7 +340,6 @@ class PupyClient(object):
         )
 
         new_deps.extend(contents)
-
         return True
 
     def unload_package(self, module_name):

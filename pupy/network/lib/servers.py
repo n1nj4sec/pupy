@@ -84,7 +84,6 @@ class PupyTCPServer(ThreadedServer):
                 self.logger.warn(
                     "Couldn't create IGD mapping: {}".format(e.description))
 
-
     def _setup_connection(self, lock, sock, queue):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
         Note that this code is cut and paste from the rpyc internals and may have to be
@@ -115,7 +114,7 @@ class PupyTCPServer(ThreadedServer):
                 lock, self.pupy_srv,
                 self.service,
                 PupyChannel(stream),
-                ping=self.ping_interval,
+                ping=stream.KEEP_ALIVE_REQUIRED or self.ping_interval,
                 timeout=self.ping_timeout,
                 config=config
             )
@@ -151,12 +150,8 @@ class PupyTCPServer(ThreadedServer):
                     self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
                         h, p, connection.inactive))
 
-                    interval, timeout = connection.get_pings()
-
                     while not connection.closed:
-                        connection.serve(interval or 10)
-                        if interval:
-                            connection.ping(timeout=timeout)
+                        connection.serve()
 
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
@@ -187,21 +182,20 @@ class PupyTCPServer(ThreadedServer):
 
 
 class PupyUDPServer(object):
+    REQUIRED_KWARGS = [
+        'stream', 'transport', 'transport_kwargs',
+        'pupy_srv', 'port'
+    ]
+
     def __init__(self, service, **kwargs):
         self.kcp = __import__('kcp')
 
-        if not "stream" in kwargs:
-            raise ValueError("missing stream_class argument")
-        if not "transport" in kwargs:
-            raise ValueError("missing transport argument")
-        self.stream_class=kwargs["stream"]
-        self.transport_class=kwargs["transport"]
-        self.transport_kwargs=kwargs["transport_kwargs"]
-        self.pupy_srv=kwargs["pupy_srv"]
-        del kwargs["stream"]
-        del kwargs["transport"]
-        del kwargs["transport_kwargs"]
-        del kwargs["pupy_srv"]
+        for param in self.REQUIRED_KWARGS:
+            if not param in kwargs or kwargs[param] is None:
+                raise ValueError('missing {} argument'.format(param))
+
+            setattr(self, param, kwargs[param])
+            del kwargs[param]
 
         ping = self.pupy_srv.config.get('pupyd', 'ping')
         self.ping = ping and ping not in (
@@ -219,104 +213,132 @@ class PupyUDPServer(object):
             self.ping_interval = None
             self.ping_timeout = None
 
-        self.authenticator=kwargs.get("authenticator", None)
-        self.protocol_config=kwargs.get("protocol_config", {})
-        self.service=service
+        self.authenticator = kwargs.get('authenticator', None)
+        self.protocol_config = kwargs.get('protocol_config', {})
+        self.service = service
 
-        self.active=False
+        self.active = False
         self.clients = {}
-        self.kcps = {}
+        self.sock = None
+        self.host = kwargs.get('host') or kwargs.get('hostname')
 
-        self.sock=None
-        self.hostname=kwargs['hostname']
-        self.port=kwargs['port']
+    @property
+    def stream_class(self):
+        return self.stream
+
+    @property
+    def transport_class(self):
+        return self.transport
 
     def listen(self):
-        s=None
-        if not self.hostname:
-            self.hostname=None
-        last_exc=None
-        for res in socket.getaddrinfo(self.hostname, self.port, socket.AF_UNSPEC, socket.SOCK_DGRAM, 0, socket.AI_PASSIVE):
+        s = None
+        if not self.host:
+            self.host = None
+
+        last_exc = None
+        for res in socket.getaddrinfo(
+                self.host, self.port, socket.AF_UNSPEC,
+                socket.SOCK_DGRAM, 0, socket.AI_PASSIVE):
+
             af, socktype, proto, canonname, sa = res
+
             try:
                 s = socket.socket(af, socktype, proto)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             except socket.error as msg:
                 s = None
-                last_exc=msg
+                last_exc = msg
                 continue
+
             try:
                 s.bind(sa)
+
             except socket.error as msg:
                 s.close()
                 s = None
                 last_exc = msg
                 continue
+
             break
+
         self.sock = s
         if self.sock is None:
             raise last_exc
 
         self.sock.setblocking(0)
-
-    def accept(self):
-        try:
-            new, updated, failed = self.kcp.dispatch(self.sock.fileno(), 32, self.kcps)
-            for f in new:
-                self.clients[f] = self.new(f)
-
-            for f in updated:
-                self.clients[f].consume()
-
-            for f in failed:
-                self.clients[f].close()
-
-
-        except Exception as e:
-            logging.error(e)
-            raise
+        self.dispatcher = self.kcp.KCPDispatcher(
+            self.sock.fileno(), 0,
+            timeout=5000
+        )
 
     def on_close(self, addr):
-        logging.info("client disconnected: {}".format(addr))
         self.clients[addr].wake()
         del self.clients[addr]
-        del self.kcps[addr]
+        self.dispatcher.delete(addr)
 
-    def new(self, addr):
-        host, port=addr[0], addr[1]
-        logging.info("new client connected : %s:%s"%(host, port))
+    def new(self, addr, ckcp):
+        logging.info("new client connected: " + addr)
+
+        host, port = addr.rsplit(':', 1)
+        port = int(port)
+
         config = dict(
             self.protocol_config,
             credentials=None,
-            connid="{}:{}".format(host, port)
+            connid=addr
         )
 
-        client = self.stream_class(
+        client = self.stream(
             (
-                self.sock, addr, self.kcps[addr]
-            ), self.transport_class, self.transport_kwargs,
-            client_side=False, close_cb=self.on_close
+                self.sock, (
+                    host, port
+                ),
+                ckcp,
+            ),
+            self.transport,
+            self.transport_kwargs,
+            client_side=False,
+            close_cb=self.on_close
         )
 
-        t = PupyConnectionThread(
+        connthread = PupyConnectionThread(
             self.pupy_srv,
             self.service,
             PupyChannel(client),
-            ping=self.ping_interval,
+            ping=client.KEEP_ALIVE_REQUIRED or self.ping_interval,
             timeout=self.ping_timeout,
             config=config
         )
-        t.daemon=True
-        t.start()
-
-        return client
+        connthread.start()
+        return connthread.connection
 
     def start(self):
         self.listen()
         self.active=True
         try:
             while self.active:
-                self.accept()
+                try:
+                    new, updated, failed = self.dispatcher.dispatch()
+                    for f, kcp in new:
+                        self.clients[f] = self.new(f, kcp)
+
+                    for f in updated:
+                        self.clients[f].consume()
+
+                    for f in failed:
+                        self.clients[f].close()
+
+                    for f in self.dispatcher.keys():
+                        if f not in updated:
+                            self.clients[f].wake()
+
+                except Exception as e:
+                    logging.error(e)
+                    raise
+
+            for f in self.clients.keys():
+                self.clients[f].close()
+
         except EOFError:
             logging.error("EOF")
             pass # server closed by another thread

