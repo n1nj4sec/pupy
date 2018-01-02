@@ -3,12 +3,13 @@
 import time, logging
 
 from rpyc.core import Connection, consts, AsyncResultTimeout
-from threading import Thread, RLock, Event
+from threading import Thread, RLock, Event, Lock
 
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
         self._connection_serve_lock = lock
+        self._async_lock = Lock()
         self._last_recv = time.time()
         self._ping = False
         self._ping_timeout = 30
@@ -158,7 +159,8 @@ class PupyConnection(Connection):
             if __debug__:
                 logging.debug('Async request: {}'.format(seq))
 
-            self._async_callbacks[seq] = async
+            with self._async_lock:
+                self._async_callbacks[seq] = async
         else:
             if __debug__:
                 logging.debug('Sync request: {}'.format(seq))
@@ -180,7 +182,11 @@ class PupyConnection(Connection):
             logging.debug('Dispatch reply: {}'.format(seq))
 
         self._last_recv = time.time()
-        sync = seq not in self._async_callbacks
+
+        sync = None
+        with self._async_lock:
+            sync = seq not in self._async_callbacks
+
         Connection._dispatch_reply(self, seq, raw)
         if sync:
             if seq in self._sync_events:
@@ -191,7 +197,11 @@ class PupyConnection(Connection):
             logging.debug('Dispatch exception: {}'.format(seq))
 
         self._last_recv = time.time()
-        sync = seq not in self._async_callbacks
+
+        sync = None
+        with self._async_lock:
+            sync = seq not in self._async_callbacks
+
         Connection._dispatch_exception(self, seq, raw)
         if sync:
             self._sync_events[seq].set()
@@ -218,21 +228,24 @@ class PupyConnection(Connection):
         now = time.time()
         mintimeout = timeout
 
-        for async_event in self._async_callbacks.itervalues():
-            if not async_event._ttl:
-                continue
+        with self._async_lock:
+            for async_event in self._async_callbacks.itervalues():
+                if not async_event._ttl:
+                    continue
 
-            etimeout = async_event._ttl - now
+                etimeout = async_event._ttl - now
 
-            if mintimeout is None or etimeout < mintimeout:
-                mintimeout = etimeout
+                if mintimeout is None or etimeout < mintimeout:
+                    mintimeout = etimeout
 
         served = Connection.serve(self, timeout=mintimeout)
 
         now = time.time()
-        for async_event in self._async_callbacks.itervalues():
-            if async_event._ttl and async_event._ttl < now:
-                raise EOFError('Async timeout!', async_event)
+
+        with self._async_lock:
+            for async_event in self._async_callbacks.itervalues():
+                if async_event._ttl and async_event._ttl < now:
+                    raise EOFError('Async timeout!', async_event)
 
         if interval and ping_timeout:
             if served:

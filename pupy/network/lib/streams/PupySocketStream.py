@@ -59,13 +59,16 @@ class PupyChannel(Channel):
 
         length, compressed = self.FRAME_HEADER.unpack(header)
 
-        data = b''
+        data = []
         required_length = length + len(self.FLUSHER)
-        while len(data) != required_length:
-            packet = self.stream.read(required_length - len(data))
-            if packet:
-                data += packet
 
+        while required_length:
+            packet = self.stream.read(required_length)
+            if packet:
+                required_length -= len(packet)
+                data.append(packet)
+
+        data = b''.join(data)
         data = data[:-len(self.FLUSHER)]
 
         if compressed:
@@ -229,12 +232,18 @@ class PupyUDPSocketStream(object):
 
                 self.kcp = kcp.KCP(dst, 0, interval=64)
 
-        self.buf_in=Buffer()
-        self.buf_out=Buffer()
-        #buffers for transport
-        self.upstream = Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
+        self.kcp.window = 32768
 
-        self.downstream = Buffer(on_write=self._upstream_recv, transport_func=addGetPeer(self.dst_addr))
+        self.buf_in = Buffer()
+        self.buf_out = Buffer()
+
+        #buffers for transport
+        self.upstream = Buffer(
+            transport_func=addGetPeer(("127.0.0.1", 443)))
+
+        self.downstream = Buffer(
+            on_write=self._send,
+            transport_func=addGetPeer(self.dst_addr))
 
         self.upstream_lock = threading.Lock()
         self.downstream_lock = threading.Lock()
@@ -252,7 +261,6 @@ class PupyUDPSocketStream(object):
 
     def on_connect(self):
         self.transport.on_connect()
-        self._upstream_recv()
 
     def poll(self, timeout):
         if self.closed:
@@ -275,20 +283,34 @@ class PupyUDPSocketStream(object):
         if self.kcp:
             self.kcp.flush()
 
-    def _upstream_recv(self):
+    def _send(self):
         """ called as a callback on the downstream.write """
         if self.closed or not self.kcp:
             raise EOFError('Connection is not established yet')
 
         if len(self.downstream)>0:
             data = self.downstream.read()
-            self.kcp.send(data)
+            to_send = len(data)
+            mic = self.MAX_IO_CHUNK
+
+            if to_send <= mic:
+                self.kcp.send(data)
+            else:
+                offset = 0
+                while to_send and not self.closed:
+                    portion = mic if mic < to_send else to_send
+                    self.kcp.send(data[offset:offset+mic])
+                    offset += portion
+                    to_send -= portion
+
+            if self.kcp:
+                self.kcp.flush()
 
     def _poll_read(self, timeout=None):
         if not self.client_side:
             # In case of strage hangups change None to timeout
             self._wake_after = time.time() + timeout
-            return self.upstream.wait(None)
+            return self.buf_in.wait(None)
 
         buf = self.kcp.recv()
         if buf is None:
@@ -305,15 +327,30 @@ class PupyUDPSocketStream(object):
         return False
 
     def read(self, count):
+        if self.closed:
+            return self.upstream.read(count)
+
         try:
-            while not self.closed and len(self.upstream) < count:
+            data = self.upstream.read(count)
+            to_read = len(data)
+
+            if to_read == count:
+                return data
+
+            to_read = count - to_read
+            data = [ data ]
+
+            while to_read:
                 with self.downstream_lock:
                     if self.buf_in or self._poll_read(10):
                         self.transport.downstream_recv(self.buf_in)
-                    elif not self.client_side:
-                        raise ValueError('Method should never be used on server side')
+                        portion = self.upstream.read(to_read)
+                        to_read -= len(portion)
+                        data.append(portion)
+                    else:
+                        break
 
-            return self.upstream.read(count)
+            return b''.join(data)
 
         except Exception as e:
             logging.debug(traceback.format_exc())
@@ -324,25 +361,26 @@ class PupyUDPSocketStream(object):
 
         try:
             with self.upstream_lock:
-                while data and not self.closed:
-                    data, portion = data[self.MAX_IO_CHUNK:], data[:self.MAX_IO_CHUNK]
-                    self.buf_out.write(portion)
-                    self.transport.upstream_recv(self.buf_out)
-
-                self.flush()
+                self.buf_out.write(data)
+                self.transport.upstream_recv(self.buf_out)
 
         except Exception as e:
             logging.debug(traceback.format_exc())
 
     def consume(self):
-        with self.downstream_lock:
-            while True:
-                kcpdata = self.kcp.recv()
-                if kcpdata:
-                    self.buf_in.write(kcpdata)
-                    self.transport.downstream_recv(BYTES_LITERAL(self.buf_in))
-                else:
-                    break
+        data = []
+        while True:
+            kcpdata = self.kcp.recv()
+            if kcpdata:
+                data.append(kcpdata)
+            else:
+                break
+
+        if not data:
+            return
+
+        data = b''.join(data)
+        self.buf_in.write(data)
 
     def wake(self):
         if not self._wake_after or ( time.time() >= self._wake_after ):
