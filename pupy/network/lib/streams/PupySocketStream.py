@@ -3,10 +3,19 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
 
+import logging
+
 __all__ = [
     'PupySocketStream',
-    'PupyUDPSocketStream'
 ]
+
+try:
+    import kcp
+    __all__.append(
+        'PupyUDPSocketStream'
+    )
+except:
+    logging.warning('Datagram based stream is not available: KCP missing')
 
 import sys
 from rpyc.core import SocketStream, Connection, Channel
@@ -14,7 +23,6 @@ from ..buffer import Buffer
 import socket
 import time
 import errno
-import logging
 import traceback
 import zlib
 
@@ -206,7 +214,7 @@ class PupySocketStream(SocketStream):
             self.close()
 
 class PupyUDPSocketStream(object):
-    def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None):
+    def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None, lsi=5):
 
         if not (type(sock) is tuple and len(sock) in (2,3)):
             raise Exception(
@@ -215,7 +223,8 @@ class PupyUDPSocketStream(object):
 
         self.client_side = client_side
         self.closed = False
-        self.KEEP_ALIVE_REQUIRED = 15
+        self.LONG_SLEEP_INTERRUPT_TIMEOUT = lsi
+        self.KEEP_ALIVE_REQUIRED = lsi * 3
 
         self.sock, self.dst_addr = sock[0], sock[1]
         if len(sock) == 3:
@@ -230,7 +239,7 @@ class PupyUDPSocketStream(object):
                     self.sock.fileno(), self.sock.family, self.dst_addr[0], self.dst_addr[1]
                 )
 
-                self.kcp = kcp.KCP(dst, 0, interval=64)
+            self.kcp = kcp.KCP(dst, 0, interval=64)
 
         self.kcp.window = 32768
 
@@ -383,6 +392,7 @@ class PupyUDPSocketStream(object):
         self.buf_in.write(data)
 
     def wake(self):
-        if not self._wake_after or ( time.time() >= self._wake_after ):
-            self.upstream.wake()
-            self._wake_after = None
+        now = time.time()
+        if not self._wake_after or ( now >= self._wake_after ):
+            self.buf_in.wake()
+            self._wake_after = now + self.LONG_SLEEP_INTERRUPT_TIMEOUT
