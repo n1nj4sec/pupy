@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/n1nj4sec/pupy.svg?branch=master)](https://travis-ci.org/n1nj4sec/pupy)
+[![Build Status](https://api.travis-ci.org/n1nj4sec/pupy.svg?branch=unstable)](https://travis-ci.org/n1nj4sec/pupy)
 # Pupy
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features a all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
@@ -12,6 +12,8 @@ cd pupy
 git submodule init
 git submodule update
 pip install -r pupy/requirements.txt
+wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
+tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
 ```
 or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 

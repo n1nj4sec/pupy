@@ -2,6 +2,7 @@
 pupy/data/
 pupy/crypto/*.py
 pupy/.pupy_history
+pupy/pupy_*
 .DS_Store
 *.swp
 
@@ -28,9 +29,16 @@ client/sources/resources/library_compressed_string_x64.txt
 client/sources/resources_msvcr90_dll.c
 client/sources/resources/libraryx64.zip
 client/sources/resources/libraryx86.zip
-client/sources/buildenv/
-client/sources-linux/buildenv/
+client/sources/buildenv
+client/sources/import-tab.c
+client/sources/import-tab.h
+client/sources/revision.h
+client/sources-linux/buildenv
+client/sources-linux/buildenv-sunos
 client/sources/resources/library.zip
+client/sources-linux/import-tab.c
+client/sources-linux/import-tab.h
+client/sources-linux/revision.h
 client/sources-linux/resources/library.zip
 client/android_sources/bin
 client/android_sources/.buildozer
@@ -46,6 +54,9 @@ pupy/pupy.conf
 !pupy/packages/
 !pupy/payload_templates/
 !pupy/packages/**/*.dll
+
+pupy/payload_templates/pupy*.*
+pupy/payload_templates/*-*.zip
 
 # C extensions
 *.so
@@ -99,3 +110,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+*.orig
+*.patch

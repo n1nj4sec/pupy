@@ -204,7 +204,11 @@ class IGDClient:
 
             sock = socket.socket(
                 socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+            try:
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 32)
+            except:
+                pass
+
             sock.bind((self.bindIP.format(), 19110))
             sock.sendto(up_disc, ("239.255.255.250", 1900))
 

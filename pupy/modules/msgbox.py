@@ -3,7 +3,7 @@ from pupylib.PupyModule import *
 
 __class_name__="MsgBoxPopup"
 
-@config(cat="troll", tags=["message","popup"])
+@config(cat="troll", tags=["message","popup"], compatibilities=['windows', 'linux', 'darwin'])
 class MsgBoxPopup(PupyModule):
     """ Pop up a custom message box """
     dependencies = {

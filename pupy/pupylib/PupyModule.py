@@ -215,8 +215,10 @@ class PupyModule(object):
     compatible_systems=[] #should be changed by decorator @config
     category="general" # to sort modules by categories. should be changed by decorator @config
     tags=[] # to add search keywords. should be changed by decorator @config
-    is_module=True # if True, module have to be run with "run <module_name", if False it can be called directly without run
+    is_module=True # if True, module have to be run with "run <module_name>", if False it can be called directly without run
     rec=None
+    known_args=False
+    web_handlers=[]
 
     def __init__(self, client, job, formatter=None, stdout=None, log=None):
         """ client must be a PupyClient instance """
@@ -308,11 +310,8 @@ class PupyModule(object):
         else:
             dependencies = self.dependencies
 
-        for d in dependencies:
-            if d.lower().endswith(('.dll', '.so')):
-                self.client.load_dll(d)
-            else:
-                self.client.load_package(d, new_deps=self.new_deps)
+        if self.client:
+            self.client.load_package(dependencies, new_deps=self.new_deps)
 
     def clean_dependencies(self):
         for d in self.new_deps:
@@ -321,8 +320,11 @@ class PupyModule(object):
             except Exception, e:
                 logging.exception('Dependency unloading failed: {}'.format(e))
 
+    def start_webplugin(self):
+        return self.client.pupsrv.pupweb.start_webplugin(self.web_handlers)
+
     def init_argparse(self):
-        """ Override this class to define your own arguments. """
+        """ Override this method to define your own arguments. """
         self.arg_parser = PupyArgumentParser(prog='PupyModule', description='PupyModule default description')
 
     def is_compatible(self):
@@ -335,10 +337,14 @@ class PupyModule(object):
             return (True,"")
         elif "linux" in self.compatible_systems and self.client.is_linux():
             return (True,"")
+        elif "solaris" in self.compatible_systems and self.client.is_solaris():
+            return (True,"")
         elif ("darwin" in self.compatible_systems or "osx" in self.compatible_systems) and self.client.is_darwin():
             return (True,"")
         elif "unix" in self.compatible_systems and self.client.is_unix():
             return (True,"")
+        elif "posix"in self.compatible_systems and self.client.is_posix():
+            return (True, "")
         return (False, "This module currently only support the following systems: %s"%(','.join(self.compatible_systems)))
 
     def is_daemon(self):

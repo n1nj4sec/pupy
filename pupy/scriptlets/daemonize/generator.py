@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import textwrap, random, string
@@ -15,7 +15,7 @@ class ScriptletGenerator(Scriptlet):
     def __init__(self):
         pass
 
-    def generate(self):
+    def generate(self, os):
         return textwrap.dedent("""
         import pupy, os
 
@@ -36,5 +36,3 @@ class ScriptletGenerator(Scriptlet):
                         raise
             os.close(null)
         """)
-
-

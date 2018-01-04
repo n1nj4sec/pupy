@@ -507,7 +507,7 @@ DWORD inject_via_remotethread(HANDLE hProcess, DWORD dwDestinationArch, LPVOID l
 			Sleep(2000);
 		}
 */
-		Sleep(2000);
+		//Sleep(2000);
 		//printf("[INJECT] inject_via_remotethread: Resuming the injected thread...");
 		// Resume the injected thread...
 		if (ResumeThread(hThread) == (DWORD)-1)

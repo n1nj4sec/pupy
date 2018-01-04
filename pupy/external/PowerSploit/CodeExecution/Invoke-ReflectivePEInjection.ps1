@@ -23,7 +23,6 @@ remote process.
 PowerSploit Function: Invoke-ReflectivePEInjection
 Author: Joe Bialek, Twitter: @JosephBialek
 Code review and modifications: Matt Graeber, Twitter: @mattifestation
-Minor code modifications: Nicolas Verdier, calling garbage collector to reduce process size
 License: BSD 3-Clause
 Required Dependencies: None
 Optional Dependencies: None
@@ -649,7 +648,7 @@ $RemoteScriptBlock = {
 		$Win32Functions | Add-Member NoteProperty -Name GetModuleHandle -Value $GetModuleHandle
 		
 		$FreeLibraryAddr = Get-ProcAddress kernel32.dll FreeLibrary
-		$FreeLibraryDelegate = Get-DelegateType @([Bool]) ([IntPtr])
+		$FreeLibraryDelegate = Get-DelegateType @([IntPtr]) ([Bool])
 		$FreeLibrary = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($FreeLibraryAddr, $FreeLibraryDelegate)
 		$Win32Functions | Add-Member -MemberType NoteProperty -Name FreeLibrary -Value $FreeLibrary
 		
@@ -2524,7 +2523,6 @@ $RemoteScriptBlock = {
 		{
 			if ($RemoteLoading -eq $false)
 			{
-				[System.GC]::Collect()
 				Write-Verbose "Calling dllmain so the DLL knows it has been loaded"
 				$DllMainPtr = Add-SignedIntAsUnsigned ($PEInfo.PEHandle) ($PEInfo.IMAGE_NT_HEADERS.OptionalHeader.AddressOfEntryPoint)
 				$DllMainDelegate = Get-DelegateType @([IntPtr], [UInt32], [IntPtr]) ([Bool])

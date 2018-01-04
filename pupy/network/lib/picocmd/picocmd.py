@@ -277,14 +277,14 @@ class SystemInfo(Command):
     # To do, add more? Who knows how platform.uname looks like on other platforms?
     # How many are there? Let's use 3 bits for that - 8 systems in total
     well_known_os_names_decode = dict(enumerate([
-        'Linux', 'Windows'
+        'Linux', 'Windows', 'SunOS', 'android'
     ]))
     well_known_os_names_encode = {
         v:k for k,v in well_known_os_names_decode.iteritems()
     }
     # Same question.
     well_known_cpu_archs_decode = dict(enumerate([
-        'x86', 'x86', 'x64', 'x64'
+        'x86', 'x86', 'x64', 'x64', 'arm'
     ]))
     well_known_cpu_archs_encode = {
         v:k for k,v in well_known_cpu_archs_decode.iteritems()
@@ -297,6 +297,9 @@ class SystemInfo(Command):
         'i686': 'x86',
         'x86_64': 'x64',
         'amd64': 'x64',
+        'i86pc': 'x86',
+        'armv7l': 'arm',
+        'armv8l': 'arm',
     }
 
     def __init__(
@@ -330,7 +333,7 @@ class SystemInfo(Command):
                 opener.addheaders = [('User-agent', 'curl/7.50.0')]
                 response = opener.open('http://ifconfig.co', timeout=5)
                 if response.code == 200:
-                    self.external_ip = netaddr.IPAddress(response.read())
+                    self.external_ip = netaddr.IPAddress(response.read().strip())
                     self.internet = True
             except Exception, e:
                 self.external_ip = None
@@ -469,7 +472,8 @@ class SetProxy(Command):
 class Connect(Command):
     well_known_transports_decode = dict(enumerate([
         'obfs3','udp_secure','http','tcp_cleartext','rsa',
-        'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4'
+        'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4',
+        'websocket'
     ], 1))
 
     well_known_transports_encode = {

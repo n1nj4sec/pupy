@@ -1,6 +1,6 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from modules.lib.windows.powershell_upload import execute_powershell_script
+from pupylib.utils.term import consize
 import os
 
 __class_name__="Powerview"
@@ -8,11 +8,13 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(compat="windows", category="gather")
 class Powerview(PupyModule):
-    """ 
+    """
         execute powerview commands
     """
-    max_clients=1
-    
+    dependencies = {
+        'windows': [ 'powershell' ]
+    }
+
     def init_argparse(self):
 
         self.commands_available = '''
@@ -148,8 +150,9 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
 '''
         self.arg_parser = PupyArgumentParser(prog="Powerview", description=self.__doc__)
         self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command')
+        self.arg_parser.add_argument("-1", '--once', action='store_true', help='Unload after execution')
         self.arg_parser.add_argument("-l", "--list-available-commands", action='store_true', help="list all available commands")
-        
+
         self.arg_parser.add_argument("--Get-Proxy", dest='GetProxy', action='store_true', help='Returns proxy configuration')
         self.arg_parser.add_argument("--Get-NetComputer", dest='GetNetComputer', action='store_true', help='Returns the current computers in current domain')
         self.arg_parser.add_argument("--Get-NetMssql", dest='GetNetMssql', action='store_true', help="Returns all MS SQL servers on the domain")
@@ -175,7 +178,7 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
         self.arg_parser.add_argument("--Invoke-UserHunter-forest", dest='InvokeUserHunterForest', action='store_true', help="Find all machines in the current forest where domain admins are logged in")
         self.arg_parser.add_argument("--Get-ExploitableSystem", dest='GetExploitableSystem', action='store_true', help="Query Active Directory for the hostname, OS version, and service pack level for each computer account (cross-referenced against a list of common Metasploit exploits)")
 
-        
+
 
     def run(self, args):
         script = 'powerview'
@@ -184,18 +187,16 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
             self.log(self.commands_available)
             return
 
-        # check if file has been already uploaded to the target
-        for arch in ['x64', 'x86']:
-            if script not in self.client.powershell[arch]['scripts_loaded']:
-                logging.debug("Loading PowerView.ps1 script on target...")
-                content = open(os.path.join(ROOT, "external", "PowerSploit", "Recon", "PowerView.ps1"), 'r').read()
-            else:
-                logging.debug("PowerView.ps1 script already loaded on target")
-                content = ''
-        
-        if args.GetProxy == True: 
+        powershell = self.client.conn.modules['powershell']
+
+        if not powershell.loaded(script):
+            with open(os.path.join(ROOT, 'external', 'PowerSploit', 'Recon', 'PowerView.ps1'), 'r') as content:
+                width, _ = consize()
+                powershell.load(script, content.read(), width=width)
+
+        if args.GetProxy == True:
             command = "Get-Proxy"
-        if args.GetNetComputer == True: 
+        if args.GetNetComputer == True:
             command = "Get-NetComputer"
         elif args.GetNetMssql == True:
             command = "Get-NetComputer -SPN mssql*"
@@ -247,10 +248,17 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
                 return
             else:
                 command = args.command
-        logging.debug("Executing the following powerview command: {0}".format(command))
-        output = execute_powershell_script(self, content, command, script_name=script)
-        if not output:
+
+        logging.debug("Executing the following powerview command: {}".format(command))
+        output, rest = powershell.call(script, command)
+        if args.once:
+            powershell.unload(script)
+
+        if not output and not rest:
             self.error("No results")
             return
-        self.success("Output: \n%s\n" % output)
-        
+        else:
+            if rest:
+                self.error(rest)
+            if output:
+                self.log(output)

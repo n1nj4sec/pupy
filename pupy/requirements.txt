@@ -11,7 +11,7 @@ psutil
 netifaces
 m2crypto
 pylzma
-mss
+mss==2.0.22
 colorama
 pyOpenSSL
 scapy
@@ -23,3 +23,7 @@ cerberus
 logutils
 secretstorage
 pygments
+requests
+pyautogui
+tornado
+keyboard

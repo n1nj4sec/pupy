@@ -1,21 +1,29 @@
 /* --- Code for inlining --- */
 
+#ifndef UNCOMPRESSED
 #include "LzmaDec.h"
 
 static void *_lzalloc(void *p, size_t size) { p = p; return malloc(size); }
 static void _lzfree(void *p, void *address) { p = p; free(address); }
 static ISzAlloc _lzallocator = { _lzalloc, _lzfree };
+#define lzmafree(x) free(x)
+#else
+#define lzmafree(x) do {} while (0)
+#endif
 
 static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_size) {
 	unsigned char *uncompressed = NULL;
 	size_t uncompressed_size = 0;
 
+#ifndef UNCOMPRESSED
 	const Byte *wheader = (Byte *) data + sizeof(unsigned int);
 	const Byte *woheader = (Byte *) wheader + LZMA_PROPS_SIZE;
 
 	ELzmaStatus status;
+
 	size_t srcLen;
 	int res;
+#endif
 
     union {
       unsigned int l;
@@ -29,6 +37,7 @@ static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_siz
 
 	uncompressed_size = x.l;
 
+#ifndef UNCOMPRESSED
 	uncompressed = malloc(uncompressed_size);
 	if (!uncompressed) {
 		return NULL;
@@ -45,6 +54,9 @@ static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_siz
 		free(uncompressed);
 		return NULL;
 	}
+#else
+	uncompressed = data + sizeof(unsigned int);
+#endif
 
 	if (puncompressed_size) {
 		*puncompressed_size = uncompressed_size;
@@ -64,6 +76,6 @@ static PyObject *PyObject_lzmaunpack(const char *data, size_t size) {
 	object = PyMarshal_ReadObjectFromString(
 		uncompressed, uncompressed_size);
 
-	free(uncompressed);
+	lzmafree(uncompressed);
 	return object;
 }

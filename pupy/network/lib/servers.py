@@ -43,10 +43,13 @@ class PupyTCPServer(ThreadedServer):
             self.igd = kwargs['igd']
             del kwargs['igd']
 
-        ping = self.pupy_srv.config.get('pupyd', 'ping')
-        self.ping = ping and ping not in (
-            '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
-        )
+        try:
+            ping = self.pupy_srv.config.get('pupyd', 'ping')
+            self.ping = ping and ping not in (
+                '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
+            )
+        except:
+            self.ping = False
 
         if self.ping:
             try:
@@ -152,7 +155,7 @@ class PupyTCPServer(ThreadedServer):
                     while not connection.closed:
                         connection.serve(interval or 10)
                         if interval:
-                            connection.ping(timeout)
+                            connection.ping(timeout=timeout)
 
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
