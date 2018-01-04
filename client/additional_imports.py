@@ -39,6 +39,7 @@ import getpass
 import __future__
 import netaddr
 import psutil
+import kcp
 if 'win' in sys.platform:
     import ctypes.wintypes
 else:
