@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import StringIO, zipfile, os.path, imp, sys, os
 import marshal
-import pylzma
+#import pylzma
 import struct
 
 def get_encoded_library_string(filepath):

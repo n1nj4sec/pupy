@@ -137,10 +137,10 @@ class LaZagne(PupyModule):
         results = []
 
         for cred in creds:
-            for pwd in creds:
+            for pwd in creds[0]:
                 try:
                     user, d, dn, h = pwd.split(':')
-                    clean.append({
+                    results.append({
                         'Category' : 'cachedump',
                         'CredType' : 'hash',
                         'Login'    : user,
@@ -152,10 +152,13 @@ class LaZagne(PupyModule):
         return results
 
     def creds_to_dict(self, creds, module):
-        if module.lower() == 'hashdump':
-            return self.hashdump_to_dict(creds)
-        elif module.lower() == 'cachedump':
-            return self.cachedump_to_dict(creds)
+        try:
+            if module.lower() == 'hashdump':
+                return self.hashdump_to_dict(creds)
+            elif module.lower() == 'cachedump':
+                return self.cachedump_to_dict(creds)
+        except:
+            return []
 
         results = []
 
@@ -166,14 +169,15 @@ class LaZagne(PupyModule):
 
             for c in cred.keys():
                 credvalue = cred[c]
-                if not type(credvalue) in (unicode, str):
-                    credvalue = str(credvalue)
-                elif type(credvalue) == str:
+                try:
+                    credvalue = credvalue.strip().encode('latin-1').decode('utf-8')
+                except:
                     try:
                         credvalue = credvalue.strip().decode('utf-8')
                     except:
-                        credvalue = credvalue.strip().decode('latin1')
 
+                        credvalue = self.try_utf8(credvalue)
+                
                 result[c] = credvalue
 
                 for t, name in self.TYPESMAP.iteritems():

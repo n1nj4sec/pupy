@@ -4,7 +4,7 @@ export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/sbin:$HOME/
 export XID=`id -u`
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
-OPENSSL_SRC="http://http.debian.net/debian/pool/main/o/openssl/openssl_1.0.2k.orig.tar.gz"
+OPENSSL_SRC="http://cdn-fastly.deb.debian.org/debian/pool/main/o/openssl/openssl_1.0.2l.orig.tar.gz"
 ZLIB_SRC="http://zlib.net/zlib-1.2.11.tar.gz"
 SQLITE_SRC="http://www.sqlite.org/2016/sqlite-autoconf-3150200.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
@@ -32,7 +32,7 @@ if [ ! -d buildenv/downloads ]; then
                            "$DBUS_SRC" "$DBUS_GLIB_SRC" "$GOBJECT_INTROSPECTION" \
                            "$PYGOBJECT" "$DBUS_PYTHON" "$M4_SRC" "$AUTOCONF_SRC" \
 			   "$AUTOMAKE_SRC" ; do
-        wget -qc "$bin"
+        wget -c "$bin"
     done
     cd -
     
@@ -153,8 +153,8 @@ cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
-tar zxf openssl_1.0.2k.orig.tar.gz
-cd /usr/src/openssl-1.0.2k/
+tar zxf openssl*.tar.gz
+cd /usr/src/openssl*/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic32
 make depend >/dev/null 2>/dev/null; 
@@ -450,8 +450,8 @@ cd /usr/src/zlib-1.2.11
 ./configure --prefix=/usr --static; make; make install
 cd /usr/src
 
-tar zxf openssl_1.0.2k.orig.tar.gz
-cd /usr/src/openssl-1.0.2k/
+tar zxf openssl*.tar.gz
+cd /usr/src/openssl*/
 CC="gcc -Os -fPIC" ./Configure --prefix=/usr no-hw-xxx shared \
     no-dso no-err no-krb5 no-hw no-asm no-ssl2 linux-generic64
 make depend >/dev/null 2>/dev/null

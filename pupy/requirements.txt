@@ -23,3 +23,6 @@ logutils
 secretstorage
 pygments
 requests
+pyautogui
+tornado
+keyboard

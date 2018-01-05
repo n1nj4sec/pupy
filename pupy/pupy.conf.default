@@ -59,11 +59,13 @@ crypto = crypto
 wwwroot = data/wwwroot
 
 [on_connect]
-#run_module = gather/keylogger start
+#run_module1 = gather/keylogger start
+#run_module2 = lazagne
 
 [default_viewers]
 image_viewer = eog
 sound_player = totem
+browser = firefox
 
 [mimikatz]
 #these are kali 2.0 default path
@@ -78,8 +80,6 @@ ps = ps
 migrate = migrate
 shell=interactive_shell
 kill = process_kill
-getpid = getpid
-getppid = getppid
 pwd = pyexec -c 'import os;print os.getcwd()'
 #tasklist = shell_exec 'tasklist /v'
 mount = drives

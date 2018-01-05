@@ -21,15 +21,29 @@ __class_name__ = 'Forward'
 
 @config(cat='network', tags=['forward', 'pivot'])
 class Forward(PupyModule):
-    ''' Forward local/remote network points '''
-    is_module = False
+    ''' Local/remote port forwarding and SOCKS proxy '''
     dependencies = {
         'all': [ 'pyuv', 'pyuvproxy' ],
     }
 
     def init_argparse(self):
+        example = """Examples:
+>> run forward -L 1234
+Open a Socks proxy on local port 1234. Connection output from the target.
+>> run forward -CL 1234
+Close the local Socks proxy opened on 1234
+>> run forward -R 1234
+Open a Socks proxy on target (127.0.0.1:1234). Becareful with target's firewal configuration.
+>> run forward -CR 1234
+Stop the last proxy opened on the target
+>> run forward -R 0.0.0.0:1234
+Open a Socks proxy on target (0.0.0.0:1234). Need a Socks connection to target_ip:1234.
+>> run forward -L 127.0.0.1:1234:192.168.0.2:8000
+Local port forwarding. Listen locally on 1234 and connection establishes by the target to 192.168.0.2:8000.
+        """
+        
         parser = PupyArgumentParser(
-            prog='forward', description=self.__doc__
+            prog='forward', description=self.__doc__, epilog=example
         )
 
         actions = parser.add_mutually_exclusive_group(required=True)

@@ -215,9 +215,10 @@ class PupyModule(object):
     compatible_systems=[] #should be changed by decorator @config
     category="general" # to sort modules by categories. should be changed by decorator @config
     tags=[] # to add search keywords. should be changed by decorator @config
-    is_module=True # if True, module have to be run with "run <module_name", if False it can be called directly without run
+    is_module=True # if True, module have to be run with "run <module_name>", if False it can be called directly without run
     rec=None
     known_args=False
+    web_handlers=[]
 
     def __init__(self, client, job, formatter=None, stdout=None, log=None):
         """ client must be a PupyClient instance """
@@ -319,8 +320,11 @@ class PupyModule(object):
             except Exception, e:
                 logging.exception('Dependency unloading failed: {}'.format(e))
 
+    def start_webplugin(self):
+        return self.client.pupsrv.pupweb.start_webplugin(self.web_handlers)
+
     def init_argparse(self):
-        """ Override this class to define your own arguments. """
+        """ Override this method to define your own arguments. """
         self.arg_parser = PupyArgumentParser(prog='PupyModule', description='PupyModule default description')
 
     def is_compatible(self):

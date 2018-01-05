@@ -5,7 +5,7 @@ from pupylib.utils.term import terminal_size, colorize
 
 __class_name__="Users"
 
-@config(cat="gather")
+@config(cat="gather", compatibilities=['windows', 'linux', 'darwin'])
 class Users(PupyModule):
     """ Get interactive users """
 

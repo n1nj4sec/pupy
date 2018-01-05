@@ -9,6 +9,7 @@ __class_name__="PsModule"
 @config(cat="admin")
 class PsModule(PupyModule):
     """ list parent process information """
+    is_module=False
 
     dependencies = {
         'windows': [ 'pupwinutils.processes' ]

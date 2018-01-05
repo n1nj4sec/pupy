@@ -191,6 +191,7 @@ class PupyCmd(cmd.Cmd):
         except Exception as e:
             logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
         self.pupy_completer=PupyCompleter(self.aliases, self.pupsrv)
+        self.pupsrv.start_webserver()
 
     @staticmethod
     def table_format(diclist, wl=[], bl=[]):
@@ -337,9 +338,10 @@ class PupyCmd(cmd.Cmd):
                     else:
                         cmds_doc.append((cmd, ""))
             for name in [x for x in self.aliases.iterkeys()]:
-                cmds_doc.append((name, self.pupsrv.get_module(self.aliases[name]).__doc__))
+                cmds_doc.append((name, self.pupsrv.get_module(self.aliases[name].split()[0]).__doc__))
 
             self.stdout.write("%s\n"%str(self.doc_header))
+            cmds_doc.sort()
             for command,doc in cmds_doc:
                 if doc is None:
                     doc=""
@@ -1302,6 +1304,13 @@ class PupyCmd(cmd.Cmd):
                 self.cmdqueue.extend(f.read().splitlines())
         except Exception as e:
             self.display_error(str(e))
+            
+    def do_clear(self, arg):
+        """ clears the screen """
+        if sys.platform == 'win32':
+            os.system('cls')
+        else:
+            os.system('clear')
 
     def _complete_path(self, path=None):
         "Perform completion of filesystem path."

