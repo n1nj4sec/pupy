@@ -65,7 +65,8 @@ def gen_columns(record, colinfo):
     columns['memory_percent'] = '{:3}%'.format(int(mem)) if mem is not None else ' '*4
 
     if colinfo:
-        columns['username'] = '{{:{}}}'.format(colinfo['username']).format(columns['username'])
+        if 'username' in colinfo:
+            columns['username'] = '{{:{}}}'.format(colinfo['username']).format(columns['username'])
         columns['pid'] = '{{:{}}}'.format(colinfo['pid']).format(record['pid'])
     else:
         columns['pid'] = '{}'.format(parent)

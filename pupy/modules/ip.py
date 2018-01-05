@@ -36,10 +36,13 @@ class IPModule(PupyModule):
                     continue
 
                 color = ""
-                if addr in data['stats'] and not data['stats'][addr].get('isup'):
-                    color = 'darkgrey'
-                elif not any([ x.get('family') == socket.AF_INET for x in addresses ]):
-                    color = 'grey'
+                if 'stats' in data and data['stats']:
+                    if addr in data['stats'] and not data['stats'][addr].get('isup'):
+                        color = 'darkgrey'
+                    elif not any([ x.get('family') == socket.AF_INET for x in addresses ]):
+                        color = 'grey'
+                else:
+                    color = 'white'
 
                 self.stdout.write(colorize(addr.ljust(addrlen), color or 'cyan'))
                 first = True

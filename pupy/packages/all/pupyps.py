@@ -198,21 +198,34 @@ def connections():
 
     return connections
 
+def _tryint(x):
+    try:
+        return int(x)
+    except:
+        return str(x)
+
 def interfaces():
-    return {
-        'addrs': {
+    try:
+        addrs = {
             x:[
-                { k:v for k,v in z.__dict__.iteritems() } for z in y
+                { k:_tryint(getattr(z,k)) for k in dir(z) if not k.startswith('_') } for z in y
             ] for x,y in psutil.net_if_addrs().iteritems()
-        },
-        'stats': {
+        }
+    except:
+        addrs = None
+
+    try:
+        stats = {
             x:{
-                k:v for k,v in (
-                    y.__dict__.iteritems() if hasattr(y, '__dict__') else
-                    zip(('isup', 'duplex', 'speed', 'mtu'), y)
-            )
+                k:_tryint(getattr(y,k)) for k in dir(y) if not k.startswith('_')
             } for x,y in psutil.net_if_stats().iteritems()
         }
+    except:
+        stats = None
+
+    return {
+        'addrs': addrs,
+        'stats': stats
     }
 
 def cstring(string):
