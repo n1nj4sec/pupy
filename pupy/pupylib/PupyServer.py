@@ -121,11 +121,14 @@ class PupyServer(threading.Thread):
                 logging.error('DnsCNC failed: {}'.format(e))
 
     def start_webserver(self):
-        if self.pupweb:
-            raise RuntimeError("Pupy Web Server is already started !")
-        self.pupweb=PupyWebServer(self, self.config)
-        self.pupweb.start()
+        if not self.config.getboolean('pupyd', 'webserver'):
+            return
 
+        if not self.pupweb:
+            self.pupweb = PupyWebServer(self, self.config)
+            self.pupweb.start()
+        else:
+            self.handler.display_error('WebServer already started')
 
     def create_id(self):
         """ return first lowest unused session id """

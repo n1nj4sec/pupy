@@ -7,6 +7,7 @@ transport = ssl
 port = 443
 ipv6 = true
 logs = false
+webserver = false
 
 #igd=True allow pupy to make UPNP requests to get you external IP.
 igd = false
