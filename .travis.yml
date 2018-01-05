@@ -1,74 +1,34 @@
 sudo: required
-language: c    
-before_install:
-- df -h
-- sudo dpkg --add-architecture i386
-- sudo apt-get update >/dev/null
-install:
-- sudo -E apt-get -y install mingw-w64 g++-mingw-w64-x86-64 g++-mingw-w64-i686 debootstrap cython
-  make wine xvfb python-pip >/dev/null
-- pip install --user pylzma
-- pip install --user git+https://github.com/kivy/buildozer
+language: generic
 services:
 - docker
 os:
 - linux
 dist: trusty
 before_script:
-  - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/pupy*
-  - if [ -f $HOME/.cache/win.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/sources -zxf $HOME/.cache/win.tgz; fi
-  - if [ -f $HOME/.cache/lin.tgz ]; then sudo -E tar -C $TRAVIS_BUILD_DIR/client/sources-linux -zxf $HOME/.cache/lin.tgz; fi
-  - if [ -f $HOME/.cache/android.tgz ]; then tar -C $HOME -zxf $HOME/.cache/android.tgz; fi
-  - if [ -f $HOME/.cache/android-app.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/android_sources -zxf $HOME/.cache/android-app.tgz; fi
+  - docker pull alxchk/tc-windows & docker pull alxchk/tc-linux32 &
+  docker pull alxchk/tc-linux64 & docker pull alxchk/tc-android
 script:
-  - sh -e /etc/init.d/xvfb start || systemctl start xvfb
-  - sleep 3
-  - df -h
-  - ( cd $TRAVIS_BUILD_DIR/client/sources && ./buildenv.sh ) &
-    ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./buildenv.sh ) &
-    ( cd $TRAVIS_BUILD_DIR/client/android_sources && ./build.sh &&
-       rm -f $HOME/.buildozer/android-sdk_* &&
-       rm -rf $HOME/.buildozer/android-ndk* ) &
-    wait
-  - df -h
-  - ( cd $TRAVIS_BUILD_DIR/client/sources && ./build.sh ) &
-    ( cd $TRAVIS_BUILD_DIR/client/sources-linux && sudo -E ./build.sh ) & wait
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates
-  - df -h
-before_cache:
-  - rm -rf $HOME/.cache && mkdir -p $HOME/.cache
-  - rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv/downloads
-  - sudo rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv/downloads
-  - rm -rf $TRAVIS_BUILD_DIR/client/android_sources/.buildozer/android/app
-  - ( if [ ! -f $HOME/.cache/win.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources -zcf $HOME/.cache/win.tgz buildenv; fi; rm -rf $TRAVIS_BUILD_DIR/client/sources/buildenv ) &
-    ( if [ ! -f $HOME/.cache/lin.tgz ]; then sudo -E tar --remove-files -C $TRAVIS_BUILD_DIR/client/sources-linux -zcf $HOME/.cache/lin.tgz buildenv; fi; sudo rm -rf $TRAVIS_BUILD_DIR/client/sources-linux/buildenv ) &
-    ( if [ ! -f $HOME/.cache/android-app.tgz ]; then tar --remove-files -C $TRAVIS_BUILD_DIR/client/android_sources -zcf $HOME/.cache/android-app.tgz .buildozer; fi; rm -rf $TRAVIS_BUILD_DIR/client/android_sources/.buildozer ) &
-    ( if [ ! -f $HOME/.cache/android.tgz ]; then
-       tar --remove-files -C $HOME -zcf $HOME/.cache/android.tgz
-         .android
-         .buildozer/android/platform/android-sdk-20
-         .buildozer/android/platform/apache-ant-1.9.4;
-    fi; rm -rf $HOME/.buildozer ) & wait
-  - df -h
-cache:
-  apt: true
-  directories:
-    - $HOME/.cache
-after_cache:
-  - rm -f $HOME/.cache/win.tgz $HOME/.cache/lin.tgz $HOME/.cache/android.tgz
+  - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
+  - cd $TRAVIS_BUILD_DIR && ./build-docker.sh
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.lin
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.so
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.dll
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.exe
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.lin
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.so
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.dll
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.exe
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy.apk
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/windows-amd64.zip
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/windows-x86.zip
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-amd64.zip
+  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-x86.zip
 after_success:
-- docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-- export REPO=alxchk/pupy
-- export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH
-  ; fi`
-- cd $TRAVIS_BUILD_DIR/pupy && docker build -f Dockerfile -t $REPO:$COMMIT .
-- cd $TRAVIS_BUILD_DIR/pupy && docker tag $REPO:$COMMIT $REPO:$TAG
-- cd $TRAVIS_BUILD_DIR/pupy && docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
-- cd $TRAVIS_BUILD_DIR/pupy && docker push $REPO >/dev/null
+- docker login -u $DOCKER_USER -p $DOCKER_PASS
+- cd $TRAVIS_BUILD_DIR/pupy && docker push alxchk >/dev/null
 env:
   global:
-  - WINEDEBUG="-all"
-  - DISPLAY=":99.0"
   - COMMIT=${TRAVIS_COMMIT::8}
   - secure: gKv5C4ZTnnzOcQiGrbwEgJhE8SPJLCSIYsdDLpDIHk7OjNu+hGp+frygU25w2NlHyV7cReu7glvyphVwmrQ+FyBRtrKysk+HbU59QiVVOD6x8uyDEZ5qG0NeEOoD9ChdgSy2CSl39Pf8IIcCgZIcyNDukxZbGaUr4LpOSRu8E5H1YT9qxpsDHidQkkcYbZLNlVmhBNZ2LlFXZAu7LwSx111dMTPPVY+zRR1VmaXLuqn90p/L5Cn04xcJHMSc9fhIA3ty463KgDMuM4IXYQS1xCxyZwCpYGbHtuZYDvjmrVhQpEidj5ibcnb+ll+9XNr4JYi6ldVRDmv7J/1DOVd9Iw77LJ0SAGvTDGzTMHRz74Er82xa6zu5NkzW98oti6tCYM9QeAGp4QSJnO0WqgG87y3JW0Ponv3suMG60zPAeLYcuiyhmmOy/v3w0Xq1FHsyqSayN4koJDpUJ7DQQDbSv1Nc0MaG9XZaNVAMab0sWaqbgCMkteNN6w72lAVTck6b/NDV2taONOiNJFJIhiOpO4EZ8g4t7j/ZXpBnP9O+//APQ5WeREEcsbS32y2/R6YiHkKlnPDomfm1fJWZh3KUzRur3PbXvpJkc9D+68UYh02oYlodfi9zoDpCn5OymFPYYI9fibmbuZ1aBwlGPsYnYliAXtlEd/W3XMKT1pWdvbI=
   - secure: HOQ7k4Sf9p3CyNy02lBMH5Ff2OeOXQWElLad9vFg0LTkxfnfkGeWP9K+fAR9Lp3nAAd5QRX/2MaJxJTomVHJSCGqjuqrqkBHBLCs7Fgt+bKx2F3QujoqJY4orZHKxpN7YFwAGF4rRzR5Q24xfvIgrnJNWgAoiEKV9yPEFa8k5pJ37MaTFRmOtkrfsN2bdpRc1uD5jbbccVFHPeTDIUa80JRuMBEVDMjJ+CeQq5il3OJUAEdiK03zPDeoCibQCl7UGQxvaWFpYlCUKw1r7d/roJcwlNnYrM0OnImAx0gAGg68vXfZFh/XHE75J3QA7eD/pQ3VdVH1OIgg2Ke3nqO4XMtl6nJGYjC+3fAzq+BOgqvHcwpNzVf6GIXwUl77Bfe1Hlx4uRrCmjbD769bIQLJeUtwKnp9fTjGC8iHEfxW5LsD3PH31vAWfADTB04puGzUAJaBVNwNlnw+dG15lH/LHvjxhJBze2Sj5Mgd2TyNDS+c6dDcIXBnLaajmxs32t87vWNjXjF0wMvBo9G1WMBH3N8UbIV/TPqaT5nINi9ntmY8wFDstNd6g1C3gtfVNsmA7cqb+AbeL8ezETMxwvTrUpPVAu2VcjomgE0zld4kBFvWVs9RQiBfmkChKEZZ3/5u9F9tRbaEcnQukw7+ULsrBqNbZwC4iHtMo3PYCHE0lk8=
