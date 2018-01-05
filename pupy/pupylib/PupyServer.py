@@ -122,13 +122,16 @@ class PupyServer(threading.Thread):
 
     def start_webserver(self):
         if not self.config.getboolean('pupyd', 'webserver'):
-            return
+            return False
 
         if not self.pupweb:
             self.pupweb = PupyWebServer(self, self.config)
             self.pupweb.start()
+            self.handler.display_success('WebServer started')
         else:
             self.handler.display_error('WebServer already started')
+
+        return True
 
     def create_id(self):
         """ return first lowest unused session id """

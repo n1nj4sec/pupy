@@ -141,6 +141,10 @@ class RemoteDesktopModule(PupyModule):
         ]
 
         url = self.start_webplugin()
+        if not url:
+            self.error('WebServer is not enabled')
+            self.info('Enable with "config set pupyd webserver true"')
+            return
 
         self.success("Web handler started on %s"%url)
         if args.view:

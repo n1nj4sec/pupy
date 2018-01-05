@@ -40,9 +40,9 @@ class PupyWebServer(object):
         ], debug=True, template_path=os.path.join(ROOT, "webstatic"))
 
         self.app.listen(self.port, address='127.0.0.1')
-        if self.pupsrv.handler:
-            self.pupsrv.handler.display_srvinfo("[+] Starting webserver on http://127.0.0.1:%s"%self.port)
+
         self.ioloop=tornado.ioloop.IOLoop.instance()
+
         t=threading.Thread(target=self.ioloop.start)
         t.daemon=True
         t.start()
@@ -66,5 +66,3 @@ class IndexHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
         self.render("index.html")
-
-

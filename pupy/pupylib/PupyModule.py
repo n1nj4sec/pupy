@@ -321,7 +321,10 @@ class PupyModule(object):
                 logging.exception('Dependency unloading failed: {}'.format(e))
 
     def start_webplugin(self):
-        return self.client.pupsrv.pupweb.start_webplugin(self.web_handlers)
+        if not self.client.pupsrv.start_webserver():
+            return None
+        else:
+            return self.client.pupsrv.pupweb.start_webplugin(self.web_handlers)
 
     def init_argparse(self):
         """ Override this method to define your own arguments. """
