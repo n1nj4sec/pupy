@@ -6,8 +6,9 @@ os:
 - linux
 dist: trusty
 before_script:
-  - docker pull alxchk/tc-windows & docker pull alxchk/tc-linux32 &
-  docker pull alxchk/tc-linux64 & docker pull alxchk/tc-android
+  - |
+    docker pull alxchk/tc-windows & docker pull alxchk/tc-linux32 &
+    docker pull alxchk/tc-linux64 & docker pull alxchk/tc-android
 script:
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
   - cd $TRAVIS_BUILD_DIR && ./build-docker.sh
