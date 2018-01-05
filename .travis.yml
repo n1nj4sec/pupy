@@ -15,7 +15,7 @@ os:
 - linux
 dist: trusty
 before_script:
-- pip install flake8
+- pip install --user flake8
 - flake8 $TRAVIS_BUILD_DIR/pupy
 - cd $TRAVIS_BUILD_DIR/pupy && rm -f payload_templates/pupy*
 - if [ -f $HOME/.cache/win.tgz ]; then tar -C $TRAVIS_BUILD_DIR/client/sources -zxf
