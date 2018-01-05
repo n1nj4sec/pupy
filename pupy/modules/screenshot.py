@@ -44,7 +44,9 @@ __class_name__="Screenshoter"
 class Screenshoter(PupyModule):
     """ take a screenshot :) """
 
-    dependencies = ['mss', 'screenshot']
+    dependencies = [
+        'mss', 'screenshot', 'png'
+    ]
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='screenshot', description=self.__doc__)
