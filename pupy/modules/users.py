@@ -34,7 +34,12 @@ class Users(PupyModule):
             else:
                 color = 'white'
 
-            output = colorize(unicode(user['name']), color)
+            if type(user['name']) == unicode:
+                name = user['name']
+            else:
+                name = user['name'].decode('utf-8')
+
+            output = colorize(name, color)
 
             if args.groups:
                 output += u': ' + u','.join(user['groups'])
