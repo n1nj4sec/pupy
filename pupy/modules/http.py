@@ -12,7 +12,7 @@ class http(PupyModule):
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='http', description=self.__doc__)
-        self.arg_parser.add_argument('-H', '--headers', default=[], nargs='+',
+        self.arg_parser.add_argument('-H', '--header', default=[], action='append',
                                          help='User-Agent=Mozilla X-Forwarded-For=127.0.0.1')
         self.arg_parser.add_argument('-P', '--proxy', help='Proxy URI (socks://127.0.0.1:1234)')
         self.arg_parser.add_argument('-o', '--output', help='Output to file')
@@ -26,7 +26,11 @@ class http(PupyModule):
         http = HTTP(
             proxy=args.proxy,
             headers=[
-                tuple(x.split('=', 1)) for x in args.headers
+                tuple(x.split('=', 1)) for x in (
+                    args.header if type(args.header) == list else [
+                        args.header
+                    ]
+                )
             ]
         )
 
