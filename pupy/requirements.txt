@@ -25,3 +25,5 @@ pygments
 requests
 tornado
 keyboard
+msgpack-python
+u-msgpack-python

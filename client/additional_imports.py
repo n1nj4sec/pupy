@@ -44,3 +44,8 @@ if 'win' in sys.platform:
     import ctypes.wintypes
 else:
     import pty
+
+try:
+    import msgpack
+except:
+    import umsgpack

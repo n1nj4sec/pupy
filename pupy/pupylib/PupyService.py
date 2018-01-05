@@ -23,6 +23,7 @@ import logging
 import traceback
 import json
 import zlib
+import msgpack
 
 from pupylib.PupyCredentials import Credentials
 
@@ -97,7 +98,16 @@ class PupyService(rpyc.Service):
     def exposed_set_modules(self, modules):
         self.modules=modules
 
+    def exposed_msgpack_dumps(self, js, compressed=False):
+        print "msgpack dumps"
+        data = msgpack.dumps(js)
+        if compressed:
+            data = zlib.compress(data)
+
+        return data
+
     def exposed_json_dumps(self, js, compressed=False):
+        print "json dumps"
         data = json.dumps(js)
         if compressed:
             data = zlib.compress(data)

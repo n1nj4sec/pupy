@@ -1,7 +1,7 @@
 #!/bin/sh
 
 PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32"
-PACKAGES_BUILD="pycryptodome cryptography netifaces"
+PACKAGES_BUILD="pycryptodome cryptography netifaces msgpack-python"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
 

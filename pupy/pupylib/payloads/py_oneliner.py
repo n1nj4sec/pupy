@@ -33,7 +33,9 @@ def pack_py_payload(conf):
             'import pupyimporter',
             'pupyimporter.install()',
             dependencies.importer('network', path=ROOT),
-            dependencies.importer(('rpyc', 'pyasn1', 'rsa', 'netaddr', 'tinyec'))
+            dependencies.importer((
+                'rpyc', 'pyasn1', 'rsa',
+                'netaddr', 'tinyec', 'umsgpack'))
         ]) + '\n'
     )
 

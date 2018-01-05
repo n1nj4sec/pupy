@@ -20,6 +20,7 @@ from rpyc.utils.helpers import restricted
 import textwrap
 import json
 import zlib
+import msgpack
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -28,15 +29,30 @@ def safe_obtain(proxy):
         return proxy
 
     conn = object.__getattribute__(proxy, "____conn__")()
-    data = conn.root.json_dumps(proxy, compressed=True)
+    isMsgPack = False
+
+    if hasattr(conn, 'fallback'):
+        data = conn.root.json_dumps(proxy, compressed=True)
+    else:
+        try:
+            data = conn.root.msgpack_dumps(proxy, compressed=True)
+            isMsgPack = True
+        except:
+            # Fallback, compat only
+            setattr(conn, 'fallback', True)
+            data = conn.root.json_dumps(proxy, compressed=True)
+
     data = zlib.decompress(data)
 
-    try:
-        data = data.decode('utf-8')
-    except:
-        data = data.decode('latin1')
+    if not isMsgPack:
+        try:
+            data = data.decode('utf-8')
+        except:
+            data = data.decode('latin1')
 
-    data = json.loads(data) # should prevent any code execution
+        data = json.loads(data) # should prevent any code execution
+    else:
+        data = msgpack.loads(data)
 
     return data
 
