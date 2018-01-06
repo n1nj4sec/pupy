@@ -29,7 +29,7 @@ RUN chown pupy:pupy -R /home/pupy; chmod 700 /home/pupy/.ssh
 RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
 
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt --no-binary :all:
+RUN pip install -r /tmp/requirements.txt
 
 COPY . /opt/pupy
 
