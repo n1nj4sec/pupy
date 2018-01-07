@@ -29,6 +29,7 @@ RUN chown pupy:pupy -R /home/pupy; chmod 700 /home/pupy/.ssh
 RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
 
 COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --upgrade pip six setuptools wheel
 RUN pip install -r /tmp/requirements.txt
 
 COPY . /opt/pupy
