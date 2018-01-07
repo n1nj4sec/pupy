@@ -87,4 +87,4 @@ class DownloaderScript(PupyModule):
             remote_file, local_file,
             chunk_size=8*1024*1024, log=self.info if args.verbose else None
         )
-        self.success('downloaded from remote:%s to local:%s'%(remote_file, local_file))
+        self.success( 'downloaded from remote:%s to local:%s' % (remote_file, local_file) )
