@@ -24,13 +24,21 @@ def size_human_readable(num, suffix='B'):
     except:
         return '0.00 B'
 
+def to_utf8(value):
+    if type(value) == unicode:
+        return value
+    try:
+        return value.decode('utf-8')
+    except:
+        return value.decode('latin1', errors='ignore')
+
 def output_format(file, windows=False):
     if windows:
         out = u'  {}{}{}{}'.format(
             u'{:<10}'.format(file_timestamp(file['ts'])),
             u'{:<3}'.format(file['type']),
             u'{:<11}'.format(size_human_readable(file['size'])),
-            u'{:<40}'.format(file['name']))
+            u'{:<40}'.format(to_utf8(file['name'])))
     else:
         out = u'  {}{}{}{}{}{}{}'.format(
             u'{:<10}'.format(file_timestamp(file['ts'])),
@@ -39,7 +47,7 @@ def output_format(file, windows=False):
             u'{:<5}'.format(file['gid']),
             u' {:06o} '.format(file['mode']),
             u'{:<11}'.format(size_human_readable(file['size'])),
-            u'{:<40}'.format(file['name']))
+            u'{:<40}'.format(to_utf8(file['name'])))
 
     if file['type'] == 'D':
         out=colorize(out, 'lightyellow')
@@ -106,10 +114,10 @@ class ls(PupyModule):
                         x for x in r['files'] if x['type'] != 'D'
                     ]
 
-                    for f in sorted(dirs, key=lambda x: x['name'], reverse=args.reverse):
+                    for f in sorted(dirs, key=lambda x: to_utf8(x['name']), reverse=args.reverse):
                         self.log(output_format(f, windows))
 
-                    for f in sorted(files, key=lambda x: x['name'], reverse=args.reverse):
+                    for f in sorted(files, key=lambda x: to_utf8(x['name']), reverse=args.reverse):
                         self.log(output_format(f, windows))
                 else:
                     for f in sorted(r['files'], key=lambda x: x[args.sort], reverse=args.reverse):
