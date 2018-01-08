@@ -12,3 +12,4 @@ class TransportConf(Transport):
     stream=PupyUDPSocketStream
     client_transport=DummyPupyTransport
     server_transport=DummyPupyTransport
+    dgram=True

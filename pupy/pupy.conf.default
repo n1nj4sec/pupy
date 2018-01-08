@@ -1,15 +1,22 @@
 [pupyd]
 #listen on all interfaces by default
-#address = 192.168.0.1
-#external = 1.2.3.4
-#external_port = 444
+# address = 192.168.0.1
+
+## Default external address for all transports
+# external = 1.2.3.4
+
 transport = ssl
-port = 443
 ipv6 = true
 logs = false
 webserver = false
 
-#igd=True allow pupy to make UPNP requests to get you external IP.
+#Multiple listeners are allowed. Example
+#listen = ssl,kc4,websocket
+listen = ssl
+
+#igd=True allow pupy to make IGD/UPNP requests to get you external IP and
+#    add mappings to your local machine from outside
+#If enabled, pupy will implicitly expect that pupysh sits behind NAT
 igd = false
 
 #httpd=true wraps your transport in a HTTP transport.
@@ -20,12 +27,27 @@ dnscnc = false
 recursor = false
 
 # allow requests to services like ifconfig.co to automatically retrieve public IP
+# you should enable this if you planning to use IGD/UPNP
 allow_requests_to_external_services = false
 
 use_gnome_keyring=false
 
 ping = 0
 ping_timeout = 2
+
+[listeners]
+# Default ports and args
+# Ensure ports are different for all enabled listeners
+# Or remove listener(s) from pupyd.listen parameter
+ssl = 443=8443
+obfs3 = 9090
+rsa = 9091
+ec4 = 80=1234
+kc4 = 123=1234
+tcp_cleartext = 80=1234
+udp_cleartext = 123=1234
+websocket = 80=8081
+http = 80=8080
 
 [ssl]
 client_cert_required = true

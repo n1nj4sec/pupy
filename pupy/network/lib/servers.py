@@ -42,14 +42,27 @@ class PupyTCPServer(ThreadedServer):
 
         if 'igd' in kwargs:
             self.igd = kwargs['igd']
+            self.external = kwargs.get('external', 'igd')
             del kwargs['igd']
+        else:
+            self.external = kwargs.get('external', kwargs.get('hostname'))
 
-        try:
-            ping = self.pupy_srv.config.get('pupyd', 'ping')
-            self.ping = ping and ping not in (
-                '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
-            )
-        except:
+        if 'external' in kwargs:
+            del kwargs['external']
+
+        self.external_port = kwargs.get('external_port', kwargs.get('port'))
+        if 'external_port' in kwargs:
+            del kwargs['external_port']
+
+        if self.pupy_srv:
+            try:
+                ping = self.pupy_srv.config.get('pupyd', 'ping')
+                self.ping = ping and ping not in (
+                    '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
+                )
+            except:
+                self.ping = False
+        else:
             self.ping = False
 
         if self.ping:
@@ -58,7 +71,11 @@ class PupyTCPServer(ThreadedServer):
             except:
                 self.ping_interval = 2
 
-            self.ping_timeout = self.pupy_srv.config.get('pupyd', 'ping_interval')
+            if self.pupy_srv:
+                self.ping_timeout = self.pupy_srv.config.get(
+                    'pupyd', 'ping_interval')
+            else:
+                self.ping_timeout = self.ping_interval * 10
         else:
             self.ping_interval = None
             self.ping_timeout = None
@@ -70,19 +87,22 @@ class PupyTCPServer(ThreadedServer):
 
         ThreadedServer.__init__(self, *args, **kwargs)
 
-        if not self.igd:
+        if self.igd and self.igd.available and self.external != self.host:
             try:
-                self.igd = IGDClient()
-            except UPNPError as e:
-                pass
-
-        if self.igd and self.igd.available:
-            try:
-                self.igd.AddPortMapping(self.port, 'TCP', self.port)
+                self.igd.AddPortMapping(
+                    self.external_port,
+                    'TCP',
+                    self.port,
+                    intIP=self.host if self.host and not self.host in (
+                        '', '0.0.0.0', 'igd'
+                    ) else None,
+                    desc='pupy'
+                )
                 self.igd_mapping = True
             except UPNPError as e:
                 self.logger.warn(
                     "Couldn't create IGD mapping: {}".format(e.description))
+
 
     def _setup_connection(self, lock, sock, queue):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
@@ -176,7 +196,7 @@ class PupyTCPServer(ThreadedServer):
         ThreadedServer.close(self)
         if self.igd_mapping:
             try:
-                self.igd.DeletePortMapping(self.port, 'TCP')
+                self.igd.DeletePortMapping(self.external_port, 'TCP')
             except Exception as e:
                 self.logger.info('IGD Exception: {}/{}'.format(type(e), e))
 
@@ -191,16 +211,19 @@ class PupyUDPServer(object):
         self.kcp = __import__('kcp')
 
         for param in self.REQUIRED_KWARGS:
-            if not param in kwargs or kwargs[param] is None:
+            if not param in kwargs:
                 raise ValueError('missing {} argument'.format(param))
 
             setattr(self, param, kwargs[param])
             del kwargs[param]
 
-        ping = self.pupy_srv.config.get('pupyd', 'ping')
-        self.ping = ping and ping not in (
-            '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
-        )
+        if self.pupy_srv:
+            ping = self.pupy_srv.config.get('pupyd', 'ping')
+            self.ping = ping and ping not in (
+                '0', '-1', 'N', 'n', 'false', 'False', 'no', 'No'
+            )
+        else:
+            self.ping = False
 
         if self.ping:
             try:
@@ -208,7 +231,10 @@ class PupyUDPServer(object):
             except:
                 self.ping_interval = 2
 
-            self.ping_timeout = self.pupy_srv.config.get('pupyd', 'ping_interval')
+            if self.pupy_srv:
+                self.ping_timeout = self.pupy_srv.config.get('pupyd', 'ping_interval')
+            else:
+                self.ping_timeout = self.ping_interval * 10
         else:
             self.ping_interval = None
             self.ping_timeout = None
@@ -222,7 +248,41 @@ class PupyUDPServer(object):
         self.sock = None
         self.host = kwargs.get('host') or kwargs.get('hostname')
 
+        self.igd_mapping = False
+        self.igd = None
+
+        if 'igd' in kwargs:
+            self.igd = kwargs['igd']
+            del kwargs['igd']
+            self.external = kwargs.get('external', 'igd')
+        else:
+            self.external = self.host
+
+        if 'external' in kwargs:
+            del kwargs['external']
+
+        self.external_port = kwargs.get('external_port', self.port)
+        if 'external_port' in kwargs:
+            del kwargs['external_port']
+
+        if self.igd and self.igd.available and self.external != self.host:
+            try:
+                self.igd.AddPortMapping(
+                    self.external_port,
+                    'UDP',
+                    self.port,
+                    intIP=self.host if self.host and not self.host in (
+                        '', '0.0.0.0', 'igd'
+                    ) else None,
+                    desc='pupy'
+                )
+                self.igd_mapping = True
+            except UPNPError as e:
+                self.logger.warn(
+                    "Couldn't create IGD mapping: {}".format(e.description))
+
         self.LONG_SLEEP_INTERRUPT_TIMEOUT = 5
+        self.listen()
 
     @property
     def stream_class(self):
@@ -245,7 +305,7 @@ class PupyUDPServer(object):
             af, socktype, proto, canonname, sa = res
 
             try:
-                s = socket.socket(af, socktype, proto)
+                s = socket.socket(af, socktype, 0)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             except socket.error as msg:
                 s = None
@@ -319,7 +379,6 @@ class PupyUDPServer(object):
         return connthread.connection
 
     def start(self):
-        self.listen()
         self.active=True
         try:
             while self.active:
@@ -329,7 +388,9 @@ class PupyUDPServer(object):
                         self.clients[f] = self.new(f, kcp)
 
                     for f in updated:
-                        self.clients[f].consume()
+                        x = self.clients[f].consume()
+                        if not x:
+                            failed.add(f)
 
                     for f in failed:
                         self.clients[f].close()
@@ -339,7 +400,7 @@ class PupyUDPServer(object):
                             self.clients[f].wake()
 
                 except Exception as e:
-                    logging.error(e)
+                    logging.exception(e)
                     raise
 
             for f in self.clients.keys():
@@ -359,5 +420,12 @@ class PupyUDPServer(object):
 
     def close(self):
         self.active = False
+
         if self.sock:
             self.sock.close()
+
+        if self.igd_mapping:
+            try:
+                self.igd.DeletePortMapping(self.external_port, 'UDP')
+            except Exception as e:
+                logging.info('IGD Exception: {}/{}'.format(type(e), e))

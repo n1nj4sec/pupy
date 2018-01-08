@@ -22,7 +22,7 @@ class ConnectLauncher(BaseLauncher):
         self.args=self.arg_parser.parse_args(args)
         self.rhost, self.rport=None,None
         self.parse_host(self.args.host[0])
-    
+
     def parse_host(self, host):
         tab=host.rsplit(":",1)
         self.rhost=tab[0]
@@ -39,7 +39,8 @@ class ConnectLauncher(BaseLauncher):
         for current_host in self.args.host:
             self.parse_host(current_host)
             try:
-                logging.info("connecting to %s:%s using transport %s ..."%(self.rhost, self.rport, self.args.transport))
+                logging.info("connecting to %s:%s using transport %s ..."%(
+                    self.rhost, self.rport, self.args.transport))
                 opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
                 t=network.conf.transports[self.args.transport](bind_payload=self.connect_on_bind_payload)
                 client_args=t.client_kwargs
@@ -68,4 +69,3 @@ class ConnectLauncher(BaseLauncher):
                 yield stream
             except Exception as e:
                 logging.info(e)
-                    

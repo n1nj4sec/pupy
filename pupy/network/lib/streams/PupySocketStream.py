@@ -214,6 +214,8 @@ class PupySocketStream(SocketStream):
             self.close()
 
 class PupyUDPSocketStream(object):
+    MAGIC = b'\x00'*512
+
     def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None, lsi=5):
 
         if not (type(sock) is tuple and len(sock) in (2,3)):
@@ -223,8 +225,10 @@ class PupyUDPSocketStream(object):
 
         self.client_side = client_side
         self.closed = False
+
         self.LONG_SLEEP_INTERRUPT_TIMEOUT = lsi
         self.KEEP_ALIVE_REQUIRED = lsi * 3
+        self.INITIALIZED = False
 
         self.sock, self.dst_addr = sock[0], sock[1]
         if len(sock) == 3:
@@ -258,7 +262,6 @@ class PupyUDPSocketStream(object):
         self.downstream_lock = threading.Lock()
 
         self.transport = transport_class(self, **transport_kwargs)
-        self.total_timeout = 0
 
         self.MAX_IO_CHUNK = self.kcp.mtu - 24
         self.compress = True
@@ -269,7 +272,17 @@ class PupyUDPSocketStream(object):
         self.on_connect()
 
     def on_connect(self):
+        # Poor man's connection initialization
+        # Without this client side bind payloads will not be able to
+        # determine when our connection was established
+        # So first who knows where to send data will trigger other side as well
+
+        self._emulate_connect()
         self.transport.on_connect()
+
+    def _emulate_connect(self):
+        self.kcp.send(self.MAGIC)
+        self.kcp.flush()
 
     def poll(self, timeout):
         if self.closed:
@@ -326,11 +339,29 @@ class PupyUDPSocketStream(object):
             if timeout is not None:
                 timeout = int(timeout * 1000)
 
-            buf = self.kcp.pollread(timeout)
+            try:
+                buf = self.kcp.pollread(timeout)
+            except OSError, e:
+                raise EOFError(str(e))
 
-        if buf:
-            self.buf_in.write(buf)
-            self.total_timeout = 0
+
+        data = []
+
+        while buf is not None:
+            if buf:
+                if self.INITIALIZED:
+                    data.append(buf)
+                elif buf == self.MAGIC:
+                    self.INITIALIZED = True
+                else:
+                    raise EOFError('Invalid magic')
+            else:
+                return False
+
+            buf = self.kcp.recv()
+
+        if data:
+            self.buf_in.write(b''.join(data))
             return True
 
         return False
@@ -381,15 +412,21 @@ class PupyUDPSocketStream(object):
         while True:
             kcpdata = self.kcp.recv()
             if kcpdata:
-                data.append(kcpdata)
+                if self.INITIALIZED:
+                    data.append(kcpdata)
+                elif kcpdata == self.MAGIC:
+                    self.INITIALIZED = True
+                else:
+                    return False
             else:
                 break
 
         if not data:
-            return
+            return True
 
         data = b''.join(data)
         self.buf_in.write(data)
+        return True
 
     def wake(self):
         now = time.time()

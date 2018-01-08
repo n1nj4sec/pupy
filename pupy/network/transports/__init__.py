@@ -109,6 +109,7 @@ class Transport(object):
     credentials=[] # list of credentials to embbed during payload generation
     name=None
     launcher_type=LAUNCHER_TYPE_ALL
+    dgram=False
 
     def __init__(self, bind_payload=False):
         super(Transport, self).__init__()

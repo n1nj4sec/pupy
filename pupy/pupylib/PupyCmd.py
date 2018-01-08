@@ -46,6 +46,7 @@ import copy
 from functools import partial
 from threading import Event
 from pupylib.utils.term import colorize
+from pupylib.utils.network import *
 
 import pupygen
 
@@ -165,12 +166,6 @@ class PupyCmd(cmd.Cmd):
         if sys.platform=="win32":
             self.intro+="\n"+self.format_warning("You are running Pupy server on Windows. Pupy server works best on linux. Pupy server on windows has not been really tested and there is probably a lot of bugs. I try my best to code in a portable way but it don't always find the time to fix everything. If you find the courage to patch non portable code, I will gladly accept push requests ! :)\n")
 
-        self.intro += "\n"+self.format_srvinfo(
-            "Server started on%s port %s with transport %s%s"%(
-                (" {}".format(self.pupsrv.address) if self.pupsrv.address else ""),
-                    self.pupsrv.port, self.pupsrv.transport,
-                    (" and transport_args=%s"%repr(self.pupsrv.transport_kwargs) if self.pupsrv.transport_kwargs else ""))
-        ).rstrip("\n")
 
         self.raw_prompt= color('>> ','blue')
         self.prompt = color('>> ','blue', prompt=True)
@@ -191,6 +186,15 @@ class PupyCmd(cmd.Cmd):
         except Exception as e:
             logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
         self.pupy_completer=PupyCompleter(self.aliases, self.pupsrv)
+
+    def add_motd(self, motd={}):
+        for ok in motd.get('ok', []):
+            self.intro += self.format_srvinfo(ok + '\n')
+
+        for fail in motd.get('fail', []):
+            self.intro += self.format_error(fail + '\n')
+
+        self.intro.rstrip('\n')
 
     @staticmethod
     def table_format(diclist, wl=[], bl=[]):
@@ -797,9 +801,7 @@ class PupyCmd(cmd.Cmd):
             self.display_success('Stopping DNSCNC')
             self.dnscnc.stop()
 
-        if self.pupsrv.server:
-            self.display_success('Stopping listener')
-            self.pupsrv.server.close()
+        self.pupsrv.stop()
 
         self.display_success('Restarting')
         os.execv(argv0, argv)
@@ -893,6 +895,113 @@ class PupyCmd(cmd.Cmd):
             args = arg_parser.parse_args(shlex.split(arg))
         except (pupygen.InvalidOptions, PupyModuleExit):
             return
+
+        if not args.launcher or (args.launcher and args.launcher == 'connect'):
+            args.launcher = 'connect'
+            transport = None
+            transport_idx = None
+            host = None
+            host_idx = None
+            port = None
+            preferred_ok = True
+
+            need_transport = False
+            need_hostport = False
+
+            if args.launcher_args:
+                total = len(args.launcher_args)
+                for idx,arg in enumerate(args.launcher_args):
+                    if arg == '-t' and idx < total-1:
+                        transport = args.launcher_args[idx+1]
+                        transport_idx = idx+1
+                    elif arg == '--host' and idx<total-1:
+                        host_idx = idx+1
+                        hostport = args.launcher_args[host_idx]
+                        if ':' in hostport:
+                            host, port = hostport.rsplit(':', 1)
+                            port = int(port)
+                        else:
+                            try:
+                                port = int(hostport)
+                            except:
+                                host = hostport
+
+            need_transport = not bool(transport)
+            need_hostport = not all([host, port])
+
+            if not all([host, port, transport]):
+                default_listener = None
+                preferred_ok = False
+
+                if transport:
+                    default_listener = self.pupsrv.listeners.get(transport)
+                    if not default_listener:
+                        self.display_error(
+                            'Requested transport {} is not active. Will use default'.format(
+                                transport))
+
+                        need_transport = True
+
+                if not default_listener:
+                    default_listener = next(self.pupsrv.listeners.itervalues())
+
+                transport = default_listener.name
+
+                if default_listener:
+                    self.display_info(
+                        'Connection point: Transport={} Address={}:{}'.format(
+                            default_listener.name, default_listener.external,
+                            default_listener.external_port))
+
+                    if host or port:
+                        self.display_warning('Host and port will be ignored')
+
+                    print args.prefer_external, default_listener.local
+
+                    if args.prefer_external != default_listener.local:
+                        host = default_listener.external
+                        port = default_listener.external_port
+                        preferred_ok = True
+                    elif not args.prefer_external and not default_listener.local:
+                        host = get_listener_ip(cache=False)
+                        if host:
+                            self.display_warning('Using {} as local IP'.format(host))
+
+                        port = default_listener.port
+                        preferred_ok = True
+                    else:
+                        preferred_ok = not (default_listener.local and args.prefer_external)
+
+            if not transport:
+                self.display_error('No active transports. Explicitly choose one')
+                return
+
+            if not all([host, port, preferred_ok]):
+                maybe_port = get_listener_port(self.config, external=args.prefer_external)
+                maybe_host, local = get_listener_ip_with_local(
+                    external=args.prefer_external,
+                    config=self.config, igd=self.pupsrv.igd
+                )
+
+                if (not local and args.prefer_external) or not (host and port):
+                    self.display_warning('Using configured/discovered external HOST:PORT')
+                    host = maybe_host
+                    port = maybe_port
+                else:
+                    self.display_warning('Unable to find external HOST:PORT')
+
+            if need_transport:
+                if transport_idx is None:
+                    args.launcher_args += [ '-t', transport ]
+                else:
+                    args.launcher_args[transport_idx] = transport
+
+            if need_hostport:
+                hostport = '{}:{}'.format(host, port)
+                if host_idx is None:
+                    args.launcher_args += [ '--host', hostport ]
+                else:
+                    args.launcher_args[host_idx] = hostport
 
         if self.pupsrv.httpd:
             wwwroot = self.config.get_folder('wwwroot')
@@ -1287,10 +1396,7 @@ class PupyCmd(cmd.Cmd):
             self.display_success('Stopping DNSCNC')
             self.dnscnc.stop()
 
-        if self.pupsrv.server:
-            self.display_success('Stopping listener')
-            self.pupsrv.server.close()
-
+        self.pupsrv.stop()
         return True
 
     def do_read(self, arg):

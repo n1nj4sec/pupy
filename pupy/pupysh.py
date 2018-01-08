@@ -49,19 +49,18 @@ def print_version():
 if __name__=="__main__":
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
     parser.add_argument(
-        '--log-lvl', '--lvl',
+        '--log-level', '-d',
         help='change log verbosity', dest='loglevel',
         choices=['DEBUG','INFO','WARNING','ERROR'],
         default='WARNING')
     parser.add_argument('--version', help='print version and exit', action='store_true')
     parser.add_argument(
-        '-t', '--transport',
-        choices=[x for x in network.conf.transports.iterkeys()],
-        help='change the transport ! :-)')
-    parser.add_argument(
-        '--ta', '--transport-args', dest='transport_args',
-        help='... --transport-args " OPTION1=value OPTION2=val ..." ...')
-    parser.add_argument('--port', '-p', help='change the listening port', type=int)
+        '-l', '--listen', help='Bind server listener with transport and args to port. '
+        'Example: -l ssl 127.0.0.1:443 -l kcp 80 -l xyz 1234 OPTION1=value OPTION2=value. '
+        'Transports: {}'.format(','.join(x for x in network.conf.transports.iterkeys())),
+        nargs='+', metavar=('TRANSPORT', '[[EXTERNAL_IP=]IP]:[EXTERNAL_PORT=]PORT OPTION=value'),
+        action='append', default=[]
+    )
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument('-NE', '--not-encrypt', help='Do not encrypt configuration', action='store_true')
     args = parser.parse_args()
@@ -89,14 +88,15 @@ if __name__=="__main__":
 
     config = PupyConfig()
 
-    if args.port:
-        config.set('pupyd', 'port', args.port, cmd=True)
+    if args.listen:
+        listeners = {
+            x[0]:x[1:] if len(x) > 1 else [] for x in args.listen
+        }
 
-    if args.transport:
-        config.set('pupyd', 'transport', args.transport, cmd=True)
-
-    if args.transport_args:
-        config.set('pupyd', 'transport_args', args.transport_args, cmd=True)
+        config.set('pupyd', 'listen', ','.join(listeners.iterkeys()))
+        for listener, args in listeners.iteritems():
+            if args:
+                config.set('listeners', listener, ' '.join(args))
 
     pupyServer = PupyServer(config, credentials)
     pupycmd = PupyCmdLoop(pupyServer)

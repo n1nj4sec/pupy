@@ -38,8 +38,11 @@ class PupyConnection(Connection):
         if pupy_srv:
             self._local_root.pupy_srv = pupy_srv
 
+        if 'config' in kwargs:
+            self._config.update(kwargs['config'])
+
     def consume(self):
-        self._channel.consume()
+        return self._channel.consume()
 
     def wake(self):
         self._channel.wake()
@@ -54,6 +57,7 @@ class PupyConnection(Connection):
             self.initialized.set()
         except EOFError, TypeError:
             self.close()
+            return False
 
         return self.initialized.is_set()
 
@@ -145,7 +149,7 @@ class PupyConnection(Connection):
             del self._sync_events[seq]
 
         if self.closed:
-            raise EOFError()
+            raise EOFError('Connection was closed, seq: {}'.format(seq))
 
         isexc, obj = self._sync_replies.pop(seq)
         if isexc:

