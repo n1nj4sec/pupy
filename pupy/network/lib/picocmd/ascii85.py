@@ -69,10 +69,6 @@ def ascii85DecodeDG(str):
         assert num == 16777216 * b1 + 65536 * b2 + 256 * b3 + b4, 'dodgy code!'
         # This modulo operation (256) is maybe a hack! DCG
         res = b1%256, b2, b3, b4
-        try:
-            result = result + string.join(map(chr, res), '')
-        except ValueError:
-            print "ValueError", res
-            sys.exit(0)
+        result = result + string.join(map(chr, res), '')
 
     return result
