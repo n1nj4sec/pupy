@@ -27,3 +27,4 @@ tornado
 keyboard
 msgpack-python
 u-msgpack-python
+poster

@@ -27,7 +27,7 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
 python -OO -m pip install \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy impacket colorama pyOpenSSL python-xlib msgpack-python \
+       scapy impacket colorama pyOpenSSL python-xlib msgpack-python poster \
        --no-binary :all:
 
 echo "[+] Compile pykcp"
