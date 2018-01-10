@@ -69,11 +69,10 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
     connectable=[]
     targets = ((x, y) for x in hosts for y in ports)
     sockets = {}
-    while targets:
-
+    while targets or sockets:
         free = portion - len(sockets)
         chunk = []
-        while free:
+        while free and targets:
             try:
                 chunk.append(next(targets))
                 free -= 1
@@ -143,7 +142,6 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                 if now - sockets[sock][2] > timeout:
                     sock.close()
                     del sockets[sock]
-
 
     if on_complete:
         if abort and not abort.is_set():

