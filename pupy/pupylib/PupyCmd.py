@@ -1106,9 +1106,6 @@ class PupyCmd(cmd.Cmd):
             objects = {
                 'DOMAIN': self.dnscnc.dns_domain,
                 'DNS PORT': str(self.dnscnc.dns_port),
-                'TRANSPORT': self.dnscnc.transport,
-                'IP': ', '.join(self.dnscnc.host),
-                'PORT': str(self.dnscnc.port),
                 'RECURSOR': self.dnscnc.dns_recursor,
                 'LISTEN': str(self.dnscnc.dns_listen),
                 'SESSIONS': 'TOTAL={} DIRTY={}'.format(
