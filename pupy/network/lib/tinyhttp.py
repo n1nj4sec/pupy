@@ -172,7 +172,7 @@ class HTTP(object):
         else:
             self.opener.addheaders = headers
 
-    def get(self, url, save=None, headers=None, return_url=False, code=False):
+    def get(self, url, save=None, headers=None, return_url=False, return_headers=False, code=False):
         if headers:
             url = urllib2.Request(url, headers=headers)
 
@@ -198,12 +198,15 @@ class HTTP(object):
         if code:
             result.append(response.code)
 
+        if return_headers:
+            result.append(response.info().dict)
+
         if len(result) == 1:
             return result[0]
         else:
             return tuple(result)
 
-    def post(self, url, file=None, data=None, save=None, headers={}, multipart=False, return_url=False, code=False):
+    def post(self, url, file=None, data=None, save=None, headers={}, multipart=False, return_url=False, return_headers=False, code=False):
         if not ( file or data ):
             return self.get(url, save, headers=headers)
 
@@ -251,6 +254,9 @@ class HTTP(object):
 
         if code:
             result.append(response.code)
+
+        if return_headers:
+            result.append(response.info().dict)
 
         if len(result) == 1:
             return result[0]
