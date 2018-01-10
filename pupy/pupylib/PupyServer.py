@@ -85,7 +85,7 @@ class Listener(Thread):
         if httpd and not self.transport.dgram:
             self.transport.server_transport = chain_transports(
                 PupyHTTPWrapperServer.custom(server=self),
-                t.server_transport
+                self.transport.server_transport
             )
 
         if args:
@@ -410,7 +410,8 @@ class PupyServer(object):
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
         self.handler=instance
-        self.dnscnc.cmdhandler=instance
+        if self.dnscnc:
+            self.dnscnc.cmdhandler=instance
         self.handler_registered.set()
 
     def add_client(self, conn):
