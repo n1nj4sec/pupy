@@ -74,7 +74,7 @@ urllib2.install_opener(
 class DnsCommandClientDecodingError(Exception):
     pass
 
-__DEBUG = 1
+__DEBUG = 0
 
 if __DEBUG:
     import dns.resolver
