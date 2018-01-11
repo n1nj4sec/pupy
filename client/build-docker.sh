@@ -5,7 +5,7 @@ PUPY=`dirname "$SELF"`/../
 PUPY=`readlink -f "$PUPY"`
 
 REPO=${DOCKER_REPO:-"alxchk"}
-CLEAN=${CLEAN:-"yes"}
+CLEAN=${CLEAN:-"no"}
 
 if [ ! -z "$REPO" ]; then
     if [ "$REPO" == "local" ]; then
@@ -19,52 +19,32 @@ echo $PUPY
 
 set -e
 
-(
-    echo
-    echo "[+] Build windows client"
-    docker run --name build-pupy-windows \
-	   -v $PUPY:/build/workspace/project ${REPO}tc-windows client/sources/build-docker.sh
+start_container() {
+    TOOLCHAIN="tc-$1"
+    CONTAINER_NAME="build-pupy-$1"
+    SOURCES="$2"
+    SCRIPT="client/$SOURCES/build-docker.sh"
 
-    if [ "$CLEAN" == "yes" ]; then
-	docker rm build-pupy-windows
-    fi
-    
-    echo
-)
+    (
+	echo
+	echo "[+] Build $SOURCES with toolchain ${REPO}$TOOLCHAIN"
+	NEW=""
+	docker container inspect ${CONTAINER_NAME} >/dev/null 2>/dev/null || NEW=1
+	if [ ! -z "$NEW" ]; then
+	    docker run --name ${CONTAINER_NAME} \
+		   -v ${PUPY}:/build/workspace/project ${REPO}${TOOLCHAIN} ${SCRIPT}
+	else
+	    docker start -ai ${CONTAINER_NAME}
+	fi
 
-(
-    echo
-    echo "[+] Build linux32 client"
-    docker run --name build-pupy-linux32 \
-	   -v $PUPY:/build/workspace/project ${REPO}tc-linux32 client/sources-linux/build-docker.sh
+	if [ "$CLEAN" == "yes" ]; then
+	    docker rm ${CONTAINER_NAME}
+	fi
+	echo
+    )
+}
 
-    if [ "$CLEAN" == "yes" ]; then
-	docker rm build-pupy-linux32
-    fi
-
-    echo
-)
-
-(
-    echo
-    echo "[+] Build linux64 client"
-    docker run --name build-pupy-linux64 \
-	   -v $PUPY:/build/workspace/project ${REPO}tc-linux64 client/sources-linux/build-docker.sh
-
-    if [ "$CLEAN" == "yes" ]; then
-	docker rm build-pupy-linux64
-    fi
-    echo
-)
-
-(
-    echo
-    echo "[+] Build android client"
-    docker run --name build-pupy-android \
-	   -v $PUPY:/build/workspace/project ${REPO}tc-android client/android_sources/build-docker.sh && \
-
-    if [ "$CLEAN" == "yes" ]; then
-       docker rm build-pupy-android
-    fi
-    echo
-)
+start_container windows sources
+start_container linux32 sources-linux
+start_container linux64 sources-linux
+start_container android andorid_sources
