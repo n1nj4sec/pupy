@@ -10,6 +10,7 @@ import scan
 import netaddr
 import struct
 import igd
+import sys
 
 ONLINE_CAPTIVE = 1 << 0
 ONLINE_MS      = 1 << 1
@@ -303,9 +304,13 @@ def check():
     if deip:
         result |= DIRECT_DNS
 
-    igdc = igd.IGDClient()
-    if igdc.available:
-        result |= IGD
+
+    if sys.platform != 'win32':
+        # This may cause firewall window
+        # TODO: Work around this with pressing enter using keyboard module
+        igdc = igd.IGDClient()
+        if igdc.available:
+            result |= IGD
 
     mintime = int(mintime * 100)
     if mintime > 0xFFF:
