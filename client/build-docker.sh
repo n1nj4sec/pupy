@@ -47,4 +47,4 @@ start_container() {
 start_container windows sources
 start_container linux32 sources-linux
 start_container linux64 sources-linux
-start_container android andorid_sources
+start_container android android_sources

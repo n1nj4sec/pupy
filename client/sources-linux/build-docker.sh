@@ -7,7 +7,7 @@ SRC=${SELFPWD:-`pwd`}
 cd $SRC
 
 PUPY=`readlink -f ../../pupy/`
-TEMPLATES=`$PUPY/payload_templates`
+TEMPLATES=$PUPY/payload_templates
 
 PYKCP=../../pupy/external/pykcp
 
