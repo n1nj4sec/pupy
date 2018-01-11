@@ -11,7 +11,7 @@ REPO=${DOCKER_REPO:-"alxchk"}
 
 if [ ! -z "$REPO" ]; then
     if [ "$REPO" == "local" ]; then
-	REPO=""
+	REPO="pupy"
     else
 	REPO="$REPO/pupy"
     fi

@@ -5,4 +5,4 @@ rsa
 netaddr
 tinyec
 poster
-u-msg-pack
+u-msgpack-python
