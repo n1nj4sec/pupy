@@ -37,6 +37,9 @@ COPY . /opt/pupy
 ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20171220/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
 RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
+RUN mkdir /opt/uacme
+ADD https://github.com/hfiref0x/UACME/raw/master/Compiled/Akagi32.exe /opt/uacme/
+ADD https://github.com/hfiref0x/UACME/raw/master/Compiled/Akagi64.exe /opt/uacme/
 RUN apt-get remove -y autoconf automake python-dev libtool build-essential && \
     apt-get -y autoremove && rm -rf /root/.cache/pip && \
     rm -f /etc/ssh/ssh_host_*; rm -f /tmp/requirements.txt
