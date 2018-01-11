@@ -72,7 +72,3 @@ class MemoryExec(PupyModule):
                 argv0=args.argv0 or path.basename(args.path),
                 interactive=args.interactive
             )
-
-        if log and args.log:
-            with open(args.log, 'wb') as output:
-                output.write(log)

@@ -77,10 +77,16 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 		si.wShowWindow = SW_HIDE;
 		createFlags |= CREATE_NO_WINDOW;
 	}
-	if(PyObject_IsTrue(py_redirect_stdio)){
-		if(!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0) |
-		   !CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0)) {
-			return PyErr_Format(PyExc_Exception, "Error in CreatePipe: Errno %d", GetLastError());
+
+	if (PyObject_IsTrue(py_redirect_stdio)) {
+		if (!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0)) {
+			return PyErr_Format(PyExc_Exception, "Error in CreatePipe (IN): Errno %d", GetLastError());
+		}
+
+		if (!CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0)) {
+			CloseHandle(g_hChildStd_IN_Rd);
+			CloseHandle(g_hChildStd_IN_Wr);
+			return PyErr_Format(PyExc_Exception, "Error in CreatePipe (OUT): Errno %d", GetLastError());
 		}
 
 		si.hStdInput  = g_hChildStd_IN_Rd;
@@ -92,8 +98,8 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 
 	if (!dupHandleAddress) {
 		if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
-			CloseHandle(g_hChildStd_IN_Rd);
-			CloseHandle(g_hChildStd_OUT_Wr);
+			CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+			CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
 
 			return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d", GetLastError());
 		}
@@ -102,8 +108,8 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 		dupHandle=(HANDLE) dupHandleAddress;
 		if (!CreateProcessAsUser(dupHandle, NULL, cmd_line, &saAttr,
 								 NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
-			CloseHandle(g_hChildStd_IN_Rd);
-			CloseHandle(g_hChildStd_OUT_Wr);
+			CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+			CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
 
 			return PyErr_Format(
 				PyExc_Exception, "Error in CreateProcess: Errno %d dupHandle %x", GetLastError(),
@@ -118,16 +124,16 @@ static PyObject *Py_run_pe_from_memory(PyObject *self, PyObject *args) {
 	if (!MapNewExecutableRegionInProcess(pi.hProcess, pi.hThread, pe_raw_bytes)) {
 		TerminateProcess(pi.hProcess, 1);
 		CloseHandle(pi.hProcess);
-		CloseHandle(g_hChildStd_IN_Wr);
-		CloseHandle(g_hChildStd_OUT_Rd);
+		CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+		CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
 		return PyErr_Format(PyExc_Exception, "Error in MapNewExecutableRegionInProcess: Errno %d", GetLastError());
 	}
 
 	if (ResumeThread(pi.hThread) == (DWORD)-1) {
 		TerminateProcess(pi.hProcess, 1);
 		CloseHandle(pi.hProcess);
-		CloseHandle(g_hChildStd_IN_Wr);
-		CloseHandle(g_hChildStd_OUT_Rd);
+		CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+		CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
 		return PyErr_Format(PyExc_Exception, "Error in ResumeThread: Errno %d", GetLastError());
 	}
 

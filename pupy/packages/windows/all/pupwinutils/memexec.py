@@ -142,6 +142,7 @@ class MemoryPE(object):
                 self.hidden, self.dupHandle
             )
         except Exception, e:
+            self.write_cb('[!] memexec failed: {}\n'.format(e))
             return False
 
         self.pStdout = HANDLE(pStdout)
