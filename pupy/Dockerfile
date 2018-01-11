@@ -8,7 +8,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
     mkdir -p /usr/share/man/man1/ && \
     apt-get install -t stretch-backports --no-install-recommends -y build-essential \
     python-dev python-pip openssh-server tmux sslh libcap2-bin \
-    john vim-tiny less osslsigncode \
+    john vim-tiny less osslsigncode nmap net-tools \
     autoconf automake unzip libtool locales ncurses-term bash tcpdump libpam-cap \
     openjdk-8-jdk-headless python-m2crypto python-cryptography python-cffi-backend python-paramiko \
     python-pefile python-netifaces python-psutil python-lzma python-colorama python-openssl python-scapy \
