@@ -201,11 +201,14 @@ class PupyDnsCnc(object):
           or self.handler.find_sessions(spi=node)
 
     def connect(self, host=None, port=None, transport=None, node=None, default=False):
+        if port:
+            port = int(port)
+
         if not all([host, port, transport]):
             listeners = self.listeners()
             if not listeners:
                 raise ValueError(
-                    'No active listeners. Host port and transport shoul be explicitly specified')
+                    'No active listeners. Host, port and transport shoul be explicitly specified')
 
             listener = None
             local = False
@@ -217,7 +220,7 @@ class PupyDnsCnc(object):
 
             else:
                 for l in listeners.itervalues():
-                    if not l.local:
+                    if not l.local or ( port and ( l.port == port or l.external_port == port ) ):
                         listener = l
                         break
 
@@ -234,7 +237,9 @@ class PupyDnsCnc(object):
                     config=self.config, external=True, igd=self.igd)
 
                 if local:
-                    raise ValueError('External host:port not found. Please explicitly specify them')
+                    raise ValueError(
+                        'External host:port not found. '
+                        'Please explicitly specify either port or host, port and transport.')
 
                 host = host or _host
                 port = port or _port

