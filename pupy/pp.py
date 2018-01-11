@@ -32,6 +32,21 @@
 # ---------------------------------------------------------------
 
 import sys
+import imp
+
+try:
+    import pupy
+except ImportError, e:
+    mod = imp.new_module("pupy")
+    mod.__name__ = "pupy"
+    mod.__file__ = "pupy://pupy"
+    mod.__package__ = "pupy"
+    sys.modules["pupy"] = mod
+    mod.pseudo = True
+
+    import pupy
+
+
 import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
@@ -41,7 +56,6 @@ import os
 import json
 import platform
 import random
-import imp
 import argparse
 from network import conf
 from network.lib.base_launcher import LauncherError
@@ -75,17 +89,6 @@ import umsgpack
 
 logging.getLogger().setLevel(logging.WARNING)
 
-try:
-    import pupy
-except ImportError, e:
-    mod = imp.new_module("pupy")
-    mod.__name__ = "pupy"
-    mod.__file__ = "pupy://pupy"
-    mod.__package__ = "pupy"
-    sys.modules["pupy"] = mod
-    mod.pseudo = True
-
-    import pupy
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 pupy.namespace = None
@@ -592,6 +595,11 @@ def main():
     global LAUNCHER_ARGS
     global debug
     global attempt
+
+    if hasattr(pupy, 'initialized'):
+        return
+
+    setattr(pupy, 'initialized', True)
 
     try:
         if hasattr(signal, 'SIGHUP'):

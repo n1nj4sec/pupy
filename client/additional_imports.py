@@ -40,8 +40,11 @@ import __future__
 import netaddr
 import psutil
 import kcp
+import poster
+
 if 'win' in sys.platform:
     import ctypes.wintypes
+    import win_inet_pton
 else:
     import pty
 

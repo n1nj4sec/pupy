@@ -6,6 +6,7 @@ import uuid
 import sys
 import os
 import locale
+import logging
 
 os_encoding = locale.getpreferredencoding() or "utf8"
 
@@ -197,7 +198,8 @@ def get_uuid():
                 encoding=os_encoding
             ).encode("utf8")
     except Exception as e:
-        user=str(e)
+        logging.exception(e)
+        user='?'
         pass
 
     try:

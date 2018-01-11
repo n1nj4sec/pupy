@@ -6,7 +6,8 @@ SRC=${SELFPWD:-`pwd`}
 
 cd $SRC
 
-TEMPLATES=`readlink -f ../../pupy/payload_templates`
+PUPY=`readlink -f ../../pupy/`
+TEMPLATES=`$PUPY/payload_templates`
 
 PYKCP=../../pupy/external/pykcp
 
@@ -86,6 +87,10 @@ case $TOOLCHAIN_ARCH in
 esac
 
 for target in $TARGETS; do rm -f $TEMPLATES/$target; done
+
+cd $PUPY
+find -name "*.py" | while read py; do python -m compileall -lqf $py; done
+find -name "*.py" | while read py; do python -OO -m compileall -lqf $py; done
 
 cd $SRC
 

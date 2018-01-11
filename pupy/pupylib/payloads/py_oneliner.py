@@ -35,7 +35,8 @@ def pack_py_payload(conf):
             dependencies.importer('network', path=ROOT),
             dependencies.importer((
                 'rpyc', 'pyasn1', 'rsa',
-                'netaddr', 'tinyec', 'umsgpack'))
+                'netaddr', 'tinyec', 'umsgpack',
+                'poster', 'win_inet_pton'))
         ]) + '\n'
     )
 

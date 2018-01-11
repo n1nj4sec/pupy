@@ -54,7 +54,6 @@ Modifications made by Anorov (https://github.com/Anorov)
 
 __version__ = "1.5.7"
 
-import socket
 import struct
 from errno import EOPNOTSUPP, EINVAL, EAGAIN
 from io import BytesIO

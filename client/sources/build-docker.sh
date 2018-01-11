@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster"
+PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton"
 PACKAGES_BUILD="pycryptodome cryptography netifaces msgpack-python u-msgpack-python"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
@@ -8,6 +8,7 @@ PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`
 SRC=${SELFPWD:-`pwd`}
+PUPY=`readlink -f ../../pupy`
 
 cd $SRC
 
@@ -94,6 +95,11 @@ echo "[+] Build pupy"
 TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64d.unc.dll pupyx64d.unc.exe"
 TARGETS="$TARGETS pupyx64.exe pupyx64.unc.dll pupyx64.unc.exe pupyx86d.dll pupyx86d.exe pupyx86.dll"
 TARGETS="$TARGETS pupyx86d.unc.dll pupyx86d.unc.exe pupyx86.exe pupyx86.unc.dll pupyx86.unc.exe"
+
+cd ${PUPY}
+
+find -name "*.py" | while read py; do python -m compileall -lqf $py; done
+find -name "*.py" | while read py; do python -OO -m compileall -lqf $py; done
 
 cd ${SRC}
 

@@ -4,7 +4,7 @@ import socket
 import time
 import threading
 import random
-import httplib2
+import httplib
 import urllib2
 import scan
 import netaddr

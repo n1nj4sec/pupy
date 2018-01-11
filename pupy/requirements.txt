@@ -28,3 +28,4 @@ keyboard
 msgpack-python
 u-msgpack-python
 poster
+win_inet_pton

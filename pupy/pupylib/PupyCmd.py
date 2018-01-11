@@ -956,8 +956,6 @@ class PupyCmd(cmd.Cmd):
                     if host or port:
                         self.display_warning('Host and port will be ignored')
 
-                    print args.prefer_external, default_listener.local
-
                     if args.prefer_external != default_listener.local:
                         host = default_listener.external
                         port = default_listener.external_port

@@ -6,3 +6,4 @@ netaddr
 tinyec
 poster
 u-msgpack-python
+win_inet_pton

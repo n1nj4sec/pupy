@@ -68,4 +68,4 @@ class ConnectLauncher(BaseLauncher):
                 stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
                 yield stream
             except Exception as e:
-                logging.info(e)
+                logging.exception(e)

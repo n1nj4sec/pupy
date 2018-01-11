@@ -12,7 +12,8 @@ import ssl
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
 from poster.encode import multipart_encode
-import socks
+
+from . import socks
 
 def merge_dict(a, b):
     d = a.copy()
