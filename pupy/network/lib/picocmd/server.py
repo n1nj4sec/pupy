@@ -39,6 +39,8 @@ class Session(object):
         self.commands = commands
         self.last_nonce = None
         self.last_qname = None
+        self.pstore_dirty = False
+        self.connecteed = False
         self.cache = {}
 
     @property
@@ -390,6 +392,10 @@ class DnsCommandServerHandler(BaseResolver):
             for port in command.ports:
                 session.egress_ports.add(port)
 
+        elif isinstance(command, PupyState) and session is not None:
+            session.pstore_dirty = command.pstore_dirty
+            session.connected = command.connected
+
         elif isinstance(command, Ack) and (session is not None):
             if session.system_info:
                 self.on_keep_alive(session.system_info)
@@ -425,6 +431,8 @@ class DnsCommandServerHandler(BaseResolver):
             logging.debug('dnscnc:connectable: {}'.format(command))
         elif isinstance(command, OnlineStatus):
             logging.debug('dnscnc:online-status: {}'.format(command))
+        elif isinstance(command, PupyState):
+            logging.debug('dnscnc:pupy-state'.format())
         else:
             return [Error('NO_POLICY')]
 

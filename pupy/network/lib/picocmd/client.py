@@ -87,6 +87,12 @@ if __DEBUG:
 
 class DnsCommandsClient(Thread):
     def __init__(self, domain, key):
+        try:
+            import pupy
+            self.pupy = pupy
+        except:
+            self.pupy = None
+
         self.domains = domain.split(',')
         self.domain_id = 0
         self.domain = self.domains[self.domain_id]
@@ -311,7 +317,9 @@ class DnsCommandsClient(Thread):
 
     def process(self):
         if self.spi:
-            commands = list(self._request(SystemStatus()))
+            commands = list(self._request(
+                PupyState(self.pupy.connected, self.pupy.manager.dirty),
+                SystemStatus()))
         else:
             commands = list(self._request(Poll()))
 

@@ -1180,12 +1180,14 @@ class PupyCmd(cmd.Cmd):
                         'P': pupy_session
                     })
                     color = 'lightgreen'
-                elif not session.system_status['idle']:
-                    color = 'lightyellow'
                 elif session.system_status['cpu'] > 90 or session.system_status['mem'] > 90:
                     color = 'lightred'
                 elif (session.online_status or session.egress_ports or session.open_ports):
                     color = 'cyan'
+                elif (session.pstore_dirty):
+                    color = 'magenta'
+                elif not session.system_status['idle']:
+                    color = 'lightyellow'
 
                 if color:
                     object = { k:colorize(v, color) for k,v in object.iteritems() }
