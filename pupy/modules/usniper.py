@@ -40,9 +40,15 @@ class USniper(PupyModule):
         dump.set_defaults(func=self.dump)
 
     def start(self, args):
+        offset = args.offset
+        if not offset.lower().startswith('0x'):
+            offset = '0x' + offset.upper()
+        else:
+            offset = '0x' + offset[2:].upper()
+
         if self.client.conn.modules['usniper'].start(
                 args.path,
-                args.offset,
+                offset,
                 args.reg,
                 args.ret,
                 'string' if args.string else None,
