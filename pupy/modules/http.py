@@ -34,18 +34,22 @@ class http(PupyModule):
             ]
         )
 
-        if args.input or args.data:
-            self.log(
-                http.post(
-                    args.url,
-                    data=[
-                        tuple(x.split('=', 1)) for x in args.data
-                    ],
-                    file=args.input,
-                    save=args.output
+        try:
+            if args.input or args.data:
+                self.log(
+                    http.post(
+                        args.url,
+                        data=[
+                            tuple(x.split('=', 1)) for x in args.data
+                        ],
+                        file=args.input,
+                        save=args.output
+                    )
                 )
-            )
-        else:
-            self.log(
-                http.get(args.url, save=args.output)
-            )
+            else:
+                self.log(
+                    http.get(args.url, save=args.output)
+                )
+
+        except Exception, e:
+            self.error('Error: {}'.format(e.message or e.reason))
