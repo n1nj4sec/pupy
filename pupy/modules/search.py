@@ -27,11 +27,16 @@ class SearchModule(PupyModule):
         self.arg_parser.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
         self.arg_parser.add_argument('-N', '--no-content', action='store_true', help='if string matches, output just filename')
         self.arg_parser.add_argument('-I', '--insensitive', action='store_true', default=False, help='no case sensitive')
+        self.arg_parser.add_argument('-s', '--save', type=str, default="", help='save results in this local file')
         self.arg_parser.add_argument('filename', type=str, metavar='filename', help='regex to search (filename)')
         self.arg_parser.add_argument('strings', nargs='*', default=[], type=str, metavar='string', help='regex to search (content)')
 
     def run(self, args):
         self.terminate = threading.Event()
+        fdesc = None
+        if args.save != "" : 
+            fdesc = open(args.save, "w")
+            self.info("Results will be saved in {0}".format(args.save))
 
         if args.download:
             args.no_content = True
@@ -61,7 +66,9 @@ class SearchModule(PupyModule):
 
             if args.strings and not args.no_content:
                 if type(res) == tuple:
-                    self.success('{}: {}'.format(*res))
+                    msg = '{}: {}'.format(*res)
+                    if args.save != "" : fdesc.write(msg+'\n')
+                    else: self.success(msg)
             else:
                 if args.download and download is not None and ros is not None:
                     dest = res.replace('!', '!!').replace('/', '!').replace('\\', '!')
@@ -73,11 +80,15 @@ class SearchModule(PupyModule):
                             res,
                             dest,
                             chunk_size=min(size, 8*1024*1024))
-                        self.success('{} -> {} ({})'.format(res, dest, size))
+                        msg = '{} -> {} ({})'.format(res, dest, size)
+                        if args.save != "" : fdesc.write(msg+'\n')
+                        else: self.success(msg)
                     except Exception, e:
                         self.error('{} -> {}: {}'.format(res, dest, e))
                 else:
-                    self.success('{}'.format(res))
+                    msg = '{}'.format(res)
+                    if args.save != "" : fdesc.write(msg+'\n')
+                    else: self.success(msg)
 
         def on_completed():
             self.terminate.set()
@@ -87,6 +98,8 @@ class SearchModule(PupyModule):
         self.info("Search started. Use ^C to interrupt")
         self.terminate.wait()
         s.stop()
+        if args.save != "": 
+            fdesc.close()
 
     def interrupt(self):
         if self.terminate:
