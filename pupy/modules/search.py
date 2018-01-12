@@ -9,15 +9,18 @@ __class_name__="SearchModule"
 
 @config(cat="gather")
 class SearchModule(PupyModule):
-    """ walk through a directory and recursively search a string into files """
+    """walk through a directory and recursively search a string in file names or into files """
     dependencies = [ 'pupyutils.search', 'scandir' ]
 
     terminate = None
 
     def init_argparse(self):
         example = 'Examples:\n'
+        example += '- Recursively search strings in files:\n'
         example += '>> run search .*ini passw.*=.*\n'
         example += '>> run search .* passw.*=.* -I\n'
+        example += '- Recursively search string in file names:\n'
+        example += '>> run search pwdfile.*\n'
 
         self.arg_parser = PupyArgumentParser(prog="search", description=self.__doc__, epilog=example)
         self.arg_parser.add_argument('-p', '--path', default='.', help='root path to start (default: current path)')
