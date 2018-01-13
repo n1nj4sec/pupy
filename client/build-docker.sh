@@ -44,7 +44,11 @@ start_container() {
     )
 }
 
-start_container windows sources
-start_container linux32 sources-linux
-start_container linux64 sources-linux
-start_container android android_sources
+if [ ! -z "$1" ] && [ ! -z "$2" ]; then
+	start_container $1 $2
+else
+	start_container windows sources
+	start_container linux32 sources-linux
+	start_container linux64 sources-linux
+	start_container android android_sources
+fi
