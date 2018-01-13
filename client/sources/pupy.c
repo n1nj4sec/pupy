@@ -8,6 +8,7 @@
 #include <windows.h>
 #include "MyLoadLibrary.h"
 #include "base_inject.h"
+
 static char module_doc[] = "Builtins utilities for pupy";
 
 #ifndef UINTPTR
@@ -60,10 +61,18 @@ static PyObject *Py_set_exit_session_callback(PyObject *self, PyObject *args)
 
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
-	return PyObject_lzmaunpack(
-		library_c_start,
-		library_c_size
-	);
+	static PyObject *modules = NULL;
+	if (!modules) {
+		int rc;
+
+		modules = PyObject_lzmaunpack(
+			library_c_start,
+			library_c_size
+		);
+	}
+
+	Py_INCREF(modules);
+	return modules;
 }
 
 static PyObject *

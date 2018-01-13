@@ -45,10 +45,9 @@ static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 
         munmap((char *) library_c_start,
             library_c_size);
-
-        Py_XINCREF(modules);
     }
 
+	Py_INCREF(modules);
     return modules;
 }
 
