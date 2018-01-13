@@ -18,9 +18,20 @@ if __name__=="__main__":
 
     compressed = int(sys.argv[3])
 
-    attribute = '\n'.join([
-        '__attribute__(({}))'.format(x) for x in sys.argv[4:]
-    ])
+    attribute = ''
+    pragma = ''
+
+    if len(sys.argv) > 5:
+        compiler = sys.argv[4]
+
+        if compiler == 'cl':
+            print "USING MSVC pragmas, const_seg: {}".format(sys.argv[5])
+            attribute = '\n#pragma const_seg(push, stack1, "{}")\n'.format(sys.argv[5])
+            pragma = '\n#pragma const_seg(pop, stack1)'
+        else:
+            attribute = '\n'.join([
+                '__attribute__(({}))'.format(x) for x in sys.argv[5:]
+            ])
 
     payload_len = len(file_bytes)
     payload = struct.pack('>I', payload_len) + (
@@ -42,6 +53,7 @@ if __name__=="__main__":
             h_file+="\n"
 
     h_file += "'\\x00' };\n"
+    h_file += pragma
 
     with open(sys.argv[2],'w') as w:
         w.write(h_file)

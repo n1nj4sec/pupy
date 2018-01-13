@@ -19,12 +19,14 @@ CFLAGS:=$(CFLAGS) /DWIN_X86 /nologo
 PPARCH := x86
 endif
 
-CFLAGS += /Iresources\\$(ARCH) /Iresources
+CFLAGS += /Iresources\\$(ARCH) /Iresources /DHAVE_WINDOW
+# CFLAGS += /Iresources\\$(ARCH) /Iresources
 
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
 LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup user32.lib
+# LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
@@ -32,6 +34,8 @@ LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /L
 PPARCH      := $(PPARCH)
 CFLAGS      := $(CFLAGS) /O1 /GL /GS-
 endif
+
+SECARGS     := "cl" ".xzdata"
 
 CFLAGS      := $(CFLAGS) /I..\\lzma
 
@@ -78,13 +82,13 @@ resources/$(ARCH)/library.zip: ../build_library_zip.py
 	$(PYTHON) ../build_library_zip.py $@
 
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
-	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED)
+	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(SECARGS)
 
 resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py
 	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
 
 resources/bootloader.c: resources/bootloader.pyc ../gen_resource_header.py
-	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll
 	@mkdir -p resources/$(ARCH)
@@ -95,10 +99,10 @@ resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll
 	cp $< $@
 
 resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py
-	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
-	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED)
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 $(PYOBJS): %.obj: %.c
 	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<

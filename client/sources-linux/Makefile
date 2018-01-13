@@ -14,7 +14,7 @@ LIBPYTHON ?= $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | h
 LIBCRYPTO ?= $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
 LIBSSL ?= $(shell /sbin/ldconfig -p  | awk '/libssl.so.1.0.0/{print $$4}' | head -n 1)
 
-XZARGS ?= "aligned(0x1000)" 'section(".xzrodata")'
+XZARGS ?= "gcc" "aligned(0x1000)" 'section(".xzrodata")'
 
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
 ifeq ($(ARCH),64)
