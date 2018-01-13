@@ -284,8 +284,18 @@ class PupyServer(object):
             self.httpd = True
 
         try:
+            try:
+                igd_url = None
+                igd_enabled = config.getboolean('pupyd', 'igd')
+            except ValueError:
+                igd = config.get('pupyd', 'igd')
+                if igd:
+                    igd_enabled = True
+                    igd_url = igd
+
             self.igd = IGDClient(
-                available=config.getboolean('pupyd', 'igd')
+                available=igd_enabled,
+                ctrlURL=igd_url
             )
         except UPNPError as e:
             pass

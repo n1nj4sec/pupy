@@ -17,6 +17,7 @@ listen = ssl
 #igd=True allow pupy to make IGD/UPNP requests to get you external IP and
 #    add mappings to your local machine from outside
 #If enabled, pupy will implicitly expect that pupysh sits behind NAT
+#igd = http://ip[:port] will disable autodetect
 igd = false
 
 #httpd=true wraps your transport in a HTTP transport.
