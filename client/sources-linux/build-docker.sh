@@ -15,17 +15,17 @@ set -e
 
 echo "[+] Install python packages"
 
-python -OO -m pip install --upgrade setuptools
-python -OO -m pip install pycparser==2.17
-python -OO -m pip install -q six packaging appdirs
+python -m pip install --upgrade setuptools
+python -m pip install pycparser==2.17
+python -m pip install -q six packaging appdirs
 
 CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
- python -OO -m pip install -q pynacl --no-binary :all:
+ python -m pip install -q pynacl --no-binary :all:
 
 CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
- python -OO -m pip install -q cryptography --no-binary :all:
+ python -m pip install -q cryptography --no-binary :all:
 
-python -OO -m pip install \
+python -m pip install \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL python-xlib msgpack-python \
@@ -33,7 +33,7 @@ python -OO -m pip install \
        --no-binary :all:
 
 echo "[+] Compile pykcp"
-python -OO -m pip install $PYKCP
+python -m pip install $PYKCP
 
 echo "[+] Compile pyuv"
 
@@ -43,16 +43,13 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     CFLAGS_PYUV="$CFLAGS_PYUV -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'"
     
     CC=/gccwrap CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64" CFLAGS="$CFLAGS_PYUV" \
-      python -OO -m pip install pyuv --no-binary :all:
+      python -m pip install pyuv --no-binary :all:
 else
     CFLAGS="$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
-	  python -OO -m pip install pyuv --no-binary :all:
+	  python -m pip install pyuv --no-binary :all:
 fi
 
-echo "[+] Compile python files"
 cd /usr/lib/python2.7
-find -name "*.py" | python -m compileall -qfi -
-find -name "*.py" | python -OO -m compileall -qfi -
 
 echo "[+] Strip python modules"
 find -name "*.so" | while read f; do strip $f; done
@@ -88,10 +85,6 @@ esac
 
 for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
-cd $PUPY
-find -name "*.py" | while read py; do python -m compileall -lqf $py; done
-find -name "*.py" | while read py; do python -OO -m compileall -lqf $py; done
-
 cd $SRC
 
 make clean
@@ -121,4 +114,3 @@ else
     echo "[-] Build failed"
     exit 1
 fi
-

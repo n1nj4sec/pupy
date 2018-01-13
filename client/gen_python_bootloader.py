@@ -8,6 +8,11 @@ import os.path
 import os
 import argparse
 
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
+
+from PupyCompile import pupycompile
+
 remove_stdout='''
 import sys
 sys.tracebacklimit = 0
@@ -63,9 +68,7 @@ if __name__=="__main__":
     with open(os.path.join('..','additional_imports.py')) as f:
         preload = f.read()
 
-    pupyimporter = marshal.dumps(
-        compile(pupyimporter, '<string>', 'exec')
-    )
+    pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug)
 
     if not args.debug:
         print 'Generate bootloader with blackholed stderr/stdout'
@@ -85,7 +88,5 @@ if __name__=="__main__":
     if not os.path.exists('resources'):
         os.makedirs('resources')
 
-    with open(os.path.join("resources","bootloader.pyc"),'wb') as w:
-        w.write(marshal.dumps([
-            compile(block, '<string>', 'exec') for block in bootloader
-        ]))
+    with open(os.path.join('resources', 'bootloader.pyc'),'wb') as w:
+        w.write(pupycompile('\n'.join(bootloader), raw=True, debug=args.debug))

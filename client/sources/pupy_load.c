@@ -134,25 +134,18 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	);
 
 	if (seq) {
-		Py_ssize_t i, max = PySequence_Length(seq);
-		for (i=0;i<max;i++) {
-			PyObject *sub = PySequence_GetItem(seq, i);
-			if (seq) {
-				PyObject *discard = PyEval_EvalCode((PyCodeObject *)sub, d, d);
-				if (!discard) {
-					PyErr_Print();
-					rc = 255;
-					break;
-				}
-				Py_XDECREF(discard);
-				/* keep going even if we fail */
-			}
-			Py_XDECREF(sub);
+		PyObject *discard = PyEval_EvalCode((PyCodeObject *)seq, d, d);
+		if (!discard) {
+			PyErr_Print();
+			rc = 255;
 		}
+		Py_XDECREF(discard);
 	}
+
+	Py_XDECREF(seq);
 	PyGILState_Release(restore_state);
 	Py_Finalize();
-	//DeleteCriticalSection(&csInit);
 
+	//DeleteCriticalSection(&csInit);
 	return 0;
 }

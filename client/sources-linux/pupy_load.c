@@ -168,23 +168,16 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     munmap((char *) bootloader_c_start, bootloader_c_size);
 
     if (seq) {
-        Py_ssize_t i, max = PySequence_Length(seq);
-        for (i=0;i<max;i++) {
-            dprint("LOAD SEQUENCE %d\n", i);
-            PyObject *sub = PySequence_GetItem(seq, i);
-            if (seq) {
-                PyObject *discard = PyEval_EvalCode((PyCodeObject *)sub, d, d);
-                dprint("EVAL CODE %p -> %p\n", sub, discard);
-                if (!discard) {
-                    PyErr_Print();
-                    rc = 255;
-                    break;
-                }
-                Py_XDECREF(discard);
-            }
-            Py_XDECREF(sub);
+        PyObject *discard = PyEval_EvalCode((PyCodeObject *)seq, d, d);
+        dprint("EVAL CODE %p -> %p\n", seq, discard);
+        if (!discard) {
+            PyErr_Print();
+            rc = 255;
         }
+        Py_XDECREF(discard);
     }
+    Py_XDECREF(seq);
+
     dprint("complete ...\n");
     PyGILState_Release(restore_state);
     Py_Finalize();

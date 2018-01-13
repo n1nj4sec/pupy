@@ -24,6 +24,7 @@ from .PupyJob import PupyJob
 from .PupyCategories import PupyCategories
 from .PupyConfig import PupyConfig
 from .PupyService import PupyBindService
+from .PupyCompile import pupycompile
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
 from pupylib.utils.rpyc_utils import obtain
@@ -416,12 +417,12 @@ class PupyServer(object):
 
     def add_client(self, conn):
         pc=None
-        with open(path.join(self.config.root, 'pupylib', 'PupyClientInitializer.py')) as initializer:
-            conn.execute(
-                'import marshal;exec marshal.loads({})'.format(
-                    repr(marshal.dumps(compile(initializer.read(), '<loader>', 'exec')))
-                )
-            )
+        conn.execute(
+            'import marshal;exec marshal.loads({})'.format(
+                repr(pupycompile(
+                    path.join(
+                        self.config.root, 'pupylib', 'PupyClientInitializer.py'),
+                    path=True, raw=True))))
 
         with self.clients_lock:
             client_id = self.create_id()

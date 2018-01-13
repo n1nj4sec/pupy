@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, os.path, logging
-import compileall
 import cPickle
 import marshal
 import zlib
 from zipfile import ZipFile
+from ..PupyCompile import pupycompile
+
 import traceback
 
 class BinaryObjectError(ValueError):
@@ -103,8 +104,7 @@ exec marshal.loads({}) in mod.__dict__
 sys.modules[fullname]=mod
 '''.format(
         repr(modulename),
-        repr(marshal.dumps(compile(code, modulename, 'exec')))
-    )
+        repr(pupycompile(code, modulename, raw=True)))
 
     return code
 
@@ -164,9 +164,9 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
-                if ext == 'py' and ( base+'.pyc' in modules_dic or base+'.pyo' in modules_dic ):
-                    continue
-
+                if ext == 'py' and not base+'.pyo' in modules_dic:
+                    module_code = pupycompile(module_code, modpath)
+                    modpath = base+'.pyo'
                 elif ext == 'pyc':
                     if base+'.py' in modules_dic:
                         del modules_dic[base+'.py']
@@ -180,6 +180,9 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
                     if base+'.pyc' in modules_dic:
                         del modules_dic[base+'.pyc']
 
+                    if base+'.pyo' in modules_dic:
+                        continue
+
                 # Special case with pyd loaders
                 elif ext == 'pyd':
                     if base+'.py' in modules_dic:
@@ -190,16 +193,12 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
 
                     if base+'.pyo' in modules_dic:
                         del modules_dic[base+'.pyo']
-                if ext == "py":
-                    module_code = '\0'*8 + marshal.dumps(
-                        compile(module_code, modpath, 'exec')
-                    )
-                    modpath = base+'.pyc'
+
                 modules_dic[modpath] = module_code
 
             package_found=True
     else: # loading a simple file
-        extlist=[ '.pyo', '.pyc', '.py'  ]
+        extlist=[ '.py', '.pyo', '.pyc' ]
         if not pure_python_only:
             #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
             extlist+=[ '.so', '.pyd', '27.dll' ]
@@ -218,10 +217,8 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
                     cur+=rep+'/'
 
                 if ext == '.py':
-                    module_code = '\0'*8 + marshal.dumps(
-                        compile(module_code, start_path+ext, 'exec')
-                    )
-                    ext = '.pyc'
+                    module_code = pupycompile(module_code, start_path+ext)
+                    ext = '.pyo'
 
                 modules_dic[start_path+ext] = module_code
 
@@ -304,7 +301,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
             )
 
             endings = (
-                '/', '.pyo', '.pyc', '.py', '.pyd', '.so', '.dll'
+                '/', '.py', '.pyo', '.pyc', '.pyd', '.so', '.dll'
             )
 
             # Horrible pywin32..
@@ -318,6 +315,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
             ])
 
             for info in archive.infolist():
+                content = None
                 if info.filename.startswith(start_paths):
                     module_name = info.filename
                     for prefix in possible_prefixes:
@@ -331,8 +329,10 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
                         continue
 
                     # Garbage removing
-                    if ext == 'py' and ( base+'.pyc' in modules_dic or base+'.pyo' in modules_dic ):
-                        continue
+                    if ext == 'py' and not base+'.pyo' in modules_dic:
+                        content = pupycompile(
+                            archive.read(info.filename), info.filename)
+                        ext = 'pyo'
 
                     elif ext == 'pyc':
                         if base+'.py' in modules_dic:
@@ -347,6 +347,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
                         if base+'.pyc' in modules_dic:
                             del modules_dic[base+'.pyc']
 
+                        if base+'.pyo' in modules_dic:
+                            continue
                     # Special case with pyd loaders
                     elif ext == 'pyd':
                         if base+'.py' in modules_dic:
@@ -358,7 +360,10 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
                         if base+'.pyo' in modules_dic:
                             del modules_dic[base+'.pyo']
 
-                    modules_dic[module_name] = archive.read(info.filename)
+                    if not content:
+                        content = archive.read(info.filename)
+
+                    modules_dic[base+'.'+ext] = content
 
             archive.close()
 

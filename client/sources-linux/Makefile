@@ -111,7 +111,7 @@ resources/$(ARCH)/python27.so: $(LIBPYTHON)
 	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
-	mv $@.tmp $@
+	sed $@.tmp -e 's@/tmp@\x00tmp@g;s@/usr@\x00usr@g' >$@
 	rm -f $@.tmp
 
 resources/$(ARCH)/libcrypto.so: $(LIBCRYPTO)

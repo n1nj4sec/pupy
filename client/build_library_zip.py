@@ -1,19 +1,41 @@
 import sys
 import os
 
-PATCHES = os.path.join('..','library_patches')
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+print "ROOT: ", ROOT
+
+PATCHES = os.path.join(ROOT, 'library_patches')
 
 sys.path.insert(0, PATCHES)
-sys.path.insert(0, os.path.join('..','..','pupy'))
+sys.path.append(os.path.join(ROOT, 'pupy'))
+sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
+
+from PupyCompile import pupycompile
 
 import additional_imports
 import Crypto
 import pp
 import site
+import marshal
 
 sys_modules = [
     (x,sys.modules[x]) for x in sys.modules.keys()
 ]
+
+fileid = 0
+compile_map = {}
+
+def compile_py(path):
+    global compile_map
+    global fileid
+
+    compile_map[fileid] = path
+    data = pupycompile(path, 'fid://{}'.format(fileid), path=True)
+    print "[C] {} -> fid://{}".format(path, fileid)
+    fileid += 1
+
+    return data
 
 all_dependencies=set(
     [
@@ -40,9 +62,6 @@ from distutils.core import setup
 from glob import glob
 import zipfile
 import shutil
-import compileall
-
-compileall.compile_dir(PATCHES)
 
 zf = zipfile.ZipFile(sys.argv[1], mode='w', compression=zipfile.ZIP_DEFLATED)
 
@@ -66,21 +85,12 @@ try:
             for root, dirs, files in os.walk(mdep.__path__[0]):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
                     found=False
-                    for ext in ('.dll', '.so', '.pyo', '.pyd', '.pyc', '.py'):
-                        if ( ext == '.py' or ext == '.pyc' ) and found:
+                    for ext in ('.dll', '.so', '.pyd', '.py', '.pyc', '.pyo'):
+                        if ( ext == '.pyc' or ext == '.pyo' ) and found:
                             continue
 
                         pypath = os.path.join(root,f+ext)
                         if os.path.exists(pypath):
-                            if ext == '.py':
-                                try:
-                                    compileall.compile_file(os.path.relpath(pypath))
-                                except ValueError:
-                                    compileall.compile_file(pypath)
-                                for extc in ( '.pyc', '.pyo' ):
-                                    if os.path.exists(os.path.join(root,f+extc)):
-                                        ext = extc
-
                             zipname = '/'.join([root[len(path)+1:], f.split('.', 1)[0] + ext])
                             zipname = zipname.replace('\\', '/')
                             found=True
@@ -99,22 +109,28 @@ try:
 
                             if zipname in content:
                                 continue
-                            for extp in ( '.pyo', '.pyc', '.py' ):
-                                if os.path.exists(os.path.join(PATCHES, f+extp)):
-                                    print('found [PATCH] for {}'.format(f))
-                                    root = PATCHES
-                                    ext = extp
-                                    break
+
+                            if os.path.exists(os.path.join(PATCHES, f+'.py')):
+                                print('found [PATCH] for {}'.format(f))
+                                root = PATCHES
+                                ext = '.py'
+                                break
 
                             print('adding file : {}'.format(zipname))
                             content.add(zipname)
-                            zf.write(os.path.join(root,f+ext), zipname)
+
+                            if ext == '.py':
+                                zf.writestr(
+                                    zipname+'o',
+                                    compile_py(os.path.join(root,f+ext)))
+                            else:
+                                zf.write(os.path.join(root,f+ext), zipname)
         else:
             if '<memimport>' in mdep.__file__:
                 continue
 
             found_patch = None
-            for extp in ( '.pyo', '.pyc', '.py' ):
+            for extp in ( '.py', '.pyc', '.pyo' ):
                 if os.path.exists(os.path.join(PATCHES, dep+extp)):
                     found_patch = (os.path.join(PATCHES, dep+extp), extp)
                     break
@@ -124,14 +140,28 @@ try:
                     continue
 
                 print('adding [PATCH] %s -> %s'%(found_patch[0], dep+found_patch[1]))
-                zf.write(found_patch[0], dep+found_patch[1])
+                if found_patch[0].endswith('.py'):
+                    zf.writestr(
+                        dep+found_patch[1]+'o',
+                        compile_py(found_patch[0]))
+                else:
+                    zf.write(found_patch[0], dep+found_patch[1])
+
             else:
                 _, ext = os.path.splitext(mdep.__file__)
                 if dep+ext in content:
                     continue
 
                 print('adding %s -> %s'%(mdep.__file__, dep+ext))
-                zf.write(mdep.__file__, dep+ext)
+                if mdep.__file__.endswith(('.pyc', '.pyo', '.py')):
+                    srcfile = mdep.__file__
+                    if srcfile.endswith(('.pyc', '.pyo')):
+                        srcfile = srcfile[:-1]
+
+                    zf.writestr(dep+'.pyo', compile_py(srcfile))
+                else:
+                    zf.write(mdep.__file__, dep+ext)
 
 finally:
+    zf.writestr('fid.toc', marshal.dumps(compile_map))
     zf.close()

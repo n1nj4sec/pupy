@@ -17,23 +17,17 @@ PYKCP=../../pupy/external/pykcp
 
 echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
-    $PYTHON -OO -m pip install -q --upgrade pip
-    $PYTHON -OO -m pip install -q --upgrade setuptools
-    $PYTHON -OO -m pip install -q pycparser==2.17
-    $PYTHON -OO -m pip install $PACKAGES
-    $PYTHON -OO -m pip install --no-binary :all: $PACKAGES_BUILD
-    $PYTHON -OO -m pip install --upgrade --force $PYKCP
+    $PYTHON -m pip install -q --upgrade pip
+    $PYTHON -m pip install -q --upgrade setuptools
+    $PYTHON -m pip install -q pycparser==2.17
+    $PYTHON -m pip install $PACKAGES
+    $PYTHON -m pip install --no-binary :all: $PACKAGES_BUILD
+    $PYTHON -m pip install --upgrade --force $PYKCP
 done
 
 echo "[+] Install psutil"
-$PYTHON32 -OO -m pip install --no-binary :all: psutil==4.3.1
-$PYTHON64 -OO -m pip install --no-binary :all: psutil
-
-echo "[+] Compile python files"
-for PYTHON in $PYTHON32 $PYTHON64; do
-    $PYTHON -m compileall -q C:\\Python27\\Lib >/dev/null || true
-    $PYTHON -OO -m compileall -q C:\\Python27\\Lib >/dev/null || true
-done
+$PYTHON32 -m pip install --no-binary :all: psutil==4.3.1
+$PYTHON64 -m pip install --no-binary :all: psutil
 
 echo "[+] Compile pupymemexec /32"
 $CL32 \
@@ -96,11 +90,6 @@ TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64d.unc.dll pupyx64d.unc.exe
 TARGETS="$TARGETS pupyx64.exe pupyx64.unc.dll pupyx64.unc.exe pupyx86d.dll pupyx86d.exe pupyx86.dll"
 TARGETS="$TARGETS pupyx86d.unc.dll pupyx86d.unc.exe pupyx86.exe pupyx86.unc.dll pupyx86.unc.exe"
 
-cd ${PUPY}
-
-find -name "*.py" | while read py; do python -m compileall -lqf $py; done
-find -name "*.py" | while read py; do python -OO -m compileall -lqf $py; done
-
 cd ${SRC}
 
 for target in $TARGETS; do rm -f $TEMPLATES/$target; done
@@ -140,4 +129,3 @@ else
     echo "[-] Build failed"
     exit 1
 fi
-
