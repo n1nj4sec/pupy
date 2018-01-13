@@ -11,6 +11,7 @@ void on_exit_session(void);
 
 static BOOL on_exit_session_called = FALSE;
 
+#ifdef HAVE_WINDOW
 LRESULT CALLBACK WinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {
@@ -117,3 +118,9 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     return 0;
 }
+#else
+int main()
+{
+    mainThread(NULL);
+}
+#endif
