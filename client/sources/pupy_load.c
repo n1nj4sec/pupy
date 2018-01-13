@@ -52,14 +52,15 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 	dfprint(stderr, "TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
 	if(!GetModuleHandle("msvcr90.dll")) {
+		size_t msvcr90_size;
 		void *msvcr90 = lzmaunpack(
 			msvcr90_c_start,
 			msvcr90_c_size,
-			NULL
+			&msvcr90_size
 		);
 
 		int r = _load_msvcr90(msvcr90);
-		lzmafree(msvcr90);
+		lzmafree(msvcr90, msvcr90_size);
 
 		dfprint(stderr,"loading msvcr90.dll: %d\n", r);
 	}
@@ -79,9 +80,10 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 			_load_python_FromFile("python27.dll"); // does not actually load a new python, but uses the handle of the already loaded one
 		}
 		else{
-			void *python27 = lzmaunpack(python27_c_start, python27_c_size, NULL);
+			size_t python27_size;
+			void *python27 = lzmaunpack(python27_c_start, python27_c_size, &python27_size);
 			int res = _load_python("python27.dll", python27);
-			lzmafree(python27);
+			lzmafree(python27, python27_size);
 			if(!res) {
 				dfprint(stderr,"loading python27.dll from memory failed\n");
 
@@ -98,7 +100,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 					}
 				}
 			}
-		dfprint(stderr,"python interpreter loaded\n");
+			dfprint(stderr,"python interpreter loaded\n");
 		}
 	}
 	dfprint(stderr,"calling PyEval_InitThreads() ...\n");
@@ -130,6 +132,7 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		bootloader_c_start,
 		bootloader_c_size
 	);
+
 	if (seq) {
 		Py_ssize_t i, max = PySequence_Length(seq);
 		for (i=0;i<max;i++) {

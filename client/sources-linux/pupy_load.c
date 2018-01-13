@@ -53,7 +53,7 @@ static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzs
 
     void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
 
-    lzmafree(uncompressed);
+    lzmafree(uncompressed, uncompressed_size);
 
     if (!res) {
         dprint("loading %s from memory failed\n", soname);
