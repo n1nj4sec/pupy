@@ -46,6 +46,7 @@ import socket
 import errno
 from . import PupyClient
 import os.path
+import platform
 
 class PupyServer(threading.Thread):
     def __init__(self, config, credentials):
@@ -217,7 +218,8 @@ class PupyServer(threading.Thread):
             if self.handler:
                 addr = conn.modules['pupy'].get_connect_back_host()
                 if sounds:
-                    os.system("aplay /usr/share/sounds/sound-icons/prompt.wav")
+                    if platform.system() == 'Linux':
+                        os.system("aplay /usr/share/sounds/sound-icons/prompt.wav")
                 try:
                     client_ip, client_port = conn._conn._config['connid'].rsplit(':', 1)
                 except:
