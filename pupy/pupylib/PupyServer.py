@@ -82,6 +82,8 @@ class PupyServer(threading.Thread):
 
         self.transport = self.config.get('pupyd', 'transport')
         self.transport_kwargs = transport_args[1] if len(transport_args) > 1 else None
+        
+        sounds = self.config.get('pupyd', 'sounds')
 
         self.handler = None
         self.handler_registered = threading.Event()
@@ -214,6 +216,8 @@ class PupyServer(threading.Thread):
             self.clients.append(pc)
             if self.handler:
                 addr = conn.modules['pupy'].get_connect_back_host()
+                if sounds:
+                    os.system("aplay /usr/share/sounds/sound-icons/prompt.wav")
                 try:
                     client_ip, client_port = conn._conn._config['connid'].rsplit(':', 1)
                 except:
