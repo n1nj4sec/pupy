@@ -64,6 +64,7 @@ if __name__=="__main__":
     parser.add_argument('--port', '-p', help='change the listening port', type=int)
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument('-NE', '--not-encrypt', help='Do not encrypt configuration', action='store_true')
+    parser.add_argument('--sound', dest='sounds', help='Play a sound when a session connects', action='store_true')
     args = parser.parse_args()
 
     if args.workdir:
@@ -97,6 +98,9 @@ if __name__=="__main__":
 
     if args.transport_args:
         config.set('pupyd', 'transport_args', args.transport_args, cmd=True)
+    
+    if args.sounds:
+        config.set('pupyd', 'sounds', args.sounds, cmd=True)
 
     pupyServer = PupyServer(config, credentials)
     pupycmd = PupyCmdLoop(pupyServer)
