@@ -76,6 +76,7 @@ def get_edit_binary(path, conf, compressed_config=True):
     return binary
 
 def get_raw_conf(conf, obfuscate=False, verbose=False):
+     
     credentials = Credentials(role='client')
 
     if not "offline_script" in conf:
@@ -544,7 +545,7 @@ def pupygen(args, config):
                 if "-t" in args.launcher_args or "--transport" in args.launcher_args:
                     args.launcher_args += ['--host', '{}:{}'.format(myip, myport)]
                 else:
-                    args.launcher_args = [
+                    args.launcher_args += [
                         '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
                     ]
             elif str(e).strip().endswith('--domain is required') and not '--domain' in args.launcher_args:
