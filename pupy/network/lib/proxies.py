@@ -55,6 +55,7 @@ def get_win_proxies():
         if user.endswith('_classes'):
             continue
 
+        aKey = None
         try:
             key = '{}\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings'.format(user)
             aKey = OpenKey(HKEY_USERS, key, 0, KEY_QUERY_VALUE)
@@ -64,12 +65,12 @@ def get_win_proxies():
                     if p not in duplicates:
                         yield p
                         duplicates.add(p)
-
         except Exception:
             pass
 
         finally:
-            CloseKey(aKey)
+            if aKey:
+                CloseKey(aKey)
 
 
 def get_python_proxies():
