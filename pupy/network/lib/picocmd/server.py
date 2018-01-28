@@ -304,13 +304,12 @@ class DnsCommandServerHandler(BaseResolver):
             idx = idx << 25
             bits = ( struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0] ) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
-            address = '.'.join(['{}'.format(int(x)) for x in packed])
-            response.append(RR('.', QTYPE.A, rdata=A(address), ttl=600))
+            response.append('.'.join(['{}'.format(int(x)) for x in packed]))
 
         return response
 
     def _q_page_decoder(self, data):
-        parts = data.stripSuffix(self.domain).idna()[:-1].split('.')
+        parts = data.split('.')
 
         if len(parts) == 0:
             raise DnsPingRequest(1)
@@ -457,27 +456,7 @@ class DnsCommandServerHandler(BaseResolver):
             self.cache[part] = response
             return response
 
-    def _resolve(self, request, handler):
-        qname = request.q.qname
-        reply = request.reply()
-
-        # TODO:
-        # Resolve NS?, DS, SOA somehow
-        if not qname.matchSuffix(self.domain):
-            if self.recursor:
-                try:
-                    return DNSRecord.parse(request.send(self.recursor, timeout=2))
-                except socket.error:
-                    pass
-                except Exception as e:
-                    logging.exception('DNS request forwarding failed')
-            else:
-                logging.debug('DNSCNC: Bad domain: {} (suffix={})'.format(qname, self.domain))
-
-            reply.header.rcode = RCODE.NXDOMAIN
-            return reply
-
-
+    def process(self, qname):
         responses = []
 
         session = None
@@ -515,40 +494,63 @@ class DnsCommandServerHandler(BaseResolver):
             logging.debug('dnscnc: Invalid CRC')
 
         except DnsNoCommandServerException:
-            reply.header.rcode = RCODE.NXDOMAIN
             logging.debug('dnscnc: No CNC Exception')
-            return reply
+            return None
 
         except DnsPingRequest, e:
+            replies = []
             for i in xrange(e.args[0]):
                 x = (i % 65536) >> 8
                 y = i % 256
-                a = RR('.', QTYPE.A, rdata=A('127.0.{}.{}'.format(x, y)), ttl=10)
-                a.rname = qname
-                reply.add_answer(a)
+                replies.append('127.0.{}.{}'.format(x, y))
 
             logging.debug('dnscnc:ping request:{}'.format(i))
-            return reply
+            return replies
 
         except TypeError, e:
             # Usually - invalid padding
             logging.debug('dnscnc:invalid padding')
             logging.exception(e)
-            reply.header.rcode = RCODE.NXDOMAIN
-            return reply
+            return None
 
         except Exception as e:
             logging.exception(e)
-            reply.header.rcode = RCODE.NXDOMAIN
-            return reply
+            return None
 
         logging.debug('dnscnc:responses={} session={}'.format(responses, session))
 
         encoder = session.encoder if session else self.encoder
-        for rr in self._a_page_encoder(Parcel(*responses).pack(), encoder, nonce):
-            a = copy.copy(rr)
-            a.rname = qname
-            reply.add_answer(a)
+
+        return self._a_page_encoder(Parcel(*responses).pack(), encoder, nonce)
+
+    def _resolve(self, request, handler):
+        qname = request.q.qname
+        reply = request.reply()
+
+        # TODO:
+        # Resolve NS?, DS, SOA somehow
+        if not qname.matchSuffix(self.domain):
+            if self.recursor:
+                try:
+                    return DNSRecord.parse(request.send(self.recursor, timeout=2))
+                except socket.error:
+                    pass
+                except Exception as e:
+                    logging.exception('DNS request forwarding failed')
+            else:
+                logging.debug('DNSCNC: Bad domain: {} (suffix={})'.format(qname, self.domain))
+
+            reply.header.rcode = RCODE.NXDOMAIN
+            return reply
+
+
+        arecords = self.process(qname.stripSuffix(self.domain).idna()[:-1])
+
+        if arecords:
+            for address in arecords:
+                reply.add_answer(RR(qname, QTYPE.A, rdata=A(address), ttl=600))
+        else:
+            reply.header.rcode = RCODE.NXDOMAIN
 
         return reply
 

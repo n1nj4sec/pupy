@@ -43,6 +43,7 @@ from shutil import copyfile
 from itertools import count, ifilterfalse
 from netaddr import IPAddress
 from random import randint
+from .PupyOffload import PupyOffloadManager
 import marshal
 import network.conf
 import rpyc
@@ -207,6 +208,18 @@ class Listener(Thread):
             external=self.external,
             external_port=self.external_port
         )
+
+        if not self.pupsrv:
+            return
+
+        offload_server = self.pupsrv.config.get('pupyd', 'offload_server')
+        offload_psk = self.pupsrv.config.get('pupyd', 'offload_psk')
+        if not (offload_server and offload_psk):
+            return
+
+        ## Workaround..
+        self.server.listener.close()
+        self.server.listener = PupyOffloadManager(offload_server, offload_psk).tcp(self.port)
 
     def run(self):
         self.server.start()

