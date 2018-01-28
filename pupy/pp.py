@@ -658,7 +658,7 @@ def main():
         launcher.parse_args(LAUNCHER_ARGS)
     except LauncherError as e:
         launcher.arg_parser.print_usage()
-        os._exit(str(e))
+        os._exit(1)
 
     if getattr(pupy, 'pseudo', False):
         set_connect_back_host(launcher.get_host())
