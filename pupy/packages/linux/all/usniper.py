@@ -48,6 +48,24 @@ class USniper(pupy.Task):
             random.choice(string.ascii_uppercase + string.digits) for _ in range(16)
         )
 
+        self._results = {}
+
+        try:
+            with open('{}/tracing/uprobe_events'.format(self._fs), 'w') as events:
+                register = '{}:{} {}:{} {}\n'.format(
+                    'r' if self._ret else 'p', self._marker, self._path, self._addr,
+                    '+0({}):{}'.format(self._reg, self._cast) if self._cast else self._reg
+                )
+                events.write(register)
+
+        except IOError:
+            self._stopped.set()
+            raise
+
+        with open('{}/tracing/events/uprobes/{}/enable'.format(self._fs, self._marker), 'w') as trigger:
+            trigger.write('1\n')
+
+
     @property
     def results(self):
         with self._lock:
@@ -67,23 +85,6 @@ class USniper(pupy.Task):
         return True
 
     def task(self):
-        self._results = {}
-
-        try:
-            with open('{}/tracing/uprobe_events'.format(self._fs), 'w') as events:
-                register = '{}:{} {}:{} {}\n'.format(
-                    'r' if self._ret else 'p', self._marker, self._path, self._addr,
-                    '+0({}):{}'.format(self._reg, self._cast) if self._cast else self._reg
-                )
-                events.write(register)
-
-        except IOError:
-            self._stopped.set()
-            raise
-
-        with open('{}/tracing/events/uprobes/{}/enable'.format(self._fs, self._marker), 'w') as trigger:
-            trigger.write('1\n')
-
         try:
             with open('{}/tracing/trace_pipe'.format(self._fs), 'r') as trace:
                 self._pipe = trace
