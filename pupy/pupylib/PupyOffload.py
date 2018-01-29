@@ -79,6 +79,12 @@ class PupyOffloadSocket(object):
         self._laddr = (lhost, lport)
         self._raddr = (rhost, rport)
 
+    def getsockname(self):
+        return self._laddr
+
+    def getpeername(self):
+        return self._raddr
+
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return getattr(self, attr)
@@ -112,7 +118,7 @@ class PupyOffloadAcceptor(object):
     def accept(self):
         print "ACCEPT START", self._port
         try:
-            self._conn = self._manager._connect(1, self._port)
+            self._conn = self._manager._connect(self._proto, self._port)
             m = MsgPackMessages(self._conn)
             conninfo = m.recv()
             print "CONNINFO: ", conninfo
@@ -142,6 +148,9 @@ class PupyOffloadManager(object):
 
     def tcp(self, port):
         return PupyOffloadAcceptor(self, 1, port=port)
+
+    def kcp(self, port):
+        return PupyOffloadAcceptor(self, 2, port=port)
 
     def _connect(self, conntype, bind, timeout=0):
         c = socket.create_connection(self._server)

