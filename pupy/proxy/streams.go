@@ -13,12 +13,35 @@ import (
 	kcp "github.com/xtaci/kcp-go"
 )
 
-func netReader(conn net.Conn, ch chan []byte, cherr chan error) {
-	var buffer [65535]byte
+func netReader(mtu int, conn net.Conn, ch chan []byte, cherr chan error) {
+	buffers := [][]byte{
+		make([]byte, 65535),
+		make([]byte, 65535),
+	}
+
+	buffIdx := 0
+
 	for {
-		n, err := conn.Read(buffer[:])
+		buffer := buffers[buffIdx]
+		n, err := conn.Read(buffer)
+
 		if n > 0 {
-			ch <- buffer[:n]
+			if n < mtu || mtu == -1 {
+				ch <- buffer[:n]
+			} else {
+				offset := 0
+				for n > 0 {
+					portion := n
+					if n > mtu {
+						portion = mtu
+					}
+
+					ch <- buffer[offset : offset+portion]
+					n -= portion
+					offset += portion
+				}
+			}
+			buffIdx = (buffIdx + 1) % 2
 		}
 
 		if err != nil {
@@ -41,7 +64,7 @@ func netForwarder(local, remote net.Conn, errout chan error, out chan []byte) (e
 	defer close(errin)
 	defer close(in)
 
-	go netReader(remote, in, errin)
+	go netReader(-1, remote, in, errin)
 
 	localAddr := strings.Split(local.LocalAddr().String(), ":")
 	remoteAddr := strings.Split(remote.RemoteAddr().String(), ":")
@@ -84,7 +107,11 @@ func netForwarder(local, remote net.Conn, errout chan error, out chan []byte) (e
 			to.Close()
 		} else {
 			n, err := to.Write(data)
-			log.Println("Write: ", n)
+			if to == remote {
+				log.Println("Write KCP: ", n)
+			} else {
+				log.Println("Write TCP: ", n)
+			}
 			if err != nil {
 				if out != nil {
 					local.Close()
@@ -193,7 +220,8 @@ func (d *Daemon) listenAcceptKCP(port int, cherr chan error, chconn chan net.Con
 
 		l := ll.(*kcp.Listener)
 
-		l.SetReadBuffer(8192)
+		l.SetReadBuffer(1024 * 1024)
+		l.SetWriteBuffer(1024 * 1024)
 		return l, nil
 	})
 
@@ -240,7 +268,7 @@ func (d *Daemon) listenAcceptKCP(port int, cherr chan error, chconn chan net.Con
 	log.Println("Acceptor completed (KCP)")
 }
 
-func (d *Daemon) serveStream(in net.Conn, bind string, acceptor func(int, chan error, chan net.Conn)) {
+func (d *Daemon) serveStream(mtu int, in net.Conn, bind string, acceptor func(int, chan error, chan net.Conn)) {
 	defer in.Close()
 
 	port, err := strconv.Atoi(bind)
@@ -263,7 +291,7 @@ func (d *Daemon) serveStream(in net.Conn, bind string, acceptor func(int, chan e
 	defer close(cherr)
 	defer close(chconn)
 
-	go netReader(in, out, errout)
+	go netReader(mtu, in, out, errout)
 	go acceptor(port, cherr, chconn)
 
 	needFinishAcceptor := true

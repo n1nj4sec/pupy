@@ -85,10 +85,10 @@ func (d *Daemon) handle(conn net.Conn) {
 
 	case TCP:
 		log.Printf("Start TCP handler with port: %s", brh.BindInfo)
-		d.serveStream(conn, brh.BindInfo, d.listenAcceptTCP)
+		d.serveStream(65000, conn, brh.BindInfo, d.listenAcceptTCP)
 	case KCP:
 		log.Printf("Start KCP handler with port: %s", brh.BindInfo)
-		d.serveStream(conn, brh.BindInfo, d.listenAcceptKCP)
+		d.serveStream(1376, conn, brh.BindInfo, d.listenAcceptKCP)
 	default:
 		log.Println("Unknown protocol")
 	}
