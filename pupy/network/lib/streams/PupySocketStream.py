@@ -321,7 +321,7 @@ class PupyUDPSocketStream(object):
                 offset = 0
                 while to_send and not self.closed:
                     portion = mic if mic < to_send else to_send
-                    self.kcp.send(data[offset:offset+mic])
+                    self.kcp.send(data[offset:offset+portion])
                     offset += portion
                     to_send -= portion
 
