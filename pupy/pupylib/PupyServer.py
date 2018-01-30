@@ -349,12 +349,12 @@ class PupyServer(object):
                 self.pproxy = PupyOffloadManager(
                     offload_server, ca, key, cert)
                 self.motd['ok'].append(
-                    'Using Pupy Offload Proxy: proxy={} external={}'.format(
+                    'Offload Proxy: proxy={} external={}'.format(
                         offload_server,
                         self.pproxy.external))
             except Exception, e:
                 self.pproxy = None
-                self.motd['ok'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
+                self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
 
         if self.config.getboolean('pupyd', 'httpd'):
             self.httpd = True
@@ -376,7 +376,7 @@ class PupyServer(object):
                 )
                 self.motd['ok'].append('IGDClient enabled')
             except UPNPError as e:
-                self.motd['ok'].append('IGDClient failed: {}'.format(e))
+                self.motd['fail'].append('IGDClient failed: {}'.format(e))
 
         self.dnscnc = None
 
