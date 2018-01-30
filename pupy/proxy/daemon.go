@@ -70,6 +70,17 @@ func (d *Daemon) handle(conn net.Conn) {
 		d.DNSCheck.Unlock()
 		d.DNSLock.Unlock()
 
+	case INFO:
+		log.Printf("Request external IP")
+		ip := GetOutboundIP()
+		if CheckExternalBindHostIP() {
+			ip = ExternalBindHost
+		}
+
+		SendMessage(conn, &IPInfo{
+			IP: ip,
+		})
+
 	case TCP:
 		log.Printf("Start TCP handler with port: %s", brh.BindInfo)
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTCP)

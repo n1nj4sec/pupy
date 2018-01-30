@@ -73,6 +73,10 @@ type (
 		ListenersLock sync.Mutex
 	}
 
+	IPInfo struct {
+		IP string `msgpack:"ip"`
+	}
+
 	Extra struct {
 		Extra bool   `msgpack:"extra"`
 		Data  string `msgpack:"data"`
@@ -86,8 +90,9 @@ type (
 )
 
 const (
-	DNS ListenerProtocol = 0
-	TCP ListenerProtocol = iota
-	KCP ListenerProtocol = iota
-	TLS ListenerProtocol = iota
+	INFO ListenerProtocol = 0
+	DNS  ListenerProtocol = iota
+	TCP  ListenerProtocol = iota
+	KCP  ListenerProtocol = iota
+	TLS  ListenerProtocol = iota
 )

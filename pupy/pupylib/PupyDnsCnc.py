@@ -147,6 +147,7 @@ class PupyDnsCnc(object):
             credentials=None,
             listeners=None,
             cmdhandler=None,
+            pproxy=None
         ):
 
         credentials = credentials or Credentials()
@@ -157,6 +158,7 @@ class PupyDnsCnc(object):
         self.igd = igd
         self.listeners = listeners
         self.cmdhandler = cmdhandler
+        self.pproxy = pproxy
 
         fdqn = self.config.get('pupyd', 'dnscnc').split(':')
         domain = fdqn[0]
@@ -183,18 +185,11 @@ class PupyDnsCnc(object):
             config=self.config
         )
 
-        offload_server = config.get('pupyd', 'offload_server')
-        ca = config.get('pupyd', 'offload_server_ca')
-        key = config.get('pupyd', 'offload_server_key')
-        cert = config.get('pupyd', 'offload_server_crt')
-
-        if offload_server and ca and key and cert:
+        if self.pproxy:
             try:
-                manager = PupyOffloadManager(offload_server, ca, key, cert)
-                self.server = manager.dns(self.handler, domain)
+                self.server = self.pproxy.dns(self.handler, domain)
             except Exception, e:
                 logging.exception(e)
-
         else:
             self.server = DnsCommandServer(
                 self.handler,

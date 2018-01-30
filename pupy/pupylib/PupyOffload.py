@@ -66,7 +66,7 @@ class PupyOffloadDNS(threading.Thread):
                 self.active = False
 
     def _serve(self):
-        self._conn = self.manager._connect(0, self.domain)
+        self._conn = self.manager._connect(1, self.domain)
         conn = MsgPackMessages(self._conn)
         while self.active:
             request = conn.recv()
@@ -102,12 +102,13 @@ class PupyOffloadSocket(object):
         return getattr(self._sock, attr)
 
 class PupyOffloadAcceptor(object):
-    def __init__(self, manager, proto, port=None):
+    def __init__(self, manager, proto, port=None, extra={}):
         self._manager = manager
         self._proto = proto
         self._host = None
         self._port = port
         self._conn = None
+        self._extra = extra
         self.active = True
 
     def bind(self, addr):
@@ -137,7 +138,7 @@ class PupyOffloadAcceptor(object):
                 conninfo = m.recv()
 
                 if conninfo['extra']:
-                    data = self._manager.extra(conninfo['data'])
+                    data = self._extra[conninfo['data']]
                     m.send(data)
                     conninfo = m.recv()
 
@@ -163,17 +164,17 @@ class PupyOffloadAcceptor(object):
                 raise
 
 class PupyOffloadManager(object):
-    def __init__(self, server, ca, key, crt, extra={}):
+    def __init__(self, server, ca, key, crt):
         if ':' in server:
             host, port = server.rsplit(':', 1)
             self._server = (host, int(port))
         else:
             self._server = server
 
-        self._extra = extra
         self._ca = ca
         self._key = key
         self._crt = crt
+        self._external_ip = None
         self._ctx = ssl.create_default_context(
             purpose=ssl.Purpose.CLIENT_AUTH,
             cafile=self._ca
@@ -184,20 +185,23 @@ class PupyOffloadManager(object):
     def dns(self, handler, domain):
         return PupyOffloadDNS(self, handler, domain)
 
-    def tcp(self, port):
-        return PupyOffloadAcceptor(self, 1, port=port)
+    def tcp(self, port, extra={}):
+        return PupyOffloadAcceptor(self, 2, port, extra)
 
-    def kcp(self, port):
-        return PupyOffloadAcceptor(self, 2, port=port)
+    def kcp(self, port, extra={}):
+        return PupyOffloadAcceptor(self, 3, port, extra)
 
-    def ssl(self, port):
-        return PupyOffloadAcceptor(self, 3, port=port)
+    def ssl(self, port, extra={}):
+        return PupyOffloadAcceptor(self, 4, port, extra)
 
-    def extra(self, data):
-        if data in self._extra:
-            return self._extra[data]
+    @property
+    def external(self):
+        if self._external_ip is None:
+            c = self._connect(0, "")
+            m = MsgPackMessages(c)
+            self._external_ip = m.recv()['ip']
 
-        raise EOFError('Required extra data not found')
+        return self._external_ip
 
     def _connect(self, conntype, bind, timeout=0):
         c = socket.create_connection(self._server)

