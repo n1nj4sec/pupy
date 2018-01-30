@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 
+	"time"
+
 	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
@@ -64,6 +66,10 @@ func (d *Daemon) onListenerDisabled() {
 
 func (d *Daemon) handle(conn net.Conn) {
 	defer conn.Close()
+
+	conn.(*net.TCPConn).SetKeepAlive(true)
+	conn.(*net.TCPConn).SetKeepAlivePeriod(1 * time.Minute)
+	conn.(*net.TCPConn).SetNoDelay(true)
 
 	brh := &BindRequestHeader{}
 

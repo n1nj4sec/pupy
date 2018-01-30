@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"time"
+
 	"errors"
 
 	"crypto/tls"
@@ -201,6 +203,10 @@ func (d *Daemon) listenAcceptTCP(in net.Conn, port int, cherr chan error, chconn
 		log.Debug("Acceptor exited")
 		return
 	} else {
+		conn.(*net.TCPConn).SetKeepAlive(true)
+		conn.(*net.TCPConn).SetKeepAlivePeriod(1 * time.Minute)
+		conn.(*net.TCPConn).SetNoDelay(true)
+
 		chconn <- conn
 	}
 
@@ -253,6 +259,10 @@ func (d *Daemon) listenAcceptTLS(in net.Conn, port int, cherr chan error, chconn
 		log.Debug("Acceptor exited")
 		return
 	} else {
+		conn.(*net.TCPConn).SetKeepAlive(true)
+		conn.(*net.TCPConn).SetKeepAlivePeriod(1 * time.Minute)
+		conn.(*net.TCPConn).SetNoDelay(true)
+
 		chconn <- conn
 	}
 
