@@ -396,7 +396,8 @@ class PupyServer(object):
                     config=self.config,
                     credentials=self.credentials,
                     listeners=self.get_listeners,
-                    cmdhandler=self.handler
+                    cmdhandler=self.handler,
+                    pproxy=self.pproxy,
                 )
             except Exception, e:
                 logging.error('DnsCNC failed: {}'.format(e))
