@@ -351,7 +351,10 @@ class DnsCommandServerHandler(BaseResolver):
         logging.debug('dnscnc:commands={} session={}'.format(command, session))
 
         if isinstance(command, Poll) and session is None:
-            return [Policy(self.interval, self.kex), Poll()]
+            if not self.kex:
+                return self.commands
+            else:
+                return [Policy(self.interval, self.kex), Poll()]
 
         elif isinstance(command, Ack) and (session is None):
             pass
@@ -468,13 +471,11 @@ class DnsCommandServerHandler(BaseResolver):
                 if nonce < session.last_nonce:
                     logging.info('Ignore nonce from past: {} < {}'.format(
                         nonce, session.last_nonce))
-                    reply.header.rcode = RCODE.NXDOMAIN
-                    return reply
+                    return []
                 elif session.last_nonce == nonce and session.last_qname != qname:
                     logging.info('Last nonce but different qname: {} != {}'.format(
                         session.last_qname, qname))
-                    reply.header.rcode = RCODE.NXDOMAIN
-                    return reply
+                    return []
 
             for command in Parcel.unpack(request):
                 for response in self._cmd_processor(command, session):
