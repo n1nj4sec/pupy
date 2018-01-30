@@ -120,37 +120,47 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	now := time.Now()
 
+	p.cacheLock.Lock()
 	for k, v := range p.DNSCache {
 		if v.LastActivity.Add(1 * time.Minute).Before(now) {
 			log.Debug("Delete cache: ", k)
 			delete(p.DNSCache, k)
 		}
 	}
+	p.cacheLock.Unlock()
 
 	if len(r.Question) > 0 {
 		for _, q := range r.Question {
-			log.Info("DNS: Request: ", q.Name)
 
-			if _, ok := p.DNSCache[q.Name]; !ok {
-				log.Debug(q.Name, " not in cache")
+			log.Debug("DNS: Request: ", q.Name)
+			p.cacheLock.Lock()
+			record, ok := p.DNSCache[q.Name]
+			p.cacheLock.Unlock()
+
+			if !ok {
+				log.Info("DNS: Request: ", q.Name, " not in cache")
 
 				question := q.Name[:]
 				if q.Name[len(q.Name)-1] == '.' {
 					question = q.Name[:len(q.Name)-1]
 				}
 
+				responses := []string{}
+
 				if strings.HasSuffix(question, p.Domain) {
-					question = question[:len(question)-len(p.Domain)-1]
+					if p.active {
+						question = question[:len(question)-len(p.Domain)-1]
+						result := make(chan []string)
 
-					result := make(chan []string)
-					p.DNSRequests <- &DNSRequest{
-						Name: question,
-						IPs:  result,
+						p.DNSRequests <- &DNSRequest{
+							Name: question,
+							IPs:  result,
+						}
+
+						responses = <-result
+						log.Info("DNS: Response: ", q.Name, ": ", responses)
+						defer close(result)
 					}
-
-					responses := <-result
-					log.Info("DNS:", q.Name, responses)
-					defer close(result)
 
 					if len(responses) > 0 {
 						dnsResponses := make([]dns.RR, len(responses))
@@ -167,9 +177,13 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 							dnsResponses[i] = a
 						}
 
-						p.DNSCache[q.Name] = &DNSCacheRecord{
+						record = &DNSCacheRecord{
 							ResponseRecords: dnsResponses,
 						}
+
+						p.cacheLock.Lock()
+						p.DNSCache[q.Name] = record
+						p.cacheLock.Unlock()
 					} else {
 						processed = false
 					}
@@ -179,11 +193,11 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			}
 
 			if processed {
-				for _, rr := range p.DNSCache[q.Name].ResponseRecords {
+				for _, rr := range record.ResponseRecords {
 					m.Answer = append(m.Answer, rr)
 				}
 
-				p.DNSCache[q.Name].LastActivity = now
+				record.LastActivity = now
 			}
 		}
 	}
@@ -287,9 +301,9 @@ func (p *DNSListener) Shutdown() {
 	if p.active {
 		p.UDPServer.Shutdown()
 		p.TCPServer.Shutdown()
-		close(p.DNSRequests)
 		p.Conn.Close()
 		p.active = false
+		close(p.DNSRequests)
 	}
 	p.activeLock.Unlock()
 }
