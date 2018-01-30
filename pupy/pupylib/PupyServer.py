@@ -219,7 +219,6 @@ class Listener(Thread):
         external = self.external
         external_port = self.external_port
         authenticator = self.authenticator
-        port = self.port
 
         if self.pproxy:
             if type(authenticator) == PupySSLAuthenticator:
@@ -246,11 +245,11 @@ class Listener(Thread):
             authenticator = None
             ipv6 = False
             igd = None
-            port = 0
+            self.port = 0
 
         self.server = server(
             PupyService,
-            port=port, hostname=self.address,
+            port=self.port, hostname=self.address,
             authenticator=authenticator,
             stream=stream,
             transport=transport,
