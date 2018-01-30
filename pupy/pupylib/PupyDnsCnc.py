@@ -184,11 +184,13 @@ class PupyDnsCnc(object):
         )
 
         offload_server = config.get('pupyd', 'offload_server')
-        offload_psk = config.get('pupyd', 'offload_psk')
+        ca = config.get('pupyd', 'offload_server_ca')
+        key = config.get('pupyd', 'offload_server_key')
+        cert = config.get('pupyd', 'offload_server_crt')
 
-        if offload_server and offload_psk:
+        if offload_server and ca and key and cert:
             try:
-                manager = PupyOffloadManager(offload_server, offload_psk)
+                manager = PupyOffloadManager(offload_server, ca, key, cert)
                 self.server = manager.dns(self.handler, domain)
             except Exception, e:
                 logging.exception(e)

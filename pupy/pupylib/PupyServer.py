@@ -217,10 +217,12 @@ class Listener(Thread):
 
         if self.pupsrv:
             offload_server = self.pupsrv.config.get('pupyd', 'offload_server')
-            offload_psk = self.pupsrv.config.get('pupyd', 'offload_psk')
+            ca = self.pupsrv.config.get('pupyd', 'offload_server_ca')
+            key = self.pupsrv.config.get('pupyd', 'offload_server_key')
+            cert = self.pupsrv.config.get('pupyd', 'offload_server_crt')
 
-            if offload_server and offload_psk:
-                proxy = PupyOffloadManager(offload_server, offload_psk)
+            if offload_server and ca and key and cert:
+                proxy = PupyOffloadManager(offload_server, ca, key, cert)
 
                 print "ORIGINAL STREAM: ", stream, type(stream)
                 print "ORIGINAL AUTHENTICATOR: ", authenticator, type(authenticator)

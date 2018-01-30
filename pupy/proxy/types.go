@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"net"
 	"sync"
 	"time"
@@ -23,11 +22,8 @@ type (
 
 	ListenerProtocol int
 	BindRequestType  int
-	Nonce            [sha256.BlockSize]byte
 
 	BindRequestHeader struct {
-		Nonce Nonce `msgpack:"nonce"`
-
 		Protocol ListenerProtocol `msgpack:"prot"`
 		BindInfo string           `msgpack:"bind"`
 		Timeout  int              `msgpack:"timeout"`
@@ -61,7 +57,8 @@ type (
 		TCPServer   *dns.Server
 		DNSRequests chan *DNSRequest
 
-		active bool
+		activeLock sync.Mutex
+		active     bool
 	}
 
 	Daemon struct {

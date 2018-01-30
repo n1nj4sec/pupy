@@ -283,6 +283,7 @@ func (p *DNSListener) Serve() error {
 }
 
 func (p *DNSListener) Shutdown() {
+	p.activeLock.Lock()
 	if p.active {
 		p.UDPServer.Shutdown()
 		p.TCPServer.Shutdown()
@@ -290,4 +291,6 @@ func (p *DNSListener) Shutdown() {
 		p.Conn.Close()
 		p.active = false
 	}
+	p.activeLock.Unlock()
+
 }

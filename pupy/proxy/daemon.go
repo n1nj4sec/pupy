@@ -4,8 +4,7 @@ import (
 	"log"
 	"net"
 
-	"crypto/rand"
-	"crypto/sha256"
+	"crypto/tls"
 )
 
 func NewDaemon(addr string) *Daemon {
@@ -30,6 +29,8 @@ func (d *Daemon) ListenAndServe() error {
 			return err
 		}
 
+		conn = tls.Server(conn, ListenerConfig)
+
 		go d.handle(conn)
 	}
 
@@ -39,22 +40,9 @@ func (d *Daemon) ListenAndServe() error {
 func (d *Daemon) handle(conn net.Conn) {
 	defer conn.Close()
 
-	Nonce := make([]byte, sha256.BlockSize)
-	_, err := rand.Read(Nonce)
-	if err != nil {
-		log.Println("Nonce generation error: ", err)
-		return
-	}
-
-	err = SendMessage(conn, Nonce)
-	if err != nil {
-		log.Println("Couldn't send nonce: ", err)
-		return
-	}
-
 	brh := &BindRequestHeader{}
 
-	err = RecvMessage(conn, brh)
+	err := RecvMessage(conn, brh)
 	if err != nil {
 		log.Println("Couldn't read bind request: ", err)
 		return
