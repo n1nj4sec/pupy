@@ -68,13 +68,13 @@ func netForwarder(local, remote net.Conn, errout chan error, out chan []byte) (e
 
 	go netReader(-1, remote, in, errin)
 
-	localAddr := strings.Split(local.LocalAddr().String(), ":")
+	localAddr := strings.Split(remote.LocalAddr().String(), ":")
 	remoteAddr := strings.Split(remote.RemoteAddr().String(), ":")
 
 	localPort, _ := strconv.Atoi(localAddr[1])
 	remotePort, _ := strconv.Atoi(remoteAddr[1])
 
-	log.Info("Accept: ", remoteAddr)
+	log.Warning("Accept: ", remote.LocalAddr(), " <- ", remote.RemoteAddr())
 	SendMessage(local, ConnectionAcceptHeader{
 		LocalHost:  localAddr[0],
 		LocalPort:  localPort,
@@ -190,7 +190,7 @@ func (d *Daemon) Remove(port int) {
 func (d *Daemon) listenAcceptTCP(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
 	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
 		log.Println("New listener requested, port:", port)
-		return net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+		return net.Listen("tcp", fmt.Sprintf("%s:%d", ExternalBindHost, port))
 	})
 
 	log.Debug("TCP: Accepted connection")
@@ -238,7 +238,7 @@ func (d *Daemon) listenAcceptTLS(in net.Conn, port int, cherr chan error, chconn
 		}
 
 		log.Debug("SSL: New listener requested, port:", port)
-		return tls.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port), &tls.Config{
+		return tls.Listen("tcp", fmt.Sprintf("%s:%d", ExternalBindHost, port), &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			ClientCAs:    pool,
 			ClientAuth:   tls.RequireAndVerifyClientCert,
@@ -263,7 +263,7 @@ func (d *Daemon) listenAcceptKCP(in net.Conn, port int, cherr chan error, chconn
 	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
 		log.Debug("New KCP listener requested, port:", port)
 
-		ll, err := kcp.Listen(fmt.Sprintf("0.0.0.0:%d", port))
+		ll, err := kcp.Listen(fmt.Sprintf("%s:%d", ExternalBindHost, port))
 		if err != nil {
 			log.Error("KCP Listen Error: ", err)
 			return nil, err

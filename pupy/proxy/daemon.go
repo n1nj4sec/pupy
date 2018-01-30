@@ -54,11 +54,13 @@ func (d *Daemon) handle(conn net.Conn) {
 
 	log.Debug("PROTOCOL CODE: ", brh.Protocol)
 
+	client := conn.RemoteAddr().String()
+
 	switch brh.Protocol {
 	case DNS:
 		/* Check DNS Already served */
 
-		log.Info("Request: DNS Handler for domain:", brh.BindInfo, " - start")
+		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - start")
 		d.DNSCheck.Lock()
 		if d.DNSListener != nil {
 			d.DNSListener.Shutdown()
@@ -71,7 +73,7 @@ func (d *Daemon) handle(conn net.Conn) {
 		d.DNSListener = nil
 		d.DNSCheck.Unlock()
 		d.DNSLock.Unlock()
-		log.Info("Request: DNS Handler for domain:", brh.BindInfo, " - complete")
+		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - complete")
 
 	case INFO:
 		ip := GetOutboundIP()
@@ -79,26 +81,26 @@ func (d *Daemon) handle(conn net.Conn) {
 			ip = ExternalBindHost
 		}
 
-		log.Info("Request: External IP:", ip)
+		log.Warning("Request: External IP:", ip)
 
 		SendMessage(conn, &IPInfo{
 			IP: ip,
 		})
 
 	case TCP:
-		log.Info("Request: TCP handler with port:", brh.BindInfo, " - start")
+		log.Warning("Request: TCP handler with port:", brh.BindInfo, " client: ", client, " - start")
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTCP)
-		log.Info("Request: TCP handler with port:", brh.BindInfo, " - complete")
+		log.Warning("Request: TCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
 
 	case KCP:
-		log.Info("Request: KCP handler with port:", brh.BindInfo, " - start")
-		d.serveStream(1376, conn, brh.BindInfo, d.listenAcceptKCP)
-		log.Info("Request: KCP handler with port:", brh.BindInfo, " - complete")
+		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - start")
+		d.serveStream(int(UDPSize-24), conn, brh.BindInfo, d.listenAcceptKCP)
+		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
 
 	case TLS:
-		log.Info("Request: SSL handler with port:", brh.BindInfo, " - start")
+		log.Warning("Request: SSL handler with port:", brh.BindInfo, " client: ", client, " - start")
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTLS)
-		log.Info("Request: SSL handler with port:", brh.BindInfo, " - complete")
+		log.Warning("Request: SSL handler with port:", brh.BindInfo, " client: ", client, " - complete")
 
 	default:
 		log.Error("Unknown protocol", brh.Protocol)

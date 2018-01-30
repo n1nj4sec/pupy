@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -197,12 +198,12 @@ func NewDNSListener(conn net.Conn, domain string) *DNSListener {
 
 		DNSCache: make(map[string]*DNSCacheRecord),
 		UDPServer: &dns.Server{
-			Addr:    "0.0.0.0:5454",
+			Addr:    fmt.Sprintf("%s:%d", ExternalBindHost, DnsBindPort),
 			Net:     "udp",
-			UDPSize: 1400,
+			UDPSize: int(UDPSize),
 		},
 		TCPServer: &dns.Server{
-			Addr: "0.0.0.0:5454",
+			Addr: fmt.Sprintf("%s:%d", ExternalBindHost, DnsBindPort),
 			Net:  "tcp",
 		},
 		DNSRequests: make(chan *DNSRequest),

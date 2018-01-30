@@ -22,6 +22,7 @@ var (
 	ProxyBindPort    uint = 9876
 	DnsBindPort      uint = 5454
 	ProxyHostname         = ""
+	UDPSize          uint = 1400
 	ListenerCA            = path.Join("..", "crypto", "proxy-ca.crt")
 	ListenerCAKey         = path.Join("..", "crypto", "proxy-ca.key")
 	ListenerKey           = path.Join("..", "crypto", "proxy.key")
@@ -40,6 +41,7 @@ func init() {
 	flag.UintVar(&ProxyBindPort, "port-proxy", ProxyBindPort, "Port to bind pupysh listener side")
 	flag.StringVar(&ExternalBindHost, "listen", ExternalBindHost, "IP address to bind services listener side")
 	flag.UintVar(&DnsBindPort, "dns-port", DnsBindPort, "Port to bind DNS listeners (if any)")
+	flag.UintVar(&UDPSize, "udp-mtu-size", UDPSize, "MTU Size for DNS and KCP UDP Packets")
 	flag.StringVar(&ListenerCA, "ca", ListenerCA, "Path to CA certificate (pupysh side)")
 	flag.StringVar(&ListenerKey, "key", ListenerKey, "Path to TLS key (pupysh side)")
 	flag.StringVar(&ListenerCert, "cert", ListenerCert, "Path to TLS cert (pupysh side)")
