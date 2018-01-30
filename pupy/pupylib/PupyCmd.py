@@ -1059,7 +1059,9 @@ class PupyCmd(cmd.Cmd):
 
         policy = commands.add_parser('set', help='Change policy (polling, timeout)')
         policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
-        policy.add_argument('-k', '--kex', type=bool, help='Enable KEX')
+        kex = policy.add_mutually_exclusive_group()
+        kex.add_argument('-K', '--no-kex', default=None, action='store_true', help='Disable KEX')
+        kex.add_argument('-k', '--kex', default=None, action='store_true', help='Enable KEX')
         policy.add_argument('-t', '--timeout', type=int, help='Set session timeout')
 
         connect = commands.add_parser('connect', help='Request reverse connection')
@@ -1272,10 +1274,16 @@ class PupyCmd(cmd.Cmd):
             )
 
         elif args.command == 'set':
-            if all([x is None for x in [args.kex, args.timeout, args.poll]]):
+            set_kex = None
+            if args.kex is not None:
+                set_kex = True
+            elif args.no_kex is not None:
+                set_kex = False
+
+            if all([x is None for x in [set_kex, args.timeout, args.poll]]):
                 self.display_error('No arguments provided.')
             else:
-                count = self.dnscnc.set_policy(args.kex, args.timeout, args.poll, node=args.node)
+                count = self.dnscnc.set_policy(set_kex, args.timeout, args.poll, node=args.node)
                 if count:
                     self.display_success('Apply policy to {} known nodes'.format(count))
 
