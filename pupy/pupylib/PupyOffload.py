@@ -8,6 +8,10 @@ import logging
 import time
 import errno
 import ssl
+import urlparse
+
+from network.lib import socks
+
 
 class MsgPackMessages(object):
     def __init__(self, conn):
@@ -164,12 +168,14 @@ class PupyOffloadAcceptor(object):
                 raise
 
 class PupyOffloadManager(object):
-    def __init__(self, server, ca, key, crt):
+    def __init__(self, server, ca, key, crt, via):
         if ':' in server:
             host, port = server.rsplit(':', 1)
             self._server = (host, int(port))
-        else:
+        elif len(server) == 2:
             self._server = server
+        else:
+            raise ValueError('Invalid server specification')
 
         self._ca = ca
         self._key = key
@@ -181,6 +187,13 @@ class PupyOffloadManager(object):
         )
         self._ctx.load_cert_chain(self._crt, self._key)
         self._ctx.set_alpn_protocols(['pp/1'])
+
+        if via:
+            if not '://' in via:
+                raise ValueError('Proxy argument should be in URI form')
+            self._via = urlparse.urlparse(via)
+        else:
+            self._via = None
 
     def dns(self, handler, domain):
         return PupyOffloadDNS(self, handler, domain)
@@ -204,7 +217,30 @@ class PupyOffloadManager(object):
         return self._external_ip
 
     def _connect(self, conntype, bind, timeout=0):
-        c = socket.create_connection(self._server)
+        if self._via:
+            proxy = self._via.scheme.upper()
+            if proxy == 'SOCKS':
+                proxy = 'SOCKS5'
+
+            default_ports = {
+                'SOCKS5': 1080,
+                'SOCKS4': 1080,
+                'HTTP': 3128,
+            }
+
+            proxy_type = socks.PROXY_TYPES.get(proxy, 'SOCKS5')
+            proxy_addr = self._via.hostname
+            proxy_port = self._via.port or default_ports.get(proxy)
+            proxy_username = self._via.username or None
+            proxy_password = self._via.password or None
+
+            c = socks.create_connection(
+                self._server,
+                proxy_type, proxy_addr, proxy_port,
+                True, proxy_username, proxy_password)
+        else:
+            c = socket.create_connection(self._server)
+
         c = self._ctx.wrap_socket(c)
 
         m = MsgPackMessages(c)

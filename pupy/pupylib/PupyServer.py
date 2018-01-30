@@ -339,21 +339,26 @@ class PupyServer(object):
         self._cleanups = []
         self._singles = {}
 
-        offload_server = self.config.get('pupyd', 'offload_server')
-        ca = self.config.get('pupyd', 'offload_server_ca')
-        key = self.config.get('pupyd', 'offload_server_key')
-        cert = self.config.get('pupyd', 'offload_server_crt')
+        self.pproxy = None
 
-        if offload_server and ca and key and cert:
+        pproxy = self.config.get('pproxy', 'address')
+        ca = self.config.get('pproxy', 'ca')
+        key = self.config.get('pproxy', 'key')
+        cert = self.config.get('pproxy', 'crt')
+        via = self.config.get('pproxy', 'via')
+
+        if pproxy and ca and key and cert:
             try:
                 self.pproxy = PupyOffloadManager(
-                    offload_server, ca, key, cert)
+                    pproxy, ca, key, cert, via)
                 self.motd['ok'].append(
-                    'Offload Proxy: proxy={} external={}'.format(
-                        offload_server,
-                        self.pproxy.external))
+                    'Offload Proxy: proxy={} external={}{}'.format(
+                        pproxy,
+                        self.pproxy.external,
+                        ' via {}'.format(via) if via else ''))
             except Exception, e:
                 self.pproxy = None
+                logging.exception(e)
                 self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
 
         if self.config.getboolean('pupyd', 'httpd'):
