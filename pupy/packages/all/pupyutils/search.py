@@ -9,7 +9,7 @@ import mmap
 import threading
 import rpyc
 
-class Search():
+class Search(object):
     def __init__(self, path,
                      strings=[], max_size=20000000, root_path='.', no_content=False,
                      case=False, binary=False, follow_symlinks=False, terminate=None):
