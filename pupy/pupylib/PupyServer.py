@@ -348,7 +348,10 @@ class PupyServer(object):
             try:
                 self.pproxy = PupyOffloadManager(
                     offload_server, ca, key, cert)
-                self.motd['ok'].append('Using Pupy Offload Proxy: {}'.format(offload_server))
+                self.motd['ok'].append(
+                    'Using Pupy Offload Proxy: proxy={} external={}'.format(
+                        offload_server,
+                        self.pproxy.external))
             except Exception, e:
                 self.pproxy = None
                 self.motd['ok'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
