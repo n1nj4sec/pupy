@@ -109,7 +109,7 @@ func generateKeys() {
 
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: ca_b})
 	certOut.Close()
-	log.Info("CA certificate saved to", ListenerCA)
+	log.Info("CA certificate saved to ", ListenerCA)
 
 	keyOut, err := os.OpenFile(ListenerCAKey, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -122,7 +122,7 @@ func generateKeys() {
 		Bytes: pk_b,
 	})
 	keyOut.Close()
-	log.Info("CA key saved to", ListenerCA)
+	log.Info("CA key saved to ", ListenerCA)
 
 	proxyCert := &x509.Certificate{
 		SerialNumber: big.NewInt(1658),
@@ -153,7 +153,7 @@ func generateKeys() {
 
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: proxyCert_b})
 	certOut.Close()
-	log.Info("Proxy certificate saved to", ListenerCert)
+	log.Info("Proxy certificate saved to ", ListenerCert)
 
 	keyOut, err = os.OpenFile(ListenerKey, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -166,7 +166,7 @@ func generateKeys() {
 		Bytes: proxyPriv_b,
 	})
 	keyOut.Close()
-	log.Info("Proxy key saved to", ListenerKey)
+	log.Info("Proxy key saved to ", ListenerKey)
 
 	clientCert := &x509.Certificate{
 		SerialNumber: big.NewInt(1658),
@@ -196,7 +196,7 @@ func generateKeys() {
 
 	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: clientCert_b})
 	certOut.Close()
-	log.Info("Client cert saved to", ClientCert)
+	log.Info("Client cert saved to ", ClientCert)
 
 	keyOut, err = os.OpenFile(ClientKey, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -209,5 +209,5 @@ func generateKeys() {
 		Bytes: clientPriv_b,
 	})
 	keyOut.Close()
-	log.Info("Client key saved to", ClientKey)
+	log.Info("Client key saved to ", ClientKey)
 }
