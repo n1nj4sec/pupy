@@ -1,41 +1,40 @@
 package main
 
 import (
-	"log"
-
 	"net"
 	"strings"
 	"time"
 
 	dns "github.com/miekg/dns"
+	log "github.com/sirupsen/logrus"
 )
 
 func (d *Daemon) serveDNS(conn net.Conn, domain string) error {
 	d.DNSListener = NewDNSListener(conn, domain)
-	log.Println("SERVE DNSCNC CONNECTION")
+	log.Debug("DNS: Enabled: ", domain)
 	err := d.DNSListener.Serve()
-	log.Println("DNSCNC CONNECTION FAILED: ", err)
+	log.Debug("DNS: Disabled: ", domain, err)
 	return err
 }
 
 func (p *DNSListener) listenAndServeTCP(cherr chan error) {
 	err := p.TCPServer.ListenAndServe()
 	if err != nil {
-		log.Printf("Couldn't start TCP DNS listener: %s\n", err.Error())
+		log.Error("Couldn't start TCP DNS listener:", err)
 	}
 
 	cherr <- err
-	log.Println("[1.] DNS TCP CLOSED")
+	log.Debug("[1.] DNS TCP CLOSED")
 }
 
 func (p *DNSListener) listenAndServeUDP(cherr chan error) {
 	err := p.UDPServer.ListenAndServe()
 	if err != nil {
-		log.Printf("Couldn't start TCP DNS listener: %s\n", err.Error())
+		log.Error("Couldn't start TCP DNS listener:", err)
 	}
 
 	cherr <- err
-	log.Println("[2.] DNS UDP CLOSED")
+	log.Debug("[2.] DNS UDP CLOSED")
 }
 
 func (p *DNSListener) messageReader(cherr chan error, chmsg chan []string) {
@@ -51,7 +50,7 @@ func (p *DNSListener) messageReader(cherr chan error, chmsg chan []string) {
 		}
 	}
 
-	log.Println("[3.] REMOTE READER CLOSED")
+	log.Debug("[3.] REMOTE READER CLOSED")
 }
 
 func (p *DNSListener) messageProcessor(
@@ -108,7 +107,7 @@ func (p *DNSListener) messageProcessor(
 		}
 	}
 
-	log.Println("DNS READ/WRITE CLOSED")
+	log.Debug("DNS READ/WRITE CLOSED")
 }
 
 func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -122,17 +121,17 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	for k, v := range p.DNSCache {
 		if v.LastActivity.Add(1 * time.Minute).Before(now) {
-			log.Println("Delete cache: ", k)
+			log.Debug("Delete cache: ", k)
 			delete(p.DNSCache, k)
 		}
 	}
 
 	if len(r.Question) > 0 {
 		for _, q := range r.Question {
-			log.Println("Request Name: ", q.Name)
+			log.Info("DNS: Request: ", q.Name)
 
 			if _, ok := p.DNSCache[q.Name]; !ok {
-				log.Println(q.Name, " not in cache")
+				log.Debug(q.Name, " not in cache")
 
 				question := q.Name[:]
 				if q.Name[len(q.Name)-1] == '.' {
@@ -149,7 +148,7 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 					}
 
 					responses := <-result
-					log.Println("Result: ", responses)
+					log.Info("DNS:", q.Name, responses)
 					defer close(result)
 
 					if len(responses) > 0 {
@@ -276,7 +275,7 @@ func (p *DNSListener) Serve() error {
 			err = err2
 		}
 
-		log.Println("CLOSED: ", tcpClosed, udpClosed, decoderClosed, msgsClosed, shutdown)
+		log.Debug("CLOSED: ", tcpClosed, udpClosed, decoderClosed, msgsClosed, shutdown)
 	}
 
 	return err
@@ -292,5 +291,4 @@ func (p *DNSListener) Shutdown() {
 		p.active = false
 	}
 	p.activeLock.Unlock()
-
 }

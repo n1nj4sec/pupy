@@ -2,8 +2,9 @@ package main
 
 import (
 	"crypto/tls"
-	"log"
 	"net"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func NewDaemon(addr string) *Daemon {
@@ -16,15 +17,15 @@ func NewDaemon(addr string) *Daemon {
 func (d *Daemon) ListenAndServe() error {
 	listener, err := net.Listen("tcp", d.Addr)
 	if err != nil {
-		log.Println("Listen error: ", err)
+		log.Error("Listen error: ", err)
 		return err
 	}
 
 	for {
 		conn, err := listener.Accept()
-		log.Println("HANDLE INCOMING CONNECTION")
+		log.Debug("HANDLE INCOMING CONNECTION")
 		if err != nil {
-			log.Println("Accept error: ", err)
+			log.Error("Accept error: ", err)
 			return err
 		}
 
@@ -43,20 +44,21 @@ func (d *Daemon) handle(conn net.Conn) {
 
 	err := RecvMessage(conn, brh)
 	if err != nil {
-		log.Println("Couldn't read bind request: ", err)
+		log.Error("Couldn't read bind request: ", err)
 		return
 	}
 
-	log.Println(brh)
+	log.Debug(brh)
 
 	/* Check PSK */
 
-	log.Println("PROTOCOL CODE: ", brh.Protocol)
+	log.Debug("PROTOCOL CODE: ", brh.Protocol)
 
 	switch brh.Protocol {
 	case DNS:
 		/* Check DNS Already served */
 
+		log.Info("Request: DNS Handler for domain:", brh.BindInfo, " - start")
 		d.DNSCheck.Lock()
 		if d.DNSListener != nil {
 			d.DNSListener.Shutdown()
@@ -69,29 +71,36 @@ func (d *Daemon) handle(conn net.Conn) {
 		d.DNSListener = nil
 		d.DNSCheck.Unlock()
 		d.DNSLock.Unlock()
+		log.Info("Request: DNS Handler for domain:", brh.BindInfo, " - complete")
 
 	case INFO:
-		log.Printf("Request external IP")
 		ip := GetOutboundIP()
 		if CheckExternalBindHostIP() {
 			ip = ExternalBindHost
 		}
+
+		log.Info("Request: External IP:", ip)
 
 		SendMessage(conn, &IPInfo{
 			IP: ip,
 		})
 
 	case TCP:
-		log.Printf("Start TCP handler with port: %s", brh.BindInfo)
+		log.Info("Request: TCP handler with port:", brh.BindInfo, " - start")
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTCP)
+		log.Info("Request: TCP handler with port:", brh.BindInfo, " - complete")
+
 	case KCP:
-		log.Printf("Start KCP handler with port: %s", brh.BindInfo)
+		log.Info("Request: KCP handler with port:", brh.BindInfo, " - start")
 		d.serveStream(1376, conn, brh.BindInfo, d.listenAcceptKCP)
+		log.Info("Request: KCP handler with port:", brh.BindInfo, " - complete")
+
 	case TLS:
-		log.Printf("Start SSL handler with port: %s", brh.BindInfo)
+		log.Info("Request: SSL handler with port:", brh.BindInfo, " - start")
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTLS)
+		log.Info("Request: SSL handler with port:", brh.BindInfo, " - complete")
 
 	default:
-		log.Println("Unknown protocol")
+		log.Error("Unknown protocol", brh.Protocol)
 	}
 }

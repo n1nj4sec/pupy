@@ -1,9 +1,7 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"log"
 	"path"
 
 	"io/ioutil"
@@ -11,6 +9,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"strings"
+
+	"flag"
+
+	log "github.com/sirupsen/logrus"
+	iniflags "github.com/vharitonsky/iniflags"
 )
 
 var (
@@ -31,6 +34,7 @@ var (
 
 func init() {
 	generate := false
+	loglevel := "ERROR"
 
 	flag.StringVar(&ProxyBindHost, "listen-proxy", ProxyBindHost, "IP address to bind pupysh listener side")
 	flag.UintVar(&ProxyBindPort, "port-proxy", ProxyBindPort, "Port to bind pupysh listener side")
@@ -41,8 +45,27 @@ func init() {
 	flag.StringVar(&ListenerCert, "cert", ListenerCert, "Path to TLS cert (pupysh side)")
 	flag.StringVar(&ProxyHostname, "hostname-proxy", ProxyHostname,
 		"Hostname for pupysh listener side (used with generate)")
+	flag.StringVar(&loglevel, "loglevel", loglevel, "Set log level")
 	flag.BoolVar(&generate, "generate", false, "Generate all the keys")
-	flag.Parse()
+
+	iniflags.Parse()
+
+	switch strings.ToLower(loglevel) {
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "err":
+		log.SetLevel(log.ErrorLevel)
+	case "warning":
+		log.SetLevel(log.WarnLevel)
+	case "warn":
+		log.SetLevel(log.WarnLevel)
+	case "info":
+		log.SetLevel(log.InfoLevel)
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+	default:
+		log.Fatalln("Invalid log level", loglevel)
+	}
 
 	if strings.Index(ProxyBindHost, ":") == -1 {
 		ProxyBindHost = fmt.Sprintf("%s:%d", ProxyBindHost, ProxyBindPort)
@@ -53,7 +76,7 @@ func init() {
 	}
 
 	if generate {
-		log.Println("Genrating NEW keys")
+		log.Warn("Genrating NEW keys")
 		generateKeys()
 	}
 
