@@ -236,7 +236,10 @@ class PupyDnsCnc(object):
 
                 if not listener:
                     listener = next(listeners.itervalues())
-                    local = True
+                    if listener.port == 0:
+                        local = False
+                    else:
+                        local = True
 
             if not listener:
                 raise ValueError('No listeners found')
