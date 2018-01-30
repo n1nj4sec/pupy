@@ -58,6 +58,8 @@ type (
 		TCPServer   *dns.Server
 		DNSRequests chan *DNSRequest
 
+		cacheLock sync.Mutex
+
 		activeLock sync.Mutex
 		active     bool
 	}
