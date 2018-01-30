@@ -29,11 +29,13 @@ func SendMessage(conn net.Conn, msg interface{}) error {
 }
 
 func RecvMessage(conn net.Conn, msg interface{}) error {
-	var datalen int32
+	var datalen uint32
 
 	log.Println("READ LEN")
+
 	err := binary.Read(conn, binary.BigEndian, &datalen)
 	if err != nil {
+		log.Println("READ LEN FAILED: ", err)
 		return err
 	}
 

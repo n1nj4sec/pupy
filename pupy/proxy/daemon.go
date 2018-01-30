@@ -1,10 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
 	"log"
 	"net"
-
-	"crypto/tls"
 )
 
 func NewDaemon(addr string) *Daemon {
@@ -73,10 +72,14 @@ func (d *Daemon) handle(conn net.Conn) {
 
 	case TCP:
 		log.Printf("Start TCP handler with port: %s", brh.BindInfo)
-		d.serveStream(65000, conn, brh.BindInfo, d.listenAcceptTCP)
+		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTCP)
 	case KCP:
 		log.Printf("Start KCP handler with port: %s", brh.BindInfo)
 		d.serveStream(1376, conn, brh.BindInfo, d.listenAcceptKCP)
+	case TLS:
+		log.Printf("Start SSL handler with port: %s", brh.BindInfo)
+		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTLS)
+
 	default:
 		log.Println("Unknown protocol")
 	}

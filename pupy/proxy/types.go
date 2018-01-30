@@ -40,6 +40,7 @@ type (
 	}
 
 	ConnectionAcceptHeader struct {
+		Extra      bool   `msgpack:"extra"`
 		LocalHost  string `msgpack:"lhost"`
 		LocalPort  int    `msgpack:"lport"`
 		RemoteHost string `msgpack:"rhost"`
@@ -71,10 +72,22 @@ type (
 		Listeners     map[int]*Listener
 		ListenersLock sync.Mutex
 	}
+
+	Extra struct {
+		Extra bool   `msgpack:"extra"`
+		Data  string `msgpack:"data"`
+	}
+
+	TLSAcceptorConfig struct {
+		CACert string `msgpack:"ca"`
+		Cert   string `msgpack:"cert"`
+		Key    string `msgpack:"key"`
+	}
 )
 
 const (
 	DNS ListenerProtocol = 0
 	TCP ListenerProtocol = iota
 	KCP ListenerProtocol = iota
+	TLS ListenerProtocol = iota
 )

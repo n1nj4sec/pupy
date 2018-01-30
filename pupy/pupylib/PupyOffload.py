@@ -26,7 +26,7 @@ class MsgPackMessages(object):
         data = msgpack.dumps(msg)
         datalen = len(data)
         datalen_b = struct.pack('>I', datalen)
-        self._conn.send(datalen_b + data)
+        self._conn.sendall(datalen_b + data)
 
 class PupyOffloadDNS(threading.Thread):
     def __init__(self, manager, handler, domain):
@@ -42,23 +42,18 @@ class PupyOffloadDNS(threading.Thread):
         self.cleaner.daemon = True
 
     def run(self):
-        print "RUN"
-
         self.cleaner.start()
 
         while self.active:
             try:
                 while self.active:
-                    print "SERVE"
                     self._serve()
 
             except EOFError:
-                print "EOF"
                 time.sleep(1)
                 continue
 
             except (socket.error, OSError), e:
-                print "OSERROR", e.errno
                 if e.errno == errno.ECONNREFUSED:
                     time.sleep(5)
                     continue
@@ -67,7 +62,6 @@ class PupyOffloadDNS(threading.Thread):
                     self.active = False
 
             except Exception, e:
-                print "EXCEPTION", type(e)
                 logging.exception(e)
                 self.active = False
 
@@ -79,13 +73,10 @@ class PupyOffloadDNS(threading.Thread):
             if not request:
                 return
 
-            print "REQUEST:", request
             response = self.handler.process(request)
-            print "RESPONSE:", response
             conn.send(response)
 
     def stop(self):
-        print "STOP"
         self.active = False
         if self._conn:
             self._conn.close()
@@ -138,14 +129,17 @@ class PupyOffloadAcceptor(object):
             self._conn = None
 
     def accept(self):
-        print "ACCEPT START", self._port
         while self.active:
             try:
                 self._conn = self._manager._connect(self._proto, self._port)
 
                 m = MsgPackMessages(self._conn)
                 conninfo = m.recv()
-                print "CONNINFO: ", conninfo
+
+                if conninfo['extra']:
+                    data = self._manager.extra(conninfo['data'])
+                    m.send(data)
+                    conninfo = m.recv()
 
                 return PupyOffloadSocket(
                     self._conn,
@@ -169,13 +163,14 @@ class PupyOffloadAcceptor(object):
                 raise
 
 class PupyOffloadManager(object):
-    def __init__(self, server, ca, key, crt):
+    def __init__(self, server, ca, key, crt, extra={}):
         if ':' in server:
             host, port = server.rsplit(':', 1)
             self._server = (host, int(port))
         else:
             self._server = server
 
+        self._extra = extra
         self._ca = ca
         self._key = key
         self._crt = crt
@@ -194,6 +189,15 @@ class PupyOffloadManager(object):
 
     def kcp(self, port):
         return PupyOffloadAcceptor(self, 2, port=port)
+
+    def ssl(self, port):
+        return PupyOffloadAcceptor(self, 3, port=port)
+
+    def extra(self, data):
+        if data in self._extra:
+            return self._extra[data]
+
+        raise EOFError('Required extra data not found')
 
     def _connect(self, conntype, bind, timeout=0):
         c = socket.create_connection(self._server)

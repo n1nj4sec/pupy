@@ -26,6 +26,7 @@ from .PupyConfig import PupyConfig
 from .PupyService import PupyBindService
 from .PupyCompile import pupycompile
 from network.conf import transports
+from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
 from network.lib.servers import PupyTCPServer
 from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocketStream
@@ -222,15 +223,29 @@ class Listener(Thread):
             cert = self.pupsrv.config.get('pupyd', 'offload_server_crt')
 
             if offload_server and ca and key and cert:
-                proxy = PupyOffloadManager(offload_server, ca, key, cert)
 
                 print "ORIGINAL STREAM: ", stream, type(stream)
                 print "ORIGINAL AUTHENTICATOR: ", authenticator, type(authenticator)
 
+                if type(authenticator) == PupySSLAuthenticator:
+                    extra = {
+                        'certs': {
+                            'ca': authenticator.castr,
+                            'cert': authenticator.certstr,
+                            'key': authenticator.keystr,
+                        }
+                    }
+                else:
+                    extra = {}
+
+                proxy = PupyOffloadManager(offload_server, ca, key, cert, extra)
+
                 if stream == PupyUDPSocketStream:
                     stream = PupyKCPSocketStream
                     method = proxy.kcp
-                else:
+                elif type(authenticator) == PupySSLAuthenticator:
+                    method = proxy.ssl
+                elif stream == PupySocketStream:
                     method = proxy.tcp
 
                 server = PupyTCPServer

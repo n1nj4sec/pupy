@@ -10,6 +10,9 @@ import (
 
 	"errors"
 
+	"crypto/tls"
+	"crypto/x509"
+
 	kcp "github.com/xtaci/kcp-go"
 )
 
@@ -136,7 +139,7 @@ func netForwarder(local, remote net.Conn, errout chan error, out chan []byte) (e
 	return err, err1
 }
 
-func (d *Daemon) Accept(port int, createListener func() (net.Listener, error)) (net.Conn, error) {
+func (d *Daemon) Accept(in net.Conn, port int, cherr chan error, createListener func(net.Conn) (net.Listener, error)) (net.Conn, error) {
 	var (
 		listener *Listener
 		ok       bool
@@ -145,7 +148,7 @@ func (d *Daemon) Accept(port int, createListener func() (net.Listener, error)) (
 	d.ListenersLock.Lock()
 	if listener, ok = d.Listeners[port]; !ok {
 		log.Printf("Create new listener [%d]\n", port)
-		l, err := createListener()
+		l, err := createListener(in)
 		if err != nil {
 			log.Printf("Create new listener [%d]: failed: %s\n", port, err.Error())
 			d.ListenersLock.Unlock()
@@ -165,6 +168,7 @@ func (d *Daemon) Accept(port int, createListener func() (net.Listener, error)) (
 	log.Printf("Create new listener [%d]: ok: refcnt=%d\n", port, listener.refcnt)
 	d.ListenersLock.Unlock()
 
+	cherr <- nil
 	return listener.Listener.Accept()
 }
 
@@ -188,8 +192,8 @@ func (d *Daemon) Remove(port int) {
 	d.ListenersLock.Unlock()
 }
 
-func (d *Daemon) listenAcceptTCP(port int, cherr chan error, chconn chan net.Conn) {
-	conn, err := d.Accept(port, func() (net.Listener, error) {
+func (d *Daemon) listenAcceptTCP(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
+	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
 		log.Println("New listener requested, port:", port)
 		return net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	})
@@ -208,8 +212,60 @@ func (d *Daemon) listenAcceptTCP(port int, cherr chan error, chconn chan net.Con
 	log.Println("Acceptor completed")
 }
 
-func (d *Daemon) listenAcceptKCP(port int, cherr chan error, chconn chan net.Conn) {
-	conn, err := d.Accept(port, func() (net.Listener, error) {
+func (d *Daemon) listenAcceptTLS(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
+	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
+		log.Println("Load certificates")
+		err := SendMessage(in, &Extra{
+			Extra: true,
+			Data:  "certs",
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		config := &TLSAcceptorConfig{}
+		err = RecvMessage(in, config)
+		if err != nil {
+			log.Println("Couldn't receive TLS certificate")
+			return nil, err
+		}
+
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM([]byte(config.CACert)) {
+			log.Println("Invalid CA cert")
+			return nil, errors.New("Invalid CA cert")
+		}
+
+		cert, err := tls.X509KeyPair([]byte(config.Cert), []byte(config.Key))
+		if err != nil {
+			log.Println("Invalid SSL Key/Cert")
+			return nil, errors.New("Invalid SSL Key/Cert: " + err.Error())
+		}
+
+		log.Println("New listener requested, port:", port)
+		return tls.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port), &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			ClientCAs:    pool,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+		})
+	})
+
+	log.Println("Accepted connection")
+
+	if err != nil || conn == nil {
+		log.Println("Acceptor flushed error")
+		cherr <- err
+		log.Println("Acceptor exited")
+		return
+	} else {
+		chconn <- conn
+	}
+
+	log.Println("Acceptor completed")
+}
+
+func (d *Daemon) listenAcceptKCP(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
+	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
 		log.Println("New KCP listener requested, port:", port)
 
 		ll, err := kcp.Listen(fmt.Sprintf("0.0.0.0:%d", port))
@@ -268,7 +324,9 @@ func (d *Daemon) listenAcceptKCP(port int, cherr chan error, chconn chan net.Con
 	log.Println("Acceptor completed (KCP)")
 }
 
-func (d *Daemon) serveStream(mtu int, in net.Conn, bind string, acceptor func(int, chan error, chan net.Conn)) {
+func (d *Daemon) serveStream(mtu int, in net.Conn, bind string,
+	acceptor func(net.Conn, int, chan error, chan net.Conn)) {
+
 	defer in.Close()
 
 	port, err := strconv.Atoi(bind)
@@ -291,10 +349,17 @@ func (d *Daemon) serveStream(mtu int, in net.Conn, bind string, acceptor func(in
 	defer close(cherr)
 	defer close(chconn)
 
-	go netReader(mtu, in, out, errout)
-	go acceptor(port, cherr, chconn)
+	go acceptor(in, port, cherr, chconn)
 
 	needFinishAcceptor := true
+
+	prepared := <-cherr
+	if prepared != nil {
+		log.Println("Acceptor preparation failed:", prepared)
+		return
+	}
+
+	go netReader(mtu, in, out, errout)
 
 	select {
 	case conn := <-chconn:
