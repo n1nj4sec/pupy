@@ -356,7 +356,7 @@ class PupyServer(object):
         if self.config.getboolean('pupyd', 'httpd'):
             self.httpd = True
 
-        if self.pproxy:
+        if not self.pproxy:
             try:
                 try:
                     igd_url = None
