@@ -77,7 +77,15 @@ func init() {
 	}
 
 	if strings.Index(ProxyBindHost, ":") == -1 {
+		if ExternalBindHost == "0.0.0.0" {
+			ExternalBindHost = ProxyBindHost
+		}
+
 		ProxyBindHost = fmt.Sprintf("%s:%d", ProxyBindHost, ProxyBindPort)
+	} else {
+		if ExternalBindHost == "0.0.0.0" {
+			ExternalBindHost = strings.SplitN(ProxyBindHost, ":", 1)[0]
+		}
 	}
 
 	if strings.Index(ExternalBindHost, ":") != -1 {

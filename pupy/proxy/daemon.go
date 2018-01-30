@@ -34,6 +34,10 @@ func (d *Daemon) ListenAndServe() error {
 			return err
 		}
 
+		conn.(*net.TCPConn).SetKeepAlive(true)
+		conn.(*net.TCPConn).SetKeepAlivePeriod(1 * time.Minute)
+		conn.(*net.TCPConn).SetNoDelay(true)
+
 		conn = tls.Server(conn, ListenerConfig)
 
 		go d.handle(conn)
@@ -66,10 +70,6 @@ func (d *Daemon) onListenerDisabled() {
 
 func (d *Daemon) handle(conn net.Conn) {
 	defer conn.Close()
-
-	conn.(*net.TCPConn).SetKeepAlive(true)
-	conn.(*net.TCPConn).SetKeepAlivePeriod(1 * time.Minute)
-	conn.(*net.TCPConn).SetNoDelay(true)
 
 	brh := &BindRequestHeader{}
 
