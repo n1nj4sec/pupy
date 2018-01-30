@@ -71,6 +71,8 @@ type (
 
 		Listeners     map[int]*Listener
 		ListenersLock sync.Mutex
+
+		UsersCount int32
 	}
 
 	IPInfo struct {

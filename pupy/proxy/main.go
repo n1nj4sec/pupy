@@ -30,6 +30,9 @@ var (
 	ClientKey             = path.Join("..", "crypto", "proxy-client.key")
 	ClientCert            = path.Join("..", "crypto", "proxy-client.crt")
 
+	OnListenerEnabledURL  = ""
+	OnListenerDisabledURL = ""
+
 	ListenerConfig *tls.Config
 )
 
@@ -48,6 +51,10 @@ func init() {
 	flag.StringVar(&ProxyHostname, "hostname-proxy", ProxyHostname,
 		"Hostname for pupysh listener side (used with generate)")
 	flag.StringVar(&loglevel, "loglevel", loglevel, "Set log level")
+	flag.StringVar(&OnListenerEnabledURL, "on-enabled-url", OnListenerEnabledURL,
+		"Send GET request when at least one client connected")
+	flag.StringVar(&OnListenerDisabledURL, "on-disabled-url", OnListenerDisabledURL,
+		"Send GET request when at least one client connected")
 	flag.BoolVar(&generate, "generate", false, "Generate all the keys")
 
 	iniflags.Parse()

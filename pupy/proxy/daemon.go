@@ -3,6 +3,9 @@ package main
 import (
 	"crypto/tls"
 	"net"
+	"net/http"
+
+	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -37,6 +40,28 @@ func (d *Daemon) ListenAndServe() error {
 	return nil
 }
 
+func (d *Daemon) onListenerEnabled() {
+	if atomic.AddInt32(&d.UsersCount, 1) == 1 && OnListenerEnabledURL != "" {
+		response, err := http.Get(OnListenerEnabledURL)
+		if err != nil {
+			log.Error("Register failed: ", err)
+		} else {
+			log.Info("Register:", OnListenerEnabledURL, ": ", response.Status)
+		}
+	}
+}
+
+func (d *Daemon) onListenerDisabled() {
+	if atomic.AddInt32(&d.UsersCount, -1) == 0 && OnListenerDisabledURL != "" {
+		response, err := http.Get(OnListenerDisabledURL)
+		if err != nil {
+			log.Error("Register failed: ", err)
+		} else {
+			log.Info("Register:", OnListenerDisabledURL, ": ", response.Status)
+		}
+	}
+}
+
 func (d *Daemon) handle(conn net.Conn) {
 	defer conn.Close()
 
@@ -68,7 +93,9 @@ func (d *Daemon) handle(conn net.Conn) {
 		d.DNSCheck.Unlock()
 
 		d.DNSLock.Lock()
+		d.onListenerEnabled()
 		d.serveDNS(conn, brh.BindInfo)
+		d.onListenerDisabled()
 		d.DNSCheck.Lock()
 		d.DNSListener = nil
 		d.DNSCheck.Unlock()
@@ -89,17 +116,23 @@ func (d *Daemon) handle(conn net.Conn) {
 
 	case TCP:
 		log.Warning("Request: TCP handler with port:", brh.BindInfo, " client: ", client, " - start")
+		d.onListenerEnabled()
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTCP)
+		d.onListenerDisabled()
 		log.Warning("Request: TCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
 
 	case KCP:
 		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - start")
+		d.onListenerEnabled()
 		d.serveStream(int(UDPSize-24), conn, brh.BindInfo, d.listenAcceptKCP)
+		d.onListenerDisabled()
 		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
 
 	case TLS:
 		log.Warning("Request: SSL handler with port:", brh.BindInfo, " client: ", client, " - start")
+		d.onListenerEnabled()
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTLS)
+		d.onListenerDisabled()
 		log.Warning("Request: SSL handler with port:", brh.BindInfo, " client: ", client, " - complete")
 
 	default:
