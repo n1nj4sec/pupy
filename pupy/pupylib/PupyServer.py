@@ -290,11 +290,16 @@ class Listener(Thread):
         self.close()
 
     def __str__(self):
-        result = str(self.port if not self.port == 0 else self.external_port)
+        if self.port == 0:
+            return '{}: pproxy:{}:{}'.format(
+                self.name, self.external, self.external_port
+            )
+
+        result = str(self.port)
         if self.address:
             result = '{}:{}'.format(
                 self.address if not self.ipv6 else '[{}]'.format(self.address),
-                self.port if not self.port == 0 else self.external_port
+                self.port
             )
 
         if self.external and not self.local and self.external != self.address:
