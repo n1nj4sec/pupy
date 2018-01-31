@@ -11,10 +11,17 @@ import (
 )
 
 func (d *Daemon) serveDNS(conn net.Conn, domain string) error {
+	d.DNSCheck.Lock()
 	d.DNSListener = NewDNSListener(conn, domain)
+	d.DNSCheck.Unlock()
+
 	log.Debug("DNS: Enabled: ", domain)
 	err := d.DNSListener.Serve()
 	log.Debug("DNS: Disabled: ", domain, err)
+
+	d.DNSCheck.Lock()
+	d.DNSListener = nil
+	d.DNSCheck.Unlock()
 	return err
 }
 
@@ -68,17 +75,22 @@ func (p *DNSListener) messageProcessor(
 		r = nil
 		interrupted := false
 
+		log.Debug("DNS. Wait for interrupt or for close request")
+
 		select {
 		case r = <-p.DNSRequests:
 		case _ = <-interrupt:
 			interrupted = true
 		}
 
+		log.Debug("DNS. Wait done")
+
 		if r == nil || interrupted {
 			if !ignore {
 				closeNotify <- true
 			}
 
+			log.Debug("Ignore 1")
 			ignore = true
 		}
 
@@ -95,10 +107,12 @@ func (p *DNSListener) messageProcessor(
 		if err != nil {
 			r.IPs <- []string{}
 			decoderr <- err
+			log.Debug("Ignore 2")
 			ignore = true
 			continue
 		}
 
+		log.Debug("DNS. Wait for response or for interrupt")
 		select {
 		case ips := <-recvStrings:
 			r.IPs <- ips
@@ -106,9 +120,10 @@ func (p *DNSListener) messageProcessor(
 			r.IPs <- []string{}
 			ignore = true
 		}
+		log.Debug("DNS. Wait for response or for interrupt completed")
 	}
 
-	log.Debug("DNS READ/WRITE CLOSED")
+	log.Debug("[4.] Message processor closed")
 }
 
 func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -248,7 +263,6 @@ func (p *DNSListener) Serve() error {
 	defer close(recvStrings)
 	defer close(recvErrors)
 	defer close(closeNotify)
-	defer close(interruptNotify)
 
 	go p.listenAndServeTCP(tcperr)
 	go p.listenAndServeUDP(udperr)
@@ -267,19 +281,24 @@ func (p *DNSListener) Serve() error {
 		var err2 error
 		select {
 		case err2 = <-tcperr:
+			log.Println("Recv tcpClosed")
 			tcpClosed = true
 
 		case err2 = <-udperr:
+			log.Println("Recv udpClosed")
 			udpClosed = true
 
 		case err2 = <-decoderr:
+			log.Println("Recv decoderClosed")
 			decoderClosed = true
 
 		case err2 = <-recvErrors:
+			log.Println("Recv msgsClosed")
 			msgsClosed = true
-			interruptNotify <- true
+			close(interruptNotify)
 
 		case <-closeNotify:
+			log.Println("Recv decoderClosed")
 			shutdown = true
 			decoderClosed = true
 		}
@@ -299,11 +318,13 @@ func (p *DNSListener) Serve() error {
 func (p *DNSListener) Shutdown() {
 	p.activeLock.Lock()
 	if p.active {
+		p.active = false
 		p.UDPServer.Shutdown()
 		p.TCPServer.Shutdown()
 		p.Conn.Close()
-		p.active = false
+		log.Debug("CLOSING DNS REQUESTS")
 		close(p.DNSRequests)
+		log.Debug("DNS REQUESTS CLOSED")
 	}
 	p.activeLock.Unlock()
 }

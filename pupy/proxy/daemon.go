@@ -91,22 +91,24 @@ func (d *Daemon) handle(conn net.Conn) {
 	case DNS:
 		/* Check DNS Already served */
 
-		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - start")
 		d.DNSCheck.Lock()
 		if d.DNSListener != nil {
+			log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ",
+				client, " - request shutdown")
 			d.DNSListener.Shutdown()
+		} else {
+			log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ",
+				client, " - wait for availability")
 		}
 		d.DNSCheck.Unlock()
 
 		d.DNSLock.Lock()
 		d.onListenerEnabled()
+		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - start")
 		d.serveDNS(conn, brh.BindInfo)
-		d.onListenerDisabled()
-		d.DNSCheck.Lock()
-		d.DNSListener = nil
-		d.DNSCheck.Unlock()
-		d.DNSLock.Unlock()
 		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - complete")
+		d.onListenerDisabled()
+		d.DNSLock.Unlock()
 
 	case INFO:
 		ip := GetOutboundIP()
