@@ -581,7 +581,9 @@ class PupyCmd(cmd.Cmd):
     def do_jobs(self, arg):
         """ manage jobs """
         arg_parser = PupyArgumentParser(prog='jobs', description='list or kill jobs')
-        arg_parser.add_argument('-k', '--kill', metavar='<job_id>', help="print the job current output before killing it")
+        killjob = arg_parser.add_mutually_exclusive_group()
+        killjob.add_argument('-k', '--kill', metavar='<job_id>', help="print the job current output before killing it")
+        killjob.add_argument('-K', '--kill-no-output', metavar='<job_id>', help="kill job without printing output")
         arg_parser.add_argument('-l', '--list', action='store_true', help="list jobs")
         arg_parser.add_argument('-p', '--print-output', metavar='<job_id>', help="print a job output")
         try:
@@ -592,9 +594,24 @@ class PupyCmd(cmd.Cmd):
             if modargs.kill:
                 j=self.pupsrv.get_job(modargs.kill)
                 self.display(j.result_summary())
+                finished = j.is_finished()
                 j.stop()
+                if finished:
+                    self.display_success("job closed")
+                else:
+                    self.display_success("job killed")
+                self.pupsrv.del_job(modargs.kill)
                 del j
-                self.display_success("job killed")
+            if modargs.kill_no_output:
+                j=self.pupsrv.get_job(modargs.kill_no_output)
+                finished = j.is_finished()
+                j.stop()
+                if finished:
+                    self.display_success("job closed")
+                else:
+                    self.display_success("job killed")
+                self.pupsrv.del_job(modargs.kill_no_output)
+                del j
             elif modargs.print_output:
                 j=self.pupsrv.get_job(modargs.print_output)
                 self.display(j.result_summary())
@@ -728,7 +745,7 @@ class PupyCmd(cmd.Cmd):
                     interactive=True
                 else:
                     for c in l:
-                        ps=mod(c, pj)
+                        ps=mod(c, pj, log=modargs.output)
                         pj.add_module(ps)
             try:
                 pj.start(args, once=modargs.once)
