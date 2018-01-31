@@ -63,8 +63,8 @@ func (p *DNSListener) messageReader(cherr chan error, chmsg chan []string) {
 
 func (p *DNSListener) messageProcessor(
 	recvStrings chan []string, interrupt <-chan bool, closeNotify chan<- bool, decoderr chan<- error) {
-
 	ignore := false
+	notifySent := false
 
 	for {
 		var (
@@ -83,11 +83,13 @@ func (p *DNSListener) messageProcessor(
 			interrupted = true
 		}
 
-		log.Debug("DNS. Wait done")
+		log.Debug("DNS. Wait done", r, ignore)
 
 		if r == nil || interrupted {
-			if !ignore {
+			if !notifySent {
+				log.Debug("Send close notify")
 				closeNotify <- true
+				notifySent = true
 			}
 
 			log.Debug("Ignore 1")
@@ -123,6 +125,17 @@ func (p *DNSListener) messageProcessor(
 		log.Debug("DNS. Wait for response or for interrupt completed")
 	}
 
+	for {
+		select {
+		case r := <-p.DNSRequests:
+			if r != nil {
+				r.IPs <- []string{}
+			}
+		default:
+			break
+		}
+	}
+
 	log.Debug("[4.] Message processor closed")
 }
 
@@ -134,6 +147,12 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	processed := true
 
 	now := time.Now()
+
+	log.Debug("START PROCESSING REQUEST")
+	defer log.Debug("END PROCESSING REQUEST")
+
+	p.processedRequests.Add(1)
+	defer p.processedRequests.Done()
 
 	p.cacheLock.Lock()
 	for k, v := range p.DNSCache {
@@ -171,10 +190,10 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 							Name: question,
 							IPs:  result,
 						}
-
+						log.Debug("DNS: Send request: ", q.Name)
 						responses = <-result
 						log.Info("DNS: Response: ", q.Name, ": ", responses)
-						defer close(result)
+						close(result)
 					}
 
 					if len(responses) > 0 {
@@ -303,7 +322,9 @@ func (p *DNSListener) Serve() error {
 			decoderClosed = true
 		}
 
+		log.Debug("Call closed")
 		p.Shutdown()
+		log.Debug("Call closed complete")
 
 		if err == nil {
 			err = err2
@@ -311,6 +332,12 @@ func (p *DNSListener) Serve() error {
 
 		log.Debug("CLOSED: ", tcpClosed, udpClosed, decoderClosed, msgsClosed, shutdown)
 	}
+
+	log.Debug("Wait process group complete")
+	p.processedRequests.Wait()
+	log.Debug("Wait process group complete - done")
+	close(p.DNSRequests)
+	p.DNSRequests = nil
 
 	return err
 }
@@ -323,7 +350,6 @@ func (p *DNSListener) Shutdown() {
 		p.TCPServer.Shutdown()
 		p.Conn.Close()
 		log.Debug("CLOSING DNS REQUESTS")
-		close(p.DNSRequests)
 		log.Debug("DNS REQUESTS CLOSED")
 	}
 	p.activeLock.Unlock()

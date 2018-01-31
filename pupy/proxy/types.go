@@ -58,6 +58,8 @@ type (
 		TCPServer   *dns.Server
 		DNSRequests chan *DNSRequest
 
+		processedRequests sync.WaitGroup
+
 		cacheLock sync.Mutex
 
 		activeLock sync.Mutex
