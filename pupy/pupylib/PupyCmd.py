@@ -960,11 +960,14 @@ class PupyCmd(cmd.Cmd):
                         need_transport = True
 
                 if not default_listener:
-                    default_listener = next(self.pupsrv.listeners.itervalues())
-
-                transport = default_listener.name
+                    try:
+                        default_listener = next(self.pupsrv.listeners.itervalues())
+                    except StopIteration:
+                        pass
 
                 if default_listener:
+                    transport = default_listener.name
+
                     self.display_info(
                         'Connection point: Transport={} Address={}:{}'.format(
                             default_listener.name, default_listener.external,
