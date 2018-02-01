@@ -9,7 +9,7 @@ PERM_DIR = ''.join(random.sample(string.ascii_letters, 10))
 def _listShares(smb, passwd):
     permissions = dict()
     root = ntpath.normpath("\\{}".format(PERM_DIR))
-    
+
     for share in smb.listShares():
         share_name = str(share['shi1_netname'][:-1])
         permissions[share_name] = "NO ACCESS"
@@ -30,36 +30,53 @@ def _listShares(smb, passwd):
     return permissions
 
 def connect(host, port, user, passwd, hash, domain="workgroup"):
+    result = {}
     try:
         smb = SMBConnection(host, host, None, port, timeout=2)
+        guest = False
+
         try:
             smb.login('' , '')
+            guest = True
+            result.update({
+                'auth': 'guest',
+            })
         except SessionError as e:
             if "STATUS_ACCESS_DENIED" in e.message:
                 pass
 
-        print "[+] {}:{} is running {} (name:{}) (domain:{})".format(host, port, smb.getServerOS(), smb.getServerName(), domain)
         try:
             lmhash = ''
             nthash = ''
             if hash:
                 lmhash, nthash = hash.split(':')
 
-            smb.login(user, passwd, domain, lmhash, nthash)
-            separator = " " * (50 - len("SHARE"))
-            print "\tSHARE%sPermissions" % separator
-            print "\t----%s-----------" % separator
+            if user and ( passwd or lmhash or nthash ):
+                smb.login(user, passwd, domain, lmhash, nthash)
+
+                if not guest:
+                    result.update({
+                        'auth': user,
+                    })
+
+            result.update({
+                'os': smb.getServerOS(),
+                'name': smb.getServerName(),
+                'shares': [],
+            })
+
             for share, perm in _listShares(smb, passwd).iteritems():
-                separator = " " * (50 - len(share))
-                print "\t%s%s%s" % (share, separator, perm)
-                
-            print
+                result['shares'].append((share, perm))
+
             smb.logoff()
 
         except SessionError as e:
-            print "[-] {}:{} {}".format(host, port, e)
+            result['error'] = str(e)
+
         except Exception as e:
-            print "[-] {}:{} {}".format(host, port, e)
+            result['error'] = str(e)
 
     except Exception as e:
-        print "[!] {}".format(e)
+        result['error'] = str(e)
+
+    return result

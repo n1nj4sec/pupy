@@ -199,9 +199,14 @@ class PupySocketStream(SocketStream):
 
             return self.upstream.read(count)
 
+        except (EOFError, socket.error):
+            self.close()
+            raise
+
         except Exception as e:
             logging.debug(traceback.format_exc())
             self.close()
+            raise
 
     def write(self, data):
         try:
@@ -209,9 +214,15 @@ class PupySocketStream(SocketStream):
                 self.buf_out.write(data)
                 self.transport.upstream_recv(self.buf_out)
             #The write will be done by the _upstream_recv callback on the downstream buffer
+
+        except (EOFError, socket.error):
+            self.close()
+            raise
+
         except Exception as e:
             logging.debug(traceback.format_exc())
             self.close()
+            raise
 
 class PupyUDPSocketStream(object):
     MAGIC = b'\x00'*512
@@ -321,7 +332,7 @@ class PupyUDPSocketStream(object):
                 offset = 0
                 while to_send and not self.closed:
                     portion = mic if mic < to_send else to_send
-                    self.kcp.send(data[offset:offset+mic])
+                    self.kcp.send(data[offset:offset+portion])
                     offset += portion
                     to_send -= portion
 

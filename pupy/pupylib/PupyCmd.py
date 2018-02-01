@@ -581,7 +581,9 @@ class PupyCmd(cmd.Cmd):
     def do_jobs(self, arg):
         """ manage jobs """
         arg_parser = PupyArgumentParser(prog='jobs', description='list or kill jobs')
-        arg_parser.add_argument('-k', '--kill', metavar='<job_id>', help="print the job current output before killing it")
+        killjob = arg_parser.add_mutually_exclusive_group()
+        killjob.add_argument('-k', '--kill', metavar='<job_id>', help="print the job current output before killing it")
+        killjob.add_argument('-K', '--kill-no-output', metavar='<job_id>', help="kill job without printing output")
         arg_parser.add_argument('-l', '--list', action='store_true', help="list jobs")
         arg_parser.add_argument('-p', '--print-output', metavar='<job_id>', help="print a job output")
         try:
@@ -592,9 +594,24 @@ class PupyCmd(cmd.Cmd):
             if modargs.kill:
                 j=self.pupsrv.get_job(modargs.kill)
                 self.display(j.result_summary())
+                finished = j.is_finished()
                 j.stop()
+                if finished:
+                    self.display_success("job closed")
+                else:
+                    self.display_success("job killed")
+                self.pupsrv.del_job(modargs.kill)
                 del j
-                self.display_success("job killed")
+            if modargs.kill_no_output:
+                j=self.pupsrv.get_job(modargs.kill_no_output)
+                finished = j.is_finished()
+                j.stop()
+                if finished:
+                    self.display_success("job closed")
+                else:
+                    self.display_success("job killed")
+                self.pupsrv.del_job(modargs.kill_no_output)
+                del j
             elif modargs.print_output:
                 j=self.pupsrv.get_job(modargs.print_output)
                 self.display(j.result_summary())
@@ -728,7 +745,7 @@ class PupyCmd(cmd.Cmd):
                     interactive=True
                 else:
                     for c in l:
-                        ps=mod(c, pj)
+                        ps=mod(c, pj, log=modargs.output)
                         pj.add_module(ps)
             try:
                 pj.start(args, once=modargs.once)
@@ -1059,7 +1076,9 @@ class PupyCmd(cmd.Cmd):
 
         policy = commands.add_parser('set', help='Change policy (polling, timeout)')
         policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
-        policy.add_argument('-k', '--kex', type=bool, help='Enable KEX')
+        kex = policy.add_mutually_exclusive_group()
+        kex.add_argument('-K', '--no-kex', default=None, action='store_true', help='Disable KEX')
+        kex.add_argument('-k', '--kex', default=None, action='store_true', help='Enable KEX')
         policy.add_argument('-t', '--timeout', type=int, help='Set session timeout')
 
         connect = commands.add_parser('connect', help='Request reverse connection')
@@ -1272,10 +1291,16 @@ class PupyCmd(cmd.Cmd):
             )
 
         elif args.command == 'set':
-            if all([x is None for x in [args.kex, args.timeout, args.poll]]):
+            set_kex = None
+            if args.kex is not None:
+                set_kex = True
+            elif args.no_kex is not None:
+                set_kex = False
+
+            if all([x is None for x in [set_kex, args.timeout, args.poll]]):
                 self.display_error('No arguments provided.')
             else:
-                count = self.dnscnc.set_policy(args.kex, args.timeout, args.poll, node=args.node)
+                count = self.dnscnc.set_policy(set_kex, args.timeout, args.poll, node=args.node)
                 if count:
                     self.display_success('Apply policy to {} known nodes'.format(count))
 

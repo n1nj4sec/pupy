@@ -58,7 +58,7 @@ echo "[+] Build python template ($TOOLCHAIN_ARCH)"
 
 rm -f ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}.zip
 zip -y -r -9 ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}.zip . \
-    -x "*.a" -x "*.la" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" \
+    -x "*.a" -x "*.la" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" \
     -x "*.egg-info/*" -x "*.dist-info/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" >/dev/null

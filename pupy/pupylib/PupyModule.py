@@ -142,6 +142,8 @@ class Log(object):
                 data = data.replace(seq, '')
 
             self.log.write(data)
+            if self.close_out:
+                self.log.flush()
 
         self.last = now
 

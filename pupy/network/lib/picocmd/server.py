@@ -304,13 +304,12 @@ class DnsCommandServerHandler(BaseResolver):
             idx = idx << 25
             bits = ( struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0] ) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
-            address = '.'.join(['{}'.format(int(x)) for x in packed])
-            response.append(RR('.', QTYPE.A, rdata=A(address), ttl=600))
+            response.append('.'.join(['{}'.format(int(x)) for x in packed]))
 
         return response
 
     def _q_page_decoder(self, data):
-        parts = data.stripSuffix(self.domain).idna()[:-1].split('.')
+        parts = data.split('.')
 
         if len(parts) == 0:
             raise DnsPingRequest(1)
@@ -352,7 +351,10 @@ class DnsCommandServerHandler(BaseResolver):
         logging.debug('dnscnc:commands={} session={}'.format(command, session))
 
         if isinstance(command, Poll) and session is None:
-            return [Policy(self.interval, self.kex), Poll()]
+            if not self.kex:
+                return self.commands
+            else:
+                return [Policy(self.interval, self.kex), Poll()]
 
         elif isinstance(command, Ack) and (session is None):
             pass
@@ -457,6 +459,71 @@ class DnsCommandServerHandler(BaseResolver):
             self.cache[part] = response
             return response
 
+    def process(self, qname):
+        responses = []
+
+        session = None
+        nonce = None
+
+        try:
+            request, session, nonce = self._q_page_decoder(qname)
+            if session and session.last_nonce and session.last_qname:
+                if nonce < session.last_nonce:
+                    logging.info('Ignore nonce from past: {} < {}'.format(
+                        nonce, session.last_nonce))
+                    return []
+                elif session.last_nonce == nonce and session.last_qname != qname:
+                    logging.info('Last nonce but different qname: {} != {}'.format(
+                        session.last_qname, qname))
+                    return []
+
+            for command in Parcel.unpack(request):
+                for response in self._cmd_processor(command, session):
+                    responses.append(response)
+
+            if session:
+                session.last_nonce = nonce
+                session.last_qname = qname
+
+        except DnsCommandServerException as e:
+            nonce = e.nonce
+            responses = [e.error, Policy(self.interval, self.kex), Poll()]
+            logging.debug('dnscnc: Server Error: {}'.format(e))
+
+        except ParcelInvalidCrc as e:
+            responses = [e.error]
+            logging.debug('dnscnc: Invalid CRC')
+
+        except DnsNoCommandServerException:
+            logging.debug('dnscnc: No CNC Exception')
+            return None
+
+        except DnsPingRequest, e:
+            replies = []
+            for i in xrange(e.args[0]):
+                x = (i % 65536) >> 8
+                y = i % 256
+                replies.append('127.0.{}.{}'.format(x, y))
+
+            logging.debug('dnscnc:ping request:{}'.format(i))
+            return replies
+
+        except TypeError, e:
+            # Usually - invalid padding
+            logging.debug('dnscnc:invalid padding')
+            logging.exception(e)
+            return None
+
+        except Exception as e:
+            logging.exception(e)
+            return None
+
+        logging.debug('dnscnc:responses={} session={}'.format(responses, session))
+
+        encoder = session.encoder if session else self.encoder
+
+        return self._a_page_encoder(Parcel(*responses).pack(), encoder, nonce)
+
     def _resolve(self, request, handler):
         qname = request.q.qname
         reply = request.reply()
@@ -478,77 +545,13 @@ class DnsCommandServerHandler(BaseResolver):
             return reply
 
 
-        responses = []
+        arecords = self.process(qname.stripSuffix(self.domain).idna()[:-1])
 
-        session = None
-        nonce = None
-
-        try:
-            request, session, nonce = self._q_page_decoder(qname)
-            if session and session.last_nonce and session.last_qname:
-                if nonce < session.last_nonce:
-                    logging.info('Ignore nonce from past: {} < {}'.format(
-                        nonce, session.last_nonce))
-                    reply.header.rcode = RCODE.NXDOMAIN
-                    return reply
-                elif session.last_nonce == nonce and session.last_qname != qname:
-                    logging.info('Last nonce but different qname: {} != {}'.format(
-                        session.last_qname, qname))
-                    reply.header.rcode = RCODE.NXDOMAIN
-                    return reply
-
-            for command in Parcel.unpack(request):
-                for response in self._cmd_processor(command, session):
-                    responses.append(response)
-
-            if session:
-                session.last_nonce = nonce
-                session.last_qname = qname
-
-        except DnsCommandServerException as e:
-            nonce = e.nonce
-            responses = [e.error, Policy(self.interval, self.kex), Poll()]
-            logging.debug('dnscnc: Server Error: {}'.format(e))
-
-        except ParcelInvalidCrc as e:
-            responses = [e.error]
-            logging.debug('dnscnc: Invalid CRC')
-
-        except DnsNoCommandServerException:
+        if arecords:
+            for address in arecords:
+                reply.add_answer(RR(qname, QTYPE.A, rdata=A(address), ttl=600))
+        else:
             reply.header.rcode = RCODE.NXDOMAIN
-            logging.debug('dnscnc: No CNC Exception')
-            return reply
-
-        except DnsPingRequest, e:
-            for i in xrange(e.args[0]):
-                x = (i % 65536) >> 8
-                y = i % 256
-                a = RR('.', QTYPE.A, rdata=A('127.0.{}.{}'.format(x, y)), ttl=10)
-                a.rname = qname
-                reply.add_answer(a)
-
-            logging.debug('dnscnc:ping request:{}'.format(i))
-            return reply
-
-        except TypeError, e:
-            # Usually - invalid padding
-            logging.debug('dnscnc:invalid padding')
-            logging.exception(e)
-            reply.header.rcode = RCODE.NXDOMAIN
-            return reply
-
-        except Exception as e:
-            logging.exception(e)
-            reply.header.rcode = RCODE.NXDOMAIN
-            return reply
-
-        logging.debug('dnscnc:responses={} session={}'.format(responses, session))
-
-        encoder = session.encoder if session else self.encoder
-        for rr in self._a_page_encoder(Parcel(*responses).pack(), encoder, nonce):
-            a = copy.copy(rr)
-            a.rname = qname
-            reply.add_answer(a)
 
         return reply
 

