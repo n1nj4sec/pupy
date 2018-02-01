@@ -68,7 +68,7 @@ if __name__=="__main__":
     with open(os.path.join('..','additional_imports.py')) as f:
         preload = f.read()
 
-    pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug)
+    pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug, main=True)
 
     if not args.debug:
         print 'Generate bootloader with blackholed stderr/stdout'

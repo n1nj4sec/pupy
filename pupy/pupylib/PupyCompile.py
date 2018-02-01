@@ -5,11 +5,13 @@ import marshal
 import logging
 
 class Compiler(ast.NodeTransformer):
-    def __init__(self, data, path=False):
+    def __init__(self, data, path=False, main=False):
         source = data
         if path:
             with open(data) as src:
                 source = src.read()
+
+        self._main = main
 
         ast.NodeTransformer.__init__(self)
         self._source_ast = ast.parse(source)
@@ -39,6 +41,12 @@ class Compiler(ast.NodeTransformer):
     def visit_If(self, node):
         if hasattr(node.test, 'id') and node.test.id == '__debug__':
             return node.orelse
+        if not self._main and type(node.test) == ast.Compare and type(node.test.left) == ast.Name \
+          and node.test.left.id == '__name__':
+          for comparator in node.test.comparators:
+              print comparator, type(comparator), comparator, comparator.s
+              if type(comparator) == ast.Str and comparator.s == '__main__':
+                  return node.orelse
         elif hasattr(node.test, 'operand') and type(node.test.op) == ast.Not \
           and type(node.test.operand) == ast.Name and node.test.operand.id == '__debug__':
             return node.body
@@ -55,10 +63,10 @@ class Compiler(ast.NodeTransformer):
 
         return node
 
-def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug=False):
+def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug=False, main=False):
     if not debug:
         logging.info('[PC] "{}"'.format(data if path else filename))
-        data = Compiler(data, path).compile(filename, obfuscate, raw)
+        data = Compiler(data, path, main).compile(filename, obfuscate, raw)
     else:
         source = data
         if path:
