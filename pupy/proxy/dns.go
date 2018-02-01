@@ -205,7 +205,7 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 								Name:   q.Name,
 								Rrtype: dns.TypeA,
 								Class:  dns.ClassINET,
-								Ttl:    10,
+								Ttl:    60,
 							}
 							a.A = net.ParseIP(response).To4()
 							dnsResponses[i] = a
