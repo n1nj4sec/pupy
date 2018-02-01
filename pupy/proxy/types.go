@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dns "github.com/miekg/dns"
+	rc "github.com/paulbellamy/ratecounter"
 )
 
 type (
@@ -59,6 +60,10 @@ type (
 		DNSRequests chan *DNSRequest
 
 		processedRequests sync.WaitGroup
+
+		dnsRequestsCounter          *rc.RateCounter
+		dnsRemoteRequestsCounter    *rc.RateCounter
+		dnsProcessedRequestsCounter *rc.RateCounter
 
 		cacheLock sync.Mutex
 
