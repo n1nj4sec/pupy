@@ -49,8 +49,7 @@ class PupyOffloadDNS(threading.Thread):
 
         while self.active:
             try:
-                while self.active:
-                    self._serve()
+                self._serve()
 
             except EOFError:
                 logging.error('DNS: Lost connection (EOF)')
@@ -63,11 +62,11 @@ class PupyOffloadDNS(threading.Thread):
                     time.sleep(5)
                     continue
                 else:
-                    logging.exception(e)
+                    logging.exception('DNS: {}'.format(e))
                     self.active = False
 
             except Exception, e:
-                logging.exception(e)
+                logging.exception('DNS: {}'.format(e))
                 self.active = False
 
     def _serve(self):
@@ -78,7 +77,13 @@ class PupyOffloadDNS(threading.Thread):
             if not request:
                 return
 
+            now = time.time()
             response = self.handler.process(request)
+            used = time.time() - now
+
+            if used > 1:
+                logging.error('DNS: Slow processing speed ({})s'.format(used))
+
             conn.send(response)
 
     def stop(self):
@@ -167,7 +172,7 @@ class PupyOffloadAcceptor(object):
                 continue
 
             except Exception, e:
-                logging.exception(e)
+                logging.exception('Acceptor ({}): Exception: {}'.format(e))
                 raise
 
 class PupyOffloadManager(object):
