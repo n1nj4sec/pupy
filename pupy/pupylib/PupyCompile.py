@@ -44,7 +44,6 @@ class Compiler(ast.NodeTransformer):
         if not self._main and type(node.test) == ast.Compare and type(node.test.left) == ast.Name \
           and node.test.left.id == '__name__':
           for comparator in node.test.comparators:
-              print comparator, type(comparator), comparator, comparator.s
               if type(comparator) == ast.Str and comparator.s == '__main__':
                   return node.orelse
         elif hasattr(node.test, 'operand') and type(node.test.op) == ast.Not \
