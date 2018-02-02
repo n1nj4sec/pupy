@@ -68,7 +68,7 @@ if __name__=="__main__":
     with open(os.path.join('..','additional_imports.py')) as f:
         preload = f.read()
 
-    pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug, main=True)
+    pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug)
 
     if not args.debug:
         print 'Generate bootloader with blackholed stderr/stdout'
@@ -89,4 +89,4 @@ if __name__=="__main__":
         os.makedirs('resources')
 
     with open(os.path.join('resources', 'bootloader.pyc'),'wb') as w:
-        w.write(pupycompile('\n'.join(bootloader), raw=True, debug=args.debug))
+        w.write(pupycompile('\n'.join(bootloader), raw=True, debug=args.debug, main=True))
