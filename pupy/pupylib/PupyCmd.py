@@ -602,7 +602,7 @@ class PupyCmd(cmd.Cmd):
                     self.display_success("job killed")
                 self.pupsrv.del_job(modargs.kill)
                 del j
-            if modargs.kill_no_output:
+            elif modargs.kill_no_output:
                 j=self.pupsrv.get_job(modargs.kill_no_output)
                 finished = j.is_finished()
                 j.stop()
@@ -841,7 +841,8 @@ class PupyCmd(cmd.Cmd):
         cmdset.add_argument('-r', '--restart', action='store_true', default=False, help='restart pupy')
         cmdset.add_argument('section', help='config section')
         cmdset.add_argument('key', help='config key')
-        cmdset.add_argument('value', nargs=REMAINDER, help='value')
+        cmdset.add_argument('value', help='value')
+        cmdset.add_argument('args', nargs=REMAINDER, help='rest args')
 
         cmdunset = commands.add_parser('unset', help='unset config option')
         cmdunset.add_argument('-w', '--write-project', action='store_true',
@@ -880,7 +881,12 @@ class PupyCmd(cmd.Cmd):
 
         elif commands.command == 'set':
             try:
-                self.config.set(commands.section, commands.key, ' '.join(commands.value))
+                value = commands.value
+                if commands.args:
+                    value += ' '
+                    value += ' '.join(commands.args)
+
+                self.config.set(commands.section, commands.key, value)
                 self.config.save(project=commands.write_project, user=commands.write_user)
                 if commands.restart:
                     self.do_restart(None)
