@@ -183,6 +183,7 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Compress = true
+	m.Authoritative = false
 
 	processed := true
 
