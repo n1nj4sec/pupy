@@ -142,7 +142,6 @@ class Search(object):
         if not self.terminate:
             self.terminate = threading.Event()
 
-        on_data = rpyc.async(on_data)
         on_completed = rpyc.async(on_completed)
 
         search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
