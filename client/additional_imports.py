@@ -39,7 +39,12 @@ import getpass
 import __future__
 import netaddr
 import psutil
-import kcp
+
+try:
+    import kcp
+except:
+    pass
+
 import poster
 
 if 'win' in sys.platform:
