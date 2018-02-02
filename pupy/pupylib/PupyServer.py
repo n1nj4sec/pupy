@@ -78,6 +78,7 @@ class Listener(Thread):
           self.transport.authenticator else None
 
         self.pupsrv = pupsrv
+        self.config = pupsrv.config
         self.httpd = httpd
         self.igd = igd
 
@@ -95,7 +96,7 @@ class Listener(Thread):
 
         if httpd and not self.transport.dgram:
             self.transport.server_transport = chain_transports(
-                PupyHTTPWrapperServer.custom(server=self),
+                PupyHTTPWrapperServer.custom(server=self.pupsrv),
                 self.transport.server_transport
             )
 
