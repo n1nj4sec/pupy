@@ -167,21 +167,10 @@ def cd(path=None):
         path = os.path.expanduser(path)
         path = os.path.expandvars(path)
     else:
-        home = os.path.expanduser("~")
-        try:
-            os.chdir(home)
-            return
-        except:
-            return "[-] Home directory not found (or access denied): %s" % home
+        path = os.path.expanduser("~")
+        path = try_unicode(path)
 
-    if os.path.isdir(path):
-        try:
-            os.chdir(path)
-        except:
-            return "[-] Permission denied to change to this directory"
-
-    else:
-        return "[-] \"%s\" is not a repository" % path
+    os.chdir(path)
 
 # -------------------------- For mkdir function --------------------------
 
@@ -191,10 +180,7 @@ def mkdir(directory):
     directory = os.path.expanduser(directory)
     directory = os.path.expandvars(directory)
 
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    else:
-        return "[-] The directory \"%s\" already exists" % directory
+    os.makedirs(directory)
 
 # -------------------------- For cp function --------------------------
 
@@ -255,12 +241,12 @@ def mv(src, dst):
                 real_dst = dst
 
             if os.path.exists(real_dst):
-                raise ValueError('{} already exists'.format(real_dst))
+                raise ValueError('File/directory already exists')
 
             shutil.move(src, real_dst)
 
     if not found:
-        raise ValueError('The file {} does not exist'.format(src))
+        raise ValueError('The file/directory does not exist')
 
 
 # -------------------------- For mv function --------------------------
@@ -280,10 +266,10 @@ def rm(path):
             else:
                 os.remove(path)
         else:
-            return "[-] The directory \"%s\" does not exists" % path
+            raise ValueError("File/directory does not exists")
 
     if not found:
-        return "[-] The directory \"%s\" does not exists" % path
+        raise ValueError("File/directory does not exists")
 
 # -------------------------- For cat function --------------------------
 
@@ -299,21 +285,20 @@ def cat(path):
     for path in glob.iglob(path):
         if os.path.exists(path):
             found = True
-            if not os.path.isdir(path):
+            if os.path.isfile(path):
                 # not open files too big (< 7 Mo)
                 if os.path.getsize(path) < 7000000:
                     with open(path, 'r') as fin:
                         data += fin.read()
                 else:
-                    return "[-] \"%s\" is too big to be openned (max size: 7 Mo)" % path
+                    raise ValueError('File is too big to be openned (max size: 7 Mo)')
             else:
-                return "[-] \"%s\" is a directory" % path
-
+                raise ValueError('Not a file')
         else:
-            return "[-] The file \"%s\" does not exists" % path
+            raise ValueError('File does not exists')
 
     if not found:
-        return "[-] The file \"%s\" does not exists" % path
+        raise ValueError('File does not exists')
 
     return data
 

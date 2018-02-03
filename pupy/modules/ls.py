@@ -92,9 +92,14 @@ class ls(PupyModule):
         self.arg_parser.add_argument('path', type=str, nargs='?', help='path of a specific file')
 
     def run(self, args):
-        results = self.client.conn.modules["pupyutils.basic_cmds"].ls(
-            args.path, args.dir
-        )
+        try:
+            results = self.client.conn.modules["pupyutils.basic_cmds"].ls(
+                args.path, args.dir
+            )
+        except Exception, e:
+            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            return
+
         results = obtain(results)
         windows = self.client.is_windows()
 

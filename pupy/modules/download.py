@@ -82,9 +82,12 @@ class DownloaderScript(PupyModule):
 
         self.info('downloading %s ...'%remote_file)
 
-        download(
-            self.client.conn,
-            remote_file, local_file,
-            chunk_size=8*1024*1024, log=self.info if args.verbose else None
-        )
-        self.success('downloaded from remote:%s to local:%s'%(remote_file, local_file))
+        try:
+            download(
+                self.client.conn,
+                remote_file, local_file,
+                chunk_size=8*1024*1024, log=self.info if args.verbose else None
+            )
+            self.success('downloaded from remote:%s to local:%s'%(remote_file, local_file))
+        except Exception, e:
+            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))

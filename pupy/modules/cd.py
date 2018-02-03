@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 
 __class_name__="cd"
@@ -15,6 +15,9 @@ class cd(PupyModule):
         self.arg_parser.add_argument('path', type=str, nargs='?', help='path of a specific directory')
 
     def run(self, args):
-        r = self.client.conn.modules["pupyutils.basic_cmds"].cd(args.path)
-        if r:
-            self.log(r)
+        try:
+            r = self.client.conn.modules["pupyutils.basic_cmds"].cd(args.path)
+            if r:
+                self.log(r)
+        except Exception, e:
+            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))

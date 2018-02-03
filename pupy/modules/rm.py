@@ -14,6 +14,10 @@ class rm(PupyModule):
         self.arg_parser.add_argument('path', type=str, action='store')
 
     def run(self, args):
-        r = self.client.conn.modules["pupyutils.basic_cmds"].rm(args.path)
-        if r:
-            self.log(r)
+        try:
+            r = self.client.conn.modules["pupyutils.basic_cmds"].rm(args.path)
+            if r:
+                self.log(r)
+        except Exception, e:
+            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            return

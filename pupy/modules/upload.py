@@ -43,7 +43,11 @@ class UploaderScript(PupyModule):
             )
         )
 
-        upload(self.client.conn, localfile, remotefile, chunk_size=8*1024*1024)
+        try:
+            upload(self.client.conn, localfile, remotefile, chunk_size=8*1024*1024)
+        except Exception, e:
+            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            return
 
         self.success("file local:%s uploaded to remote:%s"%(localfile, remotefile))
 
