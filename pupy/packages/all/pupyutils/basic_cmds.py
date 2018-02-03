@@ -39,7 +39,6 @@ def safe_stat(path):
 
 def safe_listdir(path):
     path = try_unicode(path)
-
     try:
         return os.listdir(path)
     except:
@@ -114,7 +113,9 @@ def list_dir(path):
     path = try_unicode(path)
 
     return [
-        list_file(os.path.join(path, x)) for x in safe_listdir(path)
+        list_file(
+            os.path.join(path, try_unicode(x))
+        ) for x in safe_listdir(path)
     ]
 
 def ls(path=None,listdir=True):
