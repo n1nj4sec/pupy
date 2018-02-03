@@ -5,15 +5,15 @@ import os
 import sys
 import subprocess
 
-_SAVED_UID = os.getuid()
-_SAVED_GID = os.getgid()
-_SAVED_GROUPS = os.getgroups()
-_SAVED_CWD = os.getcwdu()
-_SAVED_ENV = os.environ.copy()
+if not hasattr(sys, '_BECOME_INITIALIZED'):
+    sys._SAVED_UID = os.getuid()
+    sys._SAVED_GID = os.getgid()
+    sys._SAVED_GROUPS = os.getgroups()
+    sys._SAVED_CWD = os.getcwdu()
+    sys._SAVED_ENV = os.environ.copy()
+    sys._BECOME_INITIALIZED = True
 
 def become(user):
-    global _SAVED_UID, _SAVED_GID, _SAVED_GROUPS, _SAVED_CWD, _SAVED_ENV
-
     try:
         userinfo = pwd.getpwuid(int(user))
     except:
@@ -25,11 +25,11 @@ def become(user):
     if os.geteuid() == userinfo.pw_uid:
         return
 
-    _SAVED_UID = os.geteuid()
-    _SAVED_GID = os.getegid()
-    _SAVED_GROUPS = os.getgroups()
-    _SAVED_CWD = os.getcwdu()
-    _SAVED_ENV = os.environ.copy()
+    sys._SAVED_UID = os.geteuid()
+    sys._SAVED_GID = os.getegid()
+    sys._SAVED_GROUPS = os.getgroups()
+    sys._SAVED_CWD = os.getcwdu()
+    sys._SAVED_ENV = os.environ.copy()
 
     os.initgroups(userinfo.pw_name, userinfo.pw_gid)
     os.setegid(userinfo.pw_gid)
@@ -82,14 +82,11 @@ def become(user):
         pass
 
 def restore():
-    global _SAVED_UID, _SAVED_GID, _SAVED_GROUPS, _SAVED_CWD
-    global _SAVED_LOGIN, _SAVED_ENV
-
-    if os.getegid() == _SAVED_UID:
+    if os.getegid() == sys._SAVED_UID:
         return
 
-    os.seteuid(_SAVED_UID)
-    os.setegid(_SAVED_GID)
-    os.setgroups(_SAVED_GROUPS)
-    os.chdir(_SAVED_CWD)
-    os.environ = _SAVED_ENV
+    os.seteuid(sys._SAVED_UID)
+    os.setegid(sys._SAVED_GID)
+    os.setgroups(sys._SAVED_GROUPS)
+    os.chdir(sys._SAVED_CWD)
+    os.environ = sys._SAVED_ENV
