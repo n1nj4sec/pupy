@@ -195,10 +195,6 @@ class PExec(PupyModule):
             else:
                 self.error('Remote file {} not exists (scheduled for download)'.format(remote))
 
-        if hasattr(self.job, 'id'):
-            self.job.pupsrv.handler.display_srvinfo('(Job id: {}) Command {} completed'.format(
-                self.job.id, cmdargs))
-
     def interrupt(self):
         if not self.completed and self.pipe:
             self.error('Stopping command')

@@ -112,6 +112,7 @@ class PupyJob(object):
         self.error_happened = threading.Event()
         self.jid = None
         self.destroyed = False
+        self.id = None
 
     def add_module(self, mod):
         self.pupymodules.append(mod)
@@ -138,10 +139,16 @@ class PupyJob(object):
             self.error_happened.set()
             module.error(str(e))
             import traceback
-            traceback.print_exc(e)
+            traceback.print_exc(e, file=module.stdout)
         finally:
             if once:
                 module.clean_dependencies()
+
+            if self.id is not None:
+                self.pupsrv.handler.display_srvinfo('{}: {} - {}'.format(
+                    self.id,
+                    self.name,
+                    'failed' if self.error_happened.is_set() else 'success'))
 
     def start(self, args, once=False):
         #if self.started.is_set():
@@ -228,12 +235,13 @@ class PupyJob(object):
     def result_summary(self):
         res=b""
         for m in self.pupymodules:
-            res+=m.formatter.format_section(str(m.client))
-            gv=m.stdout.getvalue()
-            if type(gv) == unicode:
-                gv = gv.encode('utf8', errors="replace")
-            res += gv+b'\n'
-            m.stdout.truncate(0)
+            gv = m.stdout.getvalue()
+            if gv:
+                res+=m.formatter.format_section(str(m.client))
+                if type(gv) == unicode:
+                    gv = gv.encode('utf8', errors="replace")
+                res += gv+b'\n'
+                m.stdout.truncate(0)
         return res
 
     def free(self):
@@ -253,4 +261,4 @@ class PupyJob(object):
         return len(self.pupymodules)
 
     def __str__(self):
-        return "< %s >"%(self.name)
+        return self.name

@@ -738,7 +738,7 @@ class PupyCmd(cmd.Cmd):
             if mod.daemon and mod.unique_instance and modjobs:
                 pj=modjobs[0]
             else:
-                pj=PupyJob(self.pupsrv, "%s %s"%(modargs.module, args))
+                pj=PupyJob(self.pupsrv, '{} {}'.format(modargs.module, ' '.join(args)))
                 if len(l)==1 and not modargs.bg and not mod.daemon:
                     ps=mod(l[0], pj, stdout=self.stdout, log=modargs.output)
                     pj.add_module(ps)
@@ -776,7 +776,9 @@ class PupyCmd(cmd.Cmd):
             pj.interrupt()
             self.display_warning("job interrupted")
         if not interactive:
-            self.display(pj.result_summary())
+            summary = pj.result_summary()
+            if summary is not None:
+                self.display(summary)
         else:
             if pj:
                 pj.free()
