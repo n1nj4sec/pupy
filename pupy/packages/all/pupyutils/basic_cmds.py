@@ -130,9 +130,8 @@ def ls(path=None,listdir=True):
     found = False
 
     for path in glob.iglob(path):
-
         if not os.path.exists(path):
-            raise IOError("The path \"%s\" does not exist" % path)
+            raise IOError('The path does not exist')
 
         found = True
 
@@ -156,7 +155,7 @@ def ls(path=None,listdir=True):
 
 
     if not found:
-        raise ValueError("The file \"%s\" does not exist" % path)
+        raise ValueError('The file/path does not exist')
 
     return results
 
