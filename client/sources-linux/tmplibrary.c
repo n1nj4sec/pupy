@@ -245,6 +245,7 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
                 dup2(p_stdin[0], 0);  close(p_stdin[1]);
                 dup2(p_stdout[1], 1); close(p_stdout[0]);
                 dup2(p_stderr[1], 2); close(p_stderr[0]);
+                close(p_wait[0]);
             } else {
                 int i;
 
@@ -252,20 +253,17 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
                     return -1;
 
                 for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
-                    close (i);
+                    if (i != p_wait[1])
+                        close(i);
 
                 open ("/dev/null", O_RDWR);
                 dup (0);
                 dup (0);
             }
 
-            close(p_wait[0]);
             set_cloexec_flag(p_wait[1]);
 
-#ifdef Linux
-            fexecve(fd, (char *const *) argv, environ);
-#endif
-            execv(buffer, (char *const *) argv);
+            execv(buf, (char *const *) argv);
 
             int status = errno;
             write(p_wait[1], &status, sizeof(status));
@@ -290,17 +288,21 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
             dprint("Invalid child state\n");
             goto _lbClose3;
         }
+
+        dprint("Detached pid catched and closed: %d status=%d\n",
+               pid, WEXITSTATUS(status));
     } else {
         child_pid = pid;
     }
 
     dprint("Wait exec status...\n");
+
     if (read(p_wait[0], &error, sizeof(error)) < 0) {
         dprint("Reading error failed: %m\n");
         goto _lbClose3;
     }
 
-    dprint("Child error status: %d\n", error);
+    dprint("Child error status: %d (%d)\n", error, errno);
     if (error)
         goto _lbClose3;
 
@@ -314,16 +316,10 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     close(p_wait[0]);
     close(fd);
 
- #ifdef Linux
-    if (!is_memfd_path(buf)) {
-        sleep(1);
-        unlink(buf);
-    }
-#else
-    sleep(1);
-    unlink(buf);
+#ifdef Linux
+    if (!is_memfd_path(buf))
 #endif
-
+    unlink(buf);
     return child_pid;
 
  _lbClose3:
@@ -379,8 +375,8 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     char buf[PATH_MAX]={};
 
 #if defined(DEBUG) || defined(SunOS)
-	if (soname)
-		strncpy(buf, soname, sizeof(buf)-1);
+    if (soname)
+        strncpy(buf, soname, sizeof(buf)-1);
 #endif
 
     int fd = drop_library(buf, sizeof(buf)-1, buffer, size);
@@ -395,24 +391,24 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     dprint("Library \"%s\" dropped to \"%s\" (memfd=%d) \n", soname, buf, is_memfd);
 
 #ifndef NO_MEMFD_DLOPEN_WORKAROUND
-	#define DROP_PATH "/dev/shm/memfd:"
+    #define DROP_PATH "/dev/shm/memfd:"
 
     if (is_memfd) {
-		int i;
+        int i;
 
         char fake_path[PATH_MAX] = {};
         snprintf(fake_path, sizeof(fake_path), DROP_PATH "%s", soname);
-		for (i=sizeof(DROP_PATH)-1; fake_path[i]; i++)
-			if (fake_path[i] == '/')
-				fake_path[i] = '!';
+        for (i=sizeof(DROP_PATH)-1; fake_path[i]; i++)
+            if (fake_path[i] == '/')
+                fake_path[i] = '!';
 
         if (!symlink(buf, fake_path)) {
             strncpy(buf, fake_path, sizeof(buf)-1);
             is_memfd = false;
         } else {
-			dprint("symlink error %s -> %s: %m\n", buf, fake_path);
-		}
-	}
+            dprint("symlink error %s -> %s: %m\n", buf, fake_path);
+        }
+    }
 #endif
 
 #else
