@@ -103,6 +103,7 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     if(!Py_IsInitialized()) {
         dprint("Py_IsInitialized\n");
 
+        Py_FileSystemDefaultEncoding = "utf-8";
         Py_IgnoreEnvironmentFlag = 1;
         Py_NoSiteFlag = 1; /* remove site.py auto import */
 

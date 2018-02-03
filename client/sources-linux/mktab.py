@@ -63,6 +63,7 @@ int, Py_VerboseFlag
 int, Py_NoSiteFlag
 int, Py_OptimizeFlag
 int, Py_IgnoreEnvironmentFlag
+const char *, Py_FileSystemDefaultEncoding
 PyObject *, PyObject_Str, (PyObject *)
 PyObject *, PyList_New, (Py_ssize_t)
 int, PyList_SetItem, (PyObject *, Py_ssize_t, PyObject *)
