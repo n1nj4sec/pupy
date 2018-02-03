@@ -106,6 +106,9 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
         Py_FileSystemDefaultEncoding = "utf-8";
         Py_IgnoreEnvironmentFlag = 1;
         Py_NoSiteFlag = 1; /* remove site.py auto import */
+        Py_NoUserSiteDirectory = 1;
+        Py_OptimizeFlag = 2;
+        Py_DontWriteBytecodeFlag = 1;
 
 #if defined(Linux)
         dprint("INVOCATION NAME: %s\n", program_invocation_name);

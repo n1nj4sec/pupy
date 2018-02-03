@@ -59,6 +59,8 @@ PyObject *, PyBool_FromLong, (long)
 int, Py_VerboseFlag
 int, Py_NoSiteFlag
 int, Py_OptimizeFlag
+int, Py_NoUserSiteDirectory
+int, Py_DontWriteBytecodeFlag
 int, Py_IgnoreEnvironmentFlag
 PyObject *, PyObject_Str, (PyObject *)
 PyObject *, PyList_New, (Py_ssize_t)

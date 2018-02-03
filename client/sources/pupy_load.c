@@ -111,7 +111,11 @@ DWORD WINAPI mainThread(LPVOID lpArg)
 		strcpy(ppath, "\x00");
 
 		Py_IgnoreEnvironmentFlag = 1;
-		Py_NoSiteFlag = 1; /* remove site.py auto import */
+		Py_NoSiteFlag = 1;
+		Py_NoUserSiteDirectory = 1;
+		Py_OptimizeFlag = 2;
+		Py_DontWriteBytecodeFlag = 1;
+
 		Py_Initialize();
 
 		dfprint(stderr,"Py_Initialize()\n");
