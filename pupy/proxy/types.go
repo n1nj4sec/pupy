@@ -3,6 +3,7 @@ package main
 import (
 	"net"
 	"sync"
+
 	"time"
 
 	dns "github.com/miekg/dns"
@@ -69,6 +70,8 @@ type (
 
 		activeLock sync.Mutex
 		active     bool
+
+		pendingRequests int32
 	}
 
 	Daemon struct {

@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	"errors"
 
 	dns "github.com/miekg/dns"
 	rc "github.com/paulbellamy/ratecounter"
@@ -55,7 +58,12 @@ func (p *DNSListener) messageReader(cherr chan error, chmsg chan []string) {
 			cherr <- err
 			break
 		} else {
+			r := atomic.AddInt32(&p.pendingRequests, -1)
+			if r == 0 {
+				p.Conn.SetDeadline(time.Time{})
+			}
 			chmsg <- response
+
 		}
 	}
 
@@ -142,6 +150,8 @@ func (p *DNSListener) queryProcessor(
 			}
 		}
 
+		p.Conn.SetDeadline(time.Now().Add(5 * time.Second))
+
 		err = SendMessage(p.Conn, r.Name)
 		if err != nil {
 			r.IPs <- []string{}
@@ -150,7 +160,14 @@ func (p *DNSListener) queryProcessor(
 			ignore = true
 			continue
 		} else {
-			queue <- r.IPs
+			if atomic.AddInt32(&p.pendingRequests, 1) > 512 {
+				r.IPs <- []string{}
+				decoderr <- errors.New("Too many pending requests")
+				ignore = true
+				continue
+			} else {
+				queue <- r.IPs
+			}
 		}
 	}
 
