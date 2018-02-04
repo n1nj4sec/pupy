@@ -130,13 +130,17 @@ def check_transparent_proxy():
 
     return False
 
-def external_ip():
+def external_ip(force_ipv4=False):
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
         try:
             data, code = ctx.get(service, code=True)
             if code == 200:
-                return netaddr.IPAddress(data.strip())
+                addr = netaddr.IPAddress(data.strip())
+                if force_ipv4 and addr.version == 6:
+                    continue
+
+                return addr
         except:
             pass
 
