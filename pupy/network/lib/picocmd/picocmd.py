@@ -333,8 +333,10 @@ class SystemInfo(Command):
                 self.external_ip = None
             else:
                 self.external_ip = netaddr.IPAddress(external_ip)
+                if self.external_ip.version == 6:
+                    self.external_ip = None
         else:
-            self.external_ip = online.external_ip()
+            self.external_ip = online.external_ip(force_ipv4=True)
             if self.external_ip:
                 self.internet = True
             else:
