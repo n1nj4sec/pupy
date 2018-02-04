@@ -110,6 +110,7 @@ class Transport(object):
     name=None
     launcher_type=LAUNCHER_TYPE_ALL
     dgram=False
+    internal_proxy_impl = []
 
     def __init__(self, bind_payload=False):
         super(Transport, self).__init__()

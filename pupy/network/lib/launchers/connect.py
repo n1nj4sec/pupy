@@ -45,6 +45,12 @@ class ConnectLauncher(BaseLauncher):
                 t=network.conf.transports[self.args.transport](bind_payload=self.connect_on_bind_payload)
                 client_args=t.client_kwargs
                 transport_args=t.client_transport_kwargs
+
+                if 'host' in transport_args and not 'host' in opt_args:
+                    transport_args['host'] = '{}{}'.format(
+                        self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
+                    )
+
                 for val in opt_args:
                     if val.lower() in t.client_kwargs:
                         client_args[val.lower()]=opt_args[val]
@@ -52,6 +58,7 @@ class ConnectLauncher(BaseLauncher):
                         transport_args[val.lower()]=opt_args[val]
                     else:
                         logging.warning("unknown transport argument : %s"%val)
+
                 logging.info("using client options: %s"%client_args)
                 logging.info("using transports options: %s"%transport_args)
                 try:
