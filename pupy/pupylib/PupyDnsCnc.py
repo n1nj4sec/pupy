@@ -12,6 +12,7 @@ from pupylib.PupyOffload import PupyOffloadManager
 
 import requests
 import netifaces
+import netaddr
 import socket
 
 from urlparse import urlparse
@@ -106,11 +107,15 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
                     nodes = []
                     for n in node.split(','):
                         try:
-                            int(n, 16)
+                            netaddr.IPAddress(n)
                             nodes.append(n)
                         except:
-                            for tagged in self.config.by_tags(n):
-                                nodes.append(tagged)
+                            try:
+                                int(n, 16)
+                                nodes.append(n)
+                            except:
+                                for tagged in self.config.by_tags(n):
+                                    nodes.append(tagged)
 
                     if nodes:
                         results = DnsCommandServerHandler.find_sessions(

@@ -24,6 +24,12 @@ from ecpv import ECPV
 
 from threading import Thread, RLock, Event
 
+def convert_node(node):
+    try:
+        return str(netaddr.IPAddress(node))
+    except:
+        return int(node, 16)
+
 class Session(object):
     def __init__(self, spi, encoder, commands, timeout):
         self.spi = spi
@@ -209,7 +215,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         if node:
             if type(node) in (str,unicode):
-                node = [ int(x, 16) for x in node.split(',') ]
+                node = [ convert_node(x) for x in node.split(',') ]
             elif type(node) == int:
                 node = [ node ]
 
@@ -226,7 +232,8 @@ class DnsCommandServerHandler(BaseResolver):
             return [
                 session for session in self.sessions.itervalues() \
                     if session.system_info and \
-                        session.system_info['node'] in set(node)
+                        ( session.system_info['node'] in set(node)
+                              or str(session.system_info['external_ip']) in set(node) )
             ]
 
     @locked
