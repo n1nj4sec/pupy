@@ -102,9 +102,6 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
 
 #ifdef Linux
     if (is_memfd_path(ldobject)) {
-        char buf2[PATH_MAX];
-        strncpy(buf2, ldobject, sizeof(buf2));
-        snprintf(ldobject, sizeof(ldobject), "/proc/%d/fd/%d", getpid(), fd);
         cleanup_workaround = 1;
         cleanup = 0;
     }
