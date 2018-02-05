@@ -600,6 +600,9 @@ def install(debug=None, trace=False):
     ctypes._system_dlopen = ctypes._dlopen
     ctypes.util._system_find_library = ctypes.util.find_library
 
+    if hasattr(ctypes.util, '_findLib_gcc'):
+        ctypes.util._findLib_gcc = lambda name: None
+
     def pupy_make_path(name):
         if not name:
             return
