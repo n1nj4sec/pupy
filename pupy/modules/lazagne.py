@@ -162,6 +162,9 @@ class LaZagne(PupyModule):
 
         results = []
 
+        if type(creds) == str:
+            raise Exception(creds)
+
         for cred in creds:
             result = {
                 'Category' : module
@@ -177,7 +180,7 @@ class LaZagne(PupyModule):
                     except:
 
                         credvalue = self.try_utf8(credvalue)
-                
+
                 result[c] = credvalue
 
                 for t, name in self.TYPESMAP.iteritems():
