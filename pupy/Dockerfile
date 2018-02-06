@@ -34,7 +34,7 @@ RUN pip install -r /tmp/requirements.txt
 
 COPY . /opt/pupy
 
-ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20171220/mimikatz_trunk.zip \
+ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20180205/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
 RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
 RUN mkdir /opt/uacme
