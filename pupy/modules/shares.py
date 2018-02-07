@@ -67,7 +67,7 @@ class Shares(PupyModule):
 
         for host in hosts:
             result = obtain(self.client.conn.modules["pupyutils.share_enum"].connect(
-                host, args.port, args.user, args.passwd, args.hash, args.domain))
+                str(host), args.port, args.user, args.passwd, args.hash, args.domain))
 
             if 'error' in result:
                 if 'os' in result:
