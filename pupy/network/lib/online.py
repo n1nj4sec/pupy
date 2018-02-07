@@ -107,15 +107,18 @@ KNOWN_DNS = {
 IP_KNOWN_TO_BE_DOWN='1.2.3.4'
 
 OWN_IP = [
-    'http://ifconfig.co',
-    'http://ifconfig.me/ip',
-    'http://eth0.me',
-    'http://ipecho.net/plain',
-    'http://icanhazip.com',
-    'http://curlmyip.com',
-    'http://l2.io/ip'
-    'http://ip.appspot.com'
+    'ifconfig.co',
+    'ifconfig.me/ip',
+    'eth0.me',
+    'ipecho.net/plain',
+    'icanhazip.com',
+    'curlmyip.com',
+    'l2.io/ip'
+    'ip.appspot.com'
 ]
+
+LAST_EXTERNAL_IP = None
+LAST_EXTERNAL_IP_TIME = None
 
 def check_transparent_proxy():
     try:
@@ -131,20 +134,29 @@ def check_transparent_proxy():
     return False
 
 def external_ip(force_ipv4=False):
+    global LAST_EXTERNAL_IP, LAST_EXTERNAL_IP_TIME
+
+    if LAST_EXTERNAL_IP_TIME is not None:
+        if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
+            return LAST_EXTERNAL_IP
+
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
-        try:
-            data, code = ctx.get(service, code=True)
-            if code == 200:
-                addr = netaddr.IPAddress(data.strip())
-                if force_ipv4 and addr.version == 6:
-                    continue
+        for scheme in [ 'https', 'http' ]:
+            try:
+                data, code = ctx.get(scheme + '://' + service, code=True)
+                if code == 200:
+                    addr = netaddr.IPAddress(data.strip())
+                    if force_ipv4 and addr.version == 6:
+                        continue
 
-                return addr
-        except:
-            pass
+                    LAST_EXTERNAL_IP = addr
+                    return LAST_EXTERNAL_IP
+            except:
+                pass
 
-    return dns_external_ip()
+    LAST_EXTERNAL_IP = dns_external_ip()
+    return LAST_EXTERNAL_IP
 
 def dns_external_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
