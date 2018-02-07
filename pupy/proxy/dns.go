@@ -55,6 +55,7 @@ func (p *DNSListener) messageReader(cherr chan error, chmsg chan []string) {
 
 		err := RecvMessage(p.Conn, &response)
 		if err != nil || response == nil {
+			log.Error("DNS: RecvMessage failed: ", err)
 			cherr <- err
 			break
 		} else {
@@ -131,10 +132,15 @@ func (p *DNSListener) queryProcessor(
 		log.Debug("DNS. Wait done: ", r, ignore)
 
 		if r == nil || interrupted {
+			if interrupted {
+				log.Error("DNS: Interrupt request received")
+			}
+
 			if !notifySent {
 				log.Debug("Send close notify")
 				closeNotify <- true
 				notifySent = true
+				close(closeNotify)
 			}
 
 			log.Debug("Ignore 1")
@@ -150,13 +156,13 @@ func (p *DNSListener) queryProcessor(
 			}
 		}
 
-		p.Conn.SetDeadline(time.Now().Add(5 * time.Second))
+		p.Conn.SetDeadline(time.Now().Add(20 * time.Second))
 
 		err = SendMessage(p.Conn, r.Name)
 		if err != nil {
+			log.Error("DNS: Send message failed: ", err)
 			r.IPs <- []string{}
 			decoderr <- err
-			log.Debug("Ignore 2")
 			ignore = true
 			continue
 		} else {
@@ -355,7 +361,6 @@ func (p *DNSListener) Serve() error {
 	defer close(udperr)
 	defer close(decoderr)
 	defer close(recvErrors)
-	defer close(closeNotify)
 	defer close(responsesQueue)
 
 	go p.listenAndServeTCP(tcperr)
