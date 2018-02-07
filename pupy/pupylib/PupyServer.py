@@ -392,7 +392,7 @@ class PupyServer(object):
 
         self.dnscnc = None
 
-        self._listeners = None
+        self.listeners = {}
 
         dnscnc = self.config.get('pupyd', 'dnscnc')
         if dnscnc and not dnscnc.lower() in ('no', 'false', 'stop', 'n', 'disable'):
@@ -415,33 +415,8 @@ class PupyServer(object):
                 logging.error('DnsCNC failed: {}'.format(e))
 
 
-    @property
-    def listeners(self):
-        return self.get_listeners()
-
     def get_listeners(self):
-        if not self._listeners is None:
-            return self._listeners
-
-        listeners = set([
-            x.strip() for x in (
-                self.config.get('pupyd', 'listen') or 'ssl'
-            ).split(',')
-        ])
-
-        self._listeners = {
-            name:Listener(
-                self,
-                name,
-                self.config.get('listeners', name) or '',
-                httpd=self.httpd,
-                igd=self.igd,
-                local=self.config.get('pupyd', 'address'),
-                external=self.config.get('pupyd', 'external'),
-                pproxy=self.pproxy
-            ) for name in listeners
-        }
-        return self._listeners
+        return self.listeners
 
     @property
     def address(self):
@@ -775,36 +750,86 @@ class PupyServer(object):
 
     def start(self):
         self.handler_registered.wait()
-        for name in self.listeners.keys():
-            listener = self.listeners[name]
-            try:
-                listener.init()
-                listener.start()
-                self.motd['ok'].append('Listen: {}'.format(listener))
 
-            except socket.error as e:
-                if e.errno == errno.EACCES:
-                    self.motd['fail'].append(
-                        'Listen: {}: Insufficient privileges to bind'.format(listener))
-                elif e.errno == errno.EADDRINUSE:
-                    self.motd['fail'].append(
-                        'Listen: {}: Address/Port already used'.format(listener))
-                elif e.errno == errno.EADDRNOTAVAIL:
-                    self.motd['fail'].append(
-                        'Listen: {}: No network interface with addresss {}'.format(
-                            listener, listener.address))
-                else:
-                    self.motd['fail'].append(
-                        'Listen: {}: {}'.format(listener, e))
+        listeners = set([
+            x.strip() for x in (
+                self.config.get('pupyd', 'listen') or 'ssl'
+            ).split(',')
+        ])
 
-                del self.listeners[name]
-
-            except Exception as e:
-                self.motd['fail'].append('{}: {}'.format(listener, e))
-                del self.listeners[name]
-                logging.exception(e)
+        for name in listeners:
+            self.add_listener(name, motd=True)
 
         self.handler.add_motd(self.motd)
+
+    def add_listener(self, name, config=None, motd=False):
+        if self.listeners and name in self.listeners:
+            self.handler.display_warning('Listener {} already registered'.format(name))
+            return
+
+        listener_config = config or self.config.get('listeners', name)
+        if not listener_config:
+            self.handler.display_error('Listener {} is not known'.format(name))
+            return
+
+        listener = Listener(
+            self,
+            name,
+            listener_config,
+            httpd=self.httpd,
+            igd=self.igd,
+            local=self.config.get('pupyd', 'address'),
+            external=self.config.get('pupyd', 'external'),
+            pproxy=self.pproxy
+        )
+
+        self.listeners[name] = listener
+
+        error = True
+        message = 'Listen: {}'.format(listener)
+
+        try:
+            self.listeners[name].init()
+            self.listeners[name].start()
+            error = False
+
+        except socket.error as e:
+            if e.errno == errno.EACCES:
+                message = 'Listen: {}: Insufficient privileges to bind'.format(listener)
+            elif e.errno == errno.EADDRINUSE:
+                message = 'Listen: {}: Address/Port already used'.format(listener)
+            elif e.errno == errno.EADDRNOTAVAIL:
+                message = 'Listen: {}: No network interface with addresss {}'.format(
+                    listener, listener.address)
+            else:
+                message = 'Listen: {}: {}'.format(listener, e)
+
+        except Exception as e:
+            message = '{}: {}'.format(listener, e)
+            logging.exception(e)
+
+        if error:
+            del self.listeners[name]
+
+        if motd:
+            if error:
+                self.motd['fail'].append(message)
+            else:
+                self.motd['ok'].append(message)
+        else:
+            if error:
+                self.handler.display_error(message)
+            else:
+                self.handler.display_success(message)
+
+    def remove_listener(self, name):
+        if not name in self.listeners:
+            self.handler.display_warning('{} - is not running'.format(name))
+            return
+
+        self.listeners[name].close()
+        self.handler.display_success('Closed: {}'.format(self.listeners[name]))
+        del self.listeners[name]
 
     def register_cleanup(self, cleanup):
         self._cleanups.append(cleanup)
@@ -828,9 +853,7 @@ class PupyServer(object):
 
         self._cleanups = []
 
-        for name, listener in self.listeners.iteritems():
-            listener.close()
-            self.handler.display_success('{} - stopped'.format(name))
-
+        for name in self.listeners.keys():
+            self.remove_listener(name)
 
         self.finished.set()
