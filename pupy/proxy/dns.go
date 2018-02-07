@@ -251,25 +251,27 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 					if p.active {
 						p.dnsRemoteRequestsCounter.Incr(1)
 
-						question = question[:len(question)-len(p.Domain)-1]
+						if len(question)-len(p.Domain)-1 <= len(question) {
+							question = question[:len(question)-len(p.Domain)-1]
 
-						now2 := time.Now()
+							now2 := time.Now()
 
-						p.DNSRequests <- &DNSRequest{
-							Name: question,
-							IPs:  result,
+							p.DNSRequests <- &DNSRequest{
+								Name: question,
+								IPs:  result,
+							}
+
+							log.Debug("DNS: Send request: ", q.Name)
+							responses = <-result
+							log.Info("DNS: Response: ", q.Name, ": ", responses)
+
+							warnSlow(fmt.Sprintf(
+								"DNS: Slow RR communication: (Rates: Remote=%dps Total=%dps Processed=%dps)",
+								p.dnsRemoteRequestsCounter.Rate()/10,
+								p.dnsRequestsCounter.Rate()/10,
+								p.dnsProcessedRequestsCounter.Rate()/10,
+							), now2, 1*time.Second)
 						}
-
-						log.Debug("DNS: Send request: ", q.Name)
-						responses = <-result
-						log.Info("DNS: Response: ", q.Name, ": ", responses)
-
-						warnSlow(fmt.Sprintf(
-							"DNS: Slow RR communication: (Rates: Remote=%dps Total=%dps Processed=%dps)",
-							p.dnsRemoteRequestsCounter.Rate()/10,
-							p.dnsRequestsCounter.Rate()/10,
-							p.dnsProcessedRequestsCounter.Rate()/10,
-						), now2, 1*time.Second)
 					}
 
 					if len(responses) > 0 {
