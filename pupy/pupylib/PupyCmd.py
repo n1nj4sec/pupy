@@ -1162,6 +1162,15 @@ class PupyCmd(cmd.Cmd):
                     '{:03d} {}'.format(i, cmd) for i, cmd in enumerate(self.dnscnc.commands)
                 ]))
 
+            if self.dnscnc.node_commands:
+                self.display('\nNODE DEFAULT COMMANDS:')
+                for node, commands in self.dnscnc.node_commands.iteritems():
+                    self.display('\n' + '\n'.join([
+                        '{:03d} {}: {}'.format(
+                            i, '{:012x}'.format(node) if type(node) == int else node, cmd
+                        ) for i, cmd in enumerate(commands)
+                    ]))
+
         elif args.command == 'info':
             sessions = self.dnscnc.list(args.node)
             if not sessions:

@@ -121,6 +121,7 @@ class DnsCommandServerHandler(BaseResolver):
         self.kex = True
         self.timeout = timeout or self.interval*3
         self.commands = []
+        self.node_commands = {}
         self.lock = RLock()
         self.finished = Event()
 
@@ -147,6 +148,23 @@ class DnsCommandServerHandler(BaseResolver):
 
     @locked
     def add_command(self, command, session=None, default=False):
+        if default and session:
+            nodes = session
+            if type(nodes) in (str,unicode):
+                nodes = [ convert_node(x) for x in nodes.split(',') ]
+            elif type(nodes) == int:
+                nodes = [ nodes ]
+
+            idx = 0
+            for node in nodes:
+                if not node in self.node_commands:
+                    self.node_commands[node] = []
+
+                self.node_commands[node].append(command)
+                idx += 1
+
+            return idx
+
         if default:
             self.commands.append(command)
 
@@ -177,6 +195,21 @@ class DnsCommandServerHandler(BaseResolver):
 
     @locked
     def reset_commands(self, session=None, default=False):
+        if default and session:
+            nodes = session
+            if type(nodes) in (str,unicode):
+                nodes = [ convert_node(x) for x in nodes.split(',') ]
+            elif type(nodes) == int:
+                nodes = [ nodes ]
+
+            idx = 0
+            for node in nodes:
+                if node in self.node_commands:
+                    del self.node_commands[node]
+                    idx += 1
+
+            return idx
+
         if default:
             self.commands = []
 
@@ -355,11 +388,17 @@ class DnsCommandServerHandler(BaseResolver):
 
 
     def _cmd_processor(self, command, session):
-        logging.debug('dnscnc:commands={} session={}'.format(command, session))
+        logging.debug('dnscnc:command={}/{} session={} / node commands={}'.format(
+            command, type(command), session, bool(self.node_commands)))
 
         if isinstance(command, Poll) and session is None:
             if not self.kex:
-                return self.commands
+                if self.node_commands and not self.commands:
+                    return [Policy(self.interval, self.kex), Poll()]
+                elif self.commands:
+                    return self.commands
+                else:
+                    return [Policy(self.interval, self.kex)]
             else:
                 return [Policy(self.interval, self.kex), Poll()]
 
@@ -386,6 +425,21 @@ class DnsCommandServerHandler(BaseResolver):
 
             commands = session.commands
             return commands
+
+        elif isinstance(command, SystemInfo) and self.node_commands:
+            node = command.node
+            extip = str(command.external_ip)
+
+            logging.debug('dnscnc:SystemStatus + No session + node_commands: {}/{} in {}?'.format(
+                node, extip, self.node_commands.keys()))
+
+            if node in self.node_commands:
+                return self.node_commands[node]
+
+            elif extip in self.node_commands:
+                return self.node_commands[extip]
+
+            logging.debug('dnscnc:SystemStatus + No session + node_commands - not found')
 
         elif isinstance(command, OnlineStatus) and session is not None:
             session.online_status = command.get_dict()

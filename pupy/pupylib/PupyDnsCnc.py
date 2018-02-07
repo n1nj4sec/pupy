@@ -362,3 +362,7 @@ class PupyDnsCnc(object):
     @property
     def commands(self):
         return self.handler.commands
+
+    @property
+    def node_commands(self):
+        return self.handler.node_commands
