@@ -12,6 +12,8 @@ import struct
 import igd
 import sys
 
+from . import stun
+
 ONLINE_CAPTIVE = 1 << 0
 ONLINE_MS      = 1 << 1
 ONLINE         = ONLINE_MS | ONLINE_CAPTIVE
@@ -37,6 +39,8 @@ PHPASTE        = 1 << 19
 FRIENDPASTE    = 1 << 20
 LPASTE         = 1 << 21
 
+STUN_HOST      = 'stun.l.google.com'
+STUN_PORT      = 19302
 
 # Don't want to import large (200k - 1Mb) dnslib/python dns just for that..
 OPENDNS_REQUEST = '\xe4\x9a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04' \
@@ -139,6 +143,16 @@ def external_ip(force_ipv4=False):
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
             return LAST_EXTERNAL_IP
+
+    try:
+        stun_ip = stun.get_ip(stun_host=STUN_HOST, stun_port=STUN_PORT)
+        if stun_ip != None:
+            stun_ip = str(netaddr.IPAddress(stun_ip))
+            LAST_EXTERNAL_IP = stun_ip
+            return LAST_EXTERNAL_IP
+
+    except:
+        pass
 
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
