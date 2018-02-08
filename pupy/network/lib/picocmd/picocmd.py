@@ -743,10 +743,10 @@ class OnlineStatus(Command):
         return OnlineStatus(register, mintime), total
 
     def __init__(self, register=None, mintime=None):
-        if not register or not mintime:
+        if register is None or mintime is None:
             mintime, register = online.check()
 
-        self.mintime = int(mintime)
+        self.mintime = mintime
         self.register = register
 
     def pack(self):
@@ -755,7 +755,7 @@ class OnlineStatus(Command):
     def get_dict(self):
         result = online.bits_to_dict(self.register)
         result.update({
-            'MINTIME': self.mintime
+            'mintime': '{:.3f}s'.format(float(self.mintime)/1000)
         })
         return result
 

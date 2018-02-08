@@ -14,6 +14,9 @@ import sys
 
 from . import stun
 
+ONLINE_STATUS = None
+ONLINE_STATUS_CHECKED = None
+
 ONLINE_CAPTIVE      = 1 << 0
 ONLINE_MS           = 1 << 1
 ONLINE              = ONLINE_MS | ONLINE_CAPTIVE
@@ -229,6 +232,13 @@ def online():
 
 
 def check():
+    global ONLINE_STATUS_CHECKED
+    global ONLINE_STATUS
+
+    if ONLINE_STATUS_CHECKED is not None:
+        if time.time() - ONLINE_STATUS_CHECKED < 3600:
+            return ONLINE_STATUS
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)'
     }
@@ -371,7 +381,9 @@ def check():
         if igdc.available:
             result |= IGD
 
-    return mintime, result
+    ONLINE_STATUS = ( int(mintime * 1000) & int(0xFFFF), result )
+    ONLINE_STATUS_CHECKED = time.time()
+    return ONLINE_STATUS
 
 def bits_to_dict(data):
     return {

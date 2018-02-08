@@ -1538,7 +1538,7 @@ class PupyCmd(cmd.Cmd):
                         'online', 'igd', 'hotspot', 'dns',
                         'direct-dns', 'http', 'https',
                         'https-no-cert', 'https-mitm', 'proxy',
-                        'transparent-proxy', 'stun'
+                        'transparent-proxy', 'stun', 'mintime'
                     ]
                 ]
 
