@@ -1106,6 +1106,14 @@ class PupyCmd(cmd.Cmd):
         commands = arg_parser.add_subparsers(title='commands', dest='command')
         status = commands.add_parser('status', help='DNSCNC status')
         clist = commands.add_parser('list', help='List known DNSCNC clients')
+        clist.add_argument('-r', action='store_true', help='Reverse sorting')
+        sorting = clist.add_mutually_exclusive_group()
+        sorting.add_argument('-b', action='store_true', help='Sort by boot time')
+        sorting.add_argument('-o', action='store_true', help='Sort by OS')
+        sorting.add_argument('-i', action='store_true', help='Sort by IP')
+        sorting.add_argument('-n', action='store_true', help='Sort by node')
+        sorting.add_argument('-d', action='store_true', help='Sort by duration')
+        sorting.add_argument('-c', action='store_true', help='Sort by pending commands')
 
         info = commands.add_parser('info', help='List known DNSCNC clients system status')
 
@@ -1272,9 +1280,26 @@ class PupyCmd(cmd.Cmd):
 
             objects = []
 
+            sort_by = None
+            if args.b:
+                sort_by = lambda x: x.system_info['boottime']
+            elif args.o:
+                sort_by = lambda x: x.system_info['os'] + x.system_info['arch']
+            elif args.i:
+                sort_by = lambda x: x.system_info['external_ip']
+            elif args.d:
+                sort_by = lambda x: x.duration
+            elif args.c:
+                sort_by = lambda x: x.commands
+            elif args.n:
+                sort_by = lambda x: x.system_info['node']
+
+            if sort_by:
+                sessions = sorted(sessions, key=sort_by, reverse=bool(args.r))
+
             for idx, session in enumerate(sessions):
                 object = {
-                    '#': '{:03d}'.format(idx),
+                    '#': idx,
                     'P': '',
                     'NODE': '{:012x}'.format(session.system_info['node']),
                     'SESSION': '{:08x}'.format(session.spi),
@@ -1291,9 +1316,8 @@ class PupyCmd(cmd.Cmd):
                         session.system_info['arch']
                     ),
                     'BOOTED': '{}s'.format(
-                        session.system_info['boottime'].ctime() if \
-                        session.system_info['boottime'] else '?'
-                    ),
+                        session.system_info['boottime'].ctime()) if \
+                        session.system_info['boottime'] else '?',
                     'CMDS': '{}'.format(len(session.commands))
                 }
 
@@ -1470,9 +1494,9 @@ class PupyCmd(cmd.Cmd):
         elif args.command == 'pastelink':
             try:
                 count, url = self.dnscnc.pastelink(
-                    args.url,
-                    args.action,
-                    proxy=args.proxy,
+                    content=args.create,
+                    url=args.url,
+                    action=args.action,
                     node=args.node,
                     default=args.default
                 )
