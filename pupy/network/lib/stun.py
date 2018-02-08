@@ -200,7 +200,7 @@ def get_nat_type(s, source_ip, source_port, stun_host=None, stun_port=3478, only
         if only_ip:
             return None
 
-        return Blocked, None, None
+        return Blocked, None
 
     log.debug("Result: %s", ret)
 
