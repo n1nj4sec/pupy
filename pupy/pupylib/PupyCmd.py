@@ -1116,6 +1116,17 @@ class PupyCmd(cmd.Cmd):
         sorting.add_argument('-c', action='store_true', help='Sort by pending commands')
 
         info = commands.add_parser('info', help='List known DNSCNC clients system status')
+        info.add_argument('-r', action='store_true', help='Reverse sorting')
+        info_sorting = info.add_mutually_exclusive_group()
+        info_sorting.add_argument('-n', action='store_true', help='Sort by node')
+        info_sorting.add_argument('-i', action='store_true', help='Sort by IP')
+        info_sorting.add_argument('-o', action='store_true', help='Sort by OS')
+        info_sorting.add_argument('-c', action='store_true', help='Sort by CPU load')
+        info_sorting.add_argument('-m', action='store_true', help='Sort by MEM load')
+        info_sorting.add_argument('-l', action='store_true', help='Sort by listeners count')
+        info_sorting.add_argument('-e', action='store_true', help='Sort by established connections count')
+        info_sorting.add_argument('-u', action='store_true', help='Sort by users count')
+        info_sorting.add_argument('-x', action='store_true', help='Sort by idle')
 
         policy = commands.add_parser('set', help='Change policy (polling, timeout)')
         policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
@@ -1210,6 +1221,30 @@ class PupyCmd(cmd.Cmd):
                 return
 
             objects = []
+
+            sort_by = None
+
+            if args.o:
+                sort_by = lambda x: x.system_info['os'] + x.system_info['arch']
+            elif args.i:
+                sort_by = lambda x: x.system_info['external_ip']
+            elif args.n:
+                sort_by = lambda x: x.system_info['node']
+            elif args.c:
+                sort_by = lambda x: x.system_status['cpu']
+            elif args.m:
+                sort_by = lambda x: x.system_status['mem']
+            elif args.l:
+                sort_by = lambda x: x.system_status['listen']
+            elif args.e:
+                sort_by = lambda x: x.system_status['remote']
+            elif args.u:
+                sort_by = lambda x: x.system_status['users']
+            elif args.i:
+                sort_by = lambda x: x.system_status['idle']
+
+            if sort_by:
+                sessions = sorted(sessions, key=sort_by, reverse=bool(args.r))
 
             for idx, session in enumerate(sessions):
                 if not ( session.system_status and session.system_info ):
