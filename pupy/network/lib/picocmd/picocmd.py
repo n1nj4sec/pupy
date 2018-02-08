@@ -739,22 +739,35 @@ class PasteLink(Command):
 class OnlineStatus(Command):
     @staticmethod
     def unpack(data):
-        return OnlineStatus(*struct.unpack_from('>I', data)), 4
+        total, register, mintime = struct.unpack_from('>BII', data)
+        return OnlineStatus(register, mintime), total
 
-    def __init__(self, register=None):
-        self.register = online.check() if register is None else register
+    def __init__(self, register=None, mintime=None):
+        if not register or not mintime:
+            mintime, register = online.check()
+
+        self.mintime = int(mintime)
+        self.register = register
 
     def pack(self):
-        return struct.pack('>I', self.register)
+        return struct.pack('>BII', 8+1, self.register, self.mintime)
 
     def get_dict(self):
-        return online.bits_to_dict(self.register)
+        result = online.bits_to_dict(self.register)
+        result.update({
+            'MINTIME': self.mintime
+        })
+        return result
 
     def __str__(self):
-        return '{{ONLINE: {}}}'.format(' '.join(
-            '{}={}'.format(k.upper(), v if (type(v) == bool) else any([
-                x for x in v.itervalues()
-            ])) for k,v in self.get_dict().iteritems()))
+        return '{{ONLINE: MINTIME={} {}}}'.format(
+            self.mintime,
+            ' '.join(
+                '{}={}'.format(
+                    k.upper(),
+                    v if type(v) in (int,str,unicode,bool) else any([
+                        x for x in v.itervalues()
+                    ])) for k,v in self.get_dict().iteritems()))
 
 class PortQuizPort(Command):
     @staticmethod

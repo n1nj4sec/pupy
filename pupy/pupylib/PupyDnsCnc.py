@@ -304,7 +304,7 @@ class PupyDnsCnc(object):
     def proxy(self, *args, **kwargs):
         return self.handler.proxy(*args, **kwargs)
 
-    def pastelink(self, content=None, url=None, action='pyeval', node=None, default=False):
+    def pastelink(self, content=None, url=None, action='pyexec', node=None, default=False):
         if not ( content or url ):
             raise ValueError('content and url args are empty')
 

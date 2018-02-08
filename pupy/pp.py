@@ -46,6 +46,8 @@ except ImportError, e:
 
     import pupy
 
+import socket
+socket.setdefaulttimeout(60)
 
 import time
 from rpyc.core.service import Service, ModuleNamespace

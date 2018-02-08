@@ -12,31 +12,55 @@ import struct
 import igd
 import sys
 
-ONLINE_CAPTIVE = 1 << 0
-ONLINE_MS      = 1 << 1
-ONLINE         = ONLINE_MS | ONLINE_CAPTIVE
-HOTSPOT        = 1 << 2
-DNS			   = 1 << 3
-DIRECT_DNS     = 1 << 4
-HTTP		   = 1 << 5
-HTTPS		   = 1 << 6
-HTTPS_NOCERT   = 1 << 7
-HTTPS_MITM	   = 1 << 8
-PROXY		   = 1 << 9
-TRANSPARENT	   = 1 << 10
-IGD            = 1 << 11
+from . import stun
 
-PASTEBIN       = 1 << 12
-HASTEBIN       = 1 << 13
-IXIO           = 1 << 14
-DPASTE         = 1 << 15
-VPASTE         = 1 << 16
-PASTEOPENSTACK = 1 << 17
-GHOSTBIN       = 1 << 18
-PHPASTE        = 1 << 19
-FRIENDPASTE    = 1 << 20
-LPASTE         = 1 << 21
+ONLINE_CAPTIVE      = 1 << 0
+ONLINE_MS           = 1 << 1
+ONLINE              = ONLINE_MS | ONLINE_CAPTIVE
+HOTSPOT             = 1 << 2
+DNS                 = 1 << 3
+DIRECT_DNS          = 1 << 4
+HTTP                = 1 << 5
+HTTPS               = 1 << 6
+HTTPS_NOCERT        = 1 << 7
+HTTPS_MITM          = 1 << 8
+PROXY               = 1 << 9
+TRANSPARENT         = 1 << 10
+IGD                 = 1 << 11
 
+PASTEBIN            = 1 << 12
+HASTEBIN            = 1 << 13
+IXIO                = 1 << 14
+DPASTE              = 1 << 15
+VPASTE              = 1 << 16
+PASTEOPENSTACK      = 1 << 17
+GHOSTBIN            = 1 << 18
+PHPASTE             = 1 << 19
+FRIENDPASTE         = 1 << 20
+LPASTE              = 1 << 21
+
+STUN_NAT_BLOCKED    = 0x00 << 22
+STUN_NAT_OPEN       = 0x01 << 22
+STUN_NAT_CLONE      = 0x02 << 22
+STUN_NAT_UDP_FW     = 0x03 << 22
+STUN_NAT_RESTRICT   = 0x04 << 22
+STUN_NAT_PORT       = 0x05 << 22
+STUN_NAT_SYMMETRIC  = 0x06 << 22
+STUN_NAT_ERROR      = 0x07 << 22
+
+STUN_NAT_DESCRIPTION = {
+    STUN_NAT_BLOCKED:   stun.Blocked,
+    STUN_NAT_OPEN:      stun.OpenInternet,
+    STUN_NAT_CLONE:     stun.FullCone,
+    STUN_NAT_UDP_FW:    stun.SymmetricUDPFirewall,
+    STUN_NAT_RESTRICT:  stun.RestricNAT,
+    STUN_NAT_PORT:      stun.RestricPortNAT,
+    STUN_NAT_SYMMETRIC: stun.SymmetricNAT,
+    STUN_NAT_ERROR:     stun.ChangedAddressError,
+}
+
+STUN_HOST      = 'stun.l.google.com'
+STUN_PORT      = 19302
 
 # Don't want to import large (200k - 1Mb) dnslib/python dns just for that..
 OPENDNS_REQUEST = '\xe4\x9a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04' \
@@ -114,7 +138,6 @@ OWN_IP = [
     'icanhazip.com',
     'curlmyip.com',
     'l2.io/ip'
-    'ip.appspot.com'
 ]
 
 LAST_EXTERNAL_IP = None
@@ -139,6 +162,16 @@ def external_ip(force_ipv4=False):
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
             return LAST_EXTERNAL_IP
+
+    try:
+        stun_ip = stun.get_ip(stun_host=STUN_HOST, stun_port=STUN_PORT)
+        if stun_ip != None:
+            stun_ip = netaddr.IPAddress(stun_ip)
+            LAST_EXTERNAL_IP = stun_ip
+            return LAST_EXTERNAL_IP
+
+    except:
+        pass
 
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
@@ -320,6 +353,16 @@ def check():
     if deip:
         result |= DIRECT_DNS
 
+    try:
+        nat, _, _ = stun.get_ip_info()
+        for bit, descr in STUN_NAT_DESCRIPTION.iteritems():
+            if descr == nat:
+                result |= bit
+                break
+
+    except:
+        result |= STUN_NAT_BLOCKED
+        pass
 
     if sys.platform != 'win32':
         # This may cause firewall window
@@ -328,12 +371,7 @@ def check():
         if igdc.available:
             result |= IGD
 
-    mintime = int(mintime * 100)
-    if mintime > 0xFFF:
-        mintime = 0xFFF
-
-    result |= mintime << 20
-    return result
+    return mintime, result
 
 def bits_to_dict(data):
     return {
@@ -352,6 +390,9 @@ def bits_to_dict(data):
         'https-mitm': bool(data & HTTPS_MITM),
         'proxy': bool(data & PROXY),
         'transparent-proxy': bool(data & TRANSPARENT),
+        'stun': [
+            descr for bit,descr in STUN_NAT_DESCRIPTION.iteritems() if data & bit
+        ][0],
         'pastebins': {
             pastebin:bool(data & bit) for pastebin,bit in PASTEBINS.iteritems()
         }
