@@ -7,7 +7,7 @@ import socket
 import urllib2
 from StringIO import StringIO
 from httplib import HTTPResponse
-from xml.etree.ElementTree import fromstring
+from xml.etree.cElementTree import fromstring
 from urlparse import urlparse
 import netaddr
 import logging
