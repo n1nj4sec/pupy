@@ -6,17 +6,12 @@
 
 from ..base import BasePupyTransport
 import base64, random, string, logging
-from collections import OrderedDict
-import traceback
 
 class InvalidHTTPReq(Exception):
     pass
 
 class MalformedData(Exception):
     pass
-
-
-
 
 error_response_body="""<html><body><h1>It works!</h1>
 <p>This is the default web page for this server.</p>
@@ -75,7 +70,7 @@ class PupyAsyncHTTPClient(PupyAsyncHTTPTransport):
     def downstream_recv(self, data):
         """
             HTTP response to raw data
-        """ 
+        """
         d=data.peek()
         decoded_data=b""
         #let's parse HTTP responses :
@@ -100,11 +95,11 @@ class PupyAsyncHTTPClient(PupyAsyncHTTPTransport):
                     break
         if decoded_data:
             self.upstream.write(decoded_data)
-            
+
 
 class PupyAsyncHTTPServer(PupyAsyncHTTPTransport):
     client=False
-    response_code="200 OK" 
+    response_code="200 OK"
     server_header="Apache"
     def __init__(self, *args, **kwargs):
         PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)

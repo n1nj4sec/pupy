@@ -3,7 +3,6 @@ import re
 import os
 import socket
 import time
-import urllib
 
 PROXY_MATCHER = re.compile(
     '^(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
@@ -38,7 +37,7 @@ def parse_win_proxy(val):
 def get_win_proxies():
     try:
         from _winreg import EnumKey, OpenKey, CloseKey, QueryValueEx
-        from _winreg import HKEY_LOCAL_MACHINE, HKEY_USERS, KEY_QUERY_VALUE
+        from _winreg import HKEY_USERS, KEY_QUERY_VALUE
     except:
         return
 
@@ -235,7 +234,7 @@ def get_wpad_proxies(wpad_timeout=600):
             for p in r:
                 yield ('HTTP', p, None, None)
 
-        except Exception as e:
+        except:
             pass
 
 

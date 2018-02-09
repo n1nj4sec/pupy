@@ -6,11 +6,9 @@
 
 from ..base import BasePupyTransport, TransportError
 import logging
-import traceback
 
 STREAM=1
 BLOCK=2
-
 
 class XORTransport(BasePupyTransport):
     """
@@ -70,4 +68,3 @@ class XORServer(XORTransport):
 
 class XOR(XORTransport): #alias
     pass
-

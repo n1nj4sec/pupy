@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import os, sys, logging, pkgutil, traceback
+import logging, pkgutil, traceback
 from .lib.launchers.connect import ConnectLauncher
 from .lib.launchers.auto_proxy import AutoProxyLauncher
 from .lib.launchers.bind import BindLauncher
@@ -28,7 +28,7 @@ def add_transport(module_name):
 
         transports[t.name]=t
         logging.debug("[+] transport %s loaded"%t.name)
-    except Exception as e:
+    except:
         logging.warning("Could not load transport %s : %s. Transport disabled"%(module_name,traceback.format_exc()))
 
 
@@ -57,4 +57,3 @@ launchers["auto_proxy"]=AutoProxyLauncher
 launchers["bind"]=BindLauncher
 if DNSCncLauncher:
     launchers["dnscnc"]=DNSCncLauncher
-

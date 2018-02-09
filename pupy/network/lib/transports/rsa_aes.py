@@ -5,7 +5,7 @@
 """ This module contains an implementation of a simple xor transport for pupy. """
 
 from ..base import BasePupyTransport, TransportError
-import os, logging, threading, hashlib, traceback, traceback, struct
+import os, logging, traceback, struct
 import rsa
 try:
     from Crypto import Random
@@ -47,7 +47,6 @@ class RSA_AESTransport(BasePupyTransport):
         try:
             cleartext=data.peek()
             tosend=b""
-            i=0
             packed_size=struct.pack("<I", len(cleartext))
             tosend=packed_size+cleartext
             tosend+=b"\x00"*(BLOCK_SIZE - (len(tosend)%BLOCK_SIZE))
@@ -69,7 +68,6 @@ class RSA_AESTransport(BasePupyTransport):
                 enc=enc[BLOCK_SIZE:]
                 if not enc:
                     return
-            i=0
             cleartext=b""
             full_block=b""
             while True:
@@ -98,7 +96,8 @@ class RSA_AESTransport(BasePupyTransport):
                 self.size_to_read=None
                 self.first_block=b""
             self.upstream.write(cleartext)
-        except Exception as e:
+
+        except:
             logging.debug(traceback.format_exc())
 
 class RSA_AESClient(RSA_AESTransport):

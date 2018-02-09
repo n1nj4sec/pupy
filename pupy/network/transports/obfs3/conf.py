@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from network.transports import *
-from network.lib import *
+
+from network.transports import Transport, LAUNCHER_TYPE_BIND
+from network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
+from network.lib import RSA_AESClient, RSA_AESServer
+from network.lib import chain_transports
 from network.lib.transports.obfs3.obfs3 import Obfs3Client, Obfs3Server
 
 class TransportConf(Transport):

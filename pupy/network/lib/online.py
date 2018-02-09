@@ -4,7 +4,6 @@ import socket
 import time
 import threading
 import random
-import httplib
 import urllib2
 import scan
 import netaddr
@@ -262,7 +261,6 @@ def check():
     result = 0
 
     mintime = None
-    need_proxy = False
     ok = 0
 
     now = time.time()
@@ -331,7 +329,7 @@ def check():
             data = ctx_mitm.get(CHECKS['https']['url'])
             if not CHECKS['https']['text'] in data:
                 result |= HTTPS_MITM
-        except Exception, e:
+        except Exception:
             result |= HTTPS_MITM
 
     else:
@@ -339,14 +337,14 @@ def check():
             data = ctx_nocert.get(CHECKS['https']['url'])
             if CHECKS['https']['text'] in data:
                 result |= HTTPS_NOCERT & HTTPS
-        except Exception, e:
+        except Exception:
             pass
 
     for hostname, ip in KNOWN_DNS.iteritems():
         try:
             if ip == socket.gethostbyname(hostname):
                 result |= DNS
-        except Exception, e:
+        except Exception:
             pass
 
     for pastebin, bit in PASTEBINS.iteritems():
@@ -482,7 +480,7 @@ class PortQuiz(threading.Thread):
     def run(self):
         most_important = [ 80, 443, 8080, 53, 5222, 25, 110, 465 ]
 
-        r = scan.scan([self.PORTQUIZ_ADDR], most_important, timeout=self.connect_timeout, abort=self.abort,
+        scan.scan([self.PORTQUIZ_ADDR], most_important, timeout=self.connect_timeout, abort=self.abort,
              on_open_port=self._on_open_port, pass_socket=True)
 
         if len(self.available) < self.amount:

@@ -2,7 +2,7 @@
 
 import time, logging
 
-from rpyc.core import Connection, consts, AsyncResultTimeout
+from rpyc.core import Connection, consts
 from threading import Thread, RLock, Event, Lock
 
 class PupyConnection(Connection):
@@ -55,7 +55,7 @@ class PupyConnection(Connection):
 
             self._init_service()
             self.initialized.set()
-        except EOFError, TypeError:
+        except (EOFError, TypeError):
             self.close()
             return False
 
@@ -308,7 +308,7 @@ class PupyConnectionThread(Thread):
             while not self.connection.closed:
                 try:
                     self.connection.serve()
-                except EOFError, TypeError:
+                except (EOFError, TypeError):
                     if __debug__:
                         logging.debug('Start serve loop')
 

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-import os
-from network.transports import *
-from network.lib import *
+from network.transports import Transport, LAUNCHER_TYPE_BIND
+from network.lib import PupyTCPServer, PupySSLClient, PupySocketStream
+from network.lib import RSA_AESClient, RSA_AESServer
 from network.transports.ssl.conf import ssl_authenticator
 
 # This doesn't make any sence, but who cares?
@@ -13,7 +13,7 @@ class TransportConf(Transport):
     name = "ssl_rsa"
     server = PupyTCPServer
     client = PupySSLClient
-    stream=PupySocketStream
+    stream = PupySocketStream
     credentials = [
         'SIMPLE_RSA_PUB_KEY', 'SIMPLE_RSA_PRIV_KEY',
         'SSL_CA_CERT',

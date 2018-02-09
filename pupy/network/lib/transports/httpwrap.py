@@ -58,7 +58,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                     else:
                         break
 
-        except Exception, e:
+        except:
             self._http_response(404, 'Not found', 'Not found')
 
     def _handle_not_found(self):

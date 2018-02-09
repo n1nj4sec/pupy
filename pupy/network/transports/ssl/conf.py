@@ -3,10 +3,11 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of
 # the project for the detailed licence terms
 
-import os, tempfile, random, string, logging
-from os import path, unlink
-from network.transports import *
-from network.lib import *
+import os, tempfile
+
+from network.lib import PupyTCPServer, PupySocketStream
+from network.lib import DummyPupyTransport, PupySSLClient
+from network.transports import Transport
 
 import sys
 import ssl

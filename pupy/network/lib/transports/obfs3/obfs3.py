@@ -128,12 +128,8 @@ class Obfs3Transport(BaseTransport):
         schedule the key exchange for execution outside of the event loop.
         """
 
-        log_prefix = "obfs3:_read_handshake()"
         if len(data) < PUBKEY_LEN:
-            #log.debug("%s: Not enough bytes for key (%d)." % (log_prefix, len(data)))
             return
-
-        #log.debug("%s: Got %d bytes of handshake data (waiting for key)." % (log_prefix, len(data)))
 
         # Get the public key from the handshake message, do the DH and
         # get the shared secret.
@@ -163,8 +159,6 @@ class Obfs3Transport(BaseTransport):
         """
 
         self.shared_secret = shared_secret
-        log_prefix = "obfs3:_read_handshake_post_dh()"
-        #log.debug("Got public key: %s.\nGot shared secret: %s" % (repr(other_pubkey), repr(self.shared_secret)))
 
         # Set up our crypto.
         self.send_crypto = self._derive_crypto(self.send_keytype)
@@ -180,12 +174,10 @@ class Obfs3Transport(BaseTransport):
         message = rand.random_bytes(padding_length) + magic + self.send_crypto.crypt(self.queued_data)
         self.queued_data = ''
 
-        #log.debug("%s: Transmitting %d bytes (with magic)." % (log_prefix, len(message)))
         self.circuit.downstream.write(message)
 
         self.state = ST_SEARCHING_MAGIC
         if len(data) > 0:
-             #log.debug("%s: Processing %d bytes of handshake data remaining after key." % (log_prefix, len(data)))
              self._scan_for_magic(data)
 
     def _scan_for_magic(self, data):
@@ -194,9 +186,6 @@ class Obfs3Transport(BaseTransport):
         the padding before it. Then open the connection.
         """
 
-        log_prefix = "obfs3:_scan_for_magic()"
-        #log.debug("%s: Searching for magic." % log_prefix)
-
         assert(self.other_magic_value)
         chunk = data.peek()
 
@@ -204,16 +193,13 @@ class Obfs3Transport(BaseTransport):
         if index < 0:
             if (len(data) > MAX_PADDING+HASHLEN):
                 raise Exception("obfs3: Too much padding (%d)!" % len(data))
-            #log.debug("%s: Did not find magic this time (%d)." % (log_prefix, len(data)))
             return
 
         index += len(self.other_magic_value)
-        #log.debug("%s: Found magic. Draining %d bytes." % (log_prefix, index))
         data.drain(index)
 
         self.state = ST_OPEN
         if len(data) > 0:
-            #log.debug("%s: Processing %d bytes of application data remaining after magic." % (log_prefix, len(data)))
             self.circuit.upstream.write(self.recv_crypto.crypt(data.read()))
 
     def _derive_crypto(self, pad_string):

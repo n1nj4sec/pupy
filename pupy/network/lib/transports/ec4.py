@@ -2,7 +2,7 @@
 
 """ EC4 PSK transport """
 
-from ..base import BasePupyTransport, TransportError
+from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV
 
 import struct

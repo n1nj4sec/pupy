@@ -61,7 +61,6 @@ class AESTransport(BasePupyTransport):
         try:
             cleartext=data.peek()
             tosend=b""
-            i=0
             packed_size=struct.pack("<I", len(cleartext))
             tosend=packed_size+cleartext
             tosend+=b"\x00"*(BLOCK_SIZE - (len(tosend)%BLOCK_SIZE))
@@ -82,7 +81,7 @@ class AESTransport(BasePupyTransport):
                 enc=enc[BLOCK_SIZE:]
                 if not enc:
                     return
-            i=0
+
             cleartext=b""
             full_block=b""
             while True:
@@ -111,7 +110,8 @@ class AESTransport(BasePupyTransport):
                 self.size_to_read=None
                 self.first_block=b""
             self.upstream.write(cleartext)
-        except Exception as e:
+
+        except:
             logging.debug(traceback.format_exc())
 
 class AESClient(AESTransport):
@@ -122,4 +122,3 @@ class AES256(AESTransport):
     key_size=32
 class AES128(AESTransport):
     key_size=16
-

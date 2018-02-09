@@ -6,7 +6,6 @@ import errno
 import time
 import threading
 import rpyc
-import logging
 
 TOP1000 = [
     1,3,4,6,7,9,13,17,19,20,21,22,23,24,25,26,30,32,33,37,42,43,49,53,70,79,80,81,82,
@@ -60,7 +59,7 @@ def create_socket(host, port):
 
     try:
         r = sock.connect_ex((host, int(port)))
-    except Exception, e:
+    except:
         return None, None
 
     return sock, r

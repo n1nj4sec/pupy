@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-""" This module contains an implementation of the 'websocket' transport for pupy. 
+""" This module contains an implementation of the 'websocket' transport for pupy.
 
     Lots of the WebSocket protocol code came from https://github.com/Pithikos/python-websocket-server
 """
@@ -10,9 +10,6 @@
 from ..base import BasePupyTransport
 import time, base64, struct, random, string, logging
 from hashlib import sha1
-from collections import OrderedDict
-import traceback
-import threading
 from .utils import *
 import re
 
@@ -99,7 +96,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
             d=data.peek()
             header = bytearray()
             payload_len = len(d)
-            
+
             header.append(OPCODE_TEXT)
             if payload_len < PAYLOAD_LEN_EXT16:
                 header.append(payload_len | MASKED)
@@ -111,7 +108,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                 header.extend(struct.pack(">Q", payload_len))
             else:
                 raise Exception("Message too large to send without fragmentation")
-            
+
             header.extend(self.mask)
             encoded = ""
             for ch in d:
@@ -126,7 +123,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
         """
             Decoding Server -> Client
             Non masked messages
-        """ 
+        """
         d=data.peek()
         decoded=b""
         #let's parse HTTP responses :
@@ -147,12 +144,12 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                     b2 = ord(d[1])
                     data.drain(2)
                     d=d[2:]
-                    
+
                     fin = b1 & FIN
                     opcode = b1 & OPCODE
                     masked = b2 & MASKED
                     payload_len = b2 & PAYLOAD_LEN
-                    
+
                     if not b1:
                         raise Exception("Client closed connection")
                     elif opcode == OPCODE_CLOSE_CONN:
@@ -167,7 +164,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                         raise Exception("Pongs not supported")
                     elif masked:
                         raise Exception("Server shouldn't be masking messages")
-                    
+
                     if payload_len == PAYLOAD_LEN_EXT16:
                         payload_len = struct.unpack(">H", d[:2])[0]
                         data.drain(2)
@@ -176,7 +173,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                         payload_len = struct.unpack(">Q", d[:8])[0]
                         data.drain(8)
                         d=d[8:]
-                    
+
                     self.missing_bytes = max(0, payload_len - len(d))
 
                     decoded += d[:payload_len]
@@ -223,7 +220,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             d=data.peek()
             header = bytearray()
             payload_len = len(d)
-            
+
             header.append(OPCODE_TEXT)
             if payload_len < PAYLOAD_LEN_EXT16:
                 header.append(payload_len)
@@ -276,14 +273,14 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             self.downstream.write(payload)
             data.drain(len(d))
             return
-        
+
         while len(d)>0:
             d=data.peek()
             try:
                 decoded = ""
                 if self.missing_bytes > 0:
                     raise MissingData('Should be continuation')
- 
+
                 b1 = ord(d[0])
                 b2 = ord(d[1])
                 d=d[2:]
@@ -293,7 +290,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 opcode = b1 & OPCODE
                 masked = b2 & MASKED
                 payload_len = b2 & PAYLOAD_LEN
-        
+
                 if not b1:
                     raise Exception("Client closed connection")
                 elif opcode == OPCODE_CLOSE_CONN:
@@ -306,7 +303,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                     raise Exception("Pings not supported")
                 elif opcode == OPCODE_PONG:
                     raise Exception("Pongs not supported")
-            
+
                 if payload_len == PAYLOAD_LEN_EXT16:
                     payload_len = struct.unpack(">H", d[:2])[0]
                     data.drain(2)

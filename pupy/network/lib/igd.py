@@ -4,14 +4,11 @@
 # License: MIT
 
 import socket
-import argparse
 import urllib2
 from StringIO import StringIO
 from httplib import HTTPResponse
 from xml.etree.ElementTree import fromstring
 from urlparse import urlparse
-import ctypes
-import os
 import netaddr
 import logging
 
@@ -338,7 +335,7 @@ class IGDClient:
         while True:
             try:
                 items.append(self.GetGenericPortMappingEntry(index))
-            except UPNPError as e:
+            except:
                 break
 
             index += 1
@@ -469,7 +466,7 @@ class IGDClient:
             'NewWarnDisconnectDelay': (delay, 'ui4'),
         }
 
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL, upnp_method, sendArgs
@@ -481,7 +478,7 @@ class IGDClient:
             'NewIdleDisconnectTime': (disconnect_time, 'ui4'),
         }
 
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL, upnp_method, sendArgs
@@ -493,7 +490,7 @@ class IGDClient:
             'NewAutoDisconnectTime': (disconnect_time, 'ui4'),
         }
 
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL, upnp_method, sendArgs
@@ -502,7 +499,7 @@ class IGDClient:
     def ForceTermination(self):
         upnp_method = 'ForceTermination'
         sendArgs = {}
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL, upnp_method, sendArgs
@@ -511,7 +508,7 @@ class IGDClient:
     def RequestTermination(self):
         upnp_method = 'RequestTermination'
         sendArgs = {}
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL,
@@ -521,7 +518,7 @@ class IGDClient:
     def RequestConnection(self):
         upnp_method = 'RequestConnection'
         sendArgs = {}
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL,
@@ -547,7 +544,7 @@ class IGDClient:
         sendArgs = {
             'NewConnectionType': (ctype, 'string'),
         }
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPConnection:1',
             self.ctrlURL,
@@ -708,7 +705,7 @@ class IGDClient:
             "UniqueID": (uid, 'ui2'),
             "NewLeaseTime": (lease, 'ui4'),
         }
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPv6FirewallControl:1',
             self.ctrlURL,
@@ -721,7 +718,7 @@ class IGDClient:
         sendArgs = {
             "UniqueID": (uid, 'ui2'),
         }
-        resp_xml = self.sendSOAP(
+        self.sendSOAP(
             self.pr.netloc,
             'urn:schemas-upnp-org:service:WANIPv6FirewallControl:1',
             self.ctrlURL,

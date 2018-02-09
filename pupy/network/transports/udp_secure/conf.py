@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from network.transports import *
-from network.lib import *
+
+from network.transports import Transport, LAUNCHER_TYPE_BIND
+from network.lib import PupyUDPServer, PupyUDPClient, PupyUDPSocketStream
+from network.lib import RSA_AESClient, RSA_AESServer, DummyPupyTransport
 
 class TransportConf(Transport):
     info = "Simple UDP transport transmitting in cleartext"

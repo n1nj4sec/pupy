@@ -2,26 +2,20 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import sys, logging
+import logging
 
 from rpyc.utils.server import ThreadedServer
 from rpyc.utils.authenticators import AuthenticationError
-from rpyc.utils.registry import UDPRegistryClient
-from rpyc.core.stream import Stream
-from buffer import Buffer
 
 import socket
-import select
-import errno
-import random
 
 from Queue import Queue, Empty
 from threading import Thread, RLock
 
-from streams.PupySocketStream import addGetPeer, PupyChannel
+from streams.PupySocketStream import PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread
 
-from network.lib.igd import IGDClient, UPNPError
+from network.lib.igd import UPNPError
 
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):
@@ -176,7 +170,7 @@ class PupyTCPServer(ThreadedServer):
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
 
-        except EOFError, TypeError:
+        except (EOFError, TypeError):
             pass
 
         finally:
