@@ -268,7 +268,7 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     }
 
     /* create new process */
-    pid = fork ( );
+    pid = fork();
     if (pid == -1)
         return -1;
 
@@ -285,18 +285,20 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-    /* Fork once again */
-    pid = fork ( );
-    if (pid == -1) {
-        if (!exit_parent) {
-            close(pipes[1]);
+    if (triple_fork) {
+        /* Fork once again */
+        pid = fork();
+        if (pid == -1) {
+            if (!exit_parent) {
+                close(pipes[1]);
+            }
+
+            return -1;
         }
 
-        return -1;
-    }
-
-    else if (pid != 0) {
-        exit (EXIT_SUCCESS);
+        else if (pid != 0) {
+            exit (EXIT_SUCCESS);
+        }
     }
 
     setenv("_", "/bin/true", 1);
