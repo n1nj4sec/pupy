@@ -739,29 +739,53 @@ class PasteLink(Command):
 class OnlineStatus(Command):
     @staticmethod
     def unpack(data):
-        total, register, mintime = struct.unpack_from('>BII', data)
-        return OnlineStatus(register, mintime), total
+        total, offset, mintime, register = struct.unpack_from('>BhHI', data)
+        return OnlineStatus(offset, mintime, register), total
 
-    def __init__(self, register=None, mintime=None):
+    def __init__(self, offset=None, mintime=None, register=None):
         if register is None or mintime is None:
-            mintime, register = online.check()
+            offset, mintime, register = online.check()
 
+        self.offset = offset
         self.mintime = mintime
         self.register = register
 
     def pack(self):
-        return struct.pack('>BII', 8+1, self.register, self.mintime)
+        return struct.pack('>BhHI', 8+1, self.offset, self.mintime, self.register)
 
     def get_dict(self):
         result = online.bits_to_dict(self.register)
-        result.update({
-            'mintime': '{:.3f}s'.format(float(self.mintime)/1000)
-        })
+        if self.mintime == 65535:
+            result.update({
+                'mintime': 'MAX'
+            })
+        else:
+            result.update({
+                'mintime': '{:.3f}s'.format(float(self.mintime)/1000)
+            })
+
+        if result['ntp']:
+            if self.offset in (32767, -32768):
+                word = 'MAX'
+                if self.offset < 0:
+                    word = 'MIN'
+
+                result.update({
+                    'ntp-offset': word
+                })
+            else:
+                result.update({
+                    'ntp-offset': '{:.3f}s'.format(float(self.offset)/1000000)
+                })
+        else:
+            result.update({
+                'ntp-offset': 'N/A'
+            })
+
         return result
 
     def __str__(self):
-        return '{{ONLINE: MINTIME={} {}}}'.format(
-            self.mintime,
+        return '{{ONLINE: {}}}'.format(
             ' '.join(
                 '{}={}'.format(
                     k.upper(),

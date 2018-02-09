@@ -13,6 +13,7 @@ import igd
 import sys
 
 from . import stun
+from . import ntplib
 
 ONLINE_STATUS = None
 ONLINE_STATUS_CHECKED = None
@@ -42,14 +43,17 @@ PHPASTE             = 1 << 19
 FRIENDPASTE         = 1 << 20
 LPASTE              = 1 << 21
 
-STUN_NAT_BLOCKED    = 0x00 << 22
-STUN_NAT_OPEN       = 0x01 << 22
-STUN_NAT_CLONE      = 0x02 << 22
-STUN_NAT_UDP_FW     = 0x03 << 22
-STUN_NAT_RESTRICT   = 0x04 << 22
-STUN_NAT_PORT       = 0x05 << 22
-STUN_NAT_SYMMETRIC  = 0x06 << 22
-STUN_NAT_ERROR      = 0x07 << 22
+STUN_NAT_VALUE      = 7 << 22
+STUN_NAT_BLOCKED    = 0 << 22
+STUN_NAT_OPEN       = 1 << 22
+STUN_NAT_CLONE      = 2 << 22
+STUN_NAT_UDP_FW     = 3 << 22
+STUN_NAT_RESTRICT   = 4 << 22
+STUN_NAT_PORT       = 5 << 22
+STUN_NAT_SYMMETRIC  = 6 << 22
+STUN_NAT_ERROR      = 7 << 22
+
+NTP                 = 1 << 25
 
 STUN_NAT_DESCRIPTION = {
     STUN_NAT_BLOCKED:   stun.Blocked,
@@ -61,6 +65,8 @@ STUN_NAT_DESCRIPTION = {
     STUN_NAT_SYMMETRIC: stun.SymmetricNAT,
     STUN_NAT_ERROR:     stun.ChangedAddressError,
 }
+
+NTP_SERVER     = 'pool.ntp.org'
 
 STUN_HOST      = 'stun.l.google.com'
 STUN_PORT      = 19302
@@ -230,6 +236,10 @@ def online():
 
     return False
 
+def ntp_time_diff():
+    client = ntplib.NTPClient()
+    response = client.request(NTP_SERVER, version=3)
+    return int(response.offset * 1000000)
 
 def check():
     global ONLINE_STATUS_CHECKED
@@ -372,7 +382,16 @@ def check():
 
     except:
         result |= STUN_NAT_BLOCKED
-        pass
+
+    try:
+        offset = ntp_time_diff()
+        result |= NTP
+        if offset > 32767:
+            offset = 32767
+        elif offset < -32768:
+            offset = -32768
+    except:
+        offset = 0
 
     if sys.platform != 'win32':
         # This may cause firewall window
@@ -381,7 +400,11 @@ def check():
         if igdc.available:
             result |= IGD
 
-    ONLINE_STATUS = ( int(mintime * 1000) & int(0xFFFF), result )
+    mintime = int(mintime * 1000)
+    if mintime > 65535:
+        mintime = 65535
+
+    ONLINE_STATUS = ( offset, mintime, result )
     ONLINE_STATUS_CHECKED = time.time()
     return ONLINE_STATUS
 
@@ -403,8 +426,11 @@ def bits_to_dict(data):
         'proxy': bool(data & PROXY),
         'transparent-proxy': bool(data & TRANSPARENT),
         'stun': [
-            descr for bit,descr in STUN_NAT_DESCRIPTION.iteritems() if data & bit
+            descr for value,descr in STUN_NAT_DESCRIPTION.iteritems() if (
+                (data & STUN_NAT_VALUE) == value
+            )
         ][0],
+        'ntp': bool(data & NTP),
         'pastebins': {
             pastebin:bool(data & bit) for pastebin,bit in PASTEBINS.iteritems()
         }

@@ -1570,10 +1570,10 @@ class PupyCmd(cmd.Cmd):
                              'green' if session.online_status[k] else 'lightyellow'
                         )
                     } for k in [
-                        'online', 'igd', 'hotspot', 'dns',
+                        'online', 'igd', 'hotspot', 'dns', 'ntp',
                         'direct-dns', 'http', 'https',
                         'https-no-cert', 'https-mitm', 'proxy',
-                        'transparent-proxy', 'stun', 'mintime'
+                        'transparent-proxy', 'stun', 'mintime', 'ntp-offset'
                     ]
                 ]
 
