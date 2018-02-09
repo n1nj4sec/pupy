@@ -10,7 +10,6 @@ import time
 import datetime
 import platform
 import uuid
-import urllib2
 import urlparse
 import StringIO
 import socket
@@ -544,7 +543,7 @@ class DownloadExec(Command):
 
     # 3 bits - 7 max
     well_known_downloadexec_scheme_decode = dict(enumerate([
-        'http', 'https', 'ftp', 'tcp'
+        'http', 'https', 'ftp', 'tcp', 'udp', 'tls'
     ]))
 
     well_known_downloadexec_scheme_encode = {
@@ -555,8 +554,6 @@ class DownloadExec(Command):
         self.proxy = bool(proxy)
         self.url = url
         self.action = action
-        if not self.url in ('http', 'https'):
-            self.proxy = False
 
     def pack(self):
         try:

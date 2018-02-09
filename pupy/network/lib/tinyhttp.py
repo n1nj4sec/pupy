@@ -8,6 +8,9 @@ import urlparse
 import httplib
 import base64
 import ssl
+import socket
+
+import StringIO
 
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
@@ -51,6 +54,115 @@ class NullHandler(urllib2.HTTPHandler):
 
         return self.do_open(build, req)
 
+class NETFile(StringIO.StringIO):
+    pass
+
+class UDPReaderHandler(urllib2.BaseHandler):
+    def udp_open(self, req):
+        url = urlparse.urlparse(req.get_full_url())
+        host = url.hostname
+        port = url.port or 123
+
+        data = []
+        conn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
+        conn.connect((host, port))
+        conn.settimeout(10)
+
+        try:
+            if url.path:
+                conn.send(url.path[1:])
+
+            data = conn.recv(4096)
+            if not data:
+                raise ValueError('No data')
+
+        except:
+            pass
+
+        finally:
+            conn.close()
+
+        fp = NETFile(data)
+        if data:
+            headers = {
+                'Content-type': 'application/octet-stream',
+                'Content-length': len(data),
+            }
+            code = 200
+        else:
+            headers = {}
+            code = 404
+
+        return urllib.addinfourl(fp, headers, req.get_full_url(), code=code)
+
+
+class TCPReaderHandler(urllib2.BaseHandler):
+    def __init__(self, context=None, *args, **kwargs):
+        if context:
+            self.sslctx = context
+        else:
+            self.sslctx.check_hostname = False
+            self.sslctx.verify_mode = ssl.CERT_NONE
+
+    def do_stream_connect(self, req):
+        url = urlparse.urlparse(req.get_full_url())
+        host = url.hostname
+        port = url.port or 53
+
+        data = []
+        conn = socket.create_connection((host, port))
+        conn.settimeout(10)
+        return conn
+
+    def tls_open(self, req):
+        conn = self.do_stream_connect(req)
+        conn = self.sslctx.wrap_socket(
+            conn, server_hostname=req.get_host())
+        return self._get_stream_data(conn, req)
+
+    def tcp_open(self, req):
+        conn = self.do_stream_connect(req)
+        return self._get_stream_data(conn, req)
+
+    def _get_stream_data(self, conn, req):
+        data = []
+        url = urlparse.urlparse(req.get_full_url())
+
+        try:
+            if url.path:
+                conn.send(url.path[1:])
+
+            while True:
+                b = conn.recv(65535)
+                if not b:
+                    break
+
+                data.append(b)
+
+            if not data:
+                raise ValueError('No data')
+
+        except:
+            pass
+
+        finally:
+            conn.close()
+
+        data = b''.join(data)
+
+        fp = NETFile(data)
+        if data:
+            headers = {
+                'Content-type': 'application/octet-stream',
+                'Content-length': len(data),
+            }
+            code = 200
+        else:
+            headers = {}
+            code = 404
+
+        return urllib.addinfourl(fp, headers, req.get_full_url(), code=code)
+
 StreamingHTTPSHandler.https_open = lambda self, req: self.do_open(
     StreamingHTTPSConnection, req, context=self._context)
 
@@ -86,7 +198,7 @@ class SocksiPyConnectionS(StreamingHTTPSConnection):
         self.sock = self._context.wrap_socket(
             sock, server_hostname=server_hostname)
 
-class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler):
+class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandler):
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kw = kwargs
@@ -114,6 +226,14 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler):
 
         return self.do_open(build, req)
 
+    def do_stream_connect(self, req):
+        url = urlparse.urlparse(req.get_full_url())
+        host = url.hostname
+        port = url.port or 53
+        conn = SocksiPyConnection(*self.args, host=host, port=port, timeout=15)
+        conn.connect()
+        return conn.sock
+
 class HTTP(object):
     def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
         self.ctx = ssl.create_default_context()
@@ -129,19 +249,19 @@ class HTTP(object):
         self.noverify = noverify
         self.timeout=timeout
 
-        handlers = []
-
         if self.proxy is None or self.proxy is True:
             handlers = [
                 urllib2.ProxyHandler(),
                 StreamingHTTPHandler,
-                StreamingHTTPSHandler(context=self.ctx)
+                StreamingHTTPSHandler(context=self.ctx),
+                TCPReaderHandler(context=self.ctx)
             ]
 
         elif self.proxy is False:
             handlers = [
                 StreamingHTTPHandler,
-                StreamingHTTPSHandler(context=self.ctx)
+                StreamingHTTPSHandler(context=self.ctx),
+                TCPReaderHandler(context=self.ctx)
             ]
         else:
             proxyscheme = urlparse.urlparse(self.proxy)
@@ -163,6 +283,8 @@ class HTTP(object):
 
         if not follow_redirects:
             handlers.append(NoRedirects)
+
+        handlers.append(UDPReaderHandler)
 
         self.opener = urllib2.build_opener(*handlers)
 

