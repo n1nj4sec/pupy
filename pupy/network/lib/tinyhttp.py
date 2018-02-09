@@ -37,8 +37,9 @@ if not sys.platform == 'win32':
             "/etc/openssl/certs",
         ])
 
+    if not hasattr(ssl, '_PATCHED'):
+        setattr(ssl, '_PATCHED', True)
 
-    if not hasattr(ssl, '_CACHED_SSL_CERTIFICATES'):
         ctx = ssl.create_default_context()
         for path in ssl._SSL_PATHS:
             try:
@@ -52,9 +53,13 @@ if not sys.platform == 'win32':
             except:
                 pass
 
-        setattr(
-            ssl, '_CACHED_SSL_CERTIFICATES',
-            ctx.get_ca_certs(binary_form=True))
+        setattr(ssl, '_CACHED_SSL_CERTS', ctx.get_ca_certs(binary_form=True))
+
+        def set_default_verify_paths(self):
+            for cert in ssl._CACHED_SSL_CERTS:
+                self.load_verify_locations(cadata=cert)
+
+        ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
 
 def merge_dict(a, b):
     d = a.copy()
@@ -284,9 +289,6 @@ class HTTP(object):
             self.ctx.load_verify_locations(None, None, cadata)
         else:
             self.ctx.load_default_certs()
-            if not sys.platform == "win32":
-                for cert in ssl._CACHED_SSL_CERTIFICATES:
-                    self.ctx.load_verify_locations(cadata=cert)
 
         self.proxy = proxy
         self.noverify = noverify
