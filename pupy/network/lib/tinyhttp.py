@@ -9,6 +9,7 @@ import httplib
 import base64
 import ssl
 import socket
+import sys
 
 import StringIO
 
@@ -17,6 +18,43 @@ from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
 from poster.encode import multipart_encode
 
 from . import socks
+
+if not sys.platform == 'win32':
+    if not hasattr(ssl, '_SSL_PATHS'):
+        setattr(ssl, '_SSL_FILES', [
+            "/etc/ssl/certs/ca-certificates.crt",
+            "/etc/pki/tls/certs/ca-bundle.crt",
+            "/etc/ssl/ca-bundle.pem",
+            "/etc/pki/tls/cacert.pem",
+            "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+        ])
+
+        setattr(ssl, '_SSL_PATHS', [
+            "/etc/ssl/certs",
+            "/system/etc/security/cacerts",
+            "/usr/local/share/certs",
+            "/etc/pki/tls/certs",
+            "/etc/openssl/certs",
+        ])
+
+
+    if not hasattr(ssl, '_CACHED_SSL_CERTIFICATES'):
+        ctx = ssl.create_default_context()
+        for path in ssl._SSL_PATHS:
+            try:
+                ctx.load_verify_locations(capath=path)
+            except:
+                pass
+
+        for path in ssl._SSL_FILES:
+            try:
+                ctx.load_verify_locations(cafile=path)
+            except:
+                pass
+
+        setattr(
+            ssl, '_CACHED_SSL_CERTIFICATES',
+            ctx.get_ca_certs(binary_form=True))
 
 def merge_dict(a, b):
     d = a.copy()
@@ -244,6 +282,11 @@ class HTTP(object):
 
         if cadata:
             self.ctx.load_verify_locations(None, None, cadata)
+        else:
+            self.ctx.load_default_certs()
+            if not sys.platform == "win32":
+                for cert in ssl._CACHED_SSL_CERTIFICATES:
+                    self.ctx.load_verify_locations(cadata=cert)
 
         self.proxy = proxy
         self.noverify = noverify
