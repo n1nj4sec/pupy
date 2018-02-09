@@ -11,6 +11,10 @@ import struct
 import igd
 import sys
 
+import logging
+
+logger = logging.getLogger('online')
+
 from . import stun
 from . import ntplib
 
@@ -159,8 +163,9 @@ def check_transparent_proxy():
         data = s.recv(12)
         if data.startswith('HTTP'):
             return True
-    except:
-        pass
+
+    except Exception, e:
+        logger.info(e)
 
     return False
 
@@ -178,8 +183,8 @@ def external_ip(force_ipv4=False):
             LAST_EXTERNAL_IP = stun_ip
             return LAST_EXTERNAL_IP
 
-    except:
-        pass
+    except Exception, e:
+        logger.info(e)
 
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
@@ -193,8 +198,9 @@ def external_ip(force_ipv4=False):
 
                     LAST_EXTERNAL_IP = addr
                     return LAST_EXTERNAL_IP
-            except:
-                pass
+
+            except Exception, e:
+                logger.info(e)
 
     LAST_EXTERNAL_IP = dns_external_ip()
     return LAST_EXTERNAL_IP
@@ -207,17 +213,21 @@ def dns_external_ip():
         data = s.recv(256)
         if data.startswith(OPENDNS_RESPONSE):
             return netaddr.IPAddress(struct.unpack('>I', data[-4:])[0])
-    except:
-        pass
+
+    except Exception, e:
+        logger.info(e)
 
     return None
 
 def external_headers():
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
+
     try:
         import json
         return json.loads(ctx.get('http://httpbin.org/headers'))['headers']
-    except:
+
+    except Exception, e:
+        logger.info(e)
         return None
 
 def online():
@@ -230,7 +240,9 @@ def online():
         data = ctx.get(CHECKS['msonline']['url'])
         if data == CHECKS['msonline']['text']:
             return True
-    except:
+
+    except Exception, e:
+        logger.info(e)
         pass
 
     return False
@@ -281,7 +293,7 @@ def check():
                 result |= HOTSPOT
 
         except Exception, e:
-            pass
+            logger.info(e)
 
     if ok == 2:
         result |= ONLINE_CAPTIVE
@@ -298,7 +310,7 @@ def check():
             result |= ONLINE_MS
 
     except Exception, e:
-        pass
+        logger.info(e)
 
     for url in CAPTIVE_URLS:
         try:
@@ -307,29 +319,33 @@ def check():
                 result |= NEED_PROXY
                 break
 
-        except:
-            pass
+        except Exception, e:
+            logger.info(e)
 
     try:
         data = ctx.get(CHECKS['http']['url'])
         if CHECKS['http']['text'] in data:
             result |= HTTP
-    except:
-        pass
+
+    except Exception, e:
+        logger.info(e)
 
     try:
         data = ctx.get(CHECKS['https']['url'])
         if CHECKS['https']['text'] in data:
             result |= HTTPS
-    except:
-        pass
+
+    except Exception, e:
+        logger.info(e)
 
     if result & HTTPS:
         try:
             data = ctx_mitm.get(CHECKS['https']['url'])
             if not CHECKS['https']['text'] in data:
                 result |= HTTPS_MITM
-        except Exception:
+
+        except Exception, e:
+            logger.info(e)
             result |= HTTPS_MITM
 
     else:
@@ -337,15 +353,17 @@ def check():
             data = ctx_nocert.get(CHECKS['https']['url'])
             if CHECKS['https']['text'] in data:
                 result |= HTTPS_NOCERT & HTTPS
-        except Exception:
-            pass
+
+        except Exception, e:
+            logger.info(e)
 
     for hostname, ip in KNOWN_DNS.iteritems():
         try:
             if ip == socket.gethostbyname(hostname):
                 result |= DNS
-        except Exception:
-            pass
+
+        except Exception, e:
+            logger.info(e)
 
     for pastebin, bit in PASTEBINS.iteritems():
         try:
@@ -355,8 +373,9 @@ def check():
             )
             if code == 200:
                 result |= bit
-        except:
-            pass
+
+        except Exception, e:
+            logger.info(e)
 
     if check_transparent_proxy():
         result |= TRANSPARENT | PROXY
@@ -378,7 +397,8 @@ def check():
                 result |= bit
                 break
 
-    except:
+    except Exception, e:
+        logger.info(e)
         result |= STUN_NAT_BLOCKED
 
     try:
@@ -388,15 +408,21 @@ def check():
             offset = 32767
         elif offset < -32768:
             offset = -32768
-    except:
+
+    except Exception, e:
+        logger.info(e)
         offset = 0
 
     if sys.platform != 'win32':
         # This may cause firewall window
         # TODO: Work around this with pressing enter using keyboard module
-        igdc = igd.IGDClient()
-        if igdc.available:
-            result |= IGD
+        try:
+            igdc = igd.IGDClient()
+            if igdc.available:
+                result |= IGD
+
+        except Exception, e:
+            logger.info(e)
 
     mintime = int(mintime * 1000)
     if mintime > 65535:
