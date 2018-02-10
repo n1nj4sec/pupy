@@ -486,6 +486,7 @@ class PortQuiz(threading.Thread):
         with self.lock:
             self.table['{}:{}'.format(host,port)] = sock
             sock.setblocking(1)
+            sock.settimeout(self.http_timeout)
 
         try:
             response = self.opener.open('http://{}:{}'.format(host, port), timeout=self.http_timeout)
