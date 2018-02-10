@@ -352,7 +352,8 @@ def check():
         try:
             data = ctx_nocert.get(CHECKS['https']['url'])
             if CHECKS['https']['text'] in data:
-                result |= HTTPS_NOCERT & HTTPS
+                result |= HTTPS_NOCERT
+                result |= HTTPS
 
         except Exception, e:
             logger.info(e)
