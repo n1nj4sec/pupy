@@ -1241,7 +1241,7 @@ class PupyCmd(cmd.Cmd):
                 sort_by = lambda x: x.system_status['remote']
             elif args.u:
                 sort_by = lambda x: x.system_status['users']
-            elif args.i:
+            elif args.x:
                 sort_by = lambda x: x.system_status['idle']
             elif args.t:
                 sort_by = lambda x: str(sorted(self.config.tags(x.system_info['node'])))
@@ -1281,20 +1281,22 @@ class PupyCmd(cmd.Cmd):
                         pupy_session = c.desc['id']
                         break
 
-                color = ''
                 if pupy_session:
                     object.update({
                         'P': pupy_session
                     })
-                    color = 'lightgreen'
+
+                color = ''
+                if (session.online_status or session.egress_ports or session.open_ports):
+                    color = 'cyan'
                 elif session.system_status['cpu'] > 90 or session.system_status['mem'] > 90:
                     color = 'lightred'
-                elif (session.online_status or session.egress_ports or session.open_ports):
-                    color = 'cyan'
                 elif (session.pstore_dirty):
                     color = 'magenta'
                 elif not session.system_status['idle']:
                     color = 'lightyellow'
+                elif pupy_session:
+                    color = 'lightgreen'
 
                 if color:
                     object = { k:colorize(v, color) for k,v in object.iteritems() }
