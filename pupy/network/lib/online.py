@@ -10,6 +10,7 @@ import netaddr
 import struct
 import igd
 import sys
+import json
 
 import logging
 
@@ -156,6 +157,8 @@ LAST_EXTERNAL_IP = None
 LAST_EXTERNAL_IP_TIME = None
 
 def check_transparent_proxy():
+    logger.debug('Check for transparent proxy')
+
     try:
         s = socket.create_connection((IP_KNOWN_TO_BE_DOWN, 80), timeout=5)
         s.settimeout(5)
@@ -165,12 +168,14 @@ def check_transparent_proxy():
             return True
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('Check transparent proxy: {}'.format(e))
 
     return False
 
 def external_ip(force_ipv4=False):
     global LAST_EXTERNAL_IP, LAST_EXTERNAL_IP_TIME
+
+    logger.debug('Retrieve IP using external services')
 
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
@@ -184,7 +189,7 @@ def external_ip(force_ipv4=False):
             return LAST_EXTERNAL_IP
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('external_ip: STUN failed: {}'.format(e))
 
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
@@ -200,12 +205,14 @@ def external_ip(force_ipv4=False):
                     return LAST_EXTERNAL_IP
 
             except Exception, e:
-                logger.info(e)
+                logger.debug('Get IP service failed: {}'.format(e))
 
     LAST_EXTERNAL_IP = dns_external_ip()
     return LAST_EXTERNAL_IP
 
 def dns_external_ip():
+    logger.debug('Retrieve IP using DNS')
+
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
     try:
         s.settimeout(5)
@@ -215,20 +222,24 @@ def dns_external_ip():
             return netaddr.IPAddress(struct.unpack('>I', data[-4:])[0])
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('DNS External IP failed: {}'.format(e))
 
     return None
 
 def external_headers():
-    ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
+    logger.debug('Retrieve external headers')
 
     try:
-        import json
-        return json.loads(ctx.get('http://httpbin.org/headers'))['headers']
+        ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
+
+        data = ctx.get('http://httpbin.org/headers')
+        data = json.loads(data)
+        return data['headers']
 
     except Exception, e:
-        logger.info(e)
-        return None
+        logger.debug('External headers failed: {}'.format(e))
+
+    return {}
 
 def online():
     headers = {
@@ -242,8 +253,7 @@ def online():
             return True
 
     except Exception, e:
-        logger.info(e)
-        pass
+        logger.debug('MS Online check failed: {}'.format(e))
 
     return False
 
@@ -260,6 +270,8 @@ def check():
         if time.time() - ONLINE_STATUS_CHECKED < 3600:
             return ONLINE_STATUS
 
+    logger.debug('Online check started')
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)'
     }
@@ -273,6 +285,7 @@ def check():
     result = 0
 
     mintime = None
+    offset = 0
     ok = 0
 
     now = time.time()
@@ -293,7 +306,7 @@ def check():
                 result |= HOTSPOT
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('Captive check failed {}: {}'.format(url, e))
 
     if ok == 2:
         result |= ONLINE_CAPTIVE
@@ -310,7 +323,7 @@ def check():
             result |= ONLINE_MS
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('MS Online check failed: {}'.format(e))
 
     for url in CAPTIVE_URLS:
         try:
@@ -320,7 +333,7 @@ def check():
                 break
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('Captive check failed {}: {}'.format(url, e))
 
     try:
         data = ctx.get(CHECKS['http']['url'])
@@ -328,7 +341,7 @@ def check():
             result |= HTTP
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('HTTP Check failed: {}'.format(e))
 
     try:
         data = ctx.get(CHECKS['https']['url'])
@@ -336,7 +349,7 @@ def check():
             result |= HTTPS
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('HTTPS Check failed: {}'.format(e))
 
     if result & HTTPS:
         try:
@@ -345,7 +358,7 @@ def check():
                 result |= HTTPS_MITM
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('HTTPS Mitm Check failed: {}'.format(e))
             result |= HTTPS_MITM
 
     else:
@@ -356,7 +369,7 @@ def check():
                 result |= HTTPS
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('HTTPS NoCert Check failed: {}'.format(e))
 
     for hostname, ip in KNOWN_DNS.iteritems():
         try:
@@ -364,7 +377,7 @@ def check():
                 result |= DNS
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('DNS Check failed: {}'.format(e))
 
     for pastebin, bit in PASTEBINS.iteritems():
         try:
@@ -376,7 +389,7 @@ def check():
                 result |= bit
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('Pastebin Check failed {}: {}'.format(pastebin, e))
 
     if check_transparent_proxy():
         result |= TRANSPARENT | PROXY
@@ -399,7 +412,7 @@ def check():
                 break
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('STUN Checks failed: {}'.format(e))
         result |= STUN_NAT_BLOCKED
 
     try:
@@ -411,7 +424,7 @@ def check():
             offset = -32768
 
     except Exception, e:
-        logger.info(e)
+        logger.debug('NTP Checks failed: {}'.format(e))
         offset = 0
 
     if sys.platform != 'win32':
@@ -423,14 +436,19 @@ def check():
                 result |= IGD
 
         except Exception, e:
-            logger.info(e)
+            logger.debug('IGD Check failed: {}'.format(e))
 
-    mintime = int(mintime * 1000)
-    if mintime > 65535:
-        mintime = 65535
+    if mintime is None:
+        mintime = 0
+    else:
+        mintime = int(mintime * 1000)
+        if mintime > 65535:
+            mintime = 65535
 
     ONLINE_STATUS = ( offset, mintime, result )
     ONLINE_STATUS_CHECKED = time.time()
+
+    logger.debug('Online check completed')
     return ONLINE_STATUS
 
 def bits_to_dict(data):
@@ -483,12 +501,12 @@ class PortQuiz(threading.Thread):
     def _on_open_port(self, info):
         host, port, sock = info
 
-        with self.lock:
-            self.table['{}:{}'.format(host,port)] = sock
-            sock.setblocking(1)
-            sock.settimeout(self.http_timeout)
-
         try:
+            with self.lock:
+                self.table['{}:{}'.format(host,port)] = sock
+                sock.setblocking(1)
+                sock.settimeout(self.http_timeout)
+
             response = self.opener.open('http://{}:{}'.format(host, port), timeout=self.http_timeout)
             data = response.read()
             if data.startswith(self.PORTQUIZ_MESSAGE) or port == 443 and self.PORTQUIZ_443_MESSAGE in data:
@@ -497,7 +515,7 @@ class PortQuiz(threading.Thread):
                     self.abort.set()
 
         except Exception, e:
-            pass
+            logger.debug('port check: {}:{}: {}'.format(host, port, e))
 
         finally:
             try:
@@ -520,7 +538,9 @@ class PortQuiz(threading.Thread):
 
     def run(self):
         try:
+            logger.debug('PortQuiz: started')
             self._run()
+            logger.debug('PortQuiz: completed')
 
         except Exception, e:
-            logger.exception(e)
+            logger.exception('PortQuiz: {}'.format(e))
