@@ -414,6 +414,9 @@ class PupyPackageFinder(object):
         imp.acquire_lock()
         selected = None
 
+        if fullname.startswith('exposed_'):
+            return None
+
         try:
             files=[]
             if fullname in ( 'pywintypes', 'pythoncom' ):
@@ -432,7 +435,7 @@ class PupyPackageFinder(object):
                 dprint('{} not found in {}: not in {} files'.format(
                     fullname, files, len(files)))
 
-                if remote_load_package and not second_pass and not fullname.startswith('exposed_'):
+                if remote_load_package and not second_pass:
                     parts = fullname.split('.')[:-1]
 
                     for i in xrange(len(parts)):
