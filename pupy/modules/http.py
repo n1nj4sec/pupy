@@ -18,6 +18,8 @@ class http(PupyModule):
         self.arg_parser.add_argument('-o', '--output', help='Output to file')
         self.arg_parser.add_argument('-i', '--input', help='Input from file (POST)')
         self.arg_parser.add_argument('-v', '--verify', default=False, action='store_true', help='Verify certificate')
+        self.arg_parser.add_argument('-r', '--follow-redirects', default=False, action='store_true',
+                                     help='Follow redirects')
         self.arg_parser.add_argument('url', help='url')
         self.arg_parser.add_argument('data', nargs='*', default=[], help='Data (POST/urlencode)')
 
@@ -27,6 +29,7 @@ class http(PupyModule):
         http = HTTP(
             proxy=args.proxy,
             noverify=not args.verify,
+            follow_redirects=args.follow_redirects,
             headers=[
                 tuple(x.split('=', 1)) for x in (
                     args.header if type(args.header) == list else [
