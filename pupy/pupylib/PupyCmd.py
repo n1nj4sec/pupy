@@ -1127,6 +1127,7 @@ class PupyCmd(cmd.Cmd):
         info_sorting.add_argument('-e', action='store_true', help='Sort by established connections count')
         info_sorting.add_argument('-u', action='store_true', help='Sort by users count')
         info_sorting.add_argument('-x', action='store_true', help='Sort by idle')
+        info_sorting.add_argument('-t', action='store_true', help='Sort by tags')
 
         policy = commands.add_parser('set', help='Change policy (polling, timeout)')
         policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
@@ -1242,6 +1243,8 @@ class PupyCmd(cmd.Cmd):
                 sort_by = lambda x: x.system_status['users']
             elif args.i:
                 sort_by = lambda x: x.system_status['idle']
+            elif args.t:
+                sort_by = lambda x: str(sorted(self.config.tags(x.system_info['node'])))
 
             if sort_by:
                 sessions = sorted(sessions, key=sort_by, reverse=bool(args.r))
