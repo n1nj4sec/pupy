@@ -84,7 +84,10 @@ class LaZagne(PupyModule):
 
             elif r[2]:
                 passwordsFound = True
-                self.print_results(r[0], r[1], r[2], db)
+                try:
+                    self.print_results(r[0], r[1], r[2], db)
+                except Exception, e:
+                    self.error('{}: {}'.format(r[1], e))
 
         if not passwordsFound:
             self.warning('no passwords found !')
