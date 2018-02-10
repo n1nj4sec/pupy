@@ -118,12 +118,19 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         portquiz = PortQuiz()
         portquiz.start()
 
-        result = check()
-        self.event(OnlineStatus(result))
+        try:
+            offset, mintime, register = check()
+            self.event(OnlineStatus(offset, mintime, register))
+        except Exception, e:
+            logging.exception(e)
 
         portquiz.join()
-        if portquiz.available:
-            self.event(PortQuizPort(portquiz.available[:8]))
+
+        try:
+            if portquiz.available:
+                self.event(PortQuizPort(portquiz.available[:8]))
+        except Exception, e:
+            logging.exception(e)
 
     def on_checkonline(self):
         worker = Thread(target=self._checkonline_worker)

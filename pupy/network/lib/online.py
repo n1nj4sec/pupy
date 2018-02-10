@@ -505,7 +505,7 @@ class PortQuiz(threading.Thread):
             except:
                 pass
 
-    def run(self):
+    def _run(self):
         most_important = [ 80, 443, 8080, 53, 5222, 25, 110, 465 ]
 
         scan.scan([self.PORTQUIZ_ADDR], most_important, timeout=self.connect_timeout, abort=self.abort,
@@ -517,3 +517,10 @@ class PortQuiz(threading.Thread):
 
              scan.scan([self.PORTQUIZ_ADDR],other, timeout=self.connect_timeout, abort=self.abort,
                  on_open_port=self._on_open_port, pass_socket=True)
+
+    def run(self):
+        try:
+            self._run()
+
+        except Exception, e:
+            logger.exception(e)
