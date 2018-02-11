@@ -437,9 +437,12 @@ def safe_obtain(proxy):
         return proxy
 
     conn = object.__getattribute__(proxy, "____conn__")()
+    if not hasattr(conn, 'obtain'):
+        setattr(conn, 'obtain', conn.root.msgpack_dumps)
+
     return umsgpack.loads(
         zlib.decompress(
-            conn.root.msgpack_dumps(proxy, compressed=True)
+            conn.obtain(proxy, compressed=True)
         )
     ) # should prevent any code execution
 

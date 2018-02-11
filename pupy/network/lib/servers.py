@@ -160,15 +160,13 @@ class PupyTCPServer(ThreadedServer):
                 self.logger.debug('{}:{} Initializing service...')
                 connection._init_service()
                 self.logger.debug('{}:{} Initializing service... complete. Locking')
-                self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
-                    h, p, connection.inactive))
 
-                while not connection.closed:
-                    data = None
-                    with lock:
+                with lock:
+                    while not connection.closed:
+                        self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
+                            h, p, connection.inactive))
+
                         data = connection.serve()
-
-                    if data:
                         connection.dispatch(data)
 
         except Empty:

@@ -493,7 +493,8 @@ class PupyServer(object):
         self.handler_registered.set()
 
     def add_client(self, conn):
-        pc=None
+        pc = None
+
         conn.execute(
             'import marshal;exec marshal.loads({})'.format(
                 repr(pupycompile(
@@ -501,8 +502,12 @@ class PupyServer(object):
                         self.config.root, 'pupylib', 'PupyClientInitializer.py'),
                     path=True, raw=True))))
 
+        uuid = conn.namespace['get_uuid']()
+
         with self.clients_lock:
             client_id = self.create_id()
+            client_info = {}
+
             try:
                 client_info = conn.get_infos()
                 client_info = obtain(client_info)
@@ -516,13 +521,15 @@ class PupyServer(object):
                     "sid": conn.get_infos("sid") or '',
                 }
 
-            address=conn._conn._config['connid']
+            conn_id = obtain(conn._conn._config['connid'])
+
             try:
-                if type(address) is list:
-                    address=address[0]
-                address=conn._conn._config['connid'].rsplit(':',1)[0]
+                if type(conn_id) is list:
+                    address = conn_id[0]
+                address = conn_id.rsplit(':',1)[0]
+
             except:
-                address=str(address)
+                address = str(address)
 
             client_info.update({
                 "id": client_id,
@@ -530,17 +537,18 @@ class PupyServer(object):
                 "address" : address
             })
 
-            client_info.update(conn.namespace["get_uuid"]())
+            client_info.update(obtain(uuid))
 
             pc = PupyClient(client_info, self)
             self.clients.append(pc)
+
             if self.handler:
-                addr = conn.modules['pupy'].get_connect_back_host()
                 try:
-                    client_ip, client_port = conn._conn._config['connid'].rsplit(':', 1)
+                    client_ip, client_port = conn_id.rsplit(':', 1)
                 except:
                     client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
 
+                addr = obtain(conn.modules.pupy.get_connect_back_host())
                 remote = ' ({}{}:{})'.format(
                     '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
                     client_ip, client_port)

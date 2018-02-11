@@ -96,7 +96,7 @@ class PupyService(rpyc.Service):
             cleanup()
 
     def exposed_set_modules(self, modules):
-        self.modules=modules
+        self.modules = modules
 
     def exposed_msgpack_dumps(self, js, compressed=False):
         print "msgpack dumps"

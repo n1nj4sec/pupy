@@ -29,30 +29,28 @@ def safe_obtain(proxy):
         return proxy
 
     conn = object.__getattribute__(proxy, "____conn__")()
-    isMsgPack = False
 
-    if hasattr(conn, 'fallback'):
-        data = conn.root.json_dumps(proxy, compressed=True)
-    else:
+    if not hasattr(conn, 'obtain'):
         try:
-            data = conn.root.msgpack_dumps(proxy, compressed=True)
-            isMsgPack = True
+            setattr(conn, 'obtain', conn.root.msgpack_dumps)
+            setattr(conn, 'is_msgpack_obtain', True)
         except:
             # Fallback, compat only
-            setattr(conn, 'fallback', True)
-            data = conn.root.json_dumps(proxy, compressed=True)
+            setattr(conn, 'obtain', conn.root.json_dumps)
+            setattr(conn, 'is_msgpack_obtain', False)
 
+    data = conn.obtain(proxy, compressed=True)
     data = zlib.decompress(data)
 
-    if not isMsgPack:
+    if conn.is_msgpack_obtain:
+        data = msgpack.loads(data)
+    else:
         try:
             data = data.decode('utf-8')
         except:
             data = data.decode('latin1')
 
         data = json.loads(data) # should prevent any code execution
-    else:
-        data = msgpack.loads(data)
 
     return data
 

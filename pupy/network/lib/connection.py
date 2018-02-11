@@ -107,7 +107,15 @@ class PupyConnection(Connection):
                 logger.debug('Sync poll until: {}'.format(seq))
             if self._connection_serve_lock.acquire(False):
                 data = None
+
                 try:
+                    # Ensure event was not missed between previous lock
+                    if self._sync_events[seq].is_set():
+                        if __debug__:
+                            logger.debug('Rollback sync poll: {}'.format(seq))
+
+                        break
+
                     if __debug__:
                         logger.debug('Sync poll serve: {}'.format(seq))
 
@@ -192,7 +200,7 @@ class PupyConnection(Connection):
 
     def _dispatch_reply(self, seq, raw):
         if __debug__:
-            logger.debug('Dispatch reply: {}'.format(seq))
+            logger.debug('Dispatch reply: {} - start'.format(seq))
 
         self._last_recv = time.time()
 
@@ -204,6 +212,10 @@ class PupyConnection(Connection):
         if sync:
             if seq in self._sync_events:
                 self._sync_events[seq].set()
+
+        if __debug__:
+            logger.debug('Dispatch reply: {} - complete'.format(seq))
+
 
     def _dispatch_exception(self, seq, raw):
         if __debug__:
@@ -255,12 +267,17 @@ class PupyConnection(Connection):
 
         data = self._recv(timeout, wait_for_lock = False)
 
-        if not data and (not self._last_ping or now > self._last_ping + interval):
-            if __debug__:
-                logger.debug('Send ping, interval: {}, timeout: {}'.format(
-                    interval, ping_timeout))
+        if not data and interval and ping_timeout:
+            ping = False
+            if not self._last_ping:
+                ping = True
 
-            self._last_ping = self.ping(timeout=ping_timeout, now=now)
+            elif now > self._last_ping + interval:
+                if __debug__:
+                    logger.debug('Send ping, interval: {}, timeout: {}'.format(
+                        interval, ping_timeout))
+
+                self._last_ping = self.ping(timeout=ping_timeout, now=now)
 
         return data
 
@@ -270,8 +287,6 @@ class PupyConnection(Connection):
         if data:
             self._dispatch(data)
             self._last_ping = now
-
-        interval, ping_timeout = self.get_pings()
 
         with self._async_lock:
             for async_event in self._async_callbacks.itervalues():
@@ -321,30 +336,17 @@ class PupyConnectionThread(Thread):
         if __debug__:
             logger.debug('Start serve loop')
 
-        while not self.connection.closed:
-            data = None
-
             with self.lock:
                 try:
-                    data = self.connection.serve()
-                except (EOFError, TypeError):
-                    if __debug__:
-                        logger.debug('Start serve loop')
+                    while not self.connection.closed:
+                        logger.debug('Connection thread loop. Inactive: {}'.format(
+                            self.connection.inactive))
 
-                    self.connection.close()
-                    break
+                        data = self.connection.serve()
+                        self.connection.dispatch(data)
 
                 except Exception, e:
                     logger.exception(e)
 
-            try:
-                self.connection.dispatch(data)
-            except (EOFError, TypeError):
-                if __debug__:
-                    logger.debug('Start serve loop')
-
+                finally:
                     self.connection.close()
-                    break
-
-            except Exception, e:
-                logger.exception(e)
