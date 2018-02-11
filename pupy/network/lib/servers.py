@@ -10,7 +10,7 @@ from rpyc.utils.authenticators import AuthenticationError
 import socket
 
 from Queue import Queue, Empty
-from threading import Thread, RLock
+from threading import Thread, Lock
 
 from streams.PupySocketStream import PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread
@@ -140,7 +140,7 @@ class PupyTCPServer(ThreadedServer):
 
     def _authenticate_and_serve_client(self, sock):
         queue = Queue(maxsize=1)
-        lock = RLock()
+        lock = Lock()
 
         authentication = Thread(target=self._setup_connection, args=(lock, sock, queue))
         authentication.daemon = True
@@ -160,12 +160,16 @@ class PupyTCPServer(ThreadedServer):
                 self.logger.debug('{}:{} Initializing service...')
                 connection._init_service()
                 self.logger.debug('{}:{} Initializing service... complete. Locking')
-                with lock:
-                    self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
-                        h, p, connection.inactive))
+                self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
+                    h, p, connection.inactive))
 
-                    while not connection.closed:
-                        connection.serve()
+                while not connection.closed:
+                    data = None
+                    with lock:
+                        data = connection.serve()
+
+                    if data:
+                        connection.dispatch(data)
 
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))
