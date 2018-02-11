@@ -6,7 +6,7 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Drives"
 
-@config(category='admin', compatibilities=['windows', 'linux', 'darwin'])
+@config(category='admin', compatibilities=['windows', 'posix', 'darwin'])
 class Drives(PupyModule):
     """ List valid drives in the system """
 
@@ -15,7 +15,7 @@ class Drives(PupyModule):
             'win32api', 'win32com', 'pythoncom',
             'winerror', 'wmi', 'pupwinutils.drives'
         ],
-        'linux': [ 'mount' ]
+        'posix': [ 'mount' ]
     }
 
     def init_argparse(self):
