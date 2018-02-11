@@ -381,7 +381,7 @@ def check():
 
     for pastebin, bit in PASTEBINS.iteritems():
         try:
-            data, code = ctx.get(
+            data, code = ctx_nocert.get(
                 pastebin,
                 code=True, headers={'User-Agent': 'curl'}
             )
