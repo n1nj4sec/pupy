@@ -416,7 +416,9 @@ class PupyPackageFinder(object):
 
         dprint('Find module: {}/{}/{}'.format(fullname, path, second_pass))
 
-        imp.acquire_lock()
+        if not second_pass:
+            imp.acquire_lock()
+
         selected = None
 
         try:
@@ -539,7 +541,9 @@ class PupyPackageFinder(object):
                 dprint('[L] {} remove {} from bundle / count = {}'.format(fullname, selected, len(modules)))
                 del modules[selected]
 
-            imp.release_lock()
+            if not second_pass:
+                imp.release_lock()
+
             gc.collect()
 
 def native_import(name):
