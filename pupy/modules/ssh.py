@@ -4,7 +4,7 @@ from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="SSH"
 
-@config(cat="admin", compatibilities=['windows', 'linux', 'darwin'])
+@config(cat="admin", compatibilities=['windows', 'posix', 'darwin'])
 class SSH(PupyModule):
     """ ssh client """
 
