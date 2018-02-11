@@ -247,7 +247,7 @@ class PupyClient(object):
 
         return True
 
-    def filter_new_modules(self, modules, dll, force=None):
+    def filter_new_modules(self, modules, dll, force=None, remote=False):
         if force is None:
             modules = set(
                 x for x in modules if not x in self.imported_modules
@@ -265,6 +265,9 @@ class PupyClient(object):
 
         if not modules:
             return []
+
+        if remote:
+            return modules
 
         if dll:
             if self.has_new_dlls:
@@ -300,7 +303,7 @@ class PupyClient(object):
                 requirements, self.platform, self.arch, remote=remote,
                 posix=self.is_posix(),
                 filter_needed_cb=lambda modules, dll: self.filter_new_modules(
-                    modules, dll, forced
+                    modules, dll, forced, remote
                 )
             )
 
@@ -350,15 +353,18 @@ class PupyClient(object):
             self.pupyimporter.invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
-        logging.debug("remote module_name asked for : %s"%module_name)
+        logging.debug('remote_load_package for {} started'.format(module_name))
 
         try:
             return self.load_package(module_name, remote=True)
 
         except dependencies.NotFoundError:
-            logging.debug("no package %s found for remote client"%module_name)
+            logging.debug('remote_load_package for {} failed'.format(module_name))
+            return None, None
 
-        return None, None
+        finally:
+            logging.debug('remote_load_package for {} completed'.format(module_name))
+
 
     def remote_print_error(self, msg):
         self.pupsrv.handler.display_warning(msg)
