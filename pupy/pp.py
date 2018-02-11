@@ -805,8 +805,7 @@ def rpyc_loop(launcher):
                     with lock:
                         data = conn.serve()
 
-                    if data:
-                        conn.dispatch(data)
+                    conn.dispatch(data)
 
         except SystemExit:
             raise

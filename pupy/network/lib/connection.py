@@ -100,7 +100,7 @@ class PupyConnection(Connection):
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
         if __debug__:
-            logger.debug('Sync request: {}'.format(seq))
+            logger.debug('Sync request: {} / {} / {}'.format(seq, handler, args))
 
         while not ( self._sync_events[seq].is_set() or self.closed ):
             if __debug__:
@@ -132,8 +132,7 @@ class PupyConnection(Connection):
                         logger.debug('Sync poll serve complete. release: {}'.format(seq))
                     self._connection_serve_lock.release()
 
-                if data:
-                    self._dispatch(data)
+                self.dispatch(data)
 
             else:
                 if __debug__:
@@ -256,25 +255,28 @@ class PupyConnection(Connection):
 
         data = self._recv(timeout, wait_for_lock = False)
 
+        if not data and (not self._last_ping or now > self._last_ping + interval):
+            if __debug__:
+                logger.debug('Send ping, interval: {}, timeout: {}'.format(
+                    interval, ping_timeout))
+
+            self._last_ping = self.ping(timeout=ping_timeout, now=now)
+
+        return data
+
+    def dispatch(self, data):
         now = time.time()
+
+        if data:
+            self._dispatch(data)
+            self._last_ping = now
+
+        interval, ping_timeout = self.get_pings()
 
         with self._async_lock:
             for async_event in self._async_callbacks.itervalues():
                 if async_event._ttl and async_event._ttl < now:
                     raise EOFError('Async timeout!', async_event)
-
-        if interval and ping_timeout:
-            if served:
-                self._last_ping = now
-            elif not self._last_ping or now > self._last_ping + interval:
-                if __debug__:
-                    logger.debug('Send ping, interval: {}, timeout: {}'.format(interval, ping_timeout))
-                self._last_ping = self.ping(timeout=ping_timeout, now=now)
-
-        return data
-
-    def dispatch(self, data):
-        self._dispatch(data)
 
     def ping(self, timeout=30, now=None):
         ''' RPyC do not have any PING handler. So.. why to wait? '''
@@ -316,12 +318,13 @@ class PupyConnectionThread(Thread):
         if __debug__:
             logger.debug('Init connection complete. Acquire lock')
 
-        with self.lock:
-            if __debug__:
-                logger.debug('Start serve loop')
+        if __debug__:
+            logger.debug('Start serve loop')
 
-            while not self.connection.closed:
-                data = None
+        while not self.connection.closed:
+            data = None
+
+            with self.lock:
                 try:
                     data = self.connection.serve()
                 except (EOFError, TypeError):
@@ -334,4 +337,14 @@ class PupyConnectionThread(Thread):
                 except Exception, e:
                     logger.exception(e)
 
+            try:
                 self.connection.dispatch(data)
+            except (EOFError, TypeError):
+                if __debug__:
+                    logger.debug('Start serve loop')
+
+                    self.connection.close()
+                    break
+
+            except Exception, e:
+                logger.exception(e)
