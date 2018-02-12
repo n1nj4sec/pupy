@@ -24,8 +24,9 @@ class WModule(PupyModule):
 
     def run(self, args):
         try:
-            data = obtain(self.client.conn.modules.pupyps.users())
+            users = self.client.remote('pupyps', 'users')
 
+            data = users()
             tablein = []
 
             for user, hosts in reversed(sorted(data.iteritems())):

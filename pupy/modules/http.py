@@ -24,9 +24,9 @@ class http(PupyModule):
         self.arg_parser.add_argument('data', nargs='*', default=[], help='Data (POST/urlencode)')
 
     def run(self, args):
-        HTTP = self.client.conn.modules['network.lib.tinyhttp'].HTTP
+        tinyhttp = self.client.remote('network.lib.tinyhttp')
 
-        http = HTTP(
+        http = tinyhttp.HTTP(
             proxy=args.proxy,
             noverify=not args.verify,
             follow_redirects=args.follow_redirects,
@@ -42,7 +42,8 @@ class http(PupyModule):
         try:
             if args.input or args.data:
                 self.log(
-                    http.post(
+                    self.client.obtain_call(
+                        http.post,
                         args.url,
                         data=[
                             tuple(x.split('=', 1)) for x in args.data
@@ -53,7 +54,11 @@ class http(PupyModule):
                 )
             else:
                 self.log(
-                    http.get(args.url, save=args.output)
+                    self.client.obtain_call(
+                        http.get,
+                        args.url,
+                        save=args.output
+                    )
                 )
 
         except Exception, e:

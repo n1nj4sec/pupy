@@ -16,13 +16,15 @@ class Become(PupyModule):
         action.add_argument('-r', '--restore', action='store_true', help='Restore previous user')
 
     def run(self, args):
-        become = self.client.conn.modules.become
+        become = self.client.remote('become', 'become', False)
+        restore = self.client.remote('become', 'restore', False)
+
         try:
             if args.restore:
-                become.restore()
+                restore()
                 self.success('Context restored')
             else:
-                become.become(args.user)
+                become(args.user)
                 self.success('You became {}'.format(args.user))
 
         except Exception, e:

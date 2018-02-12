@@ -159,10 +159,9 @@ class InteractiveShell(PupyModule):
         if args.program:
             program = [ args.program ]
 
-        self.pipe = self.client.conn.modules['pupyutils.safepopen'].SafePopen(
-            program,
-            interactive=True,
-        )
+        SafePopen = self.client.remote('pupyutils.safepopen', 'SafePopen', False)
+
+        self.pipe = SafePopen(program, interactive=True)
 
         self.stdout.write('\r\nREPL started. Ctrl-C will the module \r\n')
 
@@ -193,11 +192,14 @@ class InteractiveShell(PupyModule):
         self.stdout.write('\r\nPress Enter to close to REPL\r\n')
 
     def raw_pty(self, args):
-        ps = self.client.conn.modules['ptyshell'].PtyShell()
+
+        PtyShell = self.client.remote('ptyshell', 'PtyShell', False)
+
+        ps = PtyShell()
         program = None
 
         if args.program:
-            program=args.program.split()
+            program = args.program.split()
 
         old_handler = None
 

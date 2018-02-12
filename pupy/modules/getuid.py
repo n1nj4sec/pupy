@@ -13,4 +13,5 @@ class getuid(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="getuid", description=self.__doc__)
 
     def run(self, args):
-        self.success(self.client.conn.modules["pupyutils.basic_cmds"].getuid())
+        getuid = self.client.remote('pupyutils.basic_cmds', 'getuid')
+        self.success(getuid())

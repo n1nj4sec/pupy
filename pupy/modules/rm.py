@@ -15,7 +15,9 @@ class rm(PupyModule):
 
     def run(self, args):
         try:
-            r = self.client.conn.modules["pupyutils.basic_cmds"].rm(args.path)
+            rm = self.client.remote('pupyutils.basic_cmds', 'rm', False)
+
+            r = rm(args.path)
             if r:
                 self.log(r)
         except Exception, e:

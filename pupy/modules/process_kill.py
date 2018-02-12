@@ -12,9 +12,12 @@ class KillModule(PupyModule):
         self.arg_parser.add_argument('pids', type=int, nargs='+', help='pids to kill')
 
     def run(self, args):
+        kill = self.client.remote('os', 'kill', False)
+
         for pid in args.pids:
             try:
-                self.client.conn.modules.os.kill(pid,9)
+                kill(pid,9)
                 self.success('Killed: {}'.format(pid))
+
             except Exception, e:
                 self.error('Failed: {}: {}'.format(pid, e))

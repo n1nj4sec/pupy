@@ -93,14 +93,14 @@ class ls(PupyModule):
 
     def run(self, args):
         try:
-            results = self.client.conn.modules["pupyutils.basic_cmds"].ls(
-                args.path, args.dir
-            )
+            ls = self.client.remote('pupyutils.basic_cmds', 'ls')
+
+            results = ls(args.path, args.dir)
         except Exception, e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return
 
-        results = obtain(results)
+        # results = obtain(results)
         windows = self.client.is_windows()
 
         if not results:

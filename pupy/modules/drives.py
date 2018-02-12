@@ -26,18 +26,20 @@ class Drives(PupyModule):
 
     def run(self, args):
         if self.client.is_windows():
-            self.stdout.write(
-                self.client.conn.modules['pupwinutils.drives'].list_drives()
-            )
+            list_drives = self.client.remote('pupwinutils.drives', 'list_drives')
+
+            self.stdout.write(list_drives())
 
         elif self.client.is_posix():
             tier1 = ( 'network', 'fuse', 'dm', 'block', 'vm' )
-            rmount = self.client.conn.modules['mount']
-            ros = self.client.conn.modules['os']
 
-            mountinfo = obtain(rmount.mounts())
-            uid = ros.getuid()
-            gid = ros.getgid()
+            mounts = self.client.remote('mount', 'mounts')
+            getuid = self.client.remote('os', 'getuid')
+            getgid = self.client.remote('os', 'getgid')
+
+            mountinfo = obtain(mounts())
+            uid = getuid()
+            gid = getgid()
 
             option_colors = {
                 'rw': 'yellow',

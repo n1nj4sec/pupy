@@ -55,13 +55,16 @@ class Screenshoter(PupyModule):
         self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
 
     def run(self, args):
-        rscreenshot = self.client.conn.modules['screenshot']
+        screens = self.client.remote('screenshot', 'screens')
+        screenshot = self.client.remote('screenshot', 'screenshot')
+
         if self.client.is_android()==True:
             self.error("Android target, not implemented yet...")
+
         else:
             if args.enum:
                 self.rawlog('{:>2} {:>9} {:>9}\n'.format('IDX', 'SIZE', 'LEFT'))
-                for i, screen in enumerate(rscreenshot.screens()):
+                for i, screen in enumerate(screens()):
                     if not (screen['width'] and screen['height']):
                         continue
 
@@ -74,7 +77,7 @@ class Screenshoter(PupyModule):
             config = self.client.pupsrv.config or PupyConfig()
             folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
 
-            screenshots, error = rscreenshot.screenshot(args.screen)
+            screenshots, error = screenshot(args.screen)
             if not screenshots:
                 self.error(error)
             else:

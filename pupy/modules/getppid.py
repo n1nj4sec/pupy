@@ -20,25 +20,11 @@ class PsModule(PupyModule):
 
     def run(self, args):
         if self.client.is_windows():
-            outputlist=self.client.conn.modules["pupwinutils.processes"].get_current_ppid()
-            outputlist=obtain(outputlist) #pickle the list of proxy objects with obtain is really faster
+            get_current_ppid = self.client.remote('pupwinutils.processes', 'get_current_ppid')
+            outputlist = get_current_ppid()
             for out in outputlist:
                 self.log('%s: %s' % (out, outputlist[out]))
             return # quit
-
-        elif self.client.is_android():
-            all_process = shell_exec(self.client, "ps")
-        elif self.client.is_darwin():
-            all_process = shell_exec(self.client, "ps aux")
         else:
-            all_process = shell_exec(self.client, "ps -aux")
-
-        # used for posix system
-        ppid=self.client.conn.modules['os'].getppid()
-        for process in all_process.split('\n'):
-            p = re.split(r' +', process)
-            if len(p)>1:
-                pid = p[1]
-                if pid == str(ppid):
-                    self.log("%s"%(process))
-                    break
+            getppid = self.client.remote('os', 'getppid')
+            self.log('PPID: {}'.format(getppid()))

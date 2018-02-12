@@ -65,9 +65,12 @@ class Shares(PupyModule):
             hosts = list()
             hosts.append(args.target)
 
+        connect = self.client.remote('pupyutils.share_enum', 'connect')
+
         for host in hosts:
-            result = obtain(self.client.conn.modules["pupyutils.share_enum"].connect(
-                str(host), args.port, args.user, args.passwd, args.hash, args.domain))
+            result = connect(
+                str(host), args.port, args.user,
+                args.passwd, args.hash, args.domain)
 
             if 'error' in result:
                 if 'os' in result:

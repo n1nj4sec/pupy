@@ -18,12 +18,15 @@ class Display(PupyModule):
         self.arg_parser.add_argument('display', nargs='?', help='Display to use')
 
     def run(self, args):
-        display = self.client.conn.modules.display
+        attach_to_display = self.client.remote('display', 'attach_to_display', False)
+        extract_xauth_info = self.client.remote('display', 'extract_xauth_info')
+        guess_displays = self.client.remote('display', 'guess_displays')
+
         if args.display:
-            if display.attach_to_display(args.display, args.xauth):
+            if attach_to_display(args.display, args.xauth):
                 self.success('Attached to {}'.format(args.display))
                 if args.print_xauth:
-                    info = display.extract_xauth_info(args.display)
+                    info = extract_xauth_info(args.display)
                     if info:
                         family, host, display, cookie, value = info
                         self.success('xauth: {}:{}/{} {} {}'.format(
@@ -34,7 +37,7 @@ class Display(PupyModule):
             else:
                 self.error('Couldn\'t attach to {}'.format(args.display))
         else:
-            displays = obtain(display.guess_displays())
+            displays = guess_displays()
             for display, items in displays.iteritems():
                 for item in items:
                     self.success('{} user={} xauth={}'.format(display, item[0], item[1]))

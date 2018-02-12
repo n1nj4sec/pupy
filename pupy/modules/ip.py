@@ -23,9 +23,12 @@ class IPModule(PupyModule):
 
     def run(self, args):
         try:
-            rpupyps = self.client.conn.modules.pupyps
-            data = obtain(rpupyps.interfaces())
-            families = { int(x):y for x,y in obtain(rpupyps.families).iteritems() }
+            pupyps = self.client.remote('pupyps')
+            interfaces = self.client.remote('pupyps', 'interfaces')
+            families = obtain(pupyps.families)
+
+            data = interfaces()
+            families = { int(x):y for x,y in families.iteritems() }
 
             addrlen = max([len(x) for x in data['addrs']])+1
 

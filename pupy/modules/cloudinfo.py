@@ -19,14 +19,16 @@ class CloudInfo(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="cloudinfo", description=self.__doc__)
 
     def run(self, args):
-        cloud, metadata = self.client.conn.modules.cloudinfo.metadata()
+        cloudinfo = self.client.remote('cloudinfo', 'metadata')
+
+        cloud, metadata = cloudinfo()
+
         if not cloud:
             self.error('Unknown cloud or non-cloud environment')
             return
 
         self.success('Cloud: {}'.format(cloud))
 
-        metadata = obtain(metadata)
         formatted_json = json.dumps(metadata, indent=1, sort_keys=True)
 
         self.stdout.write(

@@ -27,7 +27,9 @@ class LastModule(PupyModule):
 
     def run(self, args):
         try:
-            data = obtain(self.client.conn.modules.pupyps.wtmp())
+            wtmp = self.client.remote('pupyps', 'wtmp')
+
+            data = wtmp()
             tablein = []
 
             now = data['now']

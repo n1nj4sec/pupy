@@ -65,13 +65,13 @@ class PExec(PupyModule):
         to_download = []
         to_delete = []
 
-        ros = None
+        rexpandvars = self.client.remote('os.path', 'expandvars')
+        rexists = self.client.remote('os.path', 'exists')
+        rchmod = self.client.remote('os', 'chmod')
+        SafePopen = self.client.remote('pupyutils.safepopen', 'SafePopen', False)
 
         for i, arg in enumerate(cmdargs):
             for local, direction, remote in self.updl.findall(arg):
-                if not ros:
-                    ros = self.client.conn.modules['os']
-
                 if local == '$SELF$':
                     platform = self.client.platform
                     if not platform in ('windows', 'linux'):
@@ -80,7 +80,7 @@ class PExec(PupyModule):
                 else:
                     xlocal = os.path.expandvars(local)
 
-                xremote = ros.path.expandvars(remote)
+                xremote = rexpandvars(remote)
 
                 if direction == '<':
                     to_download.append((xremote, xlocal))
@@ -133,7 +133,7 @@ class PExec(PupyModule):
                 self.info('Upload {} -> {}'.format(local, remote))
                 upload(self.client.conn, local, remote)
 
-            ros.chmod(remote, mode)
+            rchmod(remote, mode)
 
         cmdenv = {
             'stderr': (None if args.n else subprocess.STDOUT),
@@ -158,9 +158,7 @@ class PExec(PupyModule):
                     )
                 ]
 
-        self.pipe = self.client.conn.modules[
-            'pupyutils.safepopen'
-        ].SafePopen(cmdargs, **cmdenv)
+        self.pipe = SafePopen(cmdargs, **cmdenv)
 
         if hasattr(self.job, 'id'):
             self.success('Started at {}): '.format(
@@ -189,7 +187,7 @@ class PExec(PupyModule):
                 'Ret: {} at {}'.format(self.pipe.returncode, datetime.datetime.now()))
 
         for remote, local in to_download:
-            if ros.path.exists(remote):
+            if rexists(remote):
                 self.info('Download {} -> {}'.format(remote, local))
                 download(self.client.conn, remote, local)
             else:

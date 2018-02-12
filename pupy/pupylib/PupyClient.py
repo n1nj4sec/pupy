@@ -380,7 +380,7 @@ class PupyClient(object):
             return False
 
         if dlls:
-            if self.has_load_dll:
+            if self.load_dll:
                 for name, blob in dlls:
                     self.pupyimporter.load_dll(name, blob)
             else:

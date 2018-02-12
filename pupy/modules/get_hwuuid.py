@@ -18,5 +18,7 @@ class GetHwUuid(PupyModule):
         )
 
     def run(self, args):
-        method, uuid = self.client.conn.modules['hwuuid'].get_hw_uuid()
-        print '{} ({})'.format(method, uuid)
+        get_hw_uuid = self.client.remote('hwuuid', 'get_hw_uuid')
+
+        method, uuid = get_hw_uuid()
+        self.success('{} ({})'.format(method, uuid))

@@ -37,8 +37,10 @@ class GetInfo(PupyModule):
             for k in windKeys:
                 infos.append((k,self.client.desc[k]))
 
-            security = self.client.conn.modules["pupwinutils.security"]
-            currentUserIsLocalAdmin = security.can_get_admin_access()
+            can_get_admin_access = self.client.remote(
+                'pupwinutils.security', 'can_get_admin_access', False)
+
+            currentUserIsLocalAdmin = can_get_admin_access()
 
             value = '?'
             if currentUserIsLocalAdmin == True:
@@ -50,11 +52,11 @@ class GetInfo(PupyModule):
 
         elif self.client.is_linux():
             for k in linuxKeys:
-                infos.append((k,self.client.desc[k]))
+                infos.append((k, self.client.desc[k]))
 
         elif self.client.is_darwin():
             for k in macKeys:
-                infos.append((k,self.client.desc[k]))
+                infos.append((k, self.client.desc[k]))
 
         elif self.client.is_android():
             self.client.load_package("pupydroid.utils")
@@ -121,6 +123,7 @@ class GetInfo(PupyModule):
             elif type(value) in (list, tuple):
                 value = ' '.join([ unicode(x) for x in value ])
             infoTemp.append((key, value))
+
         infos = infoTemp
 
         info_fmt = '{{:<{}}}: {{}}'.format(max([len(pair[0]) for pair in infos]) + 1)

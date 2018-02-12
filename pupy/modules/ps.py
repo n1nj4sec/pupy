@@ -285,14 +285,17 @@ class PsModule(PupyModule):
 
     def run(self, args):
         width, _ = terminal_size()
-        rpupyps = self.client.conn.modules.pupyps
-        if args.show_pid and not args.tree:
-            data = rpupyps.psinfo(args.show_pid)
-        else:
-            root, tree, data = rpupyps.pstree()
-            tree = { int(k):v for k,v in obtain(tree).iteritems() }
+        rpupyps = self.client.remote('pupyps')
+        psinfo = self.client.remote('pupyps', 'psinfo')
+        pstree = self.client.remote('pupyps', 'pstree')
 
-        data = { int(k):v for k,v in obtain(data).iteritems() }
+        if args.show_pid and not args.tree:
+            data = psinfo(args.show_pid)
+        else:
+            root, tree, data = pstree()
+            tree = { int(k):v for k,v in tree.iteritems() }
+
+        data = { int(k):v for k,v in data.iteritems() }
         colinfo = gen_colinfo(data)
 
         try:

@@ -40,14 +40,17 @@ class MemStrings(PupyModule):
     def run(self, args):
         targets = args.pid + args.name
 
-        self.termevent = self.client.conn.modules.threading.Event()
+        REvent = self.client.remote('threading', 'Event', False)
+        iterate_strings = self.client.remote('memstrings', 'iterate_strings', False)
+
+        self.termevent = REvent()
 
         last_pid = None
         last_log = None
 
         config = self.client.pupsrv.config or PupyConfig()
 
-        for pid, name, strings in self.client.conn.modules.memstrings.iterate_strings(
+        for pid, name, strings in iterate_strings(
                 targets,
                 min_length=args.min_length,
                 max_length=args.max_length,

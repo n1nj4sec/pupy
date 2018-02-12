@@ -406,9 +406,11 @@ class IGDClient(PupyModule):
         self.cli = cli
 
     def run(self, args):
-        igdc = self.client.conn.modules['network.lib.igd'].IGDClient
-        UPNPError = self.client.conn.modules['network.lib.igd'].UPNPError
+        igdc = self.client.remote('network.lib.igd', 'IGDClient', False)
+        UPNPError = self.client.remote('network.lib.igd', 'UPNPError', False)
+
         self.cli.init(igdc, args, self.log)
+
         if not self.cli.igdc.available:
             self.error('IGD: Not found in LAN')
             return

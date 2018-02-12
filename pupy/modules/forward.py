@@ -41,7 +41,7 @@ Open a Socks proxy on target (0.0.0.0:1234). Need a Socks connection to target_i
 >> run forward -L 127.0.0.1:1234:192.168.0.2:8000
 Local port forwarding. Listen locally on 1234 and connection establishes by the target to 192.168.0.2:8000.
         """
-        
+
         parser = PupyArgumentParser(
             prog='forward', description=self.__doc__, epilog=example
         )
@@ -203,7 +203,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
                     raise ValueError('Invalid configuration: {}'.format(config))
 
             manager = self.client.pupsrv.single(pyuvproxy.ManagerState)
-            rpyuvproxy = self.client.conn.modules.pyuvproxy
+            rpyuvproxy = self.client.remote('pyuvproxy')
 
             if args.cancel_local or args.cancel_remote:
                 local, remote, local_id, remote_id = state.get()

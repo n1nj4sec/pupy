@@ -14,9 +14,9 @@ class DNS(PupyModule):
         self.arg_parser.add_argument('ip_or_domain', type=str, help='Domain name or IP address')
 
     def run(self, args):
-        functions = self.client.conn.modules["pupyutils.dns"].launch_dns_ip_resolver(args.ip_or_domain)
-        for function in functions:
-            if functions[function]['result']:
-                self.success('%s: %s' % (function, functions[function]['result']))
+        launch_dns_ip_resolver = self.client.remote('pupyutils.dns', 'launch_dns_ip_resolver')
+        for k,v in launch_dns_ip_resolver(args.ip_or_domain).iteritems():
+            if v:
+                self.success('{}: {}'.format(k, v if type(v) is str else ','.join(v)))
             else:
-                self.error('%s: Not found' % function)
+                self.error('{}: Not found'.format(k))

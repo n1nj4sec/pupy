@@ -16,9 +16,11 @@ class mkdir(PupyModule):
 
     def run(self, args):
         try:
-            r = self.client.conn.modules["pupyutils.basic_cmds"].mkdir(args.dir)
+            mkdir = self.client.remote('pupyutils.basic_cmds', 'mkdir', 'False')
+            r = mkdir(args.dir)
             if r:
                 self.log(r)
+
         except Exception, e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return

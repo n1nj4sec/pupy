@@ -17,9 +17,11 @@ class cp(PupyModule):
 
     def run(self, args):
         try:
-            r = self.client.conn.modules["pupyutils.basic_cmds"].cp(args.src, args.dst)
+            cp = self.client.remote('pupyutils.basic_cmds', 'cp')
+            r = cp(args.src, args.dst)
             if r:
                 self.log(r)
+
         except Exception, e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return

@@ -17,8 +17,10 @@ class x509(PupyModule):
 
 
     def run(self, args):
-        ssl = self.client.conn.modules['ssl']
-        cert = ssl.get_server_certificate((args.host, args.port))
+        get_server_certificate = self.client.remote('ssl', 'get_server_certificate')
+
+        cert = get_server_certificate((args.host, args.port))
         if args.text:
             cert = load_cert_string(cert).as_text()
+
         self.log(cert)

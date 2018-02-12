@@ -13,7 +13,9 @@ class GetDomain(PupyModule):
         self.arg_parser = PupyArgumentParser(prog="getdomain", description=self.__doc__)
 
     def run(self, args):
-        primary_domain = self.client.conn.modules["pupwinutils.getdomain"].get_domain_controller()
+        get_domain_controller = self.client.remote('pupwinutils.getdomain', 'get_domain_controller')
+
+        primary_domain = get_domain_controller()
         if not primary_domain:
             self.error("This host is not part of a domain.")
         else:
