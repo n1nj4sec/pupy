@@ -271,12 +271,16 @@ class PupyClient(object):
                     module for module in modules if not module in self.imported_dlls
                 ]
         else:
-            if self.new_modules :
+            if self.new_modules:
                 new_modules = self.new_modules(modules)
             else:
                 new_modules = [
                     module for module in modules if not self.pupyimporter.has_module(module)
                 ]
+
+            for module in modules:
+                if not module in new_modules:
+                    self.imported_modules.add(module)
 
             if not force is None:
                 for module in modules:
