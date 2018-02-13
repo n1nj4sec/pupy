@@ -20,7 +20,7 @@ class UploaderScript(PupyModule):
 
         rexpandvars = self.client.remote('os.path', 'expandvars')
         rjoin =  self.client.remote('os.path', 'join')
-        risdir =  self.client.remote('os.path', 'isdir')
+        risdir =  self.client.remote('os.path', 'isdir', False)
 
         if args.remote_file:
             remotefile = rexpandvars(args.remote_file)
