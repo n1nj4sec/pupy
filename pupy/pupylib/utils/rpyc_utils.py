@@ -25,10 +25,16 @@ import msgpack
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
 
-    if type(proxy) in [list, str, bytes, dict, set, type(None)]:
-        return proxy
+    try:
+        conn = object.__getattribute__(proxy, "____conn__")()
+    except AttributeError:
+        ptype = type(proxy)
 
-    conn = object.__getattribute__(proxy, "____conn__")()
+        if type(proxy) in (tuple, list, set):
+            objs = list(safe_obtain(x) for x in proxy)
+            return ptype(objs)
+
+        return proxy
 
     if not hasattr(conn, 'obtain'):
         try:
