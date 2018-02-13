@@ -55,6 +55,8 @@ all_dependencies.add('site')
 all_dependencies = sorted(list(set(all_dependencies)))
 all_dependencies.remove('pupy')
 all_dependencies.remove('additional_imports')
+all_dependencies.remove('cffi')
+all_dependencies.remove('pycparser')
 
 print "ALLDEPS: ", all_dependencies
 
