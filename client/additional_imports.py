@@ -39,6 +39,7 @@ import getpass
 import __future__
 import netaddr
 import psutil
+import pyexpat
 
 try:
     import kcp
