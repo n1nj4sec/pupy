@@ -55,8 +55,43 @@ all_dependencies.add('site')
 all_dependencies = sorted(list(set(all_dependencies)))
 all_dependencies.remove('pupy')
 all_dependencies.remove('additional_imports')
-all_dependencies.remove('cffi')
-all_dependencies.remove('pycparser')
+
+ignore = {
+    '_cffi_backend.so', '_cffi_backend.pyd',
+    'Crypto/Cipher/_raw_des3.so',
+    'Crypto/Cipher/_raw_des.so',
+    'Crypto/Cipher/_raw_blowfish.so',
+    'Crypto/Cipher/_raw_cast.so',
+    'network/lib/picocmd/server.py',
+    'network/lib/transports/cryptoutils/pyaes/__init__.py',
+    'network/lib/transports/cryptoutils/pyaes/aes.py',
+    'network/lib/transports/cryptoutils/pyaes/blockfeeder.py',
+    'network/lib/transports/cryptoutils/pyaes/util.py',
+    'rpyc/utils/teleportation.py',
+    'rpyc/utils/zerodeploy.py',
+    'rpyc/experemental/__init__.py',
+    'rpyc/experemental/retunnel.py',
+    'rpyc/experemental/splitbrain.py',
+    'json/tool.py',
+    'rsa/cli.py',
+}
+
+if sys.platform.startswith('linux'):
+    ignore.update({
+        'psutil/_pswindows.py'
+    })
+elif sys.platform.startswith('win'):
+    ignore.update({
+        '_psaix.py',
+        '_psbsd.py',
+        '_pslinux.py',
+        '_psosx.py',
+        '_pssunos.py'
+    })
+
+for dep in ('cffi', 'pycparser', 'pyaes'):
+    if dep in all_dependencies:
+        all_dependencies.remove(dep)
 
 print "ALLDEPS: ", all_dependencies
 
@@ -74,9 +109,7 @@ if 'win' in sys.platform:
                 zf.write(os.path.join(root, file), 'pywintypes27.dll')
 
 try:
-    content = set()
-    content.add('_cffi_backend.so')
-    content.add('_cffi_backend.pyd')
+    content = set(ignore)
 
     for dep in all_dependencies:
         mdep = __import__(dep)
