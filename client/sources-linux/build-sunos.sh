@@ -9,14 +9,14 @@ export PKG_CONFIG_PATH="$BUILDENV/build/lib/pkgconfig"
 
 gmake clean
 gmake \
-    CC=gcc \
+    CC="gcc -m64" \
     ARCH=64 \
     LIBPYTHON=$BUILDENV/build/lib/libpython2.7.so.1.0 \
     LIBCRYPTO=$BUILDENV/build/lib/libcrypto.so.1.0.0 \
     LIBSSL=$BUILDENV/build/lib/libssl.so.1.0.0
 gmake clean
 gmake \
-    CC=gcc \
+    CC="gcc -m64" \
     ARCH=64 \
     LIBPYTHON=$BUILDENV/build/lib/libpython2.7.so.1.0 \
     LIBCRYPTO=$BUILDENV/build/lib/libcrypto.so.1.0.0 \
