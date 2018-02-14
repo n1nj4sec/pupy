@@ -45,11 +45,12 @@ class Scriptlet(object):
 
 
 class ScriptletsPacker(object):
-    def __init__(self, os=None, arch=None, debug=False):
+    def __init__(self, os=None, arch=None, debug=False, obfuscate=False):
         self.scriptlets = set()
         self.debug = debug
         self.os = os or 'all'
         self.arch = arch
+        self.obfuscate = obfuscate
 
     def add_scriptlet(self, sl):
         self.scriptlets.add(sl)
@@ -87,4 +88,8 @@ class ScriptletsPacker(object):
                 #if not in debug mode, catch all exception to continue an have a session if a scriptlet raises an exception
                 fullpayload.append(wrap_try_except(scriptlet.generate(self.os)))
 
-        return compress_encode_obfs('\n'.join(fullpayload))
+        fullpayload = '\n'.join(fullpayload)
+        if self.obfuscate:
+            fullpayload = compress_encode_obfs(obfuscate)
+
+        return fullpayload
