@@ -71,16 +71,17 @@ class Listener(Thread):
         Thread.__init__(self)
         self.daemon = True
 
+        self.igd = igd
+        self.server = None
+
         self.name = name.lower().strip()
         self.transport = transports[self.name]()
-        self.server = None
         self.authenticator = self.transport.authenticator() if \
           self.transport.authenticator else None
 
         self.pupsrv = pupsrv
         self.config = pupsrv.config
         self.httpd = httpd
-        self.igd = igd
 
         # Where to connect
         self.external = external
