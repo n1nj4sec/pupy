@@ -5,9 +5,10 @@ import time
 from rpyc.core import Connection, consts, brine
 from threading import Thread, Event, Lock, RLock
 
-if __debug__:
-    import logging
-    logger = logging.getLogger('pconn')
+import logging
+
+logger = None
+logger = logging.getLogger('pconn')
 
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
