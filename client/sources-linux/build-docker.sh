@@ -16,24 +16,25 @@ set -e
 echo "[+] Install python packages"
 
 python -m pip install --upgrade setuptools
-python -m pip install pycparser==2.17
-python -m pip install -q six packaging appdirs
+python -m pip install --upgrade -q six packaging appdirs
 
 CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
- python -m pip install -q pynacl --no-binary :all:
+ python -m pip install --upgrade -q pynacl --no-binary :all:
 
 CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
- python -m pip install -q cryptography --no-binary :all:
+ python -m pip install --upgrade -q cryptography --no-binary :all:
 
-python -m pip install \
+python -m pip install --upgrade \
        rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster \
        --no-binary :all:
 
+python -m pip install --upgrade --force-reinstall pycparser==2.17
+
 echo "[+] Compile pykcp"
-python -m pip install $PYKCP
+python -m pip install --upgrade --force $PYKCP
 
 echo "[+] Compile pyuv"
 
@@ -43,10 +44,10 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     CFLAGS_PYUV="$CFLAGS_PYUV -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'"
     
     CC=/gccwrap CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64" CFLAGS="$CFLAGS_PYUV" \
-      python -m pip install pyuv --no-binary :all:
+      python -m pip install pyuv --upgrade --no-binary :all:
 else
     CFLAGS="$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
-	  python -m pip install pyuv --no-binary :all:
+	  python -m pip install pyuv --upgrade --no-binary :all:
 fi
 
 cd /usr/lib/python2.7
@@ -87,7 +88,7 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 cd $SRC
 
-make clean
+make distclean
 make -j $MAKEFLAGS
 make clean
 make -j DEBUG=1 $MAKEFLAGS
@@ -95,7 +96,6 @@ make clean
 make -j UNCOMPRESSED=1 $MAKEFLAGS
 make clean
 make -j DEBUG=1 UNCOMPRESSED=1 $MAKEFLAGS
-make distclean
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then

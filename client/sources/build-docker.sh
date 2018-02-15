@@ -19,15 +19,18 @@ echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
     $PYTHON -m pip install -q --upgrade setuptools
-    $PYTHON -m pip install -q pycparser==2.17
-    $PYTHON -m pip install $PACKAGES
-    $PYTHON -m pip install --no-binary :all: $PACKAGES_BUILD
+    $PYTHON -m pip install --upgrade $PACKAGES
+    $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
     $PYTHON -m pip install --upgrade --force $PYKCP
 done
 
 echo "[+] Install psutil"
 $PYTHON32 -m pip install --no-binary :all: psutil==4.3.1
-$PYTHON64 -m pip install --no-binary :all: psutil
+$PYTHON64 -m pip install --upgrade --no-binary :all: psutil
+
+for PYTHON in $PYTHON32 $PYTHON64; do
+    $PYTHON -m pip install -q --force pycparser==2.17
+done
 
 echo "[+] Compile pupymemexec /32"
 $CL32 \
