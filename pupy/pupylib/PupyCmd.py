@@ -595,20 +595,24 @@ class PupyCmd(cmd.Cmd):
                 j=self.pupsrv.get_job(modargs.kill)
                 self.display(j.result_summary())
                 finished = j.is_finished()
-                j.stop()
                 if finished:
+                    j.stop()
                     self.display_success("job closed")
                 else:
+                    j.interrupt(wait=False)
+                    j.stop()
                     self.display_success("job killed")
                 self.pupsrv.del_job(modargs.kill)
                 del j
             elif modargs.kill_no_output:
                 j=self.pupsrv.get_job(modargs.kill_no_output)
                 finished = j.is_finished()
-                j.stop()
                 if finished:
+                    j.stop()
                     self.display_success("job closed")
                 else:
+                    j.interrupt(wait=False)
+                    j.stop()
                     self.display_success("job killed")
                 self.pupsrv.del_job(modargs.kill_no_output)
                 del j

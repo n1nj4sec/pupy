@@ -179,7 +179,7 @@ class PupyJob(object):
             self.worker_pool.apply_async(self.module_worker, (m, args, margs, once))
         self.started.set()
 
-    def interrupt(self):
+    def interrupt(self, wait=True):
         if not self.started:
             raise RuntimeError("can't interrupt. job %s has not been started"%str(self))
 
@@ -189,7 +189,8 @@ class PupyJob(object):
                 m.interrupt()
         else:
             self.worker_pool.interrupt_all()
-            self.wait()
+            if wait:
+                self.wait()
 
     def interactive_wait(self):
         while True:
