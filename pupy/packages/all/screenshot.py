@@ -16,8 +16,8 @@ def screenshot(screen=None):
     if len(monitors) == 0:
         return None
 
-    if screen:
-        if screen < len(monitors):
+    if screen is not None:
+        if screen >= len(monitors):
             return None, 'the screen id does not exist'
         else:
             monitors = [monitors[screen]]
