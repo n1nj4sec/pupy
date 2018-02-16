@@ -58,10 +58,6 @@ all_dependencies.remove('additional_imports')
 
 ignore = {
     '_cffi_backend.so', '_cffi_backend.pyd',
-    'Crypto/Cipher/_raw_des3.so',
-    'Crypto/Cipher/_raw_des.so',
-    'Crypto/Cipher/_raw_blowfish.so',
-    'Crypto/Cipher/_raw_cast.so',
     'network/lib/picocmd/server.py',
     'network/lib/transports/cryptoutils/pyaes/__init__.py',
     'network/lib/transports/cryptoutils/pyaes/aes.py',
