@@ -5,16 +5,14 @@ from png import bmp_to_png
 
 def screens():
     screenshoter = mss.mss()
-    monitors = screenshoter.enum_display_monitors()
+    monitors = screenshoter.monitors
     return monitors[1:] if len(monitors) > 1 else monitors
 
 def screenshot(screen=None):
     screenshoter = mss.mss()
     screenshots = []
 
-    monitors = screenshoter.enum_display_monitors()
-    del monitors[0]
-
+    monitors = screens()
     if len(monitors) == 0:
         return None
 
@@ -25,11 +23,9 @@ def screenshot(screen=None):
             monitors = [monitors[screen]]
 
     for monitor in monitors:
+        scr = screenshoter.grab(monitor)
         screenshots.append(
-            bmp_to_png(
-                screenshoter.get_pixels(monitor),
-                monitor['width'], monitor['height']
-            )
+            bmp_to_png(scr.rgb, scr.width, scr.height)
         )
 
     return screenshots, None

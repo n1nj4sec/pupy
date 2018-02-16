@@ -10,8 +10,8 @@ tinyec
 psutil
 netifaces
 pylzma
-mss==2.0.22
 colorama
+mss
 pyOpenSSL
 scapy
 impacket

@@ -15,7 +15,7 @@ except:
 
 def get_screen_size():
     screenshoter = mss.mss()
-    monitors = screenshoter.enum_display_monitors()
+    monitors = screenshoter.monitors
     del monitors[0]
     monitor=monitors[0]
     height=monitor['height']
@@ -33,7 +33,7 @@ class VideoStreamer(threading.Thread):
 
     def run(self):
         screenshoter = mss.mss()
-        monitors = screenshoter.enum_display_monitors()
+        monitors = screenshoter.monitors
         del monitors[0]
         monitor = monitors[0]
         height = monitor['height']
@@ -41,8 +41,8 @@ class VideoStreamer(threading.Thread):
 
         while not self.stopped.is_set():
             try:
-                pixels = screenshoter.get_pixels(monitor)
-                self.callback(bmp_to_png(pixels, width, height))
+                scr = screenshoter.grab(monitor)
+                self.callback(bmp_to_png(scr.rgb, scr.width, scr.height))
                 time.sleep(self.refresh_interval)
             except:
                 break
