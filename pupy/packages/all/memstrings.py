@@ -12,7 +12,7 @@ def try_int(x):
     except:
         return x
 
-def iterate_strings(targets, min_length=4, max_length=51, omit='isxr', portions=4096, nodup=True, terminate=None):
+def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr', portions=4096, nodup=True, terminate=None):
     if not targets:
         return
 
@@ -22,7 +22,10 @@ def iterate_strings(targets, min_length=4, max_length=51, omit='isxr', portions=
     targets = set([ try_int(x) for x in targets ])
     results = {}
 
-    printable = re.compile('^[\x20-\x7e]{{{},{}}}$'.format(min_length, max_length))
+    if regex is None:
+        printable = re.compile('^[\x20-\x7e]{{{},{}}}$'.format(min_length, max_length))
+    else:
+        printable = re.compile(regex)
 
     for process in memorpy.Process.list():
         if terminate is not None and terminate.is_set():

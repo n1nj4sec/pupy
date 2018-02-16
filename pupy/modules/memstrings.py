@@ -27,10 +27,18 @@ class MemStrings(PupyModule):
                                 's - ranges with shared region; '
                                 'x - ranges with executable region; '
                                 'r - ranges with read-only region')
-        self.arg_parser.add_argument('-l', '--min-length', type=int, default=4,
+
+        regex = self.arg_parser.add_mutually_exclusive_group()
+        regex.add_argument('-r', '--regex', type=str,
+                           help='Regex to match (default: printable strings). '
+                               'Example: "^[a-zA-Z_]+=[\\x20-\\x7e]+$" - env strings')
+
+        maxmin = regex.add_argument_group()
+        maxmin.add_argument('-l', '--min-length', type=int, default=4,
                                 help='Show only strings which are longer then specified length')
-        self.arg_parser.add_argument('-m', '--max-length', type=int, default=51,
+        maxmin.add_argument('-m', '--max-length', type=int, default=51,
                                 help='Show only strings which are shorter then specified length')
+
         self.arg_parser.add_argument('-P', '--portions', type=int, default=8192,
                                 help='Strings portion block')
         self.arg_parser.add_argument('-d', '--no-duplication', default=False, action='store_true',
@@ -52,6 +60,7 @@ class MemStrings(PupyModule):
 
         for pid, name, strings in iterate_strings(
                 targets,
+                args.regex,
                 min_length=args.min_length,
                 max_length=args.max_length,
                 omit=args.omit,
