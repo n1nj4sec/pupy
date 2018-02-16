@@ -22,7 +22,7 @@ class GetPrivsModule(PupyModule):
             EnablePrivilege('SeDebugPrivilege')
             self.success('SeDebugPrivilege enabled !')
         else:
-            get_currents_privs = self.client.remote('pupwinutils.security', 'get_currents_privs')
+            get_currents_privs = self.client.remote('pupwinutils.security', 'get_currents_privs', False)
             privs = get_currents_privs()
 
             self.success('Process privileges:')

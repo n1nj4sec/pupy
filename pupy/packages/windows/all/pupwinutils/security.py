@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: ??? and original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
 #Contributor(s): @bobsecq
 
@@ -9,6 +9,11 @@ import platform
 import psutil
 import sys
 import os
+
+ntdll    = WinDLL('ntdll',    use_last_error=True)
+advapi32 = WinDLL('advapi32', use_last_error=True)
+shell32  = WinDLL('shell32',  use_last_error=True)
+kernel32 = WinDLL('kernel32', use_last_error=True)
 
 LPVOID                          = c_void_p
 PVOID                           = LPVOID
@@ -77,7 +82,7 @@ class TOKEN_USER(Structure):
     _fields_ = [
         ("User", SID_AND_ATTRIBUTES),]
 
-LookupPrivilegeName             = windll.advapi32.LookupPrivilegeNameW
+LookupPrivilegeName             = advapi32.LookupPrivilegeNameW
 LookupPrivilegeName.argtypes    = [LPWSTR, POINTER(LUID), LPWSTR, POINTER(DWORD)]
 LookupPrivilegeName.restype     = BOOL
 
@@ -96,7 +101,7 @@ class LUID_AND_ATTRIBUTES(Structure):
         size = DWORD(10240)
         buf = create_unicode_buffer(size.value)
         res = LookupPrivilegeName(None, self.Luid, buf, size)
-        if res == 0: raise RuntimeError
+        if res == 0: raise RuntimeError(GetLastError())
         return buf[:size.value]
 
     def __str__(self):
@@ -180,88 +185,88 @@ POSVERSIONINFOEXW = POINTER(OSVERSIONINFOEXW)
 
 # advapi32
 
-AdjustTokenPrivileges               = windll.advapi32.AdjustTokenPrivileges
+AdjustTokenPrivileges               = advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.restype       = BOOL
 AdjustTokenPrivileges.argtypes      = [HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)]
 
-CheckTokenMembership                = windll.advapi32.CheckTokenMembership
+CheckTokenMembership                = advapi32.CheckTokenMembership
 CheckTokenMembership.restype        = BOOL
 CheckTokenMembership.argtypes       = [HANDLE, PSID, POINTER(BOOL)]
 
-ConvertSidToStringSidA              = windll.advapi32.ConvertSidToStringSidA
+ConvertSidToStringSidA              = advapi32.ConvertSidToStringSidA
 ConvertSidToStringSidA.restype      = BOOL
 ConvertSidToStringSidA.argtypes     = [DWORD, POINTER(LPTSTR)]
 
-CreateProcessAsUser                 = windll.advapi32.CreateProcessAsUserA
+CreateProcessAsUser                 = advapi32.CreateProcessAsUserA
 CreateProcessAsUser.restype         = BOOL
 CreateProcessAsUser.argtypes        = [HANDLE, LPTSTR, LPTSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPTSTR, POINTER(STARTUPINFO), POINTER(PROCESS_INFORMATION)]
 
-CreateWellKnownSid                  = windll.advapi32.CreateWellKnownSid
+CreateWellKnownSid                  = advapi32.CreateWellKnownSid
 CreateWellKnownSid.restype          = BOOL
 CreateWellKnownSid.argtypes         = [DWORD, POINTER(PSID), LPVOID, POINTER(DWORD)]
 
-DuplicateTokenEx                    = windll.advapi32.DuplicateTokenEx
+DuplicateTokenEx                    = advapi32.DuplicateTokenEx
 DuplicateTokenEx.restype            = BOOL
 DuplicateTokenEx.argtypes           = [HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, POINTER(HANDLE)]
 
-GetTokenInformation                 = windll.advapi32.GetTokenInformation
+GetTokenInformation                 = advapi32.GetTokenInformation
 GetTokenInformation.restype         = BOOL
 GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, POINTER(DWORD)]
 
-GetUserNameA                        = windll.advapi32.GetUserNameA
+GetUserNameA                        = advapi32.GetUserNameA
 GetUserNameA.restype                = BOOL
 GetUserNameA.argtypes               = [LPTSTR, POINTER(DWORD)]
 
-ImpersonateLoggedOnUser             = windll.advapi32.ImpersonateLoggedOnUser
+ImpersonateLoggedOnUser             = advapi32.ImpersonateLoggedOnUser
 ImpersonateLoggedOnUser.restype     = BOOL
 ImpersonateLoggedOnUser.argtypes    = [HANDLE]
 
-LookupPrivilegeValueA               = windll.advapi32.LookupPrivilegeValueA
+LookupPrivilegeValueA               = advapi32.LookupPrivilegeValueA
 LookupPrivilegeValueA.restype       = BOOL
 LookupPrivilegeValueA.argtypes      = [LPCTSTR, LPCTSTR, PLUID]
 
-OpenProcessToken                    = windll.advapi32.OpenProcessToken
+OpenProcessToken                    = advapi32.OpenProcessToken
 OpenProcessToken.restype            = BOOL
 OpenProcessToken.argtypes           = [HANDLE, DWORD, POINTER(HANDLE)]
 
-RevertToSelf                        = windll.advapi32.RevertToSelf
+RevertToSelf                        = advapi32.RevertToSelf
 RevertToSelf.restype                = BOOL
 RevertToSelf.argtypes               = []
 
-# kernel32 
+# kernel32
 
-CloseHandle                         = windll.kernel32.CloseHandle
+CloseHandle                         = kernel32.CloseHandle
 CloseHandle.restype                 = BOOL
 CloseHandle.argtypes                = [HANDLE]
 
-GetCurrentProcess                   = windll.kernel32.GetCurrentProcess
+GetCurrentProcess                   = kernel32.GetCurrentProcess
 GetCurrentProcess.restype           = HANDLE
 GetCurrentProcess.argtypes          = []
 
-GetCurrentProcessId                 = windll.kernel32.GetCurrentProcessId
+GetCurrentProcessId                 = kernel32.GetCurrentProcessId
 GetCurrentProcessId.restype         = DWORD
 GetCurrentProcessId.argtypes        = []
 
-OpenProcess                         = windll.kernel32.OpenProcess
+OpenProcess                         = kernel32.OpenProcess
 OpenProcess.restype                 = HANDLE
 OpenProcess.argtypes                = [DWORD, BOOL, DWORD]
 
-LocalAlloc                          = windll.kernel32.LocalAlloc
+LocalAlloc                          = kernel32.LocalAlloc
 LocalAlloc.restype                  = HANDLE
 LocalAlloc.argtypes                 = [PSID, DWORD]
 
-LocalFree                           = windll.kernel32.LocalFree
+LocalFree                           = kernel32.LocalFree
 LocalFree.restype                   = HANDLE
 LocalFree.argtypes                  = [HANDLE]
 
 # ntdll
-RtlGetVersion                       = windll.ntdll.RtlGetVersion
+RtlGetVersion                       = ntdll.RtlGetVersion
 RtlGetVersion.restype               = DWORD
 RtlGetVersion.argtypes              = [POSVERSIONINFOEXW]
 
 # shell32
 
-IsUserAnAdmin                       = windll.Shell32.IsUserAnAdmin
+IsUserAnAdmin                       = shell32.IsUserAnAdmin
 IsUserAnAdmin.restype               = BOOL
 IsUserAnAdmin.argtypes              = []
 
@@ -282,17 +287,17 @@ def GetUserName():
     return lpBuffer.value
 
 def GetTokenSid(hToken):
-    
+
     """Retrieve SID from Token"""
-    
+
     dwSize = DWORD(0)
     pStringSid = LPSTR()
     TokenUser = 1
-    
+
     r = GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize))
     if r != 0:
         raise WinError()
-    
+
     address = LocalAlloc(0x0040, dwSize)
     GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize))
     pToken_User = cast(address, POINTER(TOKEN_USER))
@@ -302,9 +307,9 @@ def GetTokenSid(hToken):
     return sid
 
 def EnablePrivilege(privilegeStr, hToken = None):
-    
+
     """Enable Privilege on token, if no token is given the function gets the token of the current process."""
-    
+
     if hToken == None:
         hToken = HANDLE(INVALID_HANDLE_VALUE)
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
@@ -580,12 +585,12 @@ def can_get_admin_access():
     ERROR_NO_SUCH_LOGON_SESSION = 1312
     ERROR_PRIVILEGE_NOT_HELD    = 1314
     TokenLinkedToken            = 19
-    
+
     # On XP or lower this is equivalent to has_root()
     # Note: sys.getwindowsversion() does work on every system
     if sys.getwindowsversion()[0] < 6:
         return bool(IsUserAnAdmin())
-    
+
     # On Vista or higher, there's the whole UAC token-splitting thing.
     # Many thanks for Junfeng Zhang for the workflow: htttp://blogs.msdn.com/junfeng/archive/2007/01/26/how-to-tell-if-the-current-user-is-in-administrators-group-programmatically.aspx
 
@@ -642,8 +647,7 @@ def get_windows_version():
         return False
 
     return {
-        'major_version' : os_version.dwMajorVersion.real, 
+        'major_version' : os_version.dwMajorVersion.real,
         'minor_version' : os_version.dwMinorVersion.real,
         'build_number'  : os_version.dwBuildNumber.real
     }
-
