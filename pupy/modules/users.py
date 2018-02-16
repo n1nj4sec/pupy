@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.term import terminal_size, colorize
 
 __class_name__="Users"

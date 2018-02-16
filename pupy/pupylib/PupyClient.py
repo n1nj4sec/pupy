@@ -222,6 +222,27 @@ class PupyClient(object):
         else:
             return remote_module
 
+    def remote_const(self, module, variable):
+        remote_module = None
+        remote_variable = None
+
+        with self.remotes_lock:
+            if module in self.remotes:
+                remote_module = self.remotes[module]['_']
+            else:
+                remote_module = getattr(self.conn.modules, module)
+                self.remotes[module] = {
+                    '_': remote_module
+                }
+
+            if variable in self.remotes[module]:
+                remote_variable = self.remotes[module][variable]
+            else:
+                remote_variable = obtain(getattr(self.conn.modules[module], variable))
+                self.remotes[module][variable] = remote_variable
+
+        return remote_variable
+
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
         if not self.conn.modules.sys.modules.has_key('pupyimporter'):

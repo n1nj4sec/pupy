@@ -6,18 +6,22 @@ import subprocess
 
 def shell_exec(client, cmdline, shell=None, env=None, encoding=None):
     """ cmdline can be either a list of arguments or a string """
-    res=""
+
+    check_output = client.remote('subprocess', 'check_output')
+
+    res = ''
+
     try:
         if client.is_android():
             if shell is None:
                 shell="/system/bin/sh"
         if shell is None:
-            res=client.conn.modules.subprocess.check_output(
+            res = check_output(
                 cmdline,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.PIPE,
-                shell=True,
-                universal_newlines=True,
+                stderr = subprocess.STDOUT,
+                stdin = subprocess.PIPE,
+                shell = True,
+                universal_newlines = True,
                 env=env
             )
         else:
@@ -26,7 +30,7 @@ def shell_exec(client, cmdline, shell=None, env=None, encoding=None):
             else:
                 command=[shell, '-c', cmdline]
 
-            res=client.conn.modules.subprocess.check_output(
+            res = check_output(
                 command,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.PIPE,
@@ -35,10 +39,10 @@ def shell_exec(client, cmdline, shell=None, env=None, encoding=None):
             )
 
     except Exception as e:
-        if hasattr(e,'output') and e.output:
-            res=e.output
+        if hasattr(e, 'output') and e.output:
+            res = e.output
         else:
-            res=str(e)
+            res = str(e)
 
     if encoding:
         try:

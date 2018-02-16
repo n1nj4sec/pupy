@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.PupyCmd import PupyCmd
-from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.term import terminal_size, colorize
 from modules.lib.utils.shell_exec import shell_exec
 import logging
@@ -104,10 +103,7 @@ def gen_output_line(columns, info, record, width):
 
     return output
 
-def print_psinfo(fout, pupyps, data, colinfo, width=80, sections=[]):
-    families = { int(k):v for k,v in obtain(pupyps.families).iteritems() }
-    socktypes = { int(k):v for k,v in obtain(pupyps.socktypes).iteritems() }
-
+def print_psinfo(fout, families, socktypes, data, colinfo, width=80, sections=[]):
     keys = ('id', 'key', 'PROPERTY', 'VAR')
     sorter = lambda x,y: -1 if (
         x in keys and y not in keys
@@ -289,13 +285,30 @@ class PsModule(PupyModule):
         psinfo = self.client.remote('pupyps', 'psinfo')
         pstree = self.client.remote('pupyps', 'pstree')
 
+        families = {
+            int(k):v for k,v in self.client.remote_const(
+                'pupyps', 'families'
+            ).iteritems()
+        }
+
+        socktypes = {
+            int(k):v for k,v in self.client.remote_const(
+                'pupyps', 'socktypes'
+            ).iteritems()
+        }
+
         if args.show_pid and not args.tree:
             data = psinfo(args.show_pid)
         else:
             root, tree, data = pstree()
-            tree = { int(k):v for k,v in tree.iteritems() }
+            tree = {
+                int(k):v for k,v in tree.iteritems()
+            }
 
-        data = { int(k):v for k,v in data.iteritems() }
+        data = {
+            int(k):v for k,v in data.iteritems()
+        }
+
         colinfo = gen_colinfo(data)
 
         try:
@@ -327,7 +340,7 @@ class PsModule(PupyModule):
             else:
                 if args.show_pid:
                     print_psinfo(
-                        self.stdout, rpupyps, data, colinfo,
+                        self.stdout, families, socktypes, data, colinfo,
                         width=None if args.wide else width,
                         sections=args.info_sections or (
                             [ 'general' ] if args.info else args.info_sections

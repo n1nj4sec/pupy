@@ -53,10 +53,12 @@ class SMB(PupyModule):
         args.func(args)
 
     def get_ft(self, args, host):
-        return self.client.conn.modules['pupyutils.psexec'].FileTransfer(
+        FileTransfer = self.client.remote('pupyutils.psexec', 'FileTransfer', False)
+        return FileTransfer(
             host,
             port=args.port, hash=args.hash,
-            username=args.username, password=args.password, domain=args.domain,
+            username=args.username, password=args.password,
+            domain=args.domain,
             timeout=args.timeout
         )
 
@@ -65,6 +67,7 @@ class SMB(PupyModule):
         host = host.replace('\\', '//')
         if host.startswith('//'):
             host = host[2:]
+
         ft = self.get_ft(args, host)
         if not ft.ok:
             self.error(ft.error)
