@@ -118,6 +118,7 @@ if not sys.platform == 'win32' and not pupy.pseudo:
         "/usr/local/share/certs",
         "/etc/pki/tls/certs",
         "/etc/openssl/certs",
+        "/etc/opt/csw/ssl/certs",
     ])
 
     ctx = ssl.create_default_context()
