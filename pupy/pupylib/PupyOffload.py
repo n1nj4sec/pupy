@@ -57,7 +57,7 @@ class PupyOffloadDNS(threading.Thread):
                 continue
 
             except (socket.error, OSError), e:
-                if e.errno in (errno.ECONNREFUSED, errno.ECONNRESET, errno.EPIPE):
+                if e.errno in (errno.ECONNREFUSED, errno.ECONNRESET, errno.EPIPE, errno.EBADF):
                     logging.error('DNS: Lost connection (refused)')
                     time.sleep(5)
                     continue
@@ -159,7 +159,7 @@ class PupyOffloadAcceptor(object):
                 ), (conninfo['rhost'], conninfo['rport'])
 
             except (socket.error, OSError), e:
-                if e.errno in (errno.ECONNREFUSED, errno.ECONNRESET, errno.EPIPE):
+                if e.errno in (errno.ECONNREFUSED, errno.ECONNRESET, errno.EPIPE, errno.EBADF):
                     logging.error('Acceptor ({}): Lost connection (refused)'.format(self._port))
                     time.sleep(5)
                     continue
