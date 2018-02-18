@@ -25,7 +25,11 @@ class IPModule(PupyModule):
         try:
             pupyps = self.client.remote('pupyps')
             interfaces = self.client.remote('pupyps', 'interfaces')
-            families = obtain(pupyps.families)
+            families = {
+                int(k):v for k,v in self.client.remote_const(
+                    'pupyps', 'families'
+                ).iteritems()
+            }
 
             data = interfaces()
             families = { int(x):y for x,y in families.iteritems() }
