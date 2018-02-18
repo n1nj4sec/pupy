@@ -14,6 +14,12 @@ import time
 families = {
     v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
 }
+
+try:
+    families.update({psutil.AF_LINK: 'LINK'})
+except:
+    pass
+
 families.update({-1: 'LINK'})
 
 socktypes = {
