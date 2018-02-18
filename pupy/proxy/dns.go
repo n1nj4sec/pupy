@@ -133,7 +133,7 @@ func (p *DNSListener) queryProcessor(
 
 		if r == nil || interrupted {
 			if interrupted {
-				log.Error("DNS: Interrupt request received")
+				log.Error("DNS: Interrupt request received", notifySent)
 			}
 
 			if !notifySent {
@@ -231,6 +231,12 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	if len(r.Question) > 0 {
 		for _, q := range r.Question {
+			question := q.Name[:]
+			if q.Name[len(q.Name)-1] == '.' {
+				question = q.Name[:len(q.Name)-1]
+			}
+
+			payloadLen := len(question) - len(p.Domain) - 1
 
 			log.Debug("DNS: Request: ", q.Name)
 			p.cacheLock.Lock()
@@ -240,19 +246,14 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			if !ok {
 				log.Info("DNS: Request: ", q.Name, " not in cache")
 
-				question := q.Name[:]
-				if q.Name[len(q.Name)-1] == '.' {
-					question = q.Name[:len(q.Name)-1]
-				}
-
 				responses := []string{}
 
-				if strings.HasSuffix(question, p.Domain) {
+				if strings.HasSuffix(question, p.Domain) && payloadLen > 0 {
 					if p.active {
 						p.dnsRemoteRequestsCounter.Incr(1)
 
-						if len(question)-len(p.Domain)-1 <= len(question) {
-							question = question[:len(question)-len(p.Domain)-1]
+						if payloadLen <= len(question) {
+							question = question[:payloadLen]
 
 							now2 := time.Now()
 
@@ -392,7 +393,6 @@ func (p *DNSListener) Serve() error {
 
 		case err2 = <-decoderr:
 			log.Println("Recv decoderClosed")
-			decoderClosed = true
 
 		case err2 = <-recvErrors:
 			log.Println("Recv msgsClosed")
