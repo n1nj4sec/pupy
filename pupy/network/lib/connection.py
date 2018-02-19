@@ -176,7 +176,9 @@ class PupyConnection(Connection):
             del self._sync_events[seq]
 
         if seq in self._sync_locks:
-            del self._sync_locks[seq]
+            with self._sync_locks[seq]:
+                if seq in self._sync_locks:
+                    del self._sync_locks[seq]
 
         if self.closed:
             raise EOFError('Connection was closed, seq: {}'.format(seq))
