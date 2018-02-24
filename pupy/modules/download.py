@@ -88,7 +88,7 @@ class DownloaderScript(PupyModule):
 
     def download_dir(self, remotepath, localpath, filter=None, chunk_size=16000, log=None):
         risdir = self.client.remote('os.path', 'isdir', False)
-        rlistdir = self.client.remote('os.path', 'listdir')
+        rlistdir = self.client.remote('os', 'listdir')
         rjoin = self.client.remote('os.path', 'join')
 
         if not risdir(localpath):
