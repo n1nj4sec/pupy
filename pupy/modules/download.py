@@ -7,6 +7,8 @@ from threading import Event
 from StringIO import StringIO
 from msgpack import Unpacker
 
+from Queue import Queue
+
 import tarfile
 import tempfile
 
@@ -39,7 +41,10 @@ def size_human_readable(num, suffix='B'):
 class DownloaderScript(PupyModule):
     """ download a file/directory from a remote system """
 
-    dependencies = [ 'transfer' ]
+    dependencies = {
+        'all': [ 'transfer', 'scandir' ],
+        'windows': [ 'junctions' ]
+    }
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='download', description=self.__doc__)
@@ -58,6 +63,7 @@ class DownloaderScript(PupyModule):
         self.arg_parser.add_argument('remote_file', metavar='<remote_path>')
         self.arg_parser.add_argument('local_file', nargs='?', metavar='<local_path>', completer=path_completer)
 
+        self._verbose = False
         self._completed = Event()
         self._terminate = None
         self._local_path = None
@@ -72,15 +78,20 @@ class DownloaderScript(PupyModule):
         self._pending_symlinks = {}
         self._pending_metadata = {}
         self._archive = None
+        self._queue = Queue()
 
     def run(self, args):
+        self._verbose = args.verbose
+
         if args.calculate_size:
             du = self.client.remote('transfer', 'du', False)
 
             self._terminate = du(
-                args.remote_file, self._callback, args.exclude, args.include,
+                args.remote_file, self._submit_message, args.exclude, args.include,
                 args.follow_symlinks, args.no_single_device)
-            self._completed.wait()
+
+            self._process_queue()
+
             if self._files_count is not None and self._files_size is not None:
                 self.success('Count: {} Size: {}'.format(
                     self._files_count, size_human_readable(self._files_size)))
@@ -139,15 +150,23 @@ class DownloaderScript(PupyModule):
         transfer = self.client.remote('transfer', 'transfer', False)
 
         self._terminate = transfer(
-            args.remote_file, self._callback, args.exclude, args.include,
+            args.remote_file, self._submit_message, args.exclude, args.include,
             args.follow_symlinks, args.ignore_size, args.no_single_device)
-        self._completed.wait()
 
-        self.info('Completed!')
+        self._process_queue()
 
         if self._archive:
             self._archive.close()
             self._archive = None
+
+    def _process_queue(self):
+        while not self._completed.is_set():
+            data, exception = self._queue.get()
+            self._callback(data, exception)
+
+    def _submit_message(self, data, exception):
+        if not self._completed.is_set():
+            self._queue.put((data, exception))
 
     def _callback(self, data, exception):
         try:
@@ -172,6 +191,9 @@ class DownloaderScript(PupyModule):
             data = StringIO(data)
 
             for msg in Unpacker(data):
+                if self._completed.is_set():
+                    break
+
                 self._handle_msg(msg)
 
     def _check_path(self, path):
@@ -284,10 +306,14 @@ class DownloaderScript(PupyModule):
         elif msgtype == 'dirview':
             dirview = msg['data']
             self._current_file_dir = self._get_path(dirview)
-            self._last_directory = os.path.join(
-                self._download_dir, self._current_file_dir)
 
             if not self._archive:
+                if not self._download_dir:
+                    self._download_dir = self._local_path
+
+                self._last_directory = os.path.join(
+                    self._download_dir, self._current_file_dir)
+
                 if not os.path.isdir(self._last_directory):
                     os.makedirs(self._last_directory)
 
@@ -341,10 +367,31 @@ class DownloaderScript(PupyModule):
                     if os.path.islink(s) or os.path.exists(s):
                         os.unlink(s)
 
-                    symto = os.path.relpath(
-                        os.path.join(self._last_directory, os.path.sep.join(x for x in lnk if x)),
-                        start=self._last_directory
-                    )
+                    lnk = list(x for x in lnk if x)
+                    symto = os.path.sep.join(lnk)
+
+                    if self.client.is_windows():
+                        if symto.startswith(os.path.sep) or ':' in symto:
+                            symto = os.path.relpath(
+                                symto.upper(),
+                                start=self._current_file_dir.upper()
+                            ).split(os.path.sep)
+
+                            for i in xrange(min(len(symto), len(lnk))):
+                                if symto[-i-1] == '..':
+                                    break
+
+                                if symto[-i-1].upper() == lnk[-i-1].upper():
+                                    symto[-i-1] = lnk[-i-1]
+
+                            symto = os.path.sep.join(symto)
+
+                    else:
+                        if symto.startswith(os.path.sep):
+                            symto = os.path.relpath(
+                                symto,
+                                start=self._current_file_dir
+                            )
 
                     os.symlink(symto, s)
 
@@ -399,9 +446,15 @@ class DownloaderScript(PupyModule):
 
 
     def interrupt(self):
-        if self._terminate:
-            self._terminate()
-        self._completed.set()
+        try:
+            if self._terminate:
+                self._terminate()
+
+                self._completed.wait(5)
+
+        finally:
+            self._completed.set()
+            self._submit_message(None, None)
 
     def __del__(self):
         if self._current_file is not None:

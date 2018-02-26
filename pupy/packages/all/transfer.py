@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 from threading import Thread, Event
 from Queue import Queue
-from os import path, stat, lstat, readlink
+from os import path, stat
+import sys
+
+if sys.platform == 'win32':
+    from junctions import islink, readlink, lstat
+else:
+    from os import readlink, lstat
+    from os.path import islink
+
 from zlib import compress
 from scandir import scandir
 from StringIO import StringIO
@@ -26,7 +34,6 @@ FIELDS_MAP = {
 FIELDS_MAP_ENCODE = {
     y:x for x,y in FIELDS_MAP.iteritems()
 }
-
 
 file_system_encoding = sys.getfilesystemencoding()
 
@@ -102,7 +109,7 @@ class Transfer(object):
             except OSError as error:
                 return
 
-            name = path.join(top, entry.name)
+            name = entry.path
 
             if self.exclude:
                 if self.include and not self.include.match(name) and self.exclude.match(name):
@@ -117,32 +124,39 @@ class Transfer(object):
             is_symlink = False
             is_special = False
 
-            try:
-                is_dir = entry.is_dir(follow_symlinks=self.follow_symlinks)
-            except OSError:
-                pass
+            if not self.follow_symlinks:
+                is_symlink = entry.is_symlink()
 
-            if not is_dir:
+                if not is_symlink and sys.platform == 'win32' and entry.is_dir(follow_symlinks=False):
+                    is_symlink = islink(entry.path)
+
+            if not is_symlink:
+                try:
+                    is_dir = entry.is_dir(follow_symlinks=self.follow_symlinks)
+                except OSError:
+                    pass
+
+            if not is_dir and not is_symlink:
                 try:
                     is_file = entry.is_file(follow_symlinks=self.follow_symlinks)
                 except OSError:
                     pass
 
-            if not is_dir and not is_file:
+            if not is_dir and not is_file and not is_symlink:
                 try:
                     is_symlink = entry.is_symlink()
                 except:
                     pass
 
-            if is_dir:
-                dirs.append(entry)
-            elif is_symlink:
+            if is_symlink:
                 try:
                     linked_to = readlink(name)
                 except OSError:
                     linked_to = ''
 
                 symlinks.append((entry, linked_to.split(path.sep)))
+            elif is_dir:
+                dirs.append(entry)
             elif is_file:
                 hardlinked = False
                 estat = entry.stat()
@@ -163,7 +177,7 @@ class Transfer(object):
 
         for direntry in dirs:
             new_path = path.join(top, direntry.name)
-            if self.follow_symlinks or not path.islink(new_path):
+            if self.follow_symlinks or not islink(new_path):
                 for entry in self._walk_scandir(new_path, dups):
                     yield entry
 
@@ -196,7 +210,10 @@ class Transfer(object):
                 callback(None, None)
 
             except Exception, e:
-                callback(None, e)
+                try:
+                    callback(None, e)
+                except EOFError:
+                    pass
 
     def _size(self, filepath):
         files_count = 0
@@ -255,7 +272,7 @@ class Transfer(object):
 
             zeros = 0
 
-            with open(filepath) as infile:
+            with open(filepath, 'rb') as infile:
                 self._current_file = infile
 
                 while not self._terminate.is_set():
@@ -366,7 +383,6 @@ class Transfer(object):
                 portions = self._pack_file(basename, top=root)
                 header = next(portions)
 
-                filestat = None
                 if self.follow_symlinks:
                     filestat = stat(filepath)
                 else:
