@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from threading import Event
+from threading import Thread, Event
 from StringIO import StringIO
 from msgpack import Unpacker
 
@@ -14,6 +14,7 @@ import os
 import os.path
 import time
 import zlib
+import errno
 
 FIELDS_MAP = {
     x:y for x,y in enumerate([
@@ -23,7 +24,8 @@ FIELDS_MAP = {
 
 class DownloadFronted(object):
     def __init__(self, client, exclude=None, include=None, follow_symlinks=False,
-                 ignore_size=False, no_single_device=False, verbose=None, error=None):
+                 ignore_size=False, no_single_device=False,
+                     honor_single_file_root=False, verbose=None, error=None):
 
         self.client = client
 
@@ -32,6 +34,7 @@ class DownloadFronted(object):
         self._follow_symlinks = follow_symlinks
         self._ignore_size = ignore_size
         self._no_single_device = no_single_device
+        self._honor_single_file_root = honor_single_file_root
 
         self._verbose = verbose
         self._error = error
@@ -50,7 +53,10 @@ class DownloadFronted(object):
         self._pending_symlinks = {}
         self._pending_metadata = {}
         self._archive = None
+        self._archive_file = None
         self._queue = Queue()
+
+        self._transfer_stop = None
 
     def du(self, remote_file):
         du = self.client.remote('transfer', 'du', False)
@@ -66,7 +72,7 @@ class DownloadFronted(object):
         else:
             return None, None
 
-    def download(self, remote_file, local_file=None, archive=False):
+    def _setup_context(self, remote_file, local_file, archive):
         if local_file:
             local_file = os.path.expandvars(local_file)
 
@@ -91,7 +97,7 @@ class DownloadFronted(object):
                 os.makedirs(top_dir)
 
         if archive:
-            if self._download_dir:
+            if self._download_dir and remote_file:
                 archive = remote_file.replace('/', '!').replace('\\', '!')
                 while True:
                     if archive.startswith('!'):
@@ -109,24 +115,48 @@ class DownloadFronted(object):
             if os.path.isfile(archive):
                 os.unlink(archive)
 
-            self._archive = tarfile.open(archive, mode='w:gz')
+            self._archive_file = archive
+            self._archive = tarfile.open(self._archive_file, mode='w:gz')
 
-            if self._verbose:
-                self._verbose('downloading {} -> tgz:{}'.format(
-                    remote_file, archive))
-        else:
-            if self._verbose:
-                self._verbose('downloading {} -> {}'.format(
-                    remote_file, self._download_dir or self._local_path))
+    @property
+    def dest_file(self):
+        return self._archive_file or self._download_dir or self._local_path
+
+    def download(self, remote_file, local_file=None, archive=False):
+        self._setup_context(remote_file, local_file, archive)
 
         transfer = self.client.remote('transfer', 'transfer', False)
-
         self._terminate = transfer(
             remote_file, self._submit_message, self._exclude, self._include,
             self._follow_symlinks, self._ignore_size, self._no_single_device)
 
-        self._process_queue()
+        if self._verbose:
+            if self._archive:
+                self._verbose('Download: {} -> tgz:{}'.format(
+                    remote_file, self.dest_file))
+            else:
+                self._verbose('Download: {} -> {}'.format(
+                    remote_file, self.dest_file))
 
+        self.process()
+
+    def create_download_callback(self, local_file=None, archive=False):
+        self._setup_context(None, local_file, archive)
+
+        transfer_closure = self.client.remote('transfer', 'transfer_closure', False)
+
+        closure, self._transfer_stop, self._terminate = transfer_closure(
+            self._submit_message, self._exclude, self._include,
+            self._follow_symlinks, self._ignore_size, self._no_single_device)
+
+        return closure, self._transfer_stop
+
+    def stop(self):
+        if self._transfer_stop:
+            self._transfer_stop()
+
+    def process(self):
+        self._process_queue()
         if self._archive:
             self._archive.close()
             self._archive = None
@@ -144,7 +174,7 @@ class DownloadFronted(object):
         try:
             self._callback_unsafe(data, exception)
         except Exception, e:
-            if self.error:
+            if self._error:
                 import traceback
                 self._error('Internal error: {} / {}'.format(e, traceback.format_exc()))
 
@@ -181,7 +211,11 @@ class DownloadFronted(object):
     def _get_path(self, msg):
         path = []
         if 'root' in msg:
-            path = msg['root']
+            if msg.get('type') == 'file':
+                if self._honor_single_file_root:
+                    path = msg['root']
+            else:
+                path = msg['root']
 
         if 'path' in msg:
             if type(msg['path']) in (str, unicode):
@@ -219,10 +253,25 @@ class DownloadFronted(object):
             else:
                 filepath = self._local_path
 
+            if 'root' in msg:
+                try:
+                    os.makedirs(os.path.dirname(filepath))
+                except OSError, e:
+                    if e.errno != errno.EEXIST:
+                        if self._error:
+                            self._error('{}: {}'.format(filepath, e))
+                except Exception, e:
+                    if self._error:
+                        self._error('{}: {}'.format(filepath, e))
+
             if self._archive:
                 self._current_file = tempfile.TemporaryFile()
             else:
                 self._current_file = open(filepath, 'wb')
+
+            if self._verbose:
+                self._verbose('{}'.format(filepath))
+
 
         elif msgtype == 'sparse':
             if not self._current_file:
@@ -326,7 +375,7 @@ class DownloadFronted(object):
                     self._archive.addfile(info)
 
                 else:
-                    with open(os.path.join(self._last_directory, self._check_name(z)), 'w'):
+                    with open(os.path.join(self._last_directory, self._check_name(z)), 'wb'):
                         pass
 
             for s, lnk in dirview['syms'].iteritems():
@@ -421,6 +470,9 @@ class DownloadFronted(object):
             self._pending_metadata = dirview['files']
 
     def interrupt(self):
+        if self._completed.is_set():
+            return
+
         try:
             if self._terminate:
                 self._terminate()
@@ -439,3 +491,6 @@ class DownloadFronted(object):
         if self._archive is not None:
             self._archive.close()
             self._archive = None
+
+        self._transfer = None
+        self._worker = None

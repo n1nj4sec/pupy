@@ -49,8 +49,7 @@ class DownloaderScript(PupyModule):
         self._downloader = DownloadFronted(
             self.client,
             args.exclude, args.include, args.follow_symlinks, args.ignore_size, args.no_single_device,
-            self.info if args.verbose else None,
-            self.error
+            False, self.info if args.verbose else None, self.error
         )
 
         if args.calculate_size:

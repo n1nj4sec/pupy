@@ -185,6 +185,11 @@ class Transfer(object):
         while not self._terminate.is_set():
             task = self.queue.get()
             if task is None:
+                try:
+                    callback(None, None)
+                except:
+                    pass
+
                 self._terminate.set()
                 break
 
@@ -206,8 +211,6 @@ class Transfer(object):
                 if buf.len > 0:
                     callback(buf.getvalue(), None)
                     buf.close()
-
-                callback(None, None)
 
             except Exception, e:
                 try:
@@ -390,7 +393,8 @@ class Transfer(object):
 
                 header.update({
                     'type': 'file',
-                    'stat': self._stat_to_dict(filestat)
+                    'stat': self._stat_to_dict(filestat),
+                    'root': root.split(path.sep),
                 })
 
                 yield header
@@ -457,13 +461,24 @@ def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
        single_device=False, chunk_size=8*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, False, single_device, chunk_size)
     t.size(filepath, callback)
+    t.stop()
     return t.terminate
 
 def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,
              ignore_size=False, single_device=False, chunk_size=8*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     t.transfer(filepath, callback)
+    t.stop()
     return t.terminate
+
+def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False,
+             ignore_size=False, single_device=False, chunk_size=8*1024*1024):
+
+    t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
+    def _closure(filepath):
+        t.transfer(filepath, callback)
+
+    return _closure, t.stop, t.terminate
 
 if __name__ == '__main__':
     def blob_printer(data, exception):

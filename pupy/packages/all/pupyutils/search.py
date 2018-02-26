@@ -147,3 +147,11 @@ class Search(object):
         search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
         search.daemon = False
         search.start()
+
+    def run_cbs(self, on_data, on_completed):
+        if not self.terminate:
+            self.terminate = threading.Event()
+
+        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
+        search.daemon = False
+        search.start()
