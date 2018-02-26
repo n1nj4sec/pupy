@@ -104,7 +104,6 @@ ps = ps
 migrate = migrate
 shell=interactive_shell
 kill = process_kill
-pwd = pyexec -c 'import os;print os.getcwd()'
 #tasklist = shell_exec 'tasklist /v'
 mount = drives
 du = download -S
