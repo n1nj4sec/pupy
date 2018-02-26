@@ -32,6 +32,9 @@ WELL_KNOWN_DEPS = {
             'pupymemexec'
         ],
     },
+    'pupyutils.basic_cmds': {
+        'windows': [ 'junctions' ]
+    },
     'dbus': {
         'linux': [
             '_dbus_bindings', 'pyexpat'

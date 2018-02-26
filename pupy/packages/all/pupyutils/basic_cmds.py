@@ -4,8 +4,15 @@ import glob
 import shutil
 import getpass
 import stat
+import sys
 
 # -------------------------- For ls functions --------------------------
+
+if sys.platform == 'win32':
+    from junctions import islink, readlink, lstat
+else:
+    from os import readlink, lstat
+    from os.path import islink
 
 def file_timestamp(entry):
     try:
@@ -13,13 +20,6 @@ def file_timestamp(entry):
         return str(d.strftime("%d/%m/%y"))
     except:
         return '00/00/00'
-
-class FakeStat(object):
-    st_mode = 0b100000
-    st_uid = -1
-    st_gid = -1
-    st_size = -1
-    st_mtime = 0
 
 def try_unicode(path):
     if type(path) != unicode:
@@ -30,10 +30,17 @@ def try_unicode(path):
 
     return path
 
+class FakeStat(object):
+    st_mode = 0b100000
+    st_uid = -1
+    st_gid = -1
+    st_size = -1
+    st_mtime = 0
+
 def safe_stat(path):
     path = try_unicode(path)
     try:
-        return os.lstat(path)
+        return lstat(path)
     except:
         return FakeStat()
 
@@ -47,6 +54,8 @@ def safe_listdir(path):
 def mode_to_letter(mode):
     if stat.S_ISDIR(mode):
         return 'D'
+    elif stat.S_ISLNK(mode):
+        return 'L'
     elif stat.S_ISBLK(mode):
         return 'B'
     elif stat.S_ISCHR(mode):
@@ -55,8 +64,6 @@ def mode_to_letter(mode):
         return 'F'
     elif stat.S_ISSOCK(mode):
         return 'S'
-    elif stat.S_ISLNK(mode):
-        return 'L'
     else:
         return ''
 
@@ -94,7 +101,7 @@ def list_file(path):
 
     if stat.S_ISLNK(_stat.st_mode):
         try:
-            name += ' -> '+os.readlink(path)
+            name += ' -> '+readlink(path)
         except:
             pass
 
