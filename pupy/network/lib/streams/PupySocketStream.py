@@ -93,11 +93,12 @@ class PupyChannel(Channel):
             if len(compdata) < len(data):
                 compressed = 1
                 data = compdata
+            else:
+                del compdata
 
         header = self.FRAME_HEADER.pack(len(data), compressed)
         buf = header + data + self.FLUSHER
         self.stream.write(buf)
-
 
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):

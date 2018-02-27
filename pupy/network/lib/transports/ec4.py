@@ -65,8 +65,7 @@ class EC4TransportServer(BasePupyTransport):
                 self.up_buffer = ''
 
         else:
-            rcv = self.decryptor.decrypt(data.read())
-            self.upstream.write(rcv)
+            self.upstream.write(self.decryptor.decrypt(data.read()))
 
     def upstream_recv(self, data):
         snd = data.read()

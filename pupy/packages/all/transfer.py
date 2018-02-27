@@ -16,7 +16,10 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-from StringIO import StringIO
+try:
+    from cStringIO import StringIO
+except:
+    from StringIO import StringIO
 
 import errno
 import rpyc
@@ -214,15 +217,15 @@ class Transfer(object):
                     del chunk
 
                     if buf.tell() > self.chunk_size:
+                        buf.seek(0)
                         callback(buf.getvalue(), None)
-
-                        buf.close()
-                        buf = StringIO()
+                        buf.truncate()
 
                     if self._terminate.is_set():
                         break
 
                 if buf.tell() > 0:
+                    buf.seek(0)
                     callback(buf.getvalue(), None)
                     buf.close()
 
