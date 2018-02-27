@@ -16,7 +16,10 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-from StringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 import errno
 import rpyc
@@ -82,7 +85,10 @@ class Transfer(object):
         special = []
 
         if self.single_device:
-            topstat = stat(top)
+            try:
+                topstat = stat(top)
+            except OSError:
+                return
 
             if self.single_device is True:
                 self.single_device = topstat.st_dev
@@ -126,10 +132,13 @@ class Transfer(object):
             is_special = False
 
             if not self.follow_symlinks:
-                is_symlink = entry.is_symlink()
+                try:
+                    is_symlink = entry.is_symlink()
 
-                if not is_symlink and sys.platform == 'win32' and entry.is_dir(follow_symlinks=False):
-                    is_symlink = islink(entry.path)
+                    if not is_symlink and sys.platform == 'win32' and entry.is_dir(follow_symlinks=False):
+                        is_symlink = islink(entry.path)
+                except OSError:
+                    pass
 
             if not is_symlink:
                 try:
@@ -152,7 +161,7 @@ class Transfer(object):
             if is_symlink:
                 try:
                     linked_to = readlink(name)
-                except OSError:
+                except (IOError, OSError):
                     linked_to = ''
 
                 symlinks.append((entry, linked_to.split(path.sep)))
@@ -160,17 +169,21 @@ class Transfer(object):
                 dirs.append(entry)
             elif is_file:
                 hardlinked = False
-                estat = entry.stat()
-                if estat.st_nlink > 1:
-                    inode = estat.st_ino
-                    if inode in dups:
-                        hardlinks.append((entry, dups[inode]))
-                        hardlinked = True
-                    else:
-                        dups[inode] = name.split(path.sep)
+                try:
+                    estat = entry.stat()
+                    if estat.st_nlink > 1:
+                        inode = estat.st_ino
+                        if inode in dups:
+                            hardlinks.append((entry, dups[inode]))
+                            hardlinked = True
+                        else:
+                            dups[inode] = name.split(path.sep)
 
-                if not hardlinked:
-                    files.append(entry)
+                    if not hardlinked:
+                        files.append(entry)
+
+                except OSError:
+                    pass
             else:
                 special.append(entry)
 
@@ -182,7 +195,7 @@ class Transfer(object):
                 for entry in self._walk_scandir(new_path, dups):
                     yield entry
 
-    def _worker_run(self):
+    def _worker_run_unsafe(self):
         while not self._terminate.is_set():
             task = self.queue.get()
             if task is None:
@@ -198,18 +211,21 @@ class Transfer(object):
 
             try:
                 buf = StringIO()
-
                 for chunk in command(*args):
                     msgpack.dump(chunk, buf)
-                    if buf.len > self.chunk_size:
+
+                    del chunk
+
+                    if buf.tell() > self.chunk_size:
                         callback(buf.getvalue(), None)
+
                         buf.close()
                         buf = StringIO()
 
                     if self._terminate.is_set():
                         break
 
-                if buf.len > 0:
+                if buf.tell() > 0:
                     callback(buf.getvalue(), None)
                     buf.close()
 
@@ -218,6 +234,22 @@ class Transfer(object):
                     callback(None, e)
                 except EOFError:
                     pass
+
+            finally:
+                del buf
+
+
+    def _worker_run(self):
+        try:
+            self._worker_run_unsafe()
+        finally:
+            if self._current_file:
+                try:
+                    self._current_file.close()
+                except:
+                    pass
+
+                self._current_file = None
 
     def _size(self, filepath):
         files_count = 0
@@ -270,6 +302,9 @@ class Transfer(object):
         if top:
             filepath = path.join(top, filepath)
 
+        if self._current_file:
+            raise ValueError('Invalid messages order')
+
         try:
             info_sent = False
             high_entropy_cases = 0
@@ -281,12 +316,14 @@ class Transfer(object):
 
                 while not self._terminate.is_set():
                     portion = infile.read(self.chunk_size)
+
                     if not portion:
                         break
 
                     if all(v == '\0' for v in portion):
                         zeros += len(portion)
                         if zeros < (0xFFFFFFFE - self.chunk_size):
+                            del portion
                             continue
 
                     if zeros > 0:
@@ -305,12 +342,16 @@ class Transfer(object):
 
                     if not zdata or len(zdata) >= datalen - (datalen*0.2):
                         high_entropy_cases += 1
+                        del zdata
+
                         yield {
                             'type': 'content',
                             'data': portion
                         }
                     else:
                         high_entropy_cases = 0
+                        del portion
+
                         yield {
                             'type': 'zcontent',
                             'data': zdata
@@ -441,7 +482,7 @@ class Transfer(object):
             self._pack_any, self._expand(filepath), callback)
 
     def stop(self):
-        self.queue.put(None)
+        self.queue.put_nowait(None)
 
     def terminate(self):
         if not self.initialized:
@@ -451,9 +492,7 @@ class Transfer(object):
             self._terminate.set()
             self.queue.put(None)
 
-        if self._current_file is not None:
-            self._current_file.close()
-            self._current_file = None
+        self.worker.join()
 
     def join(self):
         self.worker.join()
@@ -463,6 +502,7 @@ def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
     t = Transfer(exclude, include, follow_symlinks, False, False, single_device, chunk_size)
     t.size(filepath, callback)
     t.stop()
+
     return t.terminate
 
 def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,

@@ -69,6 +69,7 @@ class DownloadFronted(object):
             self._follow_symlinks, self._no_single_device)
 
         self._process_queue()
+        self._terminate = None
 
         if self._files_count is not None and self._files_size is not None:
             return self._files_count, self._files_size
@@ -143,6 +144,7 @@ class DownloadFronted(object):
                     remote_file, self.dest_file))
 
         self.process()
+        self._terminate = None
 
     def create_download_callback(self, local_file=None, archive=False):
         self._setup_context(None, local_file, archive)
@@ -158,6 +160,7 @@ class DownloadFronted(object):
     def stop(self):
         if self._transfer_stop:
             self._transfer_stop()
+            self._transfer_stop = None
 
     def process(self):
         self._process_queue()
@@ -501,6 +504,7 @@ class DownloadFronted(object):
                 self._terminate()
 
                 self._completed.wait(5)
+                self._terminate = None
 
         finally:
             self._completed.set()
