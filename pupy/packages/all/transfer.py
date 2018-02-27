@@ -35,12 +35,9 @@ FIELDS_MAP_ENCODE = {
     y:x for x,y in FIELDS_MAP.iteritems()
 }
 
-file_system_encoding = sys.getfilesystemencoding()
-
 def decodepath(filepath):
-    global file_system_encoding
     try:
-        return filepath.decode(file_system_encoding)
+        return filepath.decode('utf-8')
     except:
         return filepath
 
