@@ -246,6 +246,8 @@ class PupyCmd(cmd.Cmd):
                 left=[]
                 try:
                     modargs,left=arg_parser.parse_known_args(shlex.split(tab[1]))
+                except ValueError, e:
+                    self.display_error('Syntax error: {}'.format(e))
                 except PupyModuleExit:
                     return
                 #putting run arguments (-f and --bg) back at their place in case of aliases
