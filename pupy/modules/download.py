@@ -62,6 +62,8 @@ class DownloaderScript(PupyModule):
                 args.local_file,
                 args.archive
             )
+            if not args.verbose:
+                self.success('{}'.format(self._downloader.dest_file))
 
     def interrupt(self):
         if self._downloader:

@@ -49,12 +49,15 @@ class DownloadFronted(object):
         self._current_file = None
         self._current_file_name = None
         self._current_file_dir = ''
+        self._current_file_dir_raw = ''
         self._download_dir = None
         self._pending_symlinks = {}
         self._pending_metadata = {}
         self._archive = None
         self._archive_file = None
         self._queue = Queue()
+
+        self._last_downloaded_dest = None
 
         self._transfer_stop = None
 
@@ -120,7 +123,8 @@ class DownloadFronted(object):
 
     @property
     def dest_file(self):
-        return self._archive_file or self._download_dir or self._local_path
+        return self._last_downloaded_dest or self._archive_file \
+          or self._download_dir or self._local_path
 
     def download(self, remote_file, local_file=None, archive=False):
         self._setup_context(remote_file, local_file, archive)
@@ -201,10 +205,25 @@ class DownloadFronted(object):
                 self._handle_msg(msg)
 
     def _check_path(self, path):
-        return os.path.sep.join(self._check_name(p) for p in path if p)
+        _initial = path
+
+        _path = []
+        for p in path:
+            for portion in p.split('/'):
+                _path.append(portion)
+
+        path = _path
+        _path = []
+
+        for p in path:
+            for portion in p.split('\\'):
+                _path.append(portion)
+
+        path = os.path.sep.join(self._check_name(p) for p in _path if p)
+        return path
 
     def _check_name(self, name):
-        if '\\..' in name or '../' in name or '/..' in name or '..\\' in name or name == '..':
+        if '\\' in name or '/' in name or name == '..':
             raise ValueError('Invalid path: {}'.format(name))
         return name
 
@@ -254,15 +273,18 @@ class DownloadFronted(object):
                 filepath = self._local_path
 
             if 'root' in msg:
-                try:
-                    os.makedirs(os.path.dirname(filepath))
-                except OSError, e:
-                    if e.errno != errno.EEXIST:
+                if self._honor_single_file_root:
+                    try:
+                        os.makedirs(os.path.dirname(filepath))
+                    except OSError, e:
+                        if e.errno != errno.EEXIST:
+                            if self._error:
+                                self._error('{}: {}'.format(filepath, e))
+                    except Exception, e:
                         if self._error:
                             self._error('{}: {}'.format(filepath, e))
-                except Exception, e:
-                    if self._error:
-                        self._error('{}: {}'.format(filepath, e))
+
+                self._last_downloaded_dest = filepath
 
             if self._archive:
                 self._current_file = tempfile.TemporaryFile()
@@ -331,6 +353,7 @@ class DownloadFronted(object):
         elif msgtype == 'dirview':
             dirview = msg['data']
             self._current_file_dir = self._get_path(dirview)
+            self._current_file_dir_raw = os.path.sep.join(dirview['root'])
 
             if not self._archive:
                 if not self._download_dir:
@@ -399,7 +422,7 @@ class DownloadFronted(object):
                         if symto.startswith(os.path.sep) or ':' in symto:
                             symto = os.path.relpath(
                                 symto.upper(),
-                                start=self._current_file_dir.upper()
+                                start=self._current_file_dir_raw.upper()
                             ).split(os.path.sep)
 
                             for i in xrange(min(len(symto), len(lnk))):
@@ -415,7 +438,7 @@ class DownloadFronted(object):
                         if symto.startswith(os.path.sep):
                             symto = os.path.relpath(
                                 symto,
-                                start=self._current_file_dir
+                                start=self._current_file_dir_raw
                             )
 
                     os.symlink(symto, s)
