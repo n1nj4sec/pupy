@@ -1,11 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from scandir import scandir, walk
+
+from scandir import scandir
+if scandir is None:
+    from scandir import scandir_generic as scandir
+
 import time
 import os
 import re
 import sys
-import mmap
+
+try:
+    import mmap
+except:
+    pass
+
 import threading
 import rpyc
 
@@ -110,7 +119,7 @@ class Search(object):
 
         # try / except used for permission denied
         except Exception, e:
-            pass
+            yield e
 
     def run(self):
         if os.path.isfile(self.root_path):
@@ -125,8 +134,19 @@ class Search(object):
             for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
                 yield files
 
-    def _run_thread(self, on_data, on_completed):
+    def _run_thread(self, on_data, on_completed, on_error):
         for result in self.run():
+            if isinstance(result, Exception):
+                if on_error:
+                    try:
+                        on_error('Scanwalk exception: {}:{}'.format(
+                            str(type(result)),
+                            str(result)))
+                    except:
+                        break
+
+                continue
+
             try:
                 on_data(result)
             except:
@@ -138,20 +158,20 @@ class Search(object):
         if self.terminate:
             self.terminate.set()
 
-    def run_cb(self, on_data, on_completed):
+    def run_cb(self, on_data, on_completed, on_error=None):
         if not self.terminate:
             self.terminate = threading.Event()
 
         on_completed = rpyc.async(on_completed)
 
-        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
+        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed, on_error))
         search.daemon = False
         search.start()
 
-    def run_cbs(self, on_data, on_completed):
+    def run_cbs(self, on_data, on_completed, on_error=None):
         if not self.terminate:
             self.terminate = threading.Event()
 
-        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
+        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed, on_error))
         search.daemon = False
         search.start()

@@ -63,7 +63,7 @@ class SearchModule(PupyModule):
             on_data, on_completed = downloader.create_download_callback(download_folder)
             self.terminate = downloader.interrupt
             self.info('Search+Download started. Use ^C to interrupt')
-            s.run_cbs(on_data, on_completed)
+            s.run_cbs(on_data, on_completed, self.error)
             downloader.process()
             self.info('complete')
 
@@ -88,7 +88,7 @@ class SearchModule(PupyModule):
 
             self.terminate = terminate.set
             self.info('Search started. Use ^C to interrupt')
-            s.run_cb(on_data, on_completed)
+            s.run_cb(on_data, on_completed, self.error)
             terminate.wait()
             s.stop()
 

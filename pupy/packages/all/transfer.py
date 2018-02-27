@@ -11,7 +11,11 @@ else:
     from os.path import islink
 
 from zlib import compress
+
 from scandir import scandir
+if scandir is None:
+    from scandir import scandir_generic as scandir
+
 from StringIO import StringIO
 
 import errno
