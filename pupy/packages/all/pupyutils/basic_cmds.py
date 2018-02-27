@@ -5,6 +5,7 @@ import shutil
 import getpass
 import stat
 import sys
+import datetime
 
 # -------------------------- For ls functions --------------------------
 
@@ -309,6 +310,10 @@ def cat(path):
 
     return data
 
+# ----------------------------- For datetime  -----------------------------
+
+def now():
+    return str(datetime.datetime.now())
 
 # -------------------------- For getuid function --------------------------
 
