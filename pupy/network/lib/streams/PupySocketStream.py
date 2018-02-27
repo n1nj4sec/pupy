@@ -96,9 +96,11 @@ class PupyChannel(Channel):
             else:
                 del compdata
 
-        header = self.FRAME_HEADER.pack(len(data), compressed)
-        buf = header + data + self.FLUSHER
-        self.stream.write(buf)
+        self.stream.write(b''.join([
+            self.FRAME_HEADER.pack(len(data), compressed),
+            data,
+            self.FLUSHER
+        ]))
 
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):
@@ -213,6 +215,7 @@ class PupySocketStream(SocketStream):
         try:
             with self.upstream_lock:
                 self.buf_out.write(data)
+                del data
                 self.transport.upstream_recv(self.buf_out)
             #The write will be done by the _upstream_recv callback on the downstream buffer
 
@@ -414,6 +417,7 @@ class PupyUDPSocketStream(object):
         try:
             with self.upstream_lock:
                 self.buf_out.write(data)
+                del data
                 self.transport.upstream_recv(self.buf_out)
 
         except Exception as e:

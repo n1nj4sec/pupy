@@ -16,14 +16,11 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-try:
-    from cStringIO import StringIO
-except:
-    from StringIO import StringIO
-
 import errno
 import rpyc
 import sys
+
+from io import BytesIO
 
 try:
     import umsgpack as msgpack
@@ -51,7 +48,7 @@ def decodepath(filepath):
 class Transfer(object):
     def __init__(self, exclude=None, include=None, follow_symlinks=False,
                  find_size=False, ignore_size=False, single_device=False,
-                     chunk_size=4*1024*1024):
+                     chunk_size=1024*1024):
         self.initialized = False
 
         self._terminate = Event()
@@ -189,13 +186,16 @@ class Transfer(object):
 
         yield top, dirs, files, symlinks, hardlinks, special
 
+        del dirs[:], files[:], symlinks[:], hardlinks[:], special[:]
+
         for direntry in dirs:
             new_path = path.join(top, direntry.name)
             if self.follow_symlinks or not islink(new_path):
                 for entry in self._walk_scandir(new_path, dups):
                     yield entry
+                    del entry
 
-    def _worker_run_unsafe(self):
+    def _worker_run_unsafe(self, buf):
         while not self._terminate.is_set():
             task = self.queue.get()
             if task is None:
@@ -210,24 +210,26 @@ class Transfer(object):
             command, args, callback = task
 
             try:
-                buf = StringIO()
                 for chunk in command(*args):
                     msgpack.dump(chunk, buf)
-
                     del chunk
 
                     if buf.tell() > self.chunk_size:
+                        data = buf.getvalue()
+                        buf.truncate(0)
                         buf.seek(0)
-                        callback(buf.getvalue(), None)
-                        buf.truncate()
+                        callback(data, None)
+                        del data
 
                     if self._terminate.is_set():
                         break
 
                 if buf.tell() > 0:
+                    data = buf.getvalue()
+                    buf.truncate(0)
                     buf.seek(0)
-                    callback(buf.getvalue(), None)
-                    buf.close()
+                    callback(data, None)
+                    del data
 
             except Exception, e:
                 try:
@@ -236,13 +238,16 @@ class Transfer(object):
                     pass
 
             finally:
-                del buf
-
+                buf.truncate(0)
 
     def _worker_run(self):
         try:
-            self._worker_run_unsafe()
+            buf = BytesIO()
+            self._worker_run_unsafe(buf)
         finally:
+            buf.close()
+            del buf
+
             if self._current_file:
                 try:
                     self._current_file.close()
@@ -348,6 +353,8 @@ class Transfer(object):
                             'type': 'content',
                             'data': portion
                         }
+                        del portion
+
                     else:
                         high_entropy_cases = 0
                         del portion
@@ -356,6 +363,7 @@ class Transfer(object):
                             'type': 'zcontent',
                             'data': zdata
                         }
+                        del zdata
 
             if zeros > 0:
                 yield {
@@ -386,8 +394,6 @@ class Transfer(object):
             self._current_file = None
 
     def _pack_path(self, filepath):
-        buf = b''
-
         for root, dirs, files, syms, hards, specials in self._walk_scandir(filepath):
             stats = {
                 f.name:f.stat() for f in files
@@ -419,6 +425,11 @@ class Transfer(object):
 
                 for portion in self._pack_file(fp, top=root):
                     yield portion
+                    del portion
+
+                del stats[fp]
+
+            del root, dirs[:], files[:], syms[:], hards[:], specials[:]
 
     def _pack_any(self, filepath):
         try:
@@ -443,14 +454,17 @@ class Transfer(object):
 
                 for portion in portions:
                     yield portion
+                    del portion
 
             elif path.isdir(filepath):
                 if self.find_size:
                     for portion in self._size(filepath):
                         yield portion
+                        del portion
 
                 for portion in self._pack_path(filepath):
                     yield portion
+                    del portion
 
         except Exception, e:
             yield {
@@ -492,27 +506,30 @@ class Transfer(object):
             self._terminate.set()
             self.queue.put(None)
 
-        self.worker.join()
+        try:
+            self.worker.join()
+        except:
+            pass
 
     def join(self):
         self.worker.join()
 
 def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
-       single_device=False, chunk_size=2*1024*1024):
+       single_device=False, chunk_size=1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, False, single_device, chunk_size)
     t.size(filepath, callback)
     t.stop()
     return t.terminate
 
 def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,
-             ignore_size=False, single_device=False, chunk_size=2*1024*1024):
+             ignore_size=False, single_device=False, chunk_size=1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     t.transfer(filepath, callback)
     t.stop()
     return t.terminate
 
 def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False,
-             ignore_size=False, single_device=False, chunk_size=2*1024*1024):
+             ignore_size=False, single_device=False, chunk_size=1024*1024):
 
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     def _closure(filepath):
