@@ -16,10 +16,7 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+from StringIO import StringIO
 
 import errno
 import rpyc
@@ -498,22 +495,21 @@ class Transfer(object):
         self.worker.join()
 
 def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
-       single_device=False, chunk_size=8*1024*1024):
+       single_device=False, chunk_size=2*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, False, single_device, chunk_size)
     t.size(filepath, callback)
     t.stop()
-
     return t.terminate
 
 def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,
-             ignore_size=False, single_device=False, chunk_size=8*1024*1024):
+             ignore_size=False, single_device=False, chunk_size=2*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     t.transfer(filepath, callback)
     t.stop()
     return t.terminate
 
 def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False,
-             ignore_size=False, single_device=False, chunk_size=8*1024*1024):
+             ignore_size=False, single_device=False, chunk_size=2*1024*1024):
 
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     def _closure(filepath):
