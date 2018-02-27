@@ -48,7 +48,7 @@ def decodepath(filepath):
 class Transfer(object):
     def __init__(self, exclude=None, include=None, follow_symlinks=False,
                  find_size=False, ignore_size=False, single_device=False,
-                     chunk_size=8*1024*1024):
+                     chunk_size=4*1024*1024):
         self.initialized = False
 
         self._terminate = Event()
