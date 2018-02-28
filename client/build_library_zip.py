@@ -31,8 +31,8 @@ def compile_py(path):
     global fileid
 
     compile_map[fileid] = path
-    data = pupycompile(path, 'fid://{}'.format(fileid), path=True)
-    print "[C] {} -> fid://{}".format(path, fileid)
+    data = pupycompile(path, 'f:{:x}'.format(fileid), path=True)
+    print "[C] {} -> f:{:x}".format(path, fileid)
     fileid += 1
 
     return data
