@@ -121,24 +121,20 @@ if not sys.platform == 'win32' and not pupy.pseudo:
         "/etc/opt/csw/ssl/certs",
     ])
 
-    ctx = ssl.create_default_context()
-    for path in ssl._SSL_PATHS:
-        try:
-            ctx.load_verify_locations(capath=path)
-        except:
-            pass
-
-    for path in ssl._SSL_FILES:
-        try:
-            ctx.load_verify_locations(cafile=path)
-        except:
-            pass
-
-    setattr(ssl, '_CACHED_SSL_CERTS', ctx.get_ca_certs(binary_form=True))
-
     def set_default_verify_paths(self):
-        for cert in ssl._CACHED_SSL_CERTS:
-            self.load_verify_locations(cadata=cert)
+        for path in ssl._SSL_PATHS:
+            try:
+                self.load_verify_locations(capath=path)
+            except:
+                pass
+
+        for path in ssl._SSL_FILES:
+            try:
+                self.load_verify_locations(cafile=path)
+            except:
+                pass
+
+        del path
 
     ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
 
