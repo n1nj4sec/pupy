@@ -25,7 +25,7 @@ try:
     from Crypto.Cipher import AES
 
     def NewAESCipher(aes_key, iv):
-        return AES(aes_key, AES.MODE_CBC, iv)
+        return AES.new(aes_key, AES.MODE_CBC, iv)
 
 except ImportError as e:
     logging.warning('pycrypto not available, using pure python libraries for AES (slower): {}'.format(e))
