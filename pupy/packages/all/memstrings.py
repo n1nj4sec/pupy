@@ -61,13 +61,13 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
                     strings.append(cstring)
                     if len(strings) >= portions:
                         yield pid, name, strings
-                        strings = []
+                        del strings[:]
         except Exception, e:
             logging.exception('MemWorker failed: {}'.format(e))
 
         if strings:
             yield pid, name, strings
-            strings = []
+            del strings[:]
 
 if __name__=="__main__":
     import sys
