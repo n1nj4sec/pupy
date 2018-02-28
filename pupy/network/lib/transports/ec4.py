@@ -65,15 +65,18 @@ class EC4TransportServer(BasePupyTransport):
                 self.up_buffer = ''
 
         else:
-            self.upstream.write(self.decryptor.decrypt(data.read()))
+            packet = data.read()
+            decrypted = self.decryptor.decrypt(packet)
+            self.upstream.write(decrypted)
 
     def upstream_recv(self, data):
         snd = data.read()
         if not self.encryptor:
             self.up_buffer = self.up_buffer + snd
         else:
-            self.downstream.write(self.encryptor.encrypt(snd))
-
+            encrypted = self.encryptor.encrypt(snd)
+            del snd
+            self.downstream.write(encrypted)
 
 class EC4TransportClient(BasePupyTransport):
     pubkey = None
@@ -123,12 +126,18 @@ class EC4TransportClient(BasePupyTransport):
                 self.upstream.write(rcv)
 
             if self.up_buffer:
-                self.downstream.write(self.encryptor.encrypt(self.up_buffer))
+                encrypted = self.encryptor.encrypt(self.up_buffer)
+                self.up_buffer = None
+
+                self.downstream.write(encrypted)
                 self.up_buffer = ''
 
         else:
-            rcv = self.decryptor.decrypt(data.read())
-            self.upstream.write(rcv)
+            portion = data.read()
+            encrypted = self.decryptor.decrypt(portion)
+            del portion
+
+            self.upstream.write(encrypted)
 
     def upstream_recv(self, data):
         snd = data.read()
@@ -136,4 +145,6 @@ class EC4TransportClient(BasePupyTransport):
         if not self.encryptor:
             self.up_buffer = self.up_buffer + snd
         else:
-            self.downstream.write(self.encryptor.encrypt(snd))
+            encrypted = self.encryptor.encrypt(snd)
+            del snd
+            self.downstream.write(encrypted)

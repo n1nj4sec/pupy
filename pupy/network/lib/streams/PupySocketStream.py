@@ -26,7 +26,7 @@ import errno
 import traceback
 import zlib
 
-from rpyc.lib.compat import select, select_error, BYTES_LITERAL, get_exc_errno, maxint
+from rpyc.lib.compat import select, select_error, get_exc_errno, maxint
 import threading
 
 class addGetPeer(object):
@@ -64,6 +64,7 @@ class PupyChannel(Channel):
             packet = self.stream.read(self.FRAME_HEADER.size - len(header))
             if packet:
                 header += packet
+                del packet
 
         length, compressed = self.FRAME_HEADER.unpack(header)
 
@@ -93,14 +94,13 @@ class PupyChannel(Channel):
             if len(compdata) < len(data):
                 compressed = 1
                 data = compdata
-            else:
-                del compdata
 
-        self.stream.write(b''.join([
-            self.FRAME_HEADER.pack(len(data), compressed),
-            data,
-            self.FLUSHER
-        ]))
+            del compdata
+
+        self.stream.write(self.FRAME_HEADER.pack(len(data), compressed))
+        self.stream.write(data)
+        del data
+        self.stream.write(self.FLUSHER)
 
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):
@@ -155,7 +155,7 @@ class PupySocketStream(SocketStream):
             self.close()
             raise EOFError("connection closed by peer")
 
-        self.buf_in.write(BYTES_LITERAL(buf))
+        self.buf_in.write(buf)
 
     # The root of evil
     def poll(self, timeout):

@@ -22,6 +22,33 @@ FIELDS_MAP = {
     ])
 }
 
+F_TYPE     = 0
+F_PATH     = 1
+F_FILES    = 2
+F_SIZE     = 3
+F_DATA     = 4
+F_EXC      = 5
+F_STAT     = 6
+F_ROOT     = 7
+
+T_SIZE     = 0
+T_FILE     = 1
+T_CONTENT  = 2
+T_ZCONTENT = 3
+T_SPARSE   = 4
+T_CLOSE    = 5
+T_C_EXC    = 6
+T_DIRVIEW  = 7
+T_EXC      = 8
+
+D_ROOT     = 0
+D_DIRS     = 1
+D_SYMS     = 2
+D_HARDS    = 3
+D_SPECIALS = 4
+D_EMPTY    = 5
+D_FILES    = 6
+
 class DownloadFronted(object):
     def __init__(self, client, exclude=None, include=None, follow_symlinks=False,
                  ignore_size=False, no_single_device=False,
@@ -193,7 +220,7 @@ class DownloadFronted(object):
             return
 
         if exception and self._error:
-            self._error('Download failed: {}'.format(exception))
+            self._error('{}'.format(exception))
 
         if not data:
             self._completed.set()
@@ -207,13 +234,10 @@ class DownloadFronted(object):
 
                 self._handle_msg(msg)
 
-    def _check_path(self, path):
-        _initial = path
-
+    def _split_path(self, path):
         _path = []
-        for p in path:
-            for portion in p.split('/'):
-                _path.append(portion)
+        for portion in path.split('/'):
+            _path.append(portion)
 
         path = _path
         _path = []
@@ -222,8 +246,10 @@ class DownloadFronted(object):
             for portion in p.split('\\'):
                 _path.append(portion)
 
-        path = os.path.sep.join(self._check_name(p) for p in _path if p)
-        return path
+        return _path
+
+    def _check_path(self, path):
+        return os.path.sep.join(self._check_name(p) for p in self._split_path(path) if p)
 
     def _check_name(self, name):
         if '\\' in name or '/' in name or name == '..':
@@ -231,43 +257,43 @@ class DownloadFronted(object):
         return name
 
     def _get_path(self, msg):
-        path = []
-        if 'root' in msg:
-            if msg.get('type') == 'file':
-                if self._honor_single_file_root:
-                    path = msg['root']
-            else:
-                path = msg['root']
+        path = ''
+        msgtype = msg[F_TYPE]
 
-        if 'path' in msg:
-            if type(msg['path']) in (str, unicode):
-                path.append(msg['path'])
-            else:
-                path += msg['path']
+        if msgtype == T_DIRVIEW:
+            path = msg[F_DATA][D_ROOT]
+        elif msgtype == T_FILE:
+            if F_ROOT in msg and self._honor_single_file_root:
+                path = msg[F_ROOT]
+
+            if F_PATH in msg:
+                path = os.path.join(path, msg[F_PATH])
+        else:
+            raise ValueError('Invalid Message passed to _get_path')
 
         return self._check_path(path)
 
     def _meta(self, meta):
         return {
-            FIELDS_MAP.get(x):y for x,y in meta.iteritems()
+            FIELDS_MAP[x]:y for x,y in enumerate(meta)
         }
 
     def _handle_msg(self, msg):
-        msgtype = msg['type']
+        msgtype = msg[F_TYPE]
 
-        if msgtype == 'size':
-            self._files_count = msg['files']
-            self._files_size = msg['size']
-            self._remote_path = msg['path']
+        if msgtype == T_SIZE:
+            self._files_count = msg[F_FILES]
+            self._files_size = msg[F_SIZE]
+            self._remote_path = msg[F_PATH]
 
-        elif msgtype == 'file':
+        elif msgtype == T_FILE:
             if self._current_file:
                 raise ValueError('Invalid order of messages')
 
             self._current_file_name = self._get_path(msg)
 
-            if 'stat' in msg:
-                self._pending_metadata[self._current_file_name] = msg['stat']
+            if F_STAT in msg:
+                self._pending_metadata[self._current_file_name] = msg[F_STAT]
 
             if self._last_directory:
                 filepath = self._current_file_name
@@ -275,8 +301,8 @@ class DownloadFronted(object):
             else:
                 filepath = self._local_path
 
-            if 'root' in msg:
-                if self._honor_single_file_root:
+            if F_ROOT in msg:
+                if self._honor_single_file_root and not self.archive:
                     try:
                         os.makedirs(os.path.dirname(filepath))
                     except OSError, e:
@@ -291,36 +317,34 @@ class DownloadFronted(object):
 
             if self._archive:
                 self._current_file = tempfile.TemporaryFile()
+                self._verbose('{}'.format(self._current_file_name))
             else:
                 self._current_file = open(filepath, 'wb')
-
-            if self._verbose:
                 self._verbose('{}'.format(filepath))
 
-
-        elif msgtype == 'sparse':
+        elif msgtype == T_SPARSE:
             if not self._current_file:
                 raise ValueError('Invalid order of messages')
 
-            zeros = msg['data']
+            zeros = msg[F_DATA]
             self._current_file.seek(zeros-1, os.SEEK_CUR)
             self._current_file.write('\0')
 
-        elif msgtype.endswith('content'):
+        elif msgtype in (T_CONTENT, T_ZCONTENT):
             if not self._current_file:
                 raise ValueError('Invalid order of messages')
 
-            content = msg['data']
-            if msgtype == 'zcontent':
+            content = msg[F_DATA]
+            if msgtype == T_ZCONTENT:
                 content = zlib.decompress(content)
 
             self._current_file.write(content)
 
-        elif msgtype == 'exception':
+        elif msgtype == T_EXC:
             if self._error:
-                self._error('Error: {}/{}'.format(msg['exception'], msg['data']))
+                self._error('Error: {}/{}'.format(msg[F_EXC], msg[F_DATA]))
 
-        elif msgtype == 'close' or msgtype == 'content-exception':
+        elif msgtype in (T_CLOSE, T_C_EXC):
             if not self._current_file:
                 raise ValueError('Invalid order of messages')
 
@@ -349,14 +373,14 @@ class DownloadFronted(object):
             if self._current_file_name in self._pending_metadata:
                 del self._pending_metadata[self._current_file_name]
 
-            if msgtype == 'content-exception':
+            if msgtype == T_C_EXC:
                 if self._verbose:
-                    self._verbose('{} - {}'.format(msg['data'], msg['exception']))
+                    self._verbose('{} - {}'.format(msg[F_DATA], msg[F_EXC]))
 
-        elif msgtype == 'dirview':
-            dirview = msg['data']
-            self._current_file_dir = self._get_path(dirview)
-            self._current_file_dir_raw = os.path.sep.join(dirview['root'])
+        elif msgtype == T_DIRVIEW:
+            dirview = msg[F_DATA]
+            self._current_file_dir = self._get_path(msg)
+            self._current_file_dir_raw = dirview[D_ROOT]
 
             if not self._archive:
                 if not self._download_dir:
@@ -368,7 +392,7 @@ class DownloadFronted(object):
                 if not os.path.isdir(self._last_directory):
                     os.makedirs(self._last_directory)
 
-            for d, meta in dirview['dirs'].iteritems():
+            for d, meta in dirview[D_DIRS]:
                 meta = self._meta(meta)
 
                 if self._archive:
@@ -386,7 +410,7 @@ class DownloadFronted(object):
                     if not os.path.isdir(subdir):
                         os.mkdir(subdir)
 
-            for z, meta in dirview['empty'].iteritems():
+            for z, meta in dirview[D_EMPTY]:
                 meta = self._meta(meta)
 
                 if self._archive:
@@ -404,13 +428,13 @@ class DownloadFronted(object):
                     with open(os.path.join(self._last_directory, self._check_name(z)), 'wb'):
                         pass
 
-            for s, lnk in dirview['syms'].iteritems():
+            for s, lnk in dirview[D_SYMS]:
                 if self._archive:
                     info = tarfile.TarInfo()
                     info.name = os.path.join(self._current_file_dir, self._check_name(s))
 
                     info.type = tarfile.SYMTYPE
-                    info.linkname = os.path.sep.join(lnk)
+                    info.linkname = lnk
                     self._archive.addfile(info)
 
                 else:
@@ -418,14 +442,14 @@ class DownloadFronted(object):
                     if os.path.islink(s) or os.path.exists(s):
                         os.unlink(s)
 
-                    lnk = list(x for x in lnk if x)
+                    lnk = self._split_path(lnk)
                     symto = os.path.sep.join(lnk)
 
                     if self.client.is_windows():
                         if symto.startswith(os.path.sep) or ':' in symto:
                             symto = os.path.relpath(
                                 symto.upper(),
-                                start=self._current_file_dir_raw.upper()
+                                start=self._current_file_dir.upper()
                             ).split(os.path.sep)
 
                             for i in xrange(min(len(symto), len(lnk))):
@@ -447,13 +471,13 @@ class DownloadFronted(object):
                     os.symlink(symto, s)
 
             if self._archive:
-                for s, (meta, lnk) in dirview['hards'].iteritems():
+                for s, (meta, lnk) in dirview[D_HARDS]:
                     meta = self._meta(meta)
 
                     info = tarfile.TarInfo()
                     info.name = os.path.join(self._current_file_dir, self._check_name(s))
                     info.type = tarfile.SYMTYPE
-                    info.linkname = os.path.sep.join(lnk)
+                    info.linkname = lnk
                     info.mtime = meta['st_mtime']
                     info.mode = meta['st_mode']
                     info.uid = meta['st_uid']
@@ -461,7 +485,7 @@ class DownloadFronted(object):
 
                     self._archive.addfile(info)
 
-                for spec, meta in dirview['specials'].iteritems():
+                for spec, meta in dirview[D_SPECIALS]:
                     meta = self._meta(meta)
 
                     info = tarfile.TarInfo()
@@ -493,7 +517,7 @@ class DownloadFronted(object):
 
                     self._archive.addfile(info)
 
-            self._pending_metadata = dirview['files']
+            self._pending_metadata = dirview[D_FILES]
 
     def interrupt(self):
         if self._completed.is_set():

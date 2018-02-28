@@ -39,6 +39,33 @@ FIELDS_MAP_ENCODE = {
     y:x for x,y in FIELDS_MAP.iteritems()
 }
 
+F_TYPE     = 0
+F_PATH     = 1
+F_FILES    = 2
+F_SIZE     = 3
+F_DATA     = 4
+F_EXC      = 5
+F_STAT     = 6
+F_ROOT     = 7
+
+T_SIZE     = 0
+T_FILE     = 1
+T_CONTENT  = 2
+T_ZCONTENT = 3
+T_SPARSE   = 4
+T_CLOSE    = 5
+T_C_EXC    = 6
+T_DIRVIEW  = 7
+T_EXC      = 8
+
+D_ROOT     = 0
+D_DIRS     = 1
+D_SYMS     = 2
+D_HARDS    = 3
+D_SPECIALS = 4
+D_EMPTY    = 5
+D_FILES    = 6
+
 def decodepath(filepath):
     try:
         return filepath.decode('utf-8')
@@ -48,7 +75,7 @@ def decodepath(filepath):
 class Transfer(object):
     def __init__(self, exclude=None, include=None, follow_symlinks=False,
                  find_size=False, ignore_size=False, single_device=False,
-                     chunk_size=1024*1024):
+                     chunk_size=1*1024*1024):
         self.initialized = False
 
         self._terminate = Event()
@@ -60,6 +87,7 @@ class Transfer(object):
         self.find_size = find_size
         self.ignore_size = ignore_size
         self.single_device = single_device
+        self.read_portion = min(16*4096, self.chunk_size)
 
         self.worker.daemon = True
 
@@ -158,10 +186,9 @@ class Transfer(object):
             if is_symlink:
                 try:
                     linked_to = readlink(name)
+                    symlinks.append((entry, linked_to))
                 except (IOError, OSError):
-                    linked_to = ''
-
-                symlinks.append((entry, linked_to.split(path.sep)))
+                    pass
             elif is_dir:
                 dirs.append(entry)
             elif is_file:
@@ -174,7 +201,7 @@ class Transfer(object):
                             hardlinks.append((entry, dups[inode]))
                             hardlinked = True
                         else:
-                            dups[inode] = name.split(path.sep)
+                            dups[inode] = name
 
                     if not hardlinked:
                         files.append(entry)
@@ -186,10 +213,12 @@ class Transfer(object):
 
         yield top, dirs, files, symlinks, hardlinks, special
 
+        dirpaths = [ entry.name for entry in dirs ]
+
         del dirs[:], files[:], symlinks[:], hardlinks[:], special[:]
 
-        for direntry in dirs:
-            new_path = path.join(top, direntry.name)
+        for direntry in dirpaths:
+            new_path = path.join(top, direntry)
             if self.follow_symlinks or not islink(new_path):
                 for entry in self._walk_scandir(new_path, dups):
                     yield entry
@@ -209,9 +238,22 @@ class Transfer(object):
 
             command, args, callback = task
 
+            restore_compression = False
+            channel = None
+
+            try:
+                channel = object.__getattribute__(callback, "____conn__")()._channel
+            except:
+                pass
+
             try:
                 for chunk in command(*args):
                     msgpack.dump(chunk, buf)
+
+                    if channel and channel.compress and chunk.get(F_TYPE) == T_ZCONTENT:
+                        restore_compression = True
+                        channel.compress = False
+
                     del chunk
 
                     if buf.tell() > self.chunk_size:
@@ -219,6 +261,15 @@ class Transfer(object):
                         buf.truncate(0)
                         buf.seek(0)
                         callback(data, None)
+
+                        if restore_compression:
+                            try:
+                                channel.compress = restore_compression
+                            except:
+                                pass
+
+                            restore_compression = False
+
                         del data
 
                     if self._terminate.is_set():
@@ -239,6 +290,12 @@ class Transfer(object):
 
             finally:
                 buf.truncate(0)
+
+                if restore_compression:
+                    try:
+                        channel.compress = restore_compression
+                    except:
+                        pass
 
     def _worker_run(self):
         try:
@@ -267,10 +324,10 @@ class Transfer(object):
                 filestat = lstat(filepath)
 
             yield {
-                'type': 'size',
-                'path': filepath.split(path.sep),
-                'files': 1,
-                'size': filestat.st_size,
+                F_TYPE: T_SIZE,
+                F_PATH: filepath,
+                F_FILES: 1,
+                F_SIZE: filestat.st_size,
             }
             return
 
@@ -286,22 +343,26 @@ class Transfer(object):
                 break
 
         yield {
-            'type': 'size',
-            'path': filepath.split(path.sep),
-            'files': files_count,
-            'size': files_size,
+            F_TYPE: T_SIZE,
+            F_PATH: filepath,
+            F_FILES: files_count,
+            F_SIZE: files_size,
         }
 
-    def _stat_to_dict(self, stat):
-        return {
-            FIELDS_MAP_ENCODE.get(field):getattr(stat, field) \
-            for field in dir(stat) if field in FIELDS_MAP_ENCODE
-        }
+    def _stat_to_vec(self, stat):
+        vec = [0]*len(FIELDS_MAP_ENCODE)
+        for field in dir(stat):
+            if not field in FIELDS_MAP_ENCODE:
+                continue
+
+            vec[FIELDS_MAP_ENCODE[field]] = getattr(stat, field)
+
+        return vec
 
     def _pack_file(self, filepath, top=None):
         yield {
-            'type': 'file',
-            'path': filepath.split(path.sep),
+            F_TYPE: T_FILE,
+            F_PATH: filepath,
         }
 
         if top:
@@ -320,21 +381,20 @@ class Transfer(object):
                 self._current_file = infile
 
                 while not self._terminate.is_set():
-                    portion = infile.read(self.chunk_size)
+                    portion = infile.read(self.read_portion)
 
                     if not portion:
                         break
 
-                    if all(v == '\0' for v in portion):
+                    if zeros < (0xFFFFFFFE - self.read_portion) and all(v == '\0' for v in portion):
                         zeros += len(portion)
-                        if zeros < (0xFFFFFFFE - self.chunk_size):
-                            del portion
-                            continue
+                        del portion
+                        continue
 
                     if zeros > 0:
                         yield {
-                            'type': 'sparse',
-                            'data': zeros,
+                            F_TYPE: T_SPARSE,
+                            F_DATA: zeros,
                         }
                         zeros = 0
 
@@ -347,79 +407,100 @@ class Transfer(object):
 
                     if not zdata or len(zdata) >= datalen - (datalen*0.2):
                         high_entropy_cases += 1
-                        del zdata
 
-                        yield {
-                            'type': 'content',
-                            'data': portion
+                        result = {
+                            F_TYPE: T_CONTENT,
+                            F_DATA: portion
                         }
-                        del portion
+
+                        del zdata, portion
+                        yield result
 
                     else:
                         high_entropy_cases = 0
-                        del portion
 
-                        yield {
-                            'type': 'zcontent',
-                            'data': zdata
+                        result = {
+                            F_TYPE: T_ZCONTENT,
+                            F_DATA: zdata
                         }
-                        del zdata
+                        del zdata, portion
+                        yield result
 
             if zeros > 0:
                 yield {
-                    'type': 'sparse',
-                    'data': zeros,
+                    F_TYPE: T_SPARSE,
+                    F_DATA: zeros,
                 }
                 zeros = 0
 
             yield {
-                'type': 'close',
+                F_TYPE: T_CLOSE,
             }
 
         except (OSError, IOError), e:
             yield {
-                'type': 'content-exception',
-                'exception': e.args[1],
-                'data': e.filename,
+                F_TYPE: T_C_EXC,
+                F_EXC: e.args[1],
+                F_DATA: e.filename,
             }
 
         except Exception, e:
             yield {
-                'type': 'content-exception',
-                'exception': str(type(e)),
-                'data': str(e)
+                F_TYPE: T_C_EXC,
+                F_EXC: str(type(e)),
+                F_DATA: str(e)
             }
 
         finally:
             self._current_file = None
 
     def _pack_path(self, filepath):
+        stats = []
+        dirview = {
+            F_TYPE: T_DIRVIEW,
+            F_DATA: {
+                D_ROOT: '',
+                D_DIRS: [],
+                D_SYMS: [],
+                D_HARDS: [],
+                D_SPECIALS: [],
+                D_EMPTY: [],
+                D_FILES: [],
+            }
+        }
+
         for root, dirs, files, syms, hards, specials in self._walk_scandir(filepath):
-            stats = {
-                f.name:f.stat() for f in files
-            }
+            for f in files:
+                stats.append((f.name, f.stat()))
 
-            yield {
-                'type': 'dirview',
-                'data': {
-                    'root': root.split(path.sep),
-                    'dirs': {x.name: self._stat_to_dict(x.stat()) for x in dirs},
-                    'syms': {x.name: link for x,link in syms},
-                    'hards': {x.name: (self._stat_to_dict(x.stat()), link) for x,link in hards},
-                    'specials': {x.name: self._stat_to_dict(x.stat()) for x in specials},
-                    'empty': {
-                        x:self._stat_to_dict(y) for x,y in stats.iteritems() \
-                        if not self.ignore_size or y.st_size == 0
-                    },
-                    'files': {
-                        x:self._stat_to_dict(y) for x,y in stats.iteritems() \
-                        if self.ignore_size or y.st_size != 0
-                    },
-                }
-            }
+            dirview[F_DATA][D_ROOT] = root
 
-            for fp in sorted(stats, key=lambda x:stats[x].st_size):
-                stat = stats[fp]
+            for x in dirs:
+                dirview[F_DATA][D_DIRS].append((x.name, self._stat_to_vec(x.stat())))
+
+            for x,link in syms:
+                dirview[F_DATA][D_SYMS].append((x.name, link))
+
+            for x,link in hards:
+                dirview[F_DATA][D_HARDS].append((x.name, self._stat_to_vec(x.stat()), link))
+
+            for x in dirs:
+                dirview[F_DATA][D_SPECIALS].append((x.name, self._stat_to_vec(x.stat())))
+
+            for x,y in stats:
+                if not self.ignore_size or y.st_size == 0:
+                    dirview[F_DATA][D_EMPTY].append((x, self._stat_to_vec(y)))
+                else:
+                    dirview[F_DATA][D_FILES].append((x, self._stat_to_vec(y)))
+
+            del files[:], syms[:], hards[:], specials[:]
+
+            yield dirview
+
+            for k in (D_DIRS, D_SYMS, D_HARDS, D_SPECIALS, D_EMPTY, D_FILES):
+                del dirview[F_DATA][k][:]
+
+            for fp, stat in stats:
                 if not self.ignore_size and not stat.st_size:
                     continue
 
@@ -427,9 +508,7 @@ class Transfer(object):
                     yield portion
                     del portion
 
-                del stats[fp]
-
-            del root, dirs[:], files[:], syms[:], hards[:], specials[:]
+            del stats[:]
 
     def _pack_any(self, filepath):
         try:
@@ -445,9 +524,9 @@ class Transfer(object):
                     filestat = lstat(filepath)
 
                 header.update({
-                    'type': 'file',
-                    'stat': self._stat_to_dict(filestat),
-                    'root': root.split(path.sep),
+                    F_TYPE: T_FILE,
+                    F_STAT: self._stat_to_vec(filestat),
+                    F_ROOT: root,
                 })
 
                 yield header
@@ -468,9 +547,9 @@ class Transfer(object):
 
         except Exception, e:
             yield {
-                'type': 'exception',
-                'exception': str(type(e)),
-                'data': str(e)
+                F_TYPE: T_EXC,
+                F_EXC: str(type(e)),
+                F_DATA: str(e)
             }
 
     def _submit_command(self, command, args, callback):
@@ -515,21 +594,21 @@ class Transfer(object):
         self.worker.join()
 
 def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
-       single_device=False, chunk_size=1024*1024):
+       single_device=False, chunk_size=1*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, False, single_device, chunk_size)
     t.size(filepath, callback)
     t.stop()
     return t.terminate
 
 def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,
-             ignore_size=False, single_device=False, chunk_size=1024*1024):
+             ignore_size=False, single_device=False, chunk_size=1*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     t.transfer(filepath, callback)
     t.stop()
     return t.terminate
 
 def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False,
-             ignore_size=False, single_device=False, chunk_size=1024*1024):
+             ignore_size=False, single_device=False, chunk_size=1*1024*1024):
 
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     def _closure(filepath):
