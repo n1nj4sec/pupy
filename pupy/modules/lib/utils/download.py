@@ -252,7 +252,7 @@ class DownloadFronted(object):
         return os.path.sep.join(self._check_name(p) for p in self._split_path(path) if p)
 
     def _check_name(self, name):
-        if '\\' in name or '/' in name or name == '..':
+        if os.path.sep in name or name == '..':
             raise ValueError('Invalid path: {}'.format(name))
         return name
 
@@ -471,7 +471,7 @@ class DownloadFronted(object):
                     os.symlink(symto, s)
 
             if self._archive:
-                for s, (meta, lnk) in dirview[D_HARDS]:
+                for s, meta, lnk in dirview[D_HARDS]:
                     meta = self._meta(meta)
 
                     info = tarfile.TarInfo()
