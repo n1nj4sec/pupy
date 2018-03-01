@@ -317,10 +317,12 @@ class DownloadFronted(object):
 
             if self._archive:
                 self._current_file = tempfile.TemporaryFile()
-                self._verbose('{}'.format(self._current_file_name))
+                if self._verbose:
+                    self._verbose('{}'.format(self._current_file_name))
             else:
                 self._current_file = open(filepath, 'wb')
-                self._verbose('{}'.format(filepath))
+                if self._verbose:
+                    self._verbose('{}'.format(filepath))
 
         elif msgtype == T_SPARSE:
             if not self._current_file:
