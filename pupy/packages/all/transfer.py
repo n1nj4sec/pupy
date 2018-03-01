@@ -377,9 +377,8 @@ class Transfer(object):
 
             zeros = 0
 
-            with open(filepath, 'rb') as infile:
+            with open(filepath, 'rb', 0) as infile:
                 self._current_file = infile
-
                 while not self._terminate.is_set():
                     portion = infile.read(self.read_portion)
 
