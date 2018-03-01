@@ -70,36 +70,93 @@ class PupyChannel(Channel):
 
         data = []
         required_length = length + len(self.FLUSHER)
-
-        while required_length:
-            packet = self.stream.read(required_length)
-            if packet:
-                required_length -= len(packet)
-                data.append(packet)
-
-        data = b''.join(data)
-        data = data[:-len(self.FLUSHER)]
+        decompressor = None
 
         if compressed:
-            data = zlib.decompress(data)
+            decompressor = zlib.decompressobj()
 
-        return data
+        while required_length:
+            packet = self.stream.read(min(required_length, self.COMPRESSION_THRESHOLD))
+            if packet:
+                required_length -= len(packet)
+                if not required_length:
+                    packet = packet[:-len(self.FLUSHER)]
+
+                if compressed:
+                    packet = decompressor.decompress(packet)
+                    if not packet:
+                        continue
+
+                if packet:
+                    data.append(packet)
+
+        if compressed:
+            packet = decompressor.flush()
+            if packet:
+                data.append(packet)
+
+        result = ''.join(data)
+        del data[:]
+
+        return result
 
     def send(self, data):
         """ Smarter compression support """
         compressed = 0
 
-        if self.compress and len(data) > self.COMPRESSION_THRESHOLD:
-            compdata = zlib.compress(data, self.COMPRESSION_LEVEL)
-            if len(compdata) < len(data):
+        ldata = len(data)
+        portion = None
+        lportion = 0
+
+        if self.compress and ldata > self.COMPRESSION_THRESHOLD:
+            portion = data[:self.COMPRESSION_THRESHOLD]
+            portion = zlib.compress(portion)
+            lportion = len(portion)
+            if lportion < self.COMPRESSION_THRESHOLD:
                 compressed = 1
-                data = compdata
 
-            del compdata
+        if not compressed:
+            del portion
+            self.stream.write(self.FRAME_HEADER.pack(ldata, compressed), notify=False)
+            self.stream.write(data, notify=False)
+            self.stream.write(self.FLUSHER)
+            return
 
-        self.stream.write(self.FRAME_HEADER.pack(len(data), compressed))
-        self.stream.write(data)
-        del data
+        del portion
+
+        compressor = zlib.compressobj(self.COMPRESSION_LEVEL)
+
+        total_length = 0
+        rest = ldata
+        i = 0
+
+        while rest > 0:
+            cdata = data[i:i+self.COMPRESSION_THRESHOLD]
+
+            lcdata = len(cdata)
+            rest -= lcdata
+            i += lcdata
+
+            portion = compressor.compress(cdata)
+            lportion = len(portion)
+
+            if rest < 0:
+                import os
+                os._exit(-1)
+
+            if lportion > 0:
+                total_length += lportion
+                self.stream.write(portion, notify=False)
+
+        portion = compressor.flush()
+        lportion = len(portion)
+        if lportion:
+            total_length += lportion
+            self.stream.write(portion, notify=False)
+
+        del portion, data, cdata
+
+        self.stream.insert(self.FRAME_HEADER.pack(total_length, compressed))
         self.stream.write(self.FLUSHER)
 
 class PupySocketStream(SocketStream):
@@ -192,7 +249,7 @@ class PupySocketStream(SocketStream):
     def _upstream_recv(self):
         """ called as a callback on the downstream.write """
         if len(self.downstream)>0:
-            super(PupySocketStream, self).write(self.downstream.read())
+            self.downstream.write_to(super(PupySocketStream, self))
 
     def read(self, count):
         try:
@@ -211,12 +268,20 @@ class PupySocketStream(SocketStream):
             self.close()
             raise
 
-    def write(self, data):
+    def insert(self, data):
+        with self.upstream_lock:
+            self.buf_out.insert(data)
+
+    def flush(self):
+        self.buf_out.flush()
+
+    def write(self, data, notify=True):
         try:
             with self.upstream_lock:
-                self.buf_out.write(data)
+                self.buf_out.write(data, notify)
                 del data
-                self.transport.upstream_recv(self.buf_out)
+                if notify:
+                    self.transport.upstream_recv(self.buf_out)
             #The write will be done by the _upstream_recv callback on the downstream buffer
 
         except (EOFError, socket.error):
@@ -410,15 +475,23 @@ class PupyUDPSocketStream(object):
         except Exception as e:
             logging.debug(traceback.format_exc())
 
-    def write(self, data):
+    def insert(self, data):
+        with self.upstream_lock:
+            self.buf_out.insert(data)
+
+    def flush(self):
+        self.buf_out.flush()
+
+    def write(self, data, notify=True):
         # The write will be done by the _upstream_recv
         # callback on the downstream buffer
 
         try:
             with self.upstream_lock:
-                self.buf_out.write(data)
+                self.buf_out.write(data, notify)
                 del data
-                self.transport.upstream_recv(self.buf_out)
+                if notify:
+                    self.transport.upstream_recv(self.buf_out)
 
         except Exception as e:
             logging.debug(traceback.format_exc())

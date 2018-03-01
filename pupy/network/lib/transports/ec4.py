@@ -57,26 +57,20 @@ class EC4TransportServer(BasePupyTransport):
             self.decryptor.decrypt('\x00'*3072)
 
             if len(data):
-                rcv = self.decryptor.decrypt(data.read())
-                self.upstream.write(rcv)
+                data.write_to(self.upstream, modificator=self.decryptor.decrypt)
 
             if self.up_buffer:
                 self.downstream.write(self.encryptor.encrypt(self.up_buffer))
                 self.up_buffer = ''
 
         else:
-            packet = data.read()
-            decrypted = self.decryptor.decrypt(packet)
-            self.upstream.write(decrypted)
+            data.write_to(self.upstream, modificator=self.decryptor.decrypt)
 
     def upstream_recv(self, data):
-        snd = data.read()
         if not self.encryptor:
-            self.up_buffer = self.up_buffer + snd
+            self.up_buffer = self.up_buffer + data.read()
         else:
-            encrypted = self.encryptor.encrypt(snd)
-            del snd
-            self.downstream.write(encrypted)
+            data.write_to(self.downstream, modificator=self.encryptor.encrypt)
 
 class EC4TransportClient(BasePupyTransport):
     pubkey = None
