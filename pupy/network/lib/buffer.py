@@ -10,13 +10,21 @@ class Buffer(object):
     read() them back. You can also peek() or drain() data.
     """
 
-    def __init__(self, data='', on_write=None, transport_func=None):
+    def __init__(self, data='', on_write=None, transport_func=None, preallocate=None, truncate=False):
         """
         Initialize a buffer with 'data'.
         """
         self._buffer_bytes = BytesIO()
+        self._preallocate = preallocate = 0
+        if preallocate:
+            self._buffer_bytes.seek(preallocate)
+            self._buffer_bytes.write('\0')
+            self._buffer_bytes.seek(0)
+            self._preallocate = preallocate
+
         self._buffer = ''
         self._len = 0
+        self._bofft = 0
         self.on_write_f=on_write
         self.waiting_lock=threading.Lock()
         self.data_lock=threading.RLock()
@@ -24,18 +32,28 @@ class Buffer(object):
         self.transport=transport_func
         self.cookie=None
 
-    @property
-    def buffer(self):
-        if self._buffer_bytes.tell() > 0:
-            if self._buffer:
-                self._buffer += self._buffer_bytes.getvalue()
-            else:
-                self._buffer = self._buffer_bytes.getvalue()
-
+    def _linearize(self):
+        bpos = self._buffer_bytes.tell()
+        if bpos > 0:
+            self._buffer_bytes.seek(self._bofft)
+            data = self._buffer_bytes.read(bpos-self._bofft)
             self._buffer_bytes.seek(0)
-            self._buffer_bytes.truncate(0)
+            self._buffer_bytes.truncate(self._preallocate)
+            self._bofft = 0
+
+            #print "LINEARIZE:", id(self), len(data), self._buffer_bytes.tell(), self._len
+
+            if self._buffer:
+                self._buffer += data
+            else:
+                self._buffer = data
 
         return self._buffer
+
+    @property
+    def buffer(self):
+        with self.data_lock:
+            return self._linearize()
 
     def on_write(self):
         if self.on_write_f:
@@ -43,13 +61,13 @@ class Buffer(object):
 
     def wait(self, timeout=0.1):
         """ wait for a size """
-        if len(self.buffer)>0:
+        if self._len > 0:
             return True
         else:
             self.waiting.clear()
 
         self.waiting.wait(timeout)
-        return len(self.buffer)>0
+        return self._len > 0
 
     def wake(self):
         self.waiting.set()
@@ -63,62 +81,105 @@ class Buffer(object):
         the whole buffer.
         """
 
+        #print "READ", n, id(self), self._len
         with self.data_lock:
-            if (n < 0) or (n > self._len):
-                data = self.buffer
+            #print "READ", n, id(self), "ACQ LOCK"
+            if (n < 0) or (n >= self._len):
+                #print "READ #1"
+                self._linearize()
+                data = self._buffer
                 self._buffer = ''
                 self._len = 0
+
+                #print "READ RES", id(self), len(data), data.encode('hex')
                 return data
 
             if n <= len(self._buffer):
-                data, self._buffer = self._buffer[:n], self._buffer[n:]
+                #print "READ #2", id(self), n, len(self._buffer), self._len
+                data = self._buffer[:n]
+                self._buffer = self._buffer[n:]
                 self._len -= n
+                #print "READ RES", id(self), len(data), data.encode('hex')
                 return data
 
-            data = self.buffer[:n]
-            self._buffer = self._buffer[n:]
-            self._len -= n
+            #print "READ #3", id(self), n, self._len, self._bofft
 
+            data = self._buffer
+            ldata = len(data)
+
+            self._buffer = ''
+            n -= ldata
+            self._len -= ldata
+
+            cpos = self._buffer_bytes.tell()
+
+            self._buffer_bytes.seek(self._bofft)
+            data += self._buffer_bytes.read(n)
+            self._bofft += n
+            self._len   -= n
+            self._buffer_bytes.seek(cpos)
+
+            #print "READ RES", id(self), len(data), data.encode('hex'), self._bofft, self._len
             return data
 
     def insert(self, data):
-        if self._buffer:
-            self._buffer = data + self._buffer
-        else:
-            self._buffer = data
+        #print "INSERT", len(data), id(self)
+
+        with self.data_lock:
+            #print "INSERT", len(data), id(self), "ACQ LOCK"
+            if self._buffer:
+                self._buffer = data + self._buffer
+            else:
+                self._buffer = data
+
+            self._len += len(data)
 
     def write(self, data, notify=True):
         """
         Append 'data' to the buffer.
         """
 
+        #print "WRITE", len(data), id(self), data.encode('hex')
+
         with self.data_lock:
+            #print "WRITE ACQ LOCK", len(data), id(self)
+
             l = len(data)
             lb = len(self._buffer)
-            lbb = self._buffer_bytes.tell()
+            lbb = self._buffer_bytes.tell() - self._bofft
 
             if not lbb and not lb and l < 2048:
                 self._buffer = data
-            elif not lbb and (lb+l) < 4096:
+            elif not lbb and (lb+l) < DEFAULT_BUFFER_SIZE:
                 self._buffer += data
             else:
                 self._buffer_bytes.write(data)
 
-            self._len += len(data)
+            self._len += l
             del data
 
             if notify:
+                #print "WRITE NOTIFY", id(self)
                 self.on_write()
                 self.waiting.set()
+                #print "WRITE NOTIFY COMPLETE", id(self)
+            # else:
+                #print "WRITE NO NOTIFY COMPLETE", id(self)
 
     def flush(self):
+        #print "FLUSH", id(self)
+
         with self.data_lock:
+            #print "FLUSH ACQ LOCK", id(self)
             if self._len > 0:
                 self.on_write()
                 self.waiting.set()
+            #print "FLUSH COMPLETE", id(self)
 
     def write_to(self, stream, modificator=None, notify=True):
+        #print "WRITE TO", id(self), id(stream), self._len
         with self.data_lock:
+            #print "WRITE TO", id(self), id(stream), "ACQ LOCK"
             forced_notify = True
             if hasattr(stream, 'flush'):
                 forced_notify = False
@@ -126,6 +187,8 @@ class Buffer(object):
             if self._buffer:
                 data = self._buffer
                 self._buffer = ''
+                self._len -= len(data)
+
                 if modificator:
                     data = modificator(data)
 
@@ -134,11 +197,11 @@ class Buffer(object):
                 else:
                     stream.write(data)
 
-            blen = self._buffer_bytes.tell()
-            self._buffer_bytes.seek(0)
-            while blen > 0:
-                data = self._buffer_bytes.read(4096)
-                blen -= len(data)
+            self._buffer_bytes.seek(self._bofft)
+            while self._len > 0:
+                data = self._buffer_bytes.read(min(self._len, DEFAULT_BUFFER_SIZE))
+                self._len -= len(data)
+
                 if modificator:
                     data = modificator(data)
 
@@ -148,12 +211,15 @@ class Buffer(object):
                     stream.write(data)
 
             self._buffer_bytes.seek(0)
-            self._buffer_bytes.truncate(0)
+            self._bofft = 0
 
             if notify and not forced_notify:
+                #print "FLUSH...", id(stream)
                 stream.flush()
+                #print "...FLUSH OK", id(stream)
+            # else:
+                #print "WRITE TO COMPLETED (NOFLUSH)", id(self), id(stream), notify
 
-            print "DEBUG:", id(self), sys.getsizeof(self._buffer_bytes)
 
     def peek(self, n=-1):
         """
@@ -164,14 +230,17 @@ class Buffer(object):
         buffer.
         """
 
+        #print "PEEK", n, id(self), self._len
         with self.data_lock:
-            if (n < 0) or (n > self._len):
-                return self.buffer
+            #print "PEEK", n, id(self), "LOCKED"
+            if (n < 0) or (n >= self._len):
+                return self._linearize()
 
             if n <= len(self._buffer):
                 return self._buffer[:n]
 
-            return self.buffer[:n]
+            self._linearize()
+            return self._buffer[:n]
 
     def drain(self, n=-1):
         """
@@ -182,11 +251,12 @@ class Buffer(object):
         buffer.
         """
 
+        #print "DRAIN", n, id(self)
+
         with self.data_lock:
-            if (n < 0) or (n > len(self.buffer)):
+            if (n < 0) or (n >= self._len):
                 self._buffer = ''
-                self._buffer_bytes.seek(0)
-                self._buffer_bytes.truncate(0)
+                self._buffer_bytes.seek(self._bofft)
                 self._len = 0
                 return
 
@@ -199,10 +269,9 @@ class Buffer(object):
 
             self._buffer = ''
             n -= bl
+            self._len -= bl
 
-            self._buffer = self._buffer_bytes.getvalue()[n:]
-            self._buffer_bytes.seek(0)
-            self._buffer_bytes.truncate(0)
+            self._bofft = n
             self._len -= n
 
             return
@@ -218,4 +287,4 @@ class Buffer(object):
         Used in truth-value testing.
         """
         with self.data_lock:
-            return True if self._len else False
+            return bool(self._len)

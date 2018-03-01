@@ -256,9 +256,10 @@ class Transfer(object):
 
                     del chunk
 
-                    if buf.tell() > self.chunk_size:
-                        data = buf.getvalue()
-                        buf.truncate(0)
+                    bpos = buf.tell()
+                    if bpos > self.chunk_size:
+                        buf.seek(0)
+                        data = buf.read(bpos)
                         buf.seek(0)
                         callback(data, None)
 
@@ -275,9 +276,10 @@ class Transfer(object):
                     if self._terminate.is_set():
                         break
 
-                if buf.tell() > 0:
-                    data = buf.getvalue()
-                    buf.truncate(0)
+                bpos = buf.tell()
+                if bpos > 0:
+                    buf.seek(0)
+                    data = buf.read(bpos)
                     buf.seek(0)
                     callback(data, None)
                     del data
@@ -289,8 +291,6 @@ class Transfer(object):
                     pass
 
             finally:
-                buf.truncate(0)
-
                 if restore_compression:
                     try:
                         channel.compress = restore_compression
