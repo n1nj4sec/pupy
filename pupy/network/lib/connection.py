@@ -325,7 +325,7 @@ class PupyConnection(Connection):
 
         with self._async_lock:
             for async_event in self._async_callbacks.itervalues():
-                if not async_event._ttl:
+                if not hasattr(async_event, '_ttl') or not async_event._ttl:
                     continue
 
                 etimeout = async_event._ttl - now
@@ -384,6 +384,9 @@ class PupyConnection(Connection):
 
         with self._async_lock:
             for async_event in self._async_callbacks.itervalues():
+                if not hasattr(async_event, '_ttl'):
+                    continue
+
                 if async_event._ttl and async_event._ttl < now:
                     raise EOFError('Async timeout!', async_event)
 
