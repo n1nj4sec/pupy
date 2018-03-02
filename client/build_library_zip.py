@@ -5,7 +5,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 print "ROOT: ", ROOT
 
-PATCHES = os.path.join(ROOT, 'library_patches')
+PATCHES = os.path.join(ROOT, 'client', 'library_patches')
 
 sys.path.insert(0, PATCHES)
 sys.path.append(os.path.join(ROOT, 'pupy'))
