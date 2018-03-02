@@ -45,7 +45,8 @@ class Buffer(object):
     def on_write(self):
         if self.on_write_f:
             self.on_write_f()
-            self.waiting.set()
+
+        self.waiting.set()
 
     def wait(self, timeout=0.1):
         """ wait for a size """
