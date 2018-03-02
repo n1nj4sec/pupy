@@ -73,6 +73,7 @@ from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
+from network.lib.buffer import Buffer
 
 import shlex
 import zlib
@@ -565,9 +566,9 @@ class ReverseSlaveService(Service):
         return packed_result
 
     def exposed_msgpack_dumps(self, obj, compressed=False):
-        data = umsgpack.dumps(obj)
-        if compressed:
-            data = zlib.compress(data)
+        data = Buffer(compressed=compressed)
+        umsgpack.dump(obj, data)
+        data.flush()
         return data
 
     def exposed_json_dumps(self, obj, compressed=False):
