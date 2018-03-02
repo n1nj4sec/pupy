@@ -415,19 +415,9 @@ class PupyUDPSocketStream(object):
             raise EOFError('Connection is not established yet')
 
         if len(self.downstream)>0:
-            data = self.downstream.read()
-            to_send = len(data)
-            mic = self.MAX_IO_CHUNK
-
-            if to_send <= mic:
+            while len(self.downstream) > 0:
+                data = self.downstream.read(self.MAX_IO_CHUNK)
                 self.kcp.send(data)
-            else:
-                offset = 0
-                while to_send and not self.closed:
-                    portion = mic if mic < to_send else to_send
-                    self.kcp.send(data[offset:offset+portion])
-                    offset += portion
-                    to_send -= portion
 
             if self.kcp:
                 self.kcp.flush()
@@ -448,13 +438,12 @@ class PupyUDPSocketStream(object):
             except OSError, e:
                 raise EOFError(str(e))
 
-
-        data = []
-
+        have_data = False
         while buf is not None:
             if buf:
                 if self.INITIALIZED:
-                    data.append(buf)
+                    self.buf_in.write(buf, notify=False)
+                    have_data = True
                 elif buf == self.MAGIC:
                     self.INITIALIZED = True
                 else:
@@ -464,8 +453,8 @@ class PupyUDPSocketStream(object):
 
             buf = self.kcp.recv()
 
-        if data:
-            self.buf_in.write(b''.join(data))
+        if have_data:
+            self.buf_in.flush()
             return True
 
         return False
@@ -475,26 +464,14 @@ class PupyUDPSocketStream(object):
             return self.upstream.read(count)
 
         try:
-            data = self.upstream.read(count)
-            to_read = len(data)
-
-            if to_read == count:
-                return data
-
-            to_read = count - to_read
-            data = [ data ]
-
-            while to_read:
-                with self.downstream_lock:
+            with self.downstream_lock:
+                while len(self.upstream) < count:
                     if self.buf_in or self._poll_read(10):
                         self.transport.downstream_recv(self.buf_in)
-                        portion = self.upstream.read(to_read)
-                        to_read -= len(portion)
-                        data.append(portion)
                     else:
                         break
 
-            return b''.join(data)
+            return self.upstream.read(count)
 
         except Exception as e:
             logging.debug(traceback.format_exc())
@@ -521,12 +498,13 @@ class PupyUDPSocketStream(object):
             logging.debug(traceback.format_exc())
 
     def consume(self):
-        data = []
+        data = False
         while True:
             kcpdata = self.kcp.recv()
             if kcpdata:
                 if self.INITIALIZED:
-                    data.append(kcpdata)
+                    self.buf_in.write(kcpdata, notify=False)
+                    data = True
                 elif kcpdata == self.MAGIC:
                     self.INITIALIZED = True
                 else:
@@ -537,8 +515,9 @@ class PupyUDPSocketStream(object):
         if not data:
             return True
 
-        data = b''.join(data)
-        self.buf_in.write(data)
+        if data:
+            self.buf_in.flush()
+
         return True
 
     def wake(self):
