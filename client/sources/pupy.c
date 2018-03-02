@@ -65,7 +65,7 @@ static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 	if (!modules) {
 		int rc;
 
-		modules = PyObject_lzmaunpack(
+		modules = PyDict_lzmaunpack(
 			library_c_start,
 			library_c_size
 		);

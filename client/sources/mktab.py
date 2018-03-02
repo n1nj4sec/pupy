@@ -73,6 +73,10 @@ void, PyEval_InitThreads, (void)
 PyObject *, PyErr_NewException, (char *name, PyObject *base, PyObject *dict)
 int, PyModule_AddObject, (PyObject *, const char *, PyObject *)
 int, PyModule_AddStringConstant, (PyObject *module, const char *name, const char *value)
+
+PyObject*, PyDict_New, ()
+PyObject*, PyString_FromStringAndSize, (const char *v, Py_ssize_t len)
+int, PyDict_SetItem, (PyObject *p, PyObject *key, PyObject *val)
 '''.strip().splitlines()
 
 

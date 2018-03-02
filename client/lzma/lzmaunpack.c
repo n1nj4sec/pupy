@@ -5,20 +5,39 @@
 
 #ifdef _WIN32
 #define ALLOC(x) VirtualAlloc(NULL, x, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)
-#define FREE(x) VirtualFree(x, 0, MEM_RELEASE)
+#define FREE(x, size) VirtualFree(x, 0, MEM_RELEASE)
+#define INVALID_ALLOC NULL
 #else
-#define ALLOC(x) malloc(x)
-#define FREE(x) free(x)
+#include <sys/mman.h>
+#define ALLOC(size) mmap(NULL, size + (4096 - size%4096), PROT_WRITE	\
+						 | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#define FREE(x, size) munmap(x, size + (4096 - size%4096))
+#define INVALID_ALLOC MAP_FAILED
 #endif
 
 static void *_lzalloc(void *p, size_t size) { p = p; return malloc(size); }
 static void _lzfree(void *p, void *address) { p = p; free(address); }
 static ISzAlloc _lzallocator = { _lzalloc, _lzfree };
-#define lzmafree(x, size) do { memset(x, 0x0, size); FREE(x);} while (0)
+#define lzmafree(x, size) do { FREE(x, size);}  while (0)
 
 #else
 #define lzmafree(x, size) do {} while (0)
 #endif
+
+
+static unsigned int charToUInt(const char *data) {
+    union {
+      unsigned int l;
+      unsigned char c[4];
+	} x;
+
+    x.c[3] = data[0];
+	x.c[2] = data[1];
+	x.c[1] = data[2];
+	x.c[0] = data[3];
+
+	return x.l;
+}
 
 static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_size) {
 	unsigned char *uncompressed = NULL;
@@ -34,21 +53,11 @@ static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_siz
 	int res;
 #endif
 
-    union {
-      unsigned int l;
-      unsigned char c[4];
-	} x;
-
-    x.c[3] = data[0];
-	x.c[2] = data[1];
-	x.c[1] = data[2];
-	x.c[0] = data[3];
-
-	uncompressed_size = x.l;
+	uncompressed_size = charToUInt(data);
 
 #ifndef UNCOMPRESSED
 	uncompressed = ALLOC(uncompressed_size);
-	if (!uncompressed) {
+	if (uncompressed == INVALID_ALLOC) {
 		return NULL;
 	}
 
@@ -60,7 +69,7 @@ static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_siz
 	);
 
 	if (res != SZ_OK) {
-		FREE(uncompressed);
+		FREE(uncompressed, uncompressed_size);
 		return NULL;
 	}
 #else
@@ -85,6 +94,60 @@ static PyObject *PyObject_lzmaunpack(const char *data, size_t size) {
 	object = PyMarshal_ReadObjectFromString(
 		uncompressed, uncompressed_size);
 
+	lzmafree(uncompressed, uncompressed_size);
+	return object;
+}
+
+static PyObject *PyDict_lzmaunpack(const char *data, size_t size) {
+	PyObject * object = NULL;
+
+	unsigned int keys;
+	unsigned int ksize, vsize, i;
+
+	size_t offset;
+
+	PyObject *k = NULL;
+	PyObject *v = NULL;
+
+	size_t uncompressed_size = 0;
+	void *uncompressed = lzmaunpack(data, size, &uncompressed_size);
+	if (!uncompressed) {
+		return NULL;
+	}
+
+	object = PyDict_New();
+	if (!object) {
+		goto lbExit;
+	}
+
+	keys = charToUInt(uncompressed);
+
+	for (i=0, offset=4; i<keys; i++) {
+		ksize = charToUInt((char *) uncompressed + offset + 0);
+		vsize = charToUInt((char *) uncompressed + offset + 4);
+
+		offset += 8;
+
+		k = PyString_FromStringAndSize((char *) uncompressed + offset, ksize);
+		offset += ksize;
+
+		v = PyString_FromStringAndSize((char *) uncompressed + offset, vsize);
+		offset += vsize;
+
+		if (!k || !v) {
+			Py_XDECREF(k);
+			Py_XDECREF(v);
+			Py_XDECREF(object);
+			object = NULL;
+			goto lbExit;
+		}
+
+		PyDict_SetItem(object, k, v);
+		Py_DECREF(k);
+		Py_DECREF(v);
+	}
+
+ lbExit:
 	lzmafree(uncompressed, uncompressed_size);
 	return object;
 }

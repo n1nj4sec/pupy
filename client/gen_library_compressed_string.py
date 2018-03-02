@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import StringIO, zipfile, os.path, imp, sys, os
-import marshal
 #import pylzma
 import struct
 
-def get_encoded_library_string(filepath):
+def get_encoded_library_string(filepath, out):
 	dest = os.path.dirname(filepath)
 	if not os.path.exists(dest):
 		os.makedirs(dest)
@@ -22,7 +21,12 @@ def get_encoded_library_string(filepath):
 		]
 	])
 
-	return marshal.dumps(modules)
+	ks = len(modules)
+	out.write(struct.pack('>I', ks))
+	for k,v in modules.iteritems():
+		out.write(struct.pack('>II', len(k), len(v)))
+		out.write(k)
+		out.write(v)
 
 with open(sys.argv[1],'wb') as w:
-	w.write(get_encoded_library_string(sys.argv[2]))
+	get_encoded_library_string(sys.argv[2], w)
