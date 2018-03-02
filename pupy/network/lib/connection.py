@@ -10,12 +10,55 @@ import logging
 logger = None
 logger = logging.getLogger('pconn')
 
+from network.lib.buffer import Buffer
+
+############# Monkeypatch brine to be buffer firendly #############
+def stream_dump(obj):
+    buf = Buffer()
+    brine._dump(obj, buf)
+    return buf
+
+@brine.register(brine._dump_registry, str)
+def _dump_str_to_buffer(obj, stream):
+    l = len(obj)
+    if l == 0:
+        stream.append(brine.TAG_EMPTY_STR)
+        return
+    elif l < 5:
+        if l == 1:
+            stream.append(brine.TAG_STR1)
+        elif l == 2:
+            stream.append(brine.TAG_STR2)
+        elif l == 3:
+            stream.append(brine.TAG_STR3)
+        elif l == 4:
+            stream.append(brine.TAG_STR4)
+    else:
+        if l < 256:
+            stream.append(brine.TAG_STR_L1 + brine.I1.pack(l))
+        else:
+            stream.append(brine.TAG_STR_L4 + brine.I4.pack(l))
+
+    stream.append(obj)
+
+@brine.register(brine._dump_registry, Buffer)
+def _dump_buffer_to_buffer(obj, stream):
+    stream.append(brine.TAG_STR_L4 + brine.I4.pack(len(obj)))
+    stream.append(obj)
+
+brine.simple_types = list(brine.simple_types)
+brine.simple_types.append(Buffer)
+brine.dump = stream_dump
+
+################################################################
+
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
         self._sync_locks = {}
         self._connection_serve_lock = lock
         self._async_lock = Lock()
+        self._sync_events_lock = Lock()
         self._last_recv = time.time()
         self._ping = False
         self._ping_timeout = 30
@@ -172,13 +215,14 @@ class PupyConnection(Connection):
         if __debug__:
             logger.debug('Sync request handled: {}'.format(seq))
 
-        if seq in self._sync_events:
-            del self._sync_events[seq]
+        with self._sync_events_lock:
+            if seq in self._sync_events:
+                del self._sync_events[seq]
 
-        if seq in self._sync_locks:
-            with self._sync_locks[seq]:
-                if seq in self._sync_locks:
-                    del self._sync_locks[seq]
+            if seq in self._sync_locks:
+                with self._sync_locks[seq]:
+                    if seq in self._sync_locks:
+                        del self._sync_locks[seq]
 
         if self.closed:
             raise EOFError('Connection was closed, seq: {}'.format(seq))
@@ -201,8 +245,9 @@ class PupyConnection(Connection):
             if __debug__:
                 logger.debug('Sync request: {}'.format(seq))
 
-            self._sync_events[seq] = Event()
-            self._sync_locks[seq] = RLock()
+            with self._sync_events_lock:
+                self._sync_events[seq] = Event()
+                self._sync_locks[seq] = RLock()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
 
@@ -226,7 +271,10 @@ class PupyConnection(Connection):
 
         Connection._dispatch_reply(self, seq, raw)
         if sync:
-            if seq in self._sync_events:
+            with self._sync_events_lock:
+                if not seq in self._sync_events:
+                    self._sync_events[seq] = Event()
+
                 self._sync_events[seq].set()
 
         if __debug__:
@@ -244,8 +292,12 @@ class PupyConnection(Connection):
             sync = seq not in self._async_callbacks
 
         Connection._dispatch_exception(self, seq, raw)
-        if sync:
-            self._sync_events[seq].set()
+        with self._sync_events_lock:
+            if sync:
+                if not seq in self._sync_events:
+                    self._sync_events[seq] = Event()
+
+                self._sync_events[seq].set()
 
     def close(self, *args):
         try:
@@ -282,7 +334,6 @@ class PupyConnection(Connection):
                     mintimeout = etimeout
 
         data = self._recv(timeout, wait_for_lock = False)
-
         if not data and interval and ping_timeout:
             ping = False
             if not self._last_ping:
@@ -301,14 +352,16 @@ class PupyConnection(Connection):
         now = time.time()
 
         if data:
-            msg, seq, args = brine.load(data)
+            msg, seq, args = brine._load(data)
             if __debug__:
                 logger.debug('Processing message, seq: {} - started'.format(seq))
 
             locked = False
-            if seq in self._sync_locks:
-                self._sync_locks[seq].acquire()
-                locked = True
+
+            with self._sync_events_lock:
+                if seq in self._sync_locks:
+                    self._sync_locks[seq].acquire()
+                    locked = True
 
             try:
                 if msg == consts.MSG_REQUEST:

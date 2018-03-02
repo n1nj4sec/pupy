@@ -2,7 +2,17 @@
 from threading import Thread, Event
 from Queue import Queue
 from os import path, stat
+from rpyc.core import brine
 import sys
+
+from network.lib.buffer import Buffer
+
+HAS_BUFFER_OPTIMIZATION = False
+
+if Buffer in brine.simple_types:
+    HAS_BUFFER_OPTIMIZATION = True
+else:
+    from io import BytesIO as Buffer
 
 if sys.platform == 'win32':
     from junctions import islink, readlink, lstat
@@ -19,8 +29,6 @@ if scandir is None:
 import errno
 import rpyc
 import sys
-
-from io import BytesIO
 
 try:
     import umsgpack as msgpack
@@ -225,6 +233,8 @@ class Transfer(object):
                     del entry
 
     def _worker_run_unsafe(self, buf):
+        global HAS_BUFFER_OPTIMIZATION
+
         while not self._terminate.is_set():
             task = self.queue.get()
             if task is None:
@@ -256,12 +266,23 @@ class Transfer(object):
 
                     del chunk
 
-                    bpos = buf.tell()
+                    bpos = None
+
+                    if HAS_BUFFER_OPTIMIZATION:
+                        bpos = len(buf)
+                    else:
+                        bpos = buf.tell()
+
                     if bpos > self.chunk_size:
-                        buf.seek(0)
-                        data = buf.read(bpos)
-                        buf.seek(0)
-                        callback(data, None)
+                        if HAS_BUFFER_OPTIMIZATION:
+                            callback(buf, None)
+                            buf.drain()
+                        else:
+                            buf.seek(0)
+                            data = buf.read(bpos)
+                            buf.seek(0)
+                            callback(data, None)
+                            del data
 
                         if restore_compression:
                             try:
@@ -271,18 +292,25 @@ class Transfer(object):
 
                             restore_compression = False
 
-                        del data
-
                     if self._terminate.is_set():
                         break
 
-                bpos = buf.tell()
+                bpos = None
+                if HAS_BUFFER_OPTIMIZATION:
+                    bpos = len(buf)
+                else:
+                    bpos = buf.tell()
+
                 if bpos > 0:
-                    buf.seek(0)
-                    data = buf.read(bpos)
-                    buf.seek(0)
-                    callback(data, None)
-                    del data
+                    if HAS_BUFFER_OPTIMIZATION:
+                        callback(buf, None)
+                        buf.drain()
+                    else:
+                        buf.seek(0)
+                        data = buf.read(bpos)
+                        buf.seek(0)
+                        callback(data, None)
+                        del data
 
             except Exception, e:
                 try:
@@ -299,10 +327,9 @@ class Transfer(object):
 
     def _worker_run(self):
         try:
-            buf = BytesIO()
+            buf = Buffer()
             self._worker_run_unsafe(buf)
         finally:
-            buf.close()
             del buf
 
             if self._current_file:

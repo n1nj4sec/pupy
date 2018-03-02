@@ -176,7 +176,7 @@ class TransportWrapper(BasePupyTransport):
     def downstream_recv(self, data, idx=0):
         if idx > len(self.chain) - 1:
             if len(data):
-                self.upstream.write(data.read())
+                data.write_to(self.upstream)
         else:
             if len(data):
                 try:
@@ -191,7 +191,7 @@ class TransportWrapper(BasePupyTransport):
 
         if len(data):
             if idx < 0:
-                self.downstream.write(data.read())
+                data.write_to(self.downstream)
             else:
                 self.chain[idx].upstream_recv(data)
 
