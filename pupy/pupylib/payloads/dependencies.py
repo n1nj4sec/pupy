@@ -238,6 +238,7 @@ def paths(platform='all', arch=None, posix=None):
 
     path = [
         os.path.join('packages', platform),
+        os.path.abspath(os.path.join(ROOT, '..', 'client', 'library_patches'))
     ]
 
     if arch:

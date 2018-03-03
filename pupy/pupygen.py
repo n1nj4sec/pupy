@@ -3,7 +3,14 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import logging, argparse, sys, os.path, re, shlex, random, string, zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
+import logging, argparse, sys, os.path, re, shlex, random, string
+import zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+
+if __name__ == '__main__':
+    sys.path.insert(0, os.path.join(ROOT, '..', 'client', 'library_patches'))
+
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize
 from pupylib.payloads import dependencies
@@ -32,9 +39,7 @@ import string
 import random
 import json
 
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__)))
 HARDCODED_CONF_SIZE=65536
-
 
 def get_edit_binary(path, conf, compressed_config=True):
     logging.debug("generating binary %s with conf: %s"%(path, conf))

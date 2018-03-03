@@ -19,10 +19,6 @@ import sys
 if sys.version_info[0]!=2:
     exit("Pupy only support Python 2.x")
 
-try:
-    import pupylib.PupySignalHandler
-except:
-    pass
 import logging
 import time
 import traceback
@@ -33,15 +29,22 @@ import sys
 import network.conf
 import getpass
 
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+if __name__ == '__main__':
+    sys.path.insert(0, os.path.join(ROOT, 'client', 'library_patches'))
+    sys.path.append(os.path.join(ROOT, 'pupy', 'external', 'scapy'))
+
+try:
+    import pupylib.PupySignalHandler
+except:
+    pass
+
 from pupylib import PupyServer
 from pupylib import PupyCmdLoop
 from pupylib import PupyCredentials
 from pupylib import PupyConfig
 from pupylib import __version__
-
-sys.path.append(
-    os.path.join(os.path.abspath(os.path.dirname(__file__)), 'external', 'scapy')
-)
 
 def print_version():
     print("Pupy - %s"%(__version__))
