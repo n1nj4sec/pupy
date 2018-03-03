@@ -47,7 +47,7 @@ except ImportError as e:
             for i in range(0,len(data), 16):
                 encrypted.append(self.cipher.encrypt(data[i:i+16]))
 
-            return b''.join(encryped)
+            return b''.join(encrypted)
 
         def decrypt(self, data):
             """ data has to be padded """
