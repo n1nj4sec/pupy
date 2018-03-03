@@ -98,6 +98,9 @@ class PupyClient(object):
     def is_linux(self):
         return "linux" in self.desc["platform"].lower()
 
+    def is_java(self):
+        return "java" in self.desc["platform"].lower()
+
     def is_android(self):
         return self.desc["platform"].lower()=="android"
 

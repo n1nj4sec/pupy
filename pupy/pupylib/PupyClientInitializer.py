@@ -215,7 +215,31 @@ def get_uuid():
         pass
 
     try:
-        plat=platform.system()
+        plat = platform.system()
+        if plat == 'Java':
+            # Jython!
+            if hasattr(sys, 'system_java'):
+                plat = sys.system_java
+            else:
+                jsystem = sys.platform.getshadow()
+
+                # Fix this crap
+                setattr(sys, 'platform', jsystem)
+
+                if jsystem == 'linux2':
+                    plat = 'Linux+Java'
+                elif jsystem == 'win32':
+                    plat = 'Windows+Java'
+                else:
+                    plat = jsystem + '+Java'
+
+                setattr(sys, 'system_java', plat)
+
+                import ctypes.util
+                plat += '+JyNI'
+
+                setattr(sys, 'system_java', plat)
+
     except Exception:
         pass
 
