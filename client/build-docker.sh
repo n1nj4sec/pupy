@@ -4,14 +4,14 @@ SELF=`readlink -f "$0"`
 PUPY=`dirname "$SELF"`/../
 PUPY=`readlink -f "$PUPY"`
 
-REPO=${DOCKER_REPO:-"alxchk"}
+DOCKER_REPO=${DOCKER_REPO:-"alxchk"}
 CLEAN=${CLEAN:-"no"}
 
 if [ ! -z "$REPO" ]; then
     if [ "$REPO" == "local" ]; then
-	REPO=""
+        REPO=""
     else
-	REPO="$REPO/"
+        REPO="$DOCKER_REPO/"
     fi
 fi
 
