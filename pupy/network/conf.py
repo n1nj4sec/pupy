@@ -30,9 +30,13 @@ transports = {}
 
 def add_transport(module_name):
     try:
-        confmodule = importlib.import_module('network.transports.'+module_name+'.conf')
+        confmodule = importlib.import_module('network.transports.{}.conf'.format(module_name))
+        if not confmodule:
+            logging.warning('Import failed: {}'.format(module_name))
+            return
+
         if not hasattr(confmodule, 'TransportConf'):
-            logging.error('No class TransportConf in transport network.transports.%s'%module_name)
+            logging.warning('TransportConf is not present in {}'.format(module_name))
             return
 
         t = confmodule.TransportConf
@@ -43,7 +47,7 @@ def add_transport(module_name):
         logging.debug('Transport loaded: {}'.format(t.name))
 
     except Exception, e:
-        logging.warning('Transport disabled: {}: {}'.format(module_name, e))
+        logging.exception('Transport disabled: {}: {}'.format(module_name, e))
 
 #importing from memory (used by payloads)
 try:
@@ -63,6 +67,8 @@ try:
             logging.exception('Transport failed: {}: {}'.format(module_name, e))
 
 except Exception as e:
+    logging.debug('Transports memory loading failed: {}'.format(e))
+
     import transports as trlib
     import pkgutil
 

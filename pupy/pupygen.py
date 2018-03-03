@@ -134,7 +134,8 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
             repr(cPickle.dumps({
-                'pupy_credentials.pye' : pupycompile(embedded_credentials, obfuscate=True)
+                'pupy_credentials.pye' :
+                bytes(pupycompile(embedded_credentials, obfuscate=True))
             }))),
         dependencies.importer(set(
             'network.transports.{}'.format(transport) for transport in transports_list

