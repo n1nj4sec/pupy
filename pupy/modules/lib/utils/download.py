@@ -302,7 +302,7 @@ class DownloadFronted(object):
                 filepath = self._local_path
 
             if F_ROOT in msg:
-                if self._honor_single_file_root and not self.archive:
+                if self._honor_single_file_root and not self._archive:
                     try:
                         os.makedirs(os.path.dirname(filepath))
                     except OSError, e:
