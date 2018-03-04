@@ -10,13 +10,24 @@ PIE ?= -pie
 
 CFLAGS += -D$(OS) -std=gnu99
 
-LIBPYTHON ?= $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
-LIBCRYPTO ?= $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
-LIBSSL ?= $(shell /sbin/ldconfig -p  | awk '/libssl.so.1.0.0/{print $$4}' | head -n 1)
+ifeq ($(LIBPYTHON),)
+LIBPYTHON := $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
+endif
+
+ifeq ($(LIBCRYPTO),)
+LIBCRYPTO := $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
+endif
+
+ifeq ($(LIBSSL),)
+LIBSSL := $(shell /sbin/ldconfig -p  | awk '/libssl.so.1.0.0/{print $$4}' | head -n 1)
+endif
 
 XZARGS ?= "gcc" "aligned(0x1000)" 'section(".xzrodata")'
 
+ifeq ($(ARCH),)
 ARCH ?= $(shell file $(LIBPYTHON) | grep 32-bit >/dev/null && echo 32 || echo 64)
+endif
+
 ifeq ($(ARCH),64)
 NAME := 64
 LDFLAGS += -m64
@@ -111,7 +122,7 @@ resources/$(ARCH)/python27.so: $(LIBPYTHON)
 	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
 	-strip $@.tmp
-	sed $@.tmp -e 's@/tmp@\x00tmp@g;s@/usr@\x00usr@g' >$@
+	sed $@.tmp -e 's@/tmp@\x00tmp@g;s@/usr@\x00usr@g' >$@ || ( rm -f $@; cp $@.tmp $@ )
 	rm -f $@.tmp
 
 resources/$(ARCH)/libcrypto.so: $(LIBCRYPTO)
@@ -166,4 +177,3 @@ distclean: clean
 	rm -rf resources
 
 $(COMMON_OBJS) $(PYOBJS): import-tab.h
-

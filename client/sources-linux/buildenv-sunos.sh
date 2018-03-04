@@ -4,8 +4,9 @@ set -e
 
 exec 2>buildenv-sunos.log
 
-BUILDENV=`pwd`/buildenv-sunos
-TEMPLATES=`pwd`/../../pupy/payload_templates
+BPWD=`pwd`
+BUILDENV=$BPWD/buildenv-sunos
+TEMPLATES=$BPWD/../../pupy/payload_templates
 
 cat >gccwrap << '__EOF__'
 #!/usr/bin/bash
@@ -39,7 +40,7 @@ exec gcc $GCCWRAP_CFLAGS_EXTRA "${outargs[@]}"
 __EOF__
 
 chmod +x gccwrap
-export CC=`pwd`/gccwrap
+export CC=$BPWD/gccwrap
 
 mkdir -p $BUILDENV
 
@@ -50,7 +51,7 @@ SQLITE_SRC="http://www.sqlite.org/2018/sqlite-autoconf-3220000.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
 PYTHON_SRC="https://www.python.org/ftp/python/2.7.14/Python-2.7.14.tgz"
 
-export PATH="$BUILDENV/build/bin:/opt/csw/bin/:/usr/sfw/bin/:/usr/xpg4/bin/:$PATH"
+export PATH="$BUILDENV/build/bin:/opt/csw/bin/:/usr/sfw/bin/:/usr/ccs/bin/:/usr/xpg4/bin/:$PATH"
 
 # pkgutil -y -i wget automake autoconf pkgconfig xz libtool git
 
@@ -85,8 +86,19 @@ cd $BUILDENV/src/openssl-1.0.2n
 
 export GCCWRAP_CFLAGS_EXTRA=-std=gnu99
 cd $BUILDENV/src/Python-2.7.14
-./configure --with-ensurepip=install --enable-unicode=ucs4 --with-system-ffi --enable-ipv6 --enable-shared --prefix=$BUILDENV/build
+if [ -f $BPWD/Setup.dist ]; then
+    cp -f $BPWD/Setup.dist Modules/
+fi
+./configure --with-ensurepip=install --enable-unicode=ucs4 \
+	    --with-system-ffi --enable-ipv6 --prefix=$BUILDENV/build \
+	    CFLAGS="$CFLAGS -DXML_DEV_URANDOM"
 gmake; gmake install
+gcc -m64 --without-libgcc -shared -fPIC -o $BUILDENV/build/lib/libpython2.7.so \
+    -Wl,--whole-archive libpython2.7.a -Wl,--no-whole-archive \
+    -lc -lnsl -lsocket -lz -lm -ldl -lrt \
+    $BUILDENV/build/lib/libssl.so $BUILDENV/build/lib/libcrypto.so \
+    -lpthread \
+    -Wl,--no-undefined -Wl,-h,libpython2.7.so.1.0
 
 unset GCCWRAP_CFLAGS_EXTRA
 
@@ -136,6 +148,8 @@ python -m pip install git+https://github.com/alxchk/pyuv.git
 python -m pip install git+https://github.com/alxchk/pykcp.git
 
 cd $BUILDENV/build/lib/python2.7
+
+find . -name "*.so*" | while read lib; do strip $lib; done
 
 zip -y \
     -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyc" -x "*.pyo" \
