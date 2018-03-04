@@ -58,10 +58,12 @@ if __name__=="__main__":
         default='WARNING')
     parser.add_argument('--version', help='print version and exit', action='store_true')
     parser.add_argument(
-        '-l', '--listen', help='Bind server listener with transport and args to port. '
-        'Example: -l ssl 127.0.0.1:443 -l kcp 80 -l xyz 1234 OPTION1=value OPTION2=value. '
+        '-l', '--listen',
+        help='Bind server listener with transport and args to port.'
+        'Example: -l ssl 127.0.0.1:443 -l kcp 80 -l xyz 1234 OPTION1=value OPTION2=value.'
         'Transports: {}'.format(','.join(x for x in network.conf.transports.iterkeys())),
-        nargs='+', metavar=('TRANSPORT', '[[EXTERNAL_IP=]IP]:[EXTERNAL_PORT=]PORT OPTION=value'),
+        nargs='+',
+        metavar=('TRANSPORT', '<<EXTERNAL_IP=>IP>:<EXTERNAL_PORT=>PORT OPTION=value'),
         action='append', default=[]
     )
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
