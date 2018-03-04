@@ -4,6 +4,7 @@ from pupylib.PupyCmd import PupyCmd
 from pupylib.utils.term import terminal_size, colorize
 from modules.lib.utils.shell_exec import shell_exec
 import logging
+import re
 
 __class_name__="PsModule"
 
@@ -180,6 +181,41 @@ def print_psinfo(fout, families, socktypes, data, colinfo, width=80, sections=[]
 
             fout.write(gen_output_line(columns, outcols, info, width)+'\n')
 
+
+def is_filtered(pid, columns, hide, show):
+    default_deny = False
+
+    if not hide and not show:
+        return False
+
+    if not hide and show:
+        default_deny = True
+    if not show and hide:
+        default_deny = False
+
+    deny = default_deny
+
+    name = columns['name']
+    exe  = columns['exe']
+    cmd  = columns['cmdline']
+
+    for hide_rule in hide:
+        if type(hide_rule) == int:
+            if hide_rule == pid:
+                deny = True
+        elif hide_rule.match(exe) or hide_rule.match(name) or hide_rule.match(cmd):
+                deny = True
+
+    for show_rule in show:
+        if type(show_rule) == int:
+            if show_rule == pid:
+                deny = False
+        elif show_rule.match(exe) or show_rule.match(name) or show_rule.match(cmd):
+                deny = False
+
+    return deny
+
+
 def print_pstree(fout, parent, tree, data,
                       prefix='', indent='', width=80, colinfo={},
                       info=['exe', 'cmdline'], hide=[],
@@ -188,7 +224,7 @@ def print_pstree(fout, parent, tree, data,
         data[parent]['pid'] = parent
         columns = gen_columns(data[parent], colinfo)
 
-        if ( columns['name'] in hide ) or ( columns['exe'] in hide ) or ( parent in hide ):
+        if is_filtered(parent, columns, hide, []):
             return
 
         columns['prefix'] = prefix
@@ -232,26 +268,11 @@ def print_ps(fout, data, width=80, colinfo={},
         x for x in info if x in ('cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline')
     ]
 
-    default_deny = False
-
-    if '*' in hide or ( not hide and show ):
-        default_deny = True
-    if '*' in show or ( not show and hide ):
-        default_deny = False
-
     for process in sorted(data):
         data[process]['pid'] = process
         columns = gen_columns(data[process], colinfo)
 
-        deny = default_deny
-
-        if ( columns['name'] in hide ) or ( columns['exe'] in hide ) or ( process in hide ):
-            deny = True
-
-        if ( columns['name'] in show ) or ( columns['exe'] in show ) or ( process in show ):
-            deny = False
-
-        if deny:
+        if is_filtered(process, columns, hide, show):
             continue
 
         fout.write(gen_output_line(columns, outcols, data[process], width)+'\n')
@@ -272,10 +293,11 @@ class PsModule(PupyModule):
                                          default=None, help='print info for sections (-s only)')
         self.arg_parser.add_argument('-a', '--all', action='store_true', help='show kthread')
         self.arg_parser.add_argument('-w', '--wide', action='store_true', help='show all arguments')
-        self.arg_parser.add_argument('-x', '--hide', nargs='+', default=[], help='hide processes by pid/name/exe')
+        self.arg_parser.add_argument('-x', '--hide', nargs='+', default=[],
+                                     help='hide processes by pid/name/exe (regex)')
         filtering = self.arg_parser.add_mutually_exclusive_group()
         filtering.add_argument('-s', '--show', nargs='+', default=[],
-                                         help='show process info (or subtree) by pid/name/exe')
+                                         help='show process info (or subtree) by pid/name/exe (regex)')
         filtering.add_argument('-S', '--show-pid', nargs='+', type=int, default=[],
                                          help='show extended process info (or subtree) by pid')
 
@@ -314,10 +336,10 @@ class PsModule(PupyModule):
         try:
             info = ['exe', 'cmdline']
             hide = [
-                int(x) if x.isdigit() else x for x in args.hide
+                int(x) if x.isdigit() else re.compile(x, re.IGNORECASE) for x in args.hide
             ]
             show = [
-                int(x) if x.isdigit() else x for x in args.show
+                int(x) if x.isdigit() else re.compile(x, re.IGNORECASE) for x in args.show
             ]
 
             if not args.all and not args.show and (
