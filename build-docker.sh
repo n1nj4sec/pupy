@@ -7,14 +7,16 @@ TAG=${TAG:-"latest"}
 
 set -e
 
-REPO=${DOCKER_REPO:-"alxchk"}
+DOCKER_REPO=${DOCKER_REPO:-"alxchk"}
 
 if [ ! -z "$REPO" ]; then
     if [ "$REPO" == "local" ]; then
-	REPO="pupy"
+        REPO="pupy"
     else
-	REPO="$REPO/pupy"
+        REPO="$REPO/pupy"
     fi
+else
+    REPO="${DOCKER_REPO}/pupy"
 fi
 
 

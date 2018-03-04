@@ -11,8 +11,10 @@ if [ ! -z "$REPO" ]; then
     if [ "$REPO" == "local" ]; then
         REPO=""
     else
-        REPO="$DOCKER_REPO/"
+        REPO="$REPO/"
     fi
+else
+    REPO="${DOCKER_REPO}/"
 fi
 
 echo $PUPY
