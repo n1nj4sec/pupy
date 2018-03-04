@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import string
+import sys
 
 def ascii85EncodeDG(str):
     "Encode a string according to ASCII-Base-85."
