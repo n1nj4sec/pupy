@@ -20,7 +20,7 @@ from rpyc.utils.helpers import restricted
 import textwrap
 import json
 import zlib
-import umsgpack as msgpack
+import msgpack
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """

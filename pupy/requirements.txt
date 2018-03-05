@@ -28,3 +28,4 @@ keyboard
 poster
 win_inet_pton
 scandir
+msgpack

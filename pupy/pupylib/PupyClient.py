@@ -26,7 +26,7 @@ import platform
 
 import zlib
 
-import umsgpack as msgpack
+import msgpack
 
 from threading import Lock
 
