@@ -29,3 +29,5 @@ poster
 win_inet_pton
 scandir
 msgpack
+M2Crypto
+git+https://github.com/alxchk/pykcp
