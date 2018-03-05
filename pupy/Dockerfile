@@ -12,7 +12,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
     autoconf automake unzip libtool locales ncurses-term bash tcpdump libpam-cap \
     openjdk-8-jdk-headless python-m2crypto python-cryptography python-cffi-backend python-paramiko \
     python-pefile python-netifaces python-psutil python-lzma python-colorama python-openssl python-scapy \
-    python-pygments python-requests python-httpbin python-rsa python-http-parser && \
+    python-pygments python-requests python-httpbin python-rsa python-http-parser git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
@@ -28,11 +28,10 @@ RUN chmod +s /usr/sbin/tcpdump
 RUN chown pupy:pupy -R /home/pupy; chmod 700 /home/pupy/.ssh
 RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
 
-COPY requirements.txt /tmp/requirements.txt
 RUN python -m pip install --upgrade pip six setuptools wheel
-RUN pip install -r /tmp/requirements.txt
 
 COPY . /opt/pupy
+RUN cd /opt/pupy && pip install -r requirements.txt
 
 ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20180205/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
