@@ -39,3 +39,9 @@
 [submodule "pupy/pupy/external/BeRoot"]
 	path = pupy/external/BeRoot
 	url = https://github.com/AlessandroZ/BeRoot
+[submodule "client/toolchain/docker-old-tc-bootstrap"]
+	path = client/toolchain/docker-old-tc-bootstrap
+	url = https://github.com/alxchk/docker-old-tc-bootstrap
+[submodule "client/toolchain/docker-old-tc"]
+	path = client/toolchain/docker-old-tc
+	url = https://github.com/alxchk/docker-old-tc
