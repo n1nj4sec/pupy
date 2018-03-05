@@ -6,14 +6,11 @@ Pupy can generate payloads in multiple formats like PE executables, reflective D
 When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like starting a background script, adding persistence, starting a keylogger, detecting a sandbox, ...
 
 ## Installation
+Make sure you have installed Git and python2 for this to work
 ```
 git clone https://github.com/n1nj4sec/pupy.git pupy
 cd pupy
-git submodule init
-git submodule update
-pip install -r pupy/requirements.txt
-wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
-tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
+./init.sh
 ```
 or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 
