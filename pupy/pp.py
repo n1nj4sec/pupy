@@ -783,7 +783,11 @@ def rpyc_loop(launcher):
                 stream = ret
 
                 def check_timeout(event, cb, timeout=60):
-                    time.sleep(timeout)
+                    now = time.time()
+
+                    while ( time.time() - now < timeout ) and not event.is_set():
+                        time.sleep(1)
+
                     if not event.is_set():
                         logger.error('timeout occured!')
                         cb()
