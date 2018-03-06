@@ -263,24 +263,17 @@ class PupyClient(object):
 
         self.pupyimporter = self.remote('pupyimporter')
 
-        try:
-            self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_request_hook)
+        if self.conn.register_remote_cleanup:
+            self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_request_hook)
             self.pupyimporter.register_package_request_hook(self.remote_load_package)
-        except:
-            pass
-
-        try:
-            self.conn._conn.root.register_cleanup(self.pupyimporter.unregister_package_error_hook)
+            self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_error_hook)
             self.pupyimporter.register_package_error_hook(self.remote_print_error)
-        except:
-            pass
 
         self.load_dll = getattr(self.pupyimporter, 'load_dll', None)
         self.new_dlls = getattr(self.pupyimporter, 'new_dlls', None)
         self.new_modules = getattr(self.pupyimporter, 'new_modules', None)
 
-        remote_obtain_call = getattr(self.conn._conn.root, 'obtain_call', None)
-        if remote_obtain_call:
+        if self.conn.obtain_call:
             def obtain_call(function, *args, **kwargs):
                 if args or kwargs:
                     packed_args = msgpack.dumps((args, kwargs))
@@ -288,7 +281,7 @@ class PupyClient(object):
                 else:
                     packed_args = None
 
-                result = remote_obtain_call(function, packed_args)
+                result = self.conn.obtain_call(function, packed_args)
                 result = zlib.decompress(result)
                 result = msgpack.loads(result)
 
