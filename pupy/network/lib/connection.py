@@ -4,6 +4,7 @@ import time
 
 from rpyc.core import Connection, consts, brine
 from threading import Thread, Event, Lock, RLock
+from Queue import Queue, Full, Empty
 
 import logging
 
@@ -52,6 +53,81 @@ brine.dump = stream_dump
 
 ################################################################
 
+class SyncRequestDispatchQueue(object):
+    instance = None
+
+    def __init__(self):
+        self._queue = Queue(maxsize=1)
+        self._workers = 0
+        self._pending_workers = 0
+        self._workers_lock = Lock()
+        self._primary_worker = Thread(target=self._dispatch_request_worker)
+        self._primary_worker.daemon = True
+        self._primary_worker.start()
+        self._closed = False
+
+    @staticmethod
+    def get_queue():
+        if not SyncRequestDispatchQueue.instance:
+            SyncRequestDispatchQueue.instance = SyncRequestDispatchQueue()
+
+        return SyncRequestDispatchQueue.instance
+
+    def _dispatch_request_worker(self):
+        with self._workers_lock:
+            self._workers += 1
+
+        task = self._queue.get()
+        while task and not self._closed:
+            func, args = task
+            with self._workers_lock:
+                self._pending_workers += 1
+
+            func(*args)
+
+            del func, args
+
+            with self._workers_lock:
+                self._pending_workers -= 1
+
+            again = False
+            task = None
+
+            try:
+                task = self._queue.get_nowait()
+            except Empty:
+                with self._workers_lock:
+                    if self._pending_workers or self._workers < 2:
+                        again = True
+
+            if self._closed:
+                break
+
+            if again:
+                task = self._queue.get()
+
+        with self._workers_lock:
+            self._workers -= 1
+
+    def __call__(self, func, *args):
+        while True:
+            try:
+                with self._workers_lock:
+                    self._queue.put_nowait((func, args))
+                break
+            except Full:
+                thread = Thread(target=self._dispatch_request_worker)
+                thread.daemon = True
+                thread.start()
+
+    def close(self):
+        self._closed = True
+        while True:
+            try:
+                self._queue.put_nowait(None)
+            except Full:
+                break
+
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
@@ -65,6 +141,8 @@ class PupyConnection(Connection):
         self._serve_timeout = 10
         self._last_ping = None
         self._default_serve_timeout = 5
+        self._queue = SyncRequestDispatchQueue.get_queue()
+
         self.initialized = Event()
 
         if 'ping' in kwargs:
@@ -89,6 +167,9 @@ class PupyConnection(Connection):
 
         if 'config' in kwargs:
             self._config.update(kwargs['config'])
+
+    def _queue_dispatch_request(self, seq, args):
+        self._queue(self._dispatch_request, seq, args)
 
     def consume(self):
         return self._channel.consume()
@@ -353,34 +434,38 @@ class PupyConnection(Connection):
 
         if data:
             msg, seq, args = brine._load(data)
-            if __debug__:
-                logger.debug('Processing message, seq: {} - started'.format(seq))
+            if msg == consts.MSG_REQUEST:
+                if __debug__:
+                    logger.debug('Processing message request, seq: {} - started'.format(seq))
+                self._queue_dispatch_request(seq, args)
 
-            locked = False
+            else:
+                if __debug__:
+                    logger.debug('Processing message response, seq: {} - started'.format(seq))
 
-            with self._sync_events_lock:
-                if seq in self._sync_locks:
-                    self._sync_locks[seq].acquire()
-                    locked = True
+                locked = False
 
-            try:
-                if msg == consts.MSG_REQUEST:
-                    self._dispatch_request(seq, args)
-                elif msg == consts.MSG_REPLY:
-                    self._dispatch_reply(seq, args)
-                elif msg == consts.MSG_EXCEPTION:
-                    self._dispatch_exception(seq, args)
-                else:
-                    raise ValueError("invalid message type: %r" % (msg,))
+                with self._sync_events_lock:
+                    if seq in self._sync_locks:
+                        self._sync_locks[seq].acquire()
+                        locked = True
 
-            finally:
-                if locked:
-                    self._sync_locks[seq].release()
+                try:
+                    if msg == consts.MSG_REPLY:
+                        self._dispatch_reply(seq, args)
+                    elif msg == consts.MSG_EXCEPTION:
+                        self._dispatch_exception(seq, args)
+                    else:
+                        raise ValueError("invalid message type: %r" % (msg,))
 
-            if __debug__:
-                logger.debug('Processing message, seq: {} - completed'.format(seq))
+                finally:
+                    if locked:
+                        self._sync_locks[seq].release()
 
-            self._last_ping = now
+                if __debug__:
+                    logger.debug('Processing message, seq: {} - completed'.format(seq))
+
+        self._last_ping = now
 
         with self._async_lock:
             for async_event in self._async_callbacks.itervalues():
