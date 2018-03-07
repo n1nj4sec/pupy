@@ -187,10 +187,13 @@ class PupyJob(object):
         if hasattr(self.pupymodules[0],'interrupt'):
             for m in self.pupymodules:
                 m.interrupt()
+
+            return True
         else:
             self.worker_pool.interrupt_all()
             if wait:
                 self.wait()
+            return False
 
     def interactive_wait(self):
         while True:

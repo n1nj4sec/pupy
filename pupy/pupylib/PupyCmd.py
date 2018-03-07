@@ -802,9 +802,13 @@ class PupyCmd(cmd.Cmd):
                     pj.stop()
 
         except KeyboardInterrupt:
-            self.display_warning("interrupting job ... (please wait)")
-            pj.interrupt()
-            self.display_warning("job interrupted")
+            self.display_warning('interrupting job ... (please wait)')
+            interrupted = pj.interrupt()
+            if interrupted:
+                self.display_warning('job was interrupted')
+            else:
+                self.display_error('job was sent to background and may consume resources')
+
         if not interactive:
             summary = pj.result_summary()
             if summary is not None:
