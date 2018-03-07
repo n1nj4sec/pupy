@@ -18,6 +18,8 @@ except:
 import threading
 import rpyc
 
+import errno
+
 class Search(object):
     def __init__(self, path,
                      strings=[], max_size=20000000, root_path='.', no_content=False,
@@ -135,20 +137,30 @@ class Search(object):
                 yield files
 
     def _run_thread(self, on_data, on_completed, on_error):
+        previous_result = None
+
         for result in self.run():
             if isinstance(result, Exception):
                 if on_error:
-                    try:
-                        on_error('Scanwalk exception: {}:{}'.format(
-                            str(type(result)),
-                            str(result)))
-                    except:
-                        break
+                    if isinstance(result, OSError):
+                        if not result.errno in (errno.EPERM, errno.EACCES):
+                            on_error(
+                                result.filename + ': ' + \
+                                ' '.join(x for x in result.args if type(x) in (str, unicode)))
+                    else:
+                        try:
+                            on_error('Scanwalk exception: {}:{}'.format(
+                                str(type(result)),
+                                str(result)))
+                        except:
+                            break
 
                 continue
 
             try:
-                on_data(result)
+                if result != previous_result:
+                    on_data(result)
+                    previous_result = result
             except:
                 break
 
