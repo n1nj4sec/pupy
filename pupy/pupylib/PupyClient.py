@@ -249,19 +249,25 @@ class PupyClient(object):
 
     def load_pupyimporter(self):
         """ load pupyimporter in case it is not """
-        if not self.conn.modules.sys.modules.has_key('pupyimporter'):
-            self.conn.execute('\n'.join([
-                'import imp, sys, marshal',
-                'mod = imp.new_module("pupyimporter")',
-                'mod.__file__="<bootloader>/pupyimporter"',
-                'exec marshal.loads({}) in mod.__dict__'.format(
-                    repr(pupycompile(
-                        os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
-                        'pupyimporter.py', path=True, raw=True))),
-                'sys.modules["pupyimporter"]=mod',
-                'mod.install()']))
 
-        self.pupyimporter = self.remote('pupyimporter')
+        if not self.conn.pupyimporter:
+            try:
+                self.pupyimporter = self.remote('pupyimporter')
+            except:
+                self.conn.execute('\n'.join([
+                    'import imp, sys, marshal',
+                    'mod = imp.new_module("pupyimporter")',
+                    'mod.__file__="<bootloader>/pupyimporter"',
+                    'exec marshal.loads({}) in mod.__dict__'.format(
+                        repr(pupycompile(
+                            os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
+                            'pupyimporter.py', path=True, raw=True))),
+                    'sys.modules["pupyimporter"]=mod',
+                    'mod.install()']))
+
+                self.pupyimporter = self.remote('pupyimporter')
+        else:
+            self.pupyimporter = self.conn.pupyimporter
 
         if self.conn.register_remote_cleanup:
             self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_request_hook)

