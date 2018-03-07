@@ -45,7 +45,7 @@ WELL_KNOWN_DEPS = {
         'windows': [ 'sqlite3.dll' ],
     },
     'xml': {
-        'all': [ '_elementtree', 'xml.etree' ]
+        'all': [ 'xml.etree' ]
     },
     'secretstorage': {
         'linux': [ 'dbus' ]
