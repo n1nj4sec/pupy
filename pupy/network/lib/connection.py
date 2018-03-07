@@ -79,11 +79,14 @@ class SyncRequestDispatchQueue(object):
 
         task = self._queue.get()
         while task and not self._closed:
-            func, args = task
+            on_error, func, args = task
             with self._workers_lock:
                 self._pending_workers += 1
 
-            func(*args)
+            try:
+                func(*args)
+            except Exception, e:
+                on_error(e)
 
             del func, args
 
@@ -109,11 +112,11 @@ class SyncRequestDispatchQueue(object):
         with self._workers_lock:
             self._workers -= 1
 
-    def __call__(self, func, *args):
+    def __call__(self, on_error, func, *args):
         while True:
             try:
                 with self._workers_lock:
-                    self._queue.put_nowait((func, args))
+                    self._queue.put_nowait((on_error, func, args))
                 break
             except Full:
                 thread = Thread(target=self._dispatch_request_worker)
@@ -131,6 +134,7 @@ class SyncRequestDispatchQueue(object):
 class PupyConnection(Connection):
     def __init__(self, lock, pupy_srv, *args, **kwargs):
         self._sync_events = {}
+        self._sync_events_interrupts = {}
         self._sync_locks = {}
         self._connection_serve_lock = lock
         self._async_lock = Lock()
@@ -142,6 +146,8 @@ class PupyConnection(Connection):
         self._last_ping = None
         self._default_serve_timeout = 5
         self._queue = SyncRequestDispatchQueue.get_queue()
+
+        self._serve_interrupt = Event()
 
         self.initialized = Event()
 
@@ -168,8 +174,19 @@ class PupyConnection(Connection):
         if 'config' in kwargs:
             self._config.update(kwargs['config'])
 
+        next(self._seqcounter)
+
+    def _dispatch_request(self, seq, args):
+        super(PupyConnection, self)._dispatch_request(seq, args)
+
     def _queue_dispatch_request(self, seq, args):
-        self._queue(self._dispatch_request, seq, args)
+        self._queue(self._on_sync_request_exception, self._dispatch_request, seq, args)
+
+    def _on_sync_request_exception(self, exc):
+        if not isinstance(exc, EOFError):
+            logger.exception(exc)
+
+        self.close()
 
     def consume(self):
         return self._channel.consume()
@@ -226,7 +243,7 @@ class PupyConnection(Connection):
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
         if __debug__:
-            logger.debug('Sync request: {} / {} / {}'.format(seq, handler, args))
+            logger.debug('Sync request: {} / {}'.format(seq, handler))
 
         while not ( self._sync_events[seq].is_set() or self.closed ):
             if __debug__:
@@ -236,6 +253,10 @@ class PupyConnection(Connection):
 
             if synclocked and self._connection_serve_lock.acquire(False):
                 data = None
+
+                with self._sync_events_lock:
+                    if seq in self._sync_events_interrupts:
+                        self._sync_events_interrupts[seq].set()
 
                 try:
                     # Ensure event was not missed between previous lock
@@ -273,14 +294,25 @@ class PupyConnection(Connection):
 
                 self.dispatch(data)
 
+                # Wake one pending event just in case
+                with self._sync_events_lock:
+                    for event in self._sync_events_interrupts.itervalues():
+                        if not event.is_set():
+                            event.set()
+                            break
+
             else:
                 if synclocked:
                     self._sync_locks[seq].release()
 
                 if __debug__:
-                    logger.debug('Sync poll wait: {}'.format(seq))
+                    logger.debug('Sync poll wait: {} / {}'.format(seq, synclocked))
 
-                self._sync_events[seq].wait(timeout=self._serve_timeout)
+                with self._sync_events_lock:
+                    self._sync_events_interrupts[seq].clear()
+
+                self._sync_events_interrupts[seq].wait(timeout=self._serve_timeout)
+
                 if self._ping:
                     if __debug__:
                         logger.debug('Send ping (timeout: {})'.format(self._ping_timeout))
@@ -290,6 +322,9 @@ class PupyConnection(Connection):
                     if __debug__:
                         logger.debug('Send ping (timeout: {}) - sent'.format(self._ping_timeout))
 
+                if not self._sync_events[seq].is_set():
+                    continue
+
             if __debug__:
                 logger.debug('Sync poll complete: {}/inactive={}'.format(seq, self.inactive))
 
@@ -297,13 +332,10 @@ class PupyConnection(Connection):
             logger.debug('Sync request handled: {}'.format(seq))
 
         with self._sync_events_lock:
-            if seq in self._sync_events:
+            with self._sync_locks[seq]:
+                del self._sync_locks[seq]
                 del self._sync_events[seq]
-
-            if seq in self._sync_locks:
-                with self._sync_locks[seq]:
-                    if seq in self._sync_locks:
-                        del self._sync_locks[seq]
+                del self._sync_events_interrupts[seq]
 
         if self.closed:
             raise EOFError('Connection was closed, seq: {}'.format(seq))
@@ -327,8 +359,9 @@ class PupyConnection(Connection):
                 logger.debug('Sync request: {}'.format(seq))
 
             with self._sync_events_lock:
-                self._sync_events[seq] = Event()
                 self._sync_locks[seq] = RLock()
+                self._sync_events[seq] = Event()
+                self._sync_events_interrupts[seq] = Event()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
 
@@ -353,10 +386,9 @@ class PupyConnection(Connection):
         Connection._dispatch_reply(self, seq, raw)
         if sync:
             with self._sync_events_lock:
-                if not seq in self._sync_events:
-                    self._sync_events[seq] = Event()
-
                 self._sync_events[seq].set()
+                if seq in self._sync_events_interrupts:
+                    self._sync_events_interrupts[seq].set()
 
         if __debug__:
             logger.debug('Dispatch reply: {} - complete'.format(seq))
@@ -375,10 +407,9 @@ class PupyConnection(Connection):
         Connection._dispatch_exception(self, seq, raw)
         with self._sync_events_lock:
             if sync:
-                if not seq in self._sync_events:
-                    self._sync_events[seq] = Event()
-
                 self._sync_events[seq].set()
+                if seq in self._sync_events_interrupts:
+                    self._sync_events_interrupts[seq].set()
 
     def close(self, *args):
         try:
@@ -445,10 +476,9 @@ class PupyConnection(Connection):
 
                 locked = False
 
-                with self._sync_events_lock:
-                    if seq in self._sync_locks:
-                        self._sync_locks[seq].acquire()
-                        locked = True
+                if seq in self._sync_locks:
+                    self._sync_locks[seq].acquire()
+                    locked = True
 
                 try:
                     if msg == consts.MSG_REPLY:
