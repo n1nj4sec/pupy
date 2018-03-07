@@ -121,6 +121,8 @@ class PupyService(rpyc.Service):
                 self.pupy_srv.add_client(self)
 
             self.modules = modules
+            self.builtin = modules.__builtin__
+            self.builtins = self.builtin
 
     def exposed_msgpack_dumps(self, js, compressed=False):
         data = msgpack.dumps(js)
