@@ -17,6 +17,7 @@ class Circuit(object):
             self.upstream=stream.upstream
             self.stream=stream
         self.transport=transport
+
     def close(self):
         self.transport.on_close()
         self.stream.close()
@@ -26,14 +27,20 @@ class BasePupyTransport(object):
         if stream is None:
             upstream_peer = kwargs.get('upstream_peer', ("127.0.0.1", 443))
             downstream_peer = kwargs.get('downstream_peer', ("127.0.0.1", 443))
-            self.downstream=Buffer(transport_func=addGetPeer(downstream_peer))
-            self.upstream=Buffer(transport_func=addGetPeer(upstream_peer))
+            self.downstream = Buffer(transport_func=addGetPeer(downstream_peer))
+            self.upstream = Buffer(transport_func=addGetPeer(upstream_peer))
             self.stream = None
         else:
             self.downstream=stream.downstream
             self.upstream=stream.upstream
             self.stream=stream
-        self.circuit=Circuit(self.stream, self, downstream=self.downstream, upstream=self.upstream)
+
+        self.circuit = Circuit(
+            self.stream,
+            self,
+            downstream=self.downstream,
+            upstream=self.upstream)
+
         self.cookie=None
         self.closed=False
 
@@ -174,26 +181,29 @@ class TransportWrapper(BasePupyTransport):
         super(TransportWrapper, self).close()
 
     def downstream_recv(self, data, idx=0):
+        if not len(data):
+            return
+
         if idx > len(self.chain) - 1:
-            if len(data):
-                data.write_to(self.upstream)
+            data.write_to(self.upstream)
         else:
-            if len(data):
-                try:
-                    self.chain[idx].downstream_recv(data)
-                except ReleaseChainedTransport:
-                    self.chain = self.chain[:idx] + self.chain[idx+1:]
-                    self._setup_callbacks()
+            try:
+                self.chain[idx].downstream_recv(data)
+            except ReleaseChainedTransport:
+                del self.chain[idx]
+                self._setup_callbacks()
 
     def upstream_recv(self, data, idx=None):
+        if not len(data):
+            return
+
         if idx is None:
             idx = len(self.chain) - 1
 
-        if len(data):
-            if idx < 0:
-                data.write_to(self.downstream)
-            else:
-                self.chain[idx].upstream_recv(data)
+        if idx < 0:
+            data.write_to(self.downstream)
+        else:
+            self.chain[idx].upstream_recv(data)
 
 def chain_transports(*args):
     """ chain 2 or more transports in such a way that the first argument is the transport seen at network level like t1(t2(t3(...(raw_data)...)))"""
