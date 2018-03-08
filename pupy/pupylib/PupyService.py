@@ -78,10 +78,10 @@ class PupyService(rpyc.Service):
         self.namespace = namespace
         self.modules = modules
         self.builtin = self.builtins = builtin
-        self.register_remote_cleanup = register_cleanup
-        self.unregister_remote_cleanup = unregister_cleanup
+        self.register_remote_cleanup = rpyc.async(register_cleanup)
+        self.unregister_remote_cleanup = rpyc.async(unregister_cleanup)
         self.obtain_call = obtain_call
-        self.exit = remote_exit
+        self.exit = rpyc.timed(remote_exit, 1)
         self.eval = remote_eval
         self.execute = remote_execute
         self.pupyimporter = pupyimporter

