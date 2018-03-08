@@ -24,14 +24,10 @@ class Buffer(object):
         self._data = []
         self._len = 0
 
-        if data:
-            self._data.append(data)
-            self._len += len(data)
-
         self._bofft = 0
 
         self.on_write_f = on_write
-        self.data_lock = threading.Lock()
+        self.data_lock = threading.RLock()
         self.waiting = threading.Event()
         self.transport = transport_func
         self.cookie = None
@@ -41,6 +37,26 @@ class Buffer(object):
             self.compressor = zlib.compressobj(
                 compressed if type(compressed) is int else 9
             )
+
+            if data:
+                data = self.compressor.compress(data)
+
+        if data:
+            self._data.append(data)
+            self._len += len(data)
+
+    def __enter__(self):
+        self.data_lock.acquire()
+
+    def __exit__(self, *exc):
+        self.data_lock.release()
+
+    def copy(self):
+        buf = Buffer()
+        buf._data = list(self._data)
+        buf._len = self._len
+        buf._bofft = self._bofft
+        return buf
 
     def on_write(self):
         if self.on_write_f:
@@ -133,7 +149,11 @@ class Buffer(object):
         self._linearize(upto=n)
 
         if view:
-            mdata = memoryview(self._data[0])[self._bofft:self._bofft+n]
+            try:
+                mdata = memoryview(self._data[0])[self._bofft:self._bofft+n]
+            except TypeError:
+                # Fallback
+                mdata = bytes(self._data[0][self._bofft:self._bofft+n])
         else:
             mdata = bytes(self._data[0][self._bofft:self._bofft+n])
 
@@ -182,6 +202,50 @@ class Buffer(object):
                 self._data.insert(0, data)
 
             self._len += ldata
+
+    def _truncate(self, newlen):
+        if self._len == newlen:
+            return
+
+        if newlen < 0:
+            newlen = self._len + newlen
+
+        if newlen <= 0:
+            del self._data[:]
+            self._len = 0
+
+        elif self._len < newlen:
+            self._data.append(b'\x00'*(newlen - self._len))
+            self._len = newlen
+
+        else:
+            lendiff = self._len - newlen
+            while lendiff:
+                clen = len(self._data[-1])
+                offt = 0
+
+                print self._data[-1], offt, clen, lendiff
+
+                if len(self._data) == 1:
+                    offt = self._bofft
+                    clen -= offt
+
+                if clen <= lendiff:
+                    del self._data[-1]
+                    lendiff -= clen
+                else:
+                    newchunklen = clen - lendiff
+                    self._data[-1] = self._data[-1][offt:offt+newchunklen]
+                    if offt:
+                        self._bofft -= offt
+
+                    lendiff = 0
+
+            self._len = newlen
+
+    def truncate(self, newlen):
+        with self.data_lock:
+            self._truncate(newlen)
 
     def _append(self, data):
         if not data:
@@ -240,9 +304,10 @@ class Buffer(object):
         if self._len > 0:
             self.on_write()
 
-    def write_to(self, stream, modificator=None, notify=True, view=False, chunk_size=None):
+    def write_to(self, stream, modificator=None, notify=True, view=False, chunk_size=None, full_chunks=False):
         with self.data_lock:
             chunk_size = chunk_size or self.chunk_size
+            total_write = 0
 
             forced_notify = True
             if hasattr(stream, 'flush'):
@@ -255,16 +320,16 @@ class Buffer(object):
                 for idx, chunk in enumerate(self._data):
                     if idx == 0 and self._bofft:
                         chunk = chunk[self._bofft:]
+                        self._bofft = 0
 
                     if modificator:
                         chunk = modificator(bytes(chunk))
 
                     stream.write(chunk, notify=False)
+                    total_write += len(chunk)
 
-                self._bofft = 0
                 self._len = 0
                 del self._data[:]
-
             else:
                 # Old style interface. Better to send by big portions
 
@@ -272,6 +337,9 @@ class Buffer(object):
                     chunk_size = DEFAULT_FORCED_FLUSH_BUFFER_SIZE
 
                 while self._len:
+                    if full_chunks and self._len < chunk_size:
+                        break
+
                     chunk = self._obtain(
                         chunk_size,
                         release=True, view=not modificator)
@@ -284,8 +352,12 @@ class Buffer(object):
                     else:
                         stream.write(chunk, notify=False)
 
+                    total_write += len(chunk)
+
         if notify and not forced_notify:
             stream.flush()
+
+        return total_write
 
     def peek(self, n=-1, view=False):
         """
@@ -312,7 +384,7 @@ class Buffer(object):
             if n < 0 or n > self._len:
                 n = self._len
 
-            if n == '0':
+            if n == 0:
                 return
 
             elif n == self._len:
