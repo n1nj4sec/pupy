@@ -13,6 +13,8 @@ from hashlib import sha1
 from .utils import *
 import re
 
+logger = logging.getLogger('ws')
+
 class InvalidHTTPReq(Exception):
     pass
 
@@ -117,7 +119,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
             self.downstream.write(str(header) + encoded)
             data.drain(payload_len)
         except ValueError as e:
-            logging.debug(e)
+            logger.debug(e)
 
     def downstream_recv(self, data):
         """
@@ -129,7 +131,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
         #let's parse HTTP responses :
         if d.startswith("HTTP/1.1 ") and "\r\n\r\n" in d:
             data.drain(len(d))
-            logging.debug("Received upgrade response")
+            logger.debug("Received upgrade response")
             return
         while len(d)>0:
             d = data.peek()
@@ -180,12 +182,12 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                     data.drain(payload_len)
                     d=d[payload_len:]
                 except MissingData:
-                    logging.debug("Missing: %d Have: %d" % (self.missing_bytes, len(d)))
+                    logger.debug("Missing: %d Have: %d" % (self.missing_bytes, len(d)))
                     self.missing_bytes -= max(0, len(d))
                     decoded = d
                     data.drain(len(d))
                 except Exception as e:
-                    logging.debug(e)
+                    logger.debug(e)
         if decoded:
             self.upstream.write(decoded)
 
@@ -205,7 +207,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
         return response_key.decode('ASCII')
 
     def bad_request(self, msg):
-        logging.debug(msg)
+        logger.debug(msg)
         self.downstream.write(error_response)
         self.close(0)
 
@@ -233,7 +235,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             self.downstream.write(str(header) + d)
             data.drain(payload_len)
         except Exception as e:
-            logging.debug(e)
+            logger.debug(e)
 
     def downstream_recv(self, data):
         """
@@ -327,7 +329,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 data.drain(payload_len)
                 d=d[payload_len:]
             except MissingData:
-                logging.debug("Missing: %d Have: %d" % (self.missing_bytes, len(d)))
+                logger.debug("Missing: %d Have: %d" % (self.missing_bytes, len(d)))
                 self.missing_bytes -= max(0, len(d))
                 for ch in d:
                     ch = ord(ch) ^ ord(self.mask[(len(decoded)+self.decoded_len) % 4])
@@ -336,4 +338,4 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 self.upstream.write(decoded)
                 data.drain(len(d))
             except Exception as e:
-                logging.debug(e)
+                logger.debug(e)

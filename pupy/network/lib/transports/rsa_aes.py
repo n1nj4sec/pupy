@@ -13,92 +13,156 @@ except ImportError as e:
     Random=None
 from cryptoutils.aes import NewAESCipher
 
-BLOCK_SIZE=16
+from network.lib.buffer import Buffer
+
+BLOCK_SIZE = 16
+CHUNK_SIZE = 4096
+
+logger = logging.getLogger('rsaaes')
 
 class RSA_AESTransport(BasePupyTransport):
     """
     Implements a transport that simply apply a RSA_AES to each byte
     """
-    password=None
-    iterations=1000
-    key_size=32
-    rsa_key_size=4096
-    aes_size=256
+    password     = None
+    iterations   = 1000
+    key_size     = 32
+    rsa_key_size = 4096
+    aes_size     = 256
+
     def __init__(self, *args, **kwargs):
         super(RSA_AESTransport, self).__init__(*args, **kwargs)
-        if self.aes_size==256:
-            self.key_size=32
-        elif self.aes_size==128:
-            self.key_size=16
+        if self.aes_size == 256:
+            self.key_size = 32
+        elif self.aes_size == 128:
+            self.key_size = 16
         else:
             raise TransportError("Only AES 256 and 128 are supported")
+
         if Random:
             self._iv_enc = Random.new().read(BLOCK_SIZE)
         else:
             self._iv_enc = os.urandom(BLOCK_SIZE)
+
         self.enc_cipher = None
         self.dec_cipher = None
         self._iv_dec = None
-        self.aes_key=None
-        self.size_to_read=None
-        self.first_block=b""
+        self.aes_key = None
+        self.size_to_read = None
+        self.first_block = b""
+        self.buffer = Buffer()
 
     def upstream_recv(self, data):
         try:
-            cleartext=data.peek()
-            tosend=b""
-            packed_size=struct.pack("<I", len(cleartext))
-            tosend=packed_size+cleartext
-            tosend+=b"\x00"*(BLOCK_SIZE - (len(tosend)%BLOCK_SIZE))
-            data.drain(len(cleartext))
-            self.downstream.write(self.enc_cipher.encrypt(tosend))
-        except Exception as e:
-            logging.debug(e)
+            with data:
+                lctext = len(data)
+                ltotal = lctext + 4
+                lremainder = ltotal % BLOCK_SIZE
+                if lremainder:
+                    ltotal += BLOCK_SIZE - lremainder
 
+                data.insert(struct.pack('<I', lctext))
+                data.truncate(ltotal)
+
+                if __debug__:
+                    logger.debug('Send: cleartext len = {} padded+header = {}'.format(lctext, len(data)))
+
+                data.write_to(
+                    self.downstream,
+                    modificator=self.enc_cipher.encrypt,
+                    chunk_size=CHUNK_SIZE)
+
+        except Exception as e:
+            logger.debug(e)
 
     def downstream_recv(self, data):
         try:
-            enc=data.peek()
-            if self._iv_dec is None: #receive IV
-                if len(enc)<BLOCK_SIZE:
+            if __debug__:
+                logger.debug('Recv data len={}'.format(len(data)))
+
+            if not self._iv_dec:
+                if __debug__:
+                    logger.debug('Read IV')
+
+                if len(data) < BLOCK_SIZE:
+                    if __debug__:
+                        logger.debug('Read IV: Short read: {} < {}'.format(len(data), BLOCK_SIZE))
                     return
-                self._iv_dec=enc[0:BLOCK_SIZE]
+
+                self._iv_dec = data.read(BLOCK_SIZE)
                 self.dec_cipher = NewAESCipher(self.aes_key, self._iv_dec)
-                data.drain(BLOCK_SIZE)
-                enc=enc[BLOCK_SIZE:]
-                if not enc:
-                    return
-            cleartext=b""
-            full_block=b""
+
             while True:
-                if self.size_to_read is None:
-                    if len(enc)<BLOCK_SIZE:
+                if not self.size_to_read:
+                    if len(data) < BLOCK_SIZE:
+                        if __debug__:
+                            logger.debug('Read chunk header: Short read: {} < {}'.format(len(data), BLOCK_SIZE))
                         break
-                    self.first_block=self.dec_cipher.decrypt(enc[0:BLOCK_SIZE])
-                    data.drain(BLOCK_SIZE)
-                    self.size_to_read=struct.unpack("<I", self.first_block[0:4])[0]
-                    enc=enc[BLOCK_SIZE:]
-                if self.size_to_read is None:
-                    break
-                if self.size_to_read <= len(self.first_block[4:]):
-                    cleartext+=self.first_block[4:4+self.size_to_read] # the remaining data is padding, just drop it
-                    self.size_to_read=None
-                    self.first_block=b""
+
+                    self.first_block = self.dec_cipher.decrypt(data.read(BLOCK_SIZE))
+                    self.size_to_read = struct.unpack_from('<I', self.first_block)[0]
+
+                    if self.size_to_read == 0:
+                        raise ValueError('Zero sized chunk')
+
+                    if __debug__:
+                        logger.debug('Read chunk header: expect: {}'.format(self.size_to_read))
+
+                if self.size_to_read <= len(self.first_block) - 4:
+                    if __debug__:
+                        logger.debug('Read chunk: consume small chunk')
+                    # the remaining data is padding, just drop it
+                    self.upstream.write(self.first_block[4:4+self.size_to_read])
+                    self.size_to_read = 0
+                    self.first_block = b''
                     continue
-                s=(self.size_to_read-len(self.first_block[4:]))
-                blocks_to_read=s+(BLOCK_SIZE-(s%BLOCK_SIZE))
-                if len(enc) < blocks_to_read:
+
+                if self.first_block:
+                    if __debug__:
+                        logger.debug('Read chunk: start: cleartext len = {}'.format(self.size_to_read))
+
+                    self.upstream.write(self.first_block[4:], notify=False)
+                    self.size_to_read -= BLOCK_SIZE - 4
+                    self.first_block = b''
+
+                s = self.size_to_read
+
+                if s % BLOCK_SIZE:
+                    s += BLOCK_SIZE - (s % BLOCK_SIZE)
+
+                lb = len(data)
+                lb -= lb % BLOCK_SIZE
+
+                while s and lb:
+                    if __debug__:
+                        logger.debug('Read chunk: required: {} available: {}'.format(s, lb))
+
+                    to_read = min(s, CHUNK_SIZE)
+                    to_read = min(lb, to_read)
+
+                    cleartext = self.dec_cipher.decrypt(data.read(to_read))
+                    s -= to_read
+                    lb -= to_read
+
+                    if to_read >= self.size_to_read:
+                        self.upstream.write(cleartext[:self.size_to_read])
+                        self.size_to_read = 0
+
+                        if __debug__:
+                            logger.debug('Read chunk: chunk finished')
+
+                    else:
+                        self.upstream.write(cleartext, notify=False)
+                        self.size_to_read -= to_read
+
+                if not lb:
+                    if __debug__:
+                        logger.debug('Read chunk: No more data')
+
                     break
-                full_block=self.first_block[4:]+self.dec_cipher.decrypt(enc[:blocks_to_read])
-                cleartext+=full_block[0:self.size_to_read] # the remaining data is padding, just drop it
-                enc=enc[blocks_to_read:]
-                data.drain(blocks_to_read)
-                self.size_to_read=None
-                self.first_block=b""
-            self.upstream.write(cleartext)
 
         except:
-            logging.debug(traceback.format_exc())
+            logger.debug(traceback.format_exc())
 
 class RSA_AESClient(RSA_AESTransport):
     pubkey=None
@@ -122,15 +186,17 @@ class RSA_AESClient(RSA_AESTransport):
             self.aes_key = os.urandom(self.key_size)
 
         self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
-        self.downstream.write(rsa.encrypt(self.aes_key, pk))
-        logging.debug("AES key crypted with RSA public key and sent to server")
+
+        pkey = rsa.encrypt(self.aes_key, pk)
+        self.downstream.write(pkey, notify=False)
+        logger.debug('AES key crypted with RSA public key and sent to server (len={})'.format(len(pkey)))
         self.downstream.write(self._iv_enc)
-        logging.debug("IV sent to Server")
+        logger.debug('IV (len={}) sent to Server'.format(len(self._iv_enc)))
 
 
 class RSA_AESServer(RSA_AESTransport):
-    privkey=None
-    privkey_path=None
+    privkey = None
+    privkey_path = None
     def __init__(self, *args, **kwargs):
         super(RSA_AESServer, self).__init__(*args, **kwargs)
         if "privkey" in kwargs:
@@ -146,33 +212,42 @@ class RSA_AESServer(RSA_AESTransport):
 
     def downstream_recv(self, data):
         try:
-            enc=data.peek()
             if self.aes_key is None: #receive aes key
-                if len(enc) < self.rsa_key_size/8:
+                logger.debug('Read AES Key')
+
+                expected = self.rsa_key_size/8
+                if len(data) < expected:
+                    logger.debug('Read AES Key: Short read: {} < {}'.format(len(data), expected))
                     return
-                cmsg=enc[:self.rsa_key_size/8]
+
+                cmsg = data.read(expected)
+
                 try:
-                    self.aes_key=rsa.decrypt(cmsg, self.pk)
+                    self.aes_key = rsa.decrypt(cmsg, self.pk)
                 except rsa.pkcs1.DecryptionError:
+                    logger.debug("decrypt failed")
                     self.close()
                     return
-                data.drain(self.rsa_key_size/8)
 
                 self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
-                logging.debug("client AES key received && decrypted from RSA private key")
-                self.downstream.write(self._iv_enc) # send IV
-                logging.debug("IV sent to Client")
+                logger.debug('client AES key received && decrypted from RSA private key')
 
-                for f, args in self.post_handshake_callbacks:
-                    f(*args)
-                self.post_handshake_callbacks=[]
+                self.downstream.write(self._iv_enc) # send IV
+                logger.debug('IV (len={}) sent to Client'.format(len(self._iv_enc)))
+
+                if self.buffer:
+                    logger.debug('Flush buffer to client')
+                    super(RSA_AESServer, self).upstream_recv(self.buffer)
+                    self.buffer = None
+
             super(RSA_AESServer, self).downstream_recv(data)
+
         except Exception as e:
-            logging.debug(e)
+            logger.debug(e)
 
     def upstream_recv(self, data):
-        if self.enc_cipher is None:
-            logging.debug("data received but enc_cipher is not available yet")
-            self.post_handshake_callbacks.append((self.upstream_recv, (data,)))
-            return
-        super(RSA_AESServer, self).upstream_recv(data)
+        if self.enc_cipher:
+            super(RSA_AESServer, self).upstream_recv(data)
+        else:
+            data.write_to(self.buffer)
+            logger.debug('Pending data: len={}'.format(len(self.buffer)))

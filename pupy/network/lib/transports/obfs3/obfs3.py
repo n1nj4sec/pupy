@@ -17,7 +17,8 @@ from ..obfscommon import rand
 from ..obfscommon import threads
 
 import logging
-log = logging
+
+logger = logging.getLogger('obfs3')
 
 MAX_PADDING = 8194
 
@@ -81,9 +82,11 @@ class Obfs3Transport(BaseTransport):
 
         handshake_message = self.dh.get_public() + rand.random_bytes(padding_length)
 
-        #log.debug("obfs3 handshake: %s queued %d bytes (padding_length: %d) (public key: %s).",
-        #          "initiator" if self.we_are_initiator else "responder",
-        #          len(handshake_message), padding_length, repr(self.dh.get_public()))
+        if __debug__:
+            logger.debug(
+                "obfs3 handshake: %s queued %d bytes (padding_length: %d) (public key: %s).",
+                "initiator" if self.we_are_initiator else "responder",
+                len(handshake_message), padding_length, repr(self.dh.get_public()))
 
         self.circuit.downstream.write(handshake_message)
 
@@ -92,12 +95,16 @@ class Obfs3Transport(BaseTransport):
         Got data from upstream. We need to obfuscated and proxy them downstream.
         """
         if not self.send_crypto:
-            #log.debug("Got upstream data before doing handshake. Caching.")
+            if __debug__:
+                logger.debug("Got upstream data before doing handshake. Caching.")
+
             self.queued_data += data.read()
             return
 
         message = self.send_crypto.crypt(data.read())
-        #log.debug("obfs3 receivedUpstream: Transmitting %d bytes.", len(message))
+
+        if __debug__:
+            logger.debug("obfs3 receivedUpstream: Transmitting %d bytes.", len(message))
 
         # Proxy encrypted message.
         self.circuit.downstream.write(message)
@@ -118,8 +125,9 @@ class Obfs3Transport(BaseTransport):
             self._scan_for_magic(data)
 
         if self.state == ST_OPEN: # Handshake is done. Just decrypt and read application data.
-            #log.debug("obfs3 receivedDownstream: Processing %d bytes of application data." %
-            #          len(data))
+            if __debug__:
+                logger.debug("obfs3 receivedDownstream: Processing %d bytes of application data." %
+                        len(data))
             self.circuit.upstream.write(self.recv_crypto.crypt(data.read()))
 
     def _read_handshake(self, data):
@@ -150,7 +158,8 @@ class Obfs3Transport(BaseTransport):
 
         self.circuit.close()
         #e = failure.trap(ValueError)
-        log.warning("obfs3: Corrupted public key '%s'" % repr(other_pubkey))
+        if __debug__:
+            logger.warning("obfs3: Corrupted public key '%s'" % repr(other_pubkey))
 
     def _read_handshake_post_dh(self, shared_secret, other_pubkey, data):
         """

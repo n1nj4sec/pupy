@@ -4,6 +4,11 @@ from ..base import BasePupyTransport, ReleaseChainedTransport
 from .utils import *
 from http_parser.parser import HttpParser
 from os import path, stat
+from network.lib.buffer import Buffer
+
+import logging
+
+logger = logging.getLogger('httpwrap')
 
 class PupyHTTPWrapperServer(BasePupyTransport):
     path = '/index.php?d='
@@ -21,7 +26,13 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         self.parser = HttpParser()
         self.is_http = None
         self.body = []
-        self.downstream_buffer = ''
+        self.downstream_buffer = Buffer()
+
+        self.well_known = ('GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE')
+        self.omit = tuple(
+            '{} {}'.format(x, y) for x in self.well_known for y in (
+                self.path, '/wsapp '))
+        self.probe_len = max(len(x) for x in self.omit)
 
     def _http_response(self, code, status, headers=None, datasize=None, content=None):
         headers = {}
@@ -123,26 +134,59 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                 self.close()
 
     def downstream_recv(self, data):
-        payload = data.read()
+        header = data.peek(self.probe_len)
+
+        if __debug__:
+            logger.debug('Recv: len={} // header = {}'.format(len(data), repr(header)))
 
         if self.server and self.is_http is None:
-            self.is_http = payload.startswith(
-                ('GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE')
-            ) and not payload.startswith(self.path)
+            self.is_http = header.startswith(self.well_known) and \
+              not header.startswith(self.omit)
+
+            if __debug__:
+                logger.debug('Http: {}'.format(self.is_http))
 
         if self.is_http:
-            self._handle_http(payload)
+            self._handle_http(data.read())
         else:
-            self.upstream.write(payload)
+            if __debug__:
+                logger.debug('Write to upstream: len={}, handler={}'.format(
+                    len(data), self.upstream.on_write_f))
+
+            data.write_to(self.upstream)
+
             if self.downstream_buffer:
-                self.downstream.write(self.downstream_buffer)
-                self.downstream_buffer = ''
+                if __debug__:
+                    logger.debug('Flush buffer to downstream: len={}, handler={}'.format(
+                        len(self.downstream_buffer), self.downstream.on_write_f))
+
+                self.downstream_buffer.write_to(self.downstream)
+                self.downstream_buffer = None
+
+            if __debug__:
+                logger.debug('Release transport')
+
             raise ReleaseChainedTransport()
 
     def upstream_recv(self, data):
+        if __debug__:
+            logger.debug('Send intent: len={}'.format(len(data)))
+
         if self.is_http is None:
-            self.downstream_buffer = data.read()
+            data.write_to(self.downstream_buffer)
+
+            if __debug__:
+                logger.debug('HTTP? Append to pending buffer: total len={}'.format(
+                    len(self.downstream_buffer)))
+
         elif not self.is_http:
-            self.downstream.write(data.read())
+            if __debug__:
+                logger.debug('Non-HTTP: Direct pass (handler={})'.format(
+                    self.downstream.on_write_f))
+
+            data.write_to(self.downstream)
         else:
+            if __debug__:
+                logger.debug('HTTP: Omit data')
+
             pass
