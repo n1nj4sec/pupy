@@ -11,6 +11,7 @@ import scapy.arch
 
 from scapy.packet import Raw
 from scapy.layers.inet import IP,UDP,TCP
+from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether
 from scapy.layers.snmp import SNMP
 from scapy.config import conf
