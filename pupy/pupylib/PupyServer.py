@@ -313,7 +313,10 @@ class Listener(Thread):
             )
 
         if self.kwargs:
-            result += ' ' + str(self.args)
+            result += ' ' + ' '.join(
+                '{}={}'.format(
+                    k, v if k != 'password' else '*'*len(v)
+                ) for k,v in self.kwargs.iteritems())
 
         return '{}: {}'.format(self.name, result)
 
@@ -767,7 +770,10 @@ class PupyServer(object):
         ])
 
         for name in listeners:
-            self.add_listener(name, motd=True)
+            if name in transports:
+                self.add_listener(name, motd=True)
+            else:
+                self.motd['fail'].append('Unknown transport: {}'.format(name))
 
         self.handler.add_motd(self.motd)
 
