@@ -304,10 +304,14 @@ class Buffer(object):
         if self._len > 0:
             self.on_write()
 
-    def write_to(self, stream, modificator=None, notify=True, view=False, chunk_size=None, full_chunks=False):
+    def write_to(self, stream, modificator=None, notify=True, view=False, chunk_size=None, full_chunks=False, n=None):
         with self.data_lock:
             chunk_size = chunk_size or self.chunk_size
             total_write = 0
+            total_read  = 0
+
+            if n is not None:
+                n = min(self._len, n)
 
             forced_notify = True
             if hasattr(stream, 'flush'):
@@ -316,11 +320,22 @@ class Buffer(object):
                 # Some old style thing, will copy anyway
                 view = True
 
+            idx = 0
+
             if not forced_notify and not chunk_size:
                 for idx, chunk in enumerate(self._data):
-                    if idx == 0 and self._bofft:
+                    if self._bofft:
                         chunk = chunk[self._bofft:]
                         self._bofft = 0
+
+                    lchunk = len(chunk)
+
+                    if n is not None:
+                        if total_read + lchunk > n:
+                            self._bofft = lchunk - ( n - total_read )
+                            chunk = chunk[:self._bofft]
+
+                    total_read += len(chunk)
 
                     if modificator:
                         chunk = modificator(bytes(chunk))
@@ -328,21 +343,32 @@ class Buffer(object):
                     stream.write(chunk, notify=False)
                     total_write += len(chunk)
 
-                self._len = 0
-                del self._data[:]
+                    if n is not None and total_read >= n:
+                        break
+
+                self._len -= total_read
+                if self._bofft and idx > 0:
+                    del self._data[:idx]
+                elif not self._bofft:
+                    del self._data[:idx+1]
             else:
                 # Old style interface. Better to send by big portions
 
                 if not chunk_size:
                     chunk_size = DEFAULT_FORCED_FLUSH_BUFFER_SIZE
 
-                while self._len:
+                to_read = n or self._len
+                while to_read:
                     if full_chunks and self._len < chunk_size:
                         break
 
                     chunk = self._obtain(
-                        chunk_size,
+                        min(to_read, chunk_size),
                         release=True, view=not modificator)
+
+                    lchunk = len(chunk)
+                    total_read += lchunk
+                    to_read -= lchunk
 
                     if modificator:
                         chunk = modificator(chunk)
