@@ -98,7 +98,7 @@ class PupyTCPServer(ThreadedServer):
                     "Couldn't create IGD mapping: {}".format(e.description))
 
 
-    def _setup_connection(self, lock, sock, queue):
+    def _setup_connection(self, sock, queue):
         '''Authenticate a client and if it succeeds, wraps the socket in a connection object.
         Note that this code is cut and paste from the rpyc internals and may have to be
         changed if rpyc evolves'''
@@ -125,7 +125,7 @@ class PupyTCPServer(ThreadedServer):
             self.logger.debug('{}:{} Authenticated. Starting connection'.format(h, p))
 
             connection = PupyConnection(
-                lock, self.pupy_srv,
+                self.pupy_srv,
                 self.service,
                 PupyChannel(stream),
                 ping=stream.KEEP_ALIVE_REQUIRED or self.ping_interval,
@@ -140,9 +140,8 @@ class PupyTCPServer(ThreadedServer):
 
     def _authenticate_and_serve_client(self, sock):
         queue = Queue(maxsize=1)
-        lock = Lock()
 
-        authentication = Thread(target=self._setup_connection, args=(lock, sock, queue))
+        authentication = Thread(target=self._setup_connection, args=(sock, queue))
         authentication.daemon = True
         authentication.start()
 
@@ -156,19 +155,12 @@ class PupyTCPServer(ThreadedServer):
             self.logger.debug('{}:{} Wait for authentication result'.format(h, p))
             connection, wrapper, credentials = queue.get(block=True, timeout=60)
             self.logger.debug('{}:{} Wait complete: {}'.format(h, p, connection))
-            if connection:
+            if connection and connection._local_root:
                 self.logger.debug('{}:{} Initializing service...')
                 connection._init_service()
 
-                self.logger.debug('Bind server. Serving with interruptions')
-                while not connection.closed:
-                    self.logger.debug('{}:{} Serving main loop. Inactive: {}'.format(
-                        h, p, connection.inactive))
-
-                    with lock:
-                        data = connection.serve()
-
-                    connection.dispatch(data)
+                self.logger.debug('Bind server. Serving ...')
+                connection.loop()
 
         except Empty:
             self.logger.debug('{}:{} Timeout'.format(h, p))

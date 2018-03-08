@@ -46,7 +46,8 @@ class PupyChannel(Channel):
         self.compress = True
         self.COMPRESSION_LEVEL = 5
         self.COMPRESSION_THRESHOLD = self.stream.MAX_IO_CHUNK
-        self._channel_lock = threading.RLock()
+        self._send_channel_lock = threading.RLock()
+        self._recv_channel_lock = threading.RLock()
 
     def consume(self):
         return self.stream.consume()
@@ -56,12 +57,11 @@ class PupyChannel(Channel):
 
     def recv(self):
         # print "RECV", threading.currentThread()
-        with self._channel_lock:
+        with self._recv_channel_lock:
             return self._recv()
 
     def send(self, data):
-        # print "SEND", threading.currentThread()
-        with self._channel_lock:
+        with self._send_channel_lock:
             self._send(data)
 
     def _recv(self):
@@ -128,7 +128,7 @@ class PupyChannel(Channel):
         portion = None
         lportion = 0
 
-        # print "SEND .. ", ldata, data[:64].encode('hex')
+        # print "SEND .. ", ldata
 
         if self.compress and ldata > self.COMPRESSION_THRESHOLD:
             portion = data.peek(self.COMPRESSION_THRESHOLD)
@@ -142,6 +142,7 @@ class PupyChannel(Channel):
             self.stream.write(self.FRAME_HEADER.pack(ldata, compressed), notify=False)
             self.stream.write(data, notify=False)
             self.stream.write(self.FLUSHER)
+            # print "SEND .. ", ldata, "DONE"
             return
 
         del portion
@@ -175,7 +176,7 @@ class PupyChannel(Channel):
         del portion, data, cdata
 
         self.stream.insert(self.FRAME_HEADER.pack(total_length, compressed))
-        #print "SEND WITH TOTAL LENGTH", total_length
+        # print "SEND WITH TOTAL LENGTH", total_length
         self.stream.write(self.FLUSHER)
 
 class PupySocketStream(SocketStream):
@@ -290,7 +291,9 @@ class PupySocketStream(SocketStream):
             raise
 
     def read(self, count):
-        return self.waitfor(count).read(count)
+        promise = self.waitfor(count)
+        if promise:
+            return promise.read(count)
 
     def insert(self, data):
         with self.upstream_lock:
