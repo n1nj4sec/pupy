@@ -357,13 +357,16 @@ class PupyConnection(Connection):
         if __debug__:
             logger.debug('Connection - close - start')
 
+        self._close = True
+
+        # Stop dispatch queue first
+        self._data_queue.put(None)
+
         try:
             Connection.close(self, *args)
         finally:
             for lock in self._sync_events.itervalues():
                 lock.set()
-
-        self._data_queue.put(None)
 
         if __debug__:
             logger.debug('Connection - closed')
