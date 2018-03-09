@@ -472,9 +472,9 @@ class SetProxy(Command):
 
 class Connect(Command):
     well_known_transports_decode = dict(enumerate([
-        'obfs3','udp_secure','http','tcp_cleartext','rsa',
+        'obfs3','kc4','http','tcp_cleartext','rsa',
         'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4',
-        'websocket'
+        'websocket', 'ecm'
     ], 1))
 
     well_known_transports_encode = {
