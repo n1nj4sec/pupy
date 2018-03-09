@@ -324,16 +324,19 @@ class Buffer(object):
 
             if not forced_notify and not chunk_size:
                 for idx, chunk in enumerate(self._data):
+                    bofft = 0
+
                     if self._bofft:
                         chunk = chunk[self._bofft:]
+                        bofft = self._bofft
                         self._bofft = 0
 
                     lchunk = len(chunk)
 
                     if n is not None:
                         if total_read + lchunk > n:
-                            self._bofft = lchunk - ( n - total_read )
-                            chunk = chunk[:self._bofft]
+                            chunk = chunk[:n - total_read]
+                            self._bofft = bofft + n - total_read
 
                     total_read += len(chunk)
 
@@ -383,7 +386,7 @@ class Buffer(object):
         if notify and not forced_notify:
             stream.flush()
 
-        return total_write
+        return total_read, total_write
 
     def peek(self, n=-1, view=False):
         """
