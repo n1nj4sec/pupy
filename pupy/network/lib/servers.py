@@ -10,7 +10,7 @@ from rpyc.utils.authenticators import AuthenticationError
 import socket
 
 from Queue import Queue, Empty
-from threading import Thread, Lock
+from threading import Thread
 
 from streams.PupySocketStream import PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread

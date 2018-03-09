@@ -27,7 +27,7 @@ class Buffer(object):
         self._bofft = 0
 
         self.on_write_f = on_write
-        self.data_lock = threading.RLock()
+        self.data_lock = threading.Lock()
         self.waiting = threading.Event()
         self.transport = transport_func
         self.cookie = None
@@ -177,33 +177,30 @@ class Buffer(object):
         the whole buffer.
         """
 
-        with self.data_lock:
-            # print "BREAD", id(self), n
-            return self._obtain(n, view, True)
+        return self._obtain(n, view, True)
 
     def insert(self, data):
-        with self.data_lock:
-            if self.compressor:
-                raise ValueError('Insert is not supported for compressed buffers')
+        if self.compressor:
+            raise ValueError('Insert is not supported for compressed buffers')
 
-            ldata = len(data)
-            if self._bofft:
-                if type(self._data[0]) in (bytearray, memoryview) and ldata <= self._bofft:
-                    new_bofft = self._bofft - ldata
-                    self._data[0][new_bofft:self._bofft] = data
-                    self._bofft = new_bofft
-                else:
-                    newelem = bytearray(len(self._data[0])-self._bofft+ldata)
-                    newelem[:ldata] = data
-                    newelem[ldata:] = self._data[0][self._bofft:]
-                    self._data[0] = newelem
-                    self._bofft = 0
+        ldata = len(data)
+        if self._bofft:
+            if type(self._data[0]) in (bytearray, memoryview) and ldata <= self._bofft:
+                new_bofft = self._bofft - ldata
+                self._data[0][new_bofft:self._bofft] = data
+                self._bofft = new_bofft
             else:
-                self._data.insert(0, data)
+                newelem = bytearray(len(self._data[0])-self._bofft+ldata)
+                newelem[:ldata] = data
+                newelem[ldata:] = self._data[0][self._bofft:]
+                self._data[0] = newelem
+                self._bofft = 0
+        else:
+            self._data.insert(0, data)
 
-            self._len += ldata
+        self._len += ldata
 
-    def _truncate(self, newlen):
+    def truncate(self, newlen):
         if self._len == newlen:
             return
 
@@ -224,8 +221,6 @@ class Buffer(object):
                 clen = len(self._data[-1])
                 offt = 0
 
-                print self._data[-1], offt, clen, lendiff
-
                 if len(self._data) == 1:
                     offt = self._bofft
                     clen -= offt
@@ -243,11 +238,7 @@ class Buffer(object):
 
             self._len = newlen
 
-    def truncate(self, newlen):
-        with self.data_lock:
-            self._truncate(newlen)
-
-    def _append(self, data):
+    def append(self, data):
         if not data:
             return
 
@@ -279,19 +270,12 @@ class Buffer(object):
 
             self._len += len(data)
 
-    def append(self, data):
-        with self.data_lock:
-            self._append(data)
-
     def write(self, data, notify=True):
         """
         Append 'data' to the buffer.
         """
 
-        with self.data_lock:
-            # print "BWRITE", id(self), len(data)
-            self._append(data)
-
+        self.append(data)
         if notify:
             self.on_write()
 
@@ -305,83 +289,82 @@ class Buffer(object):
             self.on_write()
 
     def write_to(self, stream, modificator=None, notify=True, view=False, chunk_size=None, full_chunks=False, n=None):
-        with self.data_lock:
-            chunk_size = chunk_size or self.chunk_size
-            total_write = 0
-            total_read  = 0
+        chunk_size = chunk_size or self.chunk_size
+        total_write = 0
+        total_read  = 0
 
-            if n is not None:
-                n = min(self._len, n)
+        if n is not None:
+            n = min(self._len, n)
 
-            forced_notify = True
-            if hasattr(stream, 'flush'):
-                forced_notify = False
-            else:
-                # Some old style thing, will copy anyway
-                view = True
+        forced_notify = True
+        if hasattr(stream, 'flush'):
+            forced_notify = False
+        else:
+            # Some old style thing, will copy anyway
+            view = True
 
-            idx = 0
+        idx = 0
 
-            if not forced_notify and not chunk_size:
-                for idx, chunk in enumerate(self._data):
-                    bofft = 0
+        if not forced_notify and not chunk_size:
+            for idx, chunk in enumerate(self._data):
+                bofft = 0
 
-                    if self._bofft:
-                        chunk = chunk[self._bofft:]
-                        bofft = self._bofft
-                        self._bofft = 0
+                if self._bofft:
+                    chunk = chunk[self._bofft:]
+                    bofft = self._bofft
+                    self._bofft = 0
 
-                    lchunk = len(chunk)
+                lchunk = len(chunk)
 
-                    if n is not None:
-                        if total_read + lchunk > n:
-                            chunk = chunk[:n - total_read]
-                            self._bofft = bofft + n - total_read
+                if n is not None:
+                    if total_read + lchunk > n:
+                        chunk = chunk[:n - total_read]
+                        self._bofft = bofft + n - total_read
 
-                    total_read += len(chunk)
+                total_read += len(chunk)
 
-                    if modificator:
-                        chunk = modificator(bytes(chunk))
+                if modificator:
+                    chunk = modificator(bytes(chunk))
 
+                stream.write(chunk, notify=False)
+                total_write += len(chunk)
+
+                if n is not None and total_read >= n:
+                    break
+
+            self._len -= total_read
+            if self._bofft and idx > 0:
+                del self._data[:idx]
+            elif not self._bofft:
+                del self._data[:idx+1]
+        else:
+            # Old style interface. Better to send by big portions
+
+            if not chunk_size:
+                chunk_size = DEFAULT_FORCED_FLUSH_BUFFER_SIZE
+
+            to_read = n or self._len
+            while to_read:
+                if full_chunks and self._len < chunk_size:
+                    break
+
+                chunk = self._obtain(
+                    min(to_read, chunk_size),
+                    release=True, view=not modificator)
+
+                lchunk = len(chunk)
+                total_read += lchunk
+                to_read -= lchunk
+
+                if modificator:
+                    chunk = modificator(chunk)
+
+                if forced_notify:
+                    stream.write(chunk)
+                else:
                     stream.write(chunk, notify=False)
-                    total_write += len(chunk)
 
-                    if n is not None and total_read >= n:
-                        break
-
-                self._len -= total_read
-                if self._bofft and idx > 0:
-                    del self._data[:idx]
-                elif not self._bofft:
-                    del self._data[:idx+1]
-            else:
-                # Old style interface. Better to send by big portions
-
-                if not chunk_size:
-                    chunk_size = DEFAULT_FORCED_FLUSH_BUFFER_SIZE
-
-                to_read = n or self._len
-                while to_read:
-                    if full_chunks and self._len < chunk_size:
-                        break
-
-                    chunk = self._obtain(
-                        min(to_read, chunk_size),
-                        release=True, view=not modificator)
-
-                    lchunk = len(chunk)
-                    total_read += lchunk
-                    to_read -= lchunk
-
-                    if modificator:
-                        chunk = modificator(chunk)
-
-                    if forced_notify:
-                        stream.write(chunk)
-                    else:
-                        stream.write(chunk, notify=False)
-
-                    total_write += len(chunk)
+                total_write += len(chunk)
 
         if notify and not forced_notify:
             stream.flush()
@@ -397,8 +380,7 @@ class Buffer(object):
         buffer.
         """
 
-        with self.data_lock:
-            return self._obtain(n, view)
+        return self._obtain(n, view)
 
     def drain(self, n=-1):
         """
@@ -409,50 +391,47 @@ class Buffer(object):
         buffer.
         """
 
-        with self.data_lock:
-            if n < 0 or n > self._len:
-                n = self._len
+        if n < 0 or n > self._len:
+            n = self._len
 
-            if n == 0:
-                return
+        if n == 0:
+            return
 
-            elif n == self._len:
-                del self._data[:]
-                self._len = 0
-                self._bofft = 0
+        elif n == self._len:
+            del self._data[:]
+            self._len = 0
+            self._bofft = 0
 
-            elif n < len(self._data[0]) - self._bofft:
-                self._bofft += n
-                self._len -= n
-            else:
-                todel = 0
-                for idx, chunk in enumerate(self._data):
-                    lchunk = len(chunk)
-                    if idx == 0 and self._bofft:
-                        lchunk -= self._bofft
+        elif n < len(self._data[0]) - self._bofft:
+            self._bofft += n
+            self._len -= n
+        else:
+            todel = 0
+            for idx, chunk in enumerate(self._data):
+                lchunk = len(chunk)
+                if idx == 0 and self._bofft:
+                    lchunk -= self._bofft
 
-                    if n >= lchunk:
-                        self._len -= lchunk
-                        self._bofft = 0
+                if n >= lchunk:
+                    self._len -= lchunk
+                    self._bofft = 0
 
-                        todel += 1
-                        n -= lchunk
-                    else:
-                        self._bofft = n
-                        self._len -= n
-                        break
+                    todel += 1
+                    n -= lchunk
+                else:
+                    self._bofft = n
+                    self._len -= n
+                    break
 
-                del self._data[:todel]
+            del self._data[:todel]
 
     def __len__(self):
         """Returns length of buffer. Used in len()."""
-        with self.data_lock:
-            return self._len
+        return self._len
 
     def __nonzero__(self):
         """
         Returns True if the buffer is non-empty.
         Used in truth-value testing.
         """
-        with self.data_lock:
-            return bool(self._len)
+        return bool(self._len)

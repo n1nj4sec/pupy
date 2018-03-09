@@ -46,8 +46,8 @@ class PupyChannel(Channel):
         self.compress = True
         self.COMPRESSION_LEVEL = 5
         self.COMPRESSION_THRESHOLD = self.stream.MAX_IO_CHUNK
-        self._send_channel_lock = threading.RLock()
-        self._recv_channel_lock = threading.RLock()
+        self._send_channel_lock = threading.Lock()
+        self._recv_channel_lock = threading.Lock()
 
     def consume(self):
         return self.stream.consume()

@@ -152,12 +152,12 @@ class ECMTransport(BasePupyTransport):
     def upstream_recv(self, data):
         if self.encryptor:
             buf = Buffer()
-            with data:
-                ldata = len(data)
-                buf.write(self.encryptor.encrypt(struct.pack('<I', ldata)))
-                _, nw = data.write_to(buf, modificator=self.encryptor.encrypt)
-                d = self.update_encryptor()
-                buf.write(d)
+
+            ldata = len(data)
+            buf.write(self.encryptor.encrypt(struct.pack('<I', ldata)))
+            _, nw = data.write_to(buf, modificator=self.encryptor.encrypt, n=ldata)
+            d = self.update_encryptor()
+            buf.write(d)
 
             buf.write_to(self.downstream)
         else:

@@ -138,7 +138,6 @@ class PupyConnection(Connection):
         self._sync_raw_replies = {}
         self._sync_raw_exceptions = {}
 
-        self._async_lock = Lock()
         self._last_recv = time.time()
         self._ping = False
         self._ping_timeout = 30
@@ -241,7 +240,8 @@ class PupyConnection(Connection):
         if __debug__:
             synclogger.debug('Sync request process: {}'.format(seq))
 
-        if seq in self._sync_raw_replies:
+        _sync_raw_replies = self._sync_raw_replies.keys()
+        if seq in _sync_raw_replies:
             if __debug__:
                 synclogger.debug('Dispatch sync reply: {} - start'.format(seq))
 
@@ -251,7 +251,10 @@ class PupyConnection(Connection):
             if __debug__:
                 synclogger.debug('Dispatch sync reply: {} - complete'.format(seq))
 
-        if seq in self._sync_raw_exceptions:
+        del _sync_raw_replies
+
+        _sync_raw_exceptions = self._sync_raw_exceptions.keys()
+        if seq in _sync_raw_exceptions:
             if __debug__:
                 synclogger.debug('Dispatch sync exception: {} - start'.format(seq))
 
@@ -260,6 +263,8 @@ class PupyConnection(Connection):
 
             if __debug__:
                 synclogger.debug('Dispatch sync exception: {} - complete'.format(seq))
+
+        del _sync_raw_exceptions
 
         if __debug__:
             synclogger.debug('Sync request: {} - complete'.format(seq))
@@ -279,8 +284,7 @@ class PupyConnection(Connection):
             if __debug__:
                 logger.debug('Async request: {}'.format(seq))
 
-            with self._async_lock:
-                self._async_callbacks[seq] = async
+            self._async_callbacks[seq] = async
         else:
             if __debug__:
                 synclogger.debug('Sync request: {}'.format(seq))
@@ -303,9 +307,9 @@ class PupyConnection(Connection):
 
         self._last_recv = time.time()
 
-        sync = None
-        with self._async_lock:
-            sync = seq not in self._async_callbacks
+        _async_callbacks = self._async_callbacks.keys()
+        sync = seq not in _async_callbacks
+        del _async_callbacks
 
         if sync:
             self._sync_raw_replies[seq] = raw
@@ -330,8 +334,9 @@ class PupyConnection(Connection):
         self._last_recv = time.time()
 
         sync = None
-        with self._async_lock:
-            sync = seq not in self._async_callbacks
+        _async_callbacks = self._async_callbacks.keys()
+        sync = seq not in _async_callbacks
+        del _async_callbacks
 
         if sync:
             self._sync_raw_exceptions[seq] = raw
@@ -457,24 +462,28 @@ class PupyConnection(Connection):
 
         data = None
 
-        with self._async_lock:
-            for async_event in self._async_callbacks.itervalues():
-                if not hasattr(async_event, '_ttl') or not async_event._ttl:
-                    continue
+        _async_callbacks = self._async_callbacks.keys()
+        for async_event_id in _async_callbacks:
+            async_event = self._async_callbacks.get(async_event_id, None)
+            if not async_event:
+                continue
 
-                if async_event._ttl < now:
-                    raise EOFError('Async timeout!')
+            if not hasattr(async_event, '_ttl') or not async_event._ttl:
+                continue
 
-                etimeout = async_event._ttl - now
+            if async_event._ttl < now:
+                raise EOFError('Async timeout!')
 
-                if __debug__:
-                    logger.debug('etimeout = {} / mintimeout = {} / ttl = {}'.format(
-                        etimeout, mintimeout, async_event._ttl))
+            etimeout = async_event._ttl - now
 
-                if mintimeout is None or etimeout < mintimeout:
-                    mintimeout = etimeout
+            if __debug__:
+                logger.debug('etimeout = {} / mintimeout = {} / ttl = {}'.format(
+                    etimeout, mintimeout, async_event._ttl))
 
-            timeout = mintimeout
+            if mintimeout is None or etimeout < mintimeout:
+                mintimeout = etimeout
+
+        timeout = mintimeout
 
         if __debug__:
             logger.debug('Serve: start / timeout = {} / interval = {} / ping = {} / {}'.format(
@@ -546,13 +555,17 @@ class PupyConnection(Connection):
             if __debug__:
                 logger.debug('Dispatch - no data')
 
-        with self._async_lock:
-            for async_event in self._async_callbacks.itervalues():
-                if not hasattr(async_event, '_ttl'):
-                    continue
+        _async_callbacks = self._async_callbacks.keys()
+        for async_event_id in _async_callbacks:
+            async_event = self._async_callbacks.get(async_event_id)
+            if not async_event:
+                continue
 
-                if async_event._ttl and async_event._ttl < now:
-                    raise EOFError('Async timeout!', async_event)
+            if not hasattr(async_event, '_ttl'):
+                continue
+
+            if async_event._ttl and async_event._ttl < now:
+                raise EOFError('Async timeout!', async_event)
 
     def ping(self, timeout=30, now=None):
         ''' RPyC do not have any PING handler. So.. why to wait? '''
