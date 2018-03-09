@@ -39,6 +39,13 @@ except Exception as e:
     EC4TransportClient = None
 
 try:
+    from .transports.ecm import ECMTransportServer, ECMTransportClient
+except Exception as e:
+    logging.exception('Transport ecm disabled: {}'.format(e))
+    ECMTransportServer = None
+    ECMTransportClient = None
+
+try:
     from .transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
 except Exception as e:
     logging.exception('Transport scramblesuit disabled: {}'.format(e))
