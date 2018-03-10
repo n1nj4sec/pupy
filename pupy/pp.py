@@ -499,9 +499,7 @@ class ReverseSlaveService(Service):
         umsgpack.dump(self.exposed_get_infos(), infos)
 
         pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
-        initialize_v1 = async(self._conn.root.initialize_v1)
-
-        initialize_v1(
+        self._conn.root.initialize_v1(
             self.exposed_namespace,
             pupy.namespace,
             sys.modules['__builtin__'],
