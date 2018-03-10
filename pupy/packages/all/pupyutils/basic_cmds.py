@@ -7,7 +7,24 @@ import stat
 import sys
 import datetime
 
+from scandir import scandir
+if scandir is None:
+    from scandir import scandir_generic as scandir
+
 # -------------------------- For ls functions --------------------------
+
+T_NAME      = 0
+T_TYPE      = 1
+T_SPEC      = 2
+T_MODE      = 3
+T_UID       = 4
+T_GID       = 5
+T_SIZE      = 6
+T_TIMESTAMP = 7
+T_PATH      = 8
+T_FILES     = 9
+T_FILE      = 10
+T_TRUNCATED = 11
 
 if sys.platform == 'win32':
     from junctions import islink, readlink, lstat
@@ -89,17 +106,8 @@ def special_to_letter(mode):
 
     return l
 
-def list_file(path):
-    path = try_unicode(path)
 
-    _stat = safe_stat(path)
-    if path.endswith(os.path.sep):
-        name = os.path.dirname(
-            os.path.basename(path)
-        )
-    else:
-        name = os.path.basename(path)
-
+def _stat_to_ls_struct(path, name, _stat):
     if stat.S_ISLNK(_stat.st_mode):
         try:
             name += ' -> '+readlink(path)
@@ -107,26 +115,62 @@ def list_file(path):
             pass
 
     return {
-        'name': name,
-        'type': mode_to_letter(_stat.st_mode),
-        'spec': special_to_letter(_stat.st_mode),
-        'mode': _stat.st_mode,
-        'uid':  _stat.st_uid,
-        'gid':  _stat.st_gid,
-        'size': _stat.st_size,
-        'ts': int(_stat.st_mtime),
+        T_NAME: name,
+        T_TYPE: mode_to_letter(_stat.st_mode),
+        T_SPEC: special_to_letter(_stat.st_mode),
+        T_MODE: _stat.st_mode,
+        T_UID:  _stat.st_uid,
+        T_GID:  _stat.st_gid,
+        T_SIZE: _stat.st_size,
+        T_TIMESTAMP: int(_stat.st_mtime),
     }
 
-def list_dir(path):
+def list_file(path):
     path = try_unicode(path)
 
-    return [
-        list_file(
-            os.path.join(path, try_unicode(x))
-        ) for x in safe_listdir(path)
-    ]
+    if path.endswith(os.path.sep):
+        name = os.path.dirname(
+            os.path.basename(path)
+        )
+    else:
+        name = os.path.basename(path)
 
-def ls(path=None,listdir=True):
+    _stat = safe_stat(path)
+    return _stat_to_ls_struct(path, name, _stat)
+
+def list_dir(path, max_files=None):
+    path = try_unicode(path)
+
+    result = []
+
+    filescnt = 0
+    truncated = None
+
+    items = scandir(path)
+
+    for item in items:
+        result.append(_stat_to_ls_struct(
+            item.path, item.name,
+            item.stat(follow_symlinks=False)))
+
+        filescnt += 1
+        if max_files and filescnt >= max_files:
+            truncated = 0
+            break
+
+    if truncated is not None:
+        for item in items:
+            truncated += 1
+
+        if truncated:
+            result.append({
+                T_TRUNCATED: truncated,
+                T_TYPE: 'X',
+            })
+
+    return result
+
+def ls(path=None, listdir=True, limit=4096):
     if path:
         path = try_unicode(path)
         path = os.path.expanduser(path)
@@ -146,19 +190,19 @@ def ls(path=None,listdir=True):
         if os.path.isdir(path):
             if listdir:
                 results.append({
-                    'path': path,
-                    'files': list_dir(path)
+                    T_PATH: path,
+                    T_FILES: list_dir(path, max_files=limit)
                 })
             else:
                 results.append({
-                    'path': path,
-                    'file': list_file(path)
+                    T_PATH: path,
+                    T_FILE: list_file(path)
                 })
 
         elif os.path.isfile(path):
             results.append({
-                'path': path,
-                'file': list_file(path)
+                T_PATH: path,
+                T_FILE: list_file(path)
             })
 
 
