@@ -60,14 +60,18 @@ class SyncRequestDispatchQueue(object):
 
     def __init__(self):
         self._queue = Queue(maxsize=1)
-        self._workers = 0
+        self._workers = 1
         self._pending_workers = 0
         self._workers_lock = Lock()
-        self._primary_worker = Thread(target=self._dispatch_request_worker)
+        self._primary_worker = Thread(
+            target=self._dispatch_request_worker,
+            name="Primary SyncQueue Dispatcher"
+        )
         self._primary_worker.daemon = True
         self._primary_worker.start()
         self._closed = False
         self._max_workers = 0
+        self._promise = 0
 
     @staticmethod
     def get_queue():
@@ -77,23 +81,36 @@ class SyncRequestDispatchQueue(object):
         return SyncRequestDispatchQueue.instance
 
     def _dispatch_request_worker(self):
-        with self._workers_lock:
-            self._workers += 1
+        if __debug__:
+            syncqueuelogger.debug('New Worker')
 
         task = self._queue.get()
         while task and not self._closed:
-            on_error, func, args = task
+            ack, on_error, func, args = task
+
             with self._workers_lock:
+                ack.set()
                 self._pending_workers += 1
 
             try:
+                if __debug__:
+                    syncqueuelogger.debug('Process task - start')
+
                 func(*args)
+
+                if __debug__:
+                    syncqueuelogger.debug('Process task - complete')
+
             except Exception, e:
+                if __debug__:
+                    syncqueuelogger.debug('Process task - exception: {}'.format(e))
+
                 on_error(e)
 
             del func, args
 
             with self._workers_lock:
+                self._queue.task_done()
                 self._pending_workers -= 1
 
             again = False
@@ -101,37 +118,77 @@ class SyncRequestDispatchQueue(object):
 
             try:
                 task = self._queue.get_nowait()
+                if __debug__:
+                    syncqueuelogger.debug('Task acquired (no wait)')
+
             except Empty:
                 with self._workers_lock:
-                    if self._pending_workers or self._workers < 2:
+                    if not self._closed and ( self._promise or self._workers <= self._pending_workers + 1 ):
                         again = True
-
-            if self._closed:
-                break
+                    else:
+                        self._workers -= 1
 
             if again:
+                if __debug__:
+                    syncqueuelogger.debug('Wait for task to be queued')
+
                 task = self._queue.get()
 
-        with self._workers_lock:
-            self._workers -= 1
-
-    def __call__(self, on_error, func, *args):
-        while True:
-            try:
-                self._queue.put((on_error, func, args), True, 0.1)
-                break
-
-            except Full:
-                thread = Thread(target=self._dispatch_request_worker)
-                thread.daemon = True
-                thread.start()
+                if __debug__:
+                    syncqueuelogger.debug('Task acquired')
 
         if __debug__:
-            with self._workers_lock:
-                if self._workers > self._max_workers:
-                    self._max_workers = self._workers
-                    syncqueuelogger.debug(
-                        'Max workers: {}'.format(self._max_workers))
+            if not task:
+                syncqueuelogger.debug('Worker closed by explicit request')
+
+    def __call__(self, on_error, func, *args):
+        with self._workers_lock:
+            self._promise += 1
+
+        ack = Event()
+        queued = False
+
+        while not ack.is_set():
+            if not queued:
+                try:
+                    # self._queue.put((on_error, func, args), True, 0.5)
+                    if __debug__:
+                        syncqueuelogger.debug('Queue task')
+
+                    self._queue.put_nowait((ack, on_error, func, args))
+
+                    if __debug__:
+                        syncqueuelogger.debug('Task queued')
+
+                    with self._workers_lock:
+                        self._promise -= 1
+
+                    queued = True
+
+                except Full:
+                    if __debug__:
+                        syncqueuelogger.debug(
+                            'Task not queued - no empty slots. Launch new worker'.format(
+                                self._pending_workers))
+
+                        pass
+
+            if not queued or not ack.wait(timeout=0.5):
+                with self._workers_lock:
+                    self._workers += 1
+                    if self._workers > self._max_workers:
+                        self._max_workers = self._workers
+
+                        if __debug__:
+                            syncqueuelogger.info(
+                                'Max workers: {}'.format(self._max_workers))
+
+                thread = Thread(
+                    target=self._dispatch_request_worker,
+                    name="SyncQueue Dispatcher"
+                )
+                thread.daemon = True
+                thread.start()
 
     def close(self):
         self._closed = True
@@ -143,6 +200,8 @@ class SyncRequestDispatchQueue(object):
 
 class PupyConnection(Connection):
     def __init__(self, pupy_srv, *args, **kwargs):
+        self._close_lock = Lock()
+
         self._sync_events = {}
         self._sync_raw_replies = {}
         self._sync_raw_exceptions = {}
@@ -155,12 +214,13 @@ class PupyConnection(Connection):
         self._default_serve_timeout = 5
         self._queue = SyncRequestDispatchQueue.get_queue()
         self._data_queue = Queue()
-        self._serve_thread = Thread(target=self._serve_loop)
+        self._serve_thread = Thread(
+            target=self._serve_loop,
+            name="PupyConnection Serve Loop"
+        )
         self._serve_thread.daemon = True
 
         self._serve_interrupt = Event()
-
-        self._close_lock = Lock()
 
         if 'ping' in kwargs:
             ping = kwargs['ping']
@@ -189,11 +249,10 @@ class PupyConnection(Connection):
 
         self._serve_thread.start()
 
-    def _dispatch_request(self, seq, args):
-        super(PupyConnection, self)._dispatch_request(seq, args)
-
     def _queue_dispatch_request(self, seq, args):
-        self._queue(self._on_sync_request_exception, self._dispatch_request, seq, args)
+        self._queue(
+            self._on_sync_request_exception,
+            self._dispatch_request, seq, args)
 
     def _on_sync_request_exception(self, exc):
         if not isinstance(exc, EOFError):
@@ -374,16 +433,28 @@ class PupyConnection(Connection):
 
         try:
             self._async_request(consts.HANDLE_CLOSE)
-        except EOFError:
-            pass
+        except EOFError, e:
+            logger.info(
+                'Connection - close - notification failed '
+                'because of EOF ({})'.format(e))
+
         except Exception:
             if not _catchall:
                 raise
         finally:
-            self._cleanup(_anyway=True)
+            try:
+                self._cleanup(_anyway=True)
+            except Exception, e:
+                if __debug__:
+                    logging.debug('Cleanup exception: {}'.format(e))
 
-        for lock in self._sync_events.itervalues():
-            lock.set()
+                pass
+
+        _sync_events = self._sync_events.keys()
+        for lock in _sync_events:
+            lock = self._sync_events.get(lock)
+            if lock:
+                lock.set()
 
         if __debug__:
             logger.debug('Connection - closed')
@@ -415,7 +486,10 @@ class PupyConnection(Connection):
             else:
                 logger.debug('Check timeout - ok')
 
-        t = Thread(target=check_timeout)
+        t = Thread(
+            target=check_timeout,
+            name="PupyConnection Timeout check"
+        )
         t.daemon = True
         t.start()
 
@@ -430,8 +504,8 @@ class PupyConnection(Connection):
             try:
                 self._dispatch()
 
-            except EOFError:
-                break
+            except EOFError, e:
+                logger.info('Dispatch loop - EOF ({})'.format(e))
 
             except Exception, e:
                 logger.exception(e)
@@ -454,8 +528,8 @@ class PupyConnection(Connection):
                 self._serve()
                 continue
 
-            except EOFError:
-                logger.info('Serve loop - EOF')
+            except EOFError, e:
+                logger.info('Serve loop - EOF ({})'.format(e))
 
             except Exception, e:
                 logger.exception('Exception: {}: {}'.format(type(e), e))
@@ -545,7 +619,9 @@ class PupyConnection(Connection):
             msg, seq, args = brine._load(data)
             if msg == consts.MSG_REQUEST:
                 if __debug__:
-                    logger.debug('Processing message request, seq: {} - started'.format(seq))
+                    logger.debug('Processing message request, type: {} seq: {} - started'.format(
+                        args[0], seq))
+
                 self._queue_dispatch_request(seq, args)
 
             else:
@@ -583,12 +659,17 @@ class PupyConnection(Connection):
                 continue
 
             if async_event._ttl and async_event._ttl < now:
-                raise EOFError('Async timeout!', async_event)
+                raise EOFError(
+                    'Async timeout! (event={})'.format(async_event),
+                    async_event)
 
-    def ping(self, timeout=30, now=None):
+    def ping(self, timeout=30, now=None, block=False):
         ''' RPyC do not have any PING handler. So.. why to wait? '''
         now = now or time.time()
-        self.async_request(consts.HANDLE_PING, 'ping', timeout=timeout)
+        promise = self.async_request(consts.HANDLE_PING, 'ping', timeout=timeout)
+        if block:
+            promise.wait()
+
         return now
 
 class PupyConnectionThread(Thread):
@@ -602,6 +683,7 @@ class PupyConnectionThread(Thread):
 
         Thread.__init__(self)
         self.daemon = True
+        self.name = "PupyConnection Thread"
 
         if __debug__:
             logger.debug('Create connection thread completed')
