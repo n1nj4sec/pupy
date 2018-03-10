@@ -153,6 +153,8 @@ class PupyConnection(Connection):
 
         self.initialized = Event()
 
+        self._close_lock = Lock()
+
         if 'ping' in kwargs:
             ping = kwargs['ping']
             del kwargs['ping']
@@ -350,27 +352,34 @@ class PupyConnection(Connection):
             if __debug__:
                 logger.debug('Dispatch async reply: {} - complete'.format(seq))
 
-    def close(self, *args):
-        if self._closed:
-            return
+    def close(self, _catchall=True):
+        with self._close_lock:
+            if self._closed:
+                return
+
+            self._closed = True
 
         if __debug__:
             logger.debug('Connection - close - start')
-
-        self._close = True
 
         # Stop dispatch queue first
         self._data_queue.put(None)
 
         try:
-            Connection.close(self, *args)
+            self._async_request(consts.HANDLE_CLOSE)
+        except EOFError:
+            pass
+        except Exception:
+            if not _catchall:
+                raise
         finally:
-            for lock in self._sync_events.itervalues():
-                lock.set()
+            self._cleanup(_anyway=True)
+
+        for lock in self._sync_events.itervalues():
+            lock.set()
 
         if __debug__:
             logger.debug('Connection - closed')
-
 
     @property
     def inactive(self):
