@@ -634,8 +634,8 @@ class PasteLink(Command):
         lambda x: baseconv.base62.encode(from_bytes(x)),
     ), (
         'https://ghostbin.com/paste/{}/download',
-        lambda x: to_bytes(baseconv.base32.decode(x)),
-        lambda x: baseconv.base32.encode(from_bytes(x)),
+        lambda x: to_bytes(baseconv.base36.decode(x)),
+        lambda x: baseconv.base36.encode(from_bytes(x)),
     ), (
         'https://hastebin.com/raw/{}',
         lambda x: to_bytes(baseconv.base62.decode(x)),

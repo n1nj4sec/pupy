@@ -54,6 +54,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         super(ScrambleSuitTransport, self).__init__(*args, **kwargs)
 
+        self.drainedHandshake = 0
+
         # Load the server's persistent state from file.
         if self.weAreServer:
             self.srvState = state.load()
@@ -536,112 +538,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             self.flushSendBuffer()
 
         if self.protoState == const.ST_CONNECTED:
-
             self.processMessages(data.read())
-
-    @classmethod
-    def register_external_mode_cli( cls, subparser ):
-        """
-        Register a CLI arguments to pass a secret or ticket to ScrambleSuit.
-
-        Two options are made available over the command line interface: one to
-        specify a ticket file and one to specify a UniformDH shared secret.
-        """
-
-        passArgs = subparser.add_mutually_exclusive_group(required=True)
-
-        passArgs.add_argument("--password",
-                               type=str,
-                               help="Shared secret for UniformDH",
-                               dest="uniformDHSecret")
-
-        passArgs.add_argument("--password-file",
-                               type=str,
-                               help="File containing shared secret for UniformDH",
-                               action=ReadPassFile,
-                               dest="uniformDHSecret")
-
-        super(ScrambleSuitTransport, cls).register_external_mode_cli(subparser)
-
-    @classmethod
-    def validate_external_mode_cli( cls, args ):
-        """
-        Assign the given command line arguments to local variables.
-        """
-
-        uniformDHSecret = None
-
-        try:
-            uniformDHSecret = base64.b32decode(util.sanitiseBase32(
-                                     args.uniformDHSecret))
-        except (TypeError, AttributeError) as error:
-            log.error(error.message)
-            raise base.PluggableTransportError("Given password '%s' is not " \
-                    "valid Base32!  Run 'generate_password.py' to generate " \
-                    "a good password." % args.uniformDHSecret)
-
-        parentalApproval = super(
-            ScrambleSuitTransport, cls).validate_external_mode_cli(args)
-        if not parentalApproval:
-            # XXX not very descriptive nor helpful, but the parent class only
-            #     returns a boolean without telling us what's wrong.
-            raise base.PluggableTransportError(
-                "Pluggable Transport args invalid: %s" % args )
-
-        if uniformDHSecret:
-            rawLength = len(uniformDHSecret)
-            if rawLength != const.SHARED_SECRET_LENGTH:
-                raise base.PluggableTransportError(
-                    "The UniformDH password must be %d bytes in length, ",
-                    "but %d bytes are given."
-                    % (const.SHARED_SECRET_LENGTH, rawLength))
-            else:
-                cls.uniformDHSecret = uniformDHSecret
-
-    def handle_socks_args( self, args ):
-        """
-        Receive arguments `args' passed over a SOCKS connection.
-
-        The SOCKS authentication mechanism is (ab)used to pass arguments to
-        pluggable transports.  This method receives these arguments and parses
-        them.  As argument, we only expect a UniformDH shared secret.
-        """
-
-        #log.debug("Received the following arguments over SOCKS: %s." % args)
-
-        if len(args) != 1:
-            raise base.SOCKSArgsError("Too many SOCKS arguments "
-                                      "(expected 1 but got %d)." % len(args))
-
-        # The ScrambleSuit specification defines that the shared secret is
-        # called "password".
-        if not args[0].startswith("password="):
-            raise base.SOCKSArgsError("The SOCKS argument must start with "
-                                      "`password='.")
-
-        # A shared secret might already be set if obfsproxy is in external
-        # mode.
-        if self.uniformDHSecret:
-            log.warning("A UniformDH password was already specified over "
-                        "the command line.  Using the SOCKS secret instead.")
-
-        try:
-            self.uniformDHSecret = base64.b32decode(util.sanitiseBase32(
-                                          args[0].split('=')[1].strip()))
-        except TypeError as error:
-            log.error(error.message)
-            raise base.PluggableTransportError("Given password '%s' is not " \
-                    "valid Base32!  Run 'generate_password.py' to generate " \
-                    "a good password." % args[0].split('=')[1].strip())
-
-        rawLength = len(self.uniformDHSecret)
-        if rawLength != const.SHARED_SECRET_LENGTH:
-            raise base.PluggableTransportError("The UniformDH password "
-                    "must be %d bytes in length but %d bytes are given." %
-                    (const.SHARED_SECRET_LENGTH, rawLength))
-
-        self.uniformdh = uniformdh.new(self.uniformDHSecret, self.weAreServer)
-
 
 class ScrambleSuitClient( ScrambleSuitTransport ):
 

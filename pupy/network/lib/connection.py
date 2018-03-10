@@ -386,7 +386,7 @@ class PupyConnection(Connection):
         return time.time() - self._last_recv
 
     def serve(self, timeout=None):
-        raise NotImplemented('Serve method should not be used!')
+        raise NotImplementedError('Serve method should not be used!')
 
     def _init_service_with_notify(self, event):
         try:

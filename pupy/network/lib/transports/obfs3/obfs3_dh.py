@@ -46,7 +46,8 @@ class UniformDH:
         # Generate private key
         if private_key != None:
             if len(private_key) != self.group_len:
-                raise ValueError("private_key is a invalid length (Expected %d, got %d)" % (group_len, len(private_key)))
+                raise ValueError("private_key is a invalid length (Expected %d, got %d)" % (
+                    self.group_len, len(private_key)))
             self.priv_str = private_key
         else:
             self.priv_str = rand.random_bytes(self.group_len)
@@ -85,4 +86,3 @@ class UniformDH:
 
         self.shared_secret = modexp.powMod(their_pub, self.priv, self.mod)
         return int_to_bytes(self.shared_secret, self.group_len)
-

@@ -5,6 +5,9 @@
 class ReleaseChainedTransport(Exception):
     pass
 
+class TransportSetupFailed(Exception):
+    pass
+
 class Circuit(object):
     """ alias for obfsproxy style syntax"""
     def __init__(self, stream, transport, downstream=None, upstream=None):

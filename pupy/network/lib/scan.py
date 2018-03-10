@@ -89,7 +89,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
 
             if r:
                 ok = [errno.EAGAIN, errno.EINPROGRESS]
-                if 'WSAEWOULDBLOCK' in errno.__dict__:
+                if hasattr(errno, 'WSAEWOULDBLOCK'):
                     ok.append(errno.WSAEWOULDBLOCK)
 
                 if r in ok:

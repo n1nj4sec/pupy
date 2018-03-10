@@ -198,6 +198,12 @@ class PupyUDPServer(object):
 
     def __init__(self, service, **kwargs):
         self.kcp = __import__('kcp')
+        self.pupy_srv = None
+        self.port = None
+        self.logger = None
+        self.stream = None
+        self.transport = None
+        self.transport_kwargs = None
 
         for param in self.REQUIRED_KWARGS:
             if not param in kwargs:
@@ -314,7 +320,10 @@ class PupyUDPServer(object):
 
         self.sock = s
         if self.sock is None:
-            raise last_exc
+            if last_exc is None:
+                raise RuntimeError('Socket creation failed for unknown reason')
+            else:
+                raise last_exc
 
         self.sock.setblocking(0)
         self.dispatcher = self.kcp.KCPDispatcher(
