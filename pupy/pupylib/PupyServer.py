@@ -658,7 +658,7 @@ class PupyServer(object):
                 continue
             try:
                 yield self.get_module(module_name)
-            except ImportError as e:
+            except Exception, e:
                 logging.warning("%s : module %s disabled"%(e, module_name))
 
     def get_module_completer(self, module_name):
