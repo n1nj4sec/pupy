@@ -151,8 +151,6 @@ class PupyConnection(Connection):
 
         self._serve_interrupt = Event()
 
-        self.initialized = Event()
-
         self._close_lock = Lock()
 
         if 'ping' in kwargs:
@@ -388,33 +386,32 @@ class PupyConnection(Connection):
     def serve(self, timeout=None):
         raise NotImplementedError('Serve method should not be used!')
 
-    def _init_service_with_notify(self, event):
-        try:
-            self._init_service()
-        finally:
-            event.set()
+    def _init_service_with_notify(self):
+        self._init_service()
 
     def init(self, timeout=60):
-
-        event = Event()
 
         def check_timeout():
             now = time.time()
 
-            while ( time.time() - now < timeout ) and not event.is_set() and not self.closed:
+            logger.debug('Check timeout - start')
+
+            while ( time.time() - now < timeout ) and not self._last_ping and not self.closed:
                 time.sleep(1)
 
-            if not event.is_set():
-                logger.error('timeout occured!')
+            if not self._last_ping:
+                logger.info('Check timeout - failed')
                 if not self.closed:
                     self.close()
+            else:
+                logger.debug('Check timeout - ok')
 
         t = Thread(target=check_timeout)
         t.daemon = True
         t.start()
 
         self._queue(
-            self._on_sync_request_exception, self._init_service_with_notify, event)
+            self._on_sync_request_exception, self._init_service_with_notify)
 
     def loop(self):
         if __debug__:
