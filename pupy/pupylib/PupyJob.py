@@ -80,6 +80,7 @@ class ThreadPool(object):
                 t.stop()
 
     def join(self):
+        giveup = False
         while True:
             try:
                 allok=True
@@ -89,14 +90,19 @@ class ThreadPool(object):
                         allok=False
                 if allok:
                     break
+
             except KeyboardInterrupt:
-                print "Press [ENTER] to interrupt the job"
-                pass
+                if not giveup:
+                    print "{ Press ^C once again to give up on waiting }"
+                    giveup = True
+                else:
+                    break
 
     def all_finished(self):
         for t in self.thread_pool:
             if t.isAlive():
                 return False
+
         return True
 
 class PupyJob(object):
@@ -212,12 +218,17 @@ class PupyJob(object):
                     break
 
                 try:
-                    m.client.conn._conn.ping(timeout=2)
+                    m.client.conn._conn.ping(timeout=2, block=True)
+                    logging.info('connection {} alive'.format(m))
                     break
+
                 except KeyboardInterrupt:
                     continue
-                except (rpyc.AsyncResultTimeout, ReferenceError, EOFError):
-                    logging.debug("connection %s seems blocked, reinitialising..."%str(m))
+
+                except (rpyc.AsyncResultTimeout, ReferenceError, EOFError), e:
+                    logging.error('connection {} seems blocked ({}), reinitialising...'.format(
+                        m.client.short_name(), e))
+
                     try:
                         m.client.conn._conn.close()
                     except (rpyc.AsyncResultTimeout, ReferenceError, EOFError):
