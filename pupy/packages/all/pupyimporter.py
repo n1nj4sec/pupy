@@ -391,7 +391,9 @@ def pupy_add_package(pkdic, compressed=False, name=None):
         memtrace(name)
 
 def has_module(name):
-    if name in sys.modules or name in modules:
+    if name in sys.modules or \
+      name in sys.builtin_module_names or \
+      name in modules:
         return True
 
     fsname = name.replace('.', '/')
