@@ -11,6 +11,7 @@ import logging
 logger = None
 logger = logging.getLogger('pconn')
 synclogger = logging.getLogger('sync')
+syncqueuelogger = logging.getLogger('syncqueue')
 
 from network.lib.buffer import Buffer
 
@@ -66,6 +67,7 @@ class SyncRequestDispatchQueue(object):
         self._primary_worker.daemon = True
         self._primary_worker.start()
         self._closed = False
+        self._max_workers = 0
 
     @staticmethod
     def get_queue():
@@ -116,13 +118,20 @@ class SyncRequestDispatchQueue(object):
     def __call__(self, on_error, func, *args):
         while True:
             try:
-                with self._workers_lock:
-                    self._queue.put_nowait((on_error, func, args))
+                self._queue.put((on_error, func, args), True, 0.1)
                 break
+
             except Full:
                 thread = Thread(target=self._dispatch_request_worker)
                 thread.daemon = True
                 thread.start()
+
+        if __debug__:
+            with self._workers_lock:
+                if self._workers > self._max_workers:
+                    self._max_workers = self._workers
+                    syncqueuelogger.debug(
+                        'Max workers: {}'.format(self._max_workers))
 
     def close(self):
         self._closed = True
