@@ -14,9 +14,11 @@ if sys.platform!="win32":
     import pupylib.PupySignalHandler
     import fcntl
     import array
+
 import time
 import StringIO
 from threading import Event, Thread
+from Queue import Queue
 import rpyc
 
 from modules.lib.utils.cmdrepl import CmdRepl
@@ -29,7 +31,6 @@ class InteractiveShell(PupyModule):
     """
     max_clients=1
     pipe = None
-    complete = Event()
     rec = 'ttyrec'
 
     dependencies = {
@@ -39,7 +40,10 @@ class InteractiveShell(PupyModule):
 
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self,*args, **kwargs)
-        self.set_pty_size=None
+
+        self.set_pty_size = None
+        self.read_queue = Queue()
+        self.complete = Event()
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(description=self.__doc__)
@@ -68,6 +72,13 @@ class InteractiveShell(PupyModule):
     def _start_read_loop(self, write_cb):
         t = Thread(
             target=self._read_loop, args=(write_cb,)
+        )
+        t.daemon = True
+        t.start()
+
+    def _start_render_loop(self):
+        t = Thread(
+            target=self._render_loop
         )
         t.daemon = True
         t.start()
@@ -102,6 +113,15 @@ class InteractiveShell(PupyModule):
                 self.stdout.write('\r\n')
                 self.complete.set()
 
+    def _render_loop(self):
+        while not self.complete.is_set():
+            data = self.read_queue.get()
+            if data is None:
+                break
+
+            self.stdout.write(data)
+            self.stdout.flush()
+
     def _read_loop_base(self, write_cb):
         lastbuf = b''
         write_cb = rpyc.async(write_cb)
@@ -129,11 +149,6 @@ class InteractiveShell(PupyModule):
 
                     write_cb(buf)
                     lastbuf = buf
-
-    def _remote_read(self, data):
-        if not self.complete.is_set():
-            self.stdout.write(data)
-            self.stdout.flush()
 
     def run(self, args):
         if 'linux' in sys.platform and not args.pseudo_tty:
@@ -215,8 +230,9 @@ class InteractiveShell(PupyModule):
             self._signal_winch(None, None) # set the remote tty sie to the current terminal size
 
             self.complete = Event()
-            ps.start_read_loop(self._remote_read, self.complete.set)
+            ps.start_read_loop(self.read_queue.put, self.complete.set)
             self._start_read_loop(ps.write)
+            self._start_render_loop()
 
             self._signal_winch(None, None)
 
@@ -238,6 +254,7 @@ class InteractiveShell(PupyModule):
 
             self.set_pty_size=None
             self.complete.set()
+            self.read_queue.put(None)
 
     def interrupt(self):
         if self.complete:

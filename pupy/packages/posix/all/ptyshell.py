@@ -213,7 +213,7 @@ class PtyShell(object):
 
             if x or r:
                 try:
-                    data = os.read(fd, 8192)
+                    data = os.read(fd, 32768)
                 except OSError, e:
                     if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                         continue
