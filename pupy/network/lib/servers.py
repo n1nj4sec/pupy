@@ -157,7 +157,7 @@ class PupyTCPServer(ThreadedServer):
             self.logger.debug('{}:{} Wait complete: {}'.format(h, p, connection))
             if connection and connection._local_root:
                 self.logger.debug('{}:{} Initializing service...')
-                connection._init_service()
+                connection.init()
 
                 self.logger.debug('Bind server. Serving ...')
                 connection.loop()
