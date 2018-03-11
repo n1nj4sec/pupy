@@ -56,10 +56,12 @@ brine.dump = stream_dump
 ################################################################
 
 class SyncRequestDispatchQueue(object):
+    MAX_TASK_ACK_TIME = 0.5
+
     instance = None
 
     def __init__(self):
-        self._queue = Queue(maxsize=1)
+        self._queue = Queue(maxsize=256)
         self._workers = 1
         self._pending_workers = 0
         self._workers_lock = Lock()
@@ -70,7 +72,7 @@ class SyncRequestDispatchQueue(object):
         self._primary_worker.daemon = True
         self._primary_worker.start()
         self._closed = False
-        self._max_workers = 0
+        self._max_workers = 1
         self._promise = 0
 
     @staticmethod
@@ -151,7 +153,6 @@ class SyncRequestDispatchQueue(object):
         while not ack.is_set():
             if not queued:
                 try:
-                    # self._queue.put((on_error, func, args), True, 0.5)
                     if __debug__:
                         syncqueuelogger.debug('Queue task')
 
@@ -173,7 +174,7 @@ class SyncRequestDispatchQueue(object):
 
                         pass
 
-            if not queued or not ack.wait(timeout=0.5):
+            if not queued or not ack.wait(timeout=MAX_TASK_ACK_TIME):
                 with self._workers_lock:
                     self._workers += 1
                     if self._workers > self._max_workers:
