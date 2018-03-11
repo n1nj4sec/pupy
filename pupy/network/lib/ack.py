@@ -21,19 +21,12 @@ from time import time, sleep
 class Ack(object):
     """ Dumb (and fast, and unsafe) event replacement """
 
-    __slots__ = ( '_lock', '_is_set', '_wait_lock' )
+    __slots__ = ( '_lock', '_is_set', '_wait_lock'  )
 
     def __init__(self):
         self._lock = Lock()
-        self._is_set = False
+        self._is_set = None
         self._wait_lock = None
-
-    def clear(self):
-        with self._lock:
-            if self._is_set is None and self._wait_lock:
-                self._wait_lock.release()
-
-            self._is_set = False
 
     def is_set(self):
         with self._lock:
@@ -41,7 +34,7 @@ class Ack(object):
 
     def set(self):
         with self._lock:
-            if self._is_set is None and self._wait_lock:
+            if self._is_set is False and self._wait_lock:
                 self._wait_lock.release()
 
             self._is_set = True
@@ -51,18 +44,18 @@ class Ack(object):
             with self._lock:
                 if self._is_set:
                     return True
-                else:
-                    self._is_set = None
+
+                elif self._is_set is None:
+                    self._is_set = False
                     self._wait_lock = Lock()
                     self._wait_lock.acquire()
+
+                else:
+                    raise ValueError('Already in wait state!')
 
             self._wait_lock.acquire()
 
             with self._lock:
-                if self._is_set is False:
-                    # Cleared
-                    self._wait_lock.release()
-
                 self._wait_lock = None
                 return self._is_set is True
 
@@ -81,7 +74,7 @@ class Ack(object):
                 delay = min(timeout, probe, delay*2)
 
                 with self._lock:
-                    if self._is_set is True:
+                    if self._is_set:
                         return True
 
             return False

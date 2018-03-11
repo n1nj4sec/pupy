@@ -12,8 +12,7 @@ __all__ = (
 import sys
 import zlib
 
-from threading import Lock
-from .ack import Ack
+from threading import Lock, Event
 
 DEFAULT_FORCED_FLUSH_BUFFER_SIZE = 32768
 DEFAULT_MAX_STR_SIZE = 4096
@@ -33,7 +32,7 @@ class Buffer(object):
     ALLOW_BUFFER_AS_DATA = True
 
     def __init__(self, data='', on_write=None, transport_func=None, truncate=False,
-                 chunk_size=None, compressed=False):
+                 chunk_size=None, compressed=False, shared=False):
         """
         Initialize a buffer with 'data'.
         """
@@ -44,7 +43,7 @@ class Buffer(object):
 
         self.on_write_f = on_write
         self.data_lock = Lock()
-        self.waiting = Ack()
+        self.waiting = Event() if shared else None
         self.transport = transport_func
         self.cookie = None
         self.chunk_size = None
@@ -78,19 +77,26 @@ class Buffer(object):
         if self.on_write_f:
             self.on_write_f()
 
-        self.waiting.set()
+        if self.waiting:
+            self.waiting.set()
 
     def wait(self, timeout=0.1):
         """ wait for a size """
+
         if self._len > 0:
             return True
-        else:
+        elif self.waiting is not None:
             self.waiting.clear()
+        else:
+            raise ValueError('Bufer should be shared to use wait()')
 
         self.waiting.wait(timeout)
         return self._len > 0
 
     def wake(self):
+        if not self.waiting:
+            raise ValueError('Bufer should be shared to use wake()')
+
         self.waiting.set()
 
     def _linearize(self, upto=None):
