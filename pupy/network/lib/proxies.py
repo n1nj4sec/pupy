@@ -264,7 +264,14 @@ def get_proxies(additional_proxies=None):
                     address, port = tab[1].split('@')[1].split(':',1)
                 else:
                     #HTTP:ip:port
-                    proxy_type, address, port = proxy_str.split(':')
+                    parts = proxy_str.split(':')
+                    if len(parts) not in (2,3):
+                        continue
+                    elif len(parts) == 2:
+                        proxy_type = 'SOCKS5'
+                        address, port = parts
+                    else:
+                        proxy_type, address, port = parts
 
                 proxy = proxy_type.upper(), address+':'+port, login, password
                 if not proxy in dups:
