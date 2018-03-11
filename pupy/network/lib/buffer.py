@@ -447,6 +447,16 @@ class Buffer(object):
 
             del self._data[:todel]
 
+    def chunksinfo(self):
+        result = ''
+        if self._bofft:
+            result = "+{}:".format(self._bofft)
+
+        result += ','.join(
+            '{}:{}'.format(len(x), type(x).__name__) for x in self._data)
+
+        return '<Buffer: {}>'.format(result)
+
     def __len__(self):
         """Returns length of buffer. Used in len()."""
         return self._len
