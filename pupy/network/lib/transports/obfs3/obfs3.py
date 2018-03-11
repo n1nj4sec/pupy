@@ -5,6 +5,8 @@
 The obfs3 module implements the obfs3 protocol.
 """
 
+__all__ = ( 'Obfs3Client', 'Obfs3Server' )
+
 import random
 
 from ..obfscommon import aes
@@ -35,6 +37,14 @@ class Obfs3Transport(BaseTransport):
     """
     Obfs3Transport implements the obfs3 protocol.
     """
+
+    __slots__ = (
+        'state',  'dh', 'shared_secret', 'scanned_padding',
+        'last_padding_chunk', 'other_magic_value', 'd',
+        'send_crypto', 'recv_crypto', 'queued_data',
+        'send_keytype', 'recv_keytype', 'send_magic_const',
+        'recv_magic_const', 'we_are_initiator'
+    )
 
     def __init__(self, *args, **kwargs):
         """Initialize the obfs3 pluggable transport."""
@@ -126,8 +136,12 @@ class Obfs3Transport(BaseTransport):
 
         if self.state == ST_OPEN: # Handshake is done. Just decrypt and read application data.
             if __debug__:
-                logger.debug("obfs3 receivedDownstream: Processing %d bytes of application data." %
-                        len(data))
+                logger.debug("obfs3 receivedDownstream: Processing %d / %d bytes of application data." %
+                        (len(data), 0))
+
+            if len(data) == 0:
+                return
+
             self.circuit.upstream.write(self.recv_crypto.crypt(data.read()))
 
     def _read_handshake(self, data):
@@ -226,6 +240,8 @@ class Obfs3Client(Obfs3Transport):
     The client and server differ in terms of their padding strings.
     """
 
+    __slots__ = ()
+
     def __init__(self, *args, **kwargs):
         Obfs3Transport.__init__(self, *args, **kwargs)
 
@@ -241,6 +257,8 @@ class Obfs3Server(Obfs3Transport):
     Obfs3Server is a server for the obfs3 protocol.
     The client and server differ in terms of their padding strings.
     """
+
+    __slots__ = ()
 
     def __init__(self, *args, **kwargs):
         Obfs3Transport.__init__(self, *args, **kwargs)

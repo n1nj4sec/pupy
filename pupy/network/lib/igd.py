@@ -3,6 +3,10 @@
 # Reworked by Oleskii Shevchuk (@alxchk)
 # License: MIT
 
+__all__ = (
+    'UPNPError', 'FakeSocket', 'IGDClient',
+)
+
 import socket
 import urllib2
 from StringIO import StringIO
@@ -55,7 +59,7 @@ def httpparse(fp):
 
 
 # sendSOAP is based on part of source code from miranda-upnp.
-class IGDClient:
+class IGDClient(object):
     """
     UPnP IGD v1 Client class, supports all actions
     """
@@ -84,6 +88,11 @@ class IGDClient:
         'control': 'urn:schemas-upnp-org:control-1-0',
         'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
     }
+
+    __slots__ = (
+        'ctrlURL', 'debug', 'pprint', 'isv6', 'timeout', 'intIP',
+        'igdsvc', 'available', 'pr', 'bindIP'
+    )
 
     def __init__(
             self,

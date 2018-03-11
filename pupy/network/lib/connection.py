@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+__all__ = ( 'SyncRequestDispatchQueue', 'PupyConnection',
+                'PupyConnectionThread')
+
 import time
 
 from rpyc.core import Connection, consts, brine

@@ -4,6 +4,8 @@
 
 """ This module contains an implementation of a simple xor transport for pupy. """
 
+__all__ = ( 'RSA_AESClient', 'RSA_AESServer' )
+
 from ..base import BasePupyTransport, TransportError
 import os, logging, traceback, struct
 import rsa
@@ -29,6 +31,14 @@ class RSA_AESTransport(BasePupyTransport):
     key_size     = 32
     rsa_key_size = 4096
     aes_size     = 256
+
+    __slots__ = (
+        'aes_size', 'key_size',
+        '_iv_enc', '_iv_dec',
+        'enc_cipher', 'dec_cipher',
+        'aes_key', 'size_to_read',
+        'first_block', 'buffer'
+    )
 
     def __init__(self, *args, **kwargs):
         super(RSA_AESTransport, self).__init__(*args, **kwargs)
@@ -165,6 +175,10 @@ class RSA_AESTransport(BasePupyTransport):
             logger.debug(traceback.format_exc())
 
 class RSA_AESClient(RSA_AESTransport):
+    __slots__ = (
+        'pubkey', 'pubkey_path'
+    )
+
     pubkey=None
     pubkey_path=None
     def __init__(self, *args, **kwargs):
@@ -195,6 +209,11 @@ class RSA_AESClient(RSA_AESTransport):
 
 
 class RSA_AESServer(RSA_AESTransport):
+    __slots__ = (
+        'privkey', 'privkey_path',
+        'pk', 'post_handshake_callbacks'
+    )
+
     privkey = None
     privkey_path = None
     def __init__(self, *args, **kwargs):
@@ -207,7 +226,7 @@ class RSA_AESServer(RSA_AESTransport):
             self.privkey=open(self.privkey_path).read()
         if self.privkey is None:
             raise TransportError("A private key (pem format) needs to be supplied for RSA_AESServer")
-        self.pk=rsa.PrivateKey.load_pkcs1(self.privkey)
+        self.pk = rsa.PrivateKey.load_pkcs1(self.privkey)
         self.post_handshake_callbacks=[]
 
     def downstream_recv(self, data):

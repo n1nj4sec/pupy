@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+__all__ = (
+    'DnsCommandClientDecodingError',
+    'DnsCommandsClient',
+)
+
 import struct
 import socket
 import base64
@@ -25,16 +30,17 @@ from network.lib import tinyhttp
 class DnsCommandClientDecodingError(Exception):
     pass
 
-__DEBUG = 0
+if __debug__:
+    __DEBUG = 0
 
-if __DEBUG:
-    import dns.resolver
-    resolver = dns.resolver.Resolver()
-    resolver.nameservers = [ '127.0.0.1' ]
-    resolver.port = 5454
-    socket.gethostbyname_ex = lambda x: (None, None, [
-        str(rdata) for rdata in resolver.query(x, 'A')
-    ])
+    if __DEBUG:
+        import dns.resolver
+        resolver = dns.resolver.Resolver()
+        resolver.nameservers = [ '127.0.0.1' ]
+        resolver.port = 5454
+        socket.gethostbyname_ex = lambda x: (None, None, [
+            str(rdata) for rdata in resolver.query(x, 'A')
+        ])
 
 class DnsCommandsClient(Thread):
     def __init__(self, domain, key):

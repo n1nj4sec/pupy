@@ -11,6 +11,13 @@ from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
 class ECPV(object):
+    __slots__ = (
+        '_curve', '_bytes', '_bits', '_hash',
+        '_private_key', '_public_key', '_kex_shared_key',
+        '_kex_public_key', '_kex_private_key',
+        '_public_key_digest', '_cached_kex_request',
+        '_cached_kex_response'
+    )
 
     def __init__(self, curve='brainpoolP160r1', hash=hashlib.sha1, private_key=None, public_key=None):
         self._curve = registry.get_curve(curve)

@@ -2,6 +2,8 @@
 
 """ EC4 PSK transport """
 
+__all__ = [ 'EC4TransportServer', 'EC4TransportClient' ]
+
 from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV
 
@@ -16,6 +18,9 @@ from Crypto.Cipher import ARC4
 from hashlib import sha384
 
 class EC4Transport(BasePupyTransport):
+
+    __slots__ = ( 'encryptor', 'decryptor', 'up_buffer' )
+
     privkey = None
     pubkey  = None
 
@@ -88,9 +93,11 @@ class EC4Transport(BasePupyTransport):
             data.write_to(self.up_buffer)
 
 class EC4TransportServer(EC4Transport):
-    pass
+    __slots__ = ()
 
 class EC4TransportClient(EC4Transport):
+    __slots__ = ()
+
     def on_connect(self):
         req = self.encoder.generate_kex_request()
         self.downstream.write(

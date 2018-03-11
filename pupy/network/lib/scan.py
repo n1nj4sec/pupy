@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+__all__ = [ 'scan', 'scanthread' ]
+
 import socket
 import select
 import errno

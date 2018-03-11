@@ -2,6 +2,14 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+__all__ = [ 'AutoProxyLauncher' ]
+
+import network
+import argparse
+import logging
+
+from network.lib import utils
+
 from ..base_launcher import *
 from ..clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from ..proxies import get_proxies
@@ -13,6 +21,10 @@ class AutoProxyLauncher(BaseLauncher):
         Automatically search a HTTP/SOCKS proxy on the system and use that proxy with the specified TCP transport.
         Also try without proxy if none of them are available/working
     """
+
+    __slots__ = (
+        'arg_parser', 'args', 'rhost', 'rport', 'connect_on_bind_payload'
+    )
 
     def __init__(self, *args, **kwargs):
         super(AutoProxyLauncher, self).__init__(*args, **kwargs)

@@ -52,6 +52,13 @@ Modifications made by Anorov (https://github.com/Anorov)
 -Various small bug fixes
 """
 
+__all__ = (
+    'PROXY_TYPES',
+    'set_default_proxy',
+    'get_default_proxy',
+    'create_connection',
+)
+
 __version__ = "1.5.7"
 
 import struct
@@ -86,6 +93,9 @@ class ProxyError(IOError):
     """
     socket_err contains original socket.error exception.
     """
+
+    __slots__ = ( 'msg', 'socket_err' )
+
     def __init__(self, msg, socket_err=None):
         self.msg = msg
         self.socket_err = socket_err
@@ -253,6 +263,12 @@ class socksocket(_BaseSocket):
     """
 
     default_proxy = None
+
+    __slots__ = (
+        'proxy', '_proxy_negotiators',
+        'proxy_sockname', 'proxy_peername',
+        '_proxyconn', 'type'
+    )
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, *args, **kwargs):
         if type not in (socket.SOCK_STREAM, socket.SOCK_DGRAM):

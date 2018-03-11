@@ -1,5 +1,12 @@
 # https://raw.githubusercontent.com/jtriley/pystun/develop/stun/__init__.py
 
+__all__ = (
+    'stun_test',
+    'get_nat_type',
+    'get_ip_info',
+    'get_ip'
+)
+
 import binascii
 import logging
 import random

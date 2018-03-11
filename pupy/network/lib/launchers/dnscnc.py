@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2016, Oleksii Shevchuk (alxchk@gmail.com)
 
+__all__ = [ 'DNSCommandClientLauncher' ]
+
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..picocmd.client import DnsCommandsClient
 from ..picocmd.picocmd import ConnectablePort, OnlineStatus, PortQuizPort

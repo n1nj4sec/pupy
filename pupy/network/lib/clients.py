@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
 
+__all__ = (
+    'PupyClient',
+    'PupyTCPClient',
+    'PupyUDPClient',
+    'PupyProxifiedTCPClient',
+    'PupySSLClient',
+    'PupyProxifiedSSLClient',
+)
+
 import socket
 import ssl
 import tempfile

@@ -2,12 +2,22 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+__all__ = [ 'BindLauncher' ]
+
+import network
+import logging
+import argparse
+
+from network.lib import utils
+
 from ..base_launcher import *
 
 class BindLauncher(BaseLauncher):
     """ start a simple bind launcher with the specified transport """
 
     credentials = [ 'BIND_PAYLOADS_PASSWORD' ]
+
+    __slots__ = ( 'credentials', 'arg_parser', 'args', 'rhost', 'rport' )
 
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="bind", description=self.__doc__)

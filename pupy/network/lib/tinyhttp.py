@@ -27,6 +27,7 @@ def merge_dict(a, b):
 ## Fix poster bug
 
 class NoRedirects(urllib2.HTTPErrorProcessor):
+    __slots__ = ()
 
     def http_response(self, request, response):
         return response
@@ -34,6 +35,8 @@ class NoRedirects(urllib2.HTTPErrorProcessor):
     https_response = http_response
 
 class NullConnection(httplib.HTTPConnection):
+    __slots__ = ( 'sock' , 'timeout' )
+
     def __init__(self, socket, timeout, *args, **kwargs):
         httplib.HTTPConnection.__init__(self, *args, **kwargs)
         self.sock = socket
@@ -43,6 +46,8 @@ class NullConnection(httplib.HTTPConnection):
         self.sock.settimeout(self.timeout)
 
 class NullHandler(urllib2.HTTPHandler):
+    __slots__ = ( 'table' , 'lock' )
+
     def __init__(self, table, lock):
         urllib2.HTTPHandler.__init__(self)
         self.table = table
@@ -56,9 +61,11 @@ class NullHandler(urllib2.HTTPHandler):
         return self.do_open(build, req)
 
 class NETFile(StringIO.StringIO):
-    pass
+    __slots__ = ()
 
 class UDPReaderHandler(urllib2.BaseHandler):
+    __slots__ = ( 'sock' , 'timeout' )
+
     def udp_open(self, req):
         url = urlparse.urlparse(req.get_full_url())
         host = url.hostname
@@ -98,6 +105,8 @@ class UDPReaderHandler(urllib2.BaseHandler):
 
 
 class TCPReaderHandler(urllib2.BaseHandler):
+    __slots__ = ( 'sslctx' )
+
     def __init__(self, context=None, *args, **kwargs):
         if context:
             self.sslctx = context
@@ -168,6 +177,8 @@ StreamingHTTPSHandler.https_open = lambda self, req: self.do_open(
     StreamingHTTPSConnection, req, context=self._context)
 
 class SocksiPyConnection(StreamingHTTPConnection):
+    __slots__ = ( 'proxyargs', 'sock' )
+
     def __init__(self, proxytype, proxyaddr, proxyport=None, rdns=True, username=None, password=None, *args, **kwargs):
         self.proxyargs = (proxytype, proxyaddr, proxyport, rdns, username, password)
         httplib.HTTPConnection.__init__(self, *args, **kwargs)
@@ -180,6 +191,8 @@ class SocksiPyConnection(StreamingHTTPConnection):
         self.sock.connect((self.host, self.port))
 
 class SocksiPyConnectionS(StreamingHTTPSConnection):
+    __slots__ = ( 'proxyargs', 'sock' )
+
     def __init__(self, proxytype, proxyaddr, proxyport=None, rdns=True, username=None, password=None, *args, **kwargs):
         self.proxyargs = (proxytype, proxyaddr, proxyport, rdns, username, password)
         httplib.HTTPSConnection.__init__(self, *args, **kwargs)
@@ -200,6 +213,8 @@ class SocksiPyConnectionS(StreamingHTTPSConnection):
             sock, server_hostname=server_hostname)
 
 class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandler):
+    __slots__ = ( 'args', 'kw' )
+
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kw = kwargs
@@ -236,6 +251,9 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
         return conn.sock
 
 class HTTP(object):
+
+    __slots__ = ( 'ctx', 'proxy', 'noverify', 'timeout', 'opener' )
+
     def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
         self.ctx = ssl.create_default_context()
 
@@ -250,7 +268,7 @@ class HTTP(object):
 
         self.proxy = proxy
         self.noverify = noverify
-        self.timeout=timeout
+        self.timeout = timeout
 
         if self.proxy is None or self.proxy is True:
             handlers = [

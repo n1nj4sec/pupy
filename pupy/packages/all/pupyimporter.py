@@ -197,6 +197,8 @@ def py_memimporter():
     INITIALIZER = ctypes.PYFUNCTYPE(None)
 
     class MemImporter(object):
+        __slots__ = ( '_create_tmpfile' )
+
         def __init__(self, create_tmpfile):
             self._create_tmpfile = create_tmpfile
 
@@ -468,10 +470,15 @@ def invalidate_module(name):
     gc.collect()
 
 class DummyPackageLoader(object):
+    __slots__ = ()
+
     def load_module(self, fullname):
         return sys.modules[fullname]
 
 class PupyPackageLoader(object):
+    __slots__ = ( 'fullname', 'contents', 'extension',
+                      'is_pkg', 'path', 'archive' )
+
     def __init__(self, fullname, contents, extension, is_pkg, path):
         self.fullname = fullname
         self.contents = contents
@@ -568,9 +575,11 @@ class PupyPackageLoader(object):
         return sys.modules[fullname]
 
 class PupyPackageFinderImportError(ImportError):
-    pass
+    __slots__ = ()
 
 class PupyPackageFinder(object):
+    __slots__ = ()
+
     search_lock = None
     search_set = set()
 
@@ -908,6 +917,8 @@ def install(debug=None, trace=False):
         ctypes.CDLL_ORIG = ctypes.CDLL
 
         class PupyCDLL(ctypes.CDLL_ORIG):
+            __slots__ = ( '_FuncPtr_orig', '_FuncPtr', '_name' )
+
             def __init__(self, name, **kwargs):
                 super(PupyCDLL, self).__init__(name, **kwargs)
                 self._FuncPtr_orig = self._FuncPtr

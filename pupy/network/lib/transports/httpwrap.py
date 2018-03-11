@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+__all__ = [ 'PupyHTTPWrapperServer' ]
+
 from ..base import BasePupyTransport, ReleaseChainedTransport
 from .utils import *
 from http_parser.parser import HttpParser
@@ -19,6 +21,12 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         'Server' : 'Apache',
         'Connection': 'close',
     }
+
+    __slots__ = (
+        'parser', 'is_http',
+        'body', 'downstream_buffer',
+        'well_known', 'omit', 'probe_len'
+    )
 
     def __init__(self, *args, **kwargs):
         super(PupyHTTPWrapperServer, self).__init__(*args, **kwargs)

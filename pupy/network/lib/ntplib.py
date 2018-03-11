@@ -27,19 +27,21 @@ Implementation of client-side NTP (RFC-1305), and useful NTP-related
 functions.
 """
 
+__all__ = (
+    'NTPException', 'NTP',
+    'NTPPacket', 'NTPClient', 'NTPStats',
+)
 
 import datetime
 import socket
 import struct
 import time
 
-
 class NTPException(Exception):
     """Exception raised by this module."""
-    pass
+    __slots__ = ()
 
-
-class NTP:
+class NTP(object):
     """Helper class defining constants."""
 
     _SYSTEM_EPOCH = datetime.date(*time.gmtime(0)[0:3])
@@ -111,8 +113,9 @@ class NTP:
     }
     """leap indicator table"""
 
+    __slots__ = ()
 
-class NTPPacket:
+class NTPPacket(object):
     """NTP packet class.
 
     This represents an NTP packet.
@@ -120,6 +123,13 @@ class NTPPacket:
 
     _PACKET_FORMAT = "!B B B b 11I"
     """packet format to pack/unpack"""
+
+    __slots__ = (
+        'leap', 'version', 'mode', 'stratum', 'poll',
+        'precision', 'root_delay', 'root_dispersion',
+        'ref_id', 'ref_timestamp', 'orig_timestamp',
+        'recv_timestamp', 'tx_timestamp'
+    )
 
     def __init__(self, version=2, mode=3, tx_timestamp=0):
         """Constructor.
@@ -225,6 +235,8 @@ class NTPStats(NTPPacket):
     delay, and timestamps converted to system time.
     """
 
+    __slots__ = [ 'dest_timestamp' ]
+
     def __init__(self):
         """Constructor."""
         NTPPacket.__init__(self)
@@ -269,8 +281,10 @@ class NTPStats(NTPPacket):
         return ntp_to_system_time(self.dest_timestamp)
 
 
-class NTPClient:
+class NTPClient(object):
     """NTP client session."""
+
+    __slots__ = ()
 
     def __init__(self):
         """Constructor."""

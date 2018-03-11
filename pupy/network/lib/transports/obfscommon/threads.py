@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 
 """ This is a module to substiture some twisted functions used in obfsproxy to avoid dependencies with twisted """
 import threading
 import traceback
 import time
+
+__all__ = (
+    'callLater',
+    'deferToThread'
+)
 
 def delayer_func(delay, cb, args, kwargs):
     time.sleep(delay)
@@ -12,20 +17,25 @@ def delayer_func(delay, cb, args, kwargs):
 
 
 def callLater(delay, callable, *args, **kw):
-    t=threading.Thread(target=delayer_func, args=(delay, callable, args, kw))
-    t.daemon=True
+    t = threading.Thread(target=delayer_func, args=(delay, callable, args, kw))
+    t.daemon = True
     t.start()
 
 class threadDeferer(threading.Thread):
+    __slots__ = (
+        'res', 'err_cb', 'daemon',
+        '__target', '__args', '__kwargs'
+    )
+
     def __init__(self, target=None, args=tuple(), kwargs={}):
         threading.Thread.__init__(self)
-        self.res=None
-        self.err_cb=None
-        self.cb=None
-        self.daemon=True
-        self.__target=target
-        self.__args=args
-        self.__kwargs=kwargs
+        self.res = None
+        self.err_cb = None
+        self.cb = None
+        self.daemon = True
+        self.__target = target
+        self.__args = args
+        self.__kwargs = kwargs
 
     def addCallback(self, func, *args):
         self.cb=func
@@ -52,7 +62,6 @@ class threadDeferer(threading.Thread):
         finally:
             del self.__target, self.__args, self.__kwargs
 
-    
+
 def deferToThread(function, *args):
     return threadDeferer(target=function, args=args)
-

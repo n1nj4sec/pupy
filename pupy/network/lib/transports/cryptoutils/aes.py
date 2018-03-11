@@ -3,6 +3,12 @@
 
 """ wrapper around pycryptodome or pyaes depending on their availabilities """
 
+__all__ = [
+    'append_PKCS7_padding',
+    'strip_PKCS7_padding',
+    'NewAESCipher'
+]
+
 import logging
 
 def append_PKCS7_padding(data):
@@ -35,6 +41,8 @@ except ImportError as e:
     from .pyaes import AESModeOfOperationCBC
 
     class NewAESCipher(object):
+        __slots__ = ( 'aes_key', 'iv', 'cipher' )
+
         def __init__(self, aes_key, iv):
             self.aes_key =  aes_key
             self.iv = iv

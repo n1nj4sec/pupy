@@ -1,5 +1,7 @@
 import binascii
 
+__all__ = [ 'UniformDH' ]
+
 from ..obfscommon import rand
 from ..obfscommon import modexp
 
@@ -7,7 +9,7 @@ def int_to_bytes(lvalue, width):
     fmt = '%%.%dx' % (2*width)
     return binascii.unhexlify(fmt % (lvalue & ((1L<<8*width)-1)))
 
-class UniformDH:
+class UniformDH(object):
     """
     This is a class that implements a DH handshake that uses public
     keys that are indistinguishable from 192-byte random strings.
@@ -41,6 +43,8 @@ class UniformDH:
            670C354E 4ABC9804 F1746C08 CA237327 FFFFFFFF FFFFFFFF""".replace(' ','').replace('\n','').replace('\t',''), 16)
     g = 2
     group_len = 192 # bytes (1536-bits)
+
+    __slots__ = ( 'priv_str', 'priv', 'pub', 'pub_str', 'shared_secret' )
 
     def __init__(self, private_key = None):
         # Generate private key

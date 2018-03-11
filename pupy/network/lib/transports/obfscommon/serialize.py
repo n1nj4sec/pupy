@@ -2,6 +2,8 @@
 
 import struct
 
+__all__ = [ 'htonl', 'ntohl', 'htons', 'ntohs' ]
+
 def htonl(n):
     """
     Convert integer in 'n' from host-byte order to network-byte order.

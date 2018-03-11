@@ -3,6 +3,12 @@
 # Using the same buffer object as in obfsproxy to enhance compatibility
 # some modifications brings to have waiting capabilities
 
+__all__ = (
+    'Buffer',
+    'DEFAULT_FORCED_FLUSH_BUFFER_SIZE',
+    'DEFAULT_MAX_STR_SIZE'
+)
+
 import sys
 import zlib
 

@@ -8,6 +8,8 @@ except ImportError:
             return x
         pass
 
+__all__ = [ 'powMod' ]
+
 def powMod( x, y, mod ):
     """
     (Efficiently) Calculate and return `x' to the power of `y' mod `mod'.

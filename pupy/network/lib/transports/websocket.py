@@ -7,6 +7,13 @@
     Lots of the WebSocket protocol code came from https://github.com/Pithikos/python-websocket-server
 """
 
+__all__ = (
+    'InvalidHTTPReq', 'MalformedData', 'MissingData',
+    'paths', 'UA',
+    'PupyWebSocketTransport',
+    'PupyWebSocketClient', 'PupyWebSocketServer'
+)
+
 from ..base import BasePupyTransport
 import time, base64, struct, random, string, logging
 from hashlib import sha1
@@ -16,18 +23,18 @@ import re
 logger = logging.getLogger('ws')
 
 class InvalidHTTPReq(Exception):
-    pass
+    __slots__ = ()
 
 class MalformedData(Exception):
-    pass
+    __slots__ = ()
 
 class MissingData(Exception):
-    pass
+    __slots__ = ()
 
 # IOCs: These should change per engagement.
 paths = [
-        "/wsapp"
-        ]
+    "/wsapp"
+]
 
 # Also update conf.py in network/transports/websocket/
 UA = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
@@ -61,7 +68,7 @@ class PupyWebSocketTransport(BasePupyTransport):
     """
     Implements the http protocol transport for pupy.
     """
-    pass
+    __slots__ = ()
 
 class PupyWebSocketClient(PupyWebSocketTransport):
     client=True
@@ -72,6 +79,12 @@ class PupyWebSocketClient(PupyWebSocketTransport):
     mask=''.join(random.sample(string.printable,4))
     user_agent=UA
     host="www.example.com" # None for random
+
+    __slots__ = (
+        'method', 'path', 'user_agent', 'socketkey',
+        'missing_bytes'
+    )
+
     def __init__(self, *args, **kwargs):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
 
@@ -197,6 +210,10 @@ class PupyWebSocketServer(PupyWebSocketTransport):
     missing_bytes=0
     decoded_len=0
     mask=""
+
+    __slots__ = ( 'verify_user_agent', 'missing_bytes',
+                      'mask', 'decoded_len' )
+
     def __init__(self, *args, **kwargs):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
 

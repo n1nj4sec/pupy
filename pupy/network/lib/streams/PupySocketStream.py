@@ -19,7 +19,6 @@ except:
 
 import sys
 from rpyc.core import SocketStream, Connection, Channel
-from ..buffer import Buffer
 import socket
 import time
 import errno
@@ -31,6 +30,8 @@ from rpyc.lib.compat import select, select_error, get_exc_errno, maxint
 from network.lib.buffer import Buffer
 
 import threading
+
+logger = logging.getLogger('pss')
 
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports """
@@ -58,10 +59,18 @@ class PupyChannel(Channel):
     def recv(self):
         # print "RECV", threading.currentThread()
         with self._recv_channel_lock:
-            return self._recv()
+            data = self._recv()
+
+            if __debug__:
+                logger.debug('channel: recv={}'.format(len(data)))
+
+            return data
 
     def send(self, data):
         with self._send_channel_lock:
+            if __debug__:
+                logger.debug('channel: send={}'.format(len(data)))
+
             self._send(data)
 
     def _recv(self):
@@ -188,7 +197,10 @@ class PupySocketStream(SocketStream):
         self.compress = True
 
         #buffers for transport
-        self.upstream=Buffer(transport_func=addGetPeer(("127.0.0.1", 443)))
+        self.upstream = Buffer(
+            transport_func=addGetPeer(("127.0.0.1", 443)),
+            shared=True
+        )
 
         if sock is None:
             peername = '127.0.0.1', 0
@@ -199,7 +211,9 @@ class PupySocketStream(SocketStream):
 
         self.downstream = Buffer(
             on_write=self._upstream_recv,
-            transport_func=addGetPeer(peername))
+            transport_func=addGetPeer(peername),
+            shared=True
+        )
 
         self.upstream_lock = threading.Lock()
         self.downstream_lock = threading.Lock()
@@ -207,8 +221,8 @@ class PupySocketStream(SocketStream):
         self.transport = transport_class(self, **transport_kwargs)
 
         #buffers for streams
-        self.buf_in=Buffer()
-        self.buf_out=Buffer()
+        self.buf_in = Buffer()
+        self.buf_out = Buffer()
 
         self.on_connect()
 
@@ -219,8 +233,12 @@ class PupySocketStream(SocketStream):
     def _read(self):
         try:
             buf = self.sock.recv(self.MAX_IO_CHUNK)
+            if __debug__:
+                logger.debug('stream: read={}'.format(len(buf) if buf else None))
+
         except socket.timeout:
             return
+
         except socket.error:
             ex = sys.exc_info()[1]
             if get_exc_errno(ex) in (errno.EAGAIN, errno.EWOULDBLOCK):
@@ -229,6 +247,7 @@ class PupySocketStream(SocketStream):
                 return
             self.close()
             raise EOFError(ex)
+
         if not buf:
             self.close()
             raise EOFError("connection closed by peer")
@@ -270,10 +289,15 @@ class PupySocketStream(SocketStream):
     def _upstream_recv(self):
         """ called as a callback on the downstream.write """
         if len(self.downstream)>0:
-            # print "SEND TO CHANNEL", len(self.downstream)
+            if __debug__:
+                logger.debug('stream: send={}'.format(len(self.downstream)))
+
             self.downstream.write_to(super(PupySocketStream, self))
 
     def waitfor(self, count):
+        if __debug__:
+            logger.debug('stream: waitfor={}'.format(count))
+
         try:
             while len(self.upstream)<count:
                 if not self.sock_poll(None) and self.closed:
@@ -303,6 +327,10 @@ class PupySocketStream(SocketStream):
         self.buf_out.flush()
 
     def write(self, data, notify=True):
+        if __debug__:
+            logger.debug('stream: write={} / n={}'.format(
+                len(data) if data else None, notify))
+
         try:
             with self.upstream_lock:
                 self.buf_out.write(data, notify)
@@ -359,11 +387,15 @@ class PupyUDPSocketStream(object):
 
         #buffers for transport
         self.upstream = Buffer(
-            transport_func=addGetPeer(("127.0.0.1", 443)))
+            transport_func=addGetPeer(("127.0.0.1", 443)),
+            shared=True
+        )
 
         self.downstream = Buffer(
             on_write=self._send,
-            transport_func=addGetPeer(self.dst_addr))
+            transport_func=addGetPeer(self.dst_addr),
+            shared=True
+        )
 
         self.upstream_lock = threading.Lock()
         self.downstream_lock = threading.Lock()
@@ -407,10 +439,6 @@ class PupyUDPSocketStream(object):
 
         if self.client_side:
             self.sock.close()
-
-    def flush(self):
-        if self.kcp:
-            self.kcp.flush()
 
     def _send(self):
         """ called as a callback on the downstream.write """
