@@ -55,6 +55,70 @@ brine.dump = stream_dump
 
 ################################################################
 
+# Event (cond var) is simply to complex for our dumb case
+# for c in ( Event, Ack ):
+#     start = time.time()
+#     for x in xrange(1000000):
+#         a = c()
+#         a.is_set()
+#         a.set()
+#         a.wait()
+#     print c, time.time() - start
+#
+# <function Event at 0x7fc42a3681b8> 14.4261770248
+# <class '__main__.Ack'> 3.26524806023
+
+class Ack(object):
+    """ Dumb (and fast, and unsafe) event replacement """
+
+    __slots__ = ( '_lock', '_is_set', '_wait_lock' )
+
+    def __init__(self):
+        self._lock = Lock()
+        self._is_set = False
+        self._wait_lock = None
+
+    def is_set(self):
+        with self._lock:
+            return self._is_set
+
+    def set(self):
+        with self._lock:
+            self._is_set = True
+            if self._wait_lock:
+                self._wait_lock.release()
+                self._wait_lock = None
+
+    def wait(self, timeout=None, probe=0.5):
+        if not timeout:
+            with self._lock:
+                if self._is_set:
+                    return True
+
+                self._wait_lock = Lock()
+                self._wait_lock.acquire()
+
+            self._wait_lock.acquire()
+        else:
+            with self._lock:
+                if self._is_set:
+                    return True
+
+            delay = 0.0005
+            prev = time.time()
+            while timeout > 0:
+                time.sleep(delay)
+                now = time.time()
+                timeout -= now - prev
+                prev = now
+                delay = min(timeout, probe, delay*2)
+
+                with self._lock:
+                    if self._is_set:
+                        return True
+
+            return False
+
 class SyncRequestDispatchQueue(object):
     MAX_TASK_ACK_TIME = 0.5
 
@@ -147,7 +211,7 @@ class SyncRequestDispatchQueue(object):
         with self._workers_lock:
             self._promise += 1
 
-        ack = Event()
+        ack = Ack()
         queued = False
 
         while not ack.is_set():
@@ -174,7 +238,7 @@ class SyncRequestDispatchQueue(object):
 
                         pass
 
-            if not queued or not ack.wait(timeout=MAX_TASK_ACK_TIME):
+            if not queued or not ack.wait(timeout=self.MAX_TASK_ACK_TIME, probe=0.1):
                 with self._workers_lock:
                     self._workers += 1
                     if self._workers > self._max_workers:
@@ -358,7 +422,7 @@ class PupyConnection(Connection):
             if __debug__:
                 synclogger.debug('Sync request: {}'.format(seq))
 
-            self._sync_events[seq] = Event()
+            self._sync_events[seq] = Ack()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
 
