@@ -601,7 +601,7 @@ class PupyCmd(cmd.Cmd):
                     j.stop()
                     self.display_success("job closed")
                 else:
-                    j.interrupt(wait=False)
+                    j.interrupt()
                     j.stop()
                     self.display_success("job killed")
                 self.pupsrv.del_job(modargs.kill)
@@ -763,51 +763,43 @@ class PupyCmd(cmd.Cmd):
 
         modjobs=[x for x in self.pupsrv.jobs.itervalues() if x.pupymodules[0].get_name() == mod.get_name() and x.pupymodules[0].client in l]
         pj=None
-        try:
-            interactive=False
-            if mod.daemon and mod.unique_instance and modjobs:
-                pj=modjobs[0]
-            else:
-                pj=PupyJob(self.pupsrv, '{} {}'.format(modargs.module, ' '.join(args)))
-                if len(l)==1 and not modargs.bg and not mod.daemon:
-                    ps=mod(l[0], pj, stdout=self.stdout, log=modargs.output)
-                    pj.add_module(ps)
-                    interactive=True
-                else:
-                    for c in l:
-                        ps=mod(c, pj, log=modargs.output)
-                        pj.add_module(ps)
-            try:
-                pj.start(args, once=modargs.once)
-            except Exception as e:
-                self.display_error(e)
-                pj.stop()
 
-            if not mod.unique_instance:
-                if modargs.bg:
-                    self.pupsrv.add_job(pj)
-                    self.display_info("job %s started in background !"%pj)
-                elif mod.daemon:
-                    self.pupsrv.add_job(pj)
-                    self.display_info("job %s started in background !"%pj)
-                else:
-                    error=pj.interactive_wait()
-                    if error and not modjobs:
-                        pj.stop()
+        interactive=False
+        if mod.daemon and mod.unique_instance and modjobs:
+            pj=modjobs[0]
+        else:
+            pj=PupyJob(self.pupsrv, '{} {}'.format(modargs.module, ' '.join(args)))
+            if len(l)==1 and not modargs.bg and not mod.daemon:
+                ps=mod(l[0], pj, stdout=self.stdout, log=modargs.output)
+                pj.add_module(ps)
+                interactive=True
             else:
-                if mod.daemon and not modjobs:
-                    self.pupsrv.add_job(pj)
+                for c in l:
+                    ps=mod(c, pj, log=modargs.output)
+                    pj.add_module(ps)
+        try:
+            pj.start(args, once=modargs.once)
+        except Exception as e:
+            self.display_error(e)
+            pj.stop()
+
+        if not mod.unique_instance:
+            if modargs.bg:
+                self.pupsrv.add_job(pj)
+                self.display_info("job %s started in background !"%pj)
+            elif mod.daemon:
+                self.pupsrv.add_job(pj)
+                self.display_info("job %s started in background !"%pj)
+            else:
                 error=pj.interactive_wait()
                 if error and not modjobs:
                     pj.stop()
-
-        except KeyboardInterrupt:
-            self.display_warning('interrupting job ... (please wait)')
-            interrupted = pj.interrupt()
-            if interrupted:
-                self.display_warning('job was interrupted')
-            else:
-                self.display_error('job was sent to background and may consume resources')
+        else:
+            if mod.daemon and not modjobs:
+                self.pupsrv.add_job(pj)
+            error=pj.interactive_wait()
+            if error and not modjobs:
+                pj.stop()
 
         if not interactive:
             summary = pj.result_summary()
@@ -1619,6 +1611,25 @@ class PupyCmd(cmd.Cmd):
                 ]
                 self.display(PupyCmd.table_format(objects, wl=['IP', 'PORTS']))
                 session.open_ports = {}
+
+    def do_stacktrace(self, arg):
+        """ Dump current stacks (debug) """
+
+        print >> sys.stderr, "\n*** STACKTRACE - START ***\n"
+        code = []
+        for threadId, stack in sys._current_frames().items():
+            code.append("\n# ThreadID: %s" % threadId)
+
+            for filename, lineno, name, line in traceback.extract_stack(stack):
+                code.append('File: "%s", line %d, in %s' % (filename, lineno, name))
+
+                if line:
+                    code.append("  %s" % (line.strip()))
+
+        for line in code:
+            print >> sys.stderr, line
+
+        print >> sys.stderr, "\n*** STACKTRACE - END ***\n"
 
     def do_exit(self, arg):
         """ Quit Pupy Shell """
