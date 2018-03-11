@@ -169,7 +169,6 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                         len(self.downstream_buffer), self.downstream.on_write_f))
 
                 self.downstream_buffer.write_to(self.downstream)
-                self.downstream_buffer = None
 
             if __debug__:
                 logger.debug('Release transport')
@@ -191,6 +190,9 @@ class PupyHTTPWrapperServer(BasePupyTransport):
             if __debug__:
                 logger.debug('Non-HTTP: Direct pass (handler={})'.format(
                     self.downstream.on_write_f))
+
+            if self.downstream_buffer:
+                self.downstream_buffer.write_to(self.downstream)
 
             data.write_to(self.downstream)
         else:
