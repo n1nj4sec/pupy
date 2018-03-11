@@ -13,6 +13,7 @@ logger = logging.getLogger('pconn')
 synclogger = logging.getLogger('sync')
 syncqueuelogger = logging.getLogger('syncqueue')
 
+from network.lib.ack import Ack
 from network.lib.buffer import Buffer
 
 ############# Monkeypatch brine to be buffer firendly #############
@@ -54,70 +55,6 @@ brine.simple_types.append(Buffer)
 brine.dump = stream_dump
 
 ################################################################
-
-# Event (cond var) is simply to complex for our dumb case
-# for c in ( Event, Ack ):
-#     start = time.time()
-#     for x in xrange(1000000):
-#         a = c()
-#         a.is_set()
-#         a.set()
-#         a.wait()
-#     print c, time.time() - start
-#
-# <function Event at 0x7fc42a3681b8> 14.4261770248
-# <class '__main__.Ack'> 3.26524806023
-
-class Ack(object):
-    """ Dumb (and fast, and unsafe) event replacement """
-
-    __slots__ = ( '_lock', '_is_set', '_wait_lock' )
-
-    def __init__(self):
-        self._lock = Lock()
-        self._is_set = False
-        self._wait_lock = None
-
-    def is_set(self):
-        with self._lock:
-            return self._is_set
-
-    def set(self):
-        with self._lock:
-            self._is_set = True
-            if self._wait_lock:
-                self._wait_lock.release()
-                self._wait_lock = None
-
-    def wait(self, timeout=None, probe=0.5):
-        if not timeout:
-            with self._lock:
-                if self._is_set:
-                    return True
-
-                self._wait_lock = Lock()
-                self._wait_lock.acquire()
-
-            self._wait_lock.acquire()
-        else:
-            with self._lock:
-                if self._is_set:
-                    return True
-
-            delay = 0.0005
-            prev = time.time()
-            while timeout > 0:
-                time.sleep(delay)
-                now = time.time()
-                timeout -= now - prev
-                prev = now
-                delay = min(timeout, probe, delay*2)
-
-                with self._lock:
-                    if self._is_set:
-                        return True
-
-            return False
 
 class SyncRequestDispatchQueue(object):
     MAX_TASK_ACK_TIME = 0.5
@@ -264,8 +201,19 @@ class SyncRequestDispatchQueue(object):
                 break
 
 class PupyConnection(Connection):
+    __slots__ = (
+        '_close_lock', '_sync_events_lock',
+        '_async_events_lock', '_sync_events',
+        '_sync_raw_replies', '_sync_raw_exceptions',
+        '_last_recv', '_ping', '_ping_timeout',
+        '_serve_timeout', '_last_ping', '_default_serve_timeout',
+        '_queue', '_config'
+    )
+
     def __init__(self, pupy_srv, *args, **kwargs):
         self._close_lock = Lock()
+        self._sync_events_lock = Lock()
+        self._async_events_lock = Lock()
 
         self._sync_events = {}
         self._sync_raw_replies = {}
@@ -303,11 +251,6 @@ class PupyConnection(Connection):
             self._config.update(kwargs['config'])
 
         next(self._seqcounter)
-
-    def _queue_dispatch_request(self, seq, args):
-        self._queue(
-            self._on_sync_request_exception,
-            self._dispatch_request, seq, args)
 
     def _on_sync_request_exception(self, exc):
         if not isinstance(exc, EOFError):
@@ -363,8 +306,13 @@ class PupyConnection(Connection):
         if __debug__:
             synclogger.debug('Sync request process: {}'.format(seq))
 
-        _sync_raw_replies = self._sync_raw_replies.keys()
-        if seq in _sync_raw_replies:
+        is_response = False
+        is_exception = False
+        with self._sync_events_lock:
+            is_response = seq in self._sync_raw_replies
+            is_exception = seq in self._sync_raw_exceptions
+
+        if is_response:
             if __debug__:
                 synclogger.debug('Dispatch sync reply: {} - start'.format(seq))
 
@@ -374,10 +322,7 @@ class PupyConnection(Connection):
             if __debug__:
                 synclogger.debug('Dispatch sync reply: {} - complete'.format(seq))
 
-        del _sync_raw_replies
-
-        _sync_raw_exceptions = self._sync_raw_exceptions.keys()
-        if seq in _sync_raw_exceptions:
+        if is_exception:
             if __debug__:
                 synclogger.debug('Dispatch sync exception: {} - start'.format(seq))
 
@@ -386,8 +331,6 @@ class PupyConnection(Connection):
 
             if __debug__:
                 synclogger.debug('Dispatch sync exception: {} - complete'.format(seq))
-
-        del _sync_raw_exceptions
 
         if __debug__:
             synclogger.debug('Sync request: {} - complete'.format(seq))
@@ -430,11 +373,11 @@ class PupyConnection(Connection):
 
         self._last_recv = time.time()
 
-        _async_callbacks = self._async_callbacks.keys()
-        sync = seq not in _async_callbacks
-        del _async_callbacks
+        is_sync = False
+        with self._async_events_lock:
+            is_sync = seq not in self._async_callbacks
 
-        if sync:
+        if is_sync:
             self._sync_raw_replies[seq] = raw
             if __debug__:
                 logger.debug('Dispatch sync reply: {} - pass'.format(seq))
@@ -456,12 +399,11 @@ class PupyConnection(Connection):
 
         self._last_recv = time.time()
 
-        sync = None
-        _async_callbacks = self._async_callbacks.keys()
-        sync = seq not in _async_callbacks
-        del _async_callbacks
+        is_sync = False
+        with self._async_events_lock:
+            is_sync = seq not in self._async_callbacks
 
-        if sync:
+        if is_sync:
             self._sync_raw_exceptions[seq] = raw
             if __debug__:
                 logger.debug('Dispatch sync exception: {} - pass'.format(seq))
@@ -484,6 +426,8 @@ class PupyConnection(Connection):
             logger.debug('Connection - close - start')
 
         try:
+            self.buf_in.wake()
+
             self._async_request(consts.HANDLE_CLOSE)
         except EOFError, e:
             logger.info(
@@ -651,7 +595,9 @@ class PupyConnection(Connection):
                     logger.debug('Processing message request, type: {} seq: {} - started'.format(
                         args[0], seq))
 
-                self._queue_dispatch_request(seq, args)
+                self._queue(
+                    self._on_sync_request_exception,
+                    self._dispatch_request, seq, args)
 
             else:
                 if __debug__:

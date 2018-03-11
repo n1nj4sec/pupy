@@ -1,9 +1,13 @@
+# -*- encoding: utf-8 -*-
+
 # Using the same buffer object as in obfsproxy to enhance compatibility
 # some modifications brings to have waiting capabilities
 
-import threading
 import sys
 import zlib
+
+from threading import Lock
+from .ack import Ack
 
 DEFAULT_FORCED_FLUSH_BUFFER_SIZE = 32768
 DEFAULT_MAX_STR_SIZE = 4096
@@ -13,6 +17,12 @@ class Buffer(object):
     A Buffer is a simple FIFO buffer. You write() stuff to it, and you
     read() them back. You can also peek() or drain() data.
     """
+
+    __slots__ = (
+        '_data', '_len', '_bofft',
+        'on_write_f', 'data_lock', 'waiting', 'transport', 'cookie',
+        'chunk_size', 'compressor'
+    )
 
     ALLOW_BUFFER_AS_DATA = True
 
@@ -27,8 +37,8 @@ class Buffer(object):
         self._bofft = 0
 
         self.on_write_f = on_write
-        self.data_lock = threading.Lock()
-        self.waiting = threading.Event()
+        self.data_lock = Lock()
+        self.waiting = Ack()
         self.transport = transport_func
         self.cookie = None
         self.chunk_size = None
