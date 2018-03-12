@@ -98,7 +98,7 @@ with open(pupysh_path, 'w') as pupysh:
     wa = os.path.abspath(args.workdir)
     print >>pupysh, '#!/bin/sh'
     print >>pupysh, 'cd {}'.format(wa)
-    print >>pupysh, 'exec bin/python {} "$@"'.format(
+    print >>pupysh, 'exec bin/python -B {} "$@"'.format(
         os.path.join(pupy, 'pupy', 'pupysh.py'))
 
 os.chmod(pupysh_path, 0755)
