@@ -102,8 +102,8 @@ class ls(PupyModule):
         sort.add_argument('-L', '--limit', type=int, default=1024,
                           help='List no more than this amount of files (server side), '
                               'to not to stuck on huge dirs. Default: 1024')
-        sort.add_argument('-s', '--size', dest='sort', action='store_const', const='size', help='sort by size')
-        sort.add_argument('-t', '--time', dest='sort', action='store_const', const='ts', help='sort by time')
+        sort.add_argument('-s', '--size', dest='sort', action='store_const', const=T_SIZE, help='sort by size')
+        sort.add_argument('-t', '--time', dest='sort', action='store_const', const=T_TIMESTAMP, help='sort by time')
         self.arg_parser.add_argument('-r', '--reverse', action='store_true', default=False, help='reverse sort order')
         self.arg_parser.add_argument('path', type=str, nargs='?', help='path of a specific file')
 
