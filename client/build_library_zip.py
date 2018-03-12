@@ -106,7 +106,6 @@ if 'win' in sys.platform:
 
 try:
     content = set(ignore)
-
     for dep in all_dependencies:
         mdep = __import__(dep)
         print "DEPENDENCY: ", dep, mdep
@@ -116,15 +115,19 @@ try:
             for root, dirs, files in os.walk(mdep.__path__[0]):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
                     found=False
+                    need_compile=True
                     for ext in ('.dll', '.so', '.pyd', '.py', '.pyc', '.pyo'):
                         if ( ext == '.pyc' or ext == '.pyo' ) and found:
                             continue
 
                         pypath = os.path.join(root,f+ext)
                         if os.path.exists(pypath):
-                            zipname = '/'.join([root[len(path)+1:], f.split('.', 1)[0] + ext])
-                            zipname = zipname.replace('\\', '/')
-                            found=True
+                            ziproot = root[len(path)+1:].replace('\\', '/')
+                            zipname = '/'.join([ziproot, f.split('.', 1)[0] + ext])
+                            found = True
+
+                            if ziproot.startswith('site-packages'):
+                                ziproot = ziproot[14:]
 
                             if zipname.startswith('network/transports/') and \
                               not zipname.startswith('network/transports/__init__.py'):
@@ -141,21 +144,28 @@ try:
                             if zipname in content:
                                 continue
 
+                            file_root = root
+
                             if os.path.exists(os.path.join(PATCHES, f+'.py')):
                                 print('found [PATCH] for {}'.format(f))
-                                root = PATCHES
+                                file_root = PATCHES
                                 ext = '.py'
-                                break
+                            elif os.path.exists(os.path.sep.join([PATCHES] + zipname.split('/'))):
+                                print('found [PATCH ZROOT] for {}'.format(f))
+                                file_root = os.path.sep.join([PATCHES] + ziproot.split('/'))
+                                ext = '.py'
 
                             print('adding file : {}'.format(zipname))
                             content.add(zipname)
 
-                            if ext == '.py':
+                            if ext == '.py' and need_compile:
                                 zf.writestr(
                                     zipname+'o',
-                                    compile_py(os.path.join(root,f+ext)))
+                                    compile_py(os.path.join(file_root,f+ext)))
                             else:
-                                zf.write(os.path.join(root,f+ext), zipname)
+                                zf.write(os.path.join(file_root,f+ext), zipname)
+
+                            break
         else:
             if '<memimport>' in mdep.__file__:
                 continue
