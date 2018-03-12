@@ -145,6 +145,8 @@ class SystemStatus(Command):
         else:
             self.idle = bool(idle)
 
+        psutil._pmap = {}
+
     def get_dict(self):
         return {
             'cpu': self.cpu,
