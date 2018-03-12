@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.PupyCmd import PupyCmd
 from pupylib.utils.term import colorize
 from modules.lib.utils.shell_exec import shell_exec
 from datetime import datetime, timedelta
@@ -70,7 +69,7 @@ class WModule(PupyModule):
 
                         tablein.append(object)
 
-            self.stdout.write(PupyCmd.table_format(tablein))
+            self.stdout.write(self.formatter.table_format(tablein))
 
         except Exception, e:
             logging.exception(e)

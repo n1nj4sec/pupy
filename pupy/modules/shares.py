@@ -2,7 +2,6 @@
 from pupylib.PupyModule import *
 from netaddr import *
 from pupylib.utils.rpyc_utils import obtain
-from pupylib.PupyCmd import PupyCmd
 
 __class_name__="Shares"
 
@@ -88,7 +87,7 @@ class Shares(PupyModule):
                 } for x in result['shares']]
 
                 self.stdout.write(
-                    PupyCmd.table_format(shares, wl=[ 'SHARE', 'ACCESS' ])
+                    self.formatter.table_format(shares, wl=[ 'SHARE', 'ACCESS' ])
                 )
 
                 self.stdout.write('\n')

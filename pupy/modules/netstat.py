@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.PupyCmd import PupyCmd
 from pupylib.utils.term import colorize
 from modules.lib.utils.shell_exec import shell_exec
 from collections import OrderedDict
@@ -103,7 +102,7 @@ class NetStatModule(PupyModule):
                     objects.append(connection)
 
             self.stdout.write(
-                PupyCmd.table_format(objects, wl=[
+                self.formatter.table_format(objects, wl=[
                     'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'PID', 'EXE'
                 ]))
 

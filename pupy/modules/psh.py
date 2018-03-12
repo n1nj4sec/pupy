@@ -4,7 +4,6 @@ from pupylib.PupyModule import *
 from pupylib.utils.term import consize
 from argparse import REMAINDER
 from pupylib.utils.rpyc_utils import obtain
-from pupylib.PupyCmd import PupyCmd
 from os import path
 from rpyc import GenericException
 
@@ -161,7 +160,7 @@ class PowershellManager(PupyModule):
                 } for ctx, rids in results.iteritems()
             ]
             self.stdout.write(
-                PupyCmd.table_format(objects, wl=[
+                self.formatter.table_format(objects, wl=[
                     'CONTEXT', 'RIDS'
                 ]))
 

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.PupyCmd import PupyCmd
 from pupylib.utils.term import terminal_size, colorize
 from modules.lib.utils.shell_exec import shell_exec
 import logging
@@ -104,7 +103,7 @@ def gen_output_line(columns, info, record, width):
 
     return output
 
-def print_psinfo(fout, families, socktypes, data, colinfo, width=80, sections=[]):
+def print_psinfo(formatter, fout, families, socktypes, data, colinfo, width=80, sections=[]):
     keys = ('id', 'key', 'PROPERTY', 'VAR')
     sorter = lambda x,y: -1 if (
         x in keys and y not in keys
@@ -160,13 +159,13 @@ def print_psinfo(fout, families, socktypes, data, colinfo, width=80, sections=[]
                     if section in infosecs:
                         labels = sorted(infosecs[section][0], cmp=sorter)
                         fout.write('{ '+section.upper()+' }\n')
-                        fout.write(PupyCmd.table_format(infosecs[section], wl=labels)+'\n')
+                        fout.write(formatter.table_format(infosecs[section], wl=labels)+'\n')
 
             else:
                 for section, table in infosecs.iteritems():
                     labels = sorted(table[0], cmp=sorter)
                     fout.write('{ '+section.upper()+' }\n')
-                    fout.write(PupyCmd.table_format(table, wl=labels)+'\n')
+                    fout.write(formatter.table_format(table, wl=labels)+'\n')
 
             fout.write(' --- PID: {} - END --- \n'.format(pid))
 
@@ -362,6 +361,7 @@ class PsModule(PupyModule):
             else:
                 if args.show_pid:
                     print_psinfo(
+                        self.formatter,
                         self.stdout, families, socktypes, data, colinfo,
                         width=None if args.wide else width,
                         sections=args.info_sections or (

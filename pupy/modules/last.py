@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.PupyCmd import PupyCmd
 from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.term import colorize
 from datetime import datetime, timedelta
@@ -94,7 +93,7 @@ class LastModule(PupyModule):
             ]
 
             self.stdout.write(
-                PupyCmd.table_format(output, wl=columns)
+                self.formatter.table_format(output, wl=columns)
             )
 
         except Exception, e:

