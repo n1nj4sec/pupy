@@ -6,9 +6,6 @@ transport protocol is available here:
 http://www.cs.kau.se/philwint/scramblesuit/
 """
 
-#from twisted.internet import reactor
-from ..obfscommon import threads as reactor
-
 from ... import base
 import logging
 
@@ -26,6 +23,7 @@ import uniformdh
 import state
 import fifobuf
 import ticket
+import time
 
 log = logging
 
@@ -33,7 +31,6 @@ class ReadPassFile(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         with open(values) as f:
             setattr(namespace, self.dest, f.readline().strip())
-
 
 class ScrambleSuitTransport( base.BaseTransport ):
 
@@ -252,8 +249,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
             if len(self.choppingBuf) == 0:
                 self.choppingBuf.write(blurb)
-                reactor.callLater(self.iatMorpher.randomSample(),
-                                  self.flushPieces)
+                time.sleep(self.iatMorpher.randomSample())
+                self.flushPieces()
             else:
                 # flushPieces() is still busy processing the chopping buffer.
                 self.choppingBuf.write(blurb)
@@ -289,7 +286,8 @@ class ScrambleSuitTransport( base.BaseTransport ):
             self.circuit.downstream.write(blurb + padBlurb)
             return
 
-        reactor.callLater(self.iatMorpher.randomSample(), self.flushPieces)
+        time.sleep(self.iatMorpher.randomSample())
+        self.flushPieces
 
     def processMessages( self, data ):
         """
