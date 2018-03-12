@@ -64,9 +64,10 @@ if __name__=="__main__":
 
     # We are interested to consume embedded modules
     # This will help to preload some
-    preload = None
-    with open(os.path.join('..','additional_imports.py')) as f:
-        preload = f.read()
+    preload = ''
+    if args.debug:
+        with open(os.path.join('..','additional_imports.py')) as f:
+            preload = f.read()
 
     pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug)
 
