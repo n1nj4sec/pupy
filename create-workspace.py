@@ -83,14 +83,12 @@ except OSError, e:
 
 virtualenv.create_environment(args.workdir)
 
-requirements = os.path.join(pupy, 'pupy', 'requirements.txt')
-
 print "[+] Install dependencies"
 subprocess.check_call([
     os.path.join(args.workdir, 'bin', 'pip'),
     'install',
-    '-r', requirements
-])
+    '-r', 'requirements.txt'
+], cwd=os.path.join(pupy, 'pupy'))
 
 print "[+] Create pupysh wrapper"
 pupysh_path = os.path.join(args.workdir, 'bin', 'pupysh')
@@ -110,10 +108,10 @@ with open(pupysh_update_path, 'w') as pupysh_update:
     print >>pupysh_update, '#!/bin/sh'
     print >>pupysh_update, 'set -e'
     print >>pupysh_update, 'echo "[+] Update pupy repo"'
-    print >>pupysh_update, 'cd {}; git pull'.format(pupy)
+    print >>pupysh_update, 'cd {}; git pull --recurse-submodules'.format(pupy)
     print >>pupysh_update, 'echo "[+] Update python dependencies"'
-    print >>pupysh_update, 'cd {}; bin/pip install --upgrade -r {}'.format(
-        args.workdir, requirements)
+    print >>pupysh_update, 'source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
+        args.workdir)
     if not args.do_not_compile_templates:
         print >>pupysh_update, 'echo "[+] Recompile templates"'
         for target in ( 'windows', 'linux32', 'linux64' ):
