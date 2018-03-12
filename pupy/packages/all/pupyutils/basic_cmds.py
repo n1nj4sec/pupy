@@ -148,19 +148,27 @@ def list_dir(path, max_files=None):
 
     items = scandir(path)
 
-    for item in items:
-        result.append(_stat_to_ls_struct(
-            item.path, item.name,
-            item.stat(follow_symlinks=False)))
+    try:
+        for item in items:
+            result.append(_stat_to_ls_struct(
+                item.path, item.name,
+                item.stat(follow_symlinks=False)))
 
-        filescnt += 1
-        if max_files and filescnt >= max_files:
-            truncated = 0
-            break
+            filescnt += 1
+            if max_files and filescnt >= max_files:
+                truncated = 0
+                break
+
+    except StopIteration:
+        pass
 
     if truncated is not None:
-        for item in items:
-            truncated += 1
+        try:
+            for item in items:
+                truncated += 1
+
+        except StopIteration:
+            pass
 
         if truncated:
             result.append({
