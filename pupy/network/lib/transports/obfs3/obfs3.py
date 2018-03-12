@@ -15,9 +15,6 @@ from ...base import BaseTransport
 from ..obfscommon import hmac_sha256
 from ..obfscommon import rand
 
-#from twisted.internet import threads
-from ..obfscommon import threads
-
 import logging
 
 logger = logging.getLogger('obfs3')

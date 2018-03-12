@@ -287,7 +287,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             return
 
         time.sleep(self.iatMorpher.randomSample())
-        self.flushPieces
+        self.flushPieces()
 
     def processMessages( self, data ):
         """
