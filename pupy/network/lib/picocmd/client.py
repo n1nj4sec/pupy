@@ -8,23 +8,21 @@ __all__ = (
 import struct
 import socket
 import base64
-import string
 import hashlib
-import tinyec
 import os
-import platform
 import random
 import sys
-import ascii85
 import zlib
-import tempfile
-import subprocess
 import logging
+import time
+
+from threading import Thread, Lock
+
+import ascii85
 
 from ecpv import ECPV
 from picocmd import *
 
-from threading import Thread, Lock
 from network.lib import tinyhttp
 
 class DnsCommandClientDecodingError(Exception):
@@ -297,7 +295,7 @@ class DnsCommandsClient(Thread):
                             response))
                         return
 
-                    key = self.encoder.process_kex_response(response[0].parcel)
+                    self.encoder.process_kex_response(response[0].parcel)
                     self.spi = kex.spi
                     self.on_session_established()
             elif isinstance(command, Poll):

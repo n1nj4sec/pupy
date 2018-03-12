@@ -18,7 +18,6 @@ import base64
 import time
 
 import zlib
-import ascii85
 import hashlib
 
 import functools
@@ -26,14 +25,18 @@ import logging
 
 import socket
 import socketserver
+import binascii
+import netaddr
+
+from threading import Thread, RLock, Event
 
 from dnslib import DNSRecord, RR, QTYPE, A, RCODE
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
+import ascii85
+
 from picocmd import *
 from ecpv import ECPV
-
-from threading import Thread, RLock, Event
 
 def convert_node(node):
     try:

