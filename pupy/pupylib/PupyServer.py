@@ -47,6 +47,7 @@ from itertools import count, ifilterfalse
 from netaddr import IPAddress
 from random import randint
 from .PupyOffload import PupyOffloadManager
+from weakref import ref
 import marshal
 import network.conf
 import rpyc
@@ -421,6 +422,9 @@ class PupyServer(object):
 
     def get_listeners(self):
         return self.listeners
+
+    def new_job(self, name):
+        return PupyJob(self, name)
 
     @property
     def address(self):

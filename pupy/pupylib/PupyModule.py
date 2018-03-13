@@ -18,7 +18,11 @@ import sys
 from .PupyErrors import PupyModuleExit
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 from .PupyConfig import PupyConfig
+from .PupyOutput import *
 from .utils.term import consize
+
+from pupylib.utils.term import hint_to_text, obj2utf8
+
 import StringIO
 import textwrap
 import inspect
@@ -30,6 +34,11 @@ import re
 import struct
 import math
 import io
+
+REQUIRE_NOTHING  = 0
+REQUIRE_STREAM   = 1
+REQUIRE_REPL     = 2
+REQUIRE_TERMINAL = 3
 
 class PupyArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
@@ -67,14 +76,11 @@ class PupyArgumentParser(argparse.ArgumentParser):
         else:
             self.pupy_mod_completer=PupyModCompleter()
             return self.pupy_mod_completer
-    #TODO handle completer kw for add_mutually_exclusive_group (ex modules/pyexec.py)
 
 class Log(object):
-    def __init__(self, out, log, close_out=False, rec=None, command=None, args=None, title=None, unicode=False):
+    def __init__(self, out, log, rec=None, command=None, args=None, title=None, unicode=False):
         self.out = out
         self.log = log
-        self.close_out = close_out
-        self.closed = False
         self.rec = None
         if rec and self.out.isatty() and rec in ('asciinema', 'ttyrec'):
             self.rec = rec
@@ -114,6 +120,9 @@ class Log(object):
             return
 
         self.out.write(data)
+
+        data = hint_to_text(data)
+
         now = time.time()
 
         if self.unicode:
@@ -125,6 +134,7 @@ class Log(object):
             usec = int(usec * 10**6)
             sec = int(sec)
             self.log.write(struct.pack('<III', sec, usec, len(data)) + data)
+
         elif self.rec == 'asciinema':
             if self.last:
                 duration = now - self.last
@@ -133,6 +143,7 @@ class Log(object):
                 duration = 0
 
             self.log.write(json.dumps([duration, data]))
+
         else:
             seqs = set()
             for seqgroups in self.cleaner.finditer(data):
@@ -142,8 +153,7 @@ class Log(object):
                 data = data.replace(seq, '')
 
             self.log.write(data)
-            if self.close_out:
-                self.log.flush()
+            self.log.flush()
 
         self.last = now
 
@@ -157,9 +167,6 @@ class Log(object):
     def close(self):
         if self.closed:
             return
-
-        if self.close_out:
-            self.out.close()
 
         if self.rec == 'asciinema':
             self.log.write('],"duration":{}}}'.format(
@@ -203,46 +210,61 @@ class Log(object):
         if not self.closed:
             self.close()
 
+class ObjectStream(object):
+    def __init__(self, display):
+        self.display = display
+
+    def write(self, data):
+        self.display(data)
+
+    def close(self):
+        pass
+
 class PupyModule(object):
     """
         This is the class all the pupy scripts must inherit from
         max_clients -> max number of clients the script can be sent at once (0=infinite)
         daemon_script -> script that will continue running in background once started
     """
-    max_clients=0 #define on how much clients you module can be run in one command. For example an interactive module should be 1 client max at a time. set to 0 for unlimited
-    need_at_least_one_client=True #set to False if your module doesn't need any client connected
-    daemon=False #if your module is meant to run in background, set this to True and override the stop_daemon method.
-    unique_instance=False # if True, don't start a new module and use another instead
-    dependencies=[] #dependencies to push on the remote target. same as calling self.client.load_package
-    compatible_systems=[] #should be changed by decorator @config
-    category="general" # to sort modules by categories. should be changed by decorator @config
-    tags=[] # to add search keywords. should be changed by decorator @config
-    is_module=True # if True, module have to be run with "run <module_name>", if False it can be called directly without run
-    rec=None
-    known_args=False
-    web_handlers=[]
 
-    def __init__(self, client, job, formatter=None, stdout=None, log=None):
+    # Interaction requirements
+    requires = REQUIRE_NOTHING
+
+    # if your module is meant to run in background, set this to True and override the stop_daemon method.
+    daemon = False
+
+    # if True, don't start a new module and use another instead
+    unique_instance = False
+
+    # dependencies to push on the remote target. same as calling self.client.load_package
+    dependencies = []
+
+    # Should be aliased by default
+    is_module = True
+
+    # should be changed by decorator @config
+    compatible_systems = []
+
+    # to sort modules by categories. should be changed by decorator @config
+    category = "general"
+
+    # to add search keywords. should be changed by decorator @config
+    tags = []
+
+    # stream record
+    rec = None
+
+    known_args = False
+    web_handlers = []
+
+    def __init__(self, client, job, io, log=None):
         """ client must be a PupyClient instance """
         self.client = client
         self.job = job
         self.new_deps = []
-        self.del_close = False
         self.log_file = log
         self.init_argparse()
-        self.stdout = stdout
-
-        if formatter is None:
-            from .PupyCmd import PupyCmd
-            self.formatter = PupyCmd
-        else:
-            self.formatter = formatter
-
-        if stdout is None:
-            self.stdout = StringIO.StringIO()
-            self.del_close = True
-        else:
-            self.stdout = stdout
+        self.stdin, self.stdout = io
 
     def init(self, cmdline, args):
         if self.client and ( self.config.getboolean('pupyd', 'logs') or self.log_file ):
@@ -273,14 +295,11 @@ class PupyModule(object):
             self.stdout = Log(
                 self.stdout,
                 log,
-                close_out=self.del_close,
                 rec=self.rec,
                 command=None if self.log_file else self.get_name(),
                 args=None if self.log_file else cmdline,
                 unicode=unicode
             )
-
-            self.del_close = True
 
     @property
     def config(self):
@@ -297,13 +316,6 @@ class PupyModule(object):
         for cls in inspect.getmro(cls):
             if cls.__name__!="NewClass":
                 return cls.__module__
-
-    def __del__(self):
-        self.free()
-
-    def free(self):
-        if self.del_close:
-            self.stdout.close()
 
     def import_dependencies(self):
         if type(self.dependencies) == dict:
@@ -368,30 +380,44 @@ class PupyModule(object):
         raise NotImplementedError("PupyModule's run method has not been implemented !")
 
     def encode(self, msg):
-        if type(msg) == unicode:
+        tmsg = type(msg)
+        if issubclass(tmsg, Text) or tmsg == unicode:
             return msg
+        elif tmsg == str:
+            return msg.decode('utf8', errors="replace")
         else:
-            return str(msg).decode('utf8', errors="replace")
+            return obj2utf8(msg)
+
+    def _message(self, msg):
+        self.stdout.write(msg)
 
     def rawlog(self, msg):
         """ log data to the module stdout """
-        self.stdout.write(self.encode(msg))
+        self._message(self.encode(msg))
 
     def log(self, msg):
-        self.stdout.write(self.encode(self.formatter.format_log(msg)))
+        self._message(self.encode(msg))
 
     def error(self, msg):
-        self.stdout.write(self.encode(self.formatter.format_error(msg)))
+        self._message(self.encode(Error(msg)))
 
     def warning(self, msg):
-        self.stdout.write(self.encode(self.formatter.format_warning(msg)))
+        self._message(self.encode(Warning(msg)))
 
     def success(self, msg):
-        self.stdout.write(self.encode(self.formatter.format_success(msg)))
+        self._message(self.encode(Success(msg)))
 
     def info(self, msg):
-        self.stdout.write(self.encode(self.formatter.format_info(msg)))
+        self._message(self.encode(Info(msg)))
 
+    def newline(self):
+        self._message(NewLine(1))
+
+    def table(self, data, header=None, caption=None, truncate=False):
+        data = Table(data, header, caption)
+        if truncate:
+            data = TruncateToTerm(data)
+        self._message(data)
 
 def config(**kwargs):
     for l in ["compat","compatibilities","compatibility","tags"]:
@@ -406,7 +432,7 @@ def config(**kwargs):
             category=kwargs.get('category', kwargs.get('cat', cls.category))
             compatible_systems=kwargs.get('compatibilities',kwargs.get('compatibility',kwargs.get('compat',cls.compatible_systems)))
             daemon=kwargs.get('daemon', cls.daemon)
-            max_clients=kwargs.get('max_clients', cls.max_clients)
+
         return NewClass
     for k in kwargs.iterkeys():
         if k not in ['tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon', 'max_clients' ]:

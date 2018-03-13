@@ -276,13 +276,10 @@ class LaZagne(PupyModule):
             )
 
             if not module in self.NON_TABLE:
-                self.log(
-                    self.formatter.table_format(
-                        self.prepare_fields(
-                            creds, remove=self.FILTER_COLUMNS
-                        )
-                    )
-                )
+                self.table(
+                    self.prepare_fields(
+                        creds, remove=self.FILTER_COLUMNS
+                    ))
             else:
                 for cred in creds:
                     for k, v in cred.iteritems():

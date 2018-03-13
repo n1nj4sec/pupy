@@ -101,10 +101,9 @@ class NetStatModule(PupyModule):
                 if not deny:
                     objects.append(connection)
 
-            self.stdout.write(
-                self.formatter.table_format(objects, wl=[
-                    'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'PID', 'EXE'
-                ]))
+            self.table(objects, [
+                'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'PID', 'EXE'
+            ], truncate=True)
 
         except Exception, e:
             logging.exception(e)

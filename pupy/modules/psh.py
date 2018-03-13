@@ -159,10 +159,7 @@ class PowershellManager(PupyModule):
                     'RIDS': ', '.join([str(x) for x in rids])
                 } for ctx, rids in results.iteritems()
             ]
-            self.stdout.write(
-                self.formatter.table_format(objects, wl=[
-                    'CONTEXT', 'RIDS'
-                ]))
+            self.table(objects, wl=['CONTEXT', 'RIDS'])
 
         elif args.name == 'killall':
             powershell.stop()

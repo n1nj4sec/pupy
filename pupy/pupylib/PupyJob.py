@@ -21,6 +21,7 @@ import ctypes
 import logging
 from .PupyErrors import PupyModuleError, PupyModuleExit
 from .PupyConfig import PupyConfig
+from .PupyOutput import Section, Text
 import rpyc
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
@@ -282,15 +283,18 @@ class PupyJob(object):
         return res
 
     def result_summary(self):
-        res=b""
+        res = b""
         for m in self.pupymodules:
+            output = m.output or []
             gv = m.stdout.getvalue()
-            if gv:
-                res+=m.formatter.format_section(str(m.client))
-                if type(gv) == unicode:
-                    gv = gv.encode('utf8', errors="replace")
-                res += gv+b'\n'
+
+            if output or gv:
+                output.append(Text(gv))
                 m.stdout.truncate(0)
+                del m.output[:]
+
+                self.pupsrv.handler.display(output)
+
         return res
 
     def free(self):
@@ -298,13 +302,9 @@ class PupyJob(object):
             return
 
         self.destroyed = True
-        for m in self.pupymodules:
-            m.free()
-            del m
-        del self.pupymodules
 
-    def __del__(self):
-        self.free()
+        del self.pupymodules[:]
+        del self.pupymodules
 
     def get_clients_nb(self):
         return len(self.pupymodules)

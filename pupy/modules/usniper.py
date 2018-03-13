@@ -88,7 +88,7 @@ class USniper(PupyModule):
                             'CMD': ' '.join(values['cmd'])
                         })
 
-        self.log(self.formatter.table_format(records, wl=['PID', 'EXE', 'CMD', 'DATA']))
+        self.table(records, wl=['PID', 'EXE', 'CMD', 'DATA'])
 
     def run(self, args):
         args.func(args)

@@ -92,9 +92,7 @@ class LastModule(PupyModule):
                 ] if any([ bool(y[x]) for y in output ])
             ]
 
-            self.stdout.write(
-                self.formatter.table_format(output, wl=columns)
-            )
+            self.table(output, wl=columns)
 
         except Exception, e:
             logging.exception(e)

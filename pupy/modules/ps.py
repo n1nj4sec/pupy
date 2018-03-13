@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.term import terminal_size, colorize
+from pupylib.PupyOutput import Color, TruncateToTerm, MultiPart, Table
 from modules.lib.utils.shell_exec import shell_exec
 import logging
 import re
@@ -72,7 +72,7 @@ def gen_columns(record, colinfo):
 
     return columns
 
-def gen_output_line(columns, info, record, width):
+def gen_output_line(columns, info, record):
     cpu = record.get('cpu_percent') or 0
     mem = record.get('memory_percent') or 0
 
@@ -95,24 +95,22 @@ def gen_output_line(columns, info, record, width):
     template = u' '.join(u'{{{}}}'.format(x) for x in info)
     columns = {k:to_string(v) for k,v in columns.iteritems()}
     output = template.format(**columns)
-    if width:
-        output = output[:width]
 
     if color:
-        output = colorize(output, color)
+        output = Color(output, color)
 
-    return output
+    return TruncateToTerm(output)
 
-def print_psinfo(formatter, fout, families, socktypes, data, colinfo, width=80, sections=[]):
+def print_psinfo(fout, families, socktypes, data, colinfo, sections=[]):
     keys = ('id', 'key', 'PROPERTY', 'VAR')
     sorter = lambda x,y: -1 if (
         x in keys and y not in keys
     ) else ( 1 if (y in keys and not x in keys) else cmp(x, y))
 
+    parts = []
+
     for pid, info in data.iteritems():
         if sections is not None:
-            fout.write('\n --- PID: {} ---- \n\n'.format(pid))
-
             infosecs = {
                 'general': []
             }
@@ -126,9 +124,8 @@ def print_psinfo(formatter, fout, families, socktypes, data, colinfo, width=80, 
                     if prop == 'environ':
                         maxvar = max(len(x) for x in value.iterkeys())
                         maxval = max(len(x) for x in value.itervalues())
-                        trunkval = ( width - maxvar - 4 ) if width else None
                         infosecs[prop] = [{
-                            'VAR':x, 'VALUE':y[:trunkval]
+                            'VAR':x, 'VALUE':y
                         } for x,y in value.iteritems()]
                         continue
                     elif prop == 'connections':
@@ -158,16 +155,19 @@ def print_psinfo(formatter, fout, families, socktypes, data, colinfo, width=80, 
                     section = section.lower()
                     if section in infosecs:
                         labels = sorted(infosecs[section][0], cmp=sorter)
-                        fout.write('{ '+section.upper()+' }\n')
-                        fout.write(formatter.table_format(infosecs[section], wl=labels)+'\n')
+                        parts.append(
+                            TruncateToTerm(
+                                Table(
+                                    infosecs[section],
+                                    labels,
+                                    section)))
 
             else:
                 for section, table in infosecs.iteritems():
                     labels = sorted(table[0], cmp=sorter)
-                    fout.write('{ '+section.upper()+' }\n')
-                    fout.write(formatter.table_format(table, wl=labels)+'\n')
+                    parts.append(TruncateToTerm(Table(table, labels, section)))
 
-            fout.write(' --- PID: {} - END --- \n'.format(pid))
+            fout(MultiPart(parts))
 
         else:
             outcols = [ 'pid' ] + [
@@ -178,7 +178,7 @@ def print_psinfo(formatter, fout, families, socktypes, data, colinfo, width=80, 
             info['pid'] = pid
             columns = gen_columns(info, colinfo)
 
-            fout.write(gen_output_line(columns, outcols, info, width)+'\n')
+            fout(gen_output_line(columns, outcols, info)+'\n')
 
 
 def is_filtered(pid, columns, hide, show):
@@ -216,7 +216,7 @@ def is_filtered(pid, columns, hide, show):
 
 
 def print_pstree(fout, parent, tree, data,
-                      prefix='', indent='', width=80, colinfo={},
+                      prefix='', indent='', colinfo={},
                       info=['exe', 'cmdline'], hide=[],
                       first=False):
     if parent in data:
@@ -233,11 +233,9 @@ def print_pstree(fout, parent, tree, data,
 
         outcols = [ 'pid' ] + before_tree + [ 'prefix' ] + after_tree
 
-        output = gen_output_line(columns, outcols, data[parent], width)+'\n'
-        if type(output) == unicode:
-            output = output.encode('utf-8', errors='replace')
+        output = gen_output_line(columns, outcols, data[parent])
 
-        fout.write(output)
+        fout(output)
 
     if parent not in tree:
         return
@@ -247,7 +245,7 @@ def print_pstree(fout, parent, tree, data,
     for child in children:
         print_pstree(
             fout, child, tree, data,
-            prefix=indent+('┌' if first else '├'), indent=indent + '│ ', width=width,
+            prefix=indent+('┌' if first else '├'), indent=indent + '│ ',
             colinfo=colinfo, info=info, hide=hide
         )
         first = False
@@ -256,11 +254,11 @@ def print_pstree(fout, parent, tree, data,
     print_pstree(
         fout, child, tree, data,
         prefix=indent+'└', indent=indent + '  ',
-        width=width, colinfo=colinfo,
+        colinfo=colinfo,
         info=info, hide=hide
     )
 
-def print_ps(fout, data, width=80, colinfo={},
+def print_ps(fout, data, colinfo={},
                  info=['exe', 'cmdline'], hide=[], show=[]):
 
     outcols = [ 'pid' ] + [
@@ -274,7 +272,7 @@ def print_ps(fout, data, width=80, colinfo={},
         if is_filtered(process, columns, hide, show):
             continue
 
-        fout.write(gen_output_line(columns, outcols, data[process], width)+'\n')
+        fout(gen_output_line(columns, outcols, data[process]))
 
 
 @config(cat="admin")
@@ -301,7 +299,6 @@ class PsModule(PupyModule):
                                          help='show extended process info (or subtree) by pid')
 
     def run(self, args):
-        width, _ = terminal_size()
         rpupyps = self.client.remote('pupyps')
         psinfo = self.client.remote('pupyps', 'psinfo')
         pstree = self.client.remote('pupyps', 'pstree')
@@ -354,16 +351,14 @@ class PsModule(PupyModule):
 
                 for item in show:
                     print_pstree(
-                        self.stdout, item, tree, data,
-                        width=None if args.wide else width, colinfo=colinfo, info=info,
+                        self.log, item, tree, data,
+                        colinfo=colinfo, info=info,
                         hide=hide, first=(item == root)
                     )
             else:
                 if args.show_pid:
                     print_psinfo(
-                        self.formatter,
-                        self.stdout, families, socktypes, data, colinfo,
-                        width=None if args.wide else width,
+                        self.log, families, socktypes, data, colinfo,
                         sections=args.info_sections or (
                             [ 'general' ] if args.info else args.info_sections
                         )
@@ -374,7 +369,7 @@ class PsModule(PupyModule):
                     } if args.show_pid else data
 
                     print_ps(
-                        self.stdout, data, width=None if args.wide else width,
+                        self.log, data,
                         colinfo=colinfo, info=info, hide=hide, show=show
                     )
 

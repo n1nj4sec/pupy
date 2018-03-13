@@ -69,7 +69,7 @@ class WModule(PupyModule):
 
                         tablein.append(object)
 
-            self.stdout.write(self.formatter.table_format(tablein))
+            self.table(tablein)
 
         except Exception, e:
             logging.exception(e)

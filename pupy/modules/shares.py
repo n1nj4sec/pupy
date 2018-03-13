@@ -86,8 +86,4 @@ class Shares(PupyModule):
                     'ACCESS': x[1]
                 } for x in result['shares']]
 
-                self.stdout.write(
-                    self.formatter.table_format(shares, wl=[ 'SHARE', 'ACCESS' ])
-                )
-
-                self.stdout.write('\n')
+                self.table(shares, wl=[ 'SHARE', 'ACCESS' ])

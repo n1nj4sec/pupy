@@ -31,7 +31,7 @@ class CloudInfo(PupyModule):
 
         formatted_json = json.dumps(metadata, indent=1, sort_keys=True)
 
-        self.stdout.write(
+        self.log(
             highlight(
                 unicode(formatted_json, 'UTF-8'),
                 lexers.JsonLexer(),

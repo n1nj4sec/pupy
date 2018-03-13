@@ -25,16 +25,14 @@ class ImpersonateModule(PupyModule):
 
             l = ListSids()
 
-            self.rawlog(
-                self.formatter.table_format(
-                    [{
-                        'pid': x[0],
-                        'process': x[1],
-                        'sid' : x[2],
-                        'username':x[3]
-                    } for x in l], wl=[
-                        'pid', 'process', 'username', 'sid'
-                    ]))
+            self.table([{
+                'pid': x[0],
+                'process': x[1],
+                'sid' : x[2],
+                'username':x[3]
+                } for x in l], wl=[
+                    'pid', 'process', 'username', 'sid'
+            ])
 
         elif args.impersonate:
             if args.migrate:
