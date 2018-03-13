@@ -11,6 +11,21 @@ from pupylib.PupyOutput import *
 
 ESC_REGEX = re.compile('(\033[^m]+m)')
 
+COLORS = {
+    'blue': '\033[34m',
+    'red': '\033[31m',
+    'lightred': '\033[31;1m',
+    'green': '\033[32m',
+    'lightgreen': '\033[32;1m',
+    'yellow': '\033[33m',
+    'lightyellow': '\033[1;33m',
+    'magenta': '\033[35m',
+    'cyan': '\033[36m',
+    'grey': '\033[37m',
+    'darkgrey': '\033[1;30m',
+    'white': '\033[39m'
+}
+
 # https://gist.githubusercontent.com/jtriley/1108174/raw/6ec4c846427120aa342912956c7f717b586f1ddb/terminalsize.py
 def consize(file=None):
     """ getTerminalSize()
@@ -76,42 +91,28 @@ def _size_linux(file=None):
 
     return int(cr[1]), int(cr[0])
 
-def colorize(s, color):
-    if s is None:
-        return ""
+def colorize(text, color):
+    if not text:
+        return ''
+    elif color == 'white':
+        return text
 
-    if type(s) not in (str, unicode):
-        s = str(s)
+    ttype = type(text)
+    if ttype not in (str, unicode):
+        text = str(text)
 
-    res=s
-    COLOR_STOP="\033[0m"
-    if color.lower()=="random":
-        color=random.choice(["blue","red","green","yellow"])
+    if color.lower() == 'random':
+        color = random.choice(COLORS.keys())
 
-    if color.lower()=="blue":
-        res="\033[34m"+s+COLOR_STOP
-    elif color.lower()=="red":
-        res="\033[31m"+s+COLOR_STOP
-    elif color.lower()=="lightred":
-        res="\033[31;1m"+s+COLOR_STOP
-    elif color.lower()=="green":
-        res="\033[32m"+s+COLOR_STOP
-    elif color.lower()=="lightgreen":
-        res="\033[32;1m"+s+COLOR_STOP
-    elif color.lower()=="yellow":
-        res="\033[33m"+s+COLOR_STOP
-    elif color.lower()=="lightyellow":
-        res="\033[1;33m"+s+COLOR_STOP
-    elif color.lower()=="magenta":
-        res="\033[35m"+s+COLOR_STOP
-    elif color.lower()=="cyan":
-        res="\033[36m"+s+COLOR_STOP
-    elif color.lower()=="grey":
-        res="\033[37m"+s+COLOR_STOP
-    elif color.lower()=="darkgrey":
-        res="\033[1;30m"+s+COLOR_STOP
+    ccode = COLORS.get(color.lower())
 
-    return res
+    if ccode:
+        if ttype == unicode:
+            return u''.join([ccode, text, '\033[0m'])
+        else:
+            return ''.join([ccode, text, '\033[0m'])
+
+    return text
 
 def terminal_size():
     import fcntl, termios, struct
@@ -120,39 +121,6 @@ def terminal_size():
         struct.pack('HHHH', 0, 0, 0, 0)))
     return w, h
 
-def color(s, color, prompt=False, colors_enabled=True):
-    """ color a string using ansi escape characters. set prompt to true to add marks for readline to see invisible portions of the prompt
-    cf. http://stackoverflow.com/questions/9468435/look-how-to-fix-column-calculation-in-python-readline-if-use-color-prompt"""
-    if s is None:
-        return ""
-
-    if not colors_enabled:
-        return s
-
-    res=s
-    COLOR_STOP="\033[0m"
-    prompt_stop=""
-    prompt_start=""
-    if prompt:
-        prompt_stop="\002"
-        prompt_start="\001"
-    if prompt:
-        COLOR_STOP=prompt_start+COLOR_STOP+prompt_stop
-    if color.lower()=="random":
-        color=random.choice(["blue","red","green","yellow"])
-    if color.lower()=="blue":
-        res=prompt_start+"\033[34m"+prompt_stop+s+COLOR_STOP
-    if color.lower()=="red":
-        res=prompt_start+"\033[31m"+prompt_stop+s+COLOR_STOP
-    if color.lower()=="green":
-        res=prompt_start+"\033[32m"+prompt_stop+s+COLOR_STOP
-    if color.lower()=="yellow":
-        res=prompt_start+"\033[33m"+prompt_stop+s+COLOR_STOP
-    if color.lower()=="grey":
-        res=prompt_start+"\033[37m"+prompt_stop+s+COLOR_STOP
-    if color.lower()=="darkgrey":
-        res=prompt_start+"\033[1;30m"+prompt_stop+s+COLOR_STOP
-    return res
 
 def ediff(s):
     utf8diff = 0
@@ -164,7 +132,6 @@ def ediff(s):
     return utf8diff + len(''.join(ESC_REGEX.findall(s)))
 
 def elen(s):
-    print "t: {}".format(repr(s))
     return len(s) - ediff(s)
 
 def obj2utf8(obj):
@@ -263,12 +230,14 @@ def hint_to_text(text, width=0):
 
     if hint == NewLine:
         return '\n'*int(text.data)
+    elif hint == Title:
+        return '>> {} <<'.format(hint_to_text(text.data))
     elif hint == MultiPart:
         return '\n\n'.join(
             hint_to_text(x, width) for x in text.data
         )
     elif hint == Color:
-        return color(hint_to_text(text.data, width), text.color)
+        return colorize(hint_to_text(text.data, width), text.color)
     elif hint == TruncateToTerm:
         if width <= 0:
             real_width, _ = terminal_size()
@@ -277,23 +246,28 @@ def hint_to_text(text, width=0):
         text = hint_to_text(text.data, width)
         return '\n'.join(x[:width+ediff(x)] for x in text.split('\n'))
     elif hint == Error:
-        return color('[-] ','red')+hint_to_text(text.data, width).rstrip()
+        text = text.data
+        if issubclass(type(text), Exception):
+            text = '({}) {}'.format(type(text).__class__.__name__, text)
+        else:
+            text = hint_to_text(text, width).rstrip()
+        return colorize('[-] ','red')+text
     elif hint == Log:
         return hint_to_text(text.data, width).rstrip()
     elif hint == Warning:
-        return color('[!] ','yellow')+hint_to_text(text.data, width).rstrip()
+        return colorize('[!] ','yellow')+hint_to_text(text.data, width).rstrip()
     elif hint == Success:
-        return color('[+] ','green')+hint_to_text(text.data, width).rstrip()
+        return colorize('[+] ','green')+hint_to_text(text.data, width).rstrip()
     elif hint == Info:
-        return color('[%] ','grey')+hint_to_text(text.data, width).rstrip()
+        return colorize('[%] ','grey')+hint_to_text(text.data, width).rstrip()
     elif hint == ServiceInfo:
         return ''.join([
-            color('[*] ','blue'),
+            colorize('[*] ','blue'),
             hint_to_text(text.data, width).rstrip()
         ])
     elif hint == Section:
         return '\n'.join([
-            color('#>#>  ','green') + hint_to_text(text.data, width)+ color('  <#<#','green'),
+            colorize('#>#>  ','green') + hint_to_text(text.data, width)+ colorize('  <#<#','green'),
             hint_to_text(text.payload, width)
         ])
     elif hint == Table:

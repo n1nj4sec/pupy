@@ -39,11 +39,17 @@ class Color(Text):
         super(Color, self).__init__(data)
         self.color = color
 
+class Title(Text):
+    __slots__ = ()
+
 class MultiPart(Text):
     __slots__ = ()
 
 class NewLine(Text):
     __slots__ = ()
+
+    def __init__(self, lines=1):
+        super(NewLine, self).__init__(lines)
 
 class Log(Text):
     __slots__ = ()

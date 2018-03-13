@@ -15,11 +15,11 @@ parser.add_argument('-p', '--print-output', metavar='<job_id>', help="print a jo
 def do(server, handler, config, modargs):
     if modargs.kill:
         j = server.get_job(modargs.kill)
-        handler.display(Success(j.result_summary()))
+        handler.summary(j)
         finished = j.is_finished()
 
         if finished:
-            j.stop()
+            server.del_job(j.jid)
             handler.display(Success('Job closed'))
 
         else:
@@ -27,14 +27,14 @@ def do(server, handler, config, modargs):
             j.stop()
             handler.display(Success('Job killed'))
 
-        self.pupsrv.del_job(modargs.kill)
+        server.del_job(modargs.kill)
         del j
 
     elif modargs.kill_no_output:
-        j = self.pupsrv.get_job(modargs.kill_no_output)
+        j = server.get_job(modargs.kill_no_output)
         finished = j.is_finished()
         if finished:
-            j.stop()
+            server.del_job(j.jid)
             handler.display('Job closed')
         else:
             j.interrupt(wait=False)
@@ -45,20 +45,20 @@ def do(server, handler, config, modargs):
 
     elif modargs.print_output:
         j = server.get_job(modargs.print_output)
-        handler.display(j.result_summary())
+        handler.summary(j)
 
     elif modargs.list:
         if server.jobs:
             dictable = []
 
-            for k,v in self.pupsrv.jobs.iteritems():
+            for jid,job in server.jobs.iteritems():
                 dictable.append({
-                    'id':k,
-                    'job':str(v),
-                    'status': 'finished' if v.is_finished() else 'running',
-                    'clients_nb': str(v.get_clients_nb()),
+                    'id':jid,
+                    'job':str(job),
+                    'status': 'finished' if job.is_finished() else 'running',
+                    'clients': len(job)
                 })
 
-            handler.display(Table(dictable, ['id', 'job', 'clients_nb','status']))
+            handler.display(Table(dictable, ['id', 'job', 'clients', 'status']))
         else:
             handler.display(Error('No jobs are currently running'))

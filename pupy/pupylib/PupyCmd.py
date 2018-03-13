@@ -46,17 +46,19 @@ from .PupyOutput import *
 from argparse import REMAINDER
 import copy
 from functools import partial
-from threading import Event
-from pupylib.utils.term import colorize, hint_to_text, obj2utf8, color
+from threading import Event, Lock
+from pupylib.utils.term import colorize, hint_to_text, obj2utf8
 from pupylib.utils.network import *
 
 from StringIO import StringIO
 
-from commands import Commands
+from commands import Commands, InvalidCommand
 
 import pupygen
 
 class ObjectStream(object):
+    __slots__ = ( '_buffer', '_display' )
+
     def __init__(self, display=None):
         self._buffer = []
         self._display = display
@@ -74,7 +76,25 @@ class ObjectStream(object):
         pass
 
     def getvalue(self):
-        return self._buffer
+        blocks = self._buffer
+        self._buffer = []
+        return blocks
+
+    def __nonzero__(self):
+        return bool(self._buffer)
+
+class IOGroup(object):
+    __slots__ = ( 'stdin', 'stdout' )
+
+    def __init__(self, stdin, stdout):
+        self.stdin = stdin
+        self.stdout = stdout
+
+    def set_title(self, title):
+        pass
+
+    def as_text(self, msg):
+        return hint_to_text(msg)
 
 class PupyCmd(cmd.Cmd):
     def __init__(self, pupsrv):
@@ -89,17 +109,17 @@ class PupyCmd(cmd.Cmd):
 
         self.commands = Commands()
 
+        self.srvinfo_lock = Lock()
+
         self.init_readline()
-        global color
 
         self._intro = [
-            color(BANNER, 'green'),
-            color(BANNER_INFO, 'darkgrey')
+            colorize(BANNER, 'green'),
+            colorize(BANNER_INFO, 'darkgrey')
         ]
 
-        self.raw_prompt= color('>> ','blue')
-        self.prompt = color('>> ','blue', prompt=True)
-        self.doc_header = 'Available commands :\n'
+        self.raw_prompt = colorize('>> ','blue')
+        self.prompt = colorize('>> ','blue')
         self.default_filter=None
         try:
             if not self.config.getboolean("cmdline","display_banner"):
@@ -130,13 +150,19 @@ class PupyCmd(cmd.Cmd):
         for fail in motd.get('fail', []):
             self._intro.append(Error(fail + '\n'))
 
-
     def default(self, line):
         try:
             self.commands.execute(
                 self.pupsrv, self, self.pupsrv.config, line)
         except PupyModuleExit:
-            return
+            pass
+
+        except InvalidCommand, e:
+            self.display(Error(
+                'Unknown command {}. Use help and modules to list known commands'.format(e)))
+
+        except (PupyModuleError, NotImplementedError), e:
+            self.display(Error(str(e)))
 
         if self.pupsrv.finishing.is_set():
             return True
@@ -185,22 +211,64 @@ class PupyCmd(cmd.Cmd):
         except PupyModuleExit:
             pass
 
-    def acquire_io(self, requirements, amount):
+    def acquire_io(self, requirements, amount, background=False):
         if requirements in (REQUIRE_REPL, REQUIRE_TERMINAL):
-            if amount > 0:
+            if amount > 1:
                 raise NotImplementedError('This UI does not support more than 1 repl or terminal')
 
-            return [(self.stdin, self.stdout)]
-        elif amount == 1:
-            return [(None, ObjectStream(self.display))]
+            return [IOGroup(self.stdin, self.stdout)]
+        elif amount == 1 and not background:
+            return [IOGroup(None, ObjectStream(self.display))]
         else:
-            return [(None, ObjectStream())]*amount
+            return [IOGroup(None, ObjectStream()) for _ in xrange(amount)]
+
+    def process(self, job, background=False, daemon=False, unique=False):
+        if background or daemon:
+            self.display_srvinfo('Background job: {}'.format(job))
+            if not unique:
+                self.pupsrv.add_job(job)
+
+            return
+
+        error = job.worker_pool.join(on_interrupt=job.interrupt)
+
+        if job.module.io not in (REQUIRE_REPL, REQUIRE_TERMINAL):
+            self.summary(job)
+
+    def summary(self, job):
+        need_title = len(job) > 1
+
+        for instance in job.pupymodules:
+            if not instance.stdout:
+                continue
+
+            if need_title:
+                self.display(Title(str(instance.client)))
+
+            for block in instance.stdout.getvalue():
+                self.display(block)
+
+            if need_title:
+                self.display(NewLine())
 
     def display(self, text):
         return self.stdout.write(hint_to_text(text).strip('\n')+'\n')
 
     def display_srvinfo(self, msg):
-        return self.display(ServiceInfo(msg))
+        with self.srvinfo_lock:
+            self.stdout.write(''.join([
+                '\x1b[0E\x1b[2K',
+                colorize('[*] ', 'blue'),
+                msg,
+                '\n\x1b[2K',
+                self.raw_prompt,
+                readline.get_line_buffer()
+            ]))
+
+            try:
+                readline.redisplay()
+            except Exception:
+                pass
 
     def display_success(self, msg):
         return self.display(Success(msg))

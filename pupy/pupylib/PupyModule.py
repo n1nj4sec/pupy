@@ -210,25 +210,14 @@ class Log(object):
         if not self.closed:
             self.close()
 
-class ObjectStream(object):
-    def __init__(self, display):
-        self.display = display
-
-    def write(self, data):
-        self.display(data)
-
-    def close(self):
-        pass
-
 class PupyModule(object):
     """
         This is the class all the pupy scripts must inherit from
-        max_clients -> max number of clients the script can be sent at once (0=infinite)
         daemon_script -> script that will continue running in background once started
     """
 
     # Interaction requirements
-    requires = REQUIRE_NOTHING
+    io = REQUIRE_NOTHING
 
     # if your module is meant to run in background, set this to True and override the stop_daemon method.
     daemon = False
@@ -264,7 +253,9 @@ class PupyModule(object):
         self.new_deps = []
         self.log_file = log
         self.init_argparse()
-        self.stdin, self.stdout = io
+        self.iogroup = io
+        self.stdin = io.stdin
+        self.stdout = io.stdout
 
     def init(self, cmdline, args):
         if self.client and ( self.config.getboolean('pupyd', 'logs') or self.log_file ):
@@ -300,6 +291,8 @@ class PupyModule(object):
                 args=None if self.log_file else cmdline,
                 unicode=unicode
             )
+
+            self.iogroup.set_title(self)
 
     @property
     def config(self):
@@ -389,6 +382,9 @@ class PupyModule(object):
             return obj2utf8(msg)
 
     def _message(self, msg):
+        if self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
+            msg = self.iogroup.as_text(msg)
+
         self.stdout.write(msg)
 
     def rawlog(self, msg):
@@ -435,6 +431,6 @@ def config(**kwargs):
 
         return NewClass
     for k in kwargs.iterkeys():
-        if k not in ['tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon', 'max_clients' ]:
+        if k not in [ 'tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon', 'io' ]:
             logging.warning("Unknown argument \"%s\" to @config context manager"%k)
     return class_rebuilder

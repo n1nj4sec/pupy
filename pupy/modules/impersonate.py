@@ -9,7 +9,7 @@ __class_name__="ImpersonateModule"
 @config(compat="windows", category="exploit")
 class ImpersonateModule(PupyModule):
     """ list/impersonate process tokens """
-    max_clients=1
+
     dependencies=["pupwinutils.security"]
 
     def init_argparse(self):

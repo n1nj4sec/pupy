@@ -21,7 +21,7 @@ import ctypes
 import logging
 from .PupyErrors import PupyModuleError, PupyModuleExit
 from .PupyConfig import PupyConfig
-from .PupyOutput import Section, Text
+from .PupyOutput import Section, Text, Info
 import rpyc
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
@@ -67,7 +67,8 @@ class Thread(threading.Thread):
 
 class ThreadPool(object):
     def __init__(self):
-        self.thread_pool=[]
+        self.thread_pool = []
+        self.interrupt = threading.Event()
 
     def apply_async(self, func, args):
         t = Thread(target=func, args=args)
@@ -76,14 +77,16 @@ class ThreadPool(object):
         t.start()
 
     def interrupt_all(self):
+        self.interrupt.set()
         for t in self.thread_pool:
             if t.isAlive():
                 t.stop()
 
+    def interrupt(self):
+        self.interrupt.set()
+
     def join(self, timeout=5, on_interrupt=None):
-        giveup = False
         allok = True
-        interrupt_sent = False
 
         while True:
             try:
@@ -96,22 +99,14 @@ class ThreadPool(object):
                 if allok:
                     break
 
-            except KeyboardInterrupt:
-                if not giveup:
-                    if not interrupt_sent:
-                        if on_interrupt:
-                            if not on_interrupt():
-                                break
-                        else:
-                            print "{ Press ^C once again to give up on waiting }"
-
-                        interrupt_sent = True
-                    else:
-                        giveup = True
-                else:
+                if self.interrupt.is_set():
+                    on_interrupt()
                     break
 
-        return not giveup and allok
+            except KeyboardInterrupt:
+                self.interrupt.set()
+
+        return allok
 
     def all_finished(self):
         for t in self.thread_pool:
@@ -123,9 +118,10 @@ class ThreadPool(object):
 class PupyJob(object):
     """ a job handle a group of modules """
 
-    def __init__(self, pupsrv, name):
+    def __init__(self, pupsrv, module, name):
         self.name = name
         self.pupsrv = pupsrv
+        self.handler = pupsrv.handler
         self.config = pupsrv.config or PupyConfig()
         self.pupymodules = []
         self.worker_pool = ThreadPool()
@@ -136,12 +132,26 @@ class PupyJob(object):
         self.id = None
         self.interrupted = False
 
+    @property
+    def module(self):
+        return type(self.pupymodules[0])
+
+    def has_client(self, client):
+        return any(
+            client == instance.client for x in self.pupymodules
+        )
+
+    @property
+    def clients(self):
+        return [ x.client for x in self.pupymodules ]
+
     def add_module(self, mod):
         self.pupymodules.append(mod)
 
     def stop(self):
         for p in self.pupymodules:
             p.stop_daemon()
+
         self.pupsrv.del_job(self.jid)
         self.interrupt()
 
@@ -169,20 +179,18 @@ class PupyJob(object):
             self.error = e
             if not self.interrupted:
                 module.error(str(e))
-                import traceback
-                traceback.print_exc(e, file=module.stdout)
 
         finally:
             if not self.interrupted and once:
                 module.clean_dependencies()
 
             if self.id is not None:
-                display = self.pupsrv.handler.display_warning if \
-                  self.interrupted else self.pupsrv.handler.display_srvinfo
-
-                display(
-                    '{}: {} - {}'.format(
-                        self.id, self.name, 'failed' if e else 'success'))
+                if e:
+                    self.handler.display_srvinfo('Job {}/client={} - error: {}'.format(self.id, module.client.id, e))
+                elif self.interrupted:
+                    self.handler.display_srvinfo('Job {}/client={} interrupted'.format(self.id, module.client.id))
+                else:
+                    self.handler.display_srvinfo('Job {}/client={} done'.format(self.id, module.client.id))
 
     def start(self, args, once=False):
         #if self.started.is_set():
@@ -197,8 +205,7 @@ class PupyJob(object):
                     margs = m.arg_parser.parse_args(args)
 
             except PupyModuleExit as e:
-                m.error("Arguments parse error : %s"%e)
-                continue
+                return
 
             res = m.is_compatible()
             if type(res) is tuple:
@@ -229,19 +236,21 @@ class PupyJob(object):
 
         #calling the interrupt method is one is defined for the module instead of killing the thread
         if hasattr(self.pupymodules[0], 'interrupt'):
-            self.pupsrv.handler.display_info('Sending interrupt request')
+            self.handler.display(Info('Sending interrupt request'))
             for m in self.pupymodules:
                 m.interrupt()
 
             return True
+
         else:
-            self.pupsrv.handler.display_warning('Module does not support interrupts. Resources may leak!')
+            self.handler.display(Warning('Module does not support interrupts. Resources may leak!'))
             self.worker_pool.interrupt_all()
             self.check()
             return False
 
     def interactive_wait(self):
         self.worker_pool.join(on_interrupt=self.interrupt)
+
         if self.error:
             return True
 
@@ -274,29 +283,6 @@ class PupyJob(object):
     def is_finished(self):
         return self.worker_pool.all_finished()
 
-    def raw_result(self):
-        if len(self.pupymodules)>1:
-            raise AssertionError("raw_result is only available when the job contains a single module")
-        m=self.pupymodules[0]
-        res=m.stdout.getvalue()
-        m.stdout.truncate(0)
-        return res
-
-    def result_summary(self):
-        res = b""
-        for m in self.pupymodules:
-            output = m.output or []
-            gv = m.stdout.getvalue()
-
-            if output or gv:
-                output.append(Text(gv))
-                m.stdout.truncate(0)
-                del m.output[:]
-
-                self.pupsrv.handler.display(output)
-
-        return res
-
     def free(self):
         if self.destroyed:
             return
@@ -306,7 +292,7 @@ class PupyJob(object):
         del self.pupymodules[:]
         del self.pupymodules
 
-    def get_clients_nb(self):
+    def __len__(self):
         return len(self.pupymodules)
 
     def __str__(self):

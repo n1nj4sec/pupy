@@ -36,8 +36,6 @@ class Commands(object):
         for command,source in files.iteritems():
             if not command in self._commands or self._commands[command].__file__ != source:
                 self._commands[command] = imp.load_source(command, source)
-            else:
-                self._commands[command] = reload(command, source)
 
     def _get_command(self, cmdline, aliases, modules):
         argv = shlex.split(cmdline)
@@ -52,33 +50,22 @@ class Commands(object):
                 aargv = shlex.split(aliased)
                 argv0, args = aargv[0], aargv[1:] + args
 
-            if argv0 not in self._commands:
-                self._refresh()
-
-            if not argv0 in self._commands:
-                found = False
-                for module in modules:
-                    if argv0 == module.get_name():
-                        args.insert(0, argv0)
-                        argv0 = 'run'
-                        found = True
-                        break
-
-                if not found:
-                    raise InvalidCommand(argv0)
-
-            return self._commands[argv0], args
-
-        else:
-            if not argv0 in self._commands:
-                self._refresh()
+        if argv0 not in self._commands:
+            self._refresh()
 
         if not argv0 in self._commands:
-            raise InvalidCommand(argv0)
+            found = False
+            for module in modules:
+                if argv0 == module.get_name():
+                    args.insert(0, argv0)
+                    argv0 = 'run'
+                    found = True
+                    break
 
-        command = self._commands[argv0]
+            if not found:
+                raise InvalidCommand(argv0)
 
-        return command, args
+        return self._commands[argv0], args
 
     def has(self, command):
         if not command in self._commands:

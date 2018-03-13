@@ -8,8 +8,6 @@ __class_name__="SSH"
 class SSH(PupyModule):
     """ ssh client """
 
-    max_clients=1
-
     dependencies = [
         'paramiko', 'cryptography', 'ecdsa', 'ssh'
     ]

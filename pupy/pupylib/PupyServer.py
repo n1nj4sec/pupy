@@ -423,9 +423,6 @@ class PupyServer(object):
     def get_listeners(self):
         return self.listeners
 
-    def new_job(self, name):
-        return PupyJob(self, name)
-
     @property
     def address(self):
         # Address of default listener
@@ -847,7 +844,7 @@ class PupyServer(object):
             return
 
         self.listeners[name].close()
-        self.handler.display_success('Closed: {}'.format(self.listeners[name]))
+        self.handler.display_srvinfo('Closed: {}'.format(self.listeners[name]))
         del self.listeners[name]
 
     def register_cleanup(self, cleanup):

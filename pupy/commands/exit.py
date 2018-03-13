@@ -11,7 +11,7 @@ def do(server, handler, config, args):
         job.stop()
 
     if server.dnscnc:
-        handler.display(Success('Stopping DNSCNC'))
+        handler.display_srvinfo('Stopping DNSCNC')
         server.dnscnc.stop()
 
     server.stop()

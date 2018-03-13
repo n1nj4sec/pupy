@@ -21,7 +21,7 @@ __class_name__="PSExec"
 @config(cat="admin")
 class PSExec(PupyModule):
     """ Launch remote commands using smbexec or wmiexec"""
-    max_clients = 1
+
     dependencies = [ 'impacket', 'ntpath', 'calendar', 'pupyutils.psexec' ]
 
     def init_argparse(self):
@@ -71,7 +71,7 @@ class PSExec(PupyModule):
                 remote_path = '%s\\' % self.client.conn.modules['os.path'].expandvars("%ALLUSERSPROFILE%")
             else:
                 remote_path = '/tmp/'
-            
+
             # write on the temp directory
             if args.share == 'C$':
                 dst_folder = "C:\\Windows\\TEMP\\"

@@ -13,8 +13,6 @@ class PortScan(PupyModule):
     """ run a TCP port scan """
 
     abort = None
-    terminated = threading.Event()
-    max_clients = 1
     connectable = []
 
     def init_argparse(self):
@@ -25,6 +23,8 @@ class PortScan(PupyModule):
         self.arg_parser.add_argument('target', metavar="ip/range", help='IP/range')
 
     def run(self, args):
+        self.terminated = threading.Event()
+
         scan_range = False
 
         if '/' in args.target:

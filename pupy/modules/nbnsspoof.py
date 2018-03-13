@@ -15,7 +15,6 @@ __class_name__="NbnsSpoofModule"
 class NbnsSpoofModule(PupyModule):
     """ sniff for NBNS requests and spoof NBNS responses """
 
-    max_clients=1
     dependencies=['scapy', 'nbnsspoof']
 
     def init_argparse(self):
@@ -31,4 +30,6 @@ class NbnsSpoofModule(PupyModule):
         init_winpcap(self)
 
         with redirected_stdo(self):
-            self.client.conn.modules['nbnsspoof'].start_nbnsspoof(args.ip, args.srcmac, timeout=args.timeout, verbose=True, interface=args.iface, name_regexp=args.regex)
+            self.client.conn.modules['nbnsspoof'].start_nbnsspoof(
+                args.ip, args.srcmac, timeout=args.timeout, verbose=True,
+                interface=args.iface, name_regexp=args.regex)

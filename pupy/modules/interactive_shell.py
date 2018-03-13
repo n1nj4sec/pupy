@@ -21,8 +21,6 @@ from threading import Event, Thread
 from Queue import Queue
 import rpyc
 
-from modules.lib.utils.cmdrepl import CmdRepl
-
 __class_name__="InteractiveShell"
 @config(cat="admin")
 class InteractiveShell(PupyModule):
@@ -32,6 +30,8 @@ class InteractiveShell(PupyModule):
     max_clients=1
     pipe = None
     rec = 'ttyrec'
+
+    io = REQUIRE_TERMINAL
 
     dependencies = {
         'windows': [ 'winpty.dll', 'winpty' ],
@@ -151,60 +151,16 @@ class InteractiveShell(PupyModule):
                     lastbuf = buf
 
     def run(self, args):
-        if 'linux' in sys.platform and not args.pseudo_tty:
-            try:
-                fd = sys.stdin.fileno()
-                old_settings = termios.tcgetattr(fd)
-                tty.setraw(fd)
-                self.raw_pty(args)
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        else:
-            # Well, this probably doesn't work at all
-            self.repl(args)
+        if not 'linux' in sys.platform:
+            raise NotImplementedError('Interactive shell is not supported for this platform')
 
-    def repl(self, args):
-        self.client.load_package('pupyutils.safepopen')
-        encoding=None
-        program = [ "/bin/sh", "-i" ]
-        if self.client.is_android():
-            program = [ "/system/bin/sh" ]
-        elif self.client.is_windows():
-            program = [ 'cmd.exe', '/Q' ]
-        if args.program:
-            program = [ args.program ]
-
-        SafePopen = self.client.remote('pupyutils.safepopen', 'SafePopen', False)
-
-        self.pipe = SafePopen(program, interactive=True)
-
-        self.stdout.write('\r\nREPL started. Ctrl-C will the module \r\n')
-
-        if self.client.is_windows():
-            crlf = True
-            interpreter = 'cmd.exe'
-        else:
-            crlf = False
-            interpreter = 'sh'
-
-        repl, _ = CmdRepl.thread(
-            self.stdout,
-            self.pipe.write,
-            self.complete,
-            crlf, interpreter,
-            args.codepage
-        )
-
-        self.pipe.execute(self.complete.set, repl._con_write)
-
-        self.complete.wait()
-        self.pipe.terminate()
-
-        # Well, there is no way to break upper thread without
-        # new 100500 threads which will wrap stdin, poll each other...
-        # Just press the fucked enter to avoid this crap
-
-        self.stdout.write('\r\nPress Enter to close to REPL\r\n')
+        try:
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            tty.setraw(fd)
+            self.raw_pty(args)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     def raw_pty(self, args):
 

@@ -29,7 +29,6 @@ def gen_cb_function(pcap_writer=None, print_summary=True):
 class TcpdumpModule(PupyModule):
     """ module to reproduce some of the classic tcpdump tool functions """
 
-    max_clients=1
     dependencies=['scapy', 'tcpdump']
 
     def init_argparse(self):

