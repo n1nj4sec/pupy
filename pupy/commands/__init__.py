@@ -9,6 +9,14 @@ import shlex
 class InvalidCommand(Exception):
     pass
 
+class CommandsNamespace(object):
+
+    __slots__ = ( 'module', 'args' )
+
+    def __init__(self, module, args):
+        self.module = module
+        self.args = args
+
 class Commands(object):
     SUFFIXES = tuple([
         suffix for suffix, _, rtype in imp.get_suffixes() \
@@ -40,9 +48,16 @@ class Commands(object):
                 except IOError:
                     pass
 
-    def _get_command(self, cmdline, aliases, modules):
+    def _get_command(self, cmdline, aliases, modules, refresh=True):
         argv = shlex.split(cmdline)
-        argv0, args = argv[0], argv[1:]
+        if not argv:
+            raise InvalidCommand(cmdline)
+
+        argv0 = argv[0]
+        args = []
+
+        if len(argv) > 1:
+            args = argv[1:]
 
         if argv0 in aliases:
             aliased = aliases[argv0]
@@ -53,7 +68,7 @@ class Commands(object):
                 aargv = shlex.split(aliased)
                 argv0, args = aargv[0], aargv[1:] + args
 
-        if argv0 not in self._commands:
+        if argv0 not in self._commands and refresh:
             self._refresh()
 
         if not argv0 in self._commands:
@@ -83,12 +98,12 @@ class Commands(object):
         return self._commands.get(command)
 
     def execute(self, server, handler, config, cmdline):
-        aliases = {}
-        if config:
-            aliases = dict(config.items('aliases'))
-
+        aliases = dict(config.items('aliases'))
         command, args = self._get_command(
-            cmdline, aliases, server.iter_modules())
+            cmdline, aliases, server.iter_modules(
+                by_clients=True,
+                clients_filter=handler.default_filter
+            ))
 
         parser = command.parser
         if callable(parser):
@@ -97,8 +112,34 @@ class Commands(object):
         parsed_args = parser.parse_args(args)
         command.do(server, handler, config, parsed_args)
 
-    def list(self):
-        self._refresh()
+    def list(self, refresh=True):
+        if refresh:
+            self._refresh()
 
         for command, module in self._commands.iteritems():
             yield command, module.usage
+
+    def completer(self, context, cmdline):
+        server, handler, config = context.server, context.handler, context.config
+
+        aliases = dict(config.items('aliases'))
+        modules = list(server.iter_modules(
+            by_clients=True,
+            clients_filter=handler.default_filter))
+
+        try:
+            command, args = self._get_command(cmdline, aliases, modules, False)
+            completer = command.parser.get_completer()
+            context.parsed = CommandsNamespace(
+                command.__name__, args
+            )
+            return completer.complete
+
+        except InvalidCommand:
+            return lambda text, *args: [
+                x+' ' for x in aliases.iterkeys() if x.startswith(text)
+            ] + [
+                x+' ' for x,_ in self.list(False) if x.startswith(text)
+            ] + [
+                x.get_name()+' ' for x in modules if x.get_name().startswith(text)
+            ]

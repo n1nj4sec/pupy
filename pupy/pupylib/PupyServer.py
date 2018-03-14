@@ -676,12 +676,6 @@ class PupyServer(object):
             except Exception, e:
                 logging.warning('%s : module %s disabled'%(e, module_name))
 
-    def get_module_completer(self, module_name):
-        """ return the module PupyCompleter if any is defined"""
-        module=self.get_module(module_name)
-        ps=module(None,None)
-        return ps.arg_parser.get_completer()
-
     def get_module_name_from_category(self, path):
         """ take a category virtual path and return the module's name or the path untouched if not found """
         mod=self.categories.get_module_from_path(path)

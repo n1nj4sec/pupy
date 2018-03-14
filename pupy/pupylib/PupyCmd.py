@@ -34,13 +34,13 @@ import logging
 import traceback
 import rpyc
 import rpyc.utils.classic
-from .PupyErrors import PupyModuleExit, PupyModuleError
+from .PupyErrors import PupyModuleExit, PupyModuleError, PupyModuleUsageError
 from .PupyModule import PupyArgumentParser
 from .PupyModule import (
     REQUIRE_NOTHING, REQUIRE_STREAM, REQUIRE_REPL, REQUIRE_TERMINAL
 )
 from .PupyJob import PupyJob
-from .PupyCompleter import PupyCompleter
+from .PupyCompleter import CompletionContext
 from .PupyVersion import BANNER, BANNER_INFO
 from .PupyOutput import *
 from argparse import REMAINDER
@@ -149,8 +149,6 @@ class PupyCmd(cmd.Cmd):
         except Exception as e:
             logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
 
-        self.pupy_completer = PupyCompleter(self.aliases, self.pupsrv)
-
     @property
     def intro(self):
         return '\n'.join(
@@ -168,12 +166,18 @@ class PupyCmd(cmd.Cmd):
         try:
             self.commands.execute(
                 self.pupsrv, self, self.pupsrv.config, line)
+
+        except PupyModuleUsageError, e:
+            prog, message, usage = e.args
+            self.display(Line(Error(prog+':'), Color(message, 'lightred')))
+            self.display(usage)
+
         except PupyModuleExit:
             pass
 
         except InvalidCommand, e:
             self.display(Error(
-                'Unknown command {}. Use help and modules to list known commands'.format(e)))
+                'Unknown (or unavailable) command {}. Use help and modules to list known commands'.format(e)))
 
         except (PupyModuleError, NotImplementedError), e:
             self.display(Error(e))
@@ -200,16 +204,14 @@ class PupyCmd(cmd.Cmd):
         readline.set_completer_delims(" \t")
 
     def completenames(self, text, *ignored):
-        return [
-            x+' ' for x in self.aliases.iterkeys() if x.startswith(text)
-        ] + [
-            x+' ' for x,_ in self.commands.list() if x.startswith(text)
-        ] + [
-            x.get_name()+' ' for x in self.pupsrv.iter_modules(
-                by_clients=True,
-                clients_filter=self.default_filter
-            ) if x.get_name().startswith(text)
-        ]
+        try:
+            completer = self.commands.completer(
+                self.pupsrv, self, self.config, text)
+
+            return completer(text)
+        except Exception, e:
+            import logging
+            logging.exception(e)
 
     def pre_input_hook(self):
         #readline.redisplay()
@@ -229,6 +231,12 @@ class PupyCmd(cmd.Cmd):
         try:
             self.commands.execute(
                 self.pupsrv, self, self.pupsrv.config, 'help {}'.format(arg))
+
+        except PupyModuleUsageError, e:
+            prog, message, usage = e.args
+            self.display(Line(Error(prog+':'), Color(message, 'lightred')))
+            self.display(usage)
+
         except PupyModuleExit:
             pass
 
@@ -322,27 +330,26 @@ class PupyCmd(cmd.Cmd):
     def complete(self, text, state):
         if state == 0:
             import readline
+
             origline = readline.get_line_buffer()
             line = origline.lstrip()
             stripped = len(origline) - len(line)
             begidx = readline.get_begidx() - stripped
             endidx = readline.get_endidx() - stripped
-            if begidx>0:
-                cmd, args, foo = self.parseline(line)
-                if cmd == '':
-                    compfunc = self.completedefault
-                else:
-                    try:
-                        #compfunc = getattr(self, 'complete_' + cmd)
-                        compfunc = self.pupy_completer.complete
-                    except AttributeError:
-                        compfunc = self.completedefault
-            else:
-                compfunc = self.completenames
-            self.completion_matches = compfunc(text, line, begidx, endidx)
+
+            try:
+                context = CompletionContext(self.pupsrv, self, self.config)
+                compfunc = self.commands.completer(context, line)
+                self.completion_matches = compfunc(text, line, begidx, endidx, context)
+            except Exception, e:
+                import logging
+                logging.exception(e)
+                print "PIZDA #1"
+
         try:
             if self.completion_matches:
                 return self.completion_matches[state]
+
         except IndexError:
             return None
 

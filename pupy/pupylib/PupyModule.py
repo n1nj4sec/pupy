@@ -15,7 +15,7 @@
 # --------------------------------------------------------------
 import argparse
 import sys
-from .PupyErrors import PupyModuleExit
+from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 from .PupyConfig import PupyConfig
 from .PupyOutput import *
@@ -35,6 +35,8 @@ import struct
 import math
 import io
 
+import argcomplete
+
 REQUIRE_NOTHING  = 0
 REQUIRE_STREAM   = 1
 REQUIRE_REPL     = 2
@@ -43,29 +45,40 @@ REQUIRE_TERMINAL = 3
 class PupyArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         if 'formatter_class' not in kwargs:
-            kwargs['formatter_class']=argparse.RawDescriptionHelpFormatter
+            kwargs['formatter_class'] = argparse.RawDescriptionHelpFormatter
         if 'description' in kwargs and kwargs['description']:
-            kwargs['description']=textwrap.dedent(kwargs['description'])
+            kwargs['description'] = textwrap.dedent(kwargs['description'])
+
         argparse.ArgumentParser.__init__(self, *args, **kwargs)
+
     def exit(self, status=0, message=None):
-        if message:
-            self._print_message(message, sys.stderr)
-        raise PupyModuleExit("exit with status %s"%status)
+        raise PupyModuleExit(message, status)
+
+    def error(self, message):
+        raise PupyModuleUsageError(self.prog, message, self.format_usage())
 
     def add_argument(self, *args, **kwargs):
-        completer_func=None
-        if "completer" in kwargs:
-            completer_func=kwargs["completer"]
-            del kwargs["completer"]
-        elif "choices" in kwargs:
-            completer_func=list_completer(kwargs["choices"])
+        completer_func = None
+        ref = False
+
+        if 'ref' in kwargs:
+            ref = kwargs.pop('ref')
+
+        if 'completer' in kwargs:
+            completer_func = kwargs.pop('completer')
+        elif 'choices' in kwargs:
+            completer_func = list_completer(kwargs["choices"])
         else:
-            completer_func=void_completer
-        argparse.ArgumentParser.add_argument(self, *args, **kwargs)
-        kwargs['completer']=completer_func
-        completer=self.get_completer()
+            completer_func = void_completer
+
+        if not ref:
+            argparse.ArgumentParser.add_argument(self, *args, **kwargs)
+
+        kwargs['completer'] = completer_func
+        completer = self.get_completer()
+
         for a in args:
-            if a.startswith("-"):
+            if a.startswith('-'):
                 completer.add_optional_arg(a, **kwargs)
             else:
                 completer.add_positional_arg(a, **kwargs)
@@ -74,7 +87,7 @@ class PupyArgumentParser(argparse.ArgumentParser):
         if hasattr(self,'pupy_mod_completer') and self.pupy_mod_completer is not None:
             return self.pupy_mod_completer
         else:
-            self.pupy_mod_completer=PupyModCompleter()
+            self.pupy_mod_completer = PupyModCompleter(self)
             return self.pupy_mod_completer
 
 class Log(object):
