@@ -20,11 +20,12 @@ class Text(Hint):
                 self.__class__.__name__))
 
 class Table(Text):
-    __slots__ = ( 'headers', 'caption' )
-    def __init__(self, data, headers=None, caption=None):
+    __slots__ = ( 'headers', 'caption', 'legend' )
+    def __init__(self, data, headers=None, caption=None, legend=True):
         super(Table, self).__init__(data)
         self.headers = headers
         self.caption = caption
+        self.legend = legend
 
 class Stream(Text):
     __slots__ = ()

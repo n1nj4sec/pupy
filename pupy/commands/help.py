@@ -35,6 +35,25 @@ def do(server, handler, config, args):
                     doc.title().split('\n')[0]))
                 tables.append(module.arg_parser.format_help())
 
+                clients = server.get_clients(handler.default_filter)
+                if clients:
+                    ctable = []
+                    for client in clients:
+                        compatible = module.is_compatible_with(client)
+                        ctable.append({
+                            'OK': Color(
+                                'Y' if compatible else 'N',
+                                'green' if compatible else 'grey'
+                            ),
+                            'CLIENT': Color(
+                                str(client),
+                                'green' if compatible else 'grey'
+                            )
+                        })
+
+                    tables.append(
+                        Table(ctable, ['OK', 'CLIENT'], Color('Compatibility', 'yellow'), False))
+
         for command, alias in config.items("aliases"):
             if command == args.module:
                 tables.append(Line(
@@ -53,34 +72,46 @@ def do(server, handler, config, args):
         tables.append(Table(commands, ['COMMAND', 'DESCRIPTION'], Color('COMMANDS', 'yellow')))
 
         if args.modules:
-            system = ''
-            caption = ''
-            if handler.default_filter:
-                system = server.get_clients(handler.default_filter)[0].desc['platform'].lower()
-                caption = 'Compatible with {}'.format(system)
-
             modules = sorted(list(server.iter_modules()), key=(lambda x:x.category))
             table = []
 
             for mod in modules:
-                compatible = handler.default_filter and (
-                    system in mod.compatible_systems or not mod.compatible_systems
-                ) or not handler.default_filter
+                compatible = all(
+                    mod.is_compatible_with(client) for client in
+                    server.get_clients(handler.default_filter))
+
+                compatible_some = any(
+                    mod.is_compatible_with(client) for client in
+                    server.get_clients(handler.default_filter))
+
+                if mod.__doc__:
+                    doc = mod.__doc__.strip()
+                else:
+                    doc = ''
+
+                category = mod.category
+                name = mod.get_name()
+                brief = doc.title().split('\n')[0]
 
                 if compatible:
-                    if mod.__doc__:
-                        doc = mod.__doc__.strip()
-                    else:
-                        doc = ''
+                    pass
+                elif compatible_some:
+                    category = Color(category, 'grey')
+                    name = Color(name, 'grey')
+                    brief = Color(brief, 'grey')
+                else:
+                    category = Color(category, 'darkgrey')
+                    name = Color(name, 'darkgrey')
+                    brief = Color(brief, 'darkgrey')
 
-                    table.append({
-                        'CATEGORY': mod.category,
-                        'NAME': mod.get_name(),
-                        'HELP': doc.title().split('\n')[0]
-                    })
+                table.append({
+                    'CATEGORY': category,
+                    'NAME': name,
+                    'HELP': brief
+                })
 
             tables.append(TruncateToTerm(Table(
-                table, ['CATEGORY', 'NAME', 'HELP'], Color(caption or 'MODULES', 'yellow'))))
+                table, ['CATEGORY', 'NAME', 'HELP'], Color('MODULES', 'yellow'))))
 
         else:
             aliased = []

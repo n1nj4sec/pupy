@@ -127,15 +127,9 @@ class GetInfo(PupyModule):
 
         infos = infoTemp
 
-        info_fmt = '{{:<{}}}: {{}}'.format(max([len(pair[0]) for pair in infos]) + 1)
+        table = [{
+            'KEY': k,
+            'VALUE': v
+        } for k,v in infoTemp]
 
-        infos = [
-            info_fmt.format(info[0], info[1]) for info in infos
-        ]
-
-        max_data_size = max([len(info) for info in infos])
-        delim = '-'*max_data_size
-
-        infos = '\n'.join([delim] + infos + [delim, ''])
-
-        self.rawlog(infos)
+        self.log(Table(table, ['KEY', 'VALUE'], legend=False))

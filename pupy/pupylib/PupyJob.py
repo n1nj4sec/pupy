@@ -294,4 +294,7 @@ class PupyJob(object):
         return len(self.pupymodules)
 
     def __str__(self):
-        return self.name
+        name = self.name
+        if self.id:
+            name = '{} (id={})'.format(name, self.id)
+        return name

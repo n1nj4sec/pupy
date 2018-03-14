@@ -1,16 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
@@ -49,44 +49,48 @@ def path_completer(text, line, begidx, endidx):
     return l
 
 class PupyCompleter(object):
-    def __init__(self, aliases, pupsrv):
-        self.aliases=aliases
-        self.pupsrv=pupsrv
+    def __init__(self, handler, pupsrv):
+        self.handler = handler
+        self.pupsrv = pupsrv
+
+    @property
+    def aliases(self):
+        return self.handler.aliases
 
     def get_module_completer(self, name):
-        name=self.pupsrv.get_module_name_from_category(name)
+        name = self.pupsrv.get_module_name_from_category(name)
         if name in self.aliases:
-            name=self.aliases[name].split()[0]
+            name = self.aliases[name].split()[0]
         return self.pupsrv.get_module_completer(name)
-        
+
     def complete(self, text, line, begidx, endidx):
         try:
-            if line.startswith("run "):
-                res=self.complete_run(text, line, begidx, endidx)
+            if line.startswith('run '):
+                res = self.complete_run(text, line, begidx, endidx)
                 if res is not None:
                     return res
-                modname=line[4:].split()[0]
-                completer_func=self.get_module_completer(modname).complete
+                modname = line[4:].split()[0]
+                completer_func = self.get_module_completer(modname).complete
                 if completer_func:
                     return completer_func(text, line, begidx, endidx)
                 else:
                     return []
             elif any([True for x in self.aliases if line.startswith(x+" ")]):
-                modname=line.split()[0]
-                completer_func=self.get_module_completer(modname).complete
+                modname = line.split()[0]
+                completer_func = self.get_module_completer(modname).complete
                 if completer_func:
                     return completer_func(text, line, begidx, endidx)
                 else:
                     return []
-                
+
         except Exception as e:
             #print e
             pass
-            
+
     def complete_run(self, text, line, begidx, endidx):
         mline = line.partition(' ')[2]
-        joker=1
-        found_module=False
+        joker = 1
+        found_module = False
         #handle autocompletion of modules with --filter argument
         for x in shlex.split(mline):
             if x in ("-f", "--filter"):#arguments with a param
@@ -102,7 +106,7 @@ class PupyCompleter(object):
         if ((len(text)>0 and joker==0) or (len(text)==0 and not found_module and joker<=1)):
             return self.pupsrv.categories.get_shell_list(text)
 
-        
+
 class PupyModCompleter(object):
     def __init__(self):
         self.conf= {
@@ -118,7 +122,7 @@ class PupyModCompleter(object):
             names=[names]
         for name in names:
             self.conf["positional_args"].append((name, kwargs))
-    
+
     def add_optional_arg(self, names, **kwargs):
         """ names can be a string or a list to pass args aliases at once """
         if not type(names) is list and not type(names) is tuple:
@@ -183,6 +187,3 @@ class PupyModCompleter(object):
                 return self.get_positional_args_completer(positional_index)(text, line, begidx, endidx)
             except Exception as e:
                 pass
-
-            
-        

@@ -72,7 +72,7 @@ def gen_columns(record, colinfo):
 
     return columns
 
-def gen_output_line(columns, info, record):
+def gen_output_line(columns, info, record, wide=False):
     cpu = record.get('cpu_percent') or 0
     mem = record.get('memory_percent') or 0
 
@@ -99,9 +99,12 @@ def gen_output_line(columns, info, record):
     if color:
         output = Color(output, color)
 
-    return TruncateToTerm(output)
+    if not wide:
+        output = TruncateToTerm(output)
 
-def print_psinfo(fout, families, socktypes, data, colinfo, sections=[]):
+    return output
+
+def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=False):
     keys = ('id', 'key', 'PROPERTY', 'VAR')
     sorter = lambda x,y: -1 if (
         x in keys and y not in keys
@@ -179,7 +182,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[]):
             info['pid'] = pid
             columns = gen_columns(info, colinfo)
 
-            fout(gen_output_line(columns, outcols, info)+'\n')
+            fout(gen_output_line(columns, outcols, info, wide)+'\n')
 
 
 def is_filtered(pid, columns, hide, show):
@@ -219,7 +222,7 @@ def is_filtered(pid, columns, hide, show):
 def print_pstree(fout, parent, tree, data,
                       prefix='', indent='', colinfo={},
                       info=['exe', 'cmdline'], hide=[],
-                      first=False):
+                      first=False, wide=False):
     if parent in data:
         data[parent]['pid'] = parent
         columns = gen_columns(data[parent], colinfo)
@@ -234,7 +237,7 @@ def print_pstree(fout, parent, tree, data,
 
         outcols = [ 'pid' ] + before_tree + [ 'prefix' ] + after_tree
 
-        output = gen_output_line(columns, outcols, data[parent])
+        output = gen_output_line(columns, outcols, data[parent], wide)
 
         fout(output)
 
@@ -247,7 +250,7 @@ def print_pstree(fout, parent, tree, data,
         print_pstree(
             fout, child, tree, data,
             prefix=indent+('┌' if first else '├'), indent=indent + '│ ',
-            colinfo=colinfo, info=info, hide=hide
+            colinfo=colinfo, info=info, hide=hide, wide=wide
         )
         first = False
 
@@ -256,11 +259,11 @@ def print_pstree(fout, parent, tree, data,
         fout, child, tree, data,
         prefix=indent+'└', indent=indent + '  ',
         colinfo=colinfo,
-        info=info, hide=hide
+        info=info, hide=hide, wide=wide
     )
 
 def print_ps(fout, data, colinfo={},
-                 info=['exe', 'cmdline'], hide=[], show=[]):
+                 info=['exe', 'cmdline'], hide=[], show=[], wide=False):
 
     outcols = [ 'pid' ] + [
         x for x in info if x in ('cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline')
@@ -273,7 +276,7 @@ def print_ps(fout, data, colinfo={},
         if is_filtered(process, columns, hide, show):
             continue
 
-        fout(gen_output_line(columns, outcols, data[process]))
+        fout(gen_output_line(columns, outcols, data[process], wide))
 
 
 @config(cat="admin")
@@ -355,7 +358,7 @@ class PsModule(PupyModule):
                     print_pstree(
                         self.log, item, tree, data,
                         colinfo=colinfo, info=info,
-                        hide=hide, first=(item == root)
+                        hide=hide, first=(item == root), wide=args.wide
                     )
             else:
                 if args.show_pid:
@@ -363,7 +366,8 @@ class PsModule(PupyModule):
                         self.log, families, socktypes, data, colinfo,
                         sections=args.info_sections or (
                             [ 'general' ] if args.info else args.info_sections
-                        )
+                        ),
+                        wide=args.wide
                     )
                 else:
                     data = {
@@ -372,7 +376,8 @@ class PsModule(PupyModule):
 
                     print_ps(
                         self.log, data,
-                        colinfo=colinfo, info=info, hide=hide, show=show
+                        colinfo=colinfo, info=info, hide=hide, show=show,
+                        wide=args.wide
                     )
 
         except Exception, e:

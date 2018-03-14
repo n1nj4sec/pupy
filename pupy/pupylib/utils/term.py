@@ -178,7 +178,7 @@ def get_columns_size(l):
 
     return size_dic
 
-def table_format(diclist, wl=[], bl=[], truncate=None):
+def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
     """
         this function takes a list a dictionaries to display in columns. Dictionnaries keys are the columns names.
         All dictionaries must have the same keys.
@@ -199,12 +199,14 @@ def table_format(diclist, wl=[], bl=[], truncate=None):
     for k in keys:
         titlesdic[k] = k
 
-    diclist.insert(0, titlesdic)
+    if legend:
+        diclist.insert(0, titlesdic)
+
     colsize = get_columns_size(diclist)
     i = 0
 
     for c in diclist:
-        if i == 1:
+        if i == 1 and legend:
             res.append(
                 u'-'*sum([
                     k+2 for k in [y for x,y in colsize.iteritems() if x in titlesdic
@@ -291,7 +293,7 @@ def hint_to_text(text, width=0):
 
         return (
             u'{ ' + hint_to_text(text.caption, width) + u' }\n' if text.caption else ''
-        ) + table_format(table_data, wl=text.headers)
+        ) + table_format(table_data, wl=text.headers, legend=text.legend)
 
     else:
         raise NotImplementedError('hint_to_text not implemented for {}'.format(

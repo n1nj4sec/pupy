@@ -129,7 +129,7 @@ class PupyCmd(cmd.Cmd):
         self.raw_prompt = colorize('>> ','blue')
         self.prompt = colorize('>> ','blue', prompt=True)
 
-        self.default_filter=None
+        self.default_filter = None
         try:
             if not self.config.getboolean("cmdline","display_banner"):
                 self._intro = []
@@ -148,7 +148,8 @@ class PupyCmd(cmd.Cmd):
 
         except Exception as e:
             logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
-        self.pupy_completer=PupyCompleter(self.aliases, self.pupsrv)
+
+        self.pupy_completer = PupyCompleter(self.aliases, self.pupsrv)
 
     @property
     def intro(self):
@@ -200,7 +201,14 @@ class PupyCmd(cmd.Cmd):
 
     def completenames(self, text, *ignored):
         return [
+            x+' ' for x in self.aliases.iterkeys() if x.startswith(text)
+        ] + [
             x+' ' for x,_ in self.commands.list() if x.startswith(text)
+        ] + [
+            x.get_name()+' ' for x in self.pupsrv.iter_modules(
+                by_clients=True,
+                clients_filter=self.default_filter
+            ) if x.get_name().startswith(text)
         ]
 
     def pre_input_hook(self):
@@ -240,10 +248,10 @@ class PupyCmd(cmd.Cmd):
 
     def process(self, job, background=False, daemon=False, unique=False):
         if background or daemon:
-            self.display_srvinfo('Background job: {}'.format(job))
             if not unique:
                 self.pupsrv.add_job(job)
 
+            self.display(ServiceInfo('Background job: {}'.format(job)))
             return
 
         error = job.worker_pool.join(on_interrupt=job.interrupt)

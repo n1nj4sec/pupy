@@ -650,17 +650,31 @@ class PupyServer(object):
     def get_clients_list(self):
         return self.clients
 
-    def iter_modules(self):
+    def iter_modules(self, by_clients=False, clients_filter=None):
         """ iterate over all modules """
-        l=[]
+        l = []
+
+        clients = None
+        if by_clients:
+            clients = self.get_clients(clients_filter)
+            if not clients:
+                return
 
         for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
-            if module_name=="lib":
+            if module_name == 'lib':
                 continue
             try:
-                yield self.get_module(module_name)
+                module = self.get_module(module_name)
+                if clients is not None:
+                    for client in clients:
+                        if module.is_compatible_with(client):
+                            yield module
+                            break
+                else:
+                    yield module
+
             except Exception, e:
-                logging.warning("%s : module %s disabled"%(e, module_name))
+                logging.warning('%s : module %s disabled'%(e, module_name))
 
     def get_module_completer(self, module_name):
         """ return the module PupyCompleter if any is defined"""

@@ -37,7 +37,7 @@ def do(server, handler, config, modargs):
             server.del_job(j.jid)
             handler.display('Job closed')
         else:
-            j.interrupt(wait=False)
+            j.interrupt()
             j.stop()
             handler.display(Success('Job killed'))
         server.del_job(modargs.kill_no_output)

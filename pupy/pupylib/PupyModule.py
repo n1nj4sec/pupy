@@ -323,12 +323,7 @@ class PupyModule(object):
 
     @classmethod
     def get_name(cls):
-        """ return module name by looking parents classes """
-        #example when using class context managers :
-        #(<class 'pupylib.PupyModule.NewClass'>, <class 'pupylib.PupyModule.NewClass'>, <class 'msgbox.MsgBoxPopup'>, <class 'pupylib.PupyModule.PupyModule'>, <type 'object'>)
-        for cls in inspect.getmro(cls):
-            if cls.__name__!="NewClass":
-                return cls.__module__
+        return cls.__module__
 
     def import_dependencies(self):
         if type(self.dependencies) == dict:
@@ -353,25 +348,34 @@ class PupyModule(object):
         else:
             return self.client.pupsrv.pupweb.start_webplugin(self.web_handlers)
 
+    @classmethod
+    def is_compatible_with(cls, client):
+        if 'all' in cls.compatible_systems or len(cls.compatible_systems) == 0:
+            return True
+        elif 'android' in cls.compatible_systems and client.is_android():
+            return True
+        elif 'windows' in cls.compatible_systems and client.is_windows():
+            return True
+        elif 'linux' in cls.compatible_systems and client.is_linux():
+            return True
+        elif 'solaris' in cls.compatible_systems and client.is_solaris():
+            return True
+        elif ('darwin' in cls.compatible_systems or 'osx' in cls.compatible_systems) and client.is_darwin():
+            return True
+        elif 'unix' in cls.compatible_systems and client.is_unix():
+            return True
+        elif 'posix'in cls.compatible_systems and client.is_posix():
+            return True
+
+        return False
+
     def is_compatible(self):
         """ override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
-        if "all" in self.compatible_systems or len(self.compatible_systems)==0:
-            return (True,"")
-        elif "android" in self.compatible_systems and self.client.is_android():
-            return (True,"")
-        elif "windows" in self.compatible_systems and self.client.is_windows():
-            return (True,"")
-        elif "linux" in self.compatible_systems and self.client.is_linux():
-            return (True,"")
-        elif "solaris" in self.compatible_systems and self.client.is_solaris():
-            return (True,"")
-        elif ("darwin" in self.compatible_systems or "osx" in self.compatible_systems) and self.client.is_darwin():
-            return (True,"")
-        elif "unix" in self.compatible_systems and self.client.is_unix():
-            return (True,"")
-        elif "posix"in self.compatible_systems and self.client.is_posix():
-            return (True, "")
-        return (False, "This module currently only support the following systems: %s"%(','.join(self.compatible_systems)))
+        if not self.is_compatible_with(self.client):
+            return (False, 'This module currently only support the following systems: %s'%(
+            ','.join(cls.compatible_systems)))
+        else:
+            return True, ''
 
     def is_daemon(self):
         return self.daemon
