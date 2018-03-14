@@ -11,10 +11,11 @@ class GetHwUuid(PupyModule):
         'all': [ 'hwuuid' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(
             prog='get_hwuuid',
-            description=self.__doc__
+            description=cls.__doc__
         )
 
     def run(self, args):

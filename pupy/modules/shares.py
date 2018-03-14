@@ -19,14 +19,15 @@ class Shares(PupyModule):
         ]
     }
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
         example = 'Examples:\n'
         example += '>> run shares local\n'
         example += '>> run shares remote -u john -p password1 -d DOMAIN -t 192.168.0.1\n'
         example += '>> run shares remote -u john -H \'aad3b435b51404eeaad3b435b51404ee:da76f2c4c96028b7a6111aef4a50a94d\' -t 192.168.0.1\n'
 
-        self.arg_parser = PupyArgumentParser(prog="shares", description=self.__doc__, epilog=example)
-        subparsers = self.arg_parser.add_subparsers(title='Enumerate shared folders')
+        cls.arg_parser = PupyArgumentParser(prog="shares", description=cls.__doc__, epilog=example)
+        subparsers = cls.arg_parser.add_subparsers(title='Enumerate shared folders')
 
         local = subparsers.add_parser('local', help='Retrieve local shared folders')
         local.set_defaults(local="list_shared_folders")

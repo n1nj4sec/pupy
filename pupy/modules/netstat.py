@@ -19,13 +19,14 @@ class NetStatModule(PupyModule):
     dependencies = [ 'pupyps' ]
     is_module=False
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="netstat", description=self.__doc__)
-        self.arg_parser.add_argument('-l', '--listen', action='store_true', help='Show listening sockets')
-        self.arg_parser.add_argument('-t', '--tcp', action='store_true', help='Show TCP')
-        self.arg_parser.add_argument('-u', '--udp', action='store_true', help='Show UDP')
-        self.arg_parser.add_argument('-s', '--show', nargs='+', default=[], help='Filter by word')
-        self.arg_parser.add_argument('-x', '--hide', nargs='+', default=[], help='Filter out by word')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="netstat", description=cls.__doc__)
+        cls.arg_parser.add_argument('-l', '--listen', action='store_true', help='Show listening sockets')
+        cls.arg_parser.add_argument('-t', '--tcp', action='store_true', help='Show TCP')
+        cls.arg_parser.add_argument('-u', '--udp', action='store_true', help='Show UDP')
+        cls.arg_parser.add_argument('-s', '--show', nargs='+', default=[], help='Filter by word')
+        cls.arg_parser.add_argument('-x', '--hide', nargs='+', default=[], help='Filter out by word')
 
     def run(self, args):
         try:

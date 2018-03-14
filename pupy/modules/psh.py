@@ -19,14 +19,15 @@ class PowershellManager(PupyModule):
         'windows': [ 'powershell' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(
-            prog='psh', description=self.__doc__
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(
+            prog='psh', description=cls.__doc__
         )
 
         width, _ = consize()
 
-        commands = self.arg_parser.add_subparsers(title='actions')
+        commands = cls.arg_parser.add_subparsers(title='actions')
         loaded = commands.add_parser('loaded', help='List preapred powershell contexts')
         loaded.add_argument('context', nargs='?', help='Check is context with specified name loaded')
         loaded.set_defaults(name='loaded')

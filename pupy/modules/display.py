@@ -10,12 +10,13 @@ class Display(PupyModule):
 
     dependencies = [ 'display' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='users', description=self.__doc__)
-        self.arg_parser.add_argument('-x', '--xauth', help='Path to .Xauthority')
-        self.arg_parser.add_argument('-X', '--print-xauth', action='store_true',
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='users', description=cls.__doc__)
+        cls.arg_parser.add_argument('-x', '--xauth', help='Path to .Xauthority')
+        cls.arg_parser.add_argument('-X', '--print-xauth', action='store_true',
                                          help='Print xauth information for current hostname')
-        self.arg_parser.add_argument('display', nargs='?', help='Display to use')
+        cls.arg_parser.add_argument('display', nargs='?', help='Display to use')
 
     def run(self, args):
         attach_to_display = self.client.remote('display', 'attach_to_display', False)

@@ -15,8 +15,9 @@ class CloudInfo(PupyModule):
 
     dependencies = [ 'cloudinfo' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="cloudinfo", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="cloudinfo", description=cls.__doc__)
 
     def run(self, args):
         cloudinfo = self.client.remote('cloudinfo', 'metadata')

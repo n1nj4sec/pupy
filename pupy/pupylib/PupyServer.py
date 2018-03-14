@@ -681,7 +681,7 @@ class PupyServer(object):
         l=[]
         for m in self.iter_modules():
             if not m.is_module:
-                l.append(m.get_name())
+                l.append((m.get_name(), m.__doc__))
         return l
 
     def get_module(self, name):

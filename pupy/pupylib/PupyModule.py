@@ -78,7 +78,7 @@ class PupyArgumentParser(argparse.ArgumentParser):
             return self.pupy_mod_completer
 
 class Log(object):
-    def __init__(self, out, log, rec=None, command=None, args=None, title=None, unicode=False):
+    def __init__(self, out, log, rec=None, command=None, title=None, unicode=False, stream=False):
         self.out = out
         self.log = log
         self.rec = None
@@ -88,9 +88,8 @@ class Log(object):
         self.start = 0
         self.unicode = unicode
         self.cleaner = re.compile('(\033[^m]+m)')
-
-        if command and args:
-            command = command + ' ' + ' '.join(args)
+        self.closed = False
+        self.stream = stream
 
         if self.rec == 'asciinema':
             h, l = consize(self.out)
@@ -122,6 +121,8 @@ class Log(object):
         self.out.write(data)
 
         data = hint_to_text(data)
+        if not self.stream:
+            data += '\n'
 
         now = time.time()
 
@@ -206,15 +207,18 @@ class Log(object):
     def read(self, size=None):
         return self.out.read(size)
 
-    def __del__(self):
-        if not self.closed:
-            self.close()
+class PupyModuleMetaclass(type):
+    def __init__(self, *args, **kwargs):
+        super(PupyModuleMetaclass, self).__init__(*args, **kwargs)
+        self.init_argparse()
 
 class PupyModule(object):
     """
         This is the class all the pupy scripts must inherit from
         daemon_script -> script that will continue running in background once started
     """
+
+    __metaclass__ = PupyModuleMetaclass
 
     # Interaction requirements
     io = REQUIRE_NOTHING
@@ -252,12 +256,30 @@ class PupyModule(object):
         self.job = job
         self.new_deps = []
         self.log_file = log
-        self.init_argparse()
         self.iogroup = io
         self.stdin = io.stdin
         self.stdout = io.stdout
 
-    def init(self, cmdline, args):
+    @classmethod
+    def init_argparse(cls):
+        if cls.__name__ != 'PupyModule':
+            raise NotImplementedError('init_argparse() must be implemented')
+
+    @classmethod
+    def parse(cls, cmdline):
+        if cls.known_args:
+            args, unknown_args = cls.arg_parser.parse_known_args(cmdline)
+            args.unknown_args = unknown_args
+            return args
+        else:
+            args = cls.arg_parser.parse_args(cmdline)
+
+        args.original_cmdline = cmdline
+        return args
+
+    def init(self, args):
+        self.iogroup.set_title(self)
+
         if self.client and ( self.config.getboolean('pupyd', 'logs') or self.log_file ):
             replacements = {
                 '%c': self.client.short_name(),
@@ -287,12 +309,10 @@ class PupyModule(object):
                 self.stdout,
                 log,
                 rec=self.rec,
-                command=None if self.log_file else self.get_name(),
-                args=None if self.log_file else cmdline,
-                unicode=unicode
+                command=self.get_name() + ' ' + u' '.join(args.original_cmdline),
+                unicode=unicode,
+                stream=self.io != REQUIRE_NOTHING
             )
-
-            self.iogroup.set_title(self)
 
     @property
     def config(self):
@@ -332,10 +352,6 @@ class PupyModule(object):
             return None
         else:
             return self.client.pupsrv.pupweb.start_webplugin(self.web_handlers)
-
-    def init_argparse(self):
-        """ Override this method to define your own arguments. """
-        self.arg_parser = PupyArgumentParser(prog='PupyModule', description='PupyModule default description')
 
     def is_compatible(self):
         """ override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
@@ -382,7 +398,10 @@ class PupyModule(object):
             return obj2utf8(msg)
 
     def _message(self, msg):
-        if self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
+        if self.io != REQUIRE_NOTHING:
+            msg = MultiPart(msg, NewLine())
+
+        elif self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
             msg = self.iogroup.as_text(msg)
 
         self.stdout.write(msg)
@@ -394,11 +413,11 @@ class PupyModule(object):
     def log(self, msg):
         self._message(self.encode(msg))
 
-    def error(self, msg):
+    def error(self, msg, extended=False):
         self._message(self.encode(Error(msg)))
 
     def warning(self, msg):
-        self._message(self.encode(Warning(msg)))
+        self._message(self.encode(Warn(msg)))
 
     def success(self, msg):
         self._message(self.encode(Success(msg)))
@@ -406,8 +425,8 @@ class PupyModule(object):
     def info(self, msg):
         self._message(self.encode(Info(msg)))
 
-    def newline(self):
-        self._message(NewLine(1))
+    def newline(self, lines=1):
+        self._message(NewLine(lines))
 
     def table(self, data, header=None, caption=None, truncate=False):
         data = Table(data, header, caption)
@@ -415,22 +434,31 @@ class PupyModule(object):
             data = TruncateToTerm(data)
         self._message(data)
 
+    def closeio(self):
+        if isinstance(self.stdout, Log):
+            self.stdout.close()
+
+        self.iogroup.close()
+
 def config(**kwargs):
-    for l in ["compat","compatibilities","compatibility","tags"]:
+    for l in [ 'compat', 'compatibilities', 'compatibility', 'tags' ]:
         if l in kwargs:
             if type(kwargs[l])!=list:
                 kwargs[l]=[kwargs[l]]
 
     def class_rebuilder(cls):
-        class NewClass(cls):
-            __doc__=cls.__doc__
-            tags=kwargs.get('tags',cls.tags)
-            category=kwargs.get('category', kwargs.get('cat', cls.category))
-            compatible_systems=kwargs.get('compatibilities',kwargs.get('compatibility',kwargs.get('compat',cls.compatible_systems)))
-            daemon=kwargs.get('daemon', cls.daemon)
+        cls.tags = kwargs.get('tags', cls.tags)
+        cls.category = kwargs.get('category', kwargs.get('cat', cls.category))
+        cls.compatible_systems = kwargs.get(
+            'compatibilities',
+            kwargs.get('compatibility',
+                       kwargs.get('compat',cls.compatible_systems)))
+        cls.daemon = kwargs.get('daemon', cls.daemon)
 
-        return NewClass
+        return cls
+
     for k in kwargs.iterkeys():
-        if k not in [ 'tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon', 'io' ]:
+        if k not in [ 'tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon' ]:
             logging.warning("Unknown argument \"%s\" to @config context manager"%k)
+
     return class_rebuilder

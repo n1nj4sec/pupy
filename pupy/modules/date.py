@@ -10,8 +10,9 @@ class date(PupyModule):
 
     dependencies = [ 'pupyutils.basic_cmds' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="date", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="date", description=cls.__doc__)
 
     def run(self, args):
         try:

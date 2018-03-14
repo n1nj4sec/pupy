@@ -10,9 +10,10 @@ class mkdir(PupyModule):
     is_module=False
     dependencies = [ 'pupyutils.basic_cmds' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="mkdir", description=self.__doc__)
-        self.arg_parser.add_argument('dir', type=str, help='directory name')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="mkdir", description=cls.__doc__)
+        cls.arg_parser.add_argument('dir', type=str, help='directory name')
 
     def run(self, args):
         try:

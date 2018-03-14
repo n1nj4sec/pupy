@@ -22,13 +22,11 @@ class MemoryDuplicate(PupyModule):
         'windows': [ 'pupymemexec', 'pupwinutils.memexec', 'pupwinutils.processes' ]
     }
 
-    def __init__(self, *args, **kwargs):
-        PupyModule.__init__(self,*args, **kwargs)
-
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="duplicate", description=self.__doc__)
-        self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
-        self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="duplicate", description=cls.__doc__)
+        cls.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
+        cls.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
 
     def run(self, args):
         self.success("looking for configured connect back address ...")

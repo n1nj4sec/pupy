@@ -12,12 +12,13 @@ class ImpersonateModule(PupyModule):
 
     dependencies=["pupwinutils.security"]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="impersonate", description=self.__doc__)
-        self.arg_parser.add_argument("-l", "--list", action='store_true', help="list available Sids")
-        self.arg_parser.add_argument("-i", "--impersonate", metavar="SID", help="impersonate a sid")
-        self.arg_parser.add_argument("-m", "--migrate", action="store_true", help="spawn a new process and migrate into it")
-        self.arg_parser.add_argument("-r", "--rev2self", action='store_true', help="call rev2self")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="impersonate", description=cls.__doc__)
+        cls.arg_parser.add_argument("-l", "--list", action='store_true', help="list available Sids")
+        cls.arg_parser.add_argument("-i", "--impersonate", metavar="SID", help="impersonate a sid")
+        cls.arg_parser.add_argument("-m", "--migrate", action="store_true", help="spawn a new process and migrate into it")
+        cls.arg_parser.add_argument("-r", "--rev2self", action='store_true', help="call rev2self")
 
     def run(self, args):
         if args.list:

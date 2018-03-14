@@ -12,16 +12,17 @@ class SSH(PupyModule):
         'paramiko', 'cryptography', 'ecdsa', 'ssh'
     ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="ssh", description=self.__doc__)
-        self.arg_parser.add_argument('-u', '--user', default='', help='username')
-        self.arg_parser.add_argument('-p', '--password', default='', help='use plaintext password or ssh private key file')
-        self.arg_parser.add_argument('-k', '--private-key', default='', help='use plaintext password or ssh private key file')
-        self.arg_parser.add_argument('-c', '--command', default='', help='optional - command to execute on the remote host')
-        self.arg_parser.add_argument('-i', '--ip', default='', help='target address (could be a range)')
-        self.arg_parser.add_argument('--port', default=22, type=int, help='change the default ssh port')
-        self.arg_parser.add_argument('-f', '--file', default='', help='extract ip addresses from file (input could be know_hosts file)')
-        self.arg_parser.add_argument('-v', '--verbose', action='store_true', default=False, help='activate verbose output')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="ssh", description=cls.__doc__)
+        cls.arg_parser.add_argument('-u', '--user', default='', help='username')
+        cls.arg_parser.add_argument('-p', '--password', default='', help='use plaintext password or ssh private key file')
+        cls.arg_parser.add_argument('-k', '--private-key', default='', help='use plaintext password or ssh private key file')
+        cls.arg_parser.add_argument('-c', '--command', default='', help='optional - command to execute on the remote host')
+        cls.arg_parser.add_argument('-i', '--ip', default='', help='target address (could be a range)')
+        cls.arg_parser.add_argument('--port', default=22, type=int, help='change the default ssh port')
+        cls.arg_parser.add_argument('-f', '--file', default='', help='extract ip addresses from file (input could be know_hosts file)')
+        cls.arg_parser.add_argument('-v', '--verbose', action='store_true', default=False, help='activate verbose output')
 
     def run(self, args):
 

@@ -11,8 +11,9 @@ class CheckVM(PupyModule):
 
     dependencies = [ 'checkvm' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="CheckVM", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="CheckVM", description=cls.__doc__)
 
     def run(self, args):
         if self.client.is_windows():

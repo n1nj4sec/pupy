@@ -35,7 +35,10 @@ class Commands(object):
 
         for command,source in files.iteritems():
             if not command in self._commands or self._commands[command].__file__ != source:
-                self._commands[command] = imp.load_source(command, source)
+                try:
+                    self._commands[command] = imp.load_source(command, source)
+                except IOError:
+                    pass
 
     def _get_command(self, cmdline, aliases, modules):
         argv = shlex.split(cmdline)
@@ -77,7 +80,7 @@ class Commands(object):
         if not command in self._commands:
             self._refresh()
 
-        return self._command.get(command)
+        return self._commands.get(command)
 
     def execute(self, server, handler, config, cmdline):
         aliases = {}

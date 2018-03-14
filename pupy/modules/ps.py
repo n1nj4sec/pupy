@@ -160,12 +160,13 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[]):
                                 Table(
                                     infosecs[section],
                                     labels,
-                                    section)))
+                                    Color(section.upper(), 'yellow'))))
 
             else:
                 for section, table in infosecs.iteritems():
                     labels = sorted(table[0], cmp=sorter)
-                    parts.append(TruncateToTerm(Table(table, labels, section)))
+                    parts.append(TruncateToTerm(Table(
+                        table, labels, Color(section.upper(), 'yellow'))))
 
             fout(MultiPart(parts))
 
@@ -282,17 +283,18 @@ class PsModule(PupyModule):
     dependencies = [ 'pupyps' ]
     is_module=False
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="ps", description=self.__doc__)
-        self.arg_parser.add_argument('--tree', '-t', action='store_true', help='draw tree')
-        self.arg_parser.add_argument('-i', '--info', action='store_true', help='print more info')
-        self.arg_parser.add_argument('-I', '--info-sections', nargs='*',
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="ps", description=cls.__doc__)
+        cls.arg_parser.add_argument('--tree', '-t', action='store_true', help='draw tree')
+        cls.arg_parser.add_argument('-i', '--info', action='store_true', help='print more info')
+        cls.arg_parser.add_argument('-I', '--info-sections', nargs='*',
                                          default=None, help='print info for sections (-s only)')
-        self.arg_parser.add_argument('-a', '--all', action='store_true', help='show kthread')
-        self.arg_parser.add_argument('-w', '--wide', action='store_true', help='show all arguments')
-        self.arg_parser.add_argument('-x', '--hide', nargs='+', default=[],
+        cls.arg_parser.add_argument('-a', '--all', action='store_true', help='show kthread')
+        cls.arg_parser.add_argument('-w', '--wide', action='store_true', help='show all arguments')
+        cls.arg_parser.add_argument('-x', '--hide', nargs='+', default=[],
                                      help='hide processes by pid/name/exe (regex)')
-        filtering = self.arg_parser.add_mutually_exclusive_group()
+        filtering = cls.arg_parser.add_mutually_exclusive_group()
         filtering.add_argument('-s', '--show', nargs='+', default=[],
                                          help='show process info (or subtree) by pid/name/exe (regex)')
         filtering.add_argument('-S', '--show-pid', nargs='+', type=int, default=[],

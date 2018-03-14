@@ -21,7 +21,7 @@ import ctypes
 import logging
 from .PupyErrors import PupyModuleError, PupyModuleExit
 from .PupyConfig import PupyConfig
-from .PupyOutput import Section, Text, Info
+from .PupyOutput import Section, Text, Info, Warn
 import rpyc
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
@@ -90,6 +90,10 @@ class ThreadPool(object):
 
         while True:
             try:
+                if self.interrupt.is_set():
+                    allok = on_interrupt()
+                    break
+
                 allok = True
                 for t in self.thread_pool:
                     if t.isAlive():
@@ -97,10 +101,6 @@ class ThreadPool(object):
                         allok = False
 
                 if allok:
-                    break
-
-                if self.interrupt.is_set():
-                    on_interrupt()
                     break
 
             except KeyboardInterrupt:
@@ -118,8 +118,9 @@ class ThreadPool(object):
 class PupyJob(object):
     """ a job handle a group of modules """
 
-    def __init__(self, pupsrv, module, name):
+    def __init__(self, pupsrv, module, name, args):
         self.name = name
+        self.args = args
         self.pupsrv = pupsrv
         self.handler = pupsrv.handler
         self.config = pupsrv.config or PupyConfig()
@@ -155,13 +156,13 @@ class PupyJob(object):
         self.pupsrv.del_job(self.jid)
         self.interrupt()
 
-    def module_worker(self, module, cmdline, args, once):
+    def module_worker(self, module, once):
         e = None
 
         try:
             module.import_dependencies()
-            module.init(cmdline, args)
-            module.run(args)
+            module.init(self.args)
+            module.run(self.args)
 
         except PupyModuleExit as e:
             self.error = e
@@ -170,42 +171,38 @@ class PupyJob(object):
         except PupyModuleError as e:
             self.error = e
             if not self.interrupted:
-                module.error(str(e))
+                module.error(e)
 
         except KeyboardInterrupt:
             pass
 
         except Exception as e:
+            import logging
+            logging.exception(e)
+
             self.error = e
             if not self.interrupted:
-                module.error(str(e))
+                module.error(e)
 
         finally:
             if not self.interrupted and once:
                 module.clean_dependencies()
 
+            module.closeio()
+
             if self.id is not None:
                 if e:
-                    self.handler.display_srvinfo('Job {}/client={} - error: {}'.format(self.id, module.client.id, e))
+                    self.handler.display_srvinfo('<jid={}/cid={}> - error: {}'.format(self.id, module.client.id, e))
                 elif self.interrupted:
-                    self.handler.display_srvinfo('Job {}/client={} interrupted'.format(self.id, module.client.id))
+                    self.handler.display_srvinfo('<jid={}/cid={}> interrupted'.format(self.id, module.client.id))
                 else:
-                    self.handler.display_srvinfo('Job {}/client={} done'.format(self.id, module.client.id))
+                    self.handler.display_srvinfo('<jid={}/cid={}> done'.format(self.id, module.client.id))
 
-    def start(self, args, once=False):
+    def start(self, once=False):
         #if self.started.is_set():
         #    raise RuntimeError("job %s has already been started !"%str(self))
 
         for m in self.pupymodules:
-            try:
-                if m.known_args:
-                    margs, unknown_args = m.arg_parser.parse_known_args(args)
-                    margs.unknown_args = unknown_args
-                else:
-                    margs = m.arg_parser.parse_args(args)
-
-            except PupyModuleExit as e:
-                return
 
             res = m.is_compatible()
             if type(res) is tuple:
@@ -221,7 +218,7 @@ class PupyJob(object):
                 m.error("Compatibility error : %s"%comp_exp)
                 continue
 
-            self.worker_pool.apply_async(self.module_worker, (m, args, margs, once))
+            self.worker_pool.apply_async(self.module_worker, (m, once))
 
         self.started.set()
 
@@ -243,7 +240,8 @@ class PupyJob(object):
             return True
 
         else:
-            self.handler.display(Warning('Module does not support interrupts. Resources may leak!'))
+            self.handler.display_srvinfo(
+                Warn('Module does not support interrupts. Resources may leak!'))
             self.worker_pool.interrupt_all()
             self.check()
             return False

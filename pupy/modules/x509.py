@@ -10,13 +10,14 @@ class x509(PupyModule):
 
     dependencies = [ 'pupyutils.basic_cmds' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='x509', description=self.__doc__)
-        self.arg_parser.add_argument('host', help='Address or path')
-        self.arg_parser.add_argument('port', type=int, default=443, nargs='?', help='Port')
-        self.arg_parser.add_argument('-F', '--file', action='store_true', default=False,
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='x509', description=cls.__doc__)
+        cls.arg_parser.add_argument('host', help='Address or path')
+        cls.arg_parser.add_argument('port', type=int, default=443, nargs='?', help='Port')
+        cls.arg_parser.add_argument('-F', '--file', action='store_true', default=False,
                                      help='Force treat host as file path')
-        self.arg_parser.add_argument('-R', '--raw', action='store_true', default=False,
+        cls.arg_parser.add_argument('-R', '--raw', action='store_true', default=False,
                                      help='Do not convert to text')
 
 

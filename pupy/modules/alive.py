@@ -8,10 +8,11 @@ class alive(PupyModule):
     """ request to send keepalive packets on rpyc level """
     is_module=False
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="alive", description=self.__doc__)
-        self.arg_parser.add_argument('-t', '--timeout', type=int, help='ping timeout')
-        self.arg_parser.add_argument('-i', '--interval', type=int, help='ping send interval')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="alive", description=cls.__doc__)
+        cls.arg_parser.add_argument('-t', '--timeout', type=int, help='ping timeout')
+        cls.arg_parser.add_argument('-i', '--interval', type=int, help='ping send interval')
 
     def run(self, args):
         try:
@@ -24,5 +25,6 @@ class alive(PupyModule):
                 self.success('Timeout:  {}'.format(timeout))
             else:
                 self.success('Pings disabled')
+
         except Exception, e:
             self.error('Pings configuration is not supported ({})'.format(e))

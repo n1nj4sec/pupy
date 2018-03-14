@@ -14,9 +14,10 @@ class ShellcodeExec(PupyModule):
 
     dependencies = ['pupwinutils.shellcode']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='shellcode_exec', description=self.__doc__)
-        self.arg_parser.add_argument('path', help='Path to the shellcode to execute')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='shellcode_exec', description=cls.__doc__)
+        cls.arg_parser.add_argument('path', help='Path to the shellcode to execute')
 
     def run(self, args):
         with open(args.path ,'r') as sfile:

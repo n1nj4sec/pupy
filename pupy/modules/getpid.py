@@ -11,8 +11,9 @@ class PsModule(PupyModule):
     """ list process information """
     is_module=False
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="getpid", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="getpid", description=cls.__doc__)
 
     def run(self, args):
         getpid = self.client.remote('os', 'getpid')

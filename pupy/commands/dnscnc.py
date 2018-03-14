@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Info, Warning, Success, Error, Table, Color
+from pupylib.PupyOutput import Info, Success, Error, Table, Color
 
 usage = 'DNSCNC control'
 parser = PupyArgumentParser(prog='dnscnc', description=usage)

@@ -3,7 +3,7 @@
 import os
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Info, Warning, Success, Error
+from pupylib.PupyOutput import Info, Warn, Success, Error
 
 import pupygen
 
@@ -74,7 +74,7 @@ def do(server, handler, config, args):
                         default_listener.external_port)))
 
                 if host or port:
-                    handler.display(Warning('Host and port will be ignored'))
+                    handler.display(Warn('Host and port will be ignored'))
 
                 if args.prefer_external != default_listener.local:
                     host = default_listener.external
@@ -83,7 +83,7 @@ def do(server, handler, config, args):
                 elif not args.prefer_external and not default_listener.local:
                     host = get_listener_ip(cache=False)
                     if host:
-                        handler.display(Warning('Using {} as local IP'.format(host)))
+                        handler.display(Warn('Using {} as local IP'.format(host)))
 
                     port = default_listener.port
                     preferred_ok = True
@@ -102,11 +102,11 @@ def do(server, handler, config, args):
             )
 
             if (not local and args.prefer_external) or not (host and port):
-                hadler.display(Warning('Using configured/discovered external HOST:PORT'))
+                hadler.display(Warn('Using configured/discovered external HOST:PORT'))
                 host = maybe_host
                 port = maybe_port
             else:
-                handler.display(Warning('Unable to find external HOST:PORT'))
+                handler.display(Warn('Unable to find external HOST:PORT'))
 
         if need_transport:
             if transport_idx is None:

@@ -15,8 +15,9 @@ class LootMemory(PupyModule):
     """
     dependencies=['memorpy', 'loot_memory']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='loot_memory', description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='loot_memory', description=cls.__doc__)
 
     def run(self, args):
         with redirected_stdio(self):

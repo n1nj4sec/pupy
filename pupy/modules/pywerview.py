@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Author: the-useless-one
 # Project: https://github.com/the-useless-one/pywerview
 from pupylib.PupyModule import *
@@ -8,19 +8,20 @@ __class_name__="Pywerview"
 @config(cat="gather", compat="windows")
 class Pywerview(PupyModule):
     """ Rewriting of some PowerView's functionalities in Python """
-    
+
     dependencies=["pywerview", "impacket", "calendar", "bs4", "pdb", "cmd", "bdb", "repr", "pprint", "htmlentitydefs", "HTMLParser", "markupbase", "OpenSSL"]
     max_clients=1
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
 
         # changes from original main :
         #      - argparse.ArgumentParser to PupyArgumentParser
-        #      - parser to self.arg_parser
+        #      - parser to cls.arg_parser
         #      - function name to string (ex: func=get_adobject to func="get_adobject")
-        
-        self.arg_parser = PupyArgumentParser(description='Rewriting of some PowerView\'s functionalities in Python')
-        subparsers = self.arg_parser.add_subparsers(title='Subcommands', description='Available subcommands')
+
+        cls.arg_parser = PupyArgumentParser(description='Rewriting of some PowerView\'s functionalities in Python')
+        subparsers = cls.arg_parser.add_subparsers(title='Subcommands', description='Available subcommands')
 
         # TODO: support keberos authentication
         # Credentials parser
@@ -337,7 +338,7 @@ class Pywerview(PupyModule):
         for k, v in vars(args).iteritems():
             if k not in ('func', 'hashes'):
                 parsed_args[k] = v
-         
+
         # call the fcorrect function
         function = getattr(self.client.conn.modules['pywerview.cli.helpers'], args.func)
         results = function(**parsed_args)

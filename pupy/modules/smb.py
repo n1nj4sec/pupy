@@ -13,41 +13,42 @@ class SMB(PupyModule):
     max_clients = 1
     dependencies = [ 'impacket', 'pupyutils.psexec' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='smbcp', description=self.__doc__)
-        self.arg_parser.add_argument('-u', '--username', default='', help='Username')
-        self.arg_parser.add_argument('-P', '--port', default=445, type=int, help='Port')
-        self.arg_parser.add_argument('-p', '--password', default='', help='Password')
-        self.arg_parser.add_argument('-d', '--domain', default='', help='Domain')
-        self.arg_parser.add_argument('-H', '--hash', default='', help='NTLM hash')
-        self.arg_parser.add_argument('-T', '--timeout', default=30, type=int, help='Timeout')
-        self.arg_parser.add_argument('-c', '--codepage', default=None, help='Codepage')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='smbcp', description=cls.__doc__)
+        cls.arg_parser.add_argument('-u', '--username', default='', help='Username')
+        cls.arg_parser.add_argument('-P', '--port', default=445, type=int, help='Port')
+        cls.arg_parser.add_argument('-p', '--password', default='', help='Password')
+        cls.arg_parser.add_argument('-d', '--domain', default='', help='Domain')
+        cls.arg_parser.add_argument('-H', '--hash', default='', help='NTLM hash')
+        cls.arg_parser.add_argument('-T', '--timeout', default=30, type=int, help='Timeout')
+        cls.arg_parser.add_argument('-c', '--codepage', default=None, help='Codepage')
 
-        commands = self.arg_parser.add_subparsers(dest="command")
+        commands = cls.arg_parser.add_subparsers(dest="command")
         cp = commands.add_parser('cp')
         cp.add_argument('src', help='Source')
         cp.add_argument('dst', help='Destination')
-        cp.set_defaults(func=self.cp)
+        cp.set_defaults(func=cls.cp)
 
         ls = commands.add_parser('ls')
         ls.add_argument('dst', help='Destination')
-        ls.set_defaults(func=self.ls)
+        ls.set_defaults(func=cls.ls)
 
         rm = commands.add_parser('rm')
         rm.add_argument('dst', help='Destination')
-        rm.set_defaults(func=self.rm)
+        rm.set_defaults(func=cls.rm)
 
         mkdir = commands.add_parser('mkdir')
         mkdir.add_argument('dst', help='Destination')
-        mkdir.set_defaults(func=self.mkdir)
+        mkdir.set_defaults(func=cls.mkdir)
 
         rmdir = commands.add_parser('rmdir')
         rmdir.add_argument('dst', help='Destination')
-        rmdir.set_defaults(func=self.rmdir)
+        rmdir.set_defaults(func=cls.rmdir)
 
         shares = commands.add_parser('shares')
         shares.add_argument('host', help='Host')
-        shares.set_defaults(func=self.shares)
+        shares.set_defaults(func=cls.shares)
 
     def run(self, args):
         args.func(args)

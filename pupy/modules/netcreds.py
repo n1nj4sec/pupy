@@ -16,11 +16,12 @@ class NetCreds(PupyModule):
     unique_instance = True
     dependencies=[ 'netifaces', 'scapy', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='netcreds', description=self.__doc__)
-        self.arg_parser.add_argument("-i", metavar="INTERFACE", dest='interface', default=None, help="Choose an interface (optional)")
-        self.arg_parser.add_argument("-f", metavar="IP", dest='filterip', default=None, help="Do not sniff packets from this IP address; -f 192.168.0.4")
-        self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='netcreds', description=cls.__doc__)
+        cls.arg_parser.add_argument("-i", metavar="INTERFACE", dest='interface', default=None, help="Choose an interface (optional)")
+        cls.arg_parser.add_argument("-f", metavar="IP", dest='filterip', default=None, help="Do not sniff packets from this IP address; -f 192.168.0.4")
+        cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def run(self, args):
         if args.action=="start":

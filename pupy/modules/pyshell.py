@@ -26,8 +26,9 @@ class InteractivePythonShell(PupyModule):
     io = REQUIRE_REPL
     dependencies = ['pyshell']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='pyshell', description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='pyshell', description=cls.__doc__)
 
     def run(self, args):
         PyShellController = self.client.remote('pyshell.controller', 'PyShellController', False)

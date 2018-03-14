@@ -57,15 +57,16 @@ from commands import Commands, InvalidCommand
 import pupygen
 
 class ObjectStream(object):
-    __slots__ = ( '_buffer', '_display' )
+    __slots__ = ( '_buffer', '_display', '_stream' )
 
-    def __init__(self, display=None):
+    def __init__(self, display=None, stream=False):
         self._buffer = []
         self._display = display
+        self._stream = stream
 
     def write(self, data):
         if self._display:
-            self._display(data)
+            self._display(data, nocrlf=self._stream)
         else:
             self._buffer.append(data)
 
@@ -79,6 +80,10 @@ class ObjectStream(object):
         blocks = self._buffer
         self._buffer = []
         return blocks
+
+    @property
+    def is_stream(self):
+        return self._stream
 
     def __nonzero__(self):
         return bool(self._buffer)
@@ -96,6 +101,9 @@ class IOGroup(object):
     def as_text(self, msg):
         return hint_to_text(msg)
 
+    def close(self):
+        pass
+
 class PupyCmd(cmd.Cmd):
     def __init__(self, pupsrv):
         cmd.Cmd.__init__(self)
@@ -109,7 +117,7 @@ class PupyCmd(cmd.Cmd):
 
         self.commands = Commands()
 
-        self.srvinfo_lock = Lock()
+        self.display_lock = Lock()
 
         self.init_readline()
 
@@ -119,20 +127,25 @@ class PupyCmd(cmd.Cmd):
         ]
 
         self.raw_prompt = colorize('>> ','blue')
-        self.prompt = colorize('>> ','blue')
+        self.prompt = colorize('>> ','blue', prompt=True)
+
         self.default_filter=None
         try:
             if not self.config.getboolean("cmdline","display_banner"):
                 self._intro = []
         except Exception:
             pass
-        self.aliases={}
-        for m in self.pupsrv.get_aliased_modules():
-            self.aliases[m]=m
+
+        self.aliases = {}
+
+        for m, _ in self.pupsrv.get_aliased_modules():
+            self.aliases[m] = m
+
         try:
             for command, alias in self.config.items("aliases"):
                 logging.debug("adding alias: %s => %s"%(command, alias))
-                self.aliases[command]=alias
+                self.aliases[command] = alias
+
         except Exception as e:
             logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
         self.pupy_completer=PupyCompleter(self.aliases, self.pupsrv)
@@ -162,7 +175,7 @@ class PupyCmd(cmd.Cmd):
                 'Unknown command {}. Use help and modules to list known commands'.format(e)))
 
         except (PupyModuleError, NotImplementedError), e:
-            self.display(Error(str(e)))
+            self.display(Error(e))
 
         if self.pupsrv.finishing.is_set():
             return True
@@ -212,15 +225,18 @@ class PupyCmd(cmd.Cmd):
             pass
 
     def acquire_io(self, requirements, amount, background=False):
+
+        stream = requirements != REQUIRE_NOTHING
+
         if requirements in (REQUIRE_REPL, REQUIRE_TERMINAL):
             if amount > 1:
                 raise NotImplementedError('This UI does not support more than 1 repl or terminal')
 
             return [IOGroup(self.stdin, self.stdout)]
         elif amount == 1 and not background:
-            return [IOGroup(None, ObjectStream(self.display))]
+            return [IOGroup(None, ObjectStream(self.display, stream))]
         else:
-            return [IOGroup(None, ObjectStream()) for _ in xrange(amount)]
+            return [IOGroup(None, ObjectStream(stream=stream)) for _ in xrange(amount)]
 
     def process(self, job, background=False, daemon=False, unique=False):
         if background or daemon:
@@ -246,29 +262,38 @@ class PupyCmd(cmd.Cmd):
                 self.display(Title(str(instance.client)))
 
             for block in instance.stdout.getvalue():
-                self.display(block)
+                self.display(block, instance.stdout.is_stream)
 
             if need_title:
                 self.display(NewLine())
 
-    def display(self, text):
-        return self.stdout.write(hint_to_text(text).strip('\n')+'\n')
+    def display(self, text, nocrlf=False):
+        with self.display_lock:
+            text = hint_to_text(text)
+            if not nocrlf:
+                text += '\n'
+            return self.stdout.write(text)
 
     def display_srvinfo(self, msg):
-        with self.srvinfo_lock:
-            self.stdout.write(''.join([
-                '\x1b[0E\x1b[2K',
-                colorize('[*] ', 'blue'),
-                msg,
-                '\n\x1b[2K',
-                self.raw_prompt,
-                readline.get_line_buffer()
-            ]))
+        if isinstance(msg, Text):
+            msg = hint_to_text(msg)
+        else:
+            msg = colorize('[*] ', 'blue') + msg
 
-            try:
-                readline.redisplay()
-            except Exception:
-                pass
+        buf = readline.get_line_buffer()
+
+        self.stdout.write(''.join([
+            '\x1b[0G',
+            msg+'\n',
+            '\x1b[0E\x1b[2K',
+            self.raw_prompt,
+            buf
+        ]))
+
+        try:
+            readline.redisplay()
+        except Exception:
+            pass
 
     def display_success(self, msg):
         return self.display(Success(msg))
@@ -277,7 +302,7 @@ class PupyCmd(cmd.Cmd):
         return self.display(Error(msg))
 
     def display_warning(self, msg):
-        return self.display(Warning(msg))
+        return self.display(Warn(msg))
 
     def display_info(self, msg):
         return self.display(Info(msg))

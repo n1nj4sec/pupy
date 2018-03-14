@@ -29,6 +29,12 @@ class Table(Text):
 class Stream(Text):
     __slots__ = ()
 
+class Line(Text):
+    __slots__ = ()
+
+    def __init__(self, *args):
+        super(Line, self).__init__(args)
+
 class TruncateToTerm(Text):
     __slots__ = ()
 
@@ -60,7 +66,7 @@ class Info(Text):
 class ServiceInfo(Text):
     __slots__ = ()
 
-class Warning(Text):
+class Warn(Text):
     __slots__ = ()
 
 class Error(Text):

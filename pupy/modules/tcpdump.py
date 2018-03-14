@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import sys
@@ -31,18 +31,19 @@ class TcpdumpModule(PupyModule):
 
     dependencies=['scapy', 'tcpdump']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='tcpdump.py', description=self.__doc__)
-        self.arg_parser.add_argument("-s", "--save-pcap", action="store_true", help="save to a pcap file")
-        self.arg_parser.add_argument("--count", type=int, default=0, help="sniff at max n packets")
-        self.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
-        self.arg_parser.add_argument("--timeout", type=int, default=None, help="stop the capture after timeout seconds")
-        self.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist pupy's shell IP/PORT you are currently using to avoid a nasty Larsen effect)") #yup mandatory cause you have to put pupy's IP/PORT anyway
-        #self.arg_parser.add_argument("command", choices=["start", "stop"])
-        self.sniff_sess=None
-
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='tcpdump.py', description=cls.__doc__)
+        cls.arg_parser.add_argument("-s", "--save-pcap", action="store_true", help="save to a pcap file")
+        cls.arg_parser.add_argument("--count", type=int, default=0, help="sniff at max n packets")
+        cls.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
+        cls.arg_parser.add_argument("--timeout", type=int, default=None, help="stop the capture after timeout seconds")
+        cls.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist pupy's shell IP/PORT you are currently using to avoid a nasty Larsen effect)") #yup mandatory cause you have to put pupy's IP/PORT anyway
+        #cls.arg_parser.add_argument("command", choices=["start", "stop"])
 
     def run(self, args):
+        self.sniff_sess = None
+
         init_winpcap(self)
         pktwriter=None
         if args.save_pcap:

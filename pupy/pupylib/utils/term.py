@@ -9,7 +9,7 @@ import re
 
 from pupylib.PupyOutput import *
 
-ESC_REGEX = re.compile('(\033[^m]+m)')
+ESC_REGEX = re.compile(r'(\033[^m]+m)')
 
 COLORS = {
     'blue': '\033[34m',
@@ -91,7 +91,7 @@ def _size_linux(file=None):
 
     return int(cr[1]), int(cr[0])
 
-def colorize(text, color):
+def colorize(text, color, prompt=False):
     if not text:
         return ''
     elif color == 'white':
@@ -105,12 +105,14 @@ def colorize(text, color):
         color = random.choice(COLORS.keys())
 
     ccode = COLORS.get(color.lower())
+    if prompt:
+        ccode = '\001' + ccode + '\002'
+
+    sequence = [ccode, text, '\033[0m']
 
     if ccode:
-        if ttype == unicode:
-            return u''.join([ccode, text, '\033[0m'])
-        else:
-            return ''.join([ccode, text, '\033[0m'])
+        joiner = u'' if ttype == unicode else ''
+        return joiner.join(sequence)
 
     return text
 
@@ -133,6 +135,11 @@ def ediff(s):
 
 def elen(s):
     return len(s) - ediff(s)
+
+def ejust(line, width):
+    while elen(line) > width:
+        line = line[:width+ediff(line)]
+    return line
 
 def obj2utf8(obj):
     if type(obj) == dict:
@@ -244,7 +251,10 @@ def hint_to_text(text, width=0):
             width = real_width + width
 
         text = hint_to_text(text.data, width)
-        return '\n'.join(x[:width+ediff(x)] for x in text.split('\n'))
+        if text == str:
+            text = text.decode('utf-8', errors='replace')
+
+        return u'\n'.join(ejust(x, width) for x in text.split(u'\n'))
     elif hint == Error:
         text = text.data
         if issubclass(type(text), Exception):
@@ -254,7 +264,7 @@ def hint_to_text(text, width=0):
         return colorize('[-] ','red')+text
     elif hint == Log:
         return hint_to_text(text.data, width).rstrip()
-    elif hint == Warning:
+    elif hint == Warn:
         return colorize('[!] ','yellow')+hint_to_text(text.data, width).rstrip()
     elif hint == Success:
         return colorize('[+] ','green')+hint_to_text(text.data, width).rstrip()
@@ -270,6 +280,8 @@ def hint_to_text(text, width=0):
             colorize('#>#>  ','green') + hint_to_text(text.data, width)+ colorize('  <#<#','green'),
             hint_to_text(text.payload, width)
         ])
+    elif hint == Line:
+        return u' '.join(hint_to_text(v, width) for v in text.data)
     elif hint == Table:
         table_data = [
             {
@@ -278,7 +290,7 @@ def hint_to_text(text, width=0):
         ]
 
         return (
-            '{ ' + hint_to_text(text.caption.upper(), width) + ' }\n' if text.caption else ''
+            u'{ ' + hint_to_text(text.caption, width) + u' }\n' if text.caption else ''
         ) + table_format(table_data, wl=text.headers)
 
     else:

@@ -27,9 +27,10 @@ class KeyloggerModule(PupyModule):
         'linux': [ 'keylogger' ],
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='keylogger', description=self.__doc__)
-        self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='keylogger', description=cls.__doc__)
+        cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def stop_daemon(self):
         self.success("keylogger stopped")

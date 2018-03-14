@@ -26,7 +26,10 @@ class Forward(PupyModule):
         'all': [ 'pyuv', 'pyuvproxy' ],
     }
 
-    def init_argparse(self):
+    is_module = False
+
+    @classmethod
+    def init_argparse(cls):
         example = """Examples:
 >> run forward -L 1234
 Open a Socks proxy on local port 1234. Connection output from the target.
@@ -43,7 +46,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
         """
 
         parser = PupyArgumentParser(
-            prog='forward', description=self.__doc__, epilog=example
+            prog='forward', description=cls.__doc__, epilog=example
         )
 
         actions = parser.add_mutually_exclusive_group(required=True)
@@ -72,7 +75,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
             '; RPATH:LPATH'
         )
 
-        self.arg_parser = parser
+        cls.arg_parser = parser
 
     def run(self, args):
         try:

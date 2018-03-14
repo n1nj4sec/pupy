@@ -9,9 +9,10 @@ class DNS(PupyModule):
 
     dependencies = [ 'pupyutils.dns' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="dns", description=self.__doc__)
-        self.arg_parser.add_argument('ip_or_domain', type=str, help='Domain name or IP address')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="dns", description=cls.__doc__)
+        cls.arg_parser.add_argument('ip_or_domain', type=str, help='Domain name or IP address')
 
     def run(self, args):
         launch_dns_ip_resolver = self.client.remote('pupyutils.dns', 'launch_dns_ip_resolver')

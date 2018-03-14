@@ -39,29 +39,30 @@ class InteractiveShell(PupyModule):
     }
 
     def __init__(self, *args, **kwargs):
-        PupyModule.__init__(self,*args, **kwargs)
+        super(InteractiveShell, self).__init__(*args, **kwargs)
 
         self.set_pty_size = None
         self.read_queue = Queue()
         self.complete = Event()
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(description=self.__doc__)
-        self.arg_parser.add_argument('-c', '--codepage', help="Decode output with encoding")
-        self.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
-        self.arg_parser.add_argument('-S', '--su', help='Try to change uid (linux only)')
-        self.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(description=cls.__doc__)
+        cls.arg_parser.add_argument('-c', '--codepage', help="Decode output with encoding")
+        cls.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
+        cls.arg_parser.add_argument('-S', '--su', help='Try to change uid (linux only)')
+        cls.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
                                          choices=['ttyrec', 'asciinema', 'none'],
                                          help="Change tty recorder")
-        self.arg_parser.add_argument('program', nargs='?', help="open a specific program. Default for windows is cmd.exe and for linux it depends on the remote SHELL env var")
+        cls.arg_parser.add_argument('program', nargs='?', help="open a specific program. Default for windows is cmd.exe and for linux it depends on the remote SHELL env var")
 
-    def init(self, cmdline, args):
+    def init(self, args):
         if args.pseudo_tty or args.recorder == 'none':
             self.rec = None
         else:
             self.rec = args.recorder
 
-        PupyModule.init(self, cmdline, args)
+        PupyModule.init(self, args)
 
     def _signal_winch(self, signum, frame):
         if self.set_pty_size is not None:

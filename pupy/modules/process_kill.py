@@ -7,9 +7,10 @@ __class_name__="KillModule"
 class KillModule(PupyModule):
     """ kill a process """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="kill", description=self.__doc__)
-        self.arg_parser.add_argument('pids', type=int, nargs='+', help='pids to kill')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="kill", description=cls.__doc__)
+        cls.arg_parser.add_argument('pids', type=int, nargs='+', help='pids to kill')
 
     def run(self, args):
         kill = self.client.remote('os', 'kill', False)

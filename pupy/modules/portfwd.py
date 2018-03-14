@@ -120,17 +120,19 @@ class PortFwdModule(PupyModule):
     max_clients=1
     unique_instance=True
     daemon=True
+
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self, *args, **kwargs)
         self.portfwd_dic={}
         self.current_id=1
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='portfwd', description=self.__doc__)
-        self.arg_parser.add_argument('-L', '--local', help="Local port forward")
-        self.arg_parser.add_argument('-R', '--remote', help="Remote port forward")
-        self.arg_parser.add_argument('-F', '--force', action='store_true', help="Try to open a port without admin rights (it will prompt a pop up to the end user)")
-        self.arg_parser.add_argument('-k', '--kill', type=int, metavar="<id>", help="stop a port forward")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='portfwd', description=cls.__doc__)
+        cls.arg_parser.add_argument('-L', '--local', help="Local port forward")
+        cls.arg_parser.add_argument('-R', '--remote', help="Remote port forward")
+        cls.arg_parser.add_argument('-F', '--force', action='store_true', help="Try to open a port without admin rights (it will prompt a pop up to the end user)")
+        cls.arg_parser.add_argument('-k', '--kill', type=int, metavar="<id>", help="stop a port forward")
 
     def stop_daemon(self):
         #TODO

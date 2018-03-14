@@ -62,9 +62,13 @@ def do(server, handler, config, modargs):
         pj = modjobs[0]
         unique = True
     else:
+        jobargs = module.parse(args)
+
         pj = PupyJob(
             server,
-            module, '{} {}'.format(modargs.module, ' '.join(args)))
+            module, '{} {}'.format(modargs.module, ' '.join(args)),
+            jobargs
+        )
 
         add_job = True
 
@@ -77,10 +81,10 @@ def do(server, handler, config, modargs):
             pj.add_module(instance)
 
     try:
-        pj.start(args, once=modargs.once)
+        pj.start(once=modargs.once)
 
     except Exception as e:
-        handler.display(Error(e))
+        handler.display(Error('Module launch failed: {}'.format(e)))
         pj.stop()
 
     handler.process(
