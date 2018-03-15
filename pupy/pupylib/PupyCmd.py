@@ -160,7 +160,9 @@ class PupyCmd(cmd.Cmd):
             self._intro.append(ServiceInfo(ok + '\n'))
 
         for fail in motd.get('fail', []):
-            self._intro.append(Error(fail + '\n'))
+            self._intro.append(
+                Error(fail + '\n') if not issubclass(type(fail), Text) else fail
+            )
 
     def default(self, line):
         try:

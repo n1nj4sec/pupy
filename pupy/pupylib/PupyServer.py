@@ -16,7 +16,7 @@
 
 from threading import Thread, Event, Lock
 from . import PupyService
-import pkgutil
+import imp
 import modules
 import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
@@ -25,6 +25,7 @@ from .PupyCategories import PupyCategories
 from .PupyConfig import PupyConfig
 from .PupyService import PupyBindService
 from .PupyCompile import pupycompile
+from .PupyOutput import Error, Line, Color
 from network.conf import transports
 from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
@@ -54,6 +55,7 @@ import rpyc
 import shlex
 import socket
 import errno
+import traceback
 
 from .PupyClient import PupyClient
 
@@ -323,6 +325,11 @@ class Listener(Thread):
 
 
 class PupyServer(object):
+    SUFFIXES = tuple([
+        suffix for suffix, _, rtype in imp.get_suffixes() \
+        if rtype == imp.PY_SOURCE
+    ])
+
     def __init__(self, config, credentials):
         self.httpd = None
         self.pupweb = None
@@ -332,6 +339,7 @@ class PupyServer(object):
         self.clients_lock = Lock()
         self._current_id = []
         self._current_id_lock = Lock()
+        self.modules = {}
 
         self.motd = {
             'fail': [],
@@ -660,25 +668,22 @@ class PupyServer(object):
             if not clients:
                 return
 
-        for loader, module_name, is_pkg in pkgutil.iter_modules(modules.__path__ + ['modules']):
-            if module_name == 'lib':
-                continue
-            try:
-                module = self.get_module(module_name)
-                if clients is not None:
-                    for client in clients:
-                        if module.is_compatible_with(client):
-                            yield module
-                            break
-                else:
-                    yield module
+        files = {}
 
-            except Exception, e:
-                logging.warning('%s : module %s disabled'%(e, module_name))
+        self.refresh_modules()
+        for module_name in self.modules:
+            module = self.get_module(module_name)
+            if clients is not None:
+                for client in clients:
+                    if module.is_compatible_with(client):
+                        yield module
+                        break
+            else:
+                yield module
 
     def get_module_name_from_category(self, path):
         """ take a category virtual path and return the module's name or the path untouched if not found """
-        mod=self.categories.get_module_from_path(path)
+        mod = self.categories.get_module_from_path(path)
         if mod:
             return mod.get_name()
         else:
@@ -692,20 +697,61 @@ class PupyServer(object):
                 l.append((m.get_name(), m.__doc__))
         return l
 
+    def refresh_modules(self):
+        files = {}
+
+        paths = set([
+            os.path.abspath(x) for x in [
+                self.config.root, '.',
+            ]
+        ])
+
+        for path in [ self.config.root, '.' ]:
+            modpath = os.path.join(path, 'modules')
+            if not os.path.isdir(modpath):
+                continue
+
+            files.update({
+                '.'.join(x.rsplit('.', 1)[:-1]):os.path.join(modpath, x) \
+                for x in os.listdir(modpath) if x.endswith(self.SUFFIXES) and \
+                not x.startswith('__init__')
+            })
+
+        for modname, modpath in files.iteritems():
+            try:
+                self.modules[modname] = imp.load_source(modname, modpath)
+            except Exception, e:
+                tb = '\n'.join(traceback.format_exc().split('\n')[1:-2])
+                error = Line(
+                    Error('Invalid module:'),
+                    Color(modname, 'yellow'),
+                    'at ({}): {}. Traceback:\n{}'.format(
+                    modpath, e, tb))
+                if self.handler:
+                    self.handler.display_srvinfo(error)
+                else:
+                    self.motd['fail'].append(error)
+
     def get_module(self, name):
-        loader = pkgutil.get_loader('modules.'+name)
-        if not loader:
+        if not name in self.modules:
+            self.refresh_modules()
+
+        if not name in self.modules:
             raise ValueError('No such module')
-        module = loader.load_module(name)
-        class_name=None
-        if hasattr(module,"__class_name__"):
-            class_name=module.__class_name__
-            if not hasattr(module,class_name):
+
+        module = self.modules[name]
+        class_name = None
+
+        if hasattr(module, "__class_name__"):
+            class_name = module.__class_name__
+            if not hasattr(module, class_name):
                 logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
+
         if not class_name:
             #TODO automatically search the class name in the file
             exit("Error : no __class_name__ for module %s"%module)
-        return getattr(module,class_name)
+
+        return getattr(module, class_name)
 
     def module_parse_args(self, module_name, args):
         """ This method is used by the PupyCmd class to verify validity of arguments passed to a specific module """
