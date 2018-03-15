@@ -108,7 +108,15 @@ def colorize(text, color, prompt=False):
     if prompt:
         ccode = '\001' + ccode + '\002'
 
-    sequence = [ccode, text, '\033[0m']
+    sequence = [ccode, text]
+
+    eccode = '\033[0m'
+
+    if prompt:
+        eccode = '\001' + eccode + '\002'
+
+    sequence.append(eccode)
+
 
     if ccode:
         joiner = u'' if ttype == unicode else ''
@@ -137,8 +145,22 @@ def elen(s):
     return len(s) - ediff(s)
 
 def ejust(line, width):
+    initial = line
     while elen(line) > width:
         line = line[:width+ediff(line)]
+
+    removed = len(initial) - len(line)
+    try:
+        ccindex = initial.rindex('\033[0m')
+        if ccindex >= removed - 4:
+            if ccindex > len(line):
+                line = line[:ccindex]
+
+            line += '\033[0m'
+
+    except ValueError:
+        pass
+
     return line
 
 def obj2utf8(obj):
