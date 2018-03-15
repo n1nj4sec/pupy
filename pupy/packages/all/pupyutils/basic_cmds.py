@@ -6,6 +6,7 @@ import getpass
 import stat
 import sys
 import datetime
+import re
 
 from scandir import scandir
 if scandir is None:
@@ -333,25 +334,34 @@ def rm(path):
 
 # -------------------------- For cat function --------------------------
 
-def cat(path):
+def cat(path, N, n, grep):
+    if grep:
+        grep = re.compile(grep)
+
     path = try_unicode(path)
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
 
     found = False
 
-    data = ''
+    data = []
 
     for path in glob.iglob(path):
         if os.path.exists(path):
             found = True
             if os.path.isfile(path):
-                # not open files too big (< 7 Mo)
-                if os.path.getsize(path) < 7000000:
-                    with open(path, 'r') as fin:
-                        data += fin.read()
-                else:
-                    raise ValueError('File is too big to be openned (max size: 7 Mo)')
+                with open(path, 'r') as fin:
+                    if N:
+                        data += tail(fin, N, grep)
+                    elif grep or n:
+                        for line in fin:
+                            line = line.rstrip('\n')
+                            if not grep or grep.search(line):
+                                data.append(line)
+                            if n and len(data) >= n:
+                                break
+                    else:
+                        data.append(fin.read(4*8192))
             else:
                 raise ValueError('Not a file')
         else:
@@ -360,7 +370,68 @@ def cat(path):
     if not found:
         raise ValueError('File does not exists')
 
-    return data
+    return '\n'.join(data)
+
+def tail(f, n, grep):
+    if n <= 0:
+        raise ValueError('Invalid amount of lines: {}'.format(n))
+
+    BUFSIZ = 4096
+    CR = '\n'
+    data = ''
+
+    f.seek(0, os.SEEK_END)
+
+    fsize = f.tell()
+    block = -1
+    exit = False
+
+    retval = []
+
+    while not exit:
+        step = (block * BUFSIZ)
+
+        if abs(step) >= fsize:
+            f.seek(0)
+            newdata = f.read(BUFSIZ - (abs(step) - fsize))
+            exit = True
+        else:
+            f.seek(step, os.SEEK_END)
+            newdata = f.read(BUFSIZ)
+
+        print "block:", block
+
+        data = newdata + data
+
+        if len(retval) + data.count(CR) >= n:
+            if grep:
+                lines = data.splitlines()
+                llines = len(lines)
+                for idx in xrange(llines-1):
+                    line = lines[llines-idx-1]
+
+                    if grep.search(line):
+                        retval.insert(0, line)
+
+                    if len(retval) >= n:
+                        break
+
+                if len(retval) >= n:
+                    break
+                else:
+                    data = lines[0]
+                    block -= 1
+            else:
+                break
+        else:
+            block -= 1
+
+    if len(retval) < n:
+        n -= len(retval)
+        print repr(data)
+        retval += data.splitlines()[-n:]
+
+    return retval
 
 # ----------------------------- For datetime  -----------------------------
 

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pygments.lexers import guess_lexer, guess_lexer_for_filename
+from pygments import highlight
+from pygments.formatters import TerminalFormatter
 
 __class_name__="cat"
 
@@ -12,13 +15,35 @@ class cat(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="cat", description=cls.__doc__)
-        cls.arg_parser.add_argument('path', type=str, action='store')
+        cls.arg_parser.add_argument('-N', type=int, help='Tail lines')
+        cls.arg_parser.add_argument('-n', type=int, help='Head lines')
+        cls.arg_parser.add_argument('-G', type=str, help='Grep sequence')
+        cls.arg_parser.add_argument(
+            '-C', '--color', action='store_true', help='Enable coloring (pygments)')
+        cls.arg_parser.add_argument('path', type=str)
 
     def run(self, args):
         try:
             cat = self.client.remote('pupyutils.basic_cmds', 'cat', False)
-            r = cat(args.path)
+            r = cat(args.path, args.N, args.n, args.G)
             if r:
+                lexer = None
+                if args.color:
+                    if not '*' in args.path:
+                        try:
+                            lexer = guess_lexer_for_filename(args.path, r)
+                        except:
+                            pass
+
+                    if not lexer and not args.N:
+                        try:
+                            lexer = guess_lexer(r)
+                        except:
+                            pass
+
+                if lexer:
+                    r = highlight(r, lexer, TerminalFormatter())
+
                 self.log(r)
 
         except Exception, e:
