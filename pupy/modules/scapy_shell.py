@@ -23,8 +23,11 @@ class InteractiveScapyShell(PupyModule):
     """ open an interactive python shell on the remote client """
     max_clients=1
     dependencies=['pyshell', 'scapy']
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='scapy', description=self.__doc__)
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='scapy', description=cls.__doc__)
+
     def run(self, args):
         init_winpcap(self)
         try:

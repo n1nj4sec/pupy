@@ -21,29 +21,30 @@ __class_name__="PSExec"
 @config(cat="admin")
 class PSExec(PupyModule):
     """ Launch remote commands using smbexec or wmiexec"""
-    max_clients = 1
+
     dependencies = [ 'impacket', 'ntpath', 'calendar', 'pupyutils.psexec' ]
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
 
-        self.arg_parser = PupyArgumentParser(prog="psexec", description=self.__doc__)
-        self.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
-        self.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
-        self.arg_parser.add_argument("-c", metavar="CODEPAGE", dest='codepage', default='cp437', help="Codepage")
-        self.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
-        self.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
-        self.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
-        self.arg_parser.add_argument("-S", dest='noout', action='store_true', help="Do not wait for command output")
-        self.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
+        cls.arg_parser = PupyArgumentParser(prog="psexec", description=cls.__doc__)
+        cls.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
+        cls.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
+        cls.arg_parser.add_argument("-c", metavar="CODEPAGE", dest='codepage', default='cp437', help="Codepage")
+        cls.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
+        cls.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
+        cls.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
+        cls.arg_parser.add_argument("-S", dest='noout', action='store_true', help="Do not wait for command output")
+        cls.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
                                          help="Try to set this timeout")
-        self.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
-        self.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
+        cls.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
+        cls.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
-        sgroup = self.arg_parser.add_argument_group("Command Execution", "Options for executing commands on the specified host")
+        sgroup = cls.arg_parser.add_argument_group("Command Execution", "Options for executing commands on the specified host")
         sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi", help="Method to execute the command (default: wmi)")
         sgroup.add_argument("-x", metavar="COMMAND", dest='command', help="Execute a command")
 
-        sgroupp = self.arg_parser.add_argument_group("Command Execution", "Get a remote shell")
+        sgroupp = cls.arg_parser.add_argument_group("Command Execution", "Get a remote shell")
         sgroupp.add_argument('--ps1-oneliner', action='store_true', default=False, help="Download and execute pupy using ps1_oneline")
         sgroupp.add_argument('--ps1-port', default=8080, type=int, help="Custom port used by the listening server (used with --ps1-oneliner, default: 8080)")
         sgroupp.add_argument('--no-use-proxy', action='store_true', default=None, help="Don't use the target's proxy configuration even if it is used by target")
@@ -71,7 +72,7 @@ class PSExec(PupyModule):
                 remote_path = '%s\\' % self.client.conn.modules['os.path'].expandvars("%ALLUSERSPROFILE%")
             else:
                 remote_path = '/tmp/'
-            
+
             # write on the temp directory
             if args.share == 'C$':
                 dst_folder = "C:\\Windows\\TEMP\\"

@@ -5,6 +5,26 @@ import random
 import os
 import struct
 import platform
+import re
+
+from pupylib.PupyOutput import *
+
+ESC_REGEX = re.compile(r'(\033[^m]+m)')
+
+COLORS = {
+    'blue': '\033[34m',
+    'red': '\033[31m',
+    'lightred': '\033[31;1m',
+    'green': '\033[32m',
+    'lightgreen': '\033[32;1m',
+    'yellow': '\033[33m',
+    'lightyellow': '\033[1;33m',
+    'magenta': '\033[35m',
+    'cyan': '\033[36m',
+    'grey': '\033[37m',
+    'darkgrey': '\033[1;30m',
+    'white': '\033[39m'
+}
 
 # https://gist.githubusercontent.com/jtriley/1108174/raw/6ec4c846427120aa342912956c7f717b586f1ddb/terminalsize.py
 def consize(file=None):
@@ -71,42 +91,38 @@ def _size_linux(file=None):
 
     return int(cr[1]), int(cr[0])
 
-def colorize(s, color):
-    if s is None:
-        return ""
+def colorize(text, color, prompt=False):
+    if not text:
+        return ''
+    elif color == 'white':
+        return text
 
-    if type(s) not in (str, unicode):
-        s = str(s)
+    ttype = type(text)
+    if ttype not in (str, unicode):
+        text = str(text)
 
-    res=s
-    COLOR_STOP="\033[0m"
-    if color.lower()=="random":
-        color=random.choice(["blue","red","green","yellow"])
+    if color.lower() == 'random':
+        color = random.choice(COLORS.keys())
 
-    if color.lower()=="blue":
-        res="\033[34m"+s+COLOR_STOP
-    elif color.lower()=="red":
-        res="\033[31m"+s+COLOR_STOP
-    elif color.lower()=="lightred":
-        res="\033[31;1m"+s+COLOR_STOP
-    elif color.lower()=="green":
-        res="\033[32m"+s+COLOR_STOP
-    elif color.lower()=="lightgreen":
-        res="\033[32;1m"+s+COLOR_STOP
-    elif color.lower()=="yellow":
-        res="\033[33m"+s+COLOR_STOP
-    elif color.lower()=="lightyellow":
-        res="\033[1;33m"+s+COLOR_STOP
-    elif color.lower()=="magenta":
-        res="\033[35m"+s+COLOR_STOP
-    elif color.lower()=="cyan":
-        res="\033[36m"+s+COLOR_STOP
-    elif color.lower()=="grey":
-        res="\033[37m"+s+COLOR_STOP
-    elif color.lower()=="darkgrey":
-        res="\033[1;30m"+s+COLOR_STOP
+    ccode = COLORS.get(color.lower())
+    if prompt:
+        ccode = '\001' + ccode + '\002'
 
-    return res
+    sequence = [ccode, text]
+
+    eccode = '\033[0m'
+
+    if prompt:
+        eccode = '\001' + eccode + '\002'
+
+    sequence.append(eccode)
+
+
+    if ccode:
+        joiner = u'' if ttype == unicode else ''
+        return joiner.join(sequence)
+
+    return text
 
 def terminal_size():
     import fcntl, termios, struct
@@ -114,3 +130,209 @@ def terminal_size():
         fcntl.ioctl(0, termios.TIOCGWINSZ,
         struct.pack('HHHH', 0, 0, 0, 0)))
     return w, h
+
+
+def ediff(s):
+    utf8diff = 0
+
+    if type(s) is str:
+        s2 = s.decode('utf8', errors='replace')
+        utf8diff = len(s) - len(s2)
+
+    return utf8diff + len(''.join(ESC_REGEX.findall(s)))
+
+def elen(s):
+    return len(s) - ediff(s)
+
+def ejust(line, width):
+    initial = line
+    while elen(line) > width:
+        line = line[:width+ediff(line)]
+
+    removed = len(initial) - len(line)
+    try:
+        ccindex = initial.rindex('\033[0m')
+        if ccindex >= removed - 4:
+            if ccindex > len(line):
+                line = line[:ccindex]
+
+            line += '\033[0m'
+
+    except ValueError:
+        pass
+
+    return line
+
+def obj2utf8(obj):
+    if type(obj) == dict:
+        for k in obj:
+            obj[k] = obj2utf8(obj[k])
+
+    elif type(obj) == list:
+        for i in range(0, len(obj)):
+            obj[i] = obj2utf8(obj[i])
+
+    elif type(obj) == tuple:
+        obj = list(obj)
+        for i in range(0, len(obj)):
+            obj[i] = obj2utf8(obj[i])
+
+        obj = tuple(obj)
+
+    elif type(obj) == unicode:
+        pass
+
+    elif type(obj) == str:
+        obj = obj.decode('utf-8', errors='replace')
+
+    else:
+        obj = unicode(obj)
+
+    return obj
+
+def get_columns_size(l):
+    size_dic = {}
+    for d in l:
+        for i,k in d.iteritems():
+            l = elen(k)
+            if not i in size_dic or size_dic[i] < l:
+                size_dic[i] = l
+
+    return size_dic
+
+def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
+    """
+        this function takes a list a dictionaries to display in columns. Dictionnaries keys are the columns names.
+        All dictionaries must have the same keys.
+        wl is a whitelist of column names to display
+        bl is a blacklist of columns names to hide
+    """
+    res = []
+
+    if not diclist:
+        return u''
+
+    diclist = obj2utf8(diclist)
+    keys = [
+        x for x in ( wl if wl else diclist[0].iterkeys() ) if not x in bl
+    ]
+
+    titlesdic = {}
+    for k in keys:
+        titlesdic[k] = k
+
+    if legend:
+        diclist.insert(0, titlesdic)
+
+    colsize = get_columns_size(diclist)
+    i = 0
+
+    for c in diclist:
+        if i == 1 and legend:
+            res.append(
+                u'-'*sum([
+                    k+2 for k in [y for x,y in colsize.iteritems() if x in titlesdic
+                ]]))
+        i += 1
+
+        lines = []
+        for name in keys:
+            value = c[name].strip()
+            lines.append(value.ljust(colsize[name]+2 + ediff(value)))
+
+        res.append(u''.join(lines))
+
+    return u'\n'.join(res)
+
+def hint_to_text(text, width=0):
+    if text is None:
+        return ''
+
+    hint = type(text)
+
+    if issubclass(hint, Hint) and not issubclass(hint, Text):
+        raise ValueError('hint_to_text() support only Text messages')
+    elif issubclass(hint, Text):
+        pass
+    elif hint in (str, unicode):
+        return text
+    else:
+        return obj2utf8(text)
+
+    if hint == NewLine:
+        return '\n'*int(text.data)
+    elif hint == Title:
+        if width <= 0:
+            real_width, _ = terminal_size()
+            width = real_width + width
+
+        title = hint_to_text(text.data)
+        tlen = elen(title)
+        ajust = width - tlen - 4
+        ljust = 0
+        rjust = 0
+        if ajust > 0:
+            ljust = ajust/2
+            rjust = ajust - ljust
+
+        title = '>>' + (' '*ljust) + title + (' '*rjust) + '<<'
+        title = ('-'*width) + '\n' + title + '\n' + ('-'*width)
+
+        return colorize(title, 'lightyellow')
+    elif hint == MultiPart:
+        return '\n\n'.join(
+            hint_to_text(x, width) for x in text.data
+        )
+    elif hint == Color:
+        return colorize(hint_to_text(text.data, width), text.color)
+    elif hint == TruncateToTerm:
+        if width <= 0:
+            real_width, _ = terminal_size()
+            width = real_width + width
+
+        text = hint_to_text(text.data, width)
+        if text == str:
+            text = text.decode('utf-8', errors='replace')
+
+        return u'\n'.join(ejust(x, width) for x in text.split(u'\n'))
+    elif hint == Error:
+        text = text.data
+        if issubclass(type(text), Exception):
+            text = '({}) {}'.format(type(text).__class__.__name__, text)
+        else:
+            text = hint_to_text(text, width).rstrip()
+        return colorize('[-] ','red')+text
+    elif hint == Log:
+        return hint_to_text(text.data, width).rstrip()
+    elif hint == Warn:
+        return colorize('[!] ','yellow')+hint_to_text(text.data, width).rstrip()
+    elif hint == Success:
+        return colorize('[+] ','green')+hint_to_text(text.data, width).rstrip()
+    elif hint == Info:
+        return colorize('[%] ','grey')+hint_to_text(text.data, width).rstrip()
+    elif hint == ServiceInfo:
+        return ''.join([
+            colorize('[*] ','blue'),
+            hint_to_text(text.data, width).rstrip()
+        ])
+    elif hint == Section:
+        return '\n'.join([
+            colorize('#>#>  ','green') + hint_to_text(text.data, width)+ colorize('  <#<#','green'),
+            hint_to_text(text.payload, width)
+        ])
+    elif hint == Line:
+        return u' '.join(hint_to_text(v, width) for v in text.data)
+    elif hint == Table:
+        table_data = [
+            {
+                k:hint_to_text(v, width) for k,v in record.iteritems()
+            } for record in text.data
+        ]
+
+        return (
+            u'{ ' + hint_to_text(text.caption, width) + u' }\n' if text.caption else ''
+        ) + table_format(table_data, wl=text.headers, legend=text.legend)
+
+    else:
+        raise NotImplementedError('hint_to_text not implemented for {}'.format(
+            hint.__class__.__name__))

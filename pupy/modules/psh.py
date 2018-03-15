@@ -19,14 +19,15 @@ class PowershellManager(PupyModule):
         'windows': [ 'powershell' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(
-            prog='psh', description=self.__doc__
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(
+            prog='psh', description=cls.__doc__
         )
 
         width, _ = consize()
 
-        commands = self.arg_parser.add_subparsers(title='actions')
+        commands = cls.arg_parser.add_subparsers(title='actions')
         loaded = commands.add_parser('loaded', help='List preapred powershell contexts')
         loaded.add_argument('context', nargs='?', help='Check is context with specified name loaded')
         loaded.set_defaults(name='loaded')
@@ -38,7 +39,7 @@ class PowershellManager(PupyModule):
         load.add_argument('-W', '--width', default=width, type=int, help='Set output line width')
         load.add_argument('-D', '--daemon', action='store_true', default=False, help='Start in "daemon" mode')
         load.add_argument('context', help='Context name')
-        load.add_argument('source', help='Path to PS1 script (local to pupy)')
+        load.add_argument('source', nargs='?', help='Path to PS1 script (local to pupy)')
         load.set_defaults(name='load')
 
         iex = commands.add_parser('iex', help='Invoke expression in context')
@@ -79,13 +80,15 @@ class PowershellManager(PupyModule):
                     self.success('{}'.format(context))
 
         elif args.name == 'load':
-            script = path.expandvars(path.expanduser(args.source))
-            if not path.exists(script):
-                self.error('Script file not found: {}'.format(script))
-                return
+            content = ''
+            if args.source:
+                script = path.expandvars(path.expanduser(args.source))
+                if not path.exists(script):
+                    self.error('Script file not found: {}'.format(script))
+                    return
 
-            with open(script) as input:
-                content = input.read()
+                with open(script) as input:
+                    content = input.read()
 
             try:
                 powershell.load(
@@ -159,10 +162,7 @@ class PowershellManager(PupyModule):
                     'RIDS': ', '.join([str(x) for x in rids])
                 } for ctx, rids in results.iteritems()
             ]
-            self.stdout.write(
-                self.formatter.table_format(objects, wl=[
-                    'CONTEXT', 'RIDS'
-                ]))
+            self.table(objects, wl=['CONTEXT', 'RIDS'])
 
         elif args.name == 'killall':
             powershell.stop()

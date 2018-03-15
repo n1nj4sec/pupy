@@ -10,10 +10,12 @@ __class_name__="UploaderScript"
 @config(cat="manage")
 class UploaderScript(PupyModule):
     """ upload a file/directory to a remote system """
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='upload', description=self.__doc__)
-        self.arg_parser.add_argument('local_file', metavar='<local_path>', completer=path_completer)
-        self.arg_parser.add_argument('remote_file', nargs='?', metavar='<remote_path>')
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='upload', description=cls.__doc__)
+        cls.arg_parser.add_argument('local_file', metavar='<local_path>', completer=path_completer)
+        cls.arg_parser.add_argument('remote_file', nargs='?', metavar='<remote_path>')
 
     def run(self, args):
         localfile =  os.path.expandvars(args.local_file)

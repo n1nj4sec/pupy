@@ -9,15 +9,16 @@ __class_name__="ImpersonateModule"
 @config(compat="windows", category="exploit")
 class ImpersonateModule(PupyModule):
     """ list/impersonate process tokens """
-    max_clients=1
+
     dependencies=["pupwinutils.security"]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="impersonate", description=self.__doc__)
-        self.arg_parser.add_argument("-l", "--list", action='store_true', help="list available Sids")
-        self.arg_parser.add_argument("-i", "--impersonate", metavar="SID", help="impersonate a sid")
-        self.arg_parser.add_argument("-m", "--migrate", action="store_true", help="spawn a new process and migrate into it")
-        self.arg_parser.add_argument("-r", "--rev2self", action='store_true', help="call rev2self")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="impersonate", description=cls.__doc__)
+        cls.arg_parser.add_argument("-l", "--list", action='store_true', help="list available Sids")
+        cls.arg_parser.add_argument("-i", "--impersonate", metavar="SID", help="impersonate a sid")
+        cls.arg_parser.add_argument("-m", "--migrate", action="store_true", help="spawn a new process and migrate into it")
+        cls.arg_parser.add_argument("-r", "--rev2self", action='store_true', help="call rev2self")
 
     def run(self, args):
         if args.list:
@@ -25,16 +26,14 @@ class ImpersonateModule(PupyModule):
 
             l = ListSids()
 
-            self.rawlog(
-                self.formatter.table_format(
-                    [{
-                        'pid': x[0],
-                        'process': x[1],
-                        'sid' : x[2],
-                        'username':x[3]
-                    } for x in l], wl=[
-                        'pid', 'process', 'username', 'sid'
-                    ]))
+            self.table([{
+                'pid': x[0],
+                'process': x[1],
+                'sid' : x[2],
+                'username':x[3]
+                } for x in l], wl=[
+                    'pid', 'process', 'username', 'sid'
+            ])
 
         elif args.impersonate:
             if args.migrate:

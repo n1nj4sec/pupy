@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import subprocess
 
@@ -8,8 +8,9 @@ __class_name__="PupyMod"
 class PupyMod(PupyModule):
     """ Lock the session """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="lock_screen", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="lock_screen", description=cls.__doc__)
 
     def run(self, args):
         ok = False

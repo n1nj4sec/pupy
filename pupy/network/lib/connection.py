@@ -11,7 +11,6 @@ from Queue import Queue, Full, Empty
 
 import logging
 
-logger = None
 logger = logging.getLogger('pconn')
 synclogger = logging.getLogger('sync')
 syncqueuelogger = logging.getLogger('syncqueue')
@@ -593,8 +592,6 @@ class PupyConnection(Connection):
                 logger.debug('Dispatch - data ({})'.format(len(data)))
 
             msg, seq, args = brine._load(data)
-            del data
-
             if msg == consts.MSG_REQUEST:
                 if __debug__:
                     logger.debug('Processing message request, type: {} seq: {} - started'.format(
@@ -617,8 +614,6 @@ class PupyConnection(Connection):
 
                 if __debug__:
                     logger.debug('Processing message, seq: {} - completed'.format(seq))
-
-            del msg, seq, args
 
             self._last_ping = now
 

@@ -29,25 +29,27 @@ class PExec(PupyModule):
     # daemon = True
 
     dependencies = [ "pupyutils.safepopen" ]
+    io = REQUIRE_STREAM
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='pexec', description=self.__doc__)
-        self.arg_parser.add_argument(
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='pexec', description=cls.__doc__)
+        cls.arg_parser.add_argument(
             '-n',
             action='store_true',
             help='Don\'t catch stderr',
         )
-        self.arg_parser.add_argument(
+        cls.arg_parser.add_argument(
             '-N',
             action='store_true',
             help='Don\'t receive stdout (read still be done on the other side)',
         )
-        self.arg_parser.add_argument(
+        cls.arg_parser.add_argument(
             '-s',
             action='store_true',
             help='Start in shell',
         )
-        self.arg_parser.add_argument(
+        cls.arg_parser.add_argument(
             'arguments',
             nargs=argparse.REMAINDER,
             help='CMD args. You can use ^/local/path^[>|<]/remote/path^ '

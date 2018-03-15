@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -12,11 +12,12 @@ from pupylib.utils.common import getLocalAndroidPath
 class apps(PupyModule):
     """ to interact manage applications """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='apps', description=self.__doc__)
-        self.arg_parser.add_argument('-a', '--get-all', action='store_true', help='get all installed package names')
-        self.arg_parser.add_argument('-d', '--get-all-detailed', action='store_true', help='get all applications installed with details')
-        self.arg_parser.add_argument('-c', '--contain', dest='contain', default=None, help='get all applications installed when package name contains the string given')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='apps', description=cls.__doc__)
+        cls.arg_parser.add_argument('-a', '--get-all', action='store_true', help='get all installed package names')
+        cls.arg_parser.add_argument('-d', '--get-all-detailed', action='store_true', help='get all applications installed with details')
+        cls.arg_parser.add_argument('-c', '--contain', dest='contain', default=None, help='get all applications installed when package name contains the string given')
 
     def run(self, args):
         self.client.load_package("pupydroid.utils")

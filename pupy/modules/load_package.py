@@ -25,11 +25,12 @@ def package_completer(text, line, begidx, endidx):
 class LoadPackageModule(PupyModule):
     """ Load a python package onto a remote client. Packages files must be placed in one of the pupy/packages/<os>/<arch>/ repository """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="load_package", description=self.__doc__)
-        self.arg_parser.add_argument('-f', '--force', action='store_true', help='force package to reload even if it has already been loaded')
-        self.arg_parser.add_argument('-d', '--dll', action='store_true', help='load a dll instead')
-        self.arg_parser.add_argument('package', completer=package_completer, help='package name (example: psutil, scapy, ...)')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="load_package", description=cls.__doc__)
+        cls.arg_parser.add_argument('-f', '--force', action='store_true', help='force package to reload even if it has already been loaded')
+        cls.arg_parser.add_argument('-d', '--dll', action='store_true', help='load a dll instead')
+        cls.arg_parser.add_argument('package', completer=package_completer, help='package name (example: psutil, scapy, ...)')
 
 
     def run(self, args):

@@ -45,12 +45,13 @@ class WebcamSnapModule(PupyModule):
         'windows': [ 'vidcap' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='webcam_snap', description=self.__doc__)
-        self.arg_parser.add_argument('-d', '--device', type=int, default=0, help='take a webcam snap on a specific device (default: %(default)s)')
-        self.arg_parser.add_argument('-n', '--nb-cameras', action='store_true', help='print number of cameras (Android Only)')
-        self.arg_parser.add_argument('-q', '--jpg-quality', type=int, default=40, help='define jpg quality (Android Only) (default: %(default)s)')
-        self.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the snap for preview')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='webcam_snap', description=cls.__doc__)
+        cls.arg_parser.add_argument('-d', '--device', type=int, default=0, help='take a webcam snap on a specific device (default: %(default)s)')
+        cls.arg_parser.add_argument('-n', '--nb-cameras', action='store_true', help='print number of cameras (Android Only)')
+        cls.arg_parser.add_argument('-q', '--jpg-quality', type=int, default=40, help='define jpg quality (Android Only) (default: %(default)s)')
+        cls.arg_parser.add_argument('-v', '--view', action='store_true', help='directly open eog on the snap for preview')
 
     def run(self, args):
         try:

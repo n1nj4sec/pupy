@@ -11,7 +11,8 @@ class Creds(PupyModule):
     need_at_least_one_client=False
     is_module=False
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
     	example = 'Examples:\n'
         example += '>> creds --search gmail\n'
         example += '>> creds --search plaintext\n'
@@ -19,10 +20,10 @@ class Creds(PupyModule):
         example += '>> creds --search <UID>\n'
         example += '>> creds --sort --search plaintext\n'
 
-        self.arg_parser = PupyArgumentParser(prog="Creds", description=self.__doc__, epilog=example)
-        self.arg_parser.add_argument('-s', '--search', default="all", metavar='string', help='default: all (search in any possible field, plaintext or hash word can be specify)')
-        self.arg_parser.add_argument('--sort', action='store_true', default=False, help='sort by host')
-        self.arg_parser.add_argument('--flush', '-F', action='store_true', help='flush the entire database')
+        cls.arg_parser = PupyArgumentParser(prog="Creds", description=cls.__doc__, epilog=example)
+        cls.arg_parser.add_argument('-s', '--search', default="all", metavar='string', help='default: all (search in any possible field, plaintext or hash word can be specify)')
+        cls.arg_parser.add_argument('--sort', action='store_true', default=False, help='sort by host')
+        cls.arg_parser.add_argument('--flush', '-F', action='store_true', help='flush the entire database')
 
     def run(self, args):
         credentials = Credentials(config=self.config)

@@ -17,12 +17,13 @@ class Inveigh(PupyModule):
 
     known_args = True
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(
-            prog="Inveigh", description=self.__doc__
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(
+            prog="Inveigh", description=cls.__doc__
         )
 
-        commands = self.arg_parser.add_subparsers(title='actions')
+        commands = cls.arg_parser.add_subparsers(title='actions')
         start = commands.add_parser('start', help='Start Inveigh')
         subtype = start.add_mutually_exclusive_group()
         subtype.add_argument('-R', '--relay', action='store_true', default=False, help='Start relay')

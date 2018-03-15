@@ -13,9 +13,10 @@ class Users(PupyModule):
         'all': ['pupyutils.users']
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='users', description=self.__doc__)
-        self.arg_parser.add_argument(
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='users', description=cls.__doc__)
+        cls.arg_parser.add_argument(
             '-g', '--groups',
             action='store_true', default=False,
             help='show groups membership')

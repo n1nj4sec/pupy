@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 import os
 import subprocess
@@ -9,13 +9,14 @@ ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 @config(compat="linux", category="privesc")
 class PrivEsc_Checker(PupyModule):
     """ Linux Privilege Escalation Scripts """
-    
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="PrivEsc_Checker", description=self.__doc__)
-        self.arg_parser.add_argument("--linenum", dest='linenum', action='store_true', help="Run Linenum sh script (https://github.com/rebootuser/LinEnum)")
-        self.arg_parser.add_argument("--thorough-tests", dest='thoroughtests', action='store_true', help="Run script with all options (can take time)")
-        self.arg_parser.add_argument("--output-file", dest='outputfile', default=None, help="Store results in this file")
-        self.arg_parser.add_argument("--shell", dest='shell', default="/bin/bash", help="Shell to use when it is a .sh script")
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="PrivEsc_Checker", description=cls.__doc__)
+        cls.arg_parser.add_argument("--linenum", dest='linenum', action='store_true', help="Run Linenum sh script (https://github.com/rebootuser/LinEnum)")
+        cls.arg_parser.add_argument("--thorough-tests", dest='thoroughtests', action='store_true', help="Run script with all options (can take time)")
+        cls.arg_parser.add_argument("--output-file", dest='outputfile', default=None, help="Store results in this file")
+        cls.arg_parser.add_argument("--shell", dest='shell', default="/bin/bash", help="Shell to use when it is a .sh script")
 
     def run(self, args):
         if args.linenum == True:
@@ -42,7 +43,7 @@ class PrivEsc_Checker(PupyModule):
         else:
              self.error("You have to choose a script")
              return -1
-             
+
     def writeInFile(self,filename, data):
         '''
         '''

@@ -10,10 +10,11 @@ class cp(PupyModule):
 
     dependencies = [ 'pupyutils.basic_cmds' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="cp", description=self.__doc__)
-        self.arg_parser.add_argument('src', type=str, action='store')
-        self.arg_parser.add_argument('dst', type=str, action='store')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="cp", description=cls.__doc__)
+        cls.arg_parser.add_argument('src', type=str, action='store')
+        cls.arg_parser.add_argument('dst', type=str, action='store')
 
     def run(self, args):
         try:

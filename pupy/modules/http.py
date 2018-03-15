@@ -10,18 +10,19 @@ class http(PupyModule):
 
     dependencies = []
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='http', description=self.__doc__)
-        self.arg_parser.add_argument('-H', '--header', default=[], action='append',
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='http', description=cls.__doc__)
+        cls.arg_parser.add_argument('-H', '--header', default=[], action='append',
                                          help='User-Agent=Mozilla X-Forwarded-For=127.0.0.1')
-        self.arg_parser.add_argument('-P', '--proxy', help='Proxy URI (socks://127.0.0.1:1234)')
-        self.arg_parser.add_argument('-o', '--output', help='Output to file')
-        self.arg_parser.add_argument('-i', '--input', help='Input from file (POST)')
-        self.arg_parser.add_argument('-v', '--verify', default=False, action='store_true', help='Verify certificate')
-        self.arg_parser.add_argument('-r', '--follow-redirects', default=False, action='store_true',
+        cls.arg_parser.add_argument('-P', '--proxy', help='Proxy URI (socks://127.0.0.1:1234)')
+        cls.arg_parser.add_argument('-o', '--output', help='Output to file')
+        cls.arg_parser.add_argument('-i', '--input', help='Input from file (POST)')
+        cls.arg_parser.add_argument('-v', '--verify', default=False, action='store_true', help='Verify certificate')
+        cls.arg_parser.add_argument('-r', '--follow-redirects', default=False, action='store_true',
                                      help='Follow redirects')
-        self.arg_parser.add_argument('url', help='url')
-        self.arg_parser.add_argument('data', nargs='*', default=[], help='Data (POST/urlencode)')
+        cls.arg_parser.add_argument('url', help='url')
+        cls.arg_parser.add_argument('data', nargs='*', default=[], help='Data (POST/urlencode)')
 
     def run(self, args):
         tinyhttp = self.client.remote('network.lib.tinyhttp')

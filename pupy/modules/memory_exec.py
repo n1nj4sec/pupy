@@ -32,7 +32,8 @@ class MemoryExec(PupyModule):
         Execute a executable from memory
     """
 
-    interactive=1
+    io = REQUIRE_REPL
+
     dependencies = {
         'linux': [ 'memexec' ],
         'windows': [ 'pupymemexec', 'pupwinutils.memexec' ]
@@ -43,15 +44,16 @@ class MemoryExec(PupyModule):
         self.interrupted = False
         self.mp = None
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="memory_exec", description=self.__doc__)
-        #self.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
-        self.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
-        self.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
-        self.arg_parser.add_argument('-s', '--suspended-process', default="cmd.exe", help='change the suspended process to spawn (default: cmd.exe)')
-        self.arg_parser.add_argument('-0', '--argv0', help='Set argv[0] (linux only)')
-        self.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
-        self.arg_parser.add_argument('args', nargs=argparse.REMAINDER, help='optional arguments to pass to the exe')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="memory_exec", description=cls.__doc__)
+        #cls.arg_parser.add_argument('-p', '--process', default='cmd.exe', help='process to start suspended')
+        cls.arg_parser.add_argument('-i', '--interactive', action='store_true', help='interact with the process stdin.')
+        cls.arg_parser.add_argument('-m', '--impersonate', action='store_true', help='use the current impersonated token (to use with impersonate module)')
+        cls.arg_parser.add_argument('-s', '--suspended-process', default="cmd.exe", help='change the suspended process to spawn (default: cmd.exe)')
+        cls.arg_parser.add_argument('-0', '--argv0', help='Set argv[0] (linux only)')
+        cls.arg_parser.add_argument('path', help='path to the exe', completer=path_completer)
+        cls.arg_parser.add_argument('args', nargs=argparse.REMAINDER, help='optional arguments to pass to the exe')
 
     def interrupt(self):
         self.info("interrupting remote process, please wait ...")

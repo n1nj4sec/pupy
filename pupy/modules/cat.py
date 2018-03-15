@@ -9,9 +9,10 @@ class cat(PupyModule):
     is_module=False
     dependencies = [ 'pupyutils.basic_cmds' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="cat", description=self.__doc__)
-        self.arg_parser.add_argument('path', type=str, action='store')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="cat", description=cls.__doc__)
+        cls.arg_parser.add_argument('path', type=str, action='store')
 
     def run(self, args):
         try:

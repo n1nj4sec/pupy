@@ -15,9 +15,11 @@ class Powerview(PupyModule):
         'windows': [ 'powershell' ]
     }
 
-    def init_argparse(self):
 
-        self.commands_available = '''
+    @classmethod
+    def init_argparse(cls):
+
+        cls.commands_available = '''
 Commandes available:\n
 Set-MacAttribute -FilePath c:\\test\\newfile -OldFilePath c:\\test\\oldfile
 Set-MacAttribute -FilePath c:\\demo\\test.xt -All "01/03/2006 12:12 pm"
@@ -148,37 +150,35 @@ Get-NetForestTrust
 Get-NetForestTrust -Forest "test"
 Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
 '''
-        self.arg_parser = PupyArgumentParser(prog="Powerview", description=self.__doc__)
-        self.arg_parser.add_argument("-o", metavar='COMMAND', dest='command')
-        self.arg_parser.add_argument("-1", '--once', action='store_true', help='Unload after execution')
-        self.arg_parser.add_argument("-l", "--list-available-commands", action='store_true', help="list all available commands")
+        cls.arg_parser = PupyArgumentParser(prog="Powerview", description=cls.__doc__)
+        cls.arg_parser.add_argument("-o", metavar='COMMAND', dest='command')
+        cls.arg_parser.add_argument("-1", '--once', action='store_true', help='Unload after execution')
+        cls.arg_parser.add_argument("-l", "--list-available-commands", action='store_true', help="list all available commands")
 
-        self.arg_parser.add_argument("--Get-Proxy", dest='GetProxy', action='store_true', help='Returns proxy configuration')
-        self.arg_parser.add_argument("--Get-NetComputer", dest='GetNetComputer', action='store_true', help='Returns the current computers in current domain')
-        self.arg_parser.add_argument("--Get-NetMssql", dest='GetNetMssql', action='store_true', help="Returns all MS SQL servers on the domain")
-        self.arg_parser.add_argument("--Get-NetSubnet", dest='GetNetSubnet', action='store_true', help="Returns all subnet names in the current domain")
-        self.arg_parser.add_argument("--Get-NetGroup", dest='GetNetGroup', action='store_true', help="Returns the current groups in the domain")
-        self.arg_parser.add_argument("--Get-NetGroup-with", dest='GetNetGroupWith', help="Returns all groups with '*GROUPNAME*' in their group name")
-        self.arg_parser.add_argument("--Get-NetGroupMember", dest='GetNetGroupMember', action='store_true', help="Returns the usernames that of members of the 'Domain Admins' domain group")
-        self.arg_parser.add_argument("--Get-NetFileServer", dest='GetNetFileServer', action='store_true', help="Returns active file servers")
-        self.arg_parser.add_argument("--Get-DFSshare", dest='GetDFSshare', action='store_true', help="Returns all distributed file system shares for the current domain")
-        self.arg_parser.add_argument("--Get-NetGPO", dest='GetNetGPO', action='store_true', help="Returns the GPOs in domain")
-        self.arg_parser.add_argument("--Get-NetGPOGroup", dest='GetNetGPOGroup', action='store_true', help="Returns all GPOs that set local groups on the current domain")
-        self.arg_parser.add_argument("--Find-GPOLocation", dest='FindGPOLocation', help="Find all computers that this user has local administrator rights to in the current domain")
-        self.arg_parser.add_argument("--Get-NetLocalGroup", dest='GetNetLocalGroup', action='store_true', help="Returns the usernames that of members of localgroup 'Administrators' on the local host")
-        self.arg_parser.add_argument("--Get-NetLoggedon", dest='GetNetLoggedon', action='store_true', help="Returns users actively logged onto the local host")
-        self.arg_parser.add_argument("--Get-NetLoggedon-on", dest='GetNetLoggedonOn', help="Returns users actively logged onto this remote host")
-        self.arg_parser.add_argument("--Get-NetSession", dest='GetNetSession', action='store_true', help="Returns active sessions on the local host")
-        self.arg_parser.add_argument("--Get-NetSession-on", dest='GetNetSessionOn', help="Returns active sessions on this remote host")
-        self.arg_parser.add_argument("--Get-NetRDPSession", dest='GetNetRDPSession', action='store_true', help="Returns active RDP/terminal sessions on the local host")
-        self.arg_parser.add_argument("--Get-NetRDPSession-on", dest='GetNetRDPSessionOn', help="Returns active RDP/terminal sessions on this remote host")
-        self.arg_parser.add_argument("--Get-LastLoggedOn", dest='GetLastLoggedOn', action='store_true', help="Returns the last user logged onto the local machine")
-        self.arg_parser.add_argument("--Get-LastLoggedOn-on", dest='GetLastLoggedOnOn', help="Returns the last user logged onto this remote machine")
-        self.arg_parser.add_argument("--Invoke-UserHunter-check", dest='InvokeUserHunterCheck', action='store_true', help="Finds machines on the local domain where domain admins are logged into and checks if the current user has local administrator access")
-        self.arg_parser.add_argument("--Invoke-UserHunter-forest", dest='InvokeUserHunterForest', action='store_true', help="Find all machines in the current forest where domain admins are logged in")
-        self.arg_parser.add_argument("--Get-ExploitableSystem", dest='GetExploitableSystem', action='store_true', help="Query Active Directory for the hostname, OS version, and service pack level for each computer account (cross-referenced against a list of common Metasploit exploits)")
-
-
+        cls.arg_parser.add_argument("--Get-Proxy", dest='GetProxy', action='store_true', help='Returns proxy configuration')
+        cls.arg_parser.add_argument("--Get-NetComputer", dest='GetNetComputer', action='store_true', help='Returns the current computers in current domain')
+        cls.arg_parser.add_argument("--Get-NetMssql", dest='GetNetMssql', action='store_true', help="Returns all MS SQL servers on the domain")
+        cls.arg_parser.add_argument("--Get-NetSubnet", dest='GetNetSubnet', action='store_true', help="Returns all subnet names in the current domain")
+        cls.arg_parser.add_argument("--Get-NetGroup", dest='GetNetGroup', action='store_true', help="Returns the current groups in the domain")
+        cls.arg_parser.add_argument("--Get-NetGroup-with", dest='GetNetGroupWith', help="Returns all groups with '*GROUPNAME*' in their group name")
+        cls.arg_parser.add_argument("--Get-NetGroupMember", dest='GetNetGroupMember', action='store_true', help="Returns the usernames that of members of the 'Domain Admins' domain group")
+        cls.arg_parser.add_argument("--Get-NetFileServer", dest='GetNetFileServer', action='store_true', help="Returns active file servers")
+        cls.arg_parser.add_argument("--Get-DFSshare", dest='GetDFSshare', action='store_true', help="Returns all distributed file system shares for the current domain")
+        cls.arg_parser.add_argument("--Get-NetGPO", dest='GetNetGPO', action='store_true', help="Returns the GPOs in domain")
+        cls.arg_parser.add_argument("--Get-NetGPOGroup", dest='GetNetGPOGroup', action='store_true', help="Returns all GPOs that set local groups on the current domain")
+        cls.arg_parser.add_argument("--Find-GPOLocation", dest='FindGPOLocation', help="Find all computers that this user has local administrator rights to in the current domain")
+        cls.arg_parser.add_argument("--Get-NetLocalGroup", dest='GetNetLocalGroup', action='store_true', help="Returns the usernames that of members of localgroup 'Administrators' on the local host")
+        cls.arg_parser.add_argument("--Get-NetLoggedon", dest='GetNetLoggedon', action='store_true', help="Returns users actively logged onto the local host")
+        cls.arg_parser.add_argument("--Get-NetLoggedon-on", dest='GetNetLoggedonOn', help="Returns users actively logged onto this remote host")
+        cls.arg_parser.add_argument("--Get-NetSession", dest='GetNetSession', action='store_true', help="Returns active sessions on the local host")
+        cls.arg_parser.add_argument("--Get-NetSession-on", dest='GetNetSessionOn', help="Returns active sessions on this remote host")
+        cls.arg_parser.add_argument("--Get-NetRDPSession", dest='GetNetRDPSession', action='store_true', help="Returns active RDP/terminal sessions on the local host")
+        cls.arg_parser.add_argument("--Get-NetRDPSession-on", dest='GetNetRDPSessionOn', help="Returns active RDP/terminal sessions on this remote host")
+        cls.arg_parser.add_argument("--Get-LastLoggedOn", dest='GetLastLoggedOn', action='store_true', help="Returns the last user logged onto the local machine")
+        cls.arg_parser.add_argument("--Get-LastLoggedOn-on", dest='GetLastLoggedOnOn', help="Returns the last user logged onto this remote machine")
+        cls.arg_parser.add_argument("--Invoke-UserHunter-check", dest='InvokeUserHunterCheck', action='store_true', help="Finds machines on the local domain where domain admins are logged into and checks if the current user has local administrator access")
+        cls.arg_parser.add_argument("--Invoke-UserHunter-forest", dest='InvokeUserHunterForest', action='store_true', help="Find all machines in the current forest where domain admins are logged in")
+        cls.arg_parser.add_argument("--Get-ExploitableSystem", dest='GetExploitableSystem', action='store_true', help="Query Active Directory for the hostname, OS version, and service pack level for each computer account (cross-referenced against a list of common Metasploit exploits)")
 
     def run(self, args):
         script = 'powerview'

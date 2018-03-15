@@ -3,17 +3,22 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 from pupylib import *
+from pupylib.PupyModule import PupyModule, PupyArgumentParser, REQUIRE_STREAM
 
 __class_name__="PythonExec"
 
 @config(cat="admin")
 class PythonExec(PupyModule):
     """ execute python code on a remote system """
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='pyexec', description=self.__doc__)
-        self.arg_parser.add_argument('--file', metavar="<path>", completer=path_completer, help="execute code from .py file")
-        self.arg_parser.add_argument('-R', '--no-redirected-stdio', action='store_true', default=False, help="Do not redirect stdio (no output)")
-        self.arg_parser.add_argument('-c','--code', metavar='<code string>', help="execute python oneliner code. ex : 'import platform;print platform.uname()'")
+
+    io = REQUIRE_STREAM
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='pyexec', description=cls.__doc__)
+        cls.arg_parser.add_argument('--file', metavar="<path>", completer=path_completer, help="execute code from .py file")
+        cls.arg_parser.add_argument('-R', '--no-redirected-stdio', action='store_true', default=False, help="Do not redirect stdio (no output)")
+        cls.arg_parser.add_argument('-c','--code', metavar='<code string>', help="execute python oneliner code. ex : 'import platform;print platform.uname()'")
 
     def run(self, args):
         code=""

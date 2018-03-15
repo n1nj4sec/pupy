@@ -17,11 +17,12 @@ class Beroot(PupyModule):
         ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="beroot", description=self.__doc__)
-        self.arg_parser.add_argument("-l", "--list", action="store_true", default=False, help="list all softwares installed (not run by default)")
-        self.arg_parser.add_argument("-w", "--write", action="store_true", default=False, help="write output")
-        self.arg_parser.add_argument("-c", "--cmd", action="store", default="whoami", help="cmd to execute for the webclient check (default: whoami)")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="beroot", description=cls.__doc__)
+        cls.arg_parser.add_argument("-l", "--list", action="store_true", default=False, help="list all softwares installed (not run by default)")
+        cls.arg_parser.add_argument("-w", "--write", action="store_true", default=False, help="write output")
+        cls.arg_parser.add_argument("-c", "--cmd", action="store", default="whoami", help="cmd to execute for the webclient check (default: whoami)")
 
     def run(self, args):
         filepath = None
@@ -51,11 +52,11 @@ class Beroot(PupyModule):
                 st += '\n[!] %s\n' % results['Function'].capitalize()
 
                 results = results['Results']
-                
+
                 # return only one result (True or False)
                 if 'bool' in str(type(results)):
                     st += '%s\n' % str(results)
-                
+
                 elif 'dict' in str(type(results)):
                     for result in results:
                         if 'list' in str(type(results[result])):
@@ -82,7 +83,7 @@ class Beroot(PupyModule):
 
         if toPrint:
             print st
-        
+
         if write:
             f = open(file, 'a')
             f.write(st)

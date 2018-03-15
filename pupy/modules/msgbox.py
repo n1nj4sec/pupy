@@ -11,10 +11,11 @@ class MsgBoxPopup(PupyModule):
         'linux': [ 'notify' ],
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="msgbox", description=self.__doc__)
-        self.arg_parser.add_argument('--title', help='msgbox title')
-        self.arg_parser.add_argument('text', help='text to print in the msgbox :)')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="msgbox", description=cls.__doc__)
+        cls.arg_parser.add_argument('--title', help='msgbox title')
+        cls.arg_parser.add_argument('text', help='text to print in the msgbox :)')
 
     def run(self, args):
         if self.client.is_windows():

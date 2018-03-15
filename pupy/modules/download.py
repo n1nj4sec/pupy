@@ -26,24 +26,23 @@ class DownloaderScript(PupyModule):
         'windows': [ 'junctions' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='download', description=self.__doc__)
-        self.arg_parser.add_argument('-v', '--verbose', action='store_true', default=False,
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='download', description=cls.__doc__)
+        cls.arg_parser.add_argument('-v', '--verbose', action='store_true', default=False,
                                          help='Be verbose during download')
-        self.arg_parser.add_argument('-a', '--archive', action='store_true', default=False,
+        cls.arg_parser.add_argument('-a', '--archive', action='store_true', default=False,
                                          help='Store to archive (use this only for dirs)')
-        self.arg_parser.add_argument('-i', '--include', help='Regex to include files')
-        self.arg_parser.add_argument('-e', '--exclude', help='Regex to exclude files')
-        self.arg_parser.add_argument('-F', '--follow-symlinks', action='store_true', help='Follow symlinks')
-        self.arg_parser.add_argument('-I', '--ignore-size', action='store_true', help='Ignore st_size')
-        self.arg_parser.add_argument('-X', '--no-single-device', action='store_false', default=True,
+        cls.arg_parser.add_argument('-i', '--include', help='Regex to include files')
+        cls.arg_parser.add_argument('-e', '--exclude', help='Regex to exclude files')
+        cls.arg_parser.add_argument('-F', '--follow-symlinks', action='store_true', help='Follow symlinks')
+        cls.arg_parser.add_argument('-I', '--ignore-size', action='store_true', help='Ignore st_size')
+        cls.arg_parser.add_argument('-X', '--no-single-device', action='store_false', default=True,
                                      help='Allow to touch another devices (st_rdev)')
-        self.arg_parser.add_argument('-S', '--calculate-size', action='store_true', help='Calculate size only')
+        cls.arg_parser.add_argument('-S', '--calculate-size', action='store_true', help='Calculate size only')
 
-        self.arg_parser.add_argument('remote_file', metavar='<remote_path>')
-        self.arg_parser.add_argument('local_file', nargs='?', metavar='<local_path>', completer=path_completer)
-
-        self._downloader = None
+        cls.arg_parser.add_argument('remote_file', metavar='<remote_path>')
+        cls.arg_parser.add_argument('local_file', nargs='?', metavar='<local_path>', completer=path_completer)
 
     def run(self, args):
         self._downloader = DownloadFronted(

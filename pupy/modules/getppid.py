@@ -15,8 +15,9 @@ class PsModule(PupyModule):
         'windows': [ 'pupwinutils.processes' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="getppid", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="getppid", description=cls.__doc__)
 
     def run(self, args):
         if self.client.is_windows():

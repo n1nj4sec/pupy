@@ -112,18 +112,19 @@ class RemoteDesktopModule(PupyModule):
 
     dependencies = ['mss', 'rdesktop', 'keyboard', 'png']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="rdesktop", description=self.__doc__)
-        self.arg_parser.add_argument(
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="rdesktop", description=cls.__doc__)
+        cls.arg_parser.add_argument(
             '-v', '--view', action='store_true',
             help='directly open a browser tab on the handler url')
 
-        self.arg_parser.add_argument(
+        cls.arg_parser.add_argument(
             '-r', '--refresh-interval',
             default=0.02, type=float,
             help='refresh interval. Set to 0 for best reactivity')
 
-        self.arg_parser.add_argument(
+        cls.arg_parser.add_argument(
             '-q', '--quality', default=75, type=int,
             help='image quality best_quality=95 worst_quality=20')
 

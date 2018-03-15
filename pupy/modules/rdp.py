@@ -16,7 +16,8 @@ class Rdp(PupyModule):
         ]
     }
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
 
         example = 'Examples:\n'
         example += '>> run rdp local --enable\n'
@@ -24,8 +25,8 @@ class Rdp(PupyModule):
         example += '>> run rdp remote -u john -p P4ssw0rd -t 192.168.0.1\n'
         example += '>> run rdp remote -u john -p P4ssw0rd -t 192.168.0.1/24\n'
 
-        self.arg_parser = PupyArgumentParser(prog="Rdp", description=self.__doc__, epilog=example)
-        subparsers = self.arg_parser.add_subparsers(title='Choose a specific action')
+        cls.arg_parser = PupyArgumentParser(prog="Rdp", description=cls.__doc__, epilog=example)
+        subparsers = cls.arg_parser.add_subparsers(title='Choose a specific action')
 
         local = subparsers.add_parser('local', help='Enable / Disable rdp connection (only for windows hosts)')
         local.set_defaults(local=True, remote=False)

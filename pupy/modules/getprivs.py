@@ -12,9 +12,10 @@ class GetPrivsModule(PupyModule):
 
     dependencies=["pupwinutils.security"]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="getprivs", description=self.__doc__)
-        self.arg_parser.add_argument('--get-debug', dest='getdebug', action='store_true', help="Try to get SeDebugPrivilege for the current process")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="getprivs", description=cls.__doc__)
+        cls.arg_parser.add_argument('--get-debug', dest='getdebug', action='store_true', help="Try to get SeDebugPrivilege for the current process")
 
     def run(self, args):
         if args.getdebug == True:

@@ -15,8 +15,9 @@ class CloudInfo(PupyModule):
 
     dependencies = [ 'cloudinfo' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="cloudinfo", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="cloudinfo", description=cls.__doc__)
 
     def run(self, args):
         cloudinfo = self.client.remote('cloudinfo', 'metadata')
@@ -31,7 +32,7 @@ class CloudInfo(PupyModule):
 
         formatted_json = json.dumps(metadata, indent=1, sort_keys=True)
 
-        self.stdout.write(
+        self.log(
             highlight(
                 unicode(formatted_json, 'UTF-8'),
                 lexers.JsonLexer(),

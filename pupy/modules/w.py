@@ -17,8 +17,9 @@ class WModule(PupyModule):
     dependencies = [ 'pupyps' ]
     is_module=False
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="w", description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="w", description=cls.__doc__)
 
     def run(self, args):
         try:
@@ -69,7 +70,7 @@ class WModule(PupyModule):
 
                         tablein.append(object)
 
-            self.stdout.write(self.formatter.table_format(tablein))
+            self.table(tablein)
 
         except Exception, e:
             logging.exception(e)

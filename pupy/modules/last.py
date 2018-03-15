@@ -15,14 +15,16 @@ class LastModule(PupyModule):
     dependencies = [ 'pupyps' ]
     is_module=False
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="last", description=self.__doc__)
-        duration = self.arg_parser.add_mutually_exclusive_group()
+    @classmethod
+    def init_argparse(cls):
+        arg_parser = PupyArgumentParser(prog="last", description=cls.__doc__)
+        duration = arg_parser.add_mutually_exclusive_group()
         duration.add_argument('-n', '--lines', type=int, help='Get only (n) last records')
         duration.add_argument('-d', '--days', type=int, help='Get only records for last (n) days')
-        filtering = self.arg_parser.add_mutually_exclusive_group()
+        filtering = arg_parser.add_mutually_exclusive_group()
         filtering.add_argument('-x', '--exclude', nargs='+', help='Hide users/hosts/ips')
         filtering.add_argument('-i', '--include', nargs='+', help='Show users/hosts/ips')
+        cls.arg_parser = arg_parser
 
     def run(self, args):
         try:
@@ -92,9 +94,7 @@ class LastModule(PupyModule):
                 ] if any([ bool(y[x]) for y in output ])
             ]
 
-            self.stdout.write(
-                self.formatter.table_format(output, wl=columns)
-            )
+            self.table(output, columns)
 
         except Exception, e:
             logging.exception(e)

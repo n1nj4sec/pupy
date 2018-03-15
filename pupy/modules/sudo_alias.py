@@ -10,9 +10,10 @@ class SudoAlias(PupyModule):
 
     dependencies = ['sudo_alias']
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="sudo_alias", description=self.__doc__)
-        self.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="sudo_alias", description=cls.__doc__)
+        cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def run(self, args):
         if args.action=="start":

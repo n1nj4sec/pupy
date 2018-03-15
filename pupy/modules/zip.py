@@ -10,13 +10,14 @@ class Zip(PupyModule):
 
     dependencies = [ 'pupyutils.zip', 'zipfile' ]
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog="zip", description=self.__doc__)
-        self.arg_parser.add_argument('source', type=str, help='path of the source file or directory to zip')
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog="zip", description=cls.__doc__)
+        cls.arg_parser.add_argument('source', type=str, help='path of the source file or directory to zip')
 
-        self.arg_parser.add_argument('-l', action='store_true', help='list file  (default: zip file)')
-        self.arg_parser.add_argument('-u', action='store_true', help='unzip file (default: zip file)')
-        self.arg_parser.add_argument('-d', dest='destination', help='path of the destination file (default: current directory)')
+        cls.arg_parser.add_argument('-l', action='store_true', help='list file  (default: zip file)')
+        cls.arg_parser.add_argument('-u', action='store_true', help='unzip file (default: zip file)')
+        cls.arg_parser.add_argument('-d', dest='destination', help='path of the destination file (default: current directory)')
 
     def nice_size(self, value):
         if value > 1024*1024*1024:

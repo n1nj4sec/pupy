@@ -29,7 +29,8 @@ class Changeme(PupyModule):
     }
 
 
-    def init_argparse(self):
+    @classmethod
+    def init_argparse(cls):
         header = """
  #####################################################
 #       _                                             #
@@ -48,31 +49,31 @@ Examples:
 >> run changeme -c web --name tomcat --target 192.168.1.10
 '''
 
-        self.arg_parser = PupyArgumentParser(prog="changeme", description=header + self.__doc__, epilog=example)
-        self.arg_parser.add_argument('--protocol', choices=['ftp', 'http' , 'mssql', 'ssh', 'telnet'], help='Protocol of default creds to scan for', default=None)
-        self.arg_parser.add_argument('--category', '-c', choices=['webcam', 'web', 'phone', 'printer'], help='Category of default creds to scan for', default=None)
-        self.arg_parser.add_argument('--name', '-n', type=str, help='Narrow testing to the supplied credential name', default=None)
+        cls.arg_parser = PupyArgumentParser(prog="changeme", description=header + cls.__doc__, epilog=example)
+        cls.arg_parser.add_argument('--protocol', choices=['ftp', 'http' , 'mssql', 'ssh', 'telnet'], help='Protocol of default creds to scan for', default=None)
+        cls.arg_parser.add_argument('--category', '-c', choices=['webcam', 'web', 'phone', 'printer'], help='Category of default creds to scan for', default=None)
+        cls.arg_parser.add_argument('--name', '-n', type=str, help='Narrow testing to the supplied credential name', default=None)
 
         # Targets to launch scan
-        self.arg_parser.add_argument('--target', type=str, help='Subnet or IP to scan')
-        self.arg_parser.add_argument('--targets', type=str, help='File of targets to scan (IP or IP:PORT)', default=None)
-        self.arg_parser.add_argument('--port', type=int, help='Custom port to connect', default=None)
-        self.arg_parser.add_argument('--ssl', action='store_true', help='Use ssl', default=None)
-        self.arg_parser.add_argument('--creds', type=str, help='File of custom credentials to check (login/password)', default=None)
+        cls.arg_parser.add_argument('--target', type=str, help='Subnet or IP to scan')
+        cls.arg_parser.add_argument('--targets', type=str, help='File of targets to scan (IP or IP:PORT)', default=None)
+        cls.arg_parser.add_argument('--port', type=int, help='Custom port to connect', default=None)
+        cls.arg_parser.add_argument('--ssl', action='store_true', help='Use ssl', default=None)
+        cls.arg_parser.add_argument('--creds', type=str, help='File of custom credentials to check (login/password)', default=None)
 
         # Log and output
-        self.arg_parser.add_argument('--proxy', '-p', type=str, help='HTTP(S) Proxy', default=None)
-        self.arg_parser.add_argument('--log', '-l', type=str, help='Write logs to logfile', default=None)
-        # self.arg_parser.add_argument('--output', '-o', type=str, help='Name of file to write CSV results', default=None)
+        cls.arg_parser.add_argument('--proxy', '-p', type=str, help='HTTP(S) Proxy', default=None)
+        cls.arg_parser.add_argument('--log', '-l', type=str, help='Write logs to logfile', default=None)
+        # cls.arg_parser.add_argument('--output', '-o', type=str, help='Name of file to write CSV results', default=None)
 
         # Verbosity
-        self.arg_parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
-        self.arg_parser.add_argument('--debug', '-d', action='store_true', help='Debug output')
+        cls.arg_parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
+        cls.arg_parser.add_argument('--debug', '-d', action='store_true', help='Debug output')
 
         # Advanced options
-        self.arg_parser.add_argument('--timeout', type=int, help='Timeout in seconds for a request, default=10', default=10)
-        self.arg_parser.add_argument('--useragent', '-ua', type=str, help="User agent string to use")
-        self.arg_parser.add_argument('--delay', '-dl', type=int, help="Specify a delay in milliseconds to avoid 429 status codes default=500", default=500)
+        cls.arg_parser.add_argument('--timeout', type=int, help='Timeout in seconds for a request, default=10', default=10)
+        cls.arg_parser.add_argument('--useragent', '-ua', type=str, help="User agent string to use")
+        cls.arg_parser.add_argument('--delay', '-dl', type=int, help="Specify a delay in milliseconds to avoid 429 status codes default=500", default=500)
 
     def run(self, args):
 

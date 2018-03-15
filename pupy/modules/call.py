@@ -1,4 +1,4 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
@@ -10,15 +10,16 @@ import os, datetime
 @config(cat="gather", compat=["android"])
 class call(PupyModule):
     """ to get call details """
-    
+
     INCOMING_TYPE = "1"
     OUTGOING_TYPE = "2"
     MISSED_TYPE = "3"
 
-    def init_argparse(self):
-        self.arg_parser = PupyArgumentParser(prog='call', description=self.__doc__)
-        self.arg_parser.add_argument('-a', '--get-all', action='store_true', help='get all call details')
-        self.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will store targtet's postions (default: %(default)s)")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = PupyArgumentParser(prog='call', description=cls.__doc__)
+        cls.arg_parser.add_argument('-a', '--get-all', action='store_true', help='get all call details')
+        cls.arg_parser.add_argument('-output-folder', dest='localOutputFolder', default='output/', help="Folder which will store targtet's postions (default: %(default)s)")
 
     def run(self, args):
         self.client.load_package("pupydroid.utils")
@@ -43,7 +44,7 @@ class call(PupyModule):
                 f.write("{0}: {1} at {2} during {3} secds\n".format(callType, aCall['phNum'], date, aCall['callDuration']))
             f.close()
             self.success("Call details saved in {0}".format(completePath))
-            
+
 def getLocalAndroidPath(client, args):
     '''
     Returns the current local path for saving data locally
