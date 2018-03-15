@@ -17,7 +17,6 @@
 from threading import Thread, Event, Lock
 from . import PupyService
 import imp
-import modules
 import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyJob import PupyJob
@@ -340,6 +339,7 @@ class PupyServer(object):
         self._current_id = []
         self._current_id_lock = Lock()
         self.modules = {}
+        self._modules_stats = {}
 
         self.motd = {
             'fail': [],
@@ -670,7 +670,7 @@ class PupyServer(object):
 
         files = {}
 
-        self.refresh_modules()
+        self._refresh_modules()
         for module_name in self.modules:
             module = self.get_module(module_name)
             if clients is not None:
@@ -697,7 +697,7 @@ class PupyServer(object):
                 l.append((m.get_name(), m.__doc__))
         return l
 
-    def refresh_modules(self):
+    def _refresh_modules(self, force=False):
         files = {}
 
         paths = set([
@@ -707,17 +707,38 @@ class PupyServer(object):
         ])
 
         for path in [ self.config.root, '.' ]:
-            modpath = os.path.join(path, 'modules')
-            if not os.path.isdir(modpath):
+            modules = os.path.join(path, 'modules')
+            if not os.path.isdir(modules):
                 continue
 
-            files.update({
-                '.'.join(x.rsplit('.', 1)[:-1]):os.path.join(modpath, x) \
-                for x in os.listdir(modpath) if x.endswith(self.SUFFIXES) and \
-                not x.startswith('__init__')
-            })
+            for x in os.listdir(modules):
+                modname = '.'.join(x.rsplit('.', 1)[:-1])
+                modpath = os.path.join(modules, x)
+
+                try:
+                    valid = all([
+                        x.endswith(self.SUFFIXES),
+                        not x.startswith(('__init__', '.')),
+                        os.path.isfile(modpath)
+                    ])
+
+                    if valid:
+                        files[modname] = modpath
+
+                except Exception, e:
+                    import logging
+                    logging.exception(e)
+                    pass
 
         for modname, modpath in files.iteritems():
+            current_stats = os.stat(modpath)
+
+            if not force and modname in self.modules and \
+              self._modules_stats[modname] == os.stat(modpath):
+                continue
+
+            self._modules_stats[modname] = current_stats
+
             try:
                 self.modules[modname] = imp.load_source(modname, modpath)
             except Exception, e:
@@ -734,7 +755,7 @@ class PupyServer(object):
 
     def get_module(self, name):
         if not name in self.modules:
-            self.refresh_modules()
+            self._refresh_modules(force=True)
 
         if not name in self.modules:
             raise ValueError('No such module')
