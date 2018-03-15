@@ -177,7 +177,8 @@ class PupyCmd(cmd.Cmd):
 
         except InvalidCommand, e:
             self.display(Error(
-                'Unknown (or unavailable) command {}. Use help and modules to list known commands'.format(e)))
+                'Unknown (or unavailable) command {}. Use help -M to '
+                'list available commands and modules'.format(e)))
 
         except (PupyModuleError, NotImplementedError), e:
             self.display(Error(e))
@@ -269,8 +270,9 @@ class PupyCmd(cmd.Cmd):
 
     def summary(self, job):
         need_title = len(job) > 1
+        modules = len(job.pupymodules)
 
-        for instance in job.pupymodules:
+        for idx, instance in enumerate(job.pupymodules):
             if not instance.stdout:
                 continue
 
@@ -280,8 +282,8 @@ class PupyCmd(cmd.Cmd):
             for block in instance.stdout.getvalue():
                 self.display(block, instance.stdout.is_stream)
 
-            if need_title:
-                self.display(NewLine())
+            if idx < modules-1:
+                self.display(NewLine(0))
 
     def display(self, text, nocrlf=False):
         with self.display_lock:
@@ -341,10 +343,8 @@ class PupyCmd(cmd.Cmd):
                 context = CompletionContext(self.pupsrv, self, self.config)
                 compfunc = self.commands.completer(context, line)
                 self.completion_matches = compfunc(text, line, begidx, endidx, context)
-            except Exception, e:
-                import logging
-                logging.exception(e)
-                print "PIZDA #1"
+            except:
+                pass
 
         try:
             if self.completion_matches:

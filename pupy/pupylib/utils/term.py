@@ -240,7 +240,23 @@ def hint_to_text(text, width=0):
     if hint == NewLine:
         return '\n'*int(text.data)
     elif hint == Title:
-        return '>> {} <<'.format(hint_to_text(text.data))
+        if width <= 0:
+            real_width, _ = terminal_size()
+            width = real_width + width
+
+        title = hint_to_text(text.data)
+        tlen = elen(title)
+        ajust = width - tlen - 4
+        ljust = 0
+        rjust = 0
+        if ajust > 0:
+            ljust = ajust/2
+            rjust = ajust - ljust
+
+        title = '>>' + (' '*ljust) + title + (' '*rjust) + '<<'
+        title = ('-'*width) + '\n' + title + '\n' + ('-'*width)
+
+        return colorize(title, 'lightyellow')
     elif hint == MultiPart:
         return '\n\n'.join(
             hint_to_text(x, width) for x in text.data

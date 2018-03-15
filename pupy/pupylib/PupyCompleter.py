@@ -99,22 +99,25 @@ class CompletionContext(object):
 class PupyModCompleter(object):
     def __init__(self, parser):
         self.conf = {
-            "positional_args":[],
-            "optional_args":[],
+            'positional_args': [],
+            'optional_args': [],
         }
+
         self.parser = parser
 
     def add_positional_arg(self, names, **kwargs):
         """ names can be a string or a list to pass args aliases at once """
         if not type(names) is list and not type(names) is tuple:
             names = [names]
+
         for name in names:
             self.conf['positional_args'].append((name, kwargs))
 
     def add_optional_arg(self, names, **kwargs):
         """ names can be a string or a list to pass args aliases at once """
         if not type(names) is list and not type(names) is tuple:
-            names=[names]
+            names = [names]
+
         for name in names:
             self.conf['optional_args'].append((name, kwargs))
 
@@ -140,6 +143,9 @@ class PupyModCompleter(object):
                 if self.get_optional_nargs(x[0]) == nargs
             ]
 
+    def get_positional_args(self):
+        return self.conf['positional_args']
+
     def get_last_text(self, text, line, begidx, endidx, context):
         try:
             return line[0:begidx-1].rsplit(' ',1)[1].strip()
@@ -147,12 +153,12 @@ class PupyModCompleter(object):
             return None
 
     def get_positional_arg_index(self, text, tab, begidx, endidx, context):
-        posmax = len(self.conf['positional_args'])
+        posmax = len(self.get_positional_args())
 
         if not tab:
             return 0, False
 
-        elif not self.conf['positional_args']:
+        elif not self.get_positional_args():
             return 0, False
 
         elif posmax < 2:
@@ -170,7 +176,7 @@ class PupyModCompleter(object):
                 if i-omit >= posmax:
                     return posmax, True
 
-                name, kwargs = self.conf['positional_args'][i-omit]
+                name, kwargs = self.get_positional_args()[i-omit]
                 if 'nargs' in kwargs and kwargs['nargs'] == REMAINDER:
                     return i - omit, True
 
@@ -192,7 +198,7 @@ class PupyModCompleter(object):
         pos = i - omit
         remainder = False
 
-        name, kwargs = self.conf['positional_args'][pos]
+        name, kwargs = self.get_positional_args()[pos]
         if 'nargs' in kwargs and kwargs['nargs'] == REMAINDER:
             remainder = True
 
@@ -204,8 +210,8 @@ class PupyModCompleter(object):
         ][0]
 
     def get_positional_args_completer(self, index):
-        if index < len(self.conf['positional_args']):
-            return self.conf['positional_args'][index][1]['completer']
+        if index < len(self.get_positional_args()):
+            return self.get_positional_args()[index][1]['completer']
 
     def complete(self, text, line, begidx, endidx, context):
         last_text = self.get_last_text(text, line, begidx, endidx, context)

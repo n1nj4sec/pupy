@@ -35,14 +35,100 @@ import struct
 import math
 import io
 
-import argcomplete
-
 REQUIRE_NOTHING  = 0
 REQUIRE_STREAM   = 1
 REQUIRE_REPL     = 2
 REQUIRE_TERMINAL = 3
 
-class PupyArgumentParser(argparse.ArgumentParser):
+class PupyArgumentParserWrap(object):
+    def __init__(self, base, wrapped):
+        self.base = base
+        self.wrapped = wrapped
+
+    def __call__(self, *args, **kwargs):
+        self.wrapped.__call__(*args, **kwargs)
+
+    def __getattr__(self, name):
+        BASE = self.base
+        original = getattr(self.wrapped, name)
+
+        if name in ('add_argument_group', 'add_mutually_exclusive_group'):
+            def add_group(*args, **kwargs):
+                group = original(*args, **kwargs)
+                return PupyArgumentParserWrap(BASE, group)
+
+            return add_group
+
+        elif name == 'add_argument':
+            def add_argument(*args, **kwargs):
+                if 'completer' in kwargs:
+                    completer_func = kwargs.pop('completer')
+                elif 'choices' in kwargs:
+                    completer_func = list_completer(kwargs['choices'])
+                else:
+                    completer_func = void_completer
+
+                result = original(*args, **kwargs)
+
+                kwargs['completer'] = completer_func
+                completer = BASE.get_completer()
+
+                for a in args:
+                    if a.startswith('-'):
+                        completer.add_optional_arg(a, **kwargs)
+                    else:
+                        completer.add_positional_arg(a, **kwargs)
+
+                return result
+
+            return add_argument
+        else:
+            return original
+
+class PupyArgumentParserRef(argparse._ActionsContainer):
+    def add_argument(self, *args, **kwargs):
+        completer_func = None
+
+        if 'completer' in kwargs:
+            completer_func = kwargs.pop('completer')
+        elif 'choices' in kwargs:
+            completer_func = list_completer(kwargs['choices'])
+        else:
+            completer_func = void_completer
+
+        arg = super(PupyArgumentParserRef, self).add_argument(*args, **kwargs)
+
+        kwargs['completer'] = completer_func
+        completer = self.get_completer()
+
+        for a in args:
+            if a.startswith('-'):
+                completer.add_optional_arg(a, **kwargs)
+            else:
+                completer.add_positional_arg(a, **kwargs)
+
+        return arg
+
+    def add_argument_group(self, *args, **kwargs):
+        return PupyArgumentParserWrap(
+            self,
+            super(PupyArgumentParserRef, self).add_argument_group(*args, **kwargs)
+        )
+
+    def add_mutually_exclusive_group(self, *args, **kwargs):
+        return PupyArgumentParserWrap(
+            self,
+            super(PupyArgumentParserRef, self).add_mutually_exclusive_group(*args, **kwargs)
+        )
+
+    def get_completer(self):
+        if hasattr(self, 'pupy_mod_completer') and self.pupy_mod_completer is not None:
+            return self.pupy_mod_completer
+        else:
+            self.pupy_mod_completer = PupyModCompleter(self)
+            return self.pupy_mod_completer
+
+class PupyArgumentParser(argparse.ArgumentParser, PupyArgumentParserRef):
     def __init__(self, *args, **kwargs):
         if 'formatter_class' not in kwargs:
             kwargs['formatter_class'] = argparse.RawDescriptionHelpFormatter
@@ -57,38 +143,6 @@ class PupyArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         raise PupyModuleUsageError(self.prog, message, self.format_usage())
 
-    def add_argument(self, *args, **kwargs):
-        completer_func = None
-        ref = False
-
-        if 'ref' in kwargs:
-            ref = kwargs.pop('ref')
-
-        if 'completer' in kwargs:
-            completer_func = kwargs.pop('completer')
-        elif 'choices' in kwargs:
-            completer_func = list_completer(kwargs["choices"])
-        else:
-            completer_func = void_completer
-
-        if not ref:
-            argparse.ArgumentParser.add_argument(self, *args, **kwargs)
-
-        kwargs['completer'] = completer_func
-        completer = self.get_completer()
-
-        for a in args:
-            if a.startswith('-'):
-                completer.add_optional_arg(a, **kwargs)
-            else:
-                completer.add_positional_arg(a, **kwargs)
-
-    def get_completer(self):
-        if hasattr(self,'pupy_mod_completer') and self.pupy_mod_completer is not None:
-            return self.pupy_mod_completer
-        else:
-            self.pupy_mod_completer = PupyModCompleter(self)
-            return self.pupy_mod_completer
 
 class Log(object):
     def __init__(self, out, log, rec=None, command=None, title=None, unicode=False, stream=False):
@@ -386,7 +440,7 @@ class PupyModule(object):
         """ override this method to define if the script is compatible with the givent client. The first value of the returned tuple is True if the module is compatible with the client and the second is a string explaining why in case of incompatibility"""
         if not self.is_compatible_with(self.client):
             return (False, 'This module currently only support the following systems: %s'%(
-            ','.join(cls.compatible_systems)))
+            ','.join(self.compatible_systems)))
         else:
             return True, ''
 
@@ -416,9 +470,9 @@ class PupyModule(object):
 
     def _message(self, msg):
         if self.io != REQUIRE_NOTHING:
-            msg = MultiPart(msg, NewLine())
+            msg = MultiPart([msg, NewLine()])
 
-        elif self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
+        if self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
             msg = self.iogroup.as_text(msg)
 
         self.stdout.write(msg)
@@ -463,16 +517,16 @@ def config(**kwargs):
             if type(kwargs[l])!=list:
                 kwargs[l]=[kwargs[l]]
 
-    def class_rebuilder(cls):
-        cls.tags = kwargs.get('tags', cls.tags)
-        cls.category = kwargs.get('category', kwargs.get('cat', cls.category))
-        cls.compatible_systems = kwargs.get(
+    def class_rebuilder(klass):
+        klass.tags = kwargs.get('tags', klass.tags)
+        klass.category = kwargs.get('category', kwargs.get('cat', klass.category))
+        klass.compatible_systems = kwargs.get(
             'compatibilities',
             kwargs.get('compatibility',
-                       kwargs.get('compat',cls.compatible_systems)))
-        cls.daemon = kwargs.get('daemon', cls.daemon)
+                       kwargs.get('compat',klass.compatible_systems)))
+        klass.daemon = kwargs.get('daemon', klass.daemon)
 
-        return cls
+        return klass
 
     for k in kwargs.iterkeys():
         if k not in [ 'tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon' ]:
