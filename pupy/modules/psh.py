@@ -39,7 +39,7 @@ class PowershellManager(PupyModule):
         load.add_argument('-W', '--width', default=width, type=int, help='Set output line width')
         load.add_argument('-D', '--daemon', action='store_true', default=False, help='Start in "daemon" mode')
         load.add_argument('context', help='Context name')
-        load.add_argument('source', help='Path to PS1 script (local to pupy)')
+        load.add_argument('source', nargs='?', help='Path to PS1 script (local to pupy)')
         load.set_defaults(name='load')
 
         iex = commands.add_parser('iex', help='Invoke expression in context')
@@ -80,13 +80,15 @@ class PowershellManager(PupyModule):
                     self.success('{}'.format(context))
 
         elif args.name == 'load':
-            script = path.expandvars(path.expanduser(args.source))
-            if not path.exists(script):
-                self.error('Script file not found: {}'.format(script))
-                return
+            content = ''
+            if args.source:
+                script = path.expandvars(path.expanduser(args.source))
+                if not path.exists(script):
+                    self.error('Script file not found: {}'.format(script))
+                    return
 
-            with open(script) as input:
-                content = input.read()
+                with open(script) as input:
+                    content = input.read()
 
             try:
                 powershell.load(
