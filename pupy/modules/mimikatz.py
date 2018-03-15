@@ -26,6 +26,8 @@ class Mimikatz(MemoryExec):
         'pupwinutils.wdigest'
     ]
 
+    io = REQUIRE_TERMINAL
+
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="mimikatz", description=cls.__doc__)

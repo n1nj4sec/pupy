@@ -81,9 +81,7 @@ class MemStrings(PupyModule):
             if args.stdout:
                 self.success('Strings {}:{}'.format(name, pid))
                 for s in strings:
-                    self.stdout.write(s+'\n')
-
-                self.stdout.write('\n')
+                    self.log(s)
             else:
                 if last_pid != pid:
                     last_pid = pid
