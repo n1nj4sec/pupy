@@ -12,6 +12,8 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
+PREV_CWD = None
+
 # -------------------------- For ls functions --------------------------
 
 T_NAME      = 0
@@ -184,6 +186,47 @@ def list_dir(path, max_files=None):
 
     return result
 
+def complete(path, limit=32, dirs=None):
+    if path:
+        path = try_unicode(path)
+        path = os.path.expanduser(path)
+        path = os.path.expandvars(path)
+    else:
+        path = os.getcwd()
+
+    results = []
+    part = ''
+
+    path = path.replace('\\', '/').replace('//', '/')
+    if path.endswith('/') and os.path.isdir(path):
+        pass
+
+    elif os.path.exists(path):
+        if path.endswith('/'):
+            path = path[:-1]
+
+        return path, ['']
+
+    else:
+        part = os.path.basename(path)
+        path = os.path.dirname(path)
+        if not os.path.isdir(path):
+            return path, []
+
+    if path.endswith('/'):
+        path = path[:-1]
+
+    for item in scandir(path):
+        if item.name.startswith(part):
+            if dirs is None or \
+                (dirs is True and item.is_dir()) or \
+                (dirs is False and not item.is_dir()):
+                results.append(item.name)
+        if len(results) > limit:
+            break
+
+    return path, results
+
 def ls(path=None, listdir=True, limit=4096):
     if path:
         path = try_unicode(path)
@@ -228,6 +271,10 @@ def ls(path=None, listdir=True, limit=4096):
 # -------------------------- For cd function --------------------------
 
 def cd(path=None):
+    global PREV_CWD
+
+    cwd = os.getcwd()
+
     if path:
         path = try_unicode(path)
         path = os.path.expanduser(path)
@@ -236,7 +283,15 @@ def cd(path=None):
         path = os.path.expanduser("~")
         path = try_unicode(path)
 
-    os.chdir(path)
+    try:
+        os.chdir(path)
+        PREV_CWD = cwd
+    except OSError:
+        if path == '-' and PREV_CWD is not None:
+            os.chdir(PREV_CWD)
+            PREV_CWD = cwd
+        else:
+            raise
 
 # -------------------------- For mkdir function --------------------------
 

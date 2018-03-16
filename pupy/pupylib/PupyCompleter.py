@@ -32,6 +32,36 @@ def list_completer(l):
 def void_completer(text, line, begidx, endidx, context):
     return []
 
+def remote_path_completer(text, line, begidx, endidx, context, dirs=None):
+    results = []
+    try:
+        import logging
+        clients = context.server.get_clients(context.handler.default_filter)
+        if len(clients) != 1:
+            return []
+
+        path = text or './'
+
+        client = clients[0]
+        client.load_package(['pupyutils.basic_cmds', 'scandir'])
+        complete = client.remote('pupyutils.basic_cmds', 'complete')
+        path, results = complete(path, dirs=dirs)
+        results = [
+            (
+                '/'.join([path, result]) if result else path
+            ) for result in results
+        ]
+    except Exception, e:
+        logging.exception("rpc: {}".format(e))
+
+    return results
+
+def remote_dirs_completer(text, line, begidx, endidx, context):
+    return remote_path_completer(text, line, begidx, endidx, context, dirs=True)
+
+def remote_files_completer(text, line, begidx, endidx, context):
+    return remote_path_completer(text, line, begidx, endidx, context, dirs=False)
+
 def path_completer(text, line, begidx, endidx, context):
     l=[]
     if not text:
