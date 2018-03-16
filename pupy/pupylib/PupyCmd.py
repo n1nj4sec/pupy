@@ -171,7 +171,7 @@ class PupyCmd(cmd.Cmd):
 
         except PupyModuleUsageError, e:
             prog, message, usage = e.args
-            self.display(Line(Error(prog+':'), Color(message, 'lightred')))
+            self.display(Line(Error(message, prog)))
             self.display(usage)
 
         except PupyModuleExit:
@@ -237,7 +237,7 @@ class PupyCmd(cmd.Cmd):
 
         except PupyModuleUsageError, e:
             prog, message, usage = e.args
-            self.display(Line(Error(prog+':'), Color(message, 'lightred')))
+            self.display(Line(Error(message, prog)))
             self.display(usage)
 
         except PupyModuleExit:
