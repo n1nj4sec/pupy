@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import remote_path_completer, remote_dirs_completer
 
 __class_name__="cp"
 
@@ -13,8 +14,14 @@ class cp(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="cp", description=cls.__doc__)
-        cls.arg_parser.add_argument('src', type=str, action='store')
-        cls.arg_parser.add_argument('dst', type=str, action='store')
+        cls.arg_parser.add_argument(
+            'src', type=str, action='store', completer=remote_path_completer,
+        )
+
+        cls.arg_parser.add_argument(
+            'dst', type=str, action='store',
+            completer=remote_dirs_completer
+        )
 
     def run(self, args):
         try:

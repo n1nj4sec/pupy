@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import remote_path_completer
 
 __class_name__="rm"
 
@@ -13,7 +14,7 @@ class rm(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="rm", description=cls.__doc__)
-        cls.arg_parser.add_argument('path', type=str, action='store')
+        cls.arg_parser.add_argument('path', type=str, action='store', completer=remote_path_completer)
 
     def run(self, args):
         try:

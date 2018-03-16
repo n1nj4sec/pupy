@@ -15,7 +15,8 @@ class UploaderScript(PupyModule):
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='upload', description=cls.__doc__)
         cls.arg_parser.add_argument('local_file', metavar='<local_path>', completer=path_completer)
-        cls.arg_parser.add_argument('remote_file', nargs='?', metavar='<remote_path>')
+        cls.arg_parser.add_argument('remote_file', nargs='?', metavar='<remote_path>',
+                                    completer=remote_dirs_completer)
 
     def run(self, args):
         localfile =  os.path.expandvars(args.local_file)

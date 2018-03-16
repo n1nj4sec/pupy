@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import remote_dirs_completer
 
 __class_name__="cd"
 
@@ -13,7 +14,11 @@ class cd(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="cd", description=cls.__doc__)
-        cls.arg_parser.add_argument('path', type=str, nargs='?', help='path of a specific directory')
+        cls.arg_parser.add_argument(
+            'path', type=str, nargs='?',
+            help='path of a specific directory',
+            completer=remote_dirs_completer
+        )
 
     def run(self, args):
         try:

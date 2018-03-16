@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import remote_path_completer
 from pupylib.utils.rpyc_utils import obtain
 from pupylib.utils.term import colorize
 from datetime import datetime
@@ -106,7 +107,8 @@ class ls(PupyModule):
         sort.add_argument('-s', '--size', dest='sort', action='store_const', const=T_SIZE, help='sort by size')
         sort.add_argument('-t', '--time', dest='sort', action='store_const', const=T_TIMESTAMP, help='sort by time')
         cls.arg_parser.add_argument('-r', '--reverse', action='store_true', default=False, help='reverse sort order')
-        cls.arg_parser.add_argument('path', type=str, nargs='?', help='path of a specific file')
+        cls.arg_parser.add_argument(
+            'path', type=str, nargs='?', help='path of a specific file', completer=remote_path_completer)
 
     def run(self, args):
         try:

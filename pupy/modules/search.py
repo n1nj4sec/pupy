@@ -3,6 +3,7 @@ from pupylib.PupyModule import *
 import os
 import threading
 from pupylib.utils.term import colorize
+from pupylib.PupyCompleter import remote_path_completer
 
 from modules.lib.utils.download import DownloadFronted
 
@@ -25,7 +26,10 @@ class SearchModule(PupyModule):
         example += '>> run search .* passw.*=.* -I\n'
 
         cls.arg_parser = PupyArgumentParser(prog="search", description=cls.__doc__, epilog=example)
-        cls.arg_parser.add_argument('-p', '--path', default='.', help='root path to start (default: current path)')
+        cls.arg_parser.add_argument(
+            '-p', '--path', default='.',
+            completer=remote_path_completer,
+            help='root path to start (default: current path)')
         cls.arg_parser.add_argument('-m','--max-size', type=int, default=20000000, help='max file size (default 20 Mo)')
         cls.arg_parser.add_argument('-b', '--binary', action='store_true', help='search content inside binary files')
         cls.arg_parser.add_argument('-L', '--links', action='store_true', help='follow symlinks')

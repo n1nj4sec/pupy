@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyCompleter import remote_dirs_completer
 
 __class_name__="mkdir"
 
@@ -13,7 +14,8 @@ class mkdir(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="mkdir", description=cls.__doc__)
-        cls.arg_parser.add_argument('dir', type=str, help='directory name')
+        cls.arg_parser.add_argument(
+            'dir', type=str, help='directory name', completer=remote_dirs_completer)
 
     def run(self, args):
         try:

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.PupyOutput import Pygment
+from pupylib.PupyCompleter import remote_path_completer
 from pygments.lexers import guess_lexer, guess_lexer_for_filename
 
 __class_name__="cat"
@@ -19,7 +20,7 @@ class cat(PupyModule):
         cls.arg_parser.add_argument('-G', type=str, help='Grep sequence')
         cls.arg_parser.add_argument(
             '-C', '--color', action='store_true', help='Enable coloring (pygments)')
-        cls.arg_parser.add_argument('path', type=str)
+        cls.arg_parser.add_argument('path', type=str, completer=remote_path_completer)
 
     def run(self, args):
         try:
