@@ -8,9 +8,16 @@ import platform
 import re
 
 from pygments import highlight
-from pygments.formatters import TerminalFormatter
+
+TERM = os.environ.get('TERM')
+if TERM and TERM.endswith('256color'):
+    from pygments.formatters import Terminal256Formatter as TerminalFormatter
+else:
+    from pygments.formatters import TerminalFormatter
 
 from pupylib.PupyOutput import *
+
+PYGMENTS_STYLE='native'
 
 ESC_REGEX = re.compile(r'(\033[^m]+m)')
 
@@ -344,7 +351,7 @@ def hint_to_text(text, width=0):
     elif hint == Pygment:
         lexer = text.lexer
         text = hint_to_text(text.data, width)
-        return highlight(text, lexer, TerminalFormatter())
+        return highlight(text, lexer, TerminalFormatter(style=PYGMENTS_STYLE))
 
     else:
         raise NotImplementedError('hint_to_text not implemented for {}'.format(
