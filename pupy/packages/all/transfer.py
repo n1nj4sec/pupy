@@ -65,6 +65,7 @@ T_CLOSE    = 5
 T_C_EXC    = 6
 T_DIRVIEW  = 7
 T_EXC      = 8
+T_FINISH   = 9
 
 D_ROOT     = 0
 D_DIRS     = 1
@@ -570,6 +571,19 @@ class Transfer(object):
                 for portion in self._pack_path(filepath):
                     yield portion
                     del portion
+            else:
+                yield {
+                    F_TYPE: T_EXC,
+                    F_EXC: 'No download target',
+                    F_DATA: filepath
+                }
+
+                return
+
+            yield {
+                F_TYPE: T_FINISH,
+                F_DATA: filepath
+            }
 
         except Exception, e:
             yield {
