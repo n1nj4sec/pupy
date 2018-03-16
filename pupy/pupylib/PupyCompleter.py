@@ -61,11 +61,13 @@ def remote_path_completer(module, args, text, context, dirs=None):
         client.load_package(['pupyutils.basic_cmds', 'scandir'])
         complete = client.remote('pupyutils.basic_cmds', 'complete')
         path, results = complete(path, dirs=dirs)
-        results = [
-            (
-                '/'.join([path, result]) if result else path
-            ) for result in results
-        ]
+        if path is not None:
+            results = [
+                (
+                    '/'.join([path, result]) if result else path
+                ) for result in results
+            ]
+
     except Exception, e:
         logging.exception("rpc: {}".format(e))
 

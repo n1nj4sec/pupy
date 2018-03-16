@@ -193,7 +193,7 @@ def _complete(cwd, path, limit=32, dirs=None):
         path = os.path.expanduser(path)
         path = os.path.expandvars(path)
     else:
-        path = cwd
+        path = cwd + '/'
 
     results = []
     part = ''
@@ -203,16 +203,15 @@ def _complete(cwd, path, limit=32, dirs=None):
         pass
 
     elif os.path.exists(path):
-        if path.endswith('/'):
-            path = path[:-1]
-
         return path, ['']
 
     else:
         part = os.path.basename(path)
         path = os.path.dirname(path)
-        if not os.path.isdir(path):
-            return path, []
+        if not path:
+            path = cwd
+        elif not os.path.isdir(path):
+            return '', []
 
     for item in scandir(path):
         if item.name.startswith(part):
@@ -228,13 +227,19 @@ def _complete(cwd, path, limit=32, dirs=None):
 def complete(path, limit=32, dirs=None):
     cwd = os.getcwd()
     path, results = _complete(cwd, path, limit, dirs)
+
     if path.endswith('/'):
         path = path[:-1]
 
-    if path:
+    if path and cwd != '/':
         relpath = os.path.relpath(path, start=cwd)
         if not relpath.startswith('..'):
             path = relpath
+
+    if path.startswith(('./', '.\\')):
+        path = path[2:]
+    elif path == '.':
+        path = None
 
     return path, results
 
