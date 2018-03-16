@@ -16,7 +16,7 @@ parser.add_argument('-W', '--write-user', action='store_true',
 def do(server, handler, config, args):
     data = []
 
-    clients = server.get_clients(self.default_filter)
+    clients = server.get_clients(handler.default_filter)
 
     if not clients:
         return
