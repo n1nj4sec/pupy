@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyOutput import Pygment
 from pygments.lexers import guess_lexer, guess_lexer_for_filename
-from pygments import highlight
-from pygments.formatters import TerminalFormatter
 
 __class_name__="cat"
 
@@ -42,7 +41,7 @@ class cat(PupyModule):
                             pass
 
                 if lexer:
-                    r = highlight(r, lexer, TerminalFormatter())
+                    r = Pygment(lexer, r)
 
                 self.log(r)
 

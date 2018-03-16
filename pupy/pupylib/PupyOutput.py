@@ -94,6 +94,13 @@ class Usage(Text):
         super(Usage, self).__init__(data)
         self.module = module
 
+class Pygment(Text):
+    __slots__ = ( 'lexer' )
+
+    def __init__(self, lexer, data):
+        super(Pygment, self).__init__(data)
+        self.lexer = lexer
+
 class Interact(Hint):
     __slots__ = ()
 

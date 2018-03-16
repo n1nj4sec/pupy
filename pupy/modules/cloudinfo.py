@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.term import colorize
-from pupylib.utils.rpyc_utils import obtain
+from pupylib.PupyOutput import Pygment
 
-from pygments import highlight, lexers, formatters
+from pygments import lexers
 import json
-import os
 
 __class_name__="CloudInfo"
 
@@ -33,9 +31,5 @@ class CloudInfo(PupyModule):
         formatted_json = json.dumps(metadata, indent=1, sort_keys=True)
 
         self.log(
-            highlight(
-                unicode(formatted_json, 'UTF-8'),
-                lexers.JsonLexer(),
-                formatters.TerminalFormatter()
-            )
+            Pygemnt(lexers.JsonLexer(), unicode(formatted_json, 'UTF-8'))
         )

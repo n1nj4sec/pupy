@@ -7,6 +7,9 @@ import struct
 import platform
 import re
 
+from pygments import highlight
+from pygments.formatters import TerminalFormatter
+
 from pupylib.PupyOutput import *
 
 ESC_REGEX = re.compile(r'(\033[^m]+m)')
@@ -332,6 +335,11 @@ def hint_to_text(text, width=0):
         return (
             u'{ ' + hint_to_text(text.caption, width) + u' }\n' if text.caption else ''
         ) + table_format(table_data, wl=text.headers, legend=text.legend)
+
+    elif hint == Pygment:
+        lexer = text.lexer
+        text = hint_to_text(text.data, width)
+        return highlight(text, lexer, TerminalFormatter())
 
     else:
         raise NotImplementedError('hint_to_text not implemented for {}'.format(
