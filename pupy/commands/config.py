@@ -1,7 +1,8 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Error
+from pupylib.PupyOutput import Error, Pygment
+from pygments.lexers.configs import IniLexer
 from argparse import REMAINDER
 
 usage  = 'Work with configuration file'
@@ -38,18 +39,22 @@ cmdsave.add_argument('-W', '--write-user', action='store_true',
 
 def do(server, handler, config, args):
     if args.command == 'list':
+        result = []
+
         for section in config.sections():
             if args.section and args.section != section:
                 continue
 
-            handler.display('[{}]'.format(section))
+            result.append('[{}]'.format(section))
             if args.sections:
                 continue
 
             for variable in config.options(section):
-                handler.display('{} = {}'.format(variable, config.get(section, variable)))
+                result.append('{} = {}'.format(variable, config.get(section, variable)))
 
-            handler.display(' ')
+            result.append('')
+
+        handler.display(Pygment(IniLexer(), '\n'.join(result)))
 
     elif args.command == 'set':
         try:
