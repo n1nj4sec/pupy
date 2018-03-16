@@ -706,7 +706,7 @@ class PupyServer(object):
             ]
         ])
 
-        for path in [ self.config.root, '.' ]:
+        for path in paths:
             modules = os.path.join(path, 'modules')
             if not os.path.isdir(modules):
                 continue
