@@ -5,6 +5,8 @@ from pupylib.PupyModule import *
 import subprocess
 from rpyc.utils.helpers import restricted
 from modules.lib.utils.shell_exec import shell_exec
+from argparse import REMAINDER
+
 __class_name__="ShellExec"
 
 @config(cat="admin")
@@ -15,9 +17,12 @@ class ShellExec(PupyModule):
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='shell_exec', description=cls.__doc__)
         cls.arg_parser.add_argument('-s', '--shell', help="default to /bin/sh on linux or cmd.exe on windows")
-        cls.arg_parser.add_argument('argument', help='use unix like syntax and put simple quotes if there is multiple arguments')
         cls.arg_parser.add_argument('-H', '--hide', action='store_true', help='launch process on background (only for windows)')
         cls.arg_parser.add_argument('-c', '--codepage', default=None, help='decode using codepage')
+        cls.arg_parser.add_argument(
+            'argument',
+            nargs=REMAINDER,
+            help='shell command')
 
     def run(self, args):
         if not args.hide:
