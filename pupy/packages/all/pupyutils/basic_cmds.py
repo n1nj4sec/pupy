@@ -443,7 +443,14 @@ def cat(path, N, n, grep, encoding=None):
                             if n and len(data) >= n:
                                 break
                     else:
-                        data.append(fin.read(4*8192))
+                        fin.seek(0, os.SEEK_END)
+                        file_size = fin.tell()
+                        fin.seek(0)
+                        block_size = 4*8192
+                        block = fin.read(block_size)
+                        if file_size > block_size:
+                            block += "\n[FILE TRUNCATED, USE DOWNLOAD]"
+                        return block
             else:
                 raise ValueError('Not a file')
         else:
