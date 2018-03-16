@@ -187,13 +187,13 @@ def list_dir(path, max_files=None):
 
     return result
 
-def complete(path, limit=32, dirs=None):
+def _complete(cwd, path, limit=32, dirs=None):
     if path:
         path = try_unicode(path)
         path = os.path.expanduser(path)
         path = os.path.expandvars(path)
     else:
-        path = os.getcwd()
+        path = cwd
 
     results = []
     part = ''
@@ -223,8 +223,17 @@ def complete(path, limit=32, dirs=None):
         if len(results) > limit:
             break
 
+    return path, results
+
+def complete(path, limit=32, dirs=None):
+    cwd = os.getcwd()
+    path, results = _complete(cwd, path, limit, dirs)
     if path.endswith('/'):
         path = path[:-1]
+
+    relpath = os.path.relpath(path, start=cwd)
+    if not relpath.startswith('..'):
+        path = relpath
 
     return path, results
 
