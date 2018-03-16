@@ -64,7 +64,7 @@ rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
 cd $dir
 zip -q -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" -x "*.chm" \
     -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
     -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
@@ -79,7 +79,7 @@ echo "[+] Build templates /64"
 for dir in Lib DLLs; do
 cd $dir
 zip -q -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.py" -x "*.pyc" -x "*.chm" \
+    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" -x "*.chm" \
     -x "*test/*" -x "*tests/*" -x "*examples/*"	 -x "pythonwin/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
     -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
