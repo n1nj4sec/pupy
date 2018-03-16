@@ -2,10 +2,12 @@
 
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import NewLine, MultiPart, Table, Color, Line, TruncateToTerm
+from pupylib.PupyCompleter import commands_completer
 
 usage  = 'Show help'
 parser = PupyArgumentParser(prog='help', description=usage)
-parser.add_argument('module', nargs='?', help='Show information about command')
+parser.add_argument('module', nargs='?',
+                    help='Show information about command', completer=commands_completer)
 parser.add_argument('-M', '--modules', action='store_true',
                     help='Show information about all modules')
 

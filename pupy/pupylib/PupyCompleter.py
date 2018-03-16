@@ -24,6 +24,21 @@ from argparse import REMAINDER
 
 from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 
+def commands_completer(module, args, text, context):
+    aliases = dict(context.config.items('aliases'))
+    modules = list(context.server.iter_modules(
+        by_clients=True,
+        clients_filter=context.handler.default_filter))
+    commands = context.commands.list(False)
+
+    return [
+        x+' ' for x in aliases.iterkeys() if x.startswith(text)
+    ] + [
+        x+' ' for x,_ in commands if x.startswith(text)
+    ] + [
+        x.get_name()+' ' for x in modules if x.get_name().startswith(text)
+    ]
+
 def list_completer(l):
     def func(module, args, text, context):
         return [x+" " for x in l if x.startswith(text)]
