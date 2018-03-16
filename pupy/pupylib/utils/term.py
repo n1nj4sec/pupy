@@ -299,11 +299,16 @@ def hint_to_text(text, width=0):
 
         return u'\n'.join(ejust(x, width) for x in text.split(u'\n'))
     elif hint == Error:
+        header = text.header
         text = text.data
         if issubclass(type(text), Exception):
             text = '({}) {}'.format(type(text).__class__.__name__, text)
         else:
             text = hint_to_text(text, width).rstrip()
+
+        if header:
+            text = '{}: {}'.format(colorize(header, 'yellow'), text)
+
         return colorize('[-] ','red')+text
     elif hint == Log:
         return hint_to_text(text.data, width).rstrip()
