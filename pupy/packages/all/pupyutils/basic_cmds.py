@@ -231,9 +231,10 @@ def complete(path, limit=32, dirs=None):
     if path.endswith('/'):
         path = path[:-1]
 
-    relpath = os.path.relpath(path, start=cwd)
-    if not relpath.startswith('..'):
-        path = relpath
+    if path:
+        relpath = os.path.relpath(path, start=cwd)
+        if not relpath.startswith('..'):
+            path = relpath
 
     return path, results
 
@@ -497,8 +498,6 @@ def tail(f, n, grep):
             f.seek(step, os.SEEK_END)
             newdata = f.read(BUFSIZ)
 
-        print "block:", block
-
         data = newdata + data
 
         if len(retval) + data.count(CR) >= n:
@@ -526,7 +525,6 @@ def tail(f, n, grep):
 
     if len(retval) < n:
         n -= len(retval)
-        print repr(data)
         retval += data.splitlines()[-n:]
 
     return retval
