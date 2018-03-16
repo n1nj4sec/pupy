@@ -27,11 +27,16 @@ T_FILES     = 9
 T_FILE      = 10
 T_TRUNCATED = 11
 
+textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+
 if sys.platform == 'win32':
     from junctions import islink, readlink, lstat
 else:
     from os import readlink, lstat
     from os.path import islink
+
+def is_binary(text):
+    return bool(text.translate(None, textchars))
 
 def file_timestamp(entry):
     try:
@@ -361,7 +366,11 @@ def cat(path, N, n, grep):
                             if n and len(data) >= n:
                                 break
                     else:
-                        data.append(fin.read(4*8192))
+                        portion = fin.read(4*8192)
+                        if is_binary(portion):
+                            raise ValueError('File is binary. Use download')
+
+                        data.append(portion)
             else:
                 raise ValueError('Not a file')
         else:
