@@ -7,6 +7,7 @@ import stat
 import sys
 import datetime
 import re
+import codecs
 
 from scandir import scandir
 if scandir is None:
@@ -213,9 +214,6 @@ def complete(path, limit=32, dirs=None):
         if not os.path.isdir(path):
             return path, []
 
-    if path.endswith('/'):
-        path = path[:-1]
-
     for item in scandir(path):
         if item.name.startswith(part):
             if dirs is None or \
@@ -224,6 +222,9 @@ def complete(path, limit=32, dirs=None):
                 results.append(item.name)
         if len(results) > limit:
             break
+
+    if path.endswith('/'):
+        path = path[:-1]
 
     return path, results
 
@@ -394,7 +395,7 @@ def rm(path):
 
 # -------------------------- For cat function --------------------------
 
-def cat(path, N, n, grep):
+def cat(path, N, n, grep, encoding=None):
     if grep:
         grep = re.compile(grep)
 
@@ -411,6 +412,27 @@ def cat(path, N, n, grep):
             found = True
             if os.path.isfile(path):
                 with open(path, 'r') as fin:
+                    bom = fin.read(2)
+                    need_newline = True
+                    if bom == codecs.BOM_UTF16_LE:
+                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-le')
+                    elif bom == codecs.BOM_UTF16_BE:
+                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-be')
+                    elif bom == codecs.BOM_UTF32_LE:
+                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-le')
+                    elif bom == codecs.BOM_UTF32_BE:
+                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-be')
+                    elif encoding is not None:
+                        fin = codecs.EncodedFile(fin, 'utf-8', encoding)
+                        fin.seek(0)
+                        need_newline = False
+                    else:
+                        need_newline = False
+                        fin.seek(0)
+
+                    if need_newline:
+                        fin.readline()
+
                     if N:
                         data += tail(fin, N, grep)
                     elif grep or n:
@@ -421,11 +443,7 @@ def cat(path, N, n, grep):
                             if n and len(data) >= n:
                                 break
                     else:
-                        portion = fin.read(4*8192)
-                        if is_binary(portion):
-                            raise ValueError('File is binary. Use download')
-
-                        data.append(portion)
+                        data.append(fin.read(4*8192))
             else:
                 raise ValueError('Not a file')
         else:

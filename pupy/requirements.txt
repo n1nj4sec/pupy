@@ -29,5 +29,6 @@ poster
 win_inet_pton
 scandir
 msgpack
+hexdump
 M2Crypto
 -e external/pykcp
