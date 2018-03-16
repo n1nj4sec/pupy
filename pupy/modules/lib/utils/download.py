@@ -40,6 +40,7 @@ T_CLOSE    = 5
 T_C_EXC    = 6
 T_DIRVIEW  = 7
 T_EXC      = 8
+T_FINISH   = 9
 
 D_ROOT     = 0
 D_DIRS     = 1
@@ -52,7 +53,7 @@ D_FILES    = 6
 class DownloadFronted(object):
     def __init__(self, client, exclude=None, include=None, follow_symlinks=False,
                  ignore_size=False, no_single_device=False,
-                     honor_single_file_root=False, verbose=None, error=None):
+                     honor_single_file_root=False, verbose=None, success=None, error=None):
 
         self.client = client
 
@@ -64,6 +65,7 @@ class DownloadFronted(object):
         self._honor_single_file_root = honor_single_file_root
 
         self._verbose = verbose
+        self._success = success
         self._error = error
 
         self._completed = Event()
@@ -151,7 +153,7 @@ class DownloadFronted(object):
 
     @property
     def dest_file(self):
-        return self._last_downloaded_dest or self._archive_file \
+        return self._archive_file or self._last_downloaded_dest \
           or self._download_dir or self._local_path
 
     def download(self, remote_file, local_file=None, archive=False):
@@ -345,6 +347,11 @@ class DownloadFronted(object):
         elif msgtype == T_EXC:
             if self._error:
                 self._error('Error: {}/{}'.format(msg[F_EXC], msg[F_DATA]))
+
+        elif msgtype == T_FINISH:
+            if self._success:
+                self._success('Completed: {} -> {}'.format(
+                    msg[F_DATA], self.dest_file))
 
         elif msgtype in (T_CLOSE, T_C_EXC):
             if not self._current_file:

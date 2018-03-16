@@ -41,14 +41,14 @@ class DownloaderScript(PupyModule):
                                      help='Allow to touch another devices (st_rdev)')
         cls.arg_parser.add_argument('-S', '--calculate-size', action='store_true', help='Calculate size only')
 
-        cls.arg_parser.add_argument('remote_file', metavar='<remote_path>')
+        cls.arg_parser.add_argument('remote_file', metavar='<remote_path>', completer=remote_path_completer)
         cls.arg_parser.add_argument('local_file', nargs='?', metavar='<local_path>', completer=path_completer)
 
     def run(self, args):
         self._downloader = DownloadFronted(
             self.client,
             args.exclude, args.include, args.follow_symlinks, args.ignore_size, args.no_single_device,
-            False, self.info if args.verbose else None, self.error
+            False, self.info if args.verbose else None, self.success, self.error
         )
 
         if args.calculate_size:
@@ -61,8 +61,10 @@ class DownloaderScript(PupyModule):
                 args.local_file,
                 args.archive
             )
-            if not args.verbose:
-                self.success('{}'.format(self._downloader.dest_file))
+
+            if args.verbose:
+                self.info('Destination folder: {}'.format(self._downloader.dest_file))
+
 
     def interrupt(self):
         if self._downloader:
