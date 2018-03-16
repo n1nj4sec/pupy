@@ -342,9 +342,9 @@ class PupyCmd(cmd.Cmd):
             endidx = readline.get_endidx() - stripped
 
             try:
-                context = CompletionContext(self.pupsrv, self, self.config)
-                compfunc = self.commands.completer(context, line)
-                self.completion_matches = compfunc(text, line, begidx, endidx, context)
+                context = CompletionContext(self.pupsrv, self, self.config, self.commands)
+                compfunc, module, args = self.commands.completer(context, line)
+                self.completion_matches = compfunc(module, args, text, context)
             except:
                 pass
 

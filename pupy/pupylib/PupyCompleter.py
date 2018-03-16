@@ -25,14 +25,14 @@ from argparse import REMAINDER
 from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 
 def list_completer(l):
-    def func(text, line, begidx, endidx, context):
+    def func(module, args, text, context):
         return [x+" " for x in l if x.startswith(text)]
     return func
 
-def void_completer(text, line, begidx, endidx, context):
+def void_completer(module, args, text, context):
     return []
 
-def remote_path_completer(text, line, begidx, endidx, context, dirs=None):
+def remote_path_completer(module, args, text, context, dirs=None):
     results = []
     try:
         import logging
@@ -40,7 +40,7 @@ def remote_path_completer(text, line, begidx, endidx, context, dirs=None):
         if len(clients) != 1:
             return []
 
-        path = text or './'
+        path = text or ''
 
         client = clients[0]
         client.load_package(['pupyutils.basic_cmds', 'scandir'])
@@ -56,13 +56,13 @@ def remote_path_completer(text, line, begidx, endidx, context, dirs=None):
 
     return results
 
-def remote_dirs_completer(text, line, begidx, endidx, context):
-    return remote_path_completer(text, line, begidx, endidx, context, dirs=True)
+def remote_dirs_completer(module, args, text, context):
+    return remote_path_completer(text, context, dirs=True)
 
-def remote_files_completer(text, line, begidx, endidx, context):
-    return remote_path_completer(text, line, begidx, endidx, context, dirs=False)
+def remote_files_completer(module, args, text, context):
+    return remote_path_completer(text, context, dirs=False)
 
-def path_completer(text, line, begidx, endidx, context):
+def path_completer(module, args, text, context):
     l=[]
     if not text:
         l=os.listdir(".")
@@ -82,7 +82,7 @@ def path_completer(text, line, begidx, endidx, context):
             pass
     return l
 
-def module_name_completer(text, line, begidx, endidx, context):
+def module_name_completer(module, args, text, context):
     modules = (
         x.get_name() for x in context.server.iter_modules(
         by_clients=True,
@@ -93,38 +93,33 @@ def module_name_completer(text, line, begidx, endidx, context):
         module for module in modules if module.startswith(text) or not(text)
     ]
 
-def module_args_completer(text, line, begidx, endidx, context):
-    module_name = context.parsed.module
+def module_args_completer(module, args, text, context):
     try:
-        module = context.server.get_module(module_name)
+        args = module.arguments
+        module = context.server.get_module(module.module)
     except ValueError:
         return []
 
-    args = shlex.split(line)
-
     completer = module.arg_parser.get_completer()
-    context.parsed.module = module
-    context.parsed.args = args
 
-    line = text
     text = text
     begindex = 0
     endindex = len(text)
 
-    return completer.complete(text, line, begidx, endidx, context)
+    return completer.complete(module, args, text, context)
 
 
 class CompletionContext(object):
 
     __slots__ = (
-        'server', 'handler', 'config', 'parsed'
+        'server', 'handler', 'config', 'commands'
     )
 
-    def __init__(self, server, handler, config, parsed=None):
+    def __init__(self, server, handler, config, commands):
         self.server = server
         self.handler = handler
         self.config = config
-        self.parsed = parsed
+        self.commands = commands
 
 class PupyModCompleter(object):
     def __init__(self, parser):
@@ -176,13 +171,7 @@ class PupyModCompleter(object):
     def get_positional_args(self):
         return self.conf['positional_args']
 
-    def get_last_text(self, text, line, begidx, endidx, context):
-        try:
-            return line[0:begidx-1].rsplit(' ',1)[1].strip()
-        except Exception:
-            return None
-
-    def get_positional_arg_index(self, text, tab, begidx, endidx, context):
+    def get_positional_arg_index(self, text, tab, context):
         posmax = len(self.get_positional_args())
 
         if not tab:
@@ -243,15 +232,13 @@ class PupyModCompleter(object):
         if index < len(self.get_positional_args()):
             return self.get_positional_args()[index][1]['completer']
 
-    def complete(self, text, line, begidx, endidx, context):
-        last_text = self.get_last_text(text, line, begidx, endidx, context)
-
-        if last_text in self.get_optional_args(nargs=1):
-            completer = self.get_optional_args_completer(last_text)
-            return completer(text, line, begidx, endidx, context)
+    def complete(self, module, args, text, context):
+        if text in self.get_optional_args(nargs=1):
+            completer = self.get_optional_args_completer(text)
+            return completer(module, args, text, context)
 
         positional_index, remainder = self.get_positional_arg_index(
-            text, context.parsed.args, begidx, endidx, context)
+            text, args, context)
 
         if text.startswith('-') and not remainder:
             return [
@@ -262,12 +249,10 @@ class PupyModCompleter(object):
             if not completer:
                 return None
 
-            if context and context.parsed and context.parsed.args:
+            if args:
                 try:
-                    parsed, rest = self.parser.parse_known_args(context.parsed.args)
-                    context.parsed = parsed
-                    context.parsed.args = rest
+                    module, args = self.parser.parse_known_args(args)
                 except (PupyModuleUsageError, PupyModuleExit):
                     pass
 
-            return completer(text, line, begidx, endidx, context)
+            return completer(module, args, text, context)
