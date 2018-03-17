@@ -149,7 +149,7 @@ class Log(object):
         self.out = out
         self.log = log
         self.rec = None
-        if rec and self.out.isatty() and rec in ('asciinema', 'ttyrec'):
+        if rec in ('asciinema', 'ttyrec'):
             self.rec = rec
         self.last = 0
         self.start = 0

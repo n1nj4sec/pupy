@@ -14,47 +14,233 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 import sys
-import readline
 import cmd
-import shlex
-import string
-import re
 import os
 import os.path
 import traceback
-import platform
-import random
-try:
-    import __builtin__ as builtins
-except ImportError:
-    import builtins
-from multiprocessing.pool import ThreadPool
 import time
 import logging
-import traceback
+
+import termios
+import tty
+import pty
+import select
+import fcntl
+import array
+import readline
+
 import rpyc
-import rpyc.utils.classic
 from .PupyErrors import PupyModuleExit, PupyModuleError, PupyModuleUsageError
-from .PupyModule import PupyArgumentParser
 from .PupyModule import (
-    REQUIRE_NOTHING, REQUIRE_STREAM, REQUIRE_REPL, REQUIRE_TERMINAL
+    REQUIRE_NOTHING, REQUIRE_REPL, REQUIRE_TERMINAL
 )
-from .PupyJob import PupyJob
 from .PupyCompleter import CompletionContext
 from .PupyVersion import BANNER, BANNER_INFO
 from .PupyOutput import *
-from argparse import REMAINDER
-import copy
-from functools import partial
 from threading import Event, Lock
-from pupylib.utils.term import colorize, hint_to_text, obj2utf8
-from pupylib.utils.network import *
 
-from StringIO import StringIO
+from pupylib.utils.term import colorize, hint_to_text, consize
+from pupylib.PupySignalHandler import set_signal_winch
 
 from commands import Commands, InvalidCommand
 
-import pupygen
+class IOGroup(object):
+    __slots__ = ( '_stdin', '_stdout', '_logger' )
+
+    def __init__(self, stdin, stdout, logger=None):
+        self._stdin = stdin
+        self._stdout = stdout
+        self._logger = logger
+
+    @property
+    def stdin(self):
+        return self._stdin
+
+    @property
+    def stdout(self):
+        return self._stdout
+
+    def set_logger(self, logger):
+        if self._logger:
+            self._logger.close()
+
+        self._logger = logger
+
+    def set_title(self, title):
+        pass
+
+    def as_text(self, msg):
+        return hint_to_text(msg)
+
+    def close(self):
+        pass
+
+    def consize(self):
+        return 80, 25
+
+
+class RawTerminal(IOGroup):
+    __slots__ = (
+        '_active',
+        '_specials',
+        '_special_state',
+        '_special_activated',
+        '_on_winch',
+        '_closed',
+        '_tc_settings',
+        '_winch_handler',
+        '_stdin_fd',
+        '_stdout_fd'
+    )
+
+    def __init__(self, stdin, stdout):
+        self._stdin = stdin
+        self._stdout = stdout
+        self._specials = {}
+        self._on_winch = None
+        self._active = False
+        self._tc_settings = None
+        self._winch_handler = None
+
+        self._stdin_fd = None
+        self._special_state = ''
+        self._special_activated = False
+
+    def _on_sigwinch(self, signum, frame):
+        if self._on_winch is not None:
+            buf = array.array('h', [0, 0, 0, 0])
+            fcntl.ioctl(pty.STDOUT_FILENO, termios.TIOCGWINSZ, buf, True)
+            self._on_winch(buf[0], buf[1], buf[2], buf[3])
+
+    def _stdin_read(self):
+        buf = b''
+        while self._active:
+            r, _, _ = select.select([self._stdin], [], [], 0.5)
+            if not r:
+                continue
+
+            buf_ = array.array('i', [0])
+
+            if fcntl.ioctl(self._stdin, termios.FIONREAD, buf_, 1) == -1:
+                break
+
+            if not buf_[0]:
+                continue
+
+            buf += os.read(self._stdin_fd, buf_[0])
+            if buf:
+                break
+
+        return buf
+
+    def __iter__(self):
+        self._on_sigwinch(None, None)
+
+        while self._active:
+            buf = self._stdin_read()
+            if not self._specials:
+                if self._active and buf:
+                    yield buf
+            else:
+                self._special_state += buf
+                while self._special_state:
+                    again = False
+
+                    data_buf = ''
+                    special_buf = ''
+
+                    for b in self._special_state:
+                        if self._special_activated:
+                            if not special_buf and b != '~':
+                                data_buf += b
+                                if b == '\r':
+                                    yield data_buf
+                                    self._special_state = self._special_state[
+                                        len(data_buf):]
+
+                                    data_buf = ''
+                                    again = True
+                                    break
+                                else:
+                                    self._special_activated = False
+                                    continue
+                            else:
+                                special_buf += b
+                                if special_buf in self._specials:
+                                    cb = self._specials[special_buf]
+                                    cb(self)
+                                    again = True
+                                    self._special_state = self._special_state[
+                                        len(special_buf):]
+                                    special_buf = ''
+                                    self._special_activated = False
+                                    break
+                                elif not any([x.startswith(special_buf) for x in self._specials]):
+                                    data_buf += special_buf
+                                    special_buf = ''
+                                    self._special_activated = False
+                        else:
+                            data_buf += b
+                            if b == '\r':
+                                self._special_activated = True
+                                yield data_buf
+                                self._special_state = self._special_state[
+                                    len(data_buf):]
+
+                                data_buf = ''
+                                again = True
+                                break
+
+                    if not again:
+                        break
+
+            if data_buf:
+                self._special_state = self._special_state[len(data_buf):]
+                yield data_buf
+
+    def __enter__(self):
+        self._stdin_fd = self._stdin.fileno()
+        self._stdout_fd = self._stdout.fileno()
+
+        self._tc_settings = termios.tcgetattr(self._stdin_fd)
+        tty.setraw(self._stdin_fd)
+
+        if self._on_winch:
+            self._winch_handler = set_signal_winch(self._on_sigwinch)
+
+        self._active = True
+
+    def __exit__(self, type, value, tb):
+        self._active = False
+
+        termios.tcsetattr(self._stdin_fd, termios.TCSADRAIN, self._tc_settings)
+
+        if self._on_winch:
+            set_signal_winch(self._winch_handler)
+
+    def set_on_winch(self, on_winch):
+        self._on_winch = on_winch
+
+    def set_mapping(self, sequence, on_sequence):
+        if not sequence or len(sequence) < 2 or not sequence.startswith('~'):
+            raise ValueError('Sequence should start from ~ and be at least 2 symbols')
+
+        self._specials[sequence] = on_sequence
+
+    def write(self, data):
+        if self._active:
+            os.write(self._stdout_fd, data)
+
+    def close(self):
+        self._active = False
+
+    def consize(self):
+        return consize(self._stdout)
+
+    @property
+    def closed(self):
+        return not self._active
+
 
 class ObjectStream(object):
     __slots__ = ( '_buffer', '_display', '_stream' )
@@ -87,22 +273,6 @@ class ObjectStream(object):
 
     def __nonzero__(self):
         return bool(self._buffer)
-
-class IOGroup(object):
-    __slots__ = ( 'stdin', 'stdout' )
-
-    def __init__(self, stdin, stdout):
-        self.stdin = stdin
-        self.stdout = stdout
-
-    def set_title(self, title):
-        pass
-
-    def as_text(self, msg):
-        return hint_to_text(msg)
-
-    def close(self):
-        pass
 
 class PupyCmd(cmd.Cmd):
     def __init__(self, pupsrv):
@@ -251,7 +421,11 @@ class PupyCmd(cmd.Cmd):
             if amount > 1:
                 raise NotImplementedError('This UI does not support more than 1 repl or terminal')
 
-            return [IOGroup(self.stdin, self.stdout)]
+            if requirements == REQUIRE_TERMINAL:
+                return [RawTerminal(self.stdin, self.stdout)]
+            else:
+                return [IOGroup(self.stdin, self.stdout)]
+
         elif amount == 1 and not background:
             return [IOGroup(None, ObjectStream(self.display, stream))]
         else:
@@ -333,13 +507,7 @@ class PupyCmd(cmd.Cmd):
 
     def complete(self, text, state):
         if state == 0:
-            import readline
-
-            origline = readline.get_line_buffer()
-            line = origline.lstrip()
-            stripped = len(origline) - len(line)
-            begidx = readline.get_begidx() - stripped
-            endidx = readline.get_endidx() - stripped
+            line = readline.get_line_buffer().lstrip()
 
             try:
                 context = CompletionContext(self.pupsrv, self, self.config, self.commands)
