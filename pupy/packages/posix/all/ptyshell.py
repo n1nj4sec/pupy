@@ -67,7 +67,17 @@ class PtyShell(object):
         self.real_stdout = sys.stdout
 
     def close(self):
+        if self.master:
+            try:
+                self.master.close()
+            except:
+                pass
+
+            self.master = None
+
         if self.prog is not None:
+            rc = None
+
             try:
                 rc = self.prog.poll()
             except:
@@ -86,17 +96,9 @@ class PtyShell(object):
                     pass
 
                 try:
-                    self.prog.poll()
+                    self.prog.communicate()
                 except:
                     pass
-
-        if self.master:
-            try:
-                self.master.close()
-            except:
-                pass
-
-            self.master = None
 
     def __del__(self):
         self.close()
