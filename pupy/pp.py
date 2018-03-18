@@ -175,6 +175,11 @@ def print_exception(tag=''):
             print error
 
 class PStore(object):
+
+    __slots__ = (
+        '_pstore_path', '_pstore_key', '_pstore'
+    )
+
     def __new__(cls, *args, **kw):
         if not hasattr(cls, '_instance'):
             orig = super(PStore, cls)
@@ -275,6 +280,11 @@ class PStore(object):
 
 
 class Task(threading.Thread):
+
+    __slots__ = (
+        '_pstore', '_stopped', '_manager', '_dirty'
+    )
+
     stopped = None
     results_type = list
 
@@ -345,6 +355,8 @@ class Manager(object):
     TERMINATE = 0
     PAUSE = 1
     SESSION = 2
+
+    __slots__ = ( 'tasks', 'pstore' )
 
     def __new__(cls, *args, **kw):
         if not hasattr(cls, '_instance'):
