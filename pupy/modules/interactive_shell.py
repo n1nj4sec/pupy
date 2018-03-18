@@ -3,6 +3,7 @@
 import sys
 import os
 import rpyc
+import threading
 
 from pupylib.PupyModule import *
 
@@ -45,49 +46,68 @@ class InteractiveShell(PupyModule):
         if not 'linux' in sys.platform:
             raise NotImplementedError('Interactive shell is not supported for this platform')
 
-        PtyShell = self.client.remote('ptyshell', 'PtyShell', False)
-
-        ps = PtyShell()
-        program = None
-
-        if args.program:
-            program = args.program.split()
-
-        self.client.conn.register_remote_cleanup(ps.close)
-
-        term = os.environ.get('TERM', 'xterm')
-
         # Hooks
 
         # self.stdout may be mapped to self.iogroup.stdout via logger
         # TODO: Logger refactoring - migrate to IOGroup?
+
+        ps = None
+        detached = [False]
+
         def write(data):
             if not self.iogroup.closed:
                 self.stdout.write(data)
-                self.stdout.flush()
 
-        def close(iogroup):
+        def local_detach(iogroup):
+            detached[0] = True
             iogroup.close()
+
+        def local_close(iogroup):
+            iogroup.close()
+
+        term = os.environ.get('TERM', 'xterm')
+
+        acquire_shell = self.client.remote('ptyshell', 'acquire', False)
+        release_shell = self.client.remote('ptyshell', 'release', False)
+
+        new, ps = acquire_shell(args.program, term, args.su)
+
+        if not ps:
+            self.error('Can\'t create shell')
+            return
+
+        if new:
+            self.client.conn.register_remote_cleanup(release_shell)
 
         remote_write = rpyc.async(ps.write)
 
         self.iogroup.set_on_winch(rpyc.async(ps.set_pty_size))
-        self.iogroup.set_mapping('~~~.', close)
+        self.iogroup.set_mapping('~~~.', local_close)
+        self.iogroup.set_mapping('~~~,', local_detach)
+
+        if new:
+            self.success('Start new shell')
+        else:
+            self.warning('Reuse previous shell')
+
+        with self.iogroup:
+            ps.attach(write, self.iogroup.close)
+
+            for data in self.iogroup:
+                remote_write(data)
 
         try:
-            with self.iogroup:
-                ps.spawn(program, term=term, suid=args.su)
-                ps.start_read_loop(write, self.iogroup.close)
+            ps.detach()
+        except Exception, e:
+            detached[0] = False
+            self.error(e)
 
-                for data in self.iogroup:
-                    remote_write(data)
-
-        finally:
+        if detached[0]:
+            self.warning('Shell detached')
+        else:
             try:
-                ps.close()
-                self.client.conn.unregister_remote_cleanup(ps.close)
+                release_shell()
+                self.success('Shell closed')
+                self.client.conn.unregister_remote_cleanup(release_shell)
             except Exception, e:
                 self.error(e)
-
-    def interrupt(self):
-        self.iogroup.close()

@@ -36,6 +36,10 @@ COLORS = {
     'white': '\033[39m'
 }
 
+SHADOW_SCREEN_TO = '\033[?1049h\033[2J\033[1;1H'
+SHADOW_SCREEN_FROM = '\033[?1049l'
+RESET = '\033g\033c\033r\033m'
+
 # https://gist.githubusercontent.com/jtriley/1108174/raw/6ec4c846427120aa342912956c7f717b586f1ddb/terminalsize.py
 def consize(file=None):
     """ getTerminalSize()

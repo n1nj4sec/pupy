@@ -40,6 +40,7 @@ from .PupyOutput import *
 from threading import Event, Lock
 
 from pupylib.utils.term import colorize, hint_to_text, consize
+from pupylib.utils.term import SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM
 from pupylib.PupySignalHandler import set_signal_winch
 
 from commands import Commands, InvalidCommand
@@ -143,6 +144,9 @@ class RawTerminal(IOGroup):
                     yield buf
             else:
                 self._special_state += buf
+
+                data_buf = ''
+
                 while self._special_state:
                     again = False
 
@@ -208,6 +212,7 @@ class RawTerminal(IOGroup):
         if self._on_winch:
             self._winch_handler = set_signal_winch(self._on_sigwinch)
 
+        self._stdout.write(SHADOW_SCREEN_TO)
         self._active = True
 
     def __exit__(self, type, value, tb):
@@ -217,6 +222,8 @@ class RawTerminal(IOGroup):
 
         if self._on_winch:
             set_signal_winch(self._winch_handler)
+
+        self._stdout.write(SHADOW_SCREEN_FROM)
 
     def set_on_winch(self, on_winch):
         self._on_winch = on_winch
@@ -422,7 +429,12 @@ class PupyCmd(cmd.Cmd):
                 raise NotImplementedError('This UI does not support more than 1 repl or terminal')
 
             if requirements == REQUIRE_TERMINAL:
-                return [RawTerminal(self.stdin, self.stdout)]
+                stdout2 = os.dup(self.stdout.fileno())
+                return [
+                    RawTerminal(
+                        self.stdin,
+                        os.fdopen(stdout2, 'w', 0)
+                )]
             else:
                 return [IOGroup(self.stdin, self.stdout)]
 
