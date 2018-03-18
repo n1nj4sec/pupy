@@ -105,7 +105,7 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			continue;
 
 		case WAIT_OBJECT_0:
-			break;
+			return 0;
 
 		case WAIT_OBJECT_0 + 1:
 			while (PeekMessage( &msg, NULL, 0, 0, PM_REMOVE)) {
@@ -116,7 +116,8 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		}
     }
 
-    return 0;
+    // We should never get here
+    return -1;
 }
 #else
 int main()
