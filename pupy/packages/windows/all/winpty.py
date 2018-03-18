@@ -12,6 +12,9 @@ from win32pipe import PeekNamedPipe
 
 import pupy
 
+TerminateProcess = windll.kernel32.TerminateProcess
+TerminateProcess.argtypes = ( HANDLE, c_int )
+
 WINPTY_ERROR_SUCCESS = 0
 WINPTY_ERROR_OUT_OF_MEMORY = 1
 WINPTY_ERROR_SPAWN_CREATE_PROCESS_FAILED = 2
@@ -107,6 +110,7 @@ class WinPTY(object):
         self._conin = winpty_conin_name(self._pty)
         self._conout = winpty_conout_name(self._pty)
         self._conerr = winpty_conerr_name(self._pty)
+        self._process_handle = None
 
         try:
             self._conin_pipe = CreateFile(
@@ -156,6 +160,8 @@ class WinPTY(object):
                         error
                     )
 
+                self._process_handle = process_handle
+
             finally:
                 winpty_spawn_config_free(spawn_ctx)
 
@@ -197,10 +203,36 @@ class WinPTY(object):
 
         self._closed = True
 
+        # Ensure _conin_pipe empty
+
+        if self._process_handle:
+            try:
+                TerminateProcess(self._process_handle, 0)
+            except:
+                pass
+
+        while True:
+            try:
+                error, data = ReadFile(self._conout_pipe, 8192)
+                if not data:
+                    break
+            except:
+                break
+
+        if self._conerr_pipe:
+            while True:
+                try:
+                    error, data = ReadFile(self._conerr_pipe, 8192)
+                    if not data:
+                        break
+                except:
+                    break
+
         CloseHandle(self._conin_pipe)
         CloseHandle(self._conout_pipe)
         if self._conerr_pipe:
             CloseHandle(self._conerr_pipe)
+
         winpty_free(self._pty)
 
     def __enter__(self):
