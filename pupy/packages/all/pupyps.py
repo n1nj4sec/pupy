@@ -238,6 +238,31 @@ def interfaces():
         'stats': stats
     }
 
+def drives():
+    partitions = []
+    for partition in psutil.disk_partitions():
+        record = {
+            'device': partition.device,
+            'mountpoint': partition.mountpoint,
+            'fstype': partition.fstype,
+            'opts': partition.opts
+        }
+
+        try:
+            usage = psutil.disk_usage(partition.mountpoint)
+            record.update({
+                'total': usage.total,
+                'used': usage.used,
+                'free': usage.free,
+                'percent': usage.percent
+            })
+        except:
+            pass
+
+        partitions.append(record)
+
+    return partitions
+
 def cstring(string):
     return string[:string.find('\x00')]
 
