@@ -213,9 +213,9 @@ GetTokenInformation                 = advapi32.GetTokenInformation
 GetTokenInformation.restype         = BOOL
 GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, POINTER(DWORD)]
 
-GetUserNameA                        = advapi32.GetUserNameA
-GetUserNameA.restype                = BOOL
-GetUserNameA.argtypes               = [LPTSTR, POINTER(DWORD)]
+GetUserNameW                        = advapi32.GetUserNameW
+GetUserNameW.restype                = BOOL
+GetUserNameW.argtypes               = [LPWSTR, POINTER(DWORD)]
 
 ImpersonateLoggedOnUser             = advapi32.ImpersonateLoggedOnUser
 ImpersonateLoggedOnUser.restype     = BOOL
@@ -272,18 +272,18 @@ IsUserAnAdmin.argtypes              = []
 
 def GetUserName():
     nSize = DWORD(0)
-    GetUserNameA(None, byref(nSize))
+    GetUserNameW(None, byref(nSize))
     error = GetLastError()
 
     ERROR_INSUFFICIENT_BUFFER = 122
-    if error != ERROR_INSUFFICIENT_BUFFER:
+    if error and error != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(error)
 
-    lpBuffer = create_string_buffer('', nSize.value + 1)
+    lpBuffer = create_unicode_buffer(u'', nSize.value + 1)
 
-    success = GetUserNameA(lpBuffer, byref(nSize))
-    if not success:
+    if not GetUserNameW(lpBuffer, byref(nSize)):
         raise WinError(get_last_error())
+
     return lpBuffer.value
 
 def GetTokenSid(hToken):
@@ -313,25 +313,20 @@ def EnablePrivilege(privilegeStr, hToken = None):
     if hToken == None:
         hToken = HANDLE(INVALID_HANDLE_VALUE)
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
-        OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken))
-        if e != 0:
+        if not OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken)):
             raise WinError(get_last_error())
         CloseHandle(hProcess)
 
     privilege_id = LUID()
-    LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id))
-    e = GetLastError()
-    if e != 0:
-        raise WinError(e)
+    if not LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id)):
+        raise WinError(get_last_error())
 
     SE_PRIVILEGE_ENABLED = 0x00000002
     laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
     tp  = TOKEN_PRIVILEGES(1, laa)
 
-    AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None)
-    e = GetLastError()
-    if e != 0:
-        raise WinError(e)
+    if not AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None):
+        raise WinError(get_last_error())
 
 def ListSids():
     sids=[]
@@ -550,7 +545,7 @@ def rev2self():
         print e
         pass
     global_ref=None
-    print "\t[+] Running as: " + GetUserName()
+    print u'\t[+] Running as: ' + GetUserName()
 
 def get_currents_privs():
     '''
