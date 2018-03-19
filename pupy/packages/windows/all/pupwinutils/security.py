@@ -101,7 +101,7 @@ class LUID_AND_ATTRIBUTES(Structure):
         size = DWORD(10240)
         buf = create_unicode_buffer(size.value)
         res = LookupPrivilegeName(None, self.Luid, buf, size)
-        if res == 0: raise RuntimeError(GetLastError())
+        if res == 0: raise WinError(get_last_error())
         return buf[:size.value]
 
     def __str__(self):
@@ -283,7 +283,7 @@ def GetUserName():
 
     success = GetUserNameA(lpBuffer, byref(nSize))
     if not success:
-        raise WinError()
+        raise WinError(get_last_error())
     return lpBuffer.value
 
 def GetTokenSid(hToken):
@@ -296,7 +296,7 @@ def GetTokenSid(hToken):
 
     r = GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize))
     if r != 0:
-        raise WinError()
+        raise WinError(get_last_error())
 
     address = LocalAlloc(0x0040, dwSize)
     GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize))
@@ -314,9 +314,8 @@ def EnablePrivilege(privilegeStr, hToken = None):
         hToken = HANDLE(INVALID_HANDLE_VALUE)
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
         OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken))
-        e = GetLastError()
         if e != 0:
-            raise WinError(e)
+            raise WinError(get_last_error())
         CloseHandle(hProcess)
 
     privilege_id = LUID()
@@ -463,7 +462,7 @@ def impersonate_token(hToken):
     SecurityImpersonation = 2
     TokenPrimary = 1
     if not DuplicateTokenEx(hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref(hTokendupe)):
-        raise WinError()
+        raise WinError(get_last_error())
     CloseHandle(hToken)
 
     try:
@@ -480,7 +479,7 @@ def impersonate_token(hToken):
         print e
 
     if not ImpersonateLoggedOnUser(hTokendupe):
-        raise WinError()
+        raise WinError(get_last_error())
 
     return hTokendupe
 
@@ -532,11 +531,11 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
 
     success = userenv.CreateEnvironmentBlock(byref(cenv), hTokendupe, 0)
     if not success:
-        raise WinError()
+        raise WinError(get_last_error())
 
     success = CreateProcessAsUser(hTokendupe, None, ' '.join(args), None, None, True, dwCreationflag, cenv, None, byref(lpStartupInfo), byref(lpProcessInformation))
     if not success:
-        raise WinError()
+        raise WinError(get_last_error())
 
     print "[+] process created PID: " + str(lpProcessInformation.dwProcessId)
     return lpProcessInformation.dwProcessId
