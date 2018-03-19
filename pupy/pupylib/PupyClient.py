@@ -435,6 +435,7 @@ class PupyClient(object):
                     if module in self.remotes:
                         del self.remotes[module]
 
+        logging.info('Upload packages bundle, size={}'.format(len(packages)))
         self.remote_add_package(
             packages,
             compressed=True,
