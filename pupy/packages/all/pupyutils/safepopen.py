@@ -42,19 +42,6 @@ class SafePopen(object):
         self._popen_args = popen_args
         self._interactive = popen_kwargs.get('interactive', False)
 
-        # Well, this is tricky. If I'll pass array, then
-        # it will be RPyC netref, so when I'll try to start
-        # Popen, internally it will be dereferenced. But.
-        # For some reason somewhere some lock acquires. Maybe
-        # on fucked pupysh side? And all stuck.
-        # RPYC IS CRAZY SHIT! DO WE REALLY NEED IT?!!!1111
-
-        self._popen_args = [
-            str(args) if type(args) == str else [
-                str(x) for x in args
-            ] for args in self._popen_args
-        ]
-
         self._popen_kwargs = {
             k:v for k,v in popen_kwargs.iteritems() \
             if not k in ( 'interactive' )
@@ -105,7 +92,7 @@ class SafePopen(object):
 
         except OSError as e:
             if read_cb:
-                read_cb("Error: {}".format(e.strerror))
+                read_cb("[ LAUNCH ERROR: {} ]\n".format(e.strerror))
             try:
                 returncode = self._pipe.poll()
             except Exception:
@@ -154,6 +141,9 @@ class SafePopen(object):
         t.daemon = True
         t.start()
 
+    def get_returncode(self):
+        return self.returncode
+
     def terminate(self):
         if not self.returncode and self._pipe:
             try:
@@ -171,7 +161,8 @@ class SafePopen(object):
 def safe_exec(read_cb, close_cb, *args, **kwargs):
     sfp = SafePopen(*args, **kwargs)
     sfp.execute(close_cb, read_cb)
-    return sfp.terminate
+
+    return sfp.terminate, sfp.get_returncode
 
 def check_output(cmdline, shell=True, env=None, encoding=None):
     p = subprocess.Popen(

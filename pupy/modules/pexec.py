@@ -22,9 +22,9 @@ __class_name__="PExec"
 class PExec(PupyModule):
     """ Execute shell commands non-interactively on a remote system in background using popen"""
 
-    pipe = None
-    completed = False
-    terminate = threading.Event()
+    terminate_pipe = None
+    terminated = False
+
     updl = re.compile('\^([^\^]+)\^([<>])([^\^]+)\^')
     # daemon = True
 
@@ -70,7 +70,7 @@ class PExec(PupyModule):
         rexpandvars = self.client.remote('os.path', 'expandvars')
         rexists = self.client.remote('os.path', 'exists')
         rchmod = self.client.remote('os', 'chmod')
-        SafePopen = self.client.remote('pupyutils.safepopen', 'SafePopen', False)
+        safe_exec = self.client.remote('pupyutils.safepopen', 'safe_exec', False)
 
         for i, arg in enumerate(cmdargs):
             for local, direction, remote in self.updl.findall(arg):
@@ -160,33 +160,29 @@ class PExec(PupyModule):
                     )
                 ]
 
-        self.pipe = SafePopen(cmdargs, **cmdenv)
-
-        if hasattr(self.job, 'id'):
-            self.success('Started at {}): '.format(
-                datetime.datetime.now()))
-
-        self.success('Command: {}'.format(' '.join(
-            x if not ' ' in x else "'" + x + "'" for x in cmdargs
-        ) if not cmdenv['shell'] else cmdargs))
-
         close_event = threading.Event()
 
         def on_read(data):
             self.stdout.write(data)
 
-        def on_close():
-            close_event.set()
+        self.terminate_pipe, get_returncode = safe_exec(
+            None if args.N else on_read,
+            close_event.set,
+            tuple(cmdargs), **cmdenv)
 
-        self.pipe.execute(on_close, None if args.N else on_read)
-        while not ( self.terminate.is_set() or close_event.is_set() ):
-            close_event.wait()
+        if hasattr(self.job, 'id'):
+            self.success('Started at {}): '.format(
+                datetime.datetime.now()))
 
-        if self.pipe.returncode == 0:
+        close_event.wait()
+
+        retcode = get_returncode()
+
+        if retcode == 0:
             self.success('Successful at {}: '.format(datetime.datetime.now()))
         else:
             self.error(
-                'Ret: {} at {}'.format(self.pipe.returncode, datetime.datetime.now()))
+                'Ret: {} at {}'.format(retcode, datetime.datetime.now()))
 
         for remote, local in to_download:
             if rexists(remote):
@@ -196,8 +192,8 @@ class PExec(PupyModule):
                 self.error('Remote file {} not exists (scheduled for download)'.format(remote))
 
     def interrupt(self):
-        if not self.completed and self.pipe:
+        if not self.terminated and self.terminate_pipe:
+            self.terminated = True
             self.error('Stopping command')
-            self.pipe.terminate()
-            self.terminate.set()
+            self.terminate_pipe()
             self.error('Stopped')

