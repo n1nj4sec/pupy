@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.PupyOutput import Color, TruncateToTerm, MultiPart, Table
-from modules.lib.utils.shell_exec import shell_exec
 import logging
 import re
 

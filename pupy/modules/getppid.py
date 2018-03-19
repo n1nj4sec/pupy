@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
-from modules.lib.utils.shell_exec import shell_exec
 import re, os
 
 __class_name__="PsModule"

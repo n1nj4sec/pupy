@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.utils.term import colorize
-from modules.lib.utils.shell_exec import shell_exec
-from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Drives"
 
-@config(category='admin', compatibilities=['windows', 'posix', 'darwin'])
+@config(category='admin', compatibilities=['windows', 'posix'])
 class Drives(PupyModule):
     """ List valid drives in the system """
 
@@ -31,14 +29,14 @@ class Drives(PupyModule):
 
             self.stdout.write(list_drives())
 
-        elif self.client.is_posix():
+        elif self.client.is_posix() or self.client.is_darwin():
             tier1 = ( 'network', 'fuse', 'dm', 'block', 'vm' )
 
             mounts = self.client.remote('mount', 'mounts')
             getuid = self.client.remote('os', 'getuid')
             getgid = self.client.remote('os', 'getgid')
 
-            mountinfo = obtain(mounts())
+            mountinfo = mounts()
             uid = getuid()
             gid = getgid()
 
@@ -163,6 +161,3 @@ class Drives(PupyModule):
                 output.append('')
 
             self.stdout.write('\n'.join(output))
-
-        elif self.client.is_darwin():
-            self.log(shell_exec(self.client, 'df -H'))
