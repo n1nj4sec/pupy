@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
+from pupylib.PupyOutput import Table
 from pupylib.utils.term import colorize
+from modules.lib import size_human_readable
 
 __class_name__="Drives"
 
-@config(category='admin', compatibilities=['windows', 'posix'])
+@config(category='admin', compatibilities=['windows', 'posix', 'darwin'])
 class Drives(PupyModule):
     """ List valid drives in the system """
 
     dependencies={
+        'all': [ 'psutil' ],
+        'posix': [ 'mount' ],
         'windows': [
             'win32api', 'win32com', 'pythoncom',
             'winerror', 'wmi', 'pupwinutils.drives'
         ],
-        'posix': [ 'mount' ]
     }
 
     @classmethod
@@ -24,12 +27,8 @@ class Drives(PupyModule):
         )
 
     def run(self, args):
-        if self.client.is_windows():
-            list_drives = self.client.remote('pupwinutils.drives', 'list_drives')
-
-            self.stdout.write(list_drives())
-
-        elif self.client.is_posix() or self.client.is_darwin():
+        ok = False
+        if self.client.is_posix():
             tier1 = ( 'network', 'fuse', 'dm', 'block', 'vm' )
 
             mounts = self.client.remote('mount', 'mounts')
@@ -160,4 +159,37 @@ class Drives(PupyModule):
 
                 output.append('')
 
-            self.stdout.write('\n'.join(output))
+            self.log('\n'.join(output))
+
+            ok = True
+
+        elif self.client.is_windows():
+            try:
+                list_drives = self.client.remote('pupwinutils.drives', 'list_drives')
+                self.log(list_drives())
+                ok = True
+            except:
+                self.warning('WMI failed')
+                pass
+
+        if not ok:
+            list_drives = self.client.remote('pupyps', 'drives')
+            drives = list_drives()
+
+            formatted_drives = []
+
+            for drive in drives:
+                formatted_drives.append({
+                    'DEV': drive['device'],
+                    'MP': drive['mountpoint'],
+                    'FS': drive['fstype'],
+                    'OPTS': drive['opts'],
+                    'USED': (
+                        '{}% ({}/{})'.format(
+                            drive['percent'],
+                            size_human_readable(drive['used']),
+                            size_human_readable(drive['total']))
+                    ) if ( 'used' in drive and 'total' in drive ) else '?'
+                })
+
+            self.log(Table(formatted_drives, ['DEV', 'MP', 'FS', 'OPTS', 'USED']))
