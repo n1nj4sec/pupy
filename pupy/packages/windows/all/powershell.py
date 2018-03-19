@@ -367,6 +367,14 @@ class PowerHost(object):
         self._v2 = True
         self.results = {}
 
+    @property
+    def active(self):
+        return bool(self._powershells)
+
+    @property
+    def dirty(self):
+        return bool(self._results)
+
     def register(self, name, content, force=False, try_x64=False, daemon=False, width=None, v2=None):
         v2 = self._v2 if v2 is None else v2
         if name in self._powershells:
