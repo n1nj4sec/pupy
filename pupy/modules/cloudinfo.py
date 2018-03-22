@@ -31,5 +31,5 @@ class CloudInfo(PupyModule):
         formatted_json = json.dumps(metadata, indent=1, sort_keys=True)
 
         self.log(
-            Pygemnt(lexers.JsonLexer(), unicode(formatted_json, 'UTF-8'))
+            Pygment(lexers.JsonLexer(), unicode(formatted_json, 'UTF-8'))
         )
