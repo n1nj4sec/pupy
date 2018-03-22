@@ -13,7 +13,7 @@ parser.add_argument('-w', '--write-project', action='store_true',
 parser.add_argument('-W', '--write-user', action='store_true',
                         default=False, help='save config to user folder')
 
-def do(server, handler, config, args):
+def do(server, handler, config, modargs):
     data = []
 
     clients = server.get_clients(handler.default_filter)
