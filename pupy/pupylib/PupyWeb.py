@@ -47,7 +47,7 @@ class PupyWebServer(object):
         t.daemon=True
         t.start()
 
-    def stop():
+    def stop(self):
         self.ioloop.stop()
 
     def start_webplugin(self, web_handlers):
@@ -66,5 +66,3 @@ class IndexHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
         self.render("index.html")
-
-
