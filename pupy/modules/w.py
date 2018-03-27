@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.term import colorize
+from pupylib.PupyOutput import Color
 from datetime import datetime, timedelta
 
 import logging
@@ -39,13 +39,13 @@ class WModule(PupyModule):
                             )
 
                         object = {
-                            'HOST': colorize(host, color),
-                            'USER': colorize(
+                            'HOST': Color(host, color),
+                            'USER': Color(
                                 user,
                                 "yellow" if user in ADMINS else (
-                                    "green" if session.get('me') else "")
+                                    "green" if session.get('me') else color)
                             ),
-                            'LOGIN': colorize(
+                            'LOGIN': Color(
                                 str(datetime.fromtimestamp(int(session['started']))), color
                             ),
                         }
@@ -60,11 +60,11 @@ class WModule(PupyModule):
                                 what = ''
 
                             object.update({
-                                'IDLE': colorize(
+                                'IDLE': Color(
                                     str(timedelta(seconds=session['idle'])), color
                                 ) if session.get('idle') else '',
-                                'PID': colorize(str(session.get('pid', '')), color),
-                                'WHAT': colorize(what[:30]+'…' if len(what) > 30 else what, color)
+                                'PID': Color(str(session.get('pid', '')), color),
+                                'WHAT': Color(what[:30]+'…' if len(what) > 30 else what, color)
                             })
 
                         tablein.append(object)
