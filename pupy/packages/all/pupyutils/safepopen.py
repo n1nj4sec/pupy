@@ -37,15 +37,56 @@ def read_pipe(queue, pipe, bufsize):
 
     queue.put(returncode)
 
+def prepare(suid):
+    import pwd
+
+    if suid is not None:
+        try:
+            if not type(suid) in (int, long):
+                userinfo = pwd.getpwnam(suid)
+                suid = userinfo.pw_uid
+                sgid = userinfo.pw_gid
+            else:
+                userinfo = pwd.getpwuid(suid)
+                sgid = userinfo.pw_gid
+        except:
+            pass
+
+        try:
+            path = os.ttyname(sys.stdin.fileno())
+            os.chown(path, suid, sgid)
+        except:
+            pass
+
+        try:
+            os.initgroups(userinfo.pw_name, sgid)
+            os.chdir(userinfo.pw_dir)
+        except:
+            pass
+
+        try:
+            if hasattr(os, 'setresuid'):
+                os.setresgid(suid, suid, sgid)
+                os.setresuid(suid, suid, sgid)
+            else:
+                os.setgid(suid)
+                os.setuid(suid)
+        except:
+            pass
+
+    os.setsid()
+
+
 class SafePopen(object):
     def __init__(self, *popen_args, **popen_kwargs):
         self._popen_args = popen_args
-        self._interactive = popen_kwargs.get('interactive', False)
+        self._interactive = popen_kwargs.pop('interactive', False)
+        self._suid = popen_kwargs.pop('suid', None)
 
-        self._popen_kwargs = {
-            k:v for k,v in popen_kwargs.iteritems() \
-            if not k in ( 'interactive' )
-        }
+        if not ON_POSIX:
+            self._suid = None
+
+        self._popen_kwargs = dict(popen_kwargs)
 
         self._reader = None
         self._pipe = None
@@ -85,6 +126,12 @@ class SafePopen(object):
                     'stdin': subprocess.PIPE
                 })
 
+
+            if self._suid:
+                kwargs.update({
+                    'preexec_fn': lambda: prepare(self._suid)
+                })
+
             self._pipe = subprocess.Popen(
                 *self._popen_args,
                 **kwargs
@@ -99,6 +146,20 @@ class SafePopen(object):
                 pass
 
             self.returncode = returncode if returncode != None else -e.errno
+            if close_cb:
+                close_cb()
+                return
+
+        except Exception, e:
+            if read_cb:
+                read_cb("[ UNKNOWN ERROR: {} ]\n".format(e))
+
+            try:
+                returncode = self._pipe.poll()
+            except Exception:
+                pass
+
+            self.returncode = returncode if returncode != None else -1
             if close_cb:
                 close_cb()
                 return
@@ -164,14 +225,21 @@ def safe_exec(read_cb, close_cb, *args, **kwargs):
 
     return sfp.terminate, sfp.get_returncode
 
-def check_output(cmdline, shell=True, env=None, encoding=None):
+def check_output(cmdline, shell=True, env=None, encoding=None, suid=None):
+    args = {
+        'shell': shell,
+        'stdout': subprocess.PIPE,
+        'stderr': subprocess.STDOUT,
+        'universal_newlines': True,
+        'env': env,
+    }
+
+    if ON_POSIX and suid:
+        args['preexec_fn'] = lambda: prepare(suid)
+
     p = subprocess.Popen(
         cmdline,
-        shell=shell,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        env=env
+        **args
     )
 
     def get_data():

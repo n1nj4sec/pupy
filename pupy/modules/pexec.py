@@ -50,6 +50,10 @@ class PExec(PupyModule):
             help='Start in shell',
         )
         cls.arg_parser.add_argument(
+            '-S', '--set-uid',
+            help='Set UID (Posix only)',
+        )
+        cls.arg_parser.add_argument(
             'arguments',
             nargs=argparse.REMAINDER,
             help='CMD args. You can use ^/local/path^[>|<]/remote/path^ '
@@ -159,6 +163,11 @@ class PExec(PupyModule):
                         '"'+x.replace('"','\"')+'"' for x in cmdargs
                     )
                 ]
+
+        if args.set_uid:
+            cmdenv.update({
+                'suid': args.set_uid
+            })
 
         close_event = threading.Event()
 
