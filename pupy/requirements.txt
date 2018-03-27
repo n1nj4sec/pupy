@@ -26,3 +26,4 @@ pygments
 requests
 tornado
 keyboard
+construct==2.9.39
