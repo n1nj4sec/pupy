@@ -33,7 +33,7 @@ RUN python -m pip install --upgrade pip six setuptools wheel
 COPY . /opt/pupy
 RUN cd /opt/pupy && pip install -r requirements.txt
 
-ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20180205/mimikatz_trunk.zip \
+ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20180325/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
 RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
 RUN mkdir /opt/uacme
