@@ -268,8 +268,10 @@ def hint_to_text(text, width=0):
         raise ValueError('hint_to_text() support only Text messages')
     elif issubclass(hint, Text):
         pass
-    elif hint in (str, unicode):
+    elif hint == str:
         return text
+    elif hint == unicode:
+        return text.encode('utf-8')
     else:
         return obj2utf8(text)
 
@@ -340,7 +342,7 @@ def hint_to_text(text, width=0):
             hint_to_text(text.payload, width)
         ])
     elif hint == Line:
-        return u' '.join(hint_to_text(v, width) for v in text.data)
+        return ' '.join(hint_to_text(v, width) for v in text.data)
     elif hint == Table:
         table_data = [
             {
@@ -349,7 +351,7 @@ def hint_to_text(text, width=0):
         ]
 
         return (
-            u'{ ' + hint_to_text(text.caption, width) + u' }\n' if text.caption else ''
+            '{ ' + hint_to_text(text.caption, width) + ' }\n' if text.caption else ''
         ) + table_format(table_data, wl=text.headers, legend=text.legend)
 
     elif hint == Pygment:
