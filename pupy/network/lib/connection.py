@@ -209,7 +209,7 @@ class PupyConnection(Connection):
         '_sync_raw_replies', '_sync_raw_exceptions',
         '_last_recv', '_ping', '_ping_timeout',
         '_serve_timeout', '_last_ping', '_default_serve_timeout',
-        '_queue', '_config'
+        '_queue', '_config', '_timer_event', '_timer_event_last'
     )
 
     def __init__(self, pupy_srv, *args, **kwargs):
@@ -229,17 +229,21 @@ class PupyConnection(Connection):
         self._default_serve_timeout = 5
         self._queue = SyncRequestDispatchQueue.get_queue()
 
+        self._timer_event = None
+        self._timer_event_last = None
+
         if 'ping' in kwargs:
-            ping = kwargs['ping']
-            del kwargs['ping']
+            ping = kwargs.pop('ping')
         else:
             ping = None
 
         if 'timeout' in kwargs:
-            timeout = kwargs['timeout']
-            del kwargs['timeout']
+            timeout = kwargs.pop('timeout')
         else:
             timeout = None
+
+        if 'timer_event' in kwargs:
+            self._timer_event = kwargs.pop('timer_event')
 
         if ping or timeout:
             self.set_pings(ping, timeout)
@@ -498,7 +502,22 @@ class PupyConnection(Connection):
         if __debug__:
             logger.debug('Serve loop started')
 
+        if not self._timer_event_last:
+            self._timer_event_last = time.time()
+
         while not self.closed:
+            if self._timer_event:
+                period, callback = self._timer_event
+
+                if not self._timer_event_last or \
+                  self._timer_event_last + period < time.time():
+
+                  try:
+                      self._periodic_callback()
+                  except Exception, e:
+                      logger.exception('Callback exception: {}: {}'.format(
+                          type(e), e))
+
             try:
                 data = self._serve()
                 self._dispatch(data)
