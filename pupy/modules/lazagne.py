@@ -79,8 +79,11 @@ class LaZagne(PupyModule):
 
                 first_user = False
                 passwordsFound = False
-                self.log(colorize('\n########## User: {} ##########'.format(
-                    r[1].encode('utf-8', errors='replace')), 'yellow'))
+                user = r[1]
+                if type(user) == str:
+                    user = user.decode('utf-8', errors='replace')
+
+                self.log(colorize(u'\n########## User: {} ##########'.format(user), 'yellow'))
 
             elif r[2]:
                 passwordsFound = True
