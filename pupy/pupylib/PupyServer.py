@@ -566,7 +566,7 @@ class PupyServer(object):
                     '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
                     client_ip, client_port)
 
-                self.handler.display_srvinfo("Session {} opened ({}@{}){}".format(
+                self.handler.display_srvinfo(u"Session {} opened ({}@{}){}".format(
                     client_id,
                     client_info.get('user','?'),
                     client_info.get('hostname','?'),
