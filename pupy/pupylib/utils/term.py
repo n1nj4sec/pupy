@@ -256,7 +256,7 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
 
         res.append(u''.join(lines))
 
-    return u'\n'.join(res)
+    return '\n'.join(res)
 
 def hint_to_text(text, width=0):
     if text is None:
@@ -269,7 +269,10 @@ def hint_to_text(text, width=0):
     elif issubclass(hint, Text):
         pass
     elif hint == str:
-        return text
+        try:
+            return text.decode('utf-8')
+        except UnicodeDecodeError:
+            return text.decode('latin1')
     elif hint == unicode:
         return text.encode('utf-8')
     else:
@@ -310,7 +313,7 @@ def hint_to_text(text, width=0):
         if text == str:
             text = text.decode('utf-8', errors='replace')
 
-        return u'\n'.join(ejust(x, width) for x in text.split(u'\n'))
+        return '\n'.join(ejust(x, width) for x in text.split('\n'))
     elif hint == Error:
         header = text.header
         text = text.data
