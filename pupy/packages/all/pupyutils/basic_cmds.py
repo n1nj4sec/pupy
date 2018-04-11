@@ -225,13 +225,13 @@ def _complete(cwd, path, limit=32, dirs=None):
     return path, results
 
 def complete(path, limit=32, dirs=None):
-    cwd = os.getcwd()
+    cwd = os.getcwdu()
     path, results = _complete(cwd, path, limit, dirs)
 
-    if path.endswith('/'):
+    if path.endswith(('/', '\\')):
         path = path[:-1]
 
-    if path and cwd != '/':
+    if path and not cwd in ('/', '\\'):
         relpath = os.path.relpath(path, start=cwd)
         if not relpath.startswith('..'):
             path = relpath
@@ -249,7 +249,7 @@ def ls(path=None, listdir=True, limit=4096):
         path = os.path.expanduser(path)
         path = os.path.expandvars(path)
     else:
-        path = os.getcwd()
+        path = os.getcwdu()
 
     results = []
     found = False
@@ -289,7 +289,7 @@ def ls(path=None, listdir=True, limit=4096):
 def cd(path=None):
     global PREV_CWD
 
-    cwd = os.getcwd()
+    cwd = os.getcwdu()
 
     if path:
         path = try_unicode(path)
