@@ -26,6 +26,15 @@ socktypes = {
     v:k[5:] for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
 }
 
+def to_unicode(x):
+    tx = type(x)
+    if tx == unicode:
+        return x
+    elif tx == str:
+        return x.decode(sys.getfilesystemencoding())
+    else:
+        return x
+
 def psinfo(pids):
     garbage = ( 'num_ctx_switches', 'memory_full_info', 'cpu_affinity' )
     data = {}
@@ -47,7 +56,7 @@ def psinfo(pids):
                 for item in val:
                     if hasattr(item, '__dict__'):
                         newv.append({
-                            k:v for k,v in item.__dict__.iteritems()
+                            k:to_unicode(v) for k,v in item.__dict__.iteritems()
                         })
                     else:
                         newv.append(item)
@@ -57,7 +66,7 @@ def psinfo(pids):
             else:
                 if hasattr(val, '__dict__'):
                     newv = [{
-                        'KEY': k, 'VALUE':v
+                        'KEY': k, 'VALUE':to_unicode(v)
                     } for k,v in val.__dict__.iteritems()]
                 else:
                     newv = val
@@ -144,11 +153,17 @@ def users():
 
     for term in psutil.users():
         terminfo = {
-            k:v for k,v in term.__dict__.iteritems() if v and k not in ('host', 'name')
+            k:to_unicode(v) for k,v in term.__dict__.iteritems() if v and k not in ('host', 'name')
         }
 
         if 'pid' in terminfo:
-            pinfo = psutil.Process(terminfo['pid']).as_dict(['exe', 'cmdline', 'name'])
+            pinfo = {
+                k:to_unicode(v) for k,v in psutil.Process(
+                    terminfo['pid']).as_dict([
+                        'exe', 'cmdline', 'name'
+                    ]).iteritems()
+            }
+
             terminfo.update(pinfo)
 
         if 'terminal' in terminfo:
@@ -191,11 +206,12 @@ def connections():
         }
         try:
              if connection.pid:
-                 obj.update(
-                     psutil.Process(connection.pid).as_dict({
-                         'pid', 'exe', 'name', 'username'
-                     })
-                 )
+                 obj.update({
+                     k:to_unicode(v) for k,v in psutil.Process(
+                         connection.pid).as_dict({
+                            'pid', 'exe', 'name', 'username'
+                        }).iteritems()
+                 })
                  if connection.pid == me.pid:
                      obj.update({
                          'me': True
@@ -217,8 +233,10 @@ def _tryint(x):
 def interfaces():
     try:
         addrs = {
-            x:[
-                { k:_tryint(getattr(z,k)) for k in dir(z) if not k.startswith('_') } for z in y
+            to_unicode(x):[
+                {
+                    k:_tryint(getattr(z,k)) for k in dir(z) if not k.startswith('_')
+                } for z in y
             ] for x,y in psutil.net_if_addrs().iteritems()
         }
     except:
@@ -226,7 +244,7 @@ def interfaces():
 
     try:
         stats = {
-            x:{
+            to_unicode(x):{
                 k:_tryint(getattr(y,k)) for k in dir(y) if not k.startswith('_')
             } for x,y in psutil.net_if_stats().iteritems()
         }
