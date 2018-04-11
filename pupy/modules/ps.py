@@ -35,10 +35,12 @@ def gen_colinfo(data):
     return colinfo
 
 def to_string(value):
+    tvalue = type(value)
+
     if type(value) == unicode:
         return value
     elif type(value) != str:
-        return str(value)
+        return unicode(value)
 
     try:
         return value.decode('utf-8')
