@@ -12,6 +12,12 @@ import urlparse
 
 from network.lib import socks
 
+COMMON_EXCEPTIONS = (
+    errno.ECONNREFUSED, errno.ECONNRESET,
+    errno.EPIPE, errno.EBADF,
+    errno.ETIMEDOUT
+)
+
 class MsgPackMessages(object):
     def __init__(self, conn):
         self._conn = conn
@@ -57,7 +63,7 @@ class PupyOffloadDNS(threading.Thread):
                 continue
 
             except (socket.error, OSError), e:
-                if e.errno in (errno.ECONNREFUSED, errno.ECONNRESET, errno.EPIPE, errno.EBADF):
+                if e.errno in COMMON_EXCEPTIONS:
                     logging.error('DNS: Lost connection (refused)')
                     time.sleep(5)
                     continue
@@ -159,7 +165,7 @@ class PupyOffloadAcceptor(object):
                 ), (conninfo['rhost'], conninfo['rport'])
 
             except (socket.error, OSError), e:
-                if e.errno in (errno.ECONNREFUSED, errno.ECONNRESET, errno.EPIPE, errno.EBADF):
+                if e.errno in COMMON_EXCEPTIONS:
                     logging.error('Acceptor ({}): Lost connection (refused)'.format(self._port))
                     time.sleep(5)
                     continue
