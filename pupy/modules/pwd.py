@@ -14,7 +14,7 @@ class pwd(PupyModule):
 
     def run(self, args):
         try:
-            getcwd = self.client.remote('os', 'getcwd', False)
+            getcwd = self.client.remote('os', 'getcwdu', False)
             self.success(getcwd())
         except Exception, e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
