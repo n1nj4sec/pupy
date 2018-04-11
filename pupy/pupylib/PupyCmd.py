@@ -346,6 +346,8 @@ class PupyCmd(cmd.Cmd):
             self.commands.execute(
                 self.pupsrv, self, self.pupsrv.config, line)
 
+            self.completion_matches = None
+
         except PupyModuleUsageError, e:
             prog, message, usage = e.args
             self.display(Line(Error(message, prog)))
@@ -525,8 +527,9 @@ class PupyCmd(cmd.Cmd):
                 context = CompletionContext(self.pupsrv, self, self.config, self.commands)
                 compfunc, module, args = self.commands.completer(context, line)
                 self.completion_matches = compfunc(module, args, text, context)
-            except:
-                pass
+
+            except Exception, e:
+                logging.debug(e)
 
         try:
             if self.completion_matches:
