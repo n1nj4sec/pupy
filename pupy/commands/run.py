@@ -89,7 +89,7 @@ def do(server, handler, config, modargs):
             module.io, len(clients), modargs.background or module.daemon)
 
         for io, client in zip(ios, clients):
-            io.set_title(str(client))
+            io.set_title(client if type(client) in (str, unicode) else unicode(client))
             instance = module(client, pj, io, log=modargs.output)
             pj.add_module(instance)
 
