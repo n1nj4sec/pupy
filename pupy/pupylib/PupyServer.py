@@ -566,11 +566,16 @@ class PupyServer(object):
                     '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
                     client_ip, client_port)
 
-                self.handler.display_srvinfo(u"Session {} opened ({}@{}){}".format(
-                    client_id,
-                    client_info.get('user','?'),
-                    client_info.get('hostname','?'),
-                    remote if client_port != 0 else '')
+                user = client_info.get('user','?')
+                if type(user) == unicode:
+                    user = user.encode('utf-8')
+
+                hostname = client_info.get('hostname','?')
+                if type(hostname) == unicode:
+                    hostname = hostname.encode('utf-8')
+
+                self.handler.display_srvinfo('Session {} opened ({}@{}){}'.format(
+                    client_id, user, hostname, remote if client_port != 0 else '')
                 )
         if pc:
             on_connect(pc)
