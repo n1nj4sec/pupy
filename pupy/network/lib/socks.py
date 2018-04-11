@@ -267,7 +267,7 @@ class socksocket(_BaseSocket):
     __slots__ = (
         'proxy', '_proxy_negotiators',
         'proxy_sockname', 'proxy_peername',
-        '_proxyconn', 'type'
+        '_proxyconn'
     )
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, *args, **kwargs):
