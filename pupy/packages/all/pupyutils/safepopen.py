@@ -116,16 +116,11 @@ class SafePopen(object):
             kwargs = self._popen_kwargs
             # Setup some required arguments
             kwargs.update({
+                'stdin': subprocess.PIPE,
                 'stdout': subprocess.PIPE,
                 'bufsize': self._bufsize,
                 'close_fds': ON_POSIX
             })
-
-            if self._interactive:
-                kwargs.update({
-                    'stdin': subprocess.PIPE
-                })
-
 
             if self._suid:
                 kwargs.update({
@@ -136,6 +131,9 @@ class SafePopen(object):
                 *self._popen_args,
                 **kwargs
             )
+
+            if not self._interactive:
+                self._pipe.stdin.close()
 
         except OSError as e:
             if read_cb:
@@ -228,6 +226,7 @@ def safe_exec(read_cb, close_cb, *args, **kwargs):
 def check_output(cmdline, shell=True, env=None, encoding=None, suid=None):
     args = {
         'shell': shell,
+        'stdin': subprocess.PIPE,
         'stdout': subprocess.PIPE,
         'stderr': subprocess.STDOUT,
         'universal_newlines': True,
@@ -241,6 +240,8 @@ def check_output(cmdline, shell=True, env=None, encoding=None, suid=None):
         cmdline,
         **args
     )
+
+    p.stdin.close()
 
     def get_data():
         stdout, stderr = p.communicate()
