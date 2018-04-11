@@ -74,15 +74,15 @@ def remote_path_completer(module, args, text, context, dirs=None):
     return results
 
 def remote_dirs_completer(module, args, text, context):
-    return remote_path_completer(text, context, dirs=True)
+    return remote_path_completer(module, args, text, context, dirs=True)
 
 def remote_files_completer(module, args, text, context):
-    return remote_path_completer(text, context, dirs=False)
+    return remote_path_completer(module, args, text, context, dirs=False)
 
 def path_completer(module, args, text, context):
     l=[]
     if not text:
-        l=os.listdir(".")
+        l=os.listdir('.')
     else:
         try:
             dirname=os.path.dirname(text)
