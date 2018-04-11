@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from pupylib.utils.term import colorize
+from pupylib.PupyOutput import Color
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
@@ -80,15 +80,15 @@ class NetStatModule(PupyModule):
                     deny = True
 
                 connection = {
-                    'AF': colorize(family, color),
-                    'TYPE': colorize(stype, color),
-                    'LADDR': colorize(':'.join([str(x) for x in connection['laddr']]), color),
-                    'RADDR': colorize(':'.join([str(x) for x in connection['raddr']]), color),
-                    'PID': colorize(connection.get('pid', ''), color),
-                    'USER': colorize((connection.get('username') or '').encode('utf8','replace'), color),
-                    'EXE': colorize(
+                    'AF': Color(family, color),
+                    'TYPE': Color(stype, color),
+                    'LADDR': Color(':'.join([str(x) for x in connection['laddr']]), color),
+                    'RADDR': Color(':'.join([str(x) for x in connection['raddr']]), color),
+                    'PID': Color(connection.get('pid', ''), color),
+                    'USER': Color((connection.get('username') or ''), color),
+                    'EXE': Color(
                         connection.get(
-                            'exe', (connection.get('name') or '').encode('utf8','replace')
+                            'exe', (connection.get('name') or '')
                         ), color)
                 }
 
