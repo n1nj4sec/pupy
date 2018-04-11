@@ -39,7 +39,14 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
-        self.desc = desc
+        self.desc = {
+            (
+                k.encode('utf-8') if type(k) == unicode else k
+            ):(
+                v.encode('utf-8') if type(v) == unicode else v
+            ) for k,v in desc.iteritems()
+        }
+
         #alias
         self.conn = self.desc["conn"]
         self.pupsrv = pupsrv
@@ -60,7 +67,7 @@ class PupyClient(object):
         self.impersonated_dupHandle = None
 
     def __str__(self):
-        return "PupyClient(id=%s, user=%s, hostname=%s, platform=%s)"%(
+        return 'PupyClient(id=%s, user=%s, hostname=%s, platform=%s)'%(
             self.desc["id"], self.desc["user"],
             self.desc["hostname"], self.desc["platform"]
         )
