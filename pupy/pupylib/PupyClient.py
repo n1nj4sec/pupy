@@ -396,6 +396,41 @@ class PupyClient(object):
             else:
                 return new_modules
 
+    def invalidate_packages(self, packages):
+        if type(packages) in (str, unicode):
+            packages = [packages]
+
+        invalidated = False
+
+        with self.remotes_lock:
+            for module in packages:
+                self.pupyimporter.invalidate_module(module)
+
+                for m in self.remotes.keys():
+                    if m == module or m.startswith(module+'.'):
+                        invalidated = True
+                        del self.remotes[m]
+
+                to_remove = set()
+                for m in self.imported_modules:
+                    if m == module or m.startswith(module+'.'):
+                        invalidated = True
+                        to_remove.add(m)
+
+                for m in to_remove:
+                    self.imported_modules.remove(m)
+
+                to_remove = set()
+                for m in self.cached_modules:
+                    if m == module or m.startswith(module+'.'):
+                        invalidated = True
+                        to_remove.add(m)
+
+                for m in to_remove:
+                    self.cached_modules.remove(m)
+
+        return invalidated
+
     def load_package(self, requirements, force=False, remote=False, new_deps=[]):
         try:
             forced = None
@@ -436,11 +471,7 @@ class PupyClient(object):
             return False
 
         if forced:
-            with self.remotes_lock:
-                for module in forced:
-                    self.pupyimporter.invalidate_module(module)
-                    if module in self.remotes:
-                        del self.remotes[module]
+            self.invalidate_packages(forced)
 
         logging.info('Upload packages bundle, size={}'.format(len(packages)))
         self.remote_add_package(
