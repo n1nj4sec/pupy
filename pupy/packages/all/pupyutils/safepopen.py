@@ -241,10 +241,15 @@ def check_output(cmdline, shell=True, env=None, encoding=None, suid=None):
         **args
     )
 
-    p.stdin.close()
+    complete = [False]
 
     def get_data():
+        if complete[0]:
+            return ''
+
         stdout, stderr = p.communicate()
+        complete[0] = True
+
         if encoding:
             stdout = stdout.decode(encoding, errors='replace')
 
