@@ -178,25 +178,30 @@ def ejust(line, width):
     return line
 
 def obj2utf8(obj):
-    if type(obj) == dict:
+    objtype = type(obj)
+
+    if issubclass(objtype, Hint):
+        pass
+
+    elif objtype == dict:
         for k in obj:
             obj[k] = obj2utf8(obj[k])
 
-    elif type(obj) == list:
+    elif objtype == list:
         for i in range(0, len(obj)):
             obj[i] = obj2utf8(obj[i])
 
-    elif type(obj) == tuple:
+    elif objtype == tuple:
         obj = list(obj)
         for i in range(0, len(obj)):
             obj[i] = obj2utf8(obj[i])
 
         obj = tuple(obj)
 
-    elif type(obj) == unicode:
+    elif objtype == unicode:
         pass
 
-    elif type(obj) == str:
+    elif objtype == str:
         obj = obj.decode('utf-8', errors='replace')
 
     else:
@@ -345,7 +350,7 @@ def hint_to_text(text, width=0):
             hint_to_text(text.payload, width)
         ])
     elif hint == Line:
-        return ' '.join(hint_to_text(v, width) for v in text.data)
+        return text.dm.join(hint_to_text(v, width) for v in text.data)
     elif hint == Table:
         table_data = [
             {

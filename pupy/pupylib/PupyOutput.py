@@ -31,10 +31,11 @@ class Stream(Text):
     __slots__ = ()
 
 class Line(Text):
-    __slots__ = ()
+    __slots__ = ( 'dm' )
 
-    def __init__(self, *args):
-        super(Line, self).__init__(args)
+    def __init__(self, *data):
+        super(Line, self).__init__(data)
+        self.dm = ' '
 
 class TruncateToTerm(Text):
     __slots__ = ()
