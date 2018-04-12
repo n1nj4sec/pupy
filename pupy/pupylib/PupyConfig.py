@@ -9,6 +9,7 @@ from netaddr import IPAddress
 import platform
 import random
 import string
+import datetime
 
 class Tags(object):
     def __init__(self, config, node):
@@ -119,7 +120,7 @@ class PupyConfig(ConfigParser):
             with open(self.user_path, 'w') as config:
                 self.write(config)
 
-    def get_path(self, filepath, substitutions, create=True, dir=False):
+    def get_path(self, filepath, substitutions={}, create=True, dir=False):
         prefer_workdir = self.getboolean('paths', 'prefer_workdir')
         from_config = self.get('paths', filepath)
 
@@ -132,6 +133,10 @@ class PupyConfig(ConfigParser):
             retfilepath = filepath
         else:
             retfilepath = path.join(self.user_root, filepath)
+
+        substitutions.update({
+            '%t': str(datetime.datetime.now()).replace(' ','_').replace(':','-')
+        })
 
         for key, value in substitutions.iteritems():
             try:
