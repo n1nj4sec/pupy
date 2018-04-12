@@ -199,22 +199,23 @@ def is_filtered(pid, columns, hide, show):
 
     deny = default_deny
 
-    name = columns['name']
-    exe  = columns['exe']
-    cmd  = columns['cmdline']
+    name     = columns['name']
+    username = columns['username']
+    exe      = columns['exe']
+    cmd      = columns['cmdline']
 
     for hide_rule in hide:
         if type(hide_rule) == int:
             if hide_rule == pid:
                 deny = True
-        elif hide_rule.match(exe) or hide_rule.match(name) or hide_rule.match(cmd):
+        elif any(hide_rule.match(x) for x in [ exe, name, cmd, username ]):
                 deny = True
 
     for show_rule in show:
         if type(show_rule) == int:
             if show_rule == pid:
                 deny = False
-        elif show_rule.match(exe) or show_rule.match(name) or show_rule.match(cmd):
+        elif any(show_rule.match(x) for x in [ exe, name, cmd, username ]):
                 deny = False
 
     return deny
