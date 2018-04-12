@@ -484,7 +484,7 @@ def do(server, handler, config, args):
                 ]
             ]
 
-            handler.display(PupyCmd.table_format(objects, wl=['KEY', 'VALUE']))
+            handler.display(Table(objects, ['KEY', 'VALUE']))
 
             handler.display('\nPASTES STATUS\n')
             objects = [
@@ -493,7 +493,7 @@ def do(server, handler, config, args):
                     'VALUE':Color(v, 'green' if v else 'lightyellow')
                 } for k,v in session.online_status['pastebins'].iteritems()
             ]
-            handler.display(PupyCmd.table_format(objects, wl=['KEY', 'VALUE']))
+            handler.display(Table(objects, ['KEY', 'VALUE']))
 
             session.online_status = None
 
