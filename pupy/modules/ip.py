@@ -2,8 +2,6 @@
 from pupylib.PupyModule import *
 from pupylib.PupyCmd import PupyCmd
 from pupylib.PupyOutput import Color
-from pupylib.utils.rpyc_utils import obtain
-from datetime import datetime, timedelta
 
 import logging
 import socket
@@ -49,7 +47,7 @@ class IPModule(PupyModule):
                 if 'stats' in data and data['stats']:
                     if addr in data['stats'] and not data['stats'][addr].get('isup'):
                         color = 'darkgrey'
-                    elif not any([ x.get('family') == socket.AF_INET for x in addresses ]):
+                    elif not any([ families[x.get('family')] == 'INET' for x in addresses ]):
                         color = 'grey'
                 else:
                     color = 'white'
@@ -70,10 +68,11 @@ class IPModule(PupyModule):
                     self.stdout.write(
                         Color(address.get('address', '').split('%')[0], color or 'yellow')
                     )
-                    if address.get('netmask'):
+
+                    if address.get('netmask') != 'None':
                         self.stdout.write(Color('/'+address.get('netmask'), color))
 
-                    if address.get('broadcast'):
+                    if address.get('broadcast') != 'None':
                         self.stdout.write(Color(' brd '+address.get('broadcast'), color))
                     self.stdout.write('\n')
 
