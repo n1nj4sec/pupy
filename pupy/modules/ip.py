@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
+
 from pupylib.PupyModule import *
 from pupylib.PupyCmd import PupyCmd
-from pupylib.PupyOutput import Color
+from pupylib.PupyOutput import Color, Line, Table
 
 import logging
 import socket
@@ -14,8 +15,6 @@ class IPModule(PupyModule):
 
     dependencies = [ 'pupyps' ]
     is_module=False
-
-    io = REQUIRE_STREAM
 
     @classmethod
     def init_argparse(cls):
@@ -39,7 +38,10 @@ class IPModule(PupyModule):
 
             familylen = max([len(v)-3 for v in families.itervalues()])+1
 
+            objects = []
+
             for addr, addresses in data['addrs'].iteritems():
+
                 if args.iface and not addr in args.iface:
                     continue
 
@@ -52,29 +54,33 @@ class IPModule(PupyModule):
                 else:
                     color = 'white'
 
-                self.stdout.write(Color(addr.ljust(addrlen), color or 'cyan'))
+                record = {}
+                record['K'] = Color(addr, color or 'cyan')
+
                 first = True
 
                 for address in addresses:
                     if first:
                         first = False
                     else:
-                        self.stdout.write(' '*addrlen)
+                        record = {}
+                        record['K'] = ''
 
-                    self.stdout.write(Color(families[
-                        address.get('family')
-                    ].ljust(familylen), color))
-
-                    self.stdout.write(
-                        Color(address.get('address', '').split('%')[0], color or 'yellow')
-                    )
+                    record['F'] = Color(families[address.get('family')], color)
+                    V = Color(address.get('address', '').split('%')[0], color or 'yellow')
 
                     if address.get('netmask') != 'None':
-                        self.stdout.write(Color('/'+address.get('netmask'), color))
+                        V = Line(V, Color(address.get('netmask'), color))
+                        V.dm = '/'
 
                     if address.get('broadcast') != 'None':
-                        self.stdout.write(Color(' brd '+address.get('broadcast'), color))
-                    self.stdout.write('\n')
+                        V = Line(V, Color('brd '+address.get('broadcast'), color))
+
+                    record['V'] = Line(V)
+
+                    objects.append(record)
+
+            self.log(Table(objects, ['K', 'F', 'V'], legend=False))
 
         except Exception, e:
             logging.exception(e)
