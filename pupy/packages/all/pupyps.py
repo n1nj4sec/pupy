@@ -59,23 +59,20 @@ def psinfo(pids):
                             k:to_unicode(v) for k,v in item.__dict__.iteritems()
                         })
                     else:
-                        newv.append(item)
+                        newv.append(to_unicode(item))
 
                 if all([type(x) in (str, unicode) for x in newv]):
-                    newv = ' '.join(newv)
+                    newv = to_unicode(' '.join(newv))
+            elif hasattr(val, '__dict__'):
+                newv = [{
+                    'KEY': k, 'VALUE':to_unicode(v)
+                } for k,v in val.__dict__.iteritems()]
             else:
-                if hasattr(val, '__dict__'):
-                    newv = [{
-                        'KEY': k, 'VALUE':to_unicode(v)
-                    } for k,v in val.__dict__.iteritems()]
-                else:
-                    newv = val
+                newv = to_unicode(val)
 
             info.update({key: newv})
 
-        data.update({
-            pid: info
-        })
+        data[pid] = info
 
     psutil._pmap = {}
     return data
@@ -85,7 +82,7 @@ def pstree():
     tree = {}
     me = psutil.Process()
     try:
-        my_user = me.username()
+        my_user = to_unicode(me.username())
     except:
         try:
             import getpass
@@ -97,10 +94,12 @@ def pstree():
         if not psutil.pid_exists(p.pid):
             continue
 
-        data[p.pid] = p.as_dict([
-            'name', 'username', 'cmdline', 'exe',
-            'cpu_percent', 'memory_percent', 'connections'
-        ])
+        data[p.pid] = {
+            k:to_unicode(v) for k,v in p.as_dict([
+                'name', 'username', 'cmdline', 'exe',
+                'cpu_percent', 'memory_percent', 'connections'
+            ]).iteritems()
+        }
 
         if p.pid == me.pid:
             data[p.pid]['self'] = True
