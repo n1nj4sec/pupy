@@ -78,6 +78,7 @@ downloads = data/downloads/%c
 memstrings = data/memstrings/%c
 searches = data/searches/%c
 screenshots = data/screenshots/%c/%t
+pcaps = data/pcaps/%c/%t.pcap
 logs = data/logs/%c/%t-%M
 creds = data/creds
 crypto = crypto
