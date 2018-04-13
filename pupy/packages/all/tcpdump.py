@@ -68,7 +68,7 @@ def isniff(count=0, prn=None, lfilter=None,
     else:
         def _select(sockets):
             try:
-                return select(sockets, [], [], remain)[0]
+                return select(sockets, [], [], remain or 5)[0]
             except select_error as exc:
                 # Catch 'Interrupted system call' errors
                 if exc[0] == errno.EINTR:
