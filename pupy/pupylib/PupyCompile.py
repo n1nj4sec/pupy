@@ -4,6 +4,8 @@ import ast
 import marshal
 import logging
 
+logger = logging.getLogger('compiler')
+
 class Compiler(ast.NodeTransformer):
     def __init__(self, data, path=False, main=False):
         source = data
@@ -64,7 +66,7 @@ class Compiler(ast.NodeTransformer):
 
 def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug=False, main=False):
     if not debug:
-        logging.info('[PC] "{}"'.format(data if path else filename))
+        logger.info(data if path else filename)
         data = Compiler(data, path, main).compile(filename, obfuscate, raw)
     else:
         source = data
@@ -72,7 +74,7 @@ def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug
             with open(data) as sfile:
                 source = sfile.read()
 
-        logging.info('[PDC] "{}"'.format(data if path else filename))
+        logger.info('debug: {}'.format(data if path else filename))
         data = marshal.dumps(compile(source, filename, 'exec'))
 
     return data
