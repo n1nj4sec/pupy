@@ -553,7 +553,7 @@ def dll(name, platform, arch, honor_ignore=True):
     buf = b''
 
     path = None
-    for packages_path in paths(platform, arch, prefix):
+    for packages_path in paths(platform, arch):
         dll_path = os.path.join(packages_path, name)
         if os.path.exists(dll_path):
             try:
@@ -572,7 +572,7 @@ def dll(name, platform, arch, honor_ignore=True):
                 if info.filename.endswith('/'+name) or info.filename == name:
                     try:
                         buf = get_content(
-                            platform, arch, prefix,
+                            platform, arch, os.path.dirname(info.filename),
                             info.filename,
                             archive,
                             honor_ignore=honor_ignore
