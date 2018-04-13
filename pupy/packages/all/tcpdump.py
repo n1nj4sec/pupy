@@ -3,13 +3,113 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 import sys
-import scapy.all
-
-from threading import Thread
+import traceback
 
 from scapy.all import *
+
+# import scapy.arch
+# import scapy.error
+
+# from scapy.config import conf
+# from scapy.consts import WINDOWS
+# from scapy.data import ETH_P_ALL
+from select import select, error as select_error
+
+from threading import Thread, Event
+
 from rpyc import async
 from psutil import net_if_addrs
+
+from time import time
+
+def sniff(count=0, prn=None, lfilter=None,
+          L2socket=None, timeout=None, completion=None,
+          iface=None, *arg, **karg):
+
+    c = 0
+    sniff_sockets = {}  # socket: label dict
+
+    if not sniff_sockets or iface is not None:
+        if L2socket is None:
+            L2socket = conf.L2listen
+        if isinstance(iface, list):
+            sniff_sockets.update(
+                (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg), ifname)
+                for ifname in iface
+            )
+        elif isinstance(iface, dict):
+            sniff_sockets.update(
+                (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg), iflabel)
+                for ifname, iflabel in six.iteritems(iface)
+            )
+        else:
+            sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
+                                   *arg, **karg)] = iface
+
+    if timeout is not None:
+        stoptime = time()+timeout
+
+    remain = None
+    read_allowed_exceptions = ()
+
+    if conf.use_bpf:
+        from scapy.arch.bpf.supersocket import bpf_select
+        def _select(sockets):
+            return bpf_select(sockets, remain)
+
+    elif WINDOWS:
+        from scapy.arch.pcapdnet import PcapTimeoutElapsed
+        read_allowed_exceptions = (PcapTimeoutElapsed,)
+        def _select(sockets):
+            try:
+                return sockets
+            except PcapTimeoutElapsed:
+                return []
+    else:
+        def _select(sockets):
+            try:
+                return select(sockets, [], [], remain)[0]
+            except select_error as exc:
+                # Catch 'Interrupted system call' errors
+                if exc[0] == errno.EINTR:
+                    return []
+                raise
+    try:
+        while sniff_sockets:
+            if timeout is not None:
+                remain = stoptime-time()
+                if remain <= 0:
+                    break
+
+            if completion is not None:
+                if completion.is_set():
+                    break
+
+            ins = _select(sniff_sockets)
+            for s in ins:
+                try:
+                    p = s.recv()
+                except read_allowed_exceptions:
+                    continue
+                if p is None:
+                    del sniff_sockets[s]
+                    break
+                if lfilter and not lfilter(p):
+                    continue
+                p.sniffed_on = sniff_sockets[s]
+
+                c += 1
+                if prn:
+                    r = prn(p)
+                    if r is not None:
+                        print(r)
+
+                if 0 < count <= c:
+                    sniff_sockets = []
+                    break
+
+    except KeyboardInterrupt:
+        pass
 
 class StopSniff(Exception):
     pass
@@ -17,9 +117,6 @@ class StopSniff(Exception):
 class SniffSession(Thread):
     def __init__(self, on_data, on_close, iface=None, bpf=None, timeout=None, count=0):
         super(SniffSession, self).__init__()
-        self.daemon = True
-
-        self.stopped = True
 
         self._on_data = on_data
         self._on_close = on_close
@@ -29,12 +126,17 @@ class SniffSession(Thread):
         self.count = count
         self.iface = None
         self.name = None
+
+        self.completion = Event()
+
         self._set_iface(iface)
 
     def _set_iface(self, iface):
         nice_name = iface
 
-        if hasattr(scapy.all, 'IFACES'):
+        if WINDOWS:
+            from scapy.arch.windows import IFACES
+
             if not type(iface) == unicode:
                 iface = iface.decode('utf-8')
                 nice_name = iface
@@ -68,14 +170,14 @@ class SniffSession(Thread):
         self.nice_name = nice_name
 
     def sniff_callback(self, packet):
-        if self.stopped:
+        if self.completion.is_set():
             raise StopSniff()
 
         if self._on_data:
             self._on_data(str(packet))
 
     def run(self):
-        self.stopped = False
+        self.completion.clear()
         reason = None
 
         try:
@@ -84,18 +186,19 @@ class SniffSession(Thread):
                 filter=self.bpf,
                 count=self.count,
                 timeout=self.timeout,
-                store=0,
-                iface=self.iface
+                iface=self.iface,
+                completion=self.completion
             )
 
         except StopSniff:
             reason = 'Interrupted'
 
         except Exception, e:
-            reason = str(e)
+            reason = 'Sniff: {}: {}'.format(
+                e, traceback.format_exc())
 
         finally:
-            self.stopped = True
+            self.completion.set()
             if self._on_close:
                 try:
                     self._on_close(reason)
@@ -104,7 +207,7 @@ class SniffSession(Thread):
 
 
     def stop(self):
-        self.stopped = True
+        self.completion.set()
 
     def is_stopped(self, x):
         return self.stopped
@@ -121,6 +224,6 @@ if __name__=="__main__":
     import time
     def cb(pkt):
         print pkt.summary()
-    t=SniffSession(cb, iface="eth0")
+    t = SniffSession(cb, None, iface="eth0")
     t.start()
     t.stop()
