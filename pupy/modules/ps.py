@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.PupyOutput import Color, TruncateToTerm, MultiPart, Table
+from modules.lib import size_human_readable
+
 import logging
 import re
 
@@ -106,7 +108,7 @@ def gen_output_line(columns, info, record, wide=False):
     return output
 
 def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=False):
-    keys = ('id', 'key', 'PROPERTY', 'VAR')
+    keys = ('id', 'key', 'PROPERTY', 'VAR', 'TYPE' )
     sorter = lambda x,y: -1 if (
         x in keys and y not in keys
     ) else ( 1 if (y in keys and not x in keys) else cmp(x, y))
@@ -147,6 +149,11 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
                         continue
                     elif prop == 'memory_maps':
                         filtered = ('path', 'rss', 'size')
+                    elif prop == 'memory_info':
+                        infosecs[prop] = [{
+                            'TYPE':item['KEY'], 'SIZE':size_human_readable(item['VALUE'])
+                        } for item in value]
+                        continue
                     else:
                         filtered = None
 
