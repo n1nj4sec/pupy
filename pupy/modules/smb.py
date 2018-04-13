@@ -51,7 +51,7 @@ class SMB(PupyModule):
         shares.set_defaults(func=cls.shares)
 
     def run(self, args):
-        args.func(args)
+        args.func(self, args)
 
     def get_ft(self, args, host):
         FileTransfer = self.client.remote('pupyutils.psexec', 'FileTransfer', False)
