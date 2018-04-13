@@ -24,7 +24,7 @@ class x509(PupyModule):
     def run(self, args):
         if args.file or '/' in args.host or '\\' in args.host:
             cat = self.client.remote('pupyutils.basic_cmds', 'cat', False)
-            cert = cat(args.host)
+            cert = cat(args.host, None, None, None)
         else:
             get_server_certificate = self.client.remote('ssl', 'get_server_certificate')
             cert = get_server_certificate((args.host, args.port))
