@@ -16,6 +16,11 @@ class BinaryObjectError(ValueError):
 class NotFoundError(NameError):
     pass
 
+class IgnoreFileException(Exception):
+    pass
+
+logger = logging.getLogger('deps')
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 LIBS_AUTHORIZED_PATHS = [
@@ -24,6 +29,27 @@ LIBS_AUTHORIZED_PATHS = [
     os.path.join(ROOT, 'packages'),
     'packages'
 ]
+
+PATCHES_PATHS = [
+    os.path.abspath(os.path.join(os.getcwdu(), 'packages', 'patches')),
+    os.path.abspath(os.path.join(ROOT, 'pupy', 'packages', 'patches')),
+    os.path.abspath(os.path.join(ROOT, '..', 'client', 'library_patches'))
+]
+
+# ../libs - for windows bundles, to use simple zip command
+# site-packages/win32 - for pywin32
+COMMON_SEARCH_PREFIXES = (
+    '',
+    'site-packages/win32/lib',
+    'site-packages/win32',
+    'site-packages/pywin32_system32',
+    'site-packages',
+    'lib-dynload'
+)
+
+COMMON_MODULE_ENDINGS = (
+    '/', '.py', '.pyo', '.pyc', '.pyd', '.so', '.dll'
+)
 
 # dependencies to load for each modules
 WELL_KNOWN_DEPS = {
@@ -59,7 +85,6 @@ WELL_KNOWN_DEPS = {
     'scapy': {
         'windows': [
             'pythoncom',
-            'cryptography'
         ]
     },
     'win32com': {
@@ -91,7 +116,7 @@ WELL_KNOWN_DEPS = {
     }
 }
 
-logging.debug("LIBS_AUTHORIZED_PATHS=%s"%repr(LIBS_AUTHORIZED_PATHS))
+logger.debug("LIBS_AUTHORIZED_PATHS=%s"%repr(LIBS_AUTHORIZED_PATHS))
 
 def safe_file_exists(f):
     """ some file systems like vmhgfs are case insensitive and os.isdir() return True for "lAzAgNE", so we need this check for modules like LaZagne.py and lazagne gets well imported """
@@ -118,7 +143,7 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None):
             dependencies = [ dependencies ]
 
         for dependency in dependencies:
-            modules.update(from_path(path, dependency))
+            modules.update(from_path(os, arch, path, dependency))
 
         blob = cPickle.dumps(modules)
         blob = zlib.compress(blob, 9)
@@ -127,7 +152,59 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None):
 
     return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
 
-def from_path(search_path, start_path, pure_python_only=False, remote=False):
+def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=True):
+    if filepath.startswith(prefix) and honor_ignore:
+        basepath = filepath[len(prefix)+1:]
+        basepath, ext = os.path.splitext(basepath)
+        if ext in ('.pyo', 'py', '.pyc'):
+            ext = '.py'
+        basepath = basepath+ext
+
+        arch_prefixes = ['all']
+        if platform:
+            arch_prefixes.append(platform)
+            arch_prefixes.append(os.path.join(platform, 'all'))
+
+            if arch:
+                arch_prefixes.append(os.path.join(platform, arch))
+
+        for patch_prefix in PATCHES_PATHS:
+            if not os.path.isdir(patch_prefix):
+                continue
+
+            for arch_prefix in arch_prefixes:
+                patch_dir = os.path.join(patch_prefix, arch_prefix)
+
+                if not os.path.isdir(patch_dir):
+                    continue
+
+                maybe_patch = os.path.join(patch_dir, basepath)
+                if os.path.exists(maybe_patch):
+                    logger.info('Patch: {} -> {}'.format(filepath, maybe_patch))
+                    with open(maybe_patch, 'rb') as filedata:
+                        return filedata.read()
+                elif os.path.exists(maybe_patch+'.ignore'):
+                    logger.info('Patch: Ignore {}'.format(filepath))
+                    raise IgnoreFileException()
+                elif os.path.exists(maybe_patch+'.include'):
+                    break
+                else:
+                    subpaths = basepath.split(os.path.sep)
+                    for i in xrange(len(subpaths)):
+                        ignore = [patch_dir] + subpaths[:i]
+                        ignore.append('.ignore')
+                        ignore = os.path.sep.join(ignore)
+                        if os.path.exists(ignore):
+                            logger.info('Patch: Ignore {} ({})'.format(filepath, ignore))
+                            raise IgnoreFileException()
+
+    if archive:
+        return archive.read(filepath)
+    else:
+        with open(filepath, 'rb') as filedata:
+            return filedata.read()
+
+def from_path(platform, arch, search_path, start_path, pure_python_only=False, remote=False, honor_ignore=True):
     modules_dic = {}
     found_files = set()
 
@@ -138,7 +215,7 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
 
     if remote:
         if '..' in module_path or not module_path.startswith(tuple(LIBS_AUTHORIZED_PATHS)):
-            logging.warning("Attempt to retrieve lib from unsafe path: %s"%module_path)
+            logger.warning("Attempt to retrieve lib from unsafe path: %s"%module_path)
             return {}
 
     # loading a real package with multiple files
@@ -157,9 +234,15 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
                 if not f.endswith(('.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
                     continue
 
-                module_code = b''
-                with open(os.path.join(root, f), 'rb') as fd:
-                    module_code = fd.read()
+                try:
+                    module_code = get_content(
+                        platform,
+                        arch,
+                        search_path,
+                        os.path.join(root, f),
+                        honor_ignore=honor_ignore)
+                except IgnoreFileException:
+                    continue
 
                 modprefix = root[len(search_path.rstrip(os.sep))+1:]
                 modpath = os.path.join(modprefix,f).replace("\\","/")
@@ -209,9 +292,15 @@ def from_path(search_path, start_path, pure_python_only=False, remote=False):
         for ext in extlist:
             filepath = os.path.join(module_path+ext)
             if os.path.isfile(filepath) and safe_file_exists(filepath):
-                module_code = ''
-                with open(filepath,'rb') as f:
-                    module_code=f.read()
+                try:
+                    module_code = get_content(
+                        platform,
+                        arch,
+                        search_path,
+                        filepath,
+                        honor_ignore=honor_ignore)
+                except IgnoreFileException:
+                    break
 
                 cur = ''
                 for rep in start_path.split('/')[:-1]:
@@ -276,7 +365,7 @@ def _dependencies(module_name, os, dependencies):
     for dependency in mod_deps.get('all', []) + mod_deps.get(os, []):
         _dependencies(dependency, os, dependencies)
 
-def _package(modules, module_name, platform, arch, remote=False, posix=None):
+def _package(modules, module_name, platform, arch, remote=False, posix=None, honor_ignore=True):
 
     initial_module_name = module_name
 
@@ -284,7 +373,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
     package_found = False
 
     for search_path in paths(platform, arch, posix):
-        modules_dic = from_path(search_path, start_path, remote=remote)
+        modules_dic = from_path(platform, arch, search_path, start_path,
+                                remote=remote, honor_ignore=honor_ignore)
         if modules_dic:
             break
 
@@ -293,20 +383,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
         if archive:
             modules_dic = {}
 
-            # ../libs - for windows bundles, to use simple zip command
-            # site-packages/win32 - for pywin32
-            possible_prefixes = (
-                '',
-                'site-packages/win32/lib',
-                'site-packages/win32',
-                'site-packages/pywin32_system32',
-                'site-packages',
-                'lib-dynload'
-            )
-
-            endings = (
-                '/', '.py', '.pyo', '.pyc', '.pyd', '.so', '.dll'
-            )
+            endings = COMMON_MODULE_ENDINGS
 
             # Horrible pywin32..
             if module_name in ( 'pythoncom', 'pythoncomloader', 'pywintypes' ):
@@ -314,7 +391,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
 
             start_paths = tuple([
                 ('/'.join([x, start_path])).strip('/')+y \
-                    for x in possible_prefixes \
+                    for x in COMMON_SEARCH_PREFIXES \
                     for y in endings
             ])
 
@@ -322,7 +399,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
                 content = None
                 if info.filename.startswith(start_paths):
                     module_name = info.filename
-                    for prefix in possible_prefixes:
+                    for prefix in COMMON_SEARCH_PREFIXES:
                         if module_name.startswith(prefix+'/'):
                             module_name = module_name[len(prefix)+1:]
                             break
@@ -334,8 +411,16 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
 
                     # Garbage removing
                     if ext == 'py' and not base+'.pyo' in modules_dic:
-                        content = pupycompile(
-                            archive.read(info.filename), info.filename)
+                        try:
+                            content = pupycompile(
+                                get_content(
+                                    platform, arch, prefix,
+                                    info.filename, archive,
+                                    honor_ignore=honor_ignore),
+                                info.filename)
+                        except IgnoreFileException:
+                            continue
+
                         ext = 'pyo'
 
                     elif ext == 'pyc':
@@ -365,9 +450,16 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
                             del modules_dic[base+'.pyo']
 
                     if not content:
-                        content = archive.read(info.filename)
+                        try:
+                            content = get_content(
+                                platform, arch, prefix,
+                                info.filename, archive,
+                                honor_ignore=honor_ignore)
+                        except IgnoreFileException:
+                            continue
 
-                    modules_dic[base+'.'+ext] = content
+                    if content:
+                        modules_dic[base+'.'+ext] = content
 
             archive.close()
 
@@ -376,23 +468,24 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None):
         for search_path in sys.path:
             try:
                 modules_dic = from_path(
+                    platform, arch,
                     search_path, start_path, pure_python_only=True, remote=remote
                 )
 
                 if modules_dic:
-                    logging.info('package %s not found in packages/, but found in local sys.path'
+                    logger.info('package %s not found in packages/, but found in local sys.path'
                                      ', attempting to push it remotely...' % initial_module_name)
                     break
 
             except BinaryObjectError as e:
-                logging.warning(e)
+                logger.warning(e)
 
     if not modules_dic:
         raise NotFoundError(module_name)
 
     modules.update(modules_dic)
 
-def package(requirements, platform, arch, remote=False, posix=False, filter_needed_cb=None):
+def package(requirements, platform, arch, remote=False, posix=False, filter_needed_cb=None, honor_ignore=True):
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
@@ -427,7 +520,8 @@ def package(requirements, platform, arch, remote=False, posix=False, filter_need
         for dependency in package_deps:
             _package(
                 modules, dependency, platform, arch,
-                remote=remote, posix=posix
+                remote=remote, posix=posix,
+                honor_ignore=honor_ignore
             )
 
         blob = zlib.compress(cPickle.dumps(modules), 9)
@@ -455,23 +549,37 @@ def bundle(platform, arch):
 
     return ZipFile(arch_bundle, 'r')
 
-def dll(name, platform, arch):
+def dll(name, platform, arch, honor_ignore=True):
     buf = b''
 
     path = None
-    for packages_path in paths(platform, arch):
-        packages_path = os.path.join(packages_path, name)
-        if os.path.exists(packages_path):
-            with open(packages_path, 'rb') as f:
-                buf = f.read()
-                break
+    for packages_path in paths(platform, arch, prefix):
+        dll_path = os.path.join(packages_path, name)
+        if os.path.exists(dll_path):
+            try:
+                buf = get_content(
+                    platform, arch, prefix, packages_path, dll_path,
+                    honor_ignore=honor_ignore)
+            except IgnoreFileException:
+                pass
+
+            break
 
     if not buf and arch:
         archive = bundle(platform, arch)
         if archive:
             for info in archive.infolist():
                 if info.filename.endswith('/'+name) or info.filename == name:
-                    buf = archive.read(info.filename)
+                    try:
+                        buf = get_content(
+                            platform, arch, prefix,
+                            info.filename,
+                            archive,
+                            honor_ignore=honor_ignore
+                        )
+                    except IgnoreFileException:
+                        pass
+
                     break
 
             archive.close()

