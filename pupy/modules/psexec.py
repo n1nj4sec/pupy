@@ -24,6 +24,8 @@ class PSExec(PupyModule):
 
     dependencies = [ 'impacket', 'ntpath', 'calendar', 'pupyutils.psexec' ]
 
+    io = REQUIRE_STREAM
+
     @classmethod
     def init_argparse(cls):
 
