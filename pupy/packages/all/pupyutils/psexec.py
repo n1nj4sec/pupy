@@ -22,7 +22,14 @@ DUMMY_SHARE     = 'TMP'
 
 if not 'idna' in encodings._cache or not encodings._cache['idna']:
     import encodings.idna
-    encodings._cache['idna'] = encodings.idna.getregentry()
+    if hasattr(encodings.idna, 'getregentry'):
+        encodings._cache['idna'] = encodings.idna.getregentry()
+    else:
+        import sys
+        del sys.modules['encodings.idna']
+        raise RuntimeError(
+            'IDNA module was not loaded. Reload modules with ' \
+            'load_package -f encodings.idna\nload_package -f pupyutils.psexec')
 
 class FileTransfer(object):
     def __init__(self, host, port=445, hash='', username='', password='', domain='', timeout=30):
