@@ -441,7 +441,7 @@ def invalidate_module(name):
     import pupy
 
     for item in modules.keys():
-        if item == name or item.startswith(name+'.'):
+        if item == name or item.startswith(name+'/'):
             dprint('Remove {} from pupyimporter.modules'.format(item))
             del modules[item]
 
