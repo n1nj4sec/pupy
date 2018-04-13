@@ -22,7 +22,7 @@ from psutil import net_if_addrs
 
 from time import time
 
-def sniff(count=0, prn=None, lfilter=None,
+def isniff(count=0, prn=None, lfilter=None,
           L2socket=None, timeout=None, completion=None,
           iface=None, *arg, **karg):
 
@@ -181,7 +181,7 @@ class SniffSession(Thread):
         reason = None
 
         try:
-            sniff(
+            isniff(
                 prn=self.sniff_callback,
                 filter=self.bpf,
                 count=self.count,
