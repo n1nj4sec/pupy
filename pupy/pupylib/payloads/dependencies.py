@@ -35,7 +35,7 @@ LIBS_AUTHORIZED_PATHS = [
 
 PATCHES_PATHS = [
     os.path.abspath(os.path.join(os.getcwdu(), 'packages', 'patches')),
-    os.path.abspath(os.path.join(ROOT, 'pupy', 'packages', 'patches')),
+    os.path.abspath(os.path.join(ROOT, 'packages', 'patches')),
     os.path.abspath(os.path.join(ROOT, '..', 'client', 'library_patches'))
 ]
 
