@@ -478,7 +478,7 @@ class DnsCommandServerHandler(BaseResolver):
                 self.on_keep_alive(session.system_info)
 
             if command.amount > len(session.commands):
-                logging.info('ACK: invalid amount of commands: {} > {}'.format(
+                logging.debug('ACK: invalid amount of commands: {} > {}'.format(
                     command.amount, len(session.commands)))
             session.commands = session.commands[command.amount:]
 
