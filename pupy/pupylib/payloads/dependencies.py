@@ -13,6 +13,9 @@ import traceback
 class BinaryObjectError(ValueError):
     pass
 
+class UnsafePathError(ValueError):
+    pass
+
 class NotFoundError(NameError):
     pass
 
@@ -205,6 +208,8 @@ def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=Tru
             return filedata.read()
 
 def from_path(platform, arch, search_path, start_path, pure_python_only=False, remote=False, honor_ignore=True):
+    query = start_path
+
     modules_dic = {}
     found_files = set()
 
@@ -215,8 +220,8 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
 
     if remote:
         if '..' in module_path or not module_path.startswith(tuple(LIBS_AUTHORIZED_PATHS)):
-            logger.warning("Attempt to retrieve lib from unsafe path: %s"%module_path)
-            return {}
+            raise UnsafePathError('Attempt to retrieve lib from unsafe path: {} (query={})'.format(
+                module_path, query))
 
     # loading a real package with multiple files
     if os.path.isdir(module_path) and safe_file_exists(module_path):
@@ -229,7 +234,8 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
                     # avoid loosing shells when looking for packages in
                     # sys.path and unfortunatelly pushing a .so ELF on a
                     # remote windows
-                    raise BinaryObjectError('Path contains binary objects: {}'.format(f))
+                    raise BinaryObjectError('Path contains binary objects: {} (query={})'.format(
+                        f, query))
 
                 if not f.endswith(('.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
                     continue
@@ -479,6 +485,9 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
 
             except BinaryObjectError as e:
                 logger.warning(e)
+
+            except UnsafePathError as e:
+                logger.error(e)
 
     if not modules_dic:
         raise NotFoundError(module_name)
