@@ -17,7 +17,7 @@ import os,time,socket,sys
 from scapy import VERSION
 from scapy.data import *
 from scapy import base_classes
-from scapy.themes import NoTheme, apply_ipython_style
+from scapy.themes import NoTheme
 from scapy.error import log_scapy
 
 ############
@@ -172,11 +172,6 @@ def _prompt_changer(attr, val):
     try:
         sys.ps1 = conf.color_theme.prompt(conf.prompt)
     except:
-        pass
-
-    try:
-        apply_ipython_style(get_ipython())
-    except NameError:
         pass
 
 class Conf(ConfClass):
