@@ -32,6 +32,7 @@ class SearchModule(PupyModule):
             help='root path to start (default: current path)')
         cls.arg_parser.add_argument('-m','--max-size', type=int, default=20000000, help='max file size (default 20 Mo)')
         cls.arg_parser.add_argument('-b', '--binary', action='store_true', help='search content inside binary files')
+        cls.arg_parser.add_argument('-C', '--content-only', action='store_true', help='show only results with content')
         cls.arg_parser.add_argument('-L', '--links', action='store_true', help='follow symlinks')
         cls.arg_parser.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
         cls.arg_parser.add_argument('-N', '--no-content', action='store_true', help='if string matches, output just filename')
@@ -82,7 +83,7 @@ class SearchModule(PupyModule):
                 if args.strings and not args.no_content:
                     if type(res) == tuple:
                         self.success('{}: {}'.format(*res))
-                    else:
+                    elif not args.content_only:
                         self.success('{}'.format(res))
                 else:
                     self.success('{}'.format(res))
