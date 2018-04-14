@@ -11,10 +11,12 @@ ON_CONNECT = 0
 ON_DISCONNECT = 1
 ON_DNSCNC_SESSION = 2
 ON_DNSCNC_SESSION_LOST = 3
+ON_START = 254
 ON_EXIT = 255
 
 def event_to_config_section(event):
     return {
+        ON_START: 'on_start',
         ON_EXIT: 'on_exit',
         ON_CONNECT: 'on_connect',
         ON_DISCONNECT: 'on_disconnect',
@@ -24,6 +26,7 @@ def event_to_config_section(event):
 
 def event_to_string(event):
     return {
+        ON_START: 'start',
         ON_EXIT: 'exit',
         ON_CONNECT: 'connect',
         ON_DISCONNECT: 'disconnect',
@@ -64,7 +67,8 @@ def _event(eventid, client, handler, config):
                     if eventid in ( ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST ):
                         action = action.replace('%c', '{:08x}'.format(client.spi))
                         node = '{:012x}'.format(client.system_info['node'])
-                        if client_filter not in ('*', 'any', node):
+                        criterias = ['*', 'any', node] + list(config.tags(node))
+                        if client_filter not in criterias:
                             continue
 
                     _do(eventid, action, handler, client_filter)
@@ -75,7 +79,8 @@ def _event(eventid, client, handler, config):
             if eventid in ( ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST ):
                 action = action.replace('%c', '{:08x}'.format(client.spi))
                 node = '{:012x}'.format(client.system_info['node'])
-                if client_filter not in ('*', 'any', node):
+                criterias = ['*', 'any', node] + list(config.tags(node))
+                if client_filter not in criterias:
                     continue
 
             _do(eventid, action, handler, client_filter)

@@ -44,7 +44,7 @@ from .PupyOutput import Error, Line, Color
 from .PupyModule import QA_DANGEROUS, QA_STABLE
 from .PupyDnsCnc import PupyDnsCnc
 from .PupyTriggers import event
-from .PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_EXIT
+from .PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
 from .PupyWeb import PupyWebServer
 from .PupyOffload import PupyOffloadManager
 from .PupyClient import PupyClient
@@ -516,6 +516,8 @@ class PupyServer(object):
 
         self.handler_registered.set()
 
+        event(ON_START, None, self.handler, self.config)
+
     def add_client(self, conn):
         pc = None
 
@@ -966,12 +968,12 @@ class PupyServer(object):
         return single
 
     def stop(self):
-        event(ON_EXIT, None, self.handler, self.config)
-
         if self.finishing.is_set():
             return
         else:
             self.finishing.set()
+
+        event(ON_EXIT, None, self.handler, self.config)
 
         for cleanup in self._cleanups:
             cleanup()
