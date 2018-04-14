@@ -102,12 +102,12 @@ class Commands(object):
 
         return self._commands.get(command)
 
-    def execute(self, server, handler, config, cmdline):
+    def execute(self, server, handler, config, cmdline, clients_filter=None):
         aliases = dict(config.items('aliases'))
         command, args = self._get_command(
             cmdline, aliases, server.iter_modules(
                 by_clients=True,
-                clients_filter=handler.default_filter
+                clients_filter=clients_filter or handler.default_filter
             ))
 
         parser = command.parser
@@ -115,7 +115,17 @@ class Commands(object):
             parser = parser(server, handler, config)
 
         parsed_args = parser.parse_args(args)
-        command.do(server, handler, config, parsed_args)
+
+        old_filter = handler.default_filter
+
+        if clients_filter:
+            handler.default_filter = clients_filter
+
+        try:
+            command.do(server, handler, config, parsed_args)
+        finally:
+            if clients_filter and handler.default_filter == clients_filter:
+                handler.default_filter = old_filter
 
     def list(self, refresh=True):
         if refresh:
