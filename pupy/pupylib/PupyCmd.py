@@ -342,9 +342,19 @@ class PupyCmd(cmd.Cmd):
             )
 
     def default(self, line):
+        return self.execute(line)
+
+    def inject(self, line, clients_filter, message=None):
+        self.display_srvinfo(message or 'Inject: {}'.format(line))
+        self.execute(line, clients_filter)
+        self.display_srvinfo('Action complete')
+
+    def execute(self, line, clients_filter=None):
         try:
             self.commands.execute(
-                self.pupsrv, self, self.pupsrv.config, line)
+                self.pupsrv, self,
+                self.pupsrv.config, line,
+                clients_filter)
 
             self.completion_matches = None
 

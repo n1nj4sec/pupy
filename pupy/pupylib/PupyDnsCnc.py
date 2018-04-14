@@ -19,23 +19,41 @@ from urlparse import urlparse
 
 from os import path
 
+from .PupyTriggers import event
+from .PupyTriggers import ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST
+
 from network.lib.igd import IGDClient, UPNPError
 
 class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def __init__(self, *args, **kwargs):
         if 'config' in kwargs:
-            self.config = kwargs.get('config')
-            del kwargs['config']
+            self.config = kwargs.pop('config')
         else:
             self.config = None
 
+        if 'server' in kwargs:
+            self.server = kwargs.pop('server')
+        else:
+            self.server = None
+
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
 
+    def on_new_session(self, session):
+        if self.server.cmdhandler:
+            event(ON_DNSCNC_SESSION, session, self.server.cmdhandler, self.config)
+
+    def on_session_cleaned_up(self, session):
+        if self.server.cmdhandler:
+            event(ON_DNSCNC_SESSION_LOST, session,
+                  self.server.cmdhandler, self.config)
+
     def onlinestatus(self, node=None, default=False):
-        return self.add_command(OnlineStatusRequest(), session=node, default=default)
+        return self.add_command(
+            OnlineStatusRequest(), session=node, default=default)
 
     def scan(self, host, first, last, node=None, default=False):
-        return self.add_command(CheckConnect(host, first, last), session=node, default=default)
+        return self.add_command(
+            CheckConnect(host, first, last), session=node, default=default)
 
     def connect(self, hosts, port, transport, node=None, default=False):
         commands = [
@@ -187,7 +205,8 @@ class PupyDnsCnc(object):
             domain,
             credentials['DNSCNC_PRIV_KEY'],
             recursor=recursor,
-            config=self.config
+            config=self.config,
+            server=self
         )
 
         if self.pproxy:

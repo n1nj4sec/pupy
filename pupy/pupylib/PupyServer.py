@@ -15,9 +15,24 @@
 # --------------------------------------------------------------
 
 from threading import Thread, Event, Lock
-from . import PupyService
+
 import imp
 import logging
+
+from os import path, listdir, stat
+from shutil import copyfile
+from itertools import count, ifilterfalse
+from netaddr import IPAddress
+from random import randint
+from weakref import ref
+
+import rpyc
+import shlex
+import socket
+import errno
+import traceback
+
+from . import PupyService
 from .PupyErrors import PupyModuleExit, PupyModuleError
 from .PupyErrors import PupyModuleDisabled, PupyModuleNotFound
 from .PupyJob import PupyJob
@@ -27,40 +42,30 @@ from .PupyService import PupyBindService
 from .PupyCompile import pupycompile
 from .PupyOutput import Error, Line, Color
 from .PupyModule import QA_DANGEROUS, QA_STABLE
+from .PupyDnsCnc import PupyDnsCnc
+from .PupyTriggers import event
+from .PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_EXIT
+from .PupyWeb import PupyWebServer
+from .PupyOffload import PupyOffloadManager
+from .PupyClient import PupyClient
+
+from .utils.rpyc_utils import obtain
+from .utils.network import get_listener_ip_with_local
+
+import network.conf
+
 from network.conf import transports
 from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
 from network.lib.servers import PupyTCPServer
 from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocketStream
-from pupylib.utils.rpyc_utils import obtain
-from pupylib.utils.network import get_listener_ip_with_local
-from pupylib.PupyDnsCnc import PupyDnsCnc
-from .PupyTriggers import on_connect
+
 from network.lib.utils import parse_transports_args
 from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.base_launcher import LauncherError
 from network.lib.igd import IGDClient, UPNPError
 from network.lib.streams.PupySocketStream import PupyChannel
-from .PupyWeb import PupyWebServer
-from os import path
-from shutil import copyfile
-from itertools import count, ifilterfalse
-from netaddr import IPAddress
-from random import randint
-from .PupyOffload import PupyOffloadManager
-from weakref import ref
-import marshal
-import network.conf
-import rpyc
-import shlex
-import socket
-import errno
-import traceback
-
-from .PupyClient import PupyClient
-
-import os.path
 
 logger = logging.getLogger('server')
 
@@ -504,9 +509,11 @@ class PupyServer(object):
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
-        self.handler=instance
+        self.handler = instance
+
         if self.dnscnc:
-            self.dnscnc.cmdhandler=instance
+            self.dnscnc.cmdhandler = instance
+
         self.handler_registered.set()
 
     def add_client(self, conn):
@@ -581,10 +588,13 @@ class PupyServer(object):
                 self.handler.display_srvinfo('Session {} opened ({}@{}){}'.format(
                     client_id, user, hostname, remote if client_port != 0 else '')
                 )
-        if pc:
-            on_connect(pc)
+
+        if pc and self.handler:
+            event(ON_CONNECT, pc, self.handler, self.config)
 
     def remove_client(self, conn):
+        event(ON_DISCONNECT, None, self.handler, self.config)
+
         with self.clients_lock:
             client = [ x for x in self.clients if ( x.conn is conn or x is conn ) ]
             if not client:
@@ -694,13 +704,13 @@ class PupyServer(object):
             else:
                 yield module
 
-    def get_module_name_from_category(self, path):
+    def get_module_name_from_category(self, modpath):
         """ take a category virtual path and return the module's name or the path untouched if not found """
-        mod = self.categories.get_module_from_path(path)
+        mod = self.categories.get_module_from_path(modpath)
         if mod:
             return mod.get_name()
         else:
-            return path
+            return modpath
 
     def get_aliased_modules(self):
         """ return a list of aliased module names that have to be displayed as commands """
@@ -714,25 +724,25 @@ class PupyServer(object):
         files = {}
 
         paths = set([
-            os.path.abspath(x) for x in [
+            path.abspath(x) for x in [
                 self.config.root, '.',
             ]
         ])
 
-        for path in paths:
-            modules = os.path.join(path, 'modules')
-            if not os.path.isdir(modules):
+        for modpath in paths:
+            modules = path.join(modpath, 'modules')
+            if not path.isdir(modules):
                 continue
 
-            for x in os.listdir(modules):
+            for x in listdir(modules):
                 modname = '.'.join(x.rsplit('.', 1)[:-1])
-                modpath = os.path.join(modules, x)
+                modpath = path.join(modules, x)
 
                 try:
                     valid = all([
                         x.endswith(self.SUFFIXES),
                         not x.startswith(('__init__', '.')),
-                        os.path.isfile(modpath)
+                        path.isfile(modpath)
                     ])
 
                     if valid:
@@ -744,7 +754,7 @@ class PupyServer(object):
                     pass
 
         for modname, modpath in files.iteritems():
-            current_stats = os.stat(modpath)
+            current_stats = stat(modpath)
 
             if not force and modname in self.modules and \
               self._modules_stats[modname] == current_stats.st_mtime:
@@ -827,7 +837,7 @@ class PupyServer(object):
 
     def connect_on_client(self, launcher_args):
         """ connect on a client that would be running a bind payload """
-        launcher=network.conf.launchers['connect'](
+        launcher = network.conf.launchers['connect'](
             connect_on_bind_payload=True
         )
 
@@ -956,6 +966,8 @@ class PupyServer(object):
         return single
 
     def stop(self):
+        event(ON_EXIT, None, self.handler, self.config)
+
         if self.finishing.is_set():
             return
         else:
