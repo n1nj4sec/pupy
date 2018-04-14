@@ -36,6 +36,10 @@ use_gnome_keyring=false
 ping = 0
 ping_timeout = 2
 
+# Enable modules which are marked as QA_DANGEROUS
+# These modules may cause the pupy hang or require manual changes
+enable_dangerous_modules = false
+
 [listeners]
 # Default ports and args
 # Ensure ports are different for all enabled listeners

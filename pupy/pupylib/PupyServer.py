@@ -19,12 +19,14 @@ from . import PupyService
 import imp
 import logging
 from .PupyErrors import PupyModuleExit, PupyModuleError
+from .PupyErrors import PupyModuleDisabled, PupyModuleNotFound
 from .PupyJob import PupyJob
 from .PupyCategories import PupyCategories
 from .PupyConfig import PupyConfig
 from .PupyService import PupyBindService
 from .PupyCompile import pupycompile
 from .PupyOutput import Error, Line, Color
+from .PupyModule import QA_DANGEROUS, QA_STABLE
 from network.conf import transports
 from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
@@ -59,6 +61,8 @@ import traceback
 from .PupyClient import PupyClient
 
 import os.path
+
+logger = logging.getLogger('server')
 
 class ListenerException(Exception):
     pass
@@ -201,14 +205,14 @@ class Listener(Thread):
             if val in t.server_transport_kwargs:
                 transport_kwargs[val] = opt_args[val]
             else:
-                logging.warning('Unknown transport argument: {}'.format(val))
+                logger.warning('Unknown transport argument: {}'.format(val))
 
         self.kwargs = transport_kwargs
 
         try:
             self.transport.parse_args(self.kwargs)
         except Exception, e:
-            logging.exception(e)
+            logger.exception(e)
 
     def init(self):
         proxy = None
@@ -281,7 +285,7 @@ class Listener(Thread):
                 self.igd.DeletePortMapping(
                     self.external_port, self.port)
             except UPNPError as e:
-                logging.error(
+                logger.error(
                     "Couldn't delete IGD Mapping: {}".format(e.description)
                 )
             except:
@@ -378,7 +382,7 @@ class PupyServer(object):
                         ' via {}'.format(via) if via else ''))
             except Exception, e:
                 self.pproxy = None
-                logging.exception(e)
+                logger.exception(e)
                 self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
 
         if self.config.getboolean('pupyd', 'httpd'):
@@ -425,7 +429,7 @@ class PupyServer(object):
                     pproxy=self.pproxy,
                 )
             except Exception, e:
-                logging.error('DnsCNC failed: {}'.format(e))
+                logger.error('DnsCNC failed: {}'.format(e))
 
 
     def get_listeners(self):
@@ -496,7 +500,7 @@ class PupyServer(object):
             try:
                 self._current_id.remove(int(id))
             except ValueError:
-                logging.debug('Id not found in current_id list: {}'.format(id))
+                logger.debug('Id not found in current_id list: {}'.format(id))
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -584,7 +588,7 @@ class PupyServer(object):
         with self.clients_lock:
             client = [ x for x in self.clients if ( x.conn is conn or x is conn ) ]
             if not client:
-                logging.debug('No clients matches request: {}'.format(conn))
+                logger.debug('No clients matches request: {}'.format(conn))
                 return
 
             client = client[0]
@@ -677,7 +681,11 @@ class PupyServer(object):
 
         self._refresh_modules()
         for module_name in self.modules:
-            module = self.get_module(module_name)
+            try:
+                module = self.get_module(module_name)
+            except PupyModuleDisabled:
+                continue
+
             if clients is not None:
                 for client in clients:
                     if module.is_compatible_with(client):
@@ -732,20 +740,21 @@ class PupyServer(object):
 
                 except Exception, e:
                     import logging
-                    logging.exception(e)
+                    logger.exception(e)
                     pass
 
         for modname, modpath in files.iteritems():
             current_stats = os.stat(modpath)
 
             if not force and modname in self.modules and \
-              self._modules_stats[modname] == os.stat(modpath):
+              self._modules_stats[modname] == current_stats.st_mtime:
                 continue
 
-            self._modules_stats[modname] = current_stats
-
             try:
-                self.modules[modname] = imp.load_source(modname, modpath)
+                module_object = imp.load_source(modname, modpath)
+                logger.debug('Load module {}'.format(modname))
+                self.modules[modname] = module_object
+                self._modules_stats[modname] = current_stats.st_mtime
             except Exception, e:
                 tb = '\n'.join(traceback.format_exc().split('\n')[1:-2])
                 error = Line(
@@ -759,11 +768,13 @@ class PupyServer(object):
                     self.motd['fail'].append(error)
 
     def get_module(self, name):
+        enable_dangerous_modules = self.config.getboolean('pupyd', 'enable_dangerous_modules')
+
         if not name in self.modules:
             self._refresh_modules(force=True)
 
         if not name in self.modules:
-            raise ValueError('No such module')
+            raise PupyModuleNotFound('No such module')
 
         module = self.modules[name]
         class_name = None
@@ -771,13 +782,19 @@ class PupyServer(object):
         if hasattr(module, "__class_name__"):
             class_name = module.__class_name__
             if not hasattr(module, class_name):
-                logging.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
+                logger.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
 
         if not class_name:
             #TODO automatically search the class name in the file
             exit("Error : no __class_name__ for module %s"%module)
 
-        return getattr(module, class_name)
+        module_class = getattr(module, class_name)
+
+        if not enable_dangerous_modules and module_class.qa != QA_STABLE:
+            logger.debug('Ignore dangerous module {}'.format(name))
+            raise PupyModuleDisabled('Dangerous modules are disabled.')
+
+        return module_class
 
     def module_parse_args(self, module_name, args):
         """ This method is used by the PupyCmd class to verify validity of arguments passed to a specific module """
@@ -902,7 +919,7 @@ class PupyServer(object):
 
         except Exception as e:
             message = '{}: {}'.format(listener, e)
-            logging.exception(e)
+            logger.exception(e)
 
         if error:
             del self.listeners[name]

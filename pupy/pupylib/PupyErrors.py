@@ -21,3 +21,9 @@ class PupyModuleError(BaseException):
 
 class PupyModuleUsageError(BaseException):
     pass
+
+class PupyModuleDisabled(ValueError):
+    pass
+
+class PupyModuleNotFound(ValueError):
+    pass

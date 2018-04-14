@@ -40,6 +40,10 @@ REQUIRE_STREAM   = 1
 REQUIRE_REPL     = 2
 REQUIRE_TERMINAL = 3
 
+QA_STABLE = 0
+QA_UNSTABLE = 1
+QA_DANGEROUS = 2
+
 class PupyArgumentParserWrap(object):
     def __init__(self, base, wrapped):
         self.base = base
@@ -286,6 +290,9 @@ class PupyModule(object):
     """
 
     __metaclass__ = PupyModuleMetaclass
+
+    # QA - Safeness of the module
+    qa = QA_STABLE
 
     # Interaction requirements
     io = REQUIRE_NOTHING
