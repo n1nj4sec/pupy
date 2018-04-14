@@ -2,7 +2,8 @@
 
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Info, Success, Error, Table, Color
-from time import time, sleep
+
+import time
 
 usage = 'DNSCNC control'
 parser = PupyArgumentParser(prog='dnscnc', description=usage)
@@ -305,7 +306,7 @@ def do(server, handler, config, args):
         handler.display(Table(objects, columns))
 
     elif args.command == 'wait':
-        now = time()
+        now = time.time()
         timeout = None
         if args.timeout:
             timeout = now + args.timeout
@@ -314,14 +315,14 @@ def do(server, handler, config, args):
 
         dirty = True
 
-        while dirty or (time() >= timeout):
+        while dirty or (time.time() >= timeout):
             dirty = False
             for session in server.dnscnc.list():
                 if len(session.commands) > 0:
                     dirty = True
 
             if dirty:
-                sleep(1)
+                time.sleep(1)
 
     elif args.command == 'set':
         set_kex = None
