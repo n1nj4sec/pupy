@@ -2,6 +2,7 @@
 
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Info, Success, Error, Table, Color
+from time import time, sleep
 
 usage = 'DNSCNC control'
 parser = PupyArgumentParser(prog='dnscnc', description=usage)
@@ -34,6 +35,9 @@ info_sorting.add_argument('-e', action='store_true', help='Sort by established c
 info_sorting.add_argument('-u', action='store_true', help='Sort by users count')
 info_sorting.add_argument('-x', action='store_true', help='Sort by idle')
 info_sorting.add_argument('-t', action='store_true', help='Sort by tags')
+
+wait = commands.add_parser('wait', help='Wait all commands applied or session gone')
+wait.add_argument('-t', '--timeout', type=int, help='Timeout')
 
 policy = commands.add_parser('set', help='Change policy (polling, timeout)')
 policy.add_argument('-p', '--poll', help='Set poll interval', type=int)
@@ -299,6 +303,25 @@ def do(server, handler, config, args):
         ]
 
         handler.display(Table(objects, columns))
+
+    elif args.command == 'wait':
+        now = time()
+        timeout = None
+        if args.timeout:
+            timeout = now + args.timeout
+        else:
+            timeout = now + handler.dnscnc.policy['timeout']
+
+        dirty = True
+
+        while dirty or (time() >= timeout):
+            dirty = False
+            for session in server.dnscnc.list():
+                if len(session.commands) > 0:
+                    dirty = True
+
+            if dirty:
+                sleep(1)
 
     elif args.command == 'set':
         set_kex = None
