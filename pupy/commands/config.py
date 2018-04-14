@@ -29,7 +29,7 @@ cmdunset.add_argument('-w', '--write-project', action='store_true',
 cmdunset.add_argument('-W', '--write-user', action='store_true',
                             default=False, help='save config to user folder')
 cmdunset.add_argument('section', help='config section')
-cmdunset.add_argument('key', help='config key')
+cmdunset.add_argument('keys', nargs='*', help='config key')
 
 cmdsave = commands.add_parser('save', help='save config')
 cmdsave.add_argument('-w', '--write-project', action='store_true',
@@ -71,7 +71,19 @@ def do(server, handler, config, args):
 
     elif args.command == 'unset':
         try:
-            config.remove_option(args.section, args.key)
+            if args.keys:
+                for key in args.keys:
+                    config.remove_option(args.section, key)
+            else:
+                to_remove = [
+                    k for k, _ in config.items(args.section)
+                ]
+
+                for k in to_remove:
+                    config.remove_option(args.section, k)
+
+                config.remove_section(args.section)
+
             config.save(project=args.write_project, user=args.write_user)
 
         except config.NoSectionError:
