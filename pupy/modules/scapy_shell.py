@@ -21,8 +21,10 @@ def enqueue_output(out, queue):
 @config(cat="admin")
 class InteractiveScapyShell(PupyModule):
     """ open an interactive python shell on the remote client """
+
     max_clients=1
     dependencies=['pyshell']
+    qa = QA_DANGEROUS
 
     @classmethod
     def init_argparse(cls):

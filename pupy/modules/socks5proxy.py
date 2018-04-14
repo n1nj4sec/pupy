@@ -188,6 +188,8 @@ class Socks5Proxy(PupyModule):
     daemon=True
     server=None
 
+    qa = QA_UNSTABLE
+
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='socks5proxy', description=cls.__doc__)

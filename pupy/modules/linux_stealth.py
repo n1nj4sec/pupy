@@ -14,6 +14,7 @@ Credits to: http://www.jakoblell.com/blog/2014/05/07/hacking-contest-rootkit/
 Demo: https://vimeo.com/157356150"""
 
     dependencies=["linux_stealth"]
+    qa = QA_UNSTABLE
 
     @classmethod
     def init_argparse(cls):
