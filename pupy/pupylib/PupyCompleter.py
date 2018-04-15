@@ -19,10 +19,49 @@ import os
 import os.path
 import shlex
 import re
+import stat
 
 from argparse import REMAINDER
 
 from .PupyErrors import PupyModuleExit, PupyModuleUsageError
+from .payloads.dependencies import paths
+
+def package_completer(module, args, text, context):
+    clients = context.server.get_clients(context.handler.default_filter)
+
+    paths_to_scan = set()
+    completions = set()
+
+    for client in clients:
+        for path in paths(client.platform, client.arch, client.is_posix()):
+            paths_to_scan.add(path)
+
+    module_path = text.split('.')
+
+    path_to_scan = os.path.sep.join(module_path)
+    for path in paths_to_scan:
+        full_path_to_scan = os.path.sep.join([path, path_to_scan])
+        dir_to_scan = os.path.dirname(full_path_to_scan)
+        if not os.path.isdir(dir_to_scan):
+            continue
+
+        for item in os.listdir(dir_to_scan):
+            try:
+                item_info = os.stat(os.path.join(dir_to_scan, item))
+            except OSError:
+                continue
+
+            if stat.S_ISDIR(item_info.st_mode) and os.path.isfile(
+                    os.path.join(os.path.join(dir_to_scan, item, '__init__.py'))):
+                completion = item
+            elif stat.S_ISREG(item_info.st_mode) and item.endswith('.py'):
+                completion = os.path.splitext(item)[0]
+
+            completion = '.'.join(module_path[:-1] + [completion])
+            if completion.startswith(text) and not item.startswith('__init__.py'):
+                completions.add(completion)
+
+    return list(completions)
 
 def commands_completer(module, args, text, context):
     aliases = dict(context.config.items('aliases'))
