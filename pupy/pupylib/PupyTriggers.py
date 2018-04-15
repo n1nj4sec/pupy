@@ -46,7 +46,7 @@ def _do(eventid, action, handler, client_filter):
         'Action for event "{}" apply to <{}>: {}'.format(
             event, client_filter, action))
 
-def _event(eventid, client, handler, config):
+def _event(eventid, client, server, handler, config):
     section = event_to_config_section(eventid)
 
     for client_filter, action in config.items(section):
@@ -70,6 +70,9 @@ def _event(eventid, client, handler, config):
                         criterias = ['*', 'any', node] + list(config.tags(node))
                         if client_filter not in criterias:
                             continue
+                    elif eventid in ( ON_CONNECT, ON_DISCONNECT ):
+                        if not client in server.get_clients(client_filter):
+                            continue
 
                     _do(eventid, action, handler, client_filter)
             except NoSectionError:
@@ -82,12 +85,15 @@ def _event(eventid, client, handler, config):
                 criterias = ['*', 'any', node] + list(config.tags(node))
                 if client_filter not in criterias:
                     continue
+            elif eventid in ( ON_CONNECT, ON_DISCONNECT ):
+                if not client in server.get_clients(client_filter):
+                    continue
 
             _do(eventid, action, handler, client_filter)
 
-def event(eventid, client, handler, config):
+def event(eventid, client, server, handler, config):
     try:
-        _event(eventid, client, handler, config)
+        _event(eventid, client, server, handler, config)
 
     except NoSectionError:
         pass

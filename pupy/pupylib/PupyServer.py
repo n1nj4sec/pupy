@@ -516,7 +516,7 @@ class PupyServer(object):
 
         self.handler_registered.set()
 
-        event(ON_START, None, self.handler, self.config)
+        event(ON_START, None, self, self.handler, self.config)
 
     def add_client(self, conn):
         pc = None
@@ -592,10 +592,10 @@ class PupyServer(object):
                 )
 
         if pc and self.handler:
-            event(ON_CONNECT, pc, self.handler, self.config)
+            event(ON_CONNECT, pc, self, self.handler, self.config)
 
     def remove_client(self, conn):
-        event(ON_DISCONNECT, None, self.handler, self.config)
+        event(ON_DISCONNECT, None, self, self.handler, self.config)
 
         with self.clients_lock:
             client = [ x for x in self.clients if ( x.conn is conn or x is conn ) ]
@@ -973,7 +973,7 @@ class PupyServer(object):
         else:
             self.finishing.set()
 
-        event(ON_EXIT, None, self.handler, self.config)
+        event(ON_EXIT, None, self, self.handler, self.config)
 
         for cleanup in self._cleanups:
             cleanup()

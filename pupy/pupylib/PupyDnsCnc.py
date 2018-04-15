@@ -40,12 +40,12 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
     def on_new_session(self, session):
         if self.server.cmdhandler:
-            event(ON_DNSCNC_SESSION, session, self.server.cmdhandler, self.config)
+            event(ON_DNSCNC_SESSION, session, self.server, self.server.cmdhandler, self.config)
 
     def on_session_cleaned_up(self, session):
         if self.server.cmdhandler:
             event(ON_DNSCNC_SESSION_LOST, session,
-                  self.server.cmdhandler, self.config)
+                  self.server, self.server.cmdhandler, self.config)
 
     def onlinestatus(self, node=None, default=False):
         return self.add_command(
