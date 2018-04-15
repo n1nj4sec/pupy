@@ -178,16 +178,17 @@ def GetUserName():
     return lpBuffer.value
 
 def get_uuid():
-    user=None
-    node=None
-    plat=None
-    release=None
-    version=None
-    machine=None
-    macaddr=None
-    pid=None
-    proc_arch=None
-    proc_path=sys.executable
+    user = None
+    hostname = None
+    node = None
+    plat = None
+    release = None
+    version = None
+    machine = None
+    macaddr = None
+    pid = None
+    proc_arch = None
+    proc_path = sys.executable
     uacLevel = None
     integrity_level = None
     try:
@@ -203,7 +204,7 @@ def get_uuid():
         pass
 
     try:
-        node = platform.node().decode(
+        hostname = platform.node().decode(
             encoding=os_encoding
         ).encode("utf8")
     except Exception:
@@ -274,8 +275,8 @@ def get_uuid():
         pass
 
     try:
-        macaddr=uuid.getnode()
-        macaddr=':'.join(("%012X" % macaddr)[i:i+2] for i in range(0, 12, 2))
+        node = '{:012x}'.format(uuid.getnode())
+        macaddr = ':'.join(node[i:i+2] for i in range(0, 12, 2))
     except Exception:
         pass
 
@@ -291,12 +292,14 @@ def get_uuid():
 
     return {
         'user': user,
-        'hostname': node,
+        'hostname': hostname,
+        'node': node,
         'platform': plat,
         'release': release,
         'version': version,
         'os_arch': machine,
         'os_name': osname,
+        'node': node,
         'macaddr': macaddr,
         'pid': pid,
         'proc_arch': proc_arch,
