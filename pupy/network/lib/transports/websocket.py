@@ -14,13 +14,15 @@ __all__ = (
     'PupyWebSocketClient', 'PupyWebSocketServer'
 )
 
-from ..base import BasePupyTransport
-import time, base64, struct, random, string, logging
-from hashlib import sha1
-from .utils import *
+import time, base64, struct, random, string
 import re
+from hashlib import sha1
 
-logger = logging.getLogger('ws')
+from ..base import BasePupyTransport
+from .utils import *
+
+from network.lib import getLogger
+logger = getLogger('ws')
 
 class InvalidHTTPReq(Exception):
     __slots__ = ()

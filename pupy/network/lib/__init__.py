@@ -1,5 +1,9 @@
 import logging
 
+logger = logging.getLogger('pupy.network')
+def getLogger(name):
+    return logger.getChild(name)
+
 from .streams.PupySocketStream import PupySocketStream
 
 try:
@@ -18,41 +22,41 @@ from .transports.dummy import DummyPupyTransport
 try:
     from .transports.rsa_aes import RSA_AESClient, RSA_AESServer
 except Exception, e:
-    logging.exception('Transport rsa_aes disabled: {}'.format(e))
+    logger.exception('Transport rsa_aes disabled: {}'.format(e))
     RSA_AESClient = None
     RSA_AESServer = None
 
 try:
     from .transports.http import PupyHTTPClient, PupyHTTPServer
 except Exception, e:
-    logging.exception('Transport http disabled: {}'.format(e))
+    logger.exception('Transport http disabled: {}'.format(e))
     PupyHTTPClient = None
     PupyHTTPServer = None
 
 try:
     from .transports.websocket import PupyWebSocketClient, PupyWebSocketServer
 except Exception, e:
-    logging.exception('Transport websocket disabled: {}'.format(e))
+    logger.exception('Transport websocket disabled: {}'.format(e))
     PupyWebSocketClient = None
     PupyWebSocketServer = None
 
 try:
     from .transports.ec4 import EC4TransportServer, EC4TransportClient
 except Exception as e:
-    logging.exception('Transport ec4 disabled: {}'.format(e))
+    logger.exception('Transport ec4 disabled: {}'.format(e))
     EC4TransportServer = None
     EC4TransportClient = None
 
 try:
     from .transports.ecm import ECMTransportServer, ECMTransportClient
 except Exception as e:
-    logging.exception('Transport ecm disabled: {}'.format(e))
+    logger.exception('Transport ecm disabled: {}'.format(e))
     ECMTransportServer = None
     ECMTransportClient = None
 
 try:
     from .transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
 except Exception as e:
-    logging.exception('Transport scramblesuit disabled: {}'.format(e))
+    logger.exception('Transport scramblesuit disabled: {}'.format(e))
     ScrambleSuitClient = None
     ScrambleSuitServer = None

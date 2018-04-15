@@ -30,6 +30,9 @@ import array
 import readline
 
 import rpyc
+
+from threading import Event, Lock
+
 from .PupyErrors import PupyModuleExit, PupyModuleError, PupyModuleUsageError
 from .PupyModule import (
     REQUIRE_NOTHING, REQUIRE_REPL, REQUIRE_TERMINAL
@@ -37,15 +40,15 @@ from .PupyModule import (
 from .PupyCompleter import CompletionContext
 from .PupyVersion import BANNER, BANNER_INFO
 from .PupyOutput import *
-from threading import Event, Lock
 
-from pupylib.utils.term import colorize, hint_to_text, consize
-from pupylib.utils.term import SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM
-from pupylib.PupySignalHandler import set_signal_winch
+from .utils.term import colorize, hint_to_text, consize
+from .utils.term import SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM
+from .PupySignalHandler import set_signal_winch
 
 from commands import Commands, InvalidCommand
 
-logger = logging.getLogger('cmd')
+from . import getLogger
+logger = getLogger('cmd')
 
 class IOGroup(object):
     __slots__ = ( '_stdin', '_stdout', '_logger' )

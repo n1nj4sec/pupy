@@ -67,7 +67,8 @@ from network.lib.base_launcher import LauncherError
 from network.lib.igd import IGDClient, UPNPError
 from network.lib.streams.PupySocketStream import PupyChannel
 
-logger = logging.getLogger('server')
+from . import getLogger
+logger = getLogger('server')
 
 class ListenerException(Exception):
     pass

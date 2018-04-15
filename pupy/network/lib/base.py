@@ -136,9 +136,9 @@ class PluggableTransportError(Exception):
 
 from buffer import Buffer
 from streams.PupySocketStream import addGetPeer
-import logging
 
-logger = logging.getLogger('chain')
+from network.lib import getLogger
+logger = getLogger('chain')
 
 class TransportWrapper(BasePupyTransport):
 

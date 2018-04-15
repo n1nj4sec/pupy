@@ -4,7 +4,12 @@ import ast
 import marshal
 import logging
 
-logger = logging.getLogger('compiler')
+try:
+    from .PupyLogger import getLogger
+    logger = getLogger('compiler')
+except ValueError:
+    # If PupyCompile imported directly (build_library_zip.py)
+    logger = logging.getLogger('compiler')
 
 class Compiler(ast.NodeTransformer):
     def __init__(self, data, path=False, main=False):

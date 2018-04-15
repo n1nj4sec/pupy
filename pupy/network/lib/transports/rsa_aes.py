@@ -7,7 +7,7 @@
 __all__ = ( 'RSA_AESClient', 'RSA_AESServer' )
 
 from ..base import BasePupyTransport, TransportError
-import os, logging, traceback, struct
+import os, traceback, struct
 import rsa
 try:
     from Crypto import Random
@@ -16,11 +16,12 @@ except ImportError as e:
 from cryptoutils.aes import NewAESCipher
 
 from network.lib.buffer import Buffer
+from network.lib import getLogger
 
 BLOCK_SIZE = 16
 CHUNK_SIZE = 4096
 
-logger = logging.getLogger('rsaaes')
+logger = getLogger('rsaaes')
 
 class RSA_AESTransport(BasePupyTransport):
     """

@@ -5,7 +5,8 @@ import logging
 
 from .PupyConfig import Error, NoSectionError
 
-logger = logging.getLogger('triggers')
+from . import getLogger
+logger = getLogger('triggers')
 
 ON_CONNECT = 0
 ON_DISCONNECT = 1

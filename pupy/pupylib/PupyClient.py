@@ -47,7 +47,8 @@ from .PupyCompile import pupycompile
 from .payloads import dependencies
 from .utils.rpyc_utils import obtain
 
-logger = logging.getLogger('client')
+from . import getLogger
+logger = getLogger('client')
 
 class PupyClient(object):
     def __init__(self, desc, pupsrv):

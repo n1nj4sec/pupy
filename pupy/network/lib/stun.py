@@ -8,13 +8,13 @@ __all__ = (
 )
 
 import binascii
-import logging
 import random
 import socket
 
 __version__ = '0.1.0'
 
-log = logging.getLogger("pystun")
+from network.lib import getLogger
+log = getLogger("pystun")
 
 STUN_SERVERS = (
     'stun.ekiga.net',

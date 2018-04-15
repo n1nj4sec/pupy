@@ -8,7 +8,7 @@ import zlib
 from zipfile import ZipFile
 
 from pupylib.PupyCompile import pupycompile
-from pupylib import ROOT
+from pupylib import ROOT, getLogger
 
 import traceback
 
@@ -24,7 +24,7 @@ class NotFoundError(NameError):
 class IgnoreFileException(Exception):
     pass
 
-logger = logging.getLogger('deps')
+logger = getLogger('deps')
 
 LIBS_AUTHORIZED_PATHS = [
     x for x in sys.path if x != ''

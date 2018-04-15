@@ -24,9 +24,8 @@ import igd
 import sys
 import json
 
-import logging
-
-logger = logging.getLogger('online')
+from network.lib import getLogger
+logger = getLogger('online')
 
 from . import stun
 from . import ntplib

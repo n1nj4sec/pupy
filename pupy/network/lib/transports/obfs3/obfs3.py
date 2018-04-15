@@ -15,9 +15,8 @@ from ...base import BaseTransport
 from ..obfscommon import hmac_sha256
 from ..obfscommon import rand
 
-import logging
-
-logger = logging.getLogger('obfs3')
+from network.lib import getLogger
+logger = getLogger('obfs3')
 
 MAX_PADDING = 8194
 

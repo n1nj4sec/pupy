@@ -7,10 +7,9 @@ from .utils import *
 from http_parser.parser import HttpParser
 from os import path, stat
 from network.lib.buffer import Buffer
+from network.lib import getLogger
 
-import logging
-
-logger = logging.getLogger('httpwrap')
+logger = getLogger('httpwrap')
 
 class PupyHTTPWrapperServer(BasePupyTransport):
     path = '/index.php?d='

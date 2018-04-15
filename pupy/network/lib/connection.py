@@ -9,11 +9,11 @@ from rpyc.core import Connection, consts, brine
 from threading import Thread, Event, Lock, RLock
 from Queue import Queue, Full, Empty
 
-import logging
+from network.lib import getLogger
 
-logger = logging.getLogger('pconn')
-synclogger = logging.getLogger('sync')
-syncqueuelogger = logging.getLogger('syncqueue')
+logger = getLogger('pconn')
+synclogger = getLogger('sync')
+syncqueuelogger = getLogger('syncqueue')
 
 from network.lib.ack import Ack
 from network.lib.buffer import Buffer
@@ -448,7 +448,7 @@ class PupyConnection(Connection):
                 self._cleanup(_anyway=True)
             except Exception, e:
                 if __debug__:
-                    logging.debug('Cleanup exception: {}'.format(e))
+                    logger.debug('Cleanup exception: {}'.format(e))
 
                 pass
 
