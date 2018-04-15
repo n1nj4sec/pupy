@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.utils.term import consize
+
 import os
 
+from pupylib.PupyModule import *
+from pupylib.utils.term import consize
+from pupylib import ROOT
+
 __class_name__="Powerview"
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(compat="windows", category="gather")
 class Powerview(PupyModule):

@@ -45,6 +45,8 @@ from pupylib.PupySignalHandler import set_signal_winch
 
 from commands import Commands, InvalidCommand
 
+logger = logging.getLogger('cmd')
+
 class IOGroup(object):
     __slots__ = ( '_stdin', '_stdout', '_logger' )
 
@@ -320,11 +322,11 @@ class PupyCmd(cmd.Cmd):
 
         try:
             for command, alias in self.config.items("aliases"):
-                logging.debug("adding alias: %s => %s"%(command, alias))
+                logger.debug("adding alias: %s => %s"%(command, alias))
                 self.aliases[command] = alias
 
         except Exception as e:
-            logging.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
+            logger.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
 
     @property
     def intro(self):
@@ -402,8 +404,7 @@ class PupyCmd(cmd.Cmd):
 
             return completer(text)
         except Exception, e:
-            import logging
-            logging.exception(e)
+            logger.exception(e)
 
     def pre_input_hook(self):
         #readline.redisplay()
@@ -538,8 +539,8 @@ class PupyCmd(cmd.Cmd):
                 compfunc, module, args = self.commands.completer(context, line)
                 self.completion_matches = compfunc(module, args, text, context)
 
-            except Exception, e:
-                logging.debug(e)
+            except:
+                logger.debug(traceback.format_exc())
 
         try:
             if self.completion_matches:

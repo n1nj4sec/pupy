@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
@@ -20,7 +20,7 @@ from tornado.web import RequestHandler
 
 __all__=['RequestHandler', 'WebSocketHandler', 'tornado']
 
-ROOT=os.path.join(os.path.dirname(__file__), "..")
+from . import ROOT
 
 class PupyWebServer(object):
     def __init__(self, pupsrv, config):

@@ -2,9 +2,9 @@
 
 from pupylib.PupyModule import *
 from pupylib.utils.term import consize
+from pupylib import ROOT
 
 __class_name__="Inveigh"
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(compat="windows", category="privesc")
 class Inveigh(PupyModule):

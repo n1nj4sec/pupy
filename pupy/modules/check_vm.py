@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
 import os
 
+from pupylib import ROOT
+from pupylib.PupyModule import *
+
 __class_name__="CheckVM"
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(category="gather", compatibilities=['windows', 'linux', 'darwin'])
 class CheckVM(PupyModule):

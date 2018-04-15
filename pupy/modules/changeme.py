@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 # Author: AlessandroZ
 
+from pupylib import ROOT
 from pupylib.PupyModule import *
 from pupylib.utils.credentials import Credentials
-from netaddr import *
 from pupylib.utils.changeme.load_creds import Credentials as changeme_creds
+
+from netaddr import *
+
 import os
 
 __class_name__="Changeme"
-
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(cat="creds", compat=["linux", "windows"])
 class Changeme(PupyModule):

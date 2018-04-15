@@ -3,15 +3,15 @@
 #Contributor(s):
 
 import os
+
 from pupylib.PupyModule import *
 from rpyc.utils.classic import upload
+
 import pupygen
 import random
 import string
 
 __class_name__="BypassUAC"
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
 
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):

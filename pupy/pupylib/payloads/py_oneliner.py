@@ -6,11 +6,11 @@
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import cPickle, re, os.path, sys
 import rpyc, rsa, pyasn1, netaddr
+
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize
 from pupylib.payloads import dependencies
-
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
+from pupylib import ROOT
 
 def getLinuxImportedModules():
     '''

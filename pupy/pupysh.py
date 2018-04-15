@@ -29,11 +29,9 @@ import sys
 import network.conf
 import getpass
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(ROOT, 'client', 'library_patches'))
-    sys.path.append(os.path.join(ROOT, 'pupy', 'external', 'scapy'))
+    PUPY_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    sys.path.insert(0, os.path.join(PUPY_ROOT, 'client', 'library_patches'))
 
 try:
     import pupylib.PupySignalHandler

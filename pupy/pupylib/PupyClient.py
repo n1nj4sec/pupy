@@ -3,26 +3,34 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
 #
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
 #
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 1. Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
 #
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
 #
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
 #
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
-import sys, os, os.path
-import textwrap
+
 import logging
-import cPickle
-from .PupyErrors import PupyModuleError
-import traceback
-import textwrap
-from .PupyJob import PupyJob
-import imp
-import platform
 
 import zlib
 
@@ -30,12 +38,14 @@ import msgpack
 import rpyc
 
 from threading import Lock
+from os import path
 
-from pupylib.PupyCompile import pupycompile
-from pupylib.payloads import dependencies
-from pupylib.utils.rpyc_utils import obtain
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+from . import ROOT, HOST_SYSTEM, HOST_CPU_ARCH, HOST_OS_ARCH
+from .PupyErrors import PupyModuleError
+from .PupyJob import PupyJob
+from .PupyCompile import pupycompile
+from .payloads import dependencies
+from .utils.rpyc_utils import obtain
 
 logger = logging.getLogger('client')
 
@@ -74,9 +84,6 @@ class PupyClient(object):
             self.desc["hostname"], self.desc["platform"]
         )
 
-    def __del__(self):
-        del self.desc
-
     @property
     def id(self):
         return self.desc['id']
@@ -92,9 +99,10 @@ class PupyClient(object):
     def short_name(self):
         try:
             return '_'.join([
-                self.desc["platform"][0:3].lower(),
-                self.desc["hostname"],
-                self.desc["macaddr"].replace(':','')
+                self.desc['platform'][0:3].lower(),
+                self.desc['hostname'],
+                self.desc.get(
+                    'node', self.desc['macaddr'].replace(':',''))
             ])
 
         except Exception:
@@ -199,13 +207,14 @@ class PupyClient(object):
     def match_server_arch(self):
         try:
             return all([
-                self.desc['platform']==platform.system(),
-                self.desc['proc_arch']==platform.architecture()[0],
-                self.desc['os_arch']==platform.machine()
+                self.desc['platform'] == HOST_SYSTEM,
+                self.desc['proc_arch'] == HOST_CPU_ARCH,
+                self.desc['os_arch'] == HOST_OS_ARCH
             ])
 
         except Exception as e:
             logger.error(e)
+
         return False
 
     def remote(self, module, function=None, need_obtain=True):
@@ -274,7 +283,7 @@ class PupyClient(object):
                     'mod.__file__="<bootloader>/pupyimporter"',
                     'exec marshal.loads({}) in mod.__dict__'.format(
                         repr(pupycompile(
-                            os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
+                            path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
                             'pupyimporter.py', path=True, raw=True))),
                     'sys.modules["pupyimporter"]=mod',
                     'mod.install()']))
@@ -323,12 +332,12 @@ class PupyClient(object):
             self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
 
 
-    def load_dll(self, path):
+    def load_dll(self, modpath):
         """
             load some dll from memory like sqlite3.dll needed for some .pyd to work
             Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
         """
-        name = os.path.basename(path)
+        name = path.basename(modpath)
         if name in self.imported_dlls:
             return False
 

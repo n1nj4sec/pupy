@@ -1,9 +1,12 @@
-from pupylib.PupyModule import *
-from pupylib.utils.credentials import Credentials
+# -*- coding: utf-8 -*-
+
 import os
 
+from pupylib import ROOT
+from pupylib.PupyModule import *
+from pupylib.utils.credentials import Credentials
+
 __class_name__="Creds"
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(category="creds")
 class Creds(PupyModule):

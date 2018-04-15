@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
 import os
 import subprocess
 
+from pupylib.PupyModule import *
+from pupylib import ROOT
+
 __class_name__="PrivEsc_Checker"
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),".."))
 
 @config(compat="linux", category="privesc")
 class PrivEsc_Checker(PupyModule):

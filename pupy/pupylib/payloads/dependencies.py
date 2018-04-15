@@ -6,7 +6,9 @@ import cPickle
 import marshal
 import zlib
 from zipfile import ZipFile
-from ..PupyCompile import pupycompile
+
+from pupylib.PupyCompile import pupycompile
+from pupylib import ROOT
 
 import traceback
 
@@ -23,8 +25,6 @@ class IgnoreFileException(Exception):
     pass
 
 logger = logging.getLogger('deps')
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 LIBS_AUTHORIZED_PATHS = [
     x for x in sys.path if x != ''

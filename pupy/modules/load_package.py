@@ -1,25 +1,12 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
 import os
 
+from pupylib import ROOT
+from pupylib.PupyModule import *
+from pupylib.PupyCompleter import package_completer
+
 __class_name__="LoadPackageModule"
-
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-
-def package_completer(text, line, begidx, endidx):
-    try:
-        l=[]
-        for p in ["packages/all", "packages/linux/all/", "packages/windows/all", "packages/windows/x86", "packages/windows/amd64", "packages/android"]:
-            for pkg in os.listdir(os.path.join(ROOT, p)):
-                if pkg.endswith(".py"):
-                    pkg=pkg[:-3]
-                elif pkg.endswith((".pyc",".pyd")):
-                    pkg=pkg[:-4]
-                if pkg not in l and pkg.startswith(text):
-                    l.append(pkg)
-        return l
-    except Exception as e:
-        print e
 
 @config(cat="manage", compat="all")
 class LoadPackageModule(PupyModule):

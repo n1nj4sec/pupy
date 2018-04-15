@@ -3,12 +3,13 @@
 #Contributor(s):
 
 import os
+
+from pupylib import ROOT
 from pupylib.PupyModule import *
 from rpyc.utils.classic import download
 from pupylib.utils.term import colorize
-__class_name__="Outlook"
 
-ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),"..",".."))
+__class_name__="Outlook"
 
 @config(compat="windows", category="gather")
 class Outlook(PupyModule):
