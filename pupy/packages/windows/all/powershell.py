@@ -492,7 +492,9 @@ def call(name, expression, async=False, timeout=None, content=None, try_x64=Fals
         load(name, content, force=True, try_x64=try_x64)
 
     try:
-        return powershell.call(name, expression, async, timeout)
+        result = powershell.call(name, expression, async, timeout)
+        if async:
+            return result.rid
 
     finally:
         if content:
@@ -517,8 +519,7 @@ def result(name, rid):
 
     return result
 
-@property
-def results():
+def get_results():
     powershell = pupy.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
@@ -526,6 +527,10 @@ def results():
     return {
         ctx:results.keys() for ctx, results in powershell.results.iteritems()
     }
+
+@property
+def results():
+    return get_results()
 
 def stop():
     pupy.manager.stop(PowerHost)
