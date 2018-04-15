@@ -15,7 +15,8 @@ from network.lib import socks
 COMMON_EXCEPTIONS = (
     errno.ECONNREFUSED, errno.ECONNRESET,
     errno.EPIPE, errno.EBADF,
-    errno.ETIMEDOUT
+    errno.ETIMEDOUT, errno.EHOSTUNREACH,
+    errno.EHOSTDOWN
 )
 
 class MsgPackMessages(object):
