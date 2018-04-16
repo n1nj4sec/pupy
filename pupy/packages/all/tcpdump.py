@@ -210,6 +210,12 @@ class SniffSession(Thread):
                 except:
                     pass
 
+            if WINDOWS:
+                try:
+                    POWERSHELL_PROCESS.close()
+                except:
+                    pass
+
 
     def stop(self):
         self.completion.set()
