@@ -150,5 +150,8 @@ class ls(PupyModule):
                     for f in sorted(r[T_FILES], key=lambda x: x[args.sort], reverse=args.reverse):
                         self.log(output_format(f, windows))
 
-            else:
+            elif T_FILE in r:
                 self.log(output_format(r[T_FILE], windows))
+            else:
+                self.error('Old format. Update pupyutils.basic_cmds')
+                return
