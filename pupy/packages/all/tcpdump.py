@@ -132,20 +132,25 @@ class SniffSession(Thread):
         self._set_iface(iface)
 
     def _set_iface(self, iface):
+
+        if not type(iface) == unicode:
+            iface = iface.decode('utf-8')
+
         nice_name = iface
+        iface = iface.encode(sys.getfilesystemencoding())
+
+        known_ifaces = net_if_addrs()
+
+        if not iface in known_ifaces:
+            raise ValueError('Unknown interface {} / known: {}'.format(
+                nice_name.encode('utf-8'),
+                ', '.join(
+                    '"{}"'.format(
+                        x.decode(sys.getfilesystemencoding()).encode('utf-8'))
+                for x in known_ifaces)))
 
         if WINDOWS:
             from scapy.arch.windows import IFACES
-
-            if not type(iface) == unicode:
-                iface = iface.decode('utf-8')
-                nice_name = iface
-
-            iface = iface.encode(sys.getfilesystemencoding())
-
-            known_ifaces = net_if_addrs()
-            if not iface in known_ifaces:
-                raise ValueError('Unknown interface {} / {}')
 
             mac = None
             for family in known_ifaces[iface]:

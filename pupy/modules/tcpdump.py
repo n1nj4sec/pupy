@@ -83,21 +83,25 @@ class TcpdumpModule(PupyModule):
 
         self.wait.clear()
 
-        name, self.terminate = tcpdump(
-            self.printer(pcap_writer=pktwriter),
-            self.on_error,
-            args.iface,
-            args.bpf,
-            args.timeout,
-            count=args.count
-        )
+        try:
+            name, self.terminate = tcpdump(
+                self.printer(pcap_writer=pktwriter),
+                self.on_error,
+                args.iface,
+                args.bpf,
+                args.timeout,
+                count=args.count)
 
-        self.success(u'Scapy tcpdump on "{}" - started'.format(name))
-        self.wait.wait()
-        self.success(u'Scapy tcpdump on "{}" - completed'.format(name))
+            self.success(u'Scapy tcpdump on "{}" - started'.format(name))
+            self.wait.wait()
+            self.success(u'Scapy tcpdump on "{}" - completed'.format(name))
 
-        if filepath:
-            self.info('Pcap stored to: {}'.format(filepath))
+            if filepath:
+                self.info('Pcap stored to: {}'.format(filepath))
+
+        except Exception, e:
+            self.wait.set()
+            self.error('Error: ' + ' '.join(x for x in e.args if type(x) in (str, unicode)))
 
     def interrupt(self):
         if self.terminate:
