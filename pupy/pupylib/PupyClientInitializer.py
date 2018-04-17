@@ -8,6 +8,14 @@ import os
 import locale
 import logging
 
+import encodings
+
+# Remove IDNA module if it was not properly loaded
+if hasattr(encodings, 'idna') and not hasattr(encodings.idna, 'getregentry'):
+    del sys.modules['encodings.idna']
+    if 'idna' in encodings._cache:
+        del encodings._cache['idna']
+
 os_encoding = locale.getpreferredencoding() or "utf8"
 
 if sys.platform == 'win32':
