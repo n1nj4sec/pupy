@@ -20,6 +20,7 @@ from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.smb import SMB
 from impacket.smbconnection import *
 
 PERM_DIR = ''.join(random.sample(string.ascii_letters, 10))
@@ -46,7 +47,7 @@ if not 'idna' in encodings._cache or not encodings._cache['idna']:
 
 class FileTransfer(object):
     def __init__(self, host, port=445, hash='', username='', password='', domain='', timeout=30):
-        self.__host = host.encode('idna')
+        self.__host = host.encode('utf-8') if type(host) == unicode else host
         self.__nthash, self.__lmhash = '', ''
         if hash and ':' in hash:
             self.__lmhash, self.__nthash = hash.strip().split(':')
@@ -61,7 +62,12 @@ class FileTransfer(object):
             self.__conn = SMBConnection(
                 self.__host, self.__host,
                 None,
-                self.__port, timeout=self.__timeout
+                self.__port, timeout=self.__timeout,
+                manualNegotiate=True
+            )
+
+            self.__conn.negotiateSession(
+                flags2=smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES,
             )
 
             self.__conn.login(
@@ -84,7 +90,11 @@ class FileTransfer(object):
 
     @property
     def error(self):
-        return str(self.__exception)
+        te = type(self.__exception)
+        if te in (UnicodeEncodeError, UnicodeDecodeError):
+            return 'Could not convert name to unicode. Use -c option to specify encoding'
+        else:
+            return str(te) +": " + str(self.__exception)
 
     @property
     def ok(self):

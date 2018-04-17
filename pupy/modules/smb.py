@@ -152,10 +152,15 @@ class SMB(PupyModule):
             return
 
         for name, directory, size, ctime in obtain(ft.ls(share, path)):
-            if args.codepage:
-                name = name.encode('utf-16le').decode(args.codepage, errors='replace')
+            if type(name) != unicode:
+                if args.codepage:
+                    name = name.decode(args.codepage, errors='replace')
+                else:
+                    name = name.decode('utf-8', errors='replace')
 
-            self.log(u'%crw-rw-rw- %10d  %s %s' % ('d' if directory > 0 else '-', size, ctime, name))
+            self.log(u'%crw-rw-rw- %10d  %s %s' % (
+                'd' if directory > 0 else '-', size,
+                ctime, name))
 
         if not ft.ok:
             self.error(ft.error)
