@@ -5,6 +5,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
+
 import argparse
 import time
 import ConfigParser
@@ -13,6 +14,10 @@ import random
 import sys
 import os
 import string
+
+import unicodedata
+import idna
+
 import encodings
 
 PERM_DIR = ''.join(random.sample(string.ascii_letters, 10))
@@ -21,15 +26,21 @@ SMBSERVER_DIR   = ''.join(random.sample(string.ascii_letters, 10))
 DUMMY_SHARE     = 'TMP'
 
 if not 'idna' in encodings._cache or not encodings._cache['idna']:
-    import encodings.idna
-    if hasattr(encodings.idna, 'getregentry'):
-        encodings._cache['idna'] = encodings.idna.getregentry()
-    else:
-        import sys
-        del sys.modules['encodings.idna']
-        raise RuntimeError(
-            'IDNA module was not loaded. Reload modules with ' \
-            'load_package -f encodings.idna\nload_package -f pupyutils.psexec')
+    if 'idna' in encodings._cache:
+        del encodings._cache['idna']
+
+    try:
+        import encodings.idna
+    except ImportError:
+        message = 'IDNA module was not loaded. Reload modules with:' + (
+            '\n'.join([
+                'load_package -f {}'.format(module) for module in (
+                    'encodings.idna', 'pupyutils.psexec'
+                )]))
+        raise RuntimeError(message)
+
+    encodings._cache['idna'] = encodings.idna.getregentry()
+
 
 class FileTransfer(object):
     def __init__(self, host, port=445, hash='', username='', password='', domain='', timeout=30):
