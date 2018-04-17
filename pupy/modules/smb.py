@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
 import os
 import ntpath
+import StringIO
+
+from pupylib.PupyModule import *
 from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="SMB"
@@ -36,6 +39,10 @@ class SMB(PupyModule):
         ls = commands.add_parser('ls')
         ls.add_argument('dst', help='Destination')
         ls.set_defaults(func=cls.ls)
+
+        cat = commands.add_parser('cat')
+        cat.add_argument('remote', help='Remote file (be careful!)')
+        cat.set_defaults(func=cls.cat)
 
         rm = commands.add_parser('rm')
         rm.add_argument('dst', help='Destination')
@@ -128,7 +135,7 @@ class SMB(PupyModule):
         try:
             host, share, path = self.parse_netloc(args.dst, partial=True, codepage=args.codepage)
         except Exception, e:
-            self.error(str(e))
+            self.error(e)
             return
 
         if not share:
@@ -248,4 +255,31 @@ class SMB(PupyModule):
         self.client.conn._conn.root.getconn().set_pings(interval, timeout)
 
         if not ft.ok:
+            self.error(ft.error)
+
+    def cat(self, args):
+        try:
+            host, share, path = self.parse_netloc(args.remote, codepage=args.codepage)
+        except Exception, e:
+            self.error(e)
+            return
+
+        ft = self.get_ft(args, host)
+        if not ft.ok:
+            self.error(ft.error)
+            return
+
+        memobj = StringIO.StringIO()
+        ft.get(share, path, memobj.write)
+
+        if ft.ok:
+            data = memobj.getvalue()
+            if args.codepage:
+                try:
+                    data = data.decode(args.codepage)
+                except:
+                    pass
+
+            self.log(data)
+        else:
             self.error(ft.error)
