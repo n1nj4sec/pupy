@@ -22,7 +22,11 @@ __class_name__="PSExec"
 class PSExec(PupyModule):
     """ Launch remote commands using smbexec or wmiexec"""
 
-    dependencies = [ 'impacket', 'ntpath', 'calendar', 'pupyutils.psexec' ]
+    dependencies = [
+        'unicodedata', 'idna', 'encodings.idna',
+        'impacket', 'ntpath',
+        'calendar', 'pupyutils.psexec'
+    ]
 
     io = REQUIRE_STREAM
 

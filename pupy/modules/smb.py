@@ -11,7 +11,10 @@ class SMB(PupyModule):
     ''' Copy files via SMB protocol '''
 
     max_clients = 1
-    dependencies = [ 'impacket', 'pupyutils.psexec' ]
+    dependencies = [
+        'unicodedata', 'idna', 'encodings.idna',
+        'impacket', 'pupyutils.psexec'
+    ]
 
     @classmethod
     def init_argparse(cls):
