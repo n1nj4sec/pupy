@@ -18,7 +18,7 @@ def getIPx(domain):
     as the given domain name
     """
     try:
-        return socket.gethostbyname_ex(domain)[2]
+        return list(set(socket.gethostbyname_ex(domain)[2]))
     except Exception:
         return False
 #
@@ -39,8 +39,7 @@ def getAlias(domain):
     """
     try:
         data = socket.gethostbyname_ex(domain)
-        alias = repr(data[1])
-        return alias
+        return list(data[1])
     except Exception:
         return False
 
@@ -55,3 +54,6 @@ def launch_dns_ip_resolver(ip_or_domain):
     return {
         k:v['function'](ip_or_domain) for k,v in functions.iteritems()
     }
+
+def launch_reverse_ip_resolver(ip):
+    return getHost(ip)
