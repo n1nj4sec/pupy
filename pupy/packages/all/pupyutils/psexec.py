@@ -369,7 +369,7 @@ class CMDEXEC(object):
 
         return result
 
-class WMIEXEC:
+class WMIEXEC(object):
     def __init__(self, command='', username='', password='', domain='', hashes='', share=None, noOutput=True):
         self.__command = command
         self.__username = username
@@ -406,7 +406,7 @@ class WMIEXEC:
 
         return result
 
-class RemoteShellwmi():
+class RemoteShellwmi(object):
     def __init__(self, share, win32Process, smbConnection, timeout=10):
         self.__share = share
         self.__output_filename = ''.join(random.sample(string.ascii_letters, 10))
@@ -489,7 +489,11 @@ def upload_file(smbconn, host, src, share, dst):
 
 def connect(host, port, user, passwd, hash, share, file_to_upload,
                 src_folder, dst_folder, command,
-                domain='workgroup', execm='smbexec', codepage='cp437', timeout=30, nooutput=False):
+                domain='workgroup', execm='smbexec', codepage=None, timeout=30, nooutput=False):
+
+    if type(host) == unicode:
+        host = host.encode('utf-8')
+
     try:
         lmhash = ''
         nthash = ''
@@ -553,14 +557,18 @@ def connect(host, port, user, passwd, hash, share, file_to_upload,
                         result = executer.run(host, smb, nooutput)
 
                     if result:
-                        print result.decode(codepage)
+                        if codepage:
+                            print result.decode(codepage)
+                        else:
+                            print codepage
 
                 smb.logoff()
 
             except SessionError as e:
                 print "[-] {}:{} {}".format(host, port, e)
+
             except Exception as e:
-                print "[-] {}:{} {}".format(host, port, e)
+                print "[-] {}:{} {}: {}\n{}".format(host, port, type(e), e, traceback.format_exc())
 
     except Exception, e:
         print "[!] {}".format(e)

@@ -74,8 +74,10 @@ class PSExec(PupyModule):
 
             tmp_dir = tempfile.gettempdir()
 
+            expandvars = self.client.remote('os.path', 'expandvars', False)
+
             if self.client.is_windows():
-                remote_path = '%s\\' % self.client.conn.modules['os.path'].expandvars("%ALLUSERSPROFILE%")
+                remote_path = expandvars("%ALLUSERSPROFILE%") + '\\'
             else:
                 remote_path = '/tmp/'
 
