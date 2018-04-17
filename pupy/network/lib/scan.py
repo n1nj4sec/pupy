@@ -8,6 +8,9 @@ import errno
 import time
 import threading
 import rpyc
+import random
+
+from netaddr import IPNetwork, IPAddress
 
 TOP1000 = [
     1,3,4,6,7,9,13,17,19,20,21,22,23,24,25,26,30,32,33,37,42,43,49,53,70,79,80,81,82,
@@ -145,21 +148,52 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                     del sockets[sock]
 
     if on_complete:
-        if abort and not abort.is_set():
+        if not abort or ( abort and not abort.is_set() ):
             on_complete(connectable)
     else:
         return connectable
 
+def safe_scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_open_port=None, pass_socket=False, on_exception=None):
+    try:
+        return scan(
+            hosts, ports, abort, timeout, portion,
+            on_complete, on_open_port, pass_socket)
+    except Exception, e:
+        if on_exception:
+            on_exception(e)
+        elif on_complete:
+            on_complete([])
+
 def scanthread(hosts, ports, on_complete, **kwargs):
-    hosts = [ x for x in hosts ]
-    ports = [ x for x in ports ]
     abort = threading.Event()
     kwargs.update({
         'abort': abort,
         'on_complete': rpyc.async(on_complete)
     })
-    scanner = threading.Thread(target=scan, args=(hosts, ports), kwargs=kwargs)
+    scanner = threading.Thread(target=safe_scan, args=(hosts, ports), kwargs=kwargs)
     scanner.daemon = True
     scanner.start()
 
     return abort
+
+def scanthread_parse(hosts, ports, on_complete, **kwargs):
+    targets = []
+
+    for target in hosts.split(','):
+        if '/' in target:
+            for host in IPNetwork(target):
+                targets.append(str(host))
+        else:
+            targets.append(str(IPAddress(target)))
+
+    ports = list({
+        p for prange in ports.split(',') for p in (
+            xrange(
+                int(prange.split('-')[0]), int(prange.split('-')[1])+1
+            ) if '-' in prange else [int(prange)]
+        )
+    })
+
+    random.shuffle(ports)
+
+    return scanthread(targets, ports, on_complete, **kwargs)
