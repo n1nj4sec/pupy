@@ -184,7 +184,7 @@ def scanthread_parse(hosts, ports, on_complete, **kwargs):
             for host in IPNetwork(target):
                 targets.append(str(host))
         else:
-            targets.append(str(IPAddress(target)))
+            targets.append(str(target))
 
     ports = list({
         p for prange in ports.split(',') for p in (

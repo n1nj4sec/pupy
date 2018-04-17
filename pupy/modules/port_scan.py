@@ -8,6 +8,7 @@ from pupylib.PupyModule import *
 from pupylib.PupyOutput import Table
 
 from netaddr import IPAddress
+from netaddr.core import AddrFormatError
 
 __class_name__="PortScan"
 
@@ -53,7 +54,11 @@ class PortScan(PupyModule):
         if connectable:
             objects = {}
             for host, port in connectable:
-                host = IPAddress(host)
+                try:
+                    host = IPAddress(host)
+                except AddrFormatError:
+                    pass
+
                 port = int(port)
 
                 if host in connectable:
