@@ -77,6 +77,18 @@ def psinfo(pids):
     psutil._pmap = {}
     return data
 
+def safe_as_dict(p, data):
+    try:
+        return p.as_dict(data)
+    except:
+        data = list(data)
+        if 'cmdline' in data:
+            data.remove('cmdline')
+
+        result = p.as_dict(data)
+        result['cmdline'] = None
+        return result
+
 def pstree():
     data = {}
     tree = {}
@@ -95,7 +107,7 @@ def pstree():
             continue
 
         data[p.pid] = {
-            k:to_unicode(v) for k,v in p.as_dict([
+            k:to_unicode(v) for k,v in safe_as_dict(p, [
                 'name', 'username', 'cmdline', 'exe',
                 'cpu_percent', 'memory_percent', 'connections'
             ]).iteritems()
@@ -137,7 +149,7 @@ def users():
 
     if hasattr(me, 'terminal'):
         for p in psutil.process_iter():
-            pinfo = p.as_dict(['terminal', 'pid', 'exe', 'name', 'cmdline'])
+            pinfo = safe_as_dict(p, ['terminal', 'pid', 'exe', 'name', 'cmdline'])
             if pinfo.get('terminal'):
                 terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
 
@@ -157,8 +169,8 @@ def users():
 
         if 'pid' in terminfo:
             pinfo = {
-                k:to_unicode(v) for k,v in psutil.Process(
-                    terminfo['pid']).as_dict([
+                k:to_unicode(v) for k,v in safe_as_dict(psutil.Process(
+                    terminfo['pid']), [
                         'exe', 'cmdline', 'name'
                     ]).iteritems()
             }
