@@ -2,33 +2,39 @@
 <head>
     <script src="jquery-3.2.1.min.js"></script>
     <script src="rdesktop/rdesktop.js"></script>
+</head>
+<body>
     <script type="text/javascript">
         var rdHandler = null;
         $(document).ready(function() {
             if (!("WebSocket" in window)) {
-                    $('#messages').append("Your browser does not support websocket !");
+                $('#messages').append("Your browser does not support websocket !");
             }
+	    
             else{
-                rdHandler=new RDHANDLER({{port}});
+                window.rdHandler = new RDHANDLER({{port}});
+		window.rdHandler.start();
             }
             //disable image drag
             $("#screenimg").bind('dragstart', function(){
                 return false; 
             });
+	    
             $( "#screen" ).mousemove(function( event ) {
-                rdHandler.on_mouse_move(event);
+                window.rdHandler.on_mouse_move(event);
             });
+	    
             $( "#screen" ).click(function( event ) {
-                rdHandler.on_click(event);
+                window.rdHandler.on_click(event);
             });
+	    
             $( "body" ).keypress(function( event ) {
-                rdHandler.on_key_press(event);
+                window.rdHandler.on_key_press(event);
             });
         });
     </script>
-</head>
-<body>
-    <div id="screen">
+
+  <div id="screen">
         <img id="screenimg"></img>
     </div>
     <div id="messages"></div>

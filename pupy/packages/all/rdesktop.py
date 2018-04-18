@@ -4,6 +4,8 @@ import mss
 import threading
 import time
 
+import rpyc
+
 from png import bmp_to_png
 
 try:
@@ -15,34 +17,47 @@ except:
 
 def get_screen_size():
     screenshoter = mss.mss()
-    monitors = screenshoter.monitors
-    del monitors[0]
-    monitor=monitors[0]
-    height=monitor['height']
-    width=monitor['width']
+    monitors = list(screenshoter.monitors)
+    if len(monitors) > 1:
+        del monitors[0]
+
+    monitor = monitors[0]
+    height = monitor['height']
+    width = monitor['width']
     return width, height
 
 class VideoStreamer(threading.Thread):
-    def __init__(self, callback, refresh_interval=0.1, quality=75):
+    def __init__(self, callback, refresh_interval=0.1):
         threading.Thread.__init__(self)
         self.stopped = threading.Event()
         self.refresh_interval = refresh_interval
-        self.quality = quality
         self.callback = callback
         self.daemon = True
 
     def run(self):
         screenshoter = mss.mss()
         monitors = screenshoter.monitors
-        del monitors[0]
+        if len(monitors) > 1:
+            del monitors[0]
+
         monitor = monitors[0]
         height = monitor['height']
         width = monitor['width']
 
+        previous = None
+
         while not self.stopped.is_set():
             try:
                 scr = screenshoter.grab(monitor)
-                self.callback(bmp_to_png(scr.rgb, scr.width, scr.height))
+                if scr == previous:
+                    continue
+
+                previous = scr
+
+                self.callback(
+                    bmp_to_png(scr.rgb, scr.width, scr.height),
+                    scr.width, scr.height)
+
                 time.sleep(self.refresh_interval)
             except:
                 break
@@ -88,3 +103,8 @@ class VideoStreamer(threading.Thread):
 
     def stop(self):
         self.stopped.set()
+
+def create_video_streamer(callback, quality):
+    streamer = VideoStreamer(rpyc.async(callback), quality)
+    streamer.start()
+    return streamer
