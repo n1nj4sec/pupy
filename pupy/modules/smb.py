@@ -9,6 +9,9 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="SMB"
 
+class SMBError(Exception):
+    pass
+
 @config(cat="admin")
 class SMB(PupyModule):
     ''' Copy files via SMB protocol '''
@@ -61,17 +64,29 @@ class SMB(PupyModule):
         shares.set_defaults(func=cls.shares)
 
     def run(self, args):
-        args.func(self, args)
+        try:
+            args.func(self, args)
+        except SMBError, e:
+            self.error(str(e))
 
     def get_ft(self, args, host):
-        FileTransfer = self.client.remote('pupyutils.psexec', 'FileTransfer', False)
-        return FileTransfer(
-            host,
-            port=args.port, hash=args.hash,
-            username=args.username, password=args.password,
-            domain=args.domain,
+        create_filetransfer = self.client.remote(
+            'pupyutils.psexec', 'create_filetransfer', False)
+
+        connection = None
+        error = None
+
+        connection, error = create_filetransfer(
+            host, args.port,
+            args.username, args.domain,
+            args.password, args.hash,
             timeout=args.timeout
         )
+
+        if error:
+            raise SMBError(error)
+
+        return connection
 
     def shares(self, args):
         host = args.host

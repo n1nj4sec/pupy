@@ -15,18 +15,23 @@ import idna
 
 import encodings
 
+from StringIO import StringIO
+
 from impacket import smbserver, ntlm
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.system_errors import \
+     ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE, \
+     ERROR_SERVICE_REQUEST_TIMEOUT
 from impacket.smb import SMB
 from impacket.smbconnection import *
 
-PERM_DIR = ''.join(random.sample(string.ascii_letters, 10))
-BATCH_FILENAME  = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
-SMBSERVER_DIR   = ''.join(random.sample(string.ascii_letters, 10))
-DUMMY_SHARE     = 'TMP'
+PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
+BATCH_FILENAME = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
+SMBSERVER_DIR  = ''.join(random.sample(string.ascii_letters, 10))
+SERVICE_NAME   = ''.join(random.sample(string.ascii_letters, 10))
 
 if not 'idna' in encodings._cache or not encodings._cache['idna']:
     if 'idna' in encodings._cache:
@@ -45,74 +50,153 @@ if not 'idna' in encodings._cache or not encodings._cache['idna']:
     encodings._cache['idna'] = encodings.idna.getregentry()
 
 
-class FileTransfer(object):
-    def __init__(self, host, port=445, hash='', username='', password='', domain='', timeout=30):
-        self.__host = host.encode('utf-8') if type(host) == unicode else host
-        self.__nthash, self.__lmhash = '', ''
-        if hash and ':' in hash:
-            self.__lmhash, self.__nthash = hash.strip().split(':')
-        self.__port = port
-        self.__username = username
-        self.__password = password
-        self.__domain = domain
-        self.__timeout = timeout
-        self.__exception = None
+def create_filetransfer(*args, **kwargs):
+    smbc, error = ConnectionInfo(*args, **kwargs).create_connection()
+    if smbc:
+        return FileTransfer(smbc), None
+    else:
+        return None, error
+
+class ConnectionInfo(object):
+    __slots__ = (
+        'host', 'port', 'user', 'password', 'domain',
+        'nt', 'lm',
+        'aes', 'TGT', 'TGS', 'KDC', 'valid', 'timeout',
+        '_conn'
+    )
+
+    def __init__(self, host, port=445, user='', domain='', password='', ntlm='',
+                 aes='', tgt='', tgs='', kdc='', timeout=10):
+
+        if type(host) == unicode:
+            host = host.encode('utf-8')
+
+        if type(user) == unicode:
+            user = user.encode('utf-8')
+
+        if type(password) == unicode:
+            password = password.encode('utf-8')
+
+        if type(domain) == unicode:
+            domain = domain.encode('utf-8')
+
+        self.host = host
+        self.port = int(port)
+        self.user = user
+        self.password = password
+        self.domain = domain
+        self.lm, self.nt = '', ''
+        self.valid = None
+        self.timeout = int(timeout)
+        self.aes = aes
+        self.TGT = tgt
+        self.TGS = tgs
+        self.KDC = kdc
+
+        if ntlm:
+            if ':' in ntlm:
+                self.lm, self.nt = ntlm.strip().split(':')
+            else:
+                self.lm = '00'*16
+                self.nt = ntlm
+
+    def __str__(self):
+        conninfo = 'host={}:{} user={}'.format(self.host, self.port, self.user)
+        if self.domain:
+            conninfo += ' '+self.domain
+
+        if self.password:
+            conninfo += ' '+self.password
+
+        if self.nt and self.lm:
+            conninfo += ' ntlm={}:{}'.format(self.lm, self.nt)
+
+        return conninfo
+
+    @property
+    def kerberos(self):
+        return bool(self.aes)
+
+    @property
+    def ntlm(self):
+        return '{}:{}'.format(self.lm, self.nt)
+
+    @property
+    def credentials(self):
+        return [
+            self.user,
+            self.password,
+            self.domain,
+            self.lm, self.nt,
+            self.aes, self.TGT, self.TGS
+        ]
+
+    def create_connection(self, klass=SMBConnection):
+        self_repr = str(self)
 
         try:
-            self.__conn = SMBConnection(
-                self.__host, self.__host,
-                None,
-                self.__port, timeout=self.__timeout,
-                manualNegotiate=True
-            )
+            smb = klass(self.host, self.host, None, self.port, timeout=self.timeout)
 
-            self.__conn.negotiateSession(
-                flags2=smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES,
-            )
+            if self.kerberos:
+                smb.kerberos_login(
+                    self.user, self.password,
+                    self.domain, self.lm, self.nt,
+                    self.aes, self.KDC, self.TGT, self.TGS)
+            else:
+                smb.login(self.user, self.password, self.domain, self.lm, self.nt)
 
-            self.__conn.login(
-                self.__username,
-                self.__password,
-                self.__domain,
-                self.__lmhash,
-                self.__nthash
-            )
+            self.valid = True
+            return smb, None
 
-        except socket.error, e:
-            self.__exception = 'Connection failed: {}'.format(e)
+        except SessionError, e:
+                return None, e.getErrorString()[0]
+
+        except (OSError, socket.error), e:
+            return None, str(e)
 
         except Exception, e:
-            self.__exception = 'Args:{} Exception ({}):\n{}'.format(
-                [
-                    self.__host, self.__port, self.__timeout
-                ], type(e),
-                traceback.format_exc())
+            error = '{}: {}\n{}'.format(type(e).__name__, e, traceback.format_exc())
+            return None, error
+
+class FileTransfer(object):
+    __slots__ = (
+        '_exception', '_conn'
+    )
+
+    def __init__(self, conn):
+        self._exception = None
+        self._conn = conn
 
     @property
     def error(self):
-        te = type(self.__exception)
+        if self.ok:
+            return None
+
+        te = type(self._exception)
         if te in (UnicodeEncodeError, UnicodeDecodeError):
             return 'Could not convert name to unicode. Use -c option to specify encoding'
+        elif te == SessionError:
+            return self._exception.getErrorString()[1]
         else:
-            return str(te) +": " + str(self.__exception)
+            return te.__name__ +": " + str(self._exception)
 
     @property
     def ok(self):
-        return self.__exception is None
+        return self._exception is None
 
     def shares(self):
         try:
             return [
-                x['shi1_netname'][:-1] for x in self.__conn.listShares()
+                x['shi1_netname'][:-1] for x in self._conn.listShares()
             ]
         except Exception, e:
-            self.__exception = e
+            self._exception = e
             return []
 
     def ls(self, share, path):
         try:
             listing = []
-            for f in self.__conn.listPath(share, path):
+            for f in self._conn.listPath(share, path):
                 if f.get_longname() in ('.', '..'):
                     continue
 
@@ -123,26 +207,26 @@ class FileTransfer(object):
             return listing
 
         except Exception, e:
-            self.__exception = e
+            self._exception = e
             return []
 
     def rm(self, share, path):
         try:
-            self.__conn.deleteFile(share, path)
+            self._conn.deleteFile(share, path)
         except Exception, e:
-            self.__exception = e
+            self._exception = e
 
     def mkdir(self, share, path):
         try:
-            self.__conn.createDirectory(share, path)
+            self._conn.createDirectory(share, path)
         except Exception, e:
-            self.__exception = e
+            self._exception = e
 
     def rmdir(self, share, path):
         try:
-            self.__conn.deleteDirectory(share, path)
+            self._conn.deleteDirectory(share, path)
         except Exception, e:
-            self.__exception = e
+            self._exception = e
 
     def get(self, share, remote, local):
         if not self.ok:
@@ -154,16 +238,16 @@ class FileTransfer(object):
                 local = os.path.expanduser(local)
 
                 with open(local, 'w+b') as destination:
-                    self.__conn.getFile(
+                    self._conn.getFile(
                         share,
                         remote,
                         destination.write
                     )
             else:
-                self.__conn.getFile(share, remote, local)
+                self._conn.getFile(share, remote, local)
 
         except Exception, e:
-            self.__exception = e
+            self._exception = e
 
     def put(self, local, share, remote):
         if not self.ok:
@@ -178,397 +262,273 @@ class FileTransfer(object):
                     raise ValueError('Local file ({}) does not exists'.format(local))
 
                 with open(local, 'rb') as source:
-                    self.__conn.putFile(
+                    self._conn.putFile(
                         share,
                         remote,
                         source.read
                     )
             else:
-                self.__conn.putFile(share, remote, local)
+                self._conn.putFile(share, remote, local)
 
         except Exception, e:
-            self.__exception = e
+            self._exception = e
 
-    def __del__(self):
-        if self.__conn:
-            try:
-                self.__conn.logoff()
-            except:
-                pass
+    def close(self):
+        self._conn.logoff()
+        self._conn.close()
 
+class ShellServiceAlreadyExists(Exception):
+    pass
 
-class RemoteShellsmbexec(object):
-    def __init__(self, share, rpc, mode, serviceName, command, timeout):
-        self.__share = share
-        self.__mode = mode
-        self.__output_filename = ''.join(random.sample(string.ascii_letters, 10))
-        self.__output = '\\Windows\\Temp\\' + self.__output_filename
-        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME
-        self.__outputBuffer = ''
-        self.__command = command
-        self.__shell = '%COMSPEC% /Q /c '
-        self.__serviceName = serviceName
-        self.__rpc = rpc
-        self.__scmr = rpc.get_dce_rpc()
-        self.__timeout = timeout
+class ShellServiceIsNotExists(Exception):
+    pass
+
+class ShellService(object):
+    __slots__ = ( '_scHandle', '_serviceHandle', '_scmr', '_name' )
+
+    def __init__(self, rpc, name=SERVICE_NAME):
+        if type(name) == unicode:
+            name = name.encode('latin1', errors='ignore')
+
+        self._name = name + '\x00'
+
+        self._scmr = rpc.get_dce_rpc()
+        self._scmr.connect()
+        self._scmr.bind(scmr.MSRPC_UUID_SCMR)
+
+        resp = scmr.hROpenSCManagerW(self._scmr)
+        self._scHandle = resp['lpScHandle']
+
+        self._serviceHandle = None
 
         try:
-            self.__scmr.connect()
-        except Exception as e:
-            print "[!] {}".format(e)
+            resp = scmr.hROpenServiceW(self._scmr, self._scHandle, self._name)
+            self._serviceHandle = resp['lpServiceHandle']
+        except Exception, e:
+            if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_DOES_NOT_EXIST:
+                pass
+            else:
+                raise
+
+    def create(self, command, output=None):
+        if self._serviceHandle:
+            raise ShellServiceAlreadyExists()
+
+        if output:
+            command = ' & '.join([
+                '%COMSPEC% /Q /c echo {} ^> {} 2^>^&1 > {}'.format(
+                    command, output, BATCH_FILENAME),
+                '%COMSPEC% /Q /c {}'.format(BATCH_FILENAME),
+                'del {}'.format(BATCH_FILENAME)
+            ])
+
+        resp = scmr.hRCreateServiceW(
+            self._scmr,
+            self._scHandle,
+            self._name,
+            self._name,
+            lpBinaryPathName=command
+        )
+
+        self._serviceHandle = resp['lpServiceHandle']
+        return self._serviceHandle
+
+    def start(self):
+        if not self._serviceHandle:
+            raise ShellServiceIsNotExists()
+
+        try:
+            scmr.hRStartServiceW(self._scmr, self._serviceHandle)
+        except Exception, e:
+            self.destroy()
+
+            if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_REQUEST_TIMEOUT:
+                return False
+
             raise
 
-        s = rpc.get_smb_connection()
+        return self.status() == scmr.SERVICE_RUNNING
 
-        s.setTimeout(self.__timeout)
-        if mode == 'SERVER':
-            myIPaddr = s.getSMBServer().get_socket().getsockname()[0]
-            self.__copyBack = 'copy %s \\\\%s\\%s' % (self.__output, myIPaddr, DUMMY_SHARE)
+    def status(self):
+        if not self._serviceHandle:
+            raise ShellServiceIsNotExists()
+
+        resp = scmr.hRQueryServiceStatus(self._scmr, self._serviceHandle)
+        return resp['lpServiceStatus']['dwCurrentState']
+
+    @property
+    def exists(self):
+        return self._serviceHandle is not None
+
+    @property
+    def active(self):
+        return self.status() == scmr.SERVICE_RUNNING
+
+    @property
+    def stopped(self):
+        return self.status() == scmr.SERVICE_STOPPED
+
+    def destroy(self):
+        if not self._serviceHandle:
+            raise ShellServiceIsNotExists()
 
         try:
-            self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
-            resp = scmr.hROpenSCManagerW(self.__scmr)
-            self.__scHandle = resp['lpScHandle']
-            self.transferClient = rpc.get_smb_connection()
-        except Exception as e:
-            print "[-] {}".format(e)
-
-    def finish(self):
-        # Just in case the service is still created
-        try:
-           self.__scmr = self.__rpc.get_dce_rpc()
-           self.__scmr.connect()
-           self.__scmr.bind(svcctl.MSRPC_UUID_SVCCTL)
-           resp = scmr.hROpenSCManagerW(self.__scmr)
-           self.__scHandle = resp['lpScHandle']
-           resp = scmr.hROpenServiceW(self.__scmr, self.__scHandle, self.__serviceName)
-           service = resp['lpServiceHandle']
-           scmr.hRDeleteService(self.__scmr, service)
-           scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
-           scmr.hRCloseServiceHandle(self.__scmr, service)
+            scmr.hRControlService(self._scmr, self._serviceHandle, scmr.SERVICE_CONTROL_STOP)
         except Exception, e:
-           pass
+            if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_NOT_ACTIVE:
+                pass
+            else:
+                raise
 
-    def get_output(self):
-        def output_callback(data):
-            self.__outputBuffer += data
+        scmr.hRDeleteService(self._scmr, self._serviceHandle)
+        scmr.hRCloseServiceHandle(self._scmr, self._serviceHandle)
 
-        if self.__mode == 'SHARE':
-            self.transferClient.getFile(self.__share, self.__output, output_callback)
-            self.transferClient.deleteFile(self.__share, self.__output)
+def sc(conninfo, command, output=True, wait=30):
+    rpctransport = transport.DCERPCTransportFactory(
+        r'ncacn_np:{}[\pipe\svcctl]'.format(conninfo.host))
+    rpctransport.set_dport(conninfo.port)
 
-        else:
-            fd = open(SMBSERVER_DIR + '/' + self.__output_filename, 'r')
-            output_callback(fd.read())
-            fd.close()
-            os.unlink(SMBSERVER_DIR + '/' + self.__output_filename)
+    if hasattr(rpctransport,'preferred_dialect'):
+        rpctransport.preferred_dialect(SMB_DIALECT)
 
-    def execute_remote(self, data, nooutput=False):
-        if nooutput:
-            command = data
-        else:
-            command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile
-            if self.__mode == 'SERVER':
-                command += ' & ' + self.__copyBack
-            command += ' & ' + 'del ' + self.__batchFile
+    if hasattr(rpctransport, 'set_credentials'):
+        rpctransport.set_credentials(
+            conninfo.user,
+            conninfo.password,
+            conninfo.domain,
+            conninfo.lm,
+            conninfo.nt,
+            conninfo.aes,
+            conninfo.TGT,
+            conninfo.TGS
+        )
 
+    service = ShellService(rpctransport)
+    if service.exists:
+        service.destroy()
+
+    output_filename = None
+    if output:
+        output_filename = '\\'.join([
+            r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
+        ])
+
+    if not service.create(command, output_filename):
+        return None, 'Could not create service'
+
+    running = service.start()
+    if running and wait:
         try:
-            resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName, lpBinaryPathName=command)
-            service = resp['lpServiceHandle']
+            wait = int(wait)
         except:
-            return
+            pass
 
-        try:
-           scmr.hRStartServiceW(self.__scmr, service)
-        except:
-           pass
+        timeout = None
+        if type(wait) == int:
+            timeout = time.time() + wait
 
-        scmr.hRDeleteService(self.__scmr, service)
-        scmr.hRCloseServiceHandle(self.__scmr, service)
-
-        if not nooutput:
-            self.get_output()
-
-    def send_data(self, data, nooutput=False):
-        self.execute_remote(data, nooutput=nooutput)
-        result = self.__outputBuffer
-        self.__outputBuffer = ''
-        return result
-
-class CMDEXEC(object):
-    KNOWN_PROTOCOLS = {
-        '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
-        '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
-    }
-
-    def __init__(self, protocols=None,  username='', password='',
-                     domain='', hashes='', share=None, command=None, timeout=30):
-
-        if not protocols:
-            protocols = CMDEXEC.KNOWN_PROTOCOLS.keys()
-
-        self.__username = username
-        self.__password = password
-        self.__protocols = [protocols]
-        self.__serviceName = self.service_generator()
-        self.__domain = domain
-        self.__command = command
-        self.__lmhash = ''
-        self.__nthash = ''
-        self.__aesKey = None
-        self.__doKerberos = None
-        self.__share = share
-        self.__mode  = 'SHARE'
-        self.__timeout = timeout
-
-        if hashes:
-            self.__lmhash, self.__nthash = hashes.split(':')
-
-    def service_generator(self, size=6, chars=string.ascii_uppercase):
-        return ''.join(random.choice(chars) for _ in range(size))
-
-    def run(self, addr, nooutput):
-        result = ''
-        for protocol in self.__protocols:
-            protodef = CMDEXEC.KNOWN_PROTOCOLS[protocol]
-            port = protodef[1]
-
-            stringbinding = protodef[0] % addr
-            rpctransport = transport.DCERPCTransportFactory(stringbinding)
-            rpctransport.set_dport(port)
-
-            if hasattr(rpctransport,'preferred_dialect'):
-               rpctransport.preferred_dialect(SMB_DIALECT)
-
-            if hasattr(rpctransport, 'set_credentials'):
-                # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(
-                    self.__username, self.__password,
-                    self.__domain, self.__lmhash,
-                    self.__nthash, self.__aesKey
-                )
-
-            try:
-                self.shell = RemoteShellsmbexec(
-                    self.__share, rpctransport, self.__mode, self.__serviceName,
-                    self.__command, self.__timeout
-                )
-                result = self.shell.send_data(self.__command, nooutput=nooutput)
-
-            except SessionError as e:
-                if 'STATUS_SHARING_VIOLATION' in str(e):
-                    return
-                else:
-                    print "[-] {}".format(e)
-
-            except  (Exception, KeyboardInterrupt), e:
-                print e
-                traceback.print_exc()
-                self.shell.finish()
-                sys.stdout.flush()
-
-        return result
-
-class WMIEXEC(object):
-    def __init__(self, command='', username='', password='', domain='', hashes='', share=None, noOutput=True):
-        self.__command = command
-        self.__username = username
-        self.__password = password
-        self.__domain = domain
-        self.__lmhash = ''
-        self.__nthash = ''
-        self.__aesKey = None
-        self.__share = share
-        self.__noOutput = noOutput
-        self.__doKerberos = False
-        if hashes:
-            self.__lmhash, self.__nthash = hashes.split(':')
-
-    def run(self, addr, smbConnection, nooutput):
-        result = ''
-        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, oxidResolver = True, doKerberos=self.__doKerberos)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
-        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
-        iWbemLevel1Login.RemRelease()
-
-        win32Process,_ = iWbemServices.GetObject('Win32_Process')
-
-        try:
-            self.shell = RemoteShellwmi(self.__share, win32Process, smbConnection)
-            result = self.shell.send_data(self.__command, nooutput=nooutput)
-        except  (Exception, KeyboardInterrupt), e:
-            traceback.print_exc()
-            dcom.disconnect()
-            sys.stdout.flush()
-
-        dcom.disconnect()
-
-        return result
-
-class RemoteShellwmi(object):
-    def __init__(self, share, win32Process, smbConnection, timeout=10):
-        self.__share = share
-        self.__output_filename = ''.join(random.sample(string.ascii_letters, 10))
-        self.__output = '\\' + self.__output_filename
-        self.__outputBuffer = ''
-        self.__shell = 'cmd.exe /Q /c '
-        self.__win32Process = win32Process
-        self.__transferClient = smbConnection
-        self.__pwd = 'C:\\'
-        self.__noOutput = False
-        self.__timeout = timeout
-
-        # We don't wanna deal with timeouts from now on.
-        if self.__transferClient is not None:
-            self.__transferClient.setTimeout(self.__timeout)
-        else:
-            self.__noOutput = True
-
-    def get_output(self):
-        def output_callback(data):
-            self.__outputBuffer += data
-
-        if self.__noOutput is True:
-            self.__outputBuffer = ''
-            return
-
-        timeout = self.__timeout
-
-        while timeout:
-            try:
-                self.__transferClient.getFile(self.__share, self.__output, output_callback)
+        while service.active:
+            time.sleep(1)
+            if timeout is not None and time.time() >= timeout:
                 break
-            except Exception, e:
-                time.sleep(1)
-                timeout -= 1
 
-        self.__transferClient.deleteFile(self.__share, self.__output)
+        service.destroy()
 
-    def execute_remote(self, data):
-        if self.__noOutput is False:
-            command = self.__shell + data
-            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
-        else:
-            command = data
+    return rpctransport.get_smb_connection(), output_filename
 
-        obj = self.__win32Process.Create(command, self.__pwd, None)
-        self.get_output()
+def wmiexec(conninfo, command, share='C$', output=True):
+    dcom = DCOMConnection(
+        conninfo.host,
+        conninfo.user,
+        conninfo.password,
+        conninfo.domain,
+        conninfo.lm, conninfo.nt,
+        conninfo.aes,
+        oxidResolver=True,
+        doKerberos=conninfo.kerberos
+    )
 
-    def send_data(self, data, nooutput=False):
-        self.__noOutput = nooutput
-        self.execute_remote(data)
-        result = self.__outputBuffer
-        self.__outputBuffer = ''
-        return result
+    iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+    iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+    iWbemLevel1Login.RemRelease()
 
-def fix_upload_path(dst):
-    dst = string.replace(dst, '/', '\\')
-    dst = os.path.normpath(dst)
-    dst = dst.split('\\')
-    dst = '\\' + '\\'.join(dst[1:])
-    return os.path.normpath(dst)
+    output_filename = None
 
-def upload_file(smbconn, host, src, share, dst):
-    if os.path.exists(src):
-        print '[+] Starting upload: %s -> %s: %s  (%s bytes)' % (src, share, dst, os.path.getsize(src))
-        upFile = open(src, 'rb')
-        try:
-            smbconn.putFile(share, dst, upFile.read)
-            print '[+] Upload completed'
-            upFile.close()
-            return True
-        except Exception as e:
-            print '[!]', e
-            print '[!] Error uploading file, you need to include destination file name in the path'
-            upFile.close()
-    else:
-        print '[!] Invalid source. File does not exist'
+    win32Process, _ = iWbemServices.GetObject('Win32_Process')
+    if output:
+        output_filename = '\\'.join([
+            r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
+        ])
 
-    return False
+        command = r'cmd.exe /Q /c {} 2>&1 1> \\127.0.0.1\{}\{}'.format(
+            command, share, output_filename
+        )
 
-def connect(host, port, user, passwd, hash, share, file_to_upload,
-                src_folder, dst_folder, command,
-                domain='workgroup', execm='smbexec', codepage=None, timeout=30, nooutput=False):
+    win32Process.Create(command, r'C:\Windows\Temp', None)
+    dcom.disconnect()
 
-    if type(host) == unicode:
-        host = host.encode('utf-8')
+    return output_filename
+
+def check(host, port, user, domain, password, ntlm):
+    conninfo = ConnectionInfo(
+        host, port, user, domain, password, ntlm, timeout=timeout
+    )
 
     try:
-        lmhash = ''
-        nthash = ''
-        if hash:
-            if not ':' in hash:
-                print '[!] Invalid hash format: LM:NT'
-                return
+        conn = conninfo.create_connection()
+        conn.close()
+    except:
+        return False
 
-            lmhash, nthash = hash.split(':')
+    return True
 
-        login_ok = False
+def smbexec(
+        host, port,
+        user, domain,
+        password, ntlm,
+        command, share='C$', execm='smbexec',
+        codepage=None, timeout=30, output=True):
 
-        print '[+] psexec: {}:{} ({})'.format(host, port, command)
-        smb = SMBConnection(host, host, None, port, timeout=timeout)
-        try:
-            smb.login(user, passwd, domain, lmhash, nthash)
-            login_ok = True
-        except SessionError as e:
-            if 'STATUS_ACCESS_DENIED' in e.message:
-                pass
-        except Exception, e:
-            print "[!] {}".format(e)
-            return
+    conninfo = ConnectionInfo(
+        host, port, user, domain, password, ntlm, timeout=timeout
+    )
 
-        print "[+] {}:{} is running {} (name:{}) (domain:{})".format(
-            host, port, smb.getServerOS(), smb.getServerName(), domain)
+    try:
+        filename = None
 
-        if not login_ok:
-            print "[!] Login failed"
-            return
+        if execm == 'smbexec':
+            smbc, filename = sc(conninfo, command, output, timeout if output else None)
 
-        if file_to_upload and not command:
-            # execute exe file
-            if len(file_to_upload) == 1:
-                command = fix_upload_path(os.path.join(dst_folder, file_to_upload[0]))
+        elif execm == 'wmi':
+            if output:
+                smbc, error = conninfo.create_connection()
+                if not smbc:
+                    return None, error
 
-            # execute ps1 file
-            else:
-                command = 'powershell.exe -ExecutionPolicy Bypass -windowstyle hidden /c "cat %s | Out-String | IEX"' % (dst_folder + file_to_upload[0])
+            filename = wmiexec(conninfo, command, share, output)
 
-        if command:
-            try:
-                if file_to_upload:
-                    for file in file_to_upload:
-                        src_file = os.path.join(src_folder, file)
-                        dst_file = fix_upload_path(os.path.join(dst_folder, file))
-                        upload_file(smb, host, src_file, share, dst_file)
+        if filename:
+            ft = FileTransfer(smbc)
+            buf = StringIO()
+            ft.get(share, filename, buf.write)
+            if not ft.ok:
+                return None, ft.error + ' (args: share={} filename={})'.format(
+                    share, filename)
 
-                if command:
-                    print "Execute: {}".format(command)
+            ft.rm(share, filename)
+            value = buf.getvalue()
 
-                    if execm == 'smbexec':
-                        executer = CMDEXEC(
-                            '{}/SMB'.format(port), user, passwd,
-                            domain, hash, share, command, timeout
-                        )
-                        result = executer.run(host, nooutput)
+            if codepage:
+                value = value.decode(codepage)
 
-                    elif execm == 'wmi':
-                        executer = WMIEXEC(command, user, passwd, domain, hash, share)
-                        result = executer.run(host, smb, nooutput)
+            return value, ft.error
 
-                    if result:
-                        if codepage:
-                            print result.decode(codepage)
-                        else:
-                            print codepage
+        return None, None
 
-                smb.logoff()
+    except SessionError as e:
+        return None, '{}:{} {}'.format(host, port, e)
 
-            except SessionError as e:
-                print "[-] {}:{} {}".format(host, port, e)
-
-            except Exception as e:
-                print "[-] {}:{} {}: {}\n{}".format(host, port, type(e), e, traceback.format_exc())
-
-    except Exception, e:
-        print "[!] {}".format(e)
+    except Exception as e:
+        return None, '{}:{} {}: {}\n{}'.format(
+            host, port, type(e).__name__, e, traceback.format_exc())
