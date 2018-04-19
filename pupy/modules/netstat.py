@@ -93,9 +93,9 @@ class NetStatModule(PupyModule):
                 }
 
                 for v in connection.itervalues():
-                    if any(h in v for h in args.hide):
+                    if any(str(h) in unicode(v.data) for h in args.hide):
                         deny = True
-                    if any(h in v for h in args.show):
+                    if any(str(h) in unicode(v.data) for h in args.show):
                         deny = False
 
                 if not deny:
