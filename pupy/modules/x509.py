@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
-from M2Crypto.X509 import load_cert_string
+from M2Crypto.X509 import load_cert_string, X509Error
 
 __class_name__='x509'
 
@@ -30,6 +30,18 @@ class x509(PupyModule):
             cert = get_server_certificate((args.host, args.port))
 
         if not args.raw:
-            cert = load_cert_string(cert).as_text()
+            parsed = None
+            try:
+                parsed = load_cert_string(cert).as_text()
+            except (X509Error, TypeError):
+                try:
+                    parsed = load_cert_string(cert, 0).as_text()
+                except X509Error:
+                    pass
 
-        self.log(cert)
+            cert = parsed
+
+        if cert:
+            self.log(cert)
+        else:
+            self.error('Invalid certificate format')
