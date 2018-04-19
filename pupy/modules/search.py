@@ -82,11 +82,16 @@ class SearchModule(PupyModule):
 
                 if args.strings and not args.no_content:
                     if type(res) == tuple:
-                        self.success('{}: {}'.format(*res))
+                        f, v = res
+                        if type(f) == unicode:
+                            f = f.encode('utf-8')
+                        if type(v) == unicode:
+                            v = v.encode('utf-8')
+                        self.success('{}: {}'.format(f, v))
                     elif not args.content_only:
-                        self.success('{}'.format(res))
+                        self.success(res)
                 else:
-                    self.success('{}'.format(res))
+                    self.success(res)
 
             def on_completed():
                 terminate.set()

@@ -31,9 +31,16 @@ class Search(object):
         self.case = case
 
         if self.case:
-            i = re.IGNORECASE
+            i = re.IGNORECASE | re.UNICODE
         else:
             i = 0
+
+
+        if type(path) != unicode:
+            path = path.decode(sys.getfilesystemencoding())
+
+        if type(root_path) != unicode:
+            root_path = root_path.decode(sys.getfilesystemencoding())
 
         path = os.path.expandvars(os.path.expanduser(path))
 
@@ -59,7 +66,7 @@ class Search(object):
         self.terminate = terminate
 
         if root_path == '.':
-            self.root_path = os.getcwd()
+            self.root_path = os.getcwdu()
         else:
             self.root_path = root_path
 
@@ -82,7 +89,7 @@ class Search(object):
                     m.close()
 
         except Exception, e:
-            pass
+            yield e
 
     def scanwalk(self, path, followlinks=False):
 
@@ -127,8 +134,7 @@ class Search(object):
         if os.path.isfile(self.root_path):
             for res in self.search_string(self.root_path):
                 try:
-                    res = res.encode('utf-8')
-                    yield '%s > %s' % (self.root_path, res)
+                    yield u'{} > {}'.format(self.root_path, res)
                 except:
                     pass
 
@@ -152,7 +158,12 @@ class Search(object):
                             on_error('Scanwalk exception: {}:{}'.format(
                                 str(type(result)),
                                 str(result)))
-                        except:
+                        except Exception, e:
+                            try:
+                                on_error('Scanwalk exception (module): ({})'.format(e))
+                            except:
+                                pass
+
                             break
 
                 continue
@@ -161,7 +172,12 @@ class Search(object):
                 if result != previous_result:
                     on_data(result)
                     previous_result = result
-            except:
+            except Exception, e:
+                try:
+                    on_error('Scanwalk exception (module): {}'.format(e))
+                except:
+                    pass
+
                 break
 
         on_completed()
