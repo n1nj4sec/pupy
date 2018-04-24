@@ -33,7 +33,7 @@ RUN pip install -r /tmp/requirements.txt --no-binary :all:
 
 COPY . /opt/pupy
 
-ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20170608/mimikatz_trunk.zip \
+ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20180424/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
 RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
 RUN apt-get remove -y autoconf automake python-dev libtool build-essential && \
