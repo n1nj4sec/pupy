@@ -290,7 +290,7 @@ class Credentials(object):
         cert.set_issuer(cert.get_subject())
         cert.set_pubkey(pk)
         cert.add_ext(X509.new_extension('basicConstraints', 'CA:TRUE'))
-        cert.add_ext(X509.new_extension('subjectKeyIdentifier', cert.get_fingerprint()))
+        cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
         cert.sign(pk, 'sha256')
 
         return pk.as_pem(cipher=None), cert.as_pem(), pk, cert
@@ -316,7 +316,7 @@ class Credentials(object):
         cert.set_issuer(ca_cert.get_subject())
         cert.set_pubkey(pk)
         cert.add_ext(X509.new_extension('basicConstraints', 'critical,CA:FALSE'))
-        cert.add_ext(X509.new_extension('subjectKeyIdentifier', cert.get_fingerprint()))
+        cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
         if client:
             cert.add_ext(X509.new_extension('keyUsage', 'critical,digitalSignature'))
             cert.add_ext(X509.new_extension('nsCertType', 'client'))
