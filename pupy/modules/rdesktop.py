@@ -8,7 +8,6 @@ import subprocess
 import time
 import threading
 import json
-import pyautogui
 
 __class_name__="RemoteDesktopModule"
 
