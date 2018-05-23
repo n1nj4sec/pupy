@@ -34,6 +34,10 @@ class Mimikatz(MemoryExec):
         
     def run(self, args):
         
+        proc_arch       = self.client.desc["proc_arch"]
+        mimikatz_path   = None
+        output          = ''
+        
         if '64' in  self.client.desc['os_arch'] and "32" in proc_arch:
             self.error("You are in a x86 process right now. You have to be in a x64 process for running Mimikatz.")
             self.error("Otherwise, the following Mimikatz error will occur after 'sekurlsa::logonPasswords':")
@@ -49,10 +53,6 @@ class Mimikatz(MemoryExec):
             else:
                 self.warning(str(message))
             return
-
-        proc_arch       = self.client.desc["proc_arch"]
-        mimikatz_path   = None
-        output          = ''
       
         if "64" in proc_arch:
             mimikatz_path = self.client.pupsrv.config.get("mimikatz","exe_x64")
