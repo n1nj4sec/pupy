@@ -488,7 +488,7 @@ def get_parser(base_parser, config):
     parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output filename")
-    parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
+    parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder (default: %(default)s)")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
@@ -575,6 +575,10 @@ def pupygen(args, config):
     conf['offline_script']=script_code
     conf['debug']=args.debug
     outpath=args.output
+    
+    if (os.path.isdir(args.output_dir)==False):
+        print ok+"Creating the local folder '{0}' for generating payloads".format(args.output_dir)
+        os.makedirs(args.output_dir)
     
     if args.format=="client":
         print ok+"Generate client: {}/{}".format(args.os, args.arch)
