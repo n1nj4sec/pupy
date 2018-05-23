@@ -39,7 +39,7 @@ os = windows
 arch = x86
 external = false
 packer = 
-#output =
+output = output/
 #launcher =
 #launcher_args = 
 
