@@ -487,7 +487,7 @@ def get_parser(base_parser, config):
                             help='Use uncompressed template')
     parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
-    parser.add_argument('-o', '--output', help="output path")
+    parser.add_argument('-o', '--output', help="output filename")
     parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
