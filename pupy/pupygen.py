@@ -485,7 +485,7 @@ def get_parser(base_parser, config):
                             choices=CLIENT_ARCH, help='Target arch (default: x86)')
     parser.add_argument('-U', '--uncompressed', default=False, action='store_true',
                             help='Use uncompressed template')
-    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer (default: %(default)s)')
+    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer when \'client\' output format (default: %(default)s)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output filename")
     parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder (default: %(default)s)")
