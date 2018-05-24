@@ -612,8 +612,10 @@ def pupygen(args, config):
             os.chmod(outfile.name, 0711)
 
         if args.packer:
+            packingFinalCmd = args.packer.replace('%s', outfile.name)
+            print ok+"Packing payload with this command: {0}".format(packingFinalCmd)
             subprocess.check_call(
-                args.packer.replace('%s', outfile.name),
+                packingFinalCmd,
                 shell=True
             )
 
