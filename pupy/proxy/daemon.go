@@ -95,6 +95,7 @@ func (d *Daemon) handle(conn net.Conn) {
 		if d.DNSListener != nil {
 			log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ",
 				client, " - request shutdown")
+			d.DNSListener.sendEmptyMessage()
 			d.DNSListener.Shutdown()
 		} else {
 			log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ",

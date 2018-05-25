@@ -105,6 +105,10 @@ waitLoop:
 	log.Debug("[5.] RESPONSE PROCESSOR CLOSED")
 }
 
+func (p *DNSListener) sendEmptyMessage() {
+	SendMessage(p.Conn, "")
+}
+
 func (p *DNSListener) queryProcessor(
 	queue chan chan []string,
 	interrupt <-chan bool, closeNotify chan<- bool, decoderr chan<- error) {
