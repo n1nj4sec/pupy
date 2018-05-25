@@ -366,10 +366,11 @@ class PupyServer(object):
         self.igd = None
         self.finished = Event()
         self.finishing = Event()
+
+        self.pproxy_listener = None
+
         self._cleanups = []
         self._singles = {}
-
-        self.pproxy = None
 
         pproxy = self.config.get('pproxy', 'address')
         ca = self.config.get('pproxy', 'ca')
@@ -377,24 +378,36 @@ class PupyServer(object):
         cert = self.config.get('pproxy', 'crt')
         via = self.config.get('pproxy', 'via')
 
-        if pproxy and ca and key and cert:
+        pproxy_listener_required = self.config.getboolean('pproxy', 'listener')
+        pproxy_dnscnc_required = self.config.getboolean('pproxy', 'dnscnc')
+
+        pproxy_dnscnc = None
+
+        if pproxy and ca and key and cert and (pproxy_listener_required or pproxy_dnscnc_required):
             try:
-                self.pproxy = PupyOffloadManager(
+                pproxy_manager = PupyOffloadManager(
                     pproxy, ca, key, cert, via)
+
+                if pproxy_listener_required:
+                    self.pproxy_listener = pproxy_manager
+
+                if pproxy_dnscnc_required:
+                    pproxy_dnscnc = pproxy_manager
+
                 self.motd['ok'].append(
                     'Offload Proxy: proxy={} external={}{}'.format(
                         pproxy,
-                        self.pproxy.external,
+                        pproxy_manager.external,
                         ' via {}'.format(via) if via else ''))
+
             except Exception, e:
-                self.pproxy = None
                 logger.exception(e)
                 self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
 
         if self.config.getboolean('pupyd', 'httpd'):
             self.httpd = True
 
-        if not self.pproxy:
+        if not (self.pproxy_listener and pproxy_dnscnc):
             try:
                 try:
                     igd_url = None
@@ -432,7 +445,7 @@ class PupyServer(object):
                     credentials=self.credentials,
                     listeners=self.get_listeners,
                     cmdhandler=self.handler,
-                    pproxy=self.pproxy,
+                    pproxy=pproxy_dnscnc,
                 )
             except Exception, e:
                 logger.error('DnsCNC failed: {}'.format(e))
@@ -906,7 +919,7 @@ class PupyServer(object):
             igd=self.igd,
             local=self.config.get('pupyd', 'address'),
             external=self.config.get('pupyd', 'external'),
-            pproxy=self.pproxy
+            pproxy=self.pproxy_listener
         )
 
         self.listeners[name] = listener

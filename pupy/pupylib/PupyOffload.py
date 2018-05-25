@@ -82,7 +82,9 @@ class PupyOffloadDNS(threading.Thread):
         while self.active:
             request = conn.recv()
             if not request:
-                return
+                logging.warning('DNS: Recieved empty request. Shutdown')
+                self.stop()
+                break
 
             now = time.time()
             response = self.handler.process(request)
@@ -95,8 +97,10 @@ class PupyOffloadDNS(threading.Thread):
 
     def stop(self):
         self.active = False
+
         if self._conn:
             self._conn.close()
+            self._conn = None
 
         if self.handler:
             self.handler.finished.set()

@@ -216,6 +216,12 @@ class PupyConfig(ConfigParser):
             self.randoms[key] = value
             return key
 
+    def getboolean(self, *args, **kwargs):
+        try:
+            return ConfigParser.getboolean(self, *args, **kwargs)
+        except AttributeError:
+            return False
+
     def get(self, *args, **kwargs):
         try:
             if args[0] == 'randoms':
