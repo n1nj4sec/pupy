@@ -29,8 +29,8 @@ class InteractiveShell(PupyModule):
         cls.arg_parser.add_argument('-c', '--codepage', help="Decode output with encoding")
         cls.arg_parser.add_argument('-T', action='store_true', dest='pseudo_tty', help="Disable tty allocation")
         cls.arg_parser.add_argument('-S', '--su', help='Try to change uid (linux only)')
-        cls.arg_parser.add_argument('-R', default='ttyrec', dest='recorder',
-                                         choices=['ttyrec', 'asciinema', 'none'],
+        cls.arg_parser.add_argument('-R', default='asciinema', dest='recorder',
+                                         choices=['ttyrec', 'asciinema', 'asciinema1', 'none'],
                                          help="Change tty recorder")
         cls.arg_parser.add_argument('program', nargs='?', help='Execute in shell')
 

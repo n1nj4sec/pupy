@@ -153,8 +153,10 @@ class Log(object):
         self.out = out
         self.log = log
         self.rec = None
-        if rec in ('asciinema', 'ttyrec'):
+
+        if rec in ('asciinema', 'asciinema1', 'ttyrec'):
             self.rec = rec
+
         self.last = 0
         self.start = 0
         self.unicode = unicode
@@ -162,7 +164,7 @@ class Log(object):
         self.closed = False
         self.stream = stream
 
-        if self.rec == 'asciinema':
+        if self.rec == 'asciinema1':
             h, l = consize(self.out)
             self.log.write(
                 '{{'
@@ -173,6 +175,22 @@ class Log(object):
                 )
             )
             self.start = time.time()
+        if self.rec == 'asciinema':
+            h, l = consize(self.out)
+            ts = time.time()
+            self.log.write(json.dumps({
+                'version':2,
+                'width': l,
+                'height': h,
+                'timestamp': ts,
+                'title': title,
+                'env': {
+                    'SHELL': os.environ.get('SHELL'),
+                    'TERM': os.environ.get('TERM'),
+                }
+            }))
+            self.log.write('\n')
+            self.last = self.start = ts
         elif self.rec == 'ttyrec':
             self.last = time.time()
         else:
@@ -196,6 +214,9 @@ class Log(object):
             data += '\n'
 
         now = time.time()
+        delay = ( now - self.last ) if self.last else 0
+        duration = now - self.start
+        self.last = now
 
         if self.unicode:
             if type(data) != unicode:
@@ -208,11 +229,14 @@ class Log(object):
             self.log.write(struct.pack('<III', sec, usec, len(data)) + data)
 
         elif self.rec == 'asciinema':
-            if self.last:
-                duration = now - self.last
+            self.log.write(json.dumps([
+                duration, 'o', data
+            ]))
+            self.log.write('\n')
+
+        elif self.rec == 'asciinema1':
+            if delay:
                 self.log.write(',')
-            else:
-                duration = 0
 
             self.log.write(json.dumps([duration, data]))
 
@@ -227,8 +251,6 @@ class Log(object):
             self.log.write(data)
             self.log.flush()
 
-        self.last = now
-
     def flush(self):
         if self.closed:
             return
@@ -240,7 +262,7 @@ class Log(object):
         if self.closed:
             return
 
-        if self.rec == 'asciinema':
+        if self.rec == 'asciinema1':
             self.log.write('],"duration":{}}}'.format(
                 time.time() - self.start
             ))
