@@ -534,6 +534,32 @@ def tail(f, n, grep):
 
     return retval
 
+# ------------------------------- For edit  -------------------------------
+
+def fgetcontent(path, max_size=512*1024*1024):
+    path = try_unicode(path)
+    path = os.path.expanduser(path)
+    path = os.path.expandvars(path)
+
+    with open(path, 'rb') as f:
+        content = f.read(max_size)
+        if f.read(1):
+            raise ValueError('File is too big')
+
+        return content
+
+def fputcontent(path, content, append=False):
+    path = try_unicode(path)
+    path = os.path.expanduser(path)
+    path = os.path.expandvars(path)
+
+    s = os.stat(path)
+
+    with open(path, 'ab' if append else 'wb') as f:
+        f.write(content)
+
+    os.utime(path, (s.st_atime, s.st_mtime))
+
 # ----------------------------- For datetime  -----------------------------
 
 def now():
