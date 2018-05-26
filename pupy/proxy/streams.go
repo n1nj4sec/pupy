@@ -350,6 +350,13 @@ func (d *Daemon) serveStream(mtu int, in net.Conn, bind string,
 	defer close(cherr)
 	defer close(chconn)
 
+	for _, mapping := range PortMaps {
+		if port == mapping.From {
+			port = mapping.To
+			break
+		}
+	}
+
 	go acceptor(in, port, cherr, chconn)
 
 	needFinishAcceptor := true

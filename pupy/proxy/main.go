@@ -8,6 +8,7 @@ import (
 
 	"crypto/tls"
 	"crypto/x509"
+	"strconv"
 	"strings"
 
 	"flag"
@@ -30,6 +31,8 @@ var (
 	ClientKey             = path.Join("..", "crypto", "proxy-client.key")
 	ClientCert            = path.Join("..", "crypto", "proxy-client.crt")
 
+	PortMaps []PortMap
+
 	OnListenerEnabledURL  = ""
 	OnListenerDisabledURL = ""
 
@@ -39,6 +42,7 @@ var (
 func init() {
 	generate := false
 	loglevel := "ERROR"
+	portmap := ""
 
 	flag.StringVar(&ProxyBindHost, "listen-proxy", ProxyBindHost, "IP address to bind pupysh listener side")
 	flag.UintVar(&ProxyBindPort, "port-proxy", ProxyBindPort, "Port to bind pupysh listener side")
@@ -48,6 +52,7 @@ func init() {
 	flag.StringVar(&ListenerCA, "ca", ListenerCA, "Path to CA certificate (pupysh side)")
 	flag.StringVar(&ListenerKey, "key", ListenerKey, "Path to TLS key (pupysh side)")
 	flag.StringVar(&ListenerCert, "cert", ListenerCert, "Path to TLS cert (pupysh side)")
+	flag.StringVar(&portmap, "port-map", portmap, "Automatically substitute ports (example: \"443:1443 80:8080\")")
 	flag.StringVar(&ProxyHostname, "hostname-proxy", ProxyHostname,
 		"Hostname for pupysh listener side (used with generate)")
 	flag.StringVar(&loglevel, "loglevel", loglevel, "Set log level")
@@ -74,6 +79,40 @@ func init() {
 		log.SetLevel(log.DebugLevel)
 	default:
 		log.Fatalln("Invalid log level", loglevel)
+	}
+
+	if strings.Contains(portmap, ":") {
+		for _, mapping := range strings.Split(portmap, " ") {
+			if !strings.Contains(portmap, ":") {
+				continue
+			}
+
+			parts := strings.Split(mapping, ":")
+			if len(parts) != 2 {
+				log.Fatalln("Invalid mapping specification: ", parts)
+			}
+
+			var (
+				from, to int
+				err      error
+			)
+
+			from, err = strconv.Atoi(parts[0])
+			if err != nil {
+				log.Fatalln("Invalid mapping specification: ", parts, "From: ", err)
+			}
+
+			to, err = strconv.Atoi(parts[1])
+			if err != nil {
+				log.Fatalln("Invalid mapping specification: ", parts, "To: ", err)
+			}
+
+			PortMaps = append(PortMaps, PortMap{
+				From: from,
+				To:   to,
+			})
+
+		}
 	}
 
 	if strings.Index(ProxyBindHost, ":") == -1 {

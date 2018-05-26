@@ -25,6 +25,11 @@ type (
 	ListenerProtocol int
 	BindRequestType  int
 
+	PortMap struct {
+		From int
+		To   int
+	}
+
 	BindRequestHeader struct {
 		Protocol ListenerProtocol `msgpack:"prot"`
 		BindInfo string           `msgpack:"bind"`
