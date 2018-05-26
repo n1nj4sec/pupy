@@ -26,10 +26,10 @@ class GetSystem(PupyModule):
     
     def init_argparse(self):
         self.arg_parser = PupyArgumentParser(prog="getsystem", description=self.__doc__)
-        self.arg_parser.add_argument("--prog", default="cmd.exe", help="Change the default process to create/inject into")
-        self.arg_parser.add_argument('-m', dest='migrate', action='store_true', default=True, help="Used by default: migrate to the system process (could be detected by AV)")
+        self.arg_parser.add_argument("--prog", default="cmd.exe", help="Set the default process to create/inject into (default: %(default)s)")
+        self.arg_parser.add_argument('-m', dest='migrate', action='store_true', default=False, help="Migrate to the system process by default (could be detected by AV)")
         self.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current executable as admin")
-        self.arg_parser.add_argument('-p', dest='powershell', action='store_true', default=False, help="Use powershell to automatically get a reverse shell")
+        self.arg_parser.add_argument('-p', dest='powershell', action='store_false', default=True, help="Use powershell to automatically get a reverse shell (default: %(default)s)")
         self.arg_parser.add_argument('-k', dest='keep', action='store_true', default=False, help="Keep this current connection after migration (default: %(default)s)")
         self.arg_parser.add_argument('-t', dest='timeout', default=60, type=int, help="Wait n seconds a reverse connection during migration (default: %(default)s)")
         keep=False
