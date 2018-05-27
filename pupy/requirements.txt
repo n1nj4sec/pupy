@@ -31,4 +31,5 @@ scandir
 msgpack
 hexdump
 M2Crypto
+fusepy
 -e external/pykcp

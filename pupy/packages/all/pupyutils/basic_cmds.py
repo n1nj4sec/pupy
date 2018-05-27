@@ -569,3 +569,19 @@ def now():
 
 def getuid():
     return getpass.getuser()
+
+# --------------------------------- For RFS -------------------------------
+
+def dlstat(path):
+    path = try_unicode(path)
+    pstat = os.stat(path)
+    return {
+        k:getattr(pstat, k) for k in dir(pstat) if not k.startswith('__')
+    }
+
+def dstatvfs(path):
+    path = try_unicode(path)
+    pstat = os.statvfs(path)
+    return {
+        k:getattr(pstat, k) for k in dir(pstat) if not k.startswith('__')
+    }
