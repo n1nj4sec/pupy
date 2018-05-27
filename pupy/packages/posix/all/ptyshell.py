@@ -181,8 +181,6 @@ class PtyShell(Task):
     def task(self):
         argv = None
 
-        print "ARGV:", self.argv
-
         if not self.argv:
             argv = [find_shell()]
 
@@ -191,13 +189,10 @@ class PtyShell(Task):
         else:
             argv = self.argv
 
-        print "SET ARGV:", self.argv
-
         PS1 = '[pupy]> '
 
         if argv:
             shell = os.path.basename(argv[0])
-            print "SHELL", shell
             if shell == 'bash':
                 PS1 = r'[pupy:\W]> '
                 argv.insert(1, '--norc')
