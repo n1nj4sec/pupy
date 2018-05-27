@@ -47,12 +47,12 @@ class PupyService(rpyc.Service):
         self.infos = None
         self.get_infos = None
 
-    def on_connect(self):
+    def exposed_on_connect(self):
         self._conn._config.update(dict(
-            allow_safe_attrs = True,
+            allow_safe_attrs = False,
             allow_public_attrs = False,
             allow_pickle = False,
-            allow_getattr = True,
+            allow_getattr = False,
             allow_setattr = False,
             allow_delattr = False,
             import_custom_exceptions = False,
