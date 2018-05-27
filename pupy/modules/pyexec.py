@@ -34,5 +34,5 @@ class PythonExec(PupyModule):
         if args.no_redirected_stdio:
             self.client.conn.execute(code+"\n")
         else:
-            with redirected_stdo(self):
+            with redirected_stdio(self):
                 self.client.conn.execute(code+"\n")

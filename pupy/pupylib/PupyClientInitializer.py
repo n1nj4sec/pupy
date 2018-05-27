@@ -5,10 +5,37 @@ import getpass
 import uuid
 import sys
 import os
+import sys
 import locale
 import logging
 
 import encodings
+
+# Restore write/stdout/stderr
+
+if not hasattr(os, 'real_write'):
+    if type(os.write).__name__ == 'builtin_function_or_method':
+        os.real_write = os.write
+
+if not hasattr(sys, 'real_stdout') and type(sys.stdout) == file:
+    sys.real_stdout = sys.stdout
+
+if not hasattr(sys, 'real_stderr') and type(sys.stderr) == file:
+    sys.real_stderr = sys.stderr
+
+if not hasattr(sys, 'real_stdin') and type(sys.stdin) == file:
+    sys.real_stdin = sys.stdin
+
+if not hasattr(os, 'stdout_write'):
+    def stdout_write(fd, s):
+        if fd == 1:
+            return sys.stdout.write(s)
+        elif fd == 2:
+            return sys.stderr.write(s)
+        else:
+            return os.real_write(fd, s)
+
+    os.stdout_write = stdout_write
 
 # Remove IDNA module if it was not properly loaded
 if hasattr(encodings, 'idna') and not hasattr(encodings.idna, 'getregentry'):
@@ -21,6 +48,24 @@ os_encoding = locale.getpreferredencoding() or "utf8"
 if sys.platform == 'win32':
     from _winreg import *
     import ctypes
+
+def redirect_stdo(stdout, stderr):
+    sys.stdout = stdout
+    sys.stderr = stderr
+    os.write = os.stdout_write
+
+def redirect_stdio(stdin, stdout, stderr):
+    sys.stdin = stdin
+    redirect_stdo(stdout, stderr)
+
+def reset_stdo():
+    sys.stdout = sys.real_stdout
+    sys.stderr = sys.real_stderr
+    os.write = os.real_write
+
+def reset_stdio():
+    sys.stdin = sys.real_stdin
+    reset_stdo()
 
 def get_integrity_level():
     '''from http://www.programcreek.com/python/example/3211/ctypes.c_long'''
