@@ -232,6 +232,7 @@ class PupyOffloadManager(object):
             c = self._connect(0, "")
             m = MsgPackMessages(c)
             self._external_ip = m.recv()['ip']
+            c.close()
 
         return self._external_ip
 
@@ -259,6 +260,14 @@ class PupyOffloadManager(object):
                 True, proxy_username, proxy_password)
         else:
             c = socket.create_connection(self._server)
+
+        c.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        c.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+        if all([hasattr(socket, x) for x in ('TCP_KEEPIDLE', 'TCP_KEEPINTVL', 'TCP_KEEPCNT')]):
+            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1 * 60)
+            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
+            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
 
         c = self._ctx.wrap_socket(c)
 
