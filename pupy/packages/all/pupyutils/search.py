@@ -8,11 +8,36 @@ import sys
 import mmap
 import threading
 import rpyc
+import pupy
+
+searchThread = None #If searchThread == None, no Search Thread is running
+needTerminate = threading.Event() 
+
+def getSearchThreadStatus():
+    global searchThread
+    if searchThread == None:
+        return False
+    else:
+        return searchThread.isAlive()
+        
+def stopSearchThread():
+    '''
+    Returns True if thread is stopped. 
+    Otherwise returns False
+    '''
+    global needTerminate
+    global searchThread
+    if searchThread!=None:
+        needTerminate.set()
+        return True
+    else:
+        return False
 
 class Search():
     def __init__(self, path,
                      strings=[], max_size=20000000, root_path='.', no_content=False,
-                     case=False, binary=False, follow_symlinks=False, terminate=None):
+                     case=False, binary=False, follow_symlinks=False):
+        
         self.max_size = int(max_size)
         self.follow_symlinks = follow_symlinks
         self.no_content = no_content
@@ -45,8 +70,6 @@ class Search():
             re.compile(string, i) for string in strings
         ]
 
-        self.terminate = terminate
-
         if root_path == '.':
             self.root_path = os.getcwd()
         else:
@@ -76,9 +99,10 @@ class Search():
     def scanwalk(self, path, followlinks=False):
 
         ''' lists of DirEntries instead of lists of strings '''
+        global needTerminate
         try:
             for entry in scandir(path):
-                if self.terminate and self.terminate.is_set():
+                if needTerminate.isSet()==True:
                     break
 
                 any_file = not self.name or self.path
@@ -126,6 +150,8 @@ class Search():
                 yield files
 
     def _run_thread(self, on_data, on_completed):
+        global needTerminate
+        global searchThread
         for result in self.run():
             try:
                 on_data(result)
@@ -133,18 +159,28 @@ class Search():
                 break
 
         on_completed()
+        searchThread = None #No thread is running anymore
+        needTerminate.clear() #Reset value for next Search thread
 
-    def stop(self):
-        if self.terminate:
-            self.terminate.set()
-
-    def run_cb(self, on_data, on_completed):
-        if not self.terminate:
-            self.terminate = threading.Event()
+    def run_cb(self, on_data, on_completed, daemon=False):
+        '''
+        Return True if correctly started. 
+        Otherwise returns False (e.g. thread already running)
+        '''
+        global searchThread
+        global needTerminate
+        if getSearchThreadStatus() == True:
+            #A Search thread is running, impossible to create another one yet
+            return False
+            
+        needTerminate = threading.Event() 
 
         on_data = rpyc.async(on_data)
         on_completed = rpyc.async(on_completed)
 
-        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
-        search.daemon = False
-        search.start()
+        searchThread = threading.Thread(target=self._run_thread, args=(on_data, on_completed))
+        searchThread.daemon = daemon
+        searchThread.start()
+        return True
+
+

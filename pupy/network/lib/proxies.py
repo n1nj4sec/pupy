@@ -64,12 +64,9 @@ def get_win_proxies():
                     if p not in duplicates:
                         yield p
                         duplicates.add(p)
-
+            CloseKey(aKey)
         except Exception:
             pass
-
-        finally:
-            CloseKey(aKey)
 
 
 def get_python_proxies():

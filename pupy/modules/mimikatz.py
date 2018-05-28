@@ -33,6 +33,17 @@ class Mimikatz(MemoryExec):
         self.arg_parser.add_argument('--logonPasswords', action='store_true', default=False, help='retrieve passwords from memory')
         
     def run(self, args):
+        
+        proc_arch       = self.client.desc["proc_arch"]
+        mimikatz_path   = None
+        output          = ''
+        
+        if '64' in  self.client.desc['os_arch'] and "32" in proc_arch:
+            self.error("You are in a x86 process right now. You have to be in a x64 process for running Mimikatz.")
+            self.error("Otherwise, the following Mimikatz error will occur after 'sekurlsa::logonPasswords':")
+            self.error("'ERROR kuhl_m_sekurlsa_acquireLSA ; mimikatz x86 cannot access x64 process'")
+            self.error("Mimikatz has not been executed on the target")
+            return
 
         # for windows 10, if the UseLogonCredential registry is not present or disable (equal to 0), not plaintext password can be retrieved using mimikatz.
         if args.wdigest:
@@ -42,11 +53,7 @@ class Mimikatz(MemoryExec):
             else:
                 self.warning(str(message))
             return
-
-        proc_arch       = self.client.desc["proc_arch"]
-        mimikatz_path   = None
-        output          = ''
-        
+      
         if "64" in proc_arch:
             mimikatz_path = self.client.pupsrv.config.get("mimikatz","exe_x64")
         else:
