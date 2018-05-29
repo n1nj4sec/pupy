@@ -12,12 +12,28 @@ import urlparse
 
 from network.lib import socks
 
+try:
+    from . import getLogger
+    logger = getLogger('pproxy')
+except:
+    logger = logging.getLogger('pproxy')
+
+
 COMMON_EXCEPTIONS = (
     errno.ECONNREFUSED, errno.ECONNRESET,
     errno.EPIPE, errno.EBADF,
     errno.ETIMEDOUT, errno.EHOSTUNREACH,
     errno.EHOSTDOWN
 )
+
+REQUEST_INFO = 0
+REQUEST_DNS_LISTENER = 1
+REQUEST_TCP_LISTENER = 2
+REQUEST_KCP_LISTENER = 3
+REQUEST_TLS_LISTENER = 4
+
+class OffloadProxyCommonError(Exception):
+    pass
 
 class MsgPackMessages(object):
     def __init__(self, conn):
@@ -59,30 +75,30 @@ class PupyOffloadDNS(threading.Thread):
                 self._serve()
 
             except EOFError:
-                logging.error('DNS: Lost connection (EOF)')
+                logger.error('DNS: Lost connection (EOF)')
                 time.sleep(1)
                 continue
 
             except (socket.error, OSError), e:
                 if e.errno in COMMON_EXCEPTIONS:
-                    logging.error('DNS: Lost connection (refused)')
+                    logger.error('DNS: Lost connection (refused)')
                     time.sleep(5)
                     continue
-                else:
-                    logging.exception('DNS: {}'.format(e))
-                    self.active = False
+
+                logger.exception('DNS: Network: {}'.format(e))
+                self.active = False
 
             except Exception, e:
-                logging.exception('DNS: {}'.format(e))
+                logger.exception('DNS: {}'.format(e))
                 self.active = False
 
     def _serve(self):
-        self._conn = self.manager._connect(1, self.domain)
+        self._conn = self.manager.request(REQUEST_DNS_LISTENER, self.domain)
         conn = MsgPackMessages(self._conn)
         while self.active:
             request = conn.recv()
             if not request:
-                logging.warning('DNS: Recieved empty request. Shutdown')
+                logger.warning('DNS: Recieved empty request. Shutdown')
                 self.stop()
                 break
 
@@ -91,7 +107,7 @@ class PupyOffloadDNS(threading.Thread):
             used = time.time() - now
 
             if used > 1:
-                logging.error('DNS: Slow processing speed ({})s'.format(used))
+                logger.warning('DNS: Slow processing speed ({})s'.format(used))
 
             conn.send(response)
 
@@ -153,7 +169,7 @@ class PupyOffloadAcceptor(object):
     def accept(self):
         while self.active:
             try:
-                self._conn = self._manager._connect(self._proto, self._port)
+                self._conn = self._manager.request(self._proto, self._port)
 
                 m = MsgPackMessages(self._conn)
                 conninfo = m.recv()
@@ -171,19 +187,19 @@ class PupyOffloadAcceptor(object):
 
             except (socket.error, OSError), e:
                 if e.errno in COMMON_EXCEPTIONS:
-                    logging.error('Acceptor ({}): Lost connection (refused)'.format(self._port))
+                    logger.error('Acceptor ({}): Lost connection (refused)'.format(self._port))
                     time.sleep(5)
                     continue
                 else:
                     raise
 
             except EOFError:
-                logging.error('Acceptor ({}): Lost connection (EOF)'.format(self._port))
+                logger.error('Acceptor ({}): Lost connection (EOF)'.format(self._port))
                 time.sleep(1)
                 continue
 
             except Exception, e:
-                logging.exception('Acceptor ({}): Exception: {}'.format(e))
+                logger.exception('Acceptor ({}): Exception: {}'.format(e))
                 raise
 
 class PupyOffloadManager(object):
@@ -194,7 +210,7 @@ class PupyOffloadManager(object):
         elif len(server) == 2:
             self._server = server
         else:
-            raise ValueError('Invalid server specification')
+            raise OffloadProxyCommonError('Invalid server specification')
 
         self._ca = ca
         self._key = key
@@ -209,34 +225,41 @@ class PupyOffloadManager(object):
 
         if via:
             if not '://' in via:
-                raise ValueError('Proxy argument should be in URI form')
+                raise OffloadProxyCommonError('Proxy argument should be in URI form')
             self._via = urlparse.urlparse(via)
         else:
             self._via = None
+
+        c = self.request(REQUEST_INFO)
+
+        try:
+            m = MsgPackMessages(c)
+            self._external_ip = m.recv()['ip']
+
+        except Exception, e:
+            logger.exception('Communication failed: {}'.format(e))
+            raise
+
+        finally:
+            c.close()
 
     def dns(self, handler, domain):
         return PupyOffloadDNS(self, handler, domain)
 
     def tcp(self, port, extra={}):
-        return PupyOffloadAcceptor(self, 2, port, extra)
+        return PupyOffloadAcceptor(self, REQUEST_TCP_LISTENER, port, extra)
 
     def kcp(self, port, extra={}):
-        return PupyOffloadAcceptor(self, 3, port, extra)
+        return PupyOffloadAcceptor(self, REQUEST_KCP_LISTENER, port, extra)
 
     def ssl(self, port, extra={}):
-        return PupyOffloadAcceptor(self, 4, port, extra)
+        return PupyOffloadAcceptor(self, REQUEST_TLS_LISTENER, port, extra)
 
     @property
     def external(self):
-        if self._external_ip is None:
-            c = self._connect(0, "")
-            m = MsgPackMessages(c)
-            self._external_ip = m.recv()['ip']
-            c.close()
+       return self._external_ip
 
-        return self._external_ip
-
-    def _connect(self, conntype, bind, timeout=0):
+    def request(self, conntype, bind='', timeout=0):
         if self._via:
             proxy = self._via.scheme.upper()
             if proxy == 'SOCKS':
@@ -266,8 +289,8 @@ class PupyOffloadManager(object):
 
         if all([hasattr(socket, x) for x in ('TCP_KEEPIDLE', 'TCP_KEEPINTVL', 'TCP_KEEPCNT')]):
             c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1 * 60)
-            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
-            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
+            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3  * 60)
+            c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
         c = self._ctx.wrap_socket(c)
 

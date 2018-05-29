@@ -46,7 +46,7 @@ from .PupyDnsCnc import PupyDnsCnc
 from .PupyTriggers import event
 from .PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
 from .PupyWeb import PupyWebServer
-from .PupyOffload import PupyOffloadManager
+from .PupyOffload import PupyOffloadManager, OffloadProxyCommonError
 from .PupyClient import PupyClient
 
 from .utils.rpyc_utils import obtain
@@ -399,6 +399,9 @@ class PupyServer(object):
                         pproxy,
                         pproxy_manager.external,
                         ' via {}'.format(via) if via else ''))
+
+            except (socket.error, OffloadProxyCommonError), e:
+                self.motd['fail'].append('Offload proxy unavailable: {}'.format(e))
 
             except Exception, e:
                 logger.exception(e)
