@@ -33,3 +33,9 @@ class CloudInfo(PupyModule):
         self.log(
             Pygment(lexers.JsonLexer(), unicode(formatted_json, 'UTF-8'))
         )
+
+        if cloud == 'EC2' and 'meta-data' in metadata and 'iam' in metadata['meta-data']:
+            iam = metadata['meta-data']['iam']
+            if 'info' in iam and 'security-credentials' in iam and iam['info']['Code'] == 'Success':
+                arn = iam['info']['InstanceProfileArn'].split('/', 1)[-1]
+                self.success('IAM: {}'.format(arn))
