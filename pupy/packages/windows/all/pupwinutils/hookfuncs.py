@@ -6,7 +6,7 @@
 from ctypes import (
     byref, WinDLL, sizeof, pointer,
     c_int, c_ulong, c_void_p, c_wchar_p,
-    CFUNCTYPE,
+    CFUNCTYPE, cast,
     c_void_p as LPRECT,
     c_void_p as PSID,
     create_string_buffer,
@@ -247,7 +247,8 @@ def get_current_process():
 
     window_title = create_unicode_buffer('\x00', 512)
 
-    GetWindowText(hwnd, byref(window_title),512)
+    lpBuffer = cast(byref(window_title), LPWSTR)
+    GetWindowText(hwnd, lpBuffer, 512)
 
     CloseHandle(hwnd)
     CloseHandle(h_process)
