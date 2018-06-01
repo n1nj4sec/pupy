@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import *
 from pupylib.PupyCompleter import remote_path_completer
-from os.path import splitext
+from os.path import splitext, basename
 from os import environ
 
 import hashlib
@@ -29,7 +29,7 @@ class Edit(PupyModule):
 
         base, ext = splitext(args.remote_file)
 
-        with tempfile.NamedTemporaryFile(suffix=ext, prefix=base) as local:
+        with tempfile.NamedTemporaryFile(suffix=ext, prefix=basename(base)) as local:
             content = fgetcontent(args.remote_file)
             h1 = hashlib.md5(content).digest()
             local.write(content)
