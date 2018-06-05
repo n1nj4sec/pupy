@@ -12,7 +12,7 @@ __all__ = (
     'OnlineStatusRequest', 'PupyState',
     'ConnectablePort', 'Error', 'ParcelInvalidCrc',
     'ParcelInvalidPayload', 'ParcelInvalidCommand',
-    'Parcel',
+    'Parcel', 'PackError'
 )
 
 import struct
@@ -31,6 +31,9 @@ import socket
 import psutil
 import os
 from network.lib import online
+
+class PackError(Exception):
+    pass
 
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
@@ -550,7 +553,7 @@ class Connect(Command):
             message = message + struct.pack('B', code)
         else:
             if len(self.transport) > 24:
-                raise ValueError('Transport name is too large')
+                raise PackError('Transport name is too large')
             else:
                 code = len(self.transport)
             message = message + struct.pack('B', code) + self.transport
@@ -613,7 +616,7 @@ class DownloadExec(Command):
         try:
             action = self.well_known_downloadexec_action_encode[self.action]
         except:
-            raise ValueError('Unknown action: {}'.format(self.action))
+            raise PackError('Unknown action: {}'.format(self.action))
 
         url = urlparse.urlparse(self.url)
 
@@ -623,7 +626,7 @@ class DownloadExec(Command):
             addr = netaddr.IPAddress(socket.gethostbyname(url.hostname))
 
         if not addr.version == 4:
-            raise ValueError('IPv6 unsupported')
+            raise PackError('IPv6 unsupported')
 
         addr = int(addr)
         if url.port:
@@ -634,14 +637,14 @@ class DownloadExec(Command):
         path = url.path
 
         if len(path) > 16:
-            raise ValueError('Too big url path')
+            raise PackError('Too big url path')
 
         try:
             scheme = self.well_known_downloadexec_scheme_encode[
                 url.scheme
             ]
         except:
-            raise ValueError('Unknown scheme: {}'.format(url.scheme))
+            raise PackError('Unknown scheme: {}'.format(url.scheme))
 
         code = (self.proxy << 5) | (action << 3) | scheme
 
@@ -746,7 +749,7 @@ class PasteLink(Command):
         well_known_found = False
 
         if not self.action in self.well_known_pastebin_action_encode:
-            raise ValueError('User-defined actions are not supported')
+            raise PackError('User-defined actions are not supported')
 
         for (service, encode, decode), code in self.well_known_paste_services_encode.iteritems():
             match = re.match(service.format('(.*)'), self.url)
@@ -762,7 +765,7 @@ class PasteLink(Command):
 
         if not well_known_found:
             if len(self.url) > 32:
-                raise ValueError('Url size of user-defined urls limited to 25 bytes')
+                raise PackError('Url size of user-defined urls limited to 25 bytes')
 
             message = struct.pack(
                 'B',
@@ -968,7 +971,7 @@ class Error(Command):
 
     def pack(self):
         if len(self.message) > 25:
-            raise ValueError('Message too big')
+            raise PackError('Message too big')
 
         return struct.pack('B', self.errors_encode[self.error] << 5 | len(self.message))+self.message
 
@@ -1047,7 +1050,7 @@ class Parcel(object):
         crc = binascii.crc32(data)
         result = struct.pack('>i', crc) + data
         if len(result) > self.MAX_PARCEL_SIZE:
-            raise ValueError('To big parcel')
+            raise PackError('To big parcel')
 
         return result
 

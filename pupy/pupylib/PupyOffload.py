@@ -103,7 +103,11 @@ class PupyOffloadDNS(threading.Thread):
                 break
 
             now = time.time()
+
             response = self.handler.process(request)
+            if not response:
+                response = []
+
             used = time.time() - now
 
             if used > 1:
