@@ -604,8 +604,11 @@ class DnsCommandServerHandler(BaseResolver):
 
         except TypeError, e:
             # Usually - invalid padding
-            logger.debug('invalid padding')
-            logger.exception(e)
+            if str(e) == 'Incorrect padding':
+                logger.warning('Decoding failed: qname={}'.format(qname))
+            else:
+                logger.exception(e)
+
             return None
 
         except Exception as e:
