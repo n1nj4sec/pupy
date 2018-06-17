@@ -1,4 +1,4 @@
-rpyc
+rpyc==3.4.4
 pycryptodome
 pefile 
 pyyaml

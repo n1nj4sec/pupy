@@ -25,10 +25,10 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
  python -m pip install --upgrade -q cryptography --no-binary :all:
 
 python -m pip install --upgrade \
-       rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
+       rpyc==3.4.4 pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL python-xlib msgpack-python \
-       u-msgpack-python poster \
+       u-msgpack-python poster dnslib \
        --no-binary :all:
 
 python -m pip install --upgrade --force-reinstall pycparser==2.17

@@ -11,7 +11,7 @@ source.exclude_dirs = python-for-android, bin
 #source.exclude_patterns = license,images/*/*.jpg
 version = 0.1
 
-requirements = pycrypto,plyer,psutil,tinyec,netaddr,rpyc,pyjnius,pyuv,cryptography,kcp,msgpack-python
+requirements = pycrypto,plyer,psutil,tinyec,netaddr,rpyc==3.4.4,dnslib,pyjnius,pyuv,cryptography,kcp,msgpack-python
 #presplash.filename = %(source.dir)s/data/presplash.png
 #icon.filename = %(source.dir)s/data/icon.png
 orientation = all

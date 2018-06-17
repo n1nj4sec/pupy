@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PACKAGES="rpyc rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton"
+PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton dnslib"
 PACKAGES_BUILD="pycryptodome cryptography netifaces msgpack-python u-msgpack-python scandir construct"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
