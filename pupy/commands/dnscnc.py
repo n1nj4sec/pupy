@@ -13,15 +13,19 @@ parser.add_argument('-d', '--default', action='store_true', default=False,
 
 commands = parser.add_subparsers(title='commands', dest='command')
 status = commands.add_parser('status', help='DNSCNC status')
-clist = commands.add_parser('list', help='List known DNSCNC clients')
-clist.add_argument('-r', action='store_true', help='Reverse sorting')
-sorting = clist.add_mutually_exclusive_group()
+
+sessions = commands.add_parser('sessions', help='List known DNSCNC sessions')
+sessions.add_argument('-r', action='store_true', help='Reverse sorting')
+sorting = sessions.add_mutually_exclusive_group()
 sorting.add_argument('-b', action='store_true', help='Sort by boot time')
 sorting.add_argument('-o', action='store_true', help='Sort by OS')
 sorting.add_argument('-i', action='store_true', help='Sort by IP')
 sorting.add_argument('-n', action='store_true', help='Sort by node')
 sorting.add_argument('-d', action='store_true', help='Sort by duration')
 sorting.add_argument('-c', action='store_true', help='Sort by pending commands')
+
+nodes = commands.add_parser('nodes', help='List known DNSCNC nodes')
+nodes.add_argument('-r', action='store_true', help='Reverse sorting')
 
 info = commands.add_parser('info', help='List known DNSCNC clients system status')
 info.add_argument('-r', action='store_true', help='Reverse sorting')
@@ -221,7 +225,7 @@ def do(server, handler, config, args):
 
         handler.display(Table(objects, columns))
 
-    elif args.command == 'list':
+    elif args.command == 'sessions':
         sessions = server.dnscnc.list(args.node)
         if not sessions:
             handler.display(Success('No active DNSCNC sesisons found'))
@@ -301,6 +305,56 @@ def do(server, handler, config, args):
         columns = [
             '#', 'P', 'NODE', 'SESSION', 'OS', 'ONLINE',
             'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED', 'CMDS'
+        ]
+
+        handler.display(Table(objects, columns))
+
+    elif args.command == 'nodes':
+        nodes = server.dnscnc.nodes(args.node)
+        if not nodes:
+            handler.display(Success('No active DNSCNC nodes found'))
+            return
+
+        objects = []
+
+        for idx, node in enumerate(nodes):
+            object = {
+                '#': idx,
+                'P': '',
+                'NODE': '{:012x}'.format(node.node),
+                'VERSION': '{}'.format(node.version),
+                'CID': '{:016x}'.format(node.cid),
+                'IDLE': '{}s'.format(node.idle),
+                'DURATION': '{}s'.format(node.duration),
+                'CMDS': '{}'.format(len(node.commands))
+            }
+
+            pupy_session = None
+            for c in server.clients:
+                if c.node() == '{:012x}'.format(node.node):
+                    pupy_session = c.desc['id']
+                    break
+
+            color = None
+
+            if pupy_session:
+                object.update({
+                    'P': pupy_session
+                })
+                color = 'lightgreen'
+            elif node.idle > server.dnscnc.policy['interval']:
+                color = 'grey'
+            elif len(node.commands) > 0:
+                color = 'yellow'
+
+            if color:
+                object = { k:Color(v, color) for k,v in object.iteritems() }
+
+            objects.append(object)
+
+        columns = [
+            '#', 'P', 'NODE', 'VERSION',
+            'CID', 'IDLE', 'DURATION', 'CMDS'
         ]
 
         handler.display(Table(objects, columns))

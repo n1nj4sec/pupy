@@ -281,6 +281,37 @@ class ECPV(object):
         self._kex_shared_key = (key, b''.join(reversed(key)))
         return self._kex_shared_key
 
+    def check_csum(self, message, nonce, csum, key=None):
+        if not key:
+            if self._kex_shared_key:
+                key = self._kex_shared_key[1]
+            else:
+                key = self._public_key_digest
+
+        h = hashlib.sha1()
+        h.update(key)
+        h.update(message)
+        h.update(self._to_bytes(len(message)))
+        h.update(self._to_bytes(nonce))
+
+        csum2 = h.digest()[:4]
+        return csum == csum2
+
+    def gen_csum(self, message, nonce, key=None):
+        if not key:
+            if self._kex_shared_key:
+                key = self._kex_shared_key[0]
+            else:
+                key = self._public_key_digest
+
+        h = hashlib.sha1()
+        h.update(key)
+        h.update(message)
+        h.update(self._to_bytes(len(message)))
+        h.update(self._to_bytes(nonce))
+
+        csum = h.digest()[:4]
+        return csum
 
     def encrypt(self, message, nonce, key=None):
         if not key:

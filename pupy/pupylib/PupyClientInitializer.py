@@ -8,6 +8,7 @@ import os
 import sys
 import locale
 import logging
+import pupy
 
 import encodings
 
@@ -343,6 +344,11 @@ def get_uuid():
     except Exception as e:
         integrity_level = "?"
 
+    try:
+        cid = pupy.cid
+    except:
+        cid = None
+
     return {
         'user': user,
         'hostname': hostname,
@@ -358,5 +364,6 @@ def get_uuid():
         'proc_arch': proc_arch,
         'exec_path': proc_path,
         'uac_lvl': uacLevel,
-        'intgty_lvl': integrity_level
+        'intgty_lvl': integrity_level,
+        'cid': cid,
     }

