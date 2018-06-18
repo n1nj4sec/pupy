@@ -115,9 +115,21 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
                 for name in t.credentials:
                     required_credentials.add(name)
 
-    print colorize("[+] ", "green") + 'Required credentials:\n{}'.format(
-        colorize("[+] ", "green") + ', '.join(required_credentials)
-    )
+    available = []
+    not_available = []
+
+    for cred in required_credentials:
+        if credentials[cred]:
+            available.append(cred)
+        else:
+            not_available.append(cred)
+
+    print colorize("[+] ", "green") + 'Required credentials (found):\n{}'.format(
+        colorize("[+] ", "green") + ', '.join(available))
+
+    if not_available:
+        print colorize("[-] ", "red") + 'Required credentials (not found):\n{}'.format(
+            colorize("[-] ", "red") + ', '.join(not_available))
 
     embedded_credentials = '\n'.join([
         '{}={}'.format(credential, repr(credentials[credential])) \
