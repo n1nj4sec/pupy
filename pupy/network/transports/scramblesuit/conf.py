@@ -26,7 +26,7 @@ class TransportConf(Transport):
             RSA_PRIV_KEY = pupy_credentials.SIMPLE_RSA_PUB_KEY
             SCRAMBLESUIT_PASSWD = pupy_credentials.SCRAMBLESUIT_PASSWD
 
-        except:
+        except ImportError:
             from pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             RSA_PUB_KEY = credentials['SIMPLE_RSA_PUB_KEY']

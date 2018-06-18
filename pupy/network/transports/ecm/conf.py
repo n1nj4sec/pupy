@@ -22,7 +22,7 @@ class TransportConf(Transport):
             PUB_KEY = pupy_credentials.ECPV_RC4_PUBLIC_KEY
             PRIV_KEY = pupy_credentials.ECPV_RC4_PRIVATE_KEY
 
-        except:
+        except ImportError:
             from pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             PUB_KEY = credentials['ECPV_RC4_PUBLIC_KEY']

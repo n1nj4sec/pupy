@@ -93,7 +93,7 @@ def ssl_authenticator():
         castr = pupy_credentials.SSL_CA_CERT
         role = 'CLIENT'
 
-    except:
+    except ImportError:
         from pupylib.PupyConfig import PupyConfig
         from pupylib.PupyCredentials import Credentials
 
