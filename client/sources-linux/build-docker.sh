@@ -15,6 +15,7 @@ set -e
 
 echo "[+] Install python packages"
 
+python -m pip install --upgrade pip
 python -m pip install --upgrade setuptools
 python -m pip install --upgrade -q six packaging appdirs
 
@@ -25,13 +26,16 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
  python -m pip install --upgrade -q cryptography --no-binary :all:
 
 python -m pip install --upgrade \
-       rpyc==3.4.4 pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
+       rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib \
        --no-binary :all:
 
-python -m pip install --upgrade --force-reinstall pycparser==2.17
+python -m pip -q uninstall -y pycrypto
+python -m pip -q install --upgrade pycryptodome
+
+python -m pip -q install --upgrade --force-reinstall pycparser==2.17
 
 echo "[+] Compile pykcp"
 python -m pip install --upgrade --force $PYKCP

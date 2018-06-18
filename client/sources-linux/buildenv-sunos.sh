@@ -133,11 +133,14 @@ python -m pip install --upgrade six packaging appdirs setuptools
 export CFLAGS_FILTER="-Wno-error=sign-conversion"
 
 python -m pip install \
-       rpyc==3.4.4 pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
+       rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime cryptography cffi pylzma pydbus python-ptrace scandir \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib \
        --upgrade --no-binary :all:
+
+python -m pip uninstall -y pycrypto
+python -m pip install --upgrade pycryptodome
 
 python -m pip install --force-reinstall pycparser==2.17 
 
