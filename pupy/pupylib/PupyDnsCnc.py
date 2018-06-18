@@ -202,8 +202,10 @@ class PupyDnsCnc(object):
         self.dns_listen = listen
         self.dns_recursor = recursor
         self.handler = PupyDnsCommandServerHandler(
-            domain,
-            credentials['DNSCNC_PRIV_KEY'],
+            domain, (
+                credentials['DNSCNC_PRIV_KEY'],
+                credentials['DNSCNC_PRIV_KEY_V2']
+            ),
             recursor=recursor,
             config=self.config,
             server=self

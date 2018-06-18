@@ -6,9 +6,9 @@ import math
 import struct
 import base64
 
-from Crypto.Hash import SHA1
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
+from Crypto.Hash import SHA1, SHA3_256, SHA3_512
 
 class ECPV(object):
     __slots__ = (
@@ -16,15 +16,33 @@ class ECPV(object):
         '_private_key', '_public_key', '_kex_shared_key',
         '_kex_public_key', '_kex_private_key',
         '_public_key_digest', '_cached_kex_request',
-        '_cached_kex_response'
+        '_cached_kex_response', '_mgf_size'
     )
 
-    def __init__(self, curve='brainpoolP160r1', hash=SHA1, private_key=None, public_key=None):
+    def __init__(self, curve='brainpoolP160r1', hash=None, private_key=None, public_key=None):
+        if not hash:
+            if '160' in curve:
+                hash = SHA1
+            elif '256' in curve:
+                hash = SHA3_256
+            elif '384' in curve:
+                hash = SHA3_512
+            elif '521' in curve:
+                hash = SHA3_512
+            else:
+                raise ValueError('Appropriate hash should be specified')
+
         self._curve = registry.get_curve(curve)
         self._bytes = (int(math.log(self._curve.field.p, 2)) + 7) / 8
         self._bits = self._bytes * 8
         self._hash = hash
-        if not self._hash.digest_size >= self._bytes:
+
+        try:
+            self._mgf_size = self._hash.new().block_size
+        except AttributeError:
+            self._mgf_size = self._hash.digest_size
+
+        if not self._mgf_size >= self._bytes:
             raise ValueError('Incompatible hash function')
 
         if private_key:
@@ -178,7 +196,7 @@ class ECPV(object):
     def _mgf2(self, value, length):
         result = []
         hash = self._hash.new()
-        k = length / hash.digest_size + 1
+        k = length / self._mgf_size + 1
         for i in xrange(1, k + 1):
             hash.update(value + struct.pack('>I', i))
             result.append(hash.digest())

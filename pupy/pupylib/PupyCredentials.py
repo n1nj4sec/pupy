@@ -336,6 +336,8 @@ class Credentials(object):
         logging.warning("Generating credentials to {}".format(configfile))
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
+        ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = self._generate_ecpv_keypair(
+            curve='brainpoolP256r1')
 
         CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
             curve='brainpoolP384r1')
@@ -380,6 +382,8 @@ class Credentials(object):
             'SSL_CA_KEY': SSL_CA_PRIVATE_KEY,
             'CONTROL_DNSCNC_PRIV_KEY': ECPV_PRIVATE_KEY,
             'CLIENT_DNSCNC_PUB_KEY': ECPV_PUBLIC_KEY,
+            'CONTROL_DNSCNC_PRIV_KEY_V2': ECPV_PRIVATE_KEY_V2,
+            'CLIENT_DNSCNC_PUB_KEY_V2': ECPV_PUBLIC_KEY_V2,
             'CONTROL_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_1,
             'CLIENT_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_1,
             'CLIENT_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_2,

