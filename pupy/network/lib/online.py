@@ -186,17 +186,22 @@ def check_transparent_proxy():
 def external_ip(force_ipv4=False):
     global LAST_EXTERNAL_IP, LAST_EXTERNAL_IP_TIME
 
-    logger.debug('Retrieve IP using external services')
-
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
+            logger.debug('Return cached IP (last ts={}): {}'.format(
+                LAST_EXTERNAL_IP_TIME, LAST_EXTERNAL_IP))
             return LAST_EXTERNAL_IP
+
+    logger.debug('Retrieve IP using external services')
 
     try:
         stun_ip = stun.get_ip(stun_host=STUN_HOST, stun_port=STUN_PORT)
         if stun_ip != None:
             stun_ip = netaddr.IPAddress(stun_ip)
+
             LAST_EXTERNAL_IP = stun_ip
+            LAST_EXTERNAL_IP_TIME = time.time()
+
             return LAST_EXTERNAL_IP
 
     except Exception, e:
@@ -213,12 +218,17 @@ def external_ip(force_ipv4=False):
                         continue
 
                     LAST_EXTERNAL_IP = addr
+                    LAST_EXTERNAL_IP_TIME = time.time()
+
                     return LAST_EXTERNAL_IP
 
             except Exception, e:
                 logger.debug('Get IP service failed: {}'.format(e))
 
     LAST_EXTERNAL_IP = dns_external_ip()
+    if LAST_EXTERNAL_IP:
+        LAST_EXTERNAL_IP_TIME = time.time()
+
     return LAST_EXTERNAL_IP
 
 def dns_external_ip():
