@@ -123,6 +123,8 @@ class GetInfo(PupyModule):
                 value = "?"
             elif type(value) in (list, tuple):
                 value = ' '.join([ unicode(x) for x in value ])
+            elif key == 'cid':
+                value = '{:016x}'.format(value)
             infoTemp.append((key, value))
 
         infos = infoTemp
