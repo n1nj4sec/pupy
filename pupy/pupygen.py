@@ -157,7 +157,8 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         'import network.conf',
         'LAUNCHER={}'.format(repr(conf['launcher'])),
         'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
-        'CONFIGURATION_CID={}'.format(bool(conf.get('cid', 0))),
+        'CONFIGURATION_CID={}'.format(conf.get('cid', 0x31338)),
+        'pupy.cid = CONFIGURATION_CID',
         'debug={}'.format(bool(conf.get('debug', False))),
         offline_script
     ])
@@ -585,15 +586,18 @@ def pupygen(args, config):
                 return
         else:
             break
+
     if args.randomize_hash:
         script_code+="\n#%s\n"%''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(40))
 
-    conf={}
-    conf['launcher']=args.launcher
-    conf['launcher_args']=args.launcher_args
-    conf['offline_script']=script_code
-    conf['debug']=args.debug
-    conf['cid']=random.SystemRandom().getrandbits(64)
+    conf = {
+        'launcher': args.launcher,
+        'launcher_args': args.launcher_args,
+        'offline_script': script_code,
+        'debug': args.debug,
+        'cid': random.SystemRandom().getrandbits(64)
+    }
+
     outpath=args.output
 
     if args.format=="client":
