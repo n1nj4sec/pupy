@@ -215,18 +215,18 @@ class DnsCommandServerHandler(BaseResolver):
                     if session.expired:
                         to_remove.append(spi)
 
+                for spi in to_remove:
+                    self.on_session_cleaned_up(self.sessions[spi])
+                    del self.sessions[spi]
+
+                to_remove = []
+
                 for nodeid, node in self.nodes.iteritems():
                     if node.expired:
                         to_remove.append(nodeid)
 
                 for nodeid in to_remove:
                     del self.nodes[nodeid]
-
-                to_remove = []
-
-                for spi in to_remove:
-                    self.on_session_cleaned_up(self.sessions[spi])
-                    del self.sessions[spi]
 
                 self.cache = {}
 

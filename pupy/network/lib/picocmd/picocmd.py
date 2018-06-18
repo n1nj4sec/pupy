@@ -1083,18 +1083,22 @@ class Parcel(object):
 
         messages = []
 
+        if len(data) < 5:
+            raise ParcelInvalidPayload()
+
+        csum_data, data = data[:4], data[4:]
+
         try:
-            csum_data, data = data[:4], data[4:]
+            if not check_csum(data, nonce, csum_data):
+                raise ParcelInvalidCrc()
+
+            while data:
+                command, data = data[:1], data[1:]
+                cmd, offt = Parcel.commands_decode[ord(command)].unpack(data)
+                messages.append(cmd)
+                data = data[offt:]
+
         except struct.error:
-            raise ParcelInvalidPayload
-
-        if not check_csum(data, nonce, csum_data):
-            raise ParcelInvalidCrc()
-
-        while data:
-            command, data = data[:1], data[1:]
-            cmd, offt = Parcel.commands_decode[ord(command)].unpack(data)
-            messages.append(cmd)
-            data = data[offt:]
+            raise ParcelInvalidPayload()
 
         return Parcel(*messages)

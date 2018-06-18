@@ -37,6 +37,9 @@ class ECPV(object):
         self._bits = self._bytes * 8
         self._hash = hash
 
+        # Check that hash is properly initialized
+        self._hash.new()
+
         try:
             self._mgf_size = self._hash.new().block_size
         except AttributeError:
