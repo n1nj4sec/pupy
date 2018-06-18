@@ -57,7 +57,8 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
     def on_session_lost(self):
         import pupy
-        if hasattr(pupy, 'infos'):
+
+        if hasattr(pupy, 'infos') and 'spi' in pupy.infos:
             del pupy.infos['spi']
 
     def on_downloadexec_content(self, url, action, content):

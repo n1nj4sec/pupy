@@ -3,10 +3,10 @@
 from tinyec import ec, registry
 import os
 import math
-import hashlib
 import struct
 import base64
 
+from Crypto.Hash import SHA1
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
@@ -19,12 +19,12 @@ class ECPV(object):
         '_cached_kex_response'
     )
 
-    def __init__(self, curve='brainpoolP160r1', hash=hashlib.sha1, private_key=None, public_key=None):
+    def __init__(self, curve='brainpoolP160r1', hash=SHA1, private_key=None, public_key=None):
         self._curve = registry.get_curve(curve)
         self._bytes = (int(math.log(self._curve.field.p, 2)) + 7) / 8
         self._bits = self._bytes * 8
         self._hash = hash
-        if not self._hash().block_size >= self._bytes:
+        if not self._hash.digest_size >= self._bytes:
             raise ValueError('Incompatible hash function')
 
         if private_key:
@@ -137,7 +137,6 @@ class ECPV(object):
         compressed = y << self._bits | x
         return self._to_bytes(compressed)
 
-
     def _osp2ec(self, bytes):
         compressed = self._from_bytes(bytes)
         y = compressed >> self._bits
@@ -178,12 +177,12 @@ class ECPV(object):
 
     def _mgf2(self, value, length):
         result = []
-        hash = self._hash()
-        k = length / hash.block_size + 1
+        hash = self._hash.new()
+        k = length / hash.digest_size + 1
         for i in xrange(1, k + 1):
             hash.update(value + struct.pack('>I', i))
             result.append(hash.digest())
-            hash = self._hash()
+            hash = self._hash.new()
 
         return ''.join(result)[:length]
 
@@ -215,7 +214,7 @@ class ECPV(object):
 
             r = self.encrypt(message, nonce, key=key)
 
-            hash = self._hash()
+            hash = self._hash.new()
             hash.update(r + (
                 struct.pack('>I', nonce) if nonce else b''
             ) + struct.pack('>I', len(r)))
@@ -238,7 +237,7 @@ class ECPV(object):
             raise ValueError('No public key')
         s = self._from_bytes(message[:self._bytes])
         r = message[self._bytes:]
-        hash = self._hash()
+        hash = self._hash.new()
         hash.update(r + (
             struct.pack('>I', nonce) if nonce else b''
         ) + struct.pack('>I', len(r)))
@@ -288,7 +287,7 @@ class ECPV(object):
             else:
                 key = self._public_key_digest
 
-        h = hashlib.sha1()
+        h = SHA1.new()
         h.update(key)
         h.update(message)
         h.update(self._to_bytes(len(message)))
@@ -304,7 +303,7 @@ class ECPV(object):
             else:
                 key = self._public_key_digest
 
-        h = hashlib.sha1()
+        h = SHA1.new()
         h.update(key)
         h.update(message)
         h.update(self._to_bytes(len(message)))

@@ -458,7 +458,7 @@ def safe_obtain(proxy):
     ) # should prevent any code execution
 
 debug = False
-CONFIGURATION_CID = 31337
+CONFIGURATION_CID = 0x31337
 
 LAUNCHER = "connect"  # the default launcher to start when no argv
 # default launcher arguments
