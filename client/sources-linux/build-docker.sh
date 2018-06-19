@@ -32,9 +32,6 @@ python -m pip install --upgrade \
        u-msgpack-python poster dnslib \
        --no-binary :all:
 
-python -m pip -q uninstall -y pycrypto
-python -m pip -q install --upgrade pycryptodome
-
 python -m pip -q install --upgrade --force-reinstall pycparser==2.17
 
 echo "[+] Compile pykcp"
@@ -53,6 +50,9 @@ else
     CFLAGS="$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
 	  python -m pip install pyuv --upgrade --no-binary :all:
 fi
+
+python -m pip -q uninstall -y pycrypto
+python -m pip -q install --upgrade --force-reinstall pycryptodome
 
 cd /usr/lib/python2.7
 
