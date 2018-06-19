@@ -44,7 +44,12 @@ import pyexpat
 try:
     import kcp
 except:
-    pass
+    print "kcp not found"
+
+try:
+    import uidle
+except:
+    print "uidle not found"
 
 import poster
 

@@ -34,6 +34,11 @@ import psutil
 import os
 
 try:
+    import uidle
+except ImportError:
+    uidle = None
+
+try:
     from network.lib import online
 except ImportError:
     online = None
@@ -143,18 +148,15 @@ class SystemStatus(Command):
             self.remote = 255
 
         if idle is None:
-            try:
-                self.idle = min(
-                    time.time() - os.stat(
-                        '/dev/{}'.format(x.terminal)
-                    ).st_atime for x in psutil.users() if x.terminal
-                ) > 60*10
-            except:
+            if uidle is None:
                 self.idle = True
+            else:
+                try:
+                    self.idle = uidle.get_idle() > 60*10
+                except:
+                    self.idle = True
         else:
             self.idle = bool(idle)
-
-        psutil._pmap = {}
 
     def get_dict(self):
         return {

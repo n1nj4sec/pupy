@@ -260,7 +260,6 @@ class DnsCommandsClient(Thread):
         for attempt in xrange(2):
             try:
                 payload = self._a_page_decoder(addresses, nonce)
-
                 if not payload:
                     logging.error('DNSCNC: No data: {} -> {}'.format(addresses, payload))
                     self.spi = None
