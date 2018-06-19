@@ -835,7 +835,7 @@ class DnsCommandServerHandler(BaseResolver):
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
                     logger.info('Ignore nonce from past: {} < {} / {}'.format(
-                        nonce, session.last_nonce, '{:012x}'.format(session.node)))
+                        nonce, session.last_nonce, '{}'.format(session.node)))
                     return []
                 elif session.last_nonce == nonce and session.last_qname != qname:
                     logger.info('Last nonce but different qname: {} != {}'.format(
