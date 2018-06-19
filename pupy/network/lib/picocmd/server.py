@@ -29,6 +29,8 @@ try:
 except:
     logger = logging.getLogger('dnscnc')
 
+blocks_logger = logger.getChild('whitelist')
+
 import socket
 import socketserver
 import binascii
@@ -54,6 +56,9 @@ class DeprecatedVersion(Exception):
     pass
 
 class UnknownVersion(Exception):
+    pass
+
+class NodeBlocked(Exception):
     pass
 
 class ExpirableObject(object):
@@ -85,16 +90,17 @@ class ExpirableObject(object):
 
 class Node(ExpirableObject):
     __slots__ = (
-        'node', 'cid', 'iid', 'version', 'commands'
+        'node', 'cid', 'iid', 'version', 'commands', 'alert'
     )
 
-    def __init__(self, node, timeout, cid=0x31337, iid=0, version=1, commands=[]):
+    def __init__(self, node, timeout, cid=0x31337, iid=0, version=1, commands=[], alert=False):
         super(Node, self).__init__(timeout)
         self.node = node
         self.cid = cid
         self.iid = iid
         self.version = version
         self.commands = commands or []
+        self.alert = alert
 
     def add_command(self, command):
         if not self.commands:
@@ -103,8 +109,8 @@ class Node(ExpirableObject):
             self.commands.append(command)
 
     def __repr__(self):
-        return '{{NODE:{:012X} IID:{} CID:{:016X} COMMANDS:{}}}'.format(
-            self.node, self.iid, self.cid, len(self.commands))
+        return '{{NODE:{:012X} IID:{} CID:{:016X} ALERT:{} COMMANDS:{}}}'.format(
+            self.node, self.iid, self.cid, self.alert, len(self.commands))
 
 class Session(ExpirableObject):
 
@@ -177,7 +183,7 @@ class DnsCommandServerHandler(BaseResolver):
     ENCODER_V1 = 0
     ENCODER_V2 = 1
 
-    def __init__(self, domain, key, recursor=None, timeout=None):
+    def __init__(self, domain, key, recursor=None, timeout=None, whitelist=None):
         self.sessions = {}
         self.nodes = {}
         self.domain = domain
@@ -205,7 +211,7 @@ class DnsCommandServerHandler(BaseResolver):
         self.node_commands = {}
         self.lock = RLock()
         self.finished = Event()
-        self.allow_v1 = True
+        self.whitelist = whitelist
 
     def cleanup(self):
         while not self.finished.is_set():
@@ -566,9 +572,6 @@ class DnsCommandServerHandler(BaseResolver):
             csum_check = encoder.check_csum
             csum_gen = encoder.gen_csum
 
-        elif not self.allow_v1:
-            raise DeprecatedVersion(version)
-
         return payload, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen
 
     def _new_node_from_session(self, session):
@@ -641,6 +644,16 @@ class DnsCommandServerHandler(BaseResolver):
 
                 if node:
                     node.bump()
+
+        if self.whitelist and node:
+            if self.whitelist(nodeid, cid, version):
+                node.alert = False
+            else:
+                node.alert = True
+                blocks_logger.warning('Prohibit communication with {}/{} version {} on {}'.format(
+                    iid, cid, version, nodeid))
+
+                raise NodeBlocked()
 
         if isinstance(command, Poll) and session is None:
             if not self.kex:
@@ -822,8 +835,8 @@ class DnsCommandServerHandler(BaseResolver):
 
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
-                    logger.info('Ignore nonce from past: {} < {}'.format(
-                        nonce, session.last_nonce))
+                    logger.info('Ignore nonce from past: {} < {} / {}'.format(
+                        nonce, session.last_nonce, '{:012x}'.format(node.node) if node else ''))
                     return []
                 elif session.last_nonce == nonce and session.last_qname != qname:
                     logger.info('Last nonce but different qname: {} != {}'.format(
@@ -865,6 +878,9 @@ class DnsCommandServerHandler(BaseResolver):
 
             logger.debug('ping request:{}'.format(i))
             return replies
+
+        except NodeBlocked:
+            return None
 
         except TypeError, e:
             # Usually - invalid padding

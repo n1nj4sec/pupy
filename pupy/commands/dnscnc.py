@@ -27,6 +27,7 @@ sorting.add_argument('-c', action='store_true', help='Sort by pending commands')
 nodes = commands.add_parser('nodes', help='List known DNSCNC nodes')
 nodes.add_argument('-r', action='store_true', help='Reverse sorting')
 nodes_sorting = nodes.add_mutually_exclusive_group()
+nodes_sorting.add_argument('-a', action='store_true', help='Sort by Alert')
 nodes_sorting.add_argument('-i', action='store_true', help='Sort by CID')
 nodes_sorting.add_argument('-I', action='store_true', help='Sort by IID')
 nodes_sorting.add_argument('-n', action='store_true', help='Sort by node')
@@ -332,6 +333,8 @@ def do(server, handler, config, args):
         sort_by = None
         if args.i:
             sort_by = lambda x: x.cid
+        if args.a:
+            sort_by = lambda x: x.alert
         elif args.I:
             sort_by = lambda x: x.iid
         elif args.d:
@@ -350,6 +353,7 @@ def do(server, handler, config, args):
             object = {
                 '#': idx,
                 'P': '',
+                'A': 'Y' if node.alert else '',
                 'NODE': '{:012x}'.format(node.node),
                 'IID': '{}'.format(
                     'pid:{}'.format(node.iid) if node.iid < 65535 \
@@ -374,6 +378,10 @@ def do(server, handler, config, args):
                 object.update({
                     'P': pupy_session
                 })
+
+            if node.alert:
+                color = 'lightred'
+            elif pupy_session:
                 color = 'lightgreen'
             elif node.idle > server.dnscnc.policy['interval']:
                 color = 'grey'
@@ -386,7 +394,7 @@ def do(server, handler, config, args):
             objects.append(object)
 
         columns = [
-            '#', 'P', 'NODE', 'IID', 'VERSION',
+            '#', 'P', 'A', 'NODE', 'IID', 'VERSION',
             'CID', 'IDLE', 'DURATION', 'CMDS', 'TAGS'
         ]
 
@@ -555,7 +563,7 @@ def do(server, handler, config, args):
                 create, output = args.create_content
 
             count, url = server.dnscnc.pastelink(
-                content=args.create,
+                content=create,
                 output=output,
                 url=args.url,
                 action=args.action,
@@ -564,7 +572,8 @@ def do(server, handler, config, args):
                 legacy=args.legacy
             )
 
-            handler.display(Success('URL: {}'.format(url)))
+            if output:
+                return
 
             if count:
                 handler.display(Success('Schedule exit to {} known nodes'.format(count)))

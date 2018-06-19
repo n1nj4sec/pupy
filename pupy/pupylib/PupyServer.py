@@ -69,6 +69,7 @@ from network.lib.streams.PupySocketStream import PupyChannel
 
 from . import getLogger
 logger = getLogger('server')
+blocks_logger = logger.getChild('whitelist')
 
 class ListenerException(Exception):
     pass
@@ -535,6 +536,28 @@ class PupyServer(object):
 
         event(ON_START, None, self, self.handler, self.config)
 
+    def _whitelist(self, nodeid, cid):
+        if not self.config.getboolean('pupyd', 'whitelist'):
+            return True
+
+        if type(cid) in (int, long):
+            cid = '{:016x}'.format(cid)
+
+        if type(nodeid) in (int, long):
+            nodeid = '{:012x}'.format(nodeid)
+
+        if not cid or not nodeid:
+            return self.config.getboolean('pupyd', 'allow_by_default')
+
+        allowed_nodes = self.config.get('cids', cid)
+
+        if not allowed_nodes:
+            if self.config.getboolean('pupyd', 'allow_by_default'):
+                return True
+            return False
+
+        return nodeid in set([x.strip().lower() for x in allowed_nodes.split(',')])
+
     def add_client(self, conn):
         pc = None
 
@@ -545,7 +568,13 @@ class PupyServer(object):
                         self.config.root, 'pupylib', 'PupyClientInitializer.py'),
                     path=True, raw=True))))
 
-        uuid = conn.namespace['get_uuid']()
+        uuid = obtain(conn.namespace['get_uuid']())
+
+        if not self._whitelist(uuid.get('node'), uuid.get('cid')):
+            blocks_logger.warning(
+                'Rejected: {} on {}'.format(uuid.get('cid'), uuid.get('node')))
+            conn._conn.close()
+            return
 
         with self.clients_lock:
             client_id = self.create_id()
@@ -580,7 +609,7 @@ class PupyServer(object):
                 "address" : address
             })
 
-            client_info.update(obtain(uuid))
+            client_info.update(uuid)
 
             pc = PupyClient(client_info, self)
             self.clients.append(pc)

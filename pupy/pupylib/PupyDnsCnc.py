@@ -36,7 +36,31 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
         else:
             self.server = None
 
+        if not 'whitelist' in kwargs and self.config:
+            kwargs['whitelist'] = self._whitelist
+
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
+
+    def _whitelist(self, nodeid, cid, version):
+        if not self.config.getboolean('dnscnc', 'whitelist'):
+            return True
+
+        if version == 1 and not self.config.getboolean('dnscnc', 'allow_v1'):
+            return False
+
+        if not cid or not nodeid:
+            return self.config.getboolean('dnscnc', 'allow_by_default')
+
+        nodeid = '{:012x}'.format(nodeid)
+        cid = '{:016x}'.format(cid)
+
+        allowed_nodes = self.config.get('cids', cid)
+        if not allowed_nodes:
+            if self.config.getboolean('dnscnc', 'allow_by_default'):
+                return True
+            return False
+
+        return nodeid in set([x.strip().lower() for x in allowed_nodes.split(',')])
 
     def on_new_session(self, session):
         if self.server.cmdhandler:
