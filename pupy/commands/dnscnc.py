@@ -371,7 +371,10 @@ def do(server, handler, config, args):
 
             for c in server.clients:
                 if c.node() == '{:012x}'.format(node.node):
-                    ids.append(str(c.desc['id']))
+                    if ( node.iid <= 65535 and c.desc['pid'] % 65535 == node.iid ) \
+                      or ( node.iid > 65535 and 'spi' in c.desc and \
+                      c.desc['spi'] == '{:08x}'.format(node.iid) ):
+                        ids.append(str(c.desc['id']))
 
             if ids:
                 pupy_session = ','.join(ids)
