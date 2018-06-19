@@ -11,7 +11,6 @@ __all__ = (
     'DnsCommandServerException',
 )
 
-import copy
 import struct
 import random
 import base64
@@ -39,7 +38,7 @@ import netaddr
 from threading import Thread, RLock, Event
 
 from dnslib import DNSRecord, RR, QTYPE, A, RCODE
-from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
+from dnslib.server import DNSHandler, BaseResolver, DNSLogger
 
 import ascii85
 
@@ -836,7 +835,7 @@ class DnsCommandServerHandler(BaseResolver):
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
                     logger.info('Ignore nonce from past: {} < {} / {}'.format(
-                        nonce, session.last_nonce, '{:012x}'.format(node.node) if node else ''))
+                        nonce, session.last_nonce, '{:012x}'.format(session.node)))
                     return []
                 elif session.last_nonce == nonce and session.last_qname != qname:
                     logger.info('Last nonce but different qname: {} != {}'.format(
@@ -923,7 +922,7 @@ class DnsCommandServerHandler(BaseResolver):
                 except socket.error:
                     pass
                 except Exception as e:
-                    logger.exception('DNS request forwarding failed')
+                    logger.exception('DNS request forwarding failed ({})'.format(e))
             else:
                 logger.debug('Bad domain: {} (suffix={})'.format(qname, self.domain))
 
