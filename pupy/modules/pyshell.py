@@ -49,5 +49,5 @@ class InteractivePythonShell(PupyModule):
                     readline.set_completer(old_completer)
                     readline.parse_and_bind('tab: complete')
 
-        except KeyboardInterrupt:
-            pass
+        except (EOFError, KeyboardInterrupt):
+            self.log('pyshell closed')
