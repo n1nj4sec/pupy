@@ -90,12 +90,12 @@ class PupyClient(object):
         return self.desc['id']
 
     def get_conf(self):
-        dic={}
-        if "offline_script" in self.desc:
-            dic["offline_script"]=self.desc["offline_script"]
-        dic["launcher"]=self.desc["launcher"]
-        dic["launcher_args"]=self.desc["launcher_args"]
-        return dic
+        return {
+            k:v for k,v in self.desc.iteritems() if k in (
+                'offline_script', 'launcher', 'launcher_args',
+                'cid', 'debug'
+            )
+        }
 
     def short_name(self):
         try:
