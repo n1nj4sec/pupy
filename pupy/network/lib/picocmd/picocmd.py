@@ -1083,8 +1083,9 @@ class Parcel(object):
 
         messages = []
 
-        if len(data) < 5:
-            raise ParcelInvalidPayload()
+        if len(data) < 4:
+            raise ParcelInvalidPayload(
+                'Too small payload: {}'.format(len(data)))
 
         csum_data, data = data[:4], data[4:]
 
@@ -1098,7 +1099,7 @@ class Parcel(object):
                 messages.append(cmd)
                 data = data[offt:]
 
-        except struct.error:
-            raise ParcelInvalidPayload()
+        except struct.error, e:
+            raise ParcelInvalidPayload('Unpack Failed: {}'.format(e))
 
         return Parcel(*messages)

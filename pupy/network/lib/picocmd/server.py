@@ -85,13 +85,14 @@ class ExpirableObject(object):
 
 class Node(ExpirableObject):
     __slots__ = (
-        'node', 'cid', 'version', 'commands'
+        'node', 'cid', 'iid', 'version', 'commands'
     )
 
-    def __init__(self, node, timeout, cid=0x31337, version=1, commands=[]):
+    def __init__(self, node, timeout, cid=0x31337, iid=0, version=1, commands=[]):
         super(Node, self).__init__(timeout)
         self.node = node
         self.cid = cid
+        self.iid = iid
         self.version = version
         self.commands = commands or []
 
@@ -102,8 +103,8 @@ class Node(ExpirableObject):
             self.commands.append(command)
 
     def __repr__(self):
-        return '{{NODE:{:012X} CID:{:016X} COMMANDS:{}}}'.format(
-            self.node, self.cid, len(self.commands))
+        return '{{NODE:{:012X} IID:{} CID:{:016X} COMMANDS:{}}}'.format(
+            self.node, self.iid, self.cid, len(self.commands))
 
 class Session(ExpirableObject):
 
@@ -221,12 +222,12 @@ class DnsCommandServerHandler(BaseResolver):
 
                 to_remove = []
 
-                for nodeid, node in self.nodes.iteritems():
+                for key, node in self.nodes.iteritems():
                     if node.expired:
-                        to_remove.append(nodeid)
+                        to_remove.append(key)
 
-                for nodeid in to_remove:
-                    del self.nodes[nodeid]
+                for key in to_remove:
+                    del self.nodes[key]
 
                 self.cache = {}
 
@@ -239,6 +240,21 @@ class DnsCommandServerHandler(BaseResolver):
                 return f(self, *args, **kwargs)
         return wrapped
 
+    def _nodes_by_nodeids(self, ids):
+        return [
+            node for (nodeid, iid),node in self.nodes.iteritems() if nodeid in ids
+        ]
+
+    def _sessions_by_nodeids(self, ids):
+        return [
+            session for session in self.sessions if session.node in ids
+        ]
+
+    def _nodeids_with_sessions(self, ids):
+        return set([
+            session.node for session in self.sessions if session.node in ids
+        ])
+
     @locked
     def add_command(self, command, session=None, default=False):
         if default and session:
@@ -250,17 +266,20 @@ class DnsCommandServerHandler(BaseResolver):
                 nodes = [ nodes ]
 
             idx = 0
-            for node in nodes:
-                if node in self.nodes:
-                    if node in self.sessions:
-                        continue
 
-                    self.nodes[node].add_command(command)
+            nodes_with_sessions = self._nodeids_with_sessions(nodes)
 
-                if not node in self.node_commands:
-                    self.node_commands[node] = []
+            for node in self._nodes_by_nodeids(nodes):
+                if node.node in nodes_with_sessions:
+                    continue
 
-                self.node_commands[node].append(command)
+                node.add_command(command)
+
+            for nodeid in nodes:
+                if not nodeid in self.node_commands:
+                    self.node_commands[nodeid] = []
+
+                self.node_commands[nodeid].append(command)
                 idx += 1
 
             return idx
@@ -303,12 +322,12 @@ class DnsCommandServerHandler(BaseResolver):
                 nodes = [ nodes ]
 
             idx = 0
-            for node in nodes:
-                if node in self.nodes:
-                    self.nodes[node].commands = []
+            for node in self._nodes_by_nodeids(nodes):
+                self.commands = []
 
-                if node in self.node_commands:
-                    del self.node_commands[node]
+            for nodeid in nodes:
+                if nodeid in self.node_commands:
+                    del self.node_commands[nodeid]
                     idx += 1
 
             return idx
@@ -351,9 +370,7 @@ class DnsCommandServerHandler(BaseResolver):
         elif type(node) == int:
             node = [ node ]
 
-        return [
-            self.nodes[x] for x in node if x in self.nodes
-        ]
+        return self._nodes_by_nodeids(node)
 
     @locked
     def find_sessions(self, spi=None, node=None):
@@ -493,8 +510,9 @@ class DnsCommandServerHandler(BaseResolver):
         ]
 
         node_blob = ''
-        node = None
+        nodeid = None
         cid = None
+        iid = None
         spi = 0
         nonce = 0
         version = 1
@@ -536,22 +554,22 @@ class DnsCommandServerHandler(BaseResolver):
             nonce, spi, bool(node_blob)))
 
         if node_blob:
-            offset_node_blob = len(payload) - (1+8+6)
+            offset_node_blob = len(payload) - (1+8+2+6)
             payload, node_blob = payload[:offset_node_blob], payload[offset_node_blob:]
 
-            version, cid = struct.unpack_from('>BQ', node_blob)
+            version, cid, iid = struct.unpack_from('>BQH', node_blob)
 
             if version != 2:
                 raise UnknownVersion()
 
-            node = from_bytes(node_blob[1+8:1+8+6])
+            nodeid = from_bytes(node_blob[1+8+2:1+8+2+6])
             csum_check = encoder.check_csum
             csum_gen = encoder.gen_csum
 
         elif not self.allow_v1:
             raise DeprecatedVersion(version)
 
-        return payload, session, nonce, node, cid, version, csum_check, csum_gen
+        return payload, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen
 
     def _new_node_from_session(self, session):
         if not session.system_info:
@@ -562,57 +580,64 @@ class DnsCommandServerHandler(BaseResolver):
 
         node = Node(
             nodeid, self.timeout,
-            commands=self.node_commands.get(nodeid)
+            commands=self.node_commands.get(nodeid),
+            iid=session.spi
         )
 
-        self.nodes[nodeid] = node
+        self.nodes[(nodeid, session.spi)] = node
 
         for command in self.node_commands.get(extip, []):
             node.add_command(command)
 
         return node
 
-    def _new_node_from_systeminfo(self, command):
+    def _new_node_from_systeminfo(self, command, sid=None):
         nodeid = command.node
         extip = str(command.external_ip)
 
         node = Node(
             command.node, self.timeout,
-            commands = self.node_commands.get(nodeid)
+            commands = self.node_commands.get(nodeid),
+            iid=sid or 0
         )
 
-        self.nodes[nodeid] = node
+        self.nodes[(nodeid, sid or 0)] = node
 
         for command in self.node_commands.get(extip, []):
             node.add_command(command)
 
         return node
 
-    def _cmd_processor(self, command, session, node, cid, version, csum_gen, csum_check):
-        logger.debug('command={}/{} session={} / node commands={} / node = {} / cid = {}'.format(
+    def _cmd_processor(self, command, session, nodeid, cid, iid, version, csum_gen, csum_check):
+        logger.debug('command={}/{} session={} / node commands={} / node = {} / cid = {} / iid = {}'.format(
             command, type(command).__name__,
             '{:08x}'.format(session.spi) if session else None,
-            bool(self.node_commands), node, cid))
+            bool(self.node_commands),
+            '{:012x}'.format(nodeid) if nodeid else None,
+            '{:016x}'.format(cid) if cid else None,
+            iid))
+
+        node = None
 
         with self.lock:
-            if node:
-                if not node in self.nodes:
-                    self.nodes[node] = Node(
-                        node, self.timeout,
-                        cid, version, self.node_commands.get(node),
+            if nodeid:
+                if not (nodeid, iid) in self.nodes:
+                    self.nodes[(nodeid, iid)] = Node(
+                        nodeid, self.timeout,
+                        cid, iid, version, self.node_commands.get(nodeid),
                     )
 
-                node = self.nodes[node]
+                node = self.nodes[(nodeid, iid)]
                 node.bump()
 
             if session:
                 session.bump()
 
             if session and not node:
-                if not session.node in self.nodes:
+                if not (session.node, session.spi) in self.nodes:
                     node = self._new_node_from_session(session)
                 else:
-                    node = self.nodes[session.node]
+                    node = self.nodes[(session.node, session.spi)]
 
                 if node:
                     node.bump()
@@ -666,10 +691,10 @@ class DnsCommandServerHandler(BaseResolver):
 
             if not node:
                 with self.lock:
-                    if not command.node in self.nodes:
+                    if not (command.node, 0) in self.nodes:
                         node = self._new_node_from_systeminfo(command)
                     else:
-                        node = self.nodes[command.node]
+                        node = self.nodes[(command.node, 0)]
 
                     node.bump()
 
@@ -713,6 +738,17 @@ class DnsCommandServerHandler(BaseResolver):
             new_session = not bool(session.system_info)
             session.system_info = command.get_dict()
 
+            if not node:
+                with self.lock:
+                    if not (command.node, session.spi) in self.nodes:
+                        node = self._new_node_from_systeminfo(command, session.spi)
+                    else:
+                        node = self.nodes[(command.node, session.spi)]
+
+                    node.bump()
+
+                    commands = node.commands or [ SystemInfo() ]
+
             if new_session:
                 self.on_new_session(session)
 
@@ -725,7 +761,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                 if not command.spi in self.sessions:
                     self.sessions[command.spi] = Session(
-                        node, cid,
+                        nodeid, cid,
                         command.spi,
                         self.encoders[encoder_version].clone(),
                         self.commands,
@@ -781,7 +817,7 @@ class DnsCommandServerHandler(BaseResolver):
         csum_check, csum_gen = None, None
 
         try:
-            request, session, nonce, node, cid, version, csum_check, csum_gen = \
+            request, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen = \
               self._q_page_decoder(qname)
 
             if session and session.last_nonce and session.last_qname:
@@ -795,8 +831,8 @@ class DnsCommandServerHandler(BaseResolver):
                     return []
 
             for command in Parcel.unpack(request, nonce, csum_check):
-                for response in self._cmd_processor(command, session, node, cid,
-                                                    version, csum_check, csum_gen):
+                for response in self._cmd_processor(
+                        command, session, nodeid, cid, iid, version, csum_check, csum_gen):
                     responses.append(response)
 
             if session:
@@ -808,7 +844,11 @@ class DnsCommandServerHandler(BaseResolver):
             responses = [e.error, Policy(self.interval, self.kex), Poll()]
             logger.debug('Server Error: {}'.format(e))
 
-        except ParcelInvalidCrc as e:
+        except ParcelInvalidPayload, e:
+            responses = [e.error]
+            logger.debug('Invalid Payload: {}'.format(e))
+
+        except ParcelInvalidCrc, e:
             responses = [e.error]
             logger.debug('Invalid CRC')
 

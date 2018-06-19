@@ -26,6 +26,13 @@ sorting.add_argument('-c', action='store_true', help='Sort by pending commands')
 
 nodes = commands.add_parser('nodes', help='List known DNSCNC nodes')
 nodes.add_argument('-r', action='store_true', help='Reverse sorting')
+nodes_sorting = nodes.add_mutually_exclusive_group()
+nodes_sorting.add_argument('-i', action='store_true', help='Sort by CID')
+nodes_sorting.add_argument('-I', action='store_true', help='Sort by IID')
+nodes_sorting.add_argument('-n', action='store_true', help='Sort by node')
+nodes_sorting.add_argument('-d', action='store_true', help='Sort by duration')
+nodes_sorting.add_argument('-c', action='store_true', help='Sort by pending commands')
+nodes_sorting.add_argument('-v', action='store_true', help='Sort by version')
 
 info = commands.add_parser('info', help='List known DNSCNC clients system status')
 info.add_argument('-r', action='store_true', help='Reverse sorting')
@@ -311,22 +318,44 @@ def do(server, handler, config, args):
 
     elif args.command == 'nodes':
         nodes = server.dnscnc.nodes(args.node)
+
         if not nodes:
             handler.display(Success('No active DNSCNC nodes found'))
             return
 
         objects = []
 
+        sort_by = None
+        if args.i:
+            sort_by = lambda x: x.cid
+        elif args.I:
+            sort_by = lambda x: x.iid
+        elif args.d:
+            sort_by = lambda x: x.duration
+        elif args.c:
+            sort_by = lambda x: len(x.commands)
+        elif args.n:
+            sort_by = lambda x: x.node
+        elif args.v:
+            sort_by = lambda x: x.version
+
+        if sort_by:
+            nodes = sorted(nodes, key=sort_by, reverse=bool(args.r))
+
         for idx, node in enumerate(nodes):
             object = {
                 '#': idx,
                 'P': '',
                 'NODE': '{:012x}'.format(node.node),
+                'IID': '{}'.format(
+                    'pid:{}'.format(node.iid) if node.iid < 65535 \
+                    else 'spi:{:08x}'.format(node.iid)),
                 'VERSION': '{}'.format(node.version),
                 'CID': '{:016x}'.format(node.cid),
                 'IDLE': '{}s'.format(node.idle),
                 'DURATION': '{}s'.format(node.duration),
-                'CMDS': '{}'.format(len(node.commands))
+                'CMDS': '{}'.format(len(node.commands)),
+                'TAGS': '{}'.format(config.tags(node)),
             }
 
             pupy_session = None
@@ -353,7 +382,7 @@ def do(server, handler, config, args):
             objects.append(object)
 
         columns = [
-            '#', 'P', 'NODE', 'VERSION',
+            '#', 'P', 'NODE', 'IID', 'VERSION',
             'CID', 'IDLE', 'DURATION', 'CMDS'
         ]
 

