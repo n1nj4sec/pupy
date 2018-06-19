@@ -308,6 +308,10 @@ class DnsCommandsClient(Thread):
             try:
                 content = ascii85.ascii85DecodeDG(content)
                 content = self.encoder.unpack(content)
+                if not content:
+                    logging.error('PasteLink: unpack failed')
+                    return
+
                 content = zlib.decompress(content)
                 chash, content = content[:20], content[20:]
                 h = hashlib.sha1()
