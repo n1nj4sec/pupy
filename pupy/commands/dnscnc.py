@@ -367,10 +367,14 @@ def do(server, handler, config, args):
             }
 
             pupy_session = None
+            ids = []
+
             for c in server.clients:
                 if c.node() == '{:012x}'.format(node.node):
-                    pupy_session = c.desc['id']
-                    break
+                    ids.append(str(c.desc['id']))
+
+            if ids:
+                pupy_session = ','.join(ids)
 
             color = None
 
