@@ -11,6 +11,17 @@ sys.path.insert(0, PATCHES)
 sys.path.append(os.path.join(ROOT, 'pupy'))
 sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
+
+sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'all'))
+
+if sys.platform == 'win32':
+    sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'windows', 'all'))
+elif sys.platform.startswith('linux'):
+    sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'linux', 'all'))
+    sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'posix', 'all'))
+else:
+    sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'posix', 'all'))
+
 from PupyCompile import pupycompile
 
 import additional_imports
