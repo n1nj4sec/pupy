@@ -23,6 +23,8 @@ class ECPV(object):
         if not hash:
             if '160' in curve:
                 hash = SHA1
+            elif '224' in curve:
+                hash = SHA3_256
             elif '256' in curve:
                 hash = SHA3_256
             elif '384' in curve:

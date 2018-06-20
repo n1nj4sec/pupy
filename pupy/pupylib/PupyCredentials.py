@@ -342,7 +342,7 @@ class Credentials(object):
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
         ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = self._generate_ecpv_keypair(
-            curve='brainpoolP256r1')
+            curve='brainpoolP224r1')
 
         CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
             curve='brainpoolP384r1')

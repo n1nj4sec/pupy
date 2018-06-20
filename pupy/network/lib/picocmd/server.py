@@ -108,7 +108,7 @@ class Node(ExpirableObject):
             self.commands.append(command)
 
     def __repr__(self):
-        return '{{NODE:{:012X} IID:{} CID:{:016X} ALERT:{} COMMANDS:{}}}'.format(
+        return '{{NODE:{:012X} IID:{} CID:{:08X} ALERT:{} COMMANDS:{}}}'.format(
             self.node, self.iid, self.cid, self.alert, len(self.commands))
 
 class Session(ExpirableObject):
@@ -189,7 +189,7 @@ class DnsCommandServerHandler(BaseResolver):
         self.recursor = recursor
         self.encoders = (
             ECPV(private_key=key[0]),
-            ECPV(private_key=key[1], curve='brainpoolP256r1')
+            ECPV(private_key=key[1], curve='brainpoolP224r1')
         )
         self.translation = dict(zip(
             ''.join([
@@ -559,15 +559,15 @@ class DnsCommandServerHandler(BaseResolver):
             nonce, spi, bool(node_blob)))
 
         if node_blob:
-            offset_node_blob = len(payload) - (1+8+2+6)
+            offset_node_blob = len(payload) - (1+4+2+6)
             payload, node_blob = payload[:offset_node_blob], payload[offset_node_blob:]
 
-            version, cid, iid = struct.unpack_from('>BQH', node_blob)
+            version, cid, iid = struct.unpack_from('>BIH', node_blob)
 
             if version != 2:
                 raise UnknownVersion()
 
-            nodeid = from_bytes(node_blob[1+8+2:1+8+2+6])
+            nodeid = from_bytes(node_blob[1+4+2:1+4+2+6])
             csum_check = encoder.check_csum
             csum_gen = encoder.gen_csum
 
@@ -616,7 +616,7 @@ class DnsCommandServerHandler(BaseResolver):
             '{:08x}'.format(session.spi) if session else None,
             bool(self.node_commands),
             '{:012x}'.format(nodeid) if nodeid else None,
-            '{:016x}'.format(cid) if cid else None,
+            '{:08x}'.format(cid) if cid else None,
             iid))
 
         node = None

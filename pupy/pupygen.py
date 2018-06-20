@@ -595,7 +595,7 @@ def pupygen(args, config):
         'launcher_args': args.launcher_args,
         'offline_script': script_code,
         'debug': args.debug,
-        'cid': hex(random.SystemRandom().getrandbits(64))
+        'cid': hex(random.SystemRandom().getrandbits(32))
     }
 
     outpath=args.output

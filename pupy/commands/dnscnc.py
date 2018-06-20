@@ -359,7 +359,7 @@ def do(server, handler, config, args):
                     'pid:{}'.format(node.iid) if node.iid < 65535 \
                     else 'spi:{:08x}'.format(node.iid)),
                 'VERSION': '{}'.format(node.version),
-                'CID': '{:016x}'.format(node.cid),
+                'CID': '{:08x}'.format(node.cid),
                 'IDLE': '{}s'.format(node.idle),
                 'DURATION': '{}s'.format(node.duration),
                 'CMDS': '{}'.format(len(node.commands)),

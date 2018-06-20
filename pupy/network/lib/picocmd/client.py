@@ -97,7 +97,7 @@ class DnsCommandsClient(Thread):
                 ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
             ])))
 
-        self.encoder = ECPV(public_key=key, curve='brainpoolP256r1')
+        self.encoder = ECPV(public_key=key, curve='brainpoolP224r1')
         self.spi = None
         self.kex = None
         self.poll = 60
@@ -191,8 +191,8 @@ class DnsCommandsClient(Thread):
         ldata = len(data)
 
         if ldata > 35:
-            # 35 -- limit, 4 - nonce, 1 - version, 8 - CID, 2 - IID, 6 - NODE
-            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 8 + 2 + 6 < 35):
+            # 35 -- limit, 4 - nonce, 1 - version, 4 - CID, 2 - IID, 6 - NODE
+            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 4 + 2 + 6 < 35):
                 data, data_append = data[:35], data[35:]
             else:
                 raise ValueError('Too big page size ({})'.format(ldata))
@@ -202,7 +202,7 @@ class DnsCommandsClient(Thread):
 
         if CLIENT_VERSION > 1:
             node_block = data_append + struct.pack(
-                '>BQH', CLIENT_VERSION, self.cid, self.iid)
+                '>BIH', CLIENT_VERSION, self.cid, self.iid)
 
             node_block += to_bytes(self.node, 6)
 
