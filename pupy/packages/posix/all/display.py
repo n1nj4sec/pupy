@@ -11,14 +11,41 @@ import socket
 
 from ctypes.util import find_library
 
-try:
-    x11 = ctypes.cdll.LoadLibrary(find_library('X11'))
-    x11.XOpenDisplay.restype = ctypes.c_void_p
-    x11.XOpenDisplay.argtypes = [ ctypes.c_char_p ]
-    x11.XCloseDisplay.argtypes = [ ctypes.c_void_p ]
-except:
-    x11 = None
-    pass
+xlibs_available = None
+x11 = None
+xau = None
+
+def load_display_libs():
+    global xlibs_available
+    global x11, xau
+
+    if xlibs_available is not None:
+        return
+
+    try:
+        x11 = ctypes.cdll.LoadLibrary(find_library('X11'))
+        x11.XOpenDisplay.restype = ctypes.c_void_p
+        x11.XOpenDisplay.argtypes = [ ctypes.c_char_p ]
+        x11.XCloseDisplay.argtypes = [ ctypes.c_void_p ]
+    except:
+        x11 = None
+        pass
+
+    try:
+        xau = ctypes.cdll.LoadLibrary(find_library('Xau'))
+        xau.XauGetAuthByAddr.restype = ctypes.POINTER(XAuth)
+        xau.XauGetAuthByAddr.argtypes = [
+            ctypes.c_ushort,
+            ctypes.c_ushort, ctypes.c_char_p,
+            ctypes.c_ushort, ctypes.c_char_p,
+            ctypes.c_ushort, ctypes.c_char_p
+        ]
+        xau.XauDisposeAuth.argtypes = [ ctypes.POINTER(XAuth) ]
+    except:
+        xau = None
+        pass
+
+    xlibs_available = x11 and xau
 
 class XAuth(ctypes.Structure):
     _fields_ = [
@@ -39,23 +66,10 @@ Families = {
     256: 'unix',
 }
 
-try:
-    xau = ctypes.cdll.LoadLibrary(find_library('Xau'))
-    xau.XauGetAuthByAddr.restype = ctypes.POINTER(XAuth)
-    xau.XauGetAuthByAddr.argtypes = [
-        ctypes.c_ushort,
-        ctypes.c_ushort, ctypes.c_char_p,
-        ctypes.c_ushort, ctypes.c_char_p,
-        ctypes.c_ushort, ctypes.c_char_p
-    ]
-    xau.XauDisposeAuth.argtypes = [ ctypes.POINTER(XAuth) ]
-except:
-    xau = None
-    pass
-
-
 def check_display(name, authority):
     global x11
+
+    load_display_libs()
 
     if not x11 or not name or not authority:
         return False
@@ -91,6 +105,8 @@ def check_display(name, authority):
 def guess_displays():
     displays = {}
     userinfos = {}
+
+    load_display_libs()
 
     for process in psutil.process_iter():
         try:
@@ -165,6 +181,8 @@ def guess_displays():
     }
 
 def attach_to_display(name, xauth=None):
+    load_display_libs()
+
     if not xauth:
         displays = guess_displays()
         if not name in displays:
@@ -183,6 +201,9 @@ def attach_to_display(name, xauth=None):
     return False
 
 def extract_xauth_info(name, authtype='MIT-MAGIC-COOKIE-1'):
+
+    load_display_libs()
+
     global xau, Families
     if not xau or not name:
         return None
@@ -219,6 +240,8 @@ def extract_xauth_info(name, authtype='MIT-MAGIC-COOKIE-1'):
 def when_attached(callback, name=':0', poll=10):
     import threading
     import time
+
+    load_display_libs()
 
     def _waiter():
         while not attach_to_display(name):

@@ -17,51 +17,80 @@ class XScreenSaverInfo( ctypes.Structure):
               ('idle',        ctypes.c_ulong), # milliseconds
               ('event_mask',  ctypes.c_ulong)] # events
 
-try:
-    xlib = ctypes.cdll.LoadLibrary(find_library('X11'))
+xlib = None
+xss = None
+xlibs_available = None
 
-    XOpenDisplay = xlib.XOpenDisplay
-    XOpenDisplay.argtypes = [ ctypes.c_char_p ]
-    XOpenDisplay.restype = ctypes.c_void_p
+XOpenDisplay = None
+XDefaultRootWindow = None
+XCloseDisplay = None
+XFree = None
+XScreenSaverAllocInfo = None
+XScreenSaverQueryInfo = None
 
-    XDefaultRootWindow = xlib.XDefaultRootWindow
-    XDefaultRootWindow.argtypes = [ ctypes.c_void_p ]
-    XDefaultRootWindow.restype = ctypes.c_ulong
+def load_uidle_libs():
+    global xlib, xss
+    global XOpenDisplay, XDefaultRootWindow, XCloseDisplay
+    global XFree, XScreenSaverAllocInfo, XScreenSaverQueryInfo
+    global xlibs_available
 
-    XCloseDisplay = xlib.XCloseDisplay
-    XCloseDisplay.argtypes = [ ctypes.c_void_p ]
-    XCloseDisplay.restype = ctypes.c_int
+    if xlibs_available is not None:
+        return
 
-    XFree = xlib.XFree
-    XFree.argtypes = [ ctypes.c_void_p ]
-    XFree.restype = ctypes.c_int
+    try:
+        xlib = ctypes.cdll.LoadLibrary(find_library('X11'))
 
-except:
-    xlib = None
+        XOpenDisplay = xlib.XOpenDisplay
+        XOpenDisplay.argtypes = [ ctypes.c_char_p ]
+        XOpenDisplay.restype = ctypes.c_void_p
 
-try:
-    xss = ctypes.cdll.LoadLibrary('libXss.so.1')
+        XDefaultRootWindow = xlib.XDefaultRootWindow
+        XDefaultRootWindow.argtypes = [ ctypes.c_void_p ]
+        XDefaultRootWindow.restype = ctypes.c_ulong
 
-    XScreenSaverAllocInfo = xss.XScreenSaverAllocInfo
-    XScreenSaverAllocInfo.restype = ctypes.POINTER(XScreenSaverInfo)
+        XCloseDisplay = xlib.XCloseDisplay
+        XCloseDisplay.argtypes = [ ctypes.c_void_p ]
+        XCloseDisplay.restype = ctypes.c_int
 
-    XScreenSaverQueryInfo = xss.XScreenSaverQueryInfo
-    XScreenSaverQueryInfo.argtypes = [
-        ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
-    ]
-    XScreenSaverQueryInfo.restype.restype = ctypes.c_int
-except:
-    xss = None
+        XFree = xlib.XFree
+        XFree.argtypes = [ ctypes.c_void_p ]
+        XFree.restype = ctypes.c_int
 
-def get_gui_idle(display=':0'):
-    if not ( xlib and xss ):
-        return None
+    except:
+        xlib = None
 
+    try:
+        xss = ctypes.cdll.LoadLibrary('libXss.so.1')
+
+        XScreenSaverAllocInfo = xss.XScreenSaverAllocInfo
+        XScreenSaverAllocInfo.restype = ctypes.POINTER(XScreenSaverInfo)
+
+        XScreenSaverQueryInfo = xss.XScreenSaverQueryInfo
+        XScreenSaverQueryInfo.argtypes = [
+            ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p
+        ]
+        XScreenSaverQueryInfo.restype.restype = ctypes.c_int
+
+    except:
+        xss = None
+
+    if xlib and xss:
+        xlibs_available = True
+
+def get_gui_idle(display=None):
     if not os.environ.get('DISPLAY'):
-        if not attach_to_display(display):
+        if display:
+            if not attach_to_display(display):
+                return None
+        else:
             return None
 
-    display = XOpenDisplay(os.environ.get('DISPLAY') or display)
+    load_uidle_libs()
+
+    if xlibs_available is False:
+        return None
+
+    display = XOpenDisplay(os.environ.get('DISPLAY'))
     if not display:
         return None
 
@@ -69,7 +98,7 @@ def get_gui_idle(display=':0'):
     if not xssinfo:
         XCloseDisplay(display)
         return None
-    
+
     status = XScreenSaverQueryInfo(display, XDefaultRootWindow(display), xssinfo)
     idle = xssinfo.contents.idle
 
@@ -88,7 +117,7 @@ def get_cli_idle():
 
 def get_idle():
     cli_idle = get_cli_idle()
-    
+
     try:
         gui_idle = get_gui_idle()
     except:
