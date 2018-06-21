@@ -89,7 +89,9 @@ class ExpirableObject(object):
 
 class Node(ExpirableObject):
     __slots__ = (
-        'node', 'cid', 'iid', 'version', 'commands', 'alert'
+        'node', 'cid', 'iid', 'version',
+        'commands', 'alert',
+        '_warning', '_warning_set_time'
     )
 
     def __init__(self, node, timeout, cid=0x31337, iid=0, version=1, commands=[], alert=False):
@@ -100,6 +102,24 @@ class Node(ExpirableObject):
         self.version = version
         self.commands = commands or []
         self.alert = alert
+        self._warning = None
+        self._warning_set_time = None
+
+    @property
+    def warning(self):
+        if not self._warning:
+            return None
+
+        if time.time() < self._warning_set_time + self.timeout:
+            self._warning = None
+            return None
+
+        return self._warning
+
+    @warning.setter
+    def warning(self, warning):
+        self._warning = warning
+        self._warning_set_time = time.time()
 
     def add_command(self, command):
         if not self.commands:
@@ -418,22 +438,21 @@ class DnsCommandServerHandler(BaseResolver):
             raise ValueError('Interval should not be less then 30s to avoid DNS storm')
 
         if node and (interval or timeout):
-            session = self.find_sessions(
+            sessions = self.find_sessions(
                 spi=node) or self.find_sessions(node=node)
 
-            if session:
-                session = session[0]
+            if sessions:
+                for session in sessions:
+                    if interval:
+                        session.timeout = (interval*3)
+                    else:
+                        interval = self.interval
 
-                if interval:
-                    session.timeout = (interval*3)
-                else:
-                    interval = self.interval
+                    if timeout:
+                        session.timeout = timeout
 
-                if timeout:
-                    session.timeout = timeout
-
-                if kex is None:
-                    kex = self.kex
+                    if kex is None:
+                        kex = self.kex
 
         else:
             self.interval = interval or self.interval
@@ -610,49 +629,14 @@ class DnsCommandServerHandler(BaseResolver):
 
         return node
 
-    def _cmd_processor(self, command, session, nodeid, cid, iid, version, csum_gen, csum_check):
+    def _cmd_processor(self, command, session, node, csum_gen, csum_check):
         logger.debug('command={}/{} session={} / node commands={} / node = {} / cid = {} / iid = {}'.format(
             command, type(command).__name__,
             '{:08x}'.format(session.spi) if session else None,
             bool(self.node_commands),
-            '{:012x}'.format(nodeid) if nodeid else None,
-            '{:08x}'.format(cid) if cid else None,
-            iid))
-
-        node = None
-
-        with self.lock:
-            if nodeid:
-                if not (nodeid, iid) in self.nodes:
-                    self.nodes[(nodeid, iid)] = Node(
-                        nodeid, self.timeout,
-                        cid, iid, version, self.node_commands.get(nodeid),
-                    )
-
-                node = self.nodes[(nodeid, iid)]
-                node.bump()
-
-            if session:
-                session.bump()
-
-            if session and not node:
-                if not (session.node, session.spi) in self.nodes:
-                    node = self._new_node_from_session(session)
-                else:
-                    node = self.nodes[(session.node, session.spi)]
-
-                if node:
-                    node.bump()
-
-        if self.whitelist and node:
-            if self.whitelist(nodeid, cid, version):
-                node.alert = False
-            else:
-                node.alert = True
-                blocks_logger.warning('Prohibit communication with {}/{} version {} on {}'.format(
-                    iid, cid, version, nodeid))
-
-                raise NodeBlocked()
+            '{:012x}'.format(node.node) if node else None,
+            '{:08x}'.format(node.cid) if node else None,
+            node.iid if node else None))
 
         if isinstance(command, Poll) and session is None:
             if not self.kex:
@@ -769,11 +753,13 @@ class DnsCommandServerHandler(BaseResolver):
                 response = []
 
                 encoder_version = \
-                  self.ENCODER_V1 if version == 1 else self.ENCODER_V2
+                  self.ENCODER_V1 if not node or node.version == 1 \
+                  else self.ENCODER_V2
 
                 if not command.spi in self.sessions:
                     self.sessions[command.spi] = Session(
-                        nodeid, cid,
+                        node.node if node else None,
+                        node.cid if node else None,
                         command.spi,
                         self.encoders[encoder_version].clone(),
                         self.commands,
@@ -824,6 +810,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         session = None
         nonce = None
+        node = None
 
         version = 1
         csum_check, csum_gen = None, None
@@ -832,19 +819,59 @@ class DnsCommandServerHandler(BaseResolver):
             request, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen = \
               self._q_page_decoder(qname)
 
+            with self.lock:
+                if nodeid:
+                    if not (nodeid, iid) in self.nodes:
+                        self.nodes[(nodeid, iid)] = Node(
+                            nodeid, self.timeout,
+                            cid, iid, version, self.node_commands.get(nodeid),
+                        )
+
+                    node = self.nodes[(nodeid, iid)]
+                    node.bump()
+
+                if session and not node:
+                    if not (session.node, session.spi) in self.nodes:
+                        node = self._new_node_from_session(session)
+                    else:
+                        node = self.nodes[(session.node, session.spi)]
+
+                if node:
+                    node.bump()
+
+            if self.whitelist and node:
+                if not self.whitelist(nodeid, cid, version):
+                    blocks_logger.warning('Prohibit communication with {}/{} version {} on {}'.format(
+                        iid, cid, version, nodeid))
+
+                    node.alert = True
+                    raise NodeBlocked()
+
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
                     logger.info('Ignore nonce from past: {} < {} / {}'.format(
                         nonce, session.last_nonce, '{}'.format(session.node)))
+
+                    if node:
+                        node.warning = 'Nonce from the past ({} < {})'.format(
+                            nonce, session.last_nonce)
                     return []
                 elif session.last_nonce == nonce and session.last_qname != qname:
                     logger.info('Last nonce but different qname: {} != {}'.format(
                         session.last_qname, qname))
+
+                    if node:
+                        node.warning = 'Different qname ({})'.format(qname)
                     return []
+
+                session.bump()
+
+            if node:
+                node.alert = False
 
             for command in Parcel.unpack(request, nonce, csum_check):
                 for response in self._cmd_processor(
-                        command, session, nodeid, cid, iid, version, csum_check, csum_gen):
+                        command, session, node, csum_check, csum_gen):
                     responses.append(response)
 
             if session:
@@ -854,18 +881,35 @@ class DnsCommandServerHandler(BaseResolver):
         except DnsCommandServerException as e:
             nonce = e.nonce
             responses = [e.error, Policy(self.interval, self.kex), Poll()]
-            logger.debug('Server Error: {}'.format(e))
+            emsg = 'Server Error: {}'.format(e)
+            logger.debug(emsg)
+            if node:
+                node.warning = emsg
 
         except ParcelInvalidPayload, e:
             responses = [e.error]
-            logger.debug('Invalid Payload: {}'.format(e))
+
+            emsg = 'Invalid Payload: {}'.format(e)
+            logger.debug(emsg)
+
+            if node:
+                node.warning = emsg
 
         except ParcelInvalidCrc, e:
             responses = [e.error]
-            logger.debug('Invalid CRC')
+            emsg = 'Invalid CRC'
+            logger.debug(emsg)
+
+            if node:
+                node.warning = emsg
 
         except DnsNoCommandServerException:
-            logger.debug('No CNC Exception')
+            emsg = 'No CNC Exception'
+            logger.debug(emsg)
+
+            if node:
+                node.warning = emsg
+
             return None
 
         except DnsPingRequest, e:
@@ -883,15 +927,26 @@ class DnsCommandServerHandler(BaseResolver):
 
         except TypeError, e:
             # Usually - invalid padding
+            emsg = None
+
             if str(e) == 'Incorrect padding':
-                logger.warning('Decoding failed: qname={}'.format(qname))
+                emsg = 'Decoding failed: qname={}'.format(qname)
+                logger.warning(emsg)
             else:
+                emsg = str(e)
                 logger.exception(e)
+
+            if node:
+                node.warning = emsg
 
             return None
 
         except Exception as e:
             logger.exception(e)
+
+            if node:
+                node.warning = str(e)
+
             return None
 
         logger.debug('responses={} session={}'.format(
@@ -903,8 +958,14 @@ class DnsCommandServerHandler(BaseResolver):
         try:
             payload = Parcel(*responses).pack(nonce, csum_gen)
         except PackError, e:
-            logger.error('Could not create parcel from commands: {} (session={})'.format(
-                e, '{:08x}'.format(session.spi) if session else None))
+            emsg = 'Could not create parcel from commands: {} (session={})'.format(
+                e, '{:08x}'.format(session.spi) if session else None)
+
+            logger.error(emsg)
+
+            if node:
+                node.warning = emsg
+
             return None
 
         return self._a_page_encoder(payload, encoder, nonce)

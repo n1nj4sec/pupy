@@ -358,12 +358,13 @@ def do(server, handler, config, args):
                 'IID': '{}'.format(
                     'pid:{}'.format(node.iid) if node.iid < 65535 \
                     else 'spi:{:08x}'.format(node.iid)),
-                'VERSION': '{}'.format(node.version),
+                'VER': '{}'.format(node.version),
                 'CID': '{:08x}'.format(node.cid),
                 'IDLE': '{}s'.format(node.idle),
                 'DURATION': '{}s'.format(node.duration),
                 'CMDS': '{}'.format(len(node.commands)),
                 'TAGS': '{}'.format(config.tags(node.node)),
+                'WARN': '{}'.format(node.warning if node.warning else '')
             }
 
             pupy_session = None
@@ -388,6 +389,8 @@ def do(server, handler, config, args):
 
             if node.alert:
                 color = 'lightred'
+            elif node.warning:
+                color = 'cyan'
             elif pupy_session:
                 color = 'lightgreen'
             elif node.idle > server.dnscnc.policy['interval']:
@@ -401,8 +404,8 @@ def do(server, handler, config, args):
             objects.append(object)
 
         columns = [
-            '#', 'P', 'A', 'NODE', 'IID', 'VERSION',
-            'CID', 'IDLE', 'DURATION', 'CMDS', 'TAGS'
+            '#', 'P', 'A', 'NODE', 'IID', 'VER',
+            'CID', 'IDLE', 'DURATION', 'CMDS', 'TAGS', 'WARN'
         ]
 
         handler.display(Table(objects, columns))
