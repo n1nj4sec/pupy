@@ -396,7 +396,7 @@ class DnsCommandsClient(Thread):
 
         need_ack = len([
             x for x in commands if not type(x) in (
-                Policy, Poll, Kex, Ack
+                Poll, Kex, Ack
             )
         ])
 
