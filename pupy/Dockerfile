@@ -12,7 +12,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
     autoconf automake unzip libtool locales ncurses-term bash tcpdump libpam-cap \
     openjdk-8-jdk-headless python-m2crypto python-cryptography python-cffi-backend python-paramiko \
     python-pefile python-netifaces python-psutil python-lzma python-colorama python-openssl python-scapy \
-    python-pygments python-requests python-httpbin python-rsa python-http-parser git && \
+    python-pygments python-requests python-httpbin python-rsa python-http-parser git fuse && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
@@ -32,8 +32,8 @@ RUN python -m pip install --upgrade pip six setuptools wheel
 
 COPY . /opt/pupy
 RUN cd /opt/pupy && pip install -r requirements.txt
-RUN cd /opt/pupy && pip install -r requirements.txt
 
+RUN pip install --upgrade pyasn1
 RUN python -m pip uninstall -y pycrypto
 RUN python -m pip install --upgrade --force-reinstall pycryptodome
 
