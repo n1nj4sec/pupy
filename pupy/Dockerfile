@@ -32,6 +32,10 @@ RUN python -m pip install --upgrade pip six setuptools wheel
 
 COPY . /opt/pupy
 RUN cd /opt/pupy && pip install -r requirements.txt
+RUN cd /opt/pupy && pip install -r requirements.txt
+
+RUN python -m pip uninstall -y pycrypto
+RUN python -m pip install --upgrade --force-reinstall pycryptodome
 
 ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.1.1-20180325/mimikatz_trunk.zip \
     /opt/mimikatz/mimikatz.zip
