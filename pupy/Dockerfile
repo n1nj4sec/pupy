@@ -6,13 +6,12 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/sources.list && \
     apt-get update && \
     mkdir -p /usr/share/man/man1/ && \
-    apt-get install -t stretch-backports --no-install-recommends -y build-essential \
+    apt-get install -t stretch-backports --no-install-recommends -y build-essential libssl1.0-dev \
     python-dev python-pip openssh-server tmux sslh libcap2-bin \
     john vim-tiny less osslsigncode nmap net-tools \
     autoconf automake unzip libtool locales ncurses-term bash tcpdump libpam-cap \
-    openjdk-8-jdk-headless python-m2crypto python-cryptography python-cffi-backend python-paramiko \
-    python-pefile python-netifaces python-psutil python-lzma python-colorama python-openssl python-scapy \
-    python-pygments python-requests python-httpbin python-rsa python-http-parser git fuse && \
+    openjdk-8-jdk-headless \
+    git fuse && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
@@ -31,9 +30,8 @@ RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
 RUN python -m pip install --upgrade pip six setuptools wheel
 
 COPY . /opt/pupy
-RUN cd /opt/pupy && pip install -r requirements.txt
+RUN cd /opt/pupy && pip install --upgrade -r requirements.txt  --no-binary :all:
 
-RUN pip install --upgrade pyasn1
 RUN python -m pip uninstall -y pycrypto
 RUN python -m pip install --upgrade --force-reinstall pycryptodome
 
