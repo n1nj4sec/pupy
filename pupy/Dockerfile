@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/sources.list && \
     apt-get update && \
     mkdir -p /usr/share/man/man1/ && \
-    apt-get install -t stretch-backports --no-install-recommends -y build-essential libssl1.0-dev \
+    apt-get install -t stretch-backports --no-install-recommends -y build-essential libssl1.0-dev libffi-dev \
     python-dev python-pip openssh-server tmux sslh libcap2-bin \
     john vim-tiny less osslsigncode nmap net-tools \
     autoconf automake unzip libtool locales ncurses-term bash tcpdump libpam-cap \
