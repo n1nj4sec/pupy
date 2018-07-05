@@ -184,7 +184,11 @@ class PupyTCPServer(ThreadedServer):
             self.clients.discard(sock)
 
     def close(self):
-        ThreadedServer.close(self)
+        try:
+            ThreadedServer.close(self)
+        except:
+            pass
+
         if self.igd_mapping:
             try:
                 self.igd.DeletePortMapping(self.external_port, 'TCP')

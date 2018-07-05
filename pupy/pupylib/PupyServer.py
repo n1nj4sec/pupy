@@ -883,17 +883,8 @@ class PupyServer(object):
             raise PupyModuleError("%s: no such job !"%job_id)
         return self.jobs[job_id]
 
-    def connect_on_client(self, launcher_args):
+    def connect_on_client(self, launcher):
         """ connect on a client that would be running a bind payload """
-        launcher = network.conf.launchers['connect'](
-            connect_on_bind_payload=True
-        )
-
-        try:
-            launcher.parse_args(shlex.split(launcher_args))
-        except LauncherError as e:
-            launcher.arg_parser.print_usage()
-            return
 
         try:
             stream=launcher.iterate().next()

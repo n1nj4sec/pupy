@@ -33,6 +33,8 @@ import rpyc
 
 from threading import Event, Lock
 
+from network.lib.base_launcher import LauncherError
+
 from .PupyErrors import PupyModuleExit, PupyModuleError, PupyModuleUsageError
 from .PupyModule import (
     REQUIRE_NOTHING, REQUIRE_REPL, REQUIRE_TERMINAL
@@ -376,8 +378,9 @@ class PupyCmd(cmd.Cmd):
                 'Unknown (or unavailable) command {}. Use help -M to '
                 'list available commands and modules'.format(e)))
 
-        except (PupyModuleError, NotImplementedError), e:
-            self.display(Error(e))
+        except (PupyModuleError, LauncherError, NotImplementedError), e:
+            if str(e):
+                self.display(Error(e))
 
         if self.pupsrv.finishing.is_set():
             return True

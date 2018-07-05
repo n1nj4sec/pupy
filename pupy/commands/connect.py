@@ -1,10 +1,15 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
+import network.conf
+
+launcher = network.conf.launchers['connect'](
+    connect_on_bind_payload=True
+)
 
 usage = 'Connect to the bind payload'
-parser = PupyArgumentParser(prog='connect', description=usage)
-parser.add_argument('args', help='Arguments to connect')
+parser = launcher.arg_parser
 
 def do(server, handler, config, args):
-    server.connect_on_client(args.args)
+    launcher.args = args
+    server.connect_on_client(launcher)

@@ -22,7 +22,10 @@ def do(server, handler, config, args):
                 Color('Command:', 'yellow'),
                 Color(args.module+':', 'green'),
                 command.usage or 'No description'))
-            tables.append(command.parser.format_help())
+            if command.parser.add_help:
+                tables.append(command.parser.format_help())
+            else:
+                tables.append(command.parser.parse_args(['--help']))
 
         for module in server.iter_modules():
             if module.get_name().lower() == args.module.lower():
@@ -35,7 +38,11 @@ def do(server, handler, config, args):
                     Color('Module:', 'yellow'),
                     Color(args.module+':', 'green'),
                     doc.title().split('\n')[0]))
-                tables.append(module.arg_parser.format_help())
+
+                if command.parser.add_help:
+                    tables.append(command.parser.format_help())
+                else:
+                    tables.append(command.parser.parse_args(['--help']))
 
                 clients = server.get_clients(handler.default_filter)
                 if clients:
