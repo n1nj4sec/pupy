@@ -322,7 +322,8 @@ def hint_to_text(text, width=0):
     elif hint == Error:
         header = text.header
         text = text.data
-        if issubclass(type(text), Exception):
+        etype = type(text)
+        if issubclass(etype, Exception) and etype.__class__.__name__ != 'type':
             text = '({}) {}'.format(type(text).__class__.__name__, text)
         else:
             text = hint_to_text(text, width).rstrip()
