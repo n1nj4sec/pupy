@@ -9,21 +9,22 @@ try:
     logger = getLogger('compiler')
 except ValueError:
     # If PupyCompile imported directly (build_library_zip.py)
-    logger = logging.getLogger('compiler')
+    logger = logging
 
 class Compiler(ast.NodeTransformer):
-    def __init__(self, data, path=False, main=False):
+    def __init__(self, data, path=False, main=False, docstrings=False):
         source = data
         if path:
             with open(data) as src:
                 source = src.read()
 
         self._main = main
+        self._docstrings = docstrings
 
         ast.NodeTransformer.__init__(self)
         self._source_ast = ast.parse(source)
 
-    def compile(self, filename, obfuscate=False, raw=False):
+    def compile(self, filename, obfuscate=False, raw=False, magic='\x00'*8):
         body = marshal.dumps(compile(self.visit(self._source_ast), filename, 'exec'))
         if obfuscate:
             l = len(body)
@@ -43,7 +44,7 @@ class Compiler(ast.NodeTransformer):
             return body
 
         else:
-            return '\0'*8 + body
+            return magic + body
 
     def visit_If(self, node):
         if hasattr(node.test, 'id') and node.test.id == '__debug__':
@@ -65,7 +66,8 @@ class Compiler(ast.NodeTransformer):
           node.value.func.value.id == 'logging' and node.value.func.attr == 'debug':
           return None
         elif (type(node.value) == ast.Str):
-            node.value.s = ""
+            if not self._docstrings:
+                node.value.s = ""
 
         return node
 
@@ -83,3 +85,70 @@ def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug
         data = marshal.dumps(compile(source, filename, 'exec'))
 
     return data
+
+if __name__ == '__main__':
+    import argparse
+    import os, stat
+    import sys
+    import imp
+    import struct
+
+    WHITELIST = (
+        'c_parser'
+    )
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--fake-file-path', default=False, action='store_true', help='Fake file path (number)')
+    parser.add_argument('-M', '--delete-main', default=False, action='store_true', help='Remove __main__')
+    parser.add_argument('-D', '--delete-docstrings', default=False, action='store_true', help='Detele __doc__')
+    parser.add_argument('files', metavar='<file.py>', nargs='+', help='File(s) to compile')
+    args = parser.parse_args(sys.argv[1:])
+
+    def pcompile(fake_filepath, filepath, main=False, docstrings=False):
+        logger.info(filepath)
+        filepath_noext, ext = os.path.splitext(filepath)
+        filepath_basename = os.path.basename(filepath_noext)
+
+        if filepath_basename in WHITELIST:
+            main = True
+            docstrings = True
+
+        data = None
+
+        try:
+            with open(filepath_noext + '.pyo', 'wb') as out:
+                mtime = int(os.stat(filepath).st_mtime)
+                out.write(Compiler(filepath, True, main, docstrings).compile(
+                    fake_filepath or filepath, False, False,
+                    struct.pack('<4sl', imp.get_magic(), mtime)))
+
+        except (OSError, IOError, SyntaxError), e:
+            logger.error('{}: {}'.format(filepath, e))
+
+    fid = 0
+
+    for f in args.files:
+        if stat.S_ISDIR(os.stat(f).st_mode):
+            for root, _, files in os.walk(f):
+                for ff in files:
+                    if not ff.endswith('.py'):
+                        continue
+
+                    ff = os.path.join(root, ff)
+
+                    if args.fake_file_path:
+                        fname = 'f:{}'.format(fid)
+                        fid += 1
+                    else:
+                        fname = ff
+
+                    pcompile(fname, ff, not args.delete_main, not args.delete_docstrings)
+
+        else:
+            if args.fake_file_path:
+                fname = 'f:{}'.format(fid)
+            else:
+                fname = f
+                fid += 1
+
+            pcompile(fname, f, not args.delete_main, not args.delete_docstrings)
