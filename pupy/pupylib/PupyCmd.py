@@ -379,7 +379,7 @@ class PupyCmd(cmd.Cmd):
                 'list available commands and modules'.format(e)))
 
         except (PupyModuleError, LauncherError, NotImplementedError), e:
-            if str(e):
+            if str(e) and str(e) != 'None':
                 self.display(Error(e))
 
         if self.pupsrv.finishing.is_set():
