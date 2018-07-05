@@ -24,7 +24,6 @@ secretstorage
 pygments
 requests
 tornado
-keyboard
 poster
 win_inet_pton
 scandir
@@ -32,4 +31,5 @@ msgpack
 hexdump
 M2Crypto
 fusepy
+https://github.com/boppreh/keyboard/archive/master.zip
 -e external/pykcp
