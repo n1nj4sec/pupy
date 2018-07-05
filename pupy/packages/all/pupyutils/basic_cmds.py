@@ -115,7 +115,6 @@ def special_to_letter(mode):
 
     return l
 
-
 def _stat_to_ls_struct(path, name, _stat):
     if stat.S_ISLNK(_stat.st_mode):
         try:
@@ -133,6 +132,19 @@ def _stat_to_ls_struct(path, name, _stat):
         T_SIZE: _stat.st_size,
         T_TIMESTAMP: int(_stat.st_mtime),
     }
+
+def _invalid_ls_struct(path, name):
+    return {
+        T_NAME: name,
+        T_TYPE: '?',
+        T_SPEC: '?',
+        T_MODE: 0,
+        T_UID:  0,
+        T_GID:  0,
+        T_SIZE: 0,
+        T_TIMESTAMP: 0,
+    }
+
 
 def list_file(path):
     path = try_unicode(path)
@@ -159,9 +171,12 @@ def list_dir(path, max_files=None):
 
     try:
         for item in items:
-            result.append(_stat_to_ls_struct(
-                item.path, item.name,
-                item.stat(follow_symlinks=False)))
+            try:
+                result.append(_stat_to_ls_struct(
+                    item.path, item.name,
+                    item.stat(follow_symlinks=False)))
+            except OSError:
+                result.append(_invalid_ls_struct(item.path, item.name))
 
             filescnt += 1
             if max_files and filescnt >= max_files:
