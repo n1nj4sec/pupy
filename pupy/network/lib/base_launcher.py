@@ -9,11 +9,7 @@ __all__ = (
     'LauncherError', 'LauncherArgumentParser', 'BaseLauncher'
 )
 
-import sys
-import logging
 import argparse
-import network.conf
-from . import utils
 
 class LauncherError(Exception):
     __slots__ = ()
@@ -25,12 +21,9 @@ class LauncherArgumentParser(argparse.ArgumentParser):
         argparse.ArgumentParser.__init__(self, *args, **kwargs)
 
     def exit(self, status=0, message=None):
-        #if message:
-        #    self._print_message(message, sys.stderr)
         raise LauncherError(message)
 
     def error(self, message):
-        #self.print_usage(_sys.stderr)
         self.exit(2, str('%s: error: %s\n') % (self.prog, message))
 
 class BaseLauncher(object):

@@ -9,8 +9,7 @@ import argparse
 import logging
 
 from network.lib import utils
-
-from ..base_launcher import *
+from network.lib.base_launcher import LauncherError, LauncherArgumentParser, BaseLauncher
 
 class ConnectLauncher(BaseLauncher):
     """ simple launcher that uses TCP connect with a chosen transport """
