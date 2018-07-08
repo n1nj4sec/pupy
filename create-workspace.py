@@ -46,18 +46,20 @@ if not args.do_not_compile_templates:
 try:
     import virtualenv
 except:
-    if args.NI:
+    if args.no_pip_install_deps:
         sys.exit('virtualenv missing: pip install --user virtualenv')
     else:
         subprocess.call('pip install --user virtualenv')
 
     import virtualenv
 
+workdir = os.path.abspath(args.workdir)
+
 if not os.path.isfile(os.path.join(args.pupy_git_folder, 'create-workspace.py')):
     sys.exit('{} is not pupy project folder'.format(args.pupy_git_folder))
 
-if os.path.isdir(args.workdir) and os.listdir(args.workdir):
-    sys.exit('{} is not empty'.format(args.workdir))
+if os.path.isdir(workdir) and os.listdir(workdir):
+    sys.exit('{} is not empty'.format(workdir))
 
 pupy = os.path.abspath(args.pupy_git_folder)
 
@@ -71,7 +73,9 @@ if not args.do_not_compile_templates:
     if args.docker_repo:
         env['REPO'] = args.docker_repo
 
-    subprocess.check_call(['build-docker.sh'], env=env)
+    subprocess.check_call([
+        './build-docker.sh'
+    ], env=env, cwd=pupy)
 
 print "[+] Create VirtualEnv environment"
 
@@ -81,21 +85,27 @@ except OSError, e:
     if e.errno == errno.EEXIST:
         pass
 
-virtualenv.create_environment(args.workdir)
+virtualenv.create_environment(workdir)
 
 print "[+] Install dependencies"
 subprocess.check_call([
-    os.path.join(args.workdir, 'bin', 'pip'),
+    os.path.join(workdir, 'bin', 'pip'),
     'install',
     '-r', 'requirements.txt'
 ], cwd=os.path.join(pupy, 'pupy'))
 
+subprocess.check_call([
+    os.path.abspath(os.path.join(workdir, 'bin', 'pip')),
+    'install', '--upgrade', '--force-reinstall',
+    'pycryptodome'
+], cwd=os.path.join(pupy, 'pupy'))
+
 print "[+] Create pupysh wrapper"
-pupysh_path = os.path.join(args.workdir, 'bin', 'pupysh')
-pupysh_update_path = os.path.join(args.workdir, 'bin', 'pupysh-update')
+pupysh_path = os.path.join(workdir, 'bin', 'pupysh')
+pupysh_update_path = os.path.join(workdir, 'bin', 'pupysh-update')
 
 with open(pupysh_path, 'w') as pupysh:
-    wa = os.path.abspath(args.workdir)
+    wa = os.path.abspath(workdir)
     print >>pupysh, '#!/bin/sh'
     print >>pupysh, 'cd {}'.format(wa)
     print >>pupysh, 'exec bin/python -B {} "$@"'.format(
@@ -104,14 +114,14 @@ with open(pupysh_path, 'w') as pupysh:
 os.chmod(pupysh_path, 0755)
 
 with open(pupysh_update_path, 'w') as pupysh_update:
-    wa = os.path.abspath(args.workdir)
+    wa = os.path.abspath(workdir)
     print >>pupysh_update, '#!/bin/sh'
     print >>pupysh_update, 'set -e'
     print >>pupysh_update, 'echo "[+] Update pupy repo"'
     print >>pupysh_update, 'cd {}; git pull --recurse-submodules'.format(pupy)
     print >>pupysh_update, 'echo "[+] Update python dependencies"'
     print >>pupysh_update, 'source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
-        args.workdir)
+        workdir)
     if not args.do_not_compile_templates:
         print >>pupysh_update, 'echo "[+] Recompile templates"'
         for target in ( 'windows', 'linux32', 'linux64' ):
