@@ -22,6 +22,9 @@ T_FILE      = 10
 T_TRUNCATED = 11
 
 def output_format(file, windows=False):
+    if file[T_TYPE] == 'X':
+        return '--- TRUNCATED ---'
+
     if windows:
         out = u'  {}{}{}{}'.format(
             u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
@@ -128,10 +131,10 @@ class ls(PupyModule):
                             total_cnt  += 1
                             files_cnt  += 1
 
-                    for f in sorted(dirs, key=lambda x: to_utf8(x[T_NAME]), reverse=args.reverse):
+                    for f in sorted(dirs, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
                         self.log(output_format(f, windows))
 
-                    for f in sorted(files, key=lambda x: to_utf8(x[T_NAME]), reverse=args.reverse):
+                    for f in sorted(files, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
                         self.log(output_format(f, windows))
 
                     if truncated:
@@ -147,8 +150,16 @@ class ls(PupyModule):
                             files_cnt, size_human_readable(files_size), dirs_cnt, total_cnt))
 
                 else:
-                    for f in sorted(r[T_FILES], key=lambda x: x[args.sort], reverse=args.reverse):
+                    truncated = False
+                    for f in sorted(r[T_FILES], key=lambda x: x.get(args.sort), reverse=args.reverse):
+                        if T_TRUNCATED in f:
+                            truncated = True
+                            continue
+
                         self.log(output_format(f, windows))
+
+                    if truncated:
+                        self.log('--- TRUNCATED ---')
 
             elif T_FILE in r:
                 self.log(output_format(r[T_FILE], windows))
