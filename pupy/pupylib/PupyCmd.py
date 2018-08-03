@@ -357,6 +357,10 @@ class PupyCmd(cmd.Cmd):
         self.display_srvinfo('Action complete')
 
     def execute(self, line, clients_filter=None):
+        if line.startswith('!'):
+            os.system(line[1:])
+            return
+
         try:
             self.commands.execute(
                 self.pupsrv, self,
