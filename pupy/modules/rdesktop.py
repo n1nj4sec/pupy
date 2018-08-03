@@ -70,8 +70,8 @@ class RdesktopWebSocketHandler(WebSocketHandler):
                     key=key.lower()
                     self.remote_streamer.kbd_send(key)
 
-		else:
-		    self.remote_streamer.kbd_write(key)
+                else:
+                    self.remote_streamer.kbd_write(key)
             except Exception as e:
                 logger.error(e)
 
@@ -164,6 +164,6 @@ class RemoteDesktopModule(PupyModule):
 
         self.success("Web handler started on %s"%url)
         if args.view:
-            config = self.client.pupsrv.config or PupyConfig()
+            config = self.client.pupsrv.config
             viewer = config.get('default_viewers', 'browser')
             subprocess.Popen([viewer, url])

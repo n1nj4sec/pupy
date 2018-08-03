@@ -172,31 +172,22 @@ class LaZagne(PupyModule):
             raise Exception(creds)
 
         for cred in creds:
-            result = {
-                'Category' : module
-            }
+            if isinstance(cred, dict):
+                result = {
+                    'Category' : module
+                }
 
-            for c in cred.keys():
-                credvalue = cred[c]
-                try:
-                    credvalue = credvalue.strip().encode('latin-1').decode('utf-8')
-                except:
-                    try:
-                        credvalue = credvalue.strip().decode('utf-8')
-                    except:
+                for c in cred.keys():
+                    result[c] = self.try_utf8(cred[c]).strip()
 
-                        credvalue = self.try_utf8(credvalue)
+                    for t, name in self.TYPESMAP.iteritems():
+                        if t in set(x.lower() for x in result):
+                            result['CredType'] = name
 
-                result[c] = credvalue
+                    if not result.get('CredType'):
+                        result['CredType'] = 'empty'
 
-                for t, name in self.TYPESMAP.iteritems():
-                    if t in set(x.lower() for x in result):
-                        result['CredType'] = name
-
-                if not result.get('CredType'):
-                    result['CredType'] = 'empty'
-
-                results.append(result)
+                    results.append(result)
 
         return results
 
