@@ -49,8 +49,9 @@ def _do(eventid, action, handler, client_filter):
 
 def _event(eventid, client, server, handler, config):
     section = event_to_config_section(eventid)
+    actions = config.items(section)
 
-    for client_filter, action in config.items(section):
+    for client_filter, action in actions:
         on_self = False
 
         if client_filter.lower() in ('this', 'self', 'current', '@'):
@@ -64,33 +65,45 @@ def _event(eventid, client, server, handler, config):
         if action.startswith('include:'):
             _, included_section = action.split(':', 1)
             try:
-                for action_name, action in config.items(included_section):
-                    if eventid in ( ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST ):
-                        action = action.replace('%c', '{:08x}'.format(client.spi))
-                        node = '{:012x}'.format(client.system_info['node'])
-                        criterias = ['*', 'any', node] + list(config.tags(node))
-                        if client_filter not in criterias:
-                            continue
-                    elif eventid in ( ON_CONNECT, ON_DISCONNECT ):
-                        if not client in server.get_clients(client_filter):
-                            continue
-
-                    _do(eventid, action, handler, client_filter)
+                for nested in config.items(included_section):
+                    actions.append(nested)
             except NoSectionError:
                 pass
 
-        else:
-            if eventid in ( ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST ):
-                action = action.replace('%c', '{:08x}'.format(client.spi))
-                node = '{:012x}'.format(client.system_info['node'])
-                criterias = ['*', 'any', node] + list(config.tags(node))
-                if client_filter not in criterias:
-                    continue
-            elif eventid in ( ON_CONNECT, ON_DISCONNECT ):
-                if not client in server.get_clients(client_filter):
-                    continue
+            continue
 
-            _do(eventid, action, handler, client_filter)
+        node = None
+
+        if eventid in ( ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST ):
+            action = action.replace('%c', '{:08x}'.format(client.spi))
+            node = '{:012x}'.format(client.system_info['node'])
+
+        elif eventid in ( ON_CONNECT, ON_DISCONNECT ):
+            node = client.desc['node']
+
+            try:
+                action = action.format(**client.desc)
+            except (ValueError, KeyError) as e:
+                logger.error('Invalid action format ({}): {}'.format(action, e))
+
+        criterias = ['*', 'any']
+
+        if node:
+            criterias.append(node)
+            criterias.extend(list(config.tags(node)))
+
+        if client_filter not in criterias and not client_filter.startswith(('*', 'any')) and \
+            client not in server.get_clients(client_filter):
+
+            logger.debug('Incompatible event: eventid={} criterias={} client_filter={} action={}'.format(
+                event_to_string(eventid), criterias, client_filter, action))
+
+            continue
+
+        logger.debug('Compatible event: eventid={} criterias={} client_filter={} action={}'.format(
+            event_to_string(eventid), criterias, client_filter, action))
+
+        _do(eventid, action, handler, client_filter)
 
 def event(eventid, client, server, handler, config):
     try:
