@@ -16,7 +16,7 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 import sys
-if sys.version_info[0]!=2:
+if sys.version_info[0] != 2:
     exit("Pupy only support Python 2.x")
 
 import logging
@@ -44,38 +44,47 @@ from pupylib import PupyCredentials
 from pupylib import PupyConfig
 from pupylib import __version__
 
-def print_version():
-    print("Pupy - %s"%(__version__))
 
-if __name__=="__main__":
+def print_version():
+    print("Pupy - %s" % (__version__))
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
     parser.add_argument(
         '--log-level', '-d',
         help='change log verbosity', dest='loglevel',
-        choices=['DEBUG','INFO','WARNING','ERROR'],
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
         default='WARNING')
-    parser.add_argument('--version', help='print version and exit', action='store_true')
+    parser.add_argument(
+        '--version', help='print version and exit', action='store_true')
     parser.add_argument(
         '-l', '--listen',
         help='Bind server listener with transport and args to port.'
         'Example: -l ssl 127.0.0.1:443 -l kcp 80 -l xyz 1234 OPTION1=value OPTION2=value.'
-        'Transports: {}'.format(','.join(x for x in network.conf.transports.iterkeys())),
+        'Transports: {}'.format(
+            ','.join(x for x in network.conf.transports.iterkeys())),
         nargs='+',
         metavar=('TRANSPORT', '<<EXTERNAL_IP=>IP>:<EXTERNAL_PORT=>PORT OPTION=value'),
         action='append', default=[]
     )
-    parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
-    parser.add_argument('-NE', '--not-encrypt', help='Do not encrypt configuration', action='store_true')
+    parser.add_argument(
+        '--workdir', help='Set Workdir (Default = current workdir)')
+    parser.add_argument('-NE', '--not-encrypt',
+                        help='Do not encrypt configuration', action='store_true')
+    parser.add_argument('--sound', dest='sounds',
+                        help='Play a sound when a session connects', action='store_true')
     args = parser.parse_args()
 
     if args.workdir:
-       os.chdir(args.workdir)
+        os.chdir(args.workdir)
 
     if args.version:
         print_version()
         exit(0)
 
-    logging.basicConfig(format='%(asctime)-15s - %(levelname)-5s - %(message)s')
+    logging.basicConfig(
+        format='%(asctime)-15s - %(levelname)-5s - %(message)s')
     logging.getLogger().setLevel(args.loglevel)
 
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
@@ -93,7 +102,7 @@ if __name__=="__main__":
 
     if args.listen:
         listeners = {
-            x[0]:x[1:] if len(x) > 1 else [] for x in args.listen
+            x[0]: x[1:] if len(x) > 1 else [] for x in args.listen
         }
 
         config.set('pupyd', 'listen', ','.join(listeners.iterkeys()))

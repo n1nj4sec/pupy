@@ -34,7 +34,7 @@ allow_requests_to_external_services = false
 use_gnome_keyring=false
 
 ping = 0
-ping_timeout = 2
+ping_timeout = 10
 
 # Enable modules which are marked as QA_DANGEROUS
 # These modules may cause the pupy hang or require manual changes
@@ -112,8 +112,22 @@ keystrokes = data/keylogger/%c/%t.log
 mouseshots = data/mouselogger/%c/%w-%t.png
 
 [on_connect]
-#run_module1 = gather/keylogger start
-#run_module2 = lazagne
+
+## FORMAT:
+## FILTER = ACTION
+## FILTER: [SPI|NODE|*...|any...|client_filter]
+##   Use '*' and 'any' prefix to apply action to all clients
+##   Use SPI or NODE to apply action only to clients with same SPI/NODE id
+##   Other values will be used as client_filter argument (like run -f)
+## ACTION: [!...|include:section_name|module args|]
+##   Use '!' prefix to execute shell command
+##   Use 'include:' prefix to include commands with specified section name
+
+## Example: include actions in section on_connect_notifications
+# any = include:on_connect_notifications
+
+[on_connect_notifications]
+any1 = !notify-send "New session: {hostname} / {os_name}"
 
 [default_viewers]
 image_viewer = eog
