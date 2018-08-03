@@ -35,3 +35,4 @@ fusepy
 https://github.com/boppreh/keyboard/archive/master.zip
 -e external/pykcp
 keyboard
+construct==2.9.39
