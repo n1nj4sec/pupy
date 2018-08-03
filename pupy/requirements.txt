@@ -24,7 +24,6 @@ secretstorage
 pygments
 requests
 tornado
-<<<<<<< HEAD
 poster
 win_inet_pton
 scandir
@@ -34,5 +33,4 @@ M2Crypto
 fusepy
 https://github.com/boppreh/keyboard/archive/master.zip
 -e external/pykcp
-keyboard
 construct==2.9.39
