@@ -15,9 +15,8 @@ import random
 
 from Crypto.Cipher import AES
 from Crypto.Hash   import SHA3_224
+from Crypto.Hash   import SHA384
 from Crypto.Random import get_random_bytes
-
-from hashlib import sha384
 
 class ECMTransport(BasePupyTransport):
     __slots__ = (
@@ -39,13 +38,13 @@ class ECMTransport(BasePupyTransport):
             self.encoder = ECPV(
                 curve='brainpoolP384r1',
                 public_key=self.pubkey,
-                hash=sha384
+                hash=SHA384
             )
         else:
             self.encoder = ECPV(
                 curve='brainpoolP384r1',
                 public_key=self.privkey,
-                hash=sha384
+                hash=SHA384
             )
 
         self.encryptor       = None
