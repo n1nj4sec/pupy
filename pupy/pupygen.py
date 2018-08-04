@@ -82,6 +82,7 @@ def get_edit_binary(path, conf, compressed_config=True, debug=False):
     return binary
 
 def get_raw_conf(conf, obfuscate=False, verbose=False):
+     
     credentials = Credentials(role='client')
 
     if not "offline_script" in conf:
@@ -505,10 +506,10 @@ def get_parser(base_parser, config):
                             choices=CLIENT_ARCH, help='Target arch (default: x86)')
     parser.add_argument('-U', '--uncompressed', default=False, action='store_true',
                             help='Use uncompressed template')
-    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer')
+    parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer when \'client\' output format (default: %(default)s)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
-    parser.add_argument('-o', '--output', help="output path")
-    parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder")
+    parser.add_argument('-o', '--output', help="output filename")
+    parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder (default: %(default)s)")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
@@ -565,7 +566,7 @@ def pupygen(args, config):
                 if "-t" in args.launcher_args or "--transport" in args.launcher_args:
                     args.launcher_args += ['--host', '{}:{}'.format(myip, myport)]
                 else:
-                    args.launcher_args = [
+                    args.launcher_args += [
                         '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
                     ]
             elif str(e).strip().endswith('--domain is required') and not '--domain' in args.launcher_args:
@@ -599,7 +600,11 @@ def pupygen(args, config):
     }
 
     outpath=args.output
-
+    
+    if not os.path.isdir(args.output_dir):
+        print ok+"Creating the local folder '{0}' for generating payloads".format(args.output_dir)
+        os.makedirs(args.output_dir)
+    
     if args.format=="client":
         print ok+"Generate client: {}/{}".format(args.os, args.arch)
 
@@ -632,8 +637,10 @@ def pupygen(args, config):
             os.chmod(outfile.name, 0711)
 
         if args.packer:
+            packingFinalCmd = args.packer.replace('%s', outfile.name)
+            print ok+"Packing payload with this command: {0}".format(packingFinalCmd)
             subprocess.check_call(
-                args.packer.replace('%s', outfile.name),
+                packingFinalCmd,
                 shell=True
             )
 
