@@ -153,7 +153,9 @@ class PupyConfig(ConfigParser):
         elif not dir and path.isfile(retfilepath):
             return path.abspath(retfilepath)
         elif path.exists(retfilepath):
-            raise ValueError('{} is not a file/idr'.format(retfilepath))
+            raise ValueError('{} is not a {}'.format(
+                path.abspath(retfilepath),
+                'dir' if dir else 'file'))
         elif create:
             if dir:
                 makedirs(retfilepath)
