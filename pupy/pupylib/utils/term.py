@@ -307,6 +307,12 @@ def hint_to_text(text, width=0):
         return '\n\n'.join(
             hint_to_text(x, width) for x in text.data
         )
+    elif hint == Indent:
+        return '\n'.join(
+            (' '*text.indent) + x for x in hint_to_text(
+                text.data, width).split('\n')
+        )
+
     elif hint == Color:
         return colorize(hint_to_text(text.data, width), text.color)
     elif hint == TruncateToTerm:

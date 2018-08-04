@@ -105,6 +105,13 @@ class Pygment(Text):
 class Interact(Hint):
     __slots__ = ()
 
+class Indent(Text):
+    __slots__ = ( 'indent' )
+
+    def __init__(self, data, indent=2):
+        super(Indent, self).__init__(data)
+        self.indent = indent
+
 class Prompt(Interact):
     __slots__ = ( 'request', 'hide' )
 
