@@ -65,13 +65,16 @@ class LaZagne(PupyModule):
             client=self.client.short_name(), config=self.config
         )
 
+        whole = self.client.remote('whole', 'to_strings_list', False)
+        runLaZagne = self.client.remote('laZagne', 'runLaZagne', False)
+
         first_user = True
         passwordsFound = False
-        results = obtain(
-            self.client.conn.modules["whole"].to_strings_list(
-                self.client.conn.modules["laZagne"].runLaZagne,
-                category_choosed=args.category
-            ))
+
+        results = obtain(whole(
+            runLaZagne,
+            category_choosed=args.category, raise_on_exception=False))
+
         for r in results:
             if r[0] == 'User':
                 if not passwordsFound and not first_user:
