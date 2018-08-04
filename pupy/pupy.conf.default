@@ -89,7 +89,6 @@ arch = x86
 external = false
 #The command used for packing the 'client' output format (incompatible with py, pyinst, py_oneliner, ps1, ps1_oneliner, rubber_ducky for example)
 packer = 
-output = output/
 #launcher =
 #launcher_args = 
 
@@ -111,6 +110,7 @@ wwwroot = data/wwwroot
 records = data/%c
 keystrokes = data/keylogger/%c/%t.log
 mouseshots = data/mouselogger/%c/%w-%t.png
+payload_output = output
 
 [on_connect]
 

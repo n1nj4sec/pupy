@@ -1,5 +1,6 @@
 #pupy stuff
 pupy/data/
+pupy/output/
 pupy/proxy/proxy
 pupy/crypto/*.py
 pupy/.pupy_history
