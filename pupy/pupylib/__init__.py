@@ -22,6 +22,3 @@ from PupyDnsCnc import *
 from PupyCredentials import *
 from PupyVersion import *
 from utils.rpyc_utils import *
-
-from PupyVersion import __version__
-from PupyVersion import __date__

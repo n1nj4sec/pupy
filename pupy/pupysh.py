@@ -42,12 +42,6 @@ from pupylib import PupyServer
 from pupylib import PupyCmdLoop
 from pupylib import PupyCredentials
 from pupylib import PupyConfig
-from pupylib import __version__
-
-
-def print_version():
-    print("Pupy - %s" % (__version__))
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
@@ -56,8 +50,6 @@ if __name__ == "__main__":
         help='change log verbosity', dest='loglevel',
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
         default='WARNING')
-    parser.add_argument(
-        '--version', help='print version and exit', action='store_true')
     parser.add_argument(
         '-l', '--listen',
         help='Bind server listener with transport and args to port.'
@@ -78,10 +70,6 @@ if __name__ == "__main__":
 
     if args.workdir:
         os.chdir(args.workdir)
-
-    if args.version:
-        print_version()
-        exit(0)
 
     logging.basicConfig(
         format='%(asctime)-15s - %(levelname)-5s - %(message)s')

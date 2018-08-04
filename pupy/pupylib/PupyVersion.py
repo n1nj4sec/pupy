@@ -1,20 +1,31 @@
 # -*- coding: utf-8 -*-
 
-__author__='Nicolas VERDIER'
-__version__='v1.7-unstable'
-__date__='Sep 15 2017'
+INFO = {
+    '__author__': 'Community',
+    '__version__': 'v1.8',
+    '__date__': 'Aug 2018',
+    '__upstream__': 'https://github.com/n1nj4sec/pupy'
+}
 
-BANNER="""
+BANNER='''
             _____                    _       _ _
  ___ ___   |  _  |_ _ ___ _ _    ___| |_ ___| | |   ___ ___
 |___|___|  |   __| | | . | | |  |_ -|   | -_| | |  |___|___|
            |__|  |___|  _|_  |  |___|_|_|___|_|_|
                      |_| |___|
 
-                   %s (%s)
-"""%(__version__, __date__)
+                   {__version__} ({__date__})
+'''.format(**INFO)
 
-BANNER_INFO="""
-Author:           Nicolas VERDIER  < @n1nj4sec > (contact@n1nj4.eu)
-Bleeding edge:    https://github.com/n1nj4sec/pupy
-"""
+UPSTREAM='''
+Bleeding edge: {__upstream__}
+'''.format(**INFO)
+
+DISCLAIMER='''The usage of this software to access any system,
+service, or network without the owner\'s consent is
+expressly forbidden.
+
+Please follow https://www.eccouncil.org/code-of-ethics/
+
+Good luck!
+'''

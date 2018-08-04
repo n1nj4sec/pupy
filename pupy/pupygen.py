@@ -26,7 +26,6 @@ from scriptlets.scriptlets import ScriptletArgumentError
 from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
 from pupylib import PupyCredentials
-from pupylib.PupyVersion import __version__
 
 import marshal
 import scriptlets

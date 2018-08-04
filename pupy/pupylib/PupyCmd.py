@@ -40,7 +40,7 @@ from .PupyModule import (
     REQUIRE_NOTHING, REQUIRE_REPL, REQUIRE_TERMINAL
 )
 from .PupyCompleter import CompletionContext
-from .PupyVersion import BANNER, BANNER_INFO
+from .PupyVersion import BANNER, UPSTREAM, DISCLAIMER
 from .PupyOutput import *
 
 from .utils.term import colorize, hint_to_text, consize
@@ -306,8 +306,9 @@ class PupyCmd(cmd.Cmd):
         self.init_readline()
 
         self._intro = [
-            colorize(BANNER, 'green'),
-            colorize(BANNER_INFO, 'darkgrey')
+            Color(BANNER, 'green'),
+            Indent(Color(UPSTREAM, 'cyan')),
+            Indent(Color(DISCLAIMER, 'lightred'))
         ]
 
         self.raw_prompt = colorize('>> ','blue')
