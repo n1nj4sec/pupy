@@ -9,7 +9,7 @@ import zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(ROOT, '..', 'client', 'library_patches'))
+    sys.path.insert(0, os.path.join(ROOT, 'pupy', 'library_patches'))
 
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize

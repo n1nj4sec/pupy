@@ -19,19 +19,19 @@ import sys
 if sys.version_info[0] != 2:
     exit("Pupy only support Python 2.x")
 
+import os
+
+if __name__ == '__main__':
+    ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+    sys.path.insert(0, os.path.join(ROOT, 'library_patches'))
+
 import logging
 import time
 import traceback
 import argparse
-import os
-import os.path
 import sys
 import network.conf
 import getpass
-
-if __name__ == '__main__':
-    PUPY_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    sys.path.insert(0, os.path.join(PUPY_ROOT, 'client', 'library_patches'))
 
 try:
     import pupylib.PupySignalHandler

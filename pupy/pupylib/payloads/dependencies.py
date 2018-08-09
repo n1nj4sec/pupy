@@ -36,7 +36,7 @@ LIBS_AUTHORIZED_PATHS = [
 PATCHES_PATHS = [
     os.path.abspath(os.path.join(os.getcwdu(), 'packages', 'patches')),
     os.path.abspath(os.path.join(ROOT, 'packages', 'patches')),
-    os.path.abspath(os.path.join(ROOT, '..', 'client', 'library_patches'))
+    os.path.abspath(os.path.join(ROOT, 'library_patches'))
 ]
 
 # ../libs - for windows bundles, to use simple zip command
@@ -333,7 +333,7 @@ def paths(platform='all', arch=None, posix=None):
 
     path = [
         os.path.join('packages', platform),
-        os.path.abspath(os.path.join(ROOT, '..', 'client', 'library_patches'))
+        os.path.abspath(os.path.join(ROOT, 'library_patches'))
     ]
 
     if arch:
