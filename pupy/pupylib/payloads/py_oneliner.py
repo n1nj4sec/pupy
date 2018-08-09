@@ -31,7 +31,7 @@ def pack_py_payload(conf, debug=False):
         '\n'.join([
             dependencies.loader(pupyimportercode, 'pupyimporter'),
             'import pupyimporter',
-            'pupyimporter.install(debug={})'.format(str(debug)),
+            'pupyimporter.install(debug={})'.format(repr(debug if debug is not None else False)),
             dependencies.importer('network', path=ROOT),
             dependencies.importer((
                 'rpyc', 'pyasn1', 'rsa',

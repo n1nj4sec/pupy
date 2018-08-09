@@ -386,7 +386,7 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     if osname in SUFFIXES:
         non_shared_ext, shared_ext = SUFFIXES[osname]
 
-    debug = 'd' if debug else ''
+    debug_fmt = 'd' if debug else ''
 
     if shared:
         makex = False
@@ -394,7 +394,7 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     else:
         ext = non_shared_ext
 
-    filename = template.format(arch=arch, debug=debug, ext=ext, unk='.unc' if not compressed else '')
+    filename = template.format(arch=arch, debug=debug_fmt, ext=ext, unk='.unc' if not compressed else '')
     template = os.path.join(
         'payload_templates', filename
     )
