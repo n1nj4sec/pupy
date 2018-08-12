@@ -495,6 +495,8 @@ def call(name, expression, async=False, timeout=None, content=None, try_x64=Fals
         result = powershell.call(name, expression, async, timeout)
         if async:
             return result.rid
+        else:
+            return result
 
     finally:
         if content:
