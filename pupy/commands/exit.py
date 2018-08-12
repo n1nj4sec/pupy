@@ -1,7 +1,6 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Success
 
 usage = 'Exit Shell'
 parser = PupyArgumentParser(prog='exit', description=usage)

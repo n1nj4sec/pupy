@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import NewLine, MultiPart, Table, Color, Line, TruncateToTerm
+from pupylib.PupyOutput import MultiPart, Table, Color, Line, TruncateToTerm
 from pupylib.PupyCompleter import commands_completer
 
 usage  = 'Show help'
@@ -39,10 +39,10 @@ def do(server, handler, config, args):
                     Color(args.module+':', 'green'),
                     doc.title().split('\n')[0]))
 
-                if command.parser.add_help:
-                    tables.append(command.parser.format_help())
+                if module.arg_parser.add_help:
+                    tables.append(module.arg_parser.format_help())
                 else:
-                    tables.append(command.parser.parse_args(['--help']))
+                    tables.append(module.arg_parser.parse_args(['--help']))
 
                 clients = server.get_clients(handler.default_filter)
                 if clients:

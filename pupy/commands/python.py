@@ -12,7 +12,7 @@ import code
 
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PythonCompleter import PythonCompleter
-from pupylib.PupyOutput import Table, Error
+from pupylib.PupyOutput import Error
 
 usage = 'Start the local python interpreter (for debugging purposes)'
 parser = PupyArgumentParser(prog='python', description=usage)
@@ -22,7 +22,7 @@ def do(server, handler, config, args):
     orig_quit = builtins.quit
 
     def disabled_exit(*args, **kwargs):
-        self.display_warning("exit() disabled ! use ctrl+D to exit the python shell")
+        handler.display(Error('exit() disabled ! use ctrl+D to exit the python shell'))
 
     builtins.exit = disabled_exit
     builtins.quit = disabled_exit

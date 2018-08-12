@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-from pupylib.PupyModule import PupyArgumentParser
 import network.conf
 
 launcher = network.conf.launchers['connect'](

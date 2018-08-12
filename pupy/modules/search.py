@@ -47,7 +47,9 @@ class SearchModule(PupyModule):
         if args.download:
             args.no_content = True
 
-        s = self.client.conn.modules['pupyutils.search'].Search(
+        search = self.client.remote('pupyutils.search')
+
+        s = search.Search(
             args.filename,
             strings=args.strings,
             max_size=args.max_size,

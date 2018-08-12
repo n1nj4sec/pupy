@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Info, Success, Error, Table, Color
+from pupylib.PupyOutput import Success, Error, Table, Color
 
 import time
 
@@ -649,5 +649,5 @@ def do(server, handler, config, args):
                     'PORTS': ','.join(str(x) for x in ports)
                 } for ip,ports in session.open_ports.iteritems()
             ]
-            handler.display(PupyCmd.table_format(objects, wl=['IP', 'PORTS']))
+            handler.display(Table(objects, ['IP', 'PORTS']))
             session.open_ports = {}

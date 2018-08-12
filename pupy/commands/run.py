@@ -4,7 +4,7 @@
 
 from pupylib.PupyModule import PupyArgumentParser, PupyModuleUsageError
 from pupylib.PupyCompleter import module_name_completer, module_args_completer, path_completer
-from pupylib.PupyOutput import Error, Success
+from pupylib.PupyOutput import Error, Line, Color
 from pupylib.PupyJob import PupyJob
 from argparse import REMAINDER
 
@@ -42,8 +42,8 @@ def do(server, handler, config, modargs):
 
     except PupyModuleUsageError, e:
         prog, message, usage = e.args
-        self.display(Line(Error(prog+':'), Color(message, 'lightred')))
-        self.display(usage)
+        handler.display(Line(Error(prog+':'), Color(message, 'lightred')))
+        handler.display(usage)
 
     except Exception as e:
         handler.display(Error(e, modargs.module))
@@ -68,7 +68,6 @@ def do(server, handler, config, modargs):
     ]
 
     pj = None
-    interactive = False
     unique = False
 
     if module.daemon and module.unique_instance and modjobs:
@@ -82,8 +81,6 @@ def do(server, handler, config, modargs):
             module, '{} {}'.format(modargs.module, ' '.join(args)),
             jobargs
         )
-
-        add_job = True
 
         ios = handler.acquire_io(
             module.io, len(clients), modargs.background or module.daemon)

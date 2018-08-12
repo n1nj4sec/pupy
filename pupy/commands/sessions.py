@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Color, Success, Error, Table
+from pupylib.PupyOutput import Color, Success, Table
 
 usage  = 'list/interact with established sessions'
 parser = PupyArgumentParser(prog='sessions', description=usage)
@@ -52,7 +52,7 @@ def do(server, handler, config, modargs):
     elif modargs.killall:
         clients = server.get_clients_list()
         descriptions = [
-            x.desc for x in client_lis
+            x.desc for x in clients
         ]
 
         for description in descriptions:

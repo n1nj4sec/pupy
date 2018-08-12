@@ -5,6 +5,9 @@ import os
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Info, Warn, Success, Error
 
+from pupylib.utils.network import get_listener_ip, get_listener_port
+from pupylib.utils.network import get_listener_ip_with_local
+
 import pupygen
 
 usage  = 'Generate payload'
@@ -102,7 +105,7 @@ def do(server, handler, config, args):
             )
 
             if (not local and args.prefer_external) or not (host and port):
-                hadler.display(Warn('Using configured/discovered external HOST:PORT'))
+                handler.display(Warn('Using configured/discovered external HOST:PORT'))
                 host = maybe_host
                 port = maybe_port
             else:

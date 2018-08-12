@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Color, Table
+from pupylib.PupyOutput import Table
 
 usage = 'list exposed objects/methods'
 parser = PupyArgumentParser(description=usage)
