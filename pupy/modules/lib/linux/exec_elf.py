@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import zlib
 import threading
+
 from modules.lib.utils.cmdrepl import CmdRepl
 
 def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage=None):

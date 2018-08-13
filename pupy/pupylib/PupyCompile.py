@@ -27,10 +27,10 @@ class Compiler(ast.NodeTransformer):
     def compile(self, filename, obfuscate=False, raw=False, magic='\x00'*8):
         body = marshal.dumps(compile(self.visit(self._source_ast), filename, 'exec'))
         if obfuscate:
-            l = len(body)
+            body_len = len(body)
             offset = 0 if raw else 8
 
-            output = bytearray(l + 8)
+            output = bytearray(body_len + 8)
             for i,x in enumerate(body):
                 output[i+offset] = (ord(x)^((2**((65535-i)%65535))%251))
 
@@ -112,8 +112,6 @@ if __name__ == '__main__':
         if filepath_basename in WHITELIST:
             main = True
             docstrings = True
-
-        data = None
 
         try:
             with open(filepath_noext + '.pyo', 'wb') as out:

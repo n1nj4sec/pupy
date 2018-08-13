@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.rpyc_utils import redirected_stdio
 from pupylib.PupyConfig import PupyConfig
+from os import path
 import datetime
-import json
 
 __class_name__="Beroot"
 
@@ -29,7 +30,7 @@ class Beroot(PupyModule):
         if args.write:
             config = self.client.pupsrv.config or PupyConfig()
             folder = config.get_folder('beroot', {'%c': self.client.short_name()})
-            filepath = os.path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+"-beroot.txt")
+            filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+"-beroot.txt")
 
         with redirected_stdio(self):
             try:

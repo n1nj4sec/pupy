@@ -3,9 +3,7 @@
 import os
 import psutil
 import ctypes
-import subprocess
 import pupyps
-import psutil
 import pwd
 import socket
 
@@ -160,20 +158,20 @@ def guess_displays():
                         elif arg == '-auth':
                             NextIsXAuthority = True
                         elif NextIsXAuthority:
-                            Xauthority = arg
+                            XAuthority = arg
                             NextIsXAuthority = False
 
                     if not DISPLAY:
                         continue
 
-                    pair = (user, Xauthority)
+                    pair = (user, XAuthority)
                     if not DISPLAY in displays:
                         displays[DISPLAY] = set()
 
-                    if not pair in displays[DISPLAY] and check_display(DISPLAY, Xauthority):
+                    if not pair in displays[DISPLAY] and check_display(DISPLAY, XAuthority):
                         displays[DISPLAY].add(pair)
 
-                except Exception, e:
+                except:
                     pass
 
     return {

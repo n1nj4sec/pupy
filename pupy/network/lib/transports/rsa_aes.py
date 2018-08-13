@@ -182,6 +182,7 @@ class RSA_AESClient(RSA_AESTransport):
 
     pubkey=None
     pubkey_path=None
+
     def __init__(self, *args, **kwargs):
         super(RSA_AESClient, self).__init__(*args, **kwargs)
         if "pubkey" in kwargs:
@@ -217,6 +218,7 @@ class RSA_AESServer(RSA_AESTransport):
 
     privkey = None
     privkey_path = None
+
     def __init__(self, *args, **kwargs):
         super(RSA_AESServer, self).__init__(*args, **kwargs)
         if "privkey" in kwargs:

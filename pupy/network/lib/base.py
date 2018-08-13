@@ -195,7 +195,7 @@ class TransportWrapper(BasePupyTransport):
         for klass in self.chain:
             try:
                 klass.close()
-            except Exception, e:
+            except:
                 pass
 
         super(TransportWrapper, self).close()
@@ -237,6 +237,8 @@ def chain_transports(*args):
     """ chain 2 or more transports in such a way that the first argument is the transport seen at network level like t1(t2(t3(...(raw_data)...)))"""
     if len(args)<2:
         raise ValueError("chain_transports needs at least 2 transports !")
+
     class WrappedTransport(TransportWrapper):
-        cls_chain=list(args)
+        cls_chain = list(args)
+
     return WrappedTransport

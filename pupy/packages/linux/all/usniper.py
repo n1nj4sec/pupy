@@ -5,7 +5,6 @@ import random
 import string
 import re
 import os
-import signal
 import pupy
 import builtins
 import fcntl

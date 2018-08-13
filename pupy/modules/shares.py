@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from netaddr import *
-from pupylib.utils.rpyc_utils import obtain
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from netaddr import IPNetwork
 
 __class_name__="Shares"
 

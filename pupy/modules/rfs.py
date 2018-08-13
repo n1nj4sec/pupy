@@ -2,10 +2,9 @@
 
 # https://raw.githubusercontent.com/skorokithakis/python-fuse-sample/master/passthrough.py
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 import os
-import sys
 import errno
 import subprocess
 
@@ -13,7 +12,7 @@ import threading
 import psutil
 
 import fuse
-from fuse import FUSE, FuseOSError, Operations
+from fuse import FuseOSError, Operations
 
 class PupyFUSE(fuse.FUSE):
     ''' FUSE override SIGINT handler, which is bad. So ^C ^V without that '''
@@ -140,7 +139,7 @@ class RFSManager(object):
 
                 for d in dirs:
                     if d == lpath or d.startswith(lpath+'/'):
-                        x.kill()
+                        x.kill(pid)
                         break
 
             except psutil.AccessDenied:
@@ -305,7 +304,7 @@ class PupyRFS(Operations):
 
     def truncate(self, path, length, fh=None):
         full_path = self._full_path(path)
-        fd = self.rops.open(path, os.O_RDWR)
+        fd = self.rops.open(full_path, os.O_RDWR)
         if fd != -1:
             self.rops.ftruncate(fd, length)
             self.rops.close(fd)

@@ -14,7 +14,7 @@ def start(names, hashes=[], poll=20, minpw=8, maxpw=16, maxdups=131072, policy=T
         return False
 
     try:
-        mon = pupy.manager.create(
+        pupy.manager.create(
             HashMon,
             names, hashes=hashes, poll=poll, minpw=minpw,
             maxpw=maxpw, maxdups=maxdups, policy=policy
@@ -114,9 +114,9 @@ class HashMon(pupy.Task):
 
     def check_hash(self, hash, string):
         if hash.startswith('$'):
-            salt, body = hash.rsplit('$', 1)
+            salt = hash.rsplit('$', 1)[0]
         else:
-            salt, body = hash[:2], hash[2:]
+            salt = hash[:2]
 
         if crypt.crypt(string, salt) == hash:
             return string, hash

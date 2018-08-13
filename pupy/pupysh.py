@@ -26,16 +26,14 @@ if __name__ == '__main__':
     sys.path.insert(0, os.path.join(ROOT, 'library_patches'))
 
 import logging
-import time
-import traceback
 import argparse
 import sys
 import network.conf
-import getpass
 
 try:
     import pupylib.PupySignalHandler
-except:
+    assert pupylib.PupySignalHandler
+except ImportError:
     pass
 
 from pupylib import PupyServer

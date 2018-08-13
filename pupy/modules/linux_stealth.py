@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    QA_UNSTABLE
+)
 from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="SetStealth"
-def print_callback(data):
-    sys.stdout.write(data)
-    sys.stdout.flush()
 
 @config(compat="linux", cat="manage")
 class SetStealth(PupyModule):

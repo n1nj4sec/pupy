@@ -15,7 +15,11 @@ if TERM and TERM.endswith('256color'):
 else:
     from pygments.formatters import TerminalFormatter
 
-from pupylib.PupyOutput import *
+from pupylib.PupyOutput import (
+    Hint, Text, NewLine, Title, MultiPart, Indent, Color,
+    TruncateToTerm, Error, Log, Warn, Success, Info,
+    ServiceInfo, Section, Line, Table, Pygment
+)
 
 PYGMENTS_STYLE='native'
 
@@ -209,13 +213,13 @@ def obj2utf8(obj):
 
     return obj
 
-def get_columns_size(l):
+def get_columns_size(columns):
     size_dic = {}
-    for d in l:
-        for i,k in d.iteritems():
-            l = elen(k)
-            if not i in size_dic or size_dic[i] < l:
-                size_dic[i] = l
+    for column in columns:
+        for key, value in column.iteritems():
+            value_elen = elen(value)
+            if not key in size_dic or size_dic[key] < value_elen:
+                size_dic[key] = value_elen
 
     return size_dic
 

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
-from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 
 __class_name__="MimipyMod"

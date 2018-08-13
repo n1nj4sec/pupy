@@ -3,7 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import textwrap, random, string
-from scriptlets import *
+from scriptlets import ScriptletArgumentError, Scriptlet
 
 class ScriptletGenerator(Scriptlet):
     """ copy the current pupy executable to a random exe in %TEMP% and add persistency through registry """

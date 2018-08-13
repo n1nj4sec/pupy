@@ -4,7 +4,7 @@
 
 __class_name__="call"
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 import os, datetime
 
 @config(cat="gather", compat=["android"])
@@ -52,6 +52,6 @@ def getLocalAndroidPath(client, args):
     '''
     localPath = os.path.join(args.localOutputFolder, "{0}-{1}".format(client.conn.modules['pupydroid.utils'].getAndroidID(), client.desc['user']))
     if not os.path.exists(localPath):
-        logging.info("Creating {0} folder locally".format(localPath))
+        # logging.info("Creating {0} folder locally".format(localPath))
         os.makedirs(localPath)
     return localPath

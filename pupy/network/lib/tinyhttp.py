@@ -6,10 +6,8 @@ import urllib2
 import urllib
 import urlparse
 import httplib
-import base64
 import ssl
 import socket
-import sys
 
 import StringIO
 
@@ -119,7 +117,6 @@ class TCPReaderHandler(urllib2.BaseHandler):
         host = url.hostname
         port = url.port or 53
 
-        data = []
         conn = socket.create_connection((host, port))
         conn.settimeout(10)
         return conn
@@ -375,8 +372,8 @@ class HTTP(object):
         url = urllib2.Request(url, data, headers)
 
         if file:
-            with open(file, 'rb') as input:
-                response = self.opener.open(url, timeout=self.timeout)
+            with open(file, 'rb') as body:
+                response = self.opener.open(url, body, timeout=self.timeout)
         else:
             response = self.opener.open(url, timeout=self.timeout)
 

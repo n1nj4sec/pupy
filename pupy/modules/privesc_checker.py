@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib import ROOT
 
 __class_name__="PrivEsc_Checker"

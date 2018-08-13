@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color
-from collections import OrderedDict
-from datetime import datetime, timedelta
 
 import logging
-import socket
 
 __class_name__="NetStatModule"
 
@@ -29,7 +27,6 @@ class NetStatModule(PupyModule):
 
     def run(self, args):
         try:
-            rpupyps = self.client.remote('pupyps')
             connections = self.client.remote('pupyps', 'connections')
 
             families = {

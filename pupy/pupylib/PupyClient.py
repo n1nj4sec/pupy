@@ -30,8 +30,6 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import logging
-
 import zlib
 
 import msgpack
@@ -41,8 +39,6 @@ from threading import Lock
 from os import path
 
 from . import ROOT, HOST_SYSTEM, HOST_CPU_ARCH, HOST_OS_ARCH
-from .PupyErrors import PupyModuleError
-from .PupyJob import PupyJob
 from .PupyCompile import pupycompile
 from .payloads import dependencies
 from .utils.rpyc_utils import obtain

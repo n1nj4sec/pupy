@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
 # Author: AlessandroZ
 
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
-from rpyc.utils.classic import upload
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.term import colorize, terminal_size
 from pupylib.utils.rpyc_utils import obtain
-import tempfile
-import subprocess
-import os.path
-import sys
 
 __class_name__="LaZagne"
 
@@ -115,7 +109,8 @@ class LaZagne(PupyModule):
     def dump(self, src, length=8):
         if type(src) == unicode:
             src = src.encode('latin1')
-        N=0; result=''
+        N=0
+        result=''
         while src:
             s,src = src[:length],src[length:]
             hexa = ' '.join(["%02X"%ord(x) for x in s])

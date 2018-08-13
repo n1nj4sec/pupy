@@ -64,7 +64,7 @@ def find_writable_folder():
         return sys.__pupyimporter_writable_folder
 
     from tempfile import mkstemp, gettempdir
-    from os import chmod, unlink, close, write, access, X_OK
+    from os import chmod, unlink, close, access, X_OK
 
     temporary_folders = [gettempdir()]
     if sys.platform != 'win32':
@@ -215,9 +215,9 @@ def py_memimporter():
                 fullname, len(data), initfuncname, name, platform.system()))
             try:
                 try:
-                    bs = write(fd, data)
+                    write(fd, data)
                 except:
-                    bs = write(fd, bytearray(data))
+                    write(fd, bytearray(data))
 
                 if sys.platform == 'win32':
                     close(fd)
@@ -320,7 +320,6 @@ except ImportError:
     builtin_memimporter = False
     allow_system_packages = True
 
-if not builtin_memimporter:
     try:
         dprint('Fallback to PyMemimporter')
         _memimporter = py_memimporter()
@@ -385,6 +384,7 @@ def pupy_add_package(pkdic, compressed=False, name=None):
         try:
             __import__(name)
         except:
+            import traceback
             if remote_print_error:
                 remote_print_error('Error during preimport {}: {}'.format(
                     name, str(traceback.format_exc())))
@@ -949,6 +949,7 @@ def install(debug=None, trace=False):
 
     if sys.platform == 'win32':
         import pywintypes
+        assert pywintypes
 
     import logging
     logger = logging.getLogger('ppi')

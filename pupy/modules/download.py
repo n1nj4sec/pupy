@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyCompleter import remote_path_completer, path_completer
 
 from modules.lib.utils.download import DownloadFronted
 

@@ -2,10 +2,19 @@
 #Author: ??? and original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
 #Contributor(s): @bobsecq
 
-from ctypes.wintypes import *
-from ctypes import *
+from ctypes import (
+    WinDLL, c_uint32, c_char_p,
+    c_wchar_p, c_long, c_uint16, Structure,
+    POINTER, create_unicode_buffer, create_string_buffer,
+    get_last_error, cast, c_void_p, sizeof, c_int,
+    c_wchar, GetLastError, WinError, byref, addressof
+)
+
+from ctypes.wintypes import (
+    BOOL, LPSTR, BYTE
+)
+
 import subprocess
-import platform
 import psutil
 import sys
 import os
@@ -64,6 +73,7 @@ class LUID(Structure):
         ("LowPart",     DWORD),
         ("HighPart",    LONG),
     ]
+
     def __eq__(self, other):
         return (self.HighPart == other.HighPart and self.LowPart == other.LowPart)
 
@@ -91,6 +101,7 @@ class LUID_AND_ATTRIBUTES(Structure):
         ("Luid",        LUID),
         ("Attributes",  DWORD),
     ]
+
     def is_enabled(self):
         return bool(self.Attributes & SE_PRIVILEGE_ENABLED)
 
@@ -101,12 +112,18 @@ class LUID_AND_ATTRIBUTES(Structure):
         size = DWORD(10240)
         buf = create_unicode_buffer(size.value)
         res = LookupPrivilegeName(None, self.Luid, buf, size)
-        if res == 0: raise WinError(get_last_error())
+
+        if res == 0:
+            raise WinError(get_last_error())
+
         return buf[:size.value]
 
     def __str__(self):
         res = self.get_name()
-        if self.is_enabled(): res += ' (enabled)'
+
+        if self.is_enabled():
+            res += ' (enabled)'
+
         return res
 
 class TOKEN_PRIVILEGES(Structure):
@@ -121,6 +138,7 @@ class TOKEN_PRIVS(Structure):
         ("PrivilegeCount",  DWORD),
         ("Privileges",      LUID_AND_ATTRIBUTES*0),
     ]
+
     def get_array(self):
         array_type = LUID_AND_ATTRIBUTES*self.PrivilegeCount
         privileges = cast(self.Privileges, POINTER(array_type)).contents

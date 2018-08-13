@@ -8,7 +8,6 @@ import Queue
 import rpyc
 import sys
 import os
-import shlex
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -20,7 +19,7 @@ def read_pipe(queue, pipe, bufsize):
         try:
             returncode = pipe.poll()
             completed = returncode != None
-        except Exception as e:
+        except:
             continue
 
         try:

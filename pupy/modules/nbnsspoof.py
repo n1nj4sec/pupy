@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-import sys
-import subprocess
-import threading
-import Queue
-import time
+
 from modules.lib.windows.winpcap import init_winpcap
-from pupylib import *
+from pupylib.utils.rpyc_utils import redirected_stdo
+
+from pupylib.PupyModule import (
+    config, PupyModule,
+    QA_DANGEROUS, PupyArgumentParser,
+    REQUIRE_STREAM
+)
 
 __class_name__="NbnsSpoofModule"
 
@@ -17,6 +19,7 @@ class NbnsSpoofModule(PupyModule):
 
     dependencies=[ 'nbnsspoof' ]
     qa = QA_DANGEROUS
+    io = REQUIRE_STREAM
 
     @classmethod
     def init_argparse(cls):

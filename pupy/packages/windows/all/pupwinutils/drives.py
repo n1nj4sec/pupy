@@ -55,7 +55,6 @@ def list_drives():
         )
     ]
 
-    data  = []
     for disk in c.query(wql):
         unc_path = ''
         if disk.ProviderName:

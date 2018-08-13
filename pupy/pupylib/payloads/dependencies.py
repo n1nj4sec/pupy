@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, sys, os.path, logging
+import os, sys, os.path
 import cPickle
-import marshal
 import zlib
 from zipfile import ZipFile
 
 from pupylib.PupyCompile import pupycompile
 from pupylib import ROOT, getLogger
-
-import traceback
 
 class BinaryObjectError(ValueError):
     pass
@@ -211,7 +208,6 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
     query = start_path
 
     modules_dic = {}
-    found_files = set()
 
     if not os.path.sep in start_path:
         start_path = start_path.replace('.', os.path.sep)
@@ -288,7 +284,6 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
 
                 modules_dic[modpath] = module_code
 
-            package_found=True
     else: # loading a simple file
         extlist=[ '.py', '.pyo', '.pyc' ]
         if not pure_python_only:
@@ -320,7 +315,6 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
 
                 modules_dic[start_path+ext] = module_code
 
-                package_found=True
                 break
 
     return modules_dic
@@ -376,7 +370,6 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
     initial_module_name = module_name
 
     start_path = module_name.replace('.', os.path.sep)
-    package_found = False
 
     for search_path in paths(platform, arch, posix):
         modules_dic = from_path(platform, arch, search_path, start_path,
@@ -561,13 +554,12 @@ def bundle(platform, arch):
 def dll(name, platform, arch, honor_ignore=True):
     buf = b''
 
-    path = None
     for packages_path in paths(platform, arch):
         dll_path = os.path.join(packages_path, name)
         if os.path.exists(dll_path):
             try:
                 buf = get_content(
-                    platform, arch, prefix, packages_path, dll_path,
+                    platform, arch, name, packages_path, dll_path,
                     honor_ignore=honor_ignore)
             except IgnoreFileException:
                 pass

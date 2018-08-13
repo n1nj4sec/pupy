@@ -42,7 +42,18 @@ from dnslib.server import DNSHandler, BaseResolver, DNSLogger
 
 import ascii85
 
-from picocmd import *
+from picocmd import (
+    Poll, Ack,
+    SystemStatus, OnlineStatus,
+    Exit, ConnectablePort, PortQuizPort,
+    Policy, Kex, SystemInfo,
+    PupyState,
+    Error, ParcelInvalidCrc,
+    ParcelInvalidPayload,
+    Parcel, PackError,
+    from_bytes
+)
+
 from ecpv import ECPV
 
 def convert_node(node):

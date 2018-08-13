@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, NewLine
 
 from netaddr import IPNetwork, IPAddress

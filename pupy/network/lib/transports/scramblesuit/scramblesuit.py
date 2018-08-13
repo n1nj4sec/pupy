@@ -217,7 +217,6 @@ class ScrambleSuitTransport( base.BaseTransport ):
             return
 
         # The preferred authentication mechanism is a session ticket.
-        bridge = self.circuit.downstream.transport.getPeer()
         if self.uniformDHSecret is None:
                 #log.warning("A UniformDH password is not set, most likely " \
                 #            "a missing 'password' argument.")
@@ -316,7 +315,6 @@ class ScrambleSuitTransport( base.BaseTransport ):
             elif self.weAreClient and (msg.flags == const.FLAG_NEW_TICKET):
                 assert len(msg.payload) == (const.TICKET_LENGTH +
                                             const.MASTER_KEY_LENGTH)
-                peer = self.circuit.downstream.transport.getPeer()
 
             # Use the PRNG seed to generate the same probability distributions
             # as the server.  That's where the polymorphism comes from.
@@ -545,6 +543,7 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
     """
 
     password=None
+
     def __init__( self, *args, **kwargs ):
         """
         Initialise a ScrambleSuitClient object.
@@ -572,6 +571,7 @@ class ScrambleSuitServer( ScrambleSuitTransport ):
     Extend the ScrambleSuit class.
     """
     password=None
+
     def __init__( self, *args, **kwargs ):
         """
         Initialise a ScrambleSuitServer object.

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 
 __class_name__="SudoAlias"

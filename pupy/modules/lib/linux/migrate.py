@@ -1,9 +1,6 @@
 import pupygen
 import time
 import gzip, cStringIO
-import random
-import string
-import rpyc
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:

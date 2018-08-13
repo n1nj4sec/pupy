@@ -4,7 +4,7 @@
 
 __class_name__="contacts"
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.common import getLocalAndroidPath
 import os, copy
 
@@ -38,7 +38,7 @@ class contacts(PupyModule):
         self.success("Saving contacts {0} contacts...".format(len(contacts)))
         f = open(completePath, 'w', 1)
         for aContact in contacts:
-            logging.info("Saving the contact: {0}".format(aContact))
+            self.info("Saving the contact: {0}".format(aContact))
             f.write("********** id: {0} **********\n".format(aContact['id']))
             f.write("name: {0}\n".format(aContact['name']))
             for aPhoneNb,aPhoneNbType in zip(aContact['phoneNbs'],aContact['phoneNbsTypes']):

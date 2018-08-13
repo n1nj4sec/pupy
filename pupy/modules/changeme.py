@@ -2,13 +2,14 @@
 # Author: AlessandroZ
 
 from pupylib import ROOT
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.changeme.load_creds import Credentials as changeme_creds
 
-from netaddr import *
+from netaddr import IPNetwork
 
 import os
+import re
 
 __class_name__="Changeme"
 
@@ -19,14 +20,14 @@ class Changeme(PupyModule):
     """
     dependencies = {
         'all': [
-                'OpenSSL',
-                'ftplib', 'zipfile', 'telnetlib',
-                '_LWPCookieJar', '_MozillaCookieJar', 'Cookie', 'cookielib',
-                'cgi', 'mimetypes', 'email', 'logutils',
-                'urllib3', 'requests',
-                'xml','_elementtree', 'calendar', 'xml', 'xml.etree',
-                'changeme'
-            ]
+            'OpenSSL',
+            'ftplib', 'zipfile', 'telnetlib',
+            '_LWPCookieJar', '_MozillaCookieJar', 'Cookie', 'cookielib',
+            'cgi', 'mimetypes', 'email', 'logutils',
+            'urllib3', 'requests',
+            'xml','_elementtree', 'calendar', 'xml', 'xml.etree',
+            'changeme'
+        ]
     }
 
 

@@ -4,9 +4,9 @@
 
 __class_name__="gpstracker"
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from time import sleep
-import os, datetime, csv
+import os, csv
 from rpyc.utils.classic import download
 from pupylib.utils.common import getLocalAndroidPath
 
@@ -66,7 +66,9 @@ def generateKML(deviceName, traces, outputFile):
     for aPlace in traces:
         if lastPlace == None:
             lastPlace = aPlace
-        logging.info("{0},{1} --> {2},{3}".format(lastPlace[1],lastPlace[2], aPlace[1], aPlace[2]))
+
+        # logging.info("{0},{1} --> {2},{3}".format(lastPlace[1],lastPlace[2], aPlace[1], aPlace[2]))
+
         aKmlPlacemark = KML_PLACEMARK.replace("MY_NAME", lastPlace[0])
         aKmlPlacemark = aKmlPlacemark.replace("MY_DESCRIPTION", "{0},{1}".format(lastPlace[1], lastPlace[2]))
         aKmlPlacemark = aKmlPlacemark.replace("MY_COORDINATE_1", "{0},{1},0.0".format(lastPlace[2],lastPlace[1]))

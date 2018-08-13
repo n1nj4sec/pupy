@@ -133,7 +133,7 @@ def writeToFile( data, fileName ):
 
 def readFromFile( fileName, length=-1 ):
     """
-    Read `length' amount of bytes from the given `fileName' 
+    Read `length' amount of bytes from the given `fileName'
 
     If `length' equals -1 (the default), the entire file is read and the
     content returned.  If an error occurs, the function logs an error message

@@ -4,9 +4,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 from pupylib.utils.pe import get_pe_arch
 from modules.lib.utils.cmdrepl import CmdRepl
-import time
 import threading
-import cmd
 
 def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_impersonation=False, suspended_process="cmd.exe", codepage=None):
     if not raw_pe and not path:
@@ -23,14 +21,11 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
 
             return
 
-    wait = True
-
     if not raw_pe:
         raw_pe = b''
         with open(path,'rb') as f:
             raw_pe = f.read()
 
-    res = ''
     dupHandle = None
     if use_impersonation:
         dupHandle = module.client.impersonated_dupHandle
@@ -84,5 +79,5 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
         else:
             module.error('Launch failed')
 
-     
+
     return module.mp.stdout

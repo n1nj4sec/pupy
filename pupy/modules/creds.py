@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
-
-from pupylib import ROOT
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 
 __class_name__="Creds"
@@ -16,7 +13,7 @@ class Creds(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-    	example = 'Examples:\n'
+        example = 'Examples:\n'
         example += '>> creds --search gmail\n'
         example += '>> creds --search plaintext\n'
         example += '>> creds --search hash\n'

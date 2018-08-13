@@ -22,8 +22,8 @@ from errno import ENOENT
 from os import listdir, lstat, stat, strerror
 from os.path import join, islink
 from stat import S_IFDIR, S_IFLNK, S_IFREG
+
 import collections
-import os
 import sys
 
 try:

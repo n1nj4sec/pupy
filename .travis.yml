@@ -6,6 +6,8 @@ os:
 - linux
 dist: trusty
 before_script:
+  - sudo pip install flake8 flake8-per-file-ignores
+  - cd $TRAVIS_BUILD_DIR/pupy && flake8
   - |
     docker pull alxchk/tc-windows & docker pull alxchk/tc-linux32 &
     docker pull alxchk/tc-linux64 & docker pull alxchk/tc-android

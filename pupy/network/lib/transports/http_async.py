@@ -49,6 +49,7 @@ class PupyAsyncHTTPClient(PupyAsyncHTTPTransport):
     path="/"
     user_agent="Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
     host=None # None for random
+
     def __init__(self, *args, **kwargs):
         PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)
         self.headers={"User-Agent" : self.user_agent}
@@ -119,6 +120,7 @@ class PupyAsyncHTTPServer(PupyAsyncHTTPTransport):
     client=False
     response_code="200 OK"
     server_header="Apache"
+
     def __init__(self, *args, **kwargs):
         PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)
         self.headers={

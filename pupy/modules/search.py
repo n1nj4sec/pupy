@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-import os
-import threading
-from pupylib.utils.term import colorize
-from pupylib.PupyCompleter import remote_path_completer
 
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyCompleter import remote_path_completer
 from modules.lib.utils.download import DownloadFronted
+
+from threading import Event
 
 __class_name__="SearchModule"
 
@@ -61,7 +60,7 @@ class SearchModule(PupyModule):
         )
 
         if args.download:
-            config = self.client.pupsrv.config or PupyConfig()
+            config = self.client.pupsrv.config
             download_folder = config.get_folder('searches', {'%c': self.client.short_name()})
 
             downloader = DownloadFronted(
@@ -79,7 +78,7 @@ class SearchModule(PupyModule):
             self.info('complete')
 
         else:
-            terminate = threading.Event()
+            terminate = Event()
 
             def on_data(res):
                 if terminate.is_set():

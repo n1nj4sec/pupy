@@ -20,7 +20,6 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
         targets = [ targets ]
 
     targets = set([ try_int(x) for x in targets ])
-    results = {}
 
     if regex is None:
         printable = re.compile('^[\x20-\x7e]{{{},{}}}$'.format(min_length, max_length))
@@ -71,9 +70,9 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
 
 if __name__=="__main__":
     import sys
-    for pid, strings in find_strings(sys.argv[1].split(',')).iteritems():
+    for pid, strings in iterate_strings(sys.argv[1].split(',')).iteritems():
         print 'pid: ', pid
-	print
-	for s in strings:
+    print
+    for s in strings:
             print s
-	print
+    print

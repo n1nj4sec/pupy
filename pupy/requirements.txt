@@ -31,6 +31,9 @@ msgpack
 hexdump
 M2Crypto
 fusepy
+defusedxml
 https://github.com/boppreh/keyboard/archive/master.zip
 -e external/pykcp
 construct==2.9.39
+flake8
+flake8-per-file-ignores

@@ -2,7 +2,7 @@
 import os
 import base64
 from xml.etree import ElementTree
-    
+
 def getUserHash(userName):
     try:
         raw = os.popen('sudo defaults read /var/db/dslocal/nodes/Default/users/%s.plist ShadowHashData|tr -dc 0-9a-f|xxd -r -p|plutil -convert xml1 - -o - 2> /dev/null' %(userName)).read()

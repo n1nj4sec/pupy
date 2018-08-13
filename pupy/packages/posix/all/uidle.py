@@ -99,13 +99,16 @@ def get_gui_idle(display=None):
         XCloseDisplay(display)
         return None
 
-    status = XScreenSaverQueryInfo(display, XDefaultRootWindow(display), xssinfo)
-    idle = xssinfo.contents.idle
+    idle = None
 
-    XFree(xssinfo)
+    status = XScreenSaverQueryInfo(display, XDefaultRootWindow(display), xssinfo)
+    if status:
+        idle = xssinfo.contents.idle
+        XFree(xssinfo)
+
     XCloseDisplay(display)
 
-    return int(idle / 1000)
+    return int(idle / 1000) if idle else None
 
 def get_cli_idle():
     idle = min(

@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import time
 import os
-import ctypes
-import traceback
-import time
 import threading
 import zlib
 import rpyc
@@ -12,7 +8,7 @@ import rpyc
 from select import select
 from pupy import mexec
 from fcntl import fcntl, F_GETFL, F_SETFL
-from os import O_NONBLOCK, read
+from os import O_NONBLOCK
 
 class MExec(object):
     def __init__(self, data, argv0, args=[], no_stdin=True, no_stdor=False, redirect_stdio=True, compressed=False, terminate=True):

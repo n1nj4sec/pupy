@@ -2,8 +2,14 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from pupylib import *
-from pupylib.PupyModule import PupyModule, PupyArgumentParser, REQUIRE_STREAM
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    REQUIRE_STREAM
+)
+
+from pupylib.PupyErrors import PupyModuleError
+from pupylib.PupyCompleter import path_completer
+from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="PythonExec"
 

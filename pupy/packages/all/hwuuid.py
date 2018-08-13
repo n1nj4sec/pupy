@@ -26,7 +26,6 @@ def get_hw_uuid():
             pass
 
     elif 'linux' in sys.platform:
-        machine_uuid = None
         try:
             with open('/sys/devices/virtual/dmi/id/product_uuid') as product_uuid:
                 return 'dmi', uuid.UUID(product_uuid.read().strip())

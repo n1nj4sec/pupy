@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
+# flake8: ignore=F821
 
 from contextlib import contextmanager
 
-from ctypes import *
-from ctypes.wintypes import *
+from ctypes import (
+    windll, c_int, c_uint, c_void_p, pointer,
+    c_ulonglong, CFUNCTYPE
+)
+from ctypes.wintypes import (
+    HANDLE, DWORD, LPCWSTR, HWND,
+)
 
 from win32file import CreateFile, ReadFile, WriteFile, CloseHandle
 from win32file import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
-
-from win32pipe import PeekNamedPipe
 
 import pupy
 

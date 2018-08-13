@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+import json
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.term import colorize
+from defusedxml import minidom
 
 __class_name__ = "IGDClient"
 
@@ -408,7 +412,6 @@ class IGDClient(PupyModule):
 
     def run(self, args):
         igdc = self.client.remote('network.lib.igd', 'IGDClient', False)
-        UPNPError = self.client.remote('network.lib.igd', 'UPNPError', False)
 
         self.cli.init(igdc, args, self.log)
 

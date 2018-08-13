@@ -3,7 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import os, os.path, cPickle
+import os, os.path
 from pupylib.payloads  import dependencies
 from pupylib.utils.obfuscate import compress_encode_obfs
 
@@ -23,6 +23,7 @@ class Scriptlet(object):
     """ Default pupy scriptlet. This description needs to be overriden to describe the scriptlet """
     dependencies=[]
     arguments={}
+
     def generate(self, *args, **kwargs):
         """ this method is meant to be overriden """
         raise NotImplementedError()
@@ -90,6 +91,6 @@ class ScriptletsPacker(object):
 
         fullpayload = '\n'.join(fullpayload)
         if self.obfuscate:
-            fullpayload = compress_encode_obfs(obfuscate)
+            fullpayload = compress_encode_obfs(fullpayload)
 
         return fullpayload

@@ -2,7 +2,7 @@
 #Author: @n1nj4sec
 #Contributor(s): @bobsecq
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="GetPrivsModule"
 

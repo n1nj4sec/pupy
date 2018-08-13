@@ -10,7 +10,7 @@ import threading
 import rpyc
 import random
 
-from netaddr import IPNetwork, IPAddress
+from netaddr import IPNetwork
 
 TOP1000 = [
     1,3,4,6,7,9,13,17,19,20,21,22,23,24,25,26,30,32,33,37,42,43,49,53,70,79,80,81,82,

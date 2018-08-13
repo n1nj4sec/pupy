@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 # https://eklausmeier.wordpress.com/2015/10/27/working-with-windows-junctions-in-python/
 
-from ctypes import *
-from ctypes.wintypes import *
+from ctypes import (
+    WinDLL, POINTER, c_ubyte, Structure, addressof,
+    Union, WinError, c_buffer, byref
+)
+from ctypes.wintypes import (
+    DWORD, LPCWSTR, HANDLE, LPVOID, USHORT, ULONG,
+    WCHAR, BOOL
+)
 
 import stat
 import os
@@ -64,6 +70,7 @@ class SYMBOLIC_LINK_REPARSE_BUFFER(Structure):
                 ('PrintNameLength', USHORT),
                 ('Flags', ULONG),
                 ('PathBuffer', WCHAR * 1))
+
     @property
     def PrintName(self):
         arrayt = WCHAR * (self.PrintNameLength // 2)
@@ -77,6 +84,7 @@ class MOUNT_POINT_REPARSE_BUFFER(Structure):
                 ('PrintNameOffset', USHORT),
                 ('PrintNameLength', USHORT),
                 ('PathBuffer', WCHAR * 1))
+
     @property
     def PrintName(self):
         arrayt = WCHAR * (self.PrintNameLength // 2)

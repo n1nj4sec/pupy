@@ -1,31 +1,21 @@
 # -*- coding: utf-8 -*-
-import rpyc
 
-import sys, time
-import pyuv
-import struct
 import os
-
 os.putenv('UV_THREADPOOL_SIZE', '1')
 
-from netaddr import IPAddress, AddrFormatError
-from threading import Event, Thread, Lock
-from threading import enumerate as threadenum, current_thread
+import rpyc
+import pyuv
+import struct
 
-from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
-from socket import SOL_SOCKET, SO_REUSEADDR
-from socket import SHUT_RD, SHUT_WR
-from socket import error as socket_error
-from socket import inet_ntop
+from netaddr import IPAddress
+from threading import Thread
+
+from socket import AF_INET, AF_INET6, inet_ntop
 
 from Queue import Queue, Empty
 
 import socket
-
-import random
-
 import errno
-
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -210,7 +200,7 @@ class Connection(object):
                     try:
                         fd.setblocking(0)
                         self.socket.open(os.dup(fd.fileno()))
-                    except Exception, e:
+                    except:
                         fd.close()
                         self._on_connected(None, -1)
 
@@ -237,7 +227,7 @@ class Connection(object):
                 else:
                     self.socket.connect(address, self._on_connected)
 
-        except Exception, e:
+        except:
             self._on_connected(None, -1)
 
     def _on_resolved(self, address, error):
@@ -545,7 +535,7 @@ class Neighbor(object):
                 self.acceptors[acceptor_or_path_or_port].close()
                 return True
 
-            except Exception, e:
+            except:
                 return False
         else:
             for k in self.acceptors.keys():
@@ -761,33 +751,33 @@ class Manager(Thread):
         return results
 
 class PairState(object):
-	def __init__(self):
-		self.local = None
-		self.remote = None
-		self.local_id = None
-		self.remote_id = None
+    def __init__(self):
+        self.local = None
+        self.remote = None
+        self.local_id = None
+        self.remote_id = None
 
-	def get(self):
-		return self.local, self.remote, self.local_id, self.remote_id
+    def get(self):
+        return self.local, self.remote, self.local_id, self.remote_id
 
-	def cleanup(self):
-		try:
-			if self.local:
-				self.local.unpair(self.local_id, dead=True)
-		except (ResourceIsNotExists, NeighborIsNotExists):
-			pass
-		finally:
-			self.local = None
+    def cleanup(self):
+        try:
+            if self.local:
+                self.local.unpair(self.local_id, dead=True)
+        except (ResourceIsNotExists, NeighborIsNotExists):
+            pass
+        finally:
+            self.local = None
 
 class ManagerState(object):
-	def __init__(self):
-		self.manager = None
+    def __init__(self):
+        self.manager = None
 
-	def cleanup(self):
-		try:
-			if self.manager:
-				self.manager.stop()
-		except (ResourceIsNotExists, NeighborIsNotExists):
-			pass
-		finally:
-			self.manager = None
+    def cleanup(self):
+        try:
+            if self.manager:
+                self.manager.stop()
+        except (ResourceIsNotExists, NeighborIsNotExists):
+            pass
+        finally:
+            self.manager = None

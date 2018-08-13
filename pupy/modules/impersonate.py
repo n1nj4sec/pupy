@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import redirected_stdo, obtain
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from modules.lib.windows.migrate import migrate
-import ctypes
 
 __class_name__="ImpersonateModule"
 
@@ -24,15 +23,15 @@ class ImpersonateModule(PupyModule):
         if args.list:
             ListSids = self.client.remote('pupwinutils.security', 'ListSids')
 
-            l = ListSids()
+            sids = ListSids()
 
             self.table([{
                 'pid': x[0],
                 'process': x[1],
                 'sid' : x[2],
                 'username':x[3]
-                } for x in l], wl=[
-                    'pid', 'process', 'username', 'sid'
+            } for x in sids], wl=[
+                'pid', 'process', 'username', 'sid'
             ])
 
         elif args.impersonate:
@@ -43,7 +42,7 @@ class ImpersonateModule(PupyModule):
                 migrate(self, proc_pid, keep=True)
             else:
                 impersonate_sid_long_handle = self.client.remote(
-                    'pupwinutils.security', impersonate_sid_long_handle, False)
+                    'pupwinutils.security', 'impersonate_sid_long_handle', False)
 
                 self.client.impersonated_dupHandle = impersonate_sid_long_handle(args.impersonate, close=False)
 

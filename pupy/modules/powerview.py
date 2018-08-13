@@ -2,8 +2,7 @@
 
 import os
 
-from pupylib.PupyModule import *
-from pupylib.utils.term import consize
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib import ROOT
 
 __class_name__="Powerview"
@@ -193,7 +192,7 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
 
         if not powershell.loaded(script):
             with open(os.path.join(ROOT, 'external', 'PowerSploit', 'Recon', 'PowerView.ps1'), 'r') as content:
-                width, _ = consize()
+                width, _ = self.iogroup.consize
                 powershell.load(script, content.read(), width=width)
 
         if args.GetProxy == True:
@@ -251,7 +250,7 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
             else:
                 command = args.command
 
-        logging.debug("Executing the following powerview command: {}".format(command))
+        self.log("Executing the following powerview command: {}".format(command))
         output, rest = powershell.call(script, command)
         if args.once:
             powershell.unload(script)

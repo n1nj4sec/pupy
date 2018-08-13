@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from impacket.smbconnection import *
+from impacket.smbconnection import SMBConnection, SessionError
 import ntpath
 import random
 import string

@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
-
-from pupylib import ROOT
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import package_completer
 
 __class_name__="LoadPackageModule"

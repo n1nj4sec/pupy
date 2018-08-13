@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.utils.term import terminal_size, colorize
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyOutput import Color
 
 __class_name__="Users"
 
@@ -38,7 +39,7 @@ class Users(PupyModule):
             else:
                 name = user['name'].decode('utf-8')
 
-            output = colorize(name, color)
+            output = name
 
             if args.groups:
                 output += u': ' + u','.join(user['groups'])
@@ -48,4 +49,4 @@ class Users(PupyModule):
             else:
                 output = u'  ' + output
 
-            self.log(colorize(output, color))
+            self.log(Color(output, color))

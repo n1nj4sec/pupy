@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+
 import os
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="MemStrings"
@@ -57,7 +59,7 @@ class MemStrings(PupyModule):
         last_pid = None
         last_log = None
 
-        config = self.client.pupsrv.config or PupyConfig()
+        config = self.client.pupsrv.config
 
         for pid, name, strings in iterate_strings(
                 targets,

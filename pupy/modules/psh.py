@@ -2,16 +2,12 @@
 
 from argparse import REMAINDER
 
-from pupylib import ROOT
-from pupylib.PupyModule import *
-from pupylib.utils.term import consize
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 from os import path
 from rpyc import GenericException
 
 __class_name__ = 'PowershellManager'
-
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 @config(compat='windows', category='admin')
 class PowershellManager(PupyModule):
@@ -27,8 +23,6 @@ class PowershellManager(PupyModule):
             prog='psh', description=cls.__doc__
         )
 
-        width, _ = consize()
-
         commands = cls.arg_parser.add_subparsers(title='actions')
         loaded = commands.add_parser('loaded', help='List preapred powershell contexts')
         loaded.add_argument('context', nargs='?', help='Check is context with specified name loaded')
@@ -38,7 +32,7 @@ class PowershellManager(PupyModule):
         load.add_argument('-F', '--force', action='store_true', default=False, help='Destroy old context if exists')
         load.add_argument('-64', '--try-64', action='store_true', default=False, help='Try amd64 if possible')
         load.add_argument('-2', '--try-v2', action='store_true', default=None, help='Try version 2 if possible')
-        load.add_argument('-W', '--width', default=width, type=int, help='Set output line width')
+        load.add_argument('-W', '--width', default=-1, type=int, help='Set output line width')
         load.add_argument('-D', '--daemon', action='store_true', default=False, help='Start in "daemon" mode')
         load.add_argument('context', help='Context name')
         load.add_argument('source', nargs='?', help='Path to PS1 script (local to pupy)')
@@ -92,6 +86,9 @@ class PowershellManager(PupyModule):
 
                 with open(script) as input:
                     content = input.read()
+
+            if args.width == -1:
+                args.width, _ = self.iogroup.consize
 
             try:
                 load(

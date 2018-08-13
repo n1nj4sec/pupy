@@ -16,9 +16,7 @@
 
 import rpyc.core.service
 import rpyc
-import threading
 import sys
-import ssl
 import logging
 import traceback
 import json
@@ -147,7 +145,7 @@ class PupyService(rpyc.Service):
 
             self.pupy_srv.add_client(self)
 
-        except Exception as e:
+        except Exception:
             logging.error(traceback.format_exc())
             try:
                 self._conn.close()

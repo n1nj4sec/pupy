@@ -1,4 +1,9 @@
 # -*- coding: utf-8-*-
+
+__all__ = [
+    'Tags', 'PupyConfig', 'Error', 'NoSectionError'
+]
+
 try:
     from ConfigParser import ConfigParser, Error, NoSectionError
 except ImportError:
@@ -241,7 +246,7 @@ class PupyConfig(ConfigParser):
                 return self.command_line[args[0]][args[1]]
 
             return ConfigParser.get(self, *args, **kwargs)
-        except Error as e:
+        except:
             return None
 
     def getip(self, *args, **kwargs):

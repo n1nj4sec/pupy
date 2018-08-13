@@ -73,6 +73,8 @@ from base64 import b64encode
 if os.name == 'nt':
     try:
         import win_inet_pton
+        assert win_inet_pton
+
         import socket
     except ImportError:
         raise ImportError('To run PySocks under windows you need to install win_inet_pton')
@@ -106,12 +108,23 @@ class ProxyError(IOError):
     def __str__(self):
         return self.msg
 
-class GeneralProxyError(ProxyError): pass
-class ProxyConnectionError(ProxyError): pass
-class SOCKS5AuthError(ProxyError): pass
-class SOCKS5Error(ProxyError): pass
-class SOCKS4Error(ProxyError): pass
-class HTTPError(ProxyError): pass
+class GeneralProxyError(ProxyError):
+    pass
+
+class ProxyConnectionError(ProxyError):
+    pass
+
+class SOCKS5AuthError(ProxyError):
+    pass
+
+class SOCKS5Error(ProxyError):
+    pass
+
+class SOCKS4Error(ProxyError):
+    pass
+
+class HTTPError(ProxyError):
+    pass
 
 SOCKS4_ERRORS = { 0x5B: "Request rejected or failed",
                   0x5C: "Request rejected because SOCKS server cannot connect to identd on the client",

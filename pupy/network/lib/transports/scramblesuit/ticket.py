@@ -17,7 +17,6 @@ The 64-byte encrypted state contains:
  +-------------------+--------------------+--------------------+-------------+
 """
 
-import os
 import time
 import const
 import struct
@@ -33,7 +32,6 @@ import logging
 
 import mycrypto
 import util
-import state
 
 log = logging
 

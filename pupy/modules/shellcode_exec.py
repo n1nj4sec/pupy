@@ -4,7 +4,7 @@
 Module by @byt3bl33d3r
 '''
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="ShellcodeExec"
 

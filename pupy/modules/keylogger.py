@@ -1,15 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-import StringIO
-import SocketServer
-import threading
-import socket
-import logging
-import struct
-import traceback
-import time
-import os
-import datetime
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="KeyloggerModule"
 

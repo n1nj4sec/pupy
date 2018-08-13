@@ -1,14 +1,16 @@
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from pupylib.PupyModule import *
-import StringIO
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    QA_UNSTABLE
+)
+
 import SocketServer
 import threading
 import socket
 import logging
-import struct
 import traceback
 import time
 import subprocess
@@ -22,6 +24,7 @@ class SocketPiper(threading.Thread):
         self.daemon=True
         self.read_sock=read_sock
         self.write_sock=write_sock
+
     def run(self):
         try:
             self.read_sock.setblocking(0)
@@ -80,6 +83,7 @@ class LocalPortFwdRequestHandler(SocketServer.BaseRequestHandler):
 
 class LocalPortFwdServer(SocketServer.TCPServer):
     allow_reuse_address = True
+
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, rpyc_client=None, remote_address=None):
         self.rpyc_client=rpyc_client
         self.remote_address=remote_address

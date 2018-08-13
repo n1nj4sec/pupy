@@ -14,11 +14,8 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import sys
 import os
 import os.path
-import shlex
-import re
 import stat
 
 from argparse import REMAINDER
@@ -119,9 +116,10 @@ def remote_files_completer(module, args, text, context):
     return remote_path_completer(module, args, text, context, dirs=False)
 
 def path_completer(module, args, text, context):
-    l=[]
+    completions=[]
+
     if not text:
-        l=os.listdir('.')
+        completions=os.listdir('.')
     else:
         try:
             dirname=os.path.dirname(text)
@@ -131,14 +129,18 @@ def path_completer(module, args, text, context):
             for f in os.listdir(dirname):
                 if f.startswith(basename):
                     if os.path.isdir(os.path.join(dirname,f)):
-                        l.append(os.path.join(dirname,f)+os.sep)
+                        completions.append(os.path.join(dirname,f)+os.sep)
                     else:
-                        l.append(os.path.join(dirname,f)+" ")
-        except Exception as e:
+                        completions.append(os.path.join(dirname,f)+" ")
+        except:
             pass
-    return l
+
+    return completions
 
 def module_name_completer(module, args, text, context):
+
+    del module
+
     modules = (
         x.get_name() for x in context.server.iter_modules(
         by_clients=True,
@@ -159,8 +161,6 @@ def module_args_completer(module, args, text, context):
     completer = module.arg_parser.get_completer()
 
     text = text
-    begindex = 0
-    endindex = len(text)
 
     return completer.complete(module, args, text, context)
 

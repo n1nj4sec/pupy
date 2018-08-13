@@ -4,9 +4,7 @@
 
 __class_name__="apps"
 
-from pupylib.PupyModule import *
-from rpyc.utils.classic import download
-from pupylib.utils.common import getLocalAndroidPath
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 @config(cat="gather", compat=["android"])
 class apps(PupyModule):

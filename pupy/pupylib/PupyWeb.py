@@ -3,17 +3,11 @@
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import os, os.path, time, threading, random, string
+import os, os.path, threading, random, string
 import logging
 import tornado.ioloop
 import tornado.web
-from tornado.options import define, options, parse_command_line
 import tornado.template
-try:
-    import ConfigParser as configparser
-except ImportError:
-    import configparser
-import json
 
 from tornado.websocket import WebSocketHandler
 from tornado.web import RequestHandler
@@ -47,7 +41,7 @@ class PupyWebServer(object):
         t.daemon=True
         t.start()
 
-    def stop():
+    def stop(self):
         self.ioloop.stop()
 
     def start_webplugin(self, web_handlers):

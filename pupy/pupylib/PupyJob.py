@@ -14,14 +14,13 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import time
 import threading
 import inspect
 import ctypes
 import logging
 from .PupyErrors import PupyModuleError, PupyModuleExit
 from .PupyConfig import PupyConfig
-from .PupyOutput import Section, Text, Info, Warn
+from .PupyOutput import Info, Warn
 import rpyc
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
@@ -136,11 +135,6 @@ class PupyJob(object):
     @property
     def module(self):
         return type(self.pupymodules[0])
-
-    def has_client(self, client):
-        return any(
-            client == instance.client for x in self.pupymodules
-        )
 
     @property
     def clients(self):

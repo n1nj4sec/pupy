@@ -1,20 +1,12 @@
 # -*- coding: utf-8 -*-
 # Author: byt3bl33d3r and Shawn Evans
 # Version used from the "rewrite" branch of smbexec written by byt3bl33d3r
-from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import redirected_stdo
-from rpyc.utils.classic import upload
-from subprocess import PIPE, Popen
-from base64 import b64encode
-import pupygen
-import tempfile
-import random
-import string
-import shutil
-import ntpath
-import time
-import re
-import os
+
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    REQUIRE_STREAM
+)
+from netaddr import IPNetwork
 
 __class_name__="PSExec"
 
@@ -56,12 +48,6 @@ class PSExec(PupyModule):
         else:
             hosts = list()
             hosts.append(args.target[0])
-
-        ext = ''
-        remote_path = ''
-        dst_folder = ''
-        file_to_upload = []
-        files_uploaded = []
 
         smbexec = self.client.remote('pupyutils.psexec', 'smbexec')
 

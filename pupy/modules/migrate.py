@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-import pupygen
-import os.path
-import time
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+
 from modules.lib.windows.migrate import migrate as win_migrate
 from modules.lib.linux.migrate import migrate as lin_migrate
 from modules.lib.linux.migrate import ld_preload
@@ -47,7 +46,7 @@ class MigrateModule(PupyModule):
                     try:
                         listeningPort = int(input("[?] Give me the listening port to use on the target: "))
                     except Exception as e:
-                        self.warning("You have to give me a valid port. Try again")
+                        self.warning("You have to give me a valid port. Try again. ({})".format(e))
                 self.success("After migration, the launcher will listen on the port {0} of the target".format(listeningPort))
             pid=None
             if args.create:

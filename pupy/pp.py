@@ -60,7 +60,6 @@ logger.setLevel(logging.WARNING)
 import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
-from rpyc import async
 
 import threading
 import traceback
@@ -93,6 +92,7 @@ from network.lib.transports.cryptoutils.aes import \
 try:
     # additional imports needed to package with pyinstaller
     import additional_imports
+    assert additional_imports
 
 except ImportError:
     pass
@@ -649,11 +649,10 @@ class ReverseSlaveService(Service):
 class BindSlaveService(ReverseSlaveService):
 
     def on_connect(self):
-        import pupy
         try:
             from pupy_credentials import BIND_PAYLOADS_PASSWORD
             password = BIND_PAYLOADS_PASSWORD
-        except:
+        except ImportError:
             from pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             password = credentials['BIND_PAYLOADS_PASSWORD']

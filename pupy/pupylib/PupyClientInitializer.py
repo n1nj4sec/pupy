@@ -5,7 +5,6 @@ import getpass
 import uuid
 import sys
 import os
-import sys
 import locale
 import logging
 import pupy
@@ -47,7 +46,9 @@ if hasattr(encodings, 'idna') and not hasattr(encodings.idna, 'getregentry'):
 os_encoding = locale.getpreferredencoding() or "utf8"
 
 if sys.platform == 'win32':
-    from _winreg import *
+    from _winreg import (
+        ConnectRegistry, HKEY_LOCAL_MACHINE, OpenKey, EnumValue
+    )
     import ctypes
 
 def redirect_stdo(stdout, stderr):
@@ -294,6 +295,8 @@ def get_uuid():
                 plat += '+JyNI'
 
                 setattr(sys, 'system_java', plat)
+
+                del ctypes.util
 
     except Exception:
         pass

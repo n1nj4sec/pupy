@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from pupylib import *
+
+from pupylib.PupyErrors import PupyModuleError
 
 NPCAP_NOT_FOUND = '''
 WinPCAP is not installed. You should install NPcap driver.

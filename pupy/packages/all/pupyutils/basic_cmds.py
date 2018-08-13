@@ -33,10 +33,9 @@ T_TRUNCATED = 11
 textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 
 if sys.platform == 'win32':
-    from junctions import islink, readlink, lstat
+    from junctions import readlink, lstat
 else:
     from os import readlink, lstat
-    from os.path import islink
 
 def is_binary(text):
     return bool(text.translate(None, textchars))
@@ -95,25 +94,25 @@ def mode_to_letter(mode):
         return ''
 
 def special_to_letter(mode):
-    l = ''
+    letter = ''
 
     ALL_R = (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
     ALL_W = (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
 
     if mode & stat.S_ISGID:
-        l += 'G'
+        letter += 'G'
     if mode & stat.S_ISUID:
-        l += 'U'
+        letter += 'U'
     if mode & stat.S_ISVTX:
-        l += 'T'
+        letter += 'T'
     if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
-        l += 'E'
+        letter += 'E'
     if ( mode & ALL_R ) == ALL_R:
-        l += 'R'
+        letter += 'R'
     if ( mode & ALL_W ) == ALL_W:
-        l += 'W'
+        letter += 'W'
 
-    return l
+    return letter
 
 def _stat_to_ls_struct(path, name, _stat):
     if stat.S_ISLNK(_stat.st_mode):

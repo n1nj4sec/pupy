@@ -10,7 +10,6 @@ import re
 import random
 import Queue
 import string
-import codecs
 
 class PowerHostUninitialized(Exception):
     pass
@@ -443,10 +442,6 @@ class PowerHost(object):
     @property
     def name(self):
         return type(self).__name__
-
-    @property
-    def dirty(self):
-        return False
 
     @property
     def stopped(self):

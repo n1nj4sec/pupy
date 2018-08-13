@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 
 import pefile
 
@@ -17,4 +17,3 @@ def get_pe_arch(*args, **kwargs):
         return "64bit"
     else:
         return "UNKNOWN"
-

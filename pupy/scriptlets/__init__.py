@@ -1,2 +1,5 @@
-from scriptlets import ScriptletArgumentError, Scriptlet
+__all__ = [
+    'ScriptletArgumentError', 'Scriptlet'
+]
 
+from scriptlets import ScriptletArgumentError, Scriptlet

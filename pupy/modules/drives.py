@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table
 from pupylib.utils.term import colorize
 from modules.lib import size_human_readable

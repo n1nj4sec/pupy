@@ -17,42 +17,36 @@
 from threading import Thread, Event, Lock
 
 import imp
-import logging
 
 from os import path, listdir, stat
-from shutil import copyfile
 from itertools import count, ifilterfalse
 from netaddr import IPAddress
 from random import randint
-from weakref import ref
 
-import rpyc
-import shlex
 import socket
 import errno
 import traceback
 
-from . import PupyService
-from .PupyErrors import PupyModuleExit, PupyModuleError
-from .PupyErrors import PupyModuleDisabled, PupyModuleNotFound
-from .PupyJob import PupyJob
-from .PupyCategories import PupyCategories
-from .PupyConfig import PupyConfig
-from .PupyService import PupyBindService
-from .PupyCompile import pupycompile
-from .PupyOutput import Error, Line, Color
-from .PupyModule import QA_DANGEROUS, QA_STABLE
-from .PupyDnsCnc import PupyDnsCnc
-from .PupyTriggers import event
-from .PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
-from .PupyWeb import PupyWebServer
-from .PupyOffload import PupyOffloadManager, OffloadProxyCommonError
-from .PupyClient import PupyClient
+from pupylib.PupyErrors import PupyModuleError
+from pupylib.PupyErrors import PupyModuleDisabled, PupyModuleNotFound
+from pupylib.PupyCategories import PupyCategories
+from pupylib.PupyConfig import PupyConfig
+from pupylib.PupyService import PupyBindService
+from pupylib.PupyCompile import pupycompile
+from pupylib.PupyOutput import Error, Line, Color
+from pupylib.PupyModule import QA_STABLE
+from pupylib.PupyDnsCnc import PupyDnsCnc
+from pupylib.PupyTriggers import event
+from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
+from pupylib.PupyWeb import PupyWebServer
+from pupylib.PupyOffload import PupyOffloadManager, OffloadProxyCommonError
+
+from pupylib import PupyService
+from pupylib import PupyClient
+from pupylib import Credentials
 
 from .utils.rpyc_utils import obtain
 from .utils.network import get_listener_ip_with_local
-
-import network.conf
 
 from network.conf import transports
 from network.transports.ssl.conf import PupySSLAuthenticator
@@ -63,7 +57,6 @@ from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocket
 from network.lib.utils import parse_transports_args
 from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
-from network.lib.base_launcher import LauncherError
 from network.lib.igd import IGDClient, UPNPError
 from network.lib.streams.PupySocketStream import PupyChannel
 
@@ -209,7 +202,7 @@ class Listener(Thread):
 
         for val in opt_args:
             val = val.lower()
-            if val in t.server_transport_kwargs:
+            if val in transport_kwargs:
                 transport_kwargs[val] = opt_args[val]
             else:
                 logger.warning('Unknown transport argument: {}'.format(val))
@@ -222,7 +215,6 @@ class Listener(Thread):
             logger.exception(e)
 
     def init(self):
-        proxy = None
         method = None
 
         stream = self.transport.stream
@@ -358,7 +350,7 @@ class PupyServer(object):
         }
 
         self.config = config or PupyConfig()
-        self.credentials = credentials or PupyCredentials()
+        self.credentials = credentials or Credentials()
 
         self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
         self.handler = None
@@ -436,12 +428,6 @@ class PupyServer(object):
 
         dnscnc = self.config.get('pupyd', 'dnscnc')
         if dnscnc and not dnscnc.lower() in ('no', 'false', 'stop', 'n', 'disable'):
-            if ':' in dnscnc:
-                fdqn, dnsport = dnscnc.split(':')
-            else:
-                fdqn = dnscnc.strip()
-                dnsport = 5454
-
             try:
                 self.dnscnc = PupyDnsCnc(
                     igd=self.igd,
@@ -495,6 +481,10 @@ class PupyServer(object):
 
     def move_id(self, dst_id, src_id):
         """ return first lowest unused session id """
+
+        src_client = None
+        dst_client = None
+
         with self.clients_lock:
             if isinstance(dst_id, int):
                 dst_client = [ x for x in self.clients if x.desc['id'] == dst_id ]
@@ -505,7 +495,7 @@ class PupyServer(object):
                 dst_client = dst_id
 
             if isinstance(src_id, int):
-                dst_client = [ x for x in self.clients if x.desc['id'] == src_id ]
+                src_client = [ x for x in self.clients if x.desc['id'] == src_id ]
                 if not src_client:
                     raise ValueError('Client with id {} not found'.format(src_id))
                 src_client = src_client[0]
@@ -672,13 +662,13 @@ class PupyServer(object):
             return [
                 c for c in self.clients if c.desc['id'] in indexes
             ]
-        except Exception, e:
+        except Exception:
             pass
 
         if not type(search_criteria) in (str, unicode):
             return
 
-        l=set([])
+        clients=set([])
 
         if search_criteria=="*":
             return self.clients
@@ -718,24 +708,21 @@ class PupyServer(object):
                         if not take:
                             break
             if take:
-                l.add(c)
+                clients.add(c)
 
-        return list(l)
+        return list(clients)
 
     def get_clients_list(self):
         return self.clients
 
     def iter_modules(self, by_clients=False, clients_filter=None):
         """ iterate over all modules """
-        l = []
 
         clients = None
         if by_clients:
             clients = self.get_clients(clients_filter)
             if not clients:
                 return
-
-        files = {}
 
         self._refresh_modules()
         for module_name in self.modules:
@@ -762,11 +749,11 @@ class PupyServer(object):
 
     def get_aliased_modules(self):
         """ return a list of aliased module names that have to be displayed as commands """
-        l=[]
+        modules = []
         for m in self.iter_modules():
             if not m.is_module:
-                l.append((m.get_name(), m.__doc__))
-        return l
+                modules.append((m.get_name(), m.__doc__))
+        return modules
 
     def _refresh_modules(self, force=False):
         files = {}
@@ -797,9 +784,7 @@ class PupyServer(object):
                         files[modname] = modpath
 
                 except Exception, e:
-                    import logging
                     logger.exception(e)
-                    pass
 
         for modname, modpath in files.iteritems():
             current_stats = stat(modpath)
@@ -840,7 +825,7 @@ class PupyServer(object):
         if hasattr(module, "__class_name__"):
             class_name = module.__class_name__
             if not hasattr(module, class_name):
-                logger.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(module_name,class_name))
+                logger.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(name,class_name))
 
         if not class_name:
             #TODO automatically search the class name in the file

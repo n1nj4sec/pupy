@@ -7,7 +7,6 @@ the Uniform Diffie-Hellman handshake used by ScrambleSuit.
 
 import const
 import random
-import binascii
 
 import Crypto.Hash.SHA256
 

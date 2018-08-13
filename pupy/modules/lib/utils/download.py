@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from threading import Thread, Event
+from threading import Event
 from StringIO import StringIO
 from msgpack import Unpacker
 
@@ -12,7 +12,6 @@ import tempfile
 import stat
 import os
 import os.path
-import time
 import zlib
 import errno
 
@@ -154,7 +153,7 @@ class DownloadFronted(object):
     @property
     def dest_file(self):
         return self._archive_file or self._last_downloaded_dest \
-          or self._download_dir or self._local_path
+            or self._download_dir or self._local_path
 
     def download(self, remote_file, local_file=None, archive=False):
         self._setup_context(remote_file, local_file, archive)

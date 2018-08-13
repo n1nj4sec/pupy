@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
-from pupylib.utils.term import colorize
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyOutput import Color
 from datetime import datetime, timedelta
 
 import logging
@@ -31,7 +31,6 @@ class LastModule(PupyModule):
             wtmp = self.client.remote('pupyps', 'wtmp')
 
             data = wtmp()
-            tablein = []
 
             now = data['now']
             output = []
@@ -80,7 +79,7 @@ class LastModule(PupyModule):
                     record['end'] = 'up'
 
                 for f in record:
-                    record[f] = colorize('{}'.format(record[f]), color)
+                    record[f] = Color(str(record[f]), color)
 
                 output.append(record)
 

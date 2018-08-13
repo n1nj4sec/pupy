@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from pupylib.PupyModule import *
-from pupylib.utils.term import consize
+import os
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib import ROOT
 
 __class_name__="Inveigh"
@@ -33,7 +34,6 @@ class Inveigh(PupyModule):
         stop = commands.add_parser('stop', help='Stop Inveigh')
         stop.set_defaults(command='stop')
         info = commands.add_parser('help', help='Get help page from Invoke-Inveigh')
-        subinfo = info.add_mutually_exclusive_group()
         info.set_defaults(command='help')
         info.add_argument('-R', '--relay', action='store_true', default=False, help='Help about relay')
 
@@ -55,7 +55,7 @@ class Inveigh(PupyModule):
             script_file = 'Inveigh-Relay.ps1' if args.relay else 'Inveigh.ps1'
 
             with open(os.path.join(ROOT, 'external', 'Inveigh', 'Scripts', script_file)) as content:
-                width, _ = consize()
+                width, _ = self.iogroup.consize
                 content = content.read()
                 if args.relay:
                     content = content.replace('Invoke-InveighRelay', 'Invoke-Inveigh')

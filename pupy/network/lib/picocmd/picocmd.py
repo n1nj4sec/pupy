@@ -28,10 +28,8 @@ import datetime
 import platform
 import uuid
 import urlparse
-import StringIO
 import socket
 import psutil
-import os
 
 try:
     import uidle
@@ -139,7 +137,7 @@ class SystemStatus(Command):
                     )
                 ]))
 
-            except Exception, e:
+            except:
                 self.remote = 0
         else:
             self.remote = int(remote)

@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import datetime
-import logging
-
 from .PupyConfig import Error, NoSectionError
 
 from . import getLogger
@@ -35,9 +32,6 @@ def event_to_string(event):
         ON_DNSCNC_SESSION_LOST: 'dnscnc session lost'
     }.get(event)
 
-def substitute_info(client, info):
-    return cmdline.replace(cmdline.format(**info))
-
 def _do(eventid, action, handler, client_filter):
     event = event_to_string(eventid)
     handler.inject(
@@ -52,11 +46,7 @@ def _event(eventid, client, server, handler, config):
     actions = config.items(section)
 
     for client_filter, action in actions:
-        on_self = False
-
         if client_filter.lower() in ('this', 'self', 'current', '@'):
-            on_self = True
-
             if eventid in ( ON_CONNECT, ON_DISCONNECT ):
                 client_filter = client.desc['id']
             else:

@@ -2,19 +2,20 @@
 
 import subprocess
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    REQUIRE_STREAM
+)
 
-import subprocess
-import time
 import datetime
 import os
 import re
-import stat
 import pupygen
 import tempfile
 import threading
 
-from rpyc.utils.classic import upload
+from argparse import REMAINDER
+from rpyc.utils.classic import download, upload
 
 __class_name__="PExec"
 
@@ -55,7 +56,7 @@ class PExec(PupyModule):
         )
         cls.arg_parser.add_argument(
             'arguments',
-            nargs=argparse.REMAINDER,
+            nargs=REMAINDER,
             help='CMD args. You can use ^/local/path^[>|<]/remote/path^ '
             'form to upload|download files before|after command'
         )
@@ -69,7 +70,6 @@ class PExec(PupyModule):
 
         to_upload = []
         to_download = []
-        to_delete = []
 
         rexpandvars = self.client.remote('os.path', 'expandvars')
         rexists = self.client.remote('os.path', 'exists')

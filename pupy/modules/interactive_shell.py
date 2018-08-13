@@ -3,9 +3,11 @@
 import sys
 import os
 import rpyc
-import threading
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    REQUIRE_TERMINAL
+)
 
 __class_name__="InteractiveShell"
 @config(cat="admin")

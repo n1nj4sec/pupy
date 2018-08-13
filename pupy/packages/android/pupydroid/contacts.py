@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
-import jnius
-from jnius import autoclass, PythonJavaClass, java_method, cast
+from jnius import autoclass
 
 def getAllContacts():
     '''
@@ -12,17 +11,16 @@ def getAllContacts():
     With phoneNbs, emails and postalAddresses as lists of dictionaries
     '''
     allContacts = []
-    
+
     Contacts = autoclass("android.provider.ContactsContract$Contacts")#ContactsContract.Contacts
-    ContactsColumns = autoclass("android.provider.ContactsContract$ContactsColumns") #ContactsContract.ContactsColumns 
+    ContactsColumns = autoclass("android.provider.ContactsContract$ContactsColumns") #ContactsContract.ContactsColumns
     CommonDataKindsPhone = autoclass("android.provider.ContactsContract$CommonDataKinds$Phone")#ContactsContract.CommonDataKinds.Phone
-    CommonDataKindsEmail = autoclass("android.provider.ContactsContract$CommonDataKinds$Email")#ContactsContract.CommonDataKinds.Email 
+    CommonDataKindsEmail = autoclass("android.provider.ContactsContract$CommonDataKinds$Email")#ContactsContract.CommonDataKinds.Email
     CommonDataKindsStructuredPostal = autoclass("android.provider.ContactsContract$CommonDataKinds$StructuredPostal")#ContactsContract.CommonDataKinds.StructuredPostal
     PythonActivity = autoclass('org.renpy.android.PythonService')
-    LocationManager = autoclass('android.location.LocationManager')
-    
+
     cursor = PythonActivity.mService.getContentResolver().query(Contacts.CONTENT_URI, None, None, None, None)
-    contactsCount = cursor.getCount();
+    contactsCount = cursor.getCount()
     if contactsCount > 0:
         while cursor.moveToNext():
             contactId = cursor.getString(cursor.getColumnIndex(Contacts._ID))
@@ -31,7 +29,6 @@ def getAllContacts():
             #Phone numbers
             if cursor.getInt(cursor.getColumnIndex(ContactsColumns.HAS_PHONE_NUMBER))>0:
                 pCursor = PythonActivity.mService.getContentResolver().query(CommonDataKindsPhone.CONTENT_URI, None, "{0} = {1}".format("contact_id", contactId), None, None)
-                phonNbTotal = pCursor.getCount();
                 while pCursor.moveToNext():
                     phoneNo = pCursor.getString(pCursor.getColumnIndex(CommonDataKindsPhone.NUMBER))
                     phoneNbs.append(phoneNo)
@@ -41,14 +38,12 @@ def getAllContacts():
                 pCursor.close()
             #EMAILS
             pCursor = PythonActivity.mService.getContentResolver().query(CommonDataKindsEmail.CONTENT_URI, None, "{0} = {1}".format("contact_id", contactId), None, None)
-            emailNbTotal = pCursor.getCount();
             while pCursor.moveToNext():
                 email = pCursor.getString(pCursor.getColumnIndex(CommonDataKindsEmail.ADDRESS))
                 emails.append(email)
             pCursor.close()
             #Postal addresses
             pCursor = PythonActivity.mService.getContentResolver().query(CommonDataKindsStructuredPostal.CONTENT_URI, None, "{0} = {1}".format("contact_id", contactId), None, None)
-            postalAddressesTotal = pCursor.getCount();
             while pCursor.moveToNext():
                 postalAddress = pCursor.getString(pCursor.getColumnIndex(CommonDataKindsStructuredPostal.FORMATTED_ADDRESS))
                 postalAddresses.append(postalAddress)
@@ -56,7 +51,7 @@ def getAllContacts():
             allContacts.append({'id':contactId, 'name':contactName, 'phoneNbs':phoneNbs, 'phoneNbsTypes':phoneNbsTypes, 'emails':emails, 'postalAddresses':postalAddresses})
         cursor.close()
     return allContacts
-    
+
 def phoneNumberTypeToString(phoneNumberType, label):
     '''
     '''
@@ -107,24 +102,3 @@ def phoneNumberTypeToString(phoneNumberType, label):
         return "MMS"
     else:
         return "?"
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-

@@ -63,6 +63,7 @@ def pbkdf2_bin(data, salt, iterations=1000, keylen=24, hashfunc=None):
     """
     hashfunc = hashfunc or hashlib.sha1
     mac = hmac.new(data, None, hashfunc)
+
     def _pseudorandom(x, mac=mac):
         h = mac.copy()
         h.update(x)
@@ -79,6 +80,7 @@ def pbkdf2_bin(data, salt, iterations=1000, keylen=24, hashfunc=None):
 
 def test():
     failed = []
+
     def check(data, salt, iterations, keylen, expected):
         rv = pbkdf2_hex(data, salt, iterations, keylen)
         if rv != expected:
@@ -128,4 +130,3 @@ def test():
 
 if __name__ == '__main__':
     test()
-

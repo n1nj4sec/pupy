@@ -26,7 +26,6 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-import errno
 import rpyc
 import sys
 
@@ -36,6 +35,9 @@ except ImportError:
     import msgpack
 
 import re
+
+from pupylib import getLogger
+logger = getLogger('transfer')
 
 FIELDS_MAP = {
     x:y for x,y in enumerate([
@@ -121,7 +123,8 @@ class Transfer(object):
         if self.single_device:
             try:
                 topstat = stat(top)
-            except OSError:
+            except OSError, e:
+                logger.debug('_walk_scandir:topstat: {}'.format(e))
                 return
 
             if self.single_device is True:
@@ -131,7 +134,8 @@ class Transfer(object):
 
         try:
             scandir_it = scandir(top)
-        except OSError as error:
+        except OSError, e:
+            logger.debug('_walk_scandir:scandir: {}'.format(e))
             return
 
         while not self._terminate.is_set():
@@ -139,15 +143,17 @@ class Transfer(object):
                 try:
                     entry = next(scandir_it)
 
-                except UnicodeDecodeError:
+                except UnicodeDecodeError, e:
                     ## ???
+                    logger.debug('_walk_scandir:next(scandir_it): {}'.format(e))
                     continue
 
                 except StopIteration:
                     break
 
 
-            except OSError as error:
+            except OSError, e:
+                logger.debug('_walk_scandir:next(scandir_it): {}'.format(e))
                 return
 
             name = entry.path
@@ -163,7 +169,6 @@ class Transfer(object):
             is_dir = False
             is_file = False
             is_symlink = False
-            is_special = False
 
             if not self.follow_symlinks:
                 try:
@@ -171,19 +176,22 @@ class Transfer(object):
 
                     if not is_symlink and sys.platform == 'win32' and entry.is_dir(follow_symlinks=False):
                         is_symlink = islink(entry.path)
-                except OSError:
+                except OSError, e:
+                    logger.debug('_walk_scandir:follow_symlinks: {}'.format(e))
                     pass
 
             if not is_symlink:
                 try:
                     is_dir = entry.is_dir(follow_symlinks=self.follow_symlinks)
-                except OSError:
+                except OSError, e:
+                    logger.debug('_walk_scandir:is_dir: {}'.format(e))
                     pass
 
             if not is_dir and not is_symlink:
                 try:
                     is_file = entry.is_file(follow_symlinks=self.follow_symlinks)
-                except OSError:
+                except OSError, e:
+                    logger.debug('_walk_scandir:is_file: {}'.format(e))
                     pass
 
             if not is_dir and not is_file and not is_symlink:
@@ -198,6 +206,7 @@ class Transfer(object):
                     symlinks.append((entry, linked_to))
                 except (IOError, OSError):
                     pass
+
             elif is_dir:
                 dirs.append(entry)
             elif is_file:
@@ -215,12 +224,14 @@ class Transfer(object):
                     if not hardlinked:
                         files.append(entry)
 
-                except OSError:
-                    pass
+                except OSError, e:
+                    logger.debug('_walk_scandir:hardlinked: {}'.format(e))
             else:
                 special.append(entry)
 
         yield top, dirs, files, symlinks, hardlinks, special
+
+        del entry
 
         dirpaths = [ entry.name for entry in dirs ]
 
@@ -238,12 +249,8 @@ class Transfer(object):
 
         while not self._terminate.is_set():
             task = self.queue.get()
-            if task is None:
-                try:
-                    callback(None, None)
-                except:
-                    pass
 
+            if task is None:
                 self._terminate.set()
                 break
 
@@ -400,7 +407,6 @@ class Transfer(object):
             raise ValueError('Invalid messages order')
 
         try:
-            info_sent = False
             high_entropy_cases = 0
 
             zeros = 0
@@ -527,8 +533,8 @@ class Transfer(object):
             for k in (D_DIRS, D_SYMS, D_HARDS, D_SPECIALS, D_EMPTY, D_FILES):
                 del dirview[F_DATA][k][:]
 
-            for fp, stat in stats:
-                if not self.ignore_size and not stat.st_size:
+            for fp, fpstat in stats:
+                if not self.ignore_size and not fpstat.st_size:
                     continue
 
                 for portion in self._pack_file(fp, top=root):
@@ -651,12 +657,15 @@ def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False
              ignore_size=False, single_device=False, chunk_size=1*1024*1024):
 
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
+
     def _closure(filepath):
         t.transfer(filepath, callback)
 
     return _closure, t.stop, t.terminate
 
 if __name__ == '__main__':
+    import StringIO
+
     def blob_printer(data, exception):
         if exception:
             import traceback

@@ -6,18 +6,16 @@ if __name__ == '__main__':
 
 from PupyConfig import PupyConfig
 
-from os import path, urandom, chmod, makedirs, unlink
+from os import path, urandom, chmod, makedirs
 
-import logging
 import string
 import errno
 import time
 
-from network.transports import *
 from network.lib.picocmd.ecpv import ECPV
 from getpass import getpass
 
-from M2Crypto import X509, EVP, RSA, ASN1, BIO
+from M2Crypto import X509, EVP, RSA, ASN1
 import rsa
 
 from . import getLogger
@@ -158,15 +156,15 @@ class Encryptor(object):
             if len(next_chunk) == 0:
                 padding_length = ord(chunk[-1])
                 if padding_length < 1 or padding_length > bs:
-                   try:
-                       GnomeKeyring().del_pass() # to avoid keep using a bad credential
-                   except:
-                       pass
-                   raise ValueError("bad decrypt pad (%d)" % padding_length)
+                    try:
+                        GnomeKeyring().del_pass() # to avoid keep using a bad credential
+                    except:
+                        pass
+                    raise ValueError("bad decrypt pad (%d)" % padding_length)
                 # all the pad-bytes must be the same
                 if chunk[-padding_length:] != (padding_length * chr(padding_length)):
-                   # this is similar to the bad decrypt:evp_enc.c from openssl program
-                   raise ValueError("bad decrypt")
+                    # this is similar to the bad decrypt:evp_enc.c from openssl program
+                    raise ValueError("bad decrypt")
                 chunk = chunk[:-padding_length]
                 finished = True
             out_file.write(chunk)
@@ -335,8 +333,6 @@ class Credentials(object):
     def _generate(self, force=False, password=None, configfile=None):
         if path.exists(configfile) and not force:
             return
-
-        configdir = path.dirname(configfile)
 
         logger.warning("Generating credentials to {}".format(configfile))
 

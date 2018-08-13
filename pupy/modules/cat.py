@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Pygment
 from pupylib.PupyCompleter import remote_path_completer
 from pygments.lexers import guess_lexer, guess_lexer_for_filename

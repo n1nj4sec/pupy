@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import sys, os
-from pupylib.PupyModule import *
-from pupylib.PupyJob import PupyJob
-from threading import Thread
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 try:
     import pyuvproxy
@@ -80,7 +79,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
     def run(self, args):
         try:
             self._run(args)
-        except Exception, e:
+        except:
             import traceback
             traceback.print_exc()
 
@@ -140,7 +139,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
                                 rport = int(part2)
 
                             rhost = '127.0.0.1'
-                            fount = True
+                            found = True
                         except:
                             rhost = part2
                             rport = lport

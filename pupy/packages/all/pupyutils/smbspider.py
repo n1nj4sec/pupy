@@ -1,10 +1,8 @@
-from impacket.smbconnection import *
+from impacket.smbconnection import SMBConnection, SessionError
 from impacket.smb3structs import FILE_READ_DATA
+
 import re
 import os
-import socket
-import threading
-import Queue
 
 class RemoteFile:
     def __init__(self, smbConnection, fileName, share='ADMIN$', access = FILE_READ_DATA ):
@@ -33,7 +31,7 @@ class RemoteFile:
 class SMBSpider:
 
     def __init__(self, _host, _domain, _port, _user, _passwd, _hashes, _check_content, _share, search_str, _exts, _max_size):
-        
+
         self.smbconnection = None
         self.host = _host
         self.domain = _domain
@@ -83,7 +81,7 @@ class SMBSpider:
 
     def scanwalk(self, subfolder, depth):
         if depth == 0:
-            return 
+            return
 
         if subfolder == '' or subfolder == '.':
             subfolder = '*'
@@ -91,11 +89,11 @@ class SMBSpider:
             subfolder = subfolder[2:] + '/*'
         else:
             subfolder = subfolder.replace('/*/', '/') + '/*'
-        
+
         for result in self.smbconnection.listPath(self.share, subfolder):
-            
+
             if result.get_longname() not in ['.', '..']:
-                
+
                 # check if the file contains our pattern
                 for s in self.search_str:
                     if result.get_longname().lower().find(s) != -1:
@@ -122,8 +120,8 @@ class SMBSpider:
         path = path.replace('*', '')
         try:
             rfile = RemoteFile(
-                                self.smbconnection, 
-                                path, 
+                                self.smbconnection,
+                                path,
                                 self.share,
                                 access = FILE_READ_DATA
                             )
@@ -169,13 +167,13 @@ class Spider():
     def spider_an_host(self, host):
         smbspider = SMBSpider(host, self.domain, self.port, self.user, self.passwd, self.hashes, self.check_content, self.share, self.search_str, self.files_extensions, self.max_size)
         logged = smbspider.login()
-        
+
         if logged:
             if self.share == 'all':
                 shares = smbspider.list_share()
             else:
                 shares = [self.share]
-            
+
             for share in shares:
                 smbspider.set_share(share)
                 try:
@@ -183,8 +181,7 @@ class Spider():
                         path = "%s/%s/%s" % (host, share, res)
                         path = path.replace('*/', '/').replace('//', '/')
                         yield path
-                except Exception, e:
-                    # print e
+                except:
                     pass
 
             smbspider.logoff()
@@ -201,7 +198,7 @@ class Spider():
 #         threading.Thread.__init__(self)
 #         self.queue = queue
 #         self.tid = tid
-        
+
 #         self.hosts = hosts
 
 #         self.domain = _domain
@@ -220,13 +217,13 @@ class Spider():
 #     def spider_an_host(self, host):
 #         smbspider = SMBSpider(host, self.domain, self.port, self.user, self.passwd, self.hashes, self.check_content, self.share, self.search_str, self.files_extensions, self.max_size)
 #         logged = smbspider.login()
-        
+
 #         if logged:
 #             if self.share == 'all':
 #                 shares = smbspider.list_share()
 #             else:
 #                 shares = [self.share]
-            
+
 #             for share in shares:
 #                 smbspider.set_share(share)
 #                 try:
@@ -248,7 +245,7 @@ class Spider():
 
 #             for r in self.spider_an_host(host):
 #                 print '%s' % r
-            
+
 #             self.queue.task_done()
 
 # def smbspider(hosts, domain, port, user, passwd, hashes, check_content, share, search_str, files_extensions, max_size, folder_to_spider, depth):
@@ -257,17 +254,17 @@ class Spider():
 
 #     nb_thread = 5
 #     for i in range(1, nb_thread + 1):
-#         worker = WorkerThread(queue, i, hosts, domain, port, user, passwd, hashes, check_content, share, search_str, files_extensions, max_size, folder_to_spider, depth) 
+#         worker = WorkerThread(queue, i, hosts, domain, port, user, passwd, hashes, check_content, share, search_str, files_extensions, max_size, folder_to_spider, depth)
 #         worker.setDaemon(True)
 #         worker.start()
 #         threads.append(worker)
-    
+
 #     for j in hosts:
 #         queue.put(j)
-    
+
 #     queue.join()
-    
-#     # wait for all threads to exit 
+
+#     # wait for all threads to exit
 #     for item in threads:
 #         item.join()
 

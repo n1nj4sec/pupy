@@ -1968,30 +1968,42 @@ ERROR_DS_HIERARCHY_TABLE_TOO_DEEP = 8628
 SEVERITY_SUCCESS = 0
 SEVERITY_ERROR = 1
 
-def HRESULT_FROM_WIN32(scode): return -2147024896 | (scode & 65535)
+def HRESULT_FROM_WIN32(scode):
+    return -2147024896 | (scode & 65535)
 
-def SUCCEEDED(Status): return ((Status) >= 0)
+def SUCCEEDED(Status):
+    return ((Status) >= 0)
 
-def FAILED(Status): return (Status<0)
+def FAILED(Status):
+    return (Status<0)
 
-def HRESULT_CODE(hr): return ((hr) & 65535)
+def HRESULT_CODE(hr):
+    return ((hr) & 65535)
 
-def SCODE_CODE(sc): return ((sc) & 65535)
+def SCODE_CODE(sc):
+    return ((sc) & 65535)
 
-def HRESULT_FACILITY(hr): return (((hr) >> 16) & 8191)
+def HRESULT_FACILITY(hr):
+    return (((hr) >> 16) & 8191)
 
-def SCODE_FACILITY(sc): return (((sc) >> 16) & 8191)
+def SCODE_FACILITY(sc):
+    return (((sc) >> 16) & 8191)
 
-def HRESULT_SEVERITY(hr): return (((hr) >> 31) & 1)
+def HRESULT_SEVERITY(hr):
+    return (((hr) >> 31) & 1)
 
-def SCODE_SEVERITY(sc): return (((sc) >> 31) & 1)
+def SCODE_SEVERITY(sc):
+    return (((sc) >> 31) & 1)
 
 FACILITY_NT_BIT = 268435456
-def HRESULT_FROM_NT(x): return x | FACILITY_NT_BIT
+def HRESULT_FROM_NT(x):
+    return x | FACILITY_NT_BIT
 
-def GetScode(hr): return hr
+def GetScode(hr):
+    return hr
 
-def ResultFromScode(sc): return sc
+def ResultFromScode(sc):
+    return sc
 
 NOERROR = 0
 E_UNEXPECTED = -2147418113

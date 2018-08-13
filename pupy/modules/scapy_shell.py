@@ -2,14 +2,13 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import sys
-import subprocess
-import threading
-import Queue
-import time
 import readline
+
 from modules.lib.windows.winpcap import init_winpcap
-from pupylib import *
+from pupylib.utils.rpyc_utils import redirected_stdo
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser, QA_DANGEROUS
+)
 
 __class_name__="InteractiveScapyShell"
 
@@ -36,7 +35,7 @@ class InteractiveScapyShell(PupyModule):
 
         try:
             with redirected_stdo(self):
-                old_completer=readline.get_completer()
+                old_completer = readline.get_completer()
                 try:
                     psc=self.client.conn.modules['pyshell.controller'].PyShellController()
                     readline.set_completer(psc.get_completer())

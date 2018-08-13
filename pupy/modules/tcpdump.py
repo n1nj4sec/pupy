@@ -1,22 +1,16 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-import sys
-import subprocess
-import threading
-import Queue
-import time
-import readline
-import logging
 
+import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
-from scapy.all import *
-
-import datetime
+from scapy.all import Ether, PcapWriter
 from threading import Event
 
-from pupylib import * # placed after scapy inport to avoid scapy's config collision
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser
+)
 
 __class_name__="TcpdumpModule"
 
@@ -75,7 +69,7 @@ class TcpdumpModule(PupyModule):
         pktwriter = None
 
         if args.save_pcap:
-            config = self.client.pupsrv.config or PupyConfig()
+            config = self.client.pupsrv.config
             filepath = config.get_file('pcaps', {'%c': self.client.short_name()})
             pktwriter = PcapWriter(filepath, append=True, sync=True)
 

@@ -6,6 +6,9 @@ from StringIO import StringIO
 from ..PupyConfig import PupyConfig
 from ..PupyCredentials import Encryptor
 
+class EncryptionError(Exception):
+    pass
+
 class Credentials(object):
     def __init__(self, client=None, config=None, password=None):
         self.config = config or PupyConfig()
@@ -64,28 +67,17 @@ class Credentials(object):
 
     def add(self, data):
         db = self._load_db()
-        
+
         # add uid to sort creds by host
         for d in range(len(data)):
             data[d].update({'uid': self.client})
-        
+
         db['creds'] = [
             dict(t) for t in frozenset([
                 tuple(d.items()) for d in db['creds'] + data
             ])
         ]
         self._save_db(db)
-
-  #       db = self._load_db()
-
-  #       for d in data:
-  #           if not self.checkIfExists(d, db['creds']):
-  #               d.update({
-  #                   'uid': self.client
-  #               })
-  #               db['creds'].append(d)
-
-		# self._save_db(db)
 
     def display(self, search='all', isSorted=False):
         data = self._load_db()

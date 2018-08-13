@@ -17,7 +17,6 @@
 import sys
 from contextlib import contextmanager
 from rpyc.utils.helpers import restricted
-import textwrap
 import json
 import zlib
 import msgpack
@@ -85,20 +84,6 @@ def redirected_stdo(module, stdout=None, stderr=None):
     finally:
         ns['reset_stdo']()
         module.client.conn.unregister_remote_cleanup(ns['reset_stdo'])
-
-def interact(module):
-    """remote interactive interpreter
-
-    :param conn: the RPyC connection
-    :param namespace: the namespace to use (a ``dict``)
-    """
-    with redirected_stdio(module):
-        conn.execute("""def _rinteract():
-            def new_exit():
-                print "use ctrl+D to exit the interactive python interpreter."
-            import code
-            code.interact(local = dict({"exit":new_exit, "quit":new_exit}))""")
-        conn.namespace["_rinteract"]()
 
 @contextmanager
 def redirected_stdio(module, stdout=None, stderr=None):

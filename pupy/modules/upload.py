@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.PupyCompleter import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyCompleter import path_completer, remote_dirs_completer
+
 from rpyc.utils.classic import upload
+
 import os
 import os.path
 

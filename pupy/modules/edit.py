@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from os.path import splitext, basename
 from os import environ

@@ -393,8 +393,10 @@ class _wmi_method:
           arg = args[n_arg]
           parameter = parameters.Properties_[n_arg]
           if parameter.IsArray:
-            try: list (arg)
-            except TypeError: raise TypeError ("parameter %d must be iterable" % n_arg)
+            try:
+                list (arg)
+            except TypeError:
+                raise TypeError ("parameter %d must be iterable" % n_arg)
           parameter.Value = arg
 
         #
@@ -407,8 +409,10 @@ class _wmi_method:
             raise AttributeError ("%s is not a valid parameter for %s" % (k, self.__doc__))
           else:
             if is_array:
-              try: list (v)
-              except TypeError: raise TypeError ("%s must be iterable" % k)
+              try:
+                  list (v)
+              except TypeError:
+                  raise TypeError ("%s must be iterable" % k)
           parameters.Properties_ (k).Value = v
 
         result = self.ole_object.ExecMethod_ (self.method.Name, self.in_parameters)
@@ -419,12 +423,12 @@ class _wmi_method:
       for name, is_array in self.out_parameter_names:
         value = result.Properties_ (name).Value
         if is_array:
-          #
-          # Thanks to Jonas Bjering for bug report and patch
-          #
-          results.append (list (value or []))
+            #
+            # Thanks to Jonas Bjering for bug report and patch
+            #
+            results.append (list (value or []))
         else:
-          results.append (value)
+            results.append (value)
       return tuple (results)
 
     except pywintypes.com_error:
@@ -749,6 +753,7 @@ class _wmi_event (_wmi_object):
   extra information such as the type of event.
   """
   event_type_re = re.compile ("__Instance(Creation|Modification|Deletion)Event")
+
   def __init__ (self, event, event_info, fields=[]):
     _wmi_object.__init__ (self, event, fields=fields)
     _set (self, "event_type", None)
@@ -935,6 +940,7 @@ class _wmi_namespace:
     #
     if find_classes:
       _ = self.classes
+      assert _
 
   def __repr__ (self):
     return "<_wmi_namespace: %s>" % self.wmi
@@ -1170,6 +1176,7 @@ class _wmi_watcher:
     "TargetInstance" : _wmi_object,
     "PreviousInstance" : _wmi_object
   }
+
   def __init__ (self, wmi_event, is_extrinsic, fields=[]):
     self.wmi_event = wmi_event
     self.is_extrinsic = is_extrinsic
@@ -1303,104 +1310,117 @@ def construct_moniker (
   namespace=None,
   suffix=None
 ):
-  security = []
-  if impersonation_level: security.append ("impersonationLevel=%s" % impersonation_level)
-  if authentication_level: security.append ("authenticationLevel=%s" % authentication_level)
-  #
-  # Use of the authority descriptor is invalid on the local machine
-  #
-  if authority and computer: security.append ("authority=%s" % authority)
-  if privileges: security.append ("(%s)" % ", ".join (privileges))
+    security = []
+    if impersonation_level:
+        security.append ("impersonationLevel=%s" % impersonation_level)
 
-  moniker = [PROTOCOL]
-  if security: moniker.append ("{%s}!" % ",".join (security))
-  if computer: moniker.append ("//%s/" % computer)
-  if namespace:
-    parts = re.split (r"[/\\]", namespace)
-    if parts[0] != 'root':
-      parts.insert (0, "root")
-    moniker.append ("/".join (parts))
-  if suffix: moniker.append (":%s" % suffix)
-  return "".join (moniker)
+    if authentication_level:
+        security.append ("authenticationLevel=%s" % authentication_level)
+
+    #
+    # Use of the authority descriptor is invalid on the local machine
+    #
+    if authority and computer:
+        security.append ("authority=%s" % authority)
+
+    if privileges:
+        security.append ("(%s)" % ", ".join (privileges))
+
+    moniker = [PROTOCOL]
+    if security:
+        moniker.append ("{%s}!" % ",".join (security))
+
+    if computer:
+        moniker.append ("//%s/" % computer)
+
+    if namespace:
+      parts = re.split (r"[/\\]", namespace)
+      if parts[0] != 'root':
+        parts.insert (0, "root")
+      moniker.append ("/".join (parts))
+
+    if suffix:
+        moniker.append (":%s" % suffix)
+    return "".join (moniker)
 
 def get_wmi_type (obj):
-  try:
-    path = obj.Path_
-  except AttributeError:
-    return "namespace"
-  else:
-    if path.IsClass:
-      return "class"
+    try:
+      path = obj.Path_
+    except AttributeError:
+      return "namespace"
     else:
-      return "instance"
+      if path.IsClass:
+        return "class"
+      else:
+        return "instance"
 
 def connect_server (
-  server,
-  namespace = "",
-  user = "",
-  password = "",
-  locale = "",
-  authority = "",
-  impersonation_level="",
-  authentication_level="",
-  security_flags = 0x80,
-  named_value_set = None
+    server,
+    namespace = "",
+    user = "",
+    password = "",
+    locale = "",
+    authority = "",
+    impersonation_level="",
+    authentication_level="",
+    security_flags = 0x80,
+    named_value_set = None
 ):
-  """Return a remote server running WMI
+    """Return a remote server running WMI
 
-  :param server: name of the server
-  :param namespace: namespace to connect to - defaults to whatever's defined as default
-  :param user: username to connect as, either local or domain (dom\\name or user@domain for XP)
-  :param password: leave blank to use current context
-  :param locale: desired locale in form MS_XXXX (eg MS_409 for Am En)
-  :param authority: either "Kerberos:" or an NT domain. Not needed if included in user
-  :param impersonation_level: valid WMI impersonation level
-  :param security_flags: if 0, connect will wait forever; if 0x80, connect will timeout at 2 mins
-  :param named_value_set: typically empty, otherwise a context-specific `SWbemNamedValueSet`
+    :param server: name of the server
+    :param namespace: namespace to connect to - defaults to whatever's defined as default
+    :param user: username to connect as, either local or domain (dom\\name or user@domain for XP)
+    :param password: leave blank to use current context
+    :param locale: desired locale in form MS_XXXX (eg MS_409 for Am En)
+    :param authority: either "Kerberos:" or an NT domain. Not needed if included in user
+    :param impersonation_level: valid WMI impersonation level
+    :param security_flags: if 0, connect will wait forever; if 0x80, connect will timeout at 2 mins
+    :param named_value_set: typically empty, otherwise a context-specific `SWbemNamedValueSet`
 
-  Example::
+    Example::
 
-    remote_connetion = wmi.connect_server (
-      server="remote_machine", user="myname", password="mypassword"
-    )
-    c = wmi.WMI (wmi=remote_connection)
-  """
-  #
-  # Thanks to Matt Mercer for example code to set
-  # impersonation & authentication on ConnectServer
-  #
-  if impersonation_level:
-    try:
-      impersonation = getattr (obj._constants, "wbemImpersonationLevel%s" % impersonation_level.title ())
-    except AttributeError:
-      raise x_wmi_authentication ("No such impersonation level: %s" % impersonation_level)
-  else:
-    impersonation = None
+      remote_connetion = wmi.connect_server (
+        server="remote_machine", user="myname", password="mypassword"
+      )
+      c = wmi.WMI (wmi=remote_connection)
+    """
+    #
+    # Thanks to Matt Mercer for example code to set
+    # impersonation & authentication on ConnectServer
+    #
+    if impersonation_level:
+      try:
+        impersonation = getattr (obj._constants, "wbemImpersonationLevel%s" % impersonation_level.title ())
+      except AttributeError:
+        raise x_wmi_authentication ("No such impersonation level: %s" % impersonation_level)
+    else:
+      impersonation = None
 
-  if authentication_level:
-    try:
-      authentication = getattr (obj._constants, "wbemAuthenticationLevel%s" % authentication_level.title ())
-    except AttributeError:
-      raise x_wmi_authentication ("No such impersonation level: %s" % impersonation_level)
-  else:
-    authentication = None
+    if authentication_level:
+      try:
+        authentication = getattr (obj._constants, "wbemAuthenticationLevel%s" % authentication_level.title ())
+      except AttributeError:
+        raise x_wmi_authentication ("No such impersonation level: %s" % impersonation_level)
+    else:
+      authentication = None
 
-  server = Dispatch ("WbemScripting.SWbemLocator").\
-    ConnectServer (
-      server,
-      namespace,
-      user,
-      password,
-      locale,
-      authority,
-      security_flags,
-      named_value_set
-    )
-  if impersonation:
-    server.Security_.ImpersonationLevel  = impersonation
-  if authentication:
-    server.Security_.AuthenticationLevel  = authentication
-  return server
+    server = Dispatch ("WbemScripting.SWbemLocator").\
+      ConnectServer (
+        server,
+        namespace,
+        user,
+        password,
+        locale,
+        authority,
+        security_flags,
+        named_value_set
+      )
+    if impersonation:
+      server.Security_.ImpersonationLevel  = impersonation
+    if authentication:
+      server.Security_.AuthenticationLevel  = authentication
+    return server
 
 def Registry (
   computer=None,
@@ -1438,4 +1458,3 @@ if __name__ == '__main__':
     print ("Disks on", my_computer.Name)
     for disk in system.Win32_LogicalDisk ():
       print (disk.Caption, disk.Description, disk.ProviderName or "")
-

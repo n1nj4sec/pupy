@@ -55,7 +55,6 @@ class EC4Transport(BasePupyTransport):
 
         request = data.read(2 + length)
 
-        handler = None
         if self.privkey:
             response, key = self.encoder.process_kex_request(request[2:], 0, key_size=128)
             # Add jitter, tinyec is quite horrible

@@ -109,8 +109,6 @@ __author__ = "Hubert Pham"
 __version__ = "0.2.9"
 __docformat__ = "restructuredtext en"
 
-import sys
-
 # attempt to import PortAudio
 try:
     import _portaudio as pa
@@ -920,7 +918,7 @@ class PyAudio:
 
         if input_device == None and output_device == None:
             raise ValueError("must specify stream format for input, " +\
-                             "output, or both", paInvalidDevice);
+                             "output, or both", paInvalidDevice)
 
         kwargs = {}
 

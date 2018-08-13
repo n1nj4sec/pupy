@@ -19,7 +19,6 @@ import re
 from hashlib import sha1
 
 from ..base import BasePupyTransport
-from .utils import *
 
 from network.lib import getLogger
 logger = getLogger('ws')
@@ -162,7 +161,6 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                     data.drain(2)
                     d=d[2:]
 
-                    fin = b1 & FIN
                     opcode = b1 & OPCODE
                     masked = b2 & MASKED
                     payload_len = b2 & PAYLOAD_LEN
@@ -307,9 +305,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 d=d[2:]
                 data.drain(2)
 
-                fin = b1 & FIN
                 opcode = b1 & OPCODE
-                masked = b2 & MASKED
                 payload_len = b2 & PAYLOAD_LEN
 
                 if not b1:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
-from pupylib.utils.rpyc_utils import obtain
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="Display"
 

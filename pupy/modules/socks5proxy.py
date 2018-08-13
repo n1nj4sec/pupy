@@ -16,8 +16,12 @@
 # --------------------------------------------------------------
 
 #RFC @https://www.ietf.org/rfc/rfc1928.txt
-from pupylib.PupyModule import *
-import StringIO
+
+from pupylib.PupyModule import (
+    config, PupyModule, PupyArgumentParser,
+    QA_UNSTABLE
+)
+
 import SocketServer
 import threading
 import socket
@@ -45,6 +49,7 @@ class SocketPiper(threading.Thread):
         self.daemon=True
         self.read_sock=read_sock
         self.write_sock=write_sock
+
     def run(self):
         try:
             self.read_sock.setblocking(0)
@@ -100,9 +105,11 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         self.request.settimeout(5)
-        VER=self.request.recv(1)
-        NMETHODS=self.request.recv(1)
-        METHODS=self.request.recv(int(struct.unpack("!B",NMETHODS)[0]))
+        VER = self.request.recv(1)
+        NMETHODS = self.request.recv(1)
+
+        self.request.recv(int(struct.unpack("!B",NMETHODS)[0]))
+
         """
         o  X'00' NO AUTHENTICATION REQUIRED
         o  X'01' GSSAPI
@@ -111,6 +118,7 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
         o  X'80' to X'FE' RESERVED FOR PRIVATE METHODS
         o  X'FF' NO ACCEPTABLE METHODS
         """
+
         #for now only no authentication is supported :
         self.request.sendall("\x05\x00")
         VER=self.request.recv(1)
@@ -125,7 +133,7 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
             self._socks_response(CODE_COMMAND_NOT_SUPPORTED, terminate=True)
             return
 
-        RSV=self.request.recv(1)
+        self.request.recv(1)
 
         DST_ADDR=None
         DST_PORT=None
@@ -172,6 +180,7 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
 
 class Socks5Server(SocketServer.TCPServer):
     allow_reuse_address = True
+
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, rpyc_client=None, module=None):
         self.rpyc_client=rpyc_client
         self.module=module

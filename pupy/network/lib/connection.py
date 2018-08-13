@@ -6,7 +6,7 @@ __all__ = ( 'SyncRequestDispatchQueue', 'PupyConnection',
 import time
 
 from rpyc.core import Connection, consts, brine
-from threading import Thread, Event, Lock, RLock
+from threading import Thread, Lock
 from Queue import Queue, Full, Empty
 
 from network.lib import getLogger
@@ -26,24 +26,24 @@ def stream_dump(obj):
 
 @brine.register(brine._dump_registry, str)
 def _dump_str_to_buffer(obj, stream):
-    l = len(obj)
-    if l == 0:
+    obj_len = len(obj)
+    if obj_len == 0:
         stream.append(brine.TAG_EMPTY_STR)
         return
-    elif l < 5:
-        if l == 1:
+    elif obj_len < 5:
+        if obj_len == 1:
             stream.append(brine.TAG_STR1)
-        elif l == 2:
+        elif obj_len == 2:
             stream.append(brine.TAG_STR2)
-        elif l == 3:
+        elif obj_len == 3:
             stream.append(brine.TAG_STR3)
-        elif l == 4:
+        elif obj_len == 4:
             stream.append(brine.TAG_STR4)
     else:
-        if l < 256:
-            stream.append(brine.TAG_STR_L1 + brine.I1.pack(l))
+        if obj_len < 256:
+            stream.append(brine.TAG_STR_L1 + brine.I1.pack(obj_len))
         else:
-            stream.append(brine.TAG_STR_L4 + brine.I4.pack(l))
+            stream.append(brine.TAG_STR_L4 + brine.I4.pack(obj_len))
 
     stream.append(obj)
 
@@ -582,11 +582,7 @@ class PupyConnection(Connection):
             logger.debug('Serve: complete / data = {}'.format(len(data) if data else None))
 
         if not data and interval and ping_timeout:
-            ping = False
-            if not self._last_ping:
-                ping = True
-
-            elif now > self._last_ping + interval:
+            if not self._last_ping or now > self._last_ping + interval:
                 if __debug__:
                     logger.debug('Send ping, interval: {}, timeout: {}'.format(
                         interval, ping_timeout))

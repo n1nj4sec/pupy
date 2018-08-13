@@ -5,22 +5,16 @@
 import sys
 import traceback
 
-from scapy.all import *
+from scapy.all import (
+    conf, ETH_P_ALL, six, WINDOWS, errno, POWERSHELL_PROCESS
+)
 
-# import scapy.arch
-# import scapy.error
-
-# from scapy.config import conf
-# from scapy.consts import WINDOWS
-# from scapy.data import ETH_P_ALL
 from select import select, error as select_error
 
 from threading import Thread, Event
 
 from rpyc import async
 from psutil import net_if_addrs
-
-from time import time
 
 def isniff(count=0, prn=None, lfilter=None,
           L2socket=None, timeout=None, completion=None,
@@ -54,12 +48,14 @@ def isniff(count=0, prn=None, lfilter=None,
 
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
+
         def _select(sockets):
             return bpf_select(sockets, remain)
 
     elif WINDOWS:
         from scapy.arch.pcapdnet import PcapTimeoutElapsed
         read_allowed_exceptions = (PcapTimeoutElapsed,)
+
         def _select(sockets):
             try:
                 return sockets
@@ -233,8 +229,10 @@ def run(on_data, on_close, iface=None, bpf=None, timeout=None, count=0):
 
 if __name__=="__main__":
     import time
+
     def cb(pkt):
         print pkt.summary()
+
     t = SniffSession(cb, None, iface="eth0")
     t.start()
     t.stop()

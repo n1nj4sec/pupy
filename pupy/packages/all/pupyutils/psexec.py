@@ -1,23 +1,22 @@
 #!/usr/bin/env python2
 
-import argparse
 import time
-import ConfigParser
 import traceback
 import random
-import sys
 import os
 import string
 import socket
 
-import unicodedata
-import idna
+try:
+    import idna
+    assert idna
+except ImportError:
+    pass
 
 import encodings
 
 from StringIO import StringIO
 
-from impacket import smbserver, ntlm
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
@@ -25,8 +24,7 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket.system_errors import \
      ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE, \
      ERROR_SERVICE_REQUEST_TIMEOUT
-from impacket.smb import SMB
-from impacket.smbconnection import *
+from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
 
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
 BATCH_FILENAME = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
@@ -132,8 +130,6 @@ class ConnectionInfo(object):
         ]
 
     def create_connection(self, klass=SMBConnection):
-        self_repr = str(self)
-
         try:
             smb = klass(self.host, self.host, None, self.port, timeout=self.timeout)
 
@@ -470,7 +466,7 @@ def wmiexec(conninfo, command, share='C$', output=True):
 
     return output_filename
 
-def check(host, port, user, domain, password, ntlm):
+def check(host, port, user, domain, password, ntlm, timeout=30):
     conninfo = ConnectionInfo(
         host, port, user, domain, password, ntlm, timeout=timeout
     )

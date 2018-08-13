@@ -53,6 +53,8 @@ def add_transport(module_name):
 try:
     import pupyimporter
     import network.transports
+    assert network.transports
+
     for path in [
             x for x in pupyimporter.modules.iterkeys() \
             if x.startswith('network/transports/') and x.endswith(

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: UTF8 -*-
+# -*- coding: utf-8 -*-
 #Author: @bobsecq
 #Contributor(s):
 
-from jnius import autoclass, PythonJavaClass, java_method, cast
+from jnius import autoclass, cast
 
 def getAndroidID():
     '''
@@ -14,7 +14,7 @@ def getAndroidID():
         settingsSecure = autoclass('android.provider.Settings$Secure')
         androidId = settingsSecure.getString(pythonActivity.mService.getContentResolver(), settingsSecure.ANDROID_ID)
         return androidId
-    except Exception,e:
+    except:
         return None
 
 def getPhoneNumber():
@@ -27,12 +27,12 @@ def getPhoneNumber():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         phoneNumber = telephonyManager.getLine1Number()
         return phoneNumber
-    except Exception,e:
+    except:
         return None
-        
+
 def getDeviceId():
     '''
-    Returns the unique device ID, for example, the IMEI for GSM and the MEID or ESN for CDMA phones. 
+    Returns the unique device ID, for example, the IMEI for GSM and the MEID or ESN for CDMA phones.
     Otherwise, returns None
     Requires Permission: READ_PHONE_STATE
     '''
@@ -42,7 +42,7 @@ def getDeviceId():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         deviceId = telephonyManager.getDeviceId()
         return deviceId
-    except Exception,e:
+    except:
         return None
 
 def getSimCountryIso():
@@ -57,12 +57,12 @@ def getSimCountryIso():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         simCountryIso = telephonyManager.getSimCountryIso()
         return simCountryIso
-    except Exception,e:
+    except:
         return None
 
 def getNetworkCountryIso():
     '''
-    Returns the ISO country code equivalent of the current registered operator's MCC (Mobile Country Code). 
+    Returns the ISO country code equivalent of the current registered operator's MCC (Mobile Country Code).
     Otherwise, returns None
     Availability: Only when user is registered to a network. Result may be unreliable on CDMA networks (use getPhoneType() to determine if on a CDMA network).
     See https://developer.android.com/reference/android/telephony/TelephonyManager.html#getNetworkCountryIso()
@@ -73,9 +73,9 @@ def getNetworkCountryIso():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         networkCountryIso = telephonyManager.getNetworkCountryIso()
         return networkCountryIso
-    except Exception,e:
+    except:
         return None
-        
+
 def getSimInfo():
     '''
     Returns 0 if none of voice, sms, data is not supported
@@ -90,7 +90,7 @@ def getSimInfo():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         phoneCount = telephonyManager.getPhoneCount()
         return phoneCount
-    except Exception,e:
+    except:
         return None
 
 def getNetworkOperatorName():
@@ -104,9 +104,9 @@ def getNetworkOperatorName():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         networkOperatorName = telephonyManager.getNetworkOperatorName()
         return networkOperatorName
-    except Exception,e:
+    except:
         return None
-        
+
 def getSimState():
     '''
     Returns a string indicating the state of the default SIM card
@@ -132,14 +132,14 @@ def getSimState():
         elif simState == TelephonyManager.SIM_STATE_READY:
             status = "ready"
         return status
-    except Exception,e:
+    except:
         return None
-        
+
 def isNetworkRoaming():
     '''
     Returns true if the device is considered roaming on the current network, for GSM purposes.
     Returns None if an error
-    Availability: Only when user registered to a network. 
+    Availability: Only when user registered to a network.
     '''
     try:
         mContext = autoclass('android.content.Context')
@@ -147,7 +147,7 @@ def isNetworkRoaming():
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         isNetworkRoaming = telephonyManager.isNetworkRoaming()
         return isNetworkRoaming
-    except Exception,e:
+    except:
         return None
 
 def isWiFiEnabled():
@@ -159,7 +159,7 @@ def isWiFiEnabled():
         pythonActivity = autoclass('org.renpy.android.PythonService')
         wifiManager = cast('android.net.wifi.WifiManager', pythonActivity.mService.getSystemService(mContext.WIFI_SERVICE))
         return wifiManager.isWifiEnabled()
-    except Exception,e:
+    except:
         return None
 
 def isWiFiConnected():
@@ -175,10 +175,12 @@ def isVPNConnected():
     pythonActivity = autoclass('org.renpy.android.PythonService')
     connectivityManager = autoclass('android.net.ConnectivityManager')
     cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
+
     try:
         networkInfo = cManager.getNetworkInfo(connectivityManager.TYPE_VPN)
-    except Exception, e:
+    except:
         return False
+
     return networkInfo.isConnected()
 
 def getInfoBuild():
@@ -197,12 +199,22 @@ def getInfoBuild():
         hardware = build.HARDWARE
         try:
             serial = build.SERIAL
-        except Exception,e:
+        except:
             serial = None
         radioVersion = build.getRadioVersion()
         return {'deviceName':deviceName, 'manufacturer':manufacturer, 'model':model, 'product': product, 'bootloaderVersion':bootloaderVersion, 'hardware':hardware, 'serial':serial, 'radioVersion':radioVersion, 'release':"{0} ({1})".format(version.RELEASE, version.CODENAME)}
-    except Exception, e:
-        return {'deviceName':None      , 'manufacturer':None        , 'model':None , 'product': None   , 'bootloaderVersion':None             , 'hardware':None     , 'serial':None , 'radioVersion':None,         'release':None}
+    except:
+        return {
+            'deviceName':None,
+            'manufacturer':None,
+            'model':None ,
+            'product': None,
+            'bootloaderVersion':None,
+            'hardware':None,
+            'serial':None,
+            'radioVersion':None,
+            'release':None
+        }
 
 
 def getBatteryStats():
@@ -213,7 +225,7 @@ def getBatteryStats():
     try:
         from plyer import battery
         return battery.status
-    except Exception,e:
+    except:
         return None
 
 def getMobileNetworkType():
@@ -287,5 +299,5 @@ def getMobileNetworkType():
             info = "UNKNOWN: ?"
             fast = None
         return {'info':info, 'fast':fast}
-    except Exception,e:
+    except:
         return {'info':info, 'fast':fast}

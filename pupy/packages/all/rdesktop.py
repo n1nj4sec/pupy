@@ -15,17 +15,6 @@ try:
 except:
     remote_control = False
 
-def get_screen_size():
-    screenshoter = mss.mss()
-    monitors = list(screenshoter.monitors)
-    if len(monitors) > 1:
-        del monitors[0]
-
-    monitor = monitors[0]
-    height = monitor['height']
-    width = monitor['width']
-    return width, height
-
 class VideoStreamer(threading.Thread):
     def __init__(self, callback, refresh_interval=0.1):
         threading.Thread.__init__(self)
@@ -41,26 +30,19 @@ class VideoStreamer(threading.Thread):
             del monitors[0]
 
         monitor = monitors[0]
-        height = monitor['height']
-        width = monitor['width']
 
         previous = None
 
         while not self.stopped.is_set():
-            try:
-                scr = screenshoter.grab(monitor)
-                if scr == previous:
-                    continue
-
+            scr = screenshoter.grab(monitor)
+            if scr != previous:
                 previous = scr
 
                 self.callback(
                     bmp_to_png(scr.rgb, scr.width, scr.height),
                     scr.width, scr.height)
 
-                time.sleep(self.refresh_interval)
-            except:
-                break
+            time.sleep(self.refresh_interval)
 
     def move(self, x, y):
         if not remote_control:
@@ -95,7 +77,7 @@ class VideoStreamer(threading.Thread):
 
         keyboard.press(c)
 
-    def key_release(self, key):
+    def key_release(self, c):
         if not remote_control:
             raise "Remote control is not available"
 

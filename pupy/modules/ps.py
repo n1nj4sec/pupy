@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, TruncateToTerm, MultiPart, Table
 from modules.lib import size_human_readable
 
@@ -13,9 +14,9 @@ ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
 def gen_colinfo(data):
     colinfo = {'pid': 0}
     for pid in data:
-        l = len(str(pid))
-        if colinfo['pid'] < l:
-            colinfo['pid'] = l
+        pid_len = len(str(pid))
+        if colinfo['pid'] < pid_len:
+            colinfo['pid'] = pid_len
         for column in data[pid]:
             if '_percent' in column:
                 colinfo[column] = 4
@@ -27,21 +28,21 @@ def gen_colinfo(data):
             if type(data[pid][column]) == unicode:
                 data[pid][column]=data[pid][column].encode('utf8', 'replace')
 
-            l = len(str(data[pid][column]))
+            pid_len = len(str(data[pid][column]))
             if not column in colinfo:
-                colinfo[column] = l
+                colinfo[column] = pid_len
             else:
-                if colinfo[column] < l:
-                    colinfo[column] = l
+                if colinfo[column] < pid_len:
+                    colinfo[column] = pid_len
 
     return colinfo
 
 def to_string(value):
     tvalue = type(value)
 
-    if type(value) == unicode:
+    if tvalue == unicode:
         return value
-    elif type(value) != str:
+    elif tvalue != str:
         return unicode(value)
 
     try:
@@ -71,7 +72,7 @@ def gen_columns(record, colinfo):
             columns['username'] = '{{:{}}}'.format(colinfo['username']).format(columns['username'])
         columns['pid'] = '{{:{}}}'.format(colinfo['pid']).format(record['pid'])
     else:
-        columns['pid'] = '{}'.format(parent)
+        columns['pid'] = '{}'.format(record['pid'])
 
     return columns
 
@@ -109,9 +110,11 @@ def gen_output_line(columns, info, record, wide=False):
 
 def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=False):
     keys = ('id', 'key', 'PROPERTY', 'VAR', 'TYPE' )
-    sorter = lambda x,y: -1 if (
-        x in keys and y not in keys
-    ) else ( 1 if (y in keys and not x in keys) else cmp(x, y))
+
+    def sorter(x, y):
+        return -1 if (
+            x in keys and y not in keys
+        ) else ( 1 if (y in keys and not x in keys) else cmp(x, y))
 
     parts = []
 
@@ -128,8 +131,6 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
                     })
                 else:
                     if prop == 'environ':
-                        maxvar = max(len(x) for x in value.iterkeys())
-                        maxval = max(len(x) for x in value.itervalues())
                         infosecs[prop] = [{
                             'VAR':x, 'VALUE':y
                         } for x,y in value.iteritems()]
@@ -313,7 +314,6 @@ class PsModule(PupyModule):
                                          help='show extended process info (or subtree) by pid')
 
     def run(self, args):
-        rpupyps = self.client.remote('pupyps')
         psinfo = self.client.remote('pupyps', 'psinfo')
         pstree = self.client.remote('pupyps', 'pstree')
 

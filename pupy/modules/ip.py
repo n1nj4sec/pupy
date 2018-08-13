@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from pupylib.PupyModule import *
-from pupylib.PupyCmd import PupyCmd
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, Line, Table
 
 import logging
-import socket
 
 __class_name__="IPModule"
 
@@ -23,7 +21,6 @@ class IPModule(PupyModule):
 
     def run(self, args):
         try:
-            pupyps = self.client.remote('pupyps')
             interfaces = self.client.remote('pupyps', 'interfaces')
             families = {
                 int(k):v for k,v in self.client.remote_const(
@@ -33,10 +30,6 @@ class IPModule(PupyModule):
 
             data = interfaces()
             families = { int(x):y for x,y in families.iteritems() }
-
-            addrlen = max([len(x) for x in data['addrs']])+1
-
-            familylen = max([len(v)-3 for v in families.itervalues()])+1
 
             objects = []
 

@@ -2,10 +2,8 @@
 
 import psutil
 
-import collections
 import sys
 import os
-import time
 import socket
 import struct
 import netaddr
@@ -182,7 +180,7 @@ def users():
                 terminfo['idle'] = int(time.time()) - int(os.stat(
                     '/dev/{}'.format(terminfo['terminal'])
                 ).st_atime)
-            except Exception, e:
+            except:
                 pass
 
             if terminfo['terminal'] in terminals:

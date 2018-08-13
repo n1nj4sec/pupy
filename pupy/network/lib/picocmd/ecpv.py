@@ -105,7 +105,7 @@ class ECPV(object):
         clone._kex_private_key = None
         return clone
 
-    def l(self, a, p):
+    def lg(self, a, p):
         ls = pow(a, (p - 1)/2, p)
         if ls == p - 1:
             return -1
@@ -120,7 +120,7 @@ class ECPV(object):
         if p == 2:
             return [a]
 
-        if self.l(a, p) != 1:
+        if self.lg(a, p) != 1:
             return []
 
         if p % 4 == 3:
@@ -132,7 +132,7 @@ class ECPV(object):
             s += 1
             q >>= 1
         z = 1
-        while self.l(z, p) != -1:
+        while self.lg(z, p) != -1:
             z += 1
         c = pow(z, q, p)
 
@@ -214,8 +214,6 @@ class ECPV(object):
         self._private_key = self._gen_random()
         self._public_key = self._curve.g * self._private_key
         self._public_key_digest = self._mgf2(self._ec2osp(self._public_key), AES.block_size)
-
-        x = self._osp2ec(self._ec2osp(self._public_key))
 
         return (
             base64.b64encode(self._to_bytes(self._private_key)),

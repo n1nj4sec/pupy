@@ -4,7 +4,7 @@ import os
 import ntpath
 import StringIO
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="SMB"

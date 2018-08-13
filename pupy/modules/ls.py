@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
-from pupylib.utils.rpyc_utils import obtain
-from pupylib.utils.term import colorize
+from pupylib.PupyOutput import Color
 from modules.lib import size_human_readable, file_timestamp, to_utf8
-from datetime import datetime
 
 __class_name__="ls"
 
@@ -42,27 +41,27 @@ def output_format(file, windows=False):
             u'{:<40}'.format(to_utf8(file[T_NAME])))
 
     if file[T_TYPE] == 'D':
-        out=colorize(out, 'lightyellow')
+        out=Color(out, 'lightyellow')
     elif 'U' in file[T_SPEC]:
-        out=colorize(out, 'lightred')
+        out=Color(out, 'lightred')
     elif 'G' in file[T_SPEC]:
-        out=colorize(out, 'red')
+        out=Color(out, 'red')
     elif file[T_TYPE] == 'B':
-        out=colorize(out, 'grey')
-    elif file[T_TYPE] == 'C':
-        out=colorize(out, 'grey')
+        out=Color(out, 'grey')
+    elif file[T_TYPE ] == 'C':
+        out=Color(out, 'grey')
     elif file[T_TYPE] == 'F':
-        out=colorize(out, 'cyan')
+        out=Color(out, 'cyan')
     elif file[T_TYPE] == 'S':
-        out=colorize(out, 'magenta')
+        out=Color(out, 'magenta')
     elif file[T_TYPE] == 'L':
-        out=colorize(out, 'grey')
+        out=Color(out, 'grey')
     elif not file[T_SIZE]:
-        out=colorize(out, 'darkgrey')
+        out=Color(out, 'darkgrey')
     elif 'E' in file[T_SPEC]:
-        out=colorize(out, 'lightgreen')
+        out=Color(out, 'lightgreen')
     elif 'W' in file[T_SPEC] and not windows:
-        out=colorize(out, 'blue')
+        out=Color(out, 'blue')
 
     return out
 

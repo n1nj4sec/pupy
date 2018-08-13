@@ -62,18 +62,26 @@ class PupyCategories(object):
         if system is None:
             return self.categories[category]
         else:
-            l=[]
+            modules = []
             for mod in self.categories[category]:
                 if system in mod.compatible_systems:
-                    l.append(mod)
-            return l
+                    modules.append(mod)
+            return modules
 
     def get_shell_list(self, start_text):
         """ return a list of modules sorted for shell auto completion """
         for k in self.os_shell_lists.iterkeys():
             if start_text.startswith(k):
                 return [x+" " for x in self.os_shell_lists[k] if x.startswith(start_text)]
-        l=[x+" " for x in self.shell_list if x.startswith(start_text)]+[x+"/" for x in self.os_shell_lists.iterkeys() if x.startswith(start_text)]
-        if not l:
-            l+=[x.rsplit("/",1)[1]+" " for x in self.shell_list if x.rsplit("/",1)[1].startswith(start_text)]
-        return l
+        completions = [
+            x+" " for x in self.shell_list if x.startswith(start_text)
+        ] + [
+            x+"/" for x in self.os_shell_lists.iterkeys() if x.startswith(start_text)
+        ]
+
+        if not completions:
+            completions += [
+                x.rsplit("/",1)[1]+" " for x in self.shell_list if x.rsplit("/",1)[1].startswith(start_text)
+            ]
+
+        return completions

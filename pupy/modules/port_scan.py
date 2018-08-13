@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import logging
-import random
 import threading
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table
 
 from netaddr import IPAddress

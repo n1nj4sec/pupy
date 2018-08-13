@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-import base64, re, subprocess
+
+import re
 
 def remove_comments(string):
     '''
@@ -9,6 +10,7 @@ def remove_comments(string):
     # first group captures quoted strings (double or single)
     # second group captures comments (#single-line or <# multi-line #>)
     regex = re.compile(pattern, re.MULTILINE|re.DOTALL)
+
     def _replacer(match):
         # if the 2nd group (capturing comments) is not None,
         # it means we have captured a non-quoted (real) comment string.
@@ -34,7 +36,6 @@ def obfuscatePowershellScript(code):
     Try to clean powershell script (perhaps in the future 'obfuscation'...).
     Comments are deteleted and some strings are replaced in some powershell functions to bypass AV detection
     '''
-    import re
     newCode = code
     newCode = remove_comments(newCode)
     newCode = obfs_ps_script(newCode)

@@ -14,19 +14,18 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 import argparse
-import sys
 from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 from .PupyConfig import PupyConfig
-from .PupyOutput import *
-from .utils.term import consize
+from .PupyOutput import (
+    Text, MultiPart, NewLine, Error, Warn, Success,
+    Info, Table, TruncateToTerm
+)
 
 from pupylib.utils.term import hint_to_text, obj2utf8
+from pupylib import getLogger
 
-import StringIO
 import textwrap
-import inspect
-import logging
 import time
 import os
 import json
@@ -43,6 +42,8 @@ REQUIRE_TERMINAL = 3
 QA_STABLE = 0
 QA_UNSTABLE = 1
 QA_DANGEROUS = 2
+
+logger = getLogger('module')
 
 class PupyArgumentParserWrap(object):
     def __init__(self, base, wrapped):
@@ -149,7 +150,7 @@ class PupyArgumentParser(argparse.ArgumentParser, PupyArgumentParserRef):
 
 
 class Log(object):
-    def __init__(self, out, log, rec=None, command=None, title=None, unicode=False, stream=False):
+    def __init__(self, out, log, consize, rec=None, command=None, title=None, unicode=False, stream=False):
         self.out = out
         self.log = log
         self.rec = None
@@ -165,23 +166,23 @@ class Log(object):
         self.stream = stream
 
         if self.rec == 'asciinema1':
-            h, l = consize(self.out)
+            height, width = consize
             self.log.write(
                 '{{'
                 '"command":{},"title":{},"env":null,"version":1,'
                 '"width":{},"height":{},"stdout":['.format(
                     json.dumps(command), json.dumps(title),
-                    h, l
+                    width, height
                 )
             )
             self.start = time.time()
         if self.rec == 'asciinema':
-            h, l = consize(self.out)
+            height, width = consize
             ts = time.time()
             self.log.write(json.dumps({
                 'version':2,
-                'width': l,
-                'height': h,
+                'width': width,
+                'height': height,
                 'timestamp': ts,
                 'title': title,
                 'env': {
@@ -404,6 +405,7 @@ class PupyModule(object):
             self.stdout = Log(
                 self.stdout,
                 log,
+                self.iogroup.consize,
                 rec=self.rec,
                 command=self.get_name() + ' ' + u' '.join(args.original_cmdline),
                 unicode=unicode,
@@ -436,7 +438,7 @@ class PupyModule(object):
             try:
                 self.client.unload_package(d)
             except Exception, e:
-                logging.exception('Dependency unloading failed: {}'.format(e))
+                logger.exception('Dependency unloading failed: {}'.format(e))
 
     def start_webplugin(self):
         if not self.client.pupsrv.start_webserver():
@@ -559,6 +561,6 @@ def config(**kwargs):
 
     for k in kwargs.iterkeys():
         if k not in [ 'tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon' ]:
-            logging.warning("Unknown argument \"%s\" to @config context manager"%k)
+            logger.warning("Unknown argument \"%s\" to @config context manager"%k)
 
     return class_rebuilder

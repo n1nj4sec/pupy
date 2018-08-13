@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 import logging
 from PupyCredentials import Credentials
-from network.lib.picocmd.server import *
-from network.lib.picocmd.picocmd import *
-from Queue import Queue
+from network.lib.picocmd.server import DnsCommandServerHandler, DnsCommandServer
+from network.lib.picocmd.picocmd import (
+    OnlineStatusRequest, CheckConnect, Connect, Disconnect,
+    Reexec, Sleep, Exit, SetProxy, DownloadExec, PasteLink
+)
 
 from pupylib.PupyConfig import PupyConfig
 from pupylib.utils.network import get_listener_ip_with_local, get_listener_port
 
-from pupylib.PupyOffload import PupyOffloadManager
-
 import requests
-import netifaces
 import netaddr
-import socket
 
 from urlparse import urlparse
 
@@ -21,8 +19,6 @@ from os import path
 
 from .PupyTriggers import event
 from .PupyTriggers import ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST
-
-from network.lib.igd import IGDClient, UPNPError
 
 class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def __init__(self, *args, **kwargs):
@@ -236,7 +232,6 @@ class PupyDnsCnc(object):
             port = 53
 
         listen = str(config.get('pupyd', 'address') or '0.0.0.0')
-        prefer_external = config.getboolean('gen', 'external')
 
         recursor = config.get('pupyd', 'recursor')
         if recursor and recursor.lower() in ('no', 'false', 'stop', 'n', 'disable'):

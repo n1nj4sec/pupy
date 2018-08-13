@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Author: the-useless-one
 # Project: https://github.com/the-useless-one/pywerview
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from argparse import FileType
 
 __class_name__="Pywerview"
 
@@ -277,7 +279,7 @@ class Pywerview(PupyModule):
         invoke_userhunter_parser.add_argument('--computername', dest='queried_computername',
                 nargs='+', default=list(), help='Host to enumerate against')
         invoke_userhunter_parser.add_argument('--computerfile', dest='queried_computerfile',
-                type=argparse.FileType('r'), help='File of hostnames/IPs to search')
+                type=FileType('r'), help='File of hostnames/IPs to search')
         invoke_userhunter_parser.add_argument('--computer-adspath', dest='queried_computeradspath',
                 type=str, help='ADS path used to search computers against the DC')
         invoke_userhunter_parser.add_argument('--unconstrained', action='store_true',
@@ -291,7 +293,7 @@ class Pywerview(PupyModule):
         invoke_userhunter_parser.add_argument('--user-adspath', dest='queried_useradspath',
                 type=str, help='ADS path used to search users against the DC')
         invoke_userhunter_parser.add_argument('--userfile', dest='queried_userfile',
-                type=argparse.FileType('r'), help='File of user names to target')
+                type=FileType('r'), help='File of user names to target')
         invoke_userhunter_parser.add_argument('--threads', type=int,
                 default=1, help='Number of threads to use (default: %(default)s)')
         invoke_userhunter_parser.add_argument('-v', '--verbose', action='store_true',
@@ -310,9 +312,10 @@ class Pywerview(PupyModule):
         invoke_userhunter_parser.add_argument('--stealth', action='store_true',
                 help='Only enumerate sessions from commonly used target servers')
         invoke_userhunter_parser.add_argument('--stealth-source', nargs='+', choices=['dfs', 'dc', 'file'],
-                default=['dfs', 'dc', 'file'], help='The source of target servers to use, '\
-                        '\'dfs\' (distributed file server), \'dc\' (domain controller), '\
-                        'or \'file\' (file server) (default: all)')
+                default=['dfs', 'dc', 'file'],
+                help='The source of target servers to use, '\
+            '\'dfs\' (distributed file server), \'dc\' (domain controller), '\
+            'or \'file\' (file server) (default: all)')
         invoke_userhunter_parser.add_argument('--show-all', action='store_true',
                 help='Return all user location results')
         invoke_userhunter_parser.add_argument('--foreign-users', action='store_true',

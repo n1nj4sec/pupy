@@ -19,7 +19,6 @@ import os
 import os.path
 import traceback
 import time
-import logging
 
 import termios
 import tty
@@ -28,8 +27,6 @@ import select
 import fcntl
 import array
 import readline
-
-import rpyc
 
 from threading import Event, Lock
 
@@ -41,7 +38,10 @@ from .PupyModule import (
 )
 from .PupyCompleter import CompletionContext
 from .PupyVersion import BANNER, UPSTREAM, DISCLAIMER
-from .PupyOutput import *
+from .PupyOutput import (
+    Text, Line, Color, Title, NewLine, Info,
+    ServiceInfo, Warn, Error, Success,  Indent
+)
 
 from .utils.term import colorize, hint_to_text, consize
 from .utils.term import SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM
@@ -83,6 +83,7 @@ class IOGroup(object):
     def close(self):
         pass
 
+    @property
     def consize(self):
         return 80, 25
 
@@ -248,6 +249,7 @@ class RawTerminal(IOGroup):
     def close(self):
         self._active = False
 
+    @property
     def consize(self):
         return consize(self._stdout)
 
@@ -331,7 +333,7 @@ class PupyCmd(cmd.Cmd):
                 logger.debug("adding alias: %s => %s"%(command, alias))
                 self.aliases[command] = alias
 
-        except Exception as e:
+        except:
             logger.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
 
     @property
@@ -400,7 +402,7 @@ class PupyCmd(cmd.Cmd):
     def cmdloop(self, intro=None):
         try:
             cmd.Cmd.cmdloop(self, intro)
-        except KeyboardInterrupt as e:
+        except:
             self.stdout.write('\n')
             self.cmdloop(intro="")
 
@@ -475,7 +477,7 @@ class PupyCmd(cmd.Cmd):
             self.display(ServiceInfo('Background job: {}'.format(job)))
             return
 
-        error = job.worker_pool.join(on_interrupt=job.interrupt)
+        job.worker_pool.join(on_interrupt=job.interrupt)
 
         if job.module.io not in (REQUIRE_REPL, REQUIRE_TERMINAL):
             self.summary(job)
@@ -593,7 +595,7 @@ class PupyCmdLoop(object):
             try:
                 self.cmd.cmdloop()
                 self.stopped.set()
-            except Exception as e:
+            except:
                 print(traceback.format_exc())
                 time.sleep(0.1) #to avoid flood in case of exceptions in loop
                 self.cmd.intro = []

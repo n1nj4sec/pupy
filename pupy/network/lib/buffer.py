@@ -9,7 +9,6 @@ __all__ = (
     'DEFAULT_MAX_STR_SIZE'
 )
 
-import sys
 import zlib
 
 from threading import Lock, Event
@@ -372,7 +371,7 @@ class Buffer(object):
 
                 chunk = self._obtain(
                     min(to_read, chunk_size),
-                    release=True, view=not modificator)
+                    release=True, view=(not modificator) or view)
 
                 lchunk = len(chunk)
                 total_read += lchunk

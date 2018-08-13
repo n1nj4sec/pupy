@@ -1,5 +1,3 @@
-import __builtin__
-
 __all__ = ["PythonCompleter"]
 
 class PythonCompleter:
@@ -60,7 +58,7 @@ class PythonCompleter:
         try:
             try:
                 thisobject = eval(expr, self.global_ns, self.local_ns)
-            except NameError as e:
+            except NameError:
                 """
                 print str(e)
                 try:
@@ -69,9 +67,9 @@ class PythonCompleter:
                 except ImportError:
                     pass
                 """
-        except Exception as e:
+        except:
             return []
-        
+
         # get the content of the object, except __builtins__
         words = dir(thisobject)
         if "__builtins__" in words:
@@ -103,4 +101,3 @@ if __name__=="__main__":
     readline.set_completer(PythonCompleter().complete)
     readline.parse_and_bind('tab: complete')
     code.interact()
-

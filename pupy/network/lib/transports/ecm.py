@@ -91,7 +91,6 @@ class ECMTransport(BasePupyTransport):
         request = data.read(reqlen)
         remote_nonce = data.read(noncelen)
 
-        handler = None
         if self.privkey:
             response, key = self.encoder.process_kex_request(request, 0)
             # Add jitter, tinyec is quite horrible

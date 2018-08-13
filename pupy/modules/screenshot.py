@@ -30,11 +30,9 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-from pupylib.PupyModule import *
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyConfig import PupyConfig
-from os import path
 
-import datetime
 import subprocess
 
 __class_name__="Screenshoter"

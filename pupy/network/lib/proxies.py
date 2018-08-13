@@ -26,16 +26,16 @@ except ImportError:
     import urllib2 as urllib
 
 def parse_win_proxy(val):
-    l=[]
+    proxies=[]
     for p in val.split(';'):
         if '=' in p:
             tab=p.split('=',1)
             if tab[0]=='socks':
                 tab[0]='SOCKS4'
-            l.append((tab[0].upper(), tab[1], None, None)) #type, addr:port, username, password
+            proxies.append((tab[0].upper(), tab[1], None, None)) #type, addr:port, username, password
         else:
-            l.append(('HTTP', p, None, None))
-    return l
+            proxies.append(('HTTP', p, None, None))
+    return proxies
 
 def get_win_proxies():
     try:

@@ -5,7 +5,6 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-import time
 import os
 import re
 import sys

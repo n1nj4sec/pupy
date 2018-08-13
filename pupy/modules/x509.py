@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from pupylib.PupyModule import *
+
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from M2Crypto.X509 import load_cert_string, X509Error
 
 __class_name__='x509'
