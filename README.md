@@ -1,4 +1,16 @@
 [![Build Status](https://api.travis-ci.org/n1nj4sec/pupy.svg?branch=unstable)](https://travis-ci.org/n1nj4sec/pupy)
+
+# Important notice:
+We are currently working on cleaning up the project. For maximum compatibility, please use the [docker image](https://hub.docker.com/r/alxchk/pupy/).
+
+To pull the docker image, run: `docker pull alxchk/pupy:unstable`.
+
+If you do not have docker installed, the simplest way to install docker on Linux is: run `curl -fsSL https://get.docker.com > docker_installer.sh`, and execute the script with `bash ./docker_installer.sh` as root. Before executing the file, please verify that the content has not been tampered with in transit, as there is no automatic integrity checking.
+
+If you do not know how to use Docker, please refer to their [documentation](https://docs.docker.com/get-started).
+
+
+
 # Pupy
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features an all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
