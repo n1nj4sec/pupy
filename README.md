@@ -1,8 +1,6 @@
 [![Build Status](https://api.travis-ci.org/n1nj4sec/pupy.svg?branch=unstable)](https://travis-ci.org/n1nj4sec/pupy)
 # Pupy
 
-This isn't really a fork. But https://github.com/alxchk/pupy has done so much work. I figured I oculd help with some ddocumentation and what not.
-
 ## Quick docker install and configure
 Lots of things are in various states of 
 development but this will get a server up for 
