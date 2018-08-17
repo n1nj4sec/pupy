@@ -572,7 +572,7 @@ class PupyConnection(Connection):
             break
 
         if __debug__:
-            logger.debug('Serve loop({}) completed'.format(e))
+            logger.debug('Serve loop({}) completed'.format(self))
 
         self.close()
 
