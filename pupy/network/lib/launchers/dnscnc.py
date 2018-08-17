@@ -141,11 +141,11 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
         try:
             offset, mintime, register = check()
-            logger.debug('OnlineStatus completed: {:04x} {:04x} {:08x}'.format(
-                offset, mintime, register))
+            logger.debug('OnlineStatus completed: %04x %04x %08x',
+                offset, mintime, register)
             self.event(OnlineStatus(offset, mintime, register))
         except Exception, e:
-            logger.exception('Online status check failed: {}'.format(e))
+            logger.exception('Online status check failed: %s', e)
 
         logger.debug('Wait for PortQuiz completion')
         portquiz.join()
@@ -165,17 +165,17 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         worker.start()
 
     def on_connect(self, ip, port, transport, proxy=None):
-        logger.debug('connect request: {}:{} {} {}'.format(ip, port, transport, proxy))
+        logger.debug('connect request: %s:%s %s %s', ip, port, transport, proxy)
         with self.lock:
             if self.stream and not self.stream.closed:
-                logger.debug('ignoring connection request. stream = {}'.format(self.stream))
+                logger.debug('ignoring connection request. stream = %s', self.stream)
                 return
 
             self.commands.append(('connect', ip, port, transport, proxy))
             self.new_commands.set()
 
     def on_disconnect(self):
-        logger.debug('disconnect request [stream={}]'.format(self.stream))
+        logger.debug('disconnect request [stream=%s]', self.stream)
         with self.lock:
             if self.stream:
                 self.stream.close()
@@ -248,9 +248,8 @@ class DNSCncLauncher(BaseLauncher):
             s = client.connect(host, port)
             stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
         except socket.error as e:
-            logger.error('Couldn\'t connect to {}:{} transport: {}: {}'.format(
-                host, port, transport, e
-            ))
+            logger.error('Couldn\'t connect to %s:%s transport: %s: %s',
+                host, port, transport, e)
 
         except Exception, e:
             logger.exception(e)
@@ -323,7 +322,7 @@ class DNSCncLauncher(BaseLauncher):
 
         dnscnc.daemon = True
 
-        logger.info('Activating CNC protocol. Domain: {}'.format(self.host))
+        logger.info('Activating CNC protocol. Domain: %s', self.host)
         dnscnc.start()
 
         exited = False
@@ -358,7 +357,7 @@ class DNSCncLauncher(BaseLauncher):
                     dnscnc.stream = stream
 
                 if stream:
-                    logger.debug('stream created, yielding - {}'.format(stream))
+                    logger.debug('stream created, yielding - %s', stream)
                     pupy.infos['transport'] = command[3]
 
                     yield stream

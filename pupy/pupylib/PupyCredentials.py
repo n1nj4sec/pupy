@@ -194,7 +194,7 @@ class Credentials(object):
         for configfile in configfiles:
             if path.exists(configfile):
                 with open(configfile, 'rb') as creds:
-                    logger.info('Reading credentials from {}'.format(configfile))
+                    logger.info('Reading credentials from %s', configfile)
 
                     content = creds.read()
                     if not content:
@@ -229,7 +229,7 @@ class Credentials(object):
         elif key in env:
             return env[key]
         elif 'DEFAULT_{}'.format(key) in env:
-            logger.warning("Using default credentials for {}".format(key))
+            logger.warning("Using default credentials for %s", key)
             return env['DEFAULT_{}'.format(key)]
         else:
             return None
@@ -334,7 +334,7 @@ class Credentials(object):
         if path.exists(configfile) and not force:
             return
 
-        logger.warning("Generating credentials to {}".format(configfile))
+        logger.warning("Generating credentials to %s", configfile)
 
         ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
         ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = self._generate_ecpv_keypair(

@@ -438,7 +438,7 @@ class PupyModule(object):
             try:
                 self.client.unload_package(d)
             except Exception, e:
-                logger.exception('Dependency unloading failed: {}'.format(e))
+                logger.exception('Dependency unloading failed: %s', e)
 
     def start_webplugin(self):
         if not self.client.pupsrv.start_webserver():

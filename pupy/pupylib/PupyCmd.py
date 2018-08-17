@@ -334,7 +334,7 @@ class PupyCmd(cmd.Cmd):
                 self.aliases[command] = alias
 
         except:
-            logger.warning("error while parsing aliases from pupy.conf ! %s"%str(traceback.format_exc()))
+            logger.warning("error while parsing aliases from pupy.conf ! %s", traceback.format_exc())
 
     @property
     def intro(self):

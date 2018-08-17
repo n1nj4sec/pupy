@@ -74,7 +74,7 @@ def _event(eventid, client, server, handler, config):
             try:
                 action = action.format(**client.desc)
             except (ValueError, KeyError) as e:
-                logger.error('Invalid action format ({}): {}'.format(action, e))
+                logger.error('Invalid action format (%s): %s', action, e)
 
         criterias = ['*', 'any']
 
@@ -85,13 +85,13 @@ def _event(eventid, client, server, handler, config):
         if client_filter not in criterias and not client_filter.startswith(('*', 'any')) and \
             (not hasattr(server, 'get_clients') or client_filter not in server.get_clients(client_filter)):
 
-            logger.debug('Incompatible event: eventid={} criterias={} client_filter={} action={}'.format(
-                event_to_string(eventid), criterias, client_filter, action))
+            logger.debug('Incompatible event: eventid=%s criterias=%s client_filter=%s action=%s',
+                event_to_string(eventid), criterias, client_filter, action)
 
             continue
 
-        logger.debug('Compatible event: eventid={} criterias={} client_filter={} action={}'.format(
-            event_to_string(eventid), criterias, client_filter, action))
+        logger.debug('Compatible event: eventid=%s criterias=%s client_filter=%s action=%s',
+            event_to_string(eventid), criterias, client_filter, action)
 
         _do(eventid, action, handler, client_filter)
 

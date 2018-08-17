@@ -202,8 +202,8 @@ class TransportWrapper(BasePupyTransport):
 
     def downstream_recv(self, data, idx=0):
         if __debug__:
-            logger.debug('downstream: recv={}/{}'.format(
-                len(data) if data else None, idx))
+            logger.debug('downstream: recv=%s/%s',
+                len(data) if data else None, idx)
 
         if not len(data):
             return
@@ -219,8 +219,8 @@ class TransportWrapper(BasePupyTransport):
 
     def upstream_recv(self, data, idx=None):
         if __debug__:
-            logger.debug('upstream: recv={}/{}'.format(
-                len(data) if data else None, idx))
+            logger.debug('upstream: recv=%s/%s',
+                len(data) if data else None, idx)
 
         if not len(data):
             return

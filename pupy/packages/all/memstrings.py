@@ -62,7 +62,7 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
                         yield pid, name, strings
                         del strings[:]
         except Exception, e:
-            logging.exception('MemWorker failed: {}'.format(e))
+            logging.exception('MemWorker failed: %s', e)
 
         if strings:
             yield pid, name, strings

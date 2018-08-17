@@ -585,8 +585,8 @@ class DnsCommandServerHandler(BaseResolver):
 
         payload = encoder.decode(data+node_blob, nonce, symmetric=True)
 
-        logger.debug('NONCE: {:08x} SPI: {:08x} NODE_BLOB: {}'.format(
-            nonce, spi, bool(node_blob)))
+        logger.debug('NONCE: %08x SPI: %08x NODE_BLOB: %s',
+            nonce, spi, bool(node_blob))
 
         if node_blob:
             offset_node_blob = len(payload) - (1+4+2+6)
@@ -641,13 +641,13 @@ class DnsCommandServerHandler(BaseResolver):
         return node
 
     def _cmd_processor(self, command, session, node, csum_gen, csum_check):
-        logger.debug('command={}/{} session={} / node commands={} / node = {} / cid = {} / iid = {}'.format(
+        logger.debug('command=%s/%s session=%s / node commands=%s / node = %s / cid = %s / iid = %s',
             command, type(command).__name__,
             '{:08x}'.format(session.spi) if session else None,
             bool(self.node_commands),
             '{:012x}'.format(node.node) if node else None,
             '{:08x}'.format(node.cid) if node else None,
-            node.iid if node else None))
+            node.iid if node else None)
 
         if isinstance(command, Poll) and session is None:
             if not self.kex:
@@ -664,8 +664,8 @@ class DnsCommandServerHandler(BaseResolver):
         elif isinstance(command, Ack) and (session is None):
             if node:
                 if len(node.commands) < command.amount:
-                    logger.debug('ACK: invalid amount of commands: {} > {}'.format(
-                        command.amount, len(node.commands)))
+                    logger.debug('ACK: invalid amount of commands: %d > %d',
+                        command.amount, len(node.commands))
 
                 node.commands = node.commands[command.amount:]
 
@@ -707,8 +707,8 @@ class DnsCommandServerHandler(BaseResolver):
 
                     commands = node.commands or [SystemInfo()]
 
-            logger.debug('SystemStatus + No session + node_commands: {}/{} in {}?'.format(
-                node, extip, node.commands))
+            logger.debug('SystemStatus + No session + node_commands: %s/%s in %s?',
+                node, extip, node.commands)
 
             return node.commands
 
@@ -735,8 +735,8 @@ class DnsCommandServerHandler(BaseResolver):
                 self.on_keep_alive(session.system_info)
 
             if command.amount > len(session.commands):
-                logger.debug('ACK: invalid amount of commands: {} > {}'.format(
-                    command.amount, len(session.commands)))
+                logger.debug('ACK: invalid amount of commands: %d > %d',
+                    command.amount, len(session.commands))
             session.commands = session.commands[command.amount:]
 
             return [Ack(1)]
@@ -781,17 +781,17 @@ class DnsCommandServerHandler(BaseResolver):
 
                 encoder = session.encoder
                 response, key = encoder.process_kex_request(command.parcel)
-                logger.debug('kex:key={}'.format(binascii.b2a_hex(key[0])))
+                logger.debug('kex:key=%s', binascii.b2a_hex(key[0]))
 
             return [Kex(response)]
         elif isinstance(command, PortQuizPort):
-            logger.debug('portquiz: {}'.format(command))
+            logger.debug('portquiz: %s', command)
         elif isinstance(command, ConnectablePort):
-            logger.debug('connectable: {}'.format(command))
+            logger.debug('connectable: %s', command)
         elif isinstance(command, OnlineStatus):
-            logger.debug('online-status: {}'.format(command))
+            logger.debug('online-status: %s', command)
         elif isinstance(command, PupyState):
-            logger.debug('pupy-state'.format())
+            logger.debug('pupy-state')
         else:
             return [Error('NO_POLICY')]
 
@@ -801,7 +801,7 @@ class DnsCommandServerHandler(BaseResolver):
         if request.q.qtype != QTYPE.A:
             reply = request.reply()
             reply.header.rcode = RCODE.NXDOMAIN
-            logger.debug('Request unknown qtype: {}'.format(QTYPE.get(request.q.qtype)))
+            logger.debug('Request unknown qtype: %s', QTYPE.get(request.q.qtype))
             return reply
 
         with self.lock:
@@ -852,24 +852,25 @@ class DnsCommandServerHandler(BaseResolver):
 
             if self.whitelist and node:
                 if not self.whitelist(nodeid, cid, version):
-                    blocks_logger.warning('Prohibit communication with {}/{} version {} on {}'.format(
-                        iid, cid, version, nodeid))
+                    blocks_logger.warning('Prohibit communication with %s/%s version %s on %s',
+                        iid, cid, version, nodeid)
 
                     node.alert = True
                     raise NodeBlocked()
 
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
-                    logger.info('Ignore nonce from past: {} < {} / {}'.format(
-                        nonce, session.last_nonce, '{}'.format(session.node)))
+                    logger.info('Ignore nonce from past: %s < %s / %s',
+                        nonce, session.last_nonce, session.node)
 
                     if node:
                         node.warning = 'Nonce from the past ({} < {})'.format(
                             nonce, session.last_nonce)
+
                     return []
                 elif session.last_nonce == nonce and session.last_qname != qname:
-                    logger.info('Last nonce but different qname: {} != {}'.format(
-                        session.last_qname, qname))
+                    logger.info('Last nonce but different qname: %s != %s',
+                        session.last_qname, qname)
 
                     if node:
                         node.warning = 'Different qname ({})'.format(qname)
@@ -930,7 +931,7 @@ class DnsCommandServerHandler(BaseResolver):
                 y = i % 256
                 replies.append('127.0.{}.{}'.format(x, y))
 
-            logger.debug('ping request:{}'.format(i))
+            logger.debug('ping request:%s', i)
             return replies
 
         except NodeBlocked:
@@ -960,8 +961,11 @@ class DnsCommandServerHandler(BaseResolver):
 
             return None
 
-        logger.debug('responses={} session={}'.format(
-            responses, '{:08x}'.format(session.spi) if session else None))
+        logger.debug(
+            'responses=%s session=%s',
+            responses,
+            '{:08x}'.format(session.spi) if session else None
+        )
 
         encoder_version = self.ENCODER_V1 if version == 1 else self.ENCODER_V2
         encoder = session.encoder if session else self.encoders[encoder_version]
@@ -994,9 +998,9 @@ class DnsCommandServerHandler(BaseResolver):
                 except socket.error:
                     pass
                 except Exception as e:
-                    logger.exception('DNS request forwarding failed ({})'.format(e))
+                    logger.exception('DNS request forwarding failed (%s)', e)
             else:
-                logger.debug('Bad domain: {} (suffix={})'.format(qname, self.domain))
+                logger.debug('Bad domain: %s (suffix=%s)', qname, self.domain)
 
             reply.header.rcode = RCODE.NXDOMAIN
             return reply

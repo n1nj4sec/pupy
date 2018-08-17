@@ -179,7 +179,7 @@ def check_transparent_proxy():
             return True
 
     except Exception, e:
-        logger.debug('Check transparent proxy: {}'.format(e))
+        logger.debug('Check transparent proxy: %s', e)
 
     return False
 
@@ -188,8 +188,8 @@ def external_ip(force_ipv4=False):
 
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
-            logger.debug('Return cached IP (last ts={}): {}'.format(
-                LAST_EXTERNAL_IP_TIME, LAST_EXTERNAL_IP))
+            logger.debug('Return cached IP (last ts=%d): %d',
+                LAST_EXTERNAL_IP_TIME, LAST_EXTERNAL_IP)
             return LAST_EXTERNAL_IP
 
     logger.debug('Retrieve IP using external services')
@@ -205,7 +205,7 @@ def external_ip(force_ipv4=False):
             return LAST_EXTERNAL_IP
 
     except Exception, e:
-        logger.debug('external_ip: STUN failed: {}'.format(e))
+        logger.debug('external_ip: STUN failed: %s', e)
 
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
@@ -223,7 +223,7 @@ def external_ip(force_ipv4=False):
                     return LAST_EXTERNAL_IP
 
             except Exception, e:
-                logger.debug('Get IP service failed: {}'.format(e))
+                logger.debug('Get IP service failed: %s', e)
 
     LAST_EXTERNAL_IP = dns_external_ip()
     if LAST_EXTERNAL_IP:
@@ -243,7 +243,7 @@ def dns_external_ip():
             return netaddr.IPAddress(struct.unpack('>I', data[-4:])[0])
 
     except Exception, e:
-        logger.debug('DNS External IP failed: {}'.format(e))
+        logger.debug('DNS External IP failed: %s', e)
 
     return None
 
@@ -258,7 +258,7 @@ def external_headers():
         return data['headers']
 
     except Exception, e:
-        logger.debug('External headers failed: {}'.format(e))
+        logger.debug('External headers failed: %s', e)
 
     return {}
 
@@ -274,7 +274,7 @@ def online():
             return True
 
     except Exception, e:
-        logger.debug('MS Online check failed: {}'.format(e))
+        logger.debug('MS Online check failed: %s', e)
 
     return False
 
@@ -327,7 +327,7 @@ def check():
                 result |= HOTSPOT
 
         except Exception, e:
-            logger.debug('Captive check failed {}: {}'.format(url, e))
+            logger.debug('Captive check failed %s: %s', url, e)
 
     if ok == 2:
         result |= ONLINE_CAPTIVE
@@ -344,7 +344,7 @@ def check():
             result |= ONLINE_MS
 
     except Exception, e:
-        logger.debug('MS Online check failed: {}'.format(e))
+        logger.debug('MS Online check failed: %s', e)
 
     for url in CAPTIVE_URLS:
         try:
@@ -354,7 +354,7 @@ def check():
                 break
 
         except Exception, e:
-            logger.debug('Captive check failed {}: {}'.format(url, e))
+            logger.debug('Captive check failed %s: %s', url, e)
 
     try:
         data = ctx.get(CHECKS['http']['url'])
@@ -362,7 +362,7 @@ def check():
             result |= HTTP
 
     except Exception, e:
-        logger.debug('HTTP Check failed: {}'.format(e))
+        logger.debug('HTTP Check failed: %s', e)
 
     try:
         data = ctx.get(CHECKS['https']['url'])
@@ -370,7 +370,7 @@ def check():
             result |= HTTPS
 
     except Exception, e:
-        logger.debug('HTTPS Check failed: {}'.format(e))
+        logger.debug('HTTPS Check failed: %s', e)
 
     if result & HTTPS:
         try:
@@ -379,7 +379,7 @@ def check():
                 result |= HTTPS_MITM
 
         except Exception, e:
-            logger.debug('HTTPS Mitm Check failed: {}'.format(e))
+            logger.debug('HTTPS Mitm Check failed: %s', e)
             result |= HTTPS_MITM
 
     else:
@@ -390,7 +390,7 @@ def check():
                 result |= HTTPS
 
         except Exception, e:
-            logger.debug('HTTPS NoCert Check failed: {}'.format(e))
+            logger.debug('HTTPS NoCert Check failed: %s', e)
 
     for hostname, ip in KNOWN_DNS.iteritems():
         try:
@@ -398,7 +398,7 @@ def check():
                 result |= DNS
 
         except Exception, e:
-            logger.debug('DNS Check failed: {}'.format(e))
+            logger.debug('DNS Check failed: %s', e)
 
     for pastebin, bit in PASTEBINS.iteritems():
         try:
@@ -410,7 +410,7 @@ def check():
                 result |= bit
 
         except Exception, e:
-            logger.debug('Pastebin Check failed {}: {}'.format(pastebin, e))
+            logger.debug('Pastebin Check failed %s: %s', pastebin, e)
 
     if check_transparent_proxy():
         result |= TRANSPARENT | PROXY
@@ -433,7 +433,7 @@ def check():
                 break
 
     except Exception, e:
-        logger.debug('STUN Checks failed: {}'.format(e))
+        logger.debug('STUN Checks failed: %s', e)
         result |= STUN_NAT_BLOCKED
 
     try:
@@ -445,7 +445,7 @@ def check():
             offset = -32768
 
     except Exception, e:
-        logger.debug('NTP Checks failed: {}'.format(e))
+        logger.debug('NTP Checks failed: %s', e)
         offset = 0
 
     if sys.platform != 'win32':
@@ -457,7 +457,7 @@ def check():
                 result |= IGD
 
         except Exception, e:
-            logger.debug('IGD Check failed: {}'.format(e))
+            logger.debug('IGD Check failed: %s', e)
 
     if mintime is None:
         mintime = 0
@@ -542,7 +542,7 @@ class PortQuiz(threading.Thread):
                     self.abort.set()
 
         except Exception, e:
-            logger.debug('port check: {}:{}: {}'.format(host, port, e))
+            logger.debug('port check: %s:%s: %s', host, port, e)
 
         finally:
             try:
@@ -576,4 +576,4 @@ class PortQuiz(threading.Thread):
             logger.debug('PortQuiz: completed')
 
         except Exception, e:
-            logger.exception('PortQuiz: {}'.format(e))
+            logger.exception('PortQuiz: %s', e)

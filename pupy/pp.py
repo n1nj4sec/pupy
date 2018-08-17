@@ -818,13 +818,13 @@ def rpyc_loop(launcher):
 
     stream = None
     for ret in launcher.iterate():
-        logger.debug('Operation state: Terminated = {}'.format(sys.terminated))
+        logger.debug('Operation state: Terminated = %s', sys.terminated)
 
         if sys.terminated:
             logger.warning('Loop terminated')
             break
 
-        logger.debug('Acquire launcher: {}'.format(ret))
+        logger.debug('Acquire launcher: %s', ret)
 
         try:
             pupy.connected = False

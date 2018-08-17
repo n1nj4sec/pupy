@@ -144,28 +144,28 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         header = data.peek(self.probe_len)
 
         if __debug__:
-            logger.debug('Recv: len={} // header = {}'.format(len(data), repr(header)))
+            logger.debug('Recv: len=%d // header = %s', len(data), header)
 
         if self.server and self.is_http is None:
             self.is_http = header.startswith(self.well_known) and \
               not header.startswith(self.omit)
 
             if __debug__:
-                logger.debug('Http: {}'.format(self.is_http))
+                logger.debug('Http: %s', self.is_http)
 
         if self.is_http:
             self._handle_http(data.read())
         else:
             if __debug__:
-                logger.debug('Write to upstream: len={}, handler={}'.format(
-                    len(data), self.upstream.on_write_f))
+                logger.debug('Write to upstream: len=%d, handler=%s',
+                    len(data), self.upstream.on_write_f)
 
             data.write_to(self.upstream)
 
             if self.downstream_buffer:
                 if __debug__:
-                    logger.debug('Flush buffer to downstream: len={}, handler={}'.format(
-                        len(self.downstream_buffer), self.downstream.on_write_f))
+                    logger.debug('Flush buffer to downstream: len=%d, handler=%s',
+                        len(self.downstream_buffer), self.downstream.on_write_f)
 
                 self.downstream_buffer.write_to(self.downstream)
 
@@ -176,19 +176,19 @@ class PupyHTTPWrapperServer(BasePupyTransport):
 
     def upstream_recv(self, data):
         if __debug__:
-            logger.debug('Send intent: len={}'.format(len(data)))
+            logger.debug('Send intent: len=%d', len(data))
 
         if self.is_http is None:
             data.write_to(self.downstream_buffer)
 
             if __debug__:
-                logger.debug('HTTP? Append to pending buffer: total len={}'.format(
-                    len(self.downstream_buffer)))
+                logger.debug('HTTP? Append to pending buffer: total len=%d',
+                    len(self.downstream_buffer))
 
         elif not self.is_http:
             if __debug__:
-                logger.debug('Non-HTTP: Direct pass (handler={})'.format(
-                    self.downstream.on_write_f))
+                logger.debug('Non-HTTP: Direct pass (handler=%s)',
+                    self.downstream.on_write_f)
 
             if self.downstream_buffer:
                 self.downstream_buffer.write_to(self.downstream)

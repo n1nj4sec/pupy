@@ -78,7 +78,7 @@ class RSA_AESTransport(BasePupyTransport):
                 data.truncate(ltotal)
 
                 if __debug__:
-                    logger.debug('Send: cleartext len = {} padded+header = {}'.format(lctext, len(data)))
+                    logger.debug('Send: cleartext len = %d padded+header = %d', lctext, len(data))
 
                 data.write_to(
                     self.downstream,
@@ -91,7 +91,7 @@ class RSA_AESTransport(BasePupyTransport):
     def downstream_recv(self, data):
         try:
             if __debug__:
-                logger.debug('Recv data len={}'.format(len(data)))
+                logger.debug('Recv data len=%d', len(data))
 
             if not self._iv_dec:
                 if __debug__:
@@ -99,7 +99,7 @@ class RSA_AESTransport(BasePupyTransport):
 
                 if len(data) < BLOCK_SIZE:
                     if __debug__:
-                        logger.debug('Read IV: Short read: {} < {}'.format(len(data), BLOCK_SIZE))
+                        logger.debug('Read IV: Short read: %d < %d', len(data), BLOCK_SIZE)
                     return
 
                 self._iv_dec = data.read(BLOCK_SIZE)
@@ -109,7 +109,7 @@ class RSA_AESTransport(BasePupyTransport):
                 if not self.size_to_read:
                     if len(data) < BLOCK_SIZE:
                         if __debug__:
-                            logger.debug('Read chunk header: Short read: {} < {}'.format(len(data), BLOCK_SIZE))
+                            logger.debug('Read chunk header: Short read: %d < %d', len(data), BLOCK_SIZE)
                         break
 
                     self.first_block = self.dec_cipher.decrypt(data.read(BLOCK_SIZE))
@@ -119,7 +119,7 @@ class RSA_AESTransport(BasePupyTransport):
                         raise ValueError('Zero sized chunk')
 
                     if __debug__:
-                        logger.debug('Read chunk header: expect: {}'.format(self.size_to_read))
+                        logger.debug('Read chunk header: expect: %d', self.size_to_read)
 
                 if self.size_to_read <= len(self.first_block) - 4:
                     if __debug__:
@@ -132,7 +132,7 @@ class RSA_AESTransport(BasePupyTransport):
 
                 if self.first_block:
                     if __debug__:
-                        logger.debug('Read chunk: start: cleartext len = {}'.format(self.size_to_read))
+                        logger.debug('Read chunk: start: cleartext len = %d', self.size_to_read)
 
                     self.upstream.write(self.first_block[4:], notify=False)
                     self.size_to_read -= BLOCK_SIZE - 4
@@ -148,7 +148,7 @@ class RSA_AESTransport(BasePupyTransport):
 
                 while s and lb:
                     if __debug__:
-                        logger.debug('Read chunk: required: {} available: {}'.format(s, lb))
+                        logger.debug('Read chunk: required: %d available: %d', s, lb)
 
                     to_read = min(s, CHUNK_SIZE)
                     to_read = min(lb, to_read)
@@ -207,9 +207,9 @@ class RSA_AESClient(RSA_AESTransport):
 
         pkey = rsa.encrypt(self.aes_key, pk)
         self.downstream.write(pkey, notify=False)
-        logger.debug('AES key crypted with RSA public key and sent to server (len={})'.format(len(pkey)))
+        logger.debug('AES key crypted with RSA public key and sent to server (len=%d)', len(pkey))
         self.downstream.write(self._iv_enc)
-        logger.debug('IV (len={}) sent to Server'.format(len(self._iv_enc)))
+        logger.debug('IV (len=%d) sent to Server', len(self._iv_enc))
 
 
 class RSA_AESServer(RSA_AESTransport):
@@ -241,7 +241,7 @@ class RSA_AESServer(RSA_AESTransport):
 
                 expected = self.rsa_key_size/8
                 if len(data) < expected:
-                    logger.debug('Read AES Key: Short read: {} < {}'.format(len(data), expected))
+                    logger.debug('Read AES Key: Short read: %d < %d', len(data), expected)
                     return
 
                 cmsg = data.read(expected)
@@ -257,7 +257,7 @@ class RSA_AESServer(RSA_AESTransport):
                 logger.debug('client AES key received && decrypted from RSA private key')
 
                 self.downstream.write(self._iv_enc) # send IV
-                logger.debug('IV (len={}) sent to Client'.format(len(self._iv_enc)))
+                logger.debug('IV (len=%d) sent to Client', len(self._iv_enc))
 
                 if self.buffer:
                     logger.debug('Flush buffer to client')
@@ -274,4 +274,4 @@ class RSA_AESServer(RSA_AESTransport):
             super(RSA_AESServer, self).upstream_recv(data)
         else:
             data.write_to(self.buffer)
-            logger.debug('Pending data: len={}'.format(len(self.buffer)))
+            logger.debug('Pending data: len=%d', len(self.buffer))

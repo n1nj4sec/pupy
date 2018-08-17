@@ -34,7 +34,7 @@ try:
         return AES.new(aes_key, AES.MODE_CBC, iv)
 
 except ImportError as e:
-    logging.warning('pycrypto not available, using pure python libraries for AES (slower): {}'.format(e))
+    logging.warning('pycrypto not available, using pure python libraries for AES (slower): %s', e)
     AES = None
     Random = None
 

@@ -105,7 +105,7 @@ def remote_path_completer(module, args, text, context, dirs=None):
             ]
 
     except Exception, e:
-        logging.exception("rpc: {}".format(e))
+        logging.exception("rpc: %s", e)
 
     return results
 

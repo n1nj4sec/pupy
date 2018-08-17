@@ -124,7 +124,7 @@ class Transfer(object):
             try:
                 topstat = stat(top)
             except OSError, e:
-                logger.debug('_walk_scandir:topstat: {}'.format(e))
+                logger.debug('_walk_scandir:topstat: %s', e)
                 return
 
             if self.single_device is True:
@@ -135,7 +135,7 @@ class Transfer(object):
         try:
             scandir_it = scandir(top)
         except OSError, e:
-            logger.debug('_walk_scandir:scandir: {}'.format(e))
+            logger.debug('_walk_scandir:scandir: %s', e)
             return
 
         while not self._terminate.is_set():
@@ -145,7 +145,7 @@ class Transfer(object):
 
                 except UnicodeDecodeError, e:
                     ## ???
-                    logger.debug('_walk_scandir:next(scandir_it): {}'.format(e))
+                    logger.debug('_walk_scandir:next(scandir_it): %s', e)
                     continue
 
                 except StopIteration:
@@ -153,7 +153,7 @@ class Transfer(object):
 
 
             except OSError, e:
-                logger.debug('_walk_scandir:next(scandir_it): {}'.format(e))
+                logger.debug('_walk_scandir:next(scandir_it): %s', e)
                 return
 
             name = entry.path
@@ -177,21 +177,21 @@ class Transfer(object):
                     if not is_symlink and sys.platform == 'win32' and entry.is_dir(follow_symlinks=False):
                         is_symlink = islink(entry.path)
                 except OSError, e:
-                    logger.debug('_walk_scandir:follow_symlinks: {}'.format(e))
+                    logger.debug('_walk_scandir:follow_symlinks: %s', e)
                     pass
 
             if not is_symlink:
                 try:
                     is_dir = entry.is_dir(follow_symlinks=self.follow_symlinks)
                 except OSError, e:
-                    logger.debug('_walk_scandir:is_dir: {}'.format(e))
+                    logger.debug('_walk_scandir:is_dir: %s', e)
                     pass
 
             if not is_dir and not is_symlink:
                 try:
                     is_file = entry.is_file(follow_symlinks=self.follow_symlinks)
                 except OSError, e:
-                    logger.debug('_walk_scandir:is_file: {}'.format(e))
+                    logger.debug('_walk_scandir:is_file: %s', e)
                     pass
 
             if not is_dir and not is_file and not is_symlink:
@@ -225,7 +225,7 @@ class Transfer(object):
                         files.append(entry)
 
                 except OSError, e:
-                    logger.debug('_walk_scandir:hardlinked: {}'.format(e))
+                    logger.debug('_walk_scandir:hardlinked: %s', e)
             else:
                 special.append(entry)
 

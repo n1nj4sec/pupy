@@ -23,7 +23,7 @@ try:
     })
 
 except Exception as e:
-    logging.exception('{}: DNSCncLauncher disabled'.format(e))
+    logging.exception('%s: DNSCncLauncher disabled', e)
     DNSCncLauncher = None
 
 transports = {}
@@ -32,11 +32,11 @@ def add_transport(module_name):
     try:
         confmodule = importlib.import_module('network.transports.{}.conf'.format(module_name))
         if not confmodule:
-            logging.warning('Import failed: {}'.format(module_name))
+            logging.warning('Import failed: %s', module_name)
             return
 
         if not hasattr(confmodule, 'TransportConf'):
-            logging.warning('TransportConf is not present in {}'.format(module_name))
+            logging.warning('TransportConf is not present in %s', module_name)
             return
 
         t = confmodule.TransportConf
@@ -44,10 +44,10 @@ def add_transport(module_name):
             t.name = module_name
 
         transports[t.name] = t
-        logging.debug('Transport loaded: {}'.format(t.name))
+        logging.debug('Transport loaded: %s', t.name)
 
     except Exception, e:
-        logging.exception('Transport disabled: {}: {}'.format(module_name, e))
+        logging.exception('Transport disabled: %s: %s', module_name, e)
 
 #importing from memory (used by payloads)
 try:
@@ -70,7 +70,7 @@ try:
             add_transport(module_name)
 
         except Exception as e:
-            logging.exception('Transport failed: {}: {}'.format(module_name, e))
+            logging.exception('Transport failed: %s: %s', module_name, e)
 
 except ImportError:
     # Not pupy client

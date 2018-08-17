@@ -97,7 +97,7 @@ class SyncRequestDispatchQueue(object):
         name = current_thread().name
 
         if __debug__:
-            syncqueuelogger.debug('New Worker({})'.format(name))
+            syncqueuelogger.debug('New Worker(%s)', name)
 
         task = self._queue.get()
         while task and not self._closed:
@@ -109,18 +109,18 @@ class SyncRequestDispatchQueue(object):
 
             try:
                 if __debug__:
-                    syncqueuelogger.debug('Process task({}) - start'.format(name))
+                    syncqueuelogger.debug('Process task(%s) - start', name)
 
                 func(*args)
 
                 if __debug__:
-                    syncqueuelogger.debug('Process task({}) - complete'.format(name))
+                    syncqueuelogger.debug('Process task(%s) - complete', name)
 
             except Exception, e:
                 if __debug__:
                     syncqueuelogger.debug(
-                        'Process task({}) - exception: func={} args={} exc:{}/{}'.format(
-                            name, func, args, type(e), e))
+                        'Process task(%s) - exception: func=%s args=%s exc:%s/%s',
+                            name, func, args, type(e), e)
 
                 on_error(e)
 
@@ -136,7 +136,7 @@ class SyncRequestDispatchQueue(object):
             try:
                 task = self._queue.get_nowait()
                 if __debug__:
-                    syncqueuelogger.debug('Task acquired({}) (no wait)'.format(name))
+                    syncqueuelogger.debug('Task acquired(%s) (no wait)', name)
 
             except Empty:
                 with self._workers_lock:
@@ -147,16 +147,16 @@ class SyncRequestDispatchQueue(object):
 
             if again:
                 if __debug__:
-                    syncqueuelogger.debug('Wait for task to be queued({})'.format(name))
+                    syncqueuelogger.debug('Wait for task to be queued(%s)', name)
 
                 task = self._queue.get()
 
                 if __debug__:
-                    syncqueuelogger.debug('Task acquired({})'.format(name))
+                    syncqueuelogger.debug('Task acquired(%s)', name)
 
         if __debug__:
             if not task:
-                syncqueuelogger.debug('Worker({}) closed by explicit request'.format(name))
+                syncqueuelogger.debug('Worker(%s) closed by explicit request', name)
 
     def __call__(self, on_error, func, *args):
         with self._workers_lock:
@@ -274,11 +274,11 @@ class PupyConnection(Connection):
 
         next(self._seqcounter)
 
-        logger.debug('New PupyConnection: ({})'.format(self))
+        logger.debug('New PupyConnection: (%s)', self)
 
     def _on_sync_request_exception(self, exc):
         if not isinstance(exc, EOFError):
-            logger.exception('{}: {}'.format(self, exc))
+            logger.exception('%s: %s', self, exc)
 
         self.close()
 
@@ -318,19 +318,19 @@ class PupyConnection(Connection):
     def sync_request(self, handler, *args):
         seq = self._send_request(handler, args)
         if __debug__:
-            synclogger.debug('Sync request wait({}): {} / {}:{} {} ({})'.format(
-                self, seq, *traceback.extract_stack()[-4]))
+            synclogger.debug('Sync request wait(%s): %s / %s:%s %s (%s)',
+                self, seq, *traceback.extract_stack()[-4])
 
         self._sync_events[seq].wait()
 
         if __debug__:
             synclogger.debug(
-                'Sync request wait({}): {} - complete'.format(self, seq))
+                'Sync request wait(%s): %s - complete', self, seq)
 
         del self._sync_events[seq]
 
         if __debug__:
-            synclogger.debug('Sync request process({}): {}'.format(self, seq))
+            synclogger.debug('Sync request process(%s): %s', self, seq)
 
         is_response = False
         is_exception = False
@@ -342,35 +342,35 @@ class PupyConnection(Connection):
         if is_response:
             if __debug__:
                 synclogger.debug(
-                    'Dispatch sync reply({}): {} - start'.format(self, seq))
+                    'Dispatch sync reply(%s): %s - start', self, seq)
 
             Connection._dispatch_reply(
                 self, seq, self._sync_raw_replies.pop(seq))
 
             if __debug__:
                 synclogger.debug(
-                    'Dispatch sync reply({}): {} - complete'.format(self, seq))
+                    'Dispatch sync reply(%s): %s - complete', self, seq)
 
         if is_exception:
             if __debug__:
                 synclogger.debug(
-                    'Dispatch sync exception({}): {} - start'.format(self, seq))
+                    'Dispatch sync exception(%s): %s - start', self, seq)
                 synclogger.debug(
-                    'Dispatch sync exception({}): handler = {}({}) args = {}'.format(
+                    'Dispatch sync exception(%s): %s - handler = %s(%s) args = %s',
                         self, seq,
                         self._HANDLERS[handler], handler,
-                        repr(args)))
+                        repr(args))
 
             Connection._dispatch_exception(
                 self, seq, self._sync_raw_exceptions.pop(seq))
 
             if __debug__:
                 synclogger.debug(
-                    'Dispatch sync exception({}): {} - complete'.format(self, seq))
+                    'Dispatch sync exception(%s): %s - complete', self, seq)
 
         if __debug__:
             synclogger.debug(
-                'Sync request({}): {} - complete'.format(self, seq))
+                'Sync request(%s): %s - complete', self, seq)
 
         if self.closed:
             raise EOFError(
@@ -386,19 +386,19 @@ class PupyConnection(Connection):
         seq = next(self._seqcounter)
         if async:
             if __debug__:
-                logger.debug('Async request({}): {}'.format(self, seq))
+                logger.debug('Async request(%s): %s', self, seq)
 
             self._async_callbacks[seq] = async
         else:
             if __debug__:
-                synclogger.debug('Sync request({}): {}'.format(self, seq))
+                synclogger.debug('Sync request(%s): %s', self, seq)
 
             self._sync_events[seq] = Ack()
 
         self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
 
         if __debug__:
-            synclogger.debug('Request submitted({}): {}'.format(self, seq))
+            synclogger.debug('Request submitted(%s): %s', self, seq)
 
         return seq
 
@@ -407,7 +407,7 @@ class PupyConnection(Connection):
 
     def _dispatch_reply(self, seq, raw):
         if __debug__:
-            logger.debug('Dispatch reply({}): {} - start'.format(self, seq))
+            logger.debug('Dispatch reply(%s): %s - start', self, seq)
 
         self._last_recv = time.time()
 
@@ -419,24 +419,24 @@ class PupyConnection(Connection):
             self._sync_raw_replies[seq] = raw
             if __debug__:
                 logger.debug(
-                    'Dispatch sync reply({}): {} - pass'.format(self, seq))
+                    'Dispatch sync reply(%s): %s - pass', self, seq)
             self._sync_events[seq].set()
 
         else:
             # We hope here that this request will not block x_x
             if __debug__:
                 logger.debug(
-                    'Dispatch async reply({}): {} - start'.format(self, seq))
+                    'Dispatch async reply(%s): %s - start', self, seq)
 
             Connection._dispatch_reply(self, seq, raw)
 
             if __debug__:
                 logger.debug(
-                    'Dispatch async reply({}): {} - complete'.format(self, seq))
+                    'Dispatch async reply(%s): %s - complete', self, seq)
 
     def _dispatch_exception(self, seq, raw):
         if __debug__:
-            logger.debug('Dispatch exception({}): {}'.format(self, seq))
+            logger.debug('Dispatch exception(%s): %s', self, seq)
 
         self._last_recv = time.time()
 
@@ -448,17 +448,17 @@ class PupyConnection(Connection):
             self._sync_raw_exceptions[seq] = raw
             if __debug__:
                 logger.debug(
-                    'Dispatch sync exception({}): {} - pass'.format(
-                        self, seq))
+                    'Dispatch sync exception(%s): %s - pass',
+                        self, seq)
             self._sync_events[seq].set()
         else:
             if __debug__:
                 logger.debug(
-                    'Dispatch async reply({}): {} - start'.format(self, seq))
+                    'Dispatch async reply(%s): %s - start', self, seq)
             Connection._dispatch_exception(self, seq, raw)
             if __debug__:
                 logger.debug(
-                    'Dispatch async reply({}): {} - complete'.format(self, seq))
+                    'Dispatch async reply(%s): %s - complete', self, seq)
 
     def close(self, _catchall=True):
         with self._close_lock:
@@ -468,8 +468,8 @@ class PupyConnection(Connection):
             self._closed = True
 
         if __debug__:
-            logger.debug('Connection({}) - close - start (at: {}:{} {}({}))'.format(
-                self, *traceback.extract_stack()[-2]))
+            logger.debug('Connection(%s) - close - start (at: %s:%s %s(%s))',
+                self, *traceback.extract_stack()[-2])
 
         try:
             self.buf_in.wake()
@@ -477,8 +477,8 @@ class PupyConnection(Connection):
             self._async_request(consts.HANDLE_CLOSE)
         except EOFError, e:
             logger.info(
-                'Connection({}) - close - notification failed '
-                'because of EOF ({})'.format(self, e))
+                'Connection(%s) - close - notification failed '
+                'because of EOF (%s)', self, e)
 
         except Exception:
             if not _catchall:
@@ -488,7 +488,7 @@ class PupyConnection(Connection):
                 self._cleanup(_anyway=True)
             except Exception, e:
                 if __debug__:
-                    logger.debug('Cleanup exception({}): {}'.format(self, e))
+                    logger.debug('Cleanup exception(%s): %s', self, e)
 
                 pass
 
@@ -499,7 +499,7 @@ class PupyConnection(Connection):
                 lock.set()
 
         if __debug__:
-            logger.debug('Connection({}) - closed'.format(self))
+            logger.debug('Connection(%s) - closed', self)
 
     @property
     def inactive(self):
@@ -516,17 +516,17 @@ class PupyConnection(Connection):
         def check_timeout():
             now = time.time()
 
-            logger.debug('Check timeout({}) - start'.format(self))
+            logger.debug('Check timeout(%s) - start', self)
 
             while (time.time() - now < timeout) and not self._last_ping and not self.closed:
                 time.sleep(1)
 
             if not self._last_ping:
-                logger.info('Check timeout({}) - failed'.format(self))
+                logger.info('Check timeout(%s) - failed', self)
                 if not self.closed:
                     self.close()
             else:
-                logger.debug('Check timeout({}) - ok'.format(self))
+                logger.debug('Check timeout(%s) - ok', self)
 
         t = Thread(
             target=check_timeout,
@@ -541,7 +541,7 @@ class PupyConnection(Connection):
 
     def loop(self):
         if __debug__:
-            logger.debug('Serve loop({}) started'.format(self))
+            logger.debug('Serve loop(%s) started', self)
 
         if not self._timer_event_last:
             self._timer_event_last = time.time()
@@ -554,8 +554,9 @@ class PupyConnection(Connection):
                     try:
                         callback()
                     except Exception, e:
-                        logger.exception('Callback exception({}): {}: {}'.format(self,
-                                                                                 type(e), e))
+                        logger.exception(
+                            'Callback exception(%s): %s: %s',
+                            self, type(e), e)
 
             try:
                 data = self._serve()
@@ -563,16 +564,16 @@ class PupyConnection(Connection):
                 continue
 
             except EOFError, e:
-                logger.info('Serve loop({}) - EOF ({})'.format(self, e))
+                logger.info('Serve loop(%s) - EOF (%s)', self, e)
 
             except Exception, e:
                 logger.exception(
-                    'Exception({}): {}: {}'.format(self, type(e), e))
+                    'Exception(%s): %s: %s', self, type(e), e)
 
             break
 
         if __debug__:
-            logger.debug('Serve loop({}) completed'.format(self))
+            logger.debug('Serve loop(%s) completed', self)
 
         self.close()
 
@@ -604,8 +605,8 @@ class PupyConnection(Connection):
             etimeout = async_event._ttl - now
 
             if __debug__:
-                logger.debug('Check timeouts: ({}) etimeout = {} / mintimeout = {} / ttl = {}'.format(
-                    self, etimeout, mintimeout, async_event._ttl))
+                logger.debug('Check timeouts: (%s) etimeout = %s / mintimeout = %s / ttl = %s',
+                    self, etimeout, mintimeout, async_event._ttl)
 
             if mintimeout is None or etimeout < mintimeout:
                 mintimeout = etimeout
@@ -613,44 +614,44 @@ class PupyConnection(Connection):
         timeout = mintimeout
 
         if __debug__:
-            logger.debug('Serve({}): start / timeout = {} / interval = {} / ping = {} / {}'.format(
-                self, timeout, interval, ping_timeout, self._last_ping))
+            logger.debug('Serve(%s): start / timeout = %s / interval = %s / ping = %s / %s',
+                self, timeout, interval, ping_timeout, self._last_ping)
 
         data = self._recv(timeout, wait_for_lock=False)
 
         if __debug__:
             logger.debug(
-                'Serve({}): complete / data = {}'.format(self, len(data) if data else None))
+                'Serve(%s): complete / data = %s', self, len(data) if data else None)
 
         if not data and interval and ping_timeout:
             if not self._last_ping or now > self._last_ping + interval:
                 if __debug__:
-                    logger.debug('Send ping, interval({}): {}, timeout: {}'.format(
-                        self, interval, ping_timeout))
+                    logger.debug('Send ping, interval(%s): %s, timeout: %s',
+                        self, interval, ping_timeout)
 
                 self._last_ping = self.ping(timeout=ping_timeout, now=now)
             else:
                 if __debug__:
-                    logger.debug('Ping not required({}): {} < {}'.format(
-                        self, self._last_ping + interval))
+                    logger.debug('Ping not required(%s): %s < %s',
+                        self, self._last_ping + interval)
 
         return data
 
     def _dispatch(self, data):
         if __debug__:
-            logger.debug('Dispatch({}) start'.format(self))
+            logger.debug('Dispatch(%s) start', self)
 
         now = time.time()
 
         if data:
             if __debug__:
-                logger.debug('Dispatch({}) - data ({})'.format(self, len(data)))
+                logger.debug('Dispatch(%s) - data (%s)', self, len(data))
 
             msg, seq, args = brine._load(data)
             if msg == consts.MSG_REQUEST:
                 if __debug__:
-                    logger.debug('Processing message request, type({}): {} seq: {} - started'.format(
-                        self, args[0], seq))
+                    logger.debug('Processing message request, type(%s): %s seq: %s - started',
+                        self, args[0], seq)
 
                 self._queue(
                     self._on_sync_request_exception,
@@ -659,7 +660,7 @@ class PupyConnection(Connection):
             else:
                 if __debug__:
                     logger.debug(
-                        'Processing message response, seq({}): {} - started'.format(self, seq))
+                        'Processing message response, seq(%s): %s - started', self, seq)
 
                 if msg == consts.MSG_REPLY:
                     self._dispatch_reply(seq, args)
@@ -670,18 +671,18 @@ class PupyConnection(Connection):
 
                 if __debug__:
                     logger.debug(
-                        'Processing message, seq({}): {} - completed'.format(self, seq))
+                        'Processing message, seq(%s): %s - completed', self, seq)
 
             self._last_ping = now
 
         elif self.closed:
             if __debug__:
-                logger.debug('Dispatch interrupt({}) - closed'.format(self))
+                logger.debug('Dispatch interrupt(%s) - closed', self)
 
             return
         else:
             if __debug__:
-                logger.debug('Dispatch({}) - no data'.format(self))
+                logger.debug('Dispatch(%s) - no data', self)
 
         _async_callbacks = self._async_callbacks.keys()
         for async_event_id in _async_callbacks:
@@ -721,7 +722,7 @@ class PupyConnectionThread(Thread):
         self.name = 'PupyConnection({}) Thread'.format(self.connection)
 
         if __debug__:
-            logger.debug('Create connection({}) thread completed'.format(self.connection))
+            logger.debug('Create connection(%s) thread completed', self.connection)
 
     def run(self):
         if __debug__:

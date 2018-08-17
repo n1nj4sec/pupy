@@ -378,14 +378,14 @@ class PupyClient(object):
 
         if dll:
             if self.new_dlls:
-                logger.debug('Request new dlls for {}'.format(modules))
+                logger.debug('Request new dlls for %s', modules)
                 return self.new_dlls(tuple(modules))
             else:
                 return [
                     module for module in modules if module not in self.imported_dlls
                 ]
         else:
-            logger.debug('Request new modules for {}'.format(modules))
+            logger.debug('Request new modules for %s', modules)
 
             if self.new_modules:
                 new_modules = self.new_modules(tuple(modules))
@@ -397,13 +397,13 @@ class PupyClient(object):
             for module in modules:
                 if module not in new_modules:
                     self.imported_modules.add(module)
-                    logger.debug('Add to imported_modules cache: {}'.format(module))
+                    logger.debug('Add to imported_modules cache: %s', module)
 
             if force is not None:
                 for module in modules:
                     if module not in new_modules:
                         force.add(module)
-                        logger.debug('Add to new_modules: {}'.format(module))
+                        logger.debug('Add to new_modules: %s', module)
 
                 return modules
             else:
@@ -464,10 +464,10 @@ class PupyClient(object):
             raise ValueError('Module not found: {}'.format(e))
 
         if remote:
-            logger.info('load_package({}) -> p:{} d:{}'.format(
+            logger.info('load_package(%s) -> p:%s d:%s',
                 requirements,
                 len(packages) if packages else None,
-                len(dlls) if dlls else None))
+                len(dlls) if dlls else None)
 
             return packages, dlls
 
@@ -491,7 +491,7 @@ class PupyClient(object):
         if forced:
             self.invalidate_packages(forced)
 
-        logger.info('Upload packages bundle, size={}'.format(len(packages)))
+        logger.info('Upload packages bundle, size=%d', len(packages))
         self.remote_add_package(
             packages,
             compressed=True,
@@ -509,17 +509,17 @@ class PupyClient(object):
             self.remote_invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
-        logger.debug('remote_load_package for {} started'.format(module_name))
+        logger.debug('remote_load_package for %s started', module_name)
 
         try:
             return self.load_package(module_name, remote=True)
 
         except dependencies.NotFoundError:
-            logger.debug('remote_load_package for {} failed'.format(module_name))
+            logger.debug('remote_load_package for %s failed', module_name)
             return None, None
 
         finally:
-            logger.debug('remote_load_package for {} completed'.format(module_name))
+            logger.debug('remote_load_package for %s completed', module_name)
 
     def remote_print_error(self, msg):
         self.pupsrv.handler.display_warning(msg)

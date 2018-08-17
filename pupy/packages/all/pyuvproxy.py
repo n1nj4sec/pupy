@@ -161,8 +161,8 @@ class Connection(object):
 
     def on_data(self, data):
         if not self.socket:
-            logger.debug('Connection({}) - socket={} - Not ready'.format(
-                self, self.socket))
+            logger.debug('Connections(%s) - socket=%s - Not ready',
+                self, self.socket)
             raise ChannelIsNotReady(self)
 
         self.socket.write(data, self._on_send_complete)
@@ -194,7 +194,7 @@ class Connection(object):
             self.close(error)
 
     def _on_connected(self, handle, error):
-        logger.debug('Connection({}) - _on_connected ({})'.format(self, error))
+        logger.debug('Connection(%s) - _on_connected (%s)', self, error)
 
         try:
             if self.timer:
@@ -213,13 +213,13 @@ class Connection(object):
             )
             if error:
                 try:
-                    logger.debug('Connection({}) - _on_connected - error: {}'.format(self, error))
+                    logger.debug('Connection(%s) - _on_connected - error: %s', self, error)
                     self.socket.close()
                 except:
                     pass
 
             else:
-                logger.debug('Connection({}) - _on_connected - forward'.format(self))
+                logger.debug('Connection(%s) - _on_connected - forward', self)
                 self.forward()
 
         except EOFError:
@@ -227,13 +227,13 @@ class Connection(object):
 
     def _virtual_connect(self, port):
         try:
-            logger.debug('Connection({}) - _virtual_connect({})'.format(self, port))
+            logger.debug('Connection(%s) - _virtual_connect(%s)', self, port)
             self.socket = self.virtual_ports.connect(port, self.peername)
-            logger.debug('Connection({}) - _virtual_connect({}) - socket:{}'.format(self, port, self.socket))
+            logger.debug('Connection(%s) - _virtual_connect(%s) - socket:%s', self, port, self.socket)
             self._on_connected(self.socket, None)
-            logger.debug('Connection({}) - _virtual_connect({}) - completed'.format(self, port))
+            logger.debug('Connection(%s) - _virtual_connect(%s) - completed', self, port)
         except Exception, e:
-            logger.exception('Connection({}) - _virtual_connect({}) - exception'.format(self, port))
+            logger.exception('Connection(%s) - _virtual_connect(%s) - exception', self, port)
             self._on_connected(None, e)
 
     def connect(self, address, dns, bind):
@@ -356,7 +356,7 @@ class Acceptor(object):
 
     def _on_connection(self, handle, error):
         if error:
-            logger.error('_on_connection: {}'.format(error))
+            logger.error('_on_connection: %s', error)
             return
 
         if type(self.socket) == pyuv.TCP:
@@ -635,37 +635,37 @@ class VirtualSocket(object):
         self.on_start_read = on_start_read
         self.address = address
 
-        logger.debug('VirtualSocket({}) - allocated'.format(self))
+        logger.debug('VirtualSocket(%s) - allocated', self)
 
     def __repr__(self):
         return 'PYUVVS:{}:{}'.format(id(self), self.port)
 
     def close(self):
-        logger.debug('VirtualSocket({}) - closing'.format(self))
+        logger.debug('VirtualSocket(%s) - closing', self)
 
         self.on_close()
         self.on_start_read = None
 
-        logger.debug('VirtualSocket({}) - closed'.format(self))
+        logger.debug('VirtualSocket(%s) - closed', self)
 
     def write(self, data, on_complete):
         logger.debug(
-            'VirtualSocket({}) - writing ({})'.format(self, len(data)))
+            'VirtualSocket(%s) - writing (%s)', self, len(data))
 
         try:
             self.on_data(data)
             on_complete(self, None)
         except Exception, e:
             logger.debug(
-                'VirtualSocket({}) - write - exception: {}'.format(self, e))
+                'VirtualSocket(%s) - write - exception: %s', self, e)
             on_complete(self, -1)
 
-        logger.debug('VirtualSocket({}) - written'.format(self))
+        logger.debug('VirtualSocket(%s) - written', self)
 
     def start_read(self, cb):
-        logger.debug('VirtualSocket({}) - activating (cb={})'.format(self, cb))
+        logger.debug('VirtualSocket(%s) - activating (cb=%s)', self, cb)
         self.on_start_read(self.address, cb)
-        logger.debug('VirtualSocket({}) - activated'.format(self))
+        logger.debug('VirtualSocket(%s) - activated', self)
 
     def getsockname(self):
         return self.address or ('254.254.254.254', self.port)
@@ -682,7 +682,7 @@ class VirtualPortsManager(object):
         if port not in self.ports:
             raise ValueError('Port {} is not registered'.format(port))
 
-        logger.debug('VirtualPortsManager: connect({})'.format(port))
+        logger.debug('VirtualPortsManager: connect(%s)', port)
 
         try:
             create_connection_cb = self.ports[port]
@@ -691,21 +691,21 @@ class VirtualPortsManager(object):
             logger.exception(e)
             raise
 
-        logger.debug('VirtualPortsManager: connect({}) - socket created'.format(port))
+        logger.debug('VirtualPortsManager: connect(%s) - socket created', port)
         return VirtualSocket(port, on_start_read, on_data, on_close)
 
     def register(self, port, create_cb):
         if port in self.ports:
             raise ValueError('Port {} already registered'.format(port))
 
-        logger.debug('VirtualPortsManager: register({})'.format(port))
+        logger.debug('VirtualPortsManager: register(%s)', port)
         self.ports[port] = create_cb
 
     def unregister(self, port):
         if port not in self.ports:
             raise ValueError('Port {} is not registered'.format(port))
 
-        logger.debug('VirtualPortsManager: unregister({})'.format(port))
+        logger.debug('VirtualPortsManager: unregister(%s)', port)
         del self.ports[port]
 
     def destroy(self):
@@ -725,11 +725,11 @@ class Manager(Thread):
         self.virtual_ports = VirtualPortsManager()
 
     def register_virtual_port(self, port, create_virtual_connection_cb):
-        logger.debug('Manager: Register virtual port: {}'.format(port))
+        logger.debug('Manager: Register virtual port: %s', port)
         self.virtual_ports.register(port, create_virtual_connection_cb)
 
     def unregister_virtual_port(self, port):
-        logger.debug('Manager: Unregister virtual port: {}'.format(port))
+        logger.debug('Manager: Unregister virtual port: %s', port)
         self.virtual_ports.unregister(port)
 
     def sync(self, handle):
@@ -743,7 +743,7 @@ class Manager(Thread):
                 method(*args)
             except Exception, e:
                 logger.exception(
-                    'Defered call exception: {} (ignored)'.format(e))
+                    'Defered call exception: %s (ignored)', e)
 
     def defer(self, method, *args):
         self.queue.put((method, args))
@@ -795,13 +795,13 @@ class Manager(Thread):
         acceptor.start()
 
     def bind(self, neighbor_id, local_address=('127.0.0.1', 8080), forward=None, bind=None):
-        logger.debug('Manager: bind({}, {}, {}, {})'.format(
-            neighbor_id, local_address, forward, bind))
+        logger.debug('Manager: bind(%s, %s, %s, %s)',
+            neighbor_id, local_address, forward, bind)
         self.defer(self._bind, neighbor_id, local_address, forward, bind)
 
     def unbind(self, path_or_port):
-        logger.debug('Manager: unbind({})'.format(
-            path_or_port))
+        logger.debug('Manager: unbind(%s)',
+            path_or_port)
 
         for neighbor in self.neighbors.itervalues():
             if neighbor.unregister_acceptor(path_or_port):
@@ -813,8 +813,8 @@ class Manager(Thread):
         return neighbor.get_connection(connection_id)
 
     def create_connection(self, neighbor_id, remote_id=None, peername=None):
-        logger.debug('Manager: create_connection({}, {}, {})'.format(
-            neighbor_id, remote_id, peername))
+        logger.debug('Manager: create_connection(%s, %s, %s)',
+            neighbor_id, remote_id, peername)
 
         return self.get_neighbor(
             neighbor_id
@@ -824,8 +824,8 @@ class Manager(Thread):
         )
 
     def connect(self, neighbor_id, connection_id, address, dns, bind=None):
-        logger.debug('Manager: connect({}, {}, {}, {}, {})'.format(
-            neighbor_id, connection_id, address, dns, bind))
+        logger.debug('Manager: connect(%s, %s, %s, %s, %s)',
+            neighbor_id, connection_id, address, dns, bind)
 
         self.defer(
             self.get_neighbor(
@@ -839,8 +839,8 @@ class Manager(Thread):
         )
 
     def forward(self, neighbor_id, connection_id):
-        logger.debug('Manager: forward({}, {})'.format(
-            neighbor_id, connection_id))
+        logger.debug('Manager: forward(%s, %s)',
+            neighbor_id, connection_id)
 
         self.defer(
             self.get_neighbor(
@@ -851,8 +851,8 @@ class Manager(Thread):
         )
 
     def on_connected(self, neighbor_id, connection_id, local_address, error=None):
-        logger.debug('Manager: on_connected({}, {}, {}, {})'.format(
-            neighbor_id, connection_id, local_address, error))
+        logger.debug('Manager: on_connected(%s, %s, %s, %s)',
+            neighbor_id, connection_id, local_address, error)
 
         self.defer(
             self.get_neighbor(
@@ -864,8 +864,8 @@ class Manager(Thread):
         )
 
     def on_data(self, neighbor_id, connection_id, data):
-        logger.debug('Manager: on_data({}, {}, {})'.format(
-            neighbor_id, connection_id, len(data)))
+        logger.debug('Manager: on_data(%s, %s, %s)',
+            neighbor_id, connection_id, len(data))
 
         self.defer(
             self.get_neighbor(
@@ -877,8 +877,8 @@ class Manager(Thread):
         )
 
     def on_disconnect(self, neighbor_id, connection_id, reason=None):
-        logger.debug('Manager: on_disconnect({}, {}, {})'.format(
-            neighbor_id, connection_id, reason))
+        logger.debug('Manager: on_disconnect(%s, %s, {})',
+            neighbor_id, connection_id, reason)
 
         neighbor = self.get_neighbor(
             neighbor_id

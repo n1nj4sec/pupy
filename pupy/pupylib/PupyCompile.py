@@ -81,7 +81,7 @@ def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug
             with open(data) as sfile:
                 source = sfile.read()
 
-        logger.info('debug: {}'.format(data if path else filename))
+        logger.info('debug: %s', data if path else filename)
         data = marshal.dumps(compile(source, filename, 'exec'))
 
     return data
@@ -122,7 +122,7 @@ if __name__ == '__main__':
                     struct.pack('<4sl', imp.get_magic(), mtime)))
 
         except (OSError, IOError, SyntaxError), e:
-            logger.error('{}: {}'.format(filepath, e))
+            logger.error('%s: %s', filepath, e)
 
     fid = 0
 

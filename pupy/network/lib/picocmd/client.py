@@ -127,7 +127,7 @@ class DnsCommandsClient(Thread):
         self.failed = 0
 
     def event(self, command):
-        logging.debug('Event: {}'.format(command))
+        logging.debug('Event: %s', command)
         self._request(command)
 
     def _native_resolve(self, hostname):
@@ -158,7 +158,7 @@ class DnsCommandsClient(Thread):
                             s.close()
 
         except socket.error, e:
-            logging.info('NS Request exception: {} (ns={})'.format(e, self.ns))
+            logging.info('NS Request exception: %s (ns=%s)', e, self.ns)
             self.ns_socket = None
 
         if not r:
@@ -260,11 +260,11 @@ class DnsCommandsClient(Thread):
         try:
             addresses = self.resolve(page)
             if len(addresses) < 2:
-                logging.warning('DNSCNC: short answer: {}'.format(addresses))
+                logging.warning('DNSCNC: short answer: %s', addresses)
                 return []
 
         except socket.error as e:
-            logging.error('DNSCNC: Communication error: {}'.format(e))
+            logging.error('DNSCNC: Communication error: %s', e)
             self.next()
             return []
 
@@ -274,7 +274,7 @@ class DnsCommandsClient(Thread):
             try:
                 payload = self._a_page_decoder(addresses, nonce)
                 if not payload:
-                    logging.error('DNSCNC: No data: {} -> {}'.format(addresses, payload))
+                    logging.error('DNSCNC: No data: %s -> %s', addresses, payload)
                     self.spi = None
                     self.encoder.kex_reset()
                     self.on_session_lost()
@@ -283,12 +283,12 @@ class DnsCommandsClient(Thread):
                 response = Parcel.unpack(payload, nonce, check_csum)
 
                 if attempt > 0:
-                    logging.info('DNSCNC: Recovered ({}) with PSK/PK'.format(attempt))
+                    logging.info('DNSCNC: Recovered (%s) with PSK/PK', attempt)
 
                 break
 
             except (ParcelInvalidCrc, DnsCommandClientDecodingError):
-                logging.error('CRC FAILED / Attempt {}'.format(attempt))
+                logging.error('CRC FAILED / Attempt %s', attempt)
 
                 self.spi = None
                 self.encoder.kex_reset()
@@ -296,8 +296,8 @@ class DnsCommandsClient(Thread):
 
             except ParcelInvalidPayload, e:
                 logging.error(
-                    'CRC FAILED / Invalid payload ({}) / {}/{}'.format(
-                        e, self.failed, 5))
+                    'CRC FAILED / Invalid payload (%s) / %s/%s',
+                        e, self.failed, 5)
 
         if response:
             return list(response.commands)
@@ -331,8 +331,8 @@ class DnsCommandsClient(Thread):
                 if h.digest() == chash:
                     self.on_pastelink_content(url, action, content)
                 else:
-                    logging.error('PasteLink: Wrong hash after extraction: {} != {}'.format(
-                        h.digest(), chash))
+                    logging.error('PasteLink: Wrong hash after extraction: %s != %s',
+                        h.digest(), chash)
             except Exception as e:
                 logging.exception(e)
 
@@ -391,11 +391,11 @@ class DnsCommandsClient(Thread):
             self.proxy = True
         else:
             if user and password:
-                auth = '{}:{}@'.format(user, password)
+                auth = '%s:%s@'.format(user, password)
             else:
                 auth = ''
 
-            self.proxy = '{}://{}{}:{}'.format(scheme, auth, ip, port)
+            self.proxy = '%s://%s%s:%s'.format(scheme, auth, ip, port)
 
     def process(self):
         commands = []
@@ -414,13 +414,13 @@ class DnsCommandsClient(Thread):
         ])
 
         if need_ack:
-            logging.debug('NEED TO ACK: {}'.format(need_ack))
+            logging.debug('NEED TO ACK: %s', need_ack)
             ack_response = self._request(Ack(need_ack))
             if not (len(ack_response) == 1 and isinstance(ack_response[0], Ack)):
-                logging.error('ACK <-> ACK failed: received: {}'.format(ack_response))
+                logging.error('ACK <-> ACK failed: received: %s', ack_response)
 
         for command in commands:
-            logging.debug('command: {}'.format(command))
+            logging.debug('command: %s', command)
 
             if isinstance(command, Policy):
                 self.poll = command.poll
@@ -430,8 +430,8 @@ class DnsCommandsClient(Thread):
                     kex = Kex(request)
                     response = self._request(kex)
                     if not len(response) == 1 or not isinstance(response[0], Kex):
-                        logging.error('KEX sequence failed. Got {} instead of Kex'.format(
-                            response))
+                        logging.error('KEX sequence failed. Got %s instead of Kex',
+                            response)
                         return
 
                     self.encoder.process_kex_response(response[0].parcel)
@@ -441,13 +441,13 @@ class DnsCommandsClient(Thread):
                 response = self._request(SystemInfo())
 
                 if len(response) > 0 and not isinstance(response[0], Ack):
-                    logging.debug('dnscnc:Submit SystemInfo: response={}'.format(response))
+                    logging.debug('dnscnc:Submit SystemInfo: response=%s', response)
                     for cmd in response:
                         commands.append(cmd)
 
                 response = self._request(SystemStatus())
                 if len(response) > 0 and not isinstance(response[0], Ack):
-                    logging.debug('dnscnc:Submit SystemStatus: response={}'.format(response))
+                    logging.debug('dnscnc:Submit SystemStatus: response=%s', response)
                     for cmd in response:
                         commands.append(cmd)
 
@@ -498,7 +498,7 @@ class DnsCommandsClient(Thread):
                 logging.exception(e)
 
             if self.active:
-                logging.debug('sleep {}'.format(self.poll))
+                logging.debug('sleep %s', self.poll)
                 time.sleep(self.poll)
             else:
                 break

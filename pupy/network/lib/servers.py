@@ -112,7 +112,7 @@ class PupyTCPServer(ThreadedServer):
             try:
                 wrapper, credentials = self.authenticator(sock)
             except AuthenticationError:
-                self.logger.info('{}:{} failed to authenticate, rejecting connection'.format(h, p))
+                self.logger.info('%s:%s failed to authenticate, rejecting connection', h, p)
                 queue.put_nowait((None, None, None))
                 return
         else:
@@ -124,7 +124,7 @@ class PupyTCPServer(ThreadedServer):
         connection = None
 
         try:
-            self.logger.debug('{}:{} Authenticated. Starting connection'.format(h, p))
+            self.logger.debug('%s:%s Authenticated. Starting connection', h, p)
 
             connection = PupyConnection(
                 self.pupy_srv,
@@ -135,9 +135,9 @@ class PupyTCPServer(ThreadedServer):
                 config=config
             )
 
-            self.logger.debug('{}:{} Connection complete'.format(h, p))
+            self.logger.debug('%s:%s Connection complete', h, p)
         finally:
-            self.logger.debug('{}:{} Report connection: {}'.format(h, p, connection))
+            self.logger.debug('%s:%s Report connection: %s', h, p, connection)
             queue.put_nowait((connection, wrapper, credentials))
 
     def _authenticate_and_serve_client(self, sock):
@@ -157,22 +157,22 @@ class PupyTCPServer(ThreadedServer):
         wrapper = None
 
         try:
-            self.logger.debug('{}:{} Wait for authentication result'.format(h, p))
+            self.logger.debug('%s:%s Wait for authentication result', h, p)
             connection, wrapper, credentials = queue.get(block=True, timeout=60)
-            self.logger.debug('{}:{} Wait complete: {}'.format(h, p, connection))
+            self.logger.debug('%s:%s Wait complete: %s', h, p, connection)
             if connection and connection._local_root:
-                self.logger.debug('{}:{} Initializing service...'.format(h, p))
+                self.logger.debug('%s:%s Initializing service...', h, p)
                 connection.init()
                 connection.loop()
 
         except Empty:
-            self.logger.debug('{}:{} Timeout'.format(h, p))
+            self.logger.debug('%s:%s Timeout', h, p)
 
         except (EOFError, TypeError):
             pass
 
         finally:
-            self.logger.debug('{}:{} Shutting down'.format(h, p))
+            self.logger.debug('%s:%s Shutting down', h, p)
 
             try:
                 sock.shutdown(socket.SHUT_RDWR)
@@ -194,7 +194,7 @@ class PupyTCPServer(ThreadedServer):
             try:
                 self.igd.DeletePortMapping(self.external_port, 'TCP')
             except Exception as e:
-                self.logger.info('IGD Exception: {}/{}'.format(type(e), e))
+                self.logger.info('IGD Exception: %s/%s', type(e), e)
 
 
 class PupyUDPServer(object):
@@ -281,7 +281,7 @@ class PupyUDPServer(object):
                 self.igd_mapping = True
             except UPNPError as e:
                 self.logger.warn(
-                    "Couldn't create IGD mapping: {}".format(e.description))
+                    "Couldn't create IGD mapping: %s", e.description)
 
         self.LONG_SLEEP_INTERRUPT_TIMEOUT = 5
         self.listen()
@@ -369,8 +369,8 @@ class PupyUDPServer(object):
             lsi=self.LONG_SLEEP_INTERRUPT_TIMEOUT
         )
 
-        logging.debug('Request pings: {}'.format(
-            client.KEEP_ALIVE_REQUIRED or self.ping_interval))
+        logging.debug('Request pings: %s',
+            client.KEEP_ALIVE_REQUIRED or self.ping_interval)
 
         connthread = PupyConnectionThread(
             self.pupy_srv,
@@ -418,7 +418,7 @@ class PupyUDPServer(object):
             print("")
             print "keyboard interrupt!"
         except Exception, e:
-            logging.exception('Unknown exception {}: {}'.format(type(e), e))
+            logging.exception('Unknown exception %s: %s', type(e), e)
         finally:
             logging.info("server has terminated")
             self.close()
@@ -433,4 +433,4 @@ class PupyUDPServer(object):
             try:
                 self.igd.DeletePortMapping(self.external_port, 'UDP')
             except Exception as e:
-                logging.info('IGD Exception: {}/{}'.format(type(e), e))
+                logging.info('IGD Exception: %s/%s', type(e), e)

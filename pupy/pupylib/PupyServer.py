@@ -207,7 +207,7 @@ class Listener(Thread):
             if val in transport_kwargs:
                 transport_kwargs[val] = opt_args[val]
             else:
-                logger.warning('Unknown transport argument: {}'.format(val))
+                logger.warning('Unknown transport argument: %s', val)
 
         self.kwargs = transport_kwargs
 
@@ -440,7 +440,7 @@ class PupyServer(object):
                     pproxy=pproxy_dnscnc,
                 )
             except Exception, e:
-                logger.error('DnsCNC failed: {}'.format(e))
+                logger.error('DnsCNC failed: %s', e)
 
 
     def get_listeners(self):
@@ -515,7 +515,7 @@ class PupyServer(object):
             try:
                 self._current_id.remove(int(id))
             except ValueError:
-                logger.debug('Id not found in current_id list: {}'.format(id))
+                logger.debug('Id not found in current_id list: %s', id)
 
     def register_handler(self, instance):
         """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
@@ -638,7 +638,7 @@ class PupyServer(object):
         with self.clients_lock:
             client = [x for x in self.clients if (x.conn is conn or x is conn)]
             if not client:
-                logger.debug('No clients matches request: {}'.format(conn))
+                logger.debug('No clients matches request: %s', conn)
                 return
 
             client = client[0]
@@ -797,7 +797,7 @@ class PupyServer(object):
 
             try:
                 module_object = imp.load_source(modname, modpath)
-                logger.debug('Load module {}'.format(modname))
+                logger.debug('Load module %s', modname)
                 self.modules[modname] = module_object
                 self._modules_stats[modname] = current_stats.st_mtime
             except Exception, e:
@@ -836,7 +836,7 @@ class PupyServer(object):
         module_class = getattr(module, class_name)
 
         if not enable_dangerous_modules and module_class.qa != QA_STABLE:
-            logger.debug('Ignore dangerous module {}'.format(name))
+            logger.debug('Ignore dangerous module %s', name)
             raise PupyModuleDisabled('Dangerous modules are disabled.')
 
         return module_class
@@ -872,16 +872,16 @@ class PupyServer(object):
 
     def create_virtual_connection(self, transport, peer):
         if transport not in transports:
-            logger.error('Unknown transport: {}'.format())
+            logger.error('Unknown transport: %s', transport)
             return
 
-        logger.debug('create_virtual_connection({}, {})'.format(transport, peer))
+        logger.debug('create_virtual_connection(%s, %s)', transport, peer)
 
         transport_conf = transports.get(transport)
         transport_class = transport_conf().server_transport
 
-        logger.debug('create_virtual_connection({}, {}) - transport - {} / {}'.format(
-            transport, peer, transport_conf, transport_class))
+        logger.debug('create_virtual_connection(%s, %s) - transport - %s / %s',
+            transport, peer, transport_conf, transport_class)
 
         stream = PupyVirtualStream(transport_class)
 
@@ -895,18 +895,18 @@ class PupyServer(object):
             })
 
         def activate(peername, on_receive):
-            logger.debug('VirtualStream ({}, {}) - activating'.format(
-                stream, peername))
+            logger.debug('VirtualStream (%s, %s) - activating',
+                stream, peername)
 
             stream.activate(peername, on_receive)
 
-            logger.debug('VirtualStream ({}, {}) - starting thread'.format(
-                stream, peername))
+            logger.debug('VirtualStream (%s, %s) - starting thread',
+                stream, peername)
 
             vc.start()
 
-            logger.debug('VirstualStream ({}, {}) - activated'.format(
-                stream, peername))
+            logger.debug('VirstualStream (%s, %s) - activated',
+                stream, peername)
 
         return activate, stream.submit, stream.close
 

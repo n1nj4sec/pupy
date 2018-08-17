@@ -211,6 +211,7 @@ class PupyDnsCnc(object):
             credentials=None,
             listeners=None,
             cmdhandler=None,
+            server=None,
             pproxy=None
         ):
 

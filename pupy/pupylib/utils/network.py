@@ -17,7 +17,7 @@ def ifconfig_co():
             return str(IPAddress(response.read().strip()))
 
     except Exception, e:
-        logging.debug('ifconfig.co request failed: {}'.format(e))
+        logging.debug('ifconfig.co request failed: %s', e)
 
 
 def get_listener_port(config, external=False):
@@ -60,7 +60,7 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
                     LISTENER_IP_EXTERNAL = str(IPAddress(
                         igd.GetExternalIP()['NewExternalIPAddress']))
                 except Exception, e:
-                    logging.debug('IGD Exception: {}'.format(e))
+                    logging.debug('IGD Exception: %s', e)
 
     if not LISTENER_IP_LOCAL and config:
         LISTENER_IP_LOCAL = config.getip('pupyd', 'address')
@@ -90,7 +90,7 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
                     break
 
         except Exception, e:
-            logging.debug('Exception during interfaces enumeration: {}'.format(e))
+            logging.debug('Exception during interfaces enumeration: %s', e)
             return None
 
     if not external and LISTENER_IP_LOCAL:

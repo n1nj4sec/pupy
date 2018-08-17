@@ -85,11 +85,11 @@ class PupyOffloadDNS(threading.Thread):
                     time.sleep(5)
                     continue
 
-                logger.exception('DNS: Network: {}'.format(e))
+                logger.exception('DNS: Network: %s', e)
                 self.active = False
 
             except Exception, e:
-                logger.exception('DNS: {}'.format(e))
+                logger.exception('DNS: %s', e)
                 self.active = False
 
     def _serve(self):
@@ -111,7 +111,7 @@ class PupyOffloadDNS(threading.Thread):
             used = time.time() - now
 
             if used > 1:
-                logger.warning('DNS: Slow processing speed ({})s'.format(used))
+                logger.warning('DNS: Slow processing speed (%s)s', used)
 
             conn.send(response)
 
@@ -191,19 +191,19 @@ class PupyOffloadAcceptor(object):
 
             except (socket.error, OSError), e:
                 if e.errno in COMMON_EXCEPTIONS:
-                    logger.error('Acceptor ({}): Lost connection (refused)'.format(self._port))
+                    logger.error('Acceptor (%s): Lost connection (refused)', self._port)
                     time.sleep(5)
                     continue
                 else:
                     raise
 
             except EOFError:
-                logger.error('Acceptor ({}): Lost connection (EOF)'.format(self._port))
+                logger.error('Acceptor (%s): Lost connection (EOF)', self._port)
                 time.sleep(1)
                 continue
 
             except Exception, e:
-                logger.exception('Acceptor ({}): Exception: {}'.format(e))
+                logger.exception('Acceptor (%s): Exception: %s', e)
                 raise
 
 class PupyOffloadManager(object):
@@ -241,7 +241,7 @@ class PupyOffloadManager(object):
             self._external_ip = m.recv()['ip']
 
         except Exception, e:
-            logger.exception('Communication failed: {}'.format(e))
+            logger.exception('Communication failed: %s', e)
             raise
 
         finally:

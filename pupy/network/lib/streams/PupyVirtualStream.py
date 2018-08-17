@@ -52,7 +52,7 @@ class PupyVirtualStream(object):
         if peername and on_receive:
             self.activate(peername, on_receive)
 
-        logger.debug('Allocated ({})'.format(self))
+        logger.debug('Allocated (%s)', self)
 
     def __repr__(self):
         return 'PVS:{}{}'.format(
@@ -60,7 +60,7 @@ class PupyVirtualStream(object):
             id(self))
 
     def activate(self, peername, on_receive):
-        logger.debug('Activating ({}/{})'.format(self, peername))
+        logger.debug('Activating (%s/%s)', self, peername)
 
         if not self.closed:
             return
@@ -76,26 +76,26 @@ class PupyVirtualStream(object):
         self.transport = self.transport_class(
             self, **self.transport_kwargs)
 
-        logger.debug('Activating ..  ({}) - transport - {}'.format(
-            self, self.transport))
+        logger.debug('Activating ..  (%s) - transport - %s',
+            self, self.transport)
 
         self.transport.on_connect()
-        logger.debug('Activated ({})'.format(self))
+        logger.debug('Activated (%s)', self)
 
     def _flush(self):
-        logger.debug('Flush ({}) - {}'.format(self, len(self.downstream)))
+        logger.debug('Flush (%s) - %s', self, len(self.downstream))
         data = self.downstream.read()
         try:
             self.on_receive(self, data, None)
-            logger.debug('Flush ({}) - complete'.format(self, len(self.downstream)))
+            logger.debug('Flush (%s / %d) - complete', self, len(self.downstream))
         except Exception, e:
-            logger.exception('Flush ({}) - failed - {}'.format(self, e))
+            logger.exception('Flush (%s) - failed - %d', self, e)
             self.closed = True
             raise EOFError(e)
 
     def _check_eof(self):
         if self.closed:
-            logger.debug('EOF ({})'.format(self))
+            logger.debug('EOF (%s)', self)
             raise EOFError('VirtualStream closed')
 
     def poll(self, timeout):
@@ -103,7 +103,7 @@ class PupyVirtualStream(object):
         return len(self.upstream)>0 or self._poll_wait(timeout)
 
     def _poll_wait(self, timeout=None):
-        logger.debug('Poll ({}) start (timeout={})'.format(self, timeout))
+        logger.debug('Poll (%s) start (timeout=%s)', self, timeout)
 
         self._check_eof()
         self.buf_in.wait(timeout)
@@ -111,11 +111,11 @@ class PupyVirtualStream(object):
 
         result = bool(len(self.buf_in))
 
-        logger.debug('Poll ({}) completed: {}'.format(self, result))
+        logger.debug('Poll (%s) completed: %s', self, result)
         return result
 
     def submit(self, data):
-        logger.debug('Submit ({}): {} - start'.format(self, len(data)))
+        logger.debug('Submit (%s): %s - start', self, len(data))
 
         try:
             self._check_eof()
@@ -123,15 +123,15 @@ class PupyVirtualStream(object):
             with self.buf_in:
                 self.buf_in.write(data)
 
-            logger.debug('Submit ({}): completed'.format(self))
+            logger.debug('Submit (%s): completed', self)
 
         except Exception, e:
-            logger.debug('Submit ({}): exception {}'.format(self, e))
+            logger.debug('Submit (%s): exception %s', self, e)
             raise
 
     def read(self, count):
-        logger.debug('Read ({}) - {} / {} - start'.format(
-            self, count, len(self.upstream)))
+        logger.debug('Read (%s) - %s / %s - start',
+            self, count, len(self.upstream))
 
         while len(self.upstream) < count and not self.closed:
             if self.buf_in or self.poll(10):
@@ -142,13 +142,13 @@ class PupyVirtualStream(object):
 
         self._check_eof()
 
-        logger.debug('Read ({}) - {} / {} - done'.format(
-            self, count, len(self.upstream)))
+        logger.debug('Read (%s) - %s / %s - done',
+            self, count, len(self.upstream))
 
         return self.upstream.read(count)
 
     def insert(self, data):
-        logger.debug('Insert ({}): {}'.format(self, len(data)))
+        logger.debug('Insert (%s): %s', self, len(data))
 
         self._check_eof()
 
@@ -156,14 +156,14 @@ class PupyVirtualStream(object):
             self.buf_out.insert(data)
 
     def flush(self):
-        logger.debug('Flush ({})')
+        logger.debug('Flush (%s)')
 
         self.buf_out.flush()
         self._check_eof()
 
     def write(self, data, notify=True):
-        logger.debug('Write ({}): {} (notify={})'.format(
-            self, len(data), notify))
+        logger.debug('Write (%s): %s (notify=%s)',
+            self, len(data), notify)
 
         self._check_eof()
 
@@ -180,8 +180,8 @@ class PupyVirtualStream(object):
             raise
 
     def close(self):
-        logger.debug('Close({}) (at: {}:{} {}({}))'.format(
-            self, *traceback.extract_stack()[-2]))
+        logger.debug('Close(%s) (at: %s:%s %s(%s))',
+            self, *traceback.extract_stack([-2]))
 
         self.closed = True
         self.upstream.wake()

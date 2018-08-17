@@ -181,11 +181,11 @@ def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=Tru
 
                 maybe_patch = os.path.join(patch_dir, basepath)
                 if os.path.exists(maybe_patch):
-                    logger.info('Patch: {} -> {}'.format(filepath, maybe_patch))
+                    logger.info('Patch: %s -> %s', filepath, maybe_patch)
                     with open(maybe_patch, 'rb') as filedata:
                         return filedata.read()
                 elif os.path.exists(maybe_patch+'.ignore'):
-                    logger.info('Patch: Ignore {}'.format(filepath))
+                    logger.info('Patch: Ignore %s', filepath)
                     raise IgnoreFileException()
                 elif os.path.exists(maybe_patch+'.include'):
                     break
@@ -196,7 +196,7 @@ def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=Tru
                         ignore.append('.ignore')
                         ignore = os.path.sep.join(ignore)
                         if os.path.exists(ignore):
-                            logger.info('Patch: Ignore {} ({})'.format(filepath, ignore))
+                            logger.info('Patch: Ignore %s (%s)', filepath, ignore)
                             raise IgnoreFileException()
 
     if archive:

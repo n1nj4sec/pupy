@@ -81,7 +81,7 @@ def get_edit_binary(path, conf, compressed_config=True, debug=False):
 
     new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
 
-    logger.debug('Free space: {}'.format(HARDCODED_CONF_SIZE-new_conf_len))
+    logger.debug('Free space: %d', HARDCODED_CONF_SIZE-new_conf_len)
 
     offset = offsets[0]
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
@@ -515,7 +515,7 @@ def get_parser(base_parser, config):
     try:
         default_payload_output = config.get_path('payload_output', dir=True)
     except ValueError, e:
-        logger.error('Invalid value for "payload_output" in config file: {}'.format(e))
+        logger.error('Invalid value for "payload_output" in config file: %s', e)
 
     parser.add_argument('-D', '--output-dir', default=default_payload_output, help="output folder (default: %(default)s)")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")

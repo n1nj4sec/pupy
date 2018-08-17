@@ -63,14 +63,14 @@ class PupyChannel(Channel):
             data = self._recv()
 
             if __debug__:
-                logger.debug('channel: recv={}'.format(len(data)))
+                logger.debug('channel: recv=%s', len(data))
 
             return data
 
     def send(self, data):
         with self._send_channel_lock:
             if __debug__:
-                logger.debug('channel: send={}'.format(len(data)))
+                logger.debug('channel: send=%s', len(data))
 
             self._send(data)
 
@@ -234,7 +234,7 @@ class PupySocketStream(SocketStream):
         try:
             buf = self.sock.recv(self.MAX_IO_CHUNK)
             if __debug__:
-                logger.debug('stream: read={}'.format(len(buf) if buf else None))
+                logger.debug('stream: read=%s', len(buf) if buf else None)
 
         except socket.timeout:
             return
@@ -290,13 +290,13 @@ class PupySocketStream(SocketStream):
         """ called as a callback on the downstream.write """
         if len(self.downstream)>0:
             if __debug__:
-                logger.debug('stream: send={}'.format(len(self.downstream)))
+                logger.debug('stream: send=%s', len(self.downstream))
 
             self.downstream.write_to(super(PupySocketStream, self))
 
     def waitfor(self, count):
         if __debug__:
-            logger.debug('stream: waitfor={}'.format(count))
+            logger.debug('stream: waitfor=%s', count)
 
         try:
             while len(self.upstream)<count:
@@ -328,8 +328,8 @@ class PupySocketStream(SocketStream):
 
     def write(self, data, notify=True):
         if __debug__:
-            logger.debug('stream: write={} / n={}'.format(
-                len(data) if data else None, notify))
+            logger.debug('stream: write=%s / n=%s',
+                len(data) if data else None, notify)
 
         try:
             with self.upstream_lock:

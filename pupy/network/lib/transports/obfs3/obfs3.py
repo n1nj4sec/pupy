@@ -168,7 +168,7 @@ class Obfs3Transport(BaseTransport):
         other_pubkey = data.read(PUBKEY_LEN)
 
         if __debug__:
-            logger.debug("Other pubkey: {}".format(repr(other_pubkey)))
+            logger.debug("Other pubkey: %s", repr(other_pubkey))
 
         self.state = ST_WAIT_FOR_HANDSHAKE
 
@@ -177,7 +177,7 @@ class Obfs3Transport(BaseTransport):
             self._read_handshake_post_dh(kex, data)
         except Exception, e:
             if __debug__:
-                logger.debug('DH Exception: {}'.format(e))
+                logger.debug('DH Exception: %s', e)
 
             self._uniform_dh_errback(e, other_pubkey)
 
@@ -199,7 +199,7 @@ class Obfs3Transport(BaseTransport):
         """
 
         if __debug__:
-            logger.debug('DH Complete, secret: {}'.format(repr(shared_secret)))
+            logger.debug('DH Complete, secret: %s', repr(shared_secret))
 
         self.shared_secret = shared_secret
 
@@ -214,7 +214,7 @@ class Obfs3Transport(BaseTransport):
         # in a single TCP segment.
         padding_length = random.randint(0, MAX_PADDING/2)
         if __debug__:
-            logger.debug('Padding length: {}'.format(padding_length))
+            logger.debug('Padding length: %d', padding_length)
 
         magic = hmac_sha256.hmac_sha256_digest(self.shared_secret, self.send_magic_const)
         message = rand.random_bytes(padding_length) + magic + self.send_crypto.crypt(self.queued_data)
@@ -223,7 +223,7 @@ class Obfs3Transport(BaseTransport):
         self.state = ST_SEARCHING_MAGIC
 
         if __debug__:
-            logger.debug('Scan for magic data / remain data: {}'.format(len(data)))
+            logger.debug('Scan for magic data / remain data: %d', len(data))
 
         if len(data) > 0:
             self._scan_for_magic(data)
@@ -242,15 +242,15 @@ class Obfs3Transport(BaseTransport):
         index = chunk.find(self.other_magic_value)
         if index < 0:
             if __debug__:
-                logger.debug('Magic not found / chunk len: {}'.format(len(chunk)))
+                logger.debug('Magic not found / chunk len: %d', len(chunk))
 
             if (len(data) > MAX_PADDING+HASHLEN):
                 raise Exception("obfs3: Too much padding (%d)!" % len(data))
             return
 
         if __debug__:
-            logger.debug('Magic (len={}) found at: {}'.format(
-                index, len(self.other_magic_value)))
+            logger.debug('Magic (len=%d) found at: %d',
+                index, len(self.other_magic_value))
 
         index += len(self.other_magic_value)
         data.drain(index)
@@ -258,7 +258,7 @@ class Obfs3Transport(BaseTransport):
         self.state = ST_OPEN
         if len(data) > 0:
             if __debug__:
-                logger.debug('Connection ready, write rest of data: {}'.format(len(data)))
+                logger.debug('Connection ready, write rest of data: %d', len(data))
 
             self.circuit.upstream.write(self.recv_crypto.crypt(data.read()))
 

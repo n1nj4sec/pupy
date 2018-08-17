@@ -67,7 +67,7 @@ class SocketPiper(threading.Thread):
                     continue
                 self.write_sock.sendall(data)
         except Exception as e:
-            logging.debug("error in socket piper: %s"%str(traceback.format_exc()))
+            logging.debug("error in socket piper: %s", traceback.format_exc())
         finally:
             try:
                 self.write_sock.shutdown(socket.SHUT_RDWR)
