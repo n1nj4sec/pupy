@@ -12,7 +12,7 @@ class USniper(PupyModule):
 
     unique_instance = True
     dependencies = {
-        'linux': [ 'usniper' ]
+        'linux': ['usniper']
     }
 
     @classmethod
@@ -49,7 +49,7 @@ class USniper(PupyModule):
 
         if start(args.path, offset, args.reg, args.ret,
                  'string' if args.string else None,
-                     None if ( args.string or args.nochar ) else 'chr'):
+                     None if (args.string or args.nochar) else 'chr'):
             self.success('Unsipper started')
         else:
             self.error('Usniper start failed')

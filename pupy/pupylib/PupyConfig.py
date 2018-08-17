@@ -195,7 +195,7 @@ class PupyConfig(ConfigParser):
 
     def set(self, section, key, value, **kwargs):
         if kwargs.get('cmd', False):
-            if not section in self.command_line:
+            if section not in self.command_line:
                 self.command_line[section] = {}
             self.command_line[section][key] = str(value)
         elif section != 'randoms':
@@ -217,7 +217,7 @@ class PupyConfig(ConfigParser):
                     key = ''.join(random.choice(
                         string.ascii_letters + string.digits) for _ in range(N))
 
-                    if not key in self.randoms:
+                    if key not in self.randoms:
                         break
 
             self.randoms[key] = value
@@ -259,7 +259,7 @@ class PupyConfig(ConfigParser):
         sections = ConfigParser.sections(self)
         sections.append('randoms')
         for section in self.command_line:
-            if not section in sections:
+            if section not in sections:
                 sections.append(section)
 
         return sections
@@ -271,7 +271,7 @@ class PupyConfig(ConfigParser):
         keys = self.randoms.keys()
         if section in self.command_line:
             for key in self.command_line[section]:
-                if not key in keys:
+                if key not in keys:
                     keys.append(key)
 
         return keys

@@ -9,7 +9,7 @@ __class_name__='x509'
 class x509(PupyModule):
     ''' Fetch certificate from server '''
 
-    dependencies = [ 'pupyutils.basic_cmds' ]
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):

@@ -13,7 +13,7 @@
 # <function Event at 0x7fc42a3681b8> 14.4261770248
 # <class '__main__.Ack'> 3.26524806023
 
-__all__ = [ 'Ack' ]
+__all__ = ['Ack']
 
 from threading import Lock
 from time import time, sleep
@@ -21,7 +21,7 @@ from time import time, sleep
 class Ack(object):
     """ Dumb (and fast, and unsafe) event replacement """
 
-    __slots__ = ( '_lock', '_is_set', '_wait_lock'  )
+    __slots__ = ('_lock', '_is_set', '_wait_lock')
 
     def __init__(self):
         self._lock = Lock()

@@ -28,7 +28,7 @@ def obfs_ps_script(script):
     # strip block comments
     strippedCode = re.sub(re.compile('<#.*?#>', re.DOTALL), '', script)
     # strip blank lines, lines starting with #, and verbose/debug statements
-    strippedCode = "\n".join([line for line in strippedCode.split('\n') if ((line.strip() != '') and (not line.strip().startswith("#")) and (not line.strip().lower().startswith("write-verbose ")) and (not line.strip().lower().startswith("write-debug ")) )])
+    strippedCode = "\n".join([line for line in strippedCode.split('\n') if ((line.strip() != '') and (not line.strip().startswith("#")) and (not line.strip().lower().startswith("write-verbose ")) and (not line.strip().lower().startswith("write-debug ")))])
     return strippedCode
 
 def obfuscatePowershellScript(code):

@@ -53,7 +53,7 @@ from . import getLogger
 logger = getLogger('cmd')
 
 class IOGroup(object):
-    __slots__ = ( '_stdin', '_stdout', '_logger' )
+    __slots__ = ('_stdin', '_stdout', '_logger')
 
     def __init__(self, stdin, stdout, logger=None):
         self._stdin = stdin
@@ -259,7 +259,7 @@ class RawTerminal(IOGroup):
 
 
 class ObjectStream(object):
-    __slots__ = ( '_buffer', '_display', '_stream' )
+    __slots__ = ('_buffer', '_display', '_stream')
 
     def __init__(self, display=None, stream=False):
         self._buffer = []

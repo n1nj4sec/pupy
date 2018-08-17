@@ -12,7 +12,7 @@ __class_name__="LastModule"
 class LastModule(PupyModule):
     """ list terminal sessions """
 
-    dependencies = [ 'pupyps' ]
+    dependencies = ['pupyps']
     is_module=False
 
     @classmethod
@@ -36,7 +36,7 @@ class LastModule(PupyModule):
             output = []
 
             for record in data['records']:
-                if args.days and ( record['start'] + args.days*24*60*60 < now):
+                if args.days and (record['start'] + args.days*24*60*60 < now):
                     break
 
                 if args.exclude and any([x in args.exclude for x in record.itervalues()]):
@@ -89,8 +89,8 @@ class LastModule(PupyModule):
 
             columns = [
                 x for x in [
-                    'user', 'line', 'pid' ,'host', 'ip', 'start', 'end', 'duration'
-                ] if any([ bool(y[x]) for y in output ])
+                    'user', 'line', 'pid', 'host', 'ip', 'start', 'end', 'duration'
+                ] if any([bool(y[x]) for y in output])
             ]
 
             self.table(output, columns)

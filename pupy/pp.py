@@ -148,9 +148,11 @@ def print_exception(tag=''):
     dprint = None
 
     trace = str(traceback.format_exc())
-    error = ' '.join([ x for x in (
-        tag, 'Exception:', trace
-    ) if x ])
+    error = ' '.join([
+        x for x in (
+            tag, 'Exception:', trace
+        ) if x
+    ])
 
     try:
         import pupyimporter
@@ -356,7 +358,7 @@ class Manager(object):
     PAUSE = 1
     SESSION = 2
 
-    __slots__ = ( 'tasks', 'pstore' )
+    __slots__ = ('tasks', 'pstore')
 
     def __new__(cls, *args, **kw):
         if not hasattr(cls, '_instance'):
@@ -375,7 +377,7 @@ class Manager(object):
 
     def create(self, klass, *args, **kwargs):
         name = klass.__name__
-        if not name in self.tasks:
+        if name not in self.tasks:
             try:
                 task = klass(self, *args, **kwargs)
                 task.start()
@@ -577,7 +579,7 @@ class ReverseSlaveService(Service):
 
         if not s:
             return {
-                k:v for k,v in pupy.infos.iteritems() if not k in (
+                k:v for k,v in pupy.infos.iteritems() if k not in (
                     'launcher_inst',
                 )
             }
@@ -787,7 +789,7 @@ def main():
     pupy.infos['launcher_inst'] = launcher
     pupy.infos['transport'] = launcher.get_transport()
     pupy.infos['debug'] = debug
-    pupy.infos['native'] = pupy.pseudo == False
+    pupy.infos['native'] = pupy.pseudo is False
     pupy.infos['revision'] = getattr(pupy, 'revision', None)
     pupy.infos['cid'] = CONFIGURATION_CID
 

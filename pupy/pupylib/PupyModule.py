@@ -215,7 +215,7 @@ class Log(object):
             data += '\n'
 
         now = time.time()
-        delay = ( now - self.last ) if self.last else 0
+        delay = (now - self.last) if self.last else 0
         duration = now - self.start
         self.last = now
 
@@ -377,7 +377,7 @@ class PupyModule(object):
     def init(self, args):
         self.iogroup.set_title(self)
 
-        if self.client and ( self.config.getboolean('pupyd', 'logs') or self.log_file ):
+        if self.client and (self.config.getboolean('pupyd', 'logs') or self.log_file):
             replacements = {
                 '%c': self.client.short_name(),
                 '%m': self.client.desc['macaddr'],
@@ -543,7 +543,7 @@ class PupyModule(object):
         self.iogroup.close()
 
 def config(**kwargs):
-    for l in [ 'compat', 'compatibilities', 'compatibility', 'tags' ]:
+    for l in ['compat', 'compatibilities', 'compatibility', 'tags']:
         if l in kwargs:
             if type(kwargs[l])!=list:
                 kwargs[l]=[kwargs[l]]
@@ -560,7 +560,7 @@ def config(**kwargs):
         return klass
 
     for k in kwargs.iterkeys():
-        if k not in [ 'tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon' ]:
+        if k not in ['tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon']:
             logger.warning("Unknown argument \"%s\" to @config context manager"%k)
 
     return class_rebuilder

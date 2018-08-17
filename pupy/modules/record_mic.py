@@ -7,7 +7,10 @@ from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser
 )
 
-import wave, datetime, os.path, subprocess
+import wave
+import datetime
+import os.path
+import subprocess
 
 __class_name__="RecordMicrophoneModule"
 

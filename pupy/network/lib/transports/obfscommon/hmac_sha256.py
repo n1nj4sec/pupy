@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 
-__all__ = [ 'hmac_sha256_digest' ]
+__all__ = ['hmac_sha256_digest']
 
 def hmac_sha256_digest(key, msg):
     """

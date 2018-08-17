@@ -2,11 +2,15 @@
 #Author: @bobsecq
 #Contributor(s):
 
-import os, logging, time
+import os
+import logging
+import time
+
 from collections import OrderedDict
 import win32com
 import win32com.client
-import glob, re
+import glob
+import re
 
 class outlook():
     '''
@@ -53,7 +57,7 @@ class outlook():
             #self.outlook = win32com.client.gencache.EnsureDispatch("Outlook.Application")
             self.mapi = self.outlook.GetNamespace("MAPI")
 
-            if self.folderId == None:
+            if self.folderId is None:
                 self.setDefaultFolder(folderIndex=self.folderIndex)
             else:
                 self.setFolderFromId(folderId=self.folderId)
@@ -143,10 +147,10 @@ class outlook():
         Return True if done
         Otherwise returns False
         '''
-        if folderIndex == None:
+        if folderIndex is None:
             folderIndex = self.OL_DEFAULT_FOLDERS['olFolderInbox']
         folderName = self.__getOlDefaultFoldersNameFromIndex__(folderIndex)
-        if folderName == None:
+        if folderName is None:
             logging.warning('Impossible to move the default folder to {0}. This folder index is not in {1}'.format(folderIndex, self.OL_DEFAULT_FOLDERS))
             return False
         else:
@@ -160,7 +164,7 @@ class outlook():
         Return True if done
         Otherwise returns False
         '''
-        if folderId == None:
+        if folderId is None:
             logging.error("Impossible to set Outlook folder to None")
             return False
         else:
@@ -252,7 +256,7 @@ class outlook():
         ]
         systemDrive = os.getenv("SystemDrive")
         login = os.getenv("username")
-        for aLocationOST in DEFAULT_LOCATIONS_OST :
+        for aLocationOST in DEFAULT_LOCATIONS_OST:
             completeLocationOST = aLocationOST.replace("<drive>",systemDrive[:-1]).replace("<username>",login)
             regex = os.path.join(completeLocationOST,"*.ost")
             logging.debug('Searching OST file in {0}'.format(regex))
@@ -286,9 +290,9 @@ class outlook():
 
         for anEmail in self.inbox.Items:
             outEmail = {'body':anEmail.Body, 'subject':anEmail.Subject}
-            if bool(re.search(aString, anEmail.Subject))==True:
+            if re.search(aString, anEmail.Subject):
                 emails.append(outEmail)
-            elif bool(re.search(aString, anEmail.Body))==True:
+            elif re.search(aString, anEmail.Body):
                 emails.append(outEmail)
 
         return emails

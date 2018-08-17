@@ -20,7 +20,7 @@ class ShellcodeExec(PupyModule):
         cls.arg_parser.add_argument('path', help='Path to the shellcode to execute')
 
     def run(self, args):
-        with open(args.path ,'r') as sfile:
+        with open(args.path, 'r') as sfile:
             shellcode = sfile.read()
             self.client.conn.modules['pupwinutils.shellcode'].exec_shellcode(shellcode)
         self.log('Shellcode executed!')

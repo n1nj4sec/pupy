@@ -13,7 +13,7 @@ class TransportConf(Transport):
     server_transport = ECMTransportServer
 
     # Reuse EC4 creds
-    credentials = [ 'ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY' ]
+    credentials = ['ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)

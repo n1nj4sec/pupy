@@ -32,7 +32,7 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
         else:
             self.server = None
 
-        if not 'whitelist' in kwargs and self.config:
+        if 'whitelist' not in kwargs and self.config:
             kwargs['whitelist'] = self._whitelist
 
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
@@ -110,7 +110,7 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
                 session=node, default=default
             )
 
-        if not '://' in uri:
+        if '://' not in uri:
             uri = 'http://' + uri
 
         parsed = urlparse(uri)
@@ -299,7 +299,7 @@ class PupyDnsCnc(object):
 
             else:
                 for l in listeners.itervalues():
-                    if not l.local or ( port and ( l.port == port or l.external_port == port ) ):
+                    if not l.local or (port and (l.port == port or l.external_port == port)):
                         listener = l
                         break
 
@@ -336,7 +336,7 @@ class PupyDnsCnc(object):
                     transport, host, port))
 
         return self.handler.connect(
-            [ host ], port, transport,
+            [host], port, transport,
             node=node,
             default=default
         )
@@ -371,7 +371,7 @@ class PupyDnsCnc(object):
     def pastelink(self, content=None, output=None, url=None,
                   action='pyexec', node=None, default=False, legacy=False):
 
-        if not ( content or url):
+        if not (content or url):
             raise ValueError('content and url and output args are empty')
 
         if content and url:

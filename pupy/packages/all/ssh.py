@@ -49,7 +49,7 @@ class SSH():
         return output
 
     def execute_command_using_key(self, client):
-        stdin , stdout, stderr = client.exec_command(self.command)
+        stdin, stdout, stderr = client.exec_command(self.command)
         output = stdout.read()
         output += stderr.read()
         return output

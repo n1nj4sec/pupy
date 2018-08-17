@@ -16,7 +16,7 @@ __class_name__="cat"
 class cat(PupyModule):
     """ show contents of a file """
     is_module=False
-    dependencies = [ 'pupyutils.basic_cmds' ]
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):
@@ -59,7 +59,7 @@ class cat(PupyModule):
                         lexer = False
 
                 if args.color:
-                    if lexer is None and not '*' in args.path:
+                    if lexer is None and '*' not in args.path:
                         try:
                             lexer = guess_lexer_for_filename(args.path, r)
                         except:

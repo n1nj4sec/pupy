@@ -14,7 +14,7 @@ class PowershellManager(PupyModule):
     ''' Load/Execute Powershell scripts '''
 
     dependencies = {
-        'windows': [ 'powershell' ]
+        'windows': ['powershell']
     }
 
     @classmethod

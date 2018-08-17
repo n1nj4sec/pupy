@@ -21,8 +21,8 @@ class InteractiveShell(PupyModule):
     io = REQUIRE_TERMINAL
 
     dependencies = {
-        'windows': [ 'winpty.dll', 'winpty' ],
-        'all': [ 'ptyshell' ],
+        'windows': ['winpty.dll', 'winpty'],
+        'all': ['ptyshell'],
     }
 
     @classmethod
@@ -45,7 +45,7 @@ class InteractiveShell(PupyModule):
         PupyModule.init(self, args)
 
     def run(self, args):
-        if not 'linux' in sys.platform:
+        if 'linux' not in sys.platform:
             raise NotImplementedError('Interactive shell is not supported for this platform')
 
         # Hooks

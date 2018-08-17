@@ -17,41 +17,41 @@ from scapy.all import (
 )
 
 def pack_ip(addr):
-   temp = IP(src=addr)
-   return str(temp)[0x0c:0x10]
+    temp = IP(src=addr)
+    return str(temp)[0x0c:0x10]
 
 def unpack_ip(bin):
-   temp = IP()
-   temp = str(temp)[:0x0c] + bin + str(temp)[0x10:]
-   temp = IP(temp)
-   return temp.src
+    temp = IP()
+    temp = str(temp)[:0x0c] + bin + str(temp)[0x10:]
+    temp = IP(temp)
+    return temp.src
 
 def config_nbns(ip, mac_addr, regexp, verbose=True, interface=None):
     def get_packet(pkt):
 
-       if not pkt.getlayer(NBNSQueryRequest):
-           return
+        if not pkt.getlayer(NBNSQueryRequest):
+            return
 
-       if pkt.FLAGS & 0x8000:
-           query = False
-           addr = unpack_ip(str(pkt.getlayer(Raw))[8:])
-       else:
-           query = True
+        if pkt.FLAGS & 0x8000:
+            query = False
+            addr = unpack_ip(str(pkt.getlayer(Raw))[8:])
+        else:
+            query = True
 
-       if verbose:
-           print str(pkt.NAME_TRN_ID) + ":",
-           if query:
-               print "Q",
-           else:
-               print "R",
-           print "SRC:" + pkt.getlayer(IP).src + " DST:" + pkt.getlayer(IP).dst,
-           if query:
-               print 'NAME:"' + pkt.QUESTION_NAME + '"'
-           else:
-               print 'NAME:"' + pkt.QUESTION_NAME + '"',
-               print 'IP:' + addr
+        if verbose:
+            print str(pkt.NAME_TRN_ID) + ":",
+            if query:
+                print "Q",
+            else:
+                print "R",
+            print "SRC:" + pkt.getlayer(IP).src + " DST:" + pkt.getlayer(IP).dst,
+            if query:
+                print 'NAME:"' + pkt.QUESTION_NAME + '"'
+            else:
+                print 'NAME:"' + pkt.QUESTION_NAME + '"',
+                print 'IP:' + addr
 
-       if query and regexp.match(pkt.QUESTION_NAME.rstrip(),1):
+        if query and regexp.match(pkt.QUESTION_NAME.rstrip(),1):
             response  = Ether(dst=pkt.src,src=mac_addr)
             response /= IP(dst=pkt.getlayer(IP).src,src=ip)
             response /= UDP(sport=137,dport=137)

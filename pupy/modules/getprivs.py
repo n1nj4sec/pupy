@@ -18,7 +18,7 @@ class GetPrivsModule(PupyModule):
         cls.arg_parser.add_argument('--get-debug', dest='getdebug', action='store_true', help="Try to get SeDebugPrivilege for the current process")
 
     def run(self, args):
-        if args.getdebug == True:
+        if args.getdebug:
             EnablePrivilege = self.client.remote('pupwinutils.security', 'EnablePrivilege', False)
             EnablePrivilege('SeDebugPrivilege')
             self.success('SeDebugPrivilege enabled !')

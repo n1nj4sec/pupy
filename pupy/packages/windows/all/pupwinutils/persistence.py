@@ -106,7 +106,7 @@ def wmi_persistence(command=None, file=None, name='Updater'):
     cmd_line = None
 
     if not name:
-         name = 'Updater'
+        name = 'Updater'
 
     if file:
         if not os.path.exists(file):

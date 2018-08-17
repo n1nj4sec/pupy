@@ -113,14 +113,14 @@ def do(server, handler, config, args):
 
         if need_transport:
             if transport_idx is None:
-                args.launcher_args += [ '-t', transport ]
+                args.launcher_args += ['-t', transport]
             else:
                 args.launcher_args[transport_idx] = transport
 
         if need_hostport:
             hostport = '{}:{}'.format(host, port)
             if host_idx is None:
-                args.launcher_args += [ '--host', hostport ]
+                args.launcher_args += ['--host', hostport]
             else:
                 args.launcher_args[host_idx] = hostport
 

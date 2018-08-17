@@ -17,7 +17,7 @@ from win32file import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
 import pupy
 
 TerminateProcess = windll.kernel32.TerminateProcess
-TerminateProcess.argtypes = ( HANDLE, c_int )
+TerminateProcess.argtypes = (HANDLE, c_int)
 
 WINPTY_ERROR_SUCCESS = 0
 WINPTY_ERROR_OUT_OF_MEMORY = 1

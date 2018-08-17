@@ -328,7 +328,7 @@ def EnablePrivilege(privilegeStr, hToken = None):
 
     """Enable Privilege on token, if no token is given the function gets the token of the current process."""
 
-    if hToken == None:
+    if hToken is None:
         hToken = HANDLE(INVALID_HANDLE_VALUE)
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
         if not OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken)):
@@ -398,7 +398,7 @@ def gethTokenFromPid(pid):
         OpenProcessToken(hProcess, tokenprivs, byref(hToken))
         CloseHandle(hProcess)
         return hToken
-    except Exception, e :
+    except Exception, e:
         print "[!] Error:" + str(e)
         return None
 
@@ -423,7 +423,7 @@ def getSidToken(token_sid):
         for pid in pids:
             hToken = gethTokenFromPid(pid)
             if hToken:
-                if GetTokenSid( hToken ) == token_sid:
+                if GetTokenSid(hToken) == token_sid:
                     print "[+] using PID: " + str(pid)
                     return hToken
 
@@ -471,7 +471,7 @@ def impersonate_token(hToken):
         raise OSError("You need admin rights to run impersonate !")
     EnablePrivilege("SeDebugPrivilege")
     #hToken = getProcessToken(pid)
-    hTokendupe = HANDLE( INVALID_HANDLE_VALUE )
+    hTokendupe = HANDLE(INVALID_HANDLE_VALUE)
     SecurityImpersonation = 2
     TokenPrimary = 1
     if not DuplicateTokenEx(hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref(hTokendupe)):
@@ -659,7 +659,7 @@ def get_windows_version():
         return False
 
     return {
-        'major_version' : os_version.dwMajorVersion.real,
-        'minor_version' : os_version.dwMinorVersion.real,
-        'build_number'  : os_version.dwBuildNumber.real
+        'major_version': os_version.dwMajorVersion.real,
+        'minor_version': os_version.dwMinorVersion.real,
+        'build_number': os_version.dwBuildNumber.real
     }

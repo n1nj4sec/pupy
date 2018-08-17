@@ -31,7 +31,7 @@ BATCH_FILENAME = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
 SMBSERVER_DIR  = ''.join(random.sample(string.ascii_letters, 10))
 SERVICE_NAME   = ''.join(random.sample(string.ascii_letters, 10))
 
-if not 'idna' in encodings._cache or not encodings._cache['idna']:
+if 'idna' not in encodings._cache or not encodings._cache['idna']:
     if 'idna' in encodings._cache:
         del encodings._cache['idna']
 
@@ -280,7 +280,9 @@ class ShellServiceIsNotExists(Exception):
     pass
 
 class ShellService(object):
-    __slots__ = ( '_scHandle', '_serviceHandle', '_scmr', '_name' )
+    __slots__ = (
+        '_scHandle', '_serviceHandle', '_scmr', '_name'
+    )
 
     def __init__(self, rpc, name=SERVICE_NAME):
         if type(name) == unicode:

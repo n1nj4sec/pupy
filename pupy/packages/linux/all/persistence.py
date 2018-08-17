@@ -49,11 +49,11 @@ class DropManager(object):
 
     def _check_xdg(self):
         try:
-            self._is_xdg = ( subprocess.check_call(
-                ['xdg-open', '--version'],
-                stdout=self._devnull,
-                stderr=self._devnull
-            ) == 0 )
+            self._is_xdg = (
+                subprocess.check_call(
+                    ['xdg-open', '--version'],
+                    stdout=self._devnull,
+                    stderr=self._devnull) == 0)
 
             self._is_xdg = True
         except (subprocess.CalledProcessError, OSError) as e:
@@ -81,7 +81,7 @@ class DropManager(object):
 
             cmd = cmd + args
 
-            return ( subprocess.check_call(cmd, **penv) == 0 )
+            return (subprocess.check_call(cmd, **penv) == 0)
 
         except (subprocess.CalledProcessError, OSError):
             return None
@@ -138,7 +138,7 @@ class DropManager(object):
         }
 
     def _find_systemd_system_path(self):
-        for d in [ '/lib/systemd/system', '/usr/lib/systemd/system', '/etc/systemd/system' ]:
+        for d in ['/lib/systemd/system', '/usr/lib/systemd/system', '/etc/systemd/system']:
             if os.path.exists(d):
                 return os.path.dirname(d)
 
@@ -234,7 +234,7 @@ class DropManager(object):
                 '%h', self._home
             ).replace(
                 '%r', rand
-            ) for target in ( user_targets if self._user else system_targets )
+            ) for target in (user_targets if self._user else system_targets)
         ]
 
         shstat = os.stat('/bin/sh')

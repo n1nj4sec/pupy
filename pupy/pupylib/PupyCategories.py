@@ -22,7 +22,7 @@ class PupyCategories(object):
         for mod in self.pupsrv.iter_modules():
             if not mod.category:
                 mod.category="general"
-            if not mod.category in self.get_categories():
+            if mod.category not in self.get_categories():
                 logging.warning("Undefined category \"%s\" for module %s"%(mod.category, mod.get_name()))
                 self.categories["general"].append(mod)
             else:

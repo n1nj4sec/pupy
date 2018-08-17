@@ -8,7 +8,7 @@ __class_name__="Display"
 class Display(PupyModule):
     """ Set display variable """
 
-    dependencies = [ 'display' ]
+    dependencies = ['display']
 
     @classmethod
     def init_argparse(cls):

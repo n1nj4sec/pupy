@@ -48,7 +48,7 @@ def output_format(file, windows=False):
         out=Color(out, 'red')
     elif file[T_TYPE] == 'B':
         out=Color(out, 'grey')
-    elif file[T_TYPE ] == 'C':
+    elif file[T_TYPE] == 'C':
         out=Color(out, 'grey')
     elif file[T_TYPE] == 'F':
         out=Color(out, 'cyan')
@@ -70,7 +70,7 @@ class ls(PupyModule):
     """ list system files """
     is_module=False
 
-    dependencies = [ 'pupyutils.basic_cmds', 'scandir' ]
+    dependencies = ['pupyutils.basic_cmds', 'scandir']
 
     @classmethod
     def init_argparse(cls):
@@ -141,7 +141,7 @@ class ls(PupyModule):
                             truncated, args.limit))
 
                         self.info('Summary (observed): Files: {} Dirs: {} Total: {}'.format(
-                            '{}+'.format(files_cnt) if files_cnt else '??' ,
+                            '{}+'.format(files_cnt) if files_cnt else '??',
                             '{}+'.format(dirs_cnt) if dirs_cnt else '??',
                             total_cnt))
                     else:

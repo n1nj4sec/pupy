@@ -409,7 +409,7 @@ class Acceptor(object):
                     handle.close()
                     return
 
-                if not METHOD_NO_AUTH in methods:
+                if METHOD_NO_AUTH not in methods:
                     handle.write(
                         struct.pack('BB', 0x5, METHOD_NO_ACCEPTABLE_METHOD),
                         lambda handle, error: handle.close()
@@ -579,7 +579,7 @@ class Neighbor(object):
         self.remote_id = remote_id
 
     def get_connection(self, connection_id):
-        if not connection_id in self.connections:
+        if connection_id not in self.connections:
             raise ConnectionIsNotExists(connection_id)
 
         return self.connections[connection_id]
@@ -679,7 +679,7 @@ class VirtualPortsManager(object):
         self.ports = {}
 
     def connect(self, port, peername):
-        if not port in self.ports:
+        if port not in self.ports:
             raise ValueError('Port {} is not registered'.format(port))
 
         logger.debug('VirtualPortsManager: connect({})'.format(port))
@@ -702,7 +702,7 @@ class VirtualPortsManager(object):
         self.ports[port] = create_cb
 
     def unregister(self, port):
-        if not port in self.ports:
+        if port not in self.ports:
             raise ValueError('Port {} is not registered'.format(port))
 
         logger.debug('VirtualPortsManager: unregister({})'.format(port))
@@ -772,7 +772,7 @@ class Manager(Thread):
             raise
 
     def get_neighbor(self, neighbor_id):
-        if not neighbor_id in self.neighbors:
+        if neighbor_id not in self.neighbors:
             raise NeighborIsNotExists(neighbor_id)
 
         return self.neighbors[neighbor_id]
@@ -912,7 +912,7 @@ class Manager(Thread):
         return neighbor_id
 
     def assign_pair_ids(self, local_id, remote_id):
-        if not local_id in self.neighbors:
+        if local_id not in self.neighbors:
             raise NeighborIsNotExists(local_id)
 
         self.neighbors[local_id].pair(local_id, remote_id)
@@ -927,7 +927,7 @@ class Manager(Thread):
         return remote_id, local_id
 
     def _unpair(self, local_id, dead):
-        if not local_id in self.neighbors:
+        if local_id not in self.neighbors:
             raise NeighborIsNotExists(local_id)
 
         self.neighbors[local_id].stop(dead=dead)
@@ -938,7 +938,7 @@ class Manager(Thread):
     def list(self, filter_by_local_id=None):
         results = []
         if filter_by_local_id:
-            if not filter_by_local_id in self.neighbors:
+            if filter_by_local_id not in self.neighbors:
                 return
 
             neighbor = self.neighbors[filter_by_local_id]

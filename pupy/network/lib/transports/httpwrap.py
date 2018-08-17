@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'PupyHTTPWrapperServer' ]
+__all__ = ['PupyHTTPWrapperServer']
 
 from ..base import BasePupyTransport, ReleaseChainedTransport
 
@@ -13,11 +13,11 @@ logger = getLogger('httpwrap')
 
 class PupyHTTPWrapperServer(BasePupyTransport):
     path = '/index.php?d='
-    allowed_methods = ( 'GET' )
+    allowed_methods = ('GET')
     server = None
     headers = {
-        'Content-Type' : 'text/html; charset=utf-8',
-        'Server' : 'Apache',
+        'Content-Type': 'text/html; charset=utf-8',
+        'Server': 'Apache',
         'Connection': 'close',
     }
 

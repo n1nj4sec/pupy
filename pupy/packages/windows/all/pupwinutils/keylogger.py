@@ -206,7 +206,7 @@ class KeyLogger(pupy.Task):
                 modifiers.append('SHIFT')
 
         if kbdllhookstruct.vkCode in UNPRINTABLE:
-            if not ( kbdllhookstruct.vkCode in (VK_LWIN, VK_RWIN) and 'WIN' in modifiers ):
+            if not (kbdllhookstruct.vkCode in (VK_LWIN, VK_RWIN) and 'WIN' in modifiers):
                 key = UNPRINTABLE[kbdllhookstruct.vkCode]
                 if not modifiers:
                     key = '[' + key + ']'

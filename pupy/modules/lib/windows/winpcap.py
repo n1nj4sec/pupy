@@ -17,17 +17,17 @@ KNOWN_DRIVERS = [
 ]
 
 def init_winpcap(client):
-   exists = client.remote('os.path', 'exists', False)
-   getenv = client.remote('os', 'getenv', False)
-   environ = client.remote('os', 'environ', False)
+    exists = client.remote('os.path', 'exists', False)
+    getenv = client.remote('os', 'getenv', False)
+    environ = client.remote('os', 'environ', False)
 
-   windir = getenv('WINDIR')
-   if not windir:
-       windir = r'C:\Windows'
+    windir = getenv('WINDIR')
+    if not windir:
+        windir = r'C:\Windows'
 
-   if not any(exists(windir+'\\'+x) for x in KNOWN_DRIVERS):
-       raise PupyModuleError(NPCAP_NOT_FOUND)
+    if not any(exists(windir+'\\'+x) for x in KNOWN_DRIVERS):
+        raise PupyModuleError(NPCAP_NOT_FOUND)
 
-   PATH = getenv('Path')
-   if not 'NPcap' in PATH:
-       environ['Path'] = PATH + ';' + windir+r'\system32\NPcap'
+    PATH = getenv('Path')
+    if 'NPcap' not in PATH:
+        environ['Path'] = PATH + ';' + windir+r'\system32\NPcap'

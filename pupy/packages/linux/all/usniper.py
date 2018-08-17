@@ -115,7 +115,7 @@ class USniper(pupy.Task):
                     if not buf:
                         break
 
-                    if not '\n' in buf:
+                    if '\n' not in buf:
                         continue
 
                     if buf.endswith('\n'):
@@ -148,7 +148,7 @@ class USniper(pupy.Task):
                             value = ''
 
                         with self._lock:
-                            if not pid in self._results:
+                            if pid not in self._results:
                                 exe = os.readlink('/proc/{}/exe'.format(pid))
                                 cmdline = []
                                 with open('/proc/{}/cmdline'.format(pid)) as fcmdline:
@@ -162,7 +162,7 @@ class USniper(pupy.Task):
                                     'dump': {}
                                 }
 
-                            if not ts in self._results[pid]['dump']:
+                            if ts not in self._results[pid]['dump']:
                                 self._results[pid]['dump'][ts] = []
 
                             self._results[pid]['dump'][ts].append(value)

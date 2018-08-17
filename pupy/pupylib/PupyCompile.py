@@ -51,9 +51,9 @@ class Compiler(ast.NodeTransformer):
             return node.orelse
         if not self._main and type(node.test) == ast.Compare and type(node.test.left) == ast.Name \
           and node.test.left.id == '__name__':
-          for comparator in node.test.comparators:
-              if type(comparator) == ast.Str and comparator.s == '__main__':
-                  return node.orelse
+            for comparator in node.test.comparators:
+                if type(comparator) == ast.Str and comparator.s == '__main__':
+                    return node.orelse
         elif hasattr(node.test, 'operand') and type(node.test.op) == ast.Not \
           and type(node.test.operand) == ast.Name and node.test.operand.id == '__debug__':
             return node.body
@@ -64,7 +64,7 @@ class Compiler(ast.NodeTransformer):
         if type(node.value) == ast.Call and type(node.value.func) == ast.Attribute and \
           type(node.value.func.value) == ast.Name and \
           node.value.func.value.id == 'logging' and node.value.func.attr == 'debug':
-          return None
+            return None
         elif (type(node.value) == ast.Str):
             if not self._docstrings:
                 node.value.s = ""
@@ -88,7 +88,8 @@ def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug
 
 if __name__ == '__main__':
     import argparse
-    import os, stat
+    import os
+    import stat
     import sys
     import imp
     import struct

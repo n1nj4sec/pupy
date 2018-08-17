@@ -24,7 +24,7 @@ def getAllAps():
         packagePerms = pm.getPackageInfo(appInfo.packageName, PackageManager.GET_PERMISSIONS)
         requestedPermissions = packagePerms.requestedPermissions
         permissions = []
-        if requestedPermissions != None:
+        if requestedPermissions is not None:
             for i in range(len(requestedPermissions)):
                 permissions.append(requestedPermissions[i])
         infos.append({"packageName":packageName,

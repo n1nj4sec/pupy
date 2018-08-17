@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-import textwrap, random, string
+import textwrap
+import random
+import string
 from scriptlets import ScriptletArgumentError, Scriptlet
 
 class ScriptletGenerator(Scriptlet):
     """ copy the current pupy executable to a random exe in %TEMP% and add persistency through registry """
 
     dependencies = {
-        'windows': [ 'pupwinutils.persistence' ]
+        'windows': ['pupwinutils.persistence']
     }
 
     arguments = {
@@ -17,7 +19,7 @@ class ScriptletGenerator(Scriptlet):
     }
 
     def __init__(self, method="registry"):
-        if not method in ("registry", "startup"):
+        if method not in ("registry", "startup"):
             raise ScriptletArgumentError("unknown persistence method %s"%method)
         self.method=method
 

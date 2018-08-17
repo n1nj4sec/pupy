@@ -9,7 +9,7 @@ __class_name__="GetInfo"
 class GetInfo(PupyModule):
     """ get some informations about one or multiple clients """
     dependencies = {
-        'windows': [ "pupwinutils.security" ],
+        'windows': ["pupwinutils.security"],
     }
 
     @classmethod
@@ -25,8 +25,8 @@ class GetInfo(PupyModule):
             "os_arch", "proc_arch", "pid", "exec_path", "cid",
             "address", "macaddr", "spi", "revision", "node"
         ]
-        pupyKeys = [ "transport", "launcher", "launcher_args" ]
-        windKeys = [ "uac_lvl","intgty_lvl" ]
+        pupyKeys = ["transport", "launcher", "launcher_args"]
+        windKeys = ["uac_lvl","intgty_lvl"]
         linuxKeys = []
         macKeys = []
 
@@ -46,9 +46,9 @@ class GetInfo(PupyModule):
             currentUserIsLocalAdmin = can_get_admin_access()
 
             value = '?'
-            if currentUserIsLocalAdmin == True:
+            if currentUserIsLocalAdmin:
                 value = 'Yes'
-            elif currentUserIsLocalAdmin == False:
+            elif not currentUserIsLocalAdmin:
                 value = 'No'
 
             infos.append(('local_adm', value))
@@ -64,7 +64,7 @@ class GetInfo(PupyModule):
         elif self.client.is_android():
             self.client.load_package("pupydroid.utils")
             wifiConnected = self.client.conn.modules["pupydroid.utils"].isWiFiConnected()
-            if wifiConnected == True:
+            if wifiConnected:
                 androidCtionType = {'info':"WiFi", 'fast':True}
             else:
                 androidCtionType = self.client.conn.modules["pupydroid.utils"].getMobileNetworkType()
@@ -121,10 +121,10 @@ class GetInfo(PupyModule):
         #For remplacing None or "" value by "?"
         infoTemp = []
         for i, (key, value) in enumerate(infos):
-            if value == None or value == "":
+            if value is None or value == "":
                 value = "?"
             elif type(value) in (list, tuple):
-                value = ' '.join([ unicode(x) for x in value ])
+                value = ' '.join([unicode(x) for x in value])
             elif key == 'cid':
                 value = '{:016x}'.format(value)
             infoTemp.append((key, value))

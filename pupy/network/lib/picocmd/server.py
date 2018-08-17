@@ -85,7 +85,7 @@ class ExpirableObject(object):
 
     @property
     def expired(self):
-        return ( self.idle > self.timeout )
+        return (self.idle > self.timeout)
 
     @property
     def idle(self):
@@ -297,9 +297,9 @@ class DnsCommandServerHandler(BaseResolver):
             nodes = session
 
             if type(nodes) in (str,unicode):
-                nodes = [ convert_node(x) for x in nodes.split(',') ]
+                nodes = [convert_node(x) for x in nodes.split(',')]
             elif type(nodes) == int:
-                nodes = [ nodes ]
+                nodes = [nodes]
 
             idx = 0
 
@@ -312,7 +312,7 @@ class DnsCommandServerHandler(BaseResolver):
                 node.add_command(command)
 
             for nodeid in nodes:
-                if not nodeid in self.node_commands:
+                if nodeid not in self.node_commands:
                     self.node_commands[nodeid] = []
 
                 self.node_commands[nodeid].append(command)
@@ -353,9 +353,9 @@ class DnsCommandServerHandler(BaseResolver):
         if default and session:
             nodes = session
             if type(nodes) in (str,unicode):
-                nodes = [ convert_node(x) for x in nodes.split(',') ]
+                nodes = [convert_node(x) for x in nodes.split(',')]
             elif type(nodes) == int:
-                nodes = [ nodes ]
+                nodes = [nodes]
 
             idx = 0
             for node in self._nodes_by_nodeids(nodes):
@@ -402,9 +402,9 @@ class DnsCommandServerHandler(BaseResolver):
             return list(self.nodes.itervalues())
 
         if type(node) in (str,unicode):
-            node = [ convert_node(x) for x in node.split(',') ]
+            node = [convert_node(x) for x in node.split(',')]
         elif type(node) == int:
-            node = [ node ]
+            node = [node]
 
         return self._nodes_by_nodeids(node)
 
@@ -412,15 +412,15 @@ class DnsCommandServerHandler(BaseResolver):
     def find_sessions(self, spi=None, node=None):
         if spi:
             if type(spi) in (str,unicode):
-                spi = [ int(x, 16) for x in spi.split(',') ]
+                spi = [int(x, 16) for x in spi.split(',')]
             elif type(spi) == int:
-                spi = [ spi ]
+                spi = [spi]
 
         if node:
             if type(node) in (str,unicode):
-                node = [ convert_node(x) for x in node.split(',') ]
+                node = [convert_node(x) for x in node.split(',')]
             elif type(node) == int:
-                node = [ node ]
+                node = [node]
 
         if not (spi or node):
             return [
@@ -436,8 +436,8 @@ class DnsCommandServerHandler(BaseResolver):
                 session for session in self.sessions.itervalues() \
                     if session.cid == node or session.node == node or (
                         session.system_info and \
-                        ( session.system_info['node'] in set(node)
-                              or str(session.system_info['external_ip']) in set(node) ))
+                        (session.system_info['node'] in set(node) or
+                              str(session.system_info['external_ip']) in set(node)))
             ]
 
     @locked
@@ -468,7 +468,7 @@ class DnsCommandServerHandler(BaseResolver):
         else:
             self.interval = interval or self.interval
             self.timeout = max(timeout if timeout else self.timeout, self.interval*3)
-            self.kex = kex if ( kex is not None ) else self.kex
+            self.kex = kex if (kex is not None) else self.kex
 
             interval = self.interval
             timeout = self.timeout
@@ -518,7 +518,7 @@ class DnsCommandServerHandler(BaseResolver):
         for idx, part in enumerate([payload[i:i+3] for i in xrange(0, len(payload), 3)]):
             header = (random.randint(1, 3) << 30)
             idx = idx << 25
-            bits = ( struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0] ) << 1
+            bits = (struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0]) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
             response.append('.'.join(['{}'.format(int(x)) for x in packed]))
 
@@ -577,7 +577,7 @@ class DnsCommandServerHandler(BaseResolver):
 
             session = None
             with self.lock:
-                if not spi in self.sessions:
+                if spi not in self.sessions:
                     raise DnsCommandServerException('NO_SESSION', nonce)
 
                 session = self.sessions[spi]
@@ -705,7 +705,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                     node.bump()
 
-                    commands = node.commands or [ SystemInfo() ]
+                    commands = node.commands or [SystemInfo()]
 
             logger.debug('SystemStatus + No session + node_commands: {}/{} in {}?'.format(
                 node, extip, node.commands))
@@ -716,7 +716,7 @@ class DnsCommandServerHandler(BaseResolver):
             session.online_status = command.get_dict()
 
         elif isinstance(command, ConnectablePort) and session is not None:
-            if not command.ip in session.open_ports:
+            if command.ip not in session.open_ports:
                 session.open_ports[command.ip] = set()
 
             for port in command.ports:
@@ -754,7 +754,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                     node.bump()
 
-                    commands = node.commands or [ SystemInfo() ]
+                    commands = node.commands or [SystemInfo()]
 
             if new_session:
                 self.on_new_session(session)
@@ -767,7 +767,7 @@ class DnsCommandServerHandler(BaseResolver):
                   self.ENCODER_V1 if not node or node.version == 1 \
                   else self.ENCODER_V2
 
-                if not command.spi in self.sessions:
+                if command.spi not in self.sessions:
                     self.sessions[command.spi] = Session(
                         node.node if node else None,
                         node.cid if node else None,
@@ -1027,13 +1027,17 @@ class DnsCommandServer(object):
         self.tcp_server.logger = DNSLogger(log='log_error',prefix=False)
 
         self.udp_server_thread = Thread(
-            target=self.udp_server.serve_forever, kwargs={ 'poll_interval': 50000 }
-        )
+            target=self.udp_server.serve_forever, kwargs={
+                'poll_interval': 50000
+            })
+
         self.udp_server_thread.daemon = True
 
         self.tcp_server_thread = Thread(
-            target=self.tcp_server.serve_forever, kwargs={ 'poll_interval': 50000 }
-        )
+            target=self.tcp_server.serve_forever, kwargs={
+                'poll_interval': 50000
+            })
+
         self.tcp_server_thread.daemon = True
 
         self.cleaner = Thread(target=handler.cleanup)

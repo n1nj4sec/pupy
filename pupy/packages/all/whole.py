@@ -2,7 +2,7 @@
 
 def to_string(x):
     if type(x) in (list, tuple, set, frozenset):
-        return [ to_string(y) for y in x ]
+        return [to_string(y) for y in x]
     elif type(x) in (str, unicode):
         return x
     elif x is None:

@@ -12,7 +12,10 @@ __all__ = (
 )
 
 from ..base import BasePupyTransport
-import base64, random, string, logging
+import base64
+import random
+import string
+import logging
 import threading
 import time
 
@@ -68,7 +71,7 @@ class PupyHTTPClient(PupyHTTPTransport):
         if self.host is not None:
             self.headers['Host'] = self.host
 
-        if not 'Host' in self.headers:
+        if 'Host' not in self.headers:
             self.headers['Host'] = '.'.join([
                 'www',
                 ''.join(
@@ -213,7 +216,7 @@ class PupyHTTPServer(PupyHTTPTransport):
         while not self.pipelining.is_set():
             with self.polled_lock:
                 if not self.pending_data:
-                    if self.polled > 0 and ( time.time() - self.last_access > self.no_pipelining_timeout ):
+                    if self.polled > 0 and (time.time() - self.last_access > self.no_pipelining_timeout):
                         self.polled -= 1
 
                         response = 'HTTP/1.1 %s\r\n'%self.response_code

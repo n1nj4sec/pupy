@@ -124,7 +124,7 @@ class GetSystem(PupyModule):
             migrate(self, proc_pid, keep=args.keep, timeout=args.timeout)
             self.success("got system !")
         else:
-            if isBindLauncherForPs1 == True:
+            if isBindLauncherForPs1:
                 self.success("You have to connect to the target manually on {0}: try 'connect --host {0}' in pupy shell".format(listeningAddressPortForBindPs1))
             else:
                 self.success("Waiting for a connection (take few seconds, 1 min max)...")

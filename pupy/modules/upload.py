@@ -22,11 +22,11 @@ class UploaderScript(PupyModule):
                                     completer=remote_dirs_completer)
 
     def run(self, args):
-        localfile =  os.path.expandvars(args.local_file)
+        localfile = os.path.expandvars(args.local_file)
 
         rexpandvars = self.client.remote('os.path', 'expandvars')
-        rjoin =  self.client.remote('os.path', 'join')
-        risdir =  self.client.remote('os.path', 'isdir', False)
+        rjoin = self.client.remote('os.path', 'join')
+        risdir = self.client.remote('os.path', 'isdir', False)
 
         if args.remote_file:
             remotefile = rexpandvars(args.remote_file)

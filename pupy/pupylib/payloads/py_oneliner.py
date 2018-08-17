@@ -4,7 +4,8 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
-import re, os.path
+import re
+import os.path
 
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.utils.term import colorize

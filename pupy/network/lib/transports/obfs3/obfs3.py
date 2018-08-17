@@ -5,7 +5,7 @@
 The obfs3 module implements the obfs3 protocol.
 """
 
-__all__ = ( 'Obfs3Client', 'Obfs3Server' )
+__all__ = ('Obfs3Client', 'Obfs3Server')
 
 import random
 
@@ -226,7 +226,7 @@ class Obfs3Transport(BaseTransport):
             logger.debug('Scan for magic data / remain data: {}'.format(len(data)))
 
         if len(data) > 0:
-             self._scan_for_magic(data)
+            self._scan_for_magic(data)
 
         self.circuit.downstream.write(message)
 

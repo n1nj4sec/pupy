@@ -16,7 +16,7 @@ class TransportConf(Transport):
     server = PupyTCPServer
     client = PupyTCPClient
     stream = PupySocketStream
-    credentials = [ 'SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY', 'SCRAMBLESUIT_PASSWD' ]
+    credentials = ['SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY', 'SCRAMBLESUIT_PASSWD']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
@@ -33,8 +33,8 @@ class TransportConf(Transport):
             RSA_PRIV_KEY = credentials['SIMPLE_RSA_PRIV_KEY']
             SCRAMBLESUIT_PASSWD = credentials['SCRAMBLESUIT_PASSWD']
 
-        self.client_transport_kwargs = { 'password': SCRAMBLESUIT_PASSWD }
-        self.server_transport_kwargs = { 'password': SCRAMBLESUIT_PASSWD }
+        self.client_transport_kwargs = {'password': SCRAMBLESUIT_PASSWD}
+        self.server_transport_kwargs = {'password': SCRAMBLESUIT_PASSWD}
 
         if self.launcher_type == LAUNCHER_TYPE_BIND:
             self.client_transport = chain_transports(

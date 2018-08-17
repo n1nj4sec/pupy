@@ -1,6 +1,8 @@
 # -*- encoding: utf-8 -*-
 
-__all__ = [ 'TTYMon', 'TTYRec', 'start', 'stop', 'dump' ]
+__all__ = [
+    'TTYMon', 'TTYRec', 'start', 'stop', 'dump'
+]
 
 import os
 import re
@@ -165,7 +167,7 @@ class TTYMon(object):
                     r = os.read(self._pipe_fd, 8192)
                     buf += r
                 except OSError, e:
-                    if not e.errno in (errno.EAGAIN, errno.ENODATA):
+                    if e.errno not in (errno.EAGAIN, errno.ENODATA):
                         raise
 
                     _, _, xlist = select.select([self._pipe], [], [self._pipe], 10)
@@ -205,12 +207,12 @@ class TTYMon(object):
             data = rest[:items]
             buf = rest[eob:]
 
-            if not pid in self._ignore:
+            if pid not in self._ignore:
                 yield comm, pid, probe, sec, usec, data
 
 
 class TTYRec(Task):
-    __slots__ = ( '_ttymon', '_results_lock', '_state' )
+    __slots__ = ('_ttymon', '_results_lock', '_state')
 
     def __init__(self, manager):
         super(TTYRec, self).__init__(manager)
@@ -289,7 +291,7 @@ if __name__ == '__main__':
         for comm, pid, probe, sec, usec, buf in mon:
             key = frozenset((comm, pid, probe))
 
-            if not key in recs:
+            if key not in recs:
                 recs[key] = open('rec.{}.{}.{}.{}'.format(sec, comm, pid, probe), 'w')
 
             recs[key].write(struct.pack('<III', sec, usec, len(buf)) + buf)

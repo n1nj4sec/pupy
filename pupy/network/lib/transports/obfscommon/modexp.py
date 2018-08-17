@@ -4,13 +4,13 @@ except ImportError:
     try:
         from gmpy import mpz as mpz
     except ImportError:
-        def mpz( x ):
+        def mpz(x):
             return x
         pass
 
-__all__ = [ 'powMod' ]
+__all__ = ['powMod']
 
-def powMod( x, y, mod ):
+def powMod(x, y, mod):
     """
     (Efficiently) Calculate and return `x' to the power of `y' mod `mod'.
 

@@ -12,8 +12,10 @@ __class_name__="SearchModule"
 class SearchModule(PupyModule):
     """ walk through a directory and recursively search a string into files """
     dependencies = {
-        'all': [ 'pupyutils.search', 'scandir', 'transfer' ],
-        'windows': [ 'junctions' ],
+        'all': [
+            'pupyutils.search', 'scandir', 'transfer'
+        ],
+        'windows': ['junctions'],
     }
 
     terminate = None

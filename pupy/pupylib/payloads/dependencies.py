@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os, sys, os.path
+import os
+import sys
 import cPickle
 import zlib
 from zipfile import ZipFile
@@ -59,7 +60,7 @@ WELL_KNOWN_DEPS = {
         ],
     },
     'pupyutils.basic_cmds': {
-        'windows': [ 'junctions' ]
+        'windows': ['junctions']
     },
     'dbus': {
         'linux': [
@@ -67,14 +68,14 @@ WELL_KNOWN_DEPS = {
         ]
     },
     'sqlite3': {
-        'all': [ '_sqlite3' ],
-        'windows': [ 'sqlite3.dll' ],
+        'all': ['_sqlite3'],
+        'windows': ['sqlite3.dll'],
     },
     'xml': {
-        'all': [ 'xml.etree' ]
+        'all': ['xml.etree']
     },
     'secretstorage': {
-        'linux': [ 'dbus' ]
+        'linux': ['dbus']
     },
     'memorpy': {
         'windows': [
@@ -97,7 +98,7 @@ WELL_KNOWN_DEPS = {
             '_portaudio'
         ]
     },
-    'OpenSSL' : {
+    'OpenSSL': {
         'all': [
             'six',
             'enum',
@@ -140,7 +141,7 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None):
     if path:
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
-            dependencies = [ dependencies ]
+            dependencies = [dependencies]
 
         for dependency in dependencies:
             modules.update(from_path(os, arch, path, dependency))
@@ -209,7 +210,7 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
 
     modules_dic = {}
 
-    if not os.path.sep in start_path:
+    if os.path.sep not in start_path:
         start_path = start_path.replace('.', os.path.sep)
 
     module_path = os.path.join(search_path, start_path)
@@ -252,7 +253,7 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
-                if ext == 'py' and not base+'.pyo' in modules_dic:
+                if ext == 'py' and base+'.pyo' not in modules_dic:
                     module_code = pupycompile(module_code, modpath)
                     modpath = base+'.pyo'
                 elif ext == 'pyc':
@@ -285,10 +286,10 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
                 modules_dic[modpath] = module_code
 
     else: # loading a simple file
-        extlist=[ '.py', '.pyo', '.pyc' ]
+        extlist = ['.py', '.pyo', '.pyc']
         if not pure_python_only:
             #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
-            extlist+=[ '.so', '.pyd', '27.dll' ]
+            extlist += ['.so', '.pyd', '27.dll']
 
         for ext in extlist:
             filepath = os.path.join(module_path+ext)
@@ -305,7 +306,7 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
 
                 cur = ''
                 for rep in start_path.split('/')[:-1]:
-                    if not cur+rep+'/__init__.py' in modules_dic:
+                    if cur+rep+'/__init__.py' not in modules_dic:
                         modules_dic[rep+'/__init__.py']=''
                     cur+=rep+'/'
 
@@ -385,8 +386,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
             endings = COMMON_MODULE_ENDINGS
 
             # Horrible pywin32..
-            if module_name in ( 'pythoncom', 'pythoncomloader', 'pywintypes' ):
-                endings = tuple([ '27.dll' ])
+            if module_name in ('pythoncom', 'pythoncomloader', 'pywintypes'):
+                endings = tuple(['27.dll'])
 
             start_paths = tuple([
                 ('/'.join([x, start_path])).strip('/')+y \
@@ -409,7 +410,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
                         continue
 
                     # Garbage removing
-                    if ext == 'py' and not base+'.pyo' in modules_dic:
+                    if ext == 'py' and base+'.pyo' not in modules_dic:
                         try:
                             content = pupycompile(
                                 get_content(
@@ -491,7 +492,7 @@ def package(requirements, platform, arch, remote=False, posix=False, filter_need
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
-        requirements = [ requirements ]
+        requirements = [requirements]
 
     for requirement in requirements:
         _dependencies(requirement, platform, dependencies)

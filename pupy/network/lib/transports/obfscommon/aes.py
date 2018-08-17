@@ -3,7 +3,7 @@
 
 """ This module is a convenience wrapper for the AES cipher in CTR mode. """
 
-__all__ = [ 'AES_CTR_128' ]
+__all__ = ['AES_CTR_128']
 
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
@@ -11,7 +11,7 @@ from Crypto.Util import Counter
 class AES_CTR_128(object):
     """An AES-CTR-128 PyCrypto wrapper."""
 
-    __slots__ = ( 'ctr', 'cipher' )
+    __slots__ = ('ctr', 'cipher')
 
     def __init__(self, key, iv, counter_wraparound=False):
         """Initialize AES with the given key and IV.

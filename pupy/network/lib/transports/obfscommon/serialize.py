@@ -2,7 +2,7 @@
 
 import struct
 
-__all__ = [ 'htonl', 'ntohl', 'htons', 'ntohs' ]
+__all__ = ['htonl', 'ntohl', 'htons', 'ntohs']
 
 def htonl(n):
     """

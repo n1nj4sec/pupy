@@ -196,7 +196,7 @@ def external_ip(force_ipv4=False):
 
     try:
         stun_ip = stun.get_ip(stun_host=STUN_HOST, stun_port=STUN_PORT)
-        if stun_ip != None:
+        if stun_ip is not None:
             stun_ip = netaddr.IPAddress(stun_ip)
 
             LAST_EXTERNAL_IP = stun_ip
@@ -209,7 +209,7 @@ def external_ip(force_ipv4=False):
 
     ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
-        for scheme in [ 'https', 'http' ]:
+        for scheme in ['https', 'http']:
             try:
                 data, code = ctx.get(scheme + '://' + service, code=True)
                 if code == 200:
@@ -466,7 +466,7 @@ def check():
         if mintime > 65535:
             mintime = 65535
 
-    ONLINE_STATUS = ( offset, mintime, result )
+    ONLINE_STATUS = (offset, mintime, result)
     ONLINE_STATUS_CHECKED = time.time()
 
     logger.debug('Online check completed')
@@ -551,17 +551,23 @@ class PortQuiz(threading.Thread):
                 pass
 
     def _run(self):
-        most_important = [ 80, 443, 8080, 53, 5222, 25, 110, 465 ]
+        most_important = [
+            80, 443, 8080, 53, 5222, 25, 110, 465
+        ]
 
         scan.scan([self.PORTQUIZ_ADDR], most_important, timeout=self.connect_timeout, abort=self.abort,
              on_open_port=self._on_open_port, pass_socket=True)
 
         if len(self.available) < self.amount:
-             other = list([ x for x in scan.TOP1000 if not x in most_important ])
-             random.shuffle(other)
+            other = list([
+                x for x in scan.TOP1000 if x not in most_important
+            ])
 
-             scan.scan([self.PORTQUIZ_ADDR],other, timeout=self.connect_timeout, abort=self.abort,
-                 on_open_port=self._on_open_port, pass_socket=True)
+            random.shuffle(other)
+
+            scan.scan(
+                [self.PORTQUIZ_ADDR], other, timeout=self.connect_timeout, abort=self.abort,
+                on_open_port=self._on_open_port, pass_socket=True)
 
     def run(self):
         try:

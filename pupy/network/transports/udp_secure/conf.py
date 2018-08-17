@@ -15,7 +15,7 @@ class TransportConf(Transport):
     client_transport=DummyPupyTransport
     server_transport=DummyPupyTransport
     dgram=True
-    credentials = [ 'SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY' ]
+    credentials = ['SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)

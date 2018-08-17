@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'acquire', 'release' ]
+__all__ = ['acquire', 'release']
 
 import rpyc
 import winpty
@@ -106,7 +106,7 @@ def acquire(argv=None, term=None, suid=None):
     shell = manager.get(PtyShell)
 
     new = False
-    if not ( shell and shell.active ):
+    if not (shell and shell.active):
         shell = manager.create(
             PtyShell,
             argv, term, suid)

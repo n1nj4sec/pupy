@@ -23,8 +23,8 @@ def load_display_libs():
     try:
         x11 = ctypes.cdll.LoadLibrary(find_library('X11'))
         x11.XOpenDisplay.restype = ctypes.c_void_p
-        x11.XOpenDisplay.argtypes = [ ctypes.c_char_p ]
-        x11.XCloseDisplay.argtypes = [ ctypes.c_void_p ]
+        x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+        x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
     except:
         x11 = None
         pass
@@ -37,8 +37,8 @@ def load_display_libs():
             ctypes.c_ushort, ctypes.c_char_p,
             ctypes.c_ushort, ctypes.c_char_p,
             ctypes.c_ushort, ctypes.c_char_p
-        ]
-        xau.XauDisposeAuth.argtypes = [ ctypes.POINTER(XAuth) ]
+       ]
+        xau.XauDisposeAuth.argtypes = [ctypes.POINTER(XAuth)]
     except:
         xau = None
         pass
@@ -47,16 +47,16 @@ def load_display_libs():
 
 class XAuth(ctypes.Structure):
     _fields_ = [
-        ( 'family',         ctypes.c_ushort ),
-        ( 'address_length', ctypes.c_ushort ),
-        ( 'address',        ctypes.c_char_p ),
-        ( 'number_length',  ctypes.c_ushort ),
-        ( 'number',         ctypes.c_char_p ),
-        ( 'name_length',    ctypes.c_ushort ),
-        ( 'name',           ctypes.c_char_p ),
-        ( 'data_length',    ctypes.c_ushort ),
-        ( 'data',           ctypes.c_char_p )
-    ]
+        ('family',         ctypes.c_ushort),
+        ('address_length', ctypes.c_ushort),
+        ('address',        ctypes.c_char_p),
+        ('number_length',  ctypes.c_ushort),
+        ('number',         ctypes.c_char_p),
+        ('name_length',    ctypes.c_ushort),
+        ('name',           ctypes.c_char_p),
+        ('data_length',    ctypes.c_ushort),
+        ('data',           ctypes.c_char_p)
+   ]
 
 Families = {
     0: 'tcp',
@@ -113,7 +113,7 @@ def guess_displays():
             continue
 
         if info['username'] and info['environ']:
-            if not 'DISPLAY' in info['environ']:
+            if 'DISPLAY' not in info['environ']:
                 continue
 
             try:
@@ -125,16 +125,16 @@ def guess_displays():
             DISPLAY = info['environ'].get('DISPLAY')
             XAUTHORITY = info['environ'].get('XAUTHORITY')
 
-            if not DISPLAY in displays:
+            if DISPLAY not in displays:
                 displays[DISPLAY] = set()
 
             if not XAUTHORITY:
                 XAUTHORITY = os.path.join(
                     userinfos[info['username']].pw_dir, '.Xauthority'
-                )
+               )
 
             pair = (info['username'], XAUTHORITY)
-            if not pair in displays[DISPLAY] and check_display(DISPLAY, XAUTHORITY):
+            if pair not in displays[DISPLAY] and check_display(DISPLAY, XAUTHORITY):
                 displays[DISPLAY].add(pair)
 
     for user, hosts in pupyps.users().iteritems():
@@ -143,9 +143,9 @@ def guess_displays():
                 try:
                     executable = os.path.basename(
                         os.path.realpath(terminal['exe'])
-                    )
+                   )
 
-                    if not executable in ('X', 'Xorg'):
+                    if executable not in ('X', 'Xorg'):
                         continue
 
                     DISPLAY = None
@@ -165,10 +165,10 @@ def guess_displays():
                         continue
 
                     pair = (user, XAuthority)
-                    if not DISPLAY in displays:
+                    if DISPLAY not in displays:
                         displays[DISPLAY] = set()
 
-                    if not pair in displays[DISPLAY] and check_display(DISPLAY, XAuthority):
+                    if pair not in displays[DISPLAY] and check_display(DISPLAY, XAuthority):
                         displays[DISPLAY].add(pair)
 
                 except:
@@ -183,7 +183,7 @@ def attach_to_display(name, xauth=None):
 
     if not xauth:
         displays = guess_displays()
-        if not name in displays:
+        if name not in displays:
             return False
 
         for user, xauth in displays[name]:

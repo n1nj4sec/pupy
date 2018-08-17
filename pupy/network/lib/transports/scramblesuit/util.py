@@ -18,7 +18,7 @@ log = logging
 
 memory_files={}
 
-def setStateLocation( stateLocation ):
+def setStateLocation(stateLocation):
     """
     Set the constant `STATE_LOCATION' to the given `stateLocation'.
 
@@ -48,7 +48,7 @@ def setStateLocation( stateLocation ):
     const.STATE_LOCATION = stateLocation
 
 
-def isValidHMAC( hmac1, hmac2, key ):
+def isValidHMAC(hmac1, hmac2, key):
     """
     Compares `hmac1' and `hmac2' after HMACing them again using `key'.
 
@@ -73,7 +73,7 @@ def isValidHMAC( hmac1, hmac2, key ):
     return True
 
 
-def locateMark( mark, payload ):
+def locateMark(mark, payload):
     """
     Locate the given `mark' in `payload' and return its index.
 
@@ -97,7 +97,7 @@ def locateMark( mark, payload ):
     return index
 
 
-def getEpoch( ):
+def getEpoch():
     """
     Return the Unix epoch divided by a constant as string.
 
@@ -109,7 +109,7 @@ def getEpoch( ):
     return str(int(time.time()) / const.EPOCH_GRANULARITY)
 
 
-def expandedEpoch( ):
+def expandedEpoch():
     """
     Return [epoch, epoch-1, epoch+1].
     """
@@ -119,7 +119,7 @@ def expandedEpoch( ):
     return [str(epoch), str(epoch - 1), str(epoch + 1)]
 
 
-def writeToFile( data, fileName ):
+def writeToFile(data, fileName):
     """
     Writes the given `data' to the file specified by `fileName'.
 
@@ -131,7 +131,7 @@ def writeToFile( data, fileName ):
     memory_files[fileName]=StringIO.StringIO(data)
 
 
-def readFromFile( fileName, length=-1 ):
+def readFromFile(fileName, length=-1):
     """
     Read `length' amount of bytes from the given `fileName'
 
@@ -142,7 +142,7 @@ def readFromFile( fileName, length=-1 ):
     global memory_files
     data = None
 
-    if not fileName in memory_files:
+    if fileName not in memory_files:
         log.debug("Memory File `%s' does not exist (yet?)." % fileName)
         return None
 
@@ -155,7 +155,7 @@ def readFromFile( fileName, length=-1 ):
     return data
 
 
-def sanitiseBase32( data ):
+def sanitiseBase32(data):
     """
     Try to sanitise a Base32 string if it's slightly wrong.
 

@@ -27,9 +27,9 @@ PASSWORD_FILE = "server_password"
 EPOCH_GRANULARITY = 3600
 
 # Flags which can be set in a ScrambleSuit protocol message.
-FLAG_PAYLOAD =        (1 << 0)
-FLAG_NEW_TICKET =     (1 << 1)
-FLAG_PRNG_SEED =      (1 << 2)
+FLAG_PAYLOAD = (1 << 0)
+FLAG_NEW_TICKET = (1 << 1)
+FLAG_PRNG_SEED = (1 << 2)
 
 # Length of ScrambleSuit's header in bytes.
 HDR_LENGTH = 16 + 2 + 2 + 1

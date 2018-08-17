@@ -32,7 +32,7 @@ if hasattr(windll.kernel32,'IsWow64Process'):
 def is_process_64(pid):
     """ Take a pid. return True if process is 64 bits, and False otherwise. """
     is64=False
-    if not "64" in platform.machine():
+    if "64" not in platform.machine():
         return False
     hProcess = windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
     if hProcess==INVALID_HANDLE_VALUE:
@@ -95,7 +95,7 @@ def get_current_pid():
 def get_current_ppid():
     dic = {'Parent Name': None, 'PPID': None}
     pp = psutil.Process(os.getpid()).parent()
-    if pp != None:
+    if pp is not None:
         dic = {'Parent Name': pp.name(), 'PPID': pp.pid}
     return dic
 

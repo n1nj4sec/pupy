@@ -8,7 +8,7 @@ __class_name__="getuid"
 class getuid(PupyModule):
     """ get username """
     is_module=False
-    dependencies = [ 'pupyutils.basic_cmds' ]
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):

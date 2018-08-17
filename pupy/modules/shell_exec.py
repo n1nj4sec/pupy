@@ -12,8 +12,8 @@ class ShellExec(PupyModule):
     """ execute shell commands on a remote system """
 
     dependencies = {
-        'all': [ 'pupyutils.safepopen' ],
-        'windows': [ 'pupwinutils.processes' ]
+        'all': ['pupyutils.safepopen'],
+        'windows': ['pupwinutils.processes']
     }
 
     terminate = None

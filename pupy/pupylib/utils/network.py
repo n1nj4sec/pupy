@@ -77,11 +77,11 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
 
             for anInt in ifaces:
                 addresses = netifaces.ifaddresses(anInt)
-                if not netifaces.AF_INET in addresses:
+                if netifaces.AF_INET not in addresses:
                     continue
 
                 ipaddr = addresses[netifaces.AF_INET][0]
-                if not 'addr' in ipaddr:
+                if 'addr' not in ipaddr:
                     continue
 
                 addr = ipaddr['addr']

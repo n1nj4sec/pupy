@@ -34,8 +34,10 @@ def to_unicode(x):
         return x
 
 def psinfo(pids):
-    garbage = ( 'num_ctx_switches', 'memory_full_info', 'cpu_affinity' )
     data = {}
+    garbage = (
+        'num_ctx_switches', 'memory_full_info', 'cpu_affinity'
+    )
 
     for pid in pids:
         try:
@@ -122,7 +124,7 @@ def pstree():
         try:
             parent = p.parent()
             ppid = parent.pid if parent else 0
-            if not ppid in tree:
+            if ppid not in tree:
                 tree[ppid] = [p.pid]
             else:
                 tree[ppid].append(p.pid)
@@ -188,10 +190,10 @@ def users():
 
         host = term.host or '-'
 
-        if not term.name in info:
+        if term.name not in info:
             info[term.name] = {}
 
-        if not host in info[term.name]:
+        if host not in info[term.name]:
             info[term.name][host] = []
 
         if term.name == me or me.endswith('\\'+term.name):
@@ -214,17 +216,17 @@ def connections():
             )
         }
         try:
-             if connection.pid:
-                 obj.update({
-                     k:to_unicode(v) for k,v in psutil.Process(
-                         connection.pid).as_dict({
-                            'pid', 'exe', 'name', 'username'
-                        }).iteritems()
-                 })
-                 if connection.pid == me.pid:
-                     obj.update({
-                         'me': True
-                     })
+            if connection.pid:
+                obj.update({
+                    k:to_unicode(v) for k,v in psutil.Process(
+                        connection.pid).as_dict({
+                           'pid', 'exe', 'name', 'username'
+                       }).iteritems()
+                })
+                if connection.pid == me.pid:
+                    obj.update({
+                        'me': True
+                    })
         except:
             pass
 
@@ -321,7 +323,10 @@ def wtmp(input='/var/log/wtmp'):
             if not data or len(data) != WTmp.size:
                 break
 
-            items = [ convrecord(x) for x in WTmp.unpack(data) ]
+            items = [
+                convrecord(x) for x in WTmp.unpack(data)
+            ]
+
             itype = login_type[items[0]]
             if not itype:
                 continue

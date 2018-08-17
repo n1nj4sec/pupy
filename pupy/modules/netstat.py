@@ -13,7 +13,7 @@ ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
 class NetStatModule(PupyModule):
     """ list terminal sessions """
 
-    dependencies = [ 'pupyps' ]
+    dependencies = ['pupyps']
     is_module=False
 
     @classmethod
@@ -62,14 +62,14 @@ class NetStatModule(PupyModule):
                 family = families[connection['family']]
                 stype = socktypes[connection['type']]
 
-                if limit and not stype in limit:
+                if limit and stype not in limit:
                     continue
 
                 if connection.get('me'):
                     color = 'green'
                 elif connection['status'] in ('CLOSE_WAIT', 'TIME_WAIT', 'TIME_WAIT2'):
                     color = 'darkgrey'
-                elif ( '127.0.0.1' in connection['laddr'] or '::1' in connection['laddr'] ):
+                elif ('127.0.0.1' in connection['laddr'] or '::1' in connection['laddr']):
                     color = 'grey'
 
                 deny = False

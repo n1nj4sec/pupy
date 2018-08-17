@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-__all__ = ( 'PupyTCPServer', 'PupyUDPServer' )
+__all__ = ('PupyTCPServer', 'PupyUDPServer')
 
 import logging
 
@@ -22,10 +22,10 @@ from network.lib.igd import UPNPError
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):
 
-        if not "stream" in kwargs:
+        if "stream" not in kwargs:
             raise ValueError("missing stream_class argument")
 
-        if not "transport" in kwargs:
+        if "transport" not in kwargs:
             raise ValueError("missing transport argument")
 
         self.stream_class = kwargs["stream"]
@@ -89,7 +89,7 @@ class PupyTCPServer(ThreadedServer):
                     self.external_port,
                     'TCP',
                     self.port,
-                    intIP=self.host if self.host and not self.host in (
+                    intIP=self.host if self.host and self.host not in (
                         '', '0.0.0.0', 'igd'
                     ) else None,
                     desc='pupy'
@@ -213,7 +213,7 @@ class PupyUDPServer(object):
         self.transport_kwargs = None
 
         for param in self.REQUIRED_KWARGS:
-            if not param in kwargs:
+            if param not in kwargs:
                 raise ValueError('missing {} argument'.format(param))
 
             setattr(self, param, kwargs[param])
@@ -273,7 +273,7 @@ class PupyUDPServer(object):
                     self.external_port,
                     'UDP',
                     self.port,
-                    intIP=self.host if self.host and not self.host in (
+                    intIP=self.host if self.host and self.host not in (
                         '', '0.0.0.0', 'igd'
                     ) else None,
                     desc='pupy'

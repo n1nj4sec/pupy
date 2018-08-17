@@ -36,7 +36,7 @@ import util
 log = logging
 
 
-def createTicketMessage( rawTicket, HMACKey ):
+def createTicketMessage(rawTicket, HMACKey):
     """
     Create and return a ready-to-be-sent ticket authentication message.
 
@@ -62,7 +62,7 @@ def createTicketMessage( rawTicket, HMACKey ):
     return rawTicket + padding + mark + hmac
 
 
-def issueTicketAndKey( srvState ):
+def issueTicketAndKey(srvState):
     """
     Issue a new session ticket and append it to the according master key.
 
@@ -78,7 +78,7 @@ def issueTicketAndKey( srvState ):
     return masterKey + newTicket
 
 
-def checkKeys( srvState ):
+def checkKeys(srvState):
     """
     Check whether the key material for session tickets must be rotated.
 
@@ -107,7 +107,7 @@ def checkKeys( srvState ):
         srvState.writeState()
 
 
-def decrypt( ticket, srvState ):
+def decrypt(ticket, srvState):
     """
     Decrypts, verifies and returns the given `ticket'.
 
@@ -160,7 +160,7 @@ def decrypt( ticket, srvState ):
     return ProtocolState(masterKey, issueDate=issueDate)
 
 
-class ProtocolState( object ):
+class ProtocolState(object):
 
     """
     Defines a ScrambleSuit protocol state contained in a session ticket.
@@ -172,7 +172,7 @@ class ProtocolState( object ):
     form.
     """
 
-    def __init__( self, masterKey, issueDate=int(time.time()) ):
+    def __init__(self, masterKey, issueDate=int(time.time())):
         """
         The constructor of the `ProtocolState' class.
 
@@ -185,7 +185,7 @@ class ProtocolState( object ):
         # Pad to multiple of 16 bytes to match AES' block size.
         self.pad = "\0\0\0\0\0\0\0\0\0\0"
 
-    def isValid( self ):
+    def isValid(self):
         """
         Verifies the expiry date of the object's issue date.
 
@@ -208,7 +208,7 @@ class ProtocolState( object ):
                   (const.SESSION_TICKET_LIFETIME - lifetime))))
         return True
 
-    def __repr__( self ):
+    def __repr__(self):
         """
         Return a raw string representation of the object's protocol state.
 
@@ -221,7 +221,7 @@ class ProtocolState( object ):
                            self.masterKey + self.pad
 
 
-class SessionTicket( object ):
+class SessionTicket(object):
 
     """
     Encrypts and authenticates an encapsulated `ProtocolState()' object.
@@ -230,7 +230,7 @@ class SessionTicket( object ):
     The class contains methods to initialise and issue session tickets.
     """
 
-    def __init__( self, masterKey, srvState ):
+    def __init__(self, masterKey, srvState):
         """
         The constructor of the `SessionTicket()' class.
 
@@ -253,7 +253,7 @@ class SessionTicket( object ):
         self.symmTicketKey = srvState.aesKey
         self.hmacTicketKey = srvState.hmacKey
 
-    def issue( self ):
+    def issue(self):
         """
         Returns a ready-to-use session ticket after prior initialisation.
 

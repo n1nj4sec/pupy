@@ -117,82 +117,90 @@ class RDP_NEG_FAILURE(CR_TPDU):
     )
 
 class TSPasswordCreds(GSSAPI):
-# TSPasswordCreds ::= SEQUENCE {
-#         domainName  [0] OCTET STRING,
-#         userName    [1] OCTET STRING,
-#         password    [2] OCTET STRING
-# }
+    # TSPasswordCreds ::= SEQUENCE {
+    #         domainName  [0] OCTET STRING,
+    #         userName    [1] OCTET STRING,
+    #         password    [2] OCTET STRING
+    # }
     def __init__(self, data=None):
         GSSAPI.__init__(self,data)
         del self['UUID']
 
     def getData(self):
-        ans = pack('B', ASN1_SEQUENCE)
-        ans += asn1encode( pack('B', 0xa0) +
-                        asn1encode( pack('B', ASN1_OCTET_STRING) +
-                        asn1encode( self['domainName'].encode('utf-16le'))) +
-                        pack('B', 0xa1) +
-                        asn1encode( pack('B', ASN1_OCTET_STRING) +
-                        asn1encode( self['userName'].encode('utf-16le'))) +
-                        pack('B', 0xa2) +
-                        asn1encode( pack('B', ASN1_OCTET_STRING) +
-                        asn1encode( self['password'].encode('utf-16le'))) )
-        return ans
+        asn = pack('B', ASN1_SEQUENCE)
+        asn += asn1encode(
+            pack('B', 0xa0) +
+            asn1encode(
+                pack('B', ASN1_OCTET_STRING) +
+                asn1encode(self['domainName'].encode('utf-16le'))) +
+            pack('B', 0xa1) +
+            asn1encode(
+                pack('B', ASN1_OCTET_STRING) +
+                asn1encode(
+                    self['userName'].encode('utf-16le'))) +
+            pack('B', 0xa2) +
+            asn1encode(
+                pack('B', ASN1_OCTET_STRING) +
+                asn1encode(self['password'].encode('utf-16le'))))
+
+        return asn
 
 class TSCredentials(GSSAPI):
-# TSCredentials ::= SEQUENCE {
-#        credType    [0] INTEGER,
-#        credentials [1] OCTET STRING
-# }
+    # TSCredentials ::= SEQUENCE {
+    #        credType    [0] INTEGER,
+    #        credentials [1] OCTET STRING
+    # }
     def __init__(self, data=None):
         GSSAPI.__init__(self,data)
         del self['UUID']
 
     def getData(self):
         # Let's pack the credentials field
-        credentials =  pack('B',0xa1)
+        credentials = pack('B',0xa1)
         credentials += asn1encode(pack('B',ASN1_OCTET_STRING) +
                                     asn1encode(self['credentials']))
 
-        ans = pack('B',ASN1_SEQUENCE)
-        ans += asn1encode( pack('B', 0xa0) +
-                    asn1encode( pack('B', 0x02) +
-                    asn1encode( pack('B', self['credType']))) +
-                    credentials)
-        return ans
+        asn = pack('B',ASN1_SEQUENCE)
+        asn += asn1encode(
+            pack('B', 0xa0) +
+            asn1encode(
+                pack('B', 0x02) +
+                asn1encode(
+                    pack('B', self['credType']))) + credentials)
+
+        return asn
 
 class TSRequest(GSSAPI):
-# TSRequest ::= SEQUENCE {
-#   version     [0] INTEGER,
-#       negoTokens  [1] NegoData OPTIONAL,
-#       authInfo    [2] OCTET STRING OPTIONAL,
-#   pubKeyAuth  [3] OCTET STRING OPTIONAL,
-#}
-#
-# NegoData ::= SEQUENCE OF SEQUENCE {
-#        negoToken [0] OCTET STRING
-#}
-#
+    # TSRequest ::= SEQUENCE {
+    #   version     [0] INTEGER,
+    #       negoTokens  [1] NegoData OPTIONAL,
+    #       authInfo    [2] OCTET STRING OPTIONAL,
+    #   pubKeyAuth  [3] OCTET STRING OPTIONAL,
+    #}
+    # NegoData ::= SEQUENCE OF SEQUENCE {
+    #        negoToken [0] OCTET STRING
+    #}
+    #
 
     def __init__(self, data=None):
-         GSSAPI.__init__(self,data)
-         del self['UUID']
+        GSSAPI.__init__(self,data)
+        del self['UUID']
 
     def fromString(self, data = None):
         next_byte = unpack('B',data[:1])[0]
         if next_byte != ASN1_SEQUENCE:
-             raise Exception('SEQUENCE expected! (%x)' % next_byte)
+            raise Exception('SEQUENCE expected! (%x)' % next_byte)
         data = data[1:]
         decode_data, total_bytes = asn1decode(data)
 
         next_byte = unpack('B',decode_data[:1])[0]
-        if next_byte !=  0xa0:
+        if next_byte != 0xa0:
                 raise Exception('0xa0 tag not found %x' % next_byte)
         decode_data = decode_data[1:]
         next_bytes, total_bytes = asn1decode(decode_data)
         # The INTEGER tag must be here
         if unpack('B',next_bytes[0])[0] != 0x02:
-             raise Exception('INTEGER tag not found %r' % next_byte)
+            raise Exception('INTEGER tag not found %r' % next_byte)
         next_byte, _ = asn1decode(next_bytes[1:])
         self['Version'] = unpack('B',next_byte)[0]
         decode_data = decode_data[total_bytes:]
@@ -322,7 +330,7 @@ class SPNEGOCipher:
         if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                 # When NTLM2 is on, we sign the whole pdu, but encrypt just
                 # the data, not the dcerpc header. Weird..
-                sealedMessage, signature =  ntlm.SEAL(self.__flags,
+                sealedMessage, signature = ntlm.SEAL(self.__flags,
                     self.__clientSigningKey,
                     self.__clientSealingKey,
                     plain_data,
@@ -330,7 +338,7 @@ class SPNEGOCipher:
                     self.__sequence,
                     self.__clientSealingHandle)
         else:
-                sealedMessage, signature =  ntlm.SEAL(self.__flags,
+                sealedMessage, signature = ntlm.SEAL(self.__flags,
                     self.__clientSigningKey,
                     self.__clientSealingKey,
                     plain_data,
@@ -346,7 +354,7 @@ class SPNEGOCipher:
         if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                 # TODO: FIX THIS, it's not calculating the signature well
                 # Since I'm not testing it we don't care... yet
-                answer, signature =  ntlm.SEAL(self.__flags,
+                answer, signature = ntlm.SEAL(self.__flags,
                                 self.__serverSigningKey,
                                 self.__serverSealingKey,
                                 answer,
@@ -487,7 +495,7 @@ def check_rdp(host, username, password, domain, hashes = None):
     type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, ts_request['NegoData'], username, password, domain, lmhash, nthash, use_ntlmv2 = True)
 
     # Get server public key
-    server_cert =  tls.get_peer_certificate()
+    server_cert = tls.get_peer_certificate()
     pkey = server_cert.get_pubkey()
     dump = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pkey)
 

@@ -5,7 +5,7 @@ import re
 import os
 
 class RemoteFile:
-    def __init__(self, smbConnection, fileName, share='ADMIN$', access = FILE_READ_DATA ):
+    def __init__(self, smbConnection, fileName, share='ADMIN$', access = FILE_READ_DATA):
         self.__smbConnection = smbConnection
         self.__access = access
         self.__fileName = fileName
@@ -18,7 +18,7 @@ class RemoteFile:
 
     def read(self, bytesToRead):
         if bytesToRead > 0:
-            data =  self.__smbConnection.readFile(self.__tid, self.__fid, self.__currentOffset, bytesToRead)
+            data = self.__smbConnection.readFile(self.__tid, self.__fid, self.__currentOffset, bytesToRead)
             self.__currentOffset += len(data)
             return data
         return ''
@@ -49,7 +49,7 @@ class SMBSpider:
         try:
             self.smbconnection = SMBConnection(self.host, self.host, None, self.port, timeout=2)
             try:
-                self.smbconnection.login('' , '')
+                self.smbconnection.login('', '')
             except SessionError as e:
                 if "STATUS_ACCESS_DENIED" in e.message:
                     pass

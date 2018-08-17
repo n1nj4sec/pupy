@@ -12,7 +12,7 @@ __class_name__="DNS"
 class DNS(PupyModule):
     """ retrieve domain name from IP and vice versa """
 
-    dependencies = [ 'pupyutils.dns' ]
+    dependencies = ['pupyutils.dns']
 
     @classmethod
     def init_argparse(cls):
@@ -68,7 +68,7 @@ class DNS(PupyModule):
 
             for k,v in launch_dns_ip_resolver(target).iteritems():
                 if v and not type(v) == str:
-                    v = [ x for x in v if not x in known ]
+                    v = [x for x in v if x not in known]
                     for x in v:
                         known.add(x)
                 elif v:

@@ -28,7 +28,7 @@ class ImpersonateModule(PupyModule):
             self.table([{
                 'pid': x[0],
                 'process': x[1],
-                'sid' : x[2],
+                'sid': x[2],
                 'username':x[3]
             } for x in sids], wl=[
                 'pid', 'process', 'username', 'sid'

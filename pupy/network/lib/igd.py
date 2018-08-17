@@ -141,7 +141,7 @@ class IGDClient(object):
 
     @property
     def available(self):
-        return self.ctrlURL != None
+        return self.ctrlURL is not None
 
     def enableDebug(self, d=True):
         """
@@ -282,7 +282,7 @@ class IGDClient(object):
 
         for e in dom.findall('.//device:service', self.NS):
             stn = e.find('device:serviceType', self.NS)
-            if not stn is None:
+            if stn is not None:
                 if stn.text[0:-2] == svctype:
                     cun = e.find('device:controlURL', self.NS).text
                     self.ctrlURL = baseURL + cun

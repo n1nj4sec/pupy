@@ -57,7 +57,9 @@ VK_RWIN         = 0x5C
 
 # typedefs
 LPMSG     = POINTER(MSG)
-LOWORD    = lambda x: x & 0xffff
+
+def LOWORD(x):
+    return x & 0xffff
 
 # trampolines
 HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)
@@ -133,7 +135,7 @@ LocalFree.argtypes  = [HANDLE]
 
 GetModuleBaseNameW = psapi.GetModuleBaseNameW
 GetModuleBaseNameW.restype = DWORD
-GetModuleBaseNameW.argtypes = [ HWND, HMODULE, c_void_p, DWORD ]
+GetModuleBaseNameW.argtypes = [HWND, HMODULE, c_void_p, DWORD]
 
 GetModuleHandleW = kernel32.GetModuleHandleW
 GetModuleHandleW.restype = HMODULE
@@ -157,7 +159,7 @@ SetWindowsHookEx.restype = HHOOK
 
 UnhookWindowsHookEx = user32.UnhookWindowsHookEx
 UnhookWindowsHookEx.restype = BOOL
-UnhookWindowsHookEx.argtypes = [ HHOOK ]
+UnhookWindowsHookEx.argtypes = [HHOOK]
 
 CallNextHookEx = user32.CallNextHookEx
 CallNextHookEx.restype = LRESULT
@@ -175,7 +177,7 @@ GetMessageW.argtypes = (
     UINT)  # _In_     wMsgFilterMax
 
 CloseHandle = kernel32.CloseHandle
-CloseHandle.argtypes = [ HWND ]
+CloseHandle.argtypes = [HWND]
 
 GetKeyboardState  = user32.GetKeyboardState
 GetKeyboardLayout = user32.GetKeyboardLayout
@@ -204,7 +206,7 @@ GetWindowDC.argtypes = [HWND]
 GetWindowDC.restypes = HDC
 
 GetWindowText = user32.GetWindowTextW
-GetWindowText.argtypes = ( HWND, LPWSTR, INT )
+GetWindowText.argtypes = (HWND, LPWSTR, INT)
 GetWindowText.restype = c_int
 
 CreateCompatibleDC = gdi32.CreateCompatibleDC
@@ -221,7 +223,7 @@ SelectObject.restypes = HGDIOBJ
 
 BitBlt = gdi32.BitBlt
 BitBlt.argtypes = [HDC, INT, INT, INT, INT, HDC, INT, INT, DWORD]
-BitBlt.restypes =  BOOL
+BitBlt.restypes = BOOL
 
 GetDIBits = gdi32.GetDIBits
 GetDIBits.restypes = INT

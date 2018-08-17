@@ -15,7 +15,7 @@ import logging
 log = logging
 
 
-def createProtocolMessages( data, flags=const.FLAG_PAYLOAD ):
+def createProtocolMessages(data, flags=const.FLAG_PAYLOAD):
     """
     Create protocol messages out of the given payload.
 
@@ -37,7 +37,7 @@ def createProtocolMessages( data, flags=const.FLAG_PAYLOAD ):
     return messages
 
 
-def getFlagNames( flags ):
+def getFlagNames(flags):
     """
     Return the flag name encoded in the integer `flags' as string.
 
@@ -58,7 +58,7 @@ def getFlagNames( flags ):
         return "Undefined"
 
 
-def isSane( totalLen, payloadLen, flags ):
+def isSane(totalLen, payloadLen, flags):
     """
     Verifies whether the given header fields are sane.
 
@@ -67,7 +67,7 @@ def isSane( totalLen, payloadLen, flags ):
     If any of these fields has an invalid value, `False' is returned.
     """
 
-    def isFine( length ):
+    def isFine(length):
         """
         Check if the given length is fine.
         """
@@ -89,7 +89,7 @@ def isSane( totalLen, payloadLen, flags ):
            (flags in validFlags)
 
 
-class ProtocolMessage( object ):
+class ProtocolMessage(object):
 
     """
     Represents a ScrambleSuit protocol message.
@@ -99,7 +99,7 @@ class ProtocolMessage( object ):
     protocol messages.
     """
 
-    def __init__( self, payload="", paddingLen=0, flags=const.FLAG_PAYLOAD ):
+    def __init__(self, payload="", paddingLen=0, flags=const.FLAG_PAYLOAD):
         """
         Initialises a ProtocolMessage object.
         """
@@ -113,7 +113,7 @@ class ProtocolMessage( object ):
         self.payload = payload
         self.flags = flags
 
-    def encryptAndHMAC( self, crypter, hmacKey ):
+    def encryptAndHMAC(self, crypter, hmacKey):
         """
         Encrypt and authenticate this protocol message.
 
@@ -131,7 +131,7 @@ class ProtocolMessage( object ):
 
         return hmac + encrypted
 
-    def addPadding( self, paddingLen ):
+    def addPadding(self, paddingLen):
         """
         Add padding to this protocol message.
 
@@ -150,7 +150,7 @@ class ProtocolMessage( object ):
         #          (paddingLen, const.HDR_LENGTH + self.totalLen))
         self.totalLen += paddingLen
 
-    def __len__( self ):
+    def __len__(self):
         """
         Return the length of this protocol message.
         """
@@ -160,13 +160,13 @@ class ProtocolMessage( object ):
 # Alias class name in order to provide a more intuitive API.
 new = ProtocolMessage
 
-class MessageExtractor( object ):
+class MessageExtractor(object):
 
     """
     Extracts ScrambleSuit protocol messages out of an encrypted stream.
     """
 
-    def __init__( self ):
+    def __init__(self):
         """
         Initialise a new MessageExtractor object.
         """
@@ -176,7 +176,7 @@ class MessageExtractor( object ):
         self.payloadLen = None
         self.flags = None
 
-    def extract( self, data, aes, hmacKey ):
+    def extract(self, data, aes, hmacKey):
         """
         Extracts (i.e., decrypts and authenticates) protocol messages.
 
@@ -193,7 +193,7 @@ class MessageExtractor( object ):
         while len(self.recvBuf) >= const.HDR_LENGTH:
 
             # If necessary, extract the header fields.
-            if self.totalLen == self.payloadLen == self.flags == None:
+            if self.totalLen is None and self.payloadLen is None and self.flags is None:
                 self.totalLen = pack.ntohs(aes.decrypt(self.recvBuf[16:18]))
                 self.payloadLen = pack.ntohs(aes.decrypt(self.recvBuf[18:20]))
                 self.flags = ord(aes.decrypt(self.recvBuf[20]))

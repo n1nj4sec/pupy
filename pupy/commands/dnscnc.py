@@ -126,7 +126,7 @@ def do(server, handler, config, args):
 
         handler.display(Table([
             {'PROPERTY':k, 'VALUE':v} for k,v in objects.iteritems()
-        ], [ 'PROPERTY', 'VALUE' ]))
+        ], ['PROPERTY', 'VALUE']))
 
         if server.dnscnc.commands:
             handler.display('\nDEFAULT COMMANDS:\n'+'\n'.join([
@@ -177,7 +177,7 @@ def do(server, handler, config, args):
             sessions = sorted(sessions, key=sort_by, reverse=bool(args.r))
 
         for idx, session in enumerate(sessions):
-            if not ( session.system_status and session.system_info ):
+            if not (session.system_status and session.system_info):
                 continue
 
             object = {
@@ -226,7 +226,9 @@ def do(server, handler, config, args):
                 color = 'lightgreen'
 
             if color:
-                object = { k:Color(v, color) for k,v in object.iteritems() }
+                object = {
+                    k:Color(v, color) for k,v in object.iteritems()
+                }
 
             objects.append(object)
 
@@ -310,7 +312,9 @@ def do(server, handler, config, args):
                 color = 'yellow'
 
             if color:
-                object = { k:Color(v, color) for k,v in object.iteritems() }
+                object = {
+                    k:Color(v, color) for k,v in object.iteritems()
+                }
 
             objects.append(object)
 
@@ -372,9 +376,9 @@ def do(server, handler, config, args):
 
             for c in server.clients:
                 if c.node() == '{:012x}'.format(node.node):
-                    if ( node.iid <= 65535 and c.desc['pid'] % 65535 == node.iid ) \
-                      or ( node.iid > 65535 and 'spi' in c.desc and \
-                      c.desc['spi'] == '{:08x}'.format(node.iid) ):
+                    if (node.iid <= 65535 and c.desc['pid'] % 65535 == node.iid) \
+                      or (node.iid > 65535 and 'spi' in c.desc and \
+                      c.desc['spi'] == '{:08x}'.format(node.iid)):
                         ids.append(str(c.desc['id']))
 
             if ids:
@@ -399,7 +403,9 @@ def do(server, handler, config, args):
                 color = 'yellow'
 
             if color:
-                object = { k:Color(v, color) for k,v in object.iteritems() }
+                object = {
+                    k:Color(v, color) for k,v in object.iteritems()
+                }
 
             objects.append(object)
 

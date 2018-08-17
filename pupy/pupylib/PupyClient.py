@@ -357,7 +357,7 @@ class PupyClient(object):
     def filter_new_modules(self, modules, dll, force=None, remote=False):
         if force is None:
             modules = set(
-                x for x in modules if not x in self.imported_modules
+                x for x in modules if x not in self.imported_modules
             )
 
             modules = set(
@@ -382,7 +382,7 @@ class PupyClient(object):
                 return self.new_dlls(tuple(modules))
             else:
                 return [
-                    module for module in modules if not module in self.imported_dlls
+                    module for module in modules if module not in self.imported_dlls
                 ]
         else:
             logger.debug('Request new modules for {}'.format(modules))
@@ -395,13 +395,13 @@ class PupyClient(object):
                 ]
 
             for module in modules:
-                if not module in new_modules:
+                if module not in new_modules:
                     self.imported_modules.add(module)
                     logger.debug('Add to imported_modules cache: {}'.format(module))
 
-            if not force is None:
+            if force is not None:
                 for module in modules:
-                    if not module in new_modules:
+                    if module not in new_modules:
                         force.add(module)
                         logger.debug('Add to new_modules: {}'.format(module))
 

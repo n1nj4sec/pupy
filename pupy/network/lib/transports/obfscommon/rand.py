@@ -1,6 +1,6 @@
 import os
 
-__all__ = [ 'random_bytes' ]
+__all__ = ['random_bytes']
 
 def random_bytes(n):
     """ Returns n bytes of strong random data. """

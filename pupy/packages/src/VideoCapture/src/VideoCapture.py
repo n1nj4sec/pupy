@@ -6,7 +6,8 @@ by Markus Gritsch <gritsch@iue.tuwien.ac.at>
 
 import vidcap
 from PIL import Image, ImageFont, ImageDraw
-import time, string
+import time
+import string
 
 default_textpos = 'bl' # t=top, b=bottom;   l=left, c=center, r=right
 textcolor = 0xffffff

@@ -235,7 +235,7 @@ class NTPStats(NTPPacket):
     delay, and timestamps converted to system time.
     """
 
-    __slots__ = [ 'dest_timestamp' ]
+    __slots__ = ['dest_timestamp']
 
     def __init__(self):
         """Constructor."""

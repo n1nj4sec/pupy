@@ -22,7 +22,11 @@ def getUserHash(userName):
         pass
 
 def hashdump():
-    userNames = [ plist.split(".")[0] for plist in os.listdir('/var/db/dslocal/nodes/Default/users/') if not plist.startswith('_')]
+    userNames = [
+        plist.split(".")[0] for plist in os.listdir(
+            '/var/db/dslocal/nodes/Default/users/') if not plist.startswith('_')
+    ]
+
     userHashes = []
     for userName in userNames:
         userHash = getUserHash(userName)

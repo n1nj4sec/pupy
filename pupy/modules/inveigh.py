@@ -13,7 +13,7 @@ class Inveigh(PupyModule):
         execute Inveigh commands
     """
     dependencies = {
-        'windows': [ 'powershell' ]
+        'windows': ['powershell']
     }
 
     known_args = True
@@ -71,7 +71,7 @@ class Inveigh(PupyModule):
             expression = 'help Invoke-Inveigh ' + ' '.join(args.unknown_args)
 
         output, rest = pscall(script, expression)
-        if args.command == 'stop' or ( args.command == 'help' and not loaded ):
+        if args.command == 'stop' or (args.command == 'help' and not loaded):
             psunload(script)
 
         if rest:

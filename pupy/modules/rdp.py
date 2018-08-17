@@ -11,7 +11,7 @@ class Rdp(PupyModule):
     """ Enable / Disable rdp connection or check for valid credentials on a remote host """
 
     dependencies = {
-        'windows': [ 'pupwinutils.rdp' ],
+        'windows': ['pupwinutils.rdp'],
         'all': [
             'pupyutils.rdp_check', 'impacket', 'calendar', 'OpenSSL'
         ]

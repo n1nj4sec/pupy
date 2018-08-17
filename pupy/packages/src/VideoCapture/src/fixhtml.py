@@ -1,4 +1,5 @@
-import os, string
+import os
+import string
 
 oldWin = '''span {
     font-family: Verdana;

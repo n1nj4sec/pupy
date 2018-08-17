@@ -12,7 +12,7 @@ from os import O_NONBLOCK
 
 class MExec(object):
     def __init__(self, data, argv0, args=[], no_stdin=True, no_stdor=False, redirect_stdio=True, compressed=False, terminate=True):
-        self.argv = [ argv0 ] + [ x for x in args ]
+        self.argv = [argv0] + [x for x in args]
         self.data = zlib.decompress(data) if compressed else compressed
         self.redirect_stdio = redirect_stdio
         self.no_stdin = no_stdin

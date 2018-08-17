@@ -17,7 +17,7 @@ class NetCreds(PupyModule):
         Sniffs cleartext passwords from interface
     """
     unique_instance = True
-    dependencies=[ 'netifaces', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds' ]
+    dependencies=['netifaces', 'gzip', 'BaseHTTPServer', 'pupyutils.netcreds']
     qa = QA_DANGEROUS
 
     @classmethod

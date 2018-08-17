@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'scan', 'scanthread' ]
+__all__ = ['scan', 'scanthread']
 
 import socket
 import select
@@ -110,7 +110,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                         on_open_port((host, port))
 
                 connectable.append((host, port))
-                if not ( pass_socket and on_open_port ):
+                if not (pass_socket and on_open_port):
                     sock.close()
 
         if sockets:
@@ -148,7 +148,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                     del sockets[sock]
 
     if on_complete:
-        if not abort or ( abort and not abort.is_set() ):
+        if not abort or (abort and not abort.is_set()):
             on_complete(connectable)
     else:
         return connectable

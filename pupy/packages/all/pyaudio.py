@@ -411,14 +411,15 @@ class Stream:
         self._frames_per_buffer = frames_per_buffer
 
         arguments = {
-            'rate' : rate,
-            'channels' : channels,
-            'format' : format,
-            'input' : input,
-            'output' : output,
-            'input_device_index' : input_device_index,
-            'output_device_index' : output_device_index,
-            'frames_per_buffer' : frames_per_buffer}
+            'rate': rate,
+            'channels': channels,
+            'format': format,
+            'input': input,
+            'output': output,
+            'input_device_index': input_device_index,
+            'output_device_index': output_device_index,
+            'frames_per_buffer': frames_per_buffer
+        }
 
         if input_host_api_specific_stream_info:
             _l = input_host_api_specific_stream_info
@@ -574,7 +575,7 @@ class Stream:
             raise IOError("Not output stream",
                           paCanNotWriteToAnInputOnlyStream)
 
-        if num_frames == None:
+        if num_frames is None:
             # determine how many frames to read
             width = get_sample_size(self._format)
             num_frames = int(len(frames) / (self._channels * width))
@@ -858,13 +859,15 @@ class PyAudio:
         :rtype: dict
         """
 
-        return {'index' : index,
-                'structVersion' : host_api_struct.structVersion,
-                'type' : host_api_struct.type,
-                'name' : host_api_struct.name,
-                'deviceCount' : host_api_struct.deviceCount,
-                'defaultInputDevice' : host_api_struct.defaultInputDevice,
-                'defaultOutputDevice' : host_api_struct.defaultOutputDevice}
+        return {
+            'index': index,
+            'structVersion': host_api_struct.structVersion,
+            'type': host_api_struct.type,
+            'name': host_api_struct.name,
+            'deviceCount': host_api_struct.deviceCount,
+            'defaultInputDevice': host_api_struct.defaultInputDevice,
+            'defaultOutputDevice': host_api_struct.defaultOutputDevice
+        }
 
 
     ############################################################
@@ -916,18 +919,18 @@ class PyAudio:
         :raises ValueError: tuple containing (error string, |PaErrorCode|).
         """
 
-        if input_device == None and output_device == None:
+        if input_device is None and output_device is None:
             raise ValueError("must specify stream format for input, " +\
                              "output, or both", paInvalidDevice)
 
         kwargs = {}
 
-        if input_device != None:
+        if input_device is not None:
             kwargs['input_device'] = input_device
             kwargs['input_channels'] = input_channels
             kwargs['input_format'] = input_format
 
-        if output_device != None:
+        if output_device is not None:
             kwargs['output_device'] = output_device
             kwargs['output_channels'] = output_channels
             kwargs['output_format'] = output_format
@@ -998,23 +1001,19 @@ class PyAudio:
 
         # If we fail to decode, we return the raw bytes and let the caller
         # deal with the encoding.
-        return {'index' : index,
-                'structVersion' : device_info.structVersion,
-                'name' : device_name,
-                'hostApi' : device_info.hostApi,
-                'maxInputChannels' : device_info.maxInputChannels,
-                'maxOutputChannels' : device_info.maxOutputChannels,
-                'defaultLowInputLatency' :
-                device_info.defaultLowInputLatency,
-                'defaultLowOutputLatency' :
-                device_info.defaultLowOutputLatency,
-                'defaultHighInputLatency' :
-                device_info.defaultHighInputLatency,
-                'defaultHighOutputLatency' :
-                device_info.defaultHighOutputLatency,
-                'defaultSampleRate' :
-                device_info.defaultSampleRate
-                }
+        return {
+            'index': index,
+            'structVersion': device_info.structVersion,
+            'name': device_name,
+            'hostApi': device_info.hostApi,
+            'maxInputChannels': device_info.maxInputChannels,
+            'maxOutputChannels': device_info.maxOutputChannels,
+            'defaultLowInputLatency': device_info.defaultLowInputLatency,
+            'defaultLowOutputLatency': device_info.defaultLowOutputLatency,
+            'defaultHighInputLatency': device_info.defaultHighInputLatency,
+            'defaultHighOutputLatency': device_info.defaultHighOutputLatency,
+            'defaultSampleRate': device_info.defaultSampleRate
+        }
 
 
 ######################################################################
@@ -1082,12 +1081,14 @@ else:
                 See PortAudio documentation for usage.
             """
 
-            kwargs = {"flags" : flags,
-                      "channel_map" : channel_map}
+            kwargs = {
+                "flags": flags,
+                "channel_map": channel_map
+            }
 
-            if flags == None:
+            if flags is None:
                 del kwargs["flags"]
-            if channel_map == None:
+            if channel_map is None:
                 del kwargs["channel_map"]
 
             self._paMacCoreStreamInfo = paMacCoreStreamInfo(**kwargs)

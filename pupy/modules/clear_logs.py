@@ -10,7 +10,7 @@ __class_name__="ClearLogs"
 class ClearLogs(PupyModule):
     """ clear event logs """
 
-    dependencies = [ "pupyutils.safepopen" ]
+    dependencies = ["pupyutils.safepopen"]
     pipe = None
     terminate = threading.Event()
 
@@ -50,7 +50,7 @@ class ClearLogs(PupyModule):
                 close_event.set()
 
             self.pipe.execute(on_close, on_read)
-            while not ( self.terminate.is_set() or close_event.is_set() ):
+            while not (self.terminate.is_set() or close_event.is_set()):
                 close_event.wait()
 
             if self.pipe.returncode == 0:

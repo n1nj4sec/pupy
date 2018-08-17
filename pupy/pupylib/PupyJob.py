@@ -138,7 +138,9 @@ class PupyJob(object):
 
     @property
     def clients(self):
-        return [ x.client for x in self.pupymodules ]
+        return [
+            x.client for x in self.pupymodules
+        ]
 
     def add_module(self, mod):
         self.pupymodules.append(mod)

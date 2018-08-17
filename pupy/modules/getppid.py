@@ -10,7 +10,7 @@ class PsModule(PupyModule):
     is_module=False
 
     dependencies = {
-        'windows': [ 'pupwinutils.processes' ]
+        'windows': ['pupwinutils.processes']
     }
 
     @classmethod

@@ -78,7 +78,7 @@ class Request(object):
     def result(self, value):
         if value:
             if self._continious:
-                if not self._rid in self._storage:
+                if self._rid not in self._storage:
                     self._storage[self._rid] = value
                 else:
                     self._storage[self._rid] += value
@@ -151,7 +151,7 @@ class Powershell(threading.Thread):
 
         preamble_complete = self._random()
 
-        request =  '\n'.join([
+        request = '\n'.join([
             '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
             '$OutputEncoding = [Console]::OutputEncoding',
             'Write-Host {}'.format(preamble_complete)
@@ -167,7 +167,7 @@ class Powershell(threading.Thread):
             self.stop()
             raise PowershellV2NotInstalled()
 
-        elif not data or not preamble_complete in data:
+        elif not data or preamble_complete not in data:
             print "First line: ", repr(data)
             print '.NET Framework is not installed' in data
             self.stop()
@@ -394,7 +394,7 @@ class PowerHost(object):
             )
 
     def load(self, name, content):
-        if not name in self._powershells:
+        if name not in self._powershells:
             raise PowershellUninitialized()
 
         self._powershells[name].load(content)
@@ -406,14 +406,14 @@ class PowerHost(object):
             return self._powershells.keys()
 
     def unregister(self, name):
-        if not name in self._powershells:
+        if name not in self._powershells:
             raise ValueError('{} is not registered'.format(name))
 
         self._powershells[name].stop
         del self._powershells[name]
 
     def function(self, name, expression):
-        if not name in self._powershells:
+        if name not in self._powershells:
             raise ValueError('{} is not registered'.format(name))
 
         return lambda: self._powershells[name].execute(
@@ -421,7 +421,7 @@ class PowerHost(object):
         )
 
     def call(self, name, expression, async=False, timeout=None):
-        if not name in self._powershells:
+        if name not in self._powershells:
             raise ValueError('{} is not registered'.format(name))
 
         return self._powershells[name].execute(expression, async, timeout)
@@ -508,7 +508,7 @@ def result(name, rid):
         PowershellContextUnregistered()
 
     results = powershell.results
-    if not name in results or not rid in results[name]:
+    if name not in results or rid not in results[name]:
         return None
 
     result = results[name][rid]

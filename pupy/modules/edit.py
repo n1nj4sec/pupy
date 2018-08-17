@@ -15,7 +15,7 @@ __class_name__='Edit'
 class Edit(PupyModule):
     ''' Edit remote file locally (download->edit->upload) '''
 
-    dependencies = [ 'pupyutils.basic_cmds' ]
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):

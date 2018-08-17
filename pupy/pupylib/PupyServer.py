@@ -110,7 +110,7 @@ class Listener(Thread):
             )
 
         if args:
-            args = [ x.strip() for x in args.split(' ', 1) if x ]
+            args = [x.strip() for x in args.split(' ', 1) if x]
         else:
             args = []
 
@@ -149,7 +149,7 @@ class Listener(Thread):
         if self.pproxy:
             self.external = self.pproxy.external
 
-        elif not self.external or self.external in ('?', 'igd') :
+        elif not self.external or self.external in ('?', 'igd'):
             # If IGD enabled then we likely want to have mappings
             # Why to have mappings if our external IP remains empty?
             if self.igd and self.igd.available:
@@ -160,7 +160,7 @@ class Listener(Thread):
                 )
 
                 self.external = str(IPAddress(extip))
-            elif self.address and not self.address in ('0.0.0.0', '::'):
+            elif self.address and self.address not in ('0.0.0.0', '::'):
                 self.external = self.address
             else:
                 extip, self.local = get_listener_ip_with_local(
@@ -174,7 +174,7 @@ class Listener(Thread):
                     self.external = '127.0.0.1'
 
         if '=' in port:
-            port = [ x.strip() for x in port.split('=', 1) ]
+            port = [x.strip() for x in port.split('=', 1)]
             try:
                 self.external_port = int(port[0])
             except:
@@ -270,7 +270,7 @@ class Listener(Thread):
             external_port=external_port
         )
 
-        if not ( self.pproxy and method ):
+        if not (self.pproxy and method):
             return
 
         ## Workaround..
@@ -489,7 +489,7 @@ class PupyServer(object):
 
         with self.clients_lock:
             if isinstance(dst_id, int):
-                dst_client = [ x for x in self.clients if x.desc['id'] == dst_id ]
+                dst_client = [x for x in self.clients if x.desc['id'] == dst_id]
                 if not dst_client:
                     raise ValueError('Client with id {} not found'.format(dst_id))
                 dst_client = dst_client[0]
@@ -497,7 +497,7 @@ class PupyServer(object):
                 dst_client = dst_id
 
             if isinstance(src_id, int):
-                src_client = [ x for x in self.clients if x.desc['id'] == src_id ]
+                src_client = [x for x in self.clients if x.desc['id'] == src_id]
                 if not src_client:
                     raise ValueError('Client with id {} not found'.format(src_id))
                 src_client = src_client[0]
@@ -577,10 +577,10 @@ class PupyServer(object):
                 client_info = obtain(client_info)
             except:
                 client_info = {
-                    "launcher" : str(conn.get_infos("launcher")),
-                    "launcher_args" : [ x for x in conn.get_infos("launcher_args") ],
-                    "transport" : str(conn.get_infos("transport")),
-                    "daemonize" : bool(conn.get_infos("daemonize")),
+                    "launcher": str(conn.get_infos("launcher")),
+                    "launcher_args": [x for x in conn.get_infos("launcher_args")],
+                    "transport": str(conn.get_infos("transport")),
+                    "daemonize": bool(conn.get_infos("daemonize")),
                     "native": bool(conn.get_infos("native")),
                     "sid": conn.get_infos("sid") or '',
                 }
@@ -597,8 +597,8 @@ class PupyServer(object):
 
             client_info.update({
                 "id": client_id,
-                "conn" : conn,
-                "address" : address
+                "conn": conn,
+                "address": address
             })
 
             client_info.update(uuid)
@@ -614,7 +614,7 @@ class PupyServer(object):
 
                 addr = obtain(conn.modules.pupy.get_connect_back_host())
                 remote = ' ({}{}:{})'.format(
-                    '{} <- '.format(addr) if not '0.0.0.0' in addr else '',
+                    '{} <- '.format(addr) if '0.0.0.0' not in addr else '',
                     client_ip, client_port)
 
                 user = client_info.get('user','?')
@@ -636,7 +636,7 @@ class PupyServer(object):
         event(ON_DISCONNECT, None, self, self.handler, self.config)
 
         with self.clients_lock:
-            client = [ x for x in self.clients if ( x.conn is conn or x is conn ) ]
+            client = [x for x in self.clients if (x.conn is conn or x is conn)]
             if not client:
                 logger.debug('No clients matches request: {}'.format(conn))
                 return
@@ -815,10 +815,10 @@ class PupyServer(object):
     def get_module(self, name):
         enable_dangerous_modules = self.config.getboolean('pupyd', 'enable_dangerous_modules')
 
-        if not name in self.modules:
+        if name not in self.modules:
             self._refresh_modules(force=True)
 
-        if not name in self.modules:
+        if name not in self.modules:
             raise PupyModuleNotFound('No such module')
 
         module = self.modules[name]
@@ -871,7 +871,7 @@ class PupyServer(object):
         return self.jobs[job_id]
 
     def create_virtual_connection(self, transport, peer):
-        if not transport in transports:
+        if transport not in transports:
             logger.error('Unknown transport: {}'.format())
             return
 
@@ -1012,7 +1012,7 @@ class PupyServer(object):
                 self.handler.display_success(message)
 
     def remove_listener(self, name):
-        if not name in self.listeners:
+        if name not in self.listeners:
             self.handler.display_warning('{} - is not running'.format(name))
             return
 

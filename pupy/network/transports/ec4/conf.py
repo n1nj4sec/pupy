@@ -11,7 +11,7 @@ class TransportConf(Transport):
     stream = PupySocketStream
     client_transport = EC4TransportClient
     server_transport = EC4TransportServer
-    credentials = [ 'ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY' ]
+    credentials = ['ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)

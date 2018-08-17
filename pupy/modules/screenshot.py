@@ -57,7 +57,7 @@ class Screenshoter(PupyModule):
         screens = self.client.remote('screenshot', 'screens')
         screenshot = self.client.remote('screenshot', 'screenshot')
 
-        if self.client.is_android()==True:
+        if self.client.is_android():
             self.error("Android target, not implemented yet...")
 
         else:

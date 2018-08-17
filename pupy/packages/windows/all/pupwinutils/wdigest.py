@@ -36,12 +36,12 @@ def wdigest(action):
     if action == 'check':
         return queryValue(key_path, key_name)
     elif action == 'enable':
-        ok, message =  modifyKey(key_path, key_name, 1)
+        ok, message = modifyKey(key_path, key_name, 1)
         if ok:
             message = 'UseLogonCredential key created, logoff the user session to dump plaintext credentials'
         return ok, message
     elif action == 'disable':
-        ok, message =  modifyKey(key_path, key_name, 0)
+        ok, message = modifyKey(key_path, key_name, 0)
         if ok:
             message = 'UseLogonCredential key deleted'
         return ok, message

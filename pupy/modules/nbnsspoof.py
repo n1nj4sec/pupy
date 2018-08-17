@@ -17,7 +17,8 @@ __class_name__="NbnsSpoofModule"
 class NbnsSpoofModule(PupyModule):
     """ sniff for NBNS requests and spoof NBNS responses """
 
-    dependencies=[ 'nbnsspoof' ]
+    dependencies=['nbnsspoof']
+
     qa = QA_DANGEROUS
     io = REQUIRE_STREAM
 

@@ -207,7 +207,7 @@ def getInfoBuild():
         return {
             'deviceName':None,
             'manufacturer':None,
-            'model':None ,
+            'model':None,
             'product': None,
             'bootloaderVersion':None,
             'hardware':None,

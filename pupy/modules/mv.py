@@ -10,7 +10,7 @@ class mv(PupyModule):
     """ move file or directory """
     is_module = False
 
-    dependencies = [ 'pupyutils.basic_cmds' ]
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):

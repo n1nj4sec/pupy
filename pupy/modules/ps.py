@@ -29,7 +29,7 @@ def gen_colinfo(data):
                 data[pid][column]=data[pid][column].encode('utf8', 'replace')
 
             pid_len = len(str(data[pid][column]))
-            if not column in colinfo:
+            if column not in colinfo:
                 colinfo[column] = pid_len
             else:
                 if colinfo[column] < pid_len:
@@ -109,12 +109,12 @@ def gen_output_line(columns, info, record, wide=False):
     return output
 
 def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=False):
-    keys = ('id', 'key', 'PROPERTY', 'VAR', 'TYPE' )
+    keys = ('id', 'key', 'PROPERTY', 'VAR', 'TYPE')
 
     def sorter(x, y):
         return -1 if (
             x in keys and y not in keys
-        ) else ( 1 if (y in keys and not x in keys) else cmp(x, y))
+        ) else (1 if (y in keys and x not in keys) else cmp(x, y))
 
     parts = []
 
@@ -183,7 +183,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
             fout(MultiPart(parts))
 
         else:
-            outcols = [ 'pid' ] + [
+            outcols = ['pid'] + [
                 x for x in (
                     'cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline'
                 ) if x in colinfo
@@ -216,14 +216,14 @@ def is_filtered(pid, columns, hide, show):
         if type(hide_rule) == int:
             if hide_rule == pid:
                 deny = True
-        elif any(hide_rule.match(x) for x in [ exe, name, cmd, username ]):
+        elif any(hide_rule.match(x) for x in [exe, name, cmd, username]):
                 deny = True
 
     for show_rule in show:
         if type(show_rule) == int:
             if show_rule == pid:
                 deny = False
-        elif any(show_rule.match(x) for x in [ exe, name, cmd, username ]):
+        elif any(show_rule.match(x) for x in [exe, name, cmd, username]):
                 deny = False
 
     return deny
@@ -242,10 +242,10 @@ def print_pstree(fout, parent, tree, data,
 
         columns['prefix'] = prefix
 
-        before_tree = [ x for x in info if x in ('cpu_percent', 'memory_percent', 'username') ]
-        after_tree = [ x for x in info if x in ('exe', 'name', 'cmdline') ]
+        before_tree = [x for x in info if x in ('cpu_percent', 'memory_percent', 'username')]
+        after_tree = [x for x in info if x in ('exe', 'name', 'cmdline')]
 
-        outcols = [ 'pid' ] + before_tree + [ 'prefix' ] + after_tree
+        outcols = ['pid'] + before_tree + ['prefix'] + after_tree
 
         output = gen_output_line(columns, outcols, data[parent], wide)
 
@@ -275,7 +275,7 @@ def print_pstree(fout, parent, tree, data,
 def print_ps(fout, data, colinfo={},
                  info=['exe', 'cmdline'], hide=[], show=[], wide=False):
 
-    outcols = [ 'pid' ] + [
+    outcols = ['pid'] + [
         x for x in info if x in ('cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline')
     ]
 
@@ -293,7 +293,7 @@ def print_ps(fout, data, colinfo={},
 class PsModule(PupyModule):
     """ list processes """
 
-    dependencies = [ 'pupyps' ]
+    dependencies = ['pupyps']
     is_module=False
 
     @classmethod
@@ -358,10 +358,10 @@ class PsModule(PupyModule):
                 hide.append(2)
 
             if args.info:
-                info = [ 'username', 'cpu_percent', 'memory_percent' ] + info
+                info = ['username', 'cpu_percent', 'memory_percent'] + info
 
             if args.tree:
-                show = args.show_pid or [ root ]
+                show = args.show_pid or [root]
 
                 for item in show:
                     print_pstree(
@@ -374,7 +374,7 @@ class PsModule(PupyModule):
                     print_psinfo(
                         self.log, families, socktypes, data, colinfo,
                         sections=args.info_sections or (
-                            [ 'general' ] if args.info else args.info_sections
+                            ['general'] if args.info else args.info_sections
                         ),
                         wide=args.wide
                     )

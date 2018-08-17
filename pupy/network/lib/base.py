@@ -11,7 +11,7 @@ class TransportSetupFailed(Exception):
 class Circuit(object):
     """ alias for obfsproxy style syntax"""
 
-    __slots__ = ( 'downstream', 'upstream', 'stream', 'transport' )
+    __slots__ = ('downstream', 'upstream', 'stream', 'transport')
 
     def __init__(self, stream, transport, downstream=None, upstream=None):
         if stream is None:
@@ -142,7 +142,7 @@ logger = getLogger('chain')
 
 class TransportWrapper(BasePupyTransport):
 
-    __slots__ = ( 'cls_chain', 'chain' )
+    __slots__ = ('cls_chain', 'chain')
 
     cls_chain=[]
 

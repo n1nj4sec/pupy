@@ -11,7 +11,9 @@ class MountInfo(object):
         self.src = src
         self.dst = dst
         self.fsname = fsname
-        self._options = [ option.split('=') for option in options.split(',') ]
+        self._options = [
+            option.split('=') for option in options.split(',')
+        ]
 
         try:
             vfsstat = os.statvfs(self.dst)
@@ -102,8 +104,8 @@ def mounts():
         with open('/proc/self/mounts', 'r') as mounts:
             for line in mounts:
                 info = MountInfo(line)
-                if not info.fstype in mountinfo:
-                    mountinfo[info.fstype] = [ info.as_dict() ]
+                if info.fstype not in mountinfo:
+                    mountinfo[info.fstype] = [info.as_dict()]
                 else:
                     mountinfo[info.fstype].append(info.as_dict())
     except:
@@ -119,8 +121,8 @@ def mounts():
                     part.fstype.replace(' ', r'\040'),
                     part.opts.replace(' ', r'\040'),
                 ))
-                if not info.fstype in mountinfo:
-                    mountinfo[info.fstype] = [ info.as_dict() ]
+                if info.fstype not in mountinfo:
+                    mountinfo[info.fstype] = [info.as_dict()]
                 else:
                     mountinfo[info.fstype].append(info.as_dict())
         except:

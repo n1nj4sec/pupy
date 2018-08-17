@@ -52,7 +52,7 @@ Examples:
 '''
 
         cls.arg_parser = PupyArgumentParser(prog="changeme", description=header + cls.__doc__, epilog=example)
-        cls.arg_parser.add_argument('--protocol', choices=['ftp', 'http' , 'mssql', 'ssh', 'telnet'], help='Protocol of default creds to scan for', default=None)
+        cls.arg_parser.add_argument('--protocol', choices=['ftp', 'http', 'mssql', 'ssh', 'telnet'], help='Protocol of default creds to scan for', default=None)
         cls.arg_parser.add_argument('--category', '-c', choices=['webcam', 'web', 'phone', 'printer'], help='Category of default creds to scan for', default=None)
         cls.arg_parser.add_argument('--name', '-n', type=str, help='Narrow testing to the supplied credential name', default=None)
 
@@ -159,8 +159,8 @@ Examples:
                 username, password = x.strip('\n').split('/', 1)
                 custom_creds.append(
                     {
-                        'username' : username,
-                        'password' : password
+                        'username': username,
+                        'password': password
                     }
                 )
         return custom_creds

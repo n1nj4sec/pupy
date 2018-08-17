@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'DummyPupyTransport' ]
+__all__ = ['DummyPupyTransport']
 
 from ..base import BasePupyTransport
 

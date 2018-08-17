@@ -137,7 +137,7 @@ class SniffSession(Thread):
 
         known_ifaces = net_if_addrs()
 
-        if not iface in known_ifaces:
+        if iface not in known_ifaces:
             raise ValueError('Unknown interface {} / known: {}'.format(
                 nice_name.encode('utf-8'),
                 ', '.join(

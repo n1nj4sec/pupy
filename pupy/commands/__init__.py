@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-__all__ = ( 'InvalidCommand', 'Commands' )
+__all__ = ('InvalidCommand', 'Commands')
 
 import os
 import imp
@@ -13,7 +13,7 @@ class InvalidCommand(Exception):
 
 class CommandsNamespace(object):
 
-    __slots__ = ( 'module', 'args' )
+    __slots__ = ('module', 'args')
 
     def __init__(self, module, args):
         self.module = module
@@ -46,7 +46,7 @@ class Commands(object):
 
         for command, source in files.iteritems():
             current_stat = os.stat(source)
-            if not command in self._commands or self._commands_stats[command] != current_stat.st_mtime:
+            if command not in self._commands or self._commands_stats[command] != current_stat.st_mtime:
                 try:
                     self._commands[command] = imp.load_source(command, source)
                     self._commands_stats[command] = current_stat.st_mtime
@@ -76,7 +76,7 @@ class Commands(object):
         if argv0 not in self._commands and refresh:
             self._refresh()
 
-        if not argv0 in self._commands:
+        if argv0 not in self._commands:
             found = False
             for module in modules:
                 if argv0 == module.get_name():
@@ -91,13 +91,13 @@ class Commands(object):
         return self._commands[argv0], args
 
     def has(self, command):
-        if not command in self._commands:
+        if command not in self._commands:
             self._refresh()
 
         return command in self._commands
 
     def get(self, command):
-        if not command in self._commands:
+        if command not in self._commands:
             self._refresh()
 
         return self._commands.get(command)

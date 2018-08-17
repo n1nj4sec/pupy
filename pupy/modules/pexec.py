@@ -29,7 +29,7 @@ class PExec(PupyModule):
     updl = re.compile('\^([^\^]+)\^([<>])([^\^]+)\^')
     # daemon = True
 
-    dependencies = [ "pupyutils.safepopen" ]
+    dependencies = ["pupyutils.safepopen"]
     io = REQUIRE_STREAM
 
     @classmethod
@@ -80,7 +80,7 @@ class PExec(PupyModule):
             for local, direction, remote in self.updl.findall(arg):
                 if local == '$SELF$':
                     platform = self.client.platform
-                    if not platform in ('windows', 'linux'):
+                    if platform not in ('windows', 'linux'):
                         self.error('Couldn\'t use $SELF$ on platform {}'.format(platform))
                     xlocal = '$SELF$'
                 else:

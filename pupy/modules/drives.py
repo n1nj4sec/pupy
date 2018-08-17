@@ -12,8 +12,8 @@ class Drives(PupyModule):
     """ List valid drives in the system """
 
     dependencies={
-        'all': [ 'psutil' ],
-        'posix': [ 'mount' ],
+        'all': ['psutil'],
+        'posix': ['mount'],
         'windows': [
             'win32api', 'win32com', 'pythoncom',
             'winerror', 'wmi', 'pupwinutils.drives'
@@ -30,7 +30,7 @@ class Drives(PupyModule):
     def run(self, args):
         ok = False
         if self.client.is_posix():
-            tier1 = ( 'network', 'fuse', 'dm', 'block', 'vm' )
+            tier1 = ('network', 'fuse', 'dm', 'block', 'vm')
 
             mounts = self.client.remote('mount', 'mounts')
             getuid = self.client.remote('os', 'getuid')
@@ -110,7 +110,7 @@ class Drives(PupyModule):
 
                 for info in mountinfo[fstype]:
                     fmt = '{{:<{}}} {{:<{}}} {{:>{}}} {{}}'.format(
-                        dst_max, fsname_max, ( free_max + 3 + 4 ) if free_max else 0
+                        dst_max, fsname_max, (free_max + 3 + 4) if free_max else 0
                     )
 
                     output.append(
@@ -130,7 +130,7 @@ class Drives(PupyModule):
                 output.append('')
 
             for fstype in tier1:
-                if not fstype in mountinfo:
+                if fstype not in mountinfo:
                     continue
 
                 src_max = max([len(x['src']) for x in mountinfo[fstype]])
@@ -141,7 +141,7 @@ class Drives(PupyModule):
                 output.append('{}:'.format(colorize(fstype, 'green')))
                 for info in mountinfo[fstype]:
                     fmt = '{{:<{}}} {{:<{}}} {{:<{}}} {{:>{}}} {{}}'.format(
-                        dst_max, src_max, fsname_max, ( free_max + 3 + 4 ) if free_max else 0
+                        dst_max, src_max, fsname_max, (free_max + 3 + 4) if free_max else 0
                     )
 
                     output.append(
@@ -190,7 +190,7 @@ class Drives(PupyModule):
                             drive['percent'],
                             size_human_readable(drive['used']),
                             size_human_readable(drive['total']))
-                    ) if ( 'used' in drive and 'total' in drive ) else '?'
+                    ) if ('used' in drive and 'total' in drive) else '?'
                 })
 
             self.log(Table(formatted_drives, ['DEV', 'MP', 'FS', 'OPTS', 'USED']))

@@ -8,7 +8,7 @@ __class_name__="GetDomain"
 class GetDomain(PupyModule):
     """ Get primary domain controller """
 
-    dependencies = [ 'pupwinutils.getdomain' ]
+    dependencies = ['pupwinutils.getdomain']
 
     @classmethod
     def init_argparse(cls):

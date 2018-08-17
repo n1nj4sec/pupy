@@ -41,7 +41,7 @@ irc_user_re = r'NICK (.+?)((\r)?\n|\s)'
 irc_pw_re = r'NS IDENTIFY (.+)'
 irc_pw_re2 = 'nickserv :identify (.+)'
 mail_auth_re = '(\d+ )?(auth|authenticate) (login|plain)'
-mail_auth_re1 =  '(\d+ )?login '
+mail_auth_re1 = '(\d+ )?login '
 NTLMSSP2_re = 'NTLMSSP\x00\x02\x00\x00\x00.+'
 NTLMSSP3_re = 'NTLMSSP\x00\x03\x00\x00\x00.+'
 # Prone to false+ but prefer that to false-
@@ -225,12 +225,12 @@ class Netcreds(pupy.Task):
 
                 # Mail
                 mail_creds = self.mail_logins(full_load, src_ip_port, dst_ip_port, ack, seq)
-                if mail_creds != None:
+                if mail_creds is not None:
                     self.printer(src_ip_port, dst_ip_port, mail_creds)
 
                 # IRC
                 irc_creds = self.irc_logins(full_load, pkt)
-                if irc_creds != None:
+                if irc_creds is not None:
                     self.printer(src_ip_port, dst_ip_port, irc_creds)
                     return
 
@@ -443,7 +443,7 @@ class Netcreds(pupy.Task):
         except UnicodeDecodeError:
             decoded = None
 
-        if decoded != None:
+        if decoded is not None:
             msg = 'Decoded: %s' % decoded
             self.printer(src_ip_port, dst_ip_port, msg)
 
@@ -529,10 +529,10 @@ class Netcreds(pupy.Task):
         # This handles most POP/IMAP/SMTP logins but there's at least one edge case
         else:
             mail_auth_search = re.match(mail_auth_re, full_load, re.IGNORECASE)
-            if mail_auth_search != None:
+            if mail_auth_search is not None:
                 auth_msg = full_load
                 # IMAP uses the number at the beginning
-                if mail_auth_search.group(1) != None:
+                if mail_auth_search.group(1) is not None:
                     auth_msg = auth_msg.split()[1:]
                 else:
                     auth_msg = auth_msg.split()
@@ -560,7 +560,7 @@ class Netcreds(pupy.Task):
             #     1 login "username" "password"
             # This also catches FTP authentication!
             #     230 Login successful.
-            elif re.match(mail_auth_re1, full_load, re.IGNORECASE) != None:
+            elif re.match(mail_auth_re1, full_load, re.IGNORECASE) is not None:
 
                 # FTP authentication failures trigger this
                 #if full_load.lower().startswith('530 login'):
@@ -575,7 +575,7 @@ class Netcreds(pupy.Task):
                     self.mail_decode(src_ip_port, dst_ip_port, mail_creds)
                     found = True
 
-        if found == True:
+        if found is True:
             return True
 
     def irc_logins(self, full_load, pkt):
@@ -610,11 +610,11 @@ class Netcreds(pupy.Task):
         else:
             host = ''
 
-        if http_line != None:
+        if http_line is not None:
             method, path = self.parse_http_line(http_line, http_methods)
             http_url_req = self.get_http_url(method, host, path, headers)
-            if http_url_req != None:
-                if verbose == False:
+            if http_url_req is not None:
+                if verbose is False:
                     if len(http_url_req) > 98:
                         http_url_req = http_url_req[:99] + '...'
                 self.printer(src_ip_port, None, http_url_req)
@@ -627,7 +627,7 @@ class Netcreds(pupy.Task):
         # Print user/pwds
         if body != '':
             user_passwd = self.get_login_pass(body)
-            if user_passwd != None:
+            if user_passwd is not None:
                 try:
                     http_user = user_passwd[0].decode('utf8')
                     http_pass = user_passwd[1].decode('utf8')
@@ -645,7 +645,7 @@ class Netcreds(pupy.Task):
         # ocsp is a common SSL post load that's never interesting
         if method == 'POST' and 'ocsp.' not in host:
             try:
-                if verbose == False and len(body) > 99:
+                if verbose is False and len(body) > 99:
                     # If it can't decode to utf8 we're probably not interested in it
                     msg = 'POST load: %s...' % body[:99].encode('utf8')
                 else:
@@ -667,7 +667,7 @@ class Netcreds(pupy.Task):
             self.parse_ntlm_chal(NTLMSSP2.group(), ack)
         if NTLMSSP3:
             ntlm_resp_found = self.parse_ntlm_resp(NTLMSSP3.group(), seq)
-            if ntlm_resp_found != None:
+            if ntlm_resp_found is not None:
                 self.printer(src_ip_port, dst_ip_port, ntlm_resp_found)
 
         # Look for authentication headers
@@ -683,7 +683,7 @@ class Netcreds(pupy.Task):
         if authorization_header or authenticate_header:
             # NETNTLM
             netntlm_found = self.parse_netntlm(authenticate_header, authorization_header, headers, ack, seq)
-            if netntlm_found != None:
+            if netntlm_found is not None:
                 self.printer(src_ip_port, dst_ip_port, netntlm_found)
 
             # Basic Auth
@@ -697,12 +697,12 @@ class Netcreds(pupy.Task):
         false_pos = ['i.stack.imgur.com']
 
         searched = None
-        if http_url_req != None:
+        if http_url_req is not None:
             searched = re.search(http_search_re, http_url_req, re.IGNORECASE)
-            if searched == None:
+            if searched is None:
                 searched = re.search(http_search_re, body, re.IGNORECASE)
 
-        if searched != None and host not in false_pos:
+        if searched is not None and host not in false_pos:
             searched = searched.group(3)
             # Eliminate some false+
             try:
@@ -730,7 +730,7 @@ class Netcreds(pupy.Task):
             except KeyError:
                 return
             b64_auth_re = re.match('basic (.+)', header_val, re.IGNORECASE)
-            if b64_auth_re != None:
+            if b64_auth_re is not None:
                 basic_auth_b64 = b64_auth_re.group(1)
                 basic_auth_creds = base64.decodestring(basic_auth_b64)
                 msg = 'Basic Authentication: %s' % basic_auth_creds
@@ -741,15 +741,15 @@ class Netcreds(pupy.Task):
         Parse NTLM hashes out
         '''
         # Type 2 challenge from server
-        if authenticate_header != None:
+        if authenticate_header is not None:
             chal_header = authenticate_header.group()
             self.parse_netntlm_chal(headers, chal_header, ack)
 
         # Type 3 response from client
-        elif authorization_header != None:
+        elif authorization_header is not None:
             resp_header = authorization_header.group()
             msg = self.parse_netntlm_resp_msg(headers, resp_header, seq)
-            if msg != None:
+            if msg is not None:
                 return msg
 
     def parse_snmp(self, src_ip_port, dst_ip_port, snmp_layer):
@@ -766,7 +766,7 @@ class Netcreds(pupy.Task):
         '''
         Get the HTTP method + URL from requests
         '''
-        if method != None and path != None:
+        if method is not None and path is not None:
 
             # Make sure the path doesn't repeat the host header
             if host != '' and not re.match('(http(s)?://)?'+host, path):
@@ -972,7 +972,7 @@ class Netcreds(pupy.Task):
             return (user, passwd)
 
     def printer(self, src_ip_port, dst_ip_port, msg):
-        if dst_ip_port != None:
+        if dst_ip_port is not None:
             print_str = '[%s > %s] %s%s%s' % (src_ip_port, dst_ip_port, T, msg, W)
 
             # All credentials will have dst_ip_port, URLs will not

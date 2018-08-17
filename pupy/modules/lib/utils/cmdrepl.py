@@ -77,8 +77,8 @@ class CmdRepl(Cmd):
 
     def set_prompt(self, prompt='# '):
         methods = {
-            'cmd.exe': [ 'set PROMPT={}'.format(prompt) ],
-            'sh': [ 'export PS1="{}"'.format(prompt) ]
+            'cmd.exe': ['set PROMPT={}'.format(prompt)],
+            'sh': ['export PS1="{}"'.format(prompt)]
         }
 
         method = methods.get(self._interpreter, None)

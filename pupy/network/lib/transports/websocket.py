@@ -14,7 +14,11 @@ __all__ = (
     'PupyWebSocketClient', 'PupyWebSocketServer'
 )
 
-import time, base64, struct, random, string
+import time
+import base64
+import struct
+import random
+import string
 import re
 from hashlib import sha1
 
@@ -90,7 +94,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
 
     def on_connect(self):
-        payload =  "%s %s HTTP/1.1\r\n" % (self.method, self.path)
+        payload = "%s %s HTTP/1.1\r\n" % (self.method, self.path)
         payload += "Host: %s\r\n" % (self.host)
         payload += "User-Agent: %s\r\n" % (self.user_agent)
         payload += "Upgrade: websocket\r\n"
@@ -211,8 +215,10 @@ class PupyWebSocketServer(PupyWebSocketTransport):
     decoded_len=0
     mask=""
 
-    __slots__ = ( 'verify_user_agent', 'missing_bytes',
-                      'mask', 'decoded_len' )
+    __slots__ = (
+        'verify_user_agent', 'missing_bytes',
+        'mask', 'decoded_len'
+    )
 
     def __init__(self, *args, **kwargs):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
@@ -284,7 +290,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                     self.bad_request('Bad User-Agent provided. May be counter-intel')
                     return
 
-            payload =  "HTTP/1.1 101 Switching Protocols\r\n"
+            payload = "HTTP/1.1 101 Switching Protocols\r\n"
             payload += "Upgrade: websocket\r\n"
             payload += "Connection: Upgrade\r\n"
             payload += "Sec-WebSocket-Accept: %s\r\n" % (self.calculate_response_key(key))

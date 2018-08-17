@@ -12,7 +12,7 @@ __class_name__="CloudInfo"
 class CloudInfo(PupyModule):
     """ Retrieve EC2/DigitalOcean metadata """
 
-    dependencies = [ 'cloudinfo' ]
+    dependencies = ['cloudinfo']
 
     @classmethod
     def init_argparse(cls):

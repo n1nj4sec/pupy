@@ -122,7 +122,7 @@ class DnsCommandsClient(Thread):
         Thread.__init__(self)
 
     def next(self):
-        self.domain_id = ( self.domain_id + 1 ) % len(self.domains)
+        self.domain_id = (self.domain_id + 1) % len(self.domains)
         self.domain = self.domains[self.domain_id]
         self.failed = 0
 
@@ -185,7 +185,7 @@ class DnsCommandsClient(Thread):
         resp = len(addresses)*[None]
         for address in addresses:
             raw = 0
-            for part in [ int(x) << (3-i)*8 for i,x in enumerate(address.split('.')) ]:
+            for part in [int(x) << (3-i)*8 for i,x in enumerate(address.split('.'))]:
                 raw |= part
 
             idx = (raw & 0x3E000000) >> 25
@@ -416,7 +416,7 @@ class DnsCommandsClient(Thread):
         if need_ack:
             logging.debug('NEED TO ACK: {}'.format(need_ack))
             ack_response = self._request(Ack(need_ack))
-            if not ( len(ack_response) == 1 and isinstance(ack_response[0], Ack)):
+            if not (len(ack_response) == 1 and isinstance(ack_response[0], Ack)):
                 logging.error('ACK <-> ACK failed: received: {}'.format(ack_response))
 
         for command in commands:

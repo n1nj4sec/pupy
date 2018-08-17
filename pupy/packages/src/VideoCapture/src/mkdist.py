@@ -20,7 +20,8 @@ os.system(scite + ' -open:%s -exportashtml:%s -quit:' % (src, dest))
 
 print '- fixhtmlfile'
 
-import time, fixhtml
+import time
+import fixhtml
 
 time.sleep(1) # allow SciTE to finish writing
 fixhtml.fixhtmlfile(dest)

@@ -10,7 +10,7 @@ from pupylib.utils.rpyc_utils import obtain
 class Tasks(PupyModule):
     ''' Get info about registered background tasks '''
 
-    dependencies = [ 'tasks' ]
+    dependencies = ['tasks']
 
     @classmethod
     def init_argparse(cls):

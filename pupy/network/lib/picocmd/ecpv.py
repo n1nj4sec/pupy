@@ -172,7 +172,7 @@ class ECPV(object):
                 y = result[0]
             elif len(result) == 2:
                 y1, y2 = result
-                y = y1 if ( y1 & 1 == y ) else y2
+                y = y1 if (y1 & 1 == y) else y2
             else:
                 return None
 
@@ -228,7 +228,7 @@ class ECPV(object):
         k = 0
         s = 0
         r = ''
-        while not ( t and s ):
+        while not (t and s):
             k = self._gen_random()
             R = self._curve.g * k
             key = self._mgf2(self._ec2osp(R), 16)

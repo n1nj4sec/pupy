@@ -33,6 +33,6 @@ class Creds(PupyModule):
                 credentials.flush()
                 self.success("Database removed")
             else:
-                 self.warning("Nothing done")
+                self.warning("Nothing done")
         else:
             credentials.display(search=args.search, isSorted=args.sort)

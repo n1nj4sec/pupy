@@ -9,7 +9,7 @@ class ScriptletGenerator(Scriptlet):
     """ change pupy process's name """
 
     dependencies = {
-        'linux': [ 'pupystealth.change_argv' ]
+        'linux': ['pupystealth.change_argv']
     }
 
     arguments = {

@@ -128,7 +128,7 @@ class RFSManager(object):
         self._conn.register_local_cleanup(self._mounts[lpath].cleanup)
 
     def umount(self, lpath):
-        if not lpath in self._mounts:
+        if lpath not in self._mounts:
             raise ValueError('Unregistered mount point {}'.format(lpath))
 
         for x in psutil.process_iter(['open_files']):
@@ -324,7 +324,7 @@ __class_name__ = 'RemoteFS'
 class RemoteFS(PupyModule):
     ''' Mount remote FS as Fuse FS to mountpoint '''
 
-    dependencies = [ 'pupyutils.basic_cmds' ]
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):

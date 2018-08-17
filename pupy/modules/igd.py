@@ -36,7 +36,7 @@ class IGDCMDClient(object):
             column_sizes = {}
             for value in values:
                 for column, cvalue in value.iteritems():
-                    if not column in columns:
+                    if column not in columns:
                         if column.startswith('New'):
                             columnlen = len(column) - 3
                         else:

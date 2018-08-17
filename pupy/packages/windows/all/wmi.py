@@ -209,11 +209,11 @@ class x_wmi_uninitialised_thread (x_wmi):
   pass
 
 WMI_EXCEPTIONS = {
-  signed_to_unsigned (wbemErrInvalidQuery) : x_wmi_invalid_query,
-  signed_to_unsigned (wbemErrTimedout) : x_wmi_timed_out,
-  0x80070005 : x_access_denied,
-  0x80041003 : x_access_denied,
-  0x800401E4 : x_wmi_uninitialised_thread,
+  signed_to_unsigned (wbemErrInvalidQuery): x_wmi_invalid_query,
+  signed_to_unsigned (wbemErrTimedout): x_wmi_timed_out,
+  0x80070005: x_access_denied,
+  0x80041003: x_access_denied,
+  0x800401E4: x_wmi_uninitialised_thread,
 }
 
 def handle_com_error (err=None):
@@ -677,9 +677,9 @@ class _wmi_object:
   def _cached_associated_classes (self):
     if self._associated_classes is None:
       if isinstance (self, _wmi_class):
-        params = {'bSchemaOnly' : True}
+        params = {'bSchemaOnly': True}
       else:
-        params = {'bClassesOnly' : True}
+        params = {'bClassesOnly': True}
       try:
         associated_classes = dict (
           (assoc.Path_.Class, _wmi_class (self._namespace, assoc)) for
@@ -1012,7 +1012,7 @@ class _wmi_namespace:
     """Perform an arbitrary query against a WMI object, and return
     a list of _wmi_object representations of the results.
     """
-    return [ _wmi_object (obj, instance_of, fields) for obj in self._raw_query(wql) ]
+    return [_wmi_object (obj, instance_of, fields) for obj in self._raw_query(wql)]
 
   def fetch_as_classes (self, wmi_classname, fields=(), **where_clause):
     """Build and execute a wql query to fetch the specified list of fields from
@@ -1173,8 +1173,8 @@ class _wmi_watcher:
   """Helper class for WMI.watch_for below (qv)"""
 
   _event_property_map = {
-    "TargetInstance" : _wmi_object,
-    "PreviousInstance" : _wmi_object
+    "TargetInstance": _wmi_object,
+    "PreviousInstance": _wmi_object
   }
 
   def __init__ (self, wmi_event, is_extrinsic, fields=[]):

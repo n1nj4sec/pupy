@@ -39,8 +39,8 @@ class WebcamSnapModule(PupyModule):
     """ take a webcam snap :) """
 
     dependencies = {
-        'android': [ 'pupydroid.camera' ],
-        'windows': [ 'vidcap' ]
+        'android': ['pupydroid.camera'],
+        'windows': ['vidcap']
     }
 
     @classmethod

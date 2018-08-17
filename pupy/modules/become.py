@@ -8,7 +8,7 @@ __class_name__="Become"
 class Become(PupyModule):
     """ Become user """
 
-    dependencies = [ 'become' ]
+    dependencies = ['become']
 
     @classmethod
     def init_argparse(cls):

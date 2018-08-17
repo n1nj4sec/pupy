@@ -228,7 +228,7 @@ class PupyOffloadManager(object):
         self._ctx.set_alpn_protocols(['pp/1'])
 
         if via:
-            if not '://' in via:
+            if '://' not in via:
                 raise OffloadProxyCommonError('Proxy argument should be in URI form')
             self._via = urlparse.urlparse(via)
         else:
@@ -261,7 +261,7 @@ class PupyOffloadManager(object):
 
     @property
     def external(self):
-       return self._external_ip
+        return self._external_ip
 
     def request(self, conntype, bind='', timeout=0):
         if self._via:

@@ -9,7 +9,7 @@ __class_name__="Zip"
 class Zip(PupyModule):
     """ zip / unzip file or directory """
 
-    dependencies = [ 'pupyutils.zip', 'zipfile' ]
+    dependencies = ['pupyutils.zip', 'zipfile']
 
     @classmethod
     def init_argparse(cls):

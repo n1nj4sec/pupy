@@ -59,15 +59,15 @@ WriteFile.argtypes = [
 
 CloseHandle = ctypes.windll.kernel32.CloseHandle
 CloseHandle.restype = BOOL
-CloseHandle.argtypes = [ HANDLE ]
+CloseHandle.argtypes = [HANDLE]
 
 TerminateProcess = ctypes.windll.kernel32.TerminateProcess
 TerminateProcess.restype = BOOL
-TerminateProcess.argtypes = [ HANDLE, UINT ]
+TerminateProcess.argtypes = [HANDLE, UINT]
 
 GetProcessId = ctypes.windll.kernel32.GetProcessId
 GetProcessId.restype = DWORD
-GetProcessId.argtypes = [ HANDLE ]
+GetProcessId.argtypes = [HANDLE]
 
 PIPE_READMODE_BYTE = 0x0
 PIPE_NOWAIT = 0x1

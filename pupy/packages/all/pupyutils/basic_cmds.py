@@ -107,9 +107,9 @@ def special_to_letter(mode):
         letter += 'T'
     if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
         letter += 'E'
-    if ( mode & ALL_R ) == ALL_R:
+    if (mode & ALL_R) == ALL_R:
         letter += 'R'
-    if ( mode & ALL_W ) == ALL_W:
+    if (mode & ALL_W) == ALL_W:
         letter += 'W'
 
     return letter
@@ -245,7 +245,7 @@ def complete(path, limit=32, dirs=None):
     if path.endswith(('/', '\\')):
         path = path[:-1]
 
-    if path and not cwd in ('/', '\\'):
+    if path and cwd not in ('/', '\\'):
         relpath = os.path.relpath(path, start=cwd)
         if not relpath.startswith('..'):
             path = relpath

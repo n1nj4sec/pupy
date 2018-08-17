@@ -29,8 +29,8 @@ class PersistenceModule(PupyModule):
     """ Enables persistence via registry keys """
 
     dependencies = {
-        'linux'     : [ 'persistence' ],
-        'windows'   : [ 'pupwinutils.persistence', 'pupwinutils.security']
+        'linux': ['persistence'],
+        'windows': ['pupwinutils.persistence', 'pupwinutils.security']
     }
 
     @classmethod

@@ -41,10 +41,10 @@ except ImportError as e:
     from .pyaes import AESModeOfOperationCBC
 
     class NewAESCipher(object):
-        __slots__ = ( 'aes_key', 'iv', 'cipher' )
+        __slots__ = ('aes_key', 'iv', 'cipher')
 
         def __init__(self, aes_key, iv):
-            self.aes_key =  aes_key
+            self.aes_key = aes_key
             self.iv = iv
             self.cipher = AESModeOfOperationCBC(self.aes_key, iv=self.iv)
 

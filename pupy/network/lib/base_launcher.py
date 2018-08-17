@@ -30,7 +30,7 @@ class BaseLauncher(object):
     arg_parser = None
     args = None
 
-    __slots__ = ( 'arg_parser', 'args', 'host', 'transport' )
+    __slots__ = ('arg_parser', 'args', 'host', 'transport')
 
     def __init__(self):
         self.arg_parser = None

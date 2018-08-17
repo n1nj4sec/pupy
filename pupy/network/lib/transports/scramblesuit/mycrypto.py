@@ -20,7 +20,7 @@ import logging
 log = logging
 
 
-class HKDF_SHA256( object ):
+class HKDF_SHA256(object):
 
     """
     Implements HKDF using SHA256: https://tools.ietf.org/html/rfc5869
@@ -29,7 +29,7 @@ class HKDF_SHA256( object ):
     the provided PRK already exhibits strong entropy.
     """
 
-    def __init__( self, prk, info="", length=32 ):
+    def __init__(self, prk, info="", length=32):
         """
         Initialise a HKDF_SHA256 object.
         """
@@ -51,7 +51,7 @@ class HKDF_SHA256( object ):
         self.ctr = 1
         self.T = ""
 
-    def expand( self ):
+    def expand(self):
         """
         Return the expanded output key material.
 
@@ -76,7 +76,7 @@ class HKDF_SHA256( object ):
         return self.T[:self.length]
 
 
-def HMAC_SHA256_128( key, msg ):
+def HMAC_SHA256_128(key, msg):
     """
     Return the HMAC-SHA256-128 of the given `msg' authenticated by `key'.
     """
@@ -89,7 +89,7 @@ def HMAC_SHA256_128( key, msg ):
     return h.digest()[:16]
 
 
-def strongRandom( size ):
+def strongRandom(size):
     """
     Return `size' bytes of strong randomness suitable for cryptographic use.
     """
@@ -106,7 +106,7 @@ class PayloadCrypter:
     initialisation vector and to encrypt and decrypt data.
     """
 
-    def __init__( self ):
+    def __init__(self):
         """
         Initialise a PayloadCrypter object.
         """
@@ -117,7 +117,7 @@ class PayloadCrypter:
         self.crypter = None
         self.counter = None
 
-    def setSessionKey( self, key, iv ):
+    def setSessionKey(self, key, iv):
         """
         Set AES' session key and the initialisation vector for counter mode.
 
@@ -143,7 +143,7 @@ class PayloadCrypter:
         self.crypter = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_CTR,
                                              counter=self.counter)
 
-    def encrypt( self, data ):
+    def encrypt(self, data):
         """
         Encrypts the given `data' using AES in counter mode.
         """

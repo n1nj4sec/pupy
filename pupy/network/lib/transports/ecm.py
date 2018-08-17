@@ -2,7 +2,7 @@
 
 """ EC4 PSK transport """
 
-__all__ = ( 'ECMTransportServer', 'ECMTransportClient' )
+__all__ = ('ECMTransportServer', 'ECMTransportClient')
 
 from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV

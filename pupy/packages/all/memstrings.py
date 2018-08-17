@@ -17,9 +17,9 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
         return
 
     if type(targets) == (str, int):
-        targets = [ targets ]
+        targets = [targets]
 
-    targets = set([ try_int(x) for x in targets ])
+    targets = set([try_int(x) for x in targets])
 
     if regex is None:
         printable = re.compile('^[\x20-\x7e]{{{},{}}}$'.format(min_length, max_length))

@@ -14,7 +14,7 @@ ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
 class WModule(PupyModule):
     """ list terminal sessions """
 
-    dependencies = [ 'pupyps' ]
+    dependencies = ['pupyps']
     is_module=False
 
     @classmethod

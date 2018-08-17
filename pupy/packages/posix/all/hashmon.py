@@ -32,8 +32,8 @@ def dump():
 def stop():
     mon = pupy.manager.get(HashMon)
     if mon:
-       pupy.manager.stop(HashMon)
-       return mon.results
+        pupy.manager.stop(HashMon)
+        return mon.results
 
 class HashMon(pupy.Task):
     def __init__(self, manager, names=[], hashes=[], poll=60, minpw=8, maxpw=16, maxdups=131072, policy=True):
@@ -70,7 +70,7 @@ class HashMon(pupy.Task):
         ]
 
         for h in hashes:
-            if not h in self.found:
+            if h not in self.found:
                 self.hashes.add(h)
                 for string in self.duplicates:
                     ctext, hash = self.check_hash(h, string)
@@ -84,7 +84,7 @@ class HashMon(pupy.Task):
             matcher = self.policy or self.printable
             for _, (cstring,) in mw.mem_search('([\x20-\x7e]+)\x00', ftype='groups', optimizations='ixrs'):
                 if matcher.match(cstring):
-                    if not cstring in self.duplicates:
+                    if cstring not in self.duplicates:
                         yield cstring
 
                         if len(self.duplicates) > self.maxdups:
@@ -101,7 +101,7 @@ class HashMon(pupy.Task):
         for process in psutil.process_iter():
             info = process.as_dict(['create_time', 'pid', 'name', 'exe'])
             pid = info['pid']
-            if not pid in self.pids or self.pids[pid] == info['create_time']:
+            if pid not in self.pids or self.pids[pid] == info['create_time']:
                 for name in self.names:
                     if name.match(info['name']) or name.match(info['exe']):
                         yield pid
@@ -126,7 +126,7 @@ class HashMon(pupy.Task):
     def check_hashes(self, string):
         for hash in self.hashes.copy():
             ctext, hash = self.check_hash(hash, string)
-            if not ctext is None:
+            if ctext is not None:
                 yield ctext, hash
                 self.found.add(hash)
                 self.hashes.remove(hash)

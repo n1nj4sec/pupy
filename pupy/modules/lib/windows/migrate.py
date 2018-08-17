@@ -42,7 +42,7 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
 
     #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
     if module.client.desc['launcher'] == "bind":
-        isBindConnection == True
+        isBindConnection = True
         module.success("the current launcher uses a bind connection")
         module.success("the bind port {0} is defined in DLL configuration".format(bindPort))
         conf['launcher_args'][conf['launcher_args'].index("--port")+1] = str(bindPort)

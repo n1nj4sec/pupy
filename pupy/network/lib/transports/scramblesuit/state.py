@@ -28,7 +28,7 @@ log = logging
 
 memoryStateFile=StringIO.StringIO()
 
-def load( ):
+def load():
     global memoryStateFile
     """
     Load the server's state object from file.
@@ -51,7 +51,7 @@ def load( ):
 
     #return stateObject
 
-def writeServerPassword( password ):
+def writeServerPassword(password):
     """
     Dump our ScrambleSuit server descriptor to file.
 
@@ -76,7 +76,7 @@ def writeServerPassword( password ):
         log.error("Error writing password file to `%s': %s" %
                   (passwordFile, err))
 
-class State( object ):
+class State(object):
 
     """
     Implement a state class which stores the server's state.
@@ -85,7 +85,7 @@ class State( object ):
     provides methods to generate and write state information.
     """
 
-    def __init__( self ):
+    def __init__(self):
         """
         Initialise a `State' object.
         """
@@ -103,7 +103,7 @@ class State( object ):
         self.fallbackPassword = None
         self.closingThreshold = None
 
-    def genState( self ):
+    def genState(self):
         """
         Populate all the local variables with values.
         """
@@ -145,7 +145,7 @@ class State( object ):
 
         self.writeState()
 
-    def isReplayed( self, hmac ):
+    def isReplayed(self, hmac):
         """
         Check if `hmac' is present in the replay table.
 
@@ -159,7 +159,7 @@ class State( object ):
 
         return self.replayTracker.isPresent(hmac)
 
-    def registerKey( self, hmac ):
+    def registerKey(self, hmac):
         """
         Add the given `hmac' to the replay table.
         """
@@ -173,7 +173,7 @@ class State( object ):
         # connections can share the same state.
         self.writeState()
 
-    def writeState( self ):
+    def writeState(self):
         global memoryStateFile
         """
         Write the state object to a file using the `cPickle' module.

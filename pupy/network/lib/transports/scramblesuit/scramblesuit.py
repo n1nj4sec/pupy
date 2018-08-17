@@ -32,7 +32,7 @@ class ReadPassFile(argparse.Action):
         with open(values) as f:
             setattr(namespace, self.dest, f.readline().strip())
 
-class ScrambleSuitTransport( base.BaseTransport ):
+class ScrambleSuitTransport(base.BaseTransport):
 
     """
     Implement the ScrambleSuit protocol.
@@ -42,7 +42,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
     modules.
     """
 
-    def __init__( self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Initialise a ScrambleSuitTransport object.
         """
@@ -101,7 +101,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         self.uniformdh = uniformdh.new(self.uniformDHSecret, self.weAreServer)
 
     @classmethod
-    def setup( cls, transportConfig ):
+    def setup(cls, transportConfig):
         """
         Called once when obfsproxy starts.
         """
@@ -149,7 +149,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             state.writeServerPassword(cls.uniformDHSecret)
 
     @classmethod
-    def get_public_server_options( cls, transportOptions ):
+    def get_public_server_options(cls, transportOptions):
         """
         Return ScrambleSuit's BridgeDB parameters, i.e., the shared secret.
 
@@ -159,7 +159,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         #log.debug("Tor's transport options: %s" % str(transportOptions))
 
-        if not "password" in transportOptions:
+        if "password" not in transportOptions:
             #log.warning("No password found in transport options (use Tor's " \
             #            "`ServerTransportOptions' to set your own password)." \
             #            "  Using automatically generated password instead.")
@@ -170,7 +170,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         return transportOptions
 
-    def deriveSecrets( self, masterKey ):
+    def deriveSecrets(self, masterKey):
         """
         Derive various session keys from the given `masterKey'.
 
@@ -203,7 +203,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             self.sendCrypter, self.recvCrypter = self.recvCrypter, \
                                                  self.sendCrypter
 
-    def circuitConnected( self ):
+    def circuitConnected(self):
         """
         Initiate a ScrambleSuit handshake.
 
@@ -226,7 +226,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         self.circuit.downstream.write(self.uniformdh.createHandshake())
 
-    def sendRemote( self, data, flags=const.FLAG_PAYLOAD ):
+    def sendRemote(self, data, flags=const.FLAG_PAYLOAD):
         """
         Send data to the remote end after a connection was established.
 
@@ -260,7 +260,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
                                                   len(blurb))
             self.circuit.downstream.write(blurb + padBlurb)
 
-    def flushPieces( self ):
+    def flushPieces(self):
         """
         Write the application data in chunks to the wire.
 
@@ -288,7 +288,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         time.sleep(self.iatMorpher.randomSample())
         self.flushPieces()
 
-    def processMessages( self, data ):
+    def processMessages(self, data):
         """
         Acts on extracted protocol messages based on header flags.
 
@@ -334,7 +334,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
                 #log.warning("Invalid message flags: %d." % msg.flags)
                 pass
 
-    def flushSendBuffer( self ):
+    def flushSendBuffer(self):
         """
         Flush the application's queued data.
 
@@ -354,7 +354,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         self.sendRemote(self.sendBuf)
         self.sendBuf = ""
 
-    def receiveTicket( self, data ):
+    def receiveTicket(self, data):
         """
         Extract and verify a potential session ticket.
 
@@ -374,7 +374,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         if not self.decryptedTicket:
             newTicket = ticket.decrypt(potentialTicket[:const.TICKET_LENGTH],
                                        self.srvState)
-            if newTicket != None and newTicket.isValid():
+            if newTicket is not None and newTicket.isValid():
                 self.deriveSecrets(newTicket.masterKey)
                 self.decryptedTicket = True
             else:
@@ -425,7 +425,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
 
         return True
 
-    def receivedUpstream( self, data ):
+    def receivedUpstream(self, data):
         """
         Sends data to the remote machine or queues it to be sent later.
 
@@ -443,7 +443,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
             #log.debug("Buffered %d bytes of outgoing data." %
             #          len(self.sendBuf))
 
-    def sendTicketAndSeed( self ):
+    def sendTicketAndSeed(self):
         """
         Send a session ticket and the PRNG seed to the client.
 
@@ -460,7 +460,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
                         flags=const.FLAG_PRNG_SEED)
         self.flushSendBuffer()
 
-    def receivedDownstream( self, data ):
+    def receivedDownstream(self, data):
         """
         Receives and processes data coming from the remote machine.
 
@@ -536,7 +536,7 @@ class ScrambleSuitTransport( base.BaseTransport ):
         if self.protoState == const.ST_CONNECTED:
             self.processMessages(data.read())
 
-class ScrambleSuitClient( ScrambleSuitTransport ):
+class ScrambleSuitClient(ScrambleSuitTransport):
 
     """
     Extend the ScrambleSuit class.
@@ -544,7 +544,7 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
 
     password=None
 
-    def __init__( self, *args, **kwargs ):
+    def __init__(self, *args, **kwargs):
         """
         Initialise a ScrambleSuitClient object.
         """
@@ -565,14 +565,14 @@ class ScrambleSuitClient( ScrambleSuitTransport ):
         ScrambleSuitTransport.__init__(self, *args, **kwargs)
 
 
-class ScrambleSuitServer( ScrambleSuitTransport ):
+class ScrambleSuitServer(ScrambleSuitTransport):
 
     """
     Extend the ScrambleSuit class.
     """
     password=None
 
-    def __init__( self, *args, **kwargs ):
+    def __init__(self, *args, **kwargs):
         """
         Initialise a ScrambleSuitServer object.
         """

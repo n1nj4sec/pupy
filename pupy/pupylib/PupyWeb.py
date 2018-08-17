@@ -3,7 +3,10 @@
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import os, os.path, threading, random, string
+import os
+import threading
+import random
+import string
 import logging
 import tornado.ioloop
 import tornado.web
@@ -53,7 +56,7 @@ class PupyWebServer(object):
             else:
                 path, handler, kwargs = tab
             logging.warning("adding handler http://127.0.0.1:9000%s"%(random_path+path))
-            self.app.add_handlers(".*", [ (random_path+path, handler, kwargs) ])
+            self.app.add_handlers(".*", [(random_path+path, handler, kwargs)])
         return "http://127.0.0.1:%s%s"%(self.port, random_path)
 
 class IndexHandler(tornado.web.RequestHandler):

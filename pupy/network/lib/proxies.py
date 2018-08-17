@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'get_proxies' ]
+__all__ = ['get_proxies']
 
 import re
 import os
@@ -170,7 +170,7 @@ def get_gio_proxies(force=True):
         proxy = gio.g_settings_new(schema)
 
         mode = gio.g_settings_get_string(proxy, 'mode')
-        if not force and ( not mode or mode == 'none' ):
+        if not force and (not mode or mode == 'none'):
             return
 
         http = gio.g_settings_get_child(proxy, 'http')
@@ -213,7 +213,7 @@ def get_processes_proxies():
             continue
 
         for var in PROXY_ENV:
-            if not var in environ or not environ[var]:
+            if var not in environ or not environ[var]:
                 continue
 
             proxies.add(environ[var])
@@ -247,7 +247,7 @@ def get_proxies(additional_proxies=None):
 
     dups = set()
 
-    if additional_proxies != None:
+    if additional_proxies is not None:
         for proxy_str in additional_proxies:
             if not proxy_str:
                 continue
@@ -257,7 +257,7 @@ def get_proxies(additional_proxies=None):
             # HTTP:login:password@ip:port
             if '://' in proxy_str:
                 for proxy in parse_env_proxies(proxy_str):
-                    if not proxy in dups:
+                    if proxy not in dups:
                         yield proxy
                         dups.add(proxy)
             else:
@@ -278,38 +278,38 @@ def get_proxies(additional_proxies=None):
                         proxy_type, address, port = parts
 
                 proxy = proxy_type.upper(), address+':'+port, login, password
-                if not proxy in dups:
+                if proxy not in dups:
                     yield proxy
                     dups.add(proxy)
 
     for proxy in get_python_proxies():
-        if not proxy in dups:
+        if proxy not in dups:
             yield proxy
             dups.add(proxy)
 
     for proxy in get_env_proxies():
-        if not proxy in dups:
+        if proxy not in dups:
             yield proxy
             dups.add(proxy)
 
     for proxy in get_wpad_proxies():
-        if not proxy in dups:
+        if proxy not in dups:
             yield proxy
             dups.add(proxy)
 
     if os.name == 'nt':
         for proxy in get_win_proxies():
-            if not proxy in dups:
+            if proxy not in dups:
                 yield proxy
                 dups.add(proxy)
 
     elif os.name == 'posix':
         for proxy in get_gio_proxies():
-            if not proxy in dups:
+            if proxy not in dups:
                 yield proxy
                 dups.add(proxy)
 
     for proxy in get_processes_proxies():
-        if not proxy in dups:
+        if proxy not in dups:
             yield proxy
             dups.add(proxy)

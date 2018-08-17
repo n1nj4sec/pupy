@@ -13,7 +13,7 @@ class Powerview(PupyModule):
         execute powerview commands
     """
     dependencies = {
-        'windows': [ 'powershell' ]
+        'windows': ['powershell']
     }
 
 
@@ -195,56 +195,56 @@ Invoke-MapDomainTrust | Export-CSV -NoTypeInformation trusts.csv
                 width, _ = self.iogroup.consize
                 powershell.load(script, content.read(), width=width)
 
-        if args.GetProxy == True:
+        if args.GetProxy:
             command = "Get-Proxy"
-        if args.GetNetComputer == True:
+        if args.GetNetComputer:
             command = "Get-NetComputer"
-        elif args.GetNetMssql == True:
+        elif args.GetNetMssql:
             command = "Get-NetComputer -SPN mssql*"
-        elif args.GetNetSubnet == True:
+        elif args.GetNetSubnet:
             command = "Get-NetSubnet"
-        elif args.GetNetGroup == True:
+        elif args.GetNetGroup:
             command = "Get-NetGroup"
-        elif args.GetNetGroupWith !=None:
+        elif args.GetNetGroupWith is not None:
             command = "Get-NetGroup -GroupName *{0}* -FullData".format(args.GetNetGroupWith)
-        elif args.GetNetGroupMember == True:
+        elif args.GetNetGroupMember:
             command = "Get-NetGroupMember"
-        elif args.GetNetFileServer == True:
+        elif args.GetNetFileServer:
             command = "Get-NetFileServer"
-        elif args.GetDFSshare == True:
+        elif args.GetDFSshare:
             command = "Get-DFSshare"
-        elif args.GetNetGPO == True:
+        elif args.GetNetGPO:
             command = "Get-NetGPO"
-        elif args.GetNetGPOGroup == True:
+        elif args.GetNetGPOGroup:
             command = "Get-NetGPOGroup"
-        elif args.FindGPOLocation !=None:
+        elif args.FindGPOLocation is not None:
             command = "Find-GPOLocation -UserName {0}".format(args.FindGPOLocation)
-        elif args.GetNetLocalGroup == True:
+        elif args.GetNetLocalGroup:
             command = "Get-NetLocalGroup"
-        elif args.GetNetLoggedon == True:
+        elif args.GetNetLoggedon:
             command = "Get-NetLoggedon"
-        elif args.GetNetLoggedonOn !=None:
+        elif args.GetNetLoggedonOn is not None:
             command = "Get-NetLoggedon -ComputerName {0}".format(args.GetNetLoggedonOn)
-        elif args.GetNetSession == True:
+        elif args.GetNetSession:
             command = "Get-NetSession"
-        elif args.GetNetSessionOn !=None:
+        elif args.GetNetSessionOn is not None:
             command = "Get-NetSession -ComputerName {0}".format(args.GetNetSessionOn)
-        elif args.GetNetRDPSession == True:
+        elif args.GetNetRDPSession:
             command = "Get-NetRDPSession"
-        elif args.GetNetRDPSessionOn !=None:
+        elif args.GetNetRDPSessionOn is not None:
             command = "Get-NetRDPSession -ComputerName {0}".format(args.GetNetRDPSessionOn)
-        elif args.GetLastLoggedOn == True:
+        elif args.GetLastLoggedOn:
             command = "Get-LastLoggedOn"
-        elif args.GetLastLoggedOnOn !=None:
+        elif args.GetLastLoggedOnOn is not None:
             command = "Get-LastLoggedOn -ComputerName {0}".format(args.GetLastLoggedOnOn)
-        elif args.InvokeUserHunterCheck == True:
+        elif args.InvokeUserHunterCheck:
             command = "Invoke-UserHunter -CheckAccess"
-        elif args.InvokeUserHunterForest == True:
+        elif args.InvokeUserHunterForest:
             command = "Invoke-UserHunter -SearchForest"
-        elif args.GetExploitableSystem == True:
+        elif args.GetExploitableSystem:
             command = "Get-ExploitableSystem  | Format-Table -AutoSize"
         if command == "":
-            if args.command == None:
+            if args.command is None:
                 self.error("You have to choose a powerview command!")
                 return
             else:

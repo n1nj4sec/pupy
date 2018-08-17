@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'HTTP' ]
+__all__ = ['HTTP']
 
 import urllib2
 import urllib
@@ -33,7 +33,7 @@ class NoRedirects(urllib2.HTTPErrorProcessor):
     https_response = http_response
 
 class NullConnection(httplib.HTTPConnection):
-    __slots__ = ( 'sock' , 'timeout' )
+    __slots__ = ('sock', 'timeout')
 
     def __init__(self, socket, timeout, *args, **kwargs):
         httplib.HTTPConnection.__init__(self, *args, **kwargs)
@@ -44,7 +44,7 @@ class NullConnection(httplib.HTTPConnection):
         self.sock.settimeout(self.timeout)
 
 class NullHandler(urllib2.HTTPHandler):
-    __slots__ = ( 'table' , 'lock' )
+    __slots__ = ('table', 'lock')
 
     def __init__(self, table, lock):
         urllib2.HTTPHandler.__init__(self)
@@ -62,7 +62,7 @@ class NETFile(StringIO.StringIO):
     __slots__ = ()
 
 class UDPReaderHandler(urllib2.BaseHandler):
-    __slots__ = ( 'sock' , 'timeout' )
+    __slots__ = ('sock', 'timeout')
 
     def udp_open(self, req):
         url = urlparse.urlparse(req.get_full_url())
@@ -103,7 +103,7 @@ class UDPReaderHandler(urllib2.BaseHandler):
 
 
 class TCPReaderHandler(urllib2.BaseHandler):
-    __slots__ = ( 'sslctx' )
+    __slots__ = ('sslctx')
 
     def __init__(self, context=None, *args, **kwargs):
         if context:
@@ -174,7 +174,7 @@ StreamingHTTPSHandler.https_open = lambda self, req: self.do_open(
     StreamingHTTPSConnection, req, context=self._context)
 
 class SocksiPyConnection(StreamingHTTPConnection):
-    __slots__ = ( 'proxyargs', 'sock' )
+    __slots__ = ('proxyargs', 'sock')
 
     def __init__(self, proxytype, proxyaddr, proxyport=None, rdns=True, username=None, password=None, *args, **kwargs):
         self.proxyargs = (proxytype, proxyaddr, proxyport, rdns, username, password)
@@ -188,7 +188,7 @@ class SocksiPyConnection(StreamingHTTPConnection):
         self.sock.connect((self.host, self.port))
 
 class SocksiPyConnectionS(StreamingHTTPSConnection):
-    __slots__ = ( 'proxyargs', 'sock' )
+    __slots__ = ('proxyargs', 'sock')
 
     def __init__(self, proxytype, proxyaddr, proxyport=None, rdns=True, username=None, password=None, *args, **kwargs):
         self.proxyargs = (proxytype, proxyaddr, proxyport, rdns, username, password)
@@ -210,7 +210,7 @@ class SocksiPyConnectionS(StreamingHTTPSConnection):
             sock, server_hostname=server_hostname)
 
 class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandler):
-    __slots__ = ( 'args', 'kw' )
+    __slots__ = ('args', 'kw')
 
     def __init__(self, *args, **kwargs):
         self.args = args
@@ -221,7 +221,7 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
         def build(host, port=None, strict=None, timeout=0):
             if 'context' in self.kw:
                 kw = {
-                    x:y for x,y in self.kw.iteritems() if not x in ('context')
+                    x:y for x,y in self.kw.iteritems() if x not in ('context')
                 }
             else:
                 kw = self.kw
@@ -249,7 +249,7 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
 
 class HTTP(object):
 
-    __slots__ = ( 'ctx', 'proxy', 'noverify', 'timeout', 'opener' )
+    __slots__ = ('ctx', 'proxy', 'noverify', 'timeout', 'opener')
 
     def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
         self.ctx = ssl.create_default_context()
@@ -297,7 +297,7 @@ class HTTP(object):
                 context=self.ctx if self.noverify else None
             )
 
-            handlers = [ sockshandler ]
+            handlers = [sockshandler]
 
         if not follow_redirects:
             handlers.append(NoRedirects)
@@ -348,7 +348,7 @@ class HTTP(object):
             return tuple(result)
 
     def post(self, url, file=None, data=None, save=None, headers={}, multipart=False, return_url=False, return_headers=False, code=False):
-        if not ( file or data ):
+        if not (file or data):
             return self.get(url, save, headers=headers)
 
         response = None

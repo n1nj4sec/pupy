@@ -23,8 +23,8 @@ class DownloaderScript(PupyModule):
     """ download a file/directory from a remote system """
 
     dependencies = {
-        'all': [ 'transfer', 'scandir' ],
-        'windows': [ 'junctions' ]
+        'all': ['transfer', 'scandir'],
+        'windows': ['junctions']
     }
 
     @classmethod

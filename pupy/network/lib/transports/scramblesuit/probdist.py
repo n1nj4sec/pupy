@@ -20,7 +20,7 @@ class RandProbDist:
     Provides code to generate, sample and dump probability distributions.
     """
 
-    def __init__( self, genSingleton, seed=None ):
+    def __init__(self, genSingleton, seed=None):
         """
         Initialise a discrete probability distribution.
 
@@ -36,7 +36,7 @@ class RandProbDist:
         self.dist = self.genDistribution(genSingleton)
         self.dumpDistribution()
 
-    def genDistribution( self, genSingleton ):
+    def genDistribution(self, genSingleton):
         """
         Generate a discrete probability distribution.
 
@@ -64,7 +64,7 @@ class RandProbDist:
 
         return dist
 
-    def dumpDistribution( self ):
+    def dumpDistribution(self):
         """
         Dump the probability distribution using the logging object.
 
@@ -79,7 +79,7 @@ class RandProbDist:
                 log.debug("P(%s) = %.3f" %
                           (str(singleton), self.dist[singleton]))
 
-    def randomSample( self ):
+    def randomSample(self):
         """
         Draw and return a random sample from the probability distribution.
         """

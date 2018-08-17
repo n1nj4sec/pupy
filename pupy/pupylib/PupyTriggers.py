@@ -47,7 +47,7 @@ def _event(eventid, client, server, handler, config):
 
     for client_filter, action in actions:
         if client_filter.lower() in ('this', 'self', 'current', '@'):
-            if eventid in ( ON_CONNECT, ON_DISCONNECT ):
+            if eventid in (ON_CONNECT, ON_DISCONNECT):
                 client_filter = client.desc['id']
             else:
                 client_filter = client_filter.lower()
@@ -64,11 +64,11 @@ def _event(eventid, client, server, handler, config):
 
         node = None
 
-        if eventid in ( ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST ):
+        if eventid in (ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST):
             action = action.replace('%c', '{:08x}'.format(client.spi))
             node = '{:012x}'.format(client.system_info['node'])
 
-        elif eventid in ( ON_CONNECT, ON_DISCONNECT ):
+        elif eventid in (ON_CONNECT, ON_DISCONNECT):
             node = client.desc['node']
 
             try:

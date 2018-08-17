@@ -8,8 +8,8 @@ __class_name__="MsgBoxPopup"
 class MsgBoxPopup(PupyModule):
     """ Pop up a custom message box """
     dependencies = {
-        'windows': [ 'pupwinutils.msgbox' ],
-        'linux': [ 'notify' ],
+        'windows': ['pupwinutils.msgbox'],
+        'linux': ['notify'],
     }
 
     @classmethod

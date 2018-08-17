@@ -11,7 +11,7 @@ __class_name__="IPModule"
 class IPModule(PupyModule):
     """ list interfaces """
 
-    dependencies = [ 'pupyps' ]
+    dependencies = ['pupyps']
     is_module=False
 
     @classmethod
@@ -29,20 +29,22 @@ class IPModule(PupyModule):
             }
 
             data = interfaces()
-            families = { int(x):y for x,y in families.iteritems() }
+            families = {
+                int(x):y for x,y in families.iteritems()
+            }
 
             objects = []
 
             for addr, addresses in data['addrs'].iteritems():
 
-                if args.iface and not addr in args.iface:
+                if args.iface and addr not in args.iface:
                     continue
 
                 color = ""
                 if 'stats' in data and data['stats']:
                     if addr in data['stats'] and not data['stats'][addr].get('isup'):
                         color = 'darkgrey'
-                    elif not any([ families[x.get('family')] == 'INET' for x in addresses ]):
+                    elif not any([families[x.get('family')] == 'INET' for x in addresses]):
                         color = 'grey'
                 else:
                     color = 'white'

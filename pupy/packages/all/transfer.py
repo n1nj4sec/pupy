@@ -233,7 +233,9 @@ class Transfer(object):
 
         del entry
 
-        dirpaths = [ entry.name for entry in dirs ]
+        dirpaths = [
+            entry.name for entry in dirs
+        ]
 
         del dirs[:], files[:], symlinks[:], hardlinks[:], special[:]
 
@@ -387,7 +389,7 @@ class Transfer(object):
     def _stat_to_vec(self, stat):
         vec = [0]*len(FIELDS_MAP_ENCODE)
         for field in dir(stat):
-            if not field in FIELDS_MAP_ENCODE:
+            if field not in FIELDS_MAP_ENCODE:
                 continue
 
             vec[FIELDS_MAP_ENCODE[field]] = getattr(stat, field)

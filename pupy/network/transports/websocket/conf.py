@@ -13,7 +13,7 @@ class TransportConf(Transport):
     server = PupyTCPServer
     client = PupyTCPClient
     stream = PupySocketStream
-    credentials = [ 'SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY' ]
+    credentials = ['SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)

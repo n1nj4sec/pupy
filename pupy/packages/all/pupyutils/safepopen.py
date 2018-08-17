@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'SafePopen' ]
+__all__ = ['SafePopen']
 
 import threading
 import subprocess
@@ -18,7 +18,7 @@ def read_pipe(queue, pipe, bufsize):
     while not completed:
         try:
             returncode = pipe.poll()
-            completed = returncode != None
+            completed = returncode is not None
         except:
             continue
 
@@ -106,7 +106,7 @@ class SafePopen(object):
                 'startupinfo': startupinfo,
             })
 
-        if not 'stderr' in self._popen_kwargs:
+        if 'stderr' not in self._popen_kwargs:
             self._popen_kwargs['stderr'] = subprocess.STDOUT
 
     def _execute(self, read_cb, close_cb):
@@ -142,7 +142,7 @@ class SafePopen(object):
             except Exception:
                 pass
 
-            self.returncode = returncode if returncode != None else -e.errno
+            self.returncode = returncode if returncode is not None else -e.errno
             if close_cb:
                 close_cb()
                 return
@@ -156,7 +156,7 @@ class SafePopen(object):
             except Exception:
                 pass
 
-            self.returncode = returncode if returncode != None else -1
+            self.returncode = returncode if returncode is not None else -1
             if close_cb:
                 close_cb()
                 return

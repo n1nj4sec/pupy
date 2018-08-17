@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-__all__ = [ 'AutoProxyLauncher' ]
+__all__ = ['AutoProxyLauncher']
 
 import network
 import argparse
@@ -67,7 +67,7 @@ class AutoProxyLauncher(BaseLauncher):
                     k:v for k,v in t.client_transport_kwargs.iteritems()
                 }
 
-                if 'host' in transport_args and not 'host' in opt_args:
+                if 'host' in transport_args and 'host' not in opt_args:
                     transport_args['host'] = '{}{}'.format(
                         self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
                     )
@@ -117,7 +117,7 @@ class AutoProxyLauncher(BaseLauncher):
                     k:v for k,v in t.client_transport_kwargs.iteritems()
                 }
 
-                if 'host' in transport_args and not 'host' in opt_args:
+                if 'host' in transport_args and 'host' not in opt_args:
                     transport_args['host'] = '{}{}'.format(
                         self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
                     )

@@ -96,7 +96,7 @@ class ProxyError(IOError):
     socket_err contains original socket.error exception.
     """
 
-    __slots__ = ( 'msg', 'socket_err' )
+    __slots__ = ('msg', 'socket_err')
 
     def __init__(self, msg, socket_err=None):
         self.msg = msg
@@ -126,25 +126,28 @@ class SOCKS4Error(ProxyError):
 class HTTPError(ProxyError):
     pass
 
-SOCKS4_ERRORS = { 0x5B: "Request rejected or failed",
-                  0x5C: "Request rejected because SOCKS server cannot connect to identd on the client",
-                  0x5D: "Request rejected because the client program and identd report different user-ids"
-                }
+SOCKS4_ERRORS = {
+    0x5B: "Request rejected or failed",
+    0x5C: "Request rejected because SOCKS server cannot connect to identd on the client",
+    0x5D: "Request rejected because the client program and identd report different user-ids"
+}
 
-SOCKS5_ERRORS = { 0x01: "General SOCKS server failure",
-                  0x02: "Connection not allowed by ruleset",
-                  0x03: "Network unreachable",
-                  0x04: "Host unreachable",
-                  0x05: "Connection refused",
-                  0x06: "TTL expired",
-                  0x07: "Command not supported, or protocol error",
-                  0x08: "Address type not supported"
-                }
+SOCKS5_ERRORS = {
+    0x01: "General SOCKS server failure",
+    0x02: "Connection not allowed by ruleset",
+    0x03: "Network unreachable",
+    0x04: "Host unreachable",
+    0x05: "Connection refused",
+    0x06: "TTL expired",
+    0x07: "Command not supported, or protocol error",
+    0x08: "Address type not supported"
+}
 
-DEFAULT_PORTS = { SOCKS4: 1080,
-                  SOCKS5: 1080,
-                  HTTP: 8080
-                }
+DEFAULT_PORTS = {
+    SOCKS4: 1080,
+    SOCKS5: 1080,
+    HTTP: 8080
+}
 
 def set_default_proxy(proxy_type=None, addr=None, port=None, rdns=True, username=None, password=None):
     """
@@ -494,10 +497,9 @@ class socksocket(_BaseSocket):
             if chosen_auth[1:2] == b"\x02":
                 # Okay, we need to perform a basic username/password
                 # authentication.
-                writer.write(b"\x01" + chr(len(username)).encode()
-                             + username
-                             + chr(len(password)).encode()
-                             + password)
+                writer.write(
+                    b"\x01" + chr(len(username)).encode() +
+                    username + chr(len(password)).encode() + password)
                 writer.flush()
                 auth_status = self._readall(reader, 2)
                 if auth_status[0:1] != b"\x01":
@@ -767,10 +769,10 @@ class socksocket(_BaseSocket):
         proxy_type, proxy_addr, proxy_port, rdns, username, password = self.proxy
 
         # Do a minimal input check first
-        if (not isinstance(dest_pair, (list, tuple))
-                or len(dest_pair) != 2
-                or not dest_addr
-                or not isinstance(dest_port, int)):
+        if (not isinstance(dest_pair, (list, tuple)) or \
+                len(dest_pair) != 2 or \
+                not dest_addr or \
+                not isinstance(dest_port, int)):
             raise GeneralProxyError("Invalid destination-connection (host, port) pair")
 
 

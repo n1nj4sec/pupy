@@ -11,7 +11,7 @@ class TransportConf(Transport):
     stream = PupyUDPSocketStream
     client_transport = EC4TransportClient
     server_transport = EC4TransportServer
-    credentials = [ 'ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY' ]
+    credentials = ['ECPV_RC4_PUBLIC_KEY', 'ECPV_RC4_PRIVATE_KEY']
     dgram = True
 
     def __init__(self, *args, **kwargs):

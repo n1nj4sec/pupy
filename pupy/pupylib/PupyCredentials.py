@@ -96,7 +96,7 @@ class Encryptor(object):
 
     @staticmethod
     def initialized():
-        return not ( Encryptor._instance is None )
+        return not (Encryptor._instance is None)
 
     @staticmethod
     def instance(password=None, getpass_hook=None, config=None):
@@ -182,12 +182,12 @@ class Credentials(object):
 
         self._generate(password=password, configfile=configfile)
 
-        configfiles = [ self.SYSTEM_CONFIG, configfile]
+        configfiles = [self.SYSTEM_CONFIG, configfile]
 
         role = role or DEFAULT_ROLE
         self.role = role.upper() if role else 'ANY'
 
-        if not self.role in ('CONTROL', 'CLIENT'):
+        if self.role not in ('CONTROL', 'CLIENT'):
             raise ValueError('Unsupported role: {}'.format(self.role))
 
         self._credentials = {}

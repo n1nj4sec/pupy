@@ -15,11 +15,17 @@ class LaZagne(PupyModule):
     """
 
     dependencies = {
-        'all': [ 'whole', 'sqlite3', 'xml', 'calendar',
-                'memorpy', 'ConfigParser', 'Crypto.Util.asn1',
-                'Crypto.PublicKey', 'lazagne', 'laZagne'],
-        'linux': [ 'secretstorage', 'crypt' ],
-        'windows': [ 'sqlite3.dll' ],
+        'all': [
+            'whole', 'sqlite3', 'xml', 'calendar',
+            'memorpy', 'ConfigParser', 'Crypto.Util.asn1',
+            'Crypto.PublicKey', 'lazagne', 'laZagne'
+        ],
+        'linux': [
+            'secretstorage', 'crypt'
+        ],
+        'windows': [
+            'sqlite3.dll'
+        ],
     }
 
     FILTER = ''.join([
@@ -127,10 +133,10 @@ class LaZagne(PupyModule):
                 try:
                     user, rid, lm, nt, _, _, _ = pwd.split(':')
                     results.append({
-                        'Category' : 'hashdump',
-                        'CredType' : 'hash',
-                        'Login'    : user,
-                        'Hash'     : '%s:%s' % (str(lm), str(nt))
+                        'Category': 'hashdump',
+                        'CredType': 'hash',
+                        'Login': user,
+                        'Hash': '%s:%s' % (str(lm), str(nt))
                     })
                 except:
                     pass
@@ -145,10 +151,10 @@ class LaZagne(PupyModule):
                 try:
                     user, d, dn, h = pwd.split(':')
                     results.append({
-                        'Category' : 'cachedump',
-                        'CredType' : 'hash',
-                        'Login'    : user,
-                        'Hash'     : '%s:%s:%s:%s' % (user.lower(), h.encode('hex'), d.lower(), dn.lower())
+                        'Category': 'cachedump',
+                        'CredType': 'hash',
+                        'Login': user,
+                        'Hash': '%s:%s:%s:%s' % (user.lower(), h.encode('hex'), d.lower(), dn.lower())
                     })
                 except:
                     pass
@@ -172,7 +178,7 @@ class LaZagne(PupyModule):
         for cred in creds:
             if isinstance(cred, dict):
                 result = {
-                    'Category' : module
+                    'Category': module
                 }
 
                 for c in cred.keys():
@@ -204,7 +210,7 @@ class LaZagne(PupyModule):
 
         items = [
             {
-                k:self.try_utf8(v) for k,v in item.iteritems() if not k in remove
+                k:self.try_utf8(v) for k,v in item.iteritems() if k not in remove
             } for item in items
         ]
 
@@ -268,7 +274,7 @@ class LaZagne(PupyModule):
                 self.creds_to_dict(creds, module)
             )
 
-            if not module in self.NON_TABLE:
+            if module not in self.NON_TABLE:
                 self.table(
                     self.prepare_fields(
                         creds, remove=self.FILTER_COLUMNS

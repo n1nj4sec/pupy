@@ -14,7 +14,7 @@ def get_hw_uuid():
             objSWbemServices = objWMIService.ConnectServer(strComputer, "root\\cimv2")
             colItems = objSWbemServices.ExecQuery("SELECT * FROM Win32_ComputerSystemProduct")
             for objItem in colItems:
-                if objItem.UUID != None:
+                if objItem.UUID is not None:
                     return 'wmi', objItem.UUID
         except:
             pass

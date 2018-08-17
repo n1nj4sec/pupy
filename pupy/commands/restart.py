@@ -10,7 +10,9 @@ parser = PupyArgumentParser(prog='restart', description=usage)
 
 def do(server, handler, config, args):
     argv0 = os.readlink('/proc/self/exe')
-    argv = [ x for x in open('/proc/self/cmdline').read().split('\x00') if x ]
+    argv = [
+        x for x in open('/proc/self/cmdline').read().split('\x00') if x
+    ]
 
     if handler.dnscnc:
         handler.display(Success('Stopping DNSCNC'))

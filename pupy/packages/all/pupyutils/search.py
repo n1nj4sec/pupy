@@ -77,8 +77,8 @@ class Search(object):
                     if not self.binary:
                         sample_size = min(size, 4096)
                         sample = m[:sample_size]
-                        sample_zeros = len([ x for x in sample if ord(x) == '\x00' ])
-                        if not sample_zeros in (0, sample_size/2):
+                        sample_zeros = len([x for x in sample if ord(x) == '\x00'])
+                        if sample_zeros not in (0, sample_size/2):
                             return
 
                     for string in self.strings:
@@ -105,7 +105,7 @@ class Search(object):
                     (self.path and self.path.match(entry.path)) or
                     any_file
                 ):
-                    if not self.strings or not (self.strings and entry.is_file() ):
+                    if not self.strings or not (self.strings and entry.is_file()):
                         if not any_file:
                             yield entry.path
                     else:
@@ -148,7 +148,7 @@ class Search(object):
             if isinstance(result, Exception):
                 if on_error:
                     if isinstance(result, OSError):
-                        if not result.errno in (errno.EPERM, errno.EACCES):
+                        if result.errno not in (errno.EPERM, errno.EACCES):
                             on_error(
                                 result.filename + ': ' + \
                                 ' '.join(x for x in result.args if type(x) in (str, unicode)))

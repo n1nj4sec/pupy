@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__all__ = [ 'call_later' ]
+__all__ = ['call_later']
 
-import time, threading
+import time
+import threading
 
 def delayer_func(delay, cb, args, kwargs):
     time.sleep(delay)

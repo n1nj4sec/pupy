@@ -12,7 +12,9 @@ class SMBSpider(PupyModule):
 
     """ walk through a smb directory and recursively search a string into files """
 
-    dependencies = [ 'impacket', 'calendar', 'ntpath', 'pupyutils.smbspider']
+    dependencies = [
+        'impacket', 'calendar', 'ntpath', 'pupyutils.smbspider'
+    ]
 
     daemon=True
     max_clients=1

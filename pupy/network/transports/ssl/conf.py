@@ -3,7 +3,8 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of
 # the project for the detailed licence terms
 
-import os, tempfile
+import os
+import tempfile
 
 from network.lib import PupyTCPServer, PupySocketStream
 from network.lib import DummyPupyTransport, PupySSLClient
@@ -75,9 +76,9 @@ class PupySSLAuthenticator(object):
                 if item[0][0] == 'organizationalUnitName':
                     peer_role = item[0][1]
 
-            if not ( self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or \
-              self.ROLE == 'CONTROL' and peer_role == 'CLIENT' ):
-              raise AuthenticationError('Invalid peer role: {}'.format(peer_role))
+            if not (self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or \
+              self.ROLE == 'CONTROL' and peer_role == 'CLIENT'):
+                raise AuthenticationError('Invalid peer role: {}'.format(peer_role))
 
         return wrapped_socket, peer
 

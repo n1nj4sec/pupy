@@ -3,7 +3,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 import shlex
 
-__all__ = [ 'parse_transports_args' ]
+__all__ = ['parse_transports_args']
 
 def parse_transports_args(args):
     args_dic={}

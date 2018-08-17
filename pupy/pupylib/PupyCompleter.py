@@ -255,10 +255,10 @@ class PupyModCompleter(object):
                 if 'nargs' in kwargs and kwargs['nargs'] == REMAINDER:
                     return i - omit, True
 
-            if tab[i] in opt0 or ( i == ltab-1 and any(opt.startswith(tab[i]) for opt in opt0)):
+            if tab[i] in opt0 or (i == ltab-1 and any(opt.startswith(tab[i]) for opt in opt0)):
                 omit += 1
 
-            elif tab[i] in opt1 or ( i == ltab-1 and any(opt.startswith(tab[i]) for opt in opt1)):
+            elif tab[i] in opt1 or (i == ltab-1 and any(opt.startswith(tab[i]) for opt in opt1)):
                 omit += 1
 
             elif i > 1 and tab[i-1] in opt1:

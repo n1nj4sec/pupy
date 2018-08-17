@@ -13,7 +13,7 @@ except ImportError:
 
 MAX_BUFFER = 1024**2*4
 
-class Buffer( object ):
+class Buffer(object):
 
     """
     Implements a fast FIFO buffer.
@@ -23,7 +23,7 @@ class Buffer( object ):
     the FIFO buffer.
     """
 
-    def __init__( self, max_size=MAX_BUFFER ):
+    def __init__(self, max_size=MAX_BUFFER):
         """
         Initialise a Buffer object.
         """
@@ -33,7 +33,7 @@ class Buffer( object ):
         self.read_pos = 0
         self.write_pos = 0
 
-    def write( self, data ):
+    def write(self, data):
         """
         Write `data' to the FIFO buffer.
 
@@ -56,7 +56,7 @@ class Buffer( object ):
 
         self.write_pos = lastBuf.tell()
 
-    def read( self, length=-1 ):
+    def read(self, length=-1):
         """
         Read `length' elements of the FIFO buffer.
 

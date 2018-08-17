@@ -21,11 +21,11 @@ def get(path, version='latest', section='meta-data'):
         return None
 
 def dir(path, version='latest', section='meta-data'):
-    path = '/'.join([ x for x in path.split('/') if x ]) + '/'
+    path = '/'.join([x for x in path.split('/') if x]) + '/'
     data = get(path, version, section)
 
     if data:
-        return [ x for x in data.split('\n') if x ]
+        return [x for x in data.split('\n') if x]
     else:
         return data
 
@@ -64,7 +64,7 @@ def valueconv(x):
     elif x.endswith('\n'):
         return x
     elif '\n' in x:
-        return [ valueconv(z) for z in x.split('\n') ]
+        return [valueconv(z) for z in x.split('\n')]
 
     return x
 

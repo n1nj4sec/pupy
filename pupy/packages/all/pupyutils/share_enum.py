@@ -36,7 +36,7 @@ def connect(host, port, user, passwd, hash, domain="workgroup"):
         guest = False
 
         try:
-            smb.login('' , '')
+            smb.login('', '')
             guest = True
             result.update({
                 'auth': 'guest',
@@ -51,7 +51,7 @@ def connect(host, port, user, passwd, hash, domain="workgroup"):
             if hash:
                 lmhash, nthash = hash.split(':')
 
-            if user and ( passwd or lmhash or nthash ):
+            if user and (passwd or lmhash or nthash):
                 smb.login(user, passwd, domain, lmhash, nthash)
 
                 if not guest:

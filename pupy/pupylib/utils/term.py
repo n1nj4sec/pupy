@@ -7,6 +7,9 @@ import struct
 import platform
 import re
 
+import fcntl
+import termios
+
 from pygments import highlight
 
 TERM = os.environ.get('TERM')
@@ -143,7 +146,6 @@ def colorize(text, color, prompt=False):
     return text
 
 def terminal_size():
-    import fcntl, termios, struct
     h, w, hp, wp = struct.unpack('HHHH',
         fcntl.ioctl(0, termios.TIOCGWINSZ,
         struct.pack('HHHH', 0, 0, 0, 0)))
@@ -218,7 +220,7 @@ def get_columns_size(columns):
     for column in columns:
         for key, value in column.iteritems():
             value_elen = elen(value)
-            if not key in size_dic or size_dic[key] < value_elen:
+            if key not in size_dic or size_dic[key] < value_elen:
                 size_dic[key] = value_elen
 
     return size_dic
@@ -237,7 +239,7 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
 
     diclist = obj2utf8(diclist)
     keys = [
-        x for x in ( wl if wl else diclist[0].iterkeys() ) if not x in bl
+        x for x in (wl if wl else diclist[0].iterkeys()) if x not in bl
     ]
 
     titlesdic = {}

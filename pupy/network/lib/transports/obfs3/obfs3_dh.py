@@ -1,6 +1,6 @@
 import binascii
 
-__all__ = [ 'UniformDH' ]
+__all__ = ['UniformDH']
 
 from ..obfscommon import rand
 from ..obfscommon import modexp
@@ -44,11 +44,11 @@ class UniformDH(object):
     g = 2
     group_len = 192 # bytes (1536-bits)
 
-    __slots__ = ( 'priv_str', 'priv', 'pub', 'pub_str', 'shared_secret' )
+    __slots__ = ('priv_str', 'priv', 'pub', 'pub_str', 'shared_secret')
 
     def __init__(self, private_key = None):
         # Generate private key
-        if private_key != None:
+        if private_key is not None:
             if len(private_key) != self.group_len:
                 raise ValueError("private_key is a invalid length (Expected %d, got %d)" % (
                     self.group_len, len(private_key)))

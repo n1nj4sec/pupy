@@ -258,7 +258,7 @@ class PupySocketStream(SocketStream):
     def poll(self, timeout):
         if self.closed:
             raise EOFError('polling on already closed connection')
-        result = ( len(self.upstream)>0 or self.sock_poll(timeout) )
+        result = (len(self.upstream)>0 or self.sock_poll(timeout))
         return result
 
     def sock_poll(self, timeout):
@@ -556,7 +556,7 @@ class PupyUDPSocketStream(object):
 
     def wake(self):
         now = time.time()
-        if not self._wake_after or ( now >= self._wake_after ):
+        if not self._wake_after or (now >= self._wake_after):
             with self.downstream_lock:
                 self.buf_in.wake()
             self._wake_after = now + self.LONG_SLEEP_INTERRUPT_TIMEOUT

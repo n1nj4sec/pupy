@@ -25,7 +25,7 @@ class MimipyMod(PupyModule):
             cred={
                 'Password': passwd,
                 'Login': u,
-                'Host' : process,
+                'Host': process,
                 'Category': 'Mimipy: %s'%t,
                 'CredType': 'password'
             }

@@ -16,7 +16,7 @@ import logging
 log = logging
 
 
-class Tracker( object ):
+class Tracker(object):
 
     """
     Implement methods to keep track of replayed keys.
@@ -25,14 +25,14 @@ class Tracker( object ):
     are already present in the dictionary and to prune the lookup table.
     """
 
-    def __init__( self ):
+    def __init__(self):
         """
         Initialise a `Tracker' object.
         """
 
         self.table = dict()
 
-    def addElement( self, element ):
+    def addElement(self, element):
         """
         Add the given `element' to the lookup table.
         """
@@ -43,7 +43,7 @@ class Tracker( object ):
         # The key is a HMAC and the value is the current Unix timestamp.
         self.table[element] = int(time.time())
 
-    def isPresent( self, element ):
+    def isPresent(self, element):
         """
         Check if the given `element' is already present in the lookup table.
 
@@ -61,7 +61,7 @@ class Tracker( object ):
 
         return (element in self.table)
 
-    def prune( self ):
+    def prune(self):
         """
         Delete expired elements from the lookup table.
 

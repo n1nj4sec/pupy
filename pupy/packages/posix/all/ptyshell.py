@@ -2,7 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-__all__ = [ 'acquire', 'release' ]
+__all__ = ['acquire', 'release']
 
 import sys
 import os
@@ -29,7 +29,7 @@ def propose_shell():
         'PATH', '/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/system/bin'
     ).split(':')
 
-    SHELLS = [ 'bash', 'ash', 'zsh', 'sh', 'ksh', 'csh' ]
+    SHELLS = ['bash', 'ash', 'zsh', 'sh', 'ksh', 'csh']
 
     for shell in (os.path.join(p, shell) for shell in SHELLS for p in PATHS):
         yield shell
@@ -207,7 +207,7 @@ class PtyShell(Task):
         self.master = os.fdopen(master, 'rb+wb', 0) # open file in an unbuffered mode
         flags = fcntl.fcntl(self.master, fcntl.F_GETFL)
         assert flags >= 0
-        flags = fcntl.fcntl(self.master, fcntl.F_SETFL , flags | os.O_NONBLOCK)
+        flags = fcntl.fcntl(self.master, fcntl.F_SETFL, flags | os.O_NONBLOCK)
         assert flags >= 0
 
         env = os.environ.copy()
@@ -344,7 +344,7 @@ def acquire(argv=None, term=None, suid=None):
     shell = manager.get(PtyShell)
 
     new = False
-    if not ( shell and shell.active ):
+    if not (shell and shell.active):
         shell = manager.create(
             PtyShell,
             argv, term, suid)

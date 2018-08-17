@@ -8,7 +8,7 @@ __class_name__="CheckVM"
 class CheckVM(PupyModule):
     """ check if running on Virtual Machine """
 
-    dependencies = [ 'checkvm' ]
+    dependencies = ['checkvm']
 
     @classmethod
     def init_argparse(cls):

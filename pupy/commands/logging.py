@@ -5,8 +5,10 @@ from pupylib.PupyOutput import Success, Color, Table
 
 import logging
 
-levels = [ 'DEBUG', 'INFO', 'WARNING', 'ERROR' ]
-levels += [ x.lower() for x in levels ]
+levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR']
+levels += [
+    x.lower() for x in levels
+]
 
 usage  = "Show/set log level"
 parser = PupyArgumentParser(prog='logging', description='change pupysh logging level')
