@@ -12,12 +12,59 @@ If you do not know how to use Docker, please refer to their [documentation](http
 
 
 # Pupy
+
+## Quick docker install and configure
+Lots of things are in various states of 
+development but this will get a server up for 
+you. I can confirm the linux clients work and the 
+windows clients build.
+
+I've confirmed this easy method on debian sid, 
+but it stands to reason it should work anywhere 
+docker does.
+If you don't have an id_rsa.pub file, create one 
+with ssh-keygen
+Just run it without arguments
+```
+docker pull alxchk/pupy:unstable
+docker run -d -p 2022:22 -v /tmp/projects:/projects alxchk/pupy:unstable
+cp ~/.ssh/id_rsa.pub /tmp/projects/keys/authorized_keys
+ssh -p 2022 pupy@127.0.0.1
+```
+Grats your in a pupy shell, lets build a client and export it.
+```
+config set gen os linux
+gen -D /projects/default/
+```
+You can find your pupy clients in /tmp/projects/default on the host.
+You can now use help to find commands, edit the config, generate 
+clients, etc.. You'll want to use the -D 
+/projects/default/ when generating clients, it 
+makes it easy to pop back over on your 
+host machine and pull them out of 
+/tmp/projects/default since those volumes are 
+bound together.
+
+If you can't make a shared key or otherwise 
+refuse to, you can try docker exec but be careful 
+not to break your container.
+```
+docker exec -it <container name> <command>
+```
+I'd recommend using a shell as a command if you 
+go this route, else you lose your tab competion.
+
+Enjoy! Much appreciation to alxchk for all of his 
+hard work.
+
+## Description
+
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features an all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
 Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, powershell, apk, ...
 When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like starting a background script, adding persistence, starting a keylogger, detecting a sandbox, ...
 
-## Installation
+## Installation (it doesn't really work like this any more)
 ```
 git clone https://github.com/n1nj4sec/pupy.git pupy
 cd pupy
@@ -26,7 +73,7 @@ git submodule update
 pip install -r pupy/requirements.txt
 wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
 tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
-```
+```{
 or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 
 ## Features
