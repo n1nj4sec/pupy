@@ -24,6 +24,7 @@ Grats your in a pupy shell, lets build a client and export it.
 config set gen os linux
 gen -D /projects/default/
 ```
+You can find your pupy clients in /tmp/projects/default on the host.
 You can now use help to find commands, edit the config, generate 
 clients, etc.. You'll want to use the -D 
 /projects/default/ when generating clients, it 
