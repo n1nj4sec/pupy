@@ -26,7 +26,7 @@ Grats your in a pupy shell, lets build a client and export it.
 config set gen os linux
 gen -D /projects/default/
 ```
-You can not use help to find commands, edit the config, generate 
+You can now use help to find commands, edit the config, generate 
 clients, etc.. You'll want to use the -D 
 /projects/default/ when generating clients, it 
 makes it easy to pop back over on your 
