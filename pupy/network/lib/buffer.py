@@ -79,10 +79,10 @@ class Buffer(object):
         if self.waiting:
             self.waiting.set()
 
-    def wait(self, timeout=0.1):
+    def wait(self, timeout=0.1, at_least=0, force=False):
         """ wait for a size """
 
-        if self._len > 0:
+        if not force and self._len > at_least:
             return True
         elif self.waiting is not None:
             self.waiting.clear()
@@ -258,6 +258,10 @@ class Buffer(object):
                     lendiff = 0
 
             self._len = newlen
+
+    def __iadd__(self, data):
+        self.append(data)
+        return self
 
     def append(self, data):
         if not data:

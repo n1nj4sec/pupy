@@ -378,14 +378,17 @@ class PupyClient(object):
 
         if dll:
             if self.new_dlls:
-                return self.new_dlls(modules)
+                logger.debug('Request new dlls for {}'.format(modules))
+                return self.new_dlls(tuple(modules))
             else:
                 return [
                     module for module in modules if not module in self.imported_dlls
                 ]
         else:
+            logger.debug('Request new modules for {}'.format(modules))
+
             if self.new_modules:
-                new_modules = self.new_modules(modules)
+                new_modules = self.new_modules(tuple(modules))
             else:
                 new_modules = [
                     module for module in modules if not self.pupyimporter.has_module(module)
@@ -394,11 +397,13 @@ class PupyClient(object):
             for module in modules:
                 if not module in new_modules:
                     self.imported_modules.add(module)
+                    logger.debug('Add to imported_modules cache: {}'.format(module))
 
             if not force is None:
                 for module in modules:
                     if not module in new_modules:
                         force.add(module)
+                        logger.debug('Add to new_modules: {}'.format(module))
 
                 return modules
             else:
