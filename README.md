@@ -1,11 +1,16 @@
 [![Build Status](https://api.travis-ci.org/n1nj4sec/pupy.svg?branch=unstable)](https://travis-ci.org/n1nj4sec/pupy)
 # Pupy
+
+This isn't really a fork. But https://github.com/alxchk/pupy has done so much work. I figured I oculd help with some ddocumentation and what not.
+
+## Quick docker install and configure
+
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features an all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
 Pupy can generate payloads in multiple formats like PE executables, reflective DLLs, pure python files, powershell, apk, ...
 When you package a payload, you can choose a launcher (connect, bind, ...), a transport (ssl, http, rsa, obfs3, scramblesuit, ...) and a number of "scriptlets". Scriptlets are python scripts meant to be embedded to perform various tasks offline (without requiring a session), like starting a background script, adding persistence, starting a keylogger, detecting a sandbox, ...
 
-## Installation
+## Installation (it doesn't really work like this any more)
 ```
 git clone https://github.com/n1nj4sec/pupy.git pupy
 cd pupy
@@ -14,7 +19,7 @@ git submodule update
 pip install -r pupy/requirements.txt
 wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
 tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
-```
+```{
 or [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 
 ## Features
