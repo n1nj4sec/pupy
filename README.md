@@ -4,6 +4,47 @@
 This isn't really a fork. But https://github.com/alxchk/pupy has done so much work. I figured I oculd help with some ddocumentation and what not.
 
 ## Quick docker install and configure
+Lots of things are in various states of 
+development but this will get a server up for 
+you. I can confirm the linux clients work and the 
+windows clients build.
+
+I've confirmed this easy method on debian sid, 
+but it stands to reason it should work anywhere 
+docker does.
+If you don't have an id_rsa.pub file, create one 
+with ssh-keygen
+Just run it without arguments
+```
+docker pull alxchk/pupy:unstable
+docker run -d -p 2022:22 -v /tmp/projects:/projects alxchk/pupy:unstable
+cp ~/.ssh/id_rsa.pub /tmp/projects/keys/authorized_keys
+ssh -p 2022 pupy@127.0.0.1
+config set gen os linux
+gen -D /projects/default/
+```
+Grats, you're in a pupy shell. You can not use 
+help to find commands, edit the config, generate 
+clients, etc.. You'll want to use the -D 
+/projects/default/ when generating clients, it 
+makes it easy to pop back over on your 
+host machine and pull them out of 
+/tmp/projects/default since those volumes are 
+bound together.
+
+If you can't make a shared key or otherwise 
+refuse to, you can try docker exec but be careful 
+not to break your container.
+```
+docker exec -it <container name> <command>
+```
+I'd recommend using a shell as a command if you 
+go this route, else you lose your tab competion.
+
+Enjoy! Much appreciation to alxchk for all of his 
+hard work.
+
+## Description
 
 Pupy is an opensource, cross-platform (Windows, Linux, OSX, Android), multi function RAT (Remote Administration Tool) and post-exploitation tool mainly written in python. It features an all-in-memory execution guideline and leaves very low footprint. Pupy can communicate using various transports, migrate into processes (reflective injection), load remote python code, python packages and python C-extensions from memory.  
 Pupy modules can transparently access remote python objects using rpyc to perform various interactive tasks.  
