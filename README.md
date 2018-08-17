@@ -20,11 +20,13 @@ docker pull alxchk/pupy:unstable
 docker run -d -p 2022:22 -v /tmp/projects:/projects alxchk/pupy:unstable
 cp ~/.ssh/id_rsa.pub /tmp/projects/keys/authorized_keys
 ssh -p 2022 pupy@127.0.0.1
+```
+Grats your in a pupy shell, lets build a client and export it.
+```
 config set gen os linux
 gen -D /projects/default/
 ```
-Grats, you're in a pupy shell. You can not use 
-help to find commands, edit the config, generate 
+You can not use help to find commands, edit the config, generate 
 clients, etc.. You'll want to use the -D 
 /projects/default/ when generating clients, it 
 makes it easy to pop back over on your 
