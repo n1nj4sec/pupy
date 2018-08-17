@@ -51,7 +51,11 @@ def add_transport(module_name):
 
 #importing from memory (used by payloads)
 try:
+    import pupy
+    assert pupy
+
     import pupyimporter
+
     import network.transports
     assert network.transports
 
@@ -68,8 +72,9 @@ try:
         except Exception as e:
             logging.exception('Transport failed: {}: {}'.format(module_name, e))
 
-except Exception as e:
-    logging.debug('Transports memory loading failed: {}'.format(e))
+except ImportError:
+    # Not pupy client
+    logging.debug('Transports loading from files')
 
     import transports as trlib
     import pkgutil

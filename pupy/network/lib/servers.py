@@ -143,25 +143,26 @@ class PupyTCPServer(ThreadedServer):
     def _authenticate_and_serve_client(self, sock):
         queue = Queue(maxsize=1)
 
-        authentication = Thread(target=self._setup_connection, args=(sock, queue))
+        tup = sock.getpeername()
+        h, p = tup[0], tup[1]
+
+        authentication = Thread(
+            target=self._setup_connection,
+            args=(sock, queue),
+            name='Authentication Thread ({}:{})'.format(h, p))
         authentication.daemon = True
         authentication.start()
 
         connection = None
         wrapper = None
 
-        tup = sock.getpeername()
-        h, p = tup[0], tup[1]
-
         try:
             self.logger.debug('{}:{} Wait for authentication result'.format(h, p))
             connection, wrapper, credentials = queue.get(block=True, timeout=60)
             self.logger.debug('{}:{} Wait complete: {}'.format(h, p, connection))
             if connection and connection._local_root:
-                self.logger.debug('{}:{} Initializing service...')
+                self.logger.debug('{}:{} Initializing service...'.format(h, p))
                 connection.init()
-
-                self.logger.debug('Bind server. Serving ...')
                 connection.loop()
 
         except Empty:

