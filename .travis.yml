@@ -29,8 +29,12 @@ script:
   - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-x86.zip
 after_success:
 - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
-- docker login -u $DOCKER_USER -p $DOCKER_PASS
-- cd $TRAVIS_BUILD_DIR/pupy && docker push alxchk/pupy:$TAG >/dev/null
+- |
+  if [ "$TRAVIS_REPO_SLUG" == "alxchk/pupy" ] && [ -z "$TRAVIS_PULL_REQUEST_SLUG" ]; then
+  docker login -u $DOCKER_USER -p $DOCKER_PASS &&
+  cd $TRAVIS_BUILD_DIR/pupy &&
+  docker push alxchk/pupy:$TAG >/dev/null;
+  fi
 env:
   global:
   - COMMIT=${TRAVIS_COMMIT::8}
