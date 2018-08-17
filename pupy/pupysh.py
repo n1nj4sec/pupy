@@ -24,6 +24,7 @@ import os
 if __name__ == '__main__':
     ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
     sys.path.insert(0, os.path.join(ROOT, 'library_patches'))
+    sys.path.append(os.path.join(ROOT, 'packages', 'all'))
 
 import logging
 import argparse
@@ -44,10 +45,11 @@ from pupylib import PupyConfig
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
     parser.add_argument(
-        '--log-level', '-d',
+        '--loglevel', '-d',
         help='change log verbosity', dest='loglevel',
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
         default='WARNING')
+    parser.add_argument('--logfile', '-DF', help='log to file', dest='logfile', default=None)
     parser.add_argument(
         '-l', '--listen',
         help='Bind server listener with transport and args to port.'
@@ -69,9 +71,23 @@ if __name__ == "__main__":
     if args.workdir:
         os.chdir(args.workdir)
 
-    logging.basicConfig(
-        format='%(asctime)-15s - %(levelname)-5s - %(message)s')
-    logging.getLogger().setLevel(args.loglevel)
+    root_logger = logging.getLogger()
+
+    if args.logfile:
+        logging_stream = logging.FileHandler(args.logfile)
+        logging_stream.setFormatter(
+            logging.Formatter(
+                '%(asctime)-15s|%(levelname)-5s|%(relativeCreated)6d|%(threadName)s|%(name)s| %(message)s'))
+    else:
+        logging_stream = logging.StreamHandler()
+        logging_stream.setFormatter(logging.Formatter('%(asctime)-15s| %(message)s'))
+
+    logging_stream.setLevel(args.loglevel)
+
+    root_logger.handlers = []
+
+    root_logger.addHandler(logging_stream)
+    root_logger.setLevel(args.loglevel)
 
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
     if args.not_encrypt:
