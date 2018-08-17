@@ -754,7 +754,20 @@ def main():
         sys.exit("No such launcher: %s" % LAUNCHER)
 
     if debug:
-        logging.getLogger().setLevel(logging.DEBUG)
+        root_logger = logging.getLogger()
+        root_logger.handlers = []
+
+        log_to_file = logging.FileHandler(
+            'pupy-client-{}-debug.log'.format(os.getpid()))
+        log_to_file.setFormatter(
+            logging.Formatter(
+                '%(asctime)-15s|%(levelname)-5s|%(relativeCreated)6d|%(threadName)s|%(name)s| %(message)s'))
+        log_to_con = logging.StreamHandler()
+        log_to_con.setFormatter(logging.Formatter('%(asctime)-15s| %(message)s'))
+
+        root_logger.addHandler(log_to_file)
+        root_logger.addHandler(log_to_con)
+        root_logger.setLevel(logging.DEBUG)
 
     launcher = conf.launchers[LAUNCHER]()
 
