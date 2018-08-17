@@ -30,7 +30,7 @@ RUN echo 'source /home/pupy/.bashrc.pupy' >> /home/pupy/.bashrc
 RUN python -m pip install --upgrade pip six setuptools wheel
 
 COPY . /opt/pupy
-RUN cd /opt/pupy && pip install --upgrade -r requirements.txt  --no-binary :all:
+RUN cd /opt/pupy && pip install --upgrade -r requirements.txt
 
 RUN python -m pip uninstall -y pycrypto
 RUN python -m pip install --upgrade --force-reinstall pycryptodome

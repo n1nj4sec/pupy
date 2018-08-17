@@ -32,7 +32,7 @@ hexdump
 M2Crypto
 fusepy
 defusedxml
-https://github.com/boppreh/keyboard/archive/master.zip
+keyboard
 -e external/pykcp
 construct==2.9.39
 flake8

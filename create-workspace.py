@@ -22,143 +22,148 @@ parser.add_argument('-NI', '--no-pip-install-deps', action='store_true', default
                     help='Do not install missing python deps (virtualenv, python-docker) using pip')
 parser.add_argument('workdir', help='Location of workdir')
 
-args = parser.parse_args()
 
-try:
-    with open('/dev/null', 'w') as devnull:
-        subprocess.check_call(['git', '--help'], stdout=devnull)
-except:
-    sys.exit("Install git (example: sudo apt-get install git)")
+def main():
+    args = parser.parse_args()
 
-if not args.do_not_compile_templates:
     try:
         with open('/dev/null', 'w') as devnull:
-            subprocess.check_call(['docker', '--help'], stdout=devnull)
+            subprocess.check_call(['git', '--help'], stdout=devnull)
     except:
-        sys.exit("Install docker: https://docs.docker.com/install/")
+        sys.exit("Install git (example: sudo apt-get install git)")
 
-    vsc = '/proc/sys/abi/vsyscall32'
-    if os.path.isfile(vsc):
-        vsyscall = int(open(vsc).read())
-        if not vsyscall:
-            sys.exit('You need to have vsyscall enabled:\n~> sudo sysctl -w abi.vsyscall32=1\n~> sudo reboot')
+    if not args.do_not_compile_templates:
+        try:
+            with open('/dev/null', 'w') as devnull:
+                subprocess.check_call(['docker', '--help'], stdout=devnull)
+        except:
+            sys.exit("Install docker: https://docs.docker.com/install/")
 
-try:
-    import virtualenv
-except:
-    if args.no_pip_install_deps:
-        sys.exit('virtualenv missing: pip install --user virtualenv')
-    else:
-        subprocess.call('pip install --user virtualenv')
+        vsc = '/proc/sys/abi/vsyscall32'
+        if os.path.isfile(vsc):
+            vsyscall = int(open(vsc).read())
+            if not vsyscall:
+                sys.exit('You need to have vsyscall enabled:\n~> sudo sysctl -w abi.vsyscall32=1\n~> sudo reboot')
 
-    import virtualenv
+    try:
+        import virtualenv
+    except:
+        if args.no_pip_install_deps:
+            sys.exit('virtualenv missing: pip install --user virtualenv')
+        else:
+            subprocess.call('pip install --user virtualenv')
 
-workdir = os.path.abspath(args.workdir)
+        import virtualenv
 
-if not os.path.isfile(os.path.join(args.pupy_git_folder, 'create-workspace.py')):
-    sys.exit('{} is not pupy project folder'.format(args.pupy_git_folder))
+    workdir = os.path.abspath(args.workdir)
 
-if os.path.isdir(workdir) and os.listdir(workdir):
-    sys.exit('{} is not empty'.format(workdir))
+    if not os.path.isfile(os.path.join(args.pupy_git_folder, 'create-workspace.py')):
+        sys.exit('{} is not pupy project folder'.format(args.pupy_git_folder))
 
-pupy = os.path.abspath(args.pupy_git_folder)
+    if os.path.isdir(workdir) and os.listdir(workdir):
+        sys.exit('{} is not empty'.format(workdir))
 
-print "[+] Pupy at {}".format(pupy)
+    pupy = os.path.abspath(args.pupy_git_folder)
 
-if not args.do_not_compile_templates:
-    pwd = os.getcwd()
-    print "[+] Compile common templates"
-    os.chdir(os.path.join(args.pupy_git_folder, 'client'))
-    env = os.environ.copy()
-    if args.docker_repo:
-        env['REPO'] = args.docker_repo
+    print "[+] Pupy at {}".format(pupy)
+
+    if not args.do_not_compile_templates:
+        print "[+] Compile common templates"
+        os.chdir(os.path.join(args.pupy_git_folder, 'client'))
+        env = os.environ.copy()
+        if args.docker_repo:
+            env['REPO'] = args.docker_repo
+
+        subprocess.check_call([
+            './build-docker.sh'
+        ], env=env, cwd=pupy)
+
+    print "[+] Create VirtualEnv environment"
+
+    try:
+        os.makedirs(args.workdir)
+    except OSError, e:
+        if e.errno == errno.EEXIST:
+            pass
+
+    virtualenv.create_environment(workdir)
+
+    print "[+] Install dependencies"
+    subprocess.check_call([
+        os.path.join(workdir, 'bin', 'pip'),
+        'install',
+        '-r', 'requirements.txt'
+    ], cwd=os.path.join(pupy, 'pupy'))
 
     subprocess.check_call([
-        './build-docker.sh'
-    ], env=env, cwd=pupy)
+        os.path.abspath(os.path.join(workdir, 'bin', 'pip')),
+        'install', '--upgrade', '--force-reinstall',
+        'pycryptodome'
+    ], cwd=os.path.join(pupy, 'pupy'))
 
-print "[+] Create VirtualEnv environment"
+    print "[+] Create pupysh wrapper"
+    pupysh_path = os.path.join(workdir, 'bin', 'pupysh')
+    pupysh_update_path = os.path.join(workdir, 'bin', 'pupysh-update')
 
-try:
-    os.makedirs(args.workdir)
-except OSError, e:
-    if e.errno == errno.EEXIST:
-        pass
+    with open(pupysh_path, 'w') as pupysh:
+        wa = os.path.abspath(workdir)
+        print >>pupysh, '#!/bin/sh'
+        print >>pupysh, 'cd {}'.format(wa)
+        print >>pupysh, 'exec bin/python -B {} "$@"'.format(
+            os.path.join(pupy, 'pupy', 'pupysh.py'))
 
-virtualenv.create_environment(workdir)
+    os.chmod(pupysh_path, 0755)
 
-print "[+] Install dependencies"
-subprocess.check_call([
-    os.path.join(workdir, 'bin', 'pip'),
-    'install',
-    '-r', 'requirements.txt'
-], cwd=os.path.join(pupy, 'pupy'))
+    with open(pupysh_update_path, 'w') as pupysh_update:
+        wa = os.path.abspath(workdir)
+        print >>pupysh_update, '#!/bin/sh'
+        print >>pupysh_update, 'set -e'
+        print >>pupysh_update, 'echo "[+] Update pupy repo"'
+        print >>pupysh_update, 'cd {}; git pull --recurse-submodules'.format(pupy)
+        print >>pupysh_update, 'echo "[+] Update python dependencies"'
+        print >>pupysh_update, 'source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
+            workdir)
+        if not args.do_not_compile_templates:
+            print >>pupysh_update, 'echo "[+] Recompile templates"'
+            for target in ('windows', 'linux32', 'linux64'):
+                print >>pupysh_update, 'echo "[+] Build {}"'.format(target)
+                print >>pupysh_update, 'docker start -a build-pupy-{}'.format(target)
+        print >>pupysh_update, 'echo "[+] Update completed"'
 
-subprocess.check_call([
-    os.path.abspath(os.path.join(workdir, 'bin', 'pip')),
-    'install', '--upgrade', '--force-reinstall',
-    'pycryptodome'
-], cwd=os.path.join(pupy, 'pupy'))
+    os.chmod(pupysh_update_path, 0755)
 
-print "[+] Create pupysh wrapper"
-pupysh_path = os.path.join(workdir, 'bin', 'pupysh')
-pupysh_update_path = os.path.join(workdir, 'bin', 'pupysh-update')
+    if args.bin_path:
+        bin_path = os.path.abspath(args.bin_path)
+        print "[+] Store symlink to pupysh to {}".format(bin_path)
 
-with open(pupysh_path, 'w') as pupysh:
-    wa = os.path.abspath(workdir)
-    print >>pupysh, '#!/bin/sh'
-    print >>pupysh, 'cd {}'.format(wa)
-    print >>pupysh, 'exec bin/python -B {} "$@"'.format(
-        os.path.join(pupy, 'pupy', 'pupysh.py'))
+        if not os.path.isdir(bin_path):
+            os.makedirs(bin_path)
 
-os.chmod(pupysh_path, 0755)
+        for src, sympath in ((pupysh_path, 'pupysh'), (pupysh_update_path, 'pupysh-update')):
+            sympath = os.path.join(bin_path, sympath)
 
-with open(pupysh_update_path, 'w') as pupysh_update:
-    wa = os.path.abspath(workdir)
-    print >>pupysh_update, '#!/bin/sh'
-    print >>pupysh_update, 'set -e'
-    print >>pupysh_update, 'echo "[+] Update pupy repo"'
-    print >>pupysh_update, 'cd {}; git pull --recurse-submodules'.format(pupy)
-    print >>pupysh_update, 'echo "[+] Update python dependencies"'
-    print >>pupysh_update, 'source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
-        workdir)
-    if not args.do_not_compile_templates:
-        print >>pupysh_update, 'echo "[+] Recompile templates"'
-        for target in ( 'windows', 'linux32', 'linux64' ):
-            print >>pupysh_update, 'echo "[+] Build {}"'.format(target)
-            print >>pupysh_update, 'docker start -a build-pupy-{}'.format(target)
-    print >>pupysh_update, 'echo "[+] Update completed"'
+            if os.path.islink(sympath):
+                os.unlink(sympath)
 
-os.chmod(pupysh_update_path, 0755)
+            elif os.path.exists(sympath):
+                sys.exit("[-] File at {} already exists and not symlink".format(sympath))
 
-if args.bin_path:
-    bin_path = os.path.abspath(args.bin_path)
-    print "[+] Store symlink to pupysh to {}".format(bin_path)
+            os.symlink(src, sympath)
 
-    if not os.path.isdir(bin_path):
-        os.makedirs(bin_path)
+        if bin_path not in os.environ['PATH']:
+            print "[-] {} is not in your PATH!".format(bin_path)
+        else:
+            print "[I] To execute pupysh:"
+            print "~ > pupysh"
+            print "[I] To update:"
+            print "~ > pupysh-update"
 
-    for src, sympath in ((pupysh_path, 'pupysh'), (pupysh_update_path, 'pupysh-update')):
-        sympath = os.path.join(bin_path, sympath)
-
-        if os.path.islink(sympath):
-            os.unlink(sympath)
-
-        elif os.path.exists(sympath):
-            sys.exit("[-] File at {} already exists and not symlink".format(sympath))
-
-        os.symlink(src, sympath)
-
-    if not bin_path in os.environ['PATH']:
-        print "[-] {} is not in your PATH!".format(bin_path)
     else:
         print "[I] To execute pupysh:"
-        print "~ > pupysh"
+        print "~ > {}".format(pupysh_path)
         print "[I] To update:"
-        print "~ > pupysh-update"
+        print "~ > {}".format(pupysh_update_path)
 
-else:
-    print "[I] To execute pupysh:"
-    print "~ > {}".format(pupysh_path)
-    print "[I] To update:"
-    print "~ > {}".format(pupysh_update_path)
+
+if __name__ == '__main__':
+    main()
