@@ -395,32 +395,45 @@ def pupy_add_package(pkdic, compressed=False, name=None):
         memtrace(name)
 
 def has_module(name):
-    if name in sys.modules or \
-      name in sys.builtin_module_names or \
-      name in modules:
-        return True
-
-    fsname = name.replace('.', '/')
-    fsnames = (
-        '{}.py'.format(fsname),
-        '{}/__init__.py'.format(fsname),
-        '{}.pyd'.format(fsname),
-        '{}.so'.format(fsname)
-    )
-
-    for module in modules:
-        if module.startswith(fsnames):
+    try:
+        if name in sys.modules or \
+          name in sys.builtin_module_names or \
+          name in modules:
             return True
 
-    return False
+        fsname = name.replace('.', '/')
+        fsnames = (
+            '{}.py'.format(fsname),
+            '{}/__init__.py'.format(fsname),
+            '{}.pyd'.format(fsname),
+            '{}.so'.format(fsname)
+        )
+
+        for module in modules:
+            if module.startswith(fsnames):
+                return True
+
+        return False
+
+    except Exception, e:
+        dprint('has_module Exception: {}/{} (type(name) == {})'.format(
+            type(e), e, type(name)))
 
 def has_dll(name):
     return name in dlls
 
 def new_modules(names):
-    return [
-        name for name in names if not has_module(name)
-    ]
+    dprint('new_modules call: {}/{}'.format(type(names), len(names)))
+
+    try:
+        return [
+            name for name in names if not has_module(name)
+        ]
+    except Exception, e:
+        dprint('new_modules Exception: {}/{} (type(names) == {})'.format(
+            type(e), e, type(names)))
+
+        return names
 
 def new_dlls(names):
     return [
