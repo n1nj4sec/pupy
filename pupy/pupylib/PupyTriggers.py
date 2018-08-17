@@ -83,7 +83,7 @@ def _event(eventid, client, server, handler, config):
             criterias.extend(list(config.tags(node)))
 
         if client_filter not in criterias and not client_filter.startswith(('*', 'any')) and \
-            client not in server.get_clients(client_filter):
+            (not hasattr(server, 'get_clients') or client_filter not in server.get_clients(client_filter)):
 
             logger.debug('Incompatible event: eventid={} criterias={} client_filter={} action={}'.format(
                 event_to_string(eventid), criterias, client_filter, action))
