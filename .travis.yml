@@ -30,7 +30,7 @@ script:
 after_success:
 - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
 - |
-  if [ "$TRAVIS_REPO_SLUG" == "alxchk/pupy" ] && [ -z "$TRAVIS_PULL_REQUEST_SLUG" ]; then
+  if [ "$TRAVIS_REPO_SLUG" = "alxchk/pupy" ] && [ -z "$TRAVIS_PULL_REQUEST_SLUG" ]; then
   docker login -u $DOCKER_USER -p $DOCKER_PASS &&
   cd $TRAVIS_BUILD_DIR/pupy &&
   docker push alxchk/pupy:$TAG >/dev/null;
