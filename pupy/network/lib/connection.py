@@ -626,14 +626,14 @@ class PupyConnection(Connection):
         if not data and interval and ping_timeout:
             if not self._last_ping or now > self._last_ping + interval:
                 if __debug__:
-                    logger.debug('Send ping, interval(%s): %s, timeout: %s',
+                    logger.debug('Send ping, interval(%s): %d, timeout: %d',
                         self, interval, ping_timeout)
 
                 self._last_ping = self.ping(timeout=ping_timeout, now=now)
             else:
                 if __debug__:
-                    logger.debug('Ping not required(%s): %s < %s',
-                        self, self._last_ping + interval)
+                    logger.debug('Ping not required(%s): %d < %d',
+                        self, self._last_ping or now, self._last_ping + interval)
 
         return data
 
