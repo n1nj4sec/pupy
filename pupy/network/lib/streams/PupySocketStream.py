@@ -381,7 +381,7 @@ class PupyUDPSocketStream(object):
 
         self.kcp.window = 32768
 
-        self.buf_in = Buffer()
+        self.buf_in = Buffer(shared=True)
         self.buf_out = Buffer()
 
         #buffers for transport
