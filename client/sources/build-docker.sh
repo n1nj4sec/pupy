@@ -23,7 +23,10 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
     $PYTHON -m pip uninstall -y pycrypto
     $PYTHON -m pip install --upgrade --force-reinstall --no-binary :all: pycryptodome
+
+    rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
     $PYTHON -m pip install --upgrade --force $PYKCP
+    $PYTHON -c 'import kcp' || exit 1
 done
 
 echo "[+] Install psutil"

@@ -35,7 +35,9 @@ python -m pip install --upgrade \
 python -m pip -q install --upgrade --force-reinstall pycparser==2.17
 
 echo "[+] Compile pykcp"
+rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
 python -m pip install --upgrade --force $PYKCP
+python -c 'import kcp' || exit 1
 
 echo "[+] Compile pyuv"
 

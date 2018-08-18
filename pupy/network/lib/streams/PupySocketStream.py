@@ -17,7 +17,8 @@ try:
     __all__.append(
         'PupyUDPSocketStream'
     )
-except:
+
+except ImportError:
     logger.warning('Datagram based stream is not available: KCP missing')
 
 import sys
