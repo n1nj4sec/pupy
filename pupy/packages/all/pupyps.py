@@ -121,19 +121,22 @@ def pstree():
         if 'connections' in data[p.pid]:
             data[p.pid]['connections'] = bool(data[p.pid]['connections'])
 
+        parent = None
+
         try:
             parent = p.parent()
-            ppid = parent.pid if parent else 0
-            if ppid not in tree:
-                tree[ppid] = [p.pid]
-            else:
-                tree[ppid].append(p.pid)
 
         except (psutil.ZombieProcess):
             data[p.pid]['name'] = '< Z: ' + data[p.pid]['name'] + ' >'
 
-        except (psutil.NoSuchProcess):
-            pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            data[p.pid]['name'] = '< ?: ' + data[p.pid]['name'] + ' >'
+
+        ppid = parent.pid if parent else 0
+        if ppid not in tree:
+            tree[ppid] = [p.pid]
+        else:
+            tree[ppid].append(p.pid)
 
     # on systems supporting PID 0, PID 0's parent is usually 0
     if 0 in tree and 0 in tree[0]:
