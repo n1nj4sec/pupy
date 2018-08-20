@@ -416,6 +416,14 @@ def has_module(name):
             if module.startswith(fsnames):
                 return True
 
+        if allow_system_packages:
+            try:
+                imp.find_module(name)
+                return True
+
+            except ImportError:
+                pass
+
         return False
 
     except Exception, e:
