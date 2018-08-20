@@ -10,7 +10,7 @@ def getAndroidID():
     Returns None if an error
     '''
     try:
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         settingsSecure = autoclass('android.provider.Settings$Secure')
         androidId = settingsSecure.getString(pythonActivity.mService.getContentResolver(), settingsSecure.ANDROID_ID)
         return androidId
@@ -23,7 +23,7 @@ def getPhoneNumber():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         phoneNumber = telephonyManager.getLine1Number()
         return phoneNumber
@@ -38,7 +38,7 @@ def getDeviceId():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         deviceId = telephonyManager.getDeviceId()
         return deviceId
@@ -53,7 +53,7 @@ def getSimCountryIso():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         simCountryIso = telephonyManager.getSimCountryIso()
         return simCountryIso
@@ -69,7 +69,7 @@ def getNetworkCountryIso():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         networkCountryIso = telephonyManager.getNetworkCountryIso()
         return networkCountryIso
@@ -86,7 +86,7 @@ def getSimInfo():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         phoneCount = telephonyManager.getPhoneCount()
         return phoneCount
@@ -100,7 +100,7 @@ def getNetworkOperatorName():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         networkOperatorName = telephonyManager.getNetworkOperatorName()
         return networkOperatorName
@@ -115,7 +115,7 @@ def getSimState():
     try:
         status="?"
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         TelephonyManager = autoclass('android.telephony.TelephonyManager')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         simState = telephonyManager.getSimState()
@@ -143,7 +143,7 @@ def isNetworkRoaming():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
         isNetworkRoaming = telephonyManager.isNetworkRoaming()
         return isNetworkRoaming
@@ -156,7 +156,7 @@ def isWiFiEnabled():
     '''
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         wifiManager = cast('android.net.wifi.WifiManager', pythonActivity.mService.getSystemService(mContext.WIFI_SERVICE))
         return wifiManager.isWifiEnabled()
     except:
@@ -164,7 +164,7 @@ def isWiFiEnabled():
 
 def isWiFiConnected():
     mContext = autoclass('android.content.Context')
-    pythonActivity = autoclass('org.renpy.android.PythonService')
+    pythonActivity = autoclass('org.kivy.android.PythonService')
     connectivityManager = autoclass('android.net.ConnectivityManager')
     cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
     networkInfo = cManager.getNetworkInfo(connectivityManager.TYPE_WIFI)
@@ -172,7 +172,7 @@ def isWiFiConnected():
 
 def isVPNConnected():
     mContext = autoclass('android.content.Context')
-    pythonActivity = autoclass('org.renpy.android.PythonService')
+    pythonActivity = autoclass('org.kivy.android.PythonService')
     connectivityManager = autoclass('android.net.ConnectivityManager')
     cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
 
@@ -241,7 +241,7 @@ def getMobileNetworkType():
     info, fast = "Error!", False
     try:
         mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.renpy.android.PythonService')
+        pythonActivity = autoclass('org.kivy.android.PythonService')
         connectivityManager = autoclass('android.net.ConnectivityManager')
         telephonyManager = autoclass("android.telephony.TelephonyManager")
         cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
