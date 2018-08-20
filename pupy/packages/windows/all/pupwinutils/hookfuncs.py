@@ -4,7 +4,7 @@
 # Reason: to avoid duplication of prototypes
 
 from ctypes import (
-    byref, WinDLL, sizeof, pointer,
+    byref, WinDLL, WinError, sizeof, pointer,
     c_int, c_ulong, c_void_p, c_wchar_p,
     CFUNCTYPE, cast,
     c_void_p as LPRECT,
