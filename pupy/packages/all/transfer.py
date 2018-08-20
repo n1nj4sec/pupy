@@ -127,6 +127,10 @@ class Transfer(object):
                 logger.debug('_walk_scandir:topstat: %s', e)
                 return
 
+            except Exception, e:
+                logger.exception('_walk_scandir:topstat: %s', e)
+                raise
+
             if self.single_device is True:
                 self.single_device = topstat.st_dev
             elif self.single_device != topstat.st_dev:
@@ -137,6 +141,10 @@ class Transfer(object):
         except OSError, e:
             logger.debug('_walk_scandir:scandir: %s', e)
             return
+
+        except Exception, e:
+            logger.exception('_walk_scandir:scandir: %s', e)
+            raise
 
         while not self._terminate.is_set():
             try:
@@ -151,10 +159,13 @@ class Transfer(object):
                 except StopIteration:
                     break
 
-
             except OSError, e:
                 logger.debug('_walk_scandir:next(scandir_it): %s', e)
                 return
+
+            if entry is None:
+                logger.error('Entry is None')
+                continue
 
             name = entry.path
 
@@ -231,10 +242,8 @@ class Transfer(object):
 
         yield top, dirs, files, symlinks, hardlinks, special
 
-        del entry
-
         dirpaths = [
-            entry.name for entry in dirs
+            edir.name for edir in dirs
         ]
 
         del dirs[:], files[:], symlinks[:], hardlinks[:], special[:]
@@ -242,9 +251,8 @@ class Transfer(object):
         for direntry in dirpaths:
             new_path = path.join(top, direntry)
             if self.follow_symlinks or not islink(new_path):
-                for entry in self._walk_scandir(new_path, dups):
-                    yield entry
-                    del entry
+                for dentry in self._walk_scandir(new_path, dups):
+                    yield dentry
 
     def _worker_run_unsafe(self, buf):
         global HAS_BUFFER_OPTIMIZATION
@@ -257,6 +265,12 @@ class Transfer(object):
                 break
 
             command, args, callback = task
+            if command is None and args is None:
+                if callback is not None:
+                    callback(None, None)
+
+                self._terminate.set()
+                break
 
             restore_compression = False
             channel = None
@@ -334,6 +348,9 @@ class Transfer(object):
                         channel.compress = restore_compression
                     except:
                         pass
+
+        if callback:
+            callback(None, None)
 
     def _worker_run(self):
         try:
@@ -622,8 +639,8 @@ class Transfer(object):
         self._submit_command(
             self._pack_any, self._expand(filepath), callback)
 
-    def stop(self):
-        self.queue.put_nowait(None)
+    def stop(self, callback):
+        self.queue.put_nowait((None, None, callback))
 
     def terminate(self):
         if not self.initialized:
@@ -645,14 +662,14 @@ def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
        single_device=False, chunk_size=1*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, False, single_device, chunk_size)
     t.size(filepath, callback)
-    t.stop()
+    t.stop(callback)
     return t.terminate
 
 def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,
              ignore_size=False, single_device=False, chunk_size=1*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     t.transfer(filepath, callback)
-    t.stop()
+    t.stop(callback)
     return t.terminate
 
 def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False,
@@ -662,6 +679,9 @@ def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False
 
     def _closure(filepath):
         t.transfer(filepath, callback)
+
+    def _stop():
+        t.stop(callback)
 
     return _closure, t.stop, t.terminate
 
@@ -703,6 +723,6 @@ if __name__ == '__main__':
     t.size('/etc', callback=blob_printer, async=False)
     t.transfer('/etc', callback=blob_printer, async=False)
     print "WAIT"
-    t.stop()
+    t.stop(None)
     t.join()
     print "END"
