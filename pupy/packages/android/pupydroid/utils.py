@@ -5,14 +5,16 @@
 
 from jnius import autoclass, cast
 
+SERVICE = autoclass('org.kivy.android.PythonService').mService
+CONTEXT = autoclass('android.content.Context')
+
 def getAndroidID():
     '''
     Returns None if an error
     '''
     try:
-        pythonActivity = autoclass('org.kivy.android.PythonService')
         settingsSecure = autoclass('android.provider.Settings$Secure')
-        androidId = settingsSecure.getString(pythonActivity.mService.getContentResolver(), settingsSecure.ANDROID_ID)
+        androidId = settingsSecure.getString(SERVICE.getContentResolver(), settingsSecure.ANDROID_ID)
         return androidId
     except:
         return None
@@ -22,9 +24,9 @@ def getPhoneNumber():
     Returns None if an error
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         phoneNumber = telephonyManager.getLine1Number()
         return phoneNumber
     except:
@@ -37,9 +39,9 @@ def getDeviceId():
     Requires Permission: READ_PHONE_STATE
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         deviceId = telephonyManager.getDeviceId()
         return deviceId
     except:
@@ -52,9 +54,9 @@ def getSimCountryIso():
     Since it is the sim code it also should not change when traveling to other countries.
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         simCountryIso = telephonyManager.getSimCountryIso()
         return simCountryIso
     except:
@@ -68,9 +70,9 @@ def getNetworkCountryIso():
     See https://developer.android.com/reference/android/telephony/TelephonyManager.html#getNetworkCountryIso()
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         networkCountryIso = telephonyManager.getNetworkCountryIso()
         return networkCountryIso
     except:
@@ -85,9 +87,9 @@ def getSimInfo():
     --> Needs API level 23 <--
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         phoneCount = telephonyManager.getPhoneCount()
         return phoneCount
     except:
@@ -99,9 +101,9 @@ def getNetworkOperatorName():
     Returns None if an error
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         networkOperatorName = telephonyManager.getNetworkOperatorName()
         return networkOperatorName
     except:
@@ -114,10 +116,10 @@ def getSimState():
     '''
     try:
         status="?"
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
         TelephonyManager = autoclass('android.telephony.TelephonyManager')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         simState = telephonyManager.getSimState()
         if simState == TelephonyManager.SIM_STATE_UNKNOWN:
             status = "unknown"
@@ -142,9 +144,9 @@ def isNetworkRoaming():
     Availability: Only when user registered to a network.
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        telephonyManager = cast('android.telephony.TelephonyManager', pythonActivity.mService.getSystemService(mContext.TELEPHONY_SERVICE))
+        telephonyManager = cast(
+            'android.telephony.TelephonyManager',
+            SERVICE.getSystemService(CONTEXT.TELEPHONY_SERVICE))
         isNetworkRoaming = telephonyManager.isNetworkRoaming()
         return isNetworkRoaming
     except:
@@ -155,26 +157,26 @@ def isWiFiEnabled():
     Returns None if an error
     '''
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
-        wifiManager = cast('android.net.wifi.WifiManager', pythonActivity.mService.getSystemService(mContext.WIFI_SERVICE))
+        wifiManager = cast(
+            'android.net.wifi.WifiManager',
+            SERVICE.getSystemService(CONTEXT.WIFI_SERVICE))
         return wifiManager.isWifiEnabled()
     except:
         return None
 
 def isWiFiConnected():
-    mContext = autoclass('android.content.Context')
-    pythonActivity = autoclass('org.kivy.android.PythonService')
     connectivityManager = autoclass('android.net.ConnectivityManager')
-    cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
+    cManager = cast(
+        'android.net.ConnectivityManager',
+        SERVICE.getSystemService(CONTEXT.CONNECTIVITY_SERVICE))
     networkInfo = cManager.getNetworkInfo(connectivityManager.TYPE_WIFI)
     return networkInfo.isConnected()
 
 def isVPNConnected():
-    mContext = autoclass('android.content.Context')
-    pythonActivity = autoclass('org.kivy.android.PythonService')
     connectivityManager = autoclass('android.net.ConnectivityManager')
-    cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
+    cManager = cast(
+        'android.net.ConnectivityManager',
+        SERVICE.getSystemService(CONTEXT.CONNECTIVITY_SERVICE))
 
     try:
         networkInfo = cManager.getNetworkInfo(connectivityManager.TYPE_VPN)
@@ -202,7 +204,17 @@ def getInfoBuild():
         except:
             serial = None
         radioVersion = build.getRadioVersion()
-        return {'deviceName':deviceName, 'manufacturer':manufacturer, 'model':model, 'product': product, 'bootloaderVersion':bootloaderVersion, 'hardware':hardware, 'serial':serial, 'radioVersion':radioVersion, 'release':"{0} ({1})".format(version.RELEASE, version.CODENAME)}
+        return {
+            'deviceName': deviceName,
+            'manufacturer': manufacturer,
+            'model': model,
+            'product': product,
+            'bootloaderVersion': bootloaderVersion,
+            'hardware': hardware,
+            'serial': serial,
+            'radioVersion': radioVersion,
+            'release':"{0} ({1})".format(version.RELEASE, version.CODENAME)
+        }
     except:
         return {
             'deviceName':None,
@@ -240,16 +252,18 @@ def getMobileNetworkType():
     '''
     info, fast = "Error!", False
     try:
-        mContext = autoclass('android.content.Context')
-        pythonActivity = autoclass('org.kivy.android.PythonService')
         connectivityManager = autoclass('android.net.ConnectivityManager')
         telephonyManager = autoclass("android.telephony.TelephonyManager")
-        cManager = cast('android.net.ConnectivityManager', pythonActivity.mService.getSystemService(mContext.CONNECTIVITY_SERVICE))
+        cManager = cast(
+            'android.net.ConnectivityManager',
+            SERVICE.getSystemService(CONTEXT.CONNECTIVITY_SERVICE))
         activeNetworkInfo = cManager.getActiveNetworkInfo()
         cType = activeNetworkInfo.getType()
         cSubType = activeNetworkInfo.getSubtype()
+
         if cType != connectivityManager.TYPE_MOBILE:
             return None
+
         if cSubType == telephonyManager.NETWORK_TYPE_1xRTT:
             info = "1xRTT: 50-100 kbps"
             fast = False
