@@ -421,6 +421,14 @@ def lastlog(log='/var/log/lastlog'):
 
     return result
 
+def get_win_services():
+    return [
+        {
+            k:to_unicode(v) for k,v in service.as_dict().iteritems()
+        } for service in psutil.win_service_iter()
+    ]
+
+
 if __name__ == '__main__':
     import datetime
     for result in wtmp():
