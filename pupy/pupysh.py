@@ -23,25 +23,13 @@ import argparse
 if sys.version_info[0] != 2:
     exit("Pupy only support Python 2.x")
 
+args = None
+
 if __name__ == '__main__':
     ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
     sys.path.insert(0, os.path.join(ROOT, 'library_patches'))
     sys.path.append(os.path.join(ROOT, 'packages', 'all'))
 
-import network.conf
-
-try:
-    import pupylib.PupySignalHandler
-    assert pupylib.PupySignalHandler
-except ImportError:
-    pass
-
-from pupylib import PupyServer
-from pupylib import PupyCmdLoop
-from pupylib import PupyCredentials
-from pupylib import PupyConfig
-
-if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
     parser.add_argument(
         '--loglevel', '-d',
@@ -52,9 +40,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-l', '--listen',
         help='Bind server listener with transport and args to port.'
-        'Example: -l ssl 127.0.0.1:443 -l kcp 80 -l xyz 1234 OPTION1=value OPTION2=value.'
-        'Transports: {}'.format(
-            ','.join(x for x in network.conf.transports.iterkeys())),
+        'Example: -l ssl 127.0.0.1:443 -l kcp 80 -l xyz 1234 OPTION1=value OPTION2=value.',
         nargs='+',
         metavar=('TRANSPORT', '<<EXTERNAL_IP=>IP>:<EXTERNAL_PORT=>PORT OPTION=value'),
         action='append', default=[]
@@ -87,6 +73,19 @@ if __name__ == "__main__":
 
     root_logger.addHandler(logging_stream)
     root_logger.setLevel(args.loglevel)
+
+try:
+    import pupylib.PupySignalHandler
+    assert pupylib.PupySignalHandler
+except ImportError:
+    pass
+
+from pupylib import PupyServer
+from pupylib import PupyCmdLoop
+from pupylib import PupyCredentials
+from pupylib import PupyConfig
+
+if __name__ == "__main__":
 
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
     if args.not_encrypt:
