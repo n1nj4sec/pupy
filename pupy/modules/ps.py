@@ -191,7 +191,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
             info['pid'] = pid
             columns = gen_columns(info, colinfo)
 
-            fout(gen_output_line(columns, outcols, info, wide)+'\n')
+            fout(gen_output_line(columns, outcols, info, wide))
 
 
 def is_filtered(pid, columns, hide, show):
