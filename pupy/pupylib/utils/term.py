@@ -239,12 +239,14 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
 
     diclist = obj2utf8(diclist)
     keys = [
-        x for x in (wl if wl else diclist[0].iterkeys()) if x not in bl
+        (
+            x if type(x) in (tuple, list) else (x, x)
+        ) for x in (wl if wl else diclist[0].iterkeys()) if x not in bl
     ]
 
     titlesdic = {}
-    for k in keys:
-        titlesdic[k] = k
+    for key,title in keys:
+        titlesdic[key] = title
 
     if legend:
         diclist.insert(0, titlesdic)
@@ -261,9 +263,9 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
         i += 1
 
         lines = []
-        for name in keys:
-            value = c[name].strip()
-            lines.append(value.ljust(colsize[name]+2 + ediff(value)))
+        for key,_ in keys:
+            value = c[key].strip()
+            lines.append(value.ljust(colsize[key]+2 + ediff(value)))
 
         res.append(u''.join(lines))
 
