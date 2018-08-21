@@ -69,14 +69,13 @@ def main():
 
     if not args.do_not_compile_templates:
         print "[+] Compile common templates"
-        os.chdir(os.path.join(args.pupy_git_folder, 'client'))
         env = os.environ.copy()
         if args.docker_repo:
             env['REPO'] = args.docker_repo
 
         subprocess.check_call([
-            './build-docker.sh'
-        ], env=env, cwd=pupy)
+            os.path.join(args.pupy_git_folder, 'client', 'build-docker.sh')
+        ], env=env, cwd=os.path.join(args.pupy_git_folder, 'client'))
 
     print "[+] Create VirtualEnv environment"
 
