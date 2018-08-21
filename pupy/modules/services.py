@@ -41,13 +41,13 @@ class Services(PupyModule):
 
         services = get_services()
 
-        columns = ['pid', 'name', 'binpath']
+        columns = [('pid', 'PID'), ('name', 'SERVICE'), ('binpath', 'PATH')]
         if args.info:
-            columns = ['pid', 'name', 'username', 'binpath']
+            columns = [('pid', 'PID'), ('name', 'SERVICE'), ('username', 'USER'), ('binpath', 'PATH')]
 
         if args.display_name:
             columns = [
-                x if x != 'name' else 'display_name' for x in columns
+                x if x[0] != 'name' else ('display_name', 'SERVICE') for x in columns
             ]
 
         data = []
