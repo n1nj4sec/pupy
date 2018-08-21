@@ -17,13 +17,15 @@ if not hasattr(os, 'real_write'):
     if type(os.write).__name__ == 'builtin_function_or_method':
         os.real_write = os.write
 
-if not hasattr(sys, 'real_stdout') and type(sys.stdout).__name__ in ('file', 'Blackhole'):
+allowed_std = ('file', 'Blackhole', 'NoneType')
+
+if not hasattr(sys, 'real_stdout') and type(sys.stdout).__name__ in allowed_std:
     sys.real_stdout = sys.stdout
 
-if not hasattr(sys, 'real_stderr') and type(sys.stderr).__name__ in ('file', 'Blackhole'):
+if not hasattr(sys, 'real_stderr') and type(sys.stderr).__name__ in allowed_std:
     sys.real_stderr = sys.stderr
 
-if not hasattr(sys, 'real_stdin') and type(sys.stdin).__name__ in ('file', 'Blackhole'):
+if not hasattr(sys, 'real_stdin') and type(sys.stdin).__name__ in allowed_std:
     sys.real_stdin = sys.stdin
 
 if not hasattr(os, 'stdout_write'):
