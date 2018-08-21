@@ -11,11 +11,14 @@ LIKELY_KNOWN = (
     'wmpnetwk.exe', 'SearchIndexer.exe'
 )
 
-@config(cat='admin', compat=['windows'])
+@config(cat='admin', compat=['windows','linux'])
 class Services(PupyModule):
     """ list services """
 
-    dependencies = ['pupyps']
+    dependencies = {
+        'windows': ['pupyps'],
+        'linux': ['dbus', 'services']
+    }
 
     @classmethod
     def init_argparse(cls):
@@ -26,7 +29,16 @@ class Services(PupyModule):
                                     help='Show display name instead of name')
 
     def run(self, args):
-        get_services = self.client.remote('pupyps', 'get_win_services')
+        is_linux = False
+
+        if self.client.is_linux():
+            get_services = self.client.remote('services', 'get_services_systemd')
+            is_linux = True
+        elif self.client.is_windows():
+            get_services = self.client.remote('pupyps', 'get_win_services')
+        else:
+            raise ValueError('Unsupported target')
+
         services = get_services()
 
         columns = ['pid', 'name', 'binpath']
@@ -52,7 +64,7 @@ class Services(PupyModule):
                     continue
 
                 color = 'grey'
-            elif all([x not in binpath for x in LIKELY_KNOWN]):
+            elif all([x not in binpath for x in LIKELY_KNOWN]) and not is_linux:
                 color = 'cyan'
                 if username.upper() in ADMINS:
                     color = 'lightyellow'
