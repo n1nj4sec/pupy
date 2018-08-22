@@ -1,9 +1,10 @@
 #!/bin/sh
 
 PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton dnslib"
-PACKAGES_BUILD="cryptography netifaces msgpack-python u-msgpack-python scandir construct"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
+PACKAGES="$PACKAGES cryptography"
 
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`
