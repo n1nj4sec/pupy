@@ -198,7 +198,7 @@ class Listener(Thread):
         transport_kwargs = self.transport.server_transport_kwargs
 
         if len(args) > 1:
-            opt_args = parse_transports_args(args[1])
+            opt_args = parse_transports_args(args[1], exit=False)
         else:
             opt_args = []
 
@@ -956,21 +956,51 @@ class PupyServer(object):
             self.handler.display_warning('Listener {} already registered'.format(name))
             return
 
-        listener_config = config or self.config.get('listeners', name)
-        if not listener_config:
-            self.handler.display_error('Listener {} is not known'.format(name))
+        if name not in transports:
+            error = 'Transport {} is not registered. To show available: listen -L'.format(repr(name))
+
+            if motd:
+                self.motd['fail'].append(error)
+            else:
+                self.handler.display_error(error)
+
             return
 
-        listener = Listener(
-            self,
-            name,
-            listener_config,
-            httpd=self.httpd,
-            igd=self.igd,
-            local=self.config.get('pupyd', 'address'),
-            external=self.config.get('pupyd', 'external'),
-            pproxy=self.pproxy_listener
-        )
+        listener_config = config or self.config.get('listeners', name)
+        if not listener_config:
+            error = 'Transport {} does not have default settings. Specfiy args (at least port)'.format(
+                repr(name))
+
+            if motd:
+                self.motd['fail'].append(error)
+            else:
+                self.handler.display_error(error)
+            return
+
+        try:
+            listener = Listener(
+                self,
+                name,
+                listener_config,
+                httpd=self.httpd,
+                igd=self.igd,
+                local=self.config.get('pupyd', 'address'),
+                external=self.config.get('pupyd', 'external'),
+                pproxy=self.pproxy_listener
+            )
+
+        except (ListenerException, ValueError), e:
+            error = 'Listener: {}: Error: {}'.format(repr(name), e)
+
+            if motd:
+                self.motd['fail'].append(error)
+            else:
+                self.handler.display_error(error)
+            return
+
+        except Exception, e:
+            logger.exception(e)
+            return
 
         self.listeners[name] = listener
 
@@ -984,17 +1014,17 @@ class PupyServer(object):
 
         except socket.error as e:
             if e.errno == errno.EACCES:
-                message = 'Listen: {}: Insufficient privileges to bind'.format(listener)
+                error = 'Listen: {}: Insufficient privileges to bind'.format(listener)
             elif e.errno == errno.EADDRINUSE:
-                message = 'Listen: {}: Address/Port already used'.format(listener)
+                error = 'Listen: {}: Address/Port already used'.format(listener)
             elif e.errno == errno.EADDRNOTAVAIL:
-                message = 'Listen: {}: No network interface with addresss {}'.format(
+                error = 'Listen: {}: No network interface with addresss {}'.format(
                     listener, listener.address)
             else:
-                message = 'Listen: {}: {}'.format(listener, e)
+                error = 'Listen: {}: {}'.format(listener, e)
 
         except Exception as e:
-            message = '{}: {}'.format(listener, e)
+            error = '{}: {}'.format(listener, e)
             logger.exception(e)
 
         if error:
@@ -1002,12 +1032,12 @@ class PupyServer(object):
 
         if motd:
             if error:
-                self.motd['fail'].append(message)
+                self.motd['fail'].append(error)
             else:
                 self.motd['ok'].append(message)
         else:
             if error:
-                self.handler.display_error(message)
+                self.handler.display_error(error)
             else:
                 self.handler.display_success(message)
 
