@@ -76,7 +76,7 @@ def main():
         if args.no_pip_install_deps:
             sys.exit('virtualenv missing: pip install --user virtualenv')
         else:
-            subprocess.call('pip install --user virtualenv')
+            subprocess.check_output('pip install --user virtualenv', shell=True)
 
         import virtualenv
 
