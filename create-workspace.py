@@ -5,6 +5,7 @@ import subprocess
 import os
 import sys
 import errno
+import time
 
 default_local_bin_location = os.path.expanduser('~/.local/bin/')
 ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -13,6 +14,8 @@ parser = argparse.ArgumentParser(prog="create-workspace.py")
 parser.add_argument('-P', '--pupy-git-folder', default=ROOT, help='Path to pupy git')
 parser.add_argument('-NC', '--do-not-compile-templates',
                     action='store_true', default=False, help='Do not compile payload templates')
+parser.add_argument('-DG', '--download-templates-from-github-releases',
+                    action='store_true', default=False, help='Do not compile payload templates and download latest templates from travis-ci automatic build')
 parser.add_argument('-R', '--docker-repo',
                     help='Use non-default toolchains repo (Use "local" to build all the things on your PC')
 parser.add_argument('-B', '--bin-path', default=default_local_bin_location,
@@ -21,6 +24,26 @@ parser.add_argument('-B', '--bin-path', default=default_local_bin_location,
 parser.add_argument('-NI', '--no-pip-install-deps', action='store_true', default=False,
                     help='Do not install missing python deps (virtualenv, python-docker) using pip')
 parser.add_argument('workdir', help='Location of workdir')
+
+def download_file(url, directory) :
+    "download a file and display a meter bar"
+    import requests #only available after the pip install in this script
+    localFilename = url.split('/')[-1]
+    with open(directory + '/' + localFilename, 'wb') as f:
+      start = time.clock()
+      r = requests.get(url, stream=True)
+      total_length = r.headers.get('content-length')
+      dl = 0
+      if total_length is None: # no content length header
+        f.write(r.content)
+      else:
+        for chunk in r.iter_content(1024):
+          dl += len(chunk)
+          f.write(chunk)
+          done = int(50 * dl / total_length)
+          sys.stdout.write("\r[%s%s] %s bps" % ('=' * done, ' ' * (50-done), dl//(time.clock() - start)))
+          print ''
+    return (time.clock() - start)
 
 
 def main():
@@ -32,7 +55,9 @@ def main():
     except:
         sys.exit("Install git (example: sudo apt-get install git)")
 
-    if not args.do_not_compile_templates:
+    if args.download_templates_from_github_releases:
+        args.do_not_compile_templates=True
+    elif not args.do_not_compile_templates:
         try:
             with open('/dev/null', 'w') as devnull:
                 subprocess.check_call(['docker', '--help'], stdout=devnull)
@@ -100,18 +125,29 @@ def main():
         'pycryptodome'
     ], cwd=os.path.join(pupy, 'pupy'))
 
-    print "[+] Create pupysh wrapper"
-    pupysh_path = os.path.join(workdir, 'bin', 'pupysh')
+    if args.download_templates_from_github_releases:
+        ts=download_file("https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz", "./")
+        print "payload_templates.txz downloaded in %ss"%ts
+        subprocess.check_call(["tar", "xf", "payload_templates.txz", "pupy/"], cwd=os.path.join(pupy))
+        
+
+    wrappers=["pupysh", "pupygen"]
+    print "[+] Create {} wrappers".format(','.join(wrappers))
+
     pupysh_update_path = os.path.join(workdir, 'bin', 'pupysh-update')
+    pupysh_paths=[]
+    for script in wrappers:
+        pupysh_path = os.path.join(workdir, 'bin', script)
+        pupysh_paths.append(pupysh_path)
 
-    with open(pupysh_path, 'w') as pupysh:
-        wa = os.path.abspath(workdir)
-        print >>pupysh, '#!/bin/sh'
-        print >>pupysh, 'cd {}'.format(wa)
-        print >>pupysh, 'exec bin/python -B {} "$@"'.format(
-            os.path.join(pupy, 'pupy', 'pupysh.py'))
+        with open(pupysh_path, 'w') as pupysh:
+            wa = os.path.abspath(workdir)
+            print >>pupysh, '#!/bin/sh'
+            print >>pupysh, 'cd {}'.format(wa)
+            print >>pupysh, 'exec bin/python -B {} "$@"'.format(
+                os.path.join(pupy, 'pupy', script+'.py'))
 
-    os.chmod(pupysh_path, 0755)
+        os.chmod(pupysh_path, 0755)
 
     with open(pupysh_update_path, 'w') as pupysh_update:
         wa = os.path.abspath(workdir)
@@ -130,6 +166,8 @@ def main():
         print >>pupysh_update, 'echo "[+] Update completed"'
 
     os.chmod(pupysh_update_path, 0755)
+    
+
 
     if args.bin_path:
         bin_path = os.path.abspath(args.bin_path)
@@ -138,7 +176,7 @@ def main():
         if not os.path.isdir(bin_path):
             os.makedirs(bin_path)
 
-        for src, sympath in ((pupysh_path, 'pupysh'), (pupysh_update_path, 'pupysh-update')):
+        for src, sympath in [(x, os.path.splitext(os.path.basename(x))[0]) for x in pupysh_paths]+[(pupysh_update_path, 'pupysh-update')]:
             sympath = os.path.join(bin_path, sympath)
 
             if os.path.islink(sympath):
@@ -159,7 +197,7 @@ def main():
 
     else:
         print "[I] To execute pupysh:"
-        print "~ > {}".format(pupysh_path)
+        print "~ > {}".format(pupysh_paths[0])
         print "[I] To update:"
         print "~ > {}".format(pupysh_update_path)
 
