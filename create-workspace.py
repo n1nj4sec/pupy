@@ -5,6 +5,7 @@ import subprocess
 import os
 import sys
 import errno
+import urllib2
 import time
 
 default_local_bin_location = os.path.expanduser('~/.local/bin/')
@@ -24,26 +25,6 @@ parser.add_argument('-B', '--bin-path', default=default_local_bin_location,
 parser.add_argument('-NI', '--no-pip-install-deps', action='store_true', default=False,
                     help='Do not install missing python deps (virtualenv, python-docker) using pip')
 parser.add_argument('workdir', help='Location of workdir')
-
-def download_file(url, directory) :
-    "download a file and display a meter bar"
-    import requests #only available after the pip install in this script
-    localFilename = url.split('/')[-1]
-    with open(directory + '/' + localFilename, 'wb') as f:
-      start = time.clock()
-      r = requests.get(url, stream=True)
-      total_length = r.headers.get('content-length')
-      dl = 0
-      if total_length is None: # no content length header
-        f.write(r.content)
-      else:
-        for chunk in r.iter_content(1024):
-          dl += len(chunk)
-          f.write(chunk)
-          done = int(50 * dl / total_length)
-          sys.stdout.write("\r[%s%s] %s bps" % ('=' * done, ' ' * (50-done), dl//(time.clock() - start)))
-          print ''
-    return (time.clock() - start)
 
 
 def main():
@@ -126,9 +107,11 @@ def main():
     ], cwd=os.path.join(pupy, 'pupy'))
 
     if args.download_templates_from_github_releases:
-        ts=download_file("https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz", "./")
-        print "payload_templates.txz downloaded in %ss"%ts
-        subprocess.check_call(["tar", "xf", "payload_templates.txz", "pupy/"], cwd=os.path.join(pupy))
+        download_link="https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz"
+        print "downloading payload_templates from {}".format(download_link)
+        #subprocess.check_call(["wget", "-O", "payload_templates.txz", download_link], cwd=os.path.join(pupy))
+        print "extracting payloads ..."
+        subprocess.check_call(["tar", "xf", "payload_templates.txz", "-C", "pupy/"], cwd=os.path.join(pupy))
         
 
     wrappers=["pupysh", "pupygen"]
