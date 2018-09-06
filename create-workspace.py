@@ -109,7 +109,7 @@ def main():
     if args.download_templates_from_github_releases:
         download_link="https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz"
         print "downloading payload_templates from {}".format(download_link)
-        #subprocess.check_call(["wget", "-O", "payload_templates.txz", download_link], cwd=os.path.join(pupy))
+        subprocess.check_call(["wget", "-O", "payload_templates.txz", download_link], cwd=os.path.join(pupy))
         print "extracting payloads ..."
         subprocess.check_call(["tar", "xf", "payload_templates.txz", "-C", "pupy/"], cwd=os.path.join(pupy))
         
