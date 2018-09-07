@@ -11,6 +11,7 @@ git clone --recursive https://github.com/n1nj4sec/pupy
 cd pupy
 python create-workspace.py -DG pupyw
 ```
+Once install, if you want to update pupy, you can use the pupysh-update
 
 ## Description
 
