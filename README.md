@@ -3,15 +3,18 @@
 # Pupy
 
 ## Quick install and configure
+
 You have multiple ways for installing pupy including docker. cf. the wiki
+
 If you want a simple installation in a virtualenv with pre-built binaries, please use :
 ```
 apt-get install git libssl1.0-dev libffi-dev python-dev python-pip tcpdump python-virtualenv
 git clone --recursive https://github.com/n1nj4sec/pupy
 cd pupy
 python create-workspace.py -DG pupyw
+export PATH=$PATH:~/.local/bin
 ```
-Once install, if you want to update pupy, you can use the pupysh-update
+Once installed, it will add 3 commands to your ~/.local/bin : pupysh, pupygen and pupysh-update
 
 ## Description
 
@@ -128,6 +131,7 @@ File with config is [here](pupy/tox.ini).
 ## Contact
 
 by mail: contact@n1nj4.eu
+
 on Twitter: [Follow me on twitter](https://twitter.com/n1nj4sec)
 
 This project is a [personal development](https://en.wikipedia.org/wiki/Personal_development), please respect its philosophy and don't use it for evil purposes!
