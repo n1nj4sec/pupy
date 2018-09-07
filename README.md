@@ -1,71 +1,16 @@
 [![Build Status](https://api.travis-ci.org/n1nj4sec/pupy.svg?branch=unstable)](https://travis-ci.org/n1nj4sec/pupy)
 
-# Important notice:
-
-We are currently working on cleaning up the project.
-Also we are in the middle of style cleanup, so there can be a lot of broken things.
-
-For maximum compatibility, please use the
-[docker image](https://hub.docker.com/r/alxchk/pupy/).
-
-To pull the docker image, run: `docker pull alxchk/pupy:unstable`.
-
-If you do not have docker installed, the simplest way to install docker on
-Linux is: run `curl -fsSL https://get.docker.com > docker_installer.sh`, and
-execute the script with `bash ./docker_installer.sh` as root. Before executing
-the file, please verify that the content has not been tampered with in transit,
-as there is no automatic integrity checking.
-
-If you do not know how to use Docker, please refer to their
-[documentation](https://docs.docker.com/get-started).
-
-
 # Pupy
 
-## Quick docker install and configure
-
-Lots of things are in various states of
-development but this will get a server up for
-you. I can confirm the linux clients work and the
-windows clients build.
-
-I've confirmed this easy method on debian sid,
-but it stands to reason it should work anywhere
-docker does.
-If you don't have an id_rsa.pub file, create one
-with ssh-keygen
-Just run it without arguments
+## Quick install and configure
+You have multiple ways for installing pupy including docker. cf. the wiki
+If you want a simple installation in a virtualenv with pre-built binaries, please use :
 ```
-docker pull alxchk/pupy:unstable
-docker run -d -p 2022:22 -v /tmp/projects:/projects alxchk/pupy:unstable
-cp ~/.ssh/id_rsa.pub /tmp/projects/keys/authorized_keys
-ssh -p 2022 pupy@127.0.0.1
+apt-get install git libssl1.0-dev libffi-dev python-dev python-pip tcpdump python-virtualenv
+git clone --recursive https://github.com/n1nj4sec/pupy
+cd pupy
+python create-workspace.py -DG pupyw
 ```
-Grats your in a pupy shell, lets build a client and export it.
-```
-config set gen os linux
-gen -D /projects/default/
-```
-You can find your pupy clients in /tmp/projects/default on the host.
-You can now use help to find commands, edit the config, generate
-clients, etc.. You'll want to use the -D
-/projects/default/ when generating clients, it
-makes it easy to pop back over on your
-host machine and pull them out of
-/tmp/projects/default since those volumes are
-bound together.
-
-If you can't make a shared key or otherwise
-refuse to, you can try docker exec but be careful
-not to break your container.
-```
-docker exec -it <container name> <command>
-```
-I'd recommend using a shell as a command if you
-go this route, else you lose your tab competion.
-
-Enjoy! Much appreciation to alxchk for all of his
-hard work.
 
 ## Description
 
