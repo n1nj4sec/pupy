@@ -10,7 +10,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
     python-dev python-pip openssh-server tmux sslh libcap2-bin \
     john vim-tiny less osslsigncode nmap net-tools \
     autoconf automake unzip libtool locales ncurses-term bash tcpdump libpam-cap \
-    openjdk-8-jdk-headless \
+    openjdk-8-jdk-headless netbase \
     git fuse && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
