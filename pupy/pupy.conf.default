@@ -64,7 +64,7 @@ allow_by_default = true
 # Default ports and args
 # Ensure ports are different for all enabled listeners
 # Or remove listener(s) from pupyd.listen parameter
-ssl = 443=8443
+ssl = 443
 obfs3 = 9090
 rsa = 9091
 ec4 = 80=1234

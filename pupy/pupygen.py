@@ -716,6 +716,7 @@ def pupygen(args, config):
             if "--oneliner-host" in conf["launcher_args"]:
                 target_ip=conf["launcher_args"][conf["launcher_args"].index("--oneliner-host")+1]
                 send_ps1_payload(conf, bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
+                print(ok+"You have to connect manually to the target {0} with 'connect --host {0}:{1}'".format(target_ip, bind_port))
             else:
                 raise ValueError("You have to give me the --oneliner-host argument")
         else:
