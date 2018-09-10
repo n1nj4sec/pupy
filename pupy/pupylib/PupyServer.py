@@ -34,7 +34,7 @@ from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyService import PupyBindService
 from pupylib.PupyCompile import pupycompile
 from pupylib.PupyOutput import Error, Line, Color
-from pupylib.PupyModule import QA_STABLE
+from pupylib.PupyModule import QA_STABLE, IgnoreModule
 from pupylib.PupyDnsCnc import PupyDnsCnc
 from pupylib.PupyTriggers import event
 from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
@@ -800,6 +800,11 @@ class PupyServer(object):
                 logger.debug('Load module %s', modname)
                 self.modules[modname] = module_object
                 self._modules_stats[modname] = current_stats.st_mtime
+
+            except IgnoreModule, e:
+                logger.debug('Ignore module %s: %s', modname, e)
+                continue
+
             except Exception, e:
                 tb = '\n'.join(traceback.format_exc().split('\n')[1:-2])
                 error = Line(

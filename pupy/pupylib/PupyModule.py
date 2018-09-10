@@ -45,6 +45,9 @@ QA_DANGEROUS = 2
 
 logger = getLogger('module')
 
+class IgnoreModule(Exception):
+    pass
+
 class PupyArgumentParserWrap(object):
     def __init__(self, base, wrapped):
         self.base = base

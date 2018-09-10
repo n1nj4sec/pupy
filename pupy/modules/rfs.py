@@ -2,7 +2,7 @@
 
 # https://raw.githubusercontent.com/skorokithakis/python-fuse-sample/master/passthrough.py
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser, IgnoreModule
 
 import os
 import errno
@@ -11,8 +11,12 @@ import subprocess
 import threading
 import psutil
 
-import fuse
-from fuse import FuseOSError, Operations
+try:
+    import fuse
+    from fuse import FuseOSError, Operations
+
+except Exception, e:
+    raise IgnoreModule(e)
 
 class PupyFUSE(fuse.FUSE):
     ''' FUSE override SIGINT handler, which is bad. So ^C ^V without that '''
