@@ -1,5 +1,10 @@
 #!/bin/sh
 
+THIS_FILE=`readlink -f $0`
+THIS_DIR=`dirname ${THIS_FILE}`
+
+cd ${THIS_DIR}/pupy
+
 apt update
 pkg upgrade -y
 
@@ -9,8 +14,9 @@ pkg install -y python2-dev curl clang libcrypt-dev libffi-dev openssl-dev \
 ln -fs /data/data/com.termux/files/usr/bin/python2 /data/data/com.termux/files/usr/bin/python
 ln -fs /data/data/com.termux/files/usr/bin/pip2 /data/data/com.termux/files/usr/bin/pip
 
+
 python2 -m pip install --global-option 'build_ext' --global-option '--use-system-libuv' pyuv
-python2 -m pip install -r pupy/requirements.txt
+python2 -m pip install -r requirements.txt
 python2 -m pip install --upgrade --force-reinstall pycryptodome
 
 mkdir -p ~/netbase/wireshark/share/wireshark
