@@ -808,7 +808,7 @@ def main():
         finally:
             if not sys.terminated:
                 sleep_secs = get_next_wait(attempt)
-                logging.info("reconnect in %d seconds...", sleep_secs)
+                logger.info("reconnect in %d seconds...", sleep_secs)
                 time.sleep(sleep_secs)
                 attempt += 1
 
