@@ -18,7 +18,7 @@ from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 from .PupyConfig import PupyConfig
 from .PupyOutput import (
-    Text, MultiPart, NewLine, Error, Warn, Success,
+    Text, Line, NewLine, Error, Warn, Success,
     Info, Table, TruncateToTerm
 )
 
@@ -503,13 +503,13 @@ class PupyModule(object):
             return obj2utf8(msg)
 
     def _message(self, msg):
-        if self.io != REQUIRE_NOTHING:
-            msg = MultiPart([msg, NewLine()])
-
         if self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
             msg = self.iogroup.as_text(msg)
 
         self.stdout.write(msg)
+
+        if self.io != REQUIRE_NOTHING:
+            self.stdout.write(self.iogroup.as_text(NewLine()))
 
     def rawlog(self, msg):
         """ log data to the module stdout """

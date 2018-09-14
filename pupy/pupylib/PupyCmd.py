@@ -94,6 +94,7 @@ class RawTerminal(IOGroup):
         '_specials',
         '_special_state',
         '_special_activated',
+        '_last_window_size',
         '_on_winch',
         '_closed',
         '_tc_settings',
@@ -115,11 +116,25 @@ class RawTerminal(IOGroup):
         self._special_state = ''
         self._special_activated = False
 
+        self._last_window_size = None
+
+    def _get_window_size(self):
+        buf = array.array('H', [0, 0, 0, 0])
+        fcntl.ioctl(pty.STDOUT_FILENO, termios.TIOCGWINSZ, buf, True)
+        return buf[0], buf[1], buf[2], buf[3]
+
+    @property
+    def window_size(self):
+        if self._last_window_size is None:
+            self._last_window_size = self._get_window_size()
+
+        return self._last_window_size
+
     def _on_sigwinch(self, signum, frame):
+        self._last_window_size = self._get_window_size()
+
         if self._on_winch is not None:
-            buf = array.array('h', [0, 0, 0, 0])
-            fcntl.ioctl(pty.STDOUT_FILENO, termios.TIOCGWINSZ, buf, True)
-            self._on_winch(buf[0], buf[1], buf[2], buf[3])
+            self._on_winch(*self._last_window_size)
 
     def _stdin_read(self):
         buf = b''

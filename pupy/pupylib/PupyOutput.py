@@ -57,7 +57,7 @@ class MultiPart(Text):
 class NewLine(Text):
     __slots__ = ()
 
-    def __init__(self, lines=0):
+    def __init__(self, lines=1):
         super(NewLine, self).__init__(lines)
 
 class Log(Text):
