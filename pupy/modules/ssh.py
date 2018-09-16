@@ -1,11 +1,18 @@
 # -*- coding: utf-8 -*-
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import redirected_stdio
+from pupylib.PupyModule import config, PupyModule, PupyArgumentParser, REQUIRE_STREAM
+from pupylib.PupyCompleter import path_completer
+
+from os import path, makedirs, unlink, walk, stat
+from stat import S_ISDIR
+from errno import EEXIST
+
+from threading import Event
+from argparse import REMAINDER
 
 __class_name__="SSH"
 
-@config(cat="admin", compatibilities=['windows', 'posix', 'darwin'])
+@config(cat='admin')
 class SSH(PupyModule):
     """ ssh client """
 
@@ -13,58 +20,231 @@ class SSH(PupyModule):
         'paramiko', 'cryptography', 'ecdsa', 'ssh'
     ]
 
+    closer = None
+    waiter = None
+    pkeys = None
+
+    current_connection_info = {}
+
+    io = REQUIRE_STREAM
+
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog="ssh", description=cls.__doc__)
-        cls.arg_parser.add_argument('-u', '--user', default='', help='username')
-        cls.arg_parser.add_argument('-p', '--password', default='', help='use plaintext password or ssh private key file')
-        cls.arg_parser.add_argument('-k', '--private-key', default='', help='use plaintext password or ssh private key file')
-        cls.arg_parser.add_argument('-c', '--command', default='', help='optional - command to execute on the remote host')
-        cls.arg_parser.add_argument('-i', '--ip', default='', help='target address (could be a range)')
-        cls.arg_parser.add_argument('--port', default=22, type=int, help='change the default ssh port')
-        cls.arg_parser.add_argument('-f', '--file', default='', help='extract ip addresses from file (input could be know_hosts file)')
-        cls.arg_parser.add_argument('-v', '--verbose', action='store_true', default=False, help='activate verbose output')
+        cls.arg_parser = PupyArgumentParser(prog='ssh', description=cls.__doc__)
+        cls.arg_parser.add_argument('-u', '--user', help='Use user name')
+        cls.arg_parser.add_argument('-p', '--port', type=int, help='Use port')
+        cls.arg_parser.add_argument('-P', '--password', help='Use password')
+        cls.arg_parser.add_argument('-k', '--private-keys', help='Use private keys (Use "," as path separator)',
+                                    completer=path_completer)
+
+        commands = cls.arg_parser.add_subparsers(dest='command')
+        rexec = commands.add_parser('exec')
+        rexec.add_argument('host', help='host(s) to connect')
+        rexec.add_argument(
+            'command', nargs=REMAINDER, help='Command line to execute (non interactive)')
+        rexec.set_defaults(func=cls.rexec)
+
+        upload = commands.add_parser('upload')
+        upload.add_argument('-t', '--relative-timestamp', default='/bin/sh',
+                            help='Set creation time same as specified binary')
+        upload.add_argument('-m', '--chmod', help='Set file mode')
+        upload.add_argument('-o', '--chown', help='Set file owner')
+        upload.add_argument('-E', '--execute', action='store_true', help='Execute file after upload')
+        upload.add_argument('-U', '--unlink', action='store_true', help='Unlink file before & after upload')
+        upload.add_argument('host', help='Remote host(s)')
+        upload.add_argument('src_path', help='Upload file or directory')
+        upload.add_argument('dst_path', help='Remote destination')
+        upload.set_defaults(func=cls.upload)
+
+        download = commands.add_parser('download')
+        download.add_argument('-t', '--tar', action='store_true',
+                              help='Use tar instead of cat (to download dirs)')
+        download.add_argument('host', help='Remote host(s)')
+        download.add_argument('src_path', help='Remote destination')
+        download.add_argument('dst_path', nargs='?', help='Local destination (folder)')
+        download.set_defaults(func=cls.download)
 
     def run(self, args):
+        if args.private_keys:
+            self.pkeys = self._find_private_keys(self, args.private_keys)
 
-        error = ''
-        if not args.user:
-            error = 'username is needed'
+        args.host = tuple([
+            x.strip() for x in args.host.split(',')
+        ])
 
-        elif args.password and args.private_key:
-            error = 'specify either a plaintext password or a private key, not both'
+        self.waiter = Event()
 
-        elif not args.password and not args.private_key:
-            error = 'private_key or plain text password are needed'
+        try:
+            if args.func(self, args):
+                self.waiter.wait()
 
-        elif args.ip and args.file:
-            error ='choose either an ip address or an input file, not both'
+        finally:
+            self.closer = None
 
-        elif not args.ip and not args.file:
-            error ='not targets specify'
+    def _handle_on_data(self, args, data_cb, connect_cb=None, complete_cb=None):
+        msg_type = args[0]
+        if msg_type == 0:
+            connected, host, port, user, password = args[1:]
+            if connected:
+                self.error('No credentials to auth to: {}@{}:{}'.format(user or 'any', host, port))
+            else:
+                self.error('Could not connect to {}:{}'.format(host, port))
+        elif msg_type == 4:
+            host, port, user, password = args[1:]
+            self.success('Connected to {}{}:{}'.format(user + '@' if user else '', host, port))
+            self.current_connection_info.update({
+                'host': host,
+                'port': port,
+                'user': user,
+                'password': password
+             })
+            if connect_cb:
+                connect_cb()
 
-        if error:
-            self.error(error)
+        elif msg_type == 1:
+            data_cb(args[1])
+        elif msg_type == 3:
+            self.error(args[1])
+        elif msg_type == 2:
+            self.current_connection_info.clear()
+            if args[1] == 0:
+                self.success('Completed')
+                if complete_cb:
+                    complete_cb(True)
+            else:
+                self.error('Completed with error={}'.format(args[1]))
+                if complete_cb:
+                    complete_cb(False)
+
+    def rexec(self, args):
+        rexec = self.client.remote('ssh', 'ssh_exec', False)
+
+        command = ' '.join(args.command)
+        if not command:
+            self.error('Command should not be empty')
             return
 
-        error_code = False
-        result = ''
+        def on_data(args):
+            self._handle_on_data(args, self.stdout.write)
 
-        SSH = self.client.remote('ssh', 'SSH', False)
-
-        ssh = SSH(
-            args.user, args.private_key, args.password,
-            args.file, args.ip, args.port, args.verbose,
-            args.command
+        self.closer = rexec(
+            command,
+            args.host, args.port, args.user, args.password,
+            self.pkeys, on_data, self.waiter.set
         )
 
-        if args.verbose:
-            with redirected_stdio(self):
-                error_code, result = ssh.ssh_client()
-        else:
-            error_code, result = ssh.ssh_client()
+        return True
 
-        if not error_code:
-            self.error('%s' % result)
-        else:
-            self.success('%s' % result)
+    def download(self, args):
+        download_file = self.client.remote('ssh', 'ssh_download_file', False)
+        download_tar = self.client.remote('ssh', 'ssh_download_tar', False)
+
+        download = download_tar if args.tar else download_file
+
+        filesdir = args.dst_path or self.client.pupsrv.config.get_folder(
+            'downloads', {'%c': self.client.short_name()})
+
+        current_file_obj = [None]
+
+        def create_file_obj():
+            folder_path = path.join(filesdir, 'ssh', '{user}-{host}-{port}'.format(
+                **self.current_connection_info))
+
+            try:
+                makedirs(folder_path)
+            except OSError, e:
+                if e.errno != EEXIST:
+                    raise
+
+            file_name = args.src_path.strip('/').replace('/', '_')
+            if args.tar:
+                file_name += '.tgz'
+
+            if file_name == '.tgz':
+                file_name = 'rootfs.tgz'
+
+            file_path = path.join(folder_path, file_name)
+            if path.isfile(file_path):
+                unlink(file_path)
+
+            current_file_obj[0] = open(file_path, 'w')
+
+        def close_file_obj(ok):
+            current_file_obj[0].close()
+            if ok:
+                self.success('Downloaded {} -> {}'.format(args.src_path, current_file_obj[0].name))
+            else:
+                unlink(current_file_obj[0].name)
+                self.error('Downloaded {} -> {} <failed>'.format(args.src_path, current_file_obj[0].name))
+
+        def write_file_obj(data):
+            current_file_obj[0].write(data)
+
+        def on_data(args):
+            self._handle_on_data(args, write_file_obj, create_file_obj, close_file_obj)
+
+        self.closer = download(
+            args.src_path,
+            args.host, args.port, args.user, args.password, self.pkeys,
+            on_data, self.waiter.set
+        )
+
+        return True
+
+    def upload(self, args):
+        upload_file = self.client.remote('ssh', 'ssh_upload_file', False)
+
+        input_stat = stat(args.src_path)
+
+        if S_ISDIR(input_stat.st_mode):
+            self.error('Directory upload is not supported. Use tar (manually)')
+            return
+
+        input_obj = open(args.src_path, 'rb')
+
+        def on_complete(success):
+            input_obj.close()
+
+        def on_data(args):
+            self._handle_on_data(args, self.stdout.write, complete_cb=on_complete)
+
+        self.closer = upload_file(
+            input_obj.read, args.dst_path,
+            args.chmod or (input_stat.st_mode & 0777),
+            args.relative_timestamp, args.chown, args.execute, args.unlink,
+            args.host, args.port, args.user, args.password, self.pkeys,
+            on_data, self.waiter.set
+        )
+
+        return True
+
+    def interrupt(self):
+        if self.closer is not None:
+            self.closer()
+            self.closer = None
+
+        if self.waiter:
+            self.waiter.set()
+
+    def _find_private_keys(self, fpath):
+        if path.isfile(fpath):
+            try:
+                with open(fpath) as content:
+                    yield content.read()
+
+            except OSError:
+                pass
+
+            return
+
+        for root, dirs, files in walk(fpath):
+            for sfile in files:
+                try:
+                    sfile_path = path.join(root, sfile)
+                    with open(sfile_path) as content:
+                        first_line = content.readline(256)
+                        if 'PRIVATE KEY-----' in first_line:
+                            yield first_line + content.read()
+
+                except (OSError, IOError):
+                    pass

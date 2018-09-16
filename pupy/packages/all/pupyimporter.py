@@ -388,9 +388,13 @@ def pupy_add_package(pkdic, compressed=False, name=None):
             __import__(name)
         except:
             import traceback
+            message = 'Error during preimport {}: {}'.format(
+                name, str(traceback.format_exc()))
+
             if remote_print_error:
-                remote_print_error('Error during preimport {}: {}'.format(
-                    name, str(traceback.format_exc())))
+                remote_print_error(message)
+            else:
+                dprint(message)
 
     gc.collect()
 

@@ -1,148 +1,867 @@
-import os
-import re
-import paramiko
-import socket
+# -*- encoding: utf-8 -*-
 
-class SSH():
-    def __init__(self, _user, _ssh_private_key_path, _password, _file_to_parse, _ip, _port, _verbose=False, _command=''):
-        self.user = _user
-        self.ssh_private_key_path = os.path.expanduser(_ssh_private_key_path) # <path to private key>
-        self.password = _password
+__all__ = [
+    'SSHNotConnected', 'SSH',
+    'ssh_interactive',
+    'ssh_exec',
+    'ssh_upload_file',
+    'ssh_download_file', 'ssh_download_tar'
+]
 
-        self.connection_by_key = False # if private key
-        if self.ssh_private_key_path:
-            self.connection_by_key = True
+from threading import Thread, Event
+from io import BytesIO
 
-        self.file_to_parse = os.path.expanduser(_file_to_parse) # path to 'known_hosts' file
-        self.ip = _ip
-        self.port = _port
-        self.verbose = _verbose
-        self.command = _command
+from psutil import process_iter
 
-    def check_existing_files(self):
-        if self.ssh_private_key_path and not os.path.exists(self.ssh_private_key_path):
-            return False, 'The file does not exist on the remote host: %s' % self.ssh_private_key_path
+from os import path, walk, environ
+from getpass import getuser
 
-        if not self.ip and not os.path.exists(self.file_to_parse):
-            return False, 'The file does not exist on the remote host: %s' % self.file_to_parse
+from paramiko import SSHClient
+from paramiko.client import AutoAddPolicy
+from paramiko.config import SSHConfig
+from paramiko.ssh_exception import (
+    SSHException, NoValidConnectionsError
+)
 
-        return True, ''
+from paramiko.dsskey import DSSKey
+from paramiko.rsakey import RSAKey
+from paramiko.ecdsakey import ECDSAKey
+from paramiko.ed25519key import Ed25519Key
 
-    def execute_command_using_password(self, client):
-        stdout_data = []
-        stderr_data = []
-        session = client.open_channel(kind='session')
-        session.exec_command(self.command)
-        nbytes = 4096
+from netaddr import (IPNetwork, AddrFormatError)
+from urlparse import urlparse
+
+from socket import error as socket_error
+
+from rpyc import async
+
+try:
+    from pupy import obtain
+except ImportError:
+    def obtain(x):
+        return x
+
+class SSHNotConnected(Exception):
+    pass
+
+class SSH(object):
+    __slots__ = (
+        'user', 'password', 'private_key',
+        'host', 'port',
+        '_client', '_iter_private_keys',
+        '_success_args', '_ssh_config',
+        '_interactive'
+    )
+
+    def __init__(self, host, port=22, user=None, password=None, private_keys=None,
+                 private_key_path=None, interactive=False):
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+
+        self._interactive = interactive
+
+        self._client = None
+        self._success_args = None
+
+        self._ssh_config = self._load_config()
+
+        additional_info = self._ssh_config.lookup(self.host)
+        if additional_info:
+            if 'hostname' in additional_info:
+                self.host = additional_info['hostname']
+            if 'port' in additional_info:
+                self.port = int(additional_info['port'])
+            if 'user' in additional_info:
+                self.user = additional_info['user']
+            if 'identityfile' in additional_info and not private_keys:
+                private_keys = []
+
+                for identityfile in additional_info['identityfile']:
+                    identityfile = path.expanduser(identityfile)
+                    if not path.isfile(identityfile):
+                        continue
+
+                    with open(identityfile) as identityfile_obj:
+                        private_keys.append(identityfile_obj.read())
+
+        if private_keys:
+            self._iter_private_keys = iter(private_keys)
+        else:
+            self._iter_private_keys = self._find_private_keys(
+                path.expanduser(private_key_path or path.join('~', '.ssh')))
+
+        self._connect()
+
+    def _find_agent_sockets(self):
+        pairs = set()
+
+        if 'SSH_AUTH_SOCK' in environ and environ['SSH_AUTH_SOCK']:
+            pair = (getuser(), environ['SSH_AUTH_SOCK'])
+
+            pairs.add(pair)
+            yield pair
+
+        for process in process_iter():
+            info = process.as_dict(['username', 'environ'])
+            if 'environ' not in info or info['environ'] is None:
+                continue
+
+            if 'SSH_AUTH_SOCK' in info['environ']:
+                pair = (info['username'], info['environ']['SSH_AUTH_SOCK'])
+                if pair in pairs:
+                    continue
+
+                pairs.add(pair)
+
+                yield pair
+
+    def _find_private_keys(self, fpath):
+        if path.isfile(fpath):
+            try:
+                with open(fpath) as content:
+                    yield content.read()
+
+            except OSError:
+                pass
+
+            return
+
+        for root, dirs, files in walk(fpath):
+            for sfile in files:
+                try:
+                    sfile_path = path.join(root, sfile)
+                    with open(sfile_path) as content:
+                        first_line = content.readline(256)
+                        if 'PRIVATE KEY-----' in first_line:
+                            yield first_line + content.read()
+
+                except (OSError, IOError):
+                    pass
+
+    @property
+    def connected(self):
+        return self._client is not None
+
+    def _check_connected(self):
+        if self._client is None:
+            raise SSHNotConnected()
+
+    def _oneway_upstream(self, session, reader_cb, stdout_cb, stderr_cb, on_exit=None):
+        exit_status = None
+
         while True:
-            if session.recv_ready():
-                stdout_data.append(session.recv(nbytes))
-            if session.recv_stderr_ready():
-                stderr_data.append(session.recv_stderr(nbytes))
+            while session.recv_ready():
+                data = session.recv(65535)
+                if data:
+                    stdout_cb(data)
+
+            while session.recv_stderr_ready():
+                data = session.recv_stderr(65535)
+                if data:
+                    stderr_cb(data)
+
             if session.exit_status_ready():
                 break
 
-        # print 'exit status: ', session.recv_exit_status()
-        output = ''.join(stdout_data)
-        output += ''.join(stderr_data)
-        session.close()
-        return output
+            portion, more = reader_cb()
 
-    def execute_command_using_key(self, client):
-        stdin, stdout, stderr = client.exec_command(self.command)
-        output = stdout.read()
-        output += stderr.read()
-        return output
+            if portion:
+                session.sendall(portion)
 
-    def sshConnect(self, hostname):
+            if not more:
+                session.shutdown_write()
+                break
 
-        output = ''
-        # Connection using private key
-        if self.connection_by_key:
-            k = paramiko.RSAKey.from_private_key_file(self.ssh_private_key_path)
-            ssh  = paramiko.SSHClient() # will create the object
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy()) # no known_hosts error
-            ssh.connect(hostname, username=self.user, pkey = k) # no passwd needed
-            if self.command:
-                output = self.execute_command_using_key(ssh)
+        while True:
+            r, e, eof = self._poll_read(session)
 
-        # Connection using plain text passowrd
+            if r:
+                while session.recv_ready():
+                    data = session.recv(65535)
+                    if data:
+                        stdout_cb(data)
+
+            if e:
+                while session.recv_stderr_ready():
+                    data = session.recv_stderr(65535)
+                    if data:
+                        stderr_cb(data)
+
+            if eof:
+                break
+
+        while True:
+            data = session.recv(65535)
+            if data:
+                stdout_cb(data)
+            else:
+                break
+
+        while True:
+            data = session.recv_stderr(65535)
+            if data:
+                stderr_cb(data)
+            else:
+                break
+
+        exit_status = session.recv_exit_status()
+        if on_exit:
+            on_exit(exit_status)
+
+        return exit_status
+
+    def upload_file(self, reader_cb, remote_path, perm=0755, rtouch=None,
+                     chown=None, run=False, delete=False, append=False, cat='cat', completed_cb=None):
+
+        self._check_connected()
+
+        transport = self._client.get_transport()
+
+        session = transport.open_session()
+        session.exec_command('sh')
+
+        commands = []
+
+        if delete:
+            commands.append('rm -f {}'.format(repr(remote_path)))
+
+        commands.append(
+            "{} {} {}".format(cat, '>>' if append else '>', repr(remote_path))
+        )
+
+        if rtouch:
+            commands.append('touch -r {} {}'.format(repr(rtouch), repr(remote_path)))
+
+        if chown:
+            commands.append('chown {} {}'.format(repr(chown), repr(remote_path)))
+
+        if perm and type(perm) in (str,unicode):
+            perm = int(perm, 8)
+
+        commands.append('chmod {} {}'.format(oct(perm), repr(remote_path)))
+
+        if run:
+            commands.append('{}'.format(repr(remote_path)))
+
+        if delete:
+            commands.append('rm -f {}'.format(repr(remote_path)))
+
+        header = ' && '.join(commands) + '\n'
+
+        print "\n\nCMD:", header, "\n\n"
+
+        session.sendall(header)
+
+        def _reader_cb():
+            data = reader_cb(transport.default_max_packet_size - 1024)
+            if data:
+                return data, True
+            else:
+                return '', False
+
+        stdout = BytesIO()
+        stderr = BytesIO()
+
+        exit_status = self._oneway_upstream(session, _reader_cb, stdout.write, stderr.write)
+
+        if completed_cb:
+            completed_cb(exit_status, stdout.getvalue(), stderr.getvalue())
+
+        return stdout, stderr, exit_status
+
+    def download_file(self, remote_path, write_cb, completed_cb=None, cat='cat'):
+        self._check_connected()
+
+        commands = [
+            '([ -x {} ] && echo -n 1 || echo -n 0)'.format(repr(remote_path)),
+            'cat {}'.format(repr(remote_path))
+        ]
+
+        command = ' && '.join(commands)
+
+        first_byte = []
+        size = [0]
+
+        def _on_stdout(data):
+            size[0] += len(data)
+
+            if not first_byte:
+                first_byte.append(data[0])
+                if len(data) > 1:
+                    write_cb(data[1:])
+            else:
+                write_cb(data)
+
+        _, stderr, exit_status = self.check_output(
+            command,
+            on_stdout=_on_stdout)
+
+        if completed_cb:
+            completed_cb(exit_status, stderr.getvalue())
+
+        return bool(first_byte[0]) if first_byte else None, stderr, exit_status
+
+    def download_tar(self, remote_path, write_cb, completed_cb, compression='z'):
+        self._check_connected()
+
+        commands = []
+
+        commands.append('cd /')
+        commands.append('tar zcf - {}'.format(remote_path))
+
+        command = ' && '.join(commands)
+
+        _, stderr, exit_status = self.check_output(
+            command, on_stdout=write_cb)
+
+        if completed_cb:
+            completed_cb(exit_status, stderr.getvalue())
+
+        return exit_status, stderr, exit_status
+
+
+    def _shell_reader(self, session, on_data, on_exit):
+        while True:
+            r, e, eof = self._poll_read(session)
+
+            if r:
+                while session.recv_ready():
+                    data = session.recv(65535)
+                    if data:
+                        on_data(data)
+
+            if e:
+                while session.recv_stderr_ready():
+                    data = session.recv_stderr(65535)
+                    if data:
+                        on_data(data)
+
+            if eof:
+                exit_status = session.recv_exit_status()
+                if on_exit:
+                    on_exit(exit_status)
+
+                break
+
+
+    def shell(self, term, w, h, wp, hp, shell=None, on_data=None, on_exit=None):
+        self._check_connected()
+
+        transport = self._client.get_transport()
+
+        session = transport.open_session()
+        session.get_pty(term, w, h, wp, hp)
+
+        if shell is None:
+            session.invoke_shell()
         else:
-            ssh = paramiko.Transport((hostname, self.port))
-            ssh.connect(username=self.user, password=self.password)
-            if self.command:
-                output = self.execute_command_using_password(ssh)
+            session.exec_command(shell)
 
+        def attach():
+            reader = Thread(
+                name='SSH Interactive Reader',
+                target=self._shell_reader,
+                args=(session, on_data, on_exit))
+
+            reader.daemon = False
+            reader.start()
+
+        # shutdown both
+        def shutdown():
+            session.shutdown(2)
+
+        # compatible with pupy's order
+        def resize_pty(h, w, hp, wp):
+            session.resize_pty(w, h, wp, hp)
+
+        return attach, session.sendall, resize_pty, shutdown
+
+    def check_output(self, command, pty=False, env=None, on_stdout=None, on_stderr=None, on_exit=None):
+        self._check_connected()
+
+        transport = self._client.get_transport()
+
+        session = transport.open_session()
+        session.exec_command(command)
+        session.shutdown_write()
+
+        stdout = BytesIO() if on_stdout is None else None
+        if not on_stdout:
+            on_stdout = stdout.write
+
+        stderr = BytesIO() if on_stderr is None else on_stdout
+        if not on_stderr:
+            on_stderr = stderr.write
+
+        exit_status = None
+
+        while True:
+            r, e, eof = self._poll_read(session)
+
+            while r:
+                data = session.recv(65535)
+                if data:
+                    on_stdout(data)
+                r = session.recv_ready()
+
+            while e:
+                data = session.recv_stderr(65535)
+                if data:
+                    on_stderr(data)
+                e = session.recv_stderr_ready()
+
+            if eof:
+                break
+
+        # Read last bytes from buffer
+        # Looks like some kind of bug in paramiko..
+
+        while True:
+            data = session.recv(65535)
+            if data:
+                on_stdout(data)
+            else:
+                break
+
+        while True:
+            data = session.recv_stderr(65535)
+            if data:
+                on_stderr(data)
+            else:
+                break
+
+        exit_status = session.recv_exit_status()
+        if on_exit:
+            on_exit(exit_status)
+
+        return stdout, stderr, exit_status
+
+
+    def close(self):
+        if not self._client:
+            return
+
+        self._client.close()
+        self._client = None
+
+    def _poll_read(self, channel, stdout=True, stderr=True):
+        wait = Event()
+
+        if stdout:
+            channel.in_buffer.set_event(wait)
+
+        if stderr:
+            channel.in_stderr_buffer.set_event(wait)
+
+        while True:
+            recv = False
+            error = False
+            eof = False
+
+            if stdout and channel.recv_ready():
+                recv = True
+
+            if stderr and channel.recv_stderr_ready():
+                error = True
+
+            if channel.eof_received or channel.exit_status_ready():
+                eof = True
+
+            if recv or error or eof:
+                return recv, error, eof
+
+            wait.wait()
+
+        return None, None, None
+
+    def _load_config(self):
+        try:
+            import pwd
+            configs = [
+                path.join(
+                    x.pw_dir, '.ssh', 'config'
+                ) for x in pwd.getpwall() if path.isfile(
+                    path.join(x.pw_dir, '.ssh', 'config')
+                )
+            ]
+
+        except ImportError:
+            configs = []
+            ssh_user_conf = path.expanduser(path.join('~', '.ssh', 'config'))
+
+            if path.isfile(ssh_user_conf):
+                configs.append(ssh_user_conf)
+
+        ssh_config = SSHConfig()
+
+        for config in configs:
+            with open(config) as config_obj:
+                ssh_config.parse(config_obj)
+
+        return ssh_config
+
+    def _connect(self):
+        client = SSHClient()
+        client.set_missing_host_key_policy(AutoAddPolicy())
+        client.load_system_host_keys()
+
+        current_user = getuser()
+
+        # 1. If password try password
+        if self.password:
+            username = self.user or current_user
+
+            try:
+                client.connect(
+                    password=self.password,
+                    hostname=self.host,
+                    port=self.port,
+                    username=username,
+                    allow_agent=False,
+                    look_for_keys=False,
+                    gss_auth=False,
+                    compress=not self._interactive,
+                )
+
+                self._client = client
+                self._success_args = {
+                    'host': self.host,
+                    'port': self.port,
+                    'user': username,
+                    'password': self.password
+                }
+                return True
+
+            except SSHException:
+                client.close()
+
+        # 2. Try agent, default methods etc
+        for username, SSH_AUTH_SOCK in self._find_agent_sockets():
+
+            SSH_AUTH_SOCK_bak = environ.get('SSH_AUTH_SOCK', None)
+            environ['SSH_AUTH_SOCK'] = SSH_AUTH_SOCK
+
+            username = self.user or username
+
+            try:
+                client.connect(
+                    hostname=self.host,
+                    port=self.port,
+                    username=username,
+                    allow_agent=True,
+                    look_for_keys=False,
+                    password=None,
+                    compress=not self._interactive,
+                )
+
+                self._client = client
+                self._success_args = {
+                    'host': self.host,
+                    'port': self.port,
+                    'user': username,
+                    'ssh_agent_socket': SSH_AUTH_SOCK
+                }
+                return True
+
+            except SSHException:
+                client.close()
+
+            finally:
+                if SSH_AUTH_SOCK_bak is None:
+                    del environ['SSH_AUTH_SOCK']
+                else:
+                    environ['SSH_AUTH_SOCK'] = SSH_AUTH_SOCK_bak
+
+        # 3. Try all found pkeys
+        for pkey in self._iter_private_keys:
+            username = self.user or current_user
+
+            pkey_obj = BytesIO(pkey)
+            pkey = None
+
+            for klass in (RSAKey, ECDSAKey, DSSKey, Ed25519Key):
+                try:
+                    pkey = klass.from_private_key(pkey_obj)
+                except SSHException:
+                    continue
+
+            if pkey is None:
+                continue
+
+            try:
+                client.connect(
+                    hostname=self.host,
+                    port=self.port,
+                    username=username,
+                    pkey=pkey,
+                    allow_agent=False,
+                    look_for_keys=False,
+                    gss_auth=False,
+                    compress=not self._interactive,
+                )
+
+                self._client = client
+                self._success_args = {
+                    'host': self.host,
+                    'port': self.port,
+                    'user': username,
+                    'pkey': pkey
+                }
+                return True
+
+            except SSHException:
+                client.close()
+
+        if not self._client and client:
+            client.close()
+
+def ssh_interactive(term, w, h, wp, hp, host, port, user, password, private_keys, program, data_cb, close_cb):
+    private_keys = obtain(private_keys)
+    data_cb = async(data_cb)
+    close_cb = async(close_cb)
+
+    try:
+        ssh = SSH(host, port, user, password, private_keys, interactive=True)
+        if not ssh.connected:
+            raise ValueError('No valid credentials found to connect to {}:{} user={}'.format(
+                ssh.host, ssh.port, ssh.user or 'any'))
+
+    except NoValidConnectionsError:
+        raise ValueError('Unable to connect to {}:{}'.format(host, port))
+
+    attach, writer, resizer, closer = ssh.shell(
+        term, w, h, wp, hp, program, data_cb, close_cb
+    )
+
+    def ssh_close():
+        closer()
         ssh.close()
 
-        return output
+    return attach, writer, resizer, ssh_close
 
-    def checkOpenPort(self, ip, port):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(3)
-        result = sock.connect_ex((ip, port))
-        sock.shutdown(2)
-        if result == 0:
-            return True
-        else:
-            return False
+def iter_hosts(hosts, default_port=22, default_user=None, default_password=None):
+    if type(hosts) in (str, unicode):
+        hosts = [hosts]
 
-    def parseip(self):
-        file = open(self.file_to_parse, "r")
-        ips = []
-        for text in file.readlines():
-            text = text.rstrip()
-            regex = re.findall(r'(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})',text)
-            if regex:
-                if regex[0] and regex[0] not in ips:
-                    ips.append(regex[0].replace('\n',''))
+    for host in hosts:
 
-        file.close()
-        if self.verbose:
-            print '[!] File parsed, %d IP found. ' % len(ips)
-        return ips
+        if '://' not in host:
+            host = 'ssh://' + host
 
-    def ssh_client(self):
-        check_files = self.check_existing_files()
-        if not check_files[0]:
-            return check_files[0], check_files[1]  # BOOL / ERROR
+        uri = urlparse(host)
+        host = uri.hostname
+        port = uri.port or default_port
+        user = uri.username or default_user
+        password = uri.password or default_password
+
+        if uri.path and uri.path[0] == '/' and len(uri.path) > 1 and len(uri.path) < 4:
+            try:
+                bits = int(uri.path[1:])
+                if bits >= 16 and bits <= 32:
+                    host += uri.path
+            except ValueError:
+                pass
 
         try:
-            if not self.ip:
-                ips = self.parseip()
-                if not ips:
-                    return False, 'no ip found parsing the file'
-            else:
-                ips = [self.ip]
+            net = IPNetwork(host)
+        except AddrFormatError:
+            yield host, port, user, password
+        else:
+            for ip in net:
+                yield str(ip), port, user, password
 
-            if self.verbose:
-                print '[!] Checking connections, please wait.'
+# data_cb - tuple
+# 1 - Type: 0 - Connection, Data, Exit
+# If connection:
+# 2 - Connected
+# 3,4,5,6 - host, port, user, password
 
-            ip_ok = []
-            for ip in ips:
-                try:
-                    if self.checkOpenPort(ip, self.port):
-                        output = self.sshConnect(ip)
-                        if self.verbose:
-                            print '[+] Successful connection : %s' % ip
-                        ip_ok.append([ip, output])
-                    else:
-                        if self.verbose:
-                            print '[-] Port seems to be closed : %s' % ip
-                except Exception, e:
-                    if 'encrypted' in str(e[0]):
-                        return False, str(e[0])
-                    if self.verbose:
-                        print '[!] ' + str(e)
-            if ip_ok:
-                result = 'List of successful connection\n'
-                for ip in ip_ok:
-                    result += '- %s\n' % str(ip[0])
-                    if self.command:
-                        result += '%s\n' % str(ip[1])
-                return True, result
-            else:
-                return False, 'No successful connection found.'
+def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, password, private_keys, data_cb, close_cb):
+    hosts = obtain(hosts)
+    private_keys = obtain(private_keys)
 
-        except IOError, (errno, strerror):
-            return False, 'I/O Error(%s) : %s\n' % (str(errno), str(strerror))
+    data_cb = async(data_cb)
+    close_cb = async(close_cb)
+
+    current_connection = [None]
+    closed = Event()
+
+    def ssh_exec_thread():
+        for host, port, user, password in iter_hosts(hosts):
+            if closed.is_set():
+                break
+
+            ssh = None
+
+            try:
+                ssh = SSH(host, port, user, password, private_keys)
+                if not ssh.connected:
+                    data_cb((0, True, ssh.host, ssh.port, ssh.user, ssh.password))
+                    continue
+
+                current_connection[0] = ssh
+
+            except (socket_error, NoValidConnectionsError):
+                if ssh:
+                    data_cb((0, False, ssh.host, ssh.port, ssh.user, ssh.password))
+                else:
+                    data_cb((0, False, host, port, user, password))
+
+                continue
+
+            data_cb((4, ssh.host, ssh.port, ssh.user, ssh.password))
+
+            def remote_data(data):
+                data_cb((1, data))
+
+            if closed.is_set():
+                break
+
+            try:
+                if ssh_cmd == SSH.check_output:
+
+                    def remote_exit(status):
+                        data_cb((2, status))
+
+                    ssh_cmd(
+                        ssh, arg,
+                        on_stdout=remote_data, on_stderr=remote_data,
+                        on_exit=remote_exit
+                    )
+                else:
+                    if ssh_cmd == SSH.upload_file:
+                        def remote_exit(status, stdout, stderr):
+                            if stdout:
+                                data_cb((1, stdout))
+
+                            if stderr:
+                                data_cb((3, stderr))
+
+                            data_cb((2, status))
+
+                        src, dst, touch, perm, chown, run, delete = arg
+                        ssh_cmd(ssh, *arg, completed_cb=remote_exit)
+
+                    elif ssh_cmd in (SSH.download_file, SSH.download_tar):
+                        def remote_exit(status, stderr):
+                            if stderr:
+                                data_cb((3, stderr))
+
+                            data_cb((2, status))
+
+                        ssh_cmd(
+                            ssh, arg, remote_data,
+                            completed_cb=remote_exit
+                        )
+            finally:
+                ssh.close()
+
+    def ssh_exec_thread_wrap():
+        try:
+            ssh_exec_thread()
+        finally:
+            try:
+                closed.set()
+            except:
+                pass
+
+            try:
+                close_cb()
+            except:
+                pass
+
+    thread = Thread(
+        name=thread_name,
+        target=ssh_exec_thread_wrap
+    )
+    thread.daemon = True
+    thread.start()
+
+    return closed.set
+
+def ssh_exec(command, hosts, port, user, password, private_keys, data_cb, close_cb):
+    return _ssh_cmd(
+        SSH.check_output,
+        'SSH (Exec) Non-Interactive Reader',
+        command,
+        hosts, port, user, password, private_keys,
+        data_cb, close_cb
+    )
+
+def ssh_upload_file(src, dst, perm, touch, chown, run, delete, hosts,
+                    port, user, password, private_keys, data_cb, close_cb):
+    dst = path.expanduser(dst)
+
+    return _ssh_cmd(
+        SSH.upload_file,
+        'SSH (Upload) Non-Interactive Reader',
+        [src, dst, perm, touch, chown, run, delete],
+        hosts, port, user, password, private_keys,
+        data_cb, close_cb
+    )
+
+def ssh_download_file(src, hosts, port, user, password, private_keys, data_cb, close_cb):
+    src = path.expanduser(src)
+
+    return _ssh_cmd(
+        SSH.download_file,
+        'SSH (Download/Single) Non-Interactive Reader',
+        src,
+        hosts, port, user, password, private_keys,
+        data_cb, close_cb
+    )
+
+def ssh_download_tar(src, hosts, port, user, password, private_keys, data_cb, close_cb):
+    src = path.expanduser(src)
+
+    return _ssh_cmd(
+        SSH.download_tar,
+        'SSH (Download/Tar) Non-Interactive Reader',
+        src,
+        hosts, port, user, password, private_keys,
+        data_cb, close_cb
+    )
+
+
+if __name__ == '__main__':
+    def try_int(x):
+        try:
+            return int(x)
+        except:
+            return x
+
+    import sys
+    import logging
+
+    root_logger = logging.getLogger()
+    logging_stream = logging.StreamHandler()
+    logging_stream.setFormatter(logging.Formatter('%(asctime)-15s| %(message)s'))
+    logging_stream.setLevel('DEBUG')
+    root_logger.handlers = []
+    root_logger.addHandler(logging_stream)
+    root_logger.setLevel('DEBUG')
+
+    s = SSH(*[try_int(x) for x in sys.argv[1:]])
+    stdout, stderr, status = s.check_output('sleep 1 && id && sleep 1 && whoami')
+
+    print status
+    print stdout.getvalue()
+    print stderr.getvalue()
+
+    print "Upload"
+    test = BytesIO('Hello, world!\n')
+    stdout, stderr, status = s.upload_file(test.read, '/tmp/test123', rtouch='/bin/bash', append=True)
+
+    print status
+    print stdout.getvalue()
+    print stderr.getvalue()
+
+    print "Download"
+    test = BytesIO()
+    executable, stderr, status = s.download_file('/tmp/test123', test.write)
+    print status
+    print executable
+    print test.getvalue()
+    print stderr.getvalue()
