@@ -18,7 +18,7 @@ from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 from .PupyConfig import PupyConfig
 from .PupyOutput import (
-    Text, Line, NewLine, Error, Warn, Success,
+    Text, NewLine, Error, Warn, Success,
     Info, Table, TruncateToTerm
 )
 
