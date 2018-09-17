@@ -161,6 +161,8 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         'LAUNCHER={}'.format(repr(conf['launcher'])),
         'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
         'CONFIGURATION_CID={}'.format(conf.get('cid', 0x31338)),
+        'DELAYS={}'.format(repr(conf.get('delays', [
+            (10, 5, 10), (50, 30, 50), (-1, 150, 300)]))),
         'pupy.cid = CONFIGURATION_CID',
         'debug={}'.format(bool(conf.get('debug', False))),
         offline_script
@@ -510,6 +512,9 @@ def get_parser(base_parser, config):
     parser.add_argument('-P', '--packer', default=config.get('gen', 'packer'), help='Use packer when \'client\' output format (default: %(default)s)')
     parser.add_argument('-S', '--shared', default=False, action='store_true', help='Create shared object')
     parser.add_argument('-o', '--output', help="output filename")
+    parser.add_argument('-d', '--delays-list',
+        action='append', type=int, metavar=('<ATTEMPTS>', '<MIN SEC>', '<MAX SEC>'), nargs=3,
+        help='Format: <max attempts> <min delay (sec)> <max delay (sec)>')
 
     default_payload_output = '.'
     try:
@@ -606,6 +611,9 @@ def pupygen(args, config):
         'debug': args.debug,
         'cid': hex(random.SystemRandom().getrandbits(32))
     }
+
+    if args.delays_list:
+        conf['delays'] = sorted(args.delays_list, key=lambda x: x[0])
 
     outpath=args.output
 
