@@ -22,10 +22,11 @@ def do(server, handler, config, args):
                 Color('Command:', 'yellow'),
                 Color(args.module+':', 'green'),
                 command.usage or 'No description'))
-            if command.parser.add_help:
+            if hasattr(command.parser, 'add_help'):
                 tables.append(command.parser.format_help())
             else:
-                tables.append(command.parser.parse_args(['--help']))
+                parser = command.parser(server, PupyArgumentParser, config)
+                tables.append(parser.parse_args(['--help']))
 
         for module in server.iter_modules():
             if module.get_name().lower() == args.module.lower():
