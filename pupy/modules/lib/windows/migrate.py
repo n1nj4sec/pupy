@@ -1,8 +1,6 @@
 import pupygen
 import time
 
-# from pupygen import parse_scriptlets
-
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
         if all([True for x in c.desc if x in ["hostname", "platform", "release", "version", "macaddr"] and client.desc[x]==c.desc[x]]):
@@ -47,10 +45,8 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
         module.success("the bind port {0} is defined in DLL configuration".format(bindPort))
         conf['launcher_args'][conf['launcher_args'].index("--port")+1] = str(bindPort)
 
-    #uncomment this to debug pupy injected DLL loading
-    #conf['offline_script']=parse_scriptlets(["stdout_to_file,path=C:\\pupy.log"], debug=False)
-
     dllbuff, filename, _ = pupygen.generate_binary_from_template(
+        module.log,
         conf, 'windows',
         arch=arch, shared=True
     )

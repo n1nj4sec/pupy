@@ -28,6 +28,16 @@ class Table(Text):
         self.caption = caption
         self.legend = legend
 
+class List(Text):
+    __slots__ = ('caption', 'bullet', 'indent')
+
+    def __init__(self, data, bullet='+', indent=2, caption=None):
+        super(List, self).__init__(data)
+        self.data = data
+        self.bullet = bullet
+        self.caption = caption
+        self.indent = indent
+
 class Stream(Text):
     __slots__ = ()
 

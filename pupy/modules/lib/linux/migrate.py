@@ -20,6 +20,7 @@ def has_proc_migrated(client, pid):
 
 def get_payload(module, compressed=True):
     dllbuf, _, _ = pupygen.generate_binary_from_template(
+        module.log,
         module.client.get_conf(), 'linux',
         arch=module.client.arch, shared=True
     )

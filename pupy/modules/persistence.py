@@ -71,6 +71,7 @@ class PersistenceModule(PupyModule):
 
         drop = self.client.remote('persistence', 'drop', False)
         exebuff, tpl, _ = pupygen.generate_binary_from_template(
+            self.log,
             self.client.get_conf(),
             self.client.desc['platform'],
             arch=self.client.arch,

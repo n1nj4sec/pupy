@@ -21,7 +21,7 @@ else:
 from pupylib.PupyOutput import (
     Hint, Text, NewLine, Title, MultiPart, Indent, Color,
     TruncateToTerm, Error, Log, Warn, Success, Info,
-    ServiceInfo, Section, Line, Table, Pygment
+    ServiceInfo, Section, Line, List, Table, Pygment
 )
 
 PYGMENTS_STYLE='native'
@@ -366,6 +366,16 @@ def hint_to_text(text, width=0):
         ])
     elif hint == Line:
         return text.dm.join(hint_to_text(v, width) for v in text.data)
+    elif hint == List:
+        return (hint_to_text(text.caption, width) + '\n' if text.caption else '') + (
+            '\n'.join([
+                (
+                    (' '*text.indent) + (
+                        (hint_to_text(text.bullet, width) + ' ') if text.bullet else ''
+                    ) + hint_to_text(x, width)
+                ) for x in text.data
+            ])
+        )
     elif hint == Table:
         table_data = [
             {

