@@ -44,6 +44,8 @@ except ImportError:
 class SSHNotConnected(Exception):
     pass
 
+SUCCESS_CACHE = {}
+
 class SSH(object):
     __slots__ = (
         'user', 'password', 'private_key',
@@ -87,12 +89,23 @@ class SSH(object):
                         private_keys.append(identityfile_obj.read())
 
         if private_keys:
+            private_keys = [
+                (None, key_data) for key_data in private_keys
+            ]
             self._iter_private_keys = iter(private_keys)
         else:
-            self._iter_private_keys = self._find_private_keys(
-                path.expanduser(private_key_path or path.join('~', '.ssh')))
+            self._iter_private_keys = self._find_private_keys_everywhere()
 
         self._connect()
+        if self.connected:
+            SUCCESS_CACHE[frozenset((self.host, self.port, self.user))] = self._success_args
+
+    @property
+    def success_args(self):
+        return tuple([self._success_args.get(x, None) for x in (
+            'host', 'port', 'user', 'password', 'key',
+            'key_path', 'agent_socket', 'auto', 'cached'
+        )])
 
     def _find_agent_sockets(self):
         pairs = set()
@@ -117,11 +130,23 @@ class SSH(object):
 
                 yield pair
 
+    def _find_private_keys_everywhere(self):
+        try:
+            import pwd
+            for pw in pwd.getpwall():
+                for key_record in self._find_private_keys(path.join(pw.pw_dir, '.ssh')):
+                    yield key_record
+
+        except ImportError:
+            for key_record in self._find_private_keys(
+                path.expanduser(path.join('~', '.ssh'))):
+                yield key_record
+
     def _find_private_keys(self, fpath):
         if path.isfile(fpath):
             try:
                 with open(fpath) as content:
-                    yield content.read()
+                    yield fpath, content.read()
 
             except OSError:
                 pass
@@ -135,7 +160,7 @@ class SSH(object):
                     with open(sfile_path) as content:
                         first_line = content.readline(256)
                         if 'PRIVATE KEY-----' in first_line:
-                            yield first_line + content.read()
+                            yield sfile_path, first_line + content.read()
 
                 except (OSError, IOError):
                     pass
@@ -507,6 +532,81 @@ class SSH(object):
         client.set_missing_host_key_policy(AutoAddPolicy())
         client.load_system_host_keys()
 
+        # 0. If host in SUCCESS_CACHE try this first
+        success_cache_key = frozenset((self.host, self.port, self.user))
+        if success_cache_key in SUCCESS_CACHE:
+            auth_info = SUCCESS_CACHE.get(success_cache_key)
+            if auth_info.get('password'):
+                try:
+                    client.connect(
+                        password=auth_info['password'],
+                        hostname=self.host,
+                        port=self.port,
+                        username=auth_info['user'],
+                        allow_agent=False,
+                        look_for_keys=False,
+                        gss_auth=False,
+                        compress=not self._interactive,
+                    )
+
+                    self._client = client
+                    self._success_args = auth_info
+                    self._success_args['cached'] = True
+                    return True
+
+                except SSHException:
+                    client.close()
+
+            elif auth_info.get('agent_socket'):
+                SSH_AUTH_SOCK_bak = environ.get('SSH_AUTH_SOCK', None)
+                environ['SSH_AUTH_SOCK'] = auth_info['agent_socket']
+
+                try:
+                    client.connect(
+                        hostname=self.host,
+                        port=self.port,
+                        username=auth_info['user'],
+                        allow_agent=True,
+                        look_for_keys=False,
+                        password=None,
+                        compress=not self._interactive,
+                    )
+
+                    self._client = client
+                    self._success_args = auth_info
+                    self._success_args['cached'] = True
+                    return True
+
+                except SSHException:
+                    client.close()
+
+                finally:
+                    if SSH_AUTH_SOCK_bak is None:
+                        del environ['SSH_AUTH_SOCK']
+                    else:
+                        environ['SSH_AUTH_SOCK'] = SSH_AUTH_SOCK_bak
+
+            elif auth_info.get('pkey'):
+                try:
+                    client.connect(
+                        hostname=self.host,
+                        port=self.port,
+                        username=auth_info['user'],
+                        pkey=auth_info['pkey'],
+                        allow_agent=False,
+                        look_for_keys=False,
+                        gss_auth=False,
+                        compress=not self._interactive,
+                    )
+
+                    self._client = client
+                    self._success_args = auth_info
+                    self._success_args['cached'] = True
+                    return True
+
+                except SSHException:
+                    client.close()
+
         current_user = getuser()
 
         # 1. If password try password
@@ -530,7 +630,9 @@ class SSH(object):
                     'host': self.host,
                     'port': self.port,
                     'user': username,
-                    'password': self.password
+                    'password': self.password,
+                    'auto': True,
+                    'cached': False,
                 }
                 return True
 
@@ -561,7 +663,9 @@ class SSH(object):
                     'host': self.host,
                     'port': self.port,
                     'user': username,
-                    'ssh_agent_socket': SSH_AUTH_SOCK
+                    'agent_socket': SSH_AUTH_SOCK,
+                    'auto': False,
+                    'cached': False
                 }
                 return True
 
@@ -575,15 +679,16 @@ class SSH(object):
                     environ['SSH_AUTH_SOCK'] = SSH_AUTH_SOCK_bak
 
         # 3. Try all found pkeys
-        for pkey in self._iter_private_keys:
+        for key_file, key_data in self._iter_private_keys:
             username = self.user or current_user
 
-            pkey_obj = BytesIO(pkey)
+            pkey_obj = BytesIO(key_data)
             pkey = None
 
             for klass in (RSAKey, ECDSAKey, DSSKey, Ed25519Key):
                 try:
                     pkey = klass.from_private_key(pkey_obj)
+                    break
                 except SSHException:
                     continue
 
@@ -607,7 +712,11 @@ class SSH(object):
                     'host': self.host,
                     'port': self.port,
                     'user': username,
-                    'pkey': pkey
+                    'key': key_data,
+                    'key_file': key_file,
+                    'pkey': pkey,
+                    'auto': False,
+                    'cached': False
                 }
                 return True
 
@@ -711,7 +820,14 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, password, private_key
 
                 continue
 
-            data_cb((4, ssh.host, ssh.port, ssh.user, ssh.password))
+            except Exception, e:
+                data_cb((3, 'Exception: {}: {}'.format(type(e), str(e))))
+                continue
+
+            conninfo = [4]
+            conninfo.extend(ssh.success_args)
+
+            data_cb(tuple(conninfo))
 
             def remote_data(data):
                 data_cb((1, data))

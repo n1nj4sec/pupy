@@ -86,17 +86,40 @@ class SSH(PupyModule):
         if msg_type == 0:
             connected, host, port, user, password = args[1:]
             if connected:
-                self.error('No credentials to auth to: {}@{}:{}'.format(user or 'any', host, port))
+                self.error('No credentials to auth to: {}@{}:{}'.format(
+                    user or 'any', host, port))
             else:
                 self.error('Could not connect to {}:{}'.format(host, port))
         elif msg_type == 4:
-            host, port, user, password = args[1:]
-            self.success('Connected to {}{}:{}'.format(user + '@' if user else '', host, port))
+            host, port, user, password, key, key_path, agent_socket, auto, cached = args[1:]
+            key_info = ''
+
+            if password:
+                key_info = ' auth:password={}'.format(password)
+            elif key_path:
+                key_info = ' auth:key={}'.format(key_path)
+            elif key:
+                key_info = ' auth:key'
+            elif agent_socket:
+                key_info = ' auth:agent={}'.format(agent_socket)
+            elif auto:
+                key_info = ' auth:auto'
+
+            if cached:
+                key_info += ' [cached]'
+
+            self.success('Connected to {}{}:{}{}'.format(
+                user + '@' if user else '', host, port, key_info))
+
             self.current_connection_info.update({
                 'host': host,
                 'port': port,
                 'user': user,
-                'password': password
+                'password': password,
+                'key': key,
+                'key_path': key_path,
+                'auto': auto,
+                'cached': cached,
              })
             if connect_cb:
                 connect_cb()
