@@ -233,22 +233,27 @@ def get_edit_apk(path, conf, compressed_config=None, debug=False):
 
         print "[+] packaging the apk ... (can take 10-20 seconds)"
         #updating the tar with the new config
-        updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir,"pp.pyo"))
+        updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir, "pp.pyo"))
         #repacking the tar in the apk
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())
 
         #signing the tar
         try:
-            res=subprocess.check_output("jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore crypto/pupy-apk-release-key.keystore -storepass pupyp4ssword '%s' pupy_key"%tempapk, shell=True)
-        except OSError as e:
-            if e.errno ==os.errno.ENOENT:
+            subprocess.check_output(
+                'jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 '
+                '-keystore crypto/pupy-apk-release-key.keystore '
+                '-storepass pupyp4ssword %s pupy_key'%repr(tempapk), shell=True)
+
+            with open(tempapk) as apk:
+                return apk.read()
+
+        except subprocess.CalledProcessError, e:
+            print colorize('[-] ', 'red'), e.output
+        except OSError, e:
+            if e.errno == os.errno.ENOENT:
                 raise ValueError("Please install jarsigner first.")
             raise e
-        # -tsa http://timestamp.digicert.com
-        print(res)
-        with open(tempapk) as apk:
-            return apk.read()
 
     finally:
         #cleaning up
