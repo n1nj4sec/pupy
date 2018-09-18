@@ -2,6 +2,7 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser, REQUIRE_STREAM
 from pupylib.PupyCompleter import path_completer
+from pupylib.PupyOutput import Table, Color
 
 from os import path, makedirs, unlink, walk, stat
 from stat import S_ISDIR
@@ -64,7 +65,15 @@ class SSH(PupyModule):
         download.add_argument('dst_path', nargs='?', help='Local destination (folder)')
         download.set_defaults(func=cls.download)
 
+        hosts = commands.add_parser('hosts')
+        hosts.add_argument('host', nargs='?', help='Show info for host')
+        hosts.set_defaults(func=cls.hosts)
+
     def run(self, args):
+        if args.func == SSH.hosts:
+            self.hosts(args)
+            return
+
         if args.private_keys:
             self.pkeys = self._find_private_keys(self, args.private_keys)
 
@@ -80,6 +89,30 @@ class SSH(PupyModule):
 
         finally:
             self.closer = None
+
+    def hosts(self, args):
+        get_hosts = self.client.remote('ssh', 'ssh_hosts')
+        records = get_hosts()
+
+        if args.host:
+            for user, hosts in records.iteritems():
+                for alias, host in hosts.iteritems():
+                    if args.host == alias or args.host == host.get('hostname'):
+                        self.log(Table([{
+                            'KEY':k, 'VALUE': ','.join(v) if type(v) == list else v
+                        } for k,v in host.iteritems()],
+                        ['KEY', 'VALUE'], Color('{}, user={}'.format(alias, user), 'yellow')))
+
+        else:
+            for user, hosts in records.iteritems():
+                self.log(Table([{
+                    'ALIAS':alias,
+                    'USER':hosts[alias].get('user', user),
+                    'HOST':hosts[alias]['hostname'],
+                    'PORT':hosts[alias].get('port', 22),
+                    'KEY':','.join(hosts[alias].get('identityfile', []))
+                } for alias in hosts if 'hostname' in hosts[alias] and not alias == '*'],
+                ['ALIAS', 'USER', 'HOST', 'PORT', 'KEY'], Color('User: {}'.format(user), 'yellow')))
 
     def _handle_on_data(self, args, data_cb, connect_cb=None, complete_cb=None):
         msg_type = args[0]

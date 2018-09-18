@@ -940,6 +940,37 @@ def ssh_download_tar(src, hosts, port, user, password, private_keys, data_cb, cl
         data_cb, close_cb
     )
 
+def ssh_hosts():
+    paths = []
+    configs = {}
+
+    try:
+        import pwd
+        for pw in pwd.getpwall():
+            config_path = path.join(pw.pw_dir, '.ssh', 'config')
+            if path.isfile(config_path):
+                paths.append((pw.pw_name, config_path))
+
+    except ImportError:
+        config_path = path.expanduser(path.join('~', '.ssh', 'config'))
+        if path.isfile(config_path):
+            import getpass
+            paths = [(getpass.getuser(), config_path)]
+
+    for user, config_path in paths:
+        ssh_config = SSHConfig()
+        try:
+            with open(config_path) as config:
+                ssh_config.parse(config)
+
+        except OSError:
+            continue
+
+        configs[user] = {
+            host:ssh_config.lookup(host) for host in ssh_config.get_hostnames()
+        }
+
+    return configs
 
 if __name__ == '__main__':
     def try_int(x):
