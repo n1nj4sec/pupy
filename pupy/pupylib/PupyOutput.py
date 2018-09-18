@@ -20,13 +20,14 @@ class Text(Hint):
                 self.__class__.__name__))
 
 class Table(Text):
-    __slots__ = ('headers', 'caption', 'legend')
+    __slots__ = ('headers', 'caption', 'legend', 'vspace')
 
-    def __init__(self, data, headers=None, caption=None, legend=True):
+    def __init__(self, data, headers=None, caption=None, legend=True, vspace=0):
         super(Table, self).__init__(data)
         self.headers = headers
         self.caption = caption
         self.legend = legend
+        self.vspace = vspace
 
 class List(Text):
     __slots__ = ('caption', 'bullet', 'indent')
