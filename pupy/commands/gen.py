@@ -135,7 +135,7 @@ def do(server, handler, config, args):
         handler.display(Error(e, 'payload generation failed'))
         return
 
-    if not output:
+    if not output and 'oneliner' not in args.format:
         handler.display(Error('payload generation failed'))
         return
 

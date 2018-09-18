@@ -727,10 +727,11 @@ def pupygen(args, config):
     else:
         raise ValueError("Type %s is invalid."%(args.format))
 
-    print(ok+"OUTPUT_PATH = %s"%os.path.abspath(outpath))
-    print(ok+"SCRIPTLETS = %s"%args.scriptlet)
-    print(ok+"DEBUG = %s"%args.debug)
-    return os.path.abspath(outpath)
+    if outpath:
+        print(ok+"OUTPUT_PATH = %s"%os.path.abspath(outpath))
+        print(ok+"SCRIPTLETS = %s"%args.scriptlet)
+        print(ok+"DEBUG = %s"%args.debug)
+        return os.path.abspath(outpath)
 
 if __name__ == '__main__':
     Credentials.DEFAULT_ROLE = 'CLIENT'
