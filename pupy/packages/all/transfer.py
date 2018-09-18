@@ -665,7 +665,7 @@ def du(filepath, callback, exclude=None, include=None, follow_symlinks=False,
     t.stop(callback)
     return t.terminate
 
-def transfer(filepath, callback, exclude=None, include=None, follow_symlinks=False,
+def transfera(filepath, callback, exclude=None, include=None, follow_symlinks=False,
              ignore_size=False, single_device=False, chunk_size=1*1024*1024):
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
     t.transfer(filepath, callback)

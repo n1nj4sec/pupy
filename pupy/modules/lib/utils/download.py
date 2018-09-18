@@ -89,10 +89,8 @@ class DownloadFronted(object):
 
         self._transfer_stop = None
 
-    def du(self, remote_file):
-        du = self.client.remote('transfer', 'du', False)
-
-        self._terminate = du(
+    def du(self, remote_file, obj):
+        self._terminate = obj.du(
             remote_file, self._submit_message, self._exclude, self._include,
             self._follow_symlinks, self._no_single_device)
 

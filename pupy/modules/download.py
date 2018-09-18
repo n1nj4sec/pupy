@@ -53,7 +53,8 @@ class DownloaderScript(PupyModule):
         )
 
         if args.calculate_size:
-            count, size = self._downloader.du(args.remote_file)
+            obj = self.client.remote('transfer')
+            count, size = self._downloader.du(args.remote_file, obj)
             if count is not None and size is not None:
                 self.success('Files: {} Size: {}'.format(count, size_human_readable(size)))
         else:
