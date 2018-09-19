@@ -18,7 +18,8 @@ class SSH(PupyModule):
     """ ssh client """
 
     dependencies = [
-        'paramiko', 'cryptography', 'ecdsa', 'ssh'
+        'nacl', 'bcrypt', 'ecdsa',
+        'cryptography', 'paramiko', 'ssh'
     ]
 
     closer = None
