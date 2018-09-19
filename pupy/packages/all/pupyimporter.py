@@ -479,6 +479,8 @@ def invalidate_module(name):
         if not (item == name or item.startswith(name+'.')):
             continue
 
+        mid = id(sys.modules[item])
+
         del sys.modules[item]
 
         if hasattr(pupy, 'namespace'):
@@ -488,7 +490,6 @@ def invalidate_module(name):
         if __debug__:
             global __debug
             if __debug:
-                mid = id(sys.modules[item])
                 dprint('Remove {} from sys.modules'.format(item))
                 del item
 
