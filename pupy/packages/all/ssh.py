@@ -31,7 +31,7 @@ from paramiko.ed25519key import Ed25519Key
 from netaddr import (IPNetwork, AddrFormatError)
 from urlparse import urlparse
 
-from socket import error as socket_error
+from socket import error as socket_error, gaierror
 
 from rpyc import async
 
@@ -46,51 +46,101 @@ class SSHNotConnected(Exception):
 
 SUCCESS_CACHE = {}
 
+def ssh_hosts():
+    paths = []
+    configs = {}
+
+    try:
+        import pwd
+        for pw in pwd.getpwall():
+            config_path = path.join(pw.pw_dir, '.ssh', 'config')
+            if path.isfile(config_path):
+                paths.append((pw.pw_name, config_path))
+
+    except ImportError:
+        config_path = path.expanduser(path.join('~', '.ssh', 'config'))
+        if path.isfile(config_path):
+            import getpass
+            paths = [(getpass.getuser(), config_path)]
+
+    for user, config_path in paths:
+        ssh_config = SSHConfig()
+        try:
+            with open(config_path) as config:
+                ssh_config.parse(config)
+
+        except OSError:
+            continue
+
+        configs[user] = {
+            host:ssh_config.lookup(host) for host in ssh_config.get_hostnames()
+        }
+
+    return configs
+
 class SSH(object):
     __slots__ = (
-        'user', 'password', 'private_key',
+        'user', 'passwords', 'key_passwords', 'private_key',
         'host', 'port',
         '_client', '_iter_private_keys',
-        '_success_args', '_ssh_config',
+        '_success_args', '_ssh_hosts',
         '_interactive'
     )
 
-    def __init__(self, host, port=22, user=None, password=None, private_keys=None,
+    def __init__(self, host, port=22, user=None, passwords=None, key_passwords=None, private_keys=None,
                  private_key_path=None, interactive=False):
         self.host = host
         self.port = port
         self.user = user
-        self.password = password
+        self.passwords = passwords
+        self.key_passwords = key_passwords
 
         self._interactive = interactive
 
         self._client = None
         self._success_args = None
 
-        self._ssh_config = self._load_config()
+        self._ssh_hosts = ssh_hosts()
 
-        additional_info = self._ssh_config.lookup(self.host)
-        if additional_info:
-            if 'hostname' in additional_info:
-                self.host = additional_info['hostname']
-            if 'port' in additional_info:
-                self.port = int(additional_info['port'])
-            if 'user' in additional_info:
-                self.user = additional_info['user']
-            if 'identityfile' in additional_info and not private_keys:
-                private_keys = []
-
-                for identityfile in additional_info['identityfile']:
-                    identityfile = path.expanduser(identityfile)
-                    if not path.isfile(identityfile):
+        for user, hosts in self._ssh_hosts.iteritems():
+            for alias, config in hosts.iteritems():
+                if self.host in (alias, config.get('hostname')):
+                    if self.user is not None and self.user != config.get('user', user):
                         continue
 
-                    with open(identityfile) as identityfile_obj:
-                        private_keys.append(identityfile_obj.read())
+                    if 'hostname' in config:
+                        self.host = config['hostname']
+
+                    if 'port' in config:
+                        self.port = int(config['port'])
+
+                    self.user = config.get('user', user)
+
+                    if 'identityfile' in config and not private_keys:
+                        private_keys = []
+
+                        for identityfile in config['identityfile']:
+                            try:
+                                import pwd
+                                user_home = pwd.getpwnam(user).pw_dir
+                                identityfile = path.sep.join(
+                                    x if x != '~' else user_home for x in path.split(identityfile)
+                                )
+                            except (ImportError, KeyError):
+                                identityfile = path.expanduser(identityfile)
+
+                            if not path.isfile(identityfile):
+                                continue
+
+                            with open(identityfile) as identityfile_obj:
+                                private_keys.append((identityfile, identityfile_obj.read()))
+
+                    break
 
         if private_keys:
             private_keys = [
-                (None, key_data) for key_data in private_keys
+                (None, key_data) if not type(key_data) == tuple else key_data
+                    for key_data in private_keys
             ]
             self._iter_private_keys = iter(private_keys)
         else:
@@ -103,8 +153,8 @@ class SSH(object):
     @property
     def success_args(self):
         return tuple([self._success_args.get(x, None) for x in (
-            'host', 'port', 'user', 'password', 'key',
-            'key_path', 'agent_socket', 'auto', 'cached'
+            'host', 'port', 'user', 'password', 'key_password', 'key',
+            'key_file', 'agent_socket', 'auto', 'cached'
         )])
 
     def _find_agent_sockets(self):
@@ -274,8 +324,6 @@ class SSH(object):
             commands.append('rm -f {}'.format(repr(remote_path)))
 
         header = ' && '.join(commands) + '\n'
-
-        print "\n\nCMD:", header, "\n\n"
 
         session.sendall(header)
 
@@ -501,32 +549,6 @@ class SSH(object):
 
         return None, None, None
 
-    def _load_config(self):
-        try:
-            import pwd
-            configs = [
-                path.join(
-                    x.pw_dir, '.ssh', 'config'
-                ) for x in pwd.getpwall() if path.isfile(
-                    path.join(x.pw_dir, '.ssh', 'config')
-                )
-            ]
-
-        except ImportError:
-            configs = []
-            ssh_user_conf = path.expanduser(path.join('~', '.ssh', 'config'))
-
-            if path.isfile(ssh_user_conf):
-                configs.append(ssh_user_conf)
-
-        ssh_config = SSHConfig()
-
-        for config in configs:
-            with open(config) as config_obj:
-                ssh_config.parse(config_obj)
-
-        return ssh_config
-
     def _connect(self):
         client = SSHClient()
         client.set_missing_host_key_policy(AutoAddPolicy())
@@ -610,34 +632,35 @@ class SSH(object):
         current_user = getuser()
 
         # 1. If password try password
-        if self.password:
-            username = self.user or current_user
+        if self.passwords:
+            for password in self.passwords:
+                username = self.user or current_user
 
-            try:
-                client.connect(
-                    password=self.password,
-                    hostname=self.host,
-                    port=self.port,
-                    username=username,
-                    allow_agent=False,
-                    look_for_keys=False,
-                    gss_auth=False,
-                    compress=not self._interactive,
-                )
+                try:
+                    client.connect(
+                        password=password,
+                        hostname=self.host,
+                        port=self.port,
+                        username=username,
+                        allow_agent=False,
+                        look_for_keys=False,
+                        gss_auth=False,
+                        compress=not self._interactive,
+                    )
 
-                self._client = client
-                self._success_args = {
-                    'host': self.host,
-                    'port': self.port,
-                    'user': username,
-                    'password': self.password,
-                    'auto': True,
-                    'cached': False,
-                }
-                return True
+                    self._client = client
+                    self._success_args = {
+                        'host': self.host,
+                        'port': self.port,
+                        'user': username,
+                        'password': password,
+                        'auto': True,
+                        'cached': False,
+                    }
+                    return True
 
-            except SSHException:
-                client.close()
+                except SSHException:
+                    client.close()
 
         # 2. Try agent, default methods etc
         for username, SSH_AUTH_SOCK in self._find_agent_sockets():
@@ -685,12 +708,20 @@ class SSH(object):
             pkey_obj = BytesIO(key_data)
             pkey = None
 
+            key_passwords = list(self.key_passwords)
+            key_passwords.insert(0, None)
+            found_key_password = None
+
             for klass in (RSAKey, ECDSAKey, DSSKey, Ed25519Key):
-                try:
-                    pkey = klass.from_private_key(pkey_obj)
-                    break
-                except SSHException:
-                    continue
+                for key_password in key_passwords:
+                    try:
+                        pkey_obj.seek(0)
+                        pkey = klass.from_private_key(
+                            pkey_obj, password=key_password)
+                        found_key_password = key_password
+                        break
+                    except SSHException, e:
+                        continue
 
             if pkey is None:
                 continue
@@ -714,6 +745,7 @@ class SSH(object):
                     'user': username,
                     'key': key_data,
                     'key_file': key_file,
+                    'key_password': found_key_password,
                     'pkey': pkey,
                     'auto': False,
                     'cached': False
@@ -726,16 +758,22 @@ class SSH(object):
         if not self._client and client:
             client.close()
 
-def ssh_interactive(term, w, h, wp, hp, host, port, user, password, private_keys, program, data_cb, close_cb):
+def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords, private_keys, program, data_cb, close_cb):
     private_keys = obtain(private_keys)
+    passwords = obtain(passwords)
     data_cb = async(data_cb)
     close_cb = async(close_cb)
 
+    ssh_passwords, key_passwords = passwords
+
     try:
-        ssh = SSH(host, port, user, password, private_keys, interactive=True)
+        ssh = SSH(host, port, user, ssh_passwords, key_passwords, private_keys, interactive=True)
         if not ssh.connected:
             raise ValueError('No valid credentials found to connect to {}:{} user={}'.format(
                 ssh.host, ssh.port, ssh.user or 'any'))
+
+    except gaierror, e:
+        raise ValueError('Unable to connect to {}:{} - {}'.format(host, port, e.strerror))
 
     except NoValidConnectionsError:
         raise ValueError('Unable to connect to {}:{}'.format(host, port))
@@ -750,9 +788,11 @@ def ssh_interactive(term, w, h, wp, hp, host, port, user, password, private_keys
 
     return attach, writer, resizer, ssh_close
 
-def iter_hosts(hosts, default_port=22, default_user=None, default_password=None):
+def iter_hosts(hosts, default_passwords=None, default_port=22, default_user=None):
     if type(hosts) in (str, unicode):
         hosts = [hosts]
+
+    default_passwords, key_passwords = default_passwords
 
     for host in hosts:
 
@@ -763,7 +803,7 @@ def iter_hosts(hosts, default_port=22, default_user=None, default_password=None)
         host = uri.hostname
         port = uri.port or default_port
         user = uri.username or default_user
-        password = uri.password or default_password
+        passwords = tuple([uri.password]) or default_passwords
 
         if uri.path and uri.path[0] == '/' and len(uri.path) > 1 and len(uri.path) < 4:
             try:
@@ -776,10 +816,10 @@ def iter_hosts(hosts, default_port=22, default_user=None, default_password=None)
         try:
             net = IPNetwork(host)
         except AddrFormatError:
-            yield host, port, user, password
+            yield host, port, user, passwords, key_passwords
         else:
             for ip in net:
-                yield str(ip), port, user, password
+                yield str(ip), port, user, passwords, key_passwords
 
 # data_cb - tuple
 # 1 - Type: 0 - Connection, Data, Exit
@@ -787,9 +827,10 @@ def iter_hosts(hosts, default_port=22, default_user=None, default_password=None)
 # 2 - Connected
 # 3,4,5,6 - host, port, user, password
 
-def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, password, private_keys, data_cb, close_cb):
+def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_keys, data_cb, close_cb):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
+    default_passwords = obtain(passwords)
 
     data_cb = async(data_cb)
     close_cb = async(close_cb)
@@ -798,25 +839,25 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, password, private_key
     closed = Event()
 
     def ssh_exec_thread():
-        for host, port, user, password in iter_hosts(hosts):
+        for host, port, user, passwords, key_passwords in iter_hosts(hosts, default_passwords):
             if closed.is_set():
                 break
 
             ssh = None
 
             try:
-                ssh = SSH(host, port, user, password, private_keys)
+                ssh = SSH(host, port, user, passwords, key_passwords, private_keys)
                 if not ssh.connected:
-                    data_cb((0, True, ssh.host, ssh.port, ssh.user, ssh.password))
+                    data_cb((0, True, ssh.host, ssh.port, ssh.user))
                     continue
 
                 current_connection[0] = ssh
 
             except (socket_error, NoValidConnectionsError):
                 if ssh:
-                    data_cb((0, False, ssh.host, ssh.port, ssh.user, ssh.password))
+                    data_cb((0, False, ssh.host, ssh.port, ssh.user))
                 else:
-                    data_cb((0, False, host, port, user, password))
+                    data_cb((0, False, host, port, user))
 
                 continue
 
@@ -897,80 +938,57 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, password, private_key
 
     return closed.set
 
-def ssh_exec(command, hosts, port, user, password, private_keys, data_cb, close_cb):
+def ssh_exec(command, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+    hosts = obtain(hosts)
+    passwords = obtain(passwords)
+
     return _ssh_cmd(
         SSH.check_output,
         'SSH (Exec) Non-Interactive Reader',
         command,
-        hosts, port, user, password, private_keys,
+        hosts, port, user, passwords, private_keys,
         data_cb, close_cb
     )
 
 def ssh_upload_file(src, dst, perm, touch, chown, run, delete, hosts,
-                    port, user, password, private_keys, data_cb, close_cb):
+                    port, user, passwords, private_keys, data_cb, close_cb):
+    hosts = obtain(hosts)
+    passwords = obtain(passwords)
     dst = path.expanduser(dst)
 
     return _ssh_cmd(
         SSH.upload_file,
         'SSH (Upload) Non-Interactive Reader',
         [src, dst, perm, touch, chown, run, delete],
-        hosts, port, user, password, private_keys,
+        hosts, port, user, passwords, private_keys,
         data_cb, close_cb
     )
 
-def ssh_download_file(src, hosts, port, user, password, private_keys, data_cb, close_cb):
+def ssh_download_file(src, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+    hosts = obtain(hosts)
+    passwords = obtain(passwords)
     src = path.expanduser(src)
 
     return _ssh_cmd(
         SSH.download_file,
         'SSH (Download/Single) Non-Interactive Reader',
         src,
-        hosts, port, user, password, private_keys,
+        hosts, port, user, passwords, private_keys,
         data_cb, close_cb
     )
 
-def ssh_download_tar(src, hosts, port, user, password, private_keys, data_cb, close_cb):
+def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+    hosts = obtain(hosts)
+    passwords = obtain(passwords)
     src = path.expanduser(src)
 
     return _ssh_cmd(
         SSH.download_tar,
         'SSH (Download/Tar) Non-Interactive Reader',
         src,
-        hosts, port, user, password, private_keys,
+        hosts, port, user, passwords, private_keys,
         data_cb, close_cb
     )
-
-def ssh_hosts():
-    paths = []
-    configs = {}
-
-    try:
-        import pwd
-        for pw in pwd.getpwall():
-            config_path = path.join(pw.pw_dir, '.ssh', 'config')
-            if path.isfile(config_path):
-                paths.append((pw.pw_name, config_path))
-
-    except ImportError:
-        config_path = path.expanduser(path.join('~', '.ssh', 'config'))
-        if path.isfile(config_path):
-            import getpass
-            paths = [(getpass.getuser(), config_path)]
-
-    for user, config_path in paths:
-        ssh_config = SSHConfig()
-        try:
-            with open(config_path) as config:
-                ssh_config.parse(config)
-
-        except OSError:
-            continue
-
-        configs[user] = {
-            host:ssh_config.lookup(host) for host in ssh_config.get_hostnames()
-        }
-
-    return configs
 
 if __name__ == '__main__':
     def try_int(x):

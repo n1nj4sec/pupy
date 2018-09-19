@@ -34,7 +34,10 @@ class SSH(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='ssh', description=cls.__doc__)
         cls.arg_parser.add_argument('-u', '--user', help='Use user name')
         cls.arg_parser.add_argument('-p', '--port', type=int, help='Use port')
-        cls.arg_parser.add_argument('-P', '--password', help='Use password')
+        cls.arg_parser.add_argument('-P', '--password', default=[], action='append',
+                                    help='SSH auth password (may be specified many times)')
+        cls.arg_parser.add_argument('-KP', '--key-password', default=[], action='append',
+                                    help='SSH key password (may be specified many times)')
         cls.arg_parser.add_argument('-k', '--private-keys', help='Use private keys (Use "," as path separator)',
                                     completer=path_completer)
 
@@ -117,14 +120,14 @@ class SSH(PupyModule):
     def _handle_on_data(self, args, data_cb, connect_cb=None, complete_cb=None):
         msg_type = args[0]
         if msg_type == 0:
-            connected, host, port, user, password = args[1:]
+            connected, host, port, user = args[1:]
             if connected:
-                self.error('No credentials to auth to: {}@{}:{}'.format(
-                    user or 'any', host, port))
+                self.error('No credentials to auth to: {}{}:{}'.format(
+                    user + '@' or '', host, port))
             else:
                 self.error('Could not connect to {}:{}'.format(host, port))
         elif msg_type == 4:
-            host, port, user, password, key, key_path, agent_socket, auto, cached = args[1:]
+            host, port, user, password, key_password, key, key_path, agent_socket, auto, cached = args[1:]
             key_info = ''
 
             if password:
@@ -137,6 +140,9 @@ class SSH(PupyModule):
                 key_info = ' auth:agent={}'.format(agent_socket)
             elif auto:
                 key_info = ' auth:auto'
+
+            if key_password:
+                key_info += ' key_password={}'.format(key_password)
 
             if cached:
                 key_info += ' [cached]'
@@ -185,7 +191,8 @@ class SSH(PupyModule):
 
         self.closer = rexec(
             command,
-            args.host, args.port, args.user, args.password,
+            args.host, args.port, args.user, (
+                tuple(args.password), tuple(args.key_password)),
             self.pkeys, on_data, self.waiter.set
         )
 
@@ -241,7 +248,8 @@ class SSH(PupyModule):
 
         self.closer = download(
             args.src_path,
-            args.host, args.port, args.user, args.password, self.pkeys,
+            args.host, args.port, args.user, (
+                tuple(args.password), tuple(args.key_password)), self.pkeys,
             on_data, self.waiter.set
         )
 
@@ -268,7 +276,8 @@ class SSH(PupyModule):
             input_obj.read, args.dst_path,
             args.chmod or (input_stat.st_mode & 0777),
             args.relative_timestamp, args.chown, args.execute, args.unlink,
-            args.host, args.port, args.user, args.password, self.pkeys,
+            args.host, args.port, args.user, (
+                tuple(args.password), tuple(args.key_password)), self.pkeys,
             on_data, self.waiter.set
         )
 

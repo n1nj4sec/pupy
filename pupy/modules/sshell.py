@@ -37,7 +37,12 @@ class SSHell(PupyModule):
                                          help="Change tty recorder")
         cls.arg_parser.add_argument('-u', '--user', help='Use user name')
         cls.arg_parser.add_argument('-p', '--port', type=int, help='Use port')
-        cls.arg_parser.add_argument('-P', '--password', help='Use password')
+        cls.arg_parser.add_argument('-P', '--passwords',
+                                    action='append', default=[],
+                                    help='Use SSH auth password (can specify many times)')
+        cls.arg_parser.add_argument('-KP', '--key-passwords',
+                                    action='append', default=[],
+                                    help='Use SSH key password (can specify many times)')
         cls.arg_parser.add_argument('-k', '--private-keys', help='Use private keys (Use "," as path separator)',
                                     completer=path_completer)
         cls.arg_parser.add_argument('host', help='host to connect')
@@ -74,8 +79,9 @@ class SSHell(PupyModule):
         uri = urlparse(host)
         host = uri.hostname
         port = args.port or uri.port or 22
-        user = args.user or uri.username or 'root'
-        password = args.password or uri.password
+        user = args.user or uri.username
+        passwords = (args.passwords or tuple([uri.password]),
+                    tuple(args.key_passwords))
         program = ' '.join(args.program) or None
 
         exit_status = [-1]
@@ -98,7 +104,7 @@ class SSHell(PupyModule):
         try:
             attach, writer, resizer, closer = ssh_interactive(
                 term, w, h, wp, hp,
-                host, port, user, password, private_keys,
+                host, port, user, passwords, private_keys,
                 program, write, remote_close
             )
 
