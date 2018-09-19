@@ -33,7 +33,9 @@
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyConfig import PupyConfig
 
+import os
 import subprocess
+
 
 __class_name__="Screenshoter"
 
@@ -90,4 +92,13 @@ class Screenshoter(PupyModule):
 
                     if args.view:
                         viewer = config.get('default_viewers', 'image_viewer')
-                        subprocess.Popen([viewer, filepath])
+                        
+                        found = False
+                        for p in os.environ.get('PATH', '').split(':'):
+                            if os.path.exists(os.path.join(p, viewer)):
+                                subprocess.Popen([viewer, filepath])
+                                found = True
+                                break
+
+                        if not found: 
+                            self.error('Default viewer not found: %s' % viewer)

@@ -45,7 +45,7 @@ from pupylib.PupyCredentials import Credentials, EncryptionError
 
 logger = getLogger('gen')
 
-HARDCODED_CONF_SIZE = 65536
+HARDCODED_CONF_SIZE= 65536
 
 class NoOutput(Exception):
     pass

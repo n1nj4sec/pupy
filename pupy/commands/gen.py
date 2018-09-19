@@ -141,7 +141,7 @@ def do(server, handler, config, args):
         traceback.print_exc()
         return
 
-    if not output:
+    if not output and 'oneliner' not in args.format:
         handler.display(Error('payload generation failed'))
         return
 
