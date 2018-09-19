@@ -26,7 +26,11 @@ from paramiko.ssh_exception import (
 from paramiko.dsskey import DSSKey
 from paramiko.rsakey import RSAKey
 from paramiko.ecdsakey import ECDSAKey
-from paramiko.ed25519key import Ed25519Key
+
+try:
+    from paramiko.ed25519key import Ed25519Key
+except ImportError:
+    Ed25519Key = None
 
 from netaddr import (IPNetwork, AddrFormatError)
 from urlparse import urlparse
@@ -45,6 +49,9 @@ class SSHNotConnected(Exception):
     pass
 
 SUCCESS_CACHE = {}
+KEY_CLASSES = [RSAKey, ECDSAKey, DSSKey]
+if Ed25519Key:
+    KEY_CLASSES.append(Ed25519Key)
 
 def ssh_hosts():
     paths = []
@@ -145,6 +152,9 @@ class SSH(object):
             self._iter_private_keys = iter(private_keys)
         else:
             self._iter_private_keys = self._find_private_keys_everywhere()
+
+        if self.port is None:
+            self.port = 22
 
         self._connect()
         if self.connected:
@@ -704,14 +714,14 @@ class SSH(object):
         for key_file, key_data in self._iter_private_keys:
             username = self.user or current_user
 
-            pkey_obj = BytesIO(key_data)
+            pkey_obj = BytesIO(str(key_data))
             pkey = None
 
             key_passwords = list(self.key_passwords)
             key_passwords.insert(0, None)
             found_key_password = None
 
-            for klass in (RSAKey, ECDSAKey, DSSKey, Ed25519Key):
+            for klass in KEY_CLASSES:
                 for key_password in key_passwords:
                     try:
                         pkey_obj.seek(0)
@@ -787,7 +797,7 @@ def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords, private_key
 
     return attach, writer, resizer, ssh_close
 
-def iter_hosts(hosts, default_passwords=None, default_port=22, default_user=None):
+def iter_hosts(hosts, default_passwords=None, default_port=None, default_user=None):
     if type(hosts) in (str, unicode):
         hosts = [hosts]
 
@@ -829,7 +839,10 @@ def iter_hosts(hosts, default_passwords=None, default_port=22, default_user=None
 def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_keys, data_cb, close_cb):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
+
     default_passwords = obtain(passwords)
+    default_user = user
+    default_port = port
 
     data_cb = async(data_cb)
     close_cb = async(close_cb)
@@ -838,7 +851,9 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
     closed = Event()
 
     def ssh_exec_thread():
-        for host, port, user, passwords, key_passwords in iter_hosts(hosts, default_passwords):
+        for host, port, user, passwords, key_passwords in iter_hosts(
+            hosts, default_passwords, default_port, default_user):
+
             if closed.is_set():
                 break
 
@@ -939,6 +954,7 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
 
 def ssh_exec(command, hosts, port, user, passwords, private_keys, data_cb, close_cb):
     hosts = obtain(hosts)
+    private_keys = obtain(private_keys)
     passwords = obtain(passwords)
 
     return _ssh_cmd(
@@ -952,6 +968,7 @@ def ssh_exec(command, hosts, port, user, passwords, private_keys, data_cb, close
 def ssh_upload_file(src, dst, perm, touch, chown, run, delete, hosts,
                     port, user, passwords, private_keys, data_cb, close_cb):
     hosts = obtain(hosts)
+    private_keys = obtain(private_keys)
     passwords = obtain(passwords)
     dst = path.expanduser(dst)
 
@@ -965,6 +982,7 @@ def ssh_upload_file(src, dst, perm, touch, chown, run, delete, hosts,
 
 def ssh_download_file(src, hosts, port, user, passwords, private_keys, data_cb, close_cb):
     hosts = obtain(hosts)
+    private_keys = obtain(private_keys)
     passwords = obtain(passwords)
     src = path.expanduser(src)
 
@@ -978,6 +996,7 @@ def ssh_download_file(src, hosts, port, user, passwords, private_keys, data_cb, 
 
 def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, close_cb):
     hosts = obtain(hosts)
+    private_keys = obtain(private_keys)
     passwords = obtain(passwords)
     src = path.expanduser(src)
 

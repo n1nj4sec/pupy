@@ -79,7 +79,7 @@ class SSH(PupyModule):
             return
 
         if args.private_keys:
-            self.pkeys = self._find_private_keys(self, args.private_keys)
+            self.pkeys = list(self._find_private_keys(args.private_keys))
 
         args.host = tuple([
             x.strip() for x in args.host.split(',')
