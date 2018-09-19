@@ -719,7 +719,7 @@ class SSH(object):
                             pkey_obj, password=key_password)
                         found_key_password = key_password
                         break
-                    except SSHException, e:
+                    except SSHException:
                         continue
 
             if pkey is None:
