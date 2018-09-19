@@ -1,10 +1,9 @@
 #!/bin/sh
 
 PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton dnslib"
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct"
-PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt"
+PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv pynacl"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
-PACKAGES="$PACKAGES cryptography"
 
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`
@@ -22,7 +21,7 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade setuptools
     $PYTHON -m pip install --upgrade $PACKAGES
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
-    $PYTHON -m pip uninstall -y pycrypto
+    $PYTHON -m pip install --force-reinstall cryptography==2.2.2
     $PYTHON -m pip install --upgrade --force-reinstall --no-binary :all: pycryptodome
 
     rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
