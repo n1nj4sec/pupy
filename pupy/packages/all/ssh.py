@@ -295,7 +295,6 @@ class SSH(object):
         transport = self._client.get_transport()
 
         session = transport.open_session()
-        session.exec_command('sh')
 
         commands = []
 
@@ -323,9 +322,9 @@ class SSH(object):
         if delete:
             commands.append('rm -f {}'.format(repr(remote_path)))
 
-        header = ' && '.join(commands) + '\n'
+        command = ' && '.join(commands)
 
-        session.sendall(header)
+        session.exec_command(command)
 
         def _reader_cb():
             data = reader_cb(transport.default_max_packet_size - 1024)
