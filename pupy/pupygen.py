@@ -133,12 +133,12 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
 
     display(
         List(available, bullet=Color('+', 'green'),
-        caption=Success('Required credentials (found))')))
+        caption=Success('Required credentials (found)')))
 
     if not_available:
         display(
             List(not_available, bullet=Color('-', 'red'),
-            caption=Error('Required credentials (not found))')))
+            caption=Error('Required credentials (not found)')))
 
     embedded_credentials = '\n'.join([
         '{}={}'.format(credential, repr(credentials[credential])) \
