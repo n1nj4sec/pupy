@@ -92,7 +92,7 @@ class Screenshoter(PupyModule):
 
                     if args.view:
                         viewer = config.get('default_viewers', 'image_viewer')
-                        
+
                         found = False
                         for p in os.environ.get('PATH', '').split(':'):
                             if os.path.exists(os.path.join(p, viewer)):
@@ -100,5 +100,5 @@ class Screenshoter(PupyModule):
                                 found = True
                                 break
 
-                        if not found: 
+                        if not found:
                             self.error('Default viewer not found: %s' % viewer)

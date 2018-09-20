@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import redirected_stdio
 from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Beroot"
@@ -20,7 +19,7 @@ class Beroot(PupyModule):
     @classmethod
     def init_argparse(cls):
         """
-        Check the project on github: https://github.com/AlessandroZ/BeRoot 
+        Check the project on github: https://github.com/AlessandroZ/BeRoot
         """
         header = '|====================================================================|\n'
         header += '|                                                                    |\n'
@@ -88,19 +87,14 @@ class Beroot(PupyModule):
         if to_print:
             self.log(st)
 
-
     def linux_output(self, level='', msg=''):
         if level == 'ok':
             self.success(msg)
-
         elif level == 'error':
             self.error(msg)
-
         elif level == 'info':
             self.log('[!] {msg}'.format(msg=msg))
-
         elif level == 'debug':
             self.log('[?] {msg}'.format(msg=msg))
-
         else:
             self.log(msg)

