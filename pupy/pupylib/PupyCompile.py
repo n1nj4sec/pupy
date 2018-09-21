@@ -22,9 +22,22 @@ class Compiler(ast.NodeTransformer):
         self._docstrings = docstrings
 
         ast.NodeTransformer.__init__(self)
-        self._source_ast = ast.parse(source)
+
+        self._source_ast = None
+
+        try:
+            self._source_ast = ast.parse(source)
+        except SyntaxError, e:
+            if path:
+                logger.error('Compilation error: {} {}:{}'.format(e.msg, data, e.lineno))
+            else:
+                logger.error('Compilation error: {} line: {}'.format(
+                    e.msg, source.split('\n')[e.lineno]))
 
     def compile(self, filename, obfuscate=False, raw=False, magic='\x00'*8):
+        if self._source_ast is None:
+            return None
+
         body = marshal.dumps(compile(self.visit(self._source_ast), filename, 'exec'))
         if obfuscate:
             body_len = len(body)
