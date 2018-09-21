@@ -533,8 +533,8 @@ class PupyModule(object):
     def newline(self, lines=1):
         self._message(NewLine(lines))
 
-    def table(self, data, header=None, caption=None, truncate=False):
-        data = Table(data, header, caption)
+    def table(self, data, header=None, caption=None, truncate=False, legend=True, vspace=0):
+        data = Table(data, header, caption, legend, vspace)
         if truncate:
             data = TruncateToTerm(data)
         self._message(data)
