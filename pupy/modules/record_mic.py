@@ -63,7 +63,7 @@ class RecordMicrophoneModule(PupyModule):
             found = False
             for p in os.environ.get('PATH', '').split(':'):
                 if os.path.exists(os.path.join(p, viewer)):
-                    subprocess.Popen([viewer,filepath])
+                    subprocess.Popen([viewer, filepath])
                     found = True
                     break
 

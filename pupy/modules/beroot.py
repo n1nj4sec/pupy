@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import redirected_stdio
-from pupylib.PupyConfig import PupyConfig
-from os import path
-import datetime
+from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Beroot"
 
-@config(cat="admin", compat=["windows"])
+
+@config(cat="admin", compat=["linux", "windows"])
 class Beroot(PupyModule):
-    """ Windows Privilege escalation """
+    """Check for privilege escalation path"""
 
     dependencies = {
         'windows': [
@@ -20,32 +18,36 @@ class Beroot(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog="beroot", description=cls.__doc__)
-        cls.arg_parser.add_argument("-l", "--list", action="store_true", default=False, help="list all softwares installed (not run by default)")
-        cls.arg_parser.add_argument("-w", "--write", action="store_true", default=False, help="write output")
-        cls.arg_parser.add_argument("-c", "--cmd", action="store", default="whoami", help="cmd to execute for the webclient check (default: whoami)")
+        """
+        Check the project on github: https://github.com/AlessandroZ/BeRoot
+        """
+        header = '|====================================================================|\n'
+        header += '|                                                                    |\n'
+        header += '|                        The BeRoot Project                         |\n'
+        header += '|                                                                    |\n'
+        header += '|                          ! BANG BANG !                             |\n'
+        header += '|                                                                    |\n'
+        header += '|====================================================================|\n\n'
+
+        cls.arg_parser = PupyArgumentParser(prog="beroot", description=header + cls.__doc__)
+        cls.arg_parser.add_argument("-c", "--cmd", action="store", default="whoami", help="Windows only: cmd to execute for the webclient check (default: whoami)")
 
     def run(self, args):
-        filepath = None
-        if args.write:
-            config = self.client.pupsrv.config or PupyConfig()
-            folder = config.get_folder('beroot', {'%c': self.client.short_name()})
-            filepath = path.join(folder, str(datetime.datetime.now()).replace(" ","_").replace(":","-")+"-beroot.txt")
 
-        with redirected_stdio(self):
-            try:
-                for r in self.client.conn.modules["beRoot"].run(args.cmd, args.list, args.write):
-                    self.print_output(output=r, write=args.write, file=filepath)
-            except Exception as e:
-                print e
+        run_beroot = self.client.remote('beroot.run', 'run', False)
+        if self.client.is_windows():
+            results = obtain(run_beroot(args.cmd))
+            for r in results:
+                self.windows_output(r)
+        else:
+            results = obtain(run_beroot())
+            for r in results:
+                self.linux_output(level=r[0], msg=r[1])
 
-        if args.write:
-            self.success(filepath)
-
-    def print_output(self, output, write=False, file=None):
-        toPrint = True
+    def windows_output(self, output):
+        to_print = True
         if 'NotPrint' in output:
-            toPrint = False
+            to_print = False
 
         st = '\n-------------- %s --------------\n' % output['Category']
         if 'list' in str(type(output['All'])):
@@ -82,10 +84,17 @@ class Beroot(PupyModule):
         elif 'str' in str(type(output['All'])):
             st += output['All']
 
-        if toPrint:
-            print st
+        if to_print:
+            self.log(st)
 
-        if write:
-            f = open(file, 'a')
-            f.write(st)
-            f.close()
+    def linux_output(self, level='', msg=''):
+        if level == 'ok':
+            self.success(msg)
+        elif level == 'error':
+            self.error(msg)
+        elif level == 'info':
+            self.log('[!] {msg}'.format(msg=msg))
+        elif level == 'debug':
+            self.log('[?] {msg}'.format(msg=msg))
+        else:
+            self.log(msg)
