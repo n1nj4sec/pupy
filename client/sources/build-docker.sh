@@ -4,6 +4,7 @@ PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwi
 PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv pynacl"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
+PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
 
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`

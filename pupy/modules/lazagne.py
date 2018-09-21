@@ -2,7 +2,7 @@
 # Author: AlessandroZ
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Color, Table, NewLine
+from pupylib.PupyOutput import Color, NewLine
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.rpyc_utils import obtain
 
