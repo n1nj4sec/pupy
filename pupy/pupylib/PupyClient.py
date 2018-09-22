@@ -63,7 +63,7 @@ class PupyClient(object):
         self.imported_modules = set()
         self.cached_modules = set()
         self.pupyimporter = None
-        self.load_dll = False
+        self.pupy_load_dll = False
         self.new_dlls = False
         self.new_modules = False
         self.remotes = {}
@@ -299,7 +299,7 @@ class PupyClient(object):
             self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_error_hook)
             register_package_error_hook(self.remote_print_error)
 
-        self.load_dll = getattr(self.pupyimporter, 'load_dll', None)
+        self.pupy_load_dll = getattr(self.pupyimporter, 'load_dll', None)
         self.new_dlls = getattr(self.pupyimporter, 'new_dlls', None)
         self.new_modules = getattr(self.pupyimporter, 'new_modules', None)
         self.remote_add_package = rpyc.async(self.pupyimporter.pupy_add_package)
@@ -342,8 +342,8 @@ class PupyClient(object):
         if not buf:
             raise ImportError('Shared object {} not found'.format(name))
 
-        if self.load_dll:
-            result = self.load_dll(name, buf)
+        if self.pupy_load_dll:
+            result = self.pupy_load_dll(name, buf)
         else:
             result = self.conn.modules.pupy.load_dll(name, buf)
 
@@ -475,9 +475,9 @@ class PupyClient(object):
             return False
 
         if dlls:
-            if self.load_dll:
+            if self.pupy_load_dll:
                 for name, blob in dlls:
-                    self.pupyimporter.load_dll(name, blob)
+                    self.pupy_load_dll(name, blob)
             else:
                 for name, blob in dlls:
                     self.conn.modules.pupy.load_dll(name, blob)
