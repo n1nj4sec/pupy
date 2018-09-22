@@ -24,7 +24,7 @@ class SMB(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='smbcp', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(prog='smb', description=cls.__doc__)
         cls.arg_parser.add_argument('-u', '--username', default='', help='Username')
         cls.arg_parser.add_argument('-P', '--port', default=445, type=int, help='Port')
         cls.arg_parser.add_argument('-p', '--password', default='', help='Password')
