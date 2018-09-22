@@ -45,7 +45,11 @@ class Commands(object):
             })
 
         for command, source in files.iteritems():
-            current_stat = os.stat(source)
+            try:
+                current_stat = os.stat(source)
+            except OSError:
+                continue
+
             if command not in self._commands or self._commands_stats[command] != current_stat.st_mtime:
                 try:
                     self._commands[command] = imp.load_source(command, source)
