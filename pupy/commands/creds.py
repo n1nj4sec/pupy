@@ -82,7 +82,7 @@ def do(server, handler, config, modargs):
                 caption += ' (cid={})'.format(list(cids)[0])
 
             if credtype in ('plaintext', 'hash') or all(
-                len(x['secret']) < 64 for x in info['creds']):
+                len(x['secret']) <= 64 for x in info['creds']):
 
                 handler.display(TruncateToTerm(
                     Table(info['creds'], columns,

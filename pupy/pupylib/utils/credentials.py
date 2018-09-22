@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 import os
 import json
+import codecs
 from StringIO import StringIO
 
 from ..PupyConfig import PupyConfig
@@ -28,7 +29,7 @@ class Credentials(object):
             self._save_db({'creds': []})
 
     def _save_db(self, data):
-        with open(self.db, 'w+') as db:
+        with codecs.open(self.db, 'w+') as db:
             if self.encryptor:
                 jsondb = json.dumps(data, indent=4)
                 self.encryptor.encrypt(StringIO(jsondb), db)
@@ -70,6 +71,16 @@ class Credentials(object):
                     d[k.lower()] = d[k]
                     del d[k]
 
+            for k in d:
+                ktype = type(d[k])
+                if ktype == unicode:
+                    d[k] = d[k].encode('utf-8', errors='replace')
+                elif ktype == str:
+                    try:
+                        d[k] = d[k].decode('utf-8').encode('utf-8')
+                    except (UnicodeDecodeError, UnicodeEncodeError):
+                        d[k] = d[k].encode('hex')
+
             if 'credtype' not in d:
                 if d.get('password'):
                     d['credtype'] = 'plaintext'
@@ -87,6 +98,7 @@ class Credentials(object):
                 tuple(d.items()) for d in db['creds'] + data
             ])
         ]
+
         self._save_db(db)
 
     def display(self, search=None, isSorted=False):
@@ -111,8 +123,6 @@ class Credentials(object):
                 'resource': ''
             }
 
-            more_info = []
-
             if 'login' in creds:
                 c['login'] = creds['login']
                 if 'domain' in creds:
@@ -127,6 +137,8 @@ class Credentials(object):
                 c['login'] = creds['id']
             elif 'label' in creds:
                 c['login'] = creds['label']
+            elif 'service' in creds:
+                c['login'] = creds['service']
 
             if 'password' in creds:
                 c['secret'] = creds['password']
@@ -145,6 +157,8 @@ class Credentials(object):
                 c['resource'] = creds['process']
             elif 'hub' in creds:
                 c['resource'] = creds['hub']
+            elif 'cmd' in creds:
+                c['resource'] = creds['cmd']
 
             # check if in the research
             found = True
