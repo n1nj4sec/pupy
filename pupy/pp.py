@@ -489,6 +489,7 @@ setattr(pupy, 'Task', Task)
 setattr(pupy, 'connected', False)
 setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this util
 setattr(pupy, 'cid', CONFIGURATION_CID)
+setattr(pupy, 'creds_cache', {})
 
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = ['__invalidate__']

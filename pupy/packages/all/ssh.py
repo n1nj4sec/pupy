@@ -39,8 +39,20 @@ from socket import error as socket_error, gaierror
 
 from rpyc import async
 
+SUCCESS_CACHE = {}
+
 try:
+    import pupy
     from pupy import obtain
+
+    if not hasattr(pupy, 'creds_cache'):
+        setattr(pupy, 'creds_cache', {})
+
+    if 'ssh' not in pupy.creds_cache:
+        pupy.creds_cache['ssh'] = {}
+
+    SUCCESS_CACHE = pupy.creds_cache['ssh']
+
 except ImportError:
     def obtain(x):
         return x
@@ -48,7 +60,6 @@ except ImportError:
 class SSHNotConnected(Exception):
     pass
 
-SUCCESS_CACHE = {}
 KEY_CLASSES = [RSAKey, ECDSAKey, DSSKey]
 if Ed25519Key:
     KEY_CLASSES.append(Ed25519Key)

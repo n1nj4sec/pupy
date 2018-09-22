@@ -26,6 +26,21 @@ from impacket.system_errors import \
      ERROR_SERVICE_REQUEST_TIMEOUT
 from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
 
+SUCCESS_CACHE  = {}
+
+try:
+    import pupy
+
+    if not hasattr(pupy, 'creds_cache'):
+        setattr(pupy, 'creds_cache', {})
+
+    if 'psexec' not in pupy.creds_cache:
+        pupy.creds_cache['psexec'] = {}
+
+    SUCCESS_CACHE = pupy.creds_cache['psexec']
+except ImportError:
+    pass
+
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
 BATCH_FILENAME = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
 SMBSERVER_DIR  = ''.join(random.sample(string.ascii_letters, 10))
@@ -77,6 +92,31 @@ class ConnectionInfo(object):
 
         if type(domain) == unicode:
             domain = domain.encode('utf-8')
+
+        cached_info = None
+
+        if user:
+            if domain:
+                user_key = '{}\\{}'.format(user, domain)
+            else:
+                user_key = user
+
+            cached_info = SUCCESS_CACHE.get(frozenset([host, port, user_key]))
+        else:
+            for known_auth in SUCCESS_CACHE.itervalues():
+                if known_auth['host'] == host and known_auth['port'] == port:
+                    cached_info = known_auth
+                    break
+
+        if cached_info:
+            user = user or cached_info.get('user', '')
+            domain = domain or cached_info.get('domain', '')
+            password = password or cached_info.get('password', '')
+            ntlm = ntlm or cached_info.get('ntlm', '')
+            aes = aes or cached_info.get('aes', '')
+            tgt = tgt or cached_info.get('tgt', '')
+            tgs = tgt or cached_info.get('tgs', '')
+            kdc = kdc or cached_info.get('kdc', '')
 
         self.host = host
         self.port = int(port)
@@ -142,6 +182,24 @@ class ConnectionInfo(object):
                 smb.login(self.user, self.password, self.domain, self.lm, self.nt)
 
             self.valid = True
+
+            user_key = self.user
+            if self.domain:
+                user_key = self.domain + '\\' + self.user
+
+            SUCCESS_CACHE[frozenset([self.host, self.port, user_key])] = {
+                'host': self.host,
+                'port': self.port,
+                'user': self.user,
+                'password': self.password,
+                'domain': self.domain,
+                'ntlm': self.ntlm,
+                'aes': self.aes,
+                'tgt': self.TGT,
+                'tgs': self.TGS,
+                'kdc': self.KDC
+            }
+
             return smb, None
 
         except SessionError, e:
