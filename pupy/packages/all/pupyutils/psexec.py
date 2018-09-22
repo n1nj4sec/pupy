@@ -239,6 +239,8 @@ class FileTransfer(object):
         return self._exception is None
 
     def shares(self):
+        self._exception = None
+
         try:
             return [
                 x['shi1_netname'][:-1] for x in self._conn.listShares()
@@ -248,6 +250,8 @@ class FileTransfer(object):
             return []
 
     def ls(self, share, path):
+        self._exception = None
+
         try:
             listing = []
             for f in self._conn.listPath(share, path):
@@ -265,24 +269,32 @@ class FileTransfer(object):
             return []
 
     def rm(self, share, path):
+        self._exception = None
+
         try:
             self._conn.deleteFile(share, path)
         except Exception, e:
             self._exception = e
 
     def mkdir(self, share, path):
+        self._exception = None
+
         try:
             self._conn.createDirectory(share, path)
         except Exception, e:
             self._exception = e
 
     def rmdir(self, share, path):
+        self._exception = None
+
         try:
             self._conn.deleteDirectory(share, path)
         except Exception, e:
             self._exception = e
 
     def get(self, share, remote, local):
+        self._exception = None
+
         if not self.ok:
             raise ValueError('Connection was not established')
 
@@ -304,6 +316,8 @@ class FileTransfer(object):
             self._exception = e
 
     def put(self, local, share, remote):
+        self._exception = None
+
         if not self.ok:
             raise ValueError('Connection was not established')
 
