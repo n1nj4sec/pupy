@@ -262,17 +262,12 @@ class SMB(PupyModule):
             self.error(ft.error)
             return
 
-        interval, timeout = self.client.conn._conn.root.getconn().get_pings()
-        self.client.conn._conn.root.getconn().set_pings(0, 0)
-
         if upload:
             with open(local, 'r+b') as source:
                 ft.put(source.read, share, path)
         else:
             with open(local, 'w+b') as destination:
                 ft.get(share, path, destination.write)
-
-        self.client.conn._conn.root.getconn().set_pings(interval, timeout)
 
         if not ft.ok:
             self.error(ft.error)
