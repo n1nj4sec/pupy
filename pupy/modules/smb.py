@@ -252,10 +252,6 @@ class SMB(PupyModule):
         local = os.path.expandvars(local)
         local = os.path.expanduser(local)
 
-        if upload and not os.path.isfile(local):
-            self.error('Source file {} not found'.format(local))
-            return
-
         ft = self.get_ft(args, host)
 
         if not ft.ok:
@@ -263,8 +259,12 @@ class SMB(PupyModule):
             return
 
         if upload:
-            with open(local, 'r+b') as source:
-                ft.put(source.read, share, path)
+            if upload and not os.path.isfile(local):
+                self.warning('Source file {} not found, try upload remote file'.format(local))
+                ft.put(local, share, path)
+            else:
+                with open(local, 'r+b') as source:
+                    ft.put(source.read, share, path)
         else:
             with open(local, 'w+b') as destination:
                 ft.get(share, path, destination.write)
