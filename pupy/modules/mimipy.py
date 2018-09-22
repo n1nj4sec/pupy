@@ -19,7 +19,7 @@ class MimipyMod(PupyModule):
 
     def run(self, args):
         found=False
-        db = Credentials(client=self.client.short_name(), config=self.config)
+        db = Credentials(client=self.client, config=self.config)
 
         for t, process, u, passwd in self.client.conn.modules['mimipy'].mimipy_loot_passwords(optimizations="nsrx", clean=False):
             cred={

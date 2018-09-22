@@ -120,7 +120,7 @@ Examples:
             )
 
             if pwd_found:
-                db = Credentials(client=self.client.short_name(), config=self.config)
+                db = Credentials(client=self.client, config=self.config)
 
                 clean_creds = []
                 for pwd in pwd_found:

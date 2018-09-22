@@ -99,7 +99,7 @@ class Mimikatz(MemoryExec):
         if output:
             try:
                 creds = self.parse_mimikatz(output)
-                db = Credentials(client=self.client.short_name(), config=self.config)
+                db = Credentials(client=self.client, config=self.config)
                 db.add(creds)
                 self.success("Credentials stored on the database")
             except:

@@ -32,7 +32,7 @@ class SudoAlias(PupyModule):
                 # add password to the database
                 username = data.split('/')[0]
                 password = data.replace(username, '')[1:]
-                db = Credentials(client=self.client.short_name(), config=self.config)
+                db = Credentials(client=self.client, config=self.config)
                 db.add([{
                     'Login': username,
                     'password':password,

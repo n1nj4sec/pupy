@@ -61,9 +61,7 @@ class LaZagne(PupyModule):
         cls.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
 
     def run(self, args):
-        db = Credentials(
-            client=self.client.short_name(), config=self.config
-        )
+        db = Credentials(client=self.client, config=self.config)
 
         whole = self.client.remote('whole', 'to_strings_list', False)
         runLaZagne = self.client.remote('laZagne', 'runLaZagne', False)
@@ -259,4 +257,6 @@ class LaZagne(PupyModule):
             try:
                 db.add(creds)
             except Exception, e:
+                import traceback
+                traceback.print_exc()
                 self.error(e)

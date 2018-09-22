@@ -14,9 +14,8 @@ class Credentials(object):
         self.config = config or PupyConfig()
         self.client = client
         self.db = os.path.join(
-            self.config.get_folder('creds', {
-                '%c': client or ''
-            }), 'creds.json'
+            self.config.get_folder('creds'),
+            'creds.json'
         )
 
         if Encryptor.initialized() or password:
@@ -29,48 +28,59 @@ class Credentials(object):
             self._save_db({'creds': []})
 
     def _save_db(self, data):
-        jsondb = json.dumps(data, indent=4)
-        with open(self.db, 'w+b') as db:
+        with open(self.db, 'w+') as db:
             if self.encryptor:
+                jsondb = json.dumps(data, indent=4)
                 self.encryptor.encrypt(StringIO(jsondb), db)
             else:
-                db.write(jsondb)
-
-            db.flush()
+                json.dump(data, db, indent=4)
 
     def _load_db(self):
-        try:
-            with open(self.db) as db:
-                content = db.read(8)
-                db.seek(0)
-                if content == ('Salted__'):
-                    data = StringIO()
-                    if self.encryptor:
-                        self.encryptor.decrypt(db, data)
-                    else:
-                        raise EncryptionError(
-                            'Encrpyted credential storage: {}'.format(self.db)
-                        )
-                    return json.loads(data.getvalue())
+        with open(self.db) as db:
+            content = db.read(8)
+            db.seek(0)
+            if content == ('Salted__'):
+                data = StringIO()
+                if self.encryptor:
+                    self.encryptor.decrypt(db, data)
                 else:
-                    return json.load(db)
-        except:
-            return {'creds': []}
+                    raise EncryptionError(
+                        'Encrpyted credential storage: {}'.format(self.db)
+                    )
+                return json.loads(data.getvalue())
+            else:
+                return json.load(db)
 
-    # check if dictionnary already exists in dictionnary_tab
-    # def checkIfExists(self, dictionnary, dictionnary_tab):
-    #     for d in dictionnary_tab:
-    #         shared_items = set(d.items()) & set(dictionnary.items())
-    #         if len(shared_items) == len(d):
-    #             return True
-    #     return False
+    def add(self, data, cid=None):
+        try:
+            db = self._load_db()
+        except ValueError:
+            db = {'creds':[]}
 
-    def add(self, data):
-        db = self._load_db()
+        if not cid:
+            if not self.client:
+                raise ValueError('Client ID (cid) required')
 
-        # add uid to sort creds by host
-        for d in range(len(data)):
-            data[d].update({'uid': self.client})
+            cid = self.client.node()
+
+        data = list(data)
+        for d in data:
+            for k in d:
+                if not k.lower() == k:
+                    d[k.lower()] = d[k]
+                    del d[k]
+
+            if 'credtype' not in d:
+                if d.get('password'):
+                    d['credtype'] = 'plaintext'
+                elif d.get('hash'):
+                    d['credtype'] = 'hash'
+                elif d.get('key'):
+                    d['credtype'] = 'key'
+                else:
+                    d['credtype'] = 'unknown'
+
+            d['cid'] = cid
 
         db['creds'] = [
             dict(t) for t in frozenset([
@@ -79,94 +89,79 @@ class Credentials(object):
         ]
         self._save_db(db)
 
-    def display(self, search='all', isSorted=False):
+    def display(self, search=None, isSorted=False):
         data = self._load_db()
 
         if isSorted:
-            data = sorted(data['creds'], key=lambda d: d["uid"], reverse=True)
+            data = sorted(data['creds'], key=lambda d: d.get('cid', d.get('uid')), reverse=True)
         else:
-            data = sorted(data['creds'], key=lambda d: d["CredType"], reverse=True)
+            data = sorted(data['creds'], key=lambda d: d.get('credtype'), reverse=True)
 
         if not data:
-            print "The credential database is empty !"
             return
 
-        if not isSorted:
-            print "\nCredentials:\n"
-            print "Category          Username                                Password                      URL/Hostname"
-            print "--------          --------                                --------                      ------------"
-
-        if search != 'all':
-            dataToSearch = search
-            found = False
-        else:
-            dataToSearch = None
-
-        tmp_uid = ''
         for creds in data:
             found = False
-            c = {'category': '', 'login': '', 'credtype': '', 'password': '', 'url': '', 'uid': ''}
-            c['category'] = creds['Category']
-            c['uid'] = creds['uid']
+            c = {
+                'category': creds['category'],
+                'cid': creds.get('cid', creds.get('uid')),
+                'credtype': creds.get('credtype'),
+                'login': '',
+                'secret': '',
+                'resource': ''
+            }
+
             more_info = []
 
-            if 'Login' in creds:
-                c['login'] = creds['Login']
-                if 'Domain' in creds:
-                    c['login'] = '%s\\%s' % (creds['Domain'], c['login'])
-            else:
-                if 'SSID' in creds:
-                    c['login'] = 'SSID: %s' % creds['SSID']
+            if 'login' in creds:
+                c['login'] = creds['login']
+                if 'domain' in creds:
+                    c['login'] = '%s\\%s' % (creds['domain'], c['login'])
+            elif 'sid' in creds:
+                c['login'] = 'SID: %s' % creds['sid']
+            elif 'ssid' in creds:
+                c['login'] = 'SSID: %s' % creds['ssid']
+            elif 'user' in creds:
+                c['login'] = creds['user']
+            elif 'id' in creds:
+                c['login'] = creds['id']
+            elif 'label' in creds:
+                c['login'] = creds['label']
 
-            if 'Password' in creds:
-                c['credtype'] = 'plaintext'
-                c['password'] = creds['Password']
+            if 'password' in creds:
+                c['secret'] = creds['password']
+            elif 'hash' in creds:
+                c['secret'] = creds['hash']
+            elif 'key' in creds:
+                c['secret'] = creds['key']
 
-            if 'Hash' in creds:
-                c['credtype'] = 'hash'
-                c['password'] = creds['Hash']
-
-            if 'URL' in creds:
-                c['url'] = creds['URL']
-            elif 'Host' in creds:
-                c['url'] = creds['Host']
-
-            if 'Port' in creds:
-                more_info.append('port: %s' % creds['Port'])
-
-            if 'SID' in creds:
-                more_info.append('SID: %s' % creds['SID'])
-
-            if 'Driver' in creds:
-                more_info.append('Driver: %s' % creds['Driver'])
-
-            if more_info:
-                c['url'] += ' / ' + ' / '.join(more_info)
+            if 'url' in creds:
+                c['resource'] = creds['url']
+            elif 'host' in creds:
+                c['resource'] = creds['host']
+                if 'port' in creds:
+                    c['resource'] += ':{}'.format(creds['port'])
+            elif 'process' in creds:
+                c['resource'] = creds['process']
+            elif 'hub' in creds:
+                c['resource'] = creds['hub']
 
             # check if in the research
-            if dataToSearch:
-                for value in c:
-                    if dataToSearch.lower() in c[value].lower():
+            found = True
+
+            if search:
+                found = False
+                for value in c.itervalues():
+                    if search.lower() in value.lower():
                         found = True
                         break
 
             # print only data with password and remove false positive
-            if c['password']:
-                if (dataToSearch and found) or not dataToSearch:
-                    if (tmp_uid != c['uid']) and isSorted:
-                        tmp_uid = c['uid']
-                        print '\nHost: %s' % c['uid']
-                        print '-' * (len('Host') + len(c['uid']) + 2) + '\n'
+            if not found:
+                continue
 
-                    print u"{}{}{}{}".format(
-                           '{:<18}'.format(c['category']),
-                           '{:<40}'.format(c['login']),
-                           '{:<30}'.format(c['password']),
-                           '{:<40}'.format(c['url']),
-                    )
+            yield c
 
-        print
-
-    def flush(self):
+    def remove(self):
         if os.path.exists(self.db):
             os.remove(self.db)

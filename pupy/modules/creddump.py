@@ -44,7 +44,7 @@ class CredDump(PupyModule):
 
     def run(self, args):
         config = self.client.pupsrv.config
-        self.db = Credentials(client=self.client.short_name(), config=self.config)
+        self.db = Credentials(client=self.client, config=self.config)
         self.rep = os.path.join(config.get_folder('creds'), self.client.short_name())
 
         try:
