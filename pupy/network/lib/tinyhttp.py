@@ -182,11 +182,12 @@ class SocksiPyConnection(StreamingHTTPConnection):
         httplib.HTTPConnection.__init__(self, *args, **kwargs)
 
     def connect(self):
-        self.sock = socks.socksocket()
-        self.sock.setproxy(*self.proxyargs)
-        if isinstance(self.timeout, float):
-            self.sock.settimeout(self.timeout)
-        self.sock.connect((self.host, self.port))
+        if self.sock is None:
+            self.sock = socks.socksocket()
+            self.sock.setproxy(*self.proxyargs)
+            if isinstance(self.timeout, float):
+                self.sock.settimeout(self.timeout)
+            self.sock.connect((self.host, self.port))
 
 class SocksiPyConnectionS(StreamingHTTPSConnection):
     __slots__ = ('proxyargs', 'sock')
@@ -196,19 +197,20 @@ class SocksiPyConnectionS(StreamingHTTPSConnection):
         httplib.HTTPSConnection.__init__(self, *args, **kwargs)
 
     def connect(self):
-        sock = socks.socksocket()
-        sock.setproxy(*self.proxyargs)
-        if type(self.timeout) in (int, float):
-            sock.settimeout(self.timeout)
-        sock.connect((self.host, self.port))
+        if self.sock is None:
+            sock = socks.socksocket()
+            sock.setproxy(*self.proxyargs)
+            if type(self.timeout) in (int, float):
+                sock.settimeout(self.timeout)
+            sock.connect((self.host, self.port))
 
-        if self._tunnel_host:
-            server_hostname = self._tunnel_host
-        else:
-            server_hostname = self.host
+            if self._tunnel_host:
+                server_hostname = self._tunnel_host
+            else:
+                server_hostname = self.host
 
-        self.sock = self._context.wrap_socket(
-            sock, server_hostname=server_hostname)
+            self.sock = self._context.wrap_socket(
+                sock, server_hostname=server_hostname)
 
 class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandler):
     __slots__ = ('args', 'kw')
@@ -250,7 +252,7 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
 
 class HTTP(object):
 
-    __slots__ = ('ctx', 'proxy', 'noverify', 'timeout', 'opener')
+    __slots__ = ('ctx', 'connect_proxy', 'http_proxy', 'noverify', 'timeout', 'opener')
 
     def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
         self.ctx = ssl.create_default_context()
@@ -264,29 +266,37 @@ class HTTP(object):
         else:
             self.ctx.load_default_certs()
 
-        self.proxy = proxy
+        self.connect_proxy = proxy
+        self.http_proxy = None
         self.noverify = noverify
         self.timeout = timeout
 
-        if self.proxy is None or self.proxy is True:
-            handlers = [
-                urllib2.ProxyHandler(),
-                StreamingHTTPHandler,
-                StreamingHTTPSHandler(context=self.ctx),
-                TCPReaderHandler(context=self.ctx)
-            ]
+        if self.connect_proxy is None or self.connect_proxy is True:
+            proxy = urllib2.getproxies()
+            if proxy:
+                if 'https' in proxy:
+                    self.connect_proxy = proxy['https']
+                elif 'http' in proxy:
+                    self.http_proxy = proxy['http']
+                    self.connect_proxy = proxy['http']
+                else:
+                    self.connect_proxy = next(proxy.itervalues())
+            else:
+                self.connect_proxy = False
 
-        elif self.proxy is False:
+        if self.connect_proxy is False:
             handlers = [
                 StreamingHTTPHandler,
                 StreamingHTTPSHandler(context=self.ctx),
                 TCPReaderHandler(context=self.ctx)
             ]
         else:
-            proxyscheme = urlparse.urlparse(self.proxy)
+            proxyscheme = urlparse.urlparse(self.connect_proxy)
             scheme = proxyscheme.scheme.upper()
             if scheme == 'SOCKS':
                 scheme = 'SOCKS5'
+            elif scheme == 'HTTP' and self.http_proxy is None:
+                self.http_proxy = self.connect_proxy
 
             scheme = socks.PROXY_TYPES[scheme]
             sockshandler = SocksiPyHandler(
@@ -298,7 +308,13 @@ class HTTP(object):
                 context=self.ctx if self.noverify else None
             )
 
-            handlers = [sockshandler]
+            handlers = []
+            if self.http_proxy:
+                handlers.append(urllib2.ProxyHandler({
+                    'http': self.http_proxy}))
+                handlers.append(StreamingHTTPHandler)
+
+            handlers.append(sockshandler)
 
         if not follow_redirects:
             handlers.append(NoRedirects)
