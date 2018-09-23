@@ -113,8 +113,8 @@ CHECKS = {
     },
 
     'http': {
-        'url': 'http://www.boost.org/LICENSE_1_0.txt',
-        'text': 'Permission is hereby granted, free of charge, to any person or organization',
+        'url': 'http://lame.sourceforge.net/license.txt',
+        'text': 'Can I use LAME in my commercial program?',
     },
     'https': {
         'url': 'https://www.openssl.org/source/license.txt',
