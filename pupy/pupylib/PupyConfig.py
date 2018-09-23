@@ -16,6 +16,9 @@ import random
 import string
 import datetime
 
+from .PupyLogger import getLogger
+logger = getLogger('config')
+
 class Tags(object):
     def __init__(self, config, node):
         self.config = config
@@ -77,6 +80,9 @@ class PupyConfig(ConfigParser):
         self.command_line = {}
 
         ConfigParser.__init__(self)
+
+        logger.debug('Loading config from {}'.format(':'.join(self.files)))
+
         self.read(self.files)
 
     def tags(self, node):
@@ -117,6 +123,8 @@ class PupyConfig(ConfigParser):
             with open(self.project_path, 'w') as config:
                 self.write(config)
 
+            logger.debug('Config saved to {}'.format(self.project_path))
+
         if user:
             user_dir = path.dirname(self.user_path)
             if not path.isdir(user_dir):
@@ -124,6 +132,8 @@ class PupyConfig(ConfigParser):
 
             with open(self.user_path, 'w') as config:
                 self.write(config)
+
+            logger.debug('Config saved to {}'.format(self.user_path))
 
     def get_path(self, filepath, substitutions={}, create=True, dir=False):
         prefer_workdir = self.getboolean('paths', 'prefer_workdir')
@@ -207,6 +217,7 @@ class PupyConfig(ConfigParser):
             try:
                 ConfigParser.set(self, section, key, value)
             except NoSectionError:
+                logger.debug('Create new section {}'.format(section))
                 ConfigParser.add_section(self, section)
                 ConfigParser.set(self, section, key, value)
 
