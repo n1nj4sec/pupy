@@ -502,7 +502,8 @@ def bits_to_dict(data):
 
 class PortQuiz(threading.Thread):
 
-    PORTQUIZ_ADDR='178.33.250.62'
+    PORTQUIZ_ADDR='5.196.70.86'
+    PORTQUIZ_HOSTNAME='portquiz.net'
     PORTQUIZ_443_MESSAGE='Your browser sent a request that this server could not understand'
     PORTQUIZ_MESSAGE='<html><body><h1>It works!</h1></body></html>'
 
@@ -555,7 +556,12 @@ class PortQuiz(threading.Thread):
             80, 443, 8080, 53, 5222, 25, 110, 465
         ]
 
-        scan.scan([self.PORTQUIZ_ADDR], most_important, timeout=self.connect_timeout, abort=self.abort,
+        try:
+            portquiz_addr = socket.gethostbyname(self.PORTQUIZ_HOSTNAME)
+        except socket.gaierror:
+            portquiz_addr = self.PORTQUIZ_ADDR
+
+        scan.scan([portquiz_addr], most_important, timeout=self.connect_timeout, abort=self.abort,
              on_open_port=self._on_open_port, pass_socket=True)
 
         if len(self.available) < self.amount:
