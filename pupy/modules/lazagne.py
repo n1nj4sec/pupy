@@ -220,6 +220,9 @@ class LaZagne(PupyModule):
     def print_lsa(self, creds):
         for cred in creds:
             for name, value in cred.iteritems():
+                if name in ('Category', 'CredType'):
+                    continue
+
                 self.log(name)
                 self.log(self.dump(value, length=16))
                 self.log('')
