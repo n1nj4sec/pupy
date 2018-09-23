@@ -234,13 +234,13 @@ class LaZagne(PupyModule):
 
         self.print_module_title(module)
 
-        if module.lower() == 'lsa':
+        creds = self.filter_same(
+            self.creds_to_dict(creds, module)
+        )
+
+        if module.lower() == 'lsa_secrets':
             self.print_lsa(creds)
         else:
-            creds = self.filter_same(
-                self.creds_to_dict(creds, module)
-            )
-
             if module not in self.NON_TABLE:
                 self.table(
                     self.prepare_fields(
@@ -254,9 +254,8 @@ class LaZagne(PupyModule):
                         } for k,v in cred.iteritems() if k not in self.FILTER_COLUMNS
                     ], ['KEY', 'VALUE'], truncate=True, legend=False, vspace=1)
 
-            try:
-                db.add(creds)
-            except Exception, e:
-                import traceback
-                traceback.print_exc()
-                self.error(e)
+        try:
+            db.add(creds)
+        except Exception, e:
+            import traceback
+            self.error(traceback.format_exc())
