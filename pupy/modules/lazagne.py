@@ -261,4 +261,5 @@ class LaZagne(PupyModule):
             db.add(creds)
         except Exception, e:
             import traceback
+            self.error(e)
             self.error(traceback.format_exc())
