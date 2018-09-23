@@ -53,8 +53,7 @@ else
 	  python -m pip install pyuv --upgrade --no-binary :all:
 fi
 
-python -m pip uninstall -y pycrypto
-python -m pip install --upgrade --force-reinstall --no-binary :all: pycryptodome
+python -m pip install --upgrade -q --no-binary :all: pycryptodome
 
 cd /usr/lib/python2.7
 
