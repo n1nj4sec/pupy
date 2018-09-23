@@ -110,6 +110,7 @@ class TCPReaderHandler(urllib2.BaseHandler):
         if context:
             self.sslctx = context
         else:
+            self.sslctx = ssl.create_default_context()
             self.sslctx.check_hostname = False
             self.sslctx.verify_mode = ssl.CERT_NONE
 
