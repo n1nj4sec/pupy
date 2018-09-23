@@ -180,8 +180,10 @@ class PupyVirtualStream(object):
             raise
 
     def close(self):
-        logger.debug('Close(%s) (at: %s:%s %s(%s))',
-            self, *traceback.extract_stack([-2]))
+        stack = traceback.extract_stack()
+        if len(stack) > 2:
+            logger.debug('Close(%s) (at: %s:%s %s(%s))',
+                self, *stack[-2])
 
         self.closed = True
         self.upstream.wake()
