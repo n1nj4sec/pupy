@@ -581,7 +581,14 @@ def smbexec(
         if filename:
             ft = FileTransfer(smbc)
             buf = StringIO()
-            ft.get(share, filename, buf.write)
+            for retry in xrange(5):
+                ft.get(share, filename, buf.write)
+                if not ft.ok and 'share access flags' in ft.error:
+                    time.sleep(retry)
+                    continue
+
+                break
+
             if not ft.ok:
                 return None, ft.error + ' (args: share={} filename={})'.format(
                     share, filename)
