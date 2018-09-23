@@ -223,7 +223,7 @@ def external_ip(force_ipv4=False):
                     return LAST_EXTERNAL_IP
 
             except Exception, e:
-                logger.debug('Get IP service failed: %s', e)
+                logger.debug('Get IP service failed: %s: %s', service, e)
 
     LAST_EXTERNAL_IP = dns_external_ip()
     if LAST_EXTERNAL_IP:
@@ -346,15 +346,17 @@ def check():
     except Exception, e:
         logger.debug('MS Online check failed: %s', e)
 
-    for url in CAPTIVE_URLS:
-        try:
-            data, code = ctx_noproxy.get(url, code=True)
-            if not (data == '' and code == 204) and ok:
-                result |= PROXY
-                break
+    if result & ONLINE_CAPTIVE:
+        for url in CAPTIVE_URLS:
+            try:
+                data, code = ctx_noproxy.get(url, code=True)
+                if not (data == '' and code == 204) and ok:
+                    result |= PROXY
+                    break
 
-        except Exception, e:
-            logger.debug('Captive check failed %s: %s', url, e)
+            except Exception, e:
+                result |= PROXY
+                logger.debug('Captive check failed %s: %s', url, e)
 
     try:
         data = ctx.get(CHECKS['http']['url'])
