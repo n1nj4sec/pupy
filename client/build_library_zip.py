@@ -26,6 +26,7 @@ from PupyCompile import pupycompile
 
 import additional_imports
 import Crypto
+import idna
 import pp
 import site
 import marshal
@@ -53,13 +54,9 @@ all_dependencies=set(
         x.split('.')[0] for x,m in sys_modules \
             if not '(built-in)' in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'rpyc', 'pyasn1', 'rsa',
-        'encodings.idna', 'stringprep',
+        'Crypto', 'rpyc', 'pyasn1', 'rsa', 'stringprep'
     ]
 )
-if 'win' in sys.platform:
-    #unicodedata is not builtin on windows and stringprep need this, (pupy.dll injected in a process crash without unicodedata)
-    all_dependencies.add("unicodedata")
 
 all_dependencies.add('site')
 
