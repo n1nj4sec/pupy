@@ -99,7 +99,7 @@ PASTEBINS = {
     'http://ix.io': IXIO,
     'http://dpaste.com': DPASTE,
     'http://vpaste.net': VPASTE,
-    'http://lpaste.net': LPASTE,
+    'https://lpaste.net': LPASTE,
     'http://paste.openstack.org': PASTEOPENSTACK,
     'https://ghostbin.com': GHOSTBIN,
     'https://phpaste.sourceforge.io': PHPASTE,
