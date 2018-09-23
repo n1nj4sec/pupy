@@ -8,6 +8,7 @@ import urlparse
 import httplib
 import ssl
 import socket
+import types
 
 import StringIO
 
@@ -304,7 +305,11 @@ class HTTP(object):
 
         handlers.append(UDPReaderHandler)
 
-        self.opener = urllib2.build_opener(*handlers)
+        self.opener = urllib2.OpenerDirector()
+        for h in handlers:
+            if isinstance(h, (types.ClassType, type)):
+                h = h()
+            self.opener.add_handler(h)
 
         if type(headers) == dict:
             self.opener.addheaders = [
