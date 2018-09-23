@@ -11,7 +11,7 @@ if [ -f /home/pupy/.project ]; then
 fi
 
 case $- in *i*)
-   if [ -z "$TMUX" ]; then
+   if [ -z "$TMUX" ] && [ ! -z "$SSH_CLIENT" ]; then
         echo -ne "\033]0;[ PUPY:${project} ]\007"
         ( tmux -2 attach || tmux -2 new-session \
 				 -c "/projects/${project}" \
