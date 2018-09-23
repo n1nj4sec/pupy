@@ -64,4 +64,10 @@ class http(PupyModule):
                 )
 
         except Exception, e:
-            self.error('Error: {}'.format(e.message or e.reason))
+            if hasattr(e, 'reason'):
+                message = e.reason
+            elif hasattr(e, 'msg'):
+                message = e.msg
+            else:
+                message = e.message
+            self.error('Error: {}'.format(message))
