@@ -506,6 +506,15 @@ class DummyPackageLoader(object):
     def load_module(self, fullname):
         return sys.modules[fullname]
 
+class SubstitutePackageLoader(object):
+    __slots__ = ('substitute_fullname')
+
+    def __init__(self, substitute_fullname):
+        self.substitute_fullname = substitute_fullname
+
+    def load_module(self, fullname):
+        return sys.modules[self.substitute_fullname]
+
 class PupyPackageLoader(object):
     __slots__ = (
         'fullname', 'contents', 'extension',
@@ -623,6 +632,14 @@ class PupyPackageFinder(object):
     def find_module(self, fullname, path=None, second_pass=False):
         if fullname.startswith('exposed_'):
             return None
+
+        if fullname.startswith('Cryptodome'):
+            parts = fullname.split('.')
+            if parts[0] == 'Cryptodome':
+                parts[0] = 'Crypto'
+                fullname = '.'.join(parts)
+                if fullname in sys.modules:
+                    return SubstitutePackageLoader(fullname)
 
         global remote_load_package
         global builtin_memimporter
