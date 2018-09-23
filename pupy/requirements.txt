@@ -21,6 +21,7 @@ http-parser
 cerberus
 logutils
 secretstorage
+https://github.com/AlessandroZ/pypykatz/archive/master.zip
 pygments
 requests
 tornado
@@ -34,6 +35,5 @@ fusepy
 defusedxml
 keyboard
 -e external/pykcp
-construct==2.9.39
 flake8
 flake8-per-file-ignores

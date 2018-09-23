@@ -1,1 +1,0 @@
-../../../external/LaZagne/Linux/laZagne.py
