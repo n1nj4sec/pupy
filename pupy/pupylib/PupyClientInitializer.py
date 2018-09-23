@@ -41,7 +41,9 @@ if not hasattr(os, 'stdout_write'):
 
 # Remove IDNA module if it was not properly loaded
 if hasattr(encodings, 'idna') and not hasattr(encodings.idna, 'getregentry'):
-    del sys.modules['encodings.idna']
+    if 'encodings.idna' in sys.modules:
+        del sys.modules['encodings.idna']
+
     if 'idna' in encodings._cache:
         del encodings._cache['idna']
 
