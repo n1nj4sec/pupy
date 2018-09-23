@@ -28,8 +28,9 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
 python -m pip install --upgrade \
        rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy impacket colorama pyOpenSSL python-xlib msgpack-python \
+       scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib \
+       https://github.com/CoreSecurity/impacket/archive/master.zip \
        --no-binary :all:
 
 python -m pip -q install --upgrade --force-reinstall pycparser==2.17
