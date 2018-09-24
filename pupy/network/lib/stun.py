@@ -105,7 +105,7 @@ def gen_tran_id():
     # return binascii.a2b_hex(a)
     return a
 
-def stun_test(sock, host, port, send_data=""):
+def stun_test(sock, host, port, send_data="", count=3):
     retVal = {'Resp': False, 'ExternalIP': None, 'ExternalPort': None,
               'SourceIP': None, 'SourcePort': None, 'ChangedIP': None,
               'ChangedPort': None}
@@ -117,7 +117,6 @@ def stun_test(sock, host, port, send_data=""):
     soure_ip, source_port = None, None
     while not recvCorr:
         recieved = False
-        count = 3
         while not recieved:
             log.debug("sendto: %s", (host, port))
             try:
@@ -287,7 +286,7 @@ def get_ip(stun_host=None, stun_port=3478):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         return get_nat_type(
-            s, stun_host=stun_host, stun_port=stun_port, only_ip=True)
+            s, stun_host=stun_host, stun_port=stun_port, only_ip=True, count=1)
 
     finally:
         s.close()

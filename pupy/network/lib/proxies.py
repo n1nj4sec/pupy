@@ -312,3 +312,32 @@ def get_proxies(additional_proxies=None):
         if proxy not in dups:
             yield proxy
             dups.add(proxy)
+
+LAST_PROXY = None
+LAST_PROXY_TIME = None
+
+from network.lib.tinyhttp import HTTP
+
+def find_default_proxy():
+    global LAST_PROXY, LAST_PROXY_TIME
+
+    if LAST_PROXY_TIME is not None:
+        if time.time() - LAST_PROXY_TIME < 3600:
+            return LAST_PROXY
+
+    LAST_PROXY_TIME = time.time()
+
+    for proxy_info in get_proxies():
+        ctx = HTTP(proxy=proxy_info)
+        try:
+            data, code = ctx.get(
+                'http://connectivitycheck.gstatic.com/generate_204',
+                code=True)
+
+        except Exception:
+            continue
+
+        if code == 204 and data == '':
+            LAST_PROXY = proxy_info
+
+    return LAST_PROXY

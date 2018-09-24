@@ -24,7 +24,7 @@ import igd
 import sys
 import json
 
-from network.lib import getLogger
+from . import getLogger
 logger = getLogger('online')
 
 from . import stun
@@ -204,7 +204,7 @@ def external_ip(force_ipv4=False):
 
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
-            logger.debug('Return cached IP (last ts=%d): %d',
+            logger.debug('Return cached IP (last ts=%d): %s',
                 LAST_EXTERNAL_IP_TIME, LAST_EXTERNAL_IP)
             return LAST_EXTERNAL_IP
 
