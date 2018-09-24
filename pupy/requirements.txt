@@ -14,7 +14,7 @@ colorama
 mss
 pyOpenSSL
 scapy
-impacket
+https://github.com/CoreSecurity/impacket/archive/master.zip
 pyuv
 dnslib
 http-parser
