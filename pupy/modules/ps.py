@@ -28,12 +28,12 @@ def gen_colinfo(data):
             if type(data[pid][column]) == unicode:
                 data[pid][column]=data[pid][column].encode('utf8', 'replace')
 
-            pid_len = len(str(data[pid][column]))
+            col_len = len(data[pid][column].decode('utf8', 'replace'))
             if column not in colinfo:
-                colinfo[column] = pid_len
+                colinfo[column] = col_len
             else:
-                if colinfo[column] < pid_len:
-                    colinfo[column] = pid_len
+                if colinfo[column] < col_len:
+                    colinfo[column] = col_len
 
     return colinfo
 
@@ -69,7 +69,10 @@ def gen_columns(record, colinfo):
 
     if colinfo:
         if 'username' in colinfo:
-            columns['username'] = '{{:{}}}'.format(colinfo['username']).format(columns['username'])
+            username = columns['username']
+            if type(username) == str:
+                username = username.decode('utf-8')
+            columns['username'] = u'{{:{}}}'.format(colinfo['username']).format(username)
         columns['pid'] = '{{:{}}}'.format(colinfo['pid']).format(record['pid'])
     else:
         columns['pid'] = '{}'.format(record['pid'])
