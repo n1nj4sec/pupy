@@ -24,7 +24,8 @@ class GetInfo(PupyModule):
         commonKeys = [
             "hostname", "user", "release", "version",
             "os_arch", "proc_arch", "pid", "exec_path", "cid",
-            "address", "macaddr", "spi", "revision", "node"
+            "address", "macaddr", "spi", "revision", "node",
+            "debug_logfile"
         ]
         pupyKeys = ["transport", "launcher", "launcher_args"]
         windKeys = ["uac_lvl","intgty_lvl"]
