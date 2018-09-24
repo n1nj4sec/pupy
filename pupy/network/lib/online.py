@@ -223,7 +223,7 @@ def external_ip(force_ipv4=False):
     except Exception, e:
         logger.debug('external_ip: STUN failed: %s', e)
 
-    ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
+    ctx = tinyhttp.HTTP(timeout=5, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
         for scheme in ['https', 'http']:
             try:
@@ -239,7 +239,7 @@ def external_ip(force_ipv4=False):
                     return LAST_EXTERNAL_IP
 
             except Exception, e:
-                logger.debug('Get IP service failed: %s: %s', service, e)
+                logger.debug('Get IP service failed: %s: %s (%s)', service, e, type(e))
 
     LAST_EXTERNAL_IP = dns_external_ip()
     if LAST_EXTERNAL_IP:

@@ -7,6 +7,9 @@ import os
 import socket
 import time
 
+from . import getLogger
+logger = getLogger('proxies')
+
 PROXY_MATCHER = re.compile(
     '^(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
 )
@@ -19,6 +22,11 @@ PROXY_ENV = [
 PROXY_ENV += [
     x.upper() for x in PROXY_ENV
 ]
+
+LAST_PROXY = None
+LAST_PROXY_TIME = None
+
+gio = None
 
 try:
     from urllib import request as urllib
@@ -65,6 +73,7 @@ def get_win_proxies():
             if value:
                 for p in parse_win_proxy(value):
                     if p not in duplicates:
+                        logger.debug('Proxy found via Internet Settings: %s', p)
                         yield p
                         duplicates.add(p)
         except Exception:
@@ -90,6 +99,10 @@ def get_python_proxies():
             key = 'SOCKS4'
         elif key.upper() == 'HTTPS':
             key = 'HTTP'
+
+        logger.debug(
+            '%s proxy found via standard python API: %s user=%s passwd=%s',
+            key, proxy, user, passwd)
 
         yield(key.upper(), proxy, user, passwd)
 
@@ -122,13 +135,20 @@ def get_env_proxies():
         for proxy in parse_env_proxies(var):
             yield proxy
 
+def gio_init():
+    global gio
 
-def get_gio_proxies(force=True):
-    import ctypes
+    if gio is not None:
+        return gio
+
     try:
+        import ctypes
+
         gio = ctypes.CDLL('libgio-2.0.so')
 
-        schema = 'org.gnome.system.proxy'
+        if hasattr(gio, 'g_type_init'):
+            gio.g_type_init()
+
         gio.g_settings_new.restype = ctypes.c_void_p
         gio.g_settings_new.argtypes = [ctypes.c_char_p]
 
@@ -146,23 +166,41 @@ def get_gio_proxies(force=True):
         gio.g_settings_get_child.restype = ctypes.c_void_p
         gio.g_settings_get_child.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
-        gio.g_settings_schema_source_get_default.restype = ctypes.c_void_p
+        if hasattr(gio, 'g_settings_schema_source_get_default'):
+            gio.g_settings_schema_source_get_default.restype = ctypes.c_void_p
+            gio.g_settings_schema_source_lookup.restype = ctypes.c_void_p
+            gio.g_settings_schema_source_lookup.argtypes = [
+                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool
+            ]
+        else:
+            gio.g_settings_schema_source_get_default = None
 
-        gio.g_settings_schema_source_lookup.restype = ctypes.c_void_p
-        gio.g_settings_schema_source_lookup.argtypes = [
-            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool
-        ]
 
-        gio.g_settings_schema_source_unref.argtypes = [ctypes.c_void_p]
+    except Exception, e:
+        logger.error('GIO initialization failed: %s', e)
+        gio = False
 
-    except:
+    return gio
+
+def get_gio_proxies(force=True):
+    gio = gio_init()
+    if not gio:
         return
 
-    sources = gio.g_settings_schema_source_get_default()
-    proxy_schema = gio.g_settings_schema_source_lookup(sources, schema, True)
-    schema_found = bool(proxy_schema)
+    schema = 'org.gnome.system.proxy'
 
-    if not schema_found:
+    if gio.g_settings_schema_source_get_default:
+        logger.debug('GIO: Check %s exists', schema)
+
+        sources = gio.g_settings_schema_source_get_default()
+        proxy_schema = gio.g_settings_schema_source_lookup(sources, schema, True)
+        schema_found = bool(proxy_schema)
+
+        if not schema_found:
+            return
+    else:
+        logger.debug('TODO: Checking schemes for older GIO ABI is not supported yet')
+        # TODO: g_settings_list_schemas
         return
 
     try:
@@ -182,6 +220,7 @@ def get_gio_proxies(force=True):
         gio.g_object_unref(http)
 
         if host and port:
+            logger.debug('HTTP Proxy found via GIO: %s:%s user=%s password=%s', host, port, user, password)
             yield ('HTTP', '{}:{}'.format(host, port), user, password)
 
         socks = gio.g_settings_get_child(proxy, 'socks')
@@ -190,7 +229,11 @@ def get_gio_proxies(force=True):
         gio.g_object_unref(socks)
 
         if host and port:
+            logger.debug('SOCKS Proxy found via GIO: %s:%s user=%s password=%s', host, port, user, password)
             yield ('SOCKS', '{}:{}'.format(host, port), None, None)
+
+    except Exception, e:
+        logger.exception('GIO request exception: %s', e)
 
     finally:
         gio.g_object_unref(proxy)
@@ -219,6 +262,7 @@ def get_processes_proxies():
 
     for proxy in proxies:
         for parsed in parse_env_proxies(proxy):
+            logger.debug('Proxy found via env: %s -> %s', proxy, parsed)
             yield parsed
 
 
@@ -235,6 +279,7 @@ def get_wpad_proxies(wpad_timeout=600):
             wpad_data = wpad_request.read()
             r=re.findall(r'PROXY\s+([a-zA-Z0-9.-]+:[0-9]+);?\s*', wpad_data)
             for p in r:
+                logger.debug('HTTP Proxy found via wpad: %s', p)
                 yield ('HTTP', p, None, None)
 
         except:
@@ -243,8 +288,13 @@ def get_wpad_proxies(wpad_timeout=600):
 
 def get_proxies(additional_proxies=None):
     global PROXY_MATCHER
+    global LAST_PROXY
 
     dups = set()
+
+    if LAST_PROXY is not None:
+        dups.add(LAST_PROXY)
+        yield LAST_PROXY
 
     if additional_proxies is not None:
         for proxy_str in additional_proxies:
@@ -313,9 +363,6 @@ def get_proxies(additional_proxies=None):
             yield proxy
             dups.add(proxy)
 
-LAST_PROXY = None
-LAST_PROXY_TIME = None
-
 from network.lib.tinyhttp import HTTP
 
 def find_default_proxy():
@@ -323,21 +370,28 @@ def find_default_proxy():
 
     if LAST_PROXY_TIME is not None:
         if time.time() - LAST_PROXY_TIME < 3600:
+            logger.debug('Cached default proxy: %s', LAST_PROXY)
             return LAST_PROXY
+
+    logger.debug('Refresh required')
 
     LAST_PROXY_TIME = time.time()
 
     for proxy_info in get_proxies():
-        ctx = HTTP(proxy=proxy_info)
+        logger.debug('%s - check', proxy_info)
+        ctx = HTTP(proxy=proxy_info, timeout=5)
         try:
             data, code = ctx.get(
                 'http://connectivitycheck.gstatic.com/generate_204',
                 code=True)
 
-        except Exception:
+        except Exception, e:
+            logger.debug('%s - failed - %s', proxy_info, e)
             continue
 
         if code == 204 and data == '':
             LAST_PROXY = proxy_info
+            logger.debug('%s - ok', proxy_info)
+            break
 
     return LAST_PROXY

