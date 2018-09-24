@@ -161,7 +161,6 @@ def get_gio_proxies(force=True):
     sources = gio.g_settings_schema_source_get_default()
     proxy_schema = gio.g_settings_schema_source_lookup(sources, schema, True)
     schema_found = bool(proxy_schema)
-    gio.g_settings_schema_source_unref(sources)
 
     if not schema_found:
         return
