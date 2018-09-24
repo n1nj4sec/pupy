@@ -7,8 +7,10 @@ from StringIO import StringIO
 from ..PupyConfig import PupyConfig
 from ..PupyCredentials import Encryptor
 
+
 class EncryptionError(Exception):
     pass
+
 
 class Credentials(object):
     def __init__(self, client=None, config=None, password=None):
@@ -56,7 +58,7 @@ class Credentials(object):
         try:
             db = self._load_db()
         except ValueError:
-            db = {'creds':[]}
+            db = {'creds': []}
 
         if not cid:
             if not self.client:
