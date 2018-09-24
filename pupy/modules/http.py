@@ -31,6 +31,9 @@ class http(PupyModule):
     def run(self, args):
         tinyhttp = self.client.remote('network.lib.tinyhttp')
 
+        if not '://' in args.url:
+            args.url = 'http://' + args.url
+
         http = tinyhttp.HTTP(
             proxy=args.proxy,
             noverify=not args.verify,
