@@ -113,9 +113,8 @@ class Credentials(object):
             return
 
         for creds in data:
-            creds =  {k.lower(): v for k, v in creds.items()}
+            creds = {k.lower(): v for k, v in creds.items()}
 
-            found = False
             c = {
                 'category': creds['category'],
                 'cid': creds.get('cid', creds.get('uid')),
