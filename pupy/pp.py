@@ -57,7 +57,6 @@ logging.basicConfig()
 logger = logging.getLogger('pp')
 logger.setLevel(logging.WARNING)
 
-import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
 
