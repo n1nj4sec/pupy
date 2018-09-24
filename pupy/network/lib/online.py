@@ -374,25 +374,23 @@ def check():
     except Exception, e:
         logger.debug('HTTPS Check failed: %s', e)
 
-    if result & HTTPS:
-        try:
-            data = ctx_mitm.get(CHECKS['https']['url'])
-            if not CHECKS['https']['text'] in data:
-                result |= HTTPS_MITM
-
-        except Exception, e:
-            logger.debug('HTTPS Mitm Check failed: %s', e)
+    try:
+        data = ctx_mitm.get(CHECKS['https']['url'])
+        if not CHECKS['https']['text'] in data:
             result |= HTTPS_MITM
 
-    else:
-        try:
-            data = ctx_nocert.get(CHECKS['https']['url'])
-            if CHECKS['https']['text'] in data:
-                result |= HTTPS_NOCERT
-                result |= HTTPS
+    except Exception, e:
+        logger.debug('HTTPS Mitm Check failed: %s', e)
+        result |= HTTPS_MITM
 
-        except Exception, e:
-            logger.debug('HTTPS NoCert Check failed: %s', e)
+    try:
+        data = ctx_nocert.get(CHECKS['https']['url'])
+        if CHECKS['https']['text'] in data:
+            result |= HTTPS_NOCERT
+            result |= HTTPS
+
+    except Exception, e:
+        logger.debug('HTTPS NoCert Check failed: %s', e)
 
     for hostname, ip in KNOWN_DNS.iteritems():
         try:
