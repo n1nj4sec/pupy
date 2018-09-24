@@ -80,7 +80,8 @@ class SSHell(PupyModule):
         host = uri.hostname
         port = args.port or uri.port or 22
         user = args.user or uri.username
-        passwords = (args.passwords or tuple([uri.password]),
+        u_pwd = [uri.password] if uri.password else []
+        passwords = (args.passwords or tuple(u_pwd),
                     tuple(args.key_passwords))
         program = ' '.join(args.program) or None
 
