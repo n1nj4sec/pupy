@@ -7,7 +7,7 @@ from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..picocmd.client import DnsCommandsClient
 from ..picocmd.picocmd import ConnectablePort, OnlineStatus, PortQuizPort
 
-from ..proxies import get_proxies, find_default_proxy, LAST_PROXY
+from ..proxies import get_proxies, find_default_proxy
 
 from ..socks import GeneralProxyError, ProxyConnectionError, HTTPError
 
