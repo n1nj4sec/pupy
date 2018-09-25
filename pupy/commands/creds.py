@@ -43,7 +43,7 @@ def do(server, handler, config, modargs):
     categories = {}
 
     try:
-        for item in credentials.display(search=modargs.search, isSorted=modargs.sort):
+        for item in credentials.display(search=modargs.search.decode('utf-8'), isSorted=modargs.sort):
             if item['category'] not in categories:
                 categories[item['category']] = {
                     'credtype': item.get('credtype'),
