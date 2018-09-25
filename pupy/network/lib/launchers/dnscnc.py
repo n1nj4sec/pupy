@@ -172,7 +172,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         worker.daemon = True
         worker.start()
 
-    def on_connect(self, ip, port, transport, proxy=None):
+    def on_connect(self, ip, port, transport, proxy):
         logger.debug('connect request: %s:%s %s %s', ip, port, transport, proxy)
         with self.lock:
             if self.stream and not self.stream.closed:
@@ -352,7 +352,7 @@ class DNSCncLauncher(BaseLauncher):
                 logger.debug('processing connection command')
 
                 with dnscnc.lock:
-                    if command[4] or (LAST_PROXY is not None and command[4] is not False):
+                    if command[4]:
                         stream = None
                     else:
                         stream = self.try_direct_connect(command)
@@ -371,6 +371,7 @@ class DNSCncLauncher(BaseLauncher):
                     yield stream
 
                     with dnscnc.lock:
+                        logger.debug('stream completed - %s', stream)
                         dnscnc.stream = None
 
                 else:

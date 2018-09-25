@@ -550,7 +550,7 @@ def do(server, handler, config, args):
         )
 
         if count:
-            handler.display(Success('Schedule sleep to {} known nodes'.format(count)))
+            handler.display(Success('Schedule proxy to {} known nodes'.format(count)))
         elif args.node:
             handler.display(Error('Node {} not found'.format(args.node)))
 

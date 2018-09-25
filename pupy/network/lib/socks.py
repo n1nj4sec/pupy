@@ -780,6 +780,7 @@ class socksocket(_BaseSocket):
             # Treat like regular socket object
             self.proxy_peername = dest_pair
             _BaseSocket.connect(self, (dest_addr, dest_port))
+            self._setkeepalive()
             return
 
         proxy_addr = self._proxy_addr()
@@ -787,6 +788,7 @@ class socksocket(_BaseSocket):
         try:
             # Initial connection to proxy server
             _BaseSocket.connect(self, proxy_addr)
+            self._setkeepalive()
 
         except socket.error as error:
             # Error while connecting to proxy
@@ -823,3 +825,13 @@ class socksocket(_BaseSocket):
         if not proxy_port:
             raise GeneralProxyError("Invalid proxy type")
         return proxy_addr, proxy_port
+
+
+    def _setkeepalive(self):
+        self.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        if hasattr(socket, 'TCP_KEEPIDLE') and hasattr(socket, 'TCP_KEEPINTVL') and hasattr(socket, 'TCP_KEEPCNT'):
+            self.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1 * 60)
+            self.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
+            self.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
+        elif hasattr(socket, 'SIO_KEEPALIVE_VALS') and hasattr(self, 'ioctl'):
+            self.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 1*60*1000, 5*60*1000))

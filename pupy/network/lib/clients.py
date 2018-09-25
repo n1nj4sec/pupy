@@ -58,7 +58,7 @@ class PupyTCPClient(PupyClient):
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1 * 60)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
-        elif hasattr(socket, "SIO_KEEPALIVE_VALS"):
+        elif hasattr(socket, "SIO_KEEPALIVE_VALS") and hasattr(s, 'ioctl'):
             s.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 1*60*1000, 5*60*1000))
 
         self.sock=s
