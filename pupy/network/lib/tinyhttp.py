@@ -257,16 +257,11 @@ class HTTP(object):
     __slots__ = ('ctx', 'proxy', 'noverify', 'timeout', 'opener')
 
     def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
-        self.ctx = ssl.create_default_context()
+        self.ctx = ssl.create_default_context(cadata=cadata)
 
         if noverify:
             self.ctx.check_hostname = False
             self.ctx.verify_mode = ssl.CERT_NONE
-
-        if cadata:
-            self.ctx.load_verify_locations(None, None, cadata)
-        else:
-            self.ctx.load_default_certs()
 
         self.proxy = None
 

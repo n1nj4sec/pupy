@@ -119,41 +119,36 @@ CHECKS = {
     'https': {
         'url': 'https://www.apache.org/licenses/LICENSE-2.0',
         'text': 'APPENDIX: How to apply the Apache License to your work.',
-        'ca': 'MIIGdzCCBV+gAwIBAgIRAI/0mvjJfVpRDmtdmxH4DEYwDQYJKoZIhvcNAQELBQAw'
-              'WTELMAkGA1UEBhMCVVMxEDAOBgNVBAoTB1NTTC5jb20xFDASBgNVBAsTC3d3dy5z'
-              'c2wuY29tMSIwIAYDVQQDExlTU0wuY29tIEhpZ2ggQXNzdXJhbmNlIENBMB4XDTE3'
-              'MDQyMTAwMDAwMFoXDTE5MDcyMDIzNTk1OVowgfAxCzAJBgNVBAYTAlVTMRMwEQYD'
-              'VQQREwoyMTA1MC0yNzQ3MREwDwYDVQQIEwhNYXJ5bGFuZDEUMBIGA1UEBxMLRm9y'
-              'ZXN0IEhpbGwxGjAYBgNVBAkTETE5MDEgTXVuc2V5IERyaXZlMScwJQYDVQQKEx5U'
-              'aGUgQXBhY2hlIFNvZnR3YXJlIEZvdW5kYXRpb24xFzAVBgNVBAsTDkluZnJhc3Ry'
-              'dWN0dXJlMS4wLAYDVQQLEyVIb3N0ZWQgYnkgU2VjdXJlIFNvY2tldHMgTGFib3Jh'
-              'dG9yaWVzMRUwEwYDVQQDDAwqLmFwYWNoZS5vcmcwggIiMA0GCSqGSIb3DQEBAQUA'
-              'A4ICDwAwggIKAoICAQCiMDs7Iac0YO0mYc/3Bq0Anm+shkX9QWPYzXOnYrYYzESJ'
-              '4Y/SHCoXUTX5unKeKaW9pnZ7qKIWSX+Z1Qs8CctQjPSKI1CIYOOAiDfF7eSq7XW+'
-              'Gy1WwhgdDGjso9pKRnWB9GBv51VrDONQCTsCQg2s3hA/OkahO2qVUEczXOLM5GYG'
-              '+JOSraAqdYiRRqfuzobhl1Kzg1vwvlSRtA8BDEuzu33wgwgoVx2orMOFVJL5B0eX'
-              'BekOLgVC+5b+Qc+8Y1S1UAb3Z3hE3lmjTYHcCDFY6ZSO5bk0BnfnDZ+crpffVZwz'
-              'rMrvzwOcmmIzgedZo0egGBBwCtfd2+oQTfkdGKGjL92KAPcy7givDwo0ibsDte8C'
-              'HQ6Z6dVFYtHpEGfLmVvhnhXwtGmZAbOzerIaogLBhLf1hNQRuF5Ysu5h3R61kPiy'
-              'pqeg+EMdtL7k93G97Vvy/Ci0m+oigEg9RR+mX7P77TDbXT1PmIuSBcC1g6cIS+WS'
-              'dvrTgV1Q9K6cg8tFgP4ZwbiVQYAKjzoOAJTD2eLTBiPO+H2Naih8LdIycr12LQuM'
-              'v0waGEsoJu/aLrAVuXSWZB7i14RGQ3/mVgHYuxElKYfz9A3HVgiY3Vbx4an2AZTY'
-              'RvmmwOTT0Dt4VCe2/QfGkm4mC10JyGkdvyHntjhk477d3keWOHeA0AiSX19NgQID'
-              'AQABo4IBoDCCAZwwHwYDVR0jBBgwFoAUTFQjZyl09ELqmbtoPBafCC8Q5kEwHQYD'
-              'VR0OBBYEFFpBZb3s1BniZUzsCgoU4WG12SLwMA4GA1UdDwEB/wQEAwIFoDAMBgNV'
-              'HRMBAf8EAjAAMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjBKBgNVHSAE'
-              'QzBBMDUGCisGAQQBgqkwAQEwJzAlBggrBgEFBQcCARYZaHR0cHM6Ly9jcHMudXNl'
-              'cnRydXN0LmNvbTAIBgZngQwBAgIwPwYDVR0fBDgwNjA0oDKgMIYuaHR0cDovL2Ny'
-              'bC5zc2wuY29tL1NTTGNvbUhpZ2hBc3N1cmFuY2VDQV8yLmNybDBrBggrBgEFBQcB'
-              'AQRfMF0wOgYIKwYBBQUHMAKGLmh0dHA6Ly9jcnQuc3NsLmNvbS9TU0xjb21IaWdo'
-              'QXNzdXJhbmNlQ0FfMi5jcnQwHwYIKwYBBQUHMAGGE2h0dHA6Ly9vY3NwLnNzbC5j'
-              'b20wIwYDVR0RBBwwGoIMKi5hcGFjaGUub3JnggphcGFjaGUub3JnMA0GCSqGSIb3'
-              'DQEBCwUAA4IBAQBwzlnQ58wr2dwjdUeB8kF5wLXxA4XSEkkKTqeTGZe2CLlERiXU'
-              '7X+0QcTVU4aP83ecgJYCeyABe5bkBJThNJj4laYPr/cdSShWE2e2TI5WhZarhhhH'
-              'WDk8BvRwkXxiOhvMDdTw+mjf6IB5zJpK6n2hz6noIsg0+RkO6CrIrPPMgv6NyIez'
-              '/gPBiAhKBOLO/nWB+SwtIaDTz6vvvyREKwdTeIpnFGtRgBV3YtwMxGTSzWyivfEJ'
-              'oZy0rf6st5WcvGS0Ic9e+tozX4CE/SbT9wD5Zigb5kddliXatT7mI66mjw6NyeUQ'
-              'UZF/wYG9sWLw2PM2hUxaQv/VA+k91iy5XtW/'
+        'ca': 'MIIFdDCCBFygAwIBAgIQJ2buVutJ846r13Ci/ITeIjANBgkqhkiG9w0BAQwFADBv'
+              'MQswCQYDVQQGEwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFk'
+              'ZFRydXN0IEV4dGVybmFsIFRUUCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBF'
+              'eHRlcm5hbCBDQSBSb290MB4XDTAwMDUzMDEwNDgzOFoXDTIwMDUzMDEwNDgzOFow'
+              'gYUxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO'
+              'BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMSswKQYD'
+              'VQQDEyJDT01PRE8gUlNBIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MIICIjANBgkq'
+              'hkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAkehUktIKVrGsDSTdxc9EZ3SZKzejfSNw'
+              'AHG8U9/E+ioSj0t/EFa9n3Byt2F/yUsPF6c947AEYe7/EZfH9IY+Cvo+XPmT5jR6'
+              '2RRr55yzhaCCenavcZDX7P0N+pxs+t+wgvQUfvm+xKYvT3+Zf7X8Z0NyvQwA1onr'
+              'ayzT7Y+YHBSrfuXjbvzYqOSSJNpDa2K4Vf3qwbxstovzDo2a5JtsaZn4eEgwRdWt'
+              '4Q08RWD8MpZRJ7xnw8outmvqRsfHIKCxH2XeSAi6pE6p8oNGN4Tr6MyBSENnTnIq'
+              'm1y9TBsoilwie7SrmNnu4FGDwwlGTm0+mfqVF9p8M1dBPI1R7Qu2XK8sYxrfV8g/'
+              'vOldxJuvRZnio1oktLqpVj3Pb6r/SVi+8Kj/9Lit6Tf7urj0Czr56ENCHonYhMsT'
+              '8dm74YlguIwoVqwUHZwK53Hrzw7dPamWoUi9PPevtQ0iTMARgexWO/bTouJbt7IE'
+              'IlKVgJNp6I5MZfGRAy1wdALqi2cVKWlSArvX31BqVUa/oKMoYX9w0MOiqiwhqkfO'
+              'KJwGRXa/ghgntNWutMtQ5mv0TIZxMOmm3xaG4Nj/QN370EKIf6MzOi5cHkERgWPO'
+              'GHFrK+ymircxXDpqR+DDeVnWIBqv8mqYqnK8V0rSS527EPywTEHl7R09XiidnMy/'
+              's1Hap0flhFMCAwEAAaOB9DCB8TAfBgNVHSMEGDAWgBStvZh6NLQm9/rEJlTvA73g'
+              'JMtUGjAdBgNVHQ4EFgQUu69+Aj36pvE8hI6t7jiY7NkyMtQwDgYDVR0PAQH/BAQD'
+              'AgGGMA8GA1UdEwEB/wQFMAMBAf8wEQYDVR0gBAowCDAGBgRVHSAAMEQGA1UdHwQ9'
+              'MDswOaA3oDWGM2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9BZGRUcnVzdEV4dGVy'
+              'bmFsQ0FSb290LmNybDA1BggrBgEFBQcBAQQpMCcwJQYIKwYBBQUHMAGGGWh0dHA6'
+              'Ly9vY3NwLnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQEMBQADggEBAGS/g/FfmoXQ'
+              'zbihKVcN6Fr30ek+8nYEbvFScLsePP9NDXRqzIGCJdPDoCpdTPW6i6FtxFQJdcfj'
+              'Jw5dhHk3QBN39bSsHNA7qxcS1u80GH4r6XnTq1dFDK8o+tDb5VCViLvfhVdpfZLY'
+              'Uspzgb8c8+a4bmYRBbMelC1/kZWSWfFMzqORcUx8Rww7Cxn2obFshj5cqsQugsv5'
+              'B5a6SE2Q8pTIqXOi6wZ7I53eovNNVZ96YUWYGGjHXkBrI/V5eu+MtWuLt29G9Hvx'
+              'PUsE2JOAWVrgQSQdso8VYFhH2+9uRv0V9dlfmrPb2LjkQLPNlzmuhbsdjrzch5vR'
+              'pu/xO28QOG8='
     },
 }
 
@@ -314,7 +309,7 @@ def check():
     }
     ctx = tinyhttp.HTTP(proxy=True, noverify=False, timeout=15, headers=headers)
     ctx_nocert = tinyhttp.HTTP(proxy=True, timeout=15, noverify=True, headers=headers)
-    ctx_noproxy = tinyhttp.HTTP(proxy=False, noverify=False, timeout=15, headers=headers)
+    ctx_noproxy = tinyhttp.HTTP(proxy=False, timeout=15, headers=headers)
     ctx_mitm = tinyhttp.HTTP(
         proxy=True, noverify=False, timeout=15,
         cadata=CHECKS['https']['ca'].decode('base64'), headers=headers)
@@ -537,7 +532,10 @@ class PortQuiz(threading.Thread):
         self.lock = threading.Lock()
         self.abort = threading.Event()
         self.amount = 8
-        self.opener = urllib2.build_opener(tinyhttp.NullHandler(self.table, self.lock))
+        self.opener = urllib2.OpenerDirector()
+        self.opener.handlers = []
+        self.opener.add_handler(tinyhttp.NullHandler(self.table, self.lock))
+        self.opener.add_handler(urllib2.HTTPHandler())
         self.http_timeout = http_timeout
         self.connect_timeout = connect_timeout
         self.available = list()
@@ -545,21 +543,34 @@ class PortQuiz(threading.Thread):
     def _on_open_port(self, info):
         host, port, sock = info
 
+        logger.debug('Check: %s:%d', host, port)
+
         try:
             with self.lock:
                 self.table['{}:{}'.format(host,port)] = sock
                 sock.setblocking(1)
                 sock.settimeout(self.http_timeout)
 
-            response = self.opener.open('http://{}:{}'.format(host, port), timeout=self.http_timeout)
+
+            url = urllib2.Request(
+                'http://{}:{}'.format(host, port),
+                headers={
+                    'Host': self.PORTQUIZ_HOSTNAME,
+                    'User-Agent': 'curl',
+                })
+
+            response = self.opener.open(url, timeout=self.http_timeout)
             data = response.read()
-            if data.startswith(self.PORTQUIZ_MESSAGE) or port == 443 and self.PORTQUIZ_443_MESSAGE in data:
+            if 'test successful!' in data \
+              or (port == 443 and self.PORTQUIZ_443_MESSAGE in data):
                 self.available.append(port)
                 if len(self.available) >= self.amount:
                     self.abort.set()
+            else:
+                logger.debug('Invalid response, port %d: %s', port, repr(data))
 
         except Exception, e:
-            logger.debug('port check: %s:%s: %s', host, port, e)
+            logger.exception('port check: %s:%s: %s', host, port, e)
 
         finally:
             try:
@@ -577,8 +588,12 @@ class PortQuiz(threading.Thread):
         except socket.gaierror:
             portquiz_addr = self.PORTQUIZ_ADDR
 
+        logger.debug('Scan most important. IP: %s', portquiz_addr)
+
         scan.scan([portquiz_addr], most_important, timeout=self.connect_timeout, abort=self.abort,
              on_open_port=self._on_open_port, pass_socket=True)
+
+        logger.debug('Scan other ports')
 
         if len(self.available) < self.amount:
             other = list([
@@ -588,14 +603,16 @@ class PortQuiz(threading.Thread):
             random.shuffle(other)
 
             scan.scan(
-                [self.PORTQUIZ_ADDR], other, timeout=self.connect_timeout, abort=self.abort,
+                [portquiz_addr], other, timeout=self.connect_timeout, abort=self.abort,
                 on_open_port=self._on_open_port, pass_socket=True)
+
+        logger.debug('Done. Found %d ports', len(self.available))
 
     def run(self):
         try:
             logger.debug('PortQuiz: started')
             self._run()
-            logger.debug('PortQuiz: completed')
+            logger.debug('PortQuiz: completed (available %d ports)', len(self.available))
 
         except Exception, e:
             logger.exception('PortQuiz: %s', e)

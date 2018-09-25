@@ -12,6 +12,9 @@ import random
 
 from netaddr import IPNetwork
 
+from . import getLogger
+logger = getLogger('scan')
+
 TOP1000 = [
     1,3,4,6,7,9,13,17,19,20,21,22,23,24,25,26,30,32,33,37,42,43,49,53,70,79,80,81,82,
     83,84,85,88,89,90,99,100,106,109,110,111,113,119,125,135,139,143,144,146,161,163,
@@ -88,6 +91,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
             break
 
         for host, port in chunk:
+            logger.debug('%s:%d - check', host, port)
             sock, r = create_socket(host, port)
             if sock is None:
                 continue
@@ -100,9 +104,11 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                 if r in ok:
                     sockets[sock] = (host, port, time.time())
                 else:
+                    logger.debug('%d - N/A', port)
                     sock.close()
                     continue
             else:
+                logger.debug('%s:%d - ok (fast)', host, port)
                 if on_open_port:
                     if pass_socket:
                         on_open_port((host, port, sock))
@@ -122,6 +128,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                     errcode = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
                     if errcode == 0:
                         host, port = sockets[sock][:2]
+                        logger.debug('%s:%d - ok', host, port)
                         if on_open_port:
                             if pass_socket:
                                 on_open_port((host, port, sock))
@@ -129,7 +136,8 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                                 on_open_port((host, port))
 
                         connectable.append(sockets[sock][:2])
-                except:
+                except Exception, e:
+                    logger.exception('%s:%d - error - %s', host, port, e)
                     pass
 
                 finally:
@@ -140,10 +148,14 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
 
             now = time.time()
             for sock in socks:
-                if sock in w:
+                if sock in w or sock not in sockets:
                     continue
 
                 if now - sockets[sock][2] > timeout:
+                    logger.debug(
+                        '%s:%d - N/A (timeout)',
+                        sockets[sock][0],
+                        sockets[sock][1])
                     sock.close()
                     del sockets[sock]
 
