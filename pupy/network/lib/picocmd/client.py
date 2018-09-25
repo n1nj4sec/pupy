@@ -116,7 +116,7 @@ class DnsCommandsClient(Thread):
         self.poll = 60
         self.active = True
         self.failed = 0
-        self.proxy = True
+        self.proxy = None
         self._request_lock = Lock()
 
         Thread.__init__(self)

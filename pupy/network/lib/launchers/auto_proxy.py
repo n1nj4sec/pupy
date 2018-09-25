@@ -21,7 +21,8 @@ def find_proxies(additional_proxies=None):
         yield proxy_info
 
     for proxy_info in get_proxies(additional_proxies=additional_proxies):
-        yield proxy_info
+        if proxy_info:
+            yield proxy_info
 
 class AutoProxyLauncher(BaseLauncher):
     """

