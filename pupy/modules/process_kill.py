@@ -11,6 +11,7 @@ class KillModule(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="kill", description=cls.__doc__)
+        cls.arg_parser.add_argument('-s', '--signal', type=int, default=9, help='signal code (non windows)')
         cls.arg_parser.add_argument('pids', type=int, nargs='+', help='pids to kill')
 
     def run(self, args):
@@ -18,8 +19,8 @@ class KillModule(PupyModule):
 
         for pid in args.pids:
             try:
-                kill(pid,9)
-                self.success('Killed: {}'.format(pid))
+                kill(pid, args.signal)
+                self.success('Killed: {} (sig={})'.format(pid, args.signal))
 
             except Exception, e:
                 self.error('Failed: {}: {}'.format(pid, e))
