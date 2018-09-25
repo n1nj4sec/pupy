@@ -353,12 +353,16 @@ class DNSCncLauncher(BaseLauncher):
                 logger.debug('processing connection command')
 
                 with dnscnc.lock:
+                    logger.debug('connection proxy: %s', command[4])
                     if command[4]:
+                        logger.debug('omit direct connect')
                         stream = None
                     else:
+                        logger.debug('try direct connect')
                         stream = self.try_direct_connect(command)
 
                     if not stream and command[4] is not False:
+                        logger.debug('try connect via proxy')
                         for stream in self.try_connect_via_proxy(command):
                             if stream:
                                 break
