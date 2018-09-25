@@ -188,7 +188,7 @@ class SSH(object):
             yield pair
 
         for process in process_iter():
-            info = process.as_dict(['username', 'environ'])
+            info = process.as_dict()
             if 'environ' not in info or info['environ'] is None:
                 continue
 
@@ -332,7 +332,7 @@ class SSH(object):
         if chown:
             commands.append('chown {} {}'.format(repr(chown), repr(remote_path)))
 
-        if perm and type(perm) in (str,unicode):
+        if perm and type(perm) in (str, unicode):
             perm = int(perm, 8)
 
         commands.append('chmod {} {}'.format(oct(perm), repr(remote_path)))
@@ -792,7 +792,7 @@ def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords, private_key
             raise ValueError('No valid credentials found to connect to {}:{} user={}'.format(
                 ssh.host, ssh.port, ssh.user or 'any'))
 
-    except gaierror, e:
+    except gaierror as e:
         raise ValueError('Unable to connect to {}:{} - {}'.format(host, port, e.strerror))
 
     except NoValidConnectionsError:
@@ -886,7 +886,7 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
 
                 continue
 
-            except Exception, e:
+            except Exception as e:
                 data_cb((3, 'Exception: {}: {}'.format(type(e), str(e))))
                 continue
 
