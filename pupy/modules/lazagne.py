@@ -36,6 +36,7 @@ class LaZagne(PupyModule):
         'hash': 'hash',
         'key': 'key',
         'cmd': 'cmd',
+        'defaultpassword': 'lsa'
     }
 
     NON_TABLE = set([
