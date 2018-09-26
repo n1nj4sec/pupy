@@ -428,8 +428,9 @@ class PupyModule(object):
 
     def import_dependencies(self):
         if type(self.dependencies) == dict:
-            dependencies = self.dependencies.get(self.client.platform, []) + \
-              self.dependencies.get('all', [])
+            dependencies = self.dependencies.get(self.client.platform, []) + (
+                self.dependencies.get('posix', []) if self.client.is_posix() else []
+            ) + self.dependencies.get('all', [])
         else:
             dependencies = self.dependencies
 
