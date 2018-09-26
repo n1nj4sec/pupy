@@ -361,8 +361,8 @@ def hint_to_text(text, width=0):
         ])
     elif hint == Section:
         return '\n'.join([
-            colorize('#>#>  ','green') + hint_to_text(text.data, width)+ colorize('  <#<#','green'),
-            hint_to_text(text.payload, width)
+            colorize('#>#>  ','green') + hint_to_text(text.header, width)+ colorize('  <#<#','green'),
+            hint_to_text(text.data, width)
         ])
     elif hint == Line:
         return text.dm.join(hint_to_text(v, width) for v in text.data)
