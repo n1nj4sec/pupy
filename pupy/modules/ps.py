@@ -27,6 +27,8 @@ def gen_colinfo(data):
             #fix ascii encode errors
             if type(data[pid][column]) == unicode:
                 data[pid][column]=data[pid][column].encode('utf8', 'replace')
+            elif type(data[pid][column]) != str:
+                data[pid][column]=str(data[pid][column])
 
             col_len = len(data[pid][column].decode('utf8', 'replace'))
             if column not in colinfo:
