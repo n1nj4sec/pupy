@@ -669,6 +669,8 @@ class PupyPackageFinder(object):
                 ]
 
             if not files:
+                files = []
+
                 dprint('{} not found in {}: not in {} files'.format(
                     fullname, files, len(files)))
 
