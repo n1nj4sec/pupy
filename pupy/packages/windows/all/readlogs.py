@@ -6,7 +6,6 @@ __all__ = [
 
 import winerror
 import re
-import datetime
 
 from win32security import LookupAccountSid
 from pywintypes import error
@@ -36,10 +35,6 @@ from win32evtlog import (
     GetNumberOfEventLogRecords,
     EVENTLOG_BACKWARDS_READ, EVENTLOG_SEQUENTIAL_READ
 )
-
-UTC_DIFF = int((
-    datetime.datetime.fromtimestamp(0) - datetime.datetime.utcfromtimestamp(0)
-).total_seconds())
 
 LANGID = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
 BLACKLIST = (
@@ -231,7 +226,7 @@ class EventLog(object):
                     yield {
                         'id': int(winerror.HRESULT_CODE(ev_obj.EventID)),
                         'record': ev_obj.RecordNumber,
-                        'date': int(ev_obj.TimeGenerated) - UTC_DIFF,
+                        'date': int(ev_obj.TimeGenerated),
                         'computer': ev_obj.ComputerName,
                         'category': ev_obj.EventCategory,
                         'msg': message,
