@@ -1,5 +1,10 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = [
+    'SDJournalIterator', 'SDJournalReader', 'SDJournalException',
+    'get_last_events', 'get_last_events_journald'
+]
+
 import ctypes
 import time
 import datetime
@@ -11,11 +16,9 @@ from readlogs_generic import GenericLogReader
 
 LIBJOURNAL = None
 
-try:
-    LIBJOURNAL = ctypes.CDLL('libsystemd-journal.so')
-except OSError:
+for lib in ['libsystemd-journal.so', 'libsystemd.so']:
     try:
-        LIBJOURNAL = ctypes.CDLL('libsystemd.so')
+        LIBJOURNAL = ctypes.CDLL(lib)
     except OSError:
         pass
 
@@ -235,7 +238,7 @@ class SDJournalIterator(object):
 
         return records
 
-class SDJournalExceptionException(Exception):
+class SDJournalException(Exception):
     pass
 
 class SDJournalReader(object):
@@ -246,7 +249,7 @@ class SDJournalReader(object):
 
     def __init__(self, amount=None, last=None, fields=[], since=None, until=None):
         if not LIBJOURNAL:
-            raise SDJournalExceptionException('Systemd-journald library not found')
+            raise SDJournalException('Systemd-journald library not found')
 
         self._last = last
         self._fields = fields
@@ -318,6 +321,10 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
         '_TRANSPORT': 'source',
         'PRIORITY': 'type',
         'TIME': 'date',
+        '_EXE': 'exe',
+        '_CMDLINE': 'cmd',
+        '_SYSTEMD_UNIT': 'unit',
+        '_SYSTEMD_USER_UNIT': 'user-unit',
     }
 
     priorities = (
@@ -326,11 +333,11 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
     )
 
     includes = [
-        re.compile(x) for x in includes
+        re.compile(x, re.IGNORECASE | re.MULTILINE) for x in includes
     ]
 
     excludes = [
-        re.compile(x) for x in excludes
+        re.compile(x, re.IGNORECASE | re.MULTILINE) for x in excludes
     ]
 
     events = SDJournalReader(fields=field_mappings.keys())
@@ -353,6 +360,7 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
             event['type'] = priorities[int(event['type'])]
 
             append = not includes and not excludes
+            excluded = False
 
             for value in event.values():
                 if append:
@@ -367,12 +375,19 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
                 for exclude in excludes:
                     if exclude.search(value):
                         append = False
+                        excluded = True
                         break
+
+                if excluded:
+                    break
 
                 for include in includes:
                     if include.search(value):
                         append = True
                         break
+
+            if not includes and not excluded:
+                append = True
 
             if not append:
                 continue
@@ -394,7 +409,7 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
 def get_last_events(count=10, includes=[], excludes=[]):
     try:
         source_events = get_last_events_journald(count, includes, excludes)
-    except SDJournalExceptionException:
+    except SDJournalException:
         source_events = {}
 
     for d in ['/var/log']:

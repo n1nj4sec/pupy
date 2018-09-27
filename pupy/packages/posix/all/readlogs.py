@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = [
+  'get_last_events'
+]
+
 import os
 
 from readlogs_generic import GenericLogReader

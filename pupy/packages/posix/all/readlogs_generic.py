@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = [
+  'GenericLogReader'
+]
+
 import datetime
 import re
 import os
@@ -57,7 +61,7 @@ class GenericLogReader(object):
                 logfile = os.path.join(root, logfile)
                 try:
                     parser = self._get_parser(logfile)
-                except OSError:
+                except IOError:
                     continue
 
                 if parser:
@@ -65,11 +69,11 @@ class GenericLogReader(object):
 
     def get_last_events(self, count=10, includes=[], excludes=[]):
         includes = [
-            re.compile(x) for x in includes
+            re.compile(x, re.IGNORECASE | re.MULTILINE) for x in includes
         ]
 
         excludes = [
-            re.compile(x) for x in excludes
+            re.compile(x, re.IGNORECASE | re.MULTILINE) for x in excludes
         ]
 
         events = {}
@@ -80,6 +84,7 @@ class GenericLogReader(object):
             for item in parser(source):
                 category = item.pop('category')
                 append = not includes and not excludes
+                excluded = False
 
                 if category not in events:
                     events[category] = []
@@ -94,12 +99,19 @@ class GenericLogReader(object):
                     for exclude in excludes:
                         if exclude.search(value):
                             append = False
+                            excluded = True
                             break
+
+                    if excluded:
+                        break
 
                     for include in includes:
                         if include.search(value):
                             append = True
                             break
+
+                if not includes and not excluded:
+                    append = True
 
                 if append:
                     events[category].append(item)

@@ -1,12 +1,22 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = [
+    'EventLog', 'get_last_events'
+]
+
 import winerror
 import re
 import datetime
 
-from win32evtlogutil import SafeFormatMessage
 from win32security import LookupAccountSid
 from pywintypes import error
+from win32api import MAKELANGID, LoadLibraryEx, FreeLibrary, FormatMessageW
+from win32con import (
+    LANG_NEUTRAL, SUBLANG_NEUTRAL,
+    FORMAT_MESSAGE_FROM_HMODULE, LOAD_LIBRARY_AS_DATAFILE
+)
+
+from os.path import expandvars, isfile
 
 from win32con import (
     EVENTLOG_AUDIT_FAILURE,
@@ -17,7 +27,7 @@ from win32con import (
 )
 
 from _winreg import (
-    OpenKeyEx, EnumKey, CloseKey,
+    OpenKeyEx, EnumKey, CloseKey, QueryValueEx,
     HKEY_LOCAL_MACHINE, KEY_READ
 )
 
@@ -27,8 +37,14 @@ from win32evtlog import (
     EVENTLOG_BACKWARDS_READ, EVENTLOG_SEQUENTIAL_READ
 )
 
-def to_utc_timestamp(d):
-    return (d - datetime.datetime.utcfromtimestamp(0)).total_seconds()
+UTC_DIFF = int((
+    datetime.datetime.fromtimestamp(0) - datetime.datetime.utcfromtimestamp(0)
+).total_seconds())
+
+LANGID = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
+BLACKLIST = (
+    'Application Error'
+)
 
 class EventLog(object):
     event_types = {
@@ -40,10 +56,17 @@ class EventLog(object):
     }
 
     def __init__(self):
+        self._exceptions = {}
+        self._formatters_cache = {}
+
         self.sources = self.get_types()
 
-    def get_types(self):
-        sources = []
+    def _iter_log_names(self):
+        dups = set()
+
+        for well_known in ('Application', 'Security', 'System'):
+            dups.add(well_known)
+            yield well_known
 
         key = OpenKeyEx(
             HKEY_LOCAL_MACHINE,
@@ -56,24 +79,46 @@ class EventLog(object):
             while True:
                 try:
                     source = EnumKey(key, idx)
-                    log = OpenEventLog('', source)
-                    # If failed, then provider is invalid or inaccessible
-                    GetNumberOfEventLogRecords(log)
-                    CloseEventLog(log)
+                    if source in dups:
+                        continue
 
-                    sources.append(source)
-
-                except error, e:
-                    if e.winerror != 6:
-                        raise
+                    dups.add(source)
+                    yield source
 
                 except WindowsError:
                     break
 
-                idx += 1
+                finally:
+                    idx += 1
 
         finally:
             CloseKey(key)
+
+    def get_types(self):
+        sources = []
+
+        for logname in self._iter_log_names():
+            handle = None
+
+            try:
+                handle = OpenEventLog('', logname)
+                if not handle:
+                    continue
+
+                # If failed, then provider is invalid or inaccessible
+                GetNumberOfEventLogRecords(handle)
+                CloseEventLog(handle)
+
+                sources.append(logname)
+
+            except error, e:
+                if e.winerror not in (6, 1314):
+                    raise
+
+                self._exceptions[logname] = (e, handle)
+
+            except WindowsError, e:
+                self._exceptions[logname] = (e, handle)
 
         return sources
 
@@ -107,7 +152,70 @@ class EventLog(object):
             events = True
             while events:
                 events = ReadEventLog(log, flags, 0)
+                if not events:
+                    break
+
                 for ev_obj in events:
+                    if not ev_obj.StringInserts:
+                        continue
+
+                    message = None
+
+                    if ev_obj.SourceName not in self._formatters_cache and ev_obj.SourceName not in BLACKLIST:
+                        try:
+                            key = OpenKeyEx(
+                                HKEY_LOCAL_MACHINE,
+                                r'SYSTEM\CurrentControlSet\Services\EventLog\{}\{}'.format(
+                                logtype, ev_obj.SourceName
+                            ), 0, KEY_READ)
+                        except WindowsError:
+                            continue
+
+                        try:
+                            dllNames, _ = QueryValueEx(key, 'EventMessageFile')
+
+                            for dllName in dllNames.split(';'):
+                                dllName = expandvars(dllName.strip())
+                                if not isfile(dllName):
+                                    continue
+
+                                dllHandle = LoadLibraryEx(
+                                    dllName, 0, LOAD_LIBRARY_AS_DATAFILE)
+
+                                if not dllHandle:
+                                    continue
+
+                                try:
+                                    message = FormatMessageW(FORMAT_MESSAGE_FROM_HMODULE,
+                                        dllHandle, ev_obj.EventID, LANGID, ev_obj.StringInserts)
+
+                                except error:
+                                    FreeLibrary(dllHandle)
+                                    continue
+
+                                if message:
+                                    self._formatters_cache[ev_obj.SourceName] = dllHandle
+                                    break
+
+                            if not message:
+                                self._formatters_cache[ev_obj.SourceName] = None
+                                message = '\n'.join(ev_obj.StringInserts)
+
+                        except WindowsError:
+                            self._formatters_cache[ev_obj.SourceName] = None
+
+                    elif ev_obj.SourceName in BLACKLIST or not self._formatters_cache[ev_obj.SourceName]:
+                        message = '\n'.join(ev_obj.StringInserts)
+                    else:
+                        try:
+                            message = FormatMessageW(
+                                FORMAT_MESSAGE_FROM_HMODULE,
+                                self._formatters_cache[ev_obj.SourceName],
+                                ev_obj.EventID, LANGID, ev_obj.StringInserts)
+
+                        except error:
+                            message = '\n'.join(ev_obj.StringInserts)
+
                     user = ''
 
                     if ev_obj.Sid is not None:
@@ -117,15 +225,16 @@ class EventLog(object):
                         except error:
                             user = str(ev_obj.Sid)
 
+                    if not message:
+                        continue
+
                     yield {
                         'id': int(winerror.HRESULT_CODE(ev_obj.EventID)),
                         'record': ev_obj.RecordNumber,
-                        'date': to_utc_timestamp(
-                            datetime.datetime.strptime(
-                                ev_obj.TimeGenerated.Format(), '%m/%d/%y %H:%M:%S')),
+                        'date': int(ev_obj.TimeGenerated) - UTC_DIFF,
                         'computer': ev_obj.ComputerName,
                         'category': ev_obj.EventCategory,
-                        'msg': SafeFormatMessage(ev_obj, logtype),
+                        'msg': message,
                         'source': ev_obj.SourceName,
                         'type': EventLog.event_types.get(ev_obj.EventType, 'UNKNOWN'),
                         'user': user
@@ -134,27 +243,37 @@ class EventLog(object):
             pass
 
         finally:
+            for source in self._formatters_cache.keys():
+                if self._formatters_cache[source]:
+                    FreeLibrary(self._formatters_cache[source])
+                del self._formatters_cache[source]
+
             CloseEventLog(log)
 
     def get_last_events(self, count=10, includes=[], excludes=[]):
         events = {}
 
         includes = [
-            re.compile(x) for x in includes
+            re.compile(x, re.IGNORECASE | re.MULTILINE) for x in includes
         ]
 
         excludes = [
-            re.compile(x) for x in excludes
+            re.compile(x, re.IGNORECASE | re.MULTILINE) for x in excludes
         ]
 
-        for source in self.sources:
-            source_events = []
+        for log in self.sources:
             amount = 0
 
-            for event in self.get_events(source):
-                append = not includes and not excludes
+            for event in self.get_events(log):
+                source = event.pop('source')
 
-                for value in event.values():
+                if source not in events:
+                    events[source] = []
+
+                append = not includes and not excludes
+                excluded = False
+
+                for key, value in event.iteritems():
                     if append:
                         break
 
@@ -164,23 +283,28 @@ class EventLog(object):
                     for exclude in excludes:
                         if exclude.search(value):
                             append = False
+                            excluded = True
                             break
+
+                    if excluded:
+                        break
 
                     for include in includes:
                         if include.search(value):
                             append = True
                             break
 
+                if not includes and not excluded:
+                    append = True
+
                 if not append:
                     continue
 
-                source_events.append(event)
+                events[source].append(event)
 
                 amount += 1
                 if amount == count:
                     break
-
-            events[source] = source_events
 
         return events
 
