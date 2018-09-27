@@ -60,9 +60,6 @@ class Logs(PupyModule):
             elif item.get('type') == 'DEBUG':
                 msg = Color(msg, 'grey')
 
-            if not args.width:
-                msg = TruncateToTerm(msg)
-
             items.append(msg)
             return Line(*items)
 
@@ -70,8 +67,12 @@ class Logs(PupyModule):
             if not events:
                 continue
 
-            self.log(
-                List([
+            data = List([
                     make_fields(x) for x in events
                 ], indent=0, bullet='+' if args.include or args.exclude else '', caption=Color(
-                    '> ' + category, 'yellow')))
+                    '> ' + category, 'yellow'))
+
+            if not args.width:
+                data = TruncateToTerm(data)
+
+            self.log(data)
