@@ -9,6 +9,10 @@ import os
 from readlogs_generic import GenericLogReader
 
 def get_last_events(count=10, includes=[], excludes=[]):
-    for d in ['/var/log']:
+    events = {}
+    for d in ['/var/log', '/var/adm']:
         if os.path.isdir(d):
-            return GenericLogReader(d).get_last_events(count, includes, excludes)
+            events.update(
+                GenericLogReader(d).get_last_events(count, includes, excludes))
+
+    return events

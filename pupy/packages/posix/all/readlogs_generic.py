@@ -25,7 +25,7 @@ def ytail(f):
     while not exit:
         step = (block * BUFSIZ)
 
-        if abs(step) >= fsize:
+        if step >= fsize:
             f.seek(0)
             newdata = f.read(BUFSIZ - (abs(step) - fsize))
             exit = True
@@ -53,12 +53,15 @@ class GenericLogReader(object):
     _debian_generic_parser = re.compile(
         '^([A-Z][a-z]{2}\s\d+\s\d\d:\d\d:\d\d)\s(\S+)\s([^:]+):\s+(.*)')
 
-    def __init__(self, logs='/var/log'):
+    def __init__(self, logs=u'/var/log'):
         self.files = {}
 
         for root, _, files in os.walk(logs):
             for logfile in files:
                 logfile = os.path.join(root, logfile)
+                if not os.path.isfile(logfile):
+                    continue
+
                 try:
                     parser = self._get_parser(logfile)
                 except IOError:
