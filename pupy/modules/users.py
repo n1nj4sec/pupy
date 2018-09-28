@@ -5,7 +5,7 @@ from pupylib.PupyOutput import Color
 
 __class_name__="Users"
 
-@config(cat="gather", compatibilities=['windows', 'linux', 'darwin'])
+@config(cat="gather", compatibilities=['windows', 'linux', 'darwin', 'posix'])
 class Users(PupyModule):
     """ Get interactive users """
 
