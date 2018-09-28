@@ -203,7 +203,18 @@ class PtyShell(Task):
         if self.term is not None:
             os.environ['TERM'] = self.term
 
+        ## Workaround via openpty grantpt behaviour
+        euid = os.geteuid()
+        uid = os.getuid()
+
+        if euid != uid:
+            os.seteuid(uid)
+
         master, slave = pty.openpty()
+
+        if euid != uid:
+            os.seteuid(euid)
+
         self.master = os.fdopen(master, 'rb+wb', 0) # open file in an unbuffered mode
         flags = fcntl.fcntl(self.master, fcntl.F_GETFL)
         assert flags >= 0
@@ -224,6 +235,9 @@ class PtyShell(Task):
             env['PATH'] += ':' + os.environ['PATH']
 
         suid = self.suid
+        if suid is None and euid != uid:
+            suid = euid
+
         if suid is not None:
             try:
                 suid = int(suid)
