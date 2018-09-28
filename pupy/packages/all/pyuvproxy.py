@@ -877,7 +877,7 @@ class Manager(Thread):
         )
 
     def on_disconnect(self, neighbor_id, connection_id, reason=None):
-        logger.debug('Manager: on_disconnect(%s, %s, {})',
+        logger.debug('Manager: on_disconnect(%s, %s, %s)',
             neighbor_id, connection_id, reason)
 
         neighbor = self.get_neighbor(
