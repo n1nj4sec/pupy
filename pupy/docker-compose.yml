@@ -3,6 +3,7 @@ version: '3'
 services:
   pupy:
     image: alxchk/pupy:unstable
+    user: pupy
     volumes:
       - .:/opt/pupy
     ports:

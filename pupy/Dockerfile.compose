@@ -15,10 +15,12 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
+RUN useradd -m -d /home/pupy
 
 COPY conf/capability.conf /etc/security/capability.conf
 
 RUN chmod +s /usr/sbin/tcpdump
+RUN chown pupy:pupy -R /home/pupy
 
 RUN python -m pip install --upgrade pip six setuptools wheel
 
@@ -38,7 +40,6 @@ ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
 EXPOSE 1080 5454 5454/udp 8080
-#VOLUME [ "/projects" ]
 
 WORKDIR /opt/pupy
 ENTRYPOINT [ "./pupysh.py" ]
