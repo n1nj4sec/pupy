@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  pupy:
+    image: alxchk/pupy:unstable
+    volumes:
+      - .:/opt/pupy
+    ports:
+      - 8443:8443
+    container_name: pupy
+    stdin_open: true
+    tty: true
