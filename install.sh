@@ -1,10 +1,7 @@
 #!/bin/bash
 
-# Check if running as root, exit if not
-if [ "$EUID" -ne 0 ]
-    then echo "ERROR: The install script must be run as root."
-    exit
-fi
+# Start root section
+sudo su root <<'EOF'
 
 # Apt update and installs
 apt update
@@ -26,6 +23,9 @@ systemctl enable docker
 
 # Install Docker Compose
 pip install docker-compose
+
+# End of root section
+EOF
 
 # Pull dependencies from github
 git submodule update --init --recursive
