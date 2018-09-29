@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Check if running as root, exit if not
+if [ "$EUID" -ne 0 ]
+    then echo "ERROR: The install script must be run as root."
+    exit
+fi
+
 # Apt update and installs
 apt update
 apt install python-pip curl -y
