@@ -41,4 +41,4 @@ wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates
 tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
 
 # Build docker container
-docker build alxchk/pupy:nodeps
+docker build -t alxchk/pupy:nodeps -f ./pupy/Dockerfile.compose pupy
