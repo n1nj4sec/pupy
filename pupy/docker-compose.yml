@@ -2,7 +2,7 @@ version: '3'
 
 services:
   pupy:
-    image: alxchk/pupy:unstable
+    image: alxchk/pupy:nodeps
     user: pupy
     volumes:
       - .:/opt/pupy
