@@ -14,7 +14,7 @@ parser.add_argument('-A', '--all', action='store_true', help='Search/Show info f
 parser.add_argument('-k', '--key', help='Search in key in objects with key')
 parser.add_argument('-s', '--sort', action='store_true', help='Search in key in objects with key')
 parser.add_argument('--delete-db', action='store_true', help='Delete DB')
-parser.add_argument('search', nargs='?', help='Keyword to search')
+parser.add_argument('search', default='', nargs='?', help='Keyword to search')
 
 def do(server, handler, config, modargs):
     try:
