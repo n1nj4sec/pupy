@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Check to make sure script is not initially run as root
+if [ "$EUID" == 0 ]
+  then echo "Please do not run as root. Script will prompt for sudo password."
+  exit
+fi
+
 # Start root section
 sudo su root <<'EOF'
 
