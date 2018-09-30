@@ -43,4 +43,3 @@ EXPOSE 1080 5454 5454/udp 8080
 
 WORKDIR /opt/pupy
 ENTRYPOINT [ "./pupysh.py" ]
-CMD [ "--not-encrypt" ]
