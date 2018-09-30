@@ -15,7 +15,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
-RUN useradd -m -d /home/pupy
+RUN useradd -m -d /home/pupy pupy
 
 COPY conf/capability.conf /etc/security/capability.conf
 
