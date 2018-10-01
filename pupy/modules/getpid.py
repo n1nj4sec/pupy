@@ -16,4 +16,4 @@ class PsModule(PupyModule):
     def run(self, args):
         getpid = self.client.remote('os', 'getpid')
         pid = getpid()
-        self.log('PID: {}'.format(pid))
+        self.success('PID: {}'.format(pid))
