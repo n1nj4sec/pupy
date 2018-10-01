@@ -3,7 +3,7 @@
 __all__ = [
     'SSHNotConnected', 'SSH',
     'ssh_interactive',
-    'ssh_exec',
+    'ssh_exec', 'ssh_hosts',
     'ssh_upload_file',
     'ssh_download_file', 'ssh_download_tar'
 ]
@@ -26,6 +26,14 @@ from paramiko.ssh_exception import (
 from paramiko.dsskey import DSSKey
 from paramiko.rsakey import RSAKey
 from paramiko.ecdsakey import ECDSAKey
+
+from urllib import unquote
+
+try:
+    from puttykeys import ppkraw_to_openssh
+except ImportError:
+    def ppkraw_to_openssh(x):
+        return None
 
 try:
     from paramiko.ed25519key import Ed25519Key
@@ -64,6 +72,193 @@ KEY_CLASSES = [RSAKey, ECDSAKey, DSSKey]
 if Ed25519Key:
     KEY_CLASSES.append(Ed25519Key)
 
+try:
+    from _winreg import (
+        OpenKey, CloseKey, EnumKey, EnumValue, HKEY_USERS
+    )
+    from ctypes import (
+        WinDLL, POINTER, byref, GetLastError,
+        create_unicode_buffer, c_void_p
+    )
+    from ctypes.wintypes import (
+        LPSTR, LPWSTR, DWORD, BOOL
+    )
+
+    LPDWORD = POINTER(DWORD)
+    PVOID = c_void_p
+
+    REG_PATHS = [
+       r'\Software\SimonTatham\PuTTY\Sessions',
+       r'\Software\Martin Prikryl\WinSCP 2\Sessions'
+    ]
+
+    PROPERTIES_MAPPING = {
+       'hostname': 'hostname',
+       'portnumber': 'port',
+       'username': 'user',
+       'publickeyfile': 'identityfile'
+    }
+
+    advapi32 = WinDLL('advapi32', use_last_error=True)
+    kernel32 = WinDLL('kernel32', use_last_error=False)
+
+    _LookupAccountSidW = advapi32.LookupAccountSidW
+    _LookupAccountSidW.argtypes = [LPSTR, PVOID, LPWSTR, LPDWORD, LPWSTR, LPDWORD, LPDWORD]
+    _LookupAccountSidW.restype = BOOL
+
+    _ConvertStringSidToSid = advapi32.ConvertStringSidToSidA
+    _ConvertStringSidToSid.argtypes = [LPSTR, PVOID]
+    _ConvertStringSidToSid.restype = BOOL
+
+    _LocalFree = kernel32.LocalFree
+    _LocalFree.argtypes = [PVOID]
+
+    # From LaZagne
+    def LookupAccountSidW(lpSid):
+        # From https://github.com/MarioVilas/winappdbg/blob/master/winappdbg/win32/advapi32.py
+
+        PSID = PVOID()
+        if not _ConvertStringSidToSid(lpSid, byref(PSID)):
+            return None, None, None
+
+        ERROR_INSUFFICIENT_BUFFER = 122
+        cchName = DWORD(0)
+        cchReferencedDomainName = DWORD(0)
+        peUse = DWORD(0)
+        success = _LookupAccountSidW(
+            None, PSID, None, byref(cchName),
+            None, byref(cchReferencedDomainName), byref(peUse))
+
+        error = GetLastError()
+        if not success or error == ERROR_INSUFFICIENT_BUFFER:
+            lpName = create_unicode_buffer(u'', cchName.value + 1)
+            lpReferencedDomainName = create_unicode_buffer(
+                u'', cchReferencedDomainName.value + 1)
+
+            success = _LookupAccountSidW(
+                None, PSID, lpName, byref(cchName),
+                lpReferencedDomainName, byref(cchReferencedDomainName), byref(peUse))
+
+            if success:
+                return lpName.value, lpReferencedDomainName.value, peUse.value
+
+        _LocalFree(PSID)
+        return None, None, None
+
+    def extract_info(key):
+        try:
+            h = OpenKey(HKEY_USERS, key)
+        except WindowsError:
+            return {}
+
+        alias = key.split('\\')[-1]
+
+        info = {}
+
+        if '@' in alias:
+            user, alias = alias.split('@', 1)
+            info['user'] = user
+            if ':' in alias:
+                maybe_alias, maybe_port = alias.rsplit(':', 1)
+                try:
+                    maybe_port = int(maybe_port)
+                    if maybe_port > 0 and maybe_port < 65536:
+                        alias = maybe_alias
+                        info['port'] = maybe_port
+
+                except ValueError:
+                    pass
+
+            info['hostname'] = alias
+        elif alias == 'Default%20Settings':
+            alias = '*'
+
+        try:
+            idx = 0
+            while True:
+                try:
+                    name, value, _ = EnumValue(h, idx)
+                except WindowsError:
+                        break
+
+                if type(value) in (str, unicode):
+                    value = unquote(value)
+
+                name = name.lower()
+                if name in PROPERTIES_MAPPING:
+                    if name == 'publickeyfile':
+                        info[PROPERTIES_MAPPING[name]] = [value]
+                    else:
+                        info[PROPERTIES_MAPPING[name]] = value
+
+                idx += 1
+
+        finally:
+            CloseKey(h)
+
+        if info and (alias == '*' or info.get('hostname')):
+            return {alias: info}
+
+        return {}
+
+    def ssh_putty_hosts():
+        results = {}
+
+        try:
+            h = OpenKey(HKEY_USERS, '')
+        except WindowsError:
+            return
+
+        idx = 0
+
+        try:
+            while True:
+                user = EnumKey(h, idx)
+
+                username, domain, _ = LookupAccountSidW(user)
+
+                if username is None:
+                    username = user
+                    if domain:
+                        user = domain + '\\' + user
+
+                for reg_path in REG_PATHS:
+                    try:
+                        sessions = user + reg_path
+                        h2 = OpenKey(HKEY_USERS, sessions)
+                    except WindowsError:
+                        continue
+
+                    try:
+                        idx2 = 0
+                        while True:
+                            session = EnumKey(h2, idx2)
+                            record = extract_info(sessions + '\\' + session)
+                            if record:
+                                if username not in results:
+                                    results[username] = {}
+
+                                results[username].update(record)
+
+                            idx2 += 1
+                    except WindowsError:
+                        pass
+
+                    finally:
+                        CloseKey(h2)
+
+                idx += 1
+
+        except WindowsError:
+            return results
+
+        finally:
+            CloseKey(h)
+
+except ImportError:
+    def ssh_putty_hosts():
+        return {}
+
 def ssh_hosts():
     paths = []
     configs = {}
@@ -94,6 +289,7 @@ def ssh_hosts():
             host:ssh_config.lookup(host) for host in ssh_config.get_hostnames()
         }
 
+    configs.update(ssh_putty_hosts())
     return configs
 
 class SSH(object):
@@ -137,7 +333,11 @@ class SSH(object):
                     if 'identityfile' in config and not private_keys:
                         private_keys = []
 
-                        for identityfile in config['identityfile']:
+                        identityfiles = config['identityfile']
+                        if type(identityfiles) in (str, unicode):
+                            identityfiles = [identityfiles]
+
+                        for identityfile in identityfiles:
                             try:
                                 import pwd
                                 user_home = pwd.getpwnam(user).pw_dir
@@ -569,6 +769,22 @@ class SSH(object):
 
         return None, None, None
 
+    def _convert(self, keydata, passwords):
+        if 'PuTTY-User-Key-File-2' in keydata:
+            for password in passwords:
+                password = '' if password is None else password
+
+                try:
+                    converted = ppkraw_to_openssh(keydata, password)
+                    if not converted:
+                        return keydata
+
+                    return converted
+                except ValueError:
+                    pass
+
+        return keydata
+
     def _connect(self):
         client = SSHClient()
         client.set_missing_host_key_policy(AutoAddPolicy())
@@ -725,12 +941,14 @@ class SSH(object):
         for key_file, key_data in self._iter_private_keys:
             username = self.user or current_user
 
-            pkey_obj = BytesIO(str(key_data))
-            pkey = None
-
             key_passwords = list(self.key_passwords)
             key_passwords.insert(0, None)
             found_key_password = None
+
+            key_data = self._convert(key_data, key_passwords)
+
+            pkey_obj = BytesIO(str(key_data))
+            pkey = None
 
             for klass in KEY_CLASSES:
                 for key_password in key_passwords:

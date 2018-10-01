@@ -34,6 +34,7 @@ M2Crypto
 fusepy
 defusedxml
 keyboard
+puttykeys
 -e external/pykcp
 flake8
 flake8-per-file-ignores
