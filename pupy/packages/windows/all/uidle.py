@@ -9,7 +9,14 @@ class LASTINPUTINFO(Structure):
     ]
 
 GetLastInputInfo = windll.user32.GetLastInputInfo
-GetTickCount = windll.kernel32.GetTickCount
+
+if hasattr(windll.kernel32, 'GetTickCount64'):
+    from ctypes import c_ulonglong
+    GetTickCount = windll.kernel32.GetTickCount64
+    GetTickCount.reestype = c_ulonglong
+else:
+    GetTickCount = windll.kernel32.GetTickCount
+    GetTickCount.reestype = c_uint
 
 def get_gui_idle(display=None):
     lastInputInfo = LASTINPUTINFO()
