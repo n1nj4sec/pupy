@@ -2,10 +2,11 @@ version: '3'
 
 services:
   pupy:
-    image: alxchk/pupy:base
-    user: pupy
+    image: alxchk/pupy:base-${TAG}
+    user: ${UID}:${GID}
     volumes:
-      - .:/opt/pupy
+      - ${PUPY}:/opt/pupy
+      - ${WORKDIR}:/project
     ports:
       - 8443:8443
     container_name: pupy

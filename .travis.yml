@@ -34,6 +34,7 @@ after_success:
   docker login -u $DOCKER_USER -p $DOCKER_PASS &&
   cd $TRAVIS_BUILD_DIR/pupy &&
   docker push alxchk/pupy:$TAG >/dev/null;
+  docker push alxchk/pupy:base-$TAG >/dev/null;
   fi
 - export TRAVIS_TAG=`if [ "$TRAVIS_REPO_SLUG" = "n1nj4sec/pupy" ] && [ -z "$TRAVIS_PULL_REQUEST_SLUG" ]; then echo "latest"; else echo ""; fi`
 env:
