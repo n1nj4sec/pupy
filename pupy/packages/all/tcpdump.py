@@ -232,7 +232,6 @@ def run(on_data, on_close, iface=None, bpf=None, timeout=None, count=0):
     return sniffer.nice_name, sniffer.stop
 
 if __name__=="__main__":
-    import time
 
     def cb(pkt):
         print pkt.summary()
