@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# Thanks to Dan McInerney for its net-creds project
-# Github: https://github.com/DanMcInerney/net-creds
-
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.rpyc_utils import redirected_stdio
 
