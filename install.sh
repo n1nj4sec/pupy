@@ -6,6 +6,9 @@ if [ "$EUID" == 0 ]
   exit
 fi
 
+# Get username for regular user.
+USER=$(whoami)
+
 # Start root section
 sudo su root <<'EOF'
 
@@ -29,6 +32,9 @@ systemctl enable docker
 
 # Install Docker Compose
 pip install docker-compose
+
+# Add user to docker group
+usermod -aG docker $USER
 
 # End of root section
 EOF
