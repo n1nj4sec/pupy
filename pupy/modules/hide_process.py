@@ -8,7 +8,7 @@ __class_name__="HideProcessModule"
 @config(compat="linux", cat="manage", tags=["hide", "rootkit", "stealth"])
 class HideProcessModule(PupyModule):
     """ Edit current process argv & env not to look suspicious """
-    
+
     dependencies=["hide_process"]
 
     @classmethod
