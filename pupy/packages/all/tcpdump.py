@@ -6,15 +6,19 @@ import sys
 import traceback
 
 from scapy.all import (
-    conf, ETH_P_ALL, six, WINDOWS, errno, POWERSHELL_PROCESS
+    conf, ETH_P_ALL, six, WINDOWS, errno
 )
 
+try:
+    from scapy.all import POWERSHELL_PROCESS  # Import fails on Linux
+except ImportError:
+    pass
+
 from select import select, error as select_error
-
 from threading import Thread, Event
-
 from rpyc import async
 from psutil import net_if_addrs
+from time import time
 
 def isniff(count=0, prn=None, lfilter=None,
           L2socket=None, timeout=None, completion=None,
@@ -41,7 +45,7 @@ def isniff(count=0, prn=None, lfilter=None,
                                    *arg, **karg)] = iface
 
     if timeout is not None:
-        stoptime = time()+timeout
+        stoptime = time() + timeout
 
     remain = None
     read_allowed_exceptions = ()
@@ -73,7 +77,7 @@ def isniff(count=0, prn=None, lfilter=None,
     try:
         while sniff_sockets:
             if timeout is not None:
-                remain = stoptime-time()
+                remain = stoptime - time()
                 if remain <= 0:
                     break
 
@@ -194,7 +198,7 @@ class SniffSession(Thread):
         except StopSniff:
             reason = 'Interrupted'
 
-        except Exception, e:
+        except Exception as e:
             reason = 'Sniff: {}: {}'.format(
                 e, traceback.format_exc())
 
@@ -228,7 +232,6 @@ def run(on_data, on_close, iface=None, bpf=None, timeout=None, count=0):
     return sniffer.nice_name, sniffer.stop
 
 if __name__=="__main__":
-    import time
 
     def cb(pkt):
         print pkt.summary()

@@ -26,7 +26,7 @@ class KeyloggerModule(PupyModule):
                                          help='Amount of processed strings to store')
         cls.arg_parser.add_argument('-P', '--policy', default=True, help='Regex to check valid password')
         cls.arg_parser.add_argument('-m', '--min', default=8, type=int, help='Minimal password length')
-        cls.arg_parser.add_argument('-M', '--max', default=16, type=int, help='Maximal password length')
+        cls.arg_parser.add_argument('-M', '--max', default=20, type=int, help='Maximal password length')
         cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
 
     def run(self, args):

