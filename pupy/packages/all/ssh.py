@@ -29,6 +29,8 @@ from paramiko.ecdsakey import ECDSAKey
 
 from urllib import unquote
 
+from sys import getfilesystemencoding
+
 try:
     from puttykeys import ppkraw_to_openssh
 except ImportError:
@@ -145,6 +147,23 @@ try:
         _LocalFree(PSID)
         return None, None, None
 
+    def bin_decode(value):
+        try:
+            if value.startswith('\xEF\xBB\xBF'):
+                return value[3:].decode('utf-8')
+            elif value.startswith('\xFE\xFF'):
+                return value[2:].decode('utf-16be')
+            elif value.startswith('\xFF\xFE'):
+                return value[2:].decode('utf-16le')
+            elif value.startswith('\x00\x00\xFE\xFF'):
+                return value[4:].decode('utf-32be')
+            elif value.startswith('\xFF\xFE\x00\x00'):
+                return value[2:].decode('utf-32le')
+            else:
+                return value.decode(getfilesystemencoding())
+        except UnicodeDecodeError:
+            return 'bad:'+value
+
     def extract_info(key):
         try:
             h = OpenKey(HKEY_USERS, key)
@@ -182,7 +201,14 @@ try:
                         break
 
                 if type(value) in (str, unicode):
-                    value = unquote(value)
+                    new_value = unquote(value)
+                    if new_value != value:
+                        if type(new_value) == unicode:
+                            try:
+                                new_value = new_value.encode('latin1')
+                                value = bin_decode(new_value)
+                            except UnicodeEncodeError:
+                                value = new_value
 
                 name = name.lower()
                 if name in PROPERTIES_MAPPING:
