@@ -33,6 +33,7 @@ tmpdir=`mktemp -d`
 cp ${PUPY}/pupy/requirements.txt ${tmpdir}
 mkdir -p ${tmpdir}/external
 cp -a ${PUPY}/pupy/external/pykcp ${tmpdir}/external
-docker build -f ${PUPY}/pupy/conf/Dockerfile.compose -t ${REPO}:base-${TAG} ${tmpdir}
+cp ${PUPY}/pupy/conf/Dockerfile.compose ${tmpdir}
+docker build -f ${tmpdir}/Dockerfile.compose -t ${REPO}:base-${TAG} ${tmpdir}
 rm -rf $tmpdir
 echo
