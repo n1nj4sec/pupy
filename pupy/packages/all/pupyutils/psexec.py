@@ -26,6 +26,9 @@ from impacket.system_errors import \
      ERROR_SERVICE_REQUEST_TIMEOUT
 from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
 
+from Crypto.Cipher import DES
+assert(DES)
+
 SUCCESS_CACHE  = {}
 
 try:
