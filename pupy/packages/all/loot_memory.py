@@ -114,7 +114,7 @@ class PwdMon(pupy.Task):
                                 if result not in self.duplicates:
                                     self.duplicates.add(result)
                                     yield result
-                    except Exception as e:
+                    except Exception:
                         continue
 
     def task(self):
