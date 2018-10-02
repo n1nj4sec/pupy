@@ -19,7 +19,8 @@ class SSH(PupyModule):
 
     dependencies = [
         'nacl', 'bcrypt', 'ecdsa',
-        'cryptography', 'paramiko', 'ssh'
+        'cryptography', 'paramiko', 'ssh',
+        'puttykeys'
     ]
 
     closer = None

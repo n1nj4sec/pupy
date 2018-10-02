@@ -36,7 +36,7 @@ except ImportError:
 
 import re
 
-from pupylib import getLogger
+from network.lib import getLogger
 logger = getLogger('transfer')
 
 FIELDS_MAP = {

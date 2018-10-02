@@ -360,7 +360,7 @@ class DnsCommandsClient(Thread):
     def on_downloadexec_content(self, url, action, content):
         pass
 
-    def on_connect(self, ip, port, transport):
+    def on_connect(self, ip, port, transport, proxy):
         pass
 
     def on_checkconnect(self, host, port_start, port_end):
@@ -386,7 +386,7 @@ class DnsCommandsClient(Thread):
 
     def on_set_proxy(self, scheme, ip, port, user, password):
         if not scheme or scheme.lower() == 'none':
-            self.proxy = None
+            self.proxy = False
         elif scheme.lower() == 'any':
             self.proxy = True
         else:
@@ -464,8 +464,8 @@ class DnsCommandsClient(Thread):
                 self.on_connect(
                     str(command.ip),
                     int(command.port),
-                    transport=command.transport,
-                    proxy=self.proxy
+                    command.transport,
+                    self.proxy
                 )
             elif isinstance(command, Error):
                 self.on_error(command.error, command.message)

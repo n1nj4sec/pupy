@@ -14,7 +14,7 @@ colorama
 mss
 pyOpenSSL
 scapy
-impacket
+https://github.com/CoreSecurity/impacket/archive/master.zip
 pyuv
 dnslib
 http-parser
@@ -34,6 +34,7 @@ M2Crypto
 fusepy
 defusedxml
 keyboard
+puttykeys
 -e external/pykcp
 flake8
 flake8-per-file-ignores

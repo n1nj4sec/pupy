@@ -49,6 +49,8 @@ from .PupySignalHandler import set_signal_winch
 
 from commands import Commands, InvalidCommand
 
+from termios import TCSANOW
+
 from . import getLogger
 logger = getLogger('cmd')
 
@@ -230,7 +232,7 @@ class RawTerminal(IOGroup):
         self._stdout_fd = self._stdout.fileno()
 
         self._tc_settings = termios.tcgetattr(self._stdin_fd)
-        tty.setraw(self._stdin_fd)
+        tty.setraw(self._stdin_fd, TCSANOW)
 
         if self._on_winch:
             self._winch_handler = set_signal_winch(self._on_sigwinch)

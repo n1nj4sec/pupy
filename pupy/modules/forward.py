@@ -72,11 +72,12 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
 
         actions.add_argument(
             '-VRL', '--virtual-remote-listener', help='Create virtual pupy listener',
-            nargs=2
+            metavar=('PORT', 'TRANSPORT'), nargs=2
         )
 
         actions.add_argument(
-            '-CVRL', '--cancel-virtual-remote-listener', help='Disable virtual pupy listener (PORT)',
+            '-CVRL', '--cancel-virtual-remote-listener',
+            metavar='PORT', help='Disable virtual pupy listener',
             type=int
         )
 

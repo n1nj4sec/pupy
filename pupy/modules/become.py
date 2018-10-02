@@ -4,7 +4,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="Become"
 
-@config(compat="linux", cat="admin")
+@config(compat=['linux', 'posix'], cat="admin")
 class Become(PupyModule):
     """ Become user """
 

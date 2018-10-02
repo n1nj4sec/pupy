@@ -24,7 +24,7 @@ import igd
 import sys
 import json
 
-from network.lib import getLogger
+from . import getLogger
 logger = getLogger('online')
 
 from . import stun
@@ -117,27 +117,38 @@ CHECKS = {
         'text': 'Can I use LAME in my commercial program?',
     },
     'https': {
-        'url': 'https://www.openssl.org/source/license.txt',
-        'text': 'Redistributions in binary form must reproduce the above copyright',
-        'ca':
-                'MIIDSjCCAjKgAwIBAgIQRK+wgNajJ7qJMDmGLvhAazANBgkqhkiG9w0BAQUFADA/'
-                'MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMT'
-                'DkRTVCBSb290IENBIFgzMB4XDTAwMDkzMDIxMTIxOVoXDTIxMDkzMDE0MDExNVow'
-                'PzEkMCIGA1UEChMbRGlnaXRhbCBTaWduYXR1cmUgVHJ1c3QgQ28uMRcwFQYDVQQD'
-                'Ew5EU1QgUm9vdCBDQSBYMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB'
-                'AN+v6ZdQCINXtMxiZfaQguzH0yxrMMpb7NnDfcdAwRgUi+DoM3ZJKuM/IUmTrE4O'
-                'rz5Iy2Xu/NMhD2XSKtkyj4zl93ewEnu1lcCJo6m67XMuegwGMoOifooUMM0RoOEq'
-                'OLl5CjH9UL2AZd+3UWODyOKIYepLYYHsUmu5ouJLGiifSKOeDNoJjj4XLh7dIN9b'
-                'xiqKqy69cK3FCxolkHRyxXtqqzTWMIn/5WgTe1QLyNau7Fqckh49ZLOMxt+/yUFw'
-                '7BZy1SbsOFU5Q9D8/RhcQPGX69Wam40dutolucbY38EVAjqr2m7xPi71XAicPNaD'
-                'aeQQmxkqtilX4+U9m5/wAl0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNV'
-                'HQ8BAf8EBAMCAQYwHQYDVR0OBBYEFMSnsaR7LHH62+FLkHX/xBVghYkQMA0GCSqG'
-                'SIb3DQEBBQUAA4IBAQCjGiybFwBcqR7uKGY3Or+Dxz9LwwmglSBd49lZRNI+DT69'
-                'ikugdB/OEIKcdBodfpga3csTS7MgROSR6cz8faXbauX+5v3gTt23ADq1cEmv8uXr'
-                'AvHRAosZy5Q6XkjEGB5YGV8eAlrwDPGxrancWYaLbumR9YbK+rlmM6pZW87ipxZz'
-                'R8srzJmwN0jP41ZL9c8PDHIyh8bwRLtTcm1D9SZImlJnt1ir/md2cXjbDaJWFBM5'
-                'JDGFoqgCWjBH4d1QB7wCCZAA62RjYJsWvIjJEubSfZGL+T0yjWW06XyxV3bqxbYo'
-                'Ob8VZRzI9neWagqNdwvYkQsEjgfbKbYK7p2CNTUQ'
+        'url': 'https://www.apache.org/licenses/LICENSE-2.0',
+        'text': 'APPENDIX: How to apply the Apache License to your work.',
+        'ca': 'MIIFdDCCBFygAwIBAgIQJ2buVutJ846r13Ci/ITeIjANBgkqhkiG9w0BAQwFADBv'
+              'MQswCQYDVQQGEwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFk'
+              'ZFRydXN0IEV4dGVybmFsIFRUUCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBF'
+              'eHRlcm5hbCBDQSBSb290MB4XDTAwMDUzMDEwNDgzOFoXDTIwMDUzMDEwNDgzOFow'
+              'gYUxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO'
+              'BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMSswKQYD'
+              'VQQDEyJDT01PRE8gUlNBIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MIICIjANBgkq'
+              'hkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAkehUktIKVrGsDSTdxc9EZ3SZKzejfSNw'
+              'AHG8U9/E+ioSj0t/EFa9n3Byt2F/yUsPF6c947AEYe7/EZfH9IY+Cvo+XPmT5jR6'
+              '2RRr55yzhaCCenavcZDX7P0N+pxs+t+wgvQUfvm+xKYvT3+Zf7X8Z0NyvQwA1onr'
+              'ayzT7Y+YHBSrfuXjbvzYqOSSJNpDa2K4Vf3qwbxstovzDo2a5JtsaZn4eEgwRdWt'
+              '4Q08RWD8MpZRJ7xnw8outmvqRsfHIKCxH2XeSAi6pE6p8oNGN4Tr6MyBSENnTnIq'
+              'm1y9TBsoilwie7SrmNnu4FGDwwlGTm0+mfqVF9p8M1dBPI1R7Qu2XK8sYxrfV8g/'
+              'vOldxJuvRZnio1oktLqpVj3Pb6r/SVi+8Kj/9Lit6Tf7urj0Czr56ENCHonYhMsT'
+              '8dm74YlguIwoVqwUHZwK53Hrzw7dPamWoUi9PPevtQ0iTMARgexWO/bTouJbt7IE'
+              'IlKVgJNp6I5MZfGRAy1wdALqi2cVKWlSArvX31BqVUa/oKMoYX9w0MOiqiwhqkfO'
+              'KJwGRXa/ghgntNWutMtQ5mv0TIZxMOmm3xaG4Nj/QN370EKIf6MzOi5cHkERgWPO'
+              'GHFrK+ymircxXDpqR+DDeVnWIBqv8mqYqnK8V0rSS527EPywTEHl7R09XiidnMy/'
+              's1Hap0flhFMCAwEAAaOB9DCB8TAfBgNVHSMEGDAWgBStvZh6NLQm9/rEJlTvA73g'
+              'JMtUGjAdBgNVHQ4EFgQUu69+Aj36pvE8hI6t7jiY7NkyMtQwDgYDVR0PAQH/BAQD'
+              'AgGGMA8GA1UdEwEB/wQFMAMBAf8wEQYDVR0gBAowCDAGBgRVHSAAMEQGA1UdHwQ9'
+              'MDswOaA3oDWGM2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9BZGRUcnVzdEV4dGVy'
+              'bmFsQ0FSb290LmNybDA1BggrBgEFBQcBAQQpMCcwJQYIKwYBBQUHMAGGGWh0dHA6'
+              'Ly9vY3NwLnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQEMBQADggEBAGS/g/FfmoXQ'
+              'zbihKVcN6Fr30ek+8nYEbvFScLsePP9NDXRqzIGCJdPDoCpdTPW6i6FtxFQJdcfj'
+              'Jw5dhHk3QBN39bSsHNA7qxcS1u80GH4r6XnTq1dFDK8o+tDb5VCViLvfhVdpfZLY'
+              'Uspzgb8c8+a4bmYRBbMelC1/kZWSWfFMzqORcUx8Rww7Cxn2obFshj5cqsQugsv5'
+              'B5a6SE2Q8pTIqXOi6wZ7I53eovNNVZ96YUWYGGjHXkBrI/V5eu+MtWuLt29G9Hvx'
+              'PUsE2JOAWVrgQSQdso8VYFhH2+9uRv0V9dlfmrPb2LjkQLPNlzmuhbsdjrzch5vR'
+              'pu/xO28QOG8='
     },
 }
 
@@ -188,7 +199,7 @@ def external_ip(force_ipv4=False):
 
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
-            logger.debug('Return cached IP (last ts=%d): %d',
+            logger.debug('Return cached IP (last ts=%d): %s',
                 LAST_EXTERNAL_IP_TIME, LAST_EXTERNAL_IP)
             return LAST_EXTERNAL_IP
 
@@ -207,7 +218,7 @@ def external_ip(force_ipv4=False):
     except Exception, e:
         logger.debug('external_ip: STUN failed: %s', e)
 
-    ctx = tinyhttp.HTTP(timeout=15, headers={'User-Agent': 'curl/7.12.3'})
+    ctx = tinyhttp.HTTP(timeout=5, headers={'User-Agent': 'curl/7.12.3'})
     for service in OWN_IP:
         for scheme in ['https', 'http']:
             try:
@@ -223,7 +234,7 @@ def external_ip(force_ipv4=False):
                     return LAST_EXTERNAL_IP
 
             except Exception, e:
-                logger.debug('Get IP service failed: %s: %s', service, e)
+                logger.debug('Get IP service failed: %s: %s (%s)', service, e, type(e))
 
     LAST_EXTERNAL_IP = dns_external_ip()
     if LAST_EXTERNAL_IP:
@@ -298,7 +309,7 @@ def check():
     }
     ctx = tinyhttp.HTTP(proxy=True, noverify=False, timeout=15, headers=headers)
     ctx_nocert = tinyhttp.HTTP(proxy=True, timeout=15, noverify=True, headers=headers)
-    ctx_noproxy = tinyhttp.HTTP(proxy=False, noverify=False, timeout=15, headers=headers)
+    ctx_noproxy = tinyhttp.HTTP(proxy=False, timeout=15, headers=headers)
     ctx_mitm = tinyhttp.HTTP(
         proxy=True, noverify=False, timeout=15,
         cadata=CHECKS['https']['ca'].decode('base64'), headers=headers)
@@ -374,25 +385,23 @@ def check():
     except Exception, e:
         logger.debug('HTTPS Check failed: %s', e)
 
-    if result & HTTPS:
-        try:
-            data = ctx_mitm.get(CHECKS['https']['url'])
-            if not CHECKS['https']['text'] in data:
-                result |= HTTPS_MITM
-
-        except Exception, e:
-            logger.debug('HTTPS Mitm Check failed: %s', e)
+    try:
+        data = ctx_mitm.get(CHECKS['https']['url'])
+        if not CHECKS['https']['text'] in data:
             result |= HTTPS_MITM
 
-    else:
-        try:
-            data = ctx_nocert.get(CHECKS['https']['url'])
-            if CHECKS['https']['text'] in data:
-                result |= HTTPS_NOCERT
-                result |= HTTPS
+    except Exception, e:
+        logger.debug('HTTPS Mitm Check failed: %s', e)
+        result |= HTTPS_MITM
 
-        except Exception, e:
-            logger.debug('HTTPS NoCert Check failed: %s', e)
+    try:
+        data = ctx_nocert.get(CHECKS['https']['url'])
+        if CHECKS['https']['text'] in data:
+            result |= HTTPS_NOCERT
+            result |= HTTPS
+
+    except Exception, e:
+        logger.debug('HTTPS NoCert Check failed: %s', e)
 
     for hostname, ip in KNOWN_DNS.iteritems():
         try:
@@ -523,7 +532,10 @@ class PortQuiz(threading.Thread):
         self.lock = threading.Lock()
         self.abort = threading.Event()
         self.amount = 8
-        self.opener = urllib2.build_opener(tinyhttp.NullHandler(self.table, self.lock))
+        self.opener = urllib2.OpenerDirector()
+        self.opener.handlers = []
+        self.opener.add_handler(tinyhttp.NullHandler(self.table, self.lock))
+        self.opener.add_handler(urllib2.HTTPHandler())
         self.http_timeout = http_timeout
         self.connect_timeout = connect_timeout
         self.available = list()
@@ -531,21 +543,34 @@ class PortQuiz(threading.Thread):
     def _on_open_port(self, info):
         host, port, sock = info
 
+        logger.debug('Check: %s:%d', host, port)
+
         try:
             with self.lock:
                 self.table['{}:{}'.format(host,port)] = sock
                 sock.setblocking(1)
                 sock.settimeout(self.http_timeout)
 
-            response = self.opener.open('http://{}:{}'.format(host, port), timeout=self.http_timeout)
+
+            url = urllib2.Request(
+                'http://{}:{}'.format(host, port),
+                headers={
+                    'Host': self.PORTQUIZ_HOSTNAME,
+                    'User-Agent': 'curl',
+                })
+
+            response = self.opener.open(url, timeout=self.http_timeout)
             data = response.read()
-            if data.startswith(self.PORTQUIZ_MESSAGE) or port == 443 and self.PORTQUIZ_443_MESSAGE in data:
+            if 'test successful!' in data \
+              or (port == 443 and self.PORTQUIZ_443_MESSAGE in data):
                 self.available.append(port)
                 if len(self.available) >= self.amount:
                     self.abort.set()
+            else:
+                logger.debug('Invalid response, port %d: %s', port, repr(data))
 
         except Exception, e:
-            logger.debug('port check: %s:%s: %s', host, port, e)
+            logger.exception('port check: %s:%s: %s', host, port, e)
 
         finally:
             try:
@@ -563,8 +588,12 @@ class PortQuiz(threading.Thread):
         except socket.gaierror:
             portquiz_addr = self.PORTQUIZ_ADDR
 
+        logger.debug('Scan most important. IP: %s', portquiz_addr)
+
         scan.scan([portquiz_addr], most_important, timeout=self.connect_timeout, abort=self.abort,
              on_open_port=self._on_open_port, pass_socket=True)
+
+        logger.debug('Scan other ports')
 
         if len(self.available) < self.amount:
             other = list([
@@ -574,14 +603,16 @@ class PortQuiz(threading.Thread):
             random.shuffle(other)
 
             scan.scan(
-                [self.PORTQUIZ_ADDR], other, timeout=self.connect_timeout, abort=self.abort,
+                [portquiz_addr], other, timeout=self.connect_timeout, abort=self.abort,
                 on_open_port=self._on_open_port, pass_socket=True)
+
+        logger.debug('Done. Found %d ports', len(self.available))
 
     def run(self):
         try:
             logger.debug('PortQuiz: started')
             self._run()
-            logger.debug('PortQuiz: completed')
+            logger.debug('PortQuiz: completed (available %d ports)', len(self.available))
 
         except Exception, e:
             logger.exception('PortQuiz: %s', e)

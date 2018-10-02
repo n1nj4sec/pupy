@@ -491,12 +491,14 @@ def invalidate_module(name):
             global __debug
             if __debug:
                 dprint('Remove {} from sys.modules'.format(item))
+
+                item_str = str(item)
                 del item
 
                 for obj in gc.get_objects():
                     if id(obj) == mid:
                         dprint('Module {} still referenced by {}'.format(
-                            item, [id(x) for x in gc.get_referrers(obj)]))
+                            item_str, [id(x) for x in gc.get_referrers(obj)]))
 
     gc.collect()
 
@@ -667,6 +669,8 @@ class PupyPackageFinder(object):
                 ]
 
             if not files:
+                files = []
+
                 dprint('{} not found in {}: not in {} files'.format(
                     fullname, files, len(files)))
 

@@ -12,11 +12,12 @@ import types
 
 import StringIO
 
+from . import socks
+
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
 from poster.encode import multipart_encode
 
-from . import socks
 
 def merge_dict(a, b):
     d = a.copy()
@@ -253,66 +254,73 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
 
 class HTTP(object):
 
-    __slots__ = ('ctx', 'connect_proxy', 'http_proxy', 'noverify', 'timeout', 'opener')
+    __slots__ = ('ctx', 'proxy', 'noverify', 'timeout', 'opener')
 
     def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
-        self.ctx = ssl.create_default_context()
+        self.ctx = ssl.create_default_context(cadata=cadata)
 
         if noverify:
             self.ctx.check_hostname = False
             self.ctx.verify_mode = ssl.CERT_NONE
 
-        if cadata:
-            self.ctx.load_verify_locations(None, None, cadata)
-        else:
-            self.ctx.load_default_certs()
+        self.proxy = None
 
-        self.connect_proxy = proxy
-        self.http_proxy = None
+        tproxy = type(proxy)
+        if tproxy in (str, unicode):
+            proxyscheme = urlparse.urlparse(proxy)
+            scheme = proxyscheme.scheme.upper()
+            if scheme == 'SOCKS':
+                scheme = 'SOCKS5'
+
+            self.proxy = scheme, proxyscheme.hostname+(
+                ':'+str(proxyscheme.port) if proxyscheme.port else ''), \
+                proxyscheme.username or None, \
+                proxyscheme.password or None
+        elif proxy in (True, None):
+            self.proxy = find_default_proxy()
+        else:
+            self.proxy = proxy
+
         self.noverify = noverify
         self.timeout = timeout
 
-        if self.connect_proxy is None or self.connect_proxy is True:
-            proxy = urllib2.getproxies()
-            if proxy:
-                if 'https' in proxy:
-                    self.connect_proxy = proxy['https']
-                elif 'http' in proxy:
-                    self.http_proxy = proxy['http']
-                    self.connect_proxy = proxy['http']
-                else:
-                    self.connect_proxy = next(proxy.itervalues())
-            else:
-                self.connect_proxy = False
-
-        if self.connect_proxy is False:
+        if not self.proxy:
             handlers = [
                 StreamingHTTPHandler,
                 StreamingHTTPSHandler(context=self.ctx),
                 TCPReaderHandler(context=self.ctx)
             ]
         else:
-            proxyscheme = urlparse.urlparse(self.connect_proxy)
-            scheme = proxyscheme.scheme.upper()
-            if scheme == 'SOCKS':
-                scheme = 'SOCKS5'
-            elif scheme == 'HTTP' and self.http_proxy is None:
-                self.http_proxy = self.connect_proxy
+            scheme, host, user, password = self.proxy
 
             scheme = socks.PROXY_TYPES[scheme]
+            port = socks.DEFAULT_PORTS[scheme]
+
+            if ':' in host:
+                host, maybe_port = host.split(':')
+
+                try:
+                    port = int(maybe_port)
+                except ValueError:
+                    pass
+
             sockshandler = SocksiPyHandler(
-                scheme,
-                proxyscheme.hostname,
-                proxyscheme.port or socks.DEFAULT_PORTS[scheme],
-                username=proxyscheme.username or None,
-                password=proxyscheme.password or None,
+                scheme, host, port,
+                user or None, password or None,
                 context=self.ctx if self.noverify else None
             )
 
             handlers = []
-            if self.http_proxy:
+            if scheme == socks.HTTP:
+                http_proxy = '{}:{}'.format(host, port)
+
+                if user and password:
+                    http_proxy = '{}:{}@{}'.format(user, password, http_proxy)
+
+                http_proxy = 'http://' + http_proxy
+
                 handlers.append(urllib2.ProxyHandler({
-                    'http': self.http_proxy}))
+                    'http': http_proxy}))
                 handlers.append(StreamingHTTPHandler)
 
             handlers.append(sockshandler)
@@ -425,3 +433,5 @@ class HTTP(object):
             return result[0]
         else:
             return tuple(result)
+
+from network.lib.proxies import find_default_proxy

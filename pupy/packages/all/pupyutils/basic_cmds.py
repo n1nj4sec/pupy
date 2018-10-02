@@ -407,20 +407,27 @@ def rm(path):
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
 
-    found = False
+    files = 0
+    exception = None
 
     for path in glob.iglob(path):
         if os.path.exists(path):
-            found = True
+            files += 1
             if os.path.isdir(path):
-                shutil.rmtree(path)
+                shutil.rmtree(path, ignore_errors=True)
             else:
-                os.remove(path)
+                try:
+                    os.remove(path)
+                except OSError, e:
+                    exception = e
         else:
             raise ValueError("File/directory does not exists")
 
-    if not found:
+    if not files:
         raise ValueError("File/directory does not exists")
+
+    if files == 1 and exception:
+        raise exception
 
 # -------------------------- For cat function --------------------------
 

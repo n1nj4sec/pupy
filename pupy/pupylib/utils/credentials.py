@@ -142,6 +142,8 @@ class Credentials(object):
                 c['login'] = creds['label']
             elif 'service' in creds:
                 c['login'] = creds['service']
+            elif 'defaultpassword' in creds:
+                c['login'] = 'DefaultPassword'
 
             if 'password' in creds:
                 c['secret'] = creds['password']
@@ -149,6 +151,8 @@ class Credentials(object):
                 c['secret'] = creds['hash']
             elif 'key' in creds:
                 c['secret'] = creds['key']
+            elif 'defaultpassword' in creds:
+                c['secret'] = creds['defaultpassword']
 
             if 'url' in creds:
                 c['resource'] = creds['url']

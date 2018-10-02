@@ -25,5 +25,5 @@ ${PUPY}/client/build-docker.sh
 echo
 
 echo "[+] Build pupysh (${REPO}:${TAG})"
-cd ${PUPY}/pupy && docker build -t ${REPO}:${TAG} .
+cd ${PUPY}/pupy && docker build -f ${PUPY}/pupy/conf/Dockerfile.default -t ${REPO}:${TAG} .
 echo

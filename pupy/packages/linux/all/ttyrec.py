@@ -57,6 +57,10 @@ class TTYMon(object):
             self._probe_name, kallsyms.tty_read
         )
 
+        self._tty_read_statement_new = 'r:{}_r tty_read $retval:s64 +0($stack2):string'.format(
+            self._probe_name
+        )
+
         self._started = False
         self._stopping = False
         self._stopped = True
@@ -92,9 +96,17 @@ class TTYMon(object):
         self._stopped = False
         self._stopping = False
 
-        with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
-            registry.write(self._tty_read_statement+'\n')
-            registry.write(self._tty_write_statement+'\n')
+        try:
+            with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
+                registry.write(self._tty_write_statement+'\n')
+                # Try to use explicit symbol name
+                registry.write(self._tty_read_statement_new+'\n')
+
+        except IOError:
+            with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
+                registry.write(self._tty_write_statement+'\n')
+                # Try to use explicit symbol name
+                registry.write(self._tty_read_statement+'\n')
 
         with open(os.path.join(DEBUGFS, KPROBE_EVENTS, self._probe_name+'_w', 'enable'), 'w') as enable:
             enable.write('1\n')
