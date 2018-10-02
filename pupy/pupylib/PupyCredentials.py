@@ -304,7 +304,7 @@ class Credentials(object):
         now = ASN1.ASN1_UTCTIME()
         now.set_time(t)
         expire = ASN1.ASN1_UTCTIME()
-        expire.set_time(t + 365 * 24 * 60 * 60)
+        expire.set_time(t + 365 * 24 * 60 * 60 * 3)
 
         pk = EVP.PKey()
         pk.assign_rsa(rsa_key)
@@ -330,6 +330,39 @@ class Credentials(object):
 
         return pk.as_pem(cipher=None), cert.as_pem()
 
+    def _generate_apk_keypair(self):
+        priv, pub, key = self._generate_rsa_keypair(2048)
+
+        t = long(time.time())
+        now = ASN1.ASN1_UTCTIME()
+        now.set_time(t)
+        expire = ASN1.ASN1_UTCTIME()
+        expire.set_time(t + 365 * 24 * 60 * 60 * 5)
+
+        pk = EVP.PKey()
+        pk.assign_rsa(key)
+
+        cert = X509.X509()
+        cert.get_subject().O = self._generate_id(10)
+        cert.set_serial_number(1337)
+        cert.set_version(2)
+        cert.set_not_before(now)
+        cert.set_not_after(expire)
+        cert.set_pubkey(pk)
+        cert.set_issuer(cert.get_subject())
+        cert.add_ext(X509.new_extension(
+            'subjectKeyIdentifier', str(cert.get_fingerprint())))
+        cert.sign(pk, 'sha256')
+
+        return pk.as_pem(cipher=None), cert.as_pem()
+
+    def _generate_ecpv_keypair_bp384(self):
+        return self._generate_ecpv_keypair(curve='brainpoolP384r1')
+
+    def _generate_rsa_keypair_4096(self):
+        priv, pub, _ = self._generate_rsa_keypair(bits=4096)
+        return priv, pub
+
     def _generate(self, force=False, password=None, configfile=None):
         if path.exists(configfile) and not force:
             return
@@ -340,13 +373,11 @@ class Credentials(object):
         ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = self._generate_ecpv_keypair(
             curve='brainpoolP224r1')
 
-        CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
-            curve='brainpoolP384r1')
-        CLIENT_ECPV_RC4_PRIVATE_KEY, CLIENT_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair(
-            curve='brainpoolP384r1')
+        CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair_bp384()
+        CLIENT_ECPV_RC4_PRIVATE_KEY, CLIENT_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair_bp384()
 
-        RSA_PRIVATE_KEY_1, RSA_PUBLIC_KEY_1, _ = self._generate_rsa_keypair(bits=4096)
-        RSA_PRIVATE_KEY_2, RSA_PUBLIC_KEY_2, _ = self._generate_rsa_keypair(bits=4096)
+        RSA_PRIVATE_KEY_1, RSA_PUBLIC_KEY_1 = self._generate_rsa_keypair_4096()
+        RSA_PRIVATE_KEY_2, RSA_PUBLIC_KEY_2 = self._generate_rsa_keypair_4096()
 
         CONTROL_RSA_PRIVATE_KEY, CONTROL_RSA_PUBLIC_KEY, KEY1 = self._generate_rsa_keypair()
         CLIENT_RSA_PRIVATE_KEY, CLIENT_RSA_PUBLIC_KEY, KEY2 = self._generate_rsa_keypair()
@@ -363,6 +394,8 @@ class Credentials(object):
             KEY3, CAKEY, CACERT, client=True, serial=4)
         CLIENT_SSL_CLIENT_KEY, CLIENT_SSL_CLIENT_CERTIFICATE = self._generate_ssl_keypair(
             KEY4, CAKEY, CACERT, role='CLIENT', client=True, serial=5)
+
+        CONTROL_APK_PRIV_KEY, CONTROL_APK_PUB_KEY = self._generate_apk_keypair()
 
         credentials = {
             'SCRAMBLESUIT_PASSWD': self._generate_scramblesuit_passwd(),
@@ -393,6 +426,8 @@ class Credentials(object):
             'CONTROL_ECPV_RC4_PUBLIC_KEY': CONTROL_ECPV_RC4_PUBLIC_KEY,
             'CLIENT_ECPV_RC4_PRIVATE_KEY': CLIENT_ECPV_RC4_PRIVATE_KEY,
             'CLIENT_ECPV_RC4_PUBLIC_KEY': CLIENT_ECPV_RC4_PUBLIC_KEY,
+            'CONTROL_APK_PRIV_KEY': CONTROL_APK_PRIV_KEY,
+            'CONTROL_APK_PUB_KEY': CONTROL_APK_PUB_KEY
         }
 
         try:

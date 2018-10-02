@@ -8,7 +8,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
 	mkdir -p /usr/share/man/man1/ && \
 	apt-get install -t stretch-backports --no-install-recommends -y \
 	libssl1.0-dev libffi-dev python-dev python-pip  \
-	unzip libtool locales ncurses-term tcpdump openjdk-8-jdk-headless \
+	unzip libtool locales ncurses-term tcpdump \
 	netbase fuse && apt-get clean && \
 	rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale

