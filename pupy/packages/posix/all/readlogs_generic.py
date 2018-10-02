@@ -45,13 +45,19 @@ def ytail(f):
     if data:
         yield data
 
+def try_get_mtime(x):
+    try:
+        return os.stat(x).st_mtime
+    except OSError:
+        return 0
+
 class GenericLogReader(object):
     parsers = [
         '_debian_log_parser'
     ]
 
     _debian_generic_parser = re.compile(
-        '^([A-Z][a-z]{2}\s\d+\s\d\d:\d\d:\d\d)\s(\S+)\s([^:]+):\s+(.*)')
+        '^([A-Z][a-z]{2}\s+\d+\s\d\d:\d\d:\d\d)\s(\S+)\s([^:]+):\s+(.*)')
 
     def __init__(self, logs=u'/var/log'):
         self.files = {}
@@ -81,7 +87,7 @@ class GenericLogReader(object):
 
         events = {}
 
-        for source in sorted(self.files.keys()):
+        for source in sorted(self.files.keys(), key=try_get_mtime, reverse=True):
             parser = self.files[source]
 
             for item in parser(source):
