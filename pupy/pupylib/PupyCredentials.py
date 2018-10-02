@@ -12,6 +12,8 @@ import string
 import errno
 import time
 
+from datetime import datetime
+
 from network.lib.picocmd.ecpv import ECPV
 from getpass import getpass
 
@@ -112,7 +114,8 @@ class Encryptor(object):
                 if not password:
                     getpass_hook = getpass_hook or getpass
                     if use_gnome_keyring:
-                        print '[I] use_gnome_keyring is true, the password will be stored in the Gnome-Keyring'
+                        logger.warning(
+                            'use_gnome_keyring is true, the password will be stored in the Gnome-Keyring')
 
                     password = getpass_hook('[I] Credentials password: ')
                     if use_gnome_keyring:
@@ -173,16 +176,260 @@ ENCRYPTOR = Encryptor.instance
 
 HELP_RESET_MSG='FYI you can reset your credentials by removing crypto/credentials.py but you will have to re-generate your payloads.'
 
+def _generate_password(length):
+    alphabet = string.punctuation + string.ascii_letters + string.digits
+    return ''.join(
+        alphabet[ord(c) % len(alphabet)] for c in urandom(length)
+    )
+
+def _generate_id(length):
+    alphabet = string.ascii_letters
+    return ''.join(
+        alphabet[ord(c) % len(alphabet)] for c in urandom(length)
+    )
+
+def _generate_ecpv_keypair(curve='brainpoolP160r1'):
+    return ECPV(curve=curve).generate_key()
+
+def _generate_rsa_keypair(bits=1024):
+    key = RSA.gen_key(bits, 65537)
+    private_key = key.as_pem(cipher=None)
+    rsa_privkey = rsa.key.PrivateKey.load_pkcs1(
+        private_key, 'PEM'
+    )
+    rsa_pubkey = rsa.key.PublicKey(rsa_privkey.n, rsa_privkey.e)
+    public_key = rsa_pubkey.save_pkcs1('PEM')
+
+    return private_key, public_key, key
+
+def _generate_ssl_ca():
+    ca_key_pem, ca_cert_pem, ca_key = _generate_rsa_keypair()
+
+    t = long(time.time())
+    now = ASN1.ASN1_UTCTIME()
+    now.set_time(t)
+    expire = ASN1.ASN1_UTCTIME()
+    expire.set_time(t + 365 * 24 * 60 * 60)
+
+    pk = EVP.PKey()
+    pk.assign_rsa(ca_key)
+
+    cert = X509.X509()
+    cert.get_subject().O = _generate_id(10)
+    cert.set_serial_number(1)
+    cert.set_version(3)
+    cert.set_not_before(now)
+    cert.set_not_after(expire)
+    cert.set_issuer(cert.get_subject())
+    cert.set_pubkey(pk)
+    cert.add_ext(X509.new_extension('basicConstraints', 'CA:TRUE'))
+    cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
+    cert.sign(pk, 'sha256')
+
+    return pk.as_pem(cipher=None), cert.as_pem(), pk, cert
+
+def _generate_ssl_keypair(rsa_key, ca_key, ca_cert, role='CONTROL', client=False, serial=2):
+
+    t = long(time.time())
+    now = ASN1.ASN1_UTCTIME()
+    now.set_time(t)
+    expire = ASN1.ASN1_UTCTIME()
+    expire.set_time(t + 365 * 24 * 60 * 60 * 3)
+
+    pk = EVP.PKey()
+    pk.assign_rsa(rsa_key)
+
+    cert = X509.X509()
+    cert.get_subject().O = _generate_id(10)
+    cert.get_subject().OU = role
+    cert.set_serial_number(serial)
+    cert.set_version(3)
+    cert.set_not_before(now)
+    cert.set_not_after(expire)
+    cert.set_issuer(ca_cert.get_subject())
+    cert.set_pubkey(pk)
+    cert.add_ext(X509.new_extension('basicConstraints', 'critical,CA:FALSE'))
+    cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
+    if client:
+        cert.add_ext(X509.new_extension('keyUsage', 'critical,digitalSignature'))
+        cert.add_ext(X509.new_extension('nsCertType', 'client'))
+    else:
+        cert.add_ext(X509.new_extension('keyUsage', 'critical,keyEncipherment'))
+        cert.add_ext(X509.new_extension('nsCertType', 'server'))
+    cert.sign(ca_key, 'sha256')
+
+    return pk.as_pem(cipher=None), cert.as_pem()
+
+def _generate_ecpv_keypair_bp384():
+    return _generate_ecpv_keypair(curve='brainpoolP384r1')
+
+def _generate_rsa_keypair_4096():
+    priv, pub, _ = _generate_rsa_keypair(bits=4096)
+    return priv, pub
+
+def _generate_scramblesuit_passwd():
+    return {
+        'SCRAMBLESUIT_PASSWD': _generate_password(20)
+    }
+
+def _generate_bind_payloads_password():
+    return {
+        'BIND_PAYLOADS_PASSWORD': _generate_password(20)
+    }
+
+def _generate_ecpv_rc4():
+    CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = _generate_ecpv_keypair_bp384()
+    CLIENT_ECPV_RC4_PRIVATE_KEY, CLIENT_ECPV_RC4_PUBLIC_KEY = _generate_ecpv_keypair_bp384()
+    return {
+        'CONTROL_ECPV_RC4_PRIVATE_KEY': CONTROL_ECPV_RC4_PRIVATE_KEY,
+        'CONTROL_ECPV_RC4_PUBLIC_KEY': CONTROL_ECPV_RC4_PUBLIC_KEY,
+        'CLIENT_ECPV_RC4_PRIVATE_KEY': CLIENT_ECPV_RC4_PRIVATE_KEY,
+        'CLIENT_ECPV_RC4_PUBLIC_KEY': CLIENT_ECPV_RC4_PUBLIC_KEY,
+    }
+
+def _generate_rsa_keys():
+    CONTROL_RSA_PRIVATE_KEY, CONTROL_RSA_PUBLIC_KEY, _ = _generate_rsa_keypair()
+    CLIENT_RSA_PRIVATE_KEY, CLIENT_RSA_PUBLIC_KEY, _ = _generate_rsa_keypair()
+
+    CONTROL_RSA_PRIVATE_KEY_CLIENT, CONTROL_RSA_PUBLIC_KEY_CLIENT, _ = _generate_rsa_keypair()
+    CLIENT_RSA_PRIVATE_KEY_CLIENT, CLIENT_RSA_PUBLIC_KEY_CLIENT, _ = _generate_rsa_keypair()
+
+    return {
+        'CONTROL_RSA_PUB_KEY': CONTROL_RSA_PUBLIC_KEY,
+        'CLIENT_RSA_PUB_KEY': CLIENT_RSA_PUBLIC_KEY,
+        'CONTROL_RSA_PRIV_KEY': CONTROL_RSA_PRIVATE_KEY,
+        'CLIENT_RSA_PRIV_KEY': CLIENT_RSA_PRIVATE_KEY,
+    }
+
+def _generate_dnscnc_v1_keys():
+    ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = _generate_ecpv_keypair()
+
+    return {
+        'CONTROL_DNSCNC_PRIV_KEY': ECPV_PRIVATE_KEY,
+        'CLIENT_DNSCNC_PUB_KEY': ECPV_PUBLIC_KEY,
+    }
+
+def _generate_dnscnc_v2_keys():
+    ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = _generate_ecpv_keypair(
+        curve='brainpoolP224r1')
+
+    return {
+        'CONTROL_DNSCNC_PRIV_KEY_V2': ECPV_PRIVATE_KEY_V2,
+        'CLIENT_DNSCNC_PUB_KEY_V2': ECPV_PUBLIC_KEY_V2,
+    }
+
+def _generate_simple_rsa_keys():
+    RSA_PRIVATE_KEY_1, RSA_PUBLIC_KEY_1 = _generate_rsa_keypair_4096()
+    RSA_PRIVATE_KEY_2, RSA_PUBLIC_KEY_2 = _generate_rsa_keypair_4096()
+
+    return {
+        'CONTROL_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_1,
+        'CLIENT_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_1,
+        'CLIENT_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_2,
+        'CONTROL_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_2,
+    }
+
+def _generate_apk_keypair():
+    priv, pub, key = _generate_rsa_keypair(2048)
+
+    t = long(time.time())
+    now = ASN1.ASN1_UTCTIME()
+    now.set_time(t)
+    expire = ASN1.ASN1_UTCTIME()
+    expire.set_time(t + 365 * 24 * 60 * 60 * 5)
+
+    pk = EVP.PKey()
+    pk.assign_rsa(key)
+
+    cert = X509.X509()
+    cert.get_subject().O = _generate_id(10)
+    cert.set_serial_number(1337)
+    cert.set_version(2)
+    cert.set_not_before(now)
+    cert.set_not_after(expire)
+    cert.set_pubkey(pk)
+    cert.set_issuer(cert.get_subject())
+    cert.add_ext(X509.new_extension(
+        'subjectKeyIdentifier', str(cert.get_fingerprint())))
+    cert.sign(pk, 'sha256')
+
+    return {
+        'CONTROL_APK_PRIV_KEY': pk.as_pem(cipher=None),
+        'CONTROL_APK_PUB_KEY': cert.as_pem(),
+    }
+
+def _generate_pki_ssl_keys():
+    SSL_CA_PRIVATE_KEY, SSL_CA_CERTIFICATE, CAKEY, CACERT = _generate_ssl_ca()
+
+    _, _, KEY1 = _generate_rsa_keypair()
+    _, _, KEY2 = _generate_rsa_keypair()
+    _, _, KEY3 = _generate_rsa_keypair()
+    _, _, KEY4 = _generate_rsa_keypair()
+
+    CONTROL_SSL_BIND_KEY, CONTROL_SSL_BIND_CERTIFICATE = _generate_ssl_keypair(KEY1, CAKEY, CACERT)
+    CLIENT_SSL_BIND_KEY, CLIENT_SSL_BIND_CERTIFICATE = _generate_ssl_keypair(
+        KEY2, CAKEY, CACERT, role='CLIENT', serial=3)
+
+    CONTROL_SSL_CLIENT_KEY, CONTROL_SSL_CLIENT_CERTIFICATE = _generate_ssl_keypair(
+        KEY3, CAKEY, CACERT, client=True, serial=4)
+    CLIENT_SSL_CLIENT_KEY, CLIENT_SSL_CLIENT_CERTIFICATE = _generate_ssl_keypair(
+        KEY4, CAKEY, CACERT, role='CLIENT', client=True, serial=5)
+
+    return {
+        'SSL_CA_CERT': SSL_CA_CERTIFICATE,
+        'SSL_CA_KEY': SSL_CA_PRIVATE_KEY,
+        'CONTROL_SSL_BIND_KEY': CONTROL_SSL_BIND_KEY,
+        'CLIENT_SSL_BIND_KEY': CLIENT_SSL_BIND_KEY,
+        'CONTROL_SSL_BIND_CERT': CONTROL_SSL_BIND_CERTIFICATE,
+        'CLIENT_SSL_BIND_CERT': CLIENT_SSL_BIND_CERTIFICATE,
+        'CONTROL_SSL_CLIENT_CERT': CONTROL_SSL_CLIENT_CERTIFICATE,
+        'CLIENT_SSL_CLIENT_CERT': CLIENT_SSL_CLIENT_CERTIFICATE,
+        'CONTROL_SSL_CLIENT_KEY': CONTROL_SSL_CLIENT_KEY,
+        'CLIENT_SSL_CLIENT_KEY': CLIENT_SSL_CLIENT_KEY,
+    }
+
+
 class Credentials(object):
-    SYSTEM_CONFIG = path.join(path.dirname(__file__), '..', 'crypto', 'credentials.py')
+    GENERATORS = {
+        'SCRAMBLESUIT_PASSWD': _generate_scramblesuit_passwd,
+        'BIND_PAYLOADS_PASSWORD': _generate_bind_payloads_password,
+        'CONTROL_ECPV_RC4_PRIVATE_KEY': _generate_ecpv_rc4,
+        'CONTROL_ECPV_RC4_PUBLIC_KEY': _generate_ecpv_rc4,
+        'CLIENT_ECPV_RC4_PRIVATE_KEY': _generate_ecpv_rc4,
+        'CLIENT_ECPV_RC4_PUBLIC_KEY': _generate_ecpv_rc4,
+        'CONTROL_RSA_PUB_KEY': _generate_rsa_keys,
+        'CLIENT_RSA_PUB_KEY': _generate_rsa_keys,
+        'CONTROL_RSA_PRIV_KEY': _generate_rsa_keys,
+        'CLIENT_RSA_PRIV_KEY': _generate_rsa_keys,
+        'CONTROL_DNSCNC_PRIV_KEY': _generate_dnscnc_v1_keys,
+        'CLIENT_DNSCNC_PUB_KEY': _generate_dnscnc_v1_keys,
+        'CONTROL_DNSCNC_PRIV_KEY_V2': _generate_dnscnc_v2_keys,
+        'CLIENT_DNSCNC_PUB_KEY_V2': _generate_dnscnc_v2_keys,
+        'CONTROL_SIMPLE_RSA_PRIV_KEY': _generate_simple_rsa_keys,
+        'CLIENT_SIMPLE_RSA_PUB_KEY': _generate_simple_rsa_keys,
+        'CLIENT_SIMPLE_RSA_PRIV_KEY': _generate_simple_rsa_keys,
+        'CONTROL_SIMPLE_RSA_PUB_KEY': _generate_simple_rsa_keys,
+        'CONTROL_APK_PRIV_KEY': _generate_apk_keypair,
+        'CONTROL_APK_PUB_KEY': _generate_apk_keypair,
+        'SSL_CA_CERT': _generate_pki_ssl_keys,
+        'SSL_CA_KEY': _generate_pki_ssl_keys,
+        'CONTROL_SSL_BIND_KEY': _generate_pki_ssl_keys,
+        'CLIENT_SSL_BIND_KEY': _generate_pki_ssl_keys,
+        'CONTROL_SSL_BIND_CERT': _generate_pki_ssl_keys,
+        'CLIENT_SSL_BIND_CERT': _generate_pki_ssl_keys,
+        'CONTROL_SSL_CLIENT_CERT': _generate_pki_ssl_keys,
+        'CLIENT_SSL_CLIENT_CERT': _generate_pki_ssl_keys,
+        'CONTROL_SSL_CLIENT_KEY': _generate_pki_ssl_keys,
+        'CLIENT_SSL_CLIENT_KEY': _generate_pki_ssl_keys,
+    }
 
-    def __init__(self, role=None, password=None, config=None):
+    def __init__(self, role=None, password=None, config=None, validate=False):
         config = config or PupyConfig()
-        configfile = path.join(config.get_folder('crypto'), 'credentials.py')
 
-        self._generate(password=password, configfile=configfile)
-
-        configfiles = [self.SYSTEM_CONFIG, configfile]
+        self._configfile = path.join(config.get_folder('crypto'), 'credentials.py')
+        self._credentials = {}
+        self._config = config
+        self._encrypted = True
 
         role = role or DEFAULT_ROLE
         self.role = role.upper() if role else 'ANY'
@@ -190,34 +437,112 @@ class Credentials(object):
         if self.role not in ('CONTROL', 'CLIENT'):
             raise ValueError('Unsupported role: {}'.format(self.role))
 
-        self._credentials = {}
-        for configfile in configfiles:
-            if path.exists(configfile):
-                with open(configfile, 'rb') as creds:
-                    logger.info('Reading credentials from %s', configfile)
+        self._load(password)
+        if validate:
+            self._generate(password)
 
-                    content = creds.read()
-                    if not content:
-                        raise ValueError('Corrupted file: {}\n{}'.format(configfile, HELP_RESET_MSG))
+    def _generate(self, password):
+        required_generators = set()
 
-                    if content.startswith('Salted__'):
-                        if not ENCRYPTOR:
-                            raise EncryptionError(
-                                'Encrpyted credential storage: {}'.format(configfile)
-                            )
+        for cred, generator in Credentials.GENERATORS.iteritems():
+            if cred not in self._credentials:
+                required_generators.add(generator)
+                logger.warning('Credential "%s" is missing and will be generated', cred)
+            elif 'BEGIN CERTIFICATE' in self._credentials[cred]:
+                cert = X509.load_cert_string(self._credentials[cred])
+                expiration = cert.get_not_after().get_datetime()
+                now = datetime.now(expiration.tzinfo)
+                diff = (expiration - now).days
 
-                        fcontent = StringIO()
-                        encryptor = ENCRYPTOR(password=password, config=config)
-                        try:
-                            encryptor.decrypt(StringIO(content), fcontent)
-                        except:
-                            raise EncryptionError(
-                                'Invalid password or corrupted data.\n{}'.format(HELP_RESET_MSG)
-                            )
+                if expiration <= now:
+                    logger.error(
+                        'Credential "%s" is expired! All related credentials will be regenerated',
+                        cred)
 
-                        content = fcontent.getvalue()
+                    required_generators.add(generator)
+                elif diff < 7:
+                    logger.error('%s will expire in %d days', cred, diff)
+                elif diff < 90:
+                    logger.warning('%s will expire in %d days', cred, diff)
+                else:
+                    logger.debug('Credential "%s" will expire in %d days', cred, diff)
+            else:
+                logger.debug('Credential "%s" exists', cred)
 
-                    exec content in self._credentials
+        for generator in required_generators:
+            new_creds = generator()
+            self._credentials.update(new_creds)
+
+        updated = bool(required_generators)
+
+        if updated:
+            logger.warning('Saving credentials to %s', self._configfile)
+
+            try:
+                makedirs(path.dirname(self._configfile))
+            except OSError as e:
+                if not e.errno == errno.EEXIST:
+                    raise
+
+            backup = None
+            with open(self._configfile) as user_config:
+                backup = user_config.read()
+
+            try:
+                with open(self._configfile, 'wb') as user_config:
+                    chmod(self._configfile, 0600)
+                    content = '\n'.join([
+                        '{}={}\n'.format(k, repr(v)) for k,v in self._credentials.iteritems()
+                    ]) + '\n'
+
+                    if self._encrypted and ENCRYPTOR:
+                        encryptor = ENCRYPTOR(password=password)
+                        encryptor.encrypt(StringIO(content), user_config)
+                    else:
+                        user_config.write(content)
+
+            except Exception:
+                with open(self._configfile, 'wb') as user_config:
+                    user_config.write(backup)
+
+                raise
+
+        return updated
+
+    def _load(self, password):
+        if path.exists(self._configfile):
+            with open(self._configfile, 'rb') as creds:
+                logger.info('Reading credentials from %s', self._configfile)
+
+                content = creds.read()
+                if not content:
+                    logger.error('Credentials storage (%s) is empty', self._configfile)
+                    return
+
+                if content.startswith('Salted__'):
+                    if not ENCRYPTOR:
+                        raise EncryptionError(
+                            'Encrpyted credential storage: {}'.format(self._configfile)
+                        )
+
+                    fcontent = StringIO()
+                    encryptor = ENCRYPTOR(password=password, config=self._config)
+                    try:
+                        encryptor.decrypt(StringIO(content), fcontent)
+                    except:
+                        raise EncryptionError(
+                            'Invalid password or corrupted data.\n{}'.format(HELP_RESET_MSG)
+                        )
+
+                    content = fcontent.getvalue()
+                else:
+                    self._encrypted = False
+
+                # TODO: To fix this disgrace
+                exec content in self._credentials
+                for key in self._credentials.keys():
+                    if key.startswith('_'):
+                        del self._credentials[key]
 
     def __getitem__(self, key):
         env = globals()
@@ -239,214 +564,6 @@ class Credentials(object):
 
     def __iter__(self):
         return iter(self._credentials)
-
-    def _generate_password(self, length):
-        alphabet = string.punctuation + string.ascii_letters + string.digits
-        return ''.join(
-            alphabet[ord(c) % len(alphabet)] for c in urandom(length)
-        )
-
-    def _generate_id(self, length):
-        alphabet = string.ascii_letters
-        return ''.join(
-            alphabet[ord(c) % len(alphabet)] for c in urandom(length)
-        )
-
-    def _generate_scramblesuit_passwd(self):
-        return self._generate_password(20)
-
-    def _generate_bind_payloads_password(self):
-        return self._generate_password(20)
-
-    def _generate_ecpv_keypair(self, curve='brainpoolP160r1'):
-        return ECPV(curve=curve).generate_key()
-
-    def _generate_rsa_keypair(self, bits=1024):
-        key = RSA.gen_key(bits, 65537)
-        private_key = key.as_pem(cipher=None)
-        rsa_privkey = rsa.key.PrivateKey.load_pkcs1(
-            private_key, 'PEM'
-        )
-        rsa_pubkey = rsa.key.PublicKey(rsa_privkey.n, rsa_privkey.e)
-        public_key = rsa_pubkey.save_pkcs1('PEM')
-
-        return private_key, public_key, key
-
-    def _generate_ssl_ca(self):
-        ca_key_pem, ca_cert_pem, ca_key = self._generate_rsa_keypair()
-
-        t = long(time.time())
-        now = ASN1.ASN1_UTCTIME()
-        now.set_time(t)
-        expire = ASN1.ASN1_UTCTIME()
-        expire.set_time(t + 365 * 24 * 60 * 60)
-
-        pk = EVP.PKey()
-        pk.assign_rsa(ca_key)
-
-        cert = X509.X509()
-        cert.get_subject().O = self._generate_id(10)
-        cert.set_serial_number(1)
-        cert.set_version(3)
-        cert.set_not_before(now)
-        cert.set_not_after(expire)
-        cert.set_issuer(cert.get_subject())
-        cert.set_pubkey(pk)
-        cert.add_ext(X509.new_extension('basicConstraints', 'CA:TRUE'))
-        cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
-        cert.sign(pk, 'sha256')
-
-        return pk.as_pem(cipher=None), cert.as_pem(), pk, cert
-
-    def _generate_ssl_keypair(self, rsa_key, ca_key, ca_cert, role='CONTROL', client=False, serial=2):
-
-        t = long(time.time())
-        now = ASN1.ASN1_UTCTIME()
-        now.set_time(t)
-        expire = ASN1.ASN1_UTCTIME()
-        expire.set_time(t + 365 * 24 * 60 * 60 * 3)
-
-        pk = EVP.PKey()
-        pk.assign_rsa(rsa_key)
-
-        cert = X509.X509()
-        cert.get_subject().O = self._generate_id(10)
-        cert.get_subject().OU = role
-        cert.set_serial_number(serial)
-        cert.set_version(3)
-        cert.set_not_before(now)
-        cert.set_not_after(expire)
-        cert.set_issuer(ca_cert.get_subject())
-        cert.set_pubkey(pk)
-        cert.add_ext(X509.new_extension('basicConstraints', 'critical,CA:FALSE'))
-        cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
-        if client:
-            cert.add_ext(X509.new_extension('keyUsage', 'critical,digitalSignature'))
-            cert.add_ext(X509.new_extension('nsCertType', 'client'))
-        else:
-            cert.add_ext(X509.new_extension('keyUsage', 'critical,keyEncipherment'))
-            cert.add_ext(X509.new_extension('nsCertType', 'server'))
-        cert.sign(ca_key, 'sha256')
-
-        return pk.as_pem(cipher=None), cert.as_pem()
-
-    def _generate_apk_keypair(self):
-        priv, pub, key = self._generate_rsa_keypair(2048)
-
-        t = long(time.time())
-        now = ASN1.ASN1_UTCTIME()
-        now.set_time(t)
-        expire = ASN1.ASN1_UTCTIME()
-        expire.set_time(t + 365 * 24 * 60 * 60 * 5)
-
-        pk = EVP.PKey()
-        pk.assign_rsa(key)
-
-        cert = X509.X509()
-        cert.get_subject().O = self._generate_id(10)
-        cert.set_serial_number(1337)
-        cert.set_version(2)
-        cert.set_not_before(now)
-        cert.set_not_after(expire)
-        cert.set_pubkey(pk)
-        cert.set_issuer(cert.get_subject())
-        cert.add_ext(X509.new_extension(
-            'subjectKeyIdentifier', str(cert.get_fingerprint())))
-        cert.sign(pk, 'sha256')
-
-        return pk.as_pem(cipher=None), cert.as_pem()
-
-    def _generate_ecpv_keypair_bp384(self):
-        return self._generate_ecpv_keypair(curve='brainpoolP384r1')
-
-    def _generate_rsa_keypair_4096(self):
-        priv, pub, _ = self._generate_rsa_keypair(bits=4096)
-        return priv, pub
-
-    def _generate(self, force=False, password=None, configfile=None):
-        if path.exists(configfile) and not force:
-            return
-
-        logger.warning("Generating credentials to %s", configfile)
-
-        ECPV_PRIVATE_KEY, ECPV_PUBLIC_KEY = self._generate_ecpv_keypair()
-        ECPV_PRIVATE_KEY_V2, ECPV_PUBLIC_KEY_V2 = self._generate_ecpv_keypair(
-            curve='brainpoolP224r1')
-
-        CONTROL_ECPV_RC4_PRIVATE_KEY, CONTROL_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair_bp384()
-        CLIENT_ECPV_RC4_PRIVATE_KEY, CLIENT_ECPV_RC4_PUBLIC_KEY = self._generate_ecpv_keypair_bp384()
-
-        RSA_PRIVATE_KEY_1, RSA_PUBLIC_KEY_1 = self._generate_rsa_keypair_4096()
-        RSA_PRIVATE_KEY_2, RSA_PUBLIC_KEY_2 = self._generate_rsa_keypair_4096()
-
-        CONTROL_RSA_PRIVATE_KEY, CONTROL_RSA_PUBLIC_KEY, KEY1 = self._generate_rsa_keypair()
-        CLIENT_RSA_PRIVATE_KEY, CLIENT_RSA_PUBLIC_KEY, KEY2 = self._generate_rsa_keypair()
-
-        CONTROL_RSA_PRIVATE_KEY_CLIENT, CONTROL_RSA_PUBLIC_KEY_CLIENT, KEY3 = self._generate_rsa_keypair()
-        CLIENT_RSA_PRIVATE_KEY_CLIENT, CLIENT_RSA_PUBLIC_KEY_CLIENT, KEY4 = self._generate_rsa_keypair()
-
-        SSL_CA_PRIVATE_KEY, SSL_CA_CERTIFICATE, CAKEY, CACERT = self._generate_ssl_ca()
-        CONTROL_SSL_BIND_KEY, CONTROL_SSL_BIND_CERTIFICATE = self._generate_ssl_keypair(KEY1, CAKEY, CACERT)
-        CLIENT_SSL_BIND_KEY, CLIENT_SSL_BIND_CERTIFICATE = self._generate_ssl_keypair(
-            KEY2, CAKEY, CACERT, role='CLIENT', serial=3)
-
-        CONTROL_SSL_CLIENT_KEY, CONTROL_SSL_CLIENT_CERTIFICATE = self._generate_ssl_keypair(
-            KEY3, CAKEY, CACERT, client=True, serial=4)
-        CLIENT_SSL_CLIENT_KEY, CLIENT_SSL_CLIENT_CERTIFICATE = self._generate_ssl_keypair(
-            KEY4, CAKEY, CACERT, role='CLIENT', client=True, serial=5)
-
-        CONTROL_APK_PRIV_KEY, CONTROL_APK_PUB_KEY = self._generate_apk_keypair()
-
-        credentials = {
-            'SCRAMBLESUIT_PASSWD': self._generate_scramblesuit_passwd(),
-            'BIND_PAYLOADS_PASSWORD': self._generate_bind_payloads_password(),
-            'CONTROL_RSA_PUB_KEY': CONTROL_RSA_PUBLIC_KEY,
-            'CLIENT_RSA_PUB_KEY': CLIENT_RSA_PUBLIC_KEY,
-            'CONTROL_RSA_PRIV_KEY': CONTROL_RSA_PRIVATE_KEY,
-            'CLIENT_RSA_PRIV_KEY': CLIENT_RSA_PRIVATE_KEY,
-            'CONTROL_SSL_BIND_CERT': CONTROL_SSL_BIND_CERTIFICATE,
-            'CLIENT_SSL_BIND_CERT': CLIENT_SSL_BIND_CERTIFICATE,
-            'CONTROL_SSL_BIND_KEY': CONTROL_SSL_BIND_KEY,
-            'CLIENT_SSL_BIND_KEY': CLIENT_SSL_BIND_KEY,
-            'CONTROL_SSL_CLIENT_CERT': CONTROL_SSL_CLIENT_CERTIFICATE,
-            'CLIENT_SSL_CLIENT_CERT': CLIENT_SSL_CLIENT_CERTIFICATE,
-            'CONTROL_SSL_CLIENT_KEY': CONTROL_SSL_CLIENT_KEY,
-            'CLIENT_SSL_CLIENT_KEY': CLIENT_SSL_CLIENT_KEY,
-            'SSL_CA_CERT': SSL_CA_CERTIFICATE,
-            'SSL_CA_KEY': SSL_CA_PRIVATE_KEY,
-            'CONTROL_DNSCNC_PRIV_KEY': ECPV_PRIVATE_KEY,
-            'CLIENT_DNSCNC_PUB_KEY': ECPV_PUBLIC_KEY,
-            'CONTROL_DNSCNC_PRIV_KEY_V2': ECPV_PRIVATE_KEY_V2,
-            'CLIENT_DNSCNC_PUB_KEY_V2': ECPV_PUBLIC_KEY_V2,
-            'CONTROL_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_1,
-            'CLIENT_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_1,
-            'CLIENT_SIMPLE_RSA_PRIV_KEY': RSA_PRIVATE_KEY_2,
-            'CONTROL_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_2,
-            'CONTROL_ECPV_RC4_PRIVATE_KEY': CONTROL_ECPV_RC4_PRIVATE_KEY,
-            'CONTROL_ECPV_RC4_PUBLIC_KEY': CONTROL_ECPV_RC4_PUBLIC_KEY,
-            'CLIENT_ECPV_RC4_PRIVATE_KEY': CLIENT_ECPV_RC4_PRIVATE_KEY,
-            'CLIENT_ECPV_RC4_PUBLIC_KEY': CLIENT_ECPV_RC4_PUBLIC_KEY,
-            'CONTROL_APK_PRIV_KEY': CONTROL_APK_PRIV_KEY,
-            'CONTROL_APK_PUB_KEY': CONTROL_APK_PUB_KEY
-        }
-
-        try:
-            makedirs(path.dirname(configfile))
-        except OSError as e:
-            if not e.errno == errno.EEXIST:
-                raise
-
-        with open(configfile, 'wb') as user_config:
-            chmod(configfile, 0600)
-            content = '\n'.join([
-                '{}={}\n'.format(k, repr(v)) for k,v in credentials.iteritems()
-            ]) + '\n'
-
-            if ENCRYPTOR:
-                encryptor = ENCRYPTOR(password=password)
-                encryptor.encrypt(StringIO(content), user_config)
-            else:
-                user_config.write(content)
 
 if __name__ == '__main__':
     credentials = Credentials()

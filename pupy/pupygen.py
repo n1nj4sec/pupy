@@ -792,7 +792,9 @@ if __name__ == '__main__':
         print hint_to_text(data)
 
     Credentials.DEFAULT_ROLE = 'CLIENT'
+
     config = PupyConfig()
+    Credentials(config=config, validate=True)
 
     parser = get_parser(argparse.ArgumentParser, config)
     try:

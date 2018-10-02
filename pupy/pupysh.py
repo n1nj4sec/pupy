@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     # Try to initialize credentials before CMD loop
     try:
-        credentials = PupyCredentials.Credentials()
+        credentials = PupyCredentials.Credentials(validate=True)
     except PupyCredentials.EncryptionError, e:
         logging.error(e)
         exit(1)
