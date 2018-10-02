@@ -1056,7 +1056,7 @@ def iter_hosts(hosts, default_passwords=None, default_port=None, default_user=No
     if type(hosts) in (str, unicode):
         hosts = [hosts]
 
-    default_passwords, key_passwords = default_passwords
+    ssh_passwords, key_passwords = default_passwords
 
     for host in hosts:
 
@@ -1067,7 +1067,7 @@ def iter_hosts(hosts, default_passwords=None, default_port=None, default_user=No
         host = uri.hostname
         port = uri.port or default_port
         user = uri.username or default_user
-        passwords = tuple([uri.password]) or default_passwords
+        passwords = tuple([uri.password]) if uri.password else ssh_passwords
 
         if uri.path and uri.path[0] == '/' and len(uri.path) > 1 and len(uri.path) < 4:
             try:
@@ -1119,6 +1119,7 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
                 if not ssh.connected:
                     data_cb((0, True, ssh.host, ssh.port, ssh.user))
                     continue
+
 
                 current_connection[0] = ssh
 
