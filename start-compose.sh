@@ -4,7 +4,7 @@ PUPY=`dirname "$0"`
 PUPY=`readlink -f ${PUPY}`/pupy
 WORKDIR=${1:-$HOME/pupy}
 GID=${GID:-`id -g`}
-TAG=${TAG:-"latest"}
+TAG=${TAG:-"unstable"}
 
 set -e
 
