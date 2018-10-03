@@ -264,7 +264,7 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
 
         lines = []
         for key,_ in keys:
-            value = c[key].strip()
+            value = c.get(key, '').strip()
             lines.append(value.ljust(colsize[key]+2 + ediff(value)))
 
         res.append(u''.join(lines))
