@@ -32,6 +32,8 @@ class SSHell(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(description=cls.__doc__)
+        cls.arg_parser.add_argument('-T', '--timeout',
+                                    type=int, default=30, help='Set communication timeout (default 30s)')
         cls.arg_parser.add_argument('-R', default='asciinema', dest='recorder',
                                          choices=['ttyrec', 'asciinema', 'asciinema1', 'none'],
                                          help="Change tty recorder")
@@ -106,7 +108,7 @@ class SSHell(PupyModule):
             attach, writer, resizer, closer = ssh_interactive(
                 term, w, h, wp, hp,
                 host, port, user, passwords, private_keys,
-                program, write, remote_close
+                program, write, remote_close, args.timeout
             )
 
         except Exception, e:

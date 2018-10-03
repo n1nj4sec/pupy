@@ -321,17 +321,18 @@ def ssh_hosts():
 class SSH(object):
     __slots__ = (
         'user', 'passwords', 'key_passwords', 'private_key',
-        'host', 'port',
+        'host', 'port', 'timeout',
         '_client', '_iter_private_keys',
         '_success_args', '_ssh_hosts',
         '_interactive'
     )
 
     def __init__(self, host, port=22, user=None, passwords=None, key_passwords=None, private_keys=None,
-                 private_key_path=None, interactive=False):
+                 private_key_path=None, interactive=False, timeout=None):
         self.host = host
         self.port = port
         self.user = user
+        self.timeout  = timeout
         self.passwords = passwords
         self.key_passwords = key_passwords
 
@@ -831,6 +832,7 @@ class SSH(object):
                         look_for_keys=False,
                         gss_auth=False,
                         compress=not self._interactive,
+                        timeout=self.timeout
                     )
 
                     self._client = client
@@ -854,6 +856,7 @@ class SSH(object):
                         look_for_keys=False,
                         password=None,
                         compress=not self._interactive,
+                        timeout=self.timeout
                     )
 
                     self._client = client
@@ -881,6 +884,7 @@ class SSH(object):
                         look_for_keys=False,
                         gss_auth=False,
                         compress=not self._interactive,
+                        timeout=self.timeout
                     )
 
                     self._client = client
@@ -908,6 +912,7 @@ class SSH(object):
                         look_for_keys=False,
                         gss_auth=False,
                         compress=not self._interactive,
+                        timeout=self.timeout
                     )
 
                     self._client = client
@@ -941,6 +946,7 @@ class SSH(object):
                     look_for_keys=False,
                     password=None,
                     compress=not self._interactive,
+                    timeout=self.timeout
                 )
 
                 self._client = client
@@ -1000,6 +1006,7 @@ class SSH(object):
                     look_for_keys=False,
                     gss_auth=False,
                     compress=not self._interactive,
+                    timeout=self.timeout
                 )
 
                 self._client = client
@@ -1022,7 +1029,8 @@ class SSH(object):
         if not self._client and client:
             client.close()
 
-def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords, private_keys, program, data_cb, close_cb):
+def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords,
+                    private_keys, program, data_cb, close_cb, timeout):
     private_keys = obtain(private_keys)
     passwords = obtain(passwords)
     data_cb = async(data_cb)
@@ -1031,7 +1039,7 @@ def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords, private_key
     ssh_passwords, key_passwords = passwords
 
     try:
-        ssh = SSH(host, port, user, ssh_passwords, key_passwords, private_keys, interactive=True)
+        ssh = SSH(host, port, user, ssh_passwords, key_passwords, private_keys, interactive=True, timeout=timeout)
         if not ssh.connected:
             raise ValueError('No valid credentials found to connect to {}:{} user={}'.format(
                 ssh.host, ssh.port, ssh.user or 'any'))
@@ -1091,7 +1099,7 @@ def iter_hosts(hosts, default_passwords=None, default_port=None, default_user=No
 # 2 - Connected
 # 3,4,5,6 - host, port, user, password
 
-def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_keys, data_cb, close_cb, timeout):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
 
@@ -1115,7 +1123,7 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
             ssh = None
 
             try:
-                ssh = SSH(host, port, user, passwords, key_passwords, private_keys)
+                ssh = SSH(host, port, user, passwords, key_passwords, private_keys, timeout=timeout)
                 if not ssh.connected:
                     data_cb((0, True, ssh.host, ssh.port, ssh.user))
                     continue
@@ -1208,7 +1216,7 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
 
     return closed.set
 
-def ssh_exec(command, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+def ssh_exec(command, hosts, port, user, passwords, private_keys, data_cb, close_cb, timeout):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
     passwords = obtain(passwords)
@@ -1218,11 +1226,11 @@ def ssh_exec(command, hosts, port, user, passwords, private_keys, data_cb, close
         'SSH (Exec) Non-Interactive Reader',
         command,
         hosts, port, user, passwords, private_keys,
-        data_cb, close_cb
+        data_cb, close_cb, timeout
     )
 
 def ssh_upload_file(src, dst, perm, touch, chown, run, delete, hosts,
-                    port, user, passwords, private_keys, data_cb, close_cb):
+                    port, user, passwords, private_keys, data_cb, close_cb, timeout):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
     passwords = obtain(passwords)
@@ -1233,10 +1241,10 @@ def ssh_upload_file(src, dst, perm, touch, chown, run, delete, hosts,
         'SSH (Upload) Non-Interactive Reader',
         [src, dst, perm, touch, chown, run, delete],
         hosts, port, user, passwords, private_keys,
-        data_cb, close_cb
+        data_cb, close_cb, timeout
     )
 
-def ssh_download_file(src, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+def ssh_download_file(src, hosts, port, user, passwords, private_keys, data_cb, close_cb, timeout):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
     passwords = obtain(passwords)
@@ -1247,10 +1255,10 @@ def ssh_download_file(src, hosts, port, user, passwords, private_keys, data_cb, 
         'SSH (Download/Single) Non-Interactive Reader',
         src,
         hosts, port, user, passwords, private_keys,
-        data_cb, close_cb
+        data_cb, close_cb, timeout
     )
 
-def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, close_cb):
+def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, close_cb, timeout):
     hosts = obtain(hosts)
     private_keys = obtain(private_keys)
     passwords = obtain(passwords)
@@ -1261,7 +1269,7 @@ def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, c
         'SSH (Download/Tar) Non-Interactive Reader',
         src,
         hosts, port, user, passwords, private_keys,
-        data_cb, close_cb
+        data_cb, close_cb, timeout
     )
 
 if __name__ == '__main__':

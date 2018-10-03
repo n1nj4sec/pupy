@@ -34,6 +34,8 @@ class SSH(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='ssh', description=cls.__doc__)
+        cls.arg_parser.add_argument('-T', '--timeout',
+                                    type=int, default=30, help='Set communication timeout (default=30s)')
         cls.arg_parser.add_argument('-u', '--user', help='Use user name')
         cls.arg_parser.add_argument('-p', '--port', type=int, help='Use port')
         cls.arg_parser.add_argument('-P', '--password', default=[], action='append',
@@ -195,7 +197,7 @@ class SSH(PupyModule):
             command,
             args.host, args.port, args.user, (
                 tuple(args.password), tuple(args.key_password)),
-            self.pkeys, on_data, self.waiter.set
+            self.pkeys, on_data, self.waiter.set, args.timeout
         )
 
         return True
@@ -252,7 +254,7 @@ class SSH(PupyModule):
             args.src_path,
             args.host, args.port, args.user, (
                 tuple(args.password), tuple(args.key_password)), self.pkeys,
-            on_data, self.waiter.set
+            on_data, self.waiter.set, args.timeout
         )
 
         return True
@@ -280,7 +282,7 @@ class SSH(PupyModule):
             args.relative_timestamp, args.chown, args.execute, args.unlink,
             args.host, args.port, args.user, (
                 tuple(args.password), tuple(args.key_password)), self.pkeys,
-            on_data, self.waiter.set
+            on_data, self.waiter.set, args.timeout
         )
 
         return True
