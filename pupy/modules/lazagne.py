@@ -199,7 +199,7 @@ class LaZagne(PupyModule):
         columns = set()
         for item in items:
             for column in item:
-                if not column in remove:
+                if column not in remove:
                     columns.add(column)
 
         return data, columns
