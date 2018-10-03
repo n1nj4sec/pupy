@@ -67,7 +67,7 @@ if __name__ == '__main__':
         logging_stream = logging.StreamHandler()
         logging_stream.setFormatter(logging.Formatter('%(asctime)-15s| %(message)s'))
 
-    logging_stream.setLevel(args.loglevel)
+    logging_stream.setLevel(logging.DEBUG)
 
     root_logger.handlers = []
 
