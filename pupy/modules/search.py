@@ -73,11 +73,16 @@ class SearchModule(PupyModule):
             )
 
             on_data, on_completed = downloader.create_download_callback(download_folder)
+
+            def on_completed_info():
+                self.success('Search completed, finish download engine')
+                on_completed()
+
             self.terminate = downloader.interrupt
             self.info('Search+Download started. Use ^C to interrupt')
-            s.run_cbs(on_data, on_completed, self.error)
+            s.run_cbs(on_data, on_completed_info, self.error)
             downloader.process()
-            self.info('complete')
+            self.success('Search+Download completed')
 
         else:
             terminate = Event()
@@ -89,11 +94,7 @@ class SearchModule(PupyModule):
                 if args.strings and not args.no_content:
                     if type(res) == tuple:
                         f, v = res
-                        if type(f) == unicode:
-                            f = f.encode('utf-8')
-                        if type(v) == unicode:
-                            v = v.encode('utf-8')
-                        self.success('{}: {}'.format(f, v))
+                        self.success(u'{}: {}'.format(f, v))
                     elif not args.content_only:
                         self.success(res)
                 else:
