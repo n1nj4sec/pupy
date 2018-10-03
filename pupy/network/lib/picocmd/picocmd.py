@@ -150,7 +150,11 @@ class SystemStatus(Command):
                 self.idle = True
             else:
                 try:
-                    self.idle = uidle.get_idle() > 60*10
+                    idle = uidle.get_idle()
+                    if idle is None:
+                        self.idle = True
+                    else:
+                        self.idle = idle > 60*10
                 except:
                     self.idle = True
         else:
