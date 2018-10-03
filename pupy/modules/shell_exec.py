@@ -7,6 +7,7 @@ from argparse import REMAINDER
 
 __class_name__="ShellExec"
 
+
 @config(cat="admin")
 class ShellExec(PupyModule):
     """ execute shell commands on a remote system """
@@ -24,7 +25,8 @@ class ShellExec(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='shell_exec', description=cls.__doc__)
         cls.arg_parser.add_argument('-X', '--no-shell', action='store_true', help='Do not execute command in shell')
         cls.arg_parser.add_argument('-S', '--set-uid', help='Set UID for user (posix only)')
-        cls.arg_parser.add_argument('-H', '--hide', action='store_true', help='Launch process on background (only for windows)')
+        cls.arg_parser.add_argument('-H', '--hide', action='store_true', help='Launch process on background '
+                                                                              '(only for windows)')
         cls.arg_parser.add_argument('-c', '--codepage', default=None, help='decode using codepage')
         cls.arg_parser.add_argument(
             'argument',
@@ -42,7 +44,7 @@ class ShellExec(PupyModule):
             try:
                 self.terminate, get_data = check_output(
                     cmdline, shell=not args.no_shell, encoding=args.codepage, suid=args.set_uid)
-            except Exception, e:
+            except Exception as e:
                 self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
                 return
 
@@ -66,7 +68,7 @@ class ShellExec(PupyModule):
                 p = start_hidden_process(args.argument)
                 self.success("Process created with pid %s" % p.pid)
 
-            except Exception, e:
+            except Exception as e:
                 self.error("Error creating the process: %s" % e)
         else:
             self.error('--hide option works only for Windows hosts')

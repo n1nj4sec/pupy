@@ -97,7 +97,7 @@ class MemStrings(PupyModule):
                         last_log = open(path, 'w+')
                         self.success('{} {} -> {}'.format(name, pid, path))
 
-                    except Exception, e:
+                    except Exception as e:
                         self.error('{} {}: {}'.format(name, pid, e))
 
                 for s in strings:

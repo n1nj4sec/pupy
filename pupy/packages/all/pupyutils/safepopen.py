@@ -11,6 +11,7 @@ import os
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
+
 def read_pipe(queue, pipe, bufsize):
     completed = False
     returncode = None
@@ -19,7 +20,7 @@ def read_pipe(queue, pipe, bufsize):
         try:
             returncode = pipe.poll()
             completed = returncode is not None
-        except:
+        except Exception:
             continue
 
         try:
@@ -36,6 +37,7 @@ def read_pipe(queue, pipe, bufsize):
 
     queue.put(returncode)
 
+
 def prepare(suid):
     import pwd
 
@@ -48,19 +50,19 @@ def prepare(suid):
             else:
                 userinfo = pwd.getpwuid(suid)
                 sgid = userinfo.pw_gid
-        except:
+        except Exception:
             pass
 
         try:
             path = os.ttyname(sys.stdin.fileno())
             os.chown(path, suid, sgid)
-        except:
+        except Exception:
             pass
 
         try:
             os.initgroups(userinfo.pw_name, sgid)
             os.chdir(userinfo.pw_dir)
-        except:
+        except Exception:
             pass
 
         try:
@@ -70,7 +72,7 @@ def prepare(suid):
             else:
                 os.setgid(suid)
                 os.setuid(suid)
-        except:
+        except Exception:
             pass
 
     os.setsid()
@@ -147,7 +149,7 @@ class SafePopen(object):
                 close_cb()
                 return
 
-        except Exception, e:
+        except Exception as e:
             if read_cb:
                 read_cb("[ UNKNOWN ERROR: {} ]\n".format(e))
 
@@ -216,11 +218,13 @@ class SafePopen(object):
         self._pipe.stdin.write(data)
         self._pipe.stdin.flush()
 
+
 def safe_exec(read_cb, close_cb, *args, **kwargs):
     sfp = SafePopen(*args, **kwargs)
     sfp.execute(close_cb, read_cb)
 
     return sfp.terminate, sfp.get_returncode
+
 
 def check_output(cmdline, shell=True, env=None, encoding=None, suid=None):
     args = {
