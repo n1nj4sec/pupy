@@ -78,6 +78,8 @@ import shlex
 import zlib
 import signal
 
+import time
+
 import cPickle
 import ssl
 
@@ -759,7 +761,6 @@ def main():
         sys.exit("No such launcher: %s" % LAUNCHER)
 
     if debug:
-        import time
         import tempfile
 
         root_logger = logging.getLogger()
