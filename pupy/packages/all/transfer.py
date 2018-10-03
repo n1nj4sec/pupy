@@ -683,7 +683,7 @@ def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False
     def _stop():
         t.stop(callback)
 
-    return _closure, t.stop, t.terminate
+    return _closure, _stop, t.terminate
 
 if __name__ == '__main__':
     import StringIO
