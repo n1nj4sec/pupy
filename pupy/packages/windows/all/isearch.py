@@ -30,7 +30,7 @@ def query(sql, limit):
                     column = column.decode(encoding)
                 elif type(column) == datetime.datetime:
                     column = int((
-                        column - datetime.datetime.fromtimestamp(0)
+                        column - datetime.datetime.utcfromtimestamp(0)
                     ).total_seconds())
                 line.append(column)
             data.append(tuple(line))
