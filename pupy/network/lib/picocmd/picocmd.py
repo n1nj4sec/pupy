@@ -509,12 +509,20 @@ class SetProxy(Command):
         scheme = SetProxy.well_known_proxy_schemes_decode[scheme]
         ip = netaddr.IPAddress(ip)
         data = data[sip:]
+
+        user = ''
+        password = ''
+
         user_len = ord(data[0])
-        user = data[1:1+user_len]
+        if user_len:
+            user = data[1:1+user_len]
+
         data = data[1+user_len:]
+
         pass_len = ord(data[0])
-        user = data[1:1+pass_len]
-        password = data[1+pass_len:]
+        if pass_len:
+            password = data[1:1+pass_len]
+
         return SetProxy(scheme, ip, port, user, password), sip+user_len+pass_len+2
 
     def __repr__(self):

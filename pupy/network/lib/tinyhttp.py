@@ -278,6 +278,8 @@ class HTTP(object):
                 proxyscheme.password or None
         elif proxy in (True, None):
             self.proxy = find_default_proxy()
+        elif hasattr(proxy, 'as_tuple'):
+            self.proxy = proxy.as_tuple()
         else:
             self.proxy = proxy
 

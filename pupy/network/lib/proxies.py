@@ -109,7 +109,11 @@ def get_python_proxies():
 def parse_env_proxies(var):
     global PROXY_MATCHER
 
-    schema, user, passwd, proxy = PROXY_MATCHER.match(var).groups()
+    match = PROXY_MATCHER.match(var)
+    if not match:
+        return
+
+    schema, user, passwd, proxy = match.groups()
     if not schema:
         yield ('HTTP', proxy, user, passwd)
         yield ('SOCKS5', proxy, user, passwd)
@@ -303,8 +307,13 @@ def get_proxies(additional_proxies=None):
 
             login, password = None, None
 
+            if hasattr(proxy_str, 'as_tuple'):
+                proxy = proxy_str.as_tuple()
+                if proxy not in dups:
+                    yield proxy
+                    dups.add(proxy)
             # HTTP:login:password@ip:port
-            if '://' in proxy_str:
+            elif '://' in proxy_str:
                 for proxy in parse_env_proxies(proxy_str):
                     if proxy not in dups:
                         yield proxy

