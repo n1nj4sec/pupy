@@ -112,10 +112,24 @@ def get_gui_idle(display=None):
     return int(idle / 1000) if idle else None
 
 def get_cli_idle():
-    idle = min(
-        time.time() - os.stat(
-            '/dev/{}'.format(x.terminal)
-            ).st_atime for x in psutil.users() if x.terminal)
+    now = time.time()
+
+    idles = []
+    for user in psutil.users():
+        if not user.terminal:
+            continue
+
+        try:
+            dev_stat = os.stat('/dev/' + user.terminal)
+        except OSError:
+            continue
+
+        idles.append(now - dev_stat.st_atime)
+
+    if not idles:
+        return None
+
+    idle = min(idles)
     psutil._pmap = {}
     return idle
 
@@ -129,5 +143,7 @@ def get_idle():
 
     if gui_idle is None:
         return cli_idle
+    elif cli_idle is None:
+        return gui_idle
     else:
         return min(cli_idle, gui_idle)
