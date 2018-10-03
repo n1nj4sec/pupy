@@ -12,6 +12,10 @@ if [ ! -d ${WORKDIR} ]; then
     mkdir -p ${WORKDIR}
 fi
 
+if [ ! -z "${UID}" ]; then
+    UID=`id -u`
+fi
+
 echo "[+] Workdir: ${WORKDIR} [UID=${UID} GID=${GID}]"
 
 cd ${PUPY}
