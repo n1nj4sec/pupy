@@ -11,6 +11,7 @@ from os import path, urandom, chmod, makedirs
 import string
 import errno
 import time
+import json
 
 from datetime import datetime
 
@@ -476,38 +477,44 @@ class Credentials(object):
         updated = bool(required_generators)
 
         if updated:
-            logger.warning('Saving credentials to %s', self._configfile)
-
-            try:
-                makedirs(path.dirname(self._configfile))
-            except OSError as e:
-                if not e.errno == errno.EEXIST:
-                    raise
-
-            backup = None
-            with open(self._configfile) as user_config:
-                backup = user_config.read()
-
-            try:
-                with open(self._configfile, 'wb') as user_config:
-                    chmod(self._configfile, 0600)
-                    content = '\n'.join([
-                        '{}={}\n'.format(k, repr(v)) for k,v in self._credentials.iteritems()
-                    ]) + '\n'
-
-                    if self._encrypted and ENCRYPTOR:
-                        encryptor = ENCRYPTOR(password=password)
-                        encryptor.encrypt(StringIO(content), user_config)
-                    else:
-                        user_config.write(content)
-
-            except Exception:
-                with open(self._configfile, 'wb') as user_config:
-                    user_config.write(backup)
-
-                raise
+            self.save(password)
 
         return updated
+
+    def save(self, password=None):
+        logger.warning('Saving credentials to %s', self._configfile)
+
+        try:
+            creds_dir = path.dirname(self._configfile)
+            if not path.isdir(creds_dir):
+                makedirs(creds_dir)
+        except OSError as e:
+            if not e.errno == errno.EEXIST:
+                raise
+
+        backup = None
+        with open(self._configfile) as user_config:
+            backup = user_config.read()
+
+        try:
+            with open(self._configfile, 'wb') as user_config:
+                chmod(self._configfile, 0600)
+                content = json.dumps(
+                    self._credentials,
+                    sort_keys=True, indent=2
+                )
+
+                if self._encrypted and ENCRYPTOR and password:
+                    encryptor = ENCRYPTOR(password=password)
+                    encryptor.encrypt(StringIO(content), user_config)
+                else:
+                    user_config.write(content)
+
+        except Exception:
+            with open(self._configfile, 'wb') as user_config:
+                user_config.write(backup)
+
+            raise
 
     def _load(self, password):
         if path.exists(self._configfile):
@@ -538,11 +545,15 @@ class Credentials(object):
                 else:
                     self._encrypted = False
 
-                # TODO: To fix this disgrace
-                exec content in self._credentials
-                for key in self._credentials.keys():
-                    if key.startswith('_'):
-                        del self._credentials[key]
+                if content.startswith('{'):
+                    self._credentials = json.loads(content)
+                else:
+                    exec content in self._credentials
+                    for key in self._credentials.keys():
+                        if key.startswith('_'):
+                            del self._credentials[key]
+
+                    self.save(password)
 
     def __getitem__(self, key):
         env = globals()
