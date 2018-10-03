@@ -5,6 +5,7 @@ PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcry
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv pynacl"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
+PACKAGES="$PACKAGES adodbapi"
 
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`
