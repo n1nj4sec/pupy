@@ -493,8 +493,10 @@ class Credentials(object):
                 raise
 
         backup = None
-        with open(self._configfile) as user_config:
-            backup = user_config.read()
+
+        if path.isfile(self._configfile):
+            with open(self._configfile) as user_config:
+                backup = user_config.read()
 
         try:
             with open(self._configfile, 'wb') as user_config:
@@ -511,8 +513,9 @@ class Credentials(object):
                     user_config.write(content)
 
         except Exception:
-            with open(self._configfile, 'wb') as user_config:
-                user_config.write(backup)
+            if backup:
+                with open(self._configfile, 'wb') as user_config:
+                    user_config.write(backup)
 
             raise
 
