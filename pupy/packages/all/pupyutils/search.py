@@ -11,7 +11,7 @@ import sys
 
 try:
     import mmap
-except:
+except ImportError:
     pass
 
 import threading
@@ -32,8 +32,7 @@ class Search(object):
         if self.case:
             i = re.IGNORECASE | re.UNICODE
         else:
-            i = 0
-
+            i = re.UNICODE
 
         if type(path) != unicode:
             path = path.decode(sys.getfilesystemencoding())
@@ -93,6 +92,7 @@ class Search(object):
     def scanwalk(self, path, followlinks=False):
 
         ''' lists of DirEntries instead of lists of strings '''
+
         try:
             for entry in scandir(path):
                 if self.terminate and self.terminate.is_set():
@@ -151,12 +151,13 @@ class Search(object):
                         if result.errno not in (errno.EPERM, errno.EACCES):
                             on_error(
                                 result.filename + ': ' + \
-                                ' '.join(x for x in result.args if type(x) in (str, unicode)))
+                                u' '.join(x for x in result.args if type(x) in (str, unicode)))
+                    elif isinstance(result, UnicodeDecodeError):
+                        on_error('Invalid encoding: {}'.format(repr(result.args[1])))
                     else:
                         try:
                             on_error('Scanwalk exception: {}:{}'.format(
-                                str(type(result)),
-                                str(result)))
+                                str(type(result)), str(result)))
                         except Exception, e:
                             try:
                                 on_error('Scanwalk exception (module): ({})'.format(e))
