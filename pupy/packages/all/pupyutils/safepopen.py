@@ -70,8 +70,14 @@ def prepare(suid):
                 os.setresgid(suid, suid, sgid)
                 os.setresuid(suid, suid, sgid)
             else:
+                euid = os.geteuid()
+                if euid != 0:
+                    os.seteuid(0)
+                    os.setegid(0)
+
                 os.setgid(suid)
                 os.setuid(suid)
+
         except Exception:
             pass
 
