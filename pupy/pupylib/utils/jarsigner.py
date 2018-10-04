@@ -8,6 +8,13 @@ from base64 import b64encode
 
 def jarsigner(pem_priv, pem_cert, apk_path, dest_fileobj):
     pk = EVP.PKey()
+
+    if type(pem_priv) == unicode:
+        pem_priv = pem_priv.encode('utf-8')
+
+    if type(pem_cert) == unicode:
+        pem_cert = pem_cert.encode('utf-8')
+
     pk.assign_rsa(RSA.load_key_string(pem_priv))
     cert = X509.load_cert_string(pem_cert)
 
