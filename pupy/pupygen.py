@@ -438,24 +438,22 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
     return generator(display, template, config, compressed, debug), filename, makex
 
 def load_scriptlets():
-    scl={}
+    scl = {}
     for loader, module_name, is_pkg in pkgutil.iter_modules(scriptlets.__path__):
-        if is_pkg:
-            module=loader.find_module(module_name).load_module(module_name)
-            for loader2, module_name2, is_pkg2 in pkgutil.iter_modules(module.__path__):
-                if module_name2=="generator":
-                    module2=loader2.find_module(module_name2).load_module(module_name2)
-                    if not hasattr(module2, 'ScriptletGenerator'):
-                        logger.error("scriptlet %s has no class ScriptletGenerator"%module_name2)
-                    else:
-                        scl[module_name]=module2.ScriptletGenerator
+        if not is_pkg:
+            continue
+
+        scriptlet = loader.find_module(module_name).load_module(module_name)
+        scl[module_name] = scriptlet
+
     return scl
 
 def parse_scriptlets(display, args_scriptlet, os=None, arch=None, debug=False):
     scriptlets_dic = load_scriptlets()
-    sp = scriptlets.scriptlets.ScriptletsPacker(os, arch, debug=debug)
+    sp = scriptlets.scriptlets.ScriptletsPacker(os, arch)
+
     for sc in args_scriptlet:
-        tab=sc.split(",",1)
+        tab = sc.split(",", 1)
         sc_args={}
         name=tab[0]
         if len(tab)==2:
@@ -474,14 +472,15 @@ def parse_scriptlets(display, args_scriptlet, os=None, arch=None, debug=False):
         display(Success('loading scriptlet {} with args {}'.format(repr(name), sc_args)))
 
         try:
-            sp.add_scriptlet(scriptlets_dic[name](**sc_args))
+            sp.add_scriptlet(scriptlets_dic[name], sc_args)
+
         except ScriptletArgumentError as e:
             display(MultiPart(
                 Error('Scriptlet {} argument error: {}'.format(repr(name), str(e))),
                 scriptlets_dic[name].format_help()))
             raise ValueError('{}'.format(e))
 
-    script_code=sp.pack()
+    script_code = sp.pack()
     return script_code
 
 class InvalidOptions(Exception):
