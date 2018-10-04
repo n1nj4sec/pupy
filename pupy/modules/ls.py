@@ -19,17 +19,26 @@ T_PATH      = 8
 T_FILES     = 9
 T_FILE      = 10
 T_TRUNCATED = 11
+T_ZIPFILE   = 12
+T_TARFILE   = 13
 
-def output_format(file, windows=False):
+# TODO: Rewrite using tables
+
+def output_format(file, windows=False, archive=None):
     if file[T_TYPE] == 'X':
         return '--- TRUNCATED ---'
+
+    name = to_utf8(file[T_NAME])
+
+    if archive:
+        name += u' \u25bb ' + archive
 
     if windows:
         out = u'  {}{}{}{}'.format(
             u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
             u'{:<3}'.format(file[T_TYPE]),
             u'{:<11}'.format(size_human_readable(file[T_SIZE])),
-            u'{:<40}'.format(to_utf8(file[T_NAME])))
+            u'{:<40}'.format(name))
     else:
         out = u'  {}{}{}{}{}{}{}'.format(
             u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
@@ -38,9 +47,11 @@ def output_format(file, windows=False):
             u'{:<5}'.format(file[T_GID]),
             u' {:06o} '.format(file[T_MODE]),
             u'{:<11}'.format(size_human_readable(file[T_SIZE])),
-            u'{:<40}'.format(to_utf8(file[T_NAME])))
+            u'{:<40}'.format(name))
 
-    if file[T_TYPE] == 'D':
+    if archive:
+        out=Color(out, 'yellow')
+    elif file[T_TYPE] == 'D':
         out=Color(out, 'lightyellow')
     elif 'U' in file[T_SPEC]:
         out=Color(out, 'lightred')
@@ -70,7 +81,7 @@ class ls(PupyModule):
     """ list system files """
     is_module=False
 
-    dependencies = ['pupyutils.basic_cmds', 'scandir']
+    dependencies = ['pupyutils.basic_cmds', 'scandir', 'zipfile', 'tarfile']
 
     @classmethod
     def init_argparse(cls):
@@ -81,6 +92,7 @@ class ls(PupyModule):
         sort.add_argument('-L', '--limit', type=int, default=1024,
                           help='List no more than this amount of files (server side), '
                               'to not to stuck on huge dirs. Default: 1024')
+        sort.add_argument('-A', '--archive', action='store_true', help='list archives (tar/zip)')
         sort.add_argument('-s', '--size', dest='sort', action='store_const', const=T_SIZE, help='sort by size')
         sort.add_argument('-t', '--time', dest='sort', action='store_const', const=T_TIMESTAMP, help='sort by time')
         cls.arg_parser.add_argument('-r', '--reverse', action='store_true', default=False, help='reverse sort order')
@@ -91,7 +103,7 @@ class ls(PupyModule):
         try:
             ls = self.client.remote('pupyutils.basic_cmds', 'ls')
 
-            results = ls(args.path, args.dir, args.limit)
+            results = ls(args.path, args.dir, args.limit, args.archive)
         except Exception, e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return
@@ -109,14 +121,24 @@ class ls(PupyModule):
 
         for r in results:
             if T_FILES in r:
-                self.log(r[T_PATH]+':')
+                archive = None
+                is_windows = windows
+
+                if T_ZIPFILE in r:
+                    self.log(Color('ZIP: '+r[T_ZIPFILE]+':', 'lightred'))
+                    is_windows = True
+                elif T_TARFILE in r:
+                    self.log(Color('TAR: '+r[T_TARFILE]+':', 'lightred'))
+                    is_windows = False
+                elif T_PATH in r:
+                    self.log(r[T_PATH]+':')
 
                 if not args.sort:
                     dirs = []
                     files = []
                     truncated = 0
 
-                    for x in r[T_FILES]:
+                    for x in r[T_FILES] or []:
                         if T_TRUNCATED in x:
                             truncated = x[T_TRUNCATED]
                             total_cnt += truncated
@@ -131,10 +153,10 @@ class ls(PupyModule):
                             files_cnt  += 1
 
                     for f in sorted(dirs, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, windows))
+                        self.log(output_format(f, is_windows))
 
                     for f in sorted(files, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, windows))
+                        self.log(output_format(f, is_windows))
 
                     if truncated:
                         self.warning('Folder is too big. Not listed: {} (-L {})'.format(
@@ -155,13 +177,21 @@ class ls(PupyModule):
                             truncated = True
                             continue
 
-                        self.log(output_format(f, windows))
+                        self.log(output_format(f, is_windows))
 
                     if truncated:
                         self.log('--- TRUNCATED ---')
 
             elif T_FILE in r:
-                self.log(output_format(r[T_FILE], windows))
+                is_windows = windows
+                archive = ''
+                if T_ZIPFILE in r:
+                    archive = 'ZIP'
+                    is_windows = True
+                elif T_TARFILE in r:
+                    archive = 'TAR'
+                    is_windows = False
+                self.log(output_format(r[T_FILE], is_windows, archive))
             else:
                 self.error('Old format. Update pupyutils.basic_cmds')
                 return

@@ -9,6 +9,10 @@ import datetime
 import re
 import codecs
 
+from zipfile import ZipFile, is_zipfile
+from tarfile import is_tarfile
+from tarfile import open as open_tarfile
+
 from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
@@ -29,6 +33,8 @@ T_PATH      = 8
 T_FILES     = 9
 T_FILE      = 10
 T_TRUNCATED = 11
+T_ZIPFILE   = 12
+T_TARFILE   = 13
 
 textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 
@@ -158,6 +164,77 @@ def list_file(path):
     _stat = safe_stat(path)
     return _stat_to_ls_struct(path, name, _stat)
 
+def list_tar(path, max_files=None):
+    result = []
+    for idx, item in enumerate(open_tarfile(path, 'r:*')):
+        if idx >= max_files:
+            result.append({
+                T_TRUNCATED: 0,
+                T_TYPE: 'X',
+            })
+
+            break
+
+        name = item.name
+
+        letter = ''
+        if item.islnk():
+            name = name + ' => ' + item.linkname
+            letter = 'L'
+        elif item.issym():
+            name = name + ' -> ' + item.linkname
+            letter = 'L'
+        elif item.isdir():
+            letter = 'D'
+        elif item.isfifo():
+            letter = 'F'
+        elif item.isblk():
+            letter = 'B'
+        elif item.ischr():
+            letter = 'C'
+
+        result.append({
+            T_NAME: name,
+            T_TYPE: letter,
+            T_MODE: item.mode,
+            T_SPEC: special_to_letter(item.mode),
+            T_UID: item.uid,
+            T_GID: item.gid,
+            T_SIZE: item.size,
+            T_TIMESTAMP: item.mtime
+        })
+
+    return result
+
+def list_zip(path, max_files=None):
+    result = []
+
+    zts = datetime.datetime.fromtimestamp(0)
+
+    for idx, item in enumerate(ZipFile(path).infolist()):
+        if idx >= max_files:
+            result.append({
+                T_TRUNCATED: 0,
+                T_TYPE: 'X',
+            })
+
+            break
+
+        result.append({
+            T_NAME: item.filename,
+            T_TYPE: '', # TODO - support flags
+            T_SPEC: '', # TODO - support flags
+            T_MODE: 0666,
+            T_UID: 0,
+            T_GID: 0,
+            T_SIZE: item.file_size,
+            T_TIMESTAMP: (
+                datetime.datetime(*item.date_time) - zts
+            ).total_seconds(),
+        })
+
+    return result
+
 def list_dir(path, max_files=None):
     path = try_unicode(path)
 
@@ -257,7 +334,7 @@ def complete(path, limit=32, dirs=None):
 
     return path, results
 
-def ls(path=None, listdir=True, limit=4096):
+def ls(path=None, listdir=True, limit=4096, list_arc=False):
     if path:
         path = try_unicode(path)
         path = os.path.expanduser(path)
@@ -287,11 +364,38 @@ def ls(path=None, listdir=True, limit=4096):
                 })
 
         elif os.path.isfile(path):
+            if is_zipfile(path):
+                if list_arc:
+                    results.append({
+                        T_ZIPFILE: path,
+                        T_FILES: list_zip(path, max_files=limit)
+                    })
+                else:
+                    results.append({
+                        T_ZIPFILE: path,
+                        T_FILE: list_file(path)
+                    })
+            elif is_tarfile(path):
+                if list_arc:
+                    results.append({
+                        T_TARFILE: path,
+                        T_FILES: list_tar(path, max_files=limit)
+                    })
+                else:
+                    results.append({
+                        T_TARFILE: path,
+                        T_FILE: list_file(path)
+                    })
+            else:
+                results.append({
+                    T_PATH: path,
+                    T_FILE: list_file(path)
+                })
+        else:
             results.append({
                 T_PATH: path,
                 T_FILE: list_file(path)
             })
-
 
     if not found:
         raise ValueError('The file/path does not exist')
