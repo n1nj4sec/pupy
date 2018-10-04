@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Color
+from pupylib.PupyOutput import Color, Table
 
 __class_name__="Users"
 
@@ -26,6 +26,8 @@ class Users(PupyModule):
         users = self.client.remote('pupyutils.users', 'users')
         users_list = users()
 
+        objects = []
+
         for user in users_list['users']:
             if user['admin']:
                 color = 'lightred'
@@ -34,19 +36,16 @@ class Users(PupyModule):
             else:
                 color = 'white'
 
-            if type(user['name']) == unicode:
-                name = user['name']
-            else:
-                name = user['name'].decode('utf-8')
+            objects.append({
+                'C': u'➤' if users_list['current'] == user['name'] else '',
+                'NAME': Color(user['name'], color),
+                'GROUPS': Color(','.join(user['groups']), color),
+                'HOME': Color(user['home'], color)
+            })
 
-            output = name
 
-            if args.groups:
-                output += u': ' + u','.join(user['groups'])
+        headers = ['C', 'NAME', 'HOME']
+        if args.groups:
+            headers.insert(2, 'GROUPS')
 
-            if users_list['current'] == user['name']:
-                output = u'➤ ' + output
-            else:
-                output = u'  ' + output
-
-            self.log(Color(output, color))
+        self.log(Table(objects, headers))

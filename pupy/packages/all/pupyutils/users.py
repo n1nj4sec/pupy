@@ -1,13 +1,23 @@
 import os
 import getpass
+import sys
 
 if os.name == 'nt':
     import win32net
     import win32api
 
+    def to_unicode(x):
+        tx = type(x)
+        if tx == str:
+            return x.decode(sys.getfilesystemencoding())
+        elif tx == unicode:
+            return x
+        else:
+            return str(x)
+
     def users():
         result = []
-        users, _, _ = win32net.NetUserEnum(None, 1)
+        users, _, _ = win32net.NetUserEnum(None, 3)
         current = win32api.GetUserName()
 
         UF_ACCOUNT_DISABLE = 2
@@ -18,9 +28,14 @@ if os.name == 'nt':
                 continue
 
             result.append({
-                'name': user['name'],
-                'groups': win32net.NetUserGetLocalGroups(None, user['name']),
-                'admin': user['priv'] == 2
+                'name': to_unicode(user['name']),
+                'groups': [
+                    to_unicode(x) for x in win32net.NetUserGetLocalGroups(None, user['name'])
+                ],
+                'admin': user['priv'] == 2,
+                'home': (
+                    to_unicode(user['logon_server']) + u'\\' + to_unicode(user['home_dir'])
+                ) if user['home_dir'] else u'default'
             })
 
         return {
@@ -47,7 +62,12 @@ else:
         result = []
 
         for user in pwd.getpwall():
-            if shells and user.pw_shell not in shells:
+            if not user.pw_shell:
+                continue
+            elif shells:
+                if user.pw_shell not in shells:
+                    continue
+            elif user.pw_shell.split('/')[-1] in ('nologin','false'):
                 continue
 
             result.append({
@@ -55,7 +75,8 @@ else:
                 'groups': [
                     x.gr_name for x in groups if user.pw_name in x.gr_mem
                 ],
-                'admin': user.pw_uid == 0
+                'admin': user.pw_uid == 0,
+                'home': user.pw_dir
             })
 
         return {
