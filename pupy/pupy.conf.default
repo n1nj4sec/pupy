@@ -134,6 +134,7 @@ any1 = !notify-send "New session: {hostname} / {os_name}"
 image_viewer = eog
 sound_player = totem
 browser = firefox
+xdg_open = xdg-open
 
 [mimikatz]
 #these are kali 2.0 default path

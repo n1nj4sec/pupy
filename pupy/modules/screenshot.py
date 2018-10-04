@@ -91,12 +91,16 @@ class Screenshoter(PupyModule):
                         self.success(filepath)
 
                     if args.view:
-                        viewer = config.get('default_viewers', 'image_viewer')
+                        viewer = config.get('default_viewers', 'image_viewer') or 'xdg-open'
 
                         found = False
                         for p in os.environ.get('PATH', '').split(':'):
                             if os.path.exists(os.path.join(p, viewer)):
-                                subprocess.Popen([viewer, filepath])
+                                with open(os.devnull, 'w') as DEVNULL:
+                                    subprocess.Popen(
+                                        [viewer, filepath],
+                                        stdout=DEVNULL, stderr=DEVNULL)
+
                                 found = True
                                 break
 

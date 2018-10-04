@@ -5,6 +5,9 @@ from pupylib.PupyCompleter import remote_path_completer, path_completer
 
 from modules.lib.utils.download import DownloadFronted
 
+from os import path, devnull
+from subprocess import Popen
+
 __class_name__="DownloaderScript"
 
 def size_human_readable(num, suffix='B'):
@@ -32,6 +35,8 @@ class DownloaderScript(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='download', description=cls.__doc__)
         cls.arg_parser.add_argument('-v', '--verbose', action='store_true', default=False,
                                          help='Be verbose during download')
+        cls.arg_parser.add_argument('-O', '--open', action='store_true', default=False,
+                                         help='Open file with xdg-open')
         cls.arg_parser.add_argument('-a', '--archive', action='store_true', default=False,
                                          help='Store to archive (use this only for dirs)')
         cls.arg_parser.add_argument('-i', '--include', help='Regex to include files')
@@ -67,6 +72,14 @@ class DownloaderScript(PupyModule):
             if args.verbose:
                 self.info('Destination folder: {}'.format(self._downloader.dest_file))
 
+            if args.open and path.exists(self._downloader.dest_file):
+                viewer = self.config.get('default_viewers', 'xdg_open') or 'xdg-open'
+                if args.verbose:
+                    self.info('Open file {} with {}'.format(self._downloader.dest_file, viewer))
+                with open(devnull, 'w') as DEVNULL:
+                    Popen(
+                        [viewer, self._downloader.dest_file],
+                        stdout=DEVNULL, stderr=DEVNULL)
 
     def interrupt(self):
         if self._downloader:
