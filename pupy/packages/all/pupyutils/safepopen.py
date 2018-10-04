@@ -225,7 +225,11 @@ class SafePopen(object):
         self._pipe.stdin.flush()
 
 
-def safe_exec(read_cb, close_cb, *args, **kwargs):
+def safe_exec(read_cb, close_cb, args, kwargs):
+    kwargs = dict(kwargs)
+    if type(args) in (str, unicode):
+        args = [args]
+
     sfp = SafePopen(*args, **kwargs)
     sfp.execute(close_cb, read_cb)
 

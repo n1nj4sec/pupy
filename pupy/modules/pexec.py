@@ -92,10 +92,14 @@ class PExec(PupyModule):
         def on_read(data):
             self.stdout.write(data)
 
+        if type(cmdargs) == list:
+            cmdargs = tuple(cmdargs)
+
+        kwargs = tuple((k,v) for k,v in cmdenv.iteritems())
+
         self.terminate_pipe, get_returncode = safe_exec(
             None if args.N else on_read,
-            close_event.set,
-            cmdargs, **cmdenv)
+            close_event.set, cmdargs, kwargs)
 
         if hasattr(self.job, 'id'):
             self.success('Started at {}): '.format(
