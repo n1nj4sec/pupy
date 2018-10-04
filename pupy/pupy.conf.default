@@ -95,6 +95,7 @@ packer =
 [cmdline]
 display_banner = yes
 colors = yes
+shadow_screen = yes
 
 [paths]
 prefer_workdir = no

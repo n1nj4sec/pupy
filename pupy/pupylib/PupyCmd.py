@@ -96,6 +96,7 @@ class RawTerminal(IOGroup):
         '_specials',
         '_special_state',
         '_special_activated',
+        '_shadow_screen',
         '_last_window_size',
         '_on_winch',
         '_closed',
@@ -105,7 +106,7 @@ class RawTerminal(IOGroup):
         '_stdout_fd'
     )
 
-    def __init__(self, stdin, stdout):
+    def __init__(self, stdin, stdout, shadow_screen=True):
         self._stdin = stdin
         self._stdout = stdout
         self._specials = {}
@@ -113,6 +114,7 @@ class RawTerminal(IOGroup):
         self._active = False
         self._tc_settings = None
         self._winch_handler = None
+        self._shadow_screen = shadow_screen
 
         self._stdin_fd = None
         self._special_state = ''
@@ -237,7 +239,9 @@ class RawTerminal(IOGroup):
         if self._on_winch:
             self._winch_handler = set_signal_winch(self._on_sigwinch)
 
-        self._stdout.write(SHADOW_SCREEN_TO)
+        if self._shadow_screen:
+            self._stdout.write(SHADOW_SCREEN_TO)
+
         self._active = True
 
     def __exit__(self, type, value, tb):
@@ -248,7 +252,8 @@ class RawTerminal(IOGroup):
         if self._on_winch:
             set_signal_winch(self._winch_handler)
 
-        self._stdout.write(SHADOW_SCREEN_FROM)
+        if self._shadow_screen:
+            self._stdout.write(SHADOW_SCREEN_FROM)
 
     def set_on_winch(self, on_winch):
         self._on_winch = on_winch
@@ -476,7 +481,8 @@ class PupyCmd(cmd.Cmd):
                 return [
                     RawTerminal(
                         self.stdin,
-                        os.fdopen(stdout2, 'w', 0)
+                        os.fdopen(stdout2, 'w', 0),
+                        self.config.getboolean('cmdline', 'shadow_screen')
                 )]
             else:
                 return [IOGroup(self.stdin, self.stdout)]
