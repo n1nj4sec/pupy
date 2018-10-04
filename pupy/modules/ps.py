@@ -181,9 +181,10 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
 
             else:
                 for section, table in infosecs.iteritems():
-                    labels = sorted(table[0], cmp=sorter)
-                    parts.append(TruncateToTerm(Table(
-                        table, labels, Color(section.upper(), 'yellow'))))
+                    if table:
+                        labels = sorted(table[0], cmp=sorter)
+                        parts.append(TruncateToTerm(Table(
+                            table, labels, Color(section.upper(), 'yellow'))))
 
             fout(MultiPart(parts))
 
