@@ -1023,7 +1023,7 @@ def install(debug=None, trace=False):
         assert pywintypes
 
     import logging
-    logger = logging.getLogger('ppi')
+    logger = logging.getLogger().getChild('ppi')
     __dprint_method = logger.debug
 
     dprint('pupyimporter initialized')
