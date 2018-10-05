@@ -175,7 +175,7 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
             (10, 5, 10), (50, 30, 50), (-1, 150, 300)]))),
         'pupy.cid = CONFIGURATION_CID',
         'debug={}'.format(bool(conf.get('debug', False))),
-        'SCRIPTLETS={}'.format(repr(offline_script) if offline_script else '')
+        'SCRIPTLETS={}'.format(repr(offline_script) if offline_script else '""')
     ])
 
     return compress_encode_obfs(config) if obfuscate else config
