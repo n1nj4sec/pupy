@@ -422,11 +422,20 @@ class PupyCmd(cmd.Cmd):
         self.init_completer()
 
     def cmdloop(self, intro=None):
-        try:
-            cmd.Cmd.cmdloop(self, intro)
-        except:
-            self.stdout.write('\n')
-            self.cmdloop(intro="")
+        closed = False
+        while not closed:
+            try:
+                cmd.Cmd.cmdloop(self, intro)
+                closed = True
+            except KeyboardInterrupt:
+                self.stdout.write('\n')
+
+            except:
+                msg = hint_to_text(Error(traceback.format_exc()))
+                self.redraw_line(msg)
+
+            intro = ''
+
 
     def init_completer(self):
         readline.set_pre_input_hook(self.pre_input_hook)
@@ -529,12 +538,7 @@ class PupyCmd(cmd.Cmd):
                 text += '\n'
             return self.stdout.write(text)
 
-    def display_srvinfo(self, msg):
-        if isinstance(msg, Text):
-            msg = hint_to_text(msg)
-        else:
-            msg = colorize('[*] ', 'blue') + msg
-
+    def redraw_line(self, msg=''):
         buf = readline.get_line_buffer()
 
         self.stdout.write(''.join([
@@ -549,6 +553,14 @@ class PupyCmd(cmd.Cmd):
             readline.redisplay()
         except Exception:
             pass
+
+    def display_srvinfo(self, msg):
+        if isinstance(msg, Text):
+            msg = hint_to_text(msg)
+        else:
+            msg = colorize('[*] ', 'blue') + msg
+
+        self.redraw_line(msg)
 
     def display_success(self, msg):
         return self.display(Success(msg))
