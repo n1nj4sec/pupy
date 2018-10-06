@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table
+from pupylib.PupyOutput import Table, TruncateToTerm
 from argparse import REMAINDER
 
 from datetime import datetime
@@ -100,4 +100,4 @@ class IndexSearchModule(PupyModule):
                         'Modified': datetime.fromtimestamp(record[2])
                     })
 
-            self.log(Table(objects, header, legend=legend))
+            self.log(TruncateToTerm(Table(objects, header, legend=legend)))
