@@ -549,7 +549,10 @@ class Credentials(object):
                     self._encrypted = False
 
                 if content.startswith('{'):
-                    self._credentials = json.loads(content)
+                    self._credentials = {
+                        k:v.encode('utf-8') if type(v) == unicode else \
+                        v for k,v in json.loads(content).iteritems()
+                    }
                 else:
                     exec content in self._credentials
                     for key in self._credentials.keys():
