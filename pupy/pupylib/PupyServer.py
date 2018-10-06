@@ -956,9 +956,9 @@ class PupyServer(object):
 
         self.handler.add_motd(self.motd)
 
-    def add_listener(self, name, config=None, motd=False):
+    def add_listener(self, name, config=None, motd=False, ignore_pproxy=False):
         if self.listeners and name in self.listeners:
-            self.handler.display_warning('Listener {} already registered'.format(name))
+            self.handler.display_warning('Listener {} alrady registered'.format(name))
             return
 
         if name not in transports:
@@ -991,7 +991,7 @@ class PupyServer(object):
                 igd=self.igd,
                 local=self.config.get('pupyd', 'address'),
                 external=self.config.get('pupyd', 'external'),
-                pproxy=self.pproxy_listener
+                pproxy=None if ignore_pproxy else self.pproxy_listener
             )
 
         except (ListenerException, ValueError), e:

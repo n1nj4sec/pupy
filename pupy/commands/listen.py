@@ -14,6 +14,9 @@ group.add_argument(
     '-a', '--add', nargs='+',
     metavar=('TRANSPORT', 'TRANSPORT_ARG1'), help='start listener')
 group.add_argument(
+    '-A', '--add-no-pproxy', nargs='+',
+    metavar=('TRANSPORT', 'TRANSPORT_ARG1'), help='start listener (ignore pproxy)')
+group.add_argument(
     '-r', '--remove', metavar='TRANSPORT',
     type=str, help='stop listener')
 
@@ -21,7 +24,10 @@ def do(server, handler, config, args):
     if args.add:
         name, args = args.add[0], args.add[1:]
         server.add_listener(name, ' '.join(args), motd=False)
-
+    elif args.add_no_pproxy:
+        name, args = args.add_no_pproxy[0], args.add_no_pproxy[1:]
+        server.add_listener(
+            name, ' '.join(args), motd=False, ignore_pproxy=True)
     elif args.remove:
         server.remove_listener(args.remove)
 
