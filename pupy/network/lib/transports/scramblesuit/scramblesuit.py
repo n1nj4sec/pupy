@@ -220,11 +220,11 @@ class ScrambleSuitTransport(base.BaseTransport):
         if self.uniformDHSecret is None:
                 #log.warning("A UniformDH password is not set, most likely " \
                 #            "a missing 'password' argument.")
-            self.circuit.close()
-            return
+
+            raise EOFError('A UniformDH password is not set')
             #log.debug("No session ticket to redeem.  Running UniformDH.")
 
-        self.circuit.downstream.write(self.uniformdh.createHandshake())
+        self.downstream.write(self.uniformdh.createHandshake())
 
     def sendRemote(self, data, flags=const.FLAG_PAYLOAD):
         """
@@ -258,7 +258,7 @@ class ScrambleSuitTransport(base.BaseTransport):
             padBlurb = self.pktMorpher.getPadding(self.sendCrypter,
                                                   self.sendHMAC,
                                                   len(blurb))
-            self.circuit.downstream.write(blurb + padBlurb)
+            self.downstream.write(blurb + padBlurb)
 
     def flushPieces(self):
         """
@@ -274,7 +274,7 @@ class ScrambleSuitTransport(base.BaseTransport):
         # Drain and send an MTU-sized chunk from the chopping buffer.
         if len(self.choppingBuf) > const.MTU:
 
-            self.circuit.downstream.write(self.choppingBuf.read(const.MTU))
+            self.downstream.write(self.choppingBuf.read(const.MTU))
 
         # Drain and send whatever is left in the output buffer.
         else:
@@ -282,7 +282,7 @@ class ScrambleSuitTransport(base.BaseTransport):
             padBlurb = self.pktMorpher.getPadding(self.sendCrypter,
                                                   self.sendHMAC,
                                                   len(blurb))
-            self.circuit.downstream.write(blurb + padBlurb)
+            self.downstream.write(blurb + padBlurb)
             return
 
         time.sleep(self.iatMorpher.randomSample())
@@ -309,7 +309,7 @@ class ScrambleSuitTransport(base.BaseTransport):
         for msg in msgs:
             # Forward data to the application.
             if msg.flags == const.FLAG_PAYLOAD:
-                self.circuit.upstream.write(msg.payload)
+                self.upstream.write(msg.payload)
 
             # Store newly received ticket.
             elif self.weAreClient and (msg.flags == const.FLAG_NEW_TICKET):
@@ -478,8 +478,8 @@ class ScrambleSuitTransport(base.BaseTransport):
                 #log.info("Terminating connection after having received >= %d"
                 #         " bytes because client could not "
                 #         "authenticate." % self.srvState.closingThreshold)
-                self.circuit.close()
-                return
+
+                raise EOFError('Authentication still was not completed')
 
         elif self.weAreServer and (self.protoState == const.ST_WAIT_FOR_AUTH):
 
@@ -499,7 +499,7 @@ class ScrambleSuitTransport(base.BaseTransport):
                 #log.debug("Sending %d bytes of UniformDH handshake and "
                 #          "session ticket." % len(handshakeMsg))
 
-                self.circuit.downstream.write(handshakeMsg)
+                self.downstream.write(handshakeMsg)
                 #log.debug("UniformDH authentication succeeded.")
 
                 #log.debug("Switching to state ST_CONNECTED.")

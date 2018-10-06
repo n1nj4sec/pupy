@@ -8,30 +8,10 @@ class ReleaseChainedTransport(Exception):
 class TransportSetupFailed(Exception):
     __slots__ = ()
 
-class Circuit(object):
-    """ alias for obfsproxy style syntax"""
-
-    __slots__ = ('downstream', 'upstream', 'stream', 'transport')
-
-    def __init__(self, stream, transport, downstream=None, upstream=None):
-        if stream is None:
-            self.downstream = downstream
-            self.upstream = upstream
-            self.stream = None
-        else:
-            self.downstream = stream.downstream
-            self.upstream = stream.upstream
-            self.stream = stream
-        self.transport = transport
-
-    def close(self):
-        self.transport.on_close()
-        self.stream.close()
-
 class BasePupyTransport(object):
     __slots__ = (
         'downstream', 'upstream', 'stream',
-        'cookie', 'closed', 'circuit'
+        'cookie', 'closed'
     )
 
     def __init__(self, stream, **kwargs):
@@ -47,12 +27,6 @@ class BasePupyTransport(object):
             self.upstream = stream.upstream
             self.stream = stream
 
-        self.circuit = Circuit(
-            self.stream,
-            self,
-            downstream = self.downstream,
-            upstream = self.upstream)
-
         self.cookie = None
         self.closed = False
 
@@ -60,7 +34,7 @@ class BasePupyTransport(object):
     def customize(cls, **kwargs):
         """ return a class with some existing attributes customized """
         for name, value in kwargs.iteritems():
-            if name in ["cookie", "circuit", "upstream", "downstream", "stream"]:
+            if name in ["cookie", "upstream", "downstream", "stream"]:
                 raise TransportError("you cannot customize the protected attribute %s"%name)
             if not hasattr(cls, name):
                 raise TransportError("Transport has no attribute %s"%name)

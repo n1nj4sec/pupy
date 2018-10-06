@@ -15,6 +15,7 @@ from ...base import BaseTransport
 from ..obfscommon import hmac_sha256
 from ..obfscommon import rand
 
+from network.lib.buffer import Buffer
 from network.lib import getLogger
 logger = getLogger('obfs3')
 
@@ -27,7 +28,7 @@ HASHLEN = 32 # length of output of sha256
 ST_WAIT_FOR_KEY = 0 # Waiting for public key from the other party
 ST_WAIT_FOR_HANDSHAKE = 1 # Waiting for the DH handshake
 ST_SEARCHING_MAGIC = 2 # Waiting for magic strings from the other party
-ST_OPEN = 3 # obfs3 handshake is complete. Sending application data.
+ST_OPEN = 3 # Sending application data.
 
 class Obfs3Transport(BaseTransport):
     """
@@ -70,7 +71,7 @@ class Obfs3Transport(BaseTransport):
 
         # Buffer for the first data, Tor is trying to send but can't right now
         # because we have to handle the DH handshake first.
-        self.queued_data = ''
+        self.queued_data = Buffer()
 
         # Attributes below are filled by classes that inherit Obfs3Transport.
         self.send_keytype = None
@@ -96,26 +97,33 @@ class Obfs3Transport(BaseTransport):
                 "initiator" if self.we_are_initiator else "responder",
                 len(handshake_message), padding_length, repr(public_key))
 
-        self.circuit.downstream.write(handshake_message)
+        self.downstream.write(handshake_message)
 
     def receivedUpstream(self, data):
         """
         Got data from upstream. We need to obfuscated and proxy them downstream.
         """
-        if not self.send_crypto:
-            if __debug__:
-                logger.debug("Got upstream data before doing handshake. Caching.")
 
-            self.queued_data += data.read()
+        if self.state != ST_OPEN:
+            if __debug__:
+                logger.debug(
+                    "Got upstream data before doing handshake [STATE=%d]. Caching.",
+                    self.state)
+
+            data.write_to(self.queued_data)
             return
 
-        message = self.send_crypto.crypt(data.read())
-
         if __debug__:
-            logger.debug("obfs3 receivedUpstream: Transmitting %d bytes.", len(message))
+            logger.debug("obfs3 receivedUpstream: Transmitting %d bytes.", len(data))
+
+        if self.queued_data:
+            if __debug__:
+                logger.debug("Flush %d bytes of queued data (???) ", len(self.queued_data))
+
+            self.queued_data.write_to(self.downstream, modificator=self.send_crypto.crypt)
 
         # Proxy encrypted message.
-        self.circuit.downstream.write(message)
+        data.write_to(self.downstream, modificator=self.send_crypto.crypt)
 
     def receivedDownstream(self, data):
         """
@@ -139,17 +147,21 @@ class Obfs3Transport(BaseTransport):
             if __debug__:
                 logger.debug("Search magic")
 
-            self._scan_for_magic(data)
+            if self._scan_for_magic(data) and self.queued_data:
+                if __debug__:
+                    logger.debug('Flush queued data: %d', len(self.queued_data))
+
+                self.queued_data.write_to(self.downstream, modificator=self.send_crypto.crypt)
 
         if self.state == ST_OPEN: # Handshake is done. Just decrypt and read application data.
             if __debug__:
                 logger.debug("obfs3 receivedDownstream: Processing %d bytes of application data." %
-                        (len(data)))
+                             (len(data)))
 
-            if len(data) == 0:
+            if not data:
                 return
 
-            self.circuit.upstream.write(self.recv_crypto.crypt(data.read()))
+            data.write_to(self.upstream, modificator=self.recv_crypto.crypt)
 
     def _read_handshake(self, data):
         """
@@ -187,10 +199,11 @@ class Obfs3Transport(BaseTransport):
         call it from a defered so that it does not block the main event loop.
         """
 
-        self.circuit.close()
         #e = failure.trap(ValueError)
         if __debug__:
             logger.warning("obfs3: Corrupted public key '%s'" % repr(other_pubkey))
+
+        raise EOFError('Corrupted public key ({})'.format(failure))
 
     def _read_handshake_post_dh(self, shared_secret, data):
         """
@@ -206,10 +219,10 @@ class Obfs3Transport(BaseTransport):
         # Set up our crypto.
         self.send_crypto = self._derive_crypto(self.send_keytype)
         self.recv_crypto = self._derive_crypto(self.recv_keytype)
-        self.other_magic_value = hmac_sha256.hmac_sha256_digest(self.shared_secret,
-                                                                self.recv_magic_const)
+        self.other_magic_value = hmac_sha256.hmac_sha256_digest(
+            self.shared_secret, self.recv_magic_const)
 
-        # Send our magic value to the remote end and append the queued outgoing data.
+        # Send our magic value to the remote end
         # Padding is prepended so that the server does not just send the 32-byte magic
         # in a single TCP segment.
         padding_length = random.randint(0, MAX_PADDING/2)
@@ -217,18 +230,10 @@ class Obfs3Transport(BaseTransport):
             logger.debug('Padding length: %d', padding_length)
 
         magic = hmac_sha256.hmac_sha256_digest(self.shared_secret, self.send_magic_const)
-        message = rand.random_bytes(padding_length) + magic + self.send_crypto.crypt(self.queued_data)
-        self.queued_data = ''
+        message = rand.random_bytes(padding_length) + magic
 
         self.state = ST_SEARCHING_MAGIC
-
-        if __debug__:
-            logger.debug('Scan for magic data / remain data: %d', len(data))
-
-        if len(data) > 0:
-            self._scan_for_magic(data)
-
-        self.circuit.downstream.write(message)
+        self.downstream.write(message)
 
     def _scan_for_magic(self, data):
         """
@@ -237,7 +242,7 @@ class Obfs3Transport(BaseTransport):
         """
 
         assert(self.other_magic_value)
-        chunk = data.peek()
+        chunk = data.peek(MAX_PADDING+HASHLEN)
 
         index = chunk.find(self.other_magic_value)
         if index < 0:
@@ -245,8 +250,9 @@ class Obfs3Transport(BaseTransport):
                 logger.debug('Magic not found / chunk len: %d', len(chunk))
 
             if (len(data) > MAX_PADDING+HASHLEN):
-                raise Exception("obfs3: Too much padding (%d)!" % len(data))
-            return
+                raise EOFError("obfs3: Too much padding (%d)!" % len(data))
+
+            return False
 
         if __debug__:
             logger.debug('Magic (len=%d) found at: %d',
@@ -256,11 +262,7 @@ class Obfs3Transport(BaseTransport):
         data.drain(index)
 
         self.state = ST_OPEN
-        if len(data) > 0:
-            if __debug__:
-                logger.debug('Connection ready, write rest of data: %d', len(data))
-
-            self.circuit.upstream.write(self.recv_crypto.crypt(data.read()))
+        return True
 
     def _derive_crypto(self, pad_string):
         """
