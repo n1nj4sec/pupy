@@ -13,6 +13,7 @@ import subprocess
 import StringIO
 import imp
 import hashlib
+import hmac
 import base64
 import logging
 import re
