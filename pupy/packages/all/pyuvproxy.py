@@ -747,7 +747,10 @@ class Manager(Thread):
 
     def defer(self, method, *args):
         self.queue.put((method, args))
-        self.wake.send()
+        try:
+            self.wake.send()
+        except pyuv.error.HandleClosedError:
+            pass
 
     def _stop(self, dead):
         for neighbor_id in self.neighbors.keys():
