@@ -6,15 +6,25 @@
 import logging
 import importlib
 
-from .lib.launchers.connect import ConnectLauncher
-from .lib.launchers.auto_proxy import AutoProxyLauncher
-from .lib.launchers.bind import BindLauncher
+launchers = {}
 
-launchers = {
-    'connect': ConnectLauncher,
-    'auto_proxy': AutoProxyLauncher,
-    'bind': BindLauncher,
-}
+try:
+    from .lib.launchers.connect import ConnectLauncher
+    launchers['connect'] = ConnectLauncher
+except Exception, e:
+    logging.exception('%s: ConnectLauncher disabled', e)
+
+try:
+    from .lib.launchers.auto_proxy import AutoProxyLauncher
+    launchers['auto_proxy'] = AutoProxyLauncher
+except Exception, e:
+    logging.exception('%s: AutoProxyLauncher disabled', e)
+
+try:
+    from .lib.launchers.bind import BindLauncher
+    launchers['bind'] = BindLauncher
+except Exception, e:
+    logging.exception('%s: BindLauncher disabled', e)
 
 try:
     from .lib.launchers.dnscnc import DNSCncLauncher
