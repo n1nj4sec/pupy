@@ -45,11 +45,11 @@ export CC=$BPWD/gccwrap
 mkdir -p $BUILDENV
 
 # VERSIONS /MAY/ BE UPDATED (In case of vulnerabilites)
-OPENSSL_SRC="https://www.openssl.org/source/openssl-1.0.2n.tar.gz"
+OPENSSL_SRC="https://www.openssl.org/source/openssl-1.0.2p.tar.gz"
 ZLIB_SRC="http://zlib.net/zlib-1.2.11.tar.gz"
 SQLITE_SRC="http://www.sqlite.org/2018/sqlite-autoconf-3220000.tar.gz"
 LIBFFI_SRC="http://http.debian.net/debian/pool/main/libf/libffi/libffi_3.2.1.orig.tar.gz"
-PYTHON_SRC="https://www.python.org/ftp/python/2.7.14/Python-2.7.14.tgz"
+PYTHON_SRC="https://www.python.org/ftp/python/2.7.15/Python-2.7.15.tgz"
 
 export PATH="$BUILDENV/build/bin:/opt/csw/bin/:/usr/sfw/bin/:/usr/ccs/bin/:/usr/xpg4/bin/:$PATH"
 
@@ -81,14 +81,12 @@ cd $BUILDENV/src/libffi-3.2.1
 cd $BUILDENV/src/sqlite-autoconf-3220000
 ./configure --enable-static --disable-shared --prefix=$BUILDENV/build; gmake; gmake install
 
-cd $BUILDENV/src/openssl-1.0.2n
+cd $BUILDENV/src/openssl-1.0.2p
 ./Configure --openssldir=$BUILDENV/build/ shared solaris64-x86_64-gcc; gmake; gmake install
 
 export GCCWRAP_CFLAGS_EXTRA=-std=gnu99
-cd $BUILDENV/src/Python-2.7.14
-if [ -f $BPWD/Setup.dist ]; then
-    cp -f $BPWD/Setup.dist Modules/
-fi
+cd $BUILDENV/src/Python-2.7.15
+[ -f $BPWD/Setup.dist ] && cp -f $BPWD/Setup.dist Modules/
 ./configure --with-ensurepip=install --enable-unicode=ucs4 \
 	    --with-system-ffi --enable-ipv6 --prefix=$BUILDENV/build \
 	    CFLAGS="$CFLAGS -DXML_DEV_URANDOM"
@@ -128,6 +126,60 @@ vEsXCS+0yx5DaMkHJ8HSXPfqIbloEpw8nL+e/IBcm2PN7EeqJSdnoDfzAIJ9VNep
 -----END CERTIFICATE-----
 __EOF__
 
+cat >$BUILDENV/build/certs/b155520b.0 << __EOF__
+-----BEGIN CERTIFICATE-----
+MIIEizCCA3OgAwIBAgIORvCM288sVGbvMwHdXzQwDQYJKoZIhvcNAQELBQAwVzEL
+MAkGA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsT
+B1Jvb3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw0xNTA4MTkw
+MDAwMDBaFw0yNTA4MTkwMDAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBH
+bG9iYWxTaWduIG52LXNhMS0wKwYDVQQDEyRHbG9iYWxTaWduIENsb3VkU1NMIENB
+IC0gU0hBMjU2IC0gRzMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCj
+wHXhMpjl2a6EfI3oI19GlVtMoiVw15AEhYDJtfSKZU2Sy6XEQqC2eSUx7fGFIM0T
+UT1nrJdNaJszhlyzey2q33egYdH1PPua/NPVlMrJHoAbkJDIrI32YBecMbjFYaLi
+blclCG8kmZnPlL/Hi2uwH8oU+hibbBB8mSvaSmPlsk7C/T4QC0j0dwsv8JZLOu69
+Nd6FjdoTDs4BxHHT03fFCKZgOSWnJ2lcg9FvdnjuxURbRb0pO+LGCQ+ivivc41za
+Wm+O58kHa36hwFOVgongeFxyqGy+Z2ur5zPZh/L4XCf09io7h+/awkfav6zrJ2R7
+TFPrNOEvmyBNVBJrfSi9AgMBAAGjggFTMIIBTzAOBgNVHQ8BAf8EBAMCAQYwHQYD
+VR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMBIGA1UdEwEB/wQIMAYBAf8CAQAw
+HQYDVR0OBBYEFKkrh+HOJEc7G7/PhTcCVZ0NlFjmMB8GA1UdIwQYMBaAFGB7ZhpF
+DZfKiVAvfQTNNKj//P1LMD0GCCsGAQUFBwEBBDEwLzAtBggrBgEFBQcwAYYhaHR0
+cDovL29jc3AuZ2xvYmFsc2lnbi5jb20vcm9vdHIxMDMGA1UdHwQsMCowKKAmoCSG
+Imh0dHA6Ly9jcmwuZ2xvYmFsc2lnbi5jb20vcm9vdC5jcmwwVgYDVR0gBE8wTTAL
+BgkrBgEEAaAyARQwPgYGZ4EMAQICMDQwMgYIKwYBBQUHAgEWJmh0dHBzOi8vd3d3
+Lmdsb2JhbHNpZ24uY29tL3JlcG9zaXRvcnkvMA0GCSqGSIb3DQEBCwUAA4IBAQCi
+HWmKCo7EFIMqKhJNOSeQTvCNrNKWYkc2XpLR+sWTtTcHZSnS9FNQa8n0/jT13bgd
++vzcFKxWlCecQqoETbftWNmZ0knmIC/Tp3e4Koka76fPhi3WU+kLk5xOq9lF7qSE
+hf805A7Au6XOX5WJhXCqwV3szyvT2YPfA8qBpwIyt3dhECVO2XTz2XmCtSZwtFK8
+jzPXiq4Z0PySrS+6PKBIWEde/SBWlSDBch2rZpmk1Xg3SBufskw3Z3r9QtLTVp7T
+HY7EDGiWtkdREPd76xUJZPX58GMWLT3fI0I6k2PMq69PVwbH/hRVYs4nERnh9ELt
+IjBrNRpKBYCkZd/My2/Q
+-----END CERTIFICATE-----
+__EOF__
+
+cat >$BUILDENV/build/certs/5ad8a5d6.0 << __EOF__
+-----BEGIN CERTIFICATE-----
+MIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkG
+A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv
+b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw05ODA5MDExMjAw
+MDBaFw0yODAxMjgxMjAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i
+YWxTaWduIG52LXNhMRAwDgYDVQQLEwdSb290IENBMRswGQYDVQQDExJHbG9iYWxT
+aWduIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDaDuaZ
+jc6j40+Kfvvxi4Mla+pIH/EqsLmVEQS98GPR4mdmzxzdzxtIK+6NiY6arymAZavp
+xy0Sy6scTHAHoT0KMM0VjU/43dSMUBUc71DuxC73/OlS8pF94G3VNTCOXkNz8kHp
+1Wrjsok6Vjk4bwY8iGlbKk3Fp1S4bInMm/k8yuX9ifUSPJJ4ltbcdG6TRGHRjcdG
+snUOhugZitVtbNV4FpWi6cgKOOvyJBNPc1STE4U6G7weNLWLBYy5d4ux2x8gkasJ
+U26Qzns3dLlwR5EiUWMWea6xrkEmCMgZK9FGqkjWZCrXgzT/LCrBbBlDSgeF59N8
+9iFo7+ryUp9/k5DPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8E
+BTADAQH/MB0GA1UdDgQWBBRge2YaRQ2XyolQL30EzTSo//z9SzANBgkqhkiG9w0B
+AQUFAAOCAQEA1nPnfE920I2/7LqivjTFKDK1fPxsnCwrvQmeU79rXqoRSLblCKOz
+yj1hTdNGCbM+w6DjY1Ub8rrvrTnhQ7k4o+YviiY776BQVvnGCv04zcQLcFGUl5gE
+38NflNUVyRRBnMRddWQVDf9VMOyGj/8N7yy5Y0b2qvzfvGn9LhJIZJrglfCm7ymP
+AbEVtQwdpf5pLGkkeB6zpxxxYu7KyJesF12KwvhHhm4qxFYxldBniYUr+WymXUad
+DKqC5JlR3XC321Y9YeRq4VzW9v493kHMB65jUr9TU/Qr6cf9tveCX4XSQRjbgbME
+HMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==
+-----END CERTIFICATE-----
+__EOF__
+
 python -m pip install --upgrade six packaging appdirs setuptools
 
 export CFLAGS_FILTER="-Wno-error=sign-conversion"
@@ -139,12 +191,11 @@ python -m pip install \
        u-msgpack-python poster dnslib \
        --upgrade --no-binary :all:
 
-python -m pip uninstall -y pycrypto
 python -m pip install --upgrade pycryptodome
 
 python -m pip install --force-reinstall pycparser==2.17 
-
-python -m pip install --force-reinstall git+https://github.com/alxchk/psutil.git
+python -m pip install psutil
+# python -m pip install --force-reinstall git+https://github.com/alxchk/psutil.git
 
 export LDFLAGS="$LDFLAGS -lsendfile -lkstat"
 python -m pip install git+https://github.com/alxchk/pyuv.git
