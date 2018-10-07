@@ -7,6 +7,7 @@ import imp
 import shlex
 
 from pupylib.PupyCompleter import commands_completer
+from pupylib.PupyModule import PupyArgumentParser
 
 class InvalidCommand(Exception):
     pass
@@ -148,7 +149,14 @@ class Commands(object):
 
         try:
             command, args = self._get_command(cmdline, aliases, modules, False)
-            completer = command.parser.get_completer()
+            parser = None
+            if hasattr(command.parser, 'add_help'):
+                parser = command.parser
+            else:
+                parser = command.parser(server, PupyArgumentParser, config)
+
+            completer = parser.get_completer()
+
             return completer.complete, command.__name__, args
 
         except InvalidCommand:
