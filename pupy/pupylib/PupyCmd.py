@@ -545,7 +545,7 @@ class PupyCmd(cmd.Cmd):
             '\x1b[0G',
             msg+'\n',
             '\x1b[0E\x1b[2K',
-            self.raw_prompt,
+            '' if msg.startswith(self.raw_prompt) else self.raw_prompt,
             buf
         ]))
 
