@@ -166,7 +166,7 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
             'network.transports.{}'.format(transport) for transport in transports_list
         ), path=ROOT),
         'import sys',
-        'sys.modules.pop("network.conf")',
+        'sys.modules.pop("network.conf", "")',
         'import network.conf',
         'LAUNCHER={}'.format(repr(conf['launcher'])),
         'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
