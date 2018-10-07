@@ -35,6 +35,7 @@ fusepy
 defusedxml
 keyboard
 puttykeys
+pyelftools
 -e external/pykcp
 flake8
 flake8-per-file-ignores

@@ -7,6 +7,9 @@ import cPickle
 import zlib
 from zipfile import ZipFile
 
+from elftools.elf.elffile import ELFFile
+from io import BytesIO
+
 from pupylib.PupyCompile import pupycompile
 from pupylib import ROOT, getLogger
 
@@ -119,6 +122,41 @@ WELL_KNOWN_DEPS = {
 
 logger.debug("LIBS_AUTHORIZED_PATHS=%s"%repr(LIBS_AUTHORIZED_PATHS))
 
+def remove_dt_needed(data, libname):
+    ef = ELFFile(data)
+    dyn = ef.get_section_by_name('.dynamic')
+
+    ent_size = dyn.header.sh_entsize
+    sect_size = dyn.header.sh_size
+    sect_offt = dyn.header.sh_offset
+
+    tag_idx = None
+
+    for idx in xrange(sect_size/ent_size):
+        tag = dyn.get_tag(idx)
+        if tag['d_tag'] == 'DT_NEEDED':
+            if tag.needed == libname:
+                tag_idx = idx
+                break
+
+    if tag_idx is None:
+        return False
+
+    null_tag = '\x00' * ent_size
+    dynamic_tail = None
+
+    if idx == 0:
+        dynamic_tail = dyn.data()[ent_size:] + null_tag
+    else:
+        dyndata = dyn.data()
+        dynamic_tail = dyndata[:ent_size*(idx)] + \
+          dyndata[ent_size*(idx+1):] + null_tag
+
+    data.seek(sect_offt)
+    data.write(dynamic_tail)
+    return True
+
+
 def safe_file_exists(f):
     """ some file systems like vmhgfs are case insensitive and os.isdir() return True for "lAzAgNE", so we need this check for modules like LaZagne.py and lazagne gets well imported """
     return os.path.basename(f) in os.listdir(os.path.dirname(f))
@@ -137,7 +175,7 @@ sys.modules[fullname]=mod
 
     return code
 
-def importer(dependencies, os='all', arch=None, path=None, posix=None):
+def importer(dependencies, os='all', arch=None, path=None, posix=None, native=False):
     if path:
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
@@ -149,11 +187,22 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None):
         blob = cPickle.dumps(modules)
         blob = zlib.compress(blob, 9)
     else:
-        blob, modules, _ = package(dependencies, os, arch, posix=posix)
+        blob, modules, _ = package(dependencies, os, arch, posix=posix, native=native)
 
     return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
 
-def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=True):
+def modify_native_content(filename, content):
+    if content.startswith('\x7fELF'):
+        logger.info('ELF file - %s, check for libpython DT_NEED record', filename)
+        image = BytesIO(content)
+        if remove_dt_needed(image, 'libpython2.7.so.1.0'):
+            logger.info('Modified: DT_NEEDED libpython2.7.so.1.0 removed')
+
+        content = image.getvalue()
+
+    return content
+
+def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=True, native=False):
     if filepath.startswith(prefix) and honor_ignore:
         basepath = filepath[len(prefix)+1:]
         basepath, ext = os.path.splitext(basepath)
@@ -199,13 +248,23 @@ def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=Tru
                             logger.info('Patch: Ignore %s (%s)', filepath, ignore)
                             raise IgnoreFileException()
 
+    content = None
+
     if archive:
-        return archive.read(filepath)
+        content = archive.read(filepath)
     else:
         with open(filepath, 'rb') as filedata:
-            return filedata.read()
+            content = filedata.read()
 
-def from_path(platform, arch, search_path, start_path, pure_python_only=False, remote=False, honor_ignore=True):
+    if not native:
+        logger.debug('Modify natve content for %s (native=%s)', filepath, bool(native))
+        content = modify_native_content(filepath, content)
+
+    return content
+
+def from_path(platform, arch, search_path, start_path, pure_python_only=False,
+              remote=False, honor_ignore=True, native=False):
+
     query = start_path
 
     modules_dic = {}
@@ -243,7 +302,8 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
                         arch,
                         search_path,
                         os.path.join(root, f),
-                        honor_ignore=honor_ignore)
+                        honor_ignore=honor_ignore,
+                        native=native)
                 except IgnoreFileException:
                     continue
 
@@ -300,7 +360,8 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False, r
                         arch,
                         search_path,
                         filepath,
-                        honor_ignore=honor_ignore)
+                        honor_ignore=honor_ignore,
+                        native=native)
                 except IgnoreFileException:
                     break
 
@@ -363,18 +424,21 @@ def _dependencies(module_name, os, dependencies):
     dependencies.add(module_name)
 
     mod_deps = WELL_KNOWN_DEPS.get(module_name, {})
+
     for dependency in mod_deps.get('all', []) + mod_deps.get(os, []):
         _dependencies(dependency, os, dependencies)
 
-def _package(modules, module_name, platform, arch, remote=False, posix=None, honor_ignore=True):
+def _package(modules, module_name, platform, arch, remote=False, posix=None, honor_ignore=True, native=False):
 
     initial_module_name = module_name
 
     start_path = module_name.replace('.', os.path.sep)
 
     for search_path in paths(platform, arch, posix):
-        modules_dic = from_path(platform, arch, search_path, start_path,
-                                remote=remote, honor_ignore=honor_ignore)
+        modules_dic = from_path(
+            platform, arch, search_path, start_path,
+            remote=remote, honor_ignore=honor_ignore,
+            native=native)
         if modules_dic:
             break
 
@@ -399,6 +463,7 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
                 content = None
                 if info.filename.startswith(start_paths):
                     module_name = info.filename
+
                     for prefix in COMMON_SEARCH_PREFIXES:
                         if module_name.startswith(prefix+'/'):
                             module_name = module_name[len(prefix)+1:]
@@ -416,7 +481,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
                                 get_content(
                                     platform, arch, prefix,
                                     info.filename, archive,
-                                    honor_ignore=honor_ignore),
+                                    honor_ignore=honor_ignore,
+                                    native=native),
                                 info.filename)
                         except IgnoreFileException:
                             continue
@@ -454,7 +520,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
                             content = get_content(
                                 platform, arch, prefix,
                                 info.filename, archive,
-                                honor_ignore=honor_ignore)
+                                honor_ignore=honor_ignore,
+                                native=native)
                         except IgnoreFileException:
                             continue
 
@@ -488,7 +555,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
 
     modules.update(modules_dic)
 
-def package(requirements, platform, arch, remote=False, posix=False, filter_needed_cb=None, honor_ignore=True):
+def package(requirements, platform, arch, remote=False, posix=False,
+            filter_needed_cb=None, honor_ignore=True, native=False):
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
@@ -524,7 +592,8 @@ def package(requirements, platform, arch, remote=False, posix=False, filter_need
             _package(
                 modules, dependency, platform, arch,
                 remote=remote, posix=posix,
-                honor_ignore=honor_ignore
+                honor_ignore=honor_ignore,
+                native=native
             )
 
         blob = zlib.compress(cPickle.dumps(modules), 9)
@@ -552,7 +621,7 @@ def bundle(platform, arch):
 
     return ZipFile(arch_bundle, 'r')
 
-def dll(name, platform, arch, honor_ignore=True):
+def dll(name, platform, arch, honor_ignore=True, native=False):
     buf = b''
 
     for packages_path in paths(platform, arch):
@@ -561,7 +630,7 @@ def dll(name, platform, arch, honor_ignore=True):
             try:
                 buf = get_content(
                     platform, arch, name, packages_path, dll_path,
-                    honor_ignore=honor_ignore)
+                    honor_ignore=honor_ignore, native=native)
             except IgnoreFileException:
                 pass
 
@@ -577,7 +646,8 @@ def dll(name, platform, arch, honor_ignore=True):
                             platform, arch, os.path.dirname(info.filename),
                             info.filename,
                             archive,
-                            honor_ignore=honor_ignore
+                            honor_ignore=honor_ignore,
+                            native=native
                         )
                     except IgnoreFileException:
                         pass

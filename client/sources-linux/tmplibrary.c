@@ -348,6 +348,24 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     return -1;
 }
 
+#ifdef LM_ID_NEWLM
+static void *_dlopen(const char *path, int flags) {
+    static Lmid_t lmid = LM_ID_NEWLM;
+
+    flags &= ~RTLD_GLOBAL;
+
+    void *handle = dlmopen(lmid, path, flags);
+    if (lmid == LM_ID_NEWLM && handle) {
+        dlinfo(handle, RTLD_DI_LMID, &lmid);
+        dprint("memdlopen - dlmopen - new lmid created: %08x\n", lmid);
+    }
+
+    return handle;
+}
+#else
+#define _dlopen(path, flags) dlopen(path, flags)
+#endif
+
 void *memdlopen(const char *soname, const char *buffer, size_t size) {
     dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
 
@@ -366,7 +384,7 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         return search.base;
     }
 
-    void *base = dlopen(soname, RTLD_NOLOAD);
+    void *base = _dlopen(soname, RTLD_NOLOAD);
     if (base) {
         dprint("Library \"%s\" loaded from OS\n", soname);
         return base;
@@ -415,7 +433,11 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     bool is_memfd = false;
 #endif
 
-    base = dlopen(buf, RTLD_NOW | RTLD_GLOBAL);
+    int flags = RTLD_NOW | RTLD_LOCAL;
+
+    dprint("dlopen(%s, %08x)\n", buf, flags);
+    base = _dlopen(buf, flags);
+    dprint("dlopen(%s, %08x) = %p\n", buf, flags, base);
     if (!is_memfd) {
         dprint("Close fd: %d\n", fd);
         close(fd);
