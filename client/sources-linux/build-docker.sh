@@ -76,7 +76,7 @@ echo "[+] Build pupy"
 
 case $TOOLCHAIN_ARCH in
     amd64)
-	MAKEFLAGS="ARCH=64 PIE="
+	MAKEFLAGS="ARCH=64"
 	TARGETS="pupyx64d.lin pupyx64d.lin.so pupyx64d.unc.lin"
 	TARGETS="$TARGETS pupyx64d.unc.lin.so pupyx64.lin pupyx64.lin.so"
 	TARGETS="$TARGETS pupyx64.unc.lin pupyx64.unc.lin.so"
