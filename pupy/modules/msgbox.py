@@ -9,7 +9,7 @@ class MsgBoxPopup(PupyModule):
     """ Pop up a custom message box """
     dependencies = {
         'windows': ['pupwinutils.msgbox'],
-        'linux': ['notify'],
+        'linux': ['dbus', 'notify'],
     }
 
     @classmethod
