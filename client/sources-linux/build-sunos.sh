@@ -13,6 +13,7 @@ gmake \
     ARCH=64 \
     LIBPYTHON=$BUILDENV/build/lib/libpython2.7.so \
     LIBCRYPTO=$BUILDENV/build/lib/libcrypto.so.1.0.0 \
+    LDFLAGS_EXTRA="-Wl,-B,group -lc" \
     LIBSSL=$BUILDENV/build/lib/libssl.so.1.0.0
 gmake clean
 gmake \
@@ -21,4 +22,5 @@ gmake \
     LIBPYTHON=$BUILDENV/build/lib/libpython2.7.so \
     LIBCRYPTO=$BUILDENV/build/lib/libcrypto.so.1.0.0 \
     LIBSSL=$BUILDENV/build/lib/libssl.so.1.0.0 \
+    LDFLAGS_EXTRA="-Wl,-B,group -lc" \
     DEBUG=1
