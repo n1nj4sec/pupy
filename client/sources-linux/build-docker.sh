@@ -77,16 +77,14 @@ echo "[+] Build pupy"
 case $TOOLCHAIN_ARCH in
     amd64)
 	MAKEFLAGS="ARCH=64"
-	TARGETS="pupyx64d.lin pupyx64d.lin.so pupyx64d.unc.lin"
-	TARGETS="$TARGETS pupyx64d.unc.lin.so pupyx64.lin pupyx64.lin.so"
-	TARGETS="$TARGETS pupyx64.unc.lin pupyx64.unc.lin.so"
+	TARGETS="pupyx64d.lin pupyx64d.lin"
+	TARGETS="$TARGETS pupyx64.lin pupyx64.lin.so"
 	;;
 
     x86)
 	MAKEFLAGS="ARCH=32 PIE="
 	TARGETS="pupyx86d.lin pupyx86d.lin.so"
-	TARGTS="$TARGETS pupyx86d.unc.lin pupyx86d.unc.lin.so pupyx86.lin pupyx86.lin.so"
-	TARGETS="$TARGETS pupyx86.unc.lin pupyx86.unc.lin.so"
+	TARGTS="$TARGETS pupyx86dpupyx86.lin pupyx86.lin.so"
 	;;
 esac
 
@@ -98,10 +96,6 @@ make distclean
 make -j $MAKEFLAGS
 make clean
 make -j DEBUG=1 $MAKEFLAGS
-make clean
-make -j UNCOMPRESSED=1 $MAKEFLAGS
-make clean
-make -j DEBUG=1 UNCOMPRESSED=1 $MAKEFLAGS
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then

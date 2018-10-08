@@ -352,9 +352,50 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
 // For some unknown reason malloc doesn't work on newly created LM in Solaris 10
 // Fallback to old shitty way of loading libs
 // TODO: write own ELF loader
-#define _dlopen(path, flags) dlopen(path, flags | RTLD_PARENT | RTLD_GLOBAL)
-#elif defined(LM_ID_NEWLM)
-static void *_dlopen(const char *path, int flags) {
+static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
+    void *handle = dlopen(path, flags | RTLD_PARENT | RTLD_GLOBAL);
+    if (fd != -1) {
+        unlink(path);
+        close(fd);
+    }
+    return handle;
+}
+#elif defined(LM_ID_NEWLM) && defined(Linux)
+
+// Part of private link_map structure
+
+struct libname_list;
+
+struct libname_list {
+    char *name;
+    struct libname_list *next;
+    int dont_free;
+};
+
+struct link_map_private;
+
+/* Dangerous! Hacked link_map structure */
+struct link_map_private {
+    void *l_addr;
+    char *l_name;
+    void *l_ld;
+    struct link_map_private *l_next, *l_prev;
+
+    /* ------------- private part starts here ----------------- */
+
+    struct link_map_private *l_real; // dlmopen
+    Lmid_t l_ns;                     // dlmopen
+    struct libname_list *l_libname;  // ancient
+
+    /* ------------- .... and there much more ----------------- */
+
+
+};
+
+static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
+    void *handle = NULL;
+
+#if defined(WIP_LMID)
     static Lmid_t lmid = LM_ID_NEWLM;
 
     flags &= ~RTLD_GLOBAL;
@@ -362,16 +403,109 @@ static void *_dlopen(const char *path, int flags) {
     if ((flags & RTLD_NOLOAD) && (lmid == LM_ID_NEWLM))
 	    return NULL;
 
-    void *handle = dlmopen(lmid, path, flags);
+    handle = dlmopen(lmid, path, flags);
     if (lmid == LM_ID_NEWLM && handle) {
         dlinfo(handle, RTLD_DI_LMID, &lmid);
         dprint("memdlopen - dlmopen - new lmid created: %08x\n", lmid);
     }
 
+#else
+    static Lmid_t lmid = LM_ID_BASE;
+    handle = dlopen(path, flags);
+#endif
+
+    dprint("memdlopen - dlmopen - _dlopen(lmid=%08x, %s, %s)\n", lmid, path, soname);
+
+    if (flags & RTLD_NOLOAD) {
+        return handle;
+    }
+
+    bool is_memfd = is_memfd_path(path);
+    bool linkmap_hacked = false;
+
+    if (soname) {
+        struct link_map_private *linkmap = NULL;
+        dlinfo(handle, RTLD_DI_LINKMAP, &linkmap);
+        /* If memfd, then try to verify as best as possible that all that
+           addresses are valid. If not - there is no reason to touch this
+        */
+
+        if (is_memfd) {
+            if (linkmap && linkmap->l_ns == lmid &&
+                linkmap->l_libname && linkmap->l_libname->name &&
+                !strncmp(linkmap->l_name, linkmap->l_libname->name, strlen(linkmap->l_name))) {
+
+                dprint("memdlopen - change l_name %s/%p (%s/%p) -> %s (linkmap: %p)\n",
+                       linkmap->l_name, linkmap->l_name,
+                       linkmap->l_libname->name,
+                       linkmap->l_libname->name,
+                       soname, linkmap);
+
+                /* Do not care about leaks. It's not the worst thing to happen */
+                linkmap->l_name = strdup(soname);
+                linkmap->l_libname->name = strdup(soname);
+
+                linkmap_hacked = true;
+            } else {
+                dprint("memdlopen - bad signature (lmid=%08x name1=%s name2=%s)\n",
+                       linkmap->l_ns, linkmap->l_name, linkmap->l_libname->name);
+            }
+        }
+
+        if (!is_memfd || linkmap_hacked) {
+            /* If linkmap altered or it's not memfd, then delete/close path/fd */
+            if (!is_memfd)
+                unlink(path);
+
+            close(fd);
+        }
+    }
+
     return handle;
 }
 #else
-#define _dlopen(path, flags) dlopen(path, flags)
+
+/* Linux x86 or any other thing */
+
+static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
+
+    /* Try to fallback to symlink hack */
+
+    bool is_memfd = is_memfd_path(path);
+    char fake_path[PATH_MAX] = {};
+
+    const char *effective_path = path;
+
+    static const char DROP_PATH[] = "/dev/shm/memfd:";
+
+    if (is_memfd) {
+        int i;
+
+        snprintf(fake_path, sizeof(fake_path), "%s%s", DROP_PATH, soname);
+        for (i=sizeof(DROP_PATH)-1; fake_path[i]; i++)
+            if (fake_path[i] == '/')
+                fake_path[i] = '!';
+
+        if (!symlink(path, fake_path)) {
+            effective_path = fake_path;
+            is_memfd = false;
+        } else {
+            dprint("symlink error %s -> %s: %m\n", path, fake_path);
+        }
+    }
+
+    void *handle = dlopen(effective_path, flags);
+    if (fd != -1) {
+        unlink(effective_path);
+
+        /*
+          If all workarounds failed we have nothing to do but leave this as
+          is */
+        if (!is_memfd)
+            close(fd);
+    }
+    return handle;
+}
 #endif
 
 void *memdlopen(const char *soname, const char *buffer, size_t size) {
@@ -392,7 +526,7 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         return search.base;
     }
 
-    void *base = _dlopen(soname, RTLD_NOLOAD);
+    void *base = _dlopen(-1, soname, RTLD_NOLOAD, NULL);
     if (base) {
         dprint("Library \"%s\" loaded from OS\n", soname);
         return base;
@@ -412,48 +546,14 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         return NULL;
     }
 
-#ifdef Linux
-    bool is_memfd = is_memfd_path(buf);
-    dprint("Library \"%s\" dropped to \"%s\" (memfd=%d) \n", soname, buf, is_memfd);
-
-#ifndef NO_MEMFD_DLOPEN_WORKAROUND
-    #define DROP_PATH "/dev/shm/memfd:"
-
-    if (is_memfd) {
-        int i;
-
-        char fake_path[PATH_MAX] = {};
-        snprintf(fake_path, sizeof(fake_path), DROP_PATH "%s", soname);
-        for (i=sizeof(DROP_PATH)-1; fake_path[i]; i++)
-            if (fake_path[i] == '/')
-                fake_path[i] = '!';
-
-        if (!symlink(buf, fake_path)) {
-            strncpy(buf, fake_path, sizeof(buf)-1);
-            is_memfd = false;
-        } else {
-            dprint("symlink error %s -> %s: %m\n", buf, fake_path);
-        }
-    }
-#endif
-
-#else
-    bool is_memfd = false;
-#endif
-
     int flags = RTLD_NOW | RTLD_LOCAL;
 
     dprint("dlopen(%s, %08x)\n", buf, flags);
-    base = _dlopen(buf, flags);
+    base = _dlopen(fd, buf, flags, soname);
     dprint("dlopen(%s, %08x) = %p\n", buf, flags, base);
-    if (!is_memfd) {
-        dprint("Close fd: %d\n", fd);
-        close(fd);
-    }
 
     if (!base) {
         dprint("Couldn't load library %s (%s): %s\n", soname, buf, dlerror());
-        unlink(buf);
         return NULL;
     }
 
@@ -463,7 +563,5 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
     record->name = strdup(soname);
     record->base = base;
     list_add(libraries, record);
-
-    unlink(buf);
     return base;
 }
