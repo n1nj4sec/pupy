@@ -348,11 +348,19 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     return -1;
 }
 
-#ifdef LM_ID_NEWLM
+#if defined(SunOS)
+// For some unknown reason malloc doesn't work on newly created LM in Solaris 10
+// Fallback to old shitty way of loading libs
+// TODO: write own ELF loader
+#define _dlopen(path, flags) dlopen(path, flags | RTLD_PARENT | RTLD_GLOBAL)
+#elif defined(LM_ID_NEWLM)
 static void *_dlopen(const char *path, int flags) {
     static Lmid_t lmid = LM_ID_NEWLM;
 
     flags &= ~RTLD_GLOBAL;
+
+    if ((flags & RTLD_NOLOAD) && (lmid == LM_ID_NEWLM))
+	    return NULL;
 
     void *handle = dlmopen(lmid, path, flags);
     if (lmid == LM_ID_NEWLM && handle) {
