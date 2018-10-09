@@ -208,8 +208,6 @@ class Key(object):
                 try:
                     yield next(iterator)
                 except WindowsError, e:
-                    ## Ignore everything
-                    print "PISKA", e.args
                     pass
 
         except StopIteration:
@@ -287,8 +285,10 @@ def search(term, roots=('HKU', 'HKLM', 'HKCC'), key=True, name=True, value=True,
 
     def as_str(x):
         vtype = type(x)
-        if vtype in (str, unicode):
+        if vtype == str:
             return x
+        elif vtype == unicode:
+            return x.encode('utf-8')
         else:
             return str(x)
 
@@ -315,9 +315,9 @@ def search(term, roots=('HKU', 'HKLM', 'HKCC'), key=True, name=True, value=True,
             compare = lambda x: term.search(as_str(x))
     elif ignorecase:
         if equals:
-            compare = lambda x: term.lower() == as_str(x).lower()
+            compare = lambda x: as_str(term).lower() == as_str(x).lower()
         else:
-            compare = lambda x: term.lower() in as_str(x).lower()
+            compare = lambda x: as_str(term).lower() in as_str(x).lower()
     else:
         if equals:
             compare = lambda x: term == x

@@ -77,7 +77,7 @@ class reg(PupyModule):
 
         search = commands.add_parser('search')
         search.add_argument(
-            '-r', '--roots', default=('HKU', 'HKLM', 'HKCC'), nargs='+', help='Roots where to search')
+            '-r', '--roots', default='HKU,HKLM,HKCC', help='Roots where to search ("," is delemiter)')
         search.add_argument(
             '-K', '--exclude-key-name', action='store_false', default=True,
             help='Do not search term in key names')
@@ -146,7 +146,7 @@ class reg(PupyModule):
             values.append({
                 'KEY': Color(key, color),
                 'NAME': Color(name, color),
-                'VALUE': Color(value, color),
+                'VALUE': Color(value if ktype != 'BINARY' else repr(value), color),
                 'TYPE': Color(ktype, color)
             })
 
@@ -215,7 +215,7 @@ class reg(PupyModule):
         search = self.client.remote('reg', 'search')
         results = search(
             as_unicode(args.term),
-            tuple([as_unicode(x) for x in args.roots]),
+            tuple([as_unicode(x.strip()) for x in args.roots.split(',')]),
             args.exclude_key_name, args.exclude_value_name,
             args.exclude_value,
             args.regex, args.ignorecase,
