@@ -396,9 +396,6 @@ class PsModule(PupyModule):
                 info = ['username', 'cpu_percent', 'memory_percent'] + info
 
             if args.tree:
-                # show = args.show_pid or [root]
-                print "SHOW", show
-
                 print_pstree(
                     self.log, root, tree, data,
                     colinfo=colinfo, info=info,
