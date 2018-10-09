@@ -66,7 +66,9 @@ fi
 
 export LD_LIBRARY_PATH=$BUILDENV/build/lib
 export CFLAGS="-m64 -fPIC -DSUNOS_NO_IFADDRS -DHAVE_AS_X86_64_UNWIND_SECTION_TYPE -I$BUILDENV/build/lib/libffi-3.2.1/include -I$BUILDENV/build/include"
-export LDFLAGS="-m64 -fPIC -L$BUILDENV/build/lib"
+export LDFLAGS_NODEFS="-Wl,-i -m64 -fPIC -L$BUILDENV/build/lib -static-libgcc -lc -Wl,-znow -Wl,-zignore"
+export LDFLAGS_DEFS="-Wl,-i -m64 -fPIC -L$BUILDENV/build/lib -static-libgcc -lc -Wl,-zdefs -Wl,-znow -Wl,-zignore"
+export LDFLAGS=$LDFLAGS_DEFS
 export PKG_CONFIG_PATH="$BUILDENV/build/lib/pkgconfig"
 set -x
 
@@ -85,8 +87,12 @@ cd $BUILDENV/src/openssl-1.0.2p
 ./Configure --openssldir=$BUILDENV/build/ shared solaris64-x86_64-gcc; gmake; gmake install
 
 export GCCWRAP_CFLAGS_EXTRA=-std=gnu99
+export LDFLAGS=$LDFLAGS_NODEFS
+
 cd $BUILDENV/src/Python-2.7.15
-[ -f $BPWD/Setup.dist ] && cp -f $BPWD/Setup.dist Modules/
+[ -f $BPWD/Python.SunOS10.Setup.dist ] && \
+	cp -f $BPWD/Python.SunOS10.Setup.dist $BUILDENV/src/Python-2.7.15/Modules/Setup.dist
+
 ./configure --with-ensurepip=install --enable-unicode=ucs4 \
 	    --with-system-ffi --enable-ipv6 --prefix=$BUILDENV/build \
 	    CFLAGS="$CFLAGS -DXML_DEV_URANDOM"
@@ -96,7 +102,7 @@ gcc -m64 --without-libgcc -shared -fPIC -o $BUILDENV/build/lib/libpython2.7.so \
     -lc -lnsl -lsocket -lz -lm -ldl -lrt \
     $BUILDENV/build/lib/libssl.so $BUILDENV/build/lib/libcrypto.so \
     -lpthread \
-    -Wl,--no-undefined -Wl,-h,libpython2.7.so.1.0
+    -Wl,--no-undefined -Wl,-zignore -Wl,-zdefs -Wl,-znow -Wl,-h,libpython2.7.so.1.0
 
 unset GCCWRAP_CFLAGS_EXTRA
 
@@ -194,11 +200,11 @@ python -m pip install \
 python -m pip install --upgrade pycryptodome
 
 python -m pip install --force-reinstall pycparser==2.17 
-python -m pip install psutil
-# python -m pip install --force-reinstall git+https://github.com/alxchk/psutil.git
+python -m pip install git+https://github.com/alxchk/psutil.git@fix_sunos10_1346
 
 export LDFLAGS="$LDFLAGS -lsendfile -lkstat"
-python -m pip install git+https://github.com/alxchk/pyuv.git
+export CFLAGS="$CFLAGS -Dstrnlen\\(x,l\\)=strlen\\(x\\)"
+python -m pip install git+https://github.com/alxchk/pyuv.git@solaris10
 python -m pip install git+https://github.com/alxchk/pykcp.git
 
 cd $BUILDENV/build/lib/python2.7
