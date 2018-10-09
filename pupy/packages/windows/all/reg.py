@@ -207,7 +207,7 @@ class Key(object):
             while True:
                 try:
                     yield next(iterator)
-                except WindowsError, e:
+                except WindowsError:
                     pass
 
         except StopIteration:
