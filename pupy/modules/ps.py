@@ -52,7 +52,7 @@ def to_string(value):
     except:
         return value.decode('latin1')
 
-def gen_columns(record, colinfo):
+def gen_columns(record, colinfo=None):
     columns = {}
 
     if type(record['cmdline']) is not list:
@@ -68,6 +68,9 @@ def gen_columns(record, colinfo):
     columns['cpu_percent'] = '{:3}%'.format(int(cpu)) if cpu is not None else ' '*4
     mem = record.get('memory_percent')
     columns['memory_percent'] = '{:3}%'.format(int(mem)) if mem is not None else ' '*4
+
+    if 'pid' not in record:
+        return columns
 
     if colinfo:
         if 'username' in colinfo:
@@ -234,16 +237,42 @@ def is_filtered(pid, columns, hide, show):
 
     return deny
 
+def check_tree_show(pid, data, show, tree):
+    columns = gen_columns(data[pid])
+    if data[pid].get('show', None) or not is_filtered(pid, columns, [], show):
+        data[pid]['show'] = True
+        return True
+
+    for child in tree.get(pid, []):
+        columns = gen_columns(data[child])
+        if data[child].get('show', None) or not is_filtered(child, columns, [], show):
+            data[pid]['show'] = True
+            return True
+
+    for child in tree.get(pid, []):
+        if not data[pid].get('show', None) is False:
+            if check_tree_show(child, data, show, tree):
+                data[pid]['show'] = True
+                data[child]['show'] = True
+                return True
+            else:
+                data[child]['show'] = False
+
+    data[pid]['show'] = False
+    return False
 
 def print_pstree(fout, parent, tree, data,
                       prefix='', indent='', colinfo={},
-                      info=['exe', 'cmdline'], hide=[],
+                      info=['exe', 'cmdline'], hide=[], show=[],
                       first=False, wide=False):
     if parent in data:
         data[parent]['pid'] = parent
         columns = gen_columns(data[parent], colinfo)
 
         if is_filtered(parent, columns, hide, []):
+            return
+
+        if show and not check_tree_show(parent, data, show, tree):
             return
 
         columns['prefix'] = prefix
@@ -266,7 +295,7 @@ def print_pstree(fout, parent, tree, data,
         print_pstree(
             fout, child, tree, data,
             prefix=indent+('┌' if first else '├'), indent=indent + '│ ',
-            colinfo=colinfo, info=info, hide=hide, wide=wide
+            colinfo=colinfo, info=info, hide=hide, show=show, wide=wide
         )
         first = False
 
@@ -275,7 +304,7 @@ def print_pstree(fout, parent, tree, data,
         fout, child, tree, data,
         prefix=indent+'└', indent=indent + '  ',
         colinfo=colinfo,
-        info=info, hide=hide, wide=wide
+        info=info, hide=hide, show=show, wide=wide
     )
 
 def print_ps(fout, data, colinfo={},
@@ -367,14 +396,15 @@ class PsModule(PupyModule):
                 info = ['username', 'cpu_percent', 'memory_percent'] + info
 
             if args.tree:
-                show = args.show_pid or [root]
+                # show = args.show_pid or [root]
+                print "SHOW", show
 
-                for item in show:
-                    print_pstree(
-                        self.log, item, tree, data,
-                        colinfo=colinfo, info=info,
-                        hide=hide, first=(item == root), wide=args.wide
-                    )
+                print_pstree(
+                    self.log, root, tree, data,
+                    colinfo=colinfo, info=info,
+                    hide=hide, show=show,
+                    first=True, wide=args.wide
+                )
             else:
                 if args.show_pid:
                     print_psinfo(
