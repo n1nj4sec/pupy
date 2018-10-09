@@ -3,7 +3,7 @@ import sys
 import uuid
 
 def get_hw_uuid():
-    zero_uuid = uuid.UUID('00000000-0000-0000-0000-000000000000')
+    zero_uuid = str(uuid.UUID('00000000-0000-0000-0000-000000000000'))
 
     if sys.platform=='win32':
         try:
