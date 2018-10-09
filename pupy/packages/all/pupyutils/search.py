@@ -18,6 +18,11 @@ import threading
 import rpyc
 
 import errno
+import traceback
+
+PERMISSION_ERRORS = [
+    getattr(errno, x) for x in ('EPERM', 'EACCESS') if hasattr(errno, x)
+]
 
 class Search(object):
     def __init__(self, path,
@@ -71,6 +76,9 @@ class Search(object):
     def search_string(self, path, size):
         try:
             with open(path, 'rb') as f:
+                if not os.fstat(f.fileno()).st_size:
+                    return
+
                 m = mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ)
                 try:
                     if not self.binary:
@@ -83,10 +91,17 @@ class Search(object):
                     for string in self.strings:
                         for match in string.finditer(m):
                             yield match.group()
+
                 finally:
                     m.close()
 
+        except IOError, e:
+            if e.errno in PERMISSION_ERRORS:
+                return
+
         except Exception, e:
+            setattr(e, 'filename', path)
+            setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
             yield e
 
     def scanwalk(self, path, followlinks=False):
@@ -105,28 +120,55 @@ class Search(object):
                     (self.path and self.path.match(entry.path)) or
                     any_file
                 ):
-                    if not self.strings or not (self.strings and entry.is_file()):
-                        if not any_file:
-                            yield entry.path
-                    else:
-                        size = entry.stat().st_size
-                        if size > self.max_size:
+                    try:
+                        if not self.strings or not (self.strings and entry.is_file()):
+                            if not any_file:
+                                yield entry.path
+                        else:
+                            size = entry.stat().st_size
+                            if size > self.max_size:
+                                continue
+
+                            for string in self.search_string(entry.path, min(size, self.max_size)):
+                                if string:
+                                    if isinstance(string, Exception):
+                                        yield string
+
+                                    elif self.no_content:
+                                        yield entry.path
+                                        break
+
+                                    else:
+                                        yield (entry.path, string)
+                    except IOError, e:
+                        if e.errno in PERMISSION_ERRORS:
                             continue
 
-                        for string in self.search_string(entry.path, min(size, self.max_size)):
-                            if string:
-                                if self.no_content:
-                                    yield entry.path
-                                    break
-                                else:
-                                    yield (entry.path, string)
+                    except Exception, e:
+                        setattr(e, 'filename', entry.path)
+                        setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
 
-                if entry.is_dir(follow_symlinks=followlinks):
-                    for res in self.scanwalk(entry.path):
-                        yield res
+                try:
+                    if entry.is_dir(follow_symlinks=followlinks):
+                        for res in self.scanwalk(entry.path):
+                            yield res
+
+                except IOError, e:
+                    if e.errno in PERMISSION_ERRORS:
+                        continue
+
+                except Exception, e:
+                    setattr(e, 'filename', entry.path)
+                    setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+
+        except IOError, e:
+            if e.errno in PERMISSION_ERRORS:
+                return
 
         # try / except used for permission denied
         except Exception, e:
+            setattr(e, 'filename', path)
+            setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
             yield e
 
     def run(self):
@@ -156,17 +198,18 @@ class Search(object):
                         on_error('Invalid encoding: {}'.format(repr(result.args[1])))
                     else:
                         try:
-                            on_error('Scanwalk exception: {}:{}'.format(
-                                str(type(result)), str(result)))
+                            on_error('Scanwalk exception: {}:{}:{}'.format(
+                                str(type(result)), str(result),
+                                '\n'.join(traceback.format_exception(*result.exc))))
                         except Exception, e:
                             try:
                                 on_error('Scanwalk exception (module): ({})'.format(e))
                             except:
                                 pass
-
                             break
 
                 continue
+
 
             try:
                 if result != previous_result:
