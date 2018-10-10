@@ -17,6 +17,11 @@ class TransportConf(Transport):
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
+
+        self.client_transport_kwargs.update({
+            'host': None
+        })
+
         try:
             import pupy_credentials
             RSA_PUB_KEY = pupy_credentials.SIMPLE_RSA_PUB_KEY
