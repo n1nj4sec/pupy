@@ -41,6 +41,8 @@ const char *gettemptpl() {
     static const char *templates[] = {
 #ifdef Linux
         "/dev/shm/XXXXXX",
+        "/run/shm/XXXXXX",
+        "/run/",
 #endif
         "/tmp/XXXXXX",
         "/var/tmp/XXXXXX",
