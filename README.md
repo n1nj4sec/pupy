@@ -58,43 +58,6 @@ keylogger, detecting a sandbox, ...
 - "scriptlets" can be embeded in generated payloads to perform some tasks "offline" without needing network connectivity (ex: start keylogger, add persistence, execute custom python script, check_vm ...)
 - tons of other features, check out the implemented modules
 
-## Implemented Transports
-All transports in pupy are stackable. This mean that by creating a custom
-transport conf (pupy/network/transport/<transport_name>/conf.py), you can make
-you pupy session looks like anything. For example you could stack HTTP over
-HTTP over base64 over HTTP over AES over obfs3 :o)
-
-- rsa
-	- A layer with authentication & encryption using RSA and AES256, often stacked with other layers
-- aes
-	- layer using a static AES256 key
-- ssl (the default one)
-	- TCP transport wrapped with SSL
-- ssl_rsa
-	- same as ssl but stacked with a rsa layer
-- http
-	- layer making the traffic look like HTTP traffic. HTTP is stacked with a rsa layer
-- obfs3
-	- [A protocol to keep a third party from telling what protocol is in use based on message contents](https://gitweb.torproject.org/pluggable-transports/obfsproxy.git/tree/doc/obfs3/obfs3-protocol-spec.txt)
-	- obfs3 is stacked with a rsa layer for a better security
-- scramblesuit
-	- [A Polymorphic Network Protocol to Circumvent Censorship](http://www.cs.kau.se/philwint/scramblesuit/)
-	- scramblesuit is stacked with a rsa layer for a better security
-- udp
-	- rsa layer but over UDP (could be buggy, it doesn't handle packet loss yet)
-- other
-	- Other layers doesn't really have any interest and are given for code examples : (dummy, base64, XOR, ...)
-
-## Implemented Launchers (not up to date, cf. ./pupygen.py -h)
-
-Launchers allow pupy to run custom actions before starting the reverse connection
-- connect
-	- Just connect back
-- bind
-	- Bind payload instead of reverse
-- auto_proxy
-	- Retrieve a list of possible SOCKS/HTTP proxies and try each one of them. Proxy retrieval methods are: registry, WPAD requests, gnome settings, HTTP_PROXY env variable
-
 ## Documentation
 
 There is no documentation. Sorry. But you can help us to write one.
