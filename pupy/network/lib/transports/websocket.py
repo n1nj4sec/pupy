@@ -12,7 +12,6 @@ __all__ = (
     'PupyWebSocketClient', 'PupyWebSocketServer'
 )
 
-import time
 import base64
 import struct
 import random
