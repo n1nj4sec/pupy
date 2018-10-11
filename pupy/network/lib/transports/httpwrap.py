@@ -38,7 +38,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         self.well_known = ('GET', 'POST', 'OPTIONS', 'HEAD', 'PUT', 'DELETE')
         self.omit = tuple(
             '{} {}'.format(x, y) for x in self.well_known for y in (
-                self.path, '/ws/'))
+                self.path, '/ws/', 'ws/'))
         self.probe_len = max(len(x) for x in self.omit)
 
     def _http_response(self, code, status, headers=None, datasize=None, content=None):

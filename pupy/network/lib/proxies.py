@@ -319,21 +319,21 @@ def get_proxies(additional_proxies=None):
                         yield proxy
                         dups.add(proxy)
             else:
-                if '@' in proxy_str:
-                    tab=proxy_str.split(':',1)
-                    proxy_type=tab[0]
-                    login, password=(tab[1].split('@')[0]).split(':',1)
-                    address, port = tab[1].split('@')[1].split(':',1)
+                #HTTP:ip:port OR HTTP:ip:[port:]login:password
+                parts = proxy_str.split(':')
+
+                if len(parts) >= 4:
+                    login, password = parts[-2], parts[-1]
+                    parts = parts[:-2]
+
+                if len(parts) not in (2,3):
+                    continue
+
+                elif len(parts) == 2:
+                    proxy_type = 'SOCKS5'
+                    address, port = parts
                 else:
-                    #HTTP:ip:port
-                    parts = proxy_str.split(':')
-                    if len(parts) not in (2,3):
-                        continue
-                    elif len(parts) == 2:
-                        proxy_type = 'SOCKS5'
-                        address, port = parts
-                    else:
-                        proxy_type, address, port = parts
+                    proxy_type, address, port = parts
 
                 proxy = proxy_type.upper(), address+':'+port, login, password
                 if proxy not in dups:

@@ -205,7 +205,8 @@ class PupyWebSocketClient(PupyWebSocketTransport):
 
     __slots__ = (
         'host', 'path', 'user_agent', 'socketkey', 'offset',
-        'missing_bytes', 'decoded', 'upgraded', 'mask'
+        'missing_bytes', 'decoded', 'upgraded', 'mask',
+        'connect', 'proxy', 'auth', 'upgraded_buf'
     )
 
     def __init__(self, *args, **kwargs):
@@ -215,11 +216,26 @@ class PupyWebSocketClient(PupyWebSocketTransport):
         self.missing_bytes = 0
         self.offset = 0
         self.decoded = Buffer()
+        self.upgraded_buf = Buffer()
         self.user_agent = kwargs.get('user-agent')
         self.path = kwargs.get('path')
-        self.host = kwargs.get(
-            'host',
-            'www.' + ''.join(random.sample(string.printable,16)) + '.net')
+        self.connect = kwargs.get('connect', None)
+
+        self.proxy = kwargs.get('proxy', False)
+        self.auth = kwargs.get('auth', None)
+        self.host = kwargs.get('host', None)
+
+        if self.connect is None and self.host is not None:
+            if ':' in self.host:
+                host, port = self.host.rsplit(':', 1)
+                port = int(port)
+                self.connect = host, port
+            else:
+                self.connect = self.host, 80
+
+        if self.host is None:
+            self.host = 'www.' + ''.join(
+                random.sample(string.lowercase + '.-',16)) + '.net'
 
         if __debug__:
             logger.debug(
@@ -227,11 +243,24 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                 self.path, self.user_agent, self.host)
 
     def on_connect(self):
-        payload = "%s %s HTTP/1.1\r\n" % ('GET', self.path)
+        uri = self.path
+        if self.proxy and self.connect:
+            host, port = self.connect
+            if port != 80:
+                uri = ':' + str(port) + uri
+
+            uri = 'http://' + host + uri
+
+        payload = "%s %s HTTP/1.1\r\n" % ('GET', uri)
         payload += "Host: %s\r\n" % (self.host)
         payload += "User-Agent: %s\r\n" % (self.user_agent)
         payload += "Upgrade: websocket\r\n"
         payload += "Connection: Upgrade\r\n"
+
+        if self.proxy and self.auth:
+            payload += 'Proxy-Authorization: Basic ' + \
+              base64.b64encode('{}:{}'.format(*self.auth))
+
         payload += "Sec-WebSocket-Key: %s\r\n" % (base64.b64encode(self.socketkey))
         payload += "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
         payload += "Sec-WebSocket-Version: 13\r\n\r\n"
@@ -249,7 +278,10 @@ class PupyWebSocketClient(PupyWebSocketTransport):
 
         try:
             mask = ''.join(random.sample(string.printable, MASK_LEN))
-            add_ws_encapsulation(data, self.downstream, mask)
+            if self.upgraded:
+                add_ws_encapsulation(data, self.downstream, mask)
+            else:
+                add_ws_encapsulation(data, self.upgraded_buf, mask)
 
         except Exception, e:
             raise EOFError(str(e))
@@ -268,8 +300,10 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                     if __debug__:
                         logger.debug('Short answer (%s)', repr(d))
                     return
+                elif not d.startswith('HTTP/'):
+                    raise EOFError('Invalid data')
                 elif d.startswith('HTTP/') and not d.startswith(UPGRADE_101_SUCCESS):
-                    raise EOFError('Invalid response: {}'.format(repr(d)))
+                    raise EOFError('Invalid response: {}'.format(repr(data.read())))
 
                 d = data.peek()
                 if '\r\n\r\n' not in d:
@@ -283,6 +317,12 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                     logger.debug('Connection upgraded')
 
                 self.upgraded = True
+
+                if self.upgraded_buf:
+                    if __debug__:
+                        logger.debug('Flush buffer %d', len(self.upgraded_buf))
+
+                    self.upgraded_buf.write_to(self.downstream)
 
             if __debug__:
                 logger.debug('Parse ws messages')
@@ -306,7 +346,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
 
 class PupyWebSocketServer(PupyWebSocketTransport):
     __slots__ = (
-        'user_agent', 'path', 'offset',
+        'user_agent', 'path', 'offset', 'upgraded_buf',
         'missing_bytes', 'upgraded', 'decoded', 'mask',
     )
 
@@ -319,6 +359,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
         self.offset = 0
         self.missing_bytes = 0
         self.decoded = Buffer()
+        self.upgraded_buf = Buffer()
 
         if __debug__:
             logger.debug(
@@ -344,7 +385,10 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             Messsages shouldn't be masked
         """
         try:
-            add_ws_encapsulation(data, self.downstream)
+            if self.upgraded:
+                add_ws_encapsulation(data, self.downstream)
+            else:
+                add_ws_encapsulation(data, self.upgraded_buf)
 
         except Exception as e:
             raise EOFError(str(e))
@@ -371,12 +415,14 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 self.bad_request('Path does not match ({} != {})!'.format(path, self.path))
                 return
 
+            wskey = None
+
             key = re.search('\n[sS]ec-[wW]eb[sS]ocket-[kK]ey[\s]*:[\s]*(.*)\r\n', d)
             if key:
-                key = key.group(1)
+                wskey = key.group(1)
             else:
-                self.bad_request('Unable to get WebSocketKey')
-                return
+                if __debug__:
+                    logger.debug('Unable to get WebSocketKey')
 
             if self.user_agent:
                 ua = re.search('\n[uU]ser-[aA]gent:[\s]*(.*)\r\n', d)
@@ -395,13 +441,23 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             payload = 'HTTP/1.1 101 Switching Protocols\r\n'
             payload += 'Upgrade: websocket\r\n'
             payload += 'Connection: Upgrade\r\n'
-            payload += 'Sec-WebSocket-Accept: %s\r\n' % (self.calculate_response_key(key))
+
+            if wskey:
+                payload += 'Sec-WebSocket-Accept: %s\r\n' % (self.calculate_response_key(wskey))
+
             payload += '\r\n'
+
+            data.drain(d.index('\r\n\r\n') + 4)
+
+            if self.upgraded_buf:
+                if __debug__:
+                    logger.debug('Flush buffer %d', len(self.upgraded_buf))
+
+                self.upgraded_buf.write_to(self.downstream)
 
             self.downstream.write(payload)
             self.upgraded = True
 
-            data.drain(d.index('\r\n\r\n') + 4)
 
         while data:
             msg_len, self.offset, self.missing_bytes, self.mask = remove_ws_encapsulation(

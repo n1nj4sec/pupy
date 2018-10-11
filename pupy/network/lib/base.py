@@ -118,7 +118,7 @@ class TransportWrapper(BasePupyTransport):
 
     __slots__ = ('cls_chain', 'chain')
 
-    cls_chain=[]
+    cls_chain = ()
 
     def __init__(self, stream, **kwargs):
         super(TransportWrapper, self).__init__(stream, **kwargs)

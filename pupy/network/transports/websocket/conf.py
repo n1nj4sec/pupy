@@ -7,8 +7,7 @@ from network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
 from network.lib import RSA_AESClient, RSA_AESServer, PupyWebSocketClient, PupyWebSocketServer
 from network.lib import chain_transports
 
-from string import printable
-from md5 import md5
+from hashlib import md5
 
 DEFAULT_USER_AGENT = \
   'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 ' \
@@ -21,6 +20,7 @@ class TransportConf(Transport):
     client = PupyTCPClient
     stream = PupySocketStream
     credentials = ['SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY', 'SCRAMBLESUIT_PASSWD']
+    internal_proxy_impl = ['HTTP']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
