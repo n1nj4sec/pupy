@@ -265,9 +265,10 @@ class PupyWebSocketClient(PupyWebSocketTransport):
         payload += "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
         payload += "Sec-WebSocket-Version: 13\r\n\r\n"
 
-        self.downstream.write(payload)
+        if __debug__:
+            logger.debug('Send upgrade request')
 
-        time.sleep(1)
+        self.downstream.write(payload)
 
     def upstream_recv(self, data):
         """
@@ -400,6 +401,9 @@ class PupyWebSocketServer(PupyWebSocketTransport):
         """
 
         if not self.upgraded:
+            if __debug__:
+                logger.debug('WS: Wait for upgrade requet')
+
             d = data.peek()
             # Handle HTTP GET requests, strip websocket keys, verify UA etc
             if not d.startswith('GET '):
@@ -449,13 +453,17 @@ class PupyWebSocketServer(PupyWebSocketTransport):
 
             data.drain(d.index('\r\n\r\n') + 4)
 
+            if __debug__:
+                logger.debug('Flush upgrade response')
+
+            self.downstream.write(payload)
+
             if self.upgraded_buf:
                 if __debug__:
                     logger.debug('Flush buffer %d', len(self.upgraded_buf))
 
                 self.upgraded_buf.write_to(self.downstream)
 
-            self.downstream.write(payload)
             self.upgraded = True
 
 
