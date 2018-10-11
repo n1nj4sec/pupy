@@ -15,7 +15,7 @@ DEFAULT_USER_AGENT = \
 
 class TransportConf(Transport):
     info = "TCP transport using Websocket with RSA+AES"
-    name = "websocket"
+    name = "ws"
     server = PupyTCPServer
     client = PupyTCPClient
     stream = PupySocketStream

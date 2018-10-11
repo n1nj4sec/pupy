@@ -11,7 +11,7 @@ logs = false
 webserver = false
 
 #Multiple listeners are allowed. Example
-#listen = ssl,kc4,websocket
+#listen = ssl,kc4,ws
 listen = ssl
 
 #igd=True allow pupy to make IGD/UPNP requests to get you external IP and
@@ -71,7 +71,7 @@ ec4 = 80=1234
 kc4 = 123=1234
 tcp_cleartext = 80=1234
 udp_cleartext = 123=1234
-websocket = 80=8081
+ws = 80=8081
 http = 80=8080
 ecm = 1235
 
