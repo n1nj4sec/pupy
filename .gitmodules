@@ -1,10 +1,6 @@
 [submodule "pupy/external/LaZagne"]
 	path = pupy/external/LaZagne
 	url = https://github.com/AlessandroZ/LaZagne
-[submodule "pupy/external/changeme"]
-	path = pupy/external/changeme
-	url = https://github.com/AlessandroZ/changeme
-	shallow = false
 [submodule "pupy/external/Windows-Exploit-Suggester"]
 	path = pupy/external/Windows-Exploit-Suggester
 	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
