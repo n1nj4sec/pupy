@@ -88,7 +88,7 @@ There are not so many things which can go wrong. Check:
 
 If some of you want to participate to pupy development, don't hesitate ! All help is greatly appreciated and I will review every pull request.
 
-Also there is small [note](pupy/DEVELOPMENT.md) about development. Please run flake8 before doing any commits.
+Also there is small [note](https://github.com/n1nj4sec/pupy/wiki/Development) about development. Please run flake8 before doing any commits.
 File with config is [here](pupy/tox.ini).
 
 ## Contact
