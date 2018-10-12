@@ -461,16 +461,19 @@ class PupyServer(object):
         for listener in self.listeners.values():
             return listener.port
 
-    def start_webserver(self):
+    def start_webserver(self, motd=False):
         if not self.config.getboolean('pupyd', 'webserver'):
             return False
 
         if not self.pupweb:
             self.pupweb = PupyWebServer(self, self.config)
             self.pupweb.start()
-            self.handler.display_success('WebServer started')
+            self.display('WebServer started ({}:{}, webroot={})'.format(
+                self.pupweb.hostname, self.pupweb.port, self.pupweb.wwwroot),
+                motd=motd)
         else:
-            self.handler.display_error('WebServer already started')
+            self.display(
+                'WebServer already started', error=True, motd=motd)
 
         return True
 
@@ -625,7 +628,7 @@ class PupyServer(object):
                 if type(hostname) == unicode:
                     hostname = hostname.encode('utf-8')
 
-                self.handler.display_srvinfo('Session {} opened ({}@{}){}'.format(
+                self.info('Session {} opened ({}@{}){}'.format(
                     client_id, user, hostname, remote if client_port != 0 else '')
                 )
 
@@ -646,8 +649,7 @@ class PupyServer(object):
             self.clients.remove(client)
             self.free_id(client.desc['id'])
 
-            if self.handler:
-                self.handler.display_srvinfo('Session {} closed'.format(client.desc['id']))
+            self.info('Session {} closed'.format(client.desc['id']))
 
     def get_clients(self, search_criteria):
         """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
@@ -812,10 +814,8 @@ class PupyServer(object):
                     Color(modname, 'yellow'),
                     'at ({}): {}. Traceback:\n{}'.format(
                     modpath, e, tb))
-                if self.handler:
-                    self.handler.display_srvinfo(error)
-                else:
-                    self.motd['fail'].append(error)
+
+                self.info(error, error=True)
 
     def get_module(self, name):
         enable_dangerous_modules = self.config.getboolean('pupyd', 'enable_dangerous_modules')
@@ -941,6 +941,7 @@ class PupyServer(object):
 
     def start(self):
         self.handler_registered.wait()
+        self.start_webserver(motd=True)
 
         listeners = set([
             x.strip() for x in (
@@ -1035,7 +1036,10 @@ class PupyServer(object):
         if error:
             del self.listeners[name]
 
-        if motd:
+        self.display(message, error, motd)
+
+    def display(self, message, error=False, motd=False):
+        if motd or not self.handler:
             if error:
                 self.motd['fail'].append(error)
             else:
@@ -1045,6 +1049,14 @@ class PupyServer(object):
                 self.handler.display_error(error)
             else:
                 self.handler.display_success(message)
+
+    def info(self, message, error=False):
+        if self.handler:
+            self.handler.display_srvinfo(message)
+        elif error:
+            self.motd['fail'].append(message)
+        else:
+            self.motd['ok'].append(message)
 
     def remove_listener(self, name):
         if name not in self.listeners:
@@ -1081,5 +1093,9 @@ class PupyServer(object):
 
         for name in self.listeners.keys():
             self.remove_listener(name)
+
+        if self.pupweb:
+            self.pupweb.stop()
+            self.pupweb = None
 
         self.finished.set()

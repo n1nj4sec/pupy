@@ -130,7 +130,7 @@ def do(server, handler, config, args):
             args.output_dir = wwwroot
 
     try:
-        output = pupygen.pupygen(args, config, handler.display)
+        output = pupygen.pupygen(args, config, server, handler.display)
 
     except pupygen.NoOutput:
         return

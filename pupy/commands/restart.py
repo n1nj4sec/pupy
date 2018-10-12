@@ -15,9 +15,9 @@ def do(server, handler, config, args):
     ]
 
     if handler.dnscnc:
-        handler.display(Success('Stopping DNSCNC'))
+        handler.display_srvinfo(Success('Stopping DNSCNC'))
         handler.dnscnc.stop()
 
     server.stop()
-    handler.display(Success('Restarting'))
+    handler.display_srvinfo(Success('Restarting'))
     os.execv(argv0, argv)

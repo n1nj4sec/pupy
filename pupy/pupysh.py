@@ -86,7 +86,6 @@ from pupylib import PupyCredentials
 from pupylib import PupyConfig
 
 if __name__ == "__main__":
-
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
     if args.not_encrypt:
         PupyCredentials.ENCRYPTOR = None
