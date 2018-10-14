@@ -23,7 +23,7 @@ COMMON_EXCEPTIONS = (
     errno.ECONNREFUSED, errno.ECONNRESET,
     errno.EPIPE, errno.EBADF,
     errno.ETIMEDOUT, errno.EHOSTUNREACH,
-    errno.EHOSTDOWN
+    errno.ENETUNREACH, errno.EHOSTDOWN
 )
 
 REQUEST_INFO = 0
