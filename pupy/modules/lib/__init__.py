@@ -13,10 +13,13 @@ def size_human_readable(num, suffix='B'):
     except:
         return '0.00 B'
 
-def file_timestamp(timestamp):
+def file_timestamp(timestamp, time=False):
     try:
         d = datetime.fromtimestamp(timestamp)
-        return str(d.strftime("%d/%m/%y"))
+        if time:
+            return str(d.strftime('%d/%m/%y %H:%M:%S'))
+        else:
+            return str(d.strftime('%d/%m/%y'))
     except:
         return '00/00/00'
 

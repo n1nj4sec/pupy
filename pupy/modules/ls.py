@@ -24,7 +24,7 @@ T_TARFILE   = 13
 
 # TODO: Rewrite using tables
 
-def output_format(file, windows=False, archive=None):
+def output_format(file, windows=False, archive=None, time=False):
     if file[T_TYPE] == 'X':
         return '--- TRUNCATED ---'
 
@@ -33,15 +33,17 @@ def output_format(file, windows=False, archive=None):
     if archive:
         name += u' \u25bb ' + archive
 
+    timestamp_field = u'{:<18}' if time else u'{:<10}'
+
     if windows:
         out = u'  {}{}{}{}'.format(
-            u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
+            timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<3}'.format(file[T_TYPE]),
             u'{:<11}'.format(size_human_readable(file[T_SIZE])),
             u'{:<40}'.format(name))
     else:
         out = u'  {}{}{}{}{}{}{}'.format(
-            u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
+            timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<3}'.format(file[T_TYPE]),
             u'{:<5}'.format(file[T_UID]),
             u'{:<5}'.format(file[T_GID]),
@@ -119,6 +121,8 @@ class ls(PupyModule):
         files_cnt = 0
         dirs_cnt = 0
 
+        show_time = args.sort == T_TIMESTAMP
+
         for r in results:
             if T_FILES in r:
                 archive = None
@@ -153,10 +157,10 @@ class ls(PupyModule):
                             files_cnt  += 1
 
                     for f in sorted(dirs, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, is_windows))
+                        self.log(output_format(f, is_windows, time=show_time))
 
                     for f in sorted(files, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, is_windows))
+                        self.log(output_format(f, is_windows, time=show_time))
 
                     if truncated:
                         self.warning('Folder is too big. Not listed: {} (-L {})'.format(
@@ -177,7 +181,7 @@ class ls(PupyModule):
                             truncated = True
                             continue
 
-                        self.log(output_format(f, is_windows))
+                        self.log(output_format(f, is_windows, time=show_time))
 
                     if truncated:
                         self.log('--- TRUNCATED ---')
@@ -191,7 +195,7 @@ class ls(PupyModule):
                 elif T_TARFILE in r:
                     archive = 'TAR'
                     is_windows = False
-                self.log(output_format(r[T_FILE], is_windows, archive))
+                self.log(output_format(r[T_FILE], is_windows, archive, show_time))
             else:
                 self.error('Old format. Update pupyutils.basic_cmds')
                 return
