@@ -283,12 +283,12 @@ class DnsCommandServerHandler(BaseResolver):
 
     def _sessions_by_nodeids(self, ids):
         return [
-            session for session in self.sessions if session.node in ids
+            session for session in self.sessions if self.sessions[session].node in ids
         ]
 
     def _nodeids_with_sessions(self, ids):
         return set([
-            session.node for session in self.sessions if session.node in ids
+            session.node for session in self.sessions if self.sessions[session].node in ids
         ])
 
     @locked
@@ -585,9 +585,6 @@ class DnsCommandServerHandler(BaseResolver):
 
         payload = encoder.decode(data+node_blob, nonce, symmetric=True)
 
-        logger.debug('NONCE: %08x SPI: %08x NODE_BLOB: %s',
-            nonce, spi, bool(node_blob))
-
         if node_blob:
             offset_node_blob = len(payload) - (1+4+2+6)
             payload, node_blob = payload[:offset_node_blob], payload[offset_node_blob:]
@@ -600,6 +597,9 @@ class DnsCommandServerHandler(BaseResolver):
             nodeid = from_bytes(node_blob[1+4+2:1+4+2+6])
             csum_check = encoder.check_csum
             csum_gen = encoder.gen_csum
+
+        logger.debug('NONCE: %08x SPI: %08x NODE: %012x',
+            nonce, spi, nodeid if bool(node_blob) else 0)
 
         return payload, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen
 
