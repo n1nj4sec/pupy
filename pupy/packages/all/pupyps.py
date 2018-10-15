@@ -171,14 +171,20 @@ def users():
         }
 
         if 'pid' in terminfo:
-            pinfo = {
-                k:to_unicode(v) for k,v in safe_as_dict(psutil.Process(
-                    terminfo['pid']), [
-                        'exe', 'cmdline', 'name'
-                    ]).iteritems()
-            }
+            try:
+                pinfo = {
+                    k:to_unicode(v) for k,v in safe_as_dict(psutil.Process(
+                        terminfo['pid']), [
+                            'exe', 'cmdline', 'name'
+                        ]).iteritems()
+                }
 
-            terminfo.update(pinfo)
+                terminfo.update(pinfo)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                terminfo.update({
+                    'pid': terminfo['pid'],
+                    'dead': True,
+                })
 
         if 'terminal' in terminfo:
             try:

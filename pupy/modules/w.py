@@ -39,6 +39,9 @@ class WModule(PupyModule):
                                 "grey" if idle > 60*60*24 else ""
                             )
 
+                        if 'dead' in session:
+                            color = 'darkgrey'
+
                         object = {
                             'HOST': Color(host, color),
                             'USER': Color(
