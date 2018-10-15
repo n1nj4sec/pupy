@@ -661,7 +661,7 @@ def tail(f, n, grep):
 
 # ------------------------------- For edit  -------------------------------
 
-def fgetcontent(path, max_size=512*1024*1024):
+def fgetcontent(path, max_size=1*1024*1024):
     path = try_unicode(path)
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
