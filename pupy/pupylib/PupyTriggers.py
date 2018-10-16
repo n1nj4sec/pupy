@@ -21,9 +21,9 @@ logger = getLogger('triggers')
 
 ALLOWED_CHARS = string.ascii_letters + string.digits + '_ '
 
-SERVER = 0x80
-DNSCNC = 0x40
-CLIENT = 0x20
+SERVER = 0x8000
+DNSCNC = 0x4000
+CLIENT = 0x2000
 
 ON_CONNECT = CLIENT | 0
 ON_DISCONNECT = CLIENT | 1
@@ -70,7 +70,7 @@ class UnregisteredEventId(Exception):
 def register_event_id(eventid, name, scope=CLIENT):
     global EVENTS_ID_REGISTRY
 
-    if eventid > 0x1F:
+    if eventid > 0x1F00:
         raise ValueError('Invalid Event ID: should be less then 0x1F')
     elif scope not in (SERVER, CLIENT, DNSCNC):
         raise ValueError('Invalid scope, should be one of SERVER, CLIENT, DNSCNC')
