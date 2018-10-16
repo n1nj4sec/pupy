@@ -18,9 +18,12 @@ import threading
 import inspect
 import ctypes
 import logging
+
 from .PupyErrors import PupyModuleError, PupyModuleExit
 from .PupyConfig import PupyConfig
 from .PupyOutput import Info, Warn
+from .PupyTriggers import ON_JOB_EXIT, event
+
 import rpyc
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
@@ -187,6 +190,15 @@ class PupyJob(object):
             module.closeio()
 
             if self.id is not None:
+                kwargs = dict(module.client.desc)
+                kwargs.update({
+                    'jid': self.id,
+                    'exception': e,
+                    'interrupted': self.interrupted
+                })
+
+                event(ON_JOB_EXIT, module.client, self.pupsrv, **kwargs)
+
                 if e:
                     self.pupsrv.info('<jid={}/cid={}> - error: {}'.format(self.id, module.client.id, e))
                 elif self.interrupted:

