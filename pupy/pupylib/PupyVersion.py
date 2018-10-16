@@ -18,7 +18,7 @@ BANNER='''
 '''.format(**INFO)
 
 UPSTREAM='''
-Bleeding edge: {__upstream__}
+Upstream: {__upstream__}
 '''.format(**INFO)
 
 DISCLAIMER='''The usage of this software to access any system,
