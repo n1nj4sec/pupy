@@ -61,6 +61,8 @@ from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.igd import IGDClient, UPNPError
 from network.lib.streams.PupySocketStream import PupyChannel
 
+from triggers import Triggers
+
 from . import getLogger
 logger = getLogger('server')
 blocks_logger = logger.getChild('whitelist')
@@ -357,6 +359,7 @@ class PupyServer(object):
         self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
         self.handler = None
         self.handler_registered = Event()
+        self.triggers = Triggers()
         self.categories = PupyCategories(self)
         self.igd = None
         self.finished = Event()
@@ -554,7 +557,7 @@ class PupyServer(object):
         return nodeid in set([x.strip().lower() for x in allowed_nodes.split(',')])
 
     def add_client(self, conn):
-        pc = None
+        client = None
 
         conn.execute(
             'import marshal;exec marshal.loads({})'.format(
@@ -606,8 +609,8 @@ class PupyServer(object):
 
             client_info.update(uuid)
 
-            pc = PupyClient(client_info, self)
-            self.clients.append(pc)
+            client = PupyClient(client_info, self)
+            self.clients.append(client)
 
             if self.handler:
                 try:
@@ -632,12 +635,10 @@ class PupyServer(object):
                     client_id, user, hostname, remote if client_port != 0 else '')
                 )
 
-        if pc and self.handler:
-            event(ON_CONNECT, pc, self, self.handler, self.config)
+        if client and self.handler:
+            event(ON_CONNECT, client, self, self.handler, self.config, **client.desc)
 
     def remove_client(self, conn):
-        event(ON_DISCONNECT, None, self, self.handler, self.config)
-
         with self.clients_lock:
             client = [x for x in self.clients if (x.conn is conn or x is conn)]
             if not client:
@@ -645,6 +646,8 @@ class PupyServer(object):
                 return
 
             client = client[0]
+
+            event(ON_DISCONNECT, client, self, self.handler, self.config, **client.desc)
 
             self.clients.remove(client)
             self.free_id(client.desc['id'])

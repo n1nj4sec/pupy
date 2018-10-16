@@ -140,12 +140,14 @@ payload_output = output
 ##   Use '*' and 'any' prefix to apply action to all clients
 ##   Use SPI or NODE to apply action only to clients with same SPI/NODE id
 ##   Other values will be used as client_filter argument (like run -f)
-## ACTION: [!...|include:section_name|module args|]
+## ACTION: [!...|include:section_name|python:trigger_name|module args|]
 ##   Use '!' prefix to execute shell command
 ##   Use 'include:' prefix to include commands with specified section name
+##   Use 'python:' prefix to execute trigger (from triggers/ folder)
 
 ## Example: include actions in section on_connect_notifications
 # any = include:on_connect_notifications
+# any = python:example_trigger
 
 [on_connect_notifications]
 any1 = !notify-send "New session: {hostname} / {os_name}"
