@@ -377,7 +377,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             logger.debug(msg)
 
         self.downstream.write(error_response)
-        self.close(0)
+        self.close()
 
     def upstream_recv(self, data):
         """
