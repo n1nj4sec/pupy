@@ -188,11 +188,11 @@ class PupyJob(object):
 
             if self.id is not None:
                 if e:
-                    self.handler.display_srvinfo('<jid={}/cid={}> - error: {}'.format(self.id, module.client.id, e))
+                    self.pupsrv.info('<jid={}/cid={}> - error: {}'.format(self.id, module.client.id, e))
                 elif self.interrupted:
-                    self.handler.display_srvinfo('<jid={}/cid={}> interrupted'.format(self.id, module.client.id))
+                    self.pupsrv.info('<jid={}/cid={}> interrupted'.format(self.id, module.client.id))
                 else:
-                    self.handler.display_srvinfo('<jid={}/cid={}> done'.format(self.id, module.client.id))
+                    self.pupsrv.info('<jid={}/cid={}> done'.format(self.id, module.client.id))
 
     def start(self, once=False):
         #if self.started.is_set():
@@ -236,7 +236,7 @@ class PupyJob(object):
             return True
 
         else:
-            self.handler.display_srvinfo(
+            self.pupsrv.info(
                 Warn('Module does not support interrupts. Resources may leak!'))
             self.worker_pool.interrupt_all()
             self.check()
