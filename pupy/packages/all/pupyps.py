@@ -108,8 +108,8 @@ def pstree():
 
         data[p.pid] = {
             k:to_unicode(v) for k,v in safe_as_dict(p, [
-                'name', 'username', 'cmdline', 'exe',
-                'cpu_percent', 'memory_percent', 'connections'
+                'name', 'username', 'cmdline', 'exe', 'status',
+                'cpu_percent', 'memory_percent', 'connections',
             ]).iteritems()
         }
 
