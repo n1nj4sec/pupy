@@ -274,7 +274,7 @@ class TTYRec(Task):
         self._ttymon.stop()
 
 
-def start():
+def start(event_id=None):
     try:
         if manager.active(TTYRec):
             return False
@@ -284,7 +284,7 @@ def start():
         except:
             pass
 
-    return manager.create(TTYRec)
+    return manager.create(TTYRec, event_id=event_id)
 
 def stop():
     return manager.stop(TTYRec)

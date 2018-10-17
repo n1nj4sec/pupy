@@ -186,7 +186,7 @@ class USniper(pupy.Task):
             except:
                 pass
 
-def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr'):
+def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr', event_id=None):
     try:
         if pupy.manager.active(USniper):
             return False
@@ -202,7 +202,8 @@ def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr'):
         argtype = None
 
     return pupy.manager.create(
-        USniper, path, addr, reg, ret, cast, argtype
+        USniper, path, addr, reg, ret, cast, argtype,
+        event_id=event_id
     ) is not None
 
 def stop():

