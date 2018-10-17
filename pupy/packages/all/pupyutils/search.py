@@ -9,30 +9,39 @@ import os
 import re
 import sys
 
-try:
-    import mmap
-except ImportError:
-    pass
-
 import threading
 import rpyc
 
 import errno
 import traceback
 
+import string
+
+from zipfile import ZipFile, is_zipfile
+from tarfile import is_tarfile
+from tarfile import open as open_tarfile
+
 PERMISSION_ERRORS = [
     getattr(errno, x) for x in ('EPERM', 'EACCESS') if hasattr(errno, x)
 ]
 
+SEARCH_WINDOW_SIZE = 32768
+
 class Search(object):
-    def __init__(self, path,
-                     strings=[], max_size=20000000, root_path='.', no_content=False,
-                     case=False, binary=False, follow_symlinks=False, terminate=None):
+    def __init__(
+        self, path,
+        strings=[], max_size=20000000, root_path='.', no_content=False,
+        case=False, binary=False, follow_symlinks=False, terminate=None,
+        same_fs=True, search_in_archives=False
+    ):
+
         self.max_size = int(max_size)
         self.follow_symlinks = follow_symlinks
         self.no_content = no_content
         self.binary = binary
         self.case = case
+        self.same_fs = same_fs
+        self.search_in_archives = search_in_archives
 
         if self.case:
             i = re.IGNORECASE | re.UNICODE
@@ -63,7 +72,7 @@ class Search(object):
             self.path = None
 
         self.strings = [
-            re.compile(string, i) for string in strings
+            re.compile(s, i) for s in strings
         ]
 
         self.terminate = terminate
@@ -73,27 +82,56 @@ class Search(object):
         else:
             self.root_path = root_path
 
-    def search_string(self, path, size):
-        try:
-            with open(path, 'rb') as f:
-                if not os.fstat(f.fileno()).st_size:
-                    return
+        if self.same_fs:
+            self.same_fs = os.stat(self.root_path).st_dev
 
-                m = mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ)
-                try:
-                    if not self.binary:
-                        sample_size = min(size, 4096)
-                        sample = m[:sample_size]
-                        sample_zeros = len([x for x in sample if ord(x) == '\x00'])
-                        if sample_zeros not in (0, sample_size/2):
+    def search_string_in_fileobj(self, fileobj, find_all=False, filename=None):
+        try:
+            offset = 0
+            prev = ''
+            found = False
+
+            while offset < self.max_size and not found and not (
+                self.terminate and self.terminate.is_set()):
+
+                chunk = fileobj.read(SEARCH_WINDOW_SIZE)
+
+                if not self.binary:
+                    for x in chunk:
+                        if x not in string.printable:
                             return
 
-                    for string in self.strings:
-                        for match in string.finditer(m):
-                            yield match.group()
+                for s in self.strings:
+                    for match in s.finditer(prev + chunk):
+                        yield match.group()
 
-                finally:
-                    m.close()
+                        if not find_all:
+                            found = True
+                            break
+
+                    if found:
+                        break
+
+                if not chunk:
+                    break
+
+                prev = chunk
+                offset += len(chunk)
+
+        except IOError, e:
+            if e.errno in PERMISSION_ERRORS:
+                return
+
+        except Exception, e:
+            setattr(e, 'filename', filename)
+            setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+            yield e
+
+    def search_string(self, path, find_all=False):
+        try:
+            with open(path, 'rb') as f:
+                for result in self.search_string_in_fileobj(f, find_all, filename=path):
+                    yield result
 
         except IOError, e:
             if e.errno in PERMISSION_ERRORS:
@@ -103,6 +141,59 @@ class Search(object):
             setattr(e, 'filename', path)
             setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
             yield e
+
+    def search_in_archive(self, path):
+        any_file = not self.name or self.path
+
+        if is_zipfile(path):
+            zf = ZipFile(path)
+            try:
+                for item in zf.infolist():
+                    if self.terminate and self.terminate.is_set():
+                        break
+
+                    name = os.path.basename(item.filename)
+
+                    if (self.name and self.name.match(name)) or \
+                      (self.path and self.path.match(item.filename)) or \
+                      any_file:
+                        if self.strings:
+                            for match in self.search_string_in_fileobj(
+                                zf.open(item), filename='zip:'+path+':'+item.filename):
+                                yield ('zip:'+path+':'+item.filename, match)
+                        elif not any_file:
+                            yield 'zip:'+path+':'+item.filename
+            finally:
+                zf.close()
+
+        elif is_tarfile(path):
+            tf = open_tarfile(path, 'r:*')
+            try:
+                for item in tf:
+                    if self.terminate and self.terminate.is_set():
+                        break
+
+                    name = os.path.basename(item.name)
+                    if (self.name and self.name.match(name)) or \
+                      (self.path and self.path.match(item.name)) or \
+                      any_file:
+
+                        if self.strings and item.isfile():
+                            for match in self.search_string_in_fileobj(
+                                tf.extractfile(item), filename='tar:+'+item.name+':'+path):
+
+                                yield ('tar:'+path+':'+item.name, match)
+
+                        elif not any_file:
+                            yield 'tar:'+path+':'+item.name
+
+            except:
+                import traceback
+                traceback.print_exc()
+
+            finally:
+                tf.close()
+
 
     def scanwalk(self, path, followlinks=False):
 
@@ -129,17 +220,17 @@ class Search(object):
                             if size > self.max_size:
                                 continue
 
-                            for string in self.search_string(entry.path, min(size, self.max_size)):
-                                if string:
-                                    if isinstance(string, Exception):
-                                        yield string
+                            for s in self.search_string(entry.path):
+                                if s:
+                                    if isinstance(s, Exception):
+                                        yield s
 
                                     elif self.no_content:
                                         yield entry.path
                                         break
 
                                     else:
-                                        yield (entry.path, string)
+                                        yield (entry.path, s)
                     except IOError, e:
                         if e.errno in PERMISSION_ERRORS:
                             continue
@@ -150,7 +241,12 @@ class Search(object):
 
                 try:
                     if entry.is_dir(follow_symlinks=followlinks):
-                        for res in self.scanwalk(entry.path):
+                        if not self.same_fs or self.same_fs == entry.stat().st_dev:
+                            for res in self.scanwalk(entry.path):
+                                yield res
+
+                    elif self.search_in_archives and entry.is_file():
+                        for res in self.search_in_archive(entry.path):
                             yield res
 
                 except IOError, e:
@@ -173,11 +269,18 @@ class Search(object):
 
     def run(self):
         if os.path.isfile(self.root_path):
-            for res in self.search_string(self.root_path):
+            for res in self.search_string(self.root_path, find_all=True):
                 try:
                     yield u'{} > {}'.format(self.root_path, res)
                 except:
                     pass
+
+            if self.search_in_archives:
+                for res in self.search_in_archive(self.root_path):
+                    try:
+                        yield u'{} @ {}'.format(self.root_path, res)
+                    except:
+                        pass
 
         else:
             for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
@@ -209,7 +312,6 @@ class Search(object):
                             break
 
                 continue
-
 
             try:
                 if result != previous_result:

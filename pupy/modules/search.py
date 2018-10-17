@@ -38,9 +38,15 @@ class SearchModule(PupyModule):
         cls.arg_parser.add_argument('-b', '--binary', action='store_true', help='search content inside binary files')
         cls.arg_parser.add_argument('-C', '--content-only', action='store_true', help='show only results with content')
         cls.arg_parser.add_argument('-L', '--links', action='store_true', help='follow symlinks')
-        cls.arg_parser.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
         cls.arg_parser.add_argument('-N', '--no-content', action='store_true', help='if string matches, output just filename')
         cls.arg_parser.add_argument('-I', '--insensitive', action='store_true', default=False, help='no case sensitive')
+        cls.arg_parser.add_argument('-F', '--no-same-fs', action='store_true', default=False, help='do not limit search to same fs')
+
+        specials = cls.arg_parser.add_mutually_exclusive_group()
+
+        specials.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
+        specials.add_argument('-A', '--archive', action='store_true', default=False, help='search in archive')
+
         cls.arg_parser.add_argument('filename', type=str, metavar='filename', help='regex to search (filename)')
         cls.arg_parser.add_argument('strings', nargs='*', default=[], type=str, metavar='string', help='regex to search (content)')
 
@@ -59,6 +65,8 @@ class SearchModule(PupyModule):
             no_content=args.no_content,
             case=args.insensitive,
             binary=args.binary,
+            same_fs=not args.no_same_fs,
+            search_in_archives=args.archive
         )
 
         if args.download:
