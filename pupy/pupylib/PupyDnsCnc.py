@@ -116,7 +116,6 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
     def on_custom_event(self, eventid, session, node):
         if eventid & CUSTOM != CUSTOM:
-            logger.error('Malformed eventid: %08x', eventid)
             return
 
         if session:

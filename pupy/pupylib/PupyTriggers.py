@@ -159,7 +159,7 @@ def _event(eventid, client, server, handler, triggers, config, **kwargs):
             if client:
                 action = action.replace('%c', '{:08x}'.format(client.spi))
             elif 'node' in kwargs:
-                action = action.replace('%c', '{:012x}'.format(node))
+                action = action.replace('%c', '{:012x}'.format(kwargs['node']))
 
         elif eventid & CLIENT:
             action = action.replace('%c', '{:08x}'.format(client.desc['id']))

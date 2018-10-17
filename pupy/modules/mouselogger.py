@@ -4,7 +4,7 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
-KEYLOGGER_EVENT = 0x12000001
+MOUSELOGGER_EVENT = 0x12000001
 
 __class_name__="MouseLoggerModule"
 __events__ = {
