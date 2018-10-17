@@ -36,7 +36,7 @@ from picocmd import (
     Reexec, Exit, Disconnect,
     Policy, Kex, SystemInfo,
     SetProxy, Connect, DownloadExec,
-    PasteLink, Event,
+    PasteLink, CustomEvent,
     OnlineStatusRequest, PupyState,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
@@ -163,7 +163,7 @@ class DnsCommandsClient(Thread):
 
     def _broadcast_event(self, eventid):
         logging.debug('EventId: %08x', eventid)
-        self.event(Event(eventid))
+        self.event(CustomEvent(eventid))
 
     def _native_resolve(self, hostname):
         _, _, addresses = socket.gethostbyname_ex(hostname)

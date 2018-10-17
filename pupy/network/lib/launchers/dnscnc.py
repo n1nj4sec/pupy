@@ -254,7 +254,7 @@ class DNSCncLauncher(BaseLauncher):
         }
 
         transport_args['host'] = '{}{}'.format(
-            self.host, ':{}'.format(self.port) if self.port != 80 else ''
+            host, ':{}'.format(port) if port != 80 else ''
         )
 
         client = t.client()

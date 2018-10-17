@@ -119,7 +119,7 @@ def event_to_config_section(eventid):
     event_name = event_to_string(eventid)
     return 'on_' + event_name.lower().replace(' ', '_')
 
-def _event(eventid, client, server, handler, config, **kwargs):
+def _event(eventid, client, server, handler, triggers, config, **kwargs):
     section = event_to_config_section(eventid)
     actions = config.items(section)
     event = event_to_string(eventid)
@@ -129,7 +129,10 @@ def _event(eventid, client, server, handler, config, **kwargs):
             if eventid & CLIENT:
                 client_filter = client.desc['id']
             elif eventid & DNSCNC:
-                client_filter = '{:08x}'.format(client.spi)
+                if client:
+                    client_filter = '{:08x}'.format(client.spi)
+                elif 'node' in kwargs:
+                    client_filter = '{:012x}'.format(kwargs['node'])
 
         if action.startswith('include:'):
             _, included_section = action.split(':', 1)
@@ -153,7 +156,10 @@ def _event(eventid, client, server, handler, config, **kwargs):
             action = action.format(**kwargs)
 
         if eventid & DNSCNC:
-            action = action.replace('%c', '{:08x}'.format(client.spi))
+            if client:
+                action = action.replace('%c', '{:08x}'.format(client.spi))
+            elif 'node' in kwargs:
+                action = action.replace('%c', '{:012x}'.format(node))
 
         elif eventid & CLIENT:
             action = action.replace('%c', '{:08x}'.format(client.desc['id']))
@@ -166,7 +172,7 @@ def _event(eventid, client, server, handler, config, **kwargs):
             criterias.extend(list(config.tags(node)))
 
         if client_filter not in criterias and not client_filter.startswith(('*', 'any')) and \
-          (not hasattr(server, 'get_clients') or client_filter not in server.get_clients(client_filter)):
+          client_filter not in server.get_clients(client_filter):
 
             logger.info(
                 'Incompatible event: eventid=%s criterias=%s client_filter=%s action=%s',
@@ -187,9 +193,10 @@ def _event(eventid, client, server, handler, config, **kwargs):
 def event(eventid, client, server, **kwargs):
     handler = server.handler
     config = server.config
+    triggers = server.triggers
 
     try:
-        _event(eventid, client, server, handler, config)
+        _event(eventid, client, server, handler, triggers, config, **kwargs)
 
     except NoSectionError:
         pass

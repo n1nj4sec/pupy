@@ -9,7 +9,7 @@ __all__ = (
     'Policy', 'Kex', 'SystemInfo',
     'SetProxy', 'Connect', 'DownloadExec',
     'PasteLink', 'OnlineStatus', 'PortQuizPort',
-    'OnlineStatusRequest', 'PupyState', 'Event',
+    'OnlineStatusRequest', 'PupyState', 'CustomEvent',
     'ConnectablePort', 'Error', 'ParcelInvalidCrc',
     'ParcelInvalidPayload', 'ParcelInvalidCommand',
     'Parcel', 'PackError',
@@ -1004,7 +1004,7 @@ class Error(Command):
         return Error(Error.errors_decode[code], data[1:1+length]), 1+length
 
 
-class Event(Command):
+class CustomEvent(Command):
     __slots__ = ('eventid')
 
     def __init__(self, eventid):
@@ -1015,7 +1015,8 @@ class Event(Command):
 
     @staticmethod
     def unpack(data):
-        return Event(struct.unpack_from('>I', data)), 4
+        eventid, = struct.unpack_from('>I', data)
+        return CustomEvent(eventid), 4
 
 class ParcelInvalidCrc(Exception):
 
@@ -1055,7 +1056,7 @@ class Parcel(object):
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
         SetProxy, OnlineStatusRequest, OnlineStatus, ConnectablePort,
-        PortQuizPort, PupyState, Event
+        PortQuizPort, PupyState, CustomEvent
     ]
 
     commands_decode = dict(enumerate(COMMANDS))

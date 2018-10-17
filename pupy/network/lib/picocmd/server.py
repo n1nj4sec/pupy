@@ -50,7 +50,7 @@ from picocmd import (
     PupyState,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
-    Parcel, PackError,
+    Parcel, PackError, CustomEvent,
     from_bytes
 )
 
@@ -495,6 +495,9 @@ class DnsCommandServerHandler(BaseResolver):
 
         return content
 
+    def on_custom_event(self, eventid):
+        pass
+
     def on_connect(self, info):
         pass
 
@@ -848,6 +851,9 @@ class DnsCommandServerHandler(BaseResolver):
                 logger.debug('kex:key=%s', binascii.b2a_hex(key[0]))
 
             return [Kex(response)]
+        elif isinstance(command, CustomEvent):
+            logger.debug('custom event: %08x', command.eventid)
+            self.on_custom_event(command.eventid, session, node)
         elif isinstance(command, PortQuizPort):
             logger.debug('portquiz: %s', command)
         elif isinstance(command, ConnectablePort):
