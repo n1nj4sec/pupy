@@ -7,9 +7,12 @@ __all__ = (
     'ON_DNSCNC_SESSION', 'ON_DNSCNC_SESSION_LOST',
     'ON_START', 'ON_EXIT',
     'ON_JOB_EXIT',
+    'EventRegistrationException', 'UnregisteredEventId',
+    'RegisteredEventId', 'RegistrationNotAllowed',
     'register_event_id',
     'unregister_event_id',
-    'event'
+    'event',
+    'SERVER', 'DNSCNC', 'CLIENT', 'CUSTOM'
 )
 
 import string
@@ -21,9 +24,10 @@ logger = getLogger('triggers')
 
 ALLOWED_CHARS = string.ascii_letters + string.digits + '_ '
 
-SERVER = 0x8000
-DNSCNC = 0x4000
-CLIENT = 0x2000
+SERVER = 0x80000000
+DNSCNC = 0x40000000
+CLIENT = 0x20000000
+CUSTOM = 0x10000000
 
 ON_CONNECT = CLIENT | 0
 ON_DISCONNECT = CLIENT | 1
@@ -59,28 +63,42 @@ EVENTS_ID_REGISTRY = {
     ON_DNSCNC_USERS_DECREMENT: 'dnscnc users decrement'
 }
 
-class UnregisteredEventId(Exception):
+class EventRegistrationException(Exception):
     def __init__(self, eventid):
-        super(UnregisteredEventId, self).__init__(self, eventid)
+        super(EventRegistrationException, self).__init__(self, eventid)
         self.eventid = eventid
 
+class UnregisteredEventId(EventRegistrationException):
     def __str__(self):
         return 'Unregistered Event ID %{:02x}'.format(self.eventid)
+
+class RegisteredEventId(EventRegistrationException):
+    def __str__(self):
+        return 'Already registered Event ID %{:02x}'.format(self.eventid)
+
+class RegistrationNotAllowed(EventRegistrationException):
+    def __str__(self):
+        return 'Registrations of global events are not allowed ' \
+          '(Event ID %{:02x})'.format(self.eventid)
 
 def register_event_id(eventid, name, scope=CLIENT):
     global EVENTS_ID_REGISTRY
 
-    if eventid > 0x1F00:
+    if not eventid & CUSTOM:
+        raise RegistrationNotAllowed(eventid)
+
+    if eventid > 0x1F000000:
         raise ValueError('Invalid Event ID: should be less then 0x1F')
     elif scope not in (SERVER, CLIENT, DNSCNC):
         raise ValueError('Invalid scope, should be one of SERVER, CLIENT, DNSCNC')
     elif not all(x in ALLOWED_CHARS for x in name):
         raise ValueError('Only digits, letters, space and underscore allowed for event names')
     elif scope | eventid in EVENTS_ID_REGISTRY:
-        raise ValueError('Event Id {:02x} already registered to {}'.format(
-            scope | eventid, event_to_string(scope | eventid)))
+        raise RegisteredEventId(eventid)
 
-    EVENTS_ID_REGISTRY[scope | eventid] = name
+    EVENTS_ID_REGISTRY[eventid] = name
+
+    return eventid
 
 def unregister_event_id(eventid, scope=CLIENT):
     global EVENTS_ID_REGISTRY

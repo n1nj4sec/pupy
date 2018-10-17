@@ -100,17 +100,17 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def on_users_increment(self, session):
         event(ON_DNSCNC_USERS_INCREMENT, session,
               self.server, sid=session.spi, node=session.node,
-              count=session.system_status.users)
+              count=session.system_status['users'])
 
     def on_users_decrement(self, session):
         event(ON_DNSCNC_USERS_DECREMENT, session,
               self.server, sid=session.spi, node=session.node,
-              count=session.system_status.users)
+              count=session.system_status['users'])
 
     def on_high_resource_usage(self, session):
         event(ON_DNSCNC_HIGH_RESOURCE_USAGE, session,
               self.server, sid=session.spi, node=session.node,
-              mem=session.system_stsatus['mem'],
+              mem=session.system_status['mem'],
               cpu=session.system_status['cpu'])
 
     def onlinestatus(self, node=None, default=False):
