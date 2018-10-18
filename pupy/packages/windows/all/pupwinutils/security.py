@@ -19,6 +19,8 @@ import psutil
 import sys
 import os
 
+from os import W_OK, X_OK, R_OK
+
 ntdll    = WinDLL('ntdll',    use_last_error=True)
 advapi32 = WinDLL('advapi32', use_last_error=True)
 shell32  = WinDLL('shell32',  use_last_error=True)
@@ -36,6 +38,9 @@ HANDLE                          = LPVOID
 INVALID_HANDLE_VALUE            = c_void_p(-1).value
 LONG                            = c_long
 WORD                            = c_uint16
+
+INVALID_HANDLE_VALUE = c_void_p(-1).value
+SECURITY_INFORMATION = DWORD
 
 PROCESS_QUERY_INFORMATION       = 0x0400
 READ_CONTROL                    = 0x00020000L
@@ -61,6 +66,49 @@ SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
 SE_PRIVILEGE_ENABLED            = (0x00000002)
 SE_PRIVILEGE_REMOVED            = (0x00000004)
 SE_PRIVILEGE_USED_FOR_ACCESS    = (0x80000000)
+
+OWNER_SECURITY_INFORMATION = 0x00000001
+GROUP_SECURITY_INFORMATION = 0x00000002
+DACL_SECURITY_INFORMATION = 0x00000004
+SACL_SECURITY_INFORMATION = 0x00000008
+
+INVALID_FILE_ATTRIBUTES = -1
+FILE_ATTRIBUTE_ARCHIVE = 0x20
+FILE_ATTRIBUTE_COMPRESSED = 0x800
+FILE_ATTRIBUTE_DEVICE = 0x40
+FILE_ATTRIBUTE_DIRECTORY = 0x10
+FILE_ATTRIBUTE_ENCRYPTED = 0x4000
+FILE_ATTRIBUTE_HIDDEN = 0x02
+FILE_ATTRIBUTE_INTEGRITY_STREAM = 0x8000
+FILE_ATTRIBUTE_NORMAL = 0x80
+FILE_ATTRIBUTE_READONLY = 0x1
+FILE_ATTRIBUTE_SYSTEM = 0x4
+
+
+FILE_EXECUTE = 0x20
+FILE_READ_DATA = 0x1
+FILE_WRITE_DATA = 0x2
+
+FILE_ADD_FILE = 2
+FILE_ADD_SUBDIRECTORY = 4
+FILE_APPEND_DATA = 4
+FILE_CREATE_PIPE_INSTANCE = 4
+FILE_DELETE_CHILD = 0x40
+FILE_LIST_DIRECTORY = 1
+FILE_READ_ATTRIBUTES = 0x80
+FILE_READ_EA = 8
+FILE_TRAVERSE = 0x20
+FILE_WRITE_ATTRIBUTES = 0x100
+FILE_WRITE_EA = 0x10
+
+FILE_ALL_ACCESS = FILE_EXECUTE | FILE_READ_DATA | FILE_WRITE_DATA | \
+  FILE_APPEND_DATA | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | \
+  FILE_READ_EA | FILE_WRITE_EA
+
+SecurityAnonymous = 0
+SecurityIdentification = 1
+SecurityImpersonation = 2
+SecurityDelegation = 3
 
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
@@ -91,6 +139,16 @@ class SID_AND_ATTRIBUTES(Structure):
 class TOKEN_USER(Structure):
     _fields_ = [
         ("User", SID_AND_ATTRIBUTES),]
+
+ACCESS_MASK = DWORD
+
+class GENERIC_MAPPING(Structure):
+    _fields_ = [
+        ('GenericRead', ACCESS_MASK),
+        ('GenericWrite', ACCESS_MASK),
+        ('GenericExecute', ACCESS_MASK),
+        ('GenericAll', ACCESS_MASK),
+    ]
 
 LookupPrivilegeName             = advapi32.LookupPrivilegeNameW
 LookupPrivilegeName.argtypes    = [LPWSTR, POINTER(LUID), LPWSTR, POINTER(DWORD)]
@@ -177,6 +235,26 @@ class STARTUPINFO(Structure):
         ('hStdError',       HANDLE),
     ]
 
+class ACL_HEADER(Structure):
+    _fields_ = [
+        ('AclRevision', BYTE),
+        ('Sbz1', BYTE),
+        ('AclSize', WORD),
+        ('AceCount', WORD),
+        ('Sbz2', WORD)
+    ]
+
+class SECURITY_DESCRIPTOR(Structure):
+    _fields_ = [
+        ('Revision', BYTE),
+        ('Sbz1', BYTE),
+        ('Control', WORD),
+        ('Owner', PSID),
+        ('Group', PSID),
+        ('Sacl', POINTER(ACL_HEADER)),
+        ('Dacl', POINTER(ACL_HEADER)),
+    ]
+
 class SECURITY_ATTRIBUTES(Structure):
     _fields_ = [
         ("nLength",                     DWORD),
@@ -200,6 +278,12 @@ class OSVERSIONINFOEXW(Structure):
         ('wReserved',           BYTE)
     ]
 POSVERSIONINFOEXW = POINTER(OSVERSIONINFOEXW)
+
+class PRIVILEGE_SET_HEADER(Structure):
+    _fields_ = [
+        ('PrivilegeCount', DWORD),
+        ('Control', DWORD)
+    ]
 
 # advapi32
 
@@ -227,6 +311,10 @@ DuplicateTokenEx                    = advapi32.DuplicateTokenEx
 DuplicateTokenEx.restype            = BOOL
 DuplicateTokenEx.argtypes           = [HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, POINTER(HANDLE)]
 
+DuplicateToken                      = advapi32.DuplicateToken
+DuplicateToken.restype              = BOOL
+DuplicateToken.argtypes             = [HANDLE, DWORD, POINTER(HANDLE)]
+
 GetTokenInformation                 = advapi32.GetTokenInformation
 GetTokenInformation.restype         = BOOL
 GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, POINTER(DWORD)]
@@ -247,11 +335,40 @@ OpenProcessToken                    = advapi32.OpenProcessToken
 OpenProcessToken.restype            = BOOL
 OpenProcessToken.argtypes           = [HANDLE, DWORD, POINTER(HANDLE)]
 
+OpenThreadToken                     = advapi32.OpenThreadToken
+OpenThreadToken.restype             = BOOL
+OpenThreadToken.argtypes            = [HANDLE, DWORD, BOOL, POINTER(HANDLE)]
+
 RevertToSelf                        = advapi32.RevertToSelf
 RevertToSelf.restype                = BOOL
 RevertToSelf.argtypes               = []
 
+ImpersonateSelf                     = advapi32.ImpersonateSelf
+ImpersonateSelf.restype             = BOOL
+ImpersonateSelf.argtypes            = [DWORD]
+
+MapGenericMask                      = advapi32.MapGenericMask
+MapGenericMask.argtypes             = [POINTER(DWORD), POINTER(GENERIC_MAPPING)]
+
+GetFileSecurityW                    = advapi32.GetFileSecurityW
+GetFileSecurityW.argtypes           = [LPWSTR, SECURITY_INFORMATION, c_void_p,
+                                       DWORD, POINTER(DWORD)]
+GetFileSecurityW.restype            = BOOL
+
+IsValidSecurityDescriptor           = advapi32.IsValidSecurityDescriptor
+IsValidSecurityDescriptor.argtypes  = [c_void_p]
+GetFileSecurityW.restype            = BOOL
+
+AccessCheck                         = advapi32.AccessCheck
+AccessCheck.restype                 = BOOL
+AccessCheck.argtypes                = [c_void_p, HANDLE, DWORD, POINTER(GENERIC_MAPPING),
+                                       c_void_p, POINTER(DWORD), POINTER(DWORD), POINTER(BOOL)]
+
 # kernel32
+
+GetFileAttributesW                  = kernel32.GetFileAttributesW
+GetFileAttributesW.argtypes         = [LPWSTR]
+GetFileAttributesW.restype          = DWORD
 
 CloseHandle                         = kernel32.CloseHandle
 CloseHandle.restype                 = BOOL
@@ -260,6 +377,10 @@ CloseHandle.argtypes                = [HANDLE]
 GetCurrentProcess                   = kernel32.GetCurrentProcess
 GetCurrentProcess.restype           = HANDLE
 GetCurrentProcess.argtypes          = []
+
+GetCurrentThread                    = kernel32.GetCurrentThread
+GetCurrentThread.restype            = HANDLE
+GetCurrentThread.argtypes           = []
 
 GetCurrentProcessId                 = kernel32.GetCurrentProcessId
 GetCurrentProcessId.restype         = DWORD
@@ -288,12 +409,13 @@ IsUserAnAdmin                       = shell32.IsUserAnAdmin
 IsUserAnAdmin.restype               = BOOL
 IsUserAnAdmin.argtypes              = []
 
+ERROR_INSUFFICIENT_BUFFER = 122
+
 def GetUserName():
     nSize = DWORD(0)
     GetUserNameW(None, byref(nSize))
     error = GetLastError()
 
-    ERROR_INSUFFICIENT_BUFFER = 122
     if error and error != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(error)
 
@@ -663,3 +785,101 @@ def get_windows_version():
         'minor_version': os_version.dwMinorVersion.real,
         'build_number': os_version.dwBuildNumber.real
     }
+
+def access(path, mode):
+    requested_information = OWNER_SECURITY_INFORMATION | \
+        GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
+
+    dwSize = DWORD(0)
+    hToken = HANDLE()
+    access_desired = 0
+
+    if type(path) == str:
+        path = path.decode(sys.getfilesystemencoding())
+
+    attributes = GetFileAttributesW(path)
+
+    if attributes == INVALID_FILE_ATTRIBUTES:
+        return False
+
+    if mode == os.F_OK:
+        return True
+
+    if (mode & W_OK) and (attributes & FILE_ATTRIBUTE_READONLY) and \
+      not (attributes & FILE_ATTRIBUTE_DIRECTORY):
+        return False
+
+    success = GetFileSecurityW(path, requested_information,
+        c_void_p(0), 0, byref(dwSize))
+
+    if not success and get_last_error() != ERROR_INSUFFICIENT_BUFFER:
+        return False
+
+    pSDBuf = create_string_buffer(dwSize.value)
+    can_read_access = GetFileSecurityW(
+        path, requested_information, pSDBuf,
+        dwSize, byref(dwSize))
+
+    if not can_read_access:
+        return False
+
+    if not IsValidSecurityDescriptor(pSDBuf):
+        return False
+
+    is_access_granted = False
+
+    if not OpenProcessToken(
+        GetCurrentProcess(),
+        TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_DUPLICATE | STANDARD_RIGHTS_READ,
+        byref(hToken)):
+
+        return False
+
+    hImpersonatedToken = HANDLE()
+    if not DuplicateToken(hToken, SecurityImpersonation, byref(hImpersonatedToken)):
+        CloseHandle(hToken)
+        return False
+
+    access_desired = 0
+
+    mapping = GENERIC_MAPPING()
+
+    if (mode & X_OK):
+        access_desired |= FILE_EXECUTE
+    if (mode & R_OK):
+        access_desired |= FILE_READ_DATA
+    if (mode & W_OK):
+        access_desired |= FILE_WRITE_DATA
+
+    mapping.GenericRead = FILE_READ_DATA
+    mapping.GenericWrite = FILE_WRITE_DATA
+    mapping.GenericExecute = FILE_EXECUTE
+    mapping.GenericAll = FILE_ALL_ACCESS
+
+    access_desired = DWORD(access_desired)
+
+    MapGenericMask(byref(access_desired), byref(mapping))
+
+    ps = PRIVILEGE_SET_HEADER()
+    pps = byref(ps)
+    pps_size = DWORD(sizeof(ps))
+    access_granted = DWORD(0)
+    is_access_granted_bool = BOOL(False)
+
+    if not AccessCheck(
+        pSDBuf, hImpersonatedToken, access_desired, byref(mapping), pps,
+        byref(pps_size), byref(access_granted), byref(is_access_granted_bool)):
+
+        if get_last_error() == ERROR_INSUFFICIENT_BUFFER:
+            pps = create_string_buffer(pps_size.value)
+
+        AccessCheck(
+            pSDBuf, hImpersonatedToken, access_desired, byref(mapping), pps,
+            byref(pps_size), byref(access_granted), byref(is_access_granted_bool))
+
+    is_access_granted = bool(is_access_granted_bool)
+
+    CloseHandle(hImpersonatedToken)
+    CloseHandle(hToken)
+
+    return is_access_granted
