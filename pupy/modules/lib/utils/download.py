@@ -319,7 +319,17 @@ class DownloadFronted(object):
                 if self._verbose:
                     self._verbose('{}'.format(self._current_file_name))
             else:
+                filedir = os.path.dirname(filepath)
+
+                # Workaround for archives unpacking
+                if not os.path.isdir(filedir):
+                    if os.path.isfile(filedir):
+                        os.unlink(filedir)
+
+                    os.makedirs(filedir)
+
                 self._current_file = open(filepath, 'wb')
+
                 if self._verbose:
                     self._verbose('{}'.format(filepath))
 

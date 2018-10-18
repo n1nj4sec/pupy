@@ -26,7 +26,7 @@ class DownloaderScript(PupyModule):
     """ download a file/directory from a remote system """
 
     dependencies = {
-        'all': ['transfer', 'scandir'],
+        'all': ['transfer', 'scandir', 'zipfile', 'tarfile'],
         'windows': ['junctions']
     }
 

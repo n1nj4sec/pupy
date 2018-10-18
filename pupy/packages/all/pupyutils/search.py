@@ -32,7 +32,7 @@ class Search(object):
         self, path,
         strings=[], max_size=20000000, root_path='.', no_content=False,
         case=False, binary=False, follow_symlinks=False, terminate=None,
-        same_fs=True, search_in_archives=False
+        same_fs=True, search_in_archives=False, content_only=False
     ):
 
         self.max_size = int(max_size)
@@ -42,6 +42,7 @@ class Search(object):
         self.case = case
         self.same_fs = same_fs
         self.search_in_archives = search_in_archives
+        self.content_only = content_only if strings else False
 
         if self.case:
             i = re.IGNORECASE | re.UNICODE
@@ -157,12 +158,19 @@ class Search(object):
                     if (self.name and self.name.match(name)) or \
                       (self.path and self.path.match(item.filename)) or \
                       any_file:
+
+                        try:
+                            archive_filename = item.filename.decode(sys.getfilesystemencoding())
+                        except UnicodeDecodeError:
+                            archive_filename = item.filename
+
                         if self.strings:
                             for match in self.search_string_in_fileobj(
                                 zf.open(item), filename='zip:'+path+':'+item.filename):
-                                yield ('zip:'+path+':'+item.filename, match)
+                                yield ('zip:'+path+':'+archive_filename, match)
+
                         elif not any_file:
-                            yield 'zip:'+path+':'+item.filename
+                            yield u'zip:'+path+u':'+archive_filename
             finally:
                 zf.close()
 
@@ -178,18 +186,19 @@ class Search(object):
                       (self.path and self.path.match(item.name)) or \
                       any_file:
 
+                        try:
+                            archive_filename = item.name.decode(sys.getfilesystemencoding())
+                        except UnicodeDecodeError:
+                            archive_filename = item.name
+
                         if self.strings and item.isfile():
                             for match in self.search_string_in_fileobj(
-                                tf.extractfile(item), filename='tar:+'+item.name+':'+path):
+                                tf.extractfile(item), filename='tar:+'+archive_filename+':'+path):
 
-                                yield ('tar:'+path+':'+item.name, match)
+                                yield ('tar:'+path+':'+archive_filename, match)
 
                         elif not any_file:
-                            yield 'tar:'+path+':'+item.name
-
-            except:
-                import traceback
-                traceback.print_exc()
+                            yield u'tar:'+path+u':'+archive_filename
 
             finally:
                 tf.close()
@@ -271,19 +280,25 @@ class Search(object):
         if os.path.isfile(self.root_path):
             for res in self.search_string(self.root_path, find_all=True):
                 try:
-                    yield u'{} > {}'.format(self.root_path, res)
+                    yield (self.root_path, res)
                 except:
                     pass
 
             if self.search_in_archives:
                 for res in self.search_in_archive(self.root_path):
+                    if self.content_only and type(res) is not tuple:
+                        continue
+
                     try:
-                        yield u'{} @ {}'.format(self.root_path, res)
+                        yield res
                     except:
                         pass
 
         else:
             for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
+                if self.content_only and type(files) is not tuple:
+                    continue
+
                 yield files
 
     def _run_thread(self, on_data, on_completed, on_error):

@@ -3,9 +3,14 @@ from threading import Thread, Event
 from Queue import Queue
 from os import path, stat
 from rpyc.core import brine
+
 import sys
 
 from network.lib.buffer import Buffer
+
+from zipfile import ZipFile, is_zipfile
+from tarfile import is_tarfile
+from tarfile import open as open_tarfile
 
 HAS_BUFFER_OPTIMIZATION = False
 
@@ -413,6 +418,68 @@ class Transfer(object):
 
         return vec
 
+    def _pack_fileobj(self, infile):
+        high_entropy_cases = 0
+        zeros = 0
+
+        self._current_file = infile
+        while not self._terminate.is_set():
+            portion = infile.read(self.read_portion)
+
+            if not portion:
+                break
+
+            if zeros < (0xFFFFFFFE - self.read_portion) and all(v == '\0' for v in portion):
+                zeros += len(portion)
+                del portion
+                continue
+
+            if zeros > 0:
+                yield {
+                    F_TYPE: T_SPARSE,
+                    F_DATA: zeros,
+                }
+                zeros = 0
+
+            zdata = None
+
+            if high_entropy_cases < 3:
+                zdata = compress(portion)
+
+            datalen = len(portion)
+
+            if not zdata or len(zdata) >= datalen - (datalen*0.2):
+                high_entropy_cases += 1
+
+                result = {
+                    F_TYPE: T_CONTENT,
+                    F_DATA: portion
+                }
+
+                del zdata, portion
+                yield result
+
+            else:
+                high_entropy_cases = 0
+
+                result = {
+                    F_TYPE: T_ZCONTENT,
+                    F_DATA: zdata
+                }
+                del zdata, portion
+                yield result
+
+        if zeros > 0:
+            yield {
+                F_TYPE: T_SPARSE,
+                F_DATA: zeros,
+            }
+            zeros = 0
+
+        yield {
+            F_TYPE: T_CLOSE,
+        }
+
     def _pack_file(self, filepath, top=None):
         yield {
             F_TYPE: T_FILE,
@@ -426,68 +493,9 @@ class Transfer(object):
             raise ValueError('Invalid messages order')
 
         try:
-            high_entropy_cases = 0
-
-            zeros = 0
-
             with open(filepath, 'rb', 0) as infile:
-                self._current_file = infile
-                while not self._terminate.is_set():
-                    portion = infile.read(self.read_portion)
-
-                    if not portion:
-                        break
-
-                    if zeros < (0xFFFFFFFE - self.read_portion) and all(v == '\0' for v in portion):
-                        zeros += len(portion)
-                        del portion
-                        continue
-
-                    if zeros > 0:
-                        yield {
-                            F_TYPE: T_SPARSE,
-                            F_DATA: zeros,
-                        }
-                        zeros = 0
-
-                    zdata = None
-
-                    if high_entropy_cases < 3:
-                        zdata = compress(portion)
-
-                    datalen = len(portion)
-
-                    if not zdata or len(zdata) >= datalen - (datalen*0.2):
-                        high_entropy_cases += 1
-
-                        result = {
-                            F_TYPE: T_CONTENT,
-                            F_DATA: portion
-                        }
-
-                        del zdata, portion
-                        yield result
-
-                    else:
-                        high_entropy_cases = 0
-
-                        result = {
-                            F_TYPE: T_ZCONTENT,
-                            F_DATA: zdata
-                        }
-                        del zdata, portion
-                        yield result
-
-            if zeros > 0:
-                yield {
-                    F_TYPE: T_SPARSE,
-                    F_DATA: zeros,
-                }
-                zeros = 0
-
-            yield {
-                F_TYPE: T_CLOSE,
-            }
+                for portion in self._pack_fileobj(infile):
+                    yield portion
 
         except (OSError, IOError), e:
             yield {
@@ -562,9 +570,70 @@ class Transfer(object):
 
             del stats[:]
 
+    def _is_supported_archive(self, filepath):
+        ext, archive_path, sub_path = filepath.split(':', 2)
+
+        if filepath.startswith(('zip:', 'tar:')) \
+          and not path.isfile(filepath) and path.isfile(archive_path):
+            if is_zipfile(archive_path):
+                return 'zip', archive_path, sub_path
+            elif is_tarfile(archive_path):
+                return 'tar', archive_path, sub_path
+
     def _pack_any(self, filepath):
         try:
-            if path.isfile(filepath):
+            supported_archive = self._is_supported_archive(filepath)
+            if supported_archive:
+                archive, archive_filepath, archive_subpath = supported_archive
+                if archive == 'zip':
+                    with ZipFile(archive_filepath) as zf:
+                        for item in zf.infolist():
+                            if item.filename == archive_subpath or \
+                              item.filename.startswith(archive_subpath+'/'):
+
+                                try:
+                                    archive_filename = item.filename.decode(sys.getfilesystemencoding())
+                                except UnicodeDecodeError:
+                                    archive_filename = item.filename
+
+                                yield {
+                                    F_TYPE: T_FILE,
+                                    F_PATH: '/'.join([
+                                        archive_filepath,
+                                        archive_filename
+                                    ])
+                                }
+
+                                for portion in self._pack_fileobj(zf.open(item)):
+                                    yield portion
+
+                elif archive == 'tar':
+                    with open_tarfile(archive_filepath) as tf:
+                        for item in tf:
+                            # For now support only simple files extraction, same as zip
+                            if not item.isfile():
+                                continue
+
+                            if item.name == archive_subpath or \
+                              item.name.startswith(archive_subpath+'/'):
+
+                                try:
+                                    archive_filename = item.name.decode(sys.getfilesystemencoding())
+                                except UnicodeDecodeError:
+                                    archive_filename = item.name
+
+                                yield {
+                                    F_TYPE: T_FILE,
+                                    F_PATH: u'/'.join([
+                                        archive_filepath,
+                                        archive_filename
+                                    ])
+                                }
+
+                                for portion in self._pack_fileobj(tf.extractfile(item)):
+                                    yield portion
+
+            elif path.isfile(filepath):
                 root = path.dirname(filepath)
                 basename = path.basename(filepath)
                 portions = self._pack_file(basename, top=root)
@@ -677,7 +746,11 @@ def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False
 
     t = Transfer(exclude, include, follow_symlinks, False, ignore_size, single_device, chunk_size)
 
-    def _closure(filepath):
+    def _closure(filespec):
+        filepath = filespec
+        if type(filespec) is tuple:
+            filepath = filespec[0]
+
         t.transfer(filepath, callback)
 
     def _stop():

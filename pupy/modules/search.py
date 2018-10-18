@@ -13,7 +13,8 @@ class SearchModule(PupyModule):
     """ walk through a directory and recursively search a string into files """
     dependencies = {
         'all': [
-            'pupyutils.search', 'scandir', 'transfer'
+            'pupyutils.search', 'scandir', 'transfer',
+            'zipfile', 'tarfile'
         ],
         'windows': ['junctions'],
     }
@@ -42,10 +43,8 @@ class SearchModule(PupyModule):
         cls.arg_parser.add_argument('-I', '--insensitive', action='store_true', default=False, help='no case sensitive')
         cls.arg_parser.add_argument('-F', '--no-same-fs', action='store_true', default=False, help='do not limit search to same fs')
 
-        specials = cls.arg_parser.add_mutually_exclusive_group()
-
-        specials.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
-        specials.add_argument('-A', '--archive', action='store_true', default=False, help='search in archive')
+        cls.arg_parser.add_argument('-D', '--download', action='store_true', help='download found files (imply -N)')
+        cls.arg_parser.add_argument('-A', '--archive', action='store_true', default=False, help='search in archive')
 
         cls.arg_parser.add_argument('filename', type=str, metavar='filename', help='regex to search (filename)')
         cls.arg_parser.add_argument('strings', nargs='*', default=[], type=str, metavar='string', help='regex to search (content)')
@@ -66,7 +65,8 @@ class SearchModule(PupyModule):
             case=args.insensitive,
             binary=args.binary,
             same_fs=not args.no_same_fs,
-            search_in_archives=args.archive
+            search_in_archives=args.archive,
+            content_only=args.content_only
         )
 
         if args.download:
@@ -99,12 +99,9 @@ class SearchModule(PupyModule):
                 if terminate.is_set():
                     return
 
-                if args.strings and not args.no_content:
-                    if type(res) == tuple:
-                        f, v = res
-                        self.success(u'{}: {}'.format(f, v))
-                    elif not args.content_only:
-                        self.success(res)
+                if type(res) == tuple:
+                    f, v = res
+                    self.success(u'{}: {}'.format(f, v))
                 else:
                     self.success(res)
 
