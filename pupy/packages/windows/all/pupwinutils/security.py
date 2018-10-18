@@ -249,11 +249,12 @@ class SECURITY_DESCRIPTOR(Structure):
         ('Revision', BYTE),
         ('Sbz1', BYTE),
         ('Control', WORD),
-        ('Owner', PSID),
-        ('Group', PSID),
-        ('Sacl', POINTER(ACL_HEADER)),
-        ('Dacl', POINTER(ACL_HEADER)),
+        ('Owner', c_void_p),
+        ('Group', c_void_p),
+        ('Sacl', c_void_p),
+        ('Dacl', c_void_p),
     ]
+PSECURITY_DESCRIPTOR = POINTER(SECURITY_DESCRIPTOR)
 
 class SECURITY_ATTRIBUTES(Structure):
     _fields_ = [
@@ -261,6 +262,7 @@ class SECURITY_ATTRIBUTES(Structure):
         ("lpSecurityDescriptor",        LPVOID),
         ("bInheritHandle",              BOOL),
     ]
+
 PSECURITY_ATTRIBUTES = POINTER(SECURITY_ATTRIBUTES)
 
 class OSVERSIONINFOEXW(Structure):
@@ -287,6 +289,18 @@ class PRIVILEGE_SET_HEADER(Structure):
 
 # advapi32
 
+LookupAccountNameW = advapi32.LookupAccountNameW
+LookupAccountNameW.restype = BOOL
+LookupAccountNameW.argtypes = [
+    LPWSTR, LPWSTR, PSID, POINTER(DWORD), LPWSTR, POINTER(DWORD), POINTER(DWORD)
+]
+
+LookupAccountSidW = advapi32.LookupAccountSidW
+LookupAccountSidW.restype = BOOL
+LookupAccountSidW.argtypes = [
+    LPWSTR, PSID, LPWSTR, POINTER(DWORD), LPWSTR, POINTER(DWORD), POINTER(DWORD)
+]
+
 AdjustTokenPrivileges               = advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.restype       = BOOL
 AdjustTokenPrivileges.argtypes      = [HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)]
@@ -297,7 +311,7 @@ CheckTokenMembership.argtypes       = [HANDLE, PSID, POINTER(BOOL)]
 
 ConvertSidToStringSidA              = advapi32.ConvertSidToStringSidA
 ConvertSidToStringSidA.restype      = BOOL
-ConvertSidToStringSidA.argtypes     = [DWORD, POINTER(LPTSTR)]
+ConvertSidToStringSidA.argtypes     = [PSID, POINTER(LPTSTR)]
 
 CreateProcessAsUser                 = advapi32.CreateProcessAsUserA
 CreateProcessAsUser.restype         = BOOL
@@ -354,6 +368,14 @@ GetFileSecurityW                    = advapi32.GetFileSecurityW
 GetFileSecurityW.argtypes           = [LPWSTR, SECURITY_INFORMATION, c_void_p,
                                        DWORD, POINTER(DWORD)]
 GetFileSecurityW.restype            = BOOL
+
+GetSecurityDescriptorGroup          = advapi32.GetSecurityDescriptorGroup
+GetSecurityDescriptorGroup.argtypes = [c_void_p, POINTER(PSID), POINTER(BOOL)]
+GetSecurityDescriptorGroup.restype  = BOOL
+
+GetSecurityDescriptorUser           = advapi32.GetSecurityDescriptorGroup
+GetSecurityDescriptorUser.argtypes  = [c_void_p, POINTER(PSID), POINTER(BOOL)]
+GetSecurityDescriptorUser.restype   = BOOL
 
 IsValidSecurityDescriptor           = advapi32.IsValidSecurityDescriptor
 IsValidSecurityDescriptor.argtypes  = [c_void_p]
@@ -494,7 +516,6 @@ def ListSids():
         except Exception as e:
             print e
     return list(sids)
-
 
 def getProcessToken(pid):
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
@@ -795,7 +816,7 @@ def access(path, mode):
     access_desired = 0
 
     if type(path) == str:
-        path = path.decode(sys.getfilesystemencoding())
+        path = path.decode('utf-8')
 
     attributes = GetFileAttributesW(path)
 
@@ -883,3 +904,108 @@ def access(path, mode):
     CloseHandle(hToken)
 
     return is_access_granted
+
+def strsid(sid, exc=True):
+    StringSid = LPTSTR()
+
+    if ConvertSidToStringSidA(sid, byref(StringSid)):
+        return StringSid.value
+
+    if not exc:
+        return None
+
+    raise WinError(get_last_error())
+
+def namebysid(sid, domain=None):
+    Name = LPWSTR()
+    cbName = DWORD(0)
+
+    ReferencedDomainName = LPWSTR()
+    cchReferencedDomainName = DWORD(0)
+
+    peUse = DWORD(0)
+
+    if LookupAccountSidW(domain, sid, Name, byref(cbName),
+        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)) or \
+        get_last_error() != ERROR_INSUFFICIENT_BUFFER or cbName.value <= 0 or \
+        cchReferencedDomainName.value <= 0:
+        return ''
+
+    Name = create_unicode_buffer(cbName.value)
+    ReferencedDomainName = create_unicode_buffer(cchReferencedDomainName.value)
+
+    if not LookupAccountSidW(domain, sid, Name, byref(cbName),
+        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)):
+        raise WinError(get_last_error())
+
+    return Name.value
+
+def sidbyname(name):
+    if type(name) == str:
+        name = name.decode('utf-8')
+
+    domain = None
+    if '\\' in name:
+        domain, name = domain.split('\\', 1)
+
+    Sid = PSID()
+    cbSid = DWORD(0)
+
+    ReferencedDomainName = LPWSTR()
+    cchReferencedDomainName = DWORD(0)
+
+    peUse = DWORD(0)
+
+    if LookupAccountNameW(domain, name, Sid, byref(cbSid),
+        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)) or \
+        get_last_error() != ERROR_INSUFFICIENT_BUFFER or cbSid.value <= 0 or \
+        cchReferencedDomainName.value <= 0:
+        return None
+
+    Sid = create_string_buffer(cbSid.value)
+    ReferencedDomainName = create_unicode_buffer(cchReferencedDomainName.value)
+
+    if not LookupAccountNameW(domain, name, Sid, byref(cbSid),
+        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)):
+        raise WinError(get_last_error())
+
+    return strsid(Sid)
+
+def getfileowner(path, as_sid=True):
+    if type(path) == str:
+        path = path.decode('utf-8')
+
+    requested_information = OWNER_SECURITY_INFORMATION | \
+        GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
+
+    dwSize = DWORD(0)
+
+    success = GetFileSecurityW(path, requested_information,
+        c_void_p(0), 0, byref(dwSize))
+
+    if not success and get_last_error() != ERROR_INSUFFICIENT_BUFFER:
+        raise WinError(get_last_error())
+
+    pSDBuf = create_string_buffer(dwSize.value)
+    can_read_access = GetFileSecurityW(
+        path, requested_information, pSDBuf,
+        dwSize, byref(dwSize))
+
+    if not can_read_access:
+        raise WinError(get_last_error())
+
+    if not IsValidSecurityDescriptor(pSDBuf):
+        raise WinError(get_last_error())
+
+    GSid = PSID()
+    USid = PSID()
+    bDefault = BOOL()
+
+    if GetSecurityDescriptorUser(pSDBuf, byref(USid), byref(bDefault)) and \
+      GetSecurityDescriptorGroup(pSDBuf, byref(GSid), byref(bDefault)):
+        if as_sid:
+            return strsid(GSid), strsid(USid)
+        else:
+            return namebysid(GSid), namebysid(USid)
+
+    raise WinError(get_last_error())

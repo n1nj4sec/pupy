@@ -2,16 +2,16 @@
 
 from datetime import datetime
 
-def size_human_readable(num, suffix='B'):
+def size_human_readable(num, suffix=''):
     try:
         num = int(num)
-        for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
+        for unit in [suffix or 'B','K','M','G','T','P','E','Z']:
             if abs(num) < 1024.0:
                 return "%3.1f %s%s" % (num, unit, suffix)
             num /= 1024.0
-        return "%.1f %s%s" % (num, 'Yi', suffix)
+        return "%.1f%s%s" % (num, 'Yi', suffix)
     except:
-        return '0.00 B'
+        return '0.0B'
 
 def file_timestamp(timestamp, time=False):
     try:

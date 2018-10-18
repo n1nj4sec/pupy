@@ -21,18 +21,26 @@ from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
 from tarfile import open as open_tarfile
 
+from fsutils import uidgid, username_to_uid, groupname_to_gid, has_xattrs
+
 PERMISSION_ERRORS = [
     getattr(errno, x) for x in ('EPERM', 'EACCESS') if hasattr(errno, x)
 ]
 
 SEARCH_WINDOW_SIZE = 32768
 
+from uuid import uuid4
+
+OWAW_PROBE_NAME = str(uuid4())
+
 class Search(object):
     def __init__(
         self, path,
         strings=[], max_size=20000000, root_path='.', no_content=False,
         case=False, binary=False, follow_symlinks=False, terminate=None,
-        same_fs=True, search_in_archives=False, content_only=False
+        same_fs=True, search_in_archives=False, content_only=False,
+        suid=False, sgid=False, user=False, group=False,
+        owaw=False, newer=None, older=None, xattr=False
     ):
 
         self.max_size = int(max_size)
@@ -43,6 +51,15 @@ class Search(object):
         self.same_fs = same_fs
         self.search_in_archives = search_in_archives
         self.content_only = content_only if strings else False
+
+        self.suid = suid
+        self.sgid = sgid
+        self.user = username_to_uid(user) if user else None
+        self.group = groupname_to_gid(group) if group else None
+        self.owaw = owaw
+        self.newer = newer
+        self.older = older
+        self.xattr = xattr
 
         if self.case:
             i = re.IGNORECASE | re.UNICODE
@@ -76,6 +93,9 @@ class Search(object):
             re.compile(s, i) for s in strings
         ]
 
+        if self.xattr and self.xattr is not True:
+            self.xattr = re.compile(self.xattr, i)
+
         self.terminate = terminate
 
         if root_path == '.':
@@ -85,6 +105,12 @@ class Search(object):
 
         if self.same_fs:
             self.same_fs = os.stat(self.root_path).st_dev
+
+        self.extended = any([
+            self.xattr, self.suid, self.sgid,
+            self.user, self.group, self.owaw,
+            self.newer, self.older
+        ])
 
     def search_string_in_fileobj(self, fileobj, find_all=False, filename=None):
         try:
@@ -143,8 +169,65 @@ class Search(object):
             setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
             yield e
 
+    def filter_extended(self, item):
+        if not self.extended:
+            return True
+
+        path = item.path
+
+        if self.xattr:
+            if self.xattr is True:
+                if has_xattrs(path):
+                    return True
+            elif any([self.xattr.match(x) for x in has_xattrs(path)]):
+                return True
+
+        if self.suid or self.sgid and sys.platform != 'win32':
+            if self.suid and item.stat().st_mode & 0o4000:
+                return True
+
+            if self.sgid and item.stat().st_mode & 0o2000:
+                return True
+
+        if self.user or self.group:
+            uid, gid = uidgid(path, item.stat(), as_text=False)
+            if self.user and self.user == uid or self.group and self.group == gid:
+                return True
+
+        if self.owaw:
+            print "TRY OWAW", path
+            if item.is_dir():
+                try:
+                    tmp_file = os.path.join(path, OWAW_PROBE_NAME)
+                    f = open(tmp_file, 'w')
+                    f.close()
+                    os.unlink(tmp_file)
+                    return True
+
+                except (OSError, IOError):
+                    pass
+
+            elif item.is_file():
+                try:
+                    f = open(path, 'a')
+                    f.close()
+                    return True
+
+                except (OSError, IOError):
+                    pass
+
+        if self.newer and item.stat().st_mtime > self.newer:
+            return True
+
+        if self.older and item.stat().st_mtime < self.older:
+            return True
+
+        return False
+
     def search_in_archive(self, path):
         any_file = not self.name or self.path
+
+        # We don't support extended search in archives
 
         if is_zipfile(path):
             zf = ZipFile(path)
@@ -222,11 +305,14 @@ class Search(object):
                 ):
                     try:
                         if not self.strings or not (self.strings and entry.is_file()):
-                            if not any_file:
+                            if not any_file and self.filter_extended(entry):
                                 yield entry.path
                         else:
                             size = entry.stat().st_size
                             if size > self.max_size:
+                                continue
+
+                            if not self.filter_extended(entry):
                                 continue
 
                             for s in self.search_string(entry.path):
@@ -235,11 +321,13 @@ class Search(object):
                                         yield s
 
                                     elif self.no_content:
-                                        yield entry.path
-                                        break
+                                        if self.filter_extended(entry):
+                                            yield entry.path
+                                            break
 
                                     else:
-                                        yield (entry.path, s)
+                                        if self.filter_extended(entry):
+                                            yield (entry.path, s)
                     except IOError, e:
                         if e.errno in PERMISSION_ERRORS:
                             continue

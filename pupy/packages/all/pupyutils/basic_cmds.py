@@ -4,7 +4,6 @@ import glob
 import shutil
 import getpass
 import stat
-import sys
 import datetime
 import re
 import codecs
@@ -39,31 +38,7 @@ T_HAS_XATTR = 14
 
 textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 
-if sys.platform == 'win32':
-    from junctions import readlink, lstat
-
-    try:
-        from ntfs_streams import get_streams
-
-        def has_xattrs(path):
-            return get_streams(path)
-
-    except ImportError:
-        def has_xattrs(path):
-            return None
-
-else:
-    from os import readlink, lstat
-
-    try:
-        from xattr import listxattr
-
-        def has_xattrs(path):
-            return listxattr(path)
-
-    except ImportError:
-        def has_xattrs(path):
-            return None
+from fsutils import readlink, lstat, has_xattrs, uidgid
 
 def is_binary(text):
     return bool(text.translate(None, textchars))
@@ -96,7 +71,14 @@ def safe_stat(path):
     try:
         return lstat(path)
     except:
-        return FakeStat()
+        pass
+
+    try:
+        return os.stat(path)
+    except:
+        pass
+
+    return FakeStat()
 
 def safe_listdir(path):
     path = try_unicode(path)
@@ -142,7 +124,7 @@ def special_to_letter(mode):
 
     return letter
 
-def _stat_to_ls_struct(path, name, _stat):
+def _stat_to_ls_struct(path, name, _stat, resolve_uidgid=False):
     if stat.S_ISLNK(_stat.st_mode):
         try:
             name += ' -> '+readlink(path)
@@ -154,13 +136,18 @@ def _stat_to_ls_struct(path, name, _stat):
     except (OSError, IOError):
         f_xattrs = False
 
+    if resolve_uidgid:
+        uid, gid = uidgid(path, _stat)
+    else:
+        uid, gid = _stat.st_uid, _stat.st_gid
+
     return {
         T_NAME: name,
         T_TYPE: mode_to_letter(_stat.st_mode),
         T_SPEC: special_to_letter(_stat.st_mode),
         T_MODE: _stat.st_mode,
-        T_UID:  _stat.st_uid,
-        T_GID:  _stat.st_gid,
+        T_UID:  uid,
+        T_GID:  gid,
         T_SIZE: _stat.st_size,
         T_TIMESTAMP: int(_stat.st_mtime),
         T_HAS_XATTR: bool(f_xattrs)
@@ -180,7 +167,7 @@ def _invalid_ls_struct(path, name):
     }
 
 
-def list_file(path):
+def list_file(path, resolve_uidgid=False):
     path = try_unicode(path)
 
     if path.endswith(os.path.sep):
@@ -191,7 +178,7 @@ def list_file(path):
         name = os.path.basename(path)
 
     _stat = safe_stat(path)
-    return _stat_to_ls_struct(path, name, _stat)
+    return _stat_to_ls_struct(path, name, _stat, resolve_uidgid)
 
 def list_tar(path, max_files=None):
     result = []
@@ -266,7 +253,7 @@ def list_zip(path, max_files=None):
 
     return result
 
-def list_dir(path, max_files=None):
+def list_dir(path, max_files=None, resolve_uidgid=False):
     path = try_unicode(path)
 
     result = []
@@ -281,7 +268,8 @@ def list_dir(path, max_files=None):
             try:
                 result.append(_stat_to_ls_struct(
                     item.path, item.name,
-                    item.stat(follow_symlinks=False)))
+                    item.stat(follow_symlinks=False),
+                    resolve_uidgid=resolve_uidgid))
             except OSError:
                 result.append(_invalid_ls_struct(item.path, item.name))
 
@@ -365,7 +353,19 @@ def complete(path, limit=32, dirs=None):
 
     return path, results
 
-def ls(path=None, listdir=True, limit=4096, list_arc=False):
+def safe_is_zipfile(filepath):
+    try:
+        return is_zipfile(filepath)
+    except (OSError, IOError):
+        return False
+
+def safe_is_tarfile(filepath):
+    try:
+        return is_tarfile(filepath)
+    except (OSError, IOError):
+        return False
+
+def ls(path=None, listdir=True, limit=4096, list_arc=False, resolve_uidgid=False):
     if path:
         path = try_unicode(path)
         path = os.path.expanduser(path)
@@ -386,16 +386,18 @@ def ls(path=None, listdir=True, limit=4096, list_arc=False):
             if listdir:
                 results.append({
                     T_PATH: path,
-                    T_FILES: list_dir(path, max_files=limit)
+                    T_FILES: list_dir(
+                        path, max_files=limit,
+                        resolve_uidgid=resolve_uidgid)
                 })
             else:
                 results.append({
                     T_PATH: path,
-                    T_FILE: list_file(path)
+                    T_FILE: list_file(path, resolve_uidgid)
                 })
 
         elif os.path.isfile(path):
-            if is_zipfile(path):
+            if safe_is_zipfile(path):
                 if list_arc:
                     results.append({
                         T_ZIPFILE: path,
@@ -406,7 +408,7 @@ def ls(path=None, listdir=True, limit=4096, list_arc=False):
                         T_ZIPFILE: path,
                         T_FILE: list_file(path)
                     })
-            elif is_tarfile(path):
+            elif safe_is_tarfile(path):
                 if list_arc:
                     results.append({
                         T_TARFILE: path,
@@ -420,12 +422,12 @@ def ls(path=None, listdir=True, limit=4096, list_arc=False):
             else:
                 results.append({
                     T_PATH: path,
-                    T_FILE: list_file(path)
+                    T_FILE: list_file(path, resolve_uidgid)
                 })
         else:
             results.append({
                 T_PATH: path,
-                T_FILE: list_file(path)
+                T_FILE: list_file(path, resolve_uidgid)
             })
 
     if not found:

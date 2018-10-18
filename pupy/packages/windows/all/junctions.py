@@ -155,7 +155,12 @@ class LinkStat(object):
     st_rdev = 0
 
 def lstat(path):
-    if islink(path):
+    try:
+        is_link = islink(path)
+    except WindowsError:
+        is_link = False
+
+    if is_link:
         return LinkStat()
     else:
         return os.stat(path)

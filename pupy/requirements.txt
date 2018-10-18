@@ -34,6 +34,7 @@ M2Crypto>=0.30.1
 fusepy
 defusedxml
 keyboard
+dateparser
 puttykeys
 pyelftools
 -e external/pykcp
