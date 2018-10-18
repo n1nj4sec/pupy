@@ -21,6 +21,7 @@ T_FILE      = 10
 T_TRUNCATED = 11
 T_ZIPFILE   = 12
 T_TARFILE   = 13
+T_HAS_XATTR = 14
 
 # TODO: Rewrite using tables
 
@@ -36,19 +37,21 @@ def output_format(file, windows=False, archive=None, time=False):
     timestamp_field = u'{:<18}' if time else u'{:<10}'
 
     if windows:
-        out = u'  {}{}{}{}'.format(
+        out = u'  {}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<3}'.format(file[T_TYPE]),
             u'{:<11}'.format(size_human_readable(file[T_SIZE])),
+            u'{:<1}'.format('+' if file[T_HAS_XATTR] else ''),
             u'{:<40}'.format(name))
     else:
-        out = u'  {}{}{}{}{}{}{}'.format(
+        out = u'  {}{}{}{}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<3}'.format(file[T_TYPE]),
             u'{:<5}'.format(file[T_UID]),
             u'{:<5}'.format(file[T_GID]),
             u' {:06o} '.format(file[T_MODE]),
             u'{:<11}'.format(size_human_readable(file[T_SIZE])),
+            u'{:<1}'.format('+' if file[T_HAS_XATTR] else ''),
             u'{:<40}'.format(name))
 
     if archive:
@@ -71,10 +74,12 @@ def output_format(file, windows=False, archive=None, time=False):
         out=Color(out, 'grey')
     elif not file[T_SIZE]:
         out=Color(out, 'darkgrey')
-    elif 'E' in file[T_SPEC]:
-        out=Color(out, 'lightgreen')
     elif 'W' in file[T_SPEC] and not windows:
         out=Color(out, 'blue')
+    elif file[T_HAS_XATTR]:
+        out=Color(out, 'lightmagenta')
+    elif 'E' in file[T_SPEC]:
+        out=Color(out, 'lightgreen')
 
     return out
 
@@ -83,7 +88,13 @@ class ls(PupyModule):
     """ list system files """
     is_module=False
 
-    dependencies = ['pupyutils.basic_cmds', 'scandir', 'zipfile', 'tarfile']
+    dependencies = {
+        'all': [
+            'pupyutils.basic_cmds', 'scandir', 'zipfile', 'tarfile'
+        ],
+        'windows': ['junctions', 'ntfs_streams'],
+        'linux': ['xattr']
+    }
 
     @classmethod
     def init_argparse(cls):

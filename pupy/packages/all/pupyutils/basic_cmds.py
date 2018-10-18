@@ -35,13 +35,35 @@ T_FILE      = 10
 T_TRUNCATED = 11
 T_ZIPFILE   = 12
 T_TARFILE   = 13
+T_HAS_XATTR = 14
 
 textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 
 if sys.platform == 'win32':
     from junctions import readlink, lstat
+
+    try:
+        from ntfs_streams import get_streams
+
+        def has_xattrs(path):
+            return get_streams(path)
+
+    except ImportError:
+        def has_xattrs(path):
+            return None
+
 else:
     from os import readlink, lstat
+
+    try:
+        from xattr import listxattr
+
+        def has_xattrs(path):
+            return listxattr(path)
+
+    except ImportError:
+        def has_xattrs(path):
+            return None
 
 def is_binary(text):
     return bool(text.translate(None, textchars))
@@ -127,6 +149,11 @@ def _stat_to_ls_struct(path, name, _stat):
         except:
             pass
 
+    try:
+        f_xattrs = has_xattrs(path)
+    except (OSError, IOError):
+        f_xattrs = False
+
     return {
         T_NAME: name,
         T_TYPE: mode_to_letter(_stat.st_mode),
@@ -136,6 +163,7 @@ def _stat_to_ls_struct(path, name, _stat):
         T_GID:  _stat.st_gid,
         T_SIZE: _stat.st_size,
         T_TIMESTAMP: int(_stat.st_mtime),
+        T_HAS_XATTR: bool(f_xattrs)
     }
 
 def _invalid_ls_struct(path, name):
@@ -148,6 +176,7 @@ def _invalid_ls_struct(path, name):
         T_GID:  0,
         T_SIZE: 0,
         T_TIMESTAMP: 0,
+        T_HAS_XATTR: False,
     }
 
 
@@ -201,7 +230,8 @@ def list_tar(path, max_files=None):
             T_UID: item.uid,
             T_GID: item.gid,
             T_SIZE: item.size,
-            T_TIMESTAMP: item.mtime
+            T_TIMESTAMP: item.mtime,
+            T_HAS_XATTR: False,
         })
 
     return result
@@ -231,6 +261,7 @@ def list_zip(path, max_files=None):
             T_TIMESTAMP: (
                 datetime.datetime(*item.date_time) - zts
             ).total_seconds(),
+            T_HAS_XATTR: False,
         })
 
     return result
