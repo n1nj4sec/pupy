@@ -101,7 +101,7 @@ class ls(PupyModule):
             'tarfile', 'scandir', 'fsutils'
         ],
         'windows': ['junctions', 'ntfs_streams', '_scandir'],
-        'linux': ['xattr', '_scandir']
+        'linux': ['xattr', '_scandir', 'prctl', 'posix1e']
     }
 
     @classmethod

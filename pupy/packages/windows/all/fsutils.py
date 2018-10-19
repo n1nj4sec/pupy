@@ -66,3 +66,10 @@ except ImportError:
 
     def groupname_to_gid(groupname):
         raise NoSuchGroup(groupname)
+
+def getcaps(filepath):
+    return None
+
+# TODO: implement windows ACLs parsing
+def getacls(filepath):
+    return None
