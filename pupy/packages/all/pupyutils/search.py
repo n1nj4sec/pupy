@@ -195,7 +195,6 @@ class Search(object):
                 return True
 
         if self.owaw:
-            print "TRY OWAW", path
             if item.is_dir():
                 try:
                     tmp_file = os.path.join(path, OWAW_PROBE_NAME)
