@@ -25,11 +25,13 @@ CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
 CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
  python -m pip install --upgrade -q cryptography --no-binary :all:
 
+export PRCTL_SKIP_KERNEL_CHECK=yes
+
 python -m pip install --upgrade \
        rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
-       u-msgpack-python poster dnslib \
+       u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
        watchdog --no-binary :all:
 
