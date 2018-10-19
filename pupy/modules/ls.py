@@ -27,11 +27,17 @@ T_HAS_XATTR = 14
 
 # TODO: Rewrite using tables
 
+def to_str(x):
+    if type(x) in (str, unicode):
+        return to_utf8(x)
+
+    return str(x)
+
 def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_len=0):
     if file[T_TYPE] == 'X':
         return '--- TRUNCATED ---'
 
-    name = to_utf8(file[T_NAME])
+    name = to_str(file[T_NAME])
 
     if archive:
         name += u' \u25bb ' + archive
@@ -42,8 +48,8 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
         out = u'  {}{}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
-            to_utf8(file[T_UID]).rjust(uid_len+1)+u' ' if uid_len else u'',
-            to_utf8(file[T_GID]).rjust(gid_len+1)+u' ' if gid_len else u'',
+            to_str(file[T_UID]).rjust(uid_len+1)+u' ' if uid_len else u'',
+            to_str(file[T_GID]).rjust(gid_len+1)+u' ' if gid_len else u'',
             u'{:>9}'.format(size_human_readable(file[T_SIZE])),
             u' {:<40}'.format(name))
     else:
@@ -56,8 +62,8 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
         out = u'  {}{}{}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
-            to_utf8(file[T_UID]).rjust(uid_len+1)+' ',
-            to_utf8(file[T_GID]).rjust(gid_len+1)+' ',
+            to_str(file[T_UID]).rjust(uid_len+1)+' ',
+            to_str(file[T_GID]).rjust(gid_len+1)+' ',
             u'{:04o} '.format(file[T_MODE] & 0o7777),
             u'{:>9}'.format(size_human_readable(file[T_SIZE])),
             u' {:<40}'.format(name))
@@ -102,7 +108,7 @@ class ls(PupyModule):
             'tarfile', 'scandir', 'fsutils'
         ],
         'windows': ['junctions', 'ntfs_streams', '_scandir'],
-        'linux': ['xattr', '_scandir', 'prctl', 'posix1e']
+        'linux': ['xattr', '_scandir']
     }
 
     @classmethod
@@ -206,10 +212,10 @@ class ls(PupyModule):
                             total_cnt  += 1
                             files_cnt  += 1
 
-                    for f in sorted(dirs, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
+                    for f in sorted(dirs, key=lambda x: to_str(x.get(T_NAME)), reverse=args.reverse):
                         self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
 
-                    for f in sorted(files, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
+                    for f in sorted(files, key=lambda x: to_str(x.get(T_NAME)), reverse=args.reverse):
                         self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
 
                     if truncated:
