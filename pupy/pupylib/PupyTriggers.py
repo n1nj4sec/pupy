@@ -120,8 +120,23 @@ def event_to_config_section(eventid):
     return 'on_' + event_name.lower().replace(' ', '_')
 
 def _event(eventid, client, server, handler, triggers, config, **kwargs):
-    section = event_to_config_section(eventid)
-    actions = config.items(section)
+
+    actions = []
+
+    try:
+        section = event_to_config_section(eventid)
+        actions.extend(config.items(section))
+    except NoSectionError:
+        pass
+
+    try:
+        actions.extend(config.items('on_any_event'))
+    except NoSectionError:
+        pass
+
+    if not actions:
+        return
+
     event = event_to_string(eventid)
 
     for client_filter, action in actions:
@@ -197,9 +212,6 @@ def event(eventid, client, server, **kwargs):
 
     try:
         _event(eventid, client, server, handler, triggers, config, **kwargs)
-
-    except NoSectionError:
-        pass
 
     except Error, e:
         logger.error(e)

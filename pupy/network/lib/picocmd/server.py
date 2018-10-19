@@ -791,11 +791,11 @@ class DnsCommandServerHandler(BaseResolver):
             session.pstore_dirty = command.pstore_dirty
             session.connected = command.connected
 
-            if session.pstore_dirty and not self._pstore_dirty_reported:
-                self._pstore_dirty_reported = True
+            if session.pstore_dirty and not session._pstore_dirty_reported:
+                session._pstore_dirty_reported = True
                 self.on_pstore(session)
             elif not session.pstore_dirty:
-                self._pstore_dirty_reported = False
+                session._pstore_dirty_reported = False
 
         elif isinstance(command, Ack) and (session is not None):
             if session.system_info:
