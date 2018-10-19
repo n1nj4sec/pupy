@@ -37,7 +37,10 @@ class TcpdumpModule(PupyModule):
         cls.arg_parser.add_argument("--count", type=int, default=0, help="sniff at max n packets")
         cls.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
         cls.arg_parser.add_argument("--timeout", type=int, default=None, help="stop the capture after timeout seconds")
-        cls.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist pupy's shell IP/PORT you are currently using to avoid a nasty Larsen effect)") #yup mandatory cause you have to put pupy's IP/PORT anyway
+        # yup mandatory cause you have to put pupy's IP/PORT anyway
+        cls.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist"
+                                                                 " pupy's shell IP/PORT you are currently using to "
+                                                                 "avoid a nasty Larsen effect)")
         # cls.arg_parser.add_argument("command", choices=["start", "stop"])
 
     def printer(self, pcap_writer=None, print_summary=True):
