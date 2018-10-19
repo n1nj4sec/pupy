@@ -26,7 +26,10 @@ def file_timestamp(timestamp, time=False):
 def to_utf8(value):
     if type(value) == unicode:
         return value
-    try:
-        return value.decode('utf-8')
-    except:
-        return value.decode('latin1', errors='ignore')
+    elif type(value) == str:
+        try:
+            return value.decode('utf-8')
+        except:
+            return value.decode('latin1', errors='ignore')
+    else:
+        return value

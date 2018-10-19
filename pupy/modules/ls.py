@@ -4,6 +4,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Color
 from modules.lib import size_human_readable, file_timestamp, to_utf8
+from pupylib.utils.term import elen
 from argparse import REMAINDER
 
 __class_name__="ls"
@@ -41,8 +42,8 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
         out = u'  {}{}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
-            unicode(file[T_UID]).rjust(uid_len)+' ' if uid_len else '',
-            unicode(file[T_GID]).rjust(gid_len)+' ' if gid_len else '',
+            to_utf8(file[T_UID]).rjust(uid_len+1)+u' ' if uid_len else u'',
+            to_utf8(file[T_GID]).rjust(gid_len+1)+u' ' if gid_len else u'',
             u'{:>9}'.format(size_human_readable(file[T_SIZE])),
             u' {:<40}'.format(name))
     else:
@@ -55,8 +56,8 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
         out = u'  {}{}{}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
-            unicode(file[T_UID]).rjust(uid_len+1)+' ',
-            unicode(file[T_GID]).rjust(gid_len+1)+' ',
+            as_unicode(file[T_UID]).rjust(uid_len+1)+' ',
+            as_unicode(file[T_GID]).rjust(gid_len+1)+' ',
             u'{:04o} '.format(file[T_MODE] & 0o7777),
             u'{:>9}'.format(size_human_readable(file[T_SIZE])),
             u' {:<40}'.format(name))
@@ -166,16 +167,16 @@ class ls(PupyModule):
                             if type(uid) == int:
                                 uid = str(uid)
 
-                            if len(uid) > uid_len:
-                                uid_len = len(uid)
+                            if elen(uid) > uid_len:
+                                uid_len = elen(uid)
 
                         if args.groupinfo:
                             gid = x[T_GID]
                             if type(gid) == int:
                                 gid = str(gid)
 
-                            if len(gid) > gid_len:
-                                gid_len = len(gid)
+                            if elen(gid) > gid_len:
+                                gid_len = elen(gid)
 
                 if T_ZIPFILE in r:
                     self.log(Color('ZIP: '+r[T_ZIPFILE]+':', 'lightred'))
@@ -250,14 +251,14 @@ class ls(PupyModule):
                     if type(uid) == int:
                         uid = str(uid)
 
-                    uid_len = len(uid)
+                    uid_len = elen(uid)
 
                 if args.groupinfo:
                     gid = r[T_FILE][T_GID]
                     if type(gid) == int:
                         gid = str(gid)
 
-                    gid_len = len(gid)
+                    gid_len = elen(gid)
 
                 self.log(output_format(r[T_FILE], is_windows, archive, show_time, uid_len=uid_len, gid_len=gid_len))
 

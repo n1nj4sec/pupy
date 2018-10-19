@@ -301,6 +301,12 @@ LookupAccountSidW.argtypes = [
     LPWSTR, PSID, LPWSTR, POINTER(DWORD), LPWSTR, POINTER(DWORD), POINTER(DWORD)
 ]
 
+LookupAccountSidA = advapi32.LookupAccountSidA
+LookupAccountSidA.restype = BOOL
+LookupAccountSidA.argtypes = [
+    LPTSTR, PSID, LPTSTR, POINTER(DWORD), LPTSTR, POINTER(DWORD), POINTER(DWORD)
+]
+
 AdjustTokenPrivileges               = advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.restype       = BOOL
 AdjustTokenPrivileges.argtypes      = [HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)]
@@ -373,9 +379,9 @@ GetSecurityDescriptorGroup          = advapi32.GetSecurityDescriptorGroup
 GetSecurityDescriptorGroup.argtypes = [c_void_p, POINTER(PSID), POINTER(BOOL)]
 GetSecurityDescriptorGroup.restype  = BOOL
 
-GetSecurityDescriptorUser           = advapi32.GetSecurityDescriptorGroup
-GetSecurityDescriptorUser.argtypes  = [c_void_p, POINTER(PSID), POINTER(BOOL)]
-GetSecurityDescriptorUser.restype   = BOOL
+GetSecurityDescriptorOwner          = advapi32.GetSecurityDescriptorOwner
+GetSecurityDescriptorOwner.argtypes = [c_void_p, POINTER(PSID), POINTER(BOOL)]
+GetSecurityDescriptorOwner.restype  = BOOL
 
 IsValidSecurityDescriptor           = advapi32.IsValidSecurityDescriptor
 IsValidSecurityDescriptor.argtypes  = [c_void_p]
@@ -938,15 +944,14 @@ def namebysid(sid, domain=None):
         ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)):
         raise WinError(get_last_error())
 
+    if Name.value == 'None':
+        return ''
+
     return Name.value
 
-def sidbyname(name):
+def sidbyname(name, domain=None):
     if type(name) == str:
         name = name.decode('utf-8')
-
-    domain = None
-    if '\\' in name:
-        domain, name = domain.split('\\', 1)
 
     Sid = PSID()
     cbSid = DWORD(0)
@@ -1001,11 +1006,12 @@ def getfileowner(path, as_sid=True):
     USid = PSID()
     bDefault = BOOL()
 
-    if GetSecurityDescriptorUser(pSDBuf, byref(USid), byref(bDefault)) and \
+    if GetSecurityDescriptorOwner(pSDBuf, byref(USid), byref(bDefault)) and \
       GetSecurityDescriptorGroup(pSDBuf, byref(GSid), byref(bDefault)):
         if as_sid:
-            return strsid(GSid), strsid(USid)
+            return strsid(USid), strsid(GSid)
         else:
-            return namebysid(GSid), namebysid(USid)
+
+            return namebysid(USid), namebysid(GSid)
 
     raise WinError(get_last_error())
