@@ -56,8 +56,8 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
         out = u'  {}{}{}{}{}{}{}'.format(
             timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
             u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
-            as_unicode(file[T_UID]).rjust(uid_len+1)+' ',
-            as_unicode(file[T_GID]).rjust(gid_len+1)+' ',
+            to_utf8(file[T_UID]).rjust(uid_len+1)+' ',
+            to_utf8(file[T_GID]).rjust(gid_len+1)+' ',
             u'{:04o} '.format(file[T_MODE] & 0o7777),
             u'{:>9}'.format(size_human_readable(file[T_SIZE])),
             u' {:<40}'.format(name))
