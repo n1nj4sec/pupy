@@ -1164,7 +1164,7 @@ def namebysid(sid, domain=None):
         ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)) or \
         get_last_error() != ERROR_INSUFFICIENT_BUFFER or cbName.value <= 0 or \
         cchReferencedDomainName.value <= 0:
-        return ''
+        return '', ''
 
     Name = create_unicode_buffer(cbName.value)
     ReferencedDomainName = create_unicode_buffer(cchReferencedDomainName.value)
@@ -1174,7 +1174,7 @@ def namebysid(sid, domain=None):
         raise WinError(get_last_error())
 
     if Name.value == 'None':
-        return ''
+        return '', ''
 
     return Name.value, ReferencedDomainName.value
 

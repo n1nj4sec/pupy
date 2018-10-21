@@ -1,8 +1,10 @@
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
-from pupylib.PupyOutput import Table, Line, List
+from pupylib.PupyOutput import Table, Line, List, MultiPart
 from modules.lib import size_human_readable, file_timestamp
 from argparse import REMAINDER
+
+from magic import Magic
 
 __class_name__="FStat"
 
@@ -36,10 +38,15 @@ class FStat(PupyModule):
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return
 
-        ctime, atime, mtime, size, owner, group, caps, acls, streams = sec
+        ctime, atime, mtime, size, owner, group, header, mode, extra = sec
 
         owner_id, owner_name, owner_domain = owner
         group_id, group_name, group_domain = group
+
+        magic = ''
+        if header:
+            with Magic() as libmagic:
+                magic = libmagic.id_buffer(header)
 
         default = {
             'Created': file_timestamp(ctime, time=True),
@@ -56,21 +63,25 @@ class FStat(PupyModule):
                 group_name,
                 group_id
             ),
+            'Mode': mode,
         }
 
-        self.log(Table([
+        infos = []
+
+        infos.append(Table([
             {'Property': p, 'Value': default[p]} for p in (
                 'Created', 'Accessed', 'Modified',
-                'Size', 'Owner', 'Group'
+                'Size', 'Owner', 'Group', 'Mode'
             )
         ], ['Property', 'Value'], legend=False))
 
-        if caps:
-            self.log(Line('Capabilities:', caps))
+        if magic:
+            infos.append('Magic: {}'.format(magic))
 
-        if acls:
-            acls = acls.split('\n')
-            self.log(List(acls, caption='ACLs'))
+        for extra, values in extra.iteritems():
+            if type(values) in (list, tuple):
+                infos.append(List(values, caption=extra))
+            else:
+                infos.append(Line(extra+':', values))
 
-        if streams:
-            self.log(List(streams, caption='Streams'))
+        self.log(MultiPart(infos))

@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
-from os import path, stat
+from os import path, lstat, readlink
+from stat import S_ISREG, S_ISLNK
 from struct import unpack_from, unpack
 
 from prctl import ALL_CAPS, ALL_CAP_NAMES
@@ -10,10 +11,24 @@ from xattr import list as list_xattrs
 from pwd import getpwuid
 from grp import getgrgid
 
+from pupyutils.basic_cmds import mode_to_letter, special_to_letter
+
+def getselinux(filepath):
+    try:
+        sectx = getxattr(filepath, 'security.selinux')
+    except (IOError, OSError):
+        return None
+
+    return sectx
+
 def getacls(filepath):
     acls = ''
 
     try:
+        # posix1e doesn't work with unicode properly
+        if type(filepath) == unicode:
+            filepath = filepath.encode('utf-8')
+
         acls += ACL(file=filepath).to_any_text()
     except (OSError, IOError):
         pass
@@ -71,7 +86,16 @@ def getcaps(filepath):
     return permitted_flags, inheritable_flags, bool(effective)
 
 def getfilesec(filepath):
-    filestat = stat(filepath)
+    filestat = lstat(filepath)
+
+    header = ''
+
+    if S_ISREG(filestat.st_mode):
+        try:
+            with open(filepath) as fileobj:
+                header = fileobj.read(4096)
+        except IOError:
+            pass
 
     owner_uid = filestat.st_uid
     try:
@@ -91,10 +115,35 @@ def getfilesec(filepath):
     group_domain = None # Unsupported?
     group = (group_gid, group_user, group_domain)
 
-    caps = getcaps(filepath)
-    acls = getacls(filepath)
-    streams = list_xattrs(filepath)
+    caps = None
+    acls = None
+    sectx = None
+    xattrs = []
+
+    try:
+        xattrs = list_xattrs(filepath)
+        caps = getcaps(filepath)
+        acls = getacls(filepath)
+        sectx = getselinux(filepath)
+    except IOError:
+        pass
+
     caps_text = None
+
+    security_xattrs = [
+        x for x in xattrs if x.startswith(('security.', 'system.posix_'))
+    ]
+
+    other_xattrs = [
+        x for x in xattrs if not x.startswith(('security.', 'system.posix_'))
+    ]
+
+    other_xattr_values = []
+    for xattr in other_xattrs:
+        try:
+            other_xattr_values.append('{}: {}'.format(xattr, getxattr(filepath, xattr)))
+        except IOError:
+            pass
 
     if caps:
         permitted_flags, inheritable_flags, effective = caps
@@ -119,6 +168,22 @@ def getfilesec(filepath):
         if flags:
             caps_text += '+' + flags
 
+    link = None
+    if S_ISLNK(filestat.st_mode):
+        link = readlink(filepath)
+
+    mode = mode_to_letter(filestat.st_mode) + \
+      special_to_letter(filestat.st_mode)
+
+    extra = {
+        'ACLs': acls.split('\n') if acls else None,
+        'CAPs': caps_text,
+        'SELinux': sectx,
+        'Security': security_xattrs,
+        'XAttr': other_xattr_values,
+        'Link': link
+    }
+
     return int(filestat.st_ctime), int(filestat.st_atime), \
       int(filestat.st_mtime), filestat.st_size, owner, \
-      group, caps_text, acls, tuple(streams)
+      group, header, mode, {k:v for k,v in extra.iteritems() if v}

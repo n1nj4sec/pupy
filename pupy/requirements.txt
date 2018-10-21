@@ -37,6 +37,7 @@ keyboard
 dateparser
 puttykeys
 pyelftools
+filemagic
 -e external/pykcp
 flake8
 flake8-per-file-ignores
