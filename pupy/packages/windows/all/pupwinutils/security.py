@@ -131,8 +131,7 @@ FILE_GENERIC_EXECUTE    = (FILE_EXECUTE         |
                            READ_CONTROL         |
                            SYNCHRONIZE)
 
-FILE_ALL_ACCESS         = 0x001F01FF
-
+FILE_ALL_ACCESS         = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF)
 FILE_MODIIFY_ACCESS     = FILE_ALL_ACCESS & ~(FILE_DELETE_CHILD |
                                               WRITE_DAC         |
                                               WRITE_OWNER)
@@ -575,12 +574,12 @@ SET_AUDIT_FAILURE = 6
 
 ACCESS_MODE_TEXT = {
     NOT_USED_ACCESS: '',
-    GRANT_ACCESS: 'GRANT',
-    SET_ACCESS: 'SET',
-    DENY_ACCESS: 'DENY',
-    REVOKE_ACCESS: 'REVOKE',
-    SET_AUDIT_SUCCESS: 'AUDIT SUCCESS',
-    SET_AUDIT_FAILURE: 'AUDIT FAILURE'
+    GRANT_ACCESS: '(GRANT)',
+    SET_ACCESS: '(SET)',
+    DENY_ACCESS: '(DENY)',
+    REVOKE_ACCESS: '(REVOKE)',
+    SET_AUDIT_SUCCESS: '(AUDIT SUCCESS)',
+    SET_AUDIT_FAILURE: '(AUDIT FAILURE)'
 }
 
 ACE_ACCESS_DELETE        = (0x00010000L)
@@ -1297,22 +1296,22 @@ class Ace(object):
         return self.mapped_mask == 0
 
     def full_access(self):       # F
-        return self.mapped_mask == FILE_ALL_ACCESS
+        return bool(self.mapped_mask & FILE_ALL_ACCESS)
 
     def modify_access(self):     # M
-        return self.mapped_mask == FILE_MODIIFY_ACCESS
+        return bool(self.mapped_mask & FILE_MODIIFY_ACCESS)
 
     def read_exec_access(self):  # RX
-        return self.mapped_mask == FILE_READ_EXEC_ACCESS
+        return bool(self.mapped_mask & FILE_READ_EXEC_ACCESS)
 
     def read_only_access(self):  # R
-        return self.mapped_mask == FILE_GENERIC_READ
+        return bool(self.mapped_mask & FILE_GENERIC_READ)
 
     def write_only_access(self): # W
-        return self.mapped_mask == FILE_GENERIC_WRITE
+        return bool(self.mapped_mask & FILE_GENERIC_WRITE)
 
     def delete_access(self):     # D
-        return self.mapped_mask == FILE_DELETE_ACCESS
+        return bool(self.mapped_mask & FILE_DELETE_ACCESS)
 
     def get_file_rights(self):
         if self.no_access():
@@ -1362,11 +1361,9 @@ class Ace(object):
     def __str__(self):
         access = []
 
-        if self.ace_type == ACCESS_DENIED_ACE_TYPE:
-            access.append('(DENY)')
-
-        elif self.ace_type == SYSTEM_AUDIT_ACE_TYPE:
-            access.append('(AUDIT)')
+        mode = ACCESS_MODE_TEXT.get(self.ace_type, '[INVALID MODE]')
+        if mode != '(GRANT)':
+            access.append(mode)
 
         if self.inherited():
             access.append('(I)')
@@ -1452,17 +1449,22 @@ def getfileowneracls(path):
                 trustee = sid
 
                 if name:
-                    trustee = '{}\\{} ({})'.format(
-                        name, domain, sid
-                    )
+                    if domain:
+                        trustee = '{}\\{} ({})'.format(
+                            domain, name, sid
+                        )
+                    else:
+                        trustee = '{} ({})'.format(
+                            name, sid
+                        )
             else:
                 trustee = 'Unknown (id={}) (fixme)'.format(
                     ace.Trustee.TrusteeType)
 
             ACLs.append(Ace(
-                ace.grfAccessPermissions,
-                ace.grfInheritance,
                 ace.grfAccessMode,
+                ace.grfInheritance,
+                ace.grfAccessPermissions,
                 trustee))
 
         infos.append(ACLs)
