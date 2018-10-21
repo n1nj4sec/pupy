@@ -4,9 +4,9 @@
 
 from ctypes import (
     WinDLL, c_uint32, c_char_p,
-    c_wchar_p, c_long, c_uint16, Structure,
+    c_wchar_p, c_long, c_uint16, Structure, Union,
     POINTER, create_unicode_buffer, create_string_buffer,
-    get_last_error, cast, c_void_p, sizeof, c_int,
+    get_last_error, cast, c_void_p, sizeof, c_int, c_ulong,
     c_wchar, GetLastError, WinError, byref, addressof
 )
 
@@ -61,6 +61,86 @@ TOKEN_ALL_ACCESS                = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMA
                                     TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE |
                                     TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
                                     TOKEN_ADJUST_SESSIONID)
+
+SE_OWNER_DEFAULTED        = 0x0001
+SE_GROUP_DEFAULTED        = 0x0002
+SE_DACL_PRESENT           = 0x0004
+SE_DACL_DEFAULTED         = 0x0008
+SE_SACL_PRESENT           = 0x0010
+SE_SACL_DEFAULTED         = 0x0020
+SE_DACL_AUTO_INHERIT_REQ  = 0x0100
+SE_SACL_AUTO_INHERIT_REQ  = 0x0200
+SE_DACL_AUTO_INHERITED    = 0x0400
+SE_SACL_AUTO_INHERITED    = 0x0800
+SE_DACL_PROTECTED         = 0x1000
+SE_SACL_PROTECTED         = 0x2000
+SE_SELF_RELATIVE          = 0x8000
+
+OBJECT_INHERIT_ACE         = 0x01
+CONTAINER_INHERIT_ACE      = 0x02
+NO_PROPAGATE_INHERIT_ACE   = 0x04
+INHERIT_ONLY_ACE           = 0x08
+INHERITED_ACE              = 0x10
+SUCCESSFUL_ACCESS_ACE_FLAG = 0x40
+FAILED_ACCESS_ACE_FLAG     = 0x80
+
+ACCESS_ALLOWED_ACE_TYPE = 0
+ACCESS_DENIED_ACE_TYPE  = 1
+SYSTEM_AUDIT_ACE_TYPE   = 2
+
+DELETE                 = 0x00010000 # DE
+READ_CONTROL           = 0x00020000 # RC
+WRITE_DAC              = 0x00040000 # WDAC
+WRITE_OWNER            = 0x00080000 # WO
+SYNCHRONIZE            = 0x00100000 # S
+ACCESS_SYSTEM_SECURITY = 0x01000000 # AS
+GENERIC_READ           = 0x80000000 # GR
+GENERIC_WRITE          = 0x40000000 # GW
+GENERIC_EXECUTE        = 0x20000000 # GE
+GENERIC_ALL            = 0x10000000 # GA
+
+FILE_READ_DATA         = 0x00000001 # RD
+FILE_LIST_DIRECTORY    = 0x00000001
+FILE_WRITE_DATA        = 0x00000002 # WD
+FILE_ADD_FILE          = 0x00000002
+FILE_APPEND_DATA       = 0x00000004 # AD
+FILE_ADD_SUBDIRECTORY  = 0x00000004
+FILE_READ_EA           = 0x00000008 # REA
+FILE_WRITE_EA          = 0x00000010 # WEA
+FILE_EXECUTE           = 0x00000020 # X
+FILE_TRAVERSE          = 0x00000020
+FILE_DELETE_CHILD      = 0x00000040 # DC
+FILE_READ_ATTRIBUTES   = 0x00000080 # RA
+FILE_WRITE_ATTRIBUTES  = 0x00000100 # WA
+
+FILE_GENERIC_READ      = (FILE_READ_DATA        |
+                          FILE_READ_EA          |
+                          FILE_READ_ATTRIBUTES  |
+                          READ_CONTROL          |
+                          SYNCHRONIZE)
+
+FILE_GENERIC_WRITE     = (FILE_WRITE_DATA       |
+                          FILE_APPEND_DATA      |
+                          FILE_WRITE_EA         |
+                          FILE_WRITE_ATTRIBUTES |
+                          READ_CONTROL          |
+                          SYNCHRONIZE)
+
+FILE_GENERIC_EXECUTE    = (FILE_EXECUTE         |
+                           FILE_READ_ATTRIBUTES |
+                           READ_CONTROL         |
+                           SYNCHRONIZE)
+
+FILE_ALL_ACCESS         = 0x001F01FF
+
+FILE_MODIIFY_ACCESS     = FILE_ALL_ACCESS & ~(FILE_DELETE_CHILD |
+                                              WRITE_DAC         |
+                                              WRITE_OWNER)
+
+FILE_READ_EXEC_ACCESS   = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE
+
+FILE_DELETE_ACCESS      = DELETE | SYNCHRONIZE
+
 
 SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
 SE_PRIVILEGE_ENABLED            = (0x00000002)
@@ -383,6 +463,154 @@ GetSecurityDescriptorOwner          = advapi32.GetSecurityDescriptorOwner
 GetSecurityDescriptorOwner.argtypes = [c_void_p, POINTER(PSID), POINTER(BOOL)]
 GetSecurityDescriptorOwner.restype  = BOOL
 
+GetSecurityDescriptorDacl           = advapi32.GetSecurityDescriptorDacl
+GetSecurityDescriptorDacl.argtypes  = [c_void_p, POINTER(BOOL), POINTER(c_void_p), POINTER(BOOL)]
+GetSecurityDescriptorDacl.restype   = BOOL
+
+class GUID(Structure):
+    _fields_ = [
+        ('Data1', DWORD),
+        ('Data2', WORD),
+        ('Data3', WORD),
+        ('Data4', BYTE*8)
+    ]
+
+class OBJECTS_AND_SID(Structure):
+    _fields_ = [
+        ('ObjectsPresent', DWORD),
+        ('ObjectTypeGuid', GUID),
+        ('InheritedObjectTypeGuid', GUID),
+        ('pSid', PSID)
+    ]
+
+POBJECTS_AND_SID = POINTER(OBJECTS_AND_SID)
+
+class OBJECTS_AND_NAME_W(Structure):
+    _fields_ = [
+        ('ObjectsPresent', DWORD),
+        ('ObjectType', DWORD),
+        ('ObjectTypeName', LPWSTR),
+        ('InheritedObjectTypeName', LPWSTR),
+        ('ptstrName', LPWSTR)
+    ]
+
+POBJECTS_AND_NAME_W = POINTER(OBJECTS_AND_NAME_W)
+
+TRUSTEE_IS_SID = 0
+TRUSTEE_IS_NAME = 1
+TRUSTEE_BAD_FORM = 2
+TRUSTEE_IS_OBJECTS_AND_SID = 3
+TRUSTEE_IS_OBJECTS_AND_NAME = 4
+
+TRUSTEE_KIND_TEXT = {
+    TRUSTEE_IS_SID: 'SID',
+    TRUSTEE_IS_NAME: 'NAME',
+    TRUSTEE_BAD_FORM: 'BAD',
+    TRUSTEE_IS_OBJECTS_AND_SID: 'Objects and SID',
+    TRUSTEE_IS_OBJECTS_AND_NAME: 'Objects and NAME'
+}
+
+TRUSTEE_IS_UNKNOWN = 0
+TRUSTEE_IS_USER = 1
+TRUSTEE_IS_GROUP = 2
+TRUSTEE_IS_DOMAIN = 3
+TRUSTEE_IS_ALIAS = 4
+TRUSTEE_IS_WELL_KNOWN_GROUP = 5
+TRUSTEE_IS_DELETED = 6
+TRUSTEE_IS_INVALID = 7
+TRUSTEE_IS_COMPUTER = 8
+
+TRUSTEE_TEXT = {
+    TRUSTEE_IS_UNKNOWN: 'Unknown',
+    TRUSTEE_IS_USER: 'User',
+    TRUSTEE_IS_GROUP: 'Group',
+    TRUSTEE_IS_DOMAIN: 'Domain',
+    TRUSTEE_IS_ALIAS: 'Alias',
+    TRUSTEE_IS_WELL_KNOWN_GROUP: 'Well-Known Group',
+    TRUSTEE_IS_DELETED: 'Deleted',
+    TRUSTEE_IS_INVALID: 'Invalid',
+    TRUSTEE_IS_COMPUTER: 'Computer'
+}
+
+NO_INHERITANCE = 0
+OBJECT_INHERIT_ACE = 1
+CONTAINER_INHERIT_ACE = 2
+INHERIT_NO_PROPAGATE = 4
+INHERIT_ONLY_ACE = 8
+
+INHERITANCE_TEXT = {
+    NO_INHERITANCE: 'NO INHERITANCE',
+    OBJECT_INHERIT_ACE: 'OBJECT/ACE',
+    CONTAINER_INHERIT_ACE: 'CONTAINER/ACE',
+    INHERIT_NO_PROPAGATE: 'NO PROPAGATE',
+    INHERIT_ONLY_ACE: 'ONLY ACE'
+}
+
+class TRUSTEE_W_NAME(Union):
+    _fields_ = [
+        ('ptstrName', LPWSTR),
+        ('pSid', PSID),
+        ('pObjectsAndSid', POBJECTS_AND_SID),
+        ('pObjectsAndName', POBJECTS_AND_NAME_W),
+    ]
+
+class TRUSTEE_W(Structure):
+    _fields_ = [
+        # Unsupported
+        ('pMultipleTrustee', c_void_p),
+        ('MultipleTrusteeOperation', DWORD),
+        # Supported
+        ('TrusteeForm', DWORD),
+        ('TrusteeType', DWORD),
+        ('TrusteeName', TRUSTEE_W_NAME),
+    ]
+
+NOT_USED_ACCESS = 0
+GRANT_ACCESS = 1
+SET_ACCESS = 2
+DENY_ACCESS = 3
+REVOKE_ACCESS = 4
+SET_AUDIT_SUCCESS = 5
+SET_AUDIT_FAILURE = 6
+
+ACCESS_MODE_TEXT = {
+    NOT_USED_ACCESS: '',
+    GRANT_ACCESS: 'GRANT',
+    SET_ACCESS: 'SET',
+    DENY_ACCESS: 'DENY',
+    REVOKE_ACCESS: 'REVOKE',
+    SET_AUDIT_SUCCESS: 'AUDIT SUCCESS',
+    SET_AUDIT_FAILURE: 'AUDIT FAILURE'
+}
+
+ACE_ACCESS_DELETE        = (0x00010000L)
+ACE_ACCESS_READ_CONTROL  = (0x00020000L)
+ACE_ACCESS_WRITE_DAC     = (0x00040000L)
+ACE_ACCESS_WRITE_OWNER   = (0x00080000L)
+ACE_ACCESS_SYNCHRONIZE   = (0x00100000L)
+
+STANDARD_RIGHTS_REQUIRED = (0x000F0000L)
+
+STANDARD_RIGHTS_READ     = (READ_CONTROL)
+STANDARD_RIGHTS_WRITE    = (READ_CONTROL)
+STANDARD_RIGHTS_EXECUTE  = (READ_CONTROL)
+STANDARD_RIGHTS_ALL      = (0x001F0000L)
+SPECIFIC_RIGHTS_ALL      = (0x0000FFFFL)
+
+class EXPLICIT_ACCESS_W(Structure):
+    _fields_ = [
+        ('grfAccessPermissions', DWORD),
+        ('grfAccessMode', DWORD),
+        ('grfInheritance', DWORD),
+        ('Trustee', TRUSTEE_W)
+    ]
+
+PEXPLICIT_ACCESS_W = POINTER(EXPLICIT_ACCESS_W)
+
+GetExplicitEntriesFromAclW          = advapi32.GetExplicitEntriesFromAclW
+GetExplicitEntriesFromAclW.argtypes = [c_void_p, POINTER(c_ulong), POINTER(PEXPLICIT_ACCESS_W)]
+GetExplicitEntriesFromAclW.restype  = DWORD
+
 IsValidSecurityDescriptor           = advapi32.IsValidSecurityDescriptor
 IsValidSecurityDescriptor.argtypes  = [c_void_p]
 GetFileSecurityW.restype            = BOOL
@@ -521,6 +749,7 @@ def ListSids():
             CloseHandle(hProcess)
         except Exception as e:
             print e
+
     return list(sids)
 
 def getProcessToken(pid):
@@ -947,7 +1176,7 @@ def namebysid(sid, domain=None):
     if Name.value == 'None':
         return ''
 
-    return Name.value
+    return Name.value, ReferencedDomainName.value
 
 def sidbyname(name, domain=None):
     if type(name) == str:
@@ -976,12 +1205,13 @@ def sidbyname(name, domain=None):
 
     return strsid(Sid)
 
-def getfileowner(path, as_sid=True):
+def _getfileinfo(path, requested_information=0):
+
     if type(path) == str:
         path = path.decode('utf-8')
 
-    requested_information = OWNER_SECURITY_INFORMATION | \
-        GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
+    requested_information |= OWNER_SECURITY_INFORMATION | \
+      GROUP_SECURITY_INFORMATION
 
     dwSize = DWORD(0)
 
@@ -1008,10 +1238,235 @@ def getfileowner(path, as_sid=True):
 
     if GetSecurityDescriptorOwner(pSDBuf, byref(USid), byref(bDefault)) and \
       GetSecurityDescriptorGroup(pSDBuf, byref(GSid), byref(bDefault)):
-        if as_sid:
-            return strsid(USid), strsid(GSid)
-        else:
-
-            return namebysid(USid), namebysid(GSid)
+        return pSDBuf, USid, GSid
 
     raise WinError(get_last_error())
+
+def getfileowner(path, as_sid=True):
+    pSDBuf, USid, GSid = _getfileinfo(path)
+
+    if as_sid:
+        return strsid(USid), strsid(GSid)
+    else:
+        return namebysid(USid), namebysid(GSid)
+
+    raise WinError(get_last_error())
+
+# https://stackoverflow.com/questions/34698927/python-get-windows-folder-acl-permissions
+
+class Ace(object):
+    __slots__ = (
+        'ace_type', 'flags', 'mask', 'mapped_mask', 'trustee'
+    )
+
+    def __init__(self, ace_type, flags, mask, trustee):
+        self.ace_type = ace_type
+        self.flags = flags
+        self.mask = mask
+        self.trustee = trustee
+        self.mapped_mask = self._map_generic(mask)
+
+    @staticmethod
+    def _map_generic(mask):
+        if mask & GENERIC_READ:
+            mask = (mask & ~GENERIC_READ) | FILE_GENERIC_READ
+        if mask & GENERIC_WRITE:
+            mask = (mask & ~GENERIC_WRITE) | FILE_GENERIC_WRITE
+        if mask & GENERIC_EXECUTE:
+            mask = (mask & ~GENERIC_EXECUTE) | FILE_GENERIC_EXECUTE
+        if mask & GENERIC_ALL:
+            mask = (mask & ~GENERIC_ALL) | FILE_ALL_ACCESS
+        return mask
+
+    def inherited(self):         # I
+        return bool(self.flags & INHERITED_ACE)
+
+    def object_inherit(self):    # OI
+        return bool(self.flags & OBJECT_INHERIT_ACE)
+
+    def container_inherit(self): # CI
+        return bool(self.flags & CONTAINER_INHERIT_ACE)
+
+    def inherit_only(self):      # IO
+        return bool(self.flags & INHERIT_ONLY_ACE)
+
+    def no_propagate(self):      # NP
+        return bool(self.flags & NO_PROPAGATE_INHERIT_ACE)
+
+    def no_access(self):         # N
+        return self.mapped_mask == 0
+
+    def full_access(self):       # F
+        return self.mapped_mask == FILE_ALL_ACCESS
+
+    def modify_access(self):     # M
+        return self.mapped_mask == FILE_MODIIFY_ACCESS
+
+    def read_exec_access(self):  # RX
+        return self.mapped_mask == FILE_READ_EXEC_ACCESS
+
+    def read_only_access(self):  # R
+        return self.mapped_mask == FILE_GENERIC_READ
+
+    def write_only_access(self): # W
+        return self.mapped_mask == FILE_GENERIC_WRITE
+
+    def delete_access(self):     # D
+        return self.mapped_mask == FILE_DELETE_ACCESS
+
+    def get_file_rights(self):
+        if self.no_access():
+            return ['N']
+
+        if self.full_access():
+            return ['F']
+
+        if self.modify_access():
+            return ['M']
+
+        if self.read_exec_access():
+            return ['RX']
+
+        if self.read_only_access():
+            return ['R']
+
+        if self.write_only_access():
+            return ['W']
+
+        if self.delete_access():
+            return ['D']
+
+        rights = []
+
+        for right, name in (
+            (DELETE, 'DE'), (READ_CONTROL, 'RC'),
+            (WRITE_DAC, 'WDAC'), (WRITE_OWNER, 'WO'),
+            (SYNCHRONIZE, 'S'), (ACCESS_SYSTEM_SECURITY, 'AS'),
+            (GENERIC_READ, 'GR'), (GENERIC_WRITE, 'GW'),
+            (GENERIC_EXECUTE, 'GE'), (GENERIC_ALL, 'GA'),
+            (FILE_READ_DATA, 'RD'), (FILE_WRITE_DATA, 'WD'),
+            (FILE_APPEND_DATA, 'AD'), (FILE_READ_EA, 'REA'),
+            (FILE_WRITE_EA, 'WEA'), (FILE_EXECUTE, 'X'),
+            (FILE_DELETE_CHILD, 'DC'),
+            (FILE_READ_ATTRIBUTES, 'RA'),
+            (FILE_WRITE_ATTRIBUTES, 'WA')):
+
+            if self.mask & right:
+                rights.append(name)
+
+        return rights
+
+    def granted_access(self, mask):
+        return bool(self.mapped_mask & self._map_generic(mask))
+
+    def __str__(self):
+        access = []
+
+        if self.ace_type == ACCESS_DENIED_ACE_TYPE:
+            access.append('(DENY)')
+
+        elif self.ace_type == SYSTEM_AUDIT_ACE_TYPE:
+            access.append('(AUDIT)')
+
+        if self.inherited():
+            access.append('(I)')
+
+        if self.object_inherit():
+            access.append('(OI)')
+
+        if self.container_inherit():
+            access.append('(CI)')
+
+        if self.inherit_only():
+            access.append('(IO)')
+
+        if self.no_propagate():
+            access.append('(NP)')
+
+        access.append('(%s)' % ','.join(self.get_file_rights()))
+
+        return '%s: %s' % (self.trustee, ''.join(access))
+
+def getfileowneracls(path):
+    infos = []
+
+    if type(path) == str:
+        path = path.decode('utf-8')
+
+    requested_information = OWNER_SECURITY_INFORMATION | \
+        GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
+
+    pSDBuf, USid, GSid = _getfileinfo(path, requested_information)
+
+    owner_sid = strsid(USid)
+    group_sid = strsid(GSid)
+
+    owner_name, owner_domain = namebysid(USid)
+    group_name, group_domain = namebysid(GSid)
+
+    owner = owner_sid, owner_name, owner_domain
+    group = group_sid, group_name, group_domain
+
+    infos.append(owner)
+    infos.append(group)
+
+    pACL = c_void_p()
+    bDaclPresent = BOOL()
+    bDaclDefaulted = BOOL()
+
+    if not GetSecurityDescriptorDacl(
+        pSDBuf, byref(bDaclPresent),
+        byref(pACL), byref(bDaclDefaulted)):
+        raise WinError(get_last_error())
+
+    if not bDaclPresent:
+        infos.append(None)
+        return infos
+
+    cCountOfExplicitEntries = c_ulong()
+    ListOfExplicitEntries = PEXPLICIT_ACCESS_W()
+
+    if GetExplicitEntriesFromAclW(
+        pACL, byref(cCountOfExplicitEntries),
+        byref(ListOfExplicitEntries)):
+        raise WinError(get_last_error())
+
+    try:
+        if not cCountOfExplicitEntries.value:
+            infos.append(None)
+            return infos
+
+        pListOfExplicitEntries = cast(
+            ListOfExplicitEntries,
+            POINTER(EXPLICIT_ACCESS_W*cCountOfExplicitEntries.value))
+
+        ACLs = []
+
+        for i in xrange(cCountOfExplicitEntries.value):
+            ace = pListOfExplicitEntries.contents[i]
+
+            if ace.Trustee.TrusteeType == TRUSTEE_IS_SID:
+                sid = strsid(ace.Trustee.TrusteeName.pSid)
+                name, domain = namebysid(ace.Trustee.TrusteeName.pSid)
+
+                trustee = sid
+
+                if name:
+                    trustee = '{}\\{} ({})'.format(
+                        name, domain, sid
+                    )
+            else:
+                trustee = 'Unknown (id={}) (fixme)'.format(
+                    ace.Trustee.TrusteeType)
+
+            ACLs.append(Ace(
+                ace.grfAccessPermissions,
+                ace.grfInheritance,
+                ace.grfAccessMode,
+                trustee))
+
+        infos.append(ACLs)
+        return infos
+
+    finally:
+        LocalFree(ListOfExplicitEntries)

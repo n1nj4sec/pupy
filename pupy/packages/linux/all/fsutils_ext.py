@@ -1,10 +1,14 @@
 # -*- encoding: utf-8 -*-
-from os import path
+from os import path, stat
 from struct import unpack_from, unpack
 
 from prctl import ALL_CAPS, ALL_CAP_NAMES
 from posix1e import ACL
 from xattr import getxattr
+from xattr import list as list_xattrs
+
+from pwd import getpwuid
+from grp import getgrgid
 
 def getacls(filepath):
     acls = ''
@@ -65,3 +69,56 @@ def getcaps(filepath):
             inheritable_flags.append(ALL_CAP_NAMES[ALL_CAPS.index(x)])
 
     return permitted_flags, inheritable_flags, bool(effective)
+
+def getfilesec(filepath):
+    filestat = stat(filepath)
+
+    owner_uid = filestat.st_uid
+    try:
+        owner_user = getpwuid(owner_uid).pw_name
+    except KeyError:
+        owner_user = None
+
+    owner_domain = None # Unsupported?
+    owner = (owner_uid, owner_user, owner_domain)
+
+    group_gid = filestat.st_gid
+    try:
+        group_user = getgrgid(group_gid).gr_name
+    except KeyError:
+        group_user = None
+
+    group_domain = None # Unsupported?
+    group = (group_gid, group_user, group_domain)
+
+    caps = getcaps(filepath)
+    acls = getacls(filepath)
+    streams = list_xattrs(filepath)
+    caps_text = None
+
+    if caps:
+        permitted_flags, inheritable_flags, effective = caps
+
+        caps_text = ''
+        flags = ''
+
+        if effective:
+            flags += 'e'
+
+        if permitted_flags == inheritable_flags or \
+          (permitted_flags and not inheritable_flags):
+            caps_text = ','.join(permitted_flags)
+            if inheritable_flags:
+                flags += 'i'
+            flags += 'p'
+
+        elif not permitted_flags and inheritable_flags:
+            caps_text = ','.join(inheritable_flags)
+            flags += 'i'
+
+        if flags:
+            caps_text += '+' + flags
+
+    return int(filestat.st_ctime), int(filestat.st_atime), \
+      int(filestat.st_mtime), filestat.st_size, owner, \
+      group, caps_text, acls, tuple(streams)

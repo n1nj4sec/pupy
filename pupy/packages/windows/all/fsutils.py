@@ -35,7 +35,8 @@ try:
 
     def uidgid(path, item, as_text=True):
         try:
-            return getfileowner(path, as_sid=not as_text)
+            owner, group = getfileowner(path, as_sid=not as_text)
+            return owner[0], group[0]
         except (OSError, IOError, WindowsError):
             return '?', '?'
 
@@ -66,10 +67,3 @@ except ImportError:
 
     def groupname_to_gid(groupname):
         raise NoSuchGroup(groupname)
-
-def getcaps(filepath):
-    return None
-
-# TODO: implement windows ACLs parsing
-def getacls(filepath):
-    return None
