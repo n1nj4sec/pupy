@@ -733,7 +733,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                 if session.system_status['mem'] > 90 or session.system_status['cpu'] > 90:
                     if not session._high_resource_usage_reported:
-                        self.on_hight_resource_usage(session)
+                        self.on_high_resource_usage(session)
                         session._high_resource_usage_reported = True
                 else:
                     session._high_resource_usage_reported = False
