@@ -571,9 +571,9 @@ class ACE_HEADER(Structure):
         ('AceSize', WORD)
     ]
 
-ACCESS_ALLOWED_ACE_TYPE	= 0
+ACCESS_ALLOWED_ACE_TYPE = 0
 ACCESS_DENIED_ACE_TYPE = 1
-SYSTEM_AUDIT_ACE_TYPE =	2
+SYSTEM_AUDIT_ACE_TYPE = 2
 SYSTEM_ALARM_ACE_TYPE = 3
 
 class ACCESS_ALLOWED_ACE(Structure):
@@ -1397,7 +1397,7 @@ class Ace(object):
     def __str__(self):
         access = []
 
-        if self.ace_type ==  ACCESS_DENIED_ACE_TYPE:
+        if self.ace_type == ACCESS_DENIED_ACE_TYPE:
             access.append('{DENY}')
         elif self.ace_type == SYSTEM_AUDIT_ACE_TYPE:
             access.append('{AUDIT}')
