@@ -1177,7 +1177,9 @@ def strsid(sid, exc=True):
     StringSid = LPTSTR()
 
     if ConvertSidToStringSidA(sid, byref(StringSid)):
-        return StringSid.value
+        sid = str(StringSid.value)
+        LocalFree(StringSid)
+        return sid
 
     if not exc:
         return None
