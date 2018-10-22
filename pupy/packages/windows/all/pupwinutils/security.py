@@ -564,6 +564,29 @@ class TRUSTEE_W(Structure):
         ('TrusteeName', TRUSTEE_W_NAME),
     ]
 
+class ACE_HEADER(Structure):
+    _fields_ = [
+        ('AceType', BYTE),
+        ('AceFlags', BYTE),
+        ('AceSize', WORD)
+    ]
+
+ACCESS_ALLOWED_ACE_TYPE	= 0
+ACCESS_DENIED_ACE_TYPE = 1
+SYSTEM_AUDIT_ACE_TYPE =	2
+SYSTEM_ALARM_ACE_TYPE = 3
+
+class ACCESS_ALLOWED_ACE(Structure):
+    _fields_ = [
+        ('Header', ACE_HEADER),
+        ('Mask', DWORD),
+        ('SidStart', DWORD),
+    ]
+
+PACCESS_ALLOWED_ACE = POINTER(ACCESS_ALLOWED_ACE)
+
+
+
 NOT_USED_ACCESS = 0
 GRANT_ACCESS = 1
 SET_ACCESS = 2
@@ -606,9 +629,20 @@ class EXPLICIT_ACCESS_W(Structure):
 
 PEXPLICIT_ACCESS_W = POINTER(EXPLICIT_ACCESS_W)
 
+AclRevisionInformation = 0
+AclSizeInformation     = 1
+
 GetExplicitEntriesFromAclW          = advapi32.GetExplicitEntriesFromAclW
 GetExplicitEntriesFromAclW.argtypes = [c_void_p, POINTER(c_ulong), POINTER(PEXPLICIT_ACCESS_W)]
 GetExplicitEntriesFromAclW.restype  = DWORD
+
+GetAclInformation                   = advapi32.GetAclInformation
+GetAclInformation.argtypes          = [c_void_p, c_void_p, DWORD, DWORD]
+GetAclInformation.restype           = BOOL
+
+GetAce                              = advapi32.GetAce
+GetAce.argtypes                     = [c_void_p, DWORD, POINTER(PACCESS_ALLOWED_ACE)]
+GetAce.restype                      = BOOL
 
 IsValidSecurityDescriptor           = advapi32.IsValidSecurityDescriptor
 IsValidSecurityDescriptor.argtypes  = [c_void_p]
@@ -1305,10 +1339,10 @@ class Ace(object):
         return bool(self.mapped_mask & FILE_READ_EXEC_ACCESS)
 
     def read_only_access(self):  # R
-        return bool(self.mapped_mask & FILE_GENERIC_READ)
+        return bool(self.mapped_mask == FILE_GENERIC_READ)
 
     def write_only_access(self): # W
-        return bool(self.mapped_mask & FILE_GENERIC_WRITE)
+        return bool(self.mapped_mask == FILE_GENERIC_WRITE)
 
     def delete_access(self):     # D
         return bool(self.mapped_mask & FILE_DELETE_ACCESS)
@@ -1361,9 +1395,12 @@ class Ace(object):
     def __str__(self):
         access = []
 
-        mode = ACCESS_MODE_TEXT.get(self.ace_type, '[INVALID MODE]')
-        if mode != '(GRANT)':
-            access.append(mode)
+        if self.ace_type ==  ACCESS_DENIED_ACE_TYPE:
+            access.append('{DENY}')
+        elif self.ace_type == SYSTEM_AUDIT_ACE_TYPE:
+            access.append('{AUDIT}')
+        elif self.ace_type == SYSTEM_ALARM_ACE_TYPE:
+            access.append('{ALARM}')
 
         if self.inherited():
             access.append('(I)')
@@ -1409,7 +1446,7 @@ def getfileowneracls(path):
 
     pACL = c_void_p()
     bDaclPresent = BOOL()
-    bDaclDefaulted = BOOL()
+    bDaclDefaulted = BOOL(True)
 
     if not GetSecurityDescriptorDacl(
         pSDBuf, byref(bDaclPresent),
@@ -1420,55 +1457,35 @@ def getfileowneracls(path):
         infos.append(None)
         return infos
 
-    cCountOfExplicitEntries = c_ulong()
-    ListOfExplicitEntries = PEXPLICIT_ACCESS_W()
+    ACLs = []
 
-    if GetExplicitEntriesFromAclW(
-        pACL, byref(cCountOfExplicitEntries),
-        byref(ListOfExplicitEntries)):
-        raise WinError(get_last_error())
+    i = 0
+    while True:
+        ace = PACCESS_ALLOWED_ACE()
+        if not GetAce(pACL, i, byref(ace)):
+            break
 
-    try:
-        if not cCountOfExplicitEntries.value:
-            infos.append(None)
-            return infos
+        ace = ace.contents
+        sid = byref(ace, ACCESS_ALLOWED_ACE.SidStart.offset)
 
-        pListOfExplicitEntries = cast(
-            ListOfExplicitEntries,
-            POINTER(EXPLICIT_ACCESS_W*cCountOfExplicitEntries.value))
+        name, domain = namebysid(sid)
+        sid = strsid(sid)
+        trustee = sid
 
-        ACLs = []
-
-        for i in xrange(cCountOfExplicitEntries.value):
-            ace = pListOfExplicitEntries.contents[i]
-
-            if ace.Trustee.TrusteeType == TRUSTEE_IS_SID:
-                sid = strsid(ace.Trustee.TrusteeName.pSid)
-                name, domain = namebysid(ace.Trustee.TrusteeName.pSid)
-
-                trustee = sid
-
-                if name:
-                    if domain:
-                        trustee = '{}\\{} ({})'.format(
-                            domain, name, sid
-                        )
-                    else:
-                        trustee = '{} ({})'.format(
-                            name, sid
-                        )
+        if name:
+            if domain:
+                trustee = '{}\\{} ({})'.format(
+                    domain, name, sid
+                )
             else:
-                trustee = 'Unknown (id={}) (fixme)'.format(
-                    ace.Trustee.TrusteeType)
+                trustee = '{} ({})'.format(
+                    name, sid
+                )
 
-            ACLs.append(Ace(
-                ace.grfAccessMode,
-                ace.grfInheritance,
-                ace.grfAccessPermissions,
-                trustee))
+        ace = Ace(ace.Header.AceType, ace.Header.AceFlags, ace.Mask, trustee)
+        ACLs.append(ace)
 
-        infos.append(ACLs)
-        return infos
+        i += 1
 
-    finally:
-        LocalFree(ListOfExplicitEntries)
+    infos.append(ACLs)
+    return infos
