@@ -199,6 +199,9 @@ def _event(eventid, client, server, handler, triggers, config, **kwargs):
             event, criterias, client_filter, action)
 
         if handler:
+            if client_filter.startswith(('*', 'any')):
+                client_filter = '*'
+
             handler.inject(
                 action, client_filter,
                 'Action for event "{}" apply to <{}>: {}'.format(
