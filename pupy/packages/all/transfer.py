@@ -572,17 +572,22 @@ class Transfer(object):
             del stats[:]
 
     def _is_supported_archive(self, filepath):
-        if ':' not in filepath:
+        if not filepath.startswith(('zip:', 'tar:')):
             return False
 
-        ext, archive_path, sub_path = filepath.split(':', 2)
+        parts = filepath.split(':', 2)
+        if not len(parts) == 3:
+            return False
 
-        if filepath.startswith(('zip:', 'tar:')) \
-          and not path.isfile(filepath) and path.isfile(archive_path):
+        ext, archive_path, sub_path = parts
+
+        if path.isfile(archive_path) and not path.isfile(filepath):
             if is_zipfile(archive_path):
                 return 'zip', archive_path, sub_path
             elif is_tarfile(archive_path):
                 return 'tar', archive_path, sub_path
+
+        return False
 
     def _pack_any(self, filepath):
         try:
