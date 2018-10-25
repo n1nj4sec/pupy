@@ -33,6 +33,7 @@ if scandir is None:
 
 import rpyc
 import sys
+import traceback
 
 try:
     import umsgpack as msgpack
@@ -571,6 +572,9 @@ class Transfer(object):
             del stats[:]
 
     def _is_supported_archive(self, filepath):
+        if not ':' in filepath:
+            return False
+
         ext, archive_path, sub_path = filepath.split(':', 2)
 
         if filepath.startswith(('zip:', 'tar:')) \
@@ -683,7 +687,7 @@ class Transfer(object):
             yield {
                 F_TYPE: T_EXC,
                 F_EXC: str(type(e)),
-                F_DATA: str(e)
+                F_DATA: str(e) + traceback.format_exc(limit=20)
             }
 
     def _submit_command(self, command, args, callback):
