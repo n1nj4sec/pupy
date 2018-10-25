@@ -1480,11 +1480,11 @@ def getfileowneracls(path):
 
         if name:
             if domain:
-                trustee = '{}\\{} ({})'.format(
+                trustee = u'{}\\{} ({})'.format(
                     domain, name, sid
                 )
             else:
-                trustee = '{} ({})'.format(
+                trustee = u'{} ({})'.format(
                     name, sid
                 )
 
