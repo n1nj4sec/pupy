@@ -4,7 +4,7 @@ from stat import S_ISREG, S_ISLNK
 from struct import unpack_from, unpack
 
 from prctl import ALL_CAPS, ALL_CAP_NAMES
-from posix1e import ACL
+from posix1e import ACL, has_extended
 from xattr import getxattr
 from xattr import list as list_xattrs
 
@@ -25,6 +25,9 @@ def getacls(filepath):
     acls = ''
 
     try:
+        if not has_extended(filepath):
+            return None
+
         # posix1e doesn't work with unicode properly
         if type(filepath) == unicode:
             filepath = filepath.encode('utf-8')
