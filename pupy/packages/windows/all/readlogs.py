@@ -15,6 +15,7 @@ from win32con import (
     FORMAT_MESSAGE_FROM_HMODULE, LOAD_LIBRARY_AS_DATAFILE
 )
 
+from sys import getdefaultencoding
 from os.path import expandvars, isfile
 
 from win32con import (
@@ -65,7 +66,7 @@ class EventLog(object):
 
         key = OpenKeyEx(
             HKEY_LOCAL_MACHINE,
-            r'SYSTEM\CurrentControlSet\Services\EventLog',
+            ur'SYSTEM\CurrentControlSet\Services\EventLog',
             0, KEY_READ
         )
 
@@ -78,6 +79,10 @@ class EventLog(object):
                         continue
 
                     dups.add(source)
+
+                    if type(source) == str:
+                        source = source.decode(getdefaultencoding())
+
                     yield source
 
                 except WindowsError:
@@ -157,12 +162,21 @@ class EventLog(object):
                     message = None
 
                     if ev_obj.SourceName not in self._formatters_cache and ev_obj.SourceName not in BLACKLIST:
+                        source_name = ev_obj.SourceName
+                        if type(source_name) == str:
+                            source_name = source_name.decode(getdefaultencoding())
+
+                        subkey = ur'SYSTEM\CurrentControlSet\Services\EventLog\{}\{}'.format(
+                            logtype, source_name
+                        )
+
                         try:
-                            key = OpenKeyEx(
-                                HKEY_LOCAL_MACHINE,
-                                r'SYSTEM\CurrentControlSet\Services\EventLog\{}\{}'.format(
-                                logtype, ev_obj.SourceName
-                            ), 0, KEY_READ)
+                            subkey = subkey.encode(getdefaultencoding())
+                        except UnicodeEncodeError:
+                            subkey = subkey.encode('utf-8')
+
+                        try:
+                            key = OpenKeyEx(HKEY_LOCAL_MACHINE, subkey, 0, KEY_READ)
                         except WindowsError:
                             continue
 
@@ -230,7 +244,7 @@ class EventLog(object):
                         'computer': ev_obj.ComputerName,
                         'category': ev_obj.EventCategory,
                         'msg': message,
-                        'source': ev_obj.SourceName,
+                        'source': logtype + ': ' + ev_obj.SourceName,
                         'type': EventLog.event_types.get(ev_obj.EventType, 'UNKNOWN'),
                         'user': user
                     }
