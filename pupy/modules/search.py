@@ -81,8 +81,6 @@ class SearchModule(PupyModule):
                 newer = dateparser.parse(args.timestamp_newer)
 
             newer = int((newer - datetime.fromtimestamp(0)).total_seconds())
-            print newer
-
 
         if args.timestamp_older:
             try:
