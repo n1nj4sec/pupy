@@ -231,8 +231,8 @@ class PupyWebServer(object):
     def get_random_path_at_webroot(self):
         while True:
             filename = ''.join(random.choice(
-                string.ascii_uppercase +
-                string.ascii_lowercase +
+                string.ascii_uppercase + \
+                string.ascii_lowercase + \
                 string.digits) for _ in range(10))
 
             filepath = path.join(self.root, filename)
@@ -242,8 +242,8 @@ class PupyWebServer(object):
     def random_path(self):
         return '/'+''.join(
             random.choice(
-                string.ascii_uppercase +
-                string.ascii_lowercase +
+                string.ascii_uppercase + \
+                string.ascii_lowercase + \
                 string.digits) for _ in range(10))
 
     def register_mapping(self, name):

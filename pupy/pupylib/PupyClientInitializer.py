@@ -190,7 +190,7 @@ def getUACLevel():
     i, consentPromptBehaviorAdmin, enableLUA, promptOnSecureDesktop = 0, None, None, None
     try:
         Registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
-        RawKey = OpenKey(Registry, "SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System")
+        RawKey = OpenKey(Registry, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System')
     except:
         return "?"
     while True:

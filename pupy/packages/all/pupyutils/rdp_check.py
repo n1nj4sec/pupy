@@ -129,18 +129,18 @@ class TSPasswordCreds(GSSAPI):
     def getData(self):
         asn = pack('B', ASN1_SEQUENCE)
         asn += asn1encode(
-            pack('B', 0xa0) +
+            pack('B', 0xa0) + \
             asn1encode(
-                pack('B', ASN1_OCTET_STRING) +
-                asn1encode(self['domainName'].encode('utf-16le'))) +
-            pack('B', 0xa1) +
+                pack('B', ASN1_OCTET_STRING) + \
+                asn1encode(self['domainName'].encode('utf-16le'))) + \
+            pack('B', 0xa1) + \
             asn1encode(
-                pack('B', ASN1_OCTET_STRING) +
+                pack('B', ASN1_OCTET_STRING) + \
                 asn1encode(
-                    self['userName'].encode('utf-16le'))) +
-            pack('B', 0xa2) +
+                    self['userName'].encode('utf-16le'))) + \
+            pack('B', 0xa2) + \
             asn1encode(
-                pack('B', ASN1_OCTET_STRING) +
+                pack('B', ASN1_OCTET_STRING) + \
                 asn1encode(self['password'].encode('utf-16le'))))
 
         return asn
@@ -157,14 +157,15 @@ class TSCredentials(GSSAPI):
     def getData(self):
         # Let's pack the credentials field
         credentials = pack('B',0xa1)
-        credentials += asn1encode(pack('B',ASN1_OCTET_STRING) +
-                                    asn1encode(self['credentials']))
+        credentials += asn1encode(
+            pack('B',ASN1_OCTET_STRING) + \
+            asn1encode(self['credentials']))
 
         asn = pack('B',ASN1_SEQUENCE)
         asn += asn1encode(
-            pack('B', 0xa0) +
+            pack('B', 0xa0) + \
             asn1encode(
-                pack('B', 0x02) +
+                pack('B', 0x02) + \
                 asn1encode(
                     pack('B', self['credType']))) + credentials)
 
@@ -257,30 +258,30 @@ class TSRequest(GSSAPI):
         # Do we have pubKeyAuth?
         if 'pubKeyAuth' in self.fields:
                 pubKeyAuth = pack('B',0xa3)
-                pubKeyAuth += asn1encode(pack('B', ASN1_OCTET_STRING) +
+                pubKeyAuth += asn1encode(pack('B', ASN1_OCTET_STRING) + \
                                 asn1encode(self['pubKeyAuth']))
         else:
                 pubKeyAuth = ''
 
         if 'authInfo' in self.fields:
             authInfo = pack('B',0xa2)
-            authInfo+= asn1encode(pack('B', ASN1_OCTET_STRING) +
+            authInfo+= asn1encode(pack('B', ASN1_OCTET_STRING) + \
                             asn1encode(self['authInfo']))
         else:
             authInfo = ''
 
         if 'NegoData' in self.fields:
                 negoData = pack('B',0xa1)
-                negoData += asn1encode(pack('B', ASN1_SEQUENCE) +
-                                asn1encode(pack('B', ASN1_SEQUENCE) +
-                                asn1encode(pack('B', 0xa0) +
-                                asn1encode(pack('B', ASN1_OCTET_STRING) +
+                negoData += asn1encode(pack('B', ASN1_SEQUENCE) + \
+                                asn1encode(pack('B', ASN1_SEQUENCE) + \
+                                asn1encode(pack('B', 0xa0) + \
+                                asn1encode(pack('B', ASN1_OCTET_STRING) + \
                                 asn1encode(self['NegoData'])))))
         else:
             negoData = ''
         ans = pack('B', ASN1_SEQUENCE)
-        ans += asn1encode(pack('B',0xa0) +
-                    asn1encode(pack('B',0x02) + asn1encode(pack('B',0x02))) +
+        ans += asn1encode(pack('B',0xa0) + \
+                    asn1encode(pack('B',0x02) + asn1encode(pack('B',0x02))) + \
                     negoData + authInfo + pubKeyAuth)
 
         return ans

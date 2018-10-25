@@ -251,8 +251,8 @@ class outlook():
         '''
         paths = []
         DEFAULT_LOCATIONS_OST = [
-            "<drive>:\Users\<username>\AppData\Local\Microsoft\Outlook",
-            "<drive>:\Documents and Settings\<username>\Local Settings\Application Data\Microsoft\Outlook"
+            r"<drive>:\Users\<username>\AppData\Local\Microsoft\Outlook",
+            r"<drive>:\Documents and Settings\<username>\Local Settings\Application Data\Microsoft\Outlook"
         ]
         systemDrive = os.getenv("SystemDrive")
         login = os.getenv("username")

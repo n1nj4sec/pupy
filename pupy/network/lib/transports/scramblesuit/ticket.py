@@ -50,14 +50,13 @@ def createTicketMessage(rawTicket, HMACKey):
 
     # Subtract the length of the ticket to make the handshake on
     # average as long as a UniformDH handshake message.
-    padding = mycrypto.strongRandom(random.randint(0,
-                                    const.MAX_PADDING_LENGTH -
-                                    const.TICKET_LENGTH))
+    padding = mycrypto.strongRandom(
+        random.randint(
+            0, const.MAX_PADDING_LENGTH - const.TICKET_LENGTH))
 
     mark = mycrypto.HMAC_SHA256_128(HMACKey, rawTicket)
-
-    hmac = mycrypto.HMAC_SHA256_128(HMACKey, rawTicket + padding +
-                                    mark + util.getEpoch())
+    hmac = mycrypto.HMAC_SHA256_128(
+        HMACKey, rawTicket + padding + mark + util.getEpoch())
 
     return rawTicket + padding + mark + hmac
 

@@ -498,7 +498,7 @@ class socksocket(_BaseSocket):
                 # Okay, we need to perform a basic username/password
                 # authentication.
                 writer.write(
-                    b"\x01" + chr(len(username)).encode() +
+                    b"\x01" + chr(len(username)).encode() + \
                     username + chr(len(password)).encode() + password)
                 writer.flush()
                 auth_status = self._readall(reader, 2)

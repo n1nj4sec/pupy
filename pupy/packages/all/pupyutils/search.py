@@ -298,8 +298,8 @@ class Search(object):
                 any_file = not self.name or self.path
 
                 if (
-                    (self.name and self.name.match(entry.name)) or
-                    (self.path and self.path.match(entry.path)) or
+                    (self.name and self.name.match(entry.name)) or \
+                    (self.path and self.path.match(entry.path)) or \
                     any_file
                 ):
                     try:

@@ -57,10 +57,11 @@ TOKEN_ADJUST_DEFAULT            = 0x0080
 TOKEN_ADJUST_SESSIONID          = 0x0100
 TOKEN_READ                      = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
 tokenprivs                      = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072L | 4))
-TOKEN_ALL_ACCESS                = (STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
-                                    TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE |
-                                    TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT |
-                                    TOKEN_ADJUST_SESSIONID)
+TOKEN_ALL_ACCESS                = (
+    STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY | \
+    TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE | \
+    TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT | \
+    TOKEN_ADJUST_SESSIONID)
 
 SE_OWNER_DEFAULTED        = 0x0001
 SE_GROUP_DEFAULTED        = 0x0002
@@ -113,27 +114,30 @@ FILE_DELETE_CHILD      = 0x00000040 # DC
 FILE_READ_ATTRIBUTES   = 0x00000080 # RA
 FILE_WRITE_ATTRIBUTES  = 0x00000100 # WA
 
-FILE_GENERIC_READ      = (FILE_READ_DATA        |
-                          FILE_READ_EA          |
-                          FILE_READ_ATTRIBUTES  |
-                          READ_CONTROL          |
-                          SYNCHRONIZE)
+FILE_GENERIC_READ      = (
+    FILE_READ_DATA        | \
+    FILE_READ_EA          | \
+    FILE_READ_ATTRIBUTES  | \
+    READ_CONTROL          | \
+    SYNCHRONIZE)
 
-FILE_GENERIC_WRITE     = (FILE_WRITE_DATA       |
-                          FILE_APPEND_DATA      |
-                          FILE_WRITE_EA         |
-                          FILE_WRITE_ATTRIBUTES |
-                          READ_CONTROL          |
-                          SYNCHRONIZE)
+FILE_GENERIC_WRITE     = (
+    FILE_WRITE_DATA       | \
+    FILE_APPEND_DATA      | \
+    FILE_WRITE_EA         | \
+    FILE_WRITE_ATTRIBUTES | \
+    READ_CONTROL          | \
+    SYNCHRONIZE)
 
-FILE_GENERIC_EXECUTE    = (FILE_EXECUTE         |
-                           FILE_READ_ATTRIBUTES |
-                           READ_CONTROL         |
-                           SYNCHRONIZE)
+FILE_GENERIC_EXECUTE    = (
+    FILE_EXECUTE         | \
+    FILE_READ_ATTRIBUTES | \
+    READ_CONTROL         | \
+    SYNCHRONIZE)
 
 FILE_ALL_ACCESS         = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF)
-FILE_MODIIFY_ACCESS     = FILE_ALL_ACCESS & ~(FILE_DELETE_CHILD |
-                                              WRITE_DAC         |
+FILE_MODIIFY_ACCESS     = FILE_ALL_ACCESS & ~(FILE_DELETE_CHILD | \
+                                              WRITE_DAC         | \
                                               WRITE_OWNER)
 
 FILE_READ_EXEC_ACCESS   = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE

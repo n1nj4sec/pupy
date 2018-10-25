@@ -6,7 +6,7 @@ import json
 import base64
 import string
 
-is_dict = re.compile('^(\d+)=([^/]+)$')
+is_dict = re.compile(r'^(\d+)=([^/]+)$')
 
 def get(path, version='latest', section='meta-data'):
     if path == '/':

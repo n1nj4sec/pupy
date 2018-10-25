@@ -31,7 +31,7 @@ fixhtml.fixhtmlfile(dest)
 print '- pydoc_it'
 
 os.system(r'c:\Python22\python.exe c:\Python22\Lib\pydoc.py -w VideoCapture ')
-os.system('move VideoCapture.html ..\html\ ')
+os.system(r'move VideoCapture.html ..\html\ ')
 os.remove('VideoCapture.pyc')
 
 ###############################################################################

@@ -7,7 +7,7 @@ import logging
 
 __class_name__="NetStatModule"
 
-ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
+ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
 @config(cat="admin")
 class NetStatModule(PupyModule):

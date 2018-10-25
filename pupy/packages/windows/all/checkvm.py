@@ -91,7 +91,6 @@ class Check_VM():
                 _winreg.CloseKey(h)
                 return True
 
-
     # Virtual Box
     def check_Virtual_Box(self):
         plist = self.get_process_list()

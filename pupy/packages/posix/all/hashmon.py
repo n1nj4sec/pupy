@@ -57,7 +57,7 @@ class HashMon(pupy.Task):
             elif self.policy is True:
                 # Default - 1 digit, alpha, symbol, 8-16 symbols
                 self.policy = re.compile(
-                    "^(?=.*\d)(?=.*[a-zA-Z])(?=.*[&^*!@#$%])[0-9a-zA-Z!@#$%*^&]{{{},{}}}$".format(
+                    r"^(?=.*\d)(?=.*[a-zA-Z])(?=.*[&^*!@#$%])[0-9a-zA-Z!@#$%*^&]{{{},{}}}$".format(
                         minpw, maxpw))
         self.poll = poll
 

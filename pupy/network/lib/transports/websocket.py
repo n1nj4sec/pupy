@@ -420,7 +420,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
 
             wskey = None
 
-            key = re.search('\n[sS]ec-[wW]eb[sS]ocket-[kK]ey[\s]*:[\s]*(.*)\r\n', d)
+            key = re.search(r'\n[sS]ec-[wW]eb[sS]ocket-[kK]ey[\s]*:[\s]*(.*)\r\n', d)
             if key:
                 wskey = key.group(1)
             else:
@@ -428,7 +428,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                     logger.debug('Unable to get WebSocketKey')
 
             if self.user_agent:
-                ua = re.search('\n[uU]ser-[aA]gent:[\s]*(.*)\r\n', d)
+                ua = re.search(r'\n[uU]ser-[aA]gent:[\s]*(.*)\r\n', d)
                 if ua:
                     ua = ua.group(1)
                 else:

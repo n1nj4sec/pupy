@@ -122,10 +122,11 @@ class ProtocolMessage(object):
         HMAC-SHA256-128 is returned and ready to be sent over the wire.
         """
 
-        encrypted = crypter.encrypt(pack.htons(self.totalLen) +
-                                    pack.htons(self.payloadLen) +
-                                    chr(self.flags) + self.payload +
-                                    (self.totalLen - self.payloadLen) * '\0')
+        encrypted = crypter.encrypt(
+            pack.htons(self.totalLen) + \
+            pack.htons(self.payloadLen) + \
+            chr(self.flags) + self.payload + \
+            (self.totalLen - self.payloadLen) * '\0')
 
         hmac = mycrypto.HMAC_SHA256_128(hmacKey, encrypted)
 

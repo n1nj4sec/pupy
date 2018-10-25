@@ -62,9 +62,9 @@ def do(server, handler, config, modargs):
         return
 
     modjobs = [
-        job for job in server.jobs.itervalues()
-        if job.module.get_name() == module.get_name() and
-        any(instance in clients for instance in job.clients)
+        job for job in server.jobs.itervalues() \
+               if job.module.get_name() == module.get_name() and \
+               any(instance in clients for instance in job.clients)
     ]
 
     pj = None

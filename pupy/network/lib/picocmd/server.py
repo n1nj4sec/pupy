@@ -442,7 +442,7 @@ class DnsCommandServerHandler(BaseResolver):
                 session for session in self.sessions.itervalues() \
                     if session.cid == node or session.node == node or (
                         session.system_info and \
-                        (session.system_info['node'] in set(node) or
+                        (session.system_info['node'] in set(node) or \
                               str(session.system_info['external_ip']) in set(node)))
             ]
 

@@ -114,25 +114,26 @@ def islink(path):
     return bool(result & FILE_ATTRIBUTE_REPARSE_POINT)
 
 def readlink(path):
-    reparse_point_handle = CreateFileW(path,
-                                       0,
-                                       0,
-                                       None,
-                                       OPEN_EXISTING,
-                                       FILE_FLAG_OPEN_REPARSE_POINT |
-                                       FILE_FLAG_BACKUP_SEMANTICS,
-                                       None)
+    reparse_point_handle = CreateFileW(
+        path,
+        0,
+        0,
+        None,
+        OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+        None)
     if reparse_point_handle == INVALID_HANDLE_VALUE:
         raise WinError()
 
     target_buffer = c_buffer(MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
     n_bytes_returned = DWORD()
-    io_result = DeviceIoControl(reparse_point_handle,
-                                FSCTL_GET_REPARSE_POINT,
-                                None, 0,
-                                target_buffer, len(target_buffer),
-                                byref(n_bytes_returned),
-                                None)
+    io_result = DeviceIoControl(
+        reparse_point_handle,
+        FSCTL_GET_REPARSE_POINT,
+        None, 0,
+        target_buffer, len(target_buffer),
+        byref(n_bytes_returned),
+        None)
 
     CloseHandle(reparse_point_handle)
     if not io_result:

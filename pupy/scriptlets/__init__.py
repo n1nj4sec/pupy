@@ -82,7 +82,7 @@ class Scriptlet(object):
 def select_body_by_os(item, target_os):
     assert(type(item) == If)
 
-    if not (type(item.test) == Str and item.test.s.startswith('__os:') and
+    if not (type(item.test) == Str and item.test.s.startswith('__os:') and \
             item.test.s.endswith('__')):
         raise ValueError(
             'Invalid OS selection statement, should be "__os:target-os__"')
@@ -256,7 +256,7 @@ class ScriptletsPacker(object):
             # Wrap in try/except, and other things
             template_ast = parse(template)
             for item in template_ast.body:
-                if not(type(item) == FunctionDef and
+                if not(type(item) == FunctionDef and \
                        item.name == '__{}_closure__'.format(scriptlet.name)):
                     continue
 
@@ -315,7 +315,7 @@ def parse_scriptlet(filedir, filename):
             # docstring found
             docstrings.append(item.value.s)
         elif type(item) == Assign and all(
-            type(x) == Name and x.id.startswith('__') and
+            type(x) == Name and x.id.startswith('__') and \
             x.id.endswith('__') and x.id for x in item.targets
         ):
             # metadata found

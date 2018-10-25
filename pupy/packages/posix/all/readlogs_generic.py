@@ -57,7 +57,7 @@ class GenericLogReader(object):
     ]
 
     _debian_generic_parser = re.compile(
-        '^([A-Z][a-z]{2}\s+\d+\s\d\d:\d\d:\d\d)\s(\S+)\s([^:]+):\s+(.*)')
+        r'^([A-Z][a-z]{2}\s+\d+\s\d\d:\d\d:\d\d)\s(\S+)\s([^:]+):\s+(.*)')
 
     def __init__(self, logs=u'/var/log'):
         self.files = {}

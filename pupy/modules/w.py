@@ -8,7 +8,7 @@ import logging
 
 __class_name__="WModule"
 
-ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
+ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
 @config(cat="admin")
 class WModule(PupyModule):

@@ -449,15 +449,8 @@ class Stream:
         """ Close the stream """
 
         pa.close(self._stream)
-
         self._is_running = False
-
         self._parent._remove_stream(self)
-
-
-    ############################################################
-    # Stream Info
-    ############################################################
 
     def get_input_latency(self):
         """
@@ -495,11 +488,6 @@ class Stream:
         """
 
         return pa.get_stream_cpu_load(self._stream)
-
-
-    ############################################################
-    # Stream Management
-    ############################################################
 
     def start_stream(self):
         """ Start the stream. """
@@ -540,11 +528,6 @@ class Stream:
         """
 
         return pa.is_stream_stopped(self._stream)
-
-
-    ############################################################
-    # Reading/Writing
-    ############################################################
 
     def write(self, frames, num_frames=None,
               exception_on_underflow=False):
@@ -688,13 +671,7 @@ class PyAudio:
             stream.close()
 
         self._streams = set()
-
         pa.terminate()
-
-
-    ############################################################
-    # Stream Format
-    ############################################################
 
     def get_sample_size(self, format):
         """
@@ -734,10 +711,6 @@ class PyAudio:
             raise ValueError("Invalid width: %d" % width)
 
 
-    ############################################################
-    # Stream Factory
-    ############################################################
-
     def open(self, *args, **kwargs):
         """
         Open a new stream. See constructor for
@@ -773,10 +746,6 @@ class PyAudio:
         if stream in self._streams:
             self._streams.remove(stream)
 
-
-    ############################################################
-    # Host API Inspection
-    ############################################################
 
     def get_host_api_count(self):
         """
@@ -869,10 +838,6 @@ class PyAudio:
             'defaultOutputDevice': host_api_struct.defaultOutputDevice
         }
 
-
-    ############################################################
-    # Device Inspection
-    ############################################################
 
     def get_device_count(self):
         """

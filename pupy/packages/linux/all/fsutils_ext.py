@@ -56,7 +56,7 @@ def getcaps(filepath):
     revision = (version  & 0xFF000000) >> 24
 
     caps = bincap[4:]
-    if not (revision == 1 and len(caps) == 8 or
+    if not (revision == 1 and len(caps) == 8 or \
             revision == 2 and len(caps) == 16):
         raise ValueError('Invalid caps payload')
 

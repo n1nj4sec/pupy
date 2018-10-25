@@ -9,7 +9,7 @@ import re
 
 __class_name__="PsModule"
 
-ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
+ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
 def gen_colinfo(data):
     colinfo = {'pid': 0}

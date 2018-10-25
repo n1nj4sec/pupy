@@ -572,7 +572,7 @@ class Transfer(object):
             del stats[:]
 
     def _is_supported_archive(self, filepath):
-        if not ':' in filepath:
+        if ':' not in filepath:
             return False
 
         ext, archive_path, sub_path = filepath.split(':', 2)
