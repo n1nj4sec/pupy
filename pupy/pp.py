@@ -726,10 +726,10 @@ def set_connect_back_host(HOST):
 def handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
-def handle_sighup(*args):
+def handle_sighup(signal, frame):
     logger.debug('SIGHUP')
 
-def handle_sigterm(*args):
+def handle_sigterm(signal, frame):
     logger.warning('SIGTERM')
 
     try:
@@ -739,7 +739,17 @@ def handle_sigterm(*args):
     except:
         print_exception('[ST]')
 
-    os._exit(0)
+    sys.terminated = True
+
+    if pupy.connection:
+        pupy.connection.close()
+
+    if sys.terminate:
+        sys.terminate()
+
+    for thread in threading.enumerate():
+        if not thread.daemon:
+            logger.debug('Non daemon thread: %s', thread)
 
 attempt = 0
 
