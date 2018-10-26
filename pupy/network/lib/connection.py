@@ -122,7 +122,8 @@ class SyncRequestDispatchQueue(object):
                         'Process task(%s) - exception: func=%s args=%s exc:%s/%s',
                             name, func, args, type(e), e)
 
-                on_error(e)
+                if on_error:
+                    on_error(e)
 
             del func, args
 
@@ -700,6 +701,10 @@ class PupyConnection(Connection):
                 raise EOFError(
                     'Async timeout! ({}, event={})'.format(self, async_event),
                     async_event)
+
+    def defer(self, command, *args):
+        if not self.closed:
+            self._queue(command, *args)
 
     def ping(self, timeout=30, now=None, block=False):
         ''' RPyC do not have any PING handler. So.. why to wait? '''

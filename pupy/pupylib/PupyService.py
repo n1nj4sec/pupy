@@ -171,8 +171,10 @@ class PupyService(rpyc.Service):
         return data
 
     def exposed_broadcast_event(self, eventid):
+        logger.info('Event received: %08x', eventid)
         if self.events_receiver:
             self.events_receiver(eventid)
+            logger.info('Event handled: %08x', eventid)
 
 class PupyBindService(PupyService):
     def exposed_get_password(self):

@@ -143,10 +143,22 @@ if not sys.platform == 'win32' and not pupy.pseudo:
 
     ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
 
+def defered_close_exit(connection):
+    try:
+        broadcast_event(0x20000000 | 0xFFFF)
+    except Exception, e:
+        logger.exception(e)
+
+    logger.debug('Defered close+exit')
+    sys.terminated = True
+    connection.close()
+
 def broadcast_event(eventid):
     if pupy.connection:
-        logger.debug('Pupy connected: broadcast event via connection (%s). EventId = %08x',
-                     pupy.connection, eventid)
+        logger.debug(
+            'Pupy connected: broadcast event via connection. EventId = %08x',
+            eventid)
+
         pupy.connection.root.broadcast_event(eventid)
 
     elif pupy.broadcast_event:
@@ -154,6 +166,7 @@ def broadcast_event(eventid):
             'Pupy is not connected, but broadcast_event defined (%s). EventId = %08x',
             pupy.broadcast_event, eventid)
         pupy.broadcast_event(eventid)
+        logger.debug('Pupy connected: broadcast completed')
     else:
         logger.debug(
             'No way to report event. EventId = %08x', eventid)
@@ -482,11 +495,6 @@ class Manager(object):
 
             self.pstore.store()
 
-            try:
-                broadcast_event(0x20000000 | 0xFFFF)
-            except Exception, e:
-                logger.exception(e)
-
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
 
@@ -732,24 +740,26 @@ def handle_sighup(signal, frame):
 def handle_sigterm(signal, frame):
     logger.warning('SIGTERM')
 
-    try:
-        if hasattr(pupy, 'manager'):
-            pupy.manager.event(Manager.TERMINATE)
+    manager = None
 
-    except:
-        print_exception('[ST]')
+    if hasattr(pupy, 'manager'):
+        manager = pupy.manager
 
-    sys.terminated = True
+    if manager:
+        try:
+            manager.event(Manager.TERMINATE)
+        except Exception, e:
+            logger.exception(e)
 
     if pupy.connection:
-        pupy.connection.close()
+        pupy.connection.defer(
+            logger.exception,
+            defered_close_exit,
+            pupy.connection)
+    else:
+        sys.terminated = True
 
-    if sys.terminate:
-        sys.terminate()
-
-    for thread in threading.enumerate():
-        if not thread.daemon:
-            logger.debug('Non daemon thread: %s', thread)
+    logger.warning('SIGTERM HANDLED')
 
 attempt = 0
 
@@ -944,6 +954,7 @@ def rpyc_loop(launcher):
 
                 sys.terminate = s.close
                 pupy.connection = s
+
                 attempt = 0
                 s.start()
                 sys.terminate = None
@@ -961,7 +972,6 @@ def rpyc_loop(launcher):
 
                 attempt = 0
                 pupy.connection = conn
-
                 conn.loop()
 
         except SystemExit:
