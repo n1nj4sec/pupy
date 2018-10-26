@@ -10,6 +10,7 @@ __all__ = (
 )
 
 import argparse
+import sys
 
 class LauncherError(Exception):
     __slots__ = ()
@@ -26,26 +27,34 @@ class LauncherArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         self.exit(2, str('%s: error: %s\n') % (self.prog, message))
 
+class BaseLauncherMetaclass(type):
+    def __init__(self, *args, **kwargs):
+        super(BaseLauncherMetaclass, self).__init__(*args, **kwargs)
+
+        self.transports = getattr(sys, 'pupy_transports', {})
+        self.init_argparse()
+
 class BaseLauncher(object):
     arg_parser = None
     args = None
+    transports = None
 
-    __slots__ = ('arg_parser', 'args', 'host', 'transport')
+    __slots__ = ('args', 'host', 'transport')
+    __metaclass__ = BaseLauncherMetaclass
 
     def __init__(self):
-        self.arg_parser = None
         self.args = None
         self.host = "unknown"
         self.transport = "unknown"
-        self.init_argparse()
 
     def iterate(self):
         """ iterate must be an iterator returning rpyc stream instances"""
         raise NotImplementedError("iterate launcher's method needs to be implemented")
 
-    def init_argparse(self):
-        self.arg_parser = LauncherArgumentParser(
-            prog=self.__class__.__name__, description=self.__doc__)
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = LauncherArgumentParser(
+            prog=cls.__name__, description=cls.__doc__)
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)

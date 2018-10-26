@@ -19,13 +19,14 @@ class BindLauncher(BaseLauncher):
 
     __slots__ = ('credentials', 'arg_parser', 'args', 'rhost', 'rport')
 
-    def init_argparse(self):
-        self.arg_parser = LauncherArgumentParser(prog="bind", description=self.__doc__)
-        self.arg_parser.add_argument('--port', metavar='<port>', type=int, required=True, help='the port to bind on')
-        self.arg_parser.add_argument('--host', metavar='<ip>', default='0.0.0.0', help='the ip to listen on (default 0.0.0.0)')
-        self.arg_parser.add_argument('--oneliner-host', metavar='<ip>', help='the ip of the target (for ps1_oneliner launcher only)')
-        self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the pupysh.sh --connect will need to be configured with the same transport) ")
-        self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = LauncherArgumentParser(prog="bind", description=cls.__doc__)
+        cls.arg_parser.add_argument('--port', metavar='<port>', type=int, required=True, help='the port to bind on')
+        cls.arg_parser.add_argument('--host', metavar='<ip>', default='0.0.0.0', help='the ip to listen on (default 0.0.0.0)')
+        cls.arg_parser.add_argument('--oneliner-host', metavar='<ip>', help='the ip of the target (for ps1_oneliner launcher only)')
+        cls.arg_parser.add_argument('-t', '--transport', choices=cls.transports, default="ssl", help="the transport to use ! (the pupysh.sh --connect will need to be configured with the same transport) ")
+        cls.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments")
 
     def parse_args(self, args):
         self.args=self.arg_parser.parse_args(args)
@@ -36,8 +37,8 @@ class BindLauncher(BaseLauncher):
         if self.args is None:
             raise LauncherError("parse_args needs to be called before iterate")
         logging.info("binding on %s:%s using transport %s ..."%(self.args.host, self.args.port, self.args.transport))
-        opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
-        t=network.conf.transports[self.args.transport](bind_payload=True)
+        opt_args = utils.parse_transports_args(' '.join(self.args.transport_args))
+        t = self.transports[self.args.transport](bind_payload=True)
 
         transport_kwargs=t.server_transport_kwargs
         for val in opt_args:

@@ -588,10 +588,10 @@ def pupygen(args, config, pupsrv, display):
         display(Error(e.message))
         raise NoOutput()
 
-    launcher = launchers[args.launcher]()
+    launcher = launchers[args.launcher]
     while True:
         try:
-            launcher.parse_args(args.launcher_args)
+            launcher.arg_parser.parse_args(args.launcher_args)
         except LauncherError as e:
             if str(e).strip().endswith("--host is required") and "--host" not in args.launcher_args:
                 myip = get_listener_ip(external=args.prefer_external, config=config)

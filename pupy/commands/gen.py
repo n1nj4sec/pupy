@@ -16,8 +16,8 @@ def parser(server, handler, config):
     return pupygen.get_parser(PupyArgumentParser, config=config)
 
 def do(server, handler, config, args):
-    if not args.launcher or (args.launcher and args.launcher == 'connect'):
-        args.launcher = 'connect'
+    if not args.launcher or (args.launcher and args.launcher in ('connect', 'auto_proxy')):
+        args.launcher = args.launcher or 'connect'
         transport = None
         transport_idx = None
         host = None

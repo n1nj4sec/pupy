@@ -37,13 +37,14 @@ class AutoProxyLauncher(BaseLauncher):
     def __init__(self, *args, **kwargs):
         super(AutoProxyLauncher, self).__init__(*args, **kwargs)
 
-    def init_argparse(self):
-        self.arg_parser = LauncherArgumentParser(prog="auto_proxy", description=self.__doc__)
-        self.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
-        self.arg_parser.add_argument('-t', '--transport', choices=[x for x in network.conf.transports.iterkeys()], default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
-        self.arg_parser.add_argument('--add-proxy', action='append', help=" add a hardcoded proxy TYPE:address:port ex: SOCKS5:127.0.0.1:1080")
-        self.arg_parser.add_argument('--no-direct', action='store_true', help="do not attempt to connect without a proxy")
-        self.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = LauncherArgumentParser(prog="auto_proxy", description=cls.__doc__)
+        cls.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
+        cls.arg_parser.add_argument('-t', '--transport', choices=cls.transports, default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
+        cls.arg_parser.add_argument('--add-proxy', action='append', help=" add a hardcoded proxy TYPE:address:port ex: SOCKS5:127.0.0.1:1080")
+        cls.arg_parser.add_argument('--no-direct', action='store_true', help="do not attempt to connect without a proxy")
+        cls.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
 
     def parse_args(self, args):
         self.args=self.arg_parser.parse_args(args)
@@ -68,7 +69,7 @@ class AutoProxyLauncher(BaseLauncher):
                 additional_proxies=self.args.add_proxy
             ):
             try:
-                t = network.conf.transports[self.args.transport]()
+                t = self.transports[self.args.transport]()
                 client_args = {
                     k:v for k,v in t.client_kwargs.iteritems()
                 }
@@ -148,7 +149,7 @@ class AutoProxyLauncher(BaseLauncher):
         # Try without any proxy
         if not self.args.no_direct:
             try:
-                t = network.conf.transports[self.args.transport]()
+                t = self.transports[self.args.transport]()
 
                 client_args = {
                     k:v for k,v in t.client_kwargs.iteritems()
