@@ -4,7 +4,6 @@
 
 __all__ = ['BindLauncher']
 
-import network
 import logging
 import argparse
 

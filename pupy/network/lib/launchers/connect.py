@@ -4,7 +4,6 @@
 
 __all__ = ['ConnectLauncher']
 
-import network
 import argparse
 import logging
 

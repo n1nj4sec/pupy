@@ -27,8 +27,6 @@ import subprocess
 import tempfile
 import platform
 
-import network
-
 from network.lib import getLogger
 
 logger = getLogger('dnscnc')

@@ -4,7 +4,6 @@
 
 __all__ = ['AutoProxyLauncher']
 
-import network
 import argparse
 
 from network.lib import utils
