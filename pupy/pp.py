@@ -482,6 +482,8 @@ class Manager(object):
 
             self.pstore.store()
 
+            self.broadcast_event(0x20000000 | 0xFFFF)
+
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """
 
