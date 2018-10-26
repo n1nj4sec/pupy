@@ -367,6 +367,8 @@ def get_uuid():
         proxy = None
 
     try:
+        external_ip = None
+
         from network.lib.online import LAST_EXTERNAL_IP
         if LAST_EXTERNAL_IP:
             external_ip = str(LAST_EXTERNAL_IP)
