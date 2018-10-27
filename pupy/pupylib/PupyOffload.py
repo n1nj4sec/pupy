@@ -197,7 +197,7 @@ class PupyOffloadAcceptor(object):
                 else:
                     raise
 
-            except EOFError:
+            except (EOFError, ssl.SSLEOFError):
                 logger.error('Acceptor (%s): Lost connection (EOF)', self._port)
                 time.sleep(1)
                 continue
