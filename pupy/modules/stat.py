@@ -17,7 +17,7 @@ class FStat(PupyModule):
             'pupyutils', 'fsutils', 'fsutils_ext'
         ],
         'windows': ['junctions', 'ntfs_streams'],
-        'linux': ['xattr', 'posix1e', 'prctl']
+        'linux': ['xattr', 'posix1e', 'prctl', '_prctl']
     }
 
     @classmethod
