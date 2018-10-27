@@ -14,7 +14,6 @@ __all__ = [
 
     'from_bytes', 'to_bytes',
 
-    'DnsCommandClientDecodingError',
     'DnsCommandsClient'
 ]
 
@@ -35,7 +34,4 @@ from .picocmd import (
     from_bytes, to_bytes
 )
 
-from .client import (
-    DnsCommandClientDecodingError,
-    DnsCommandsClient,
-)
+from .client import DnsCommandsClient

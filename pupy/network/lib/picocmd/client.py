@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 __all__ = (
-    'DnsCommandClientDecodingError',
     'DnsCommandsClient',
 )
 
@@ -50,9 +49,6 @@ try:
     from network.lib import tinyhttp
 except ImportError:
     tinyhttp = None
-
-class DnsCommandClientDecodingError(Exception):
-    pass
 
 class ProxyInfo(object):
     __slots__ = (
@@ -322,8 +318,8 @@ class DnsCommandsClient(Thread):
 
                 break
 
-            except (ParcelInvalidCrc, DnsCommandClientDecodingError):
-                logging.error('CRC FAILED / Attempt %s', attempt)
+            except ParcelInvalidCrc:
+                logging.error('CRC FAILED / Attempt %d [%s]', attempt, addresses)
 
                 self.spi = None
                 self.encoder.kex_reset()
