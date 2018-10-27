@@ -33,7 +33,9 @@ python -m pip install --upgrade \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
-       watchdog --no-binary :all:
+       watchdog pulsectl --no-binary :all:
+
+LDFLAGS="$LDFLAGS -lasound" python -m pip install --upgrade pyaudio
 
 python -m pip -q install --upgrade --force-reinstall pycparser==2.17
 
