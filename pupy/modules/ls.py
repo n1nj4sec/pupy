@@ -102,14 +102,7 @@ class ls(PupyModule):
     """ list system files """
     is_module=False
 
-    dependencies = {
-        'all': [
-            'pupyutils', 'scandir', 'zipfile',
-            'tarfile', 'scandir', 'fsutils'
-        ],
-        'windows': ['junctions', 'ntfs_streams', '_scandir'],
-        'linux': ['xattr', '_scandir']
-    }
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):
