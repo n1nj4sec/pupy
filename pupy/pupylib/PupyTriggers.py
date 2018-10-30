@@ -34,6 +34,7 @@ ON_DISCONNECT = CLIENT | 1
 ON_JOB_EXIT = CLIENT | 2
 
 ON_CLIENT_EXIT = CUSTOM | 0xFFFF
+ON_CLIENT_CONNECTION_FAILED = CUSTOM | 0xFFFE
 
 ON_DNSCNC_SESSION = DNSCNC | 0
 ON_DNSCNC_SESSION_LOST = DNSCNC | 1
@@ -52,7 +53,6 @@ ON_EXIT = SERVER | 1
 EVENTS_ID_REGISTRY = {
     ON_START: 'start',
     ON_EXIT: 'exit',
-    ON_CLIENT_EXIT: 'client_exit',
     ON_CONNECT: 'connect',
     ON_DISCONNECT: 'disconnect',
     ON_JOB_EXIT: 'job completed',
@@ -65,7 +65,10 @@ EVENTS_ID_REGISTRY = {
     ON_DNSCNC_USER_INACTIVE: 'dnscnc user inactive',
     ON_DNSCNC_HIGH_RESOURCE_USAGE: 'dnscnc high resource usage',
     ON_DNSCNC_USERS_INCREMENT: 'dnscnc users increment',
-    ON_DNSCNC_USERS_DECREMENT: 'dnscnc users decrement'
+    ON_DNSCNC_USERS_DECREMENT: 'dnscnc users decrement',
+
+    ON_CLIENT_EXIT: 'client_exit',
+    ON_CLIENT_CONNECTION_FAILED: 'dnscnc connection failed'
 }
 
 class EventRegistrationException(Exception):

