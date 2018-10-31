@@ -103,11 +103,11 @@ Pupy has not been tested on Windows. Theoretically, it should work on any platfo
 2. Search the Github issues and see if your issue was already solved.
 3. If you issue was not solved, open a new issue following the [issue guidelines](https://github.com/n1nj4sec/pupy/wiki/Issue-Guidelines).
 
-If you do not follow the steps, you issue will be closed.
+If you do not follow these steps, you issue will be closed.
 
 > Android and/or Mac OSX payloads and modules don't work.
 
-Pupy has _limited_ support for Android and OSX. Support for these platforms is not well maintained and may break intermittently. Some modules (i.e. keylogger) may be missing for these platforms.
+Pupy has _limited_ support for Android and OSX. These platforms may not be well maintained and may break intermittently. Some modules (i.e. keylogger) may be missing for these platforms.
 
 ## Development
 
