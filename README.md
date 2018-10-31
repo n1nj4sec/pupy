@@ -37,8 +37,41 @@ Pupy is a cross-platform, multi function RAT and post-exploitation tool mainly w
 - Execute noninteractive commands on multiple hosts at once.
 
 - Commands and scripts running on remote hosts are interruptible.
+
 - Auto-completion for commands and arguments.
+
 - Custom config can be defined: command aliases, modules. automatically run at connection, etc.
+
+- Open interactive python shells with auto-completion on the all-in-memory remote python interpreter.
+
+- Interactive shells (cmd.exe, /bin/bash, etc) can be opened remotely.
+	- Remote shells on Unix & Windows clients have a real tty with all keyboard signals working just like an SSH shell.
+
+- Execute PE executable remotely and from memory.
+
+- Generate payloads in various formats:
+
+| Format | Architecture | Short Name |
+|---|---|---|
+Android Package | x86 & ARMv7 | apk
+Linux Binary | x86 | lin_x86
+Linux Binary | x64 | lin_x64
+Linux Shared Object | x86 | so_x86
+Linux Shared Object | x64 | so_x64
+Windows PE Executable | x86 | exe_x86
+Windows PE Executable | x64 | exe_x64
+Windows DLL | x86 | dll_x86
+Windows DLL | x64 | dll_x64
+Python Script | x86 & x64 | py
+PyInstaller | x86 & x64 | pyinst
+Python Oneliner | x86 & x64 | py_oneliner
+Powershell | x86 & x64 | ps1
+Powershell Oneliner | x86 & x64 | ps1_oneliner
+Ducky Script | N/A | rubber_ducky
+
+- Deploy in memory from a single command line using python or powershell one-liners.
+
+- Embed "scriptlets" in generated payloads to perform some tasks "offline" without needing network connectivity (ex: start keylogger, add persistence, execute custom python script, check_vm, etc.)
 
 - Multiple Target Platforms:
 
@@ -78,10 +111,9 @@ Pupy has _limited_ support for Android and OSX. Support for these platforms is n
 
 ## Development
 
-If some of you want to participate to pupy development, don't hesitate ! All help is greatly appreciated and I will review every pull request.
+If some of you want to participate to pupy development, don't hesitate! All help is greatly appreciated and all pull requests will be reviewed.
 
-Also there is small [note](https://github.com/n1nj4sec/pupy/wiki/Development) about development. Please run flake8 before doing any commits.
-File with config is [here](pupy/tox.ini).
+Also there is small [note](https://github.com/n1nj4sec/pupy/wiki/Development) about development. Please run flake8 before doing any commits. File with config is [here](pupy/tox.ini).
 
 ## Contact
 
@@ -94,11 +126,4 @@ This project is a [personal development](https://en.wikipedia.org/wiki/Personal_
 
 ## Special thanks
 
-Special thanks to all contributors that helps me improve pupy and make it an even better tool ! :)
-
-
-TAGS: ((Note: Remove this.)
-post exploitation framework
-RAT
-remote administration tool
-)
+Special thanks to all contributors that help improve pupy and make it a better tool! :)
