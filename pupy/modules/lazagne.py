@@ -60,6 +60,7 @@ class LaZagne(PupyModule):
         header += '|====================================================================|\n\n'
 
         cls.arg_parser = PupyArgumentParser(prog="lazagne", description=header + cls.__doc__)
+        cls.arg_parser.add_argument('-p', '--password', help='Specify user password (windows only)')
         cls.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
 
     def run(self, args):
@@ -71,10 +72,17 @@ class LaZagne(PupyModule):
         first_user = True
         passwordsFound = False
 
-        results = obtain(whole(
-            runLaZagne,
-            category_selected=args.category, raise_on_exception=False))
+        kwargs = {
+            'raise_on_exception': False,
+        }
 
+        if args.category:
+            kwargs['category_selected'] = args.category
+
+        if args.password and self.client.is_windows():
+            kwargs['password'] = args.password
+
+        results = obtain(whole(runLaZagne, **kwargs))
         for r in results:
             if r[0] == 'User':
                 if not passwordsFound and not first_user:
