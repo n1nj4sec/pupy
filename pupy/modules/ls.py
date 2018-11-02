@@ -162,7 +162,7 @@ class ls(PupyModule):
                 if args.userinfo or args.groupinfo:
                     for x in r[T_FILES]:
                         if args.userinfo:
-                            uid = x[T_UID]
+                            uid = x.get(T_UID, '?')
                             if type(uid) == int:
                                 uid = str(uid)
 
@@ -170,7 +170,7 @@ class ls(PupyModule):
                                 uid_len = elen(uid)
 
                         if args.groupinfo:
-                            gid = x[T_GID]
+                            gid = x.get(T_GID, '?')
                             if type(gid) == int:
                                 gid = str(gid)
 
