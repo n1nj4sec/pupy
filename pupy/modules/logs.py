@@ -37,7 +37,7 @@ class Logs(PupyModule):
         def make_fields(item):
             items = []
             if args.time:
-                date = datetime.utcfromtimestamp(item['date'])
+                date = datetime.fromtimestamp(item['date'])
                 date_str = ''
                 if date.date() == today:
                     date_str = date.strftime('%H:%M:%S')
