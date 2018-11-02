@@ -629,12 +629,16 @@ class PupyServer(object):
                 if type(user) == unicode:
                     user = user.encode('utf-8')
 
-                hostname = client_info.get('hostname','?')
-                if type(hostname) == unicode:
-                    hostname = hostname.encode('utf-8')
+                user_info = user
+                if '\\' not in user:
+                    hostname = client_info.get('hostname','?')
+                    if type(hostname) == unicode:
+                        hostname = hostname.encode('utf-8')
 
-                self.info('Session {} opened ({}@{}){}'.format(
-                    client_id, user, hostname, remote if client_port != 0 else '')
+                    user_info = user_info + '@' + hostname
+
+                self.info('Session {} opened ({}){}'.format(
+                    client_id, user_info, remote if client_port != 0 else '')
                 )
 
         if client and self.handler:
