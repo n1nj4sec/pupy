@@ -269,6 +269,10 @@ def get_uuid():
         hostname = platform.node().decode(
             encoding=os_encoding
         ).encode("utf8")
+
+        if sys.platform == 'win32' and user.startswith(hostname + '\\'):
+            user = user.split('\\', 1)[1]
+
     except Exception:
         pass
 
