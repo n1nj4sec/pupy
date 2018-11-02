@@ -112,7 +112,7 @@ class EventLog(object):
                 sources.append(logname)
 
             except error, e:
-                if e.winerror not in (6, 1314):
+                if e.winerror not in (6, 87, 1314):
                     raise
 
                 self._exceptions[logname] = (e, handle)
@@ -146,12 +146,26 @@ class EventLog(object):
             return
 
         flags = EVENTLOG_BACKWARDS_READ|EVENTLOG_SEQUENTIAL_READ
-        events = ReadEventLog(log, flags, 0)
+
+        try:
+            events = ReadEventLog(log, flags, 0)
+        except error, e:
+            if e.winerror not in {23}:
+                raise
+
+            return
 
         try:
             events = True
             while events:
-                events = ReadEventLog(log, flags, 0)
+                try:
+                    events = ReadEventLog(log, flags, 0)
+                except error, e:
+                    if e.winerror not in {23}:
+                        raise ValueError
+
+                    return
+
                 if not events:
                     break
 
