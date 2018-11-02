@@ -144,6 +144,8 @@ class Credentials(object):
                 c['login'] = creds['service']
             elif 'defaultpassword' in creds:
                 c['login'] = 'DefaultPassword'
+            elif 'username' in creds:
+                c['login'] = creds['username']
 
             if 'password' in creds:
                 c['secret'] = creds['password']
@@ -166,6 +168,8 @@ class Credentials(object):
                 c['resource'] = creds['hub']
             elif 'cmd' in creds:
                 c['resource'] = creds['cmd']
+            elif 'domain' in creds and 'file' in creds:
+                c['resource'] = creds['domain']
 
             # check if in the research
             found = True
