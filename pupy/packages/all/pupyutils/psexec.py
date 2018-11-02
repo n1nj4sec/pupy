@@ -583,7 +583,13 @@ def smbexec(
                 smbc, error = conninfo.create_connection()
                 if not smbc:
                     if type(error) != unicode:
-                        error = error.decode(getdefaultencoding())
+                        try:
+                            if codepage:
+                                error = error.decode(codepage)
+                            else:
+                                error = error.decode(getdefaultencoding())
+                        except UnicodeDecodeError:
+                            error = error.decode('latin1')
 
                     return None, error
 
