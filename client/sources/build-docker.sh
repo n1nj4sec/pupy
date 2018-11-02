@@ -14,6 +14,9 @@ PUPY=`readlink -f ../../pupy`
 
 cd $SRC
 
+cd opus/src
+make CL=$CL32 -f Makefile.msvc || exit 1
+
 WINPTY=../../pupy/external/winpty
 PYKCP=../../pupy/external/pykcp
 

@@ -202,19 +202,21 @@ class DnsPingRequest(Exception):
 
 class DnsCommandServerException(Exception):
 
-    __slots__ = ('message', 'nonce', 'version')
+    __slots__ = ('message', 'nonce', 'version', 'domain')
 
-    def __init__(self, message, nonce, version):
+    def __init__(self, message, nonce, version, domain):
         self.message = message
         self.nonce = nonce
         self.version = version
+        self.domain = domain
 
     @property
     def error(self):
         return Error(self.message)
 
     def __str__(self):
-        return str(self.error)
+        return '{}: (d={} v={} n={})'.format(
+            self.message, self.nonce, self.version, self.domain)
 
     def __repr__(self):
         return repr(self.error)
@@ -579,6 +581,7 @@ class DnsCommandServerHandler(BaseResolver):
         return response
 
     def _q_page_decoder(self, data):
+        domain = data
         parts = data.split('.')
 
         if len(parts) == 0:
@@ -633,7 +636,7 @@ class DnsCommandServerHandler(BaseResolver):
             with self.lock:
                 if spi not in self.sessions:
                     raise DnsCommandServerException(
-                        'NO_SESSION', nonce, version)
+                        'NO_SESSION', nonce, version, data)
 
                 session = self.sessions[spi]
                 encoder = session.encoder
@@ -642,7 +645,7 @@ class DnsCommandServerHandler(BaseResolver):
             payload = encoder.decode(data+node_blob, nonce, symmetric=True)
         except (ParcelInvalidPayload, ParcelInvalidCrc), e:
             raise DnsCommandServerException(
-                e.error, nonce, version)
+                e.error, nonce, version, domain)
 
         if node_blob:
             offset_node_blob = len(payload) - (1+4+2+6)
@@ -975,7 +978,14 @@ class DnsCommandServerHandler(BaseResolver):
                 node.alert = False
 
             gen_csum, check_csum = self.csum_from_session(session, version)
-            for command in Parcel.unpack(request, nonce, check_csum):
+
+            try:
+                commands = Parcel.unpack(request, nonce, check_csum)
+            except ParcelInvalidCrc:
+                logger.info('Invalid Parcel CRC (qname=%s, version=%s)',
+                            qname, version)
+
+            for command in commands:
                 for response in self._cmd_processor(
                         command, session, node, check_csum, gen_csum):
                     responses.append(response)
