@@ -9,7 +9,9 @@ cd $SRC
 PUPY=`readlink -f ../../pupy/`
 TEMPLATES=$PUPY/payload_templates
 
-PYKCP=../../pupy/external/pykcp
+EXTERNAL=../../pupy/external
+PYKCP=$EXTERNAL/pykcp
+PYOPUS=$EXTERNAL/pyopus/src
 
 set -e
 
@@ -43,6 +45,10 @@ echo "[+] Compile pykcp"
 rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
 python -m pip install --upgrade --force $PYKCP
 python -c 'import kcp' || exit 1
+
+echo "[+] Compile opus"
+( cd $PYOPUS && make clean && make && mv -f opus.so /usr/lib/python2.7/site-packages )
+python -c 'import opus' || exit 1
 
 echo "[+] Compile pyuv"
 
