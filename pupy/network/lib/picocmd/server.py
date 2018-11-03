@@ -984,6 +984,7 @@ class DnsCommandServerHandler(BaseResolver):
             except ParcelInvalidCrc:
                 logger.info('Invalid Parcel CRC (qname=%s, version=%s)',
                             qname, version)
+                return None
 
             for command in commands:
                 for response in self._cmd_processor(
