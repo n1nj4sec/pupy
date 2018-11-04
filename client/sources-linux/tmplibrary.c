@@ -418,7 +418,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
     dprint("memdlopen - dlmopen - _dlopen(lmid=%08x, %s, %s)\n", lmid, path, soname);
 
-    if (flags & RTLD_NOLOAD) {
+    if (flags & RTLD_NOLOAD || !handle) {
         return handle;
     }
 
