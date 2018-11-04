@@ -35,7 +35,7 @@ python -m pip install --upgrade \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
-       watchdog pulsectl --no-binary :all:
+       watchdog pulsectl pyalsaaudio --no-binary :all:
 
 LDFLAGS="$LDFLAGS -lasound" python -m pip install --upgrade pyaudio
 
