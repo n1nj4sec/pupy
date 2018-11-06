@@ -12,7 +12,8 @@ from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser
 )
 
-__class_name__="TcpdumpModule"
+__class_name__ = "TcpdumpModule"
+
 
 @config(cat="network", tags=["sniff", "pcap"])
 class TcpdumpModule(PupyModule):
@@ -28,19 +29,25 @@ class TcpdumpModule(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='tcpdump.py', description=cls.__doc__)
+        example = 'Example:\n'
+        example += '>> tcpdump -i eth0 --bpf tcp.port==80 -s\n'
+
+        cls.arg_parser = PupyArgumentParser(prog='tcpdump.py', description=cls.__doc__, epilog=example)
         cls.arg_parser.add_argument("-s", "--save-pcap", action="store_true", help="save to a pcap file")
         cls.arg_parser.add_argument("--count", type=int, default=0, help="sniff at max n packets")
         cls.arg_parser.add_argument("-i", "--iface", default=None, help="change default iface")
         cls.arg_parser.add_argument("--timeout", type=int, default=None, help="stop the capture after timeout seconds")
-        cls.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist pupy's shell IP/PORT you are currently using to avoid a nasty Larsen effect)") #yup mandatory cause you have to put pupy's IP/PORT anyway
-        #cls.arg_parser.add_argument("command", choices=["start", "stop"])
+        # yup mandatory cause you have to put pupy's IP/PORT anyway
+        cls.arg_parser.add_argument("--bpf", required=True, help="use a BPF (Warning: It is highly advised to whitelist"
+                                                                 " pupy's shell IP/PORT you are currently using to "
+                                                                 "avoid a nasty Larsen effect)")
+        # cls.arg_parser.add_argument("command", choices=["start", "stop"])
 
     def printer(self, pcap_writer=None, print_summary=True):
         def pkt_callback(pkt):
             try:
                 pkt = Ether(pkt)
-            except Exception, e:
+            except Exception as e:
                 self.exception(e)
 
             if pcap_writer is not None:
@@ -93,7 +100,7 @@ class TcpdumpModule(PupyModule):
             if filepath:
                 self.info('Pcap stored to: {}'.format(filepath))
 
-        except Exception, e:
+        except Exception as e:
             self.wait.set()
             self.error('Error: ' + ' '.join(x for x in e.args if type(x) in (str, unicode)))
 

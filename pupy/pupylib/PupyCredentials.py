@@ -192,7 +192,7 @@ def _generate_id(length):
 def _generate_ecpv_keypair(curve='brainpoolP160r1'):
     return ECPV(curve=curve).generate_key()
 
-def _generate_rsa_keypair(bits=1024):
+def _generate_rsa_keypair(bits=2048):
     key = RSA.gen_key(bits, 65537)
     private_key = key.as_pem(cipher=None)
     rsa_privkey = rsa.key.PrivateKey.load_pkcs1(
