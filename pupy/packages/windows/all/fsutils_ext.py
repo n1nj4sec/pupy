@@ -25,7 +25,7 @@ def getfilesec(filepath):
     try:
         if islink(filepath):
             link = readlink(filepath)
-    except (WindowsError, OSError, IOError):
+    except (WindowsError, ValueError, OSError, IOError):
         pass
 
     mode = mode_to_letter(filestat.st_mode)
