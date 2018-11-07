@@ -87,4 +87,4 @@ class Shares(PupyModule):
                     'ACCESS': x[1]
                 } for x in result['shares']]
 
-                self.table(shares, wl=['SHARE', 'ACCESS'])
+                self.table(shares, ['SHARE', 'ACCESS'])

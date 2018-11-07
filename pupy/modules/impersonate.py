@@ -30,7 +30,7 @@ class ImpersonateModule(PupyModule):
                 'process': x[1],
                 'sid': x[2],
                 'username':x[3]
-            } for x in sids], wl=[
+            } for x in sids], [
                 'pid', 'process', 'username', 'sid'
             ])
 
