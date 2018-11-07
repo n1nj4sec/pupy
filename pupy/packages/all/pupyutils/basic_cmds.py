@@ -7,6 +7,7 @@ import stat
 import datetime
 import re
 import codecs
+import errno
 
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
@@ -713,12 +714,20 @@ def fputcontent(path, content, append=False):
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
 
-    s = os.stat(path)
+    ftime = None
+
+    try:
+        s = os.stat(path)
+        ftime = (s.st_atime, s.st_mtime)
+    except OSError, e:
+        if e.errno == errno.EEXIST and not append:
+            pass
 
     with open(path, 'ab' if append else 'wb') as f:
         f.write(content)
 
-    os.utime(path, (s.st_atime, s.st_mtime))
+    if ftime:
+        os.utime(path, ftime)
 
 # ----------------------------- For datetime  -----------------------------
 
