@@ -775,6 +775,10 @@ class DnsCommandServerHandler(BaseResolver):
                 session._user_active_reported = session.system_status['idle']
 
             commands = session.commands
+
+            if not session.system_info:
+                commands.append(Poll())
+
             return commands
 
         elif isinstance(command, SystemInfo) and not session:
