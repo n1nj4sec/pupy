@@ -38,6 +38,7 @@ dateparser
 puttykeys
 pyelftools
 filemagic
+xattr
 -e external/pykcp
 flake8
 flake8-per-file-ignores
