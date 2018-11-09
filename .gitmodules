@@ -43,3 +43,6 @@
 [submodule "pupy/external/pyopus"]
 	path = pupy/external/pyopus
 	url = https://github.com/alxchk/pyopus
+[submodule "pupy/external/WinPwnage"]
+	path = pupy/external/WinPwnage
+	url = https://github.com/rootm0s/WinPwnage
