@@ -8,7 +8,11 @@
 transport = ssl
 ipv6 = true
 logs = false
-webserver = false
+
+# Enable/disable internal web server
+# Section [webserver]
+# This is NOT http wrapper (http)
+webserver = true
 
 #Multiple listeners are allowed. Example
 #listen = ssl,kc4,ws
@@ -82,6 +86,20 @@ client_cert_required = true
 log = true
 secret = false
 
+[webserver]
+# Serve payloads via tornado web server
+listen = 0.0.0.0:9000
+# URI for payloads download
+payloads = /payloads/
+# SSL Certificates if any
+# cert = /path/to/cert
+# key = /path/to/key
+log = true
+# If you want static webroot uri uncomment this variable
+static_webroot_uri = 
+# Set this to true if you want to keep published payloads
+preserve_payloads = false
+
 [gen]
 format = client
 os = windows
@@ -108,6 +126,7 @@ logs = data/logs/%c/%t-%M
 creds = data/creds
 crypto = crypto
 wwwroot = data/wwwroot
+webstatic = webstatic
 records = data/%c
 keystrokes = data/keylogger/%c/%t.log
 mouseshots = data/mouselogger/%c/%w-%t.png
@@ -121,12 +140,14 @@ payload_output = output
 ##   Use '*' and 'any' prefix to apply action to all clients
 ##   Use SPI or NODE to apply action only to clients with same SPI/NODE id
 ##   Other values will be used as client_filter argument (like run -f)
-## ACTION: [!...|include:section_name|module args|]
+## ACTION: [!...|include:section_name|python:trigger_name|module args|]
 ##   Use '!' prefix to execute shell command
 ##   Use 'include:' prefix to include commands with specified section name
+##   Use 'python:' prefix to execute trigger (from triggers/ folder)
 
 ## Example: include actions in section on_connect_notifications
 # any = include:on_connect_notifications
+# any = python:example_trigger
 
 [on_connect_notifications]
 any1 = !notify-send "New session: {hostname} / {os_name}"

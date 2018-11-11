@@ -5,7 +5,7 @@ from pupylib.PupyOutput import Color, TruncateToTerm, Table
 
 __class_name__="Services"
 
-ADMINS = ('NT AUTHORITY\SYSTEM', 'LOCALSYSTEM', 'root')
+ADMINS = (r'NT AUTHORITY\SYSTEM', 'LOCALSYSTEM', 'root')
 LIKELY_KNOWN = (
     'svchost.exe', 'lsass.exe', 'spoolsv.exe', 'TrustedInstaller.exe',
     'wmpnetwk.exe', 'SearchIndexer.exe'

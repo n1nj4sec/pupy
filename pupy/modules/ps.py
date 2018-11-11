@@ -9,7 +9,7 @@ import re
 
 __class_name__="PsModule"
 
-ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
+ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
 def gen_colinfo(data):
     colinfo = {'pid': 0}
@@ -90,6 +90,8 @@ def gen_output_line(columns, info, record, wide=False):
 
     if record.get('self'):
         color = "green"
+    elif record.get('status') == 'stopped':
+        color = "darkgrey"
     elif cpu > 70 or mem > 50:
         color = "red"
     elif record.get('username') in ADMINS:
@@ -194,7 +196,8 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
         else:
             outcols = ['pid'] + [
                 x for x in (
-                    'cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline'
+                    'cpu_percent', 'memory_percent', 'username',
+                    'exe', 'name', 'cmdline', 'status'
                 ) if x in colinfo
             ]
             info['pid'] = pid
@@ -321,7 +324,8 @@ def print_ps(fout, data, colinfo={},
         if is_filtered(process, columns, hide, show):
             continue
 
-        fout(gen_output_line(columns, outcols, data[process], wide))
+        fout(gen_output_line(
+            columns, outcols, data[process], wide))
 
 
 @config(cat="admin")

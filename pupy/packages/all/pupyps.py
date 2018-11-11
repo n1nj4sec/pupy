@@ -74,7 +74,6 @@ def psinfo(pids):
 
         data[pid] = info
 
-    psutil._pmap = {}
     return data
 
 def safe_as_dict(p, data):
@@ -108,8 +107,8 @@ def pstree():
 
         data[p.pid] = {
             k:to_unicode(v) for k,v in safe_as_dict(p, [
-                'name', 'username', 'cmdline', 'exe',
-                'cpu_percent', 'memory_percent', 'connections'
+                'name', 'username', 'cmdline', 'exe', 'status',
+                'cpu_percent', 'memory_percent', 'connections',
             ]).iteritems()
         }
 
@@ -142,7 +141,6 @@ def pstree():
     if 0 in tree and 0 in tree[0]:
         tree[0].remove(0)
 
-    psutil._pmap = {}
     return min(tree), tree, data
 
 def users():
@@ -171,14 +169,20 @@ def users():
         }
 
         if 'pid' in terminfo:
-            pinfo = {
-                k:to_unicode(v) for k,v in safe_as_dict(psutil.Process(
-                    terminfo['pid']), [
-                        'exe', 'cmdline', 'name'
-                    ]).iteritems()
-            }
+            try:
+                pinfo = {
+                    k:to_unicode(v) for k,v in safe_as_dict(psutil.Process(
+                        terminfo['pid']), [
+                            'exe', 'cmdline', 'name'
+                        ]).iteritems()
+                }
 
-            terminfo.update(pinfo)
+                terminfo.update(pinfo)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                terminfo.update({
+                    'pid': terminfo['pid'],
+                    'dead': True,
+                })
 
         if 'terminal' in terminfo:
             try:
@@ -204,7 +208,6 @@ def users():
 
         info[term.name][host].append(terminfo)
 
-    psutil._pmap = {}
     return info
 
 def connections():
@@ -235,7 +238,6 @@ def connections():
 
         connections.append(obj)
 
-    psutil._pmap = {}
     return connections
 
 def _tryint(x):

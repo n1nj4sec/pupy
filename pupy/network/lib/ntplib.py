@@ -182,8 +182,8 @@ class NTPPacket(object):
                 self.poll,
                 self.precision,
                 _to_int(self.root_delay) << 16 | _to_frac(self.root_delay, 16),
-                _to_int(self.root_dispersion) << 16 |
-                _to_frac(self.root_dispersion, 16),
+                _to_int(self.root_dispersion) << 16 | \
+                    _to_frac(self.root_dispersion, 16),
                 self.ref_id,
                 _to_int(self.ref_timestamp),
                 _to_frac(self.ref_timestamp),
@@ -246,14 +246,16 @@ class NTPStats(NTPPacket):
     @property
     def offset(self):
         """offset"""
-        return ((self.recv_timestamp - self.orig_timestamp) +
-                (self.tx_timestamp - self.dest_timestamp))/2
+        return (
+            (self.recv_timestamp - self.orig_timestamp) + \
+            (self.tx_timestamp - self.dest_timestamp))/2
 
     @property
     def delay(self):
         """round-trip delay"""
-        return ((self.dest_timestamp - self.orig_timestamp) -
-                (self.tx_timestamp - self.recv_timestamp))
+        return (
+            (self.dest_timestamp - self.orig_timestamp) - \
+            (self.tx_timestamp - self.recv_timestamp))
 
     @property
     def tx_time(self):

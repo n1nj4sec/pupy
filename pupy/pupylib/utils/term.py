@@ -30,6 +30,7 @@ ESC_REGEX = re.compile(r'(\033[^m]+m)')
 
 COLORS = {
     'blue': '\033[34m',
+    'lightblue': '\033[34;1m',
     'red': '\033[31m',
     'lightred': '\033[31;1m',
     'green': '\033[32m',
@@ -37,6 +38,7 @@ COLORS = {
     'yellow': '\033[33m',
     'lightyellow': '\033[1;33m',
     'magenta': '\033[35m',
+    'lightmagenta': '\033[1;35m',
     'cyan': '\033[36m',
     'grey': '\033[37m',
     'darkgrey': '\033[1;30m',

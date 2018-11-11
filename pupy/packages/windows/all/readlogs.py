@@ -15,6 +15,7 @@ from win32con import (
     FORMAT_MESSAGE_FROM_HMODULE, LOAD_LIBRARY_AS_DATAFILE
 )
 
+from sys import getdefaultencoding
 from os.path import expandvars, isfile
 
 from win32con import (
@@ -35,6 +36,8 @@ from win32evtlog import (
     GetNumberOfEventLogRecords,
     EVENTLOG_BACKWARDS_READ, EVENTLOG_SEQUENTIAL_READ
 )
+
+from datetime import datetime
 
 LANGID = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
 BLACKLIST = (
@@ -65,7 +68,7 @@ class EventLog(object):
 
         key = OpenKeyEx(
             HKEY_LOCAL_MACHINE,
-            r'SYSTEM\CurrentControlSet\Services\EventLog',
+            ur'SYSTEM\CurrentControlSet\Services\EventLog',
             0, KEY_READ
         )
 
@@ -78,6 +81,10 @@ class EventLog(object):
                         continue
 
                     dups.add(source)
+
+                    if type(source) == str:
+                        source = source.decode(getdefaultencoding())
+
                     yield source
 
                 except WindowsError:
@@ -107,7 +114,7 @@ class EventLog(object):
                 sources.append(logname)
 
             except error, e:
-                if e.winerror not in (6, 1314):
+                if e.winerror not in (6, 87, 1314):
                     raise
 
                 self._exceptions[logname] = (e, handle)
@@ -136,17 +143,36 @@ class EventLog(object):
         return events_count
 
     def get_events(self, logtype, server=''):
+
+        UTC_OFFSET_TIMEDELTA = (
+            datetime.now() - datetime.utcnow()
+        ).total_seconds()
+
         log = OpenEventLog(server, logtype)
         if not log:
             return
 
         flags = EVENTLOG_BACKWARDS_READ|EVENTLOG_SEQUENTIAL_READ
-        events = ReadEventLog(log, flags, 0)
+
+        try:
+            events = ReadEventLog(log, flags, 0)
+        except error, e:
+            if e.winerror not in {23}:
+                raise
+
+            return
 
         try:
             events = True
             while events:
-                events = ReadEventLog(log, flags, 0)
+                try:
+                    events = ReadEventLog(log, flags, 0)
+                except error, e:
+                    if e.winerror not in {23}:
+                        raise ValueError
+
+                    return
+
                 if not events:
                     break
 
@@ -157,12 +183,21 @@ class EventLog(object):
                     message = None
 
                     if ev_obj.SourceName not in self._formatters_cache and ev_obj.SourceName not in BLACKLIST:
+                        source_name = ev_obj.SourceName
+                        if type(source_name) == str:
+                            source_name = source_name.decode(getdefaultencoding())
+
+                        subkey = ur'SYSTEM\CurrentControlSet\Services\EventLog\{}\{}'.format(
+                            logtype, source_name
+                        )
+
                         try:
-                            key = OpenKeyEx(
-                                HKEY_LOCAL_MACHINE,
-                                r'SYSTEM\CurrentControlSet\Services\EventLog\{}\{}'.format(
-                                logtype, ev_obj.SourceName
-                            ), 0, KEY_READ)
+                            subkey = subkey.encode(getdefaultencoding())
+                        except UnicodeEncodeError:
+                            subkey = subkey.encode('utf-8')
+
+                        try:
+                            key = OpenKeyEx(HKEY_LOCAL_MACHINE, subkey, 0, KEY_READ)
                         except WindowsError:
                             continue
 
@@ -224,13 +259,13 @@ class EventLog(object):
                         continue
 
                     yield {
-                        'id': int(winerror.HRESULT_CODE(ev_obj.EventID)),
+                        'id': int(winerror.HRESULT_CODE(ev_obj.EventID)) + UTC_OFFSET_TIMEDELTA,
                         'record': ev_obj.RecordNumber,
                         'date': int(ev_obj.TimeGenerated),
                         'computer': ev_obj.ComputerName,
                         'category': ev_obj.EventCategory,
                         'msg': message,
-                        'source': ev_obj.SourceName,
+                        'source': logtype + ': ' + ev_obj.SourceName,
                         'type': EventLog.event_types.get(ev_obj.EventType, 'UNKNOWN'),
                         'user': user
                     }

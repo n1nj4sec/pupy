@@ -101,7 +101,7 @@ class UniformDH(object):
         assert self.sharedSecret is not None
 
         # Do we already have the minimum amount of data?
-        if len(data) < (const.PUBLIC_KEY_LENGTH + const.MARK_LENGTH +
+        if len(data) < (const.PUBLIC_KEY_LENGTH + const.MARK_LENGTH + \
                         const.HMAC_SHA256_128_LENGTH):
             return False
 
@@ -176,9 +176,8 @@ class UniformDH(object):
         # Subtract the length of the public key to make the handshake on
         # average as long as a redeemed ticket.  That should thwart statistical
         # length-based attacks.
-        padding = mycrypto.strongRandom(random.randint(0,
-                                        const.MAX_PADDING_LENGTH -
-                                        const.PUBLIC_KEY_LENGTH))
+        padding = mycrypto.strongRandom(
+            random.randint(0, const.MAX_PADDING_LENGTH - const.PUBLIC_KEY_LENGTH))
 
         # Add a mark which enables efficient location of the HMAC.
         mark = mycrypto.HMAC_SHA256_128(self.sharedSecret, publicKey)

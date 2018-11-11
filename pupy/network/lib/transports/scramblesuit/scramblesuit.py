@@ -313,8 +313,8 @@ class ScrambleSuitTransport(base.BaseTransport):
 
             # Store newly received ticket.
             elif self.weAreClient and (msg.flags == const.FLAG_NEW_TICKET):
-                assert len(msg.payload) == (const.TICKET_LENGTH +
-                                            const.MASTER_KEY_LENGTH)
+                assert len(msg.payload) == (
+                    const.TICKET_LENGTH + const.MASTER_KEY_LENGTH)
 
             # Use the PRNG seed to generate the same probability distributions
             # as the server.  That's where the polymorphism comes from.
@@ -363,7 +363,7 @@ class ScrambleSuitTransport(base.BaseTransport):
         succeed, `True' is returned.  Otherwise, `False' is returned.
         """
 
-        if len(data) < (const.TICKET_LENGTH + const.MARK_LENGTH +
+        if len(data) < (const.TICKET_LENGTH + const.MARK_LENGTH + \
                         const.HMAC_SHA256_128_LENGTH):
             return False
 
@@ -389,9 +389,10 @@ class ScrambleSuitTransport(base.BaseTransport):
             return False
 
         # Now, verify if the HMAC is valid.
-        existingHMAC = potentialTicket[index + const.MARK_LENGTH:
-                                       index + const.MARK_LENGTH +
-                                       const.HMAC_SHA256_128_LENGTH]
+        existingHMAC = potentialTicket[
+            index + const.MARK_LENGTH:index + const.MARK_LENGTH + \
+                const.HMAC_SHA256_128_LENGTH]
+
         authenticated = False
         for epoch in util.expandedEpoch():
             myHMAC = mycrypto.HMAC_SHA256_128(self.recvHMAC,

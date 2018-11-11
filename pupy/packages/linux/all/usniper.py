@@ -21,12 +21,12 @@ class USniper(pupy.Task):
 
         if ret:
             self._match = re.compile(
-                '^\s*[^-]+-([\d]+)\s+\[[0-9]+\]\s+[a-z.]{4}\s(\d+)\.\d+:'
-                '\s+([^:]+):\s\(0x[a-f0-9]+\s\<\-\s0x[a-f0-9]+\)\s+arg1=(?:(?:0x)?([0-9a-f]+)|"([^"]+)"$)')
+                r'^\s*[^-]+-([\d]+)\s+\[[0-9]+\]\s+[a-z.]{4}\s(\d+)\.\d+:'
+                r'\s+([^:]+):\s\(0x[a-f0-9]+\s\<\-\s0x[a-f0-9]+\)\s+arg1=(?:(?:0x)?([0-9a-f]+)|"([^"]+)"$)')
         else:
             self._match = re.compile(
-                '^\s*[^-]+-([\d]+)\s+\[[0-9]+\]\s+[a-z.]{4}\s(\d+)\.\d+:'
-                '\s+([^:]+):\s\(0x[a-f0-9]+\)\s+arg1=(?:(?:0x)?([0-9a-f]+)|"([^"]+)"$)')
+                r'^\s*[^-]+-([\d]+)\s+\[[0-9]+\]\s+[a-z.]{4}\s(\d+)\.\d+:'
+                r'\s+([^:]+):\s\(0x[a-f0-9]+\)\s+arg1=(?:(?:0x)?([0-9a-f]+)|"([^"]+)"$)')
 
         if type(addr) in (str, unicode):
             if addr.startswith('0x'):
@@ -186,7 +186,7 @@ class USniper(pupy.Task):
             except:
                 pass
 
-def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr'):
+def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr', event_id=None):
     try:
         if pupy.manager.active(USniper):
             return False
@@ -202,7 +202,8 @@ def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr'):
         argtype = None
 
     return pupy.manager.create(
-        USniper, path, addr, reg, ret, cast, argtype
+        USniper, path, addr, reg, ret, cast, argtype,
+        event_id=event_id
     ) is not None
 
 def stop():

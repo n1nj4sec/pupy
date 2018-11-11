@@ -4,6 +4,8 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Color
 from modules.lib import size_human_readable, file_timestamp, to_utf8
+from pupylib.utils.term import elen
+from argparse import REMAINDER
 
 __class_name__="ls"
 
@@ -21,33 +23,50 @@ T_FILE      = 10
 T_TRUNCATED = 11
 T_ZIPFILE   = 12
 T_TARFILE   = 13
+T_HAS_XATTR = 14
 
 # TODO: Rewrite using tables
 
-def output_format(file, windows=False, archive=None):
+def to_str(x):
+    if type(x) in (str, unicode):
+        return to_utf8(x)
+
+    return str(x)
+
+def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_len=0):
     if file[T_TYPE] == 'X':
         return '--- TRUNCATED ---'
 
-    name = to_utf8(file[T_NAME])
+    name = to_str(file[T_NAME])
 
     if archive:
         name += u' \u25bb ' + archive
 
+    timestamp_field = u'{:<18}' if time else u'{:<10}'
+
     if windows:
-        out = u'  {}{}{}{}'.format(
-            u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
-            u'{:<3}'.format(file[T_TYPE]),
-            u'{:<11}'.format(size_human_readable(file[T_SIZE])),
-            u'{:<40}'.format(name))
+        out = u'  {}{}{}{}{}{}'.format(
+            timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
+            u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
+            to_str(file[T_UID]).rjust(uid_len+1)+u' ' if uid_len else u'',
+            to_str(file[T_GID]).rjust(gid_len+1)+u' ' if gid_len else u'',
+            u'{:>9}'.format(size_human_readable(file[T_SIZE])),
+            u' {:<40}'.format(name))
     else:
+        if not uid_len:
+            uid_len = 5
+
+        if not gid_len:
+            gid_len = 5
+
         out = u'  {}{}{}{}{}{}{}'.format(
-            u'{:<10}'.format(file_timestamp(file[T_TIMESTAMP])),
-            u'{:<3}'.format(file[T_TYPE]),
-            u'{:<5}'.format(file[T_UID]),
-            u'{:<5}'.format(file[T_GID]),
-            u' {:06o} '.format(file[T_MODE]),
-            u'{:<11}'.format(size_human_readable(file[T_SIZE])),
-            u'{:<40}'.format(name))
+            timestamp_field.format(file_timestamp(file[T_TIMESTAMP], time)),
+            u'{:<2}'.format(file[T_TYPE] + ('+' if file[T_HAS_XATTR] else '')),
+            to_str(file[T_UID]).rjust(uid_len+1)+' ',
+            to_str(file[T_GID]).rjust(gid_len+1)+' ',
+            u'{:04o} '.format(file[T_MODE] & 0o7777),
+            u'{:>9}'.format(size_human_readable(file[T_SIZE])),
+            u' {:<40}'.format(name))
 
     if archive:
         out=Color(out, 'yellow')
@@ -69,10 +88,12 @@ def output_format(file, windows=False, archive=None):
         out=Color(out, 'grey')
     elif not file[T_SIZE]:
         out=Color(out, 'darkgrey')
-    elif 'E' in file[T_SPEC]:
-        out=Color(out, 'lightgreen')
     elif 'W' in file[T_SPEC] and not windows:
         out=Color(out, 'blue')
+    elif file[T_HAS_XATTR]:
+        out=Color(out, 'lightmagenta')
+    elif 'E' in file[T_SPEC]:
+        out=Color(out, 'lightgreen')
 
     return out
 
@@ -81,13 +102,17 @@ class ls(PupyModule):
     """ list system files """
     is_module=False
 
-    dependencies = ['pupyutils.basic_cmds', 'scandir', 'zipfile', 'tarfile']
+    dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="ls", description=cls.__doc__)
         cls.arg_parser.add_argument('-d', '--dir', action='store_false', default=True,
                                          help='do not list directories')
+
+        cls.arg_parser.add_argument('-u', '--userinfo', action='store_true', help='show uid info')
+        cls.arg_parser.add_argument('-g', '--groupinfo', action='store_true', help='show gid info')
+
         sort = cls.arg_parser.add_mutually_exclusive_group()
         sort.add_argument('-L', '--limit', type=int, default=1024,
                           help='List no more than this amount of files (server side), '
@@ -97,13 +122,18 @@ class ls(PupyModule):
         sort.add_argument('-t', '--time', dest='sort', action='store_const', const=T_TIMESTAMP, help='sort by time')
         cls.arg_parser.add_argument('-r', '--reverse', action='store_true', default=False, help='reverse sort order')
         cls.arg_parser.add_argument(
-            'path', type=str, nargs='?', help='path of a specific file', completer=remote_path_completer)
+            'path', type=str, nargs=REMAINDER, help='path of a specific file', completer=remote_path_completer)
 
     def run(self, args):
         try:
             ls = self.client.remote('pupyutils.basic_cmds', 'ls')
 
-            results = ls(args.path, args.dir, args.limit, args.archive)
+            path = ' '.join(args.path)
+
+            results = ls(
+                path, args.dir, args.limit,
+                args.archive, args.userinfo or args.groupinfo)
+
         except Exception, e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return
@@ -119,10 +149,33 @@ class ls(PupyModule):
         files_cnt = 0
         dirs_cnt = 0
 
+        show_time = args.sort == T_TIMESTAMP
+
         for r in results:
+            uid_len = 0
+            gid_len = 0
+
             if T_FILES in r:
                 archive = None
                 is_windows = windows
+
+                if args.userinfo or args.groupinfo:
+                    for x in r[T_FILES]:
+                        if args.userinfo:
+                            uid = x.get(T_UID, '?')
+                            if type(uid) == int:
+                                uid = str(uid)
+
+                            if elen(uid) > uid_len:
+                                uid_len = elen(uid)
+
+                        if args.groupinfo:
+                            gid = x.get(T_GID, '?')
+                            if type(gid) == int:
+                                gid = str(gid)
+
+                            if elen(gid) > gid_len:
+                                gid_len = elen(gid)
 
                 if T_ZIPFILE in r:
                     self.log(Color('ZIP: '+r[T_ZIPFILE]+':', 'lightred'))
@@ -152,11 +205,11 @@ class ls(PupyModule):
                             total_cnt  += 1
                             files_cnt  += 1
 
-                    for f in sorted(dirs, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, is_windows))
+                    for f in sorted(dirs, key=lambda x: to_str(x.get(T_NAME)), reverse=args.reverse):
+                        self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
 
-                    for f in sorted(files, key=lambda x: to_utf8(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, is_windows))
+                    for f in sorted(files, key=lambda x: to_str(x.get(T_NAME)), reverse=args.reverse):
+                        self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
 
                     if truncated:
                         self.warning('Folder is too big. Not listed: {} (-L {})'.format(
@@ -177,7 +230,7 @@ class ls(PupyModule):
                             truncated = True
                             continue
 
-                        self.log(output_format(f, is_windows))
+                        self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
 
                     if truncated:
                         self.log('--- TRUNCATED ---')
@@ -191,7 +244,23 @@ class ls(PupyModule):
                 elif T_TARFILE in r:
                     archive = 'TAR'
                     is_windows = False
-                self.log(output_format(r[T_FILE], is_windows, archive))
+
+                if args.userinfo:
+                    uid = r[T_FILE][T_UID]
+                    if type(uid) == int:
+                        uid = str(uid)
+
+                    uid_len = elen(uid)
+
+                if args.groupinfo:
+                    gid = r[T_FILE][T_GID]
+                    if type(gid) == int:
+                        gid = str(gid)
+
+                    gid_len = elen(gid)
+
+                self.log(output_format(r[T_FILE], is_windows, archive, show_time, uid_len=uid_len, gid_len=gid_len))
+
             else:
                 self.error('Old format. Update pupyutils.basic_cmds')
                 return

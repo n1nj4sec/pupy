@@ -40,3 +40,9 @@
 [submodule "client/toolchain/docker-old-tc"]
 	path = client/toolchain/docker-old-tc
 	url = https://github.com/alxchk/docker-old-tc
+[submodule "pupy/external/pyopus"]
+	path = pupy/external/pyopus
+	url = https://github.com/alxchk/pyopus
+[submodule "pupy/external/WinPwnage"]
+	path = pupy/external/WinPwnage
+	url = https://github.com/rootm0s/WinPwnage

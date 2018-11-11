@@ -1,80 +1,3 @@
-"""
-Windows Management Instrumentation (WMI) is Microsoft's answer to
-the DMTF's Common Information Model. It allows you to query just
-about any conceivable piece of information from any computer which
-is running the necessary agent and over which have you the
-necessary authority.
-
-Since the COM implementation doesn't give much away to Python
-programmers, I've wrapped it in some lightweight classes with
-some getattr / setattr magic to ease the way. In particular:
-
-* The :class:`_wmi_namespace` object itself will determine its classes
-  and allow you to return all instances of any of them by
-  using its name as an attribute::
-
-    disks = wmi.WMI ().Win32_LogicalDisk ()
-
-* In addition, you can specify what would become the WHERE clause
-  as keyword parameters::
-
-    fixed_disks = wmi.WMI ().Win32_LogicalDisk (DriveType=3)
-
-* The objects returned by a WMI lookup are wrapped in a Python
-  class which determines their methods and classes and allows
-  you to access them as though they were Python classes. The
-  methods only allow named parameters::
-
-    for p in wmi.WMI ().Win32_Process (Name="notepad.exe"):
-      p.Terminate (Result=1)
-
-* Doing a print on one of the WMI objects will result in its
-  `GetObjectText\_` method being called, which usually produces
-  a meaningful printout of current values.
-  The repr of the object will include its full WMI path,
-  which lets you get directly to it if you need to.
-
-* You can get the associators and references of an object as
-  a list of python objects by calling the associators () and
-  references () methods on a WMI Python object::
-
-    for p in wmi.WMI ().Win32_Process (Name="notepad.exe"):
-      for r in p.references ():
-        print r
-
-  ..  note::
-      Don't do this on a Win32_ComputerSystem object; it will
-      take all day and kill your machine!
-
-
-* WMI classes (as opposed to instances) are first-class
-  objects, so you can get hold of a class, and call
-  its methods or set up a watch against it::
-
-    process = wmi.WMI ().Win32_Process
-    process.Create (CommandLine="notepad.exe")
-
-* To make it easier to use in embedded systems and py2exe-style
-  executable wrappers, the module will not force early Dispatch.
-  To do this, it uses a handy hack by Thomas Heller for easy access
-  to constants.
-
-Typical usage will be::
-
-  import wmi
-
-  vodev1 = wmi.WMI ("vodev1")
-  for disk in vodev1.Win32_LogicalDisk ():
-    if disk.DriveType == 3:
-      space = 100 * long (disk.FreeSpace) / long (disk.Size)
-      print "%s has %d%% free" % (disk.Name, space)
-
-Many thanks, obviously to Mark Hammond for creating the win32all
-extensions, but also to Alex Martelli and Roger Upole, whose
-c.l.py postings pointed me in the right direction.
-Thanks especially in release 1.2 to Paul Tiemann for his code
-contributions and robust testing.
-"""
 __VERSION__ = __version__ = "1.4.9"
 
 _DEBUG = False
@@ -856,41 +779,12 @@ class _wmi_class (_wmi_object):
       handle_com_error ()
 
   def new (self, **kwargs):
-    """This is the equivalent to the raw-WMI SpawnInstance\_
-    method. Note that there are relatively few uses for
-    this, certainly fewer than you might imagine. Most
-    classes which need to create a new *real* instance
-    of themselves, eg Win32_Process, offer a .Create
-    method. SpawnInstance\_ is generally reserved for
-    instances which are passed as parameters to such
-    `.Create` methods, a common example being the
-    `Win32_SecurityDescriptor`, passed to `Win32_Share.Create`
-    and other instances which need security.
-
-    The example here is `Win32_ProcessStartup`, which
-    controls the shown/hidden state etc. of a new
-    `Win32_Process` instance::
-
-      import win32con
-      import wmi
-      c = wmi.WMI ()
-      startup = c.Win32_ProcessStartup.new (ShowWindow=win32con.SW_SHOWMINIMIZED)
-      pid, retval = c.Win32_Process.Create (
-        CommandLine="notepad.exe",
-        ProcessStartupInformation=startup
-      )
-
-    ..  warning::
-        previous versions of this docstring illustrated using this function
-        to create a new process. This is *not* a good example of its use;
-        it is better handled with something like the example above.
-    """
     try:
-      obj = _wmi_object (self.SpawnInstance_ (), self)
-      obj.set (**kwargs)
-      return obj
+        obj = _wmi_object (self.SpawnInstance_ (), self)
+        obj.set (**kwargs)
+        return obj
     except pywintypes.com_error:
-      handle_com_error ()
+        handle_com_error ()
 
 #
 # class _wmi_result

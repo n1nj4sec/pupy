@@ -240,7 +240,7 @@ class SMB(PupyModule):
             remote = src
             local = dst
         else:
-            self.error('Either src or dst should be network share in (\\HOST\SHARE\PATH) format')
+            self.error(r'Either src or dst should be network share in (\\HOST\SHARE\PATH) format')
             return
 
         try:

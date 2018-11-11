@@ -1,8 +1,8 @@
 #!/bin/sh
 
 PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton dnslib"
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt"
-PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv pynacl"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog"
+PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv pynacl pyaudio"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES adodbapi"
@@ -14,8 +14,10 @@ PUPY=`readlink -f ../../pupy`
 
 cd $SRC
 
-WINPTY=../../pupy/external/winpty
-PYKCP=../../pupy/external/pykcp
+EXTERNAL=../../pupy/external
+WINPTY=$EXTERNAL/winpty
+PYKCP=$EXTERNAL/pykcp
+PYOPUS=$EXTERNAL/pyopus/src
 
 echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
@@ -39,6 +41,18 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --force pycparser==2.17
 done
 
+cd $PYOPUS
+echo "[+] Compile opus /32"
+git clean -fdx
+make -f Makefile.msvc CL=$CL32
+mv opus.pyd ${WINE32}/drive_c/Python27/Lib/site-packages/
+
+echo "[+] Compile opus /64"
+git clean -fdx
+make -f Makefile.msvc CL=$CL64
+mv -f opus.pyd ${WINE64}/drive_c/Python27/Lib/site-packages/
+
+cd $SRC
 echo "[+] Compile pupymemexec /32"
 $CL32 \
     ../../pupy/packages/src/pupymemexec/pupymemexec.c \

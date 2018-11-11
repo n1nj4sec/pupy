@@ -11,7 +11,7 @@ from . import getLogger
 logger = getLogger('proxies')
 
 PROXY_MATCHER = re.compile(
-    '^(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
+    r'^(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
 )
 
 PROXY_ENV = [

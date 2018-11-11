@@ -31,6 +31,8 @@ from urllib import unquote
 
 from sys import getfilesystemencoding
 
+from traceback import format_exc
+
 try:
     from puttykeys import ppkraw_to_openssh
 except ImportError:
@@ -415,7 +417,11 @@ class SSH(object):
             yield pair
 
         for process in process_iter():
-            info = process.as_dict()
+            try:
+                info = process.as_dict()
+            except OSError:
+                continue
+
             if 'environ' not in info or info['environ'] is None:
                 continue
 
@@ -1140,7 +1146,8 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
                 continue
 
             except Exception as e:
-                data_cb((3, 'Exception: {}: {}'.format(type(e), str(e))))
+                data_cb((3, 'Exception: {}: {}\n{}'.format(
+                    type(e), str(e), format_exc(limit=20))))
                 continue
 
             conninfo = [4]

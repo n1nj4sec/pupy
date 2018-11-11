@@ -40,12 +40,12 @@ ftp_pw_re = r'PASS (.+)\r\n'
 irc_user_re = r'NICK (.+?)((\r)?\n|\s)'
 irc_pw_re = r'NS IDENTIFY (.+)'
 irc_pw_re2 = 'nickserv :identify (.+)'
-mail_auth_re = '(\d+ )?(auth|authenticate) (login|plain)'
-mail_auth_re1 = '(\d+ )?login '
+mail_auth_re = r'(\d+ )?(auth|authenticate) (login|plain)'
+mail_auth_re1 = r'(\d+ )?login '
 NTLMSSP2_re = 'NTLMSSP\x00\x02\x00\x00\x00.+'
 NTLMSSP3_re = 'NTLMSSP\x00\x03\x00\x00\x00.+'
 # Prone to false+ but prefer that to false-
-http_search_re = '((search|query|&q|\?q|search\?p|searchterm|keywords|keyword|command|terms|keys|question|kwd|searchPhrase)=([^&][^&]*))'
+http_search_re = r'((search|query|&q|\?q|search\?p|searchterm|keywords|keyword|command|terms|keys|question|kwd|searchPhrase)=([^&][^&]*))'
 
 #Console colors
 W = '\033[0m'  # white (normal)

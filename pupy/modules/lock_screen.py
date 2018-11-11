@@ -18,7 +18,9 @@ class PupyMod(PupyModule):
         if self.client.is_windows():
             ok = self.client.conn.modules['ctypes'].windll.user32.LockWorkStation()
         elif self.client.is_darwin():
-            ok = self.client.conn.modules.subprocess.Popen('/System/Library/CoreServices/Menu\ Extras/User.menu/Contents/Resources/CGSession -suspend', stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
+            ok = self.client.conn.modules.subprocess.Popen(
+                '/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession -suspend',
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
 
         if ok:
             self.success("windows locked")

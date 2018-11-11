@@ -63,7 +63,12 @@ WELL_KNOWN_DEPS = {
         ],
     },
     'pupyutils.basic_cmds': {
-        'windows': ['junctions']
+        'windows': ['junctions', 'ntfs_streams', '_scandir'],
+        'linux': ['xattr', '_scandir'],
+        'all': [
+            'pupyutils', 'scandir', 'zipfile',
+            'tarfile', 'scandir', 'fsutils'
+        ],
     },
     'dbus': {
         'linux': [

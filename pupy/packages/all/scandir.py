@@ -225,7 +225,7 @@ if sys.platform == 'win32':
                 st_mode |= 0o444
             else:
                 st_mode |= 0o666
-            if (attributes & FILE_ATTRIBUTE_REPARSE_POINT and
+            if (attributes & FILE_ATTRIBUTE_REPARSE_POINT and \
                     data.dwReserved0 == IO_REPARSE_TAG_SYMLINK):
                 st_mode ^= st_mode & 0o170000
                 st_mode |= S_IFLNK
@@ -293,8 +293,9 @@ if sys.platform == 'win32':
                 elif is_symlink:
                     return False
                 else:
-                    return (self._find_data.dwFileAttributes &
-                            FILE_ATTRIBUTE_DIRECTORY != 0)
+                    return (
+                        self._find_data.dwFileAttributes & \
+                        FILE_ATTRIBUTE_DIRECTORY != 0)
 
             def is_file(self, follow_symlinks=True):
                 is_symlink = self.is_symlink()
@@ -308,12 +309,12 @@ if sys.platform == 'win32':
                 elif is_symlink:
                     return False
                 else:
-                    return (self._find_data.dwFileAttributes &
+                    return (self._find_data.dwFileAttributes & \
                             FILE_ATTRIBUTE_DIRECTORY == 0)
 
             def is_symlink(self):
-                return (self._find_data.dwFileAttributes &
-                            FILE_ATTRIBUTE_REPARSE_POINT != 0 and
+                return (self._find_data.dwFileAttributes & \
+                        FILE_ATTRIBUTE_REPARSE_POINT != 0 and \
                         self._find_data.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
 
             def inode(self):
@@ -481,7 +482,7 @@ elif sys.platform.startswith(('linux', 'darwin', 'sunos5')) or 'bsd' in sys.plat
                     return self._lstat
 
             def is_dir(self, follow_symlinks=True):
-                if (self._d_type == DT_UNKNOWN or
+                if (self._d_type == DT_UNKNOWN or \
                         (follow_symlinks and self.is_symlink())):
                     try:
                         st = self.stat(follow_symlinks=follow_symlinks)
@@ -494,7 +495,7 @@ elif sys.platform.startswith(('linux', 'darwin', 'sunos5')) or 'bsd' in sys.plat
                     return self._d_type == DT_DIR
 
             def is_file(self, follow_symlinks=True):
-                if (self._d_type == DT_UNKNOWN or
+                if (self._d_type == DT_UNKNOWN or \
                         (follow_symlinks and self.is_symlink())):
                     try:
                         st = self.stat(follow_symlinks=follow_symlinks)

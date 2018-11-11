@@ -317,7 +317,6 @@ class PupyCmd(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.pupsrv = pupsrv
         self.dnscnc = pupsrv.dnscnc
-        self.pupsrv.register_handler(self)
         self.config = pupsrv.config
 
         self.input = sys.stdin
@@ -357,6 +356,8 @@ class PupyCmd(cmd.Cmd):
 
         except:
             logger.warning("error while parsing aliases from pupy.conf ! %s", traceback.format_exc())
+
+        self.pupsrv.register_handler(self)
 
     @property
     def intro(self):

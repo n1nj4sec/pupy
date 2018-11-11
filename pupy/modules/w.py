@@ -8,7 +8,7 @@ import logging
 
 __class_name__="WModule"
 
-ADMINS = ('NT AUTHORITY\SYSTEM', 'root')
+ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
 @config(cat="admin")
 class WModule(PupyModule):
@@ -38,6 +38,9 @@ class WModule(PupyModule):
                             color = "cyan" if idle < 10*60 else (
                                 "grey" if idle > 60*60*24 else ""
                             )
+
+                        if 'dead' in session:
+                            color = 'darkgrey'
 
                         object = {
                             'HOST': Color(host, color),
