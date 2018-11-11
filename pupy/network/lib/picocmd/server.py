@@ -777,7 +777,7 @@ class DnsCommandServerHandler(BaseResolver):
             commands = session.commands
 
             if not session.system_info:
-                commands = commands.copy()
+                commands = list(commands)
                 commands.append(Poll())
 
             return commands
