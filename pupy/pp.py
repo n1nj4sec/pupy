@@ -526,6 +526,7 @@ setattr(pupy, 'obtain', safe_obtain) # I don't see a better spot to put this uti
 setattr(pupy, 'creds_cache', {})
 setattr(pupy, 'broadcast_event', None)
 setattr(pupy, 'cid', None)
+setattr(pupy, 'sleep', None)
 
 setattr(sys, 'terminated', False)
 setattr(sys, 'terminate', None)
@@ -726,7 +727,7 @@ def get_next_wait(attempt):
         for conf_attempt, delay_min, delay_max in DELAYS:
             if conf_attempt == -1 or attempt < conf_attempt:
                 return random.randint(delay_min, delay_max)
-    except Exception, e:
+    except Exception as e:
         logger.exception('get_next_wait %d, %s', attempt, e)
 
     return random.randint(150, 300)
@@ -752,7 +753,7 @@ def handle_sigterm(signal, frame):
     if manager:
         try:
             manager.event(Manager.TERMINATE)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
 
     if pupy.connection:
@@ -844,7 +845,7 @@ def main():
         try:
             config_file = pupy.get_pupy_config()
             exec config_file in globals()
-        except ImportError, e:
+        except ImportError as e:
             logger.warning(
                 "ImportError: Couldn't load pupy config: {}".format(e))
 
@@ -919,11 +920,13 @@ def main():
 
         finally:
             if not sys.terminated:
-                sleep_secs = get_next_wait(attempt)
+                sleep_secs = pupy.sleep if pupy.sleep else get_next_wait(attempt)
                 logger.info(
                     'Attempt %d - reconnect in %d seconds...',
                     attempt, sleep_secs)
                 time.sleep(sleep_secs)
+
+                pupy.sleep = None
                 attempt += 1
 
     logger.debug('Exited')
