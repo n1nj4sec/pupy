@@ -22,8 +22,9 @@
 from rawreg import *
 from ..addrspace import HiveFileAddressSpace
 from Crypto.Hash import MD5
-from Crypto.Cipher import ARC4,DES
+from Crypto.Cipher import ARC4,DES,AES
 from struct import unpack,pack
+import binascii
 
 odd_parity = [
   1, 1, 2, 2, 4, 4, 7, 7, 8, 8, 11, 11, 13, 13, 14, 14,
@@ -137,14 +138,24 @@ def get_hbootkey(samaddr, bootkey):
             F = samaddr.read(v.Data.value, v.DataLength.value)
     if not F: return None
 
-    md5 = MD5.new()
-    md5.update(F[0x70:0x80] + aqwerty + bootkey + anum)
-    rc4_key = md5.digest()
+    revision = ord(F[0x00])
+    if revision == 2:
+        md5 = MD5.new()
+        md5.update(F[0x70:0x80] + aqwerty + bootkey + anum)
+        rc4_key = md5.digest()
 
-    rc4 = ARC4.new(rc4_key)
-    hbootkey = rc4.encrypt(F[0x80:0xA0])
+        rc4 = ARC4.new(rc4_key)
+        hbootkey = rc4.encrypt(F[0x80:0xA0])
+        
+        return hbootkey
     
-    return hbootkey
+    elif revision == 3:
+        iv = F[0x78:0x88]
+        encryptedHBootKey = F[0x88:0xA8]
+        cipher = AES.new(bootkey, AES.MODE_CBC, iv)
+        hbootkey = cipher.decrypt(encryptedHBootKey)
+
+        return hbootkey[:16]
 
 def get_user_keys(samaddr):
     user_key_path = ["SAM", "Domains", "Account", "Users"]
@@ -158,10 +169,11 @@ def get_user_keys(samaddr):
     return [k for k in subkeys(user_key) if k.Name != "Names"]
 
 def decrypt_single_hash(rid, hbootkey, enc_hash, lmntstr):
+    if enc_hash == "":
+        return ""
     (des_k1,des_k2) = sid_to_key(rid)
     d1 = DES.new(des_k1, DES.MODE_ECB)
     d2 = DES.new(des_k2, DES.MODE_ECB)
-
     md5 = MD5.new()
     md5.update(hbootkey[:0x10] + pack("<L",rid) + lmntstr)
     rc4_key = md5.digest()
@@ -171,20 +183,17 @@ def decrypt_single_hash(rid, hbootkey, enc_hash, lmntstr):
 
     return hash
 
-def decrypt_hashes(rid, enc_lm_hash, enc_nt_hash, hbootkey):
-    # LM Hash
-    if enc_lm_hash:
-        lmhash = decrypt_single_hash(rid, hbootkey, enc_lm_hash, almpassword)
-    else:
-        lmhash = ""
-    
-    # NT Hash
-    if enc_nt_hash:
-        nthash = decrypt_single_hash(rid, hbootkey, enc_nt_hash, antpassword)
-    else:
-        nthash = ""
+def decrypt_single_salted_hash(rid, hbootkey, enc_hash, lmntstr, salt):
+    if enc_hash == "":
+        return ""
+    (des_k1,des_k2) = sid_to_key(rid)
+    d1 = DES.new(des_k1, DES.MODE_ECB)
+    d2 = DES.new(des_k2, DES.MODE_ECB)
+    cipher = AES.new(hbootkey[:16], AES.MODE_CBC, salt)
+    obfkey = cipher.decrypt(enc_hash)
+    hash = d1.decrypt(obfkey[:8]) + d2.decrypt(obfkey[8:16])
 
-    return lmhash,nthash
+    return hash
 
 def get_user_hashes(user_key, hbootkey):
     samaddr = user_key.space
@@ -194,16 +203,36 @@ def get_user_hashes(user_key, hbootkey):
         if v.Name == 'V':
             V = samaddr.read(v.Data.value, v.DataLength.value)
     if not V: return None
+    hash_offset = unpack("<L", V[0xa8:0xa8+4])[0] + 0xCC
 
-    hash_offset = unpack("<L", V[0x9c:0x9c+4])[0] + 0xCC
+    lm_offset_bytes = V[0x9c:0x9c+4]
+    nt_offset_bytes = V[0x9c+12:0x9c+16]
+    lm_offset = unpack("<L", lm_offset_bytes)[0] + 204
+    nt_offset = unpack("<L", nt_offset_bytes)[0] + 204
 
-    lm_exists = True if unpack("<L", V[0x9c+4:0x9c+8])[0] == 20 else False
-    nt_exists = True if unpack("<L", V[0x9c+16:0x9c+20])[0] == 20 else False
+    lm_revision = int(V[lm_offset+2:lm_offset+3].encode('hex'), 16)
+    if lm_revision == 1:
+        lm_exists = True if unpack("<L", V[0x9c+4:0x9c+8])[0] == 20 else False
+        enc_lm_hash = V[hash_offset+4:hash_offset+20] if lm_exists else ""
+        lmhash = decrypt_single_hash(rid, hbootkey, enc_lm_hash, almpassword)
+    elif lm_revision == 2:
+        lm_exists = True if unpack("<L", V[0x9c+4:0x9c+8])[0] == 56 else False
+        lm_salt = V[hash_offset+4:hash_offset+20] if lm_exists else ""
+        enc_lm_hash = V[hash_offset+20:hash_offset+52] if lm_exists else ""
+        lmhash = decrypt_single_salted_hash(rid, hbootkey, enc_lm_hash, almpassword, lm_salt)
 
-    enc_lm_hash = V[hash_offset+4:hash_offset+20] if lm_exists else ""
-    enc_nt_hash = V[hash_offset+(24 if lm_exists else 8):hash_offset+(24 if lm_exists else 8)+16] if nt_exists else ""
+    nt_revision = int(V[nt_offset+2:nt_offset+3].encode('hex'), 16)
+    if nt_revision == 1:
+        nt_exists = True if unpack("<L", V[0x9c+16:0x9c+20])[0] == 20 else False
+        enc_nt_hash = V[nt_offset+4:nt_offset+20] if nt_exists else ""
+        nthash = decrypt_single_hash(rid, hbootkey, enc_nt_hash, antpassword)
+    elif nt_revision == 2:
+        nt_exists = True if unpack("<L", V[0x9c+16:0x9c+20])[0] == 56 else False
+        nt_salt = V[nt_offset+8:nt_offset+24] if nt_exists else ""
+        enc_nt_hash = V[nt_offset+24:nt_offset+56] if nt_exists else ""
+        nthash = decrypt_single_salted_hash(rid, hbootkey, enc_nt_hash, antpassword, nt_salt)
 
-    return decrypt_hashes(rid, enc_lm_hash, enc_nt_hash, hbootkey)
+    return lmhash,nthash
 
 def get_user_name(user_key):
     samaddr = user_key.space
