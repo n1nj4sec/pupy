@@ -56,7 +56,7 @@ class RequestHandler(TornadoRequestHandler):
             self.finish(log_msg)
             return
 
-        super(WebSocketHandler, self).prepare(*args, **kwargs)
+        super(RequestHandler, self).prepare(*args, **kwargs)
 
 class StaticTextHandler(TornadoRequestHandler):
     def set_default_headers(self):
@@ -214,7 +214,7 @@ class PupyWebServer(object):
         self._ioloop = None
         self._thread = None
 
-        for _, _, cleanup in self._registered:
+        for (_, _, cleanup) in self._registered.itervalues():
             if cleanup:
                 cleanup()
 
