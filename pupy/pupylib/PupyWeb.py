@@ -24,53 +24,99 @@ from tornado.web import Application as TornadoApplication
 from pupylib.PupyOutput import Error
 from pupylib.PupyOutput import Success
 
+from socket import getaddrinfo
+from socket import error as socket_error
+
 LOCAL_IPS = ('127.0.0.1', '::1')
 
 SERVER_HEADER = 'nginx/1.13.8'
 
+def setup_local_ips(klass, kwargs):
+    config = kwargs.pop('config', None)
+
+    setattr(klass, 'config', config)
+    setattr(klass, 'local_ips', LOCAL_IPS)
+
+    if not config:
+        return
+
+    local_ips_cnf = klass.config.get('webserver', 'local_ips')
+    if not local_ips_cnf:
+        return
+
+    local_ips_set = set()
+    for item in local_ips_cnf.split(','):
+        item = item.strip()
+        try:
+            gai = getaddrinfo(item, None)
+        except socket_error:
+            continue
+
+        for result in gai:
+            for addr in result[4]:
+                local_ips_set.add(addr)
+
+    klass.local_ips = tuple(local_ips_set)
+
+
 class ErrorHandler(TornadoErrorHandler):
+    def initialize(self, **kwargs):
+        setup_local_ips(self, kwargs)
+        super(ErrorHandler, self).initialize(**kwargs)
+
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
 class WebSocketHandler(TornadoWebSocketHandler):
+    def initialize(self, **kwargs):
+        setup_local_ips(self, kwargs)
+        super(WebSocketHandler, self).initialize(**kwargs)
+
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
     def prepare(self, *args, **kwargs):
-        if self.request.remote_ip not in (LOCAL_IPS):
+        if self.request.remote_ip not in self.local_ips:
             self.set_status(403)
-            log_msg = "Connection allowed only from local addresses"
+
+            log_msg = 'Connection allowed only from local addresses'
             self.finish(log_msg)
             return
 
         super(WebSocketHandler, self).prepare(*args, **kwargs)
 
 class RequestHandler(TornadoRequestHandler):
+    def initialize(self, **kwargs):
+        setup_local_ips(self, kwargs)
+        super(RequestHandler, self).initialize(**kwargs)
+
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
     def prepare(self, *args, **kwargs):
-        if self.request.remote_ip not in (LOCAL_IPS):
+        if self.request.remote_ip not in self.local_ips:
             self.set_status(403)
-            log_msg = "Connection allowed only from local addresses"
+            log_msg = 'Connection allowed only from local addresses'
             self.finish(log_msg)
             return
 
         super(RequestHandler, self).prepare(*args, **kwargs)
 
 class StaticTextHandler(TornadoRequestHandler):
+    def initialize(self, **kwargs):
+        self.content = kwargs.pop('content')
+        setup_local_ips(self, kwargs)
+
+        super(StaticTextHandler, self).initialize(**kwargs)
+
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
-
-    def initialize(self, **kwargs):
-        self.content = kwargs.get('content')
 
     @tornado.web.asynchronous
     def get(self):
         self.finish(self.content)
 
 class PayloadsHandler(TornadoStaticFileHandler):
-
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
@@ -78,6 +124,9 @@ class PayloadsHandler(TornadoStaticFileHandler):
         self.mappings = kwargs.pop('mappings', {})
         self.templates = kwargs.pop('templates', {})
         self.mapped = False
+
+        setup_local_ips(self, kwargs)
+
         super(PayloadsHandler, self).initialize(**kwargs)
 
     def get_absolute_path(self, root, filepath):
@@ -103,6 +152,10 @@ class PayloadsHandler(TornadoStaticFileHandler):
         return super(PayloadsHandler, self).get_absolute_path(root, absolute_path)
 
 class IndexHandler(tornado.web.RequestHandler):
+    def initialize(self, **kwargs):
+        setup_local_ips(self, kwargs)
+        super(IndexHandler, self).initialize(**kwargs)
+
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
@@ -305,6 +358,12 @@ class PupyWebServer(object):
                 uri_path += '/'
 
             klasses.append(handler)
+
+            if issubclass(handler, (
+                ErrorHandler, WebSocketHandler,
+                RequestHandler, StaticTextHandler, PayloadsHandler, IndexHandler)):
+
+                kwargs['config'] = self.config
 
             self.app.add_handlers(".*", [(uri_path, handler, kwargs)])
             self.pupsrv.info('Register webhook for {} at {}'.format(name, uri_path))
