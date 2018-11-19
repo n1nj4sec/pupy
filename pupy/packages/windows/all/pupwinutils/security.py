@@ -925,7 +925,7 @@ def getSidToken(token_sid):
     if token_sid == SID_SYSTEM:
         sids = ListSids()
         for sid in sids:
-            if not 'winlogon' in sid[1].lower():
+            if 'winlogon' not in sid[1].lower():
                 continue
 
             hToken = gethTokenFromPid(sid[0], exc=False)
