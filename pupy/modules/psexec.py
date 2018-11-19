@@ -8,7 +8,8 @@ from pupylib.PupyModule import (
 )
 from netaddr import IPNetwork
 
-__class_name__="PSExec"
+__class_name__ = "PSExec"
+
 
 @config(cat="admin")
 class PSExec(PupyModule):
@@ -25,20 +26,26 @@ class PSExec(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="psexec", description=cls.__doc__)
-        cls.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='', help="Username, if omitted null session assumed")
+        cls.arg_parser.add_argument("-u", metavar="USERNAME", dest='user', default='',
+                                    help="Username, if omitted null session assumed")
         cls.arg_parser.add_argument("-p", metavar="PASSWORD", dest='passwd', default='', help="Password")
         cls.arg_parser.add_argument("-c", metavar="CODEPAGE", dest='codepage', default='cp437', help="Codepage")
         cls.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
-        cls.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
-        cls.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$", help="Specify a share (default C$)")
+        cls.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP",
+                                    help="Domain name (default WORKGROUP)")
+        cls.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$",
+                                    help="Specify a share (default C$)")
         cls.arg_parser.add_argument("-S", dest='noout', action='store_true', help="Do not wait for command output")
         cls.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
-                                         help="Try to set this timeout")
-        cls.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
+                                    help="Try to set this timeout")
+        cls.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445,
+                                    help="SMB port (default 445)")
         cls.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
-        sgroup = cls.arg_parser.add_argument_group("Command Execution", "Options for executing commands on the specified host")
-        sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi", help="Method to execute the command (default: wmi)")
+        sgroup = cls.arg_parser.add_argument_group("Command Execution", "Options for executing "
+                                                                        "commands on the specified host")
+        sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi",
+                            help="Method to execute the command (default: wmi)")
         sgroup.add_argument("-x", metavar="COMMAND", dest='command', help="Execute a command")
 
     def run(self, args):
@@ -53,7 +60,7 @@ class PSExec(PupyModule):
 
         for host in hosts:
             output, error = smbexec(
-                host, args.port,
+                str(host), args.port,
                 args.user,  args.domain,
                 args.passwd, args.hash,
                 args.command, args.share,

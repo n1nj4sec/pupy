@@ -48,6 +48,7 @@ def package_completer(module, args, text, context):
             except OSError:
                 continue
 
+            completion = ''
             if stat.S_ISDIR(item_info.st_mode) and os.path.isfile(
                     os.path.join(os.path.join(dir_to_scan, item, '__init__.py'))):
                 completion = item
