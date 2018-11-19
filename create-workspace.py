@@ -93,6 +93,13 @@ def main():
 
     virtualenv.create_environment(workdir)
 
+    print "[+] Update pip version ..."
+    subprocess.check_call([
+        os.path.join(workdir, 'bin', 'pip'),
+        'install',
+        '--upgrade', 'pip'
+    ], cwd=os.path.join(pupy, 'pupy'))
+
     print "[+] Install dependencies"
     subprocess.check_call([
         os.path.join(workdir, 'bin', 'pip'),
