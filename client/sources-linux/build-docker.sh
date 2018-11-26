@@ -35,7 +35,7 @@ python -m pip install --upgrade \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
-       watchdog pulsectl pyalsaaudio --no-binary :all:
+       watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
 
 LDFLAGS="$LDFLAGS -lasound" python -m pip install --upgrade pyaudio
 
@@ -64,7 +64,7 @@ else
 	  python -m pip install pyuv --upgrade --no-binary :all:
 fi
 
-python -m pip install --upgrade -q --no-binary :all: pycryptodome
+python -m pip install --upgrade --no-binary :all: pycryptodome==3.7.0
 
 cd /usr/lib/python2.7
 
