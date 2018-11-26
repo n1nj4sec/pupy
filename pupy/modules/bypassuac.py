@@ -22,15 +22,16 @@ class BypassUAC(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="bypassuac", description=cls.__doc__)
-        cls.arg_parser.add_argument('-l', dest='scan', action='store_true', default=False, help="List all possible "
-                                                                                                "techniques for this "
-                                                                                                "host")
+        cls.arg_parser.add_argument(
+            '-l', dest='scan', action='store_true', default=False,
+            help="List all possible techniques for this host")
         cls.arg_parser.add_argument('-e', dest='exe', default=None, help="Custom exe to execute as admin")
-        cls.arg_parser.add_argument('-r', dest='restart', action='store_true', default=False, help="Restart current "
-                                                                                                   "executable as "
-                                                                                                   "admin")
-        cls.arg_parser.add_argument('-m', dest='method', help="Should be an ID, get the list "
-                                                              "scanning which methods are possible (-l)")
+        cls.arg_parser.add_argument(
+            '-r', dest='restart', action='store_true', default=False,
+            help="Restart current executable as admin")
+        cls.arg_parser.add_argument(
+            '-m', dest='method',
+            help="Should be an ID, get the list scanning which methods are possible (-l)")
 
     def parse_result(self, result, print_result=True, get_method_id=True):
         """
