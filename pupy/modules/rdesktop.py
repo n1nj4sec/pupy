@@ -17,7 +17,7 @@ logger = getLogger('rdesktop')
 __class_name__="RemoteDesktopModule"
 
 class RdesktopWebSocketHandler(WebSocketHandler):
-    def initialize(self, client, refresh_interval, module):
+    def initialize(self, client, refresh_interval, module, **kwargs):
         self.client = client
         self.refresh_interval = refresh_interval
         self.remote_streamer = None
@@ -26,6 +26,8 @@ class RdesktopWebSocketHandler(WebSocketHandler):
         self.stop_events_thread = threading.Event()
         self.mouse_pos = None
         self.mouse_lock = threading.Lock()
+
+        super(RdesktopWebSocketHandler, self).initialize(**kwargs)
 
     def on_open(self):
         self.set_nodelay(True)
@@ -119,8 +121,9 @@ class RdesktopWebSocketHandler(WebSocketHandler):
             self.stop_events_thread.set()
 
 class IndexHandler(RequestHandler):
-    def initialize(self, client):
-        self.client = client
+    def initialize(self, **kwargs):
+        self.client = kwargs.pop('client', None)
+        super(IndexHandler, self).initialize(**kwargs)
 
     @tornado.web.asynchronous
     def get(self):

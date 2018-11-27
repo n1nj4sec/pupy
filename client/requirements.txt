@@ -1,5 +1,5 @@
 rpyc==3.4.4
-pycryptodome
+pycryptodome==3.7.0
 psutil
 rsa
 netaddr

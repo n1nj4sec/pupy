@@ -99,6 +99,9 @@ log = true
 static_webroot_uri = 
 # Set this to true if you want to keep published payloads
 preserve_payloads = false
+# Set this to the comma delimited list of ips/domain names
+# which allowed to connect to "local ips"
+# local_ips = localhost
 
 [gen]
 format = client

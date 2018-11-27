@@ -25,6 +25,7 @@ ntdll    = WinDLL('ntdll',    use_last_error=True)
 advapi32 = WinDLL('advapi32', use_last_error=True)
 shell32  = WinDLL('shell32',  use_last_error=True)
 kernel32 = WinDLL('kernel32', use_last_error=True)
+userenv  = WinDLL('userenv',  use_last_error=True)
 
 LPVOID                          = c_void_p
 PVOID                           = LPVOID
@@ -192,6 +193,8 @@ SecurityAnonymous = 0
 SecurityIdentification = 1
 SecurityImpersonation = 2
 SecurityDelegation = 3
+
+SID_SYSTEM = 'S-1-5-18'
 
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
@@ -392,7 +395,9 @@ LookupAccountSidA.argtypes = [
 
 AdjustTokenPrivileges               = advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.restype       = BOOL
-AdjustTokenPrivileges.argtypes      = [HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)]
+AdjustTokenPrivileges.argtypes      = [
+    HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)
+]
 
 CheckTokenMembership                = advapi32.CheckTokenMembership
 CheckTokenMembership.restype        = BOOL
@@ -589,8 +594,6 @@ class ACCESS_ALLOWED_ACE(Structure):
 
 PACCESS_ALLOWED_ACE = POINTER(ACCESS_ALLOWED_ACE)
 
-
-
 NOT_USED_ACCESS = 0
 GRANT_ACCESS = 1
 SET_ACCESS = 2
@@ -702,7 +705,30 @@ IsUserAnAdmin                       = shell32.IsUserAnAdmin
 IsUserAnAdmin.restype               = BOOL
 IsUserAnAdmin.argtypes              = []
 
+# userenv
+
+CREATE_NEW_CONSOLE          = 0x00000010
+CREATE_UNICODE_ENVIRONMENT  = 0x00000400
+NORMAL_PRIORITY_CLASS       = 0x00000020
+
+CreateEnvironmentBlock = userenv.CreateEnvironmentBlock
+CreateEnvironmentBlock.restype = BOOL
+CreateEnvironmentBlock.argtypes = [
+    POINTER(c_void_p), c_void_p, c_int
+]
+
+DestroyEnvironmentBlock = userenv.DestroyEnvironmentBlock
+DestroyEnvironmentBlock.argtypes = [
+    c_void_p
+]
+
+# various
+
+ERROR_SUCCESS = 0
 ERROR_INSUFFICIENT_BUFFER = 122
+ERROR_ACCESS_DENIED = 5
+ERROR_INVALID_PARAMETER = 87
+ERROR_NOT_ALL_ASSIGNED = 1300
 
 def GetUserName():
     nSize = DWORD(0)
@@ -727,39 +753,76 @@ def GetTokenSid(hToken):
     pStringSid = LPSTR()
     TokenUser = 1
 
-    r = GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize))
-    if r != 0:
-        raise WinError(get_last_error())
+    if not GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize)):
+        error = get_last_error()
+        if error != ERROR_INSUFFICIENT_BUFFER:
+            raise WinError(error)
 
     address = LocalAlloc(0x0040, dwSize)
-    GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize))
-    pToken_User = cast(address, POINTER(TOKEN_USER))
-    ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
-    sid = pStringSid.value
+    if GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize)):
+        pToken_User = cast(address, POINTER(TOKEN_USER))
+        ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
+        sid = pStringSid.value
+
     LocalFree(address)
     return sid
 
-def EnablePrivilege(privilegeStr, hToken = None):
+def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
     """Enable Privilege on token, if no token is given the function gets the token of the current process."""
+
+    close_hToken = False
+
+    if type(privilegeStr) == unicode:
+        privilege = privilegeStr.encode('latin1')
+    else:
+        privilege = str(privilegeStr)
 
     if hToken is None:
         hToken = HANDLE(INVALID_HANDLE_VALUE)
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
-        if not OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken)):
+        if not hProcess:
             raise WinError(get_last_error())
+
+        dwError = None
+        if not OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken)):
+            dwError = get_last_error()
+
         CloseHandle(hProcess)
 
-    privilege_id = LUID()
-    if not LookupPrivilegeValueA(None, privilegeStr, byref(privilege_id)):
-        raise WinError(get_last_error())
+        if dwError:
+            raise WinError(dwError)
 
-    SE_PRIVILEGE_ENABLED = 0x00000002
-    laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
-    tp  = TOKEN_PRIVILEGES(1, laa)
+        close_hToken = True
 
-    if not AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None):
-        raise WinError(get_last_error())
+    bSuccess = False
+
+    try:
+        privilege_id = LUID()
+        if not LookupPrivilegeValueA(None, privilege, byref(privilege_id)):
+            raise WinError(get_last_error())
+
+        SE_PRIVILEGE_ENABLED = 0x00000002
+        laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
+        tp  = TOKEN_PRIVILEGES(1, laa)
+
+        if AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None):
+            error = get_last_error()
+            if error == ERROR_SUCCESS:
+                bSuccess = True
+            elif exc:
+                if error == ERROR_NOT_ALL_ASSIGNED:
+                    raise ValueError(error, 'Could not set {} (access denied)'.format(privilege))
+                else:
+                    raise WinError(error)
+        elif exc:
+            WinError(get_last_error())
+
+    finally:
+        if close_hToken:
+            CloseHandle(hToken)
+
+    return bSuccess
 
 def ListSids():
     sids=[]
@@ -769,31 +832,60 @@ def ListSids():
             pinfo = proc.as_dict(attrs=['pid', 'username', 'name'])
         except psutil.NoSuchProcess:
             pass
-        if pinfo['pid']<=4:
+
+        pid = int(pinfo['pid'])
+
+        if pid <= 4:
             continue
+
         if pinfo['username'] is None:
             continue
-        try:
-            hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pinfo['pid']))
-            hToken = HANDLE(INVALID_HANDLE_VALUE)
-            OpenProcessToken(hProcess, tokenprivs, byref(hToken))
 
-            try:
-                sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
-            except:
-                pass
+        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+        if not hProcess:
+            error = get_last_error()
+            if error != ERROR_INVALID_PARAMETER:
+                # Process exited, dead, whatever
+                raise WinError(get_last_error())
+
+            continue
+
+        hToken = HANDLE(INVALID_HANDLE_VALUE)
+
+        bTokenOk = OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+        error = get_last_error()
+
+        CloseHandle(hProcess)
+
+        if not bTokenOk:
+            if error == ERROR_ACCESS_DENIED:
+                continue
+
+            raise WinError(error)
+
+        try:
+            sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
+        finally:
             CloseHandle(hToken)
-            CloseHandle(hProcess)
-        except Exception as e:
-            print e
 
     return list(sids)
 
 def getProcessToken(pid):
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+    if not hProcess:
+        raise WinError(get_last_error())
+
     hToken = HANDLE(INVALID_HANDLE_VALUE)
-    OpenProcessToken(hProcess, tokenprivs, byref(hToken))
+    dwError = None
+
+    if not OpenProcessToken(hProcess, tokenprivs, byref(hToken)):
+        dwError = get_last_error()
+
     CloseHandle(hProcess)
+
+    if dwError:
+        raise WinError(dwError)
+
     return hToken
 
 def get_process_token():
@@ -801,113 +893,157 @@ def get_process_token():
     Get the current process token
     """
     token = HANDLE()
-    res = OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, token)
-    if not res > 0:
-        raise RuntimeError("Couldn't get process token")
+    if not OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, token):
+        raise WinError(get_last_error())
+
     return token
 
-def gethTokenFromPid(pid):
-    try:
-        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pid))
-        hToken = HANDLE(INVALID_HANDLE_VALUE)
-        OpenProcessToken(hProcess, tokenprivs, byref(hToken))
-        CloseHandle(hProcess)
-        return hToken
-    except Exception, e:
-        print "[!] Error:" + str(e)
-        return None
+def gethTokenFromPid(pid, exc=True):
+    hToken = HANDLE(INVALID_HANDLE_VALUE)
+
+    hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pid))
+    if not hProcess:
+        if exc:
+            raise WinError(get_last_error())
+        else:
+            return None
+
+    dwError = None
+    if not OpenProcessToken(hProcess, tokenprivs, byref(hToken)):
+        dwError = get_last_error()
+
+    CloseHandle(hProcess)
+
+    if dwError:
+        raise WinError(dwError)
+
+    return hToken
 
 def getSidToken(token_sid):
 
     # trying to get system privileges
-    if token_sid == "S-1-5-18":
+    if token_sid == SID_SYSTEM:
         sids = ListSids()
         for sid in sids:
-            if "winlogon" in sid[1].lower():
-                hToken = gethTokenFromPid(sid[0])
-                if hToken:
-                    print "[+] using PID: " + str(sid[0])
-                    return hToken
-                else:
-                    return None
+            if 'winlogon' not in sid[1].lower():
+                continue
+
+            hToken = gethTokenFromPid(sid[0], exc=False)
+            if not hToken:
+                continue
+
+            return hToken
 
     # trying to impersonate a token
     else:
-        pids = [int(x) for x in psutil.pids() if int(x)>4]
+        for p in psutil.process_iter():
+            if p.pid <= 4:
+                continue
 
-        for pid in pids:
-            hToken = gethTokenFromPid(pid)
-            if hToken:
-                if GetTokenSid(hToken) == token_sid:
-                    print "[+] using PID: " + str(pid)
-                    return hToken
+            hToken = gethTokenFromPid(p.pid, exc=False)
+            if not hToken:
+                continue
+
+            if GetTokenSid(hToken) == token_sid:
+                return hToken
+
+            CloseHandle(hToken)
 
 def impersonate_pid(pid, close=True):
     EnablePrivilege("SeDebugPrivilege")
+
     hToken = getProcessToken(pid)
+    if not hToken:
+        return None
+
     hTokendupe = impersonate_token(hToken)
-    if close:
+
+    if close and hTokendupe:
         CloseHandle(hTokendupe)
+
     return hTokendupe
 
 def impersonate_sid(sid, close=True):
+
+    if not sid.startswith('S-1-'):
+        sid = sidbyname(sid)
+        if not sid:
+            raise ValueError('Unknown username {}'.format(sid.encode('utf-8')))
+
     EnablePrivilege("SeDebugPrivilege")
     hToken = getSidToken(sid)
+    if not hToken:
+        raise ValueError('Could not get token for SID {}'.format(sid))
+
     hTokendupe = impersonate_token(hToken)
-    if close:
+    if close and hTokendupe:
         CloseHandle(hTokendupe)
+
+    if not hTokendupe:
+        raise ValueError('Could not impersonate token for SID {}'.format(sid))
+
     return hTokendupe
 
-global_ref=None
+global_ref = None
+
 def impersonate_sid_long_handle(*args, **kwargs):
     global global_ref
+
     hTokendupe = impersonate_sid(*args, **kwargs)
+    if not hTokendupe:
+        return None
+
     try:
         if global_ref is not None:
             CloseHandle(global_ref)
     except:
         pass
+
     global_ref = hTokendupe
     return addressof(hTokendupe)
 
 def impersonate_pid_long_handle(*args, **kwargs):
     global global_ref
+
     hTokendupe = impersonate_pid(*args, **kwargs)
+    if not hTokendupe:
+        return None
+
     try:
         if global_ref is not None:
             CloseHandle(global_ref)
     except:
         pass
+
     global_ref = hTokendupe
     return addressof(hTokendupe)
 
 def impersonate_token(hToken):
-    if not IsUserAnAdmin():
-        raise OSError("You need admin rights to run impersonate !")
-    EnablePrivilege("SeDebugPrivilege")
-    #hToken = getProcessToken(pid)
+    EnablePrivilege('SeDebugPrivilege')
+    EnablePrivilege('SeImpersonatePrivilege')
+
     hTokendupe = HANDLE(INVALID_HANDLE_VALUE)
+
     SecurityImpersonation = 2
     TokenPrimary = 1
-    if not DuplicateTokenEx(hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation, TokenPrimary, byref(hTokendupe)):
+
+    if not DuplicateTokenEx(
+        hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation,
+        TokenPrimary, byref(hTokendupe)):
         raise WinError(get_last_error())
+
     CloseHandle(hToken)
 
     try:
-        EnablePrivilege("SeAssignPrimaryTokenPrivilege", hToken = hTokendupe)
-    except Exception as e:
-        print e
-    try:
-        EnablePrivilege("SeIncreaseQuotaPrivilege", hToken = hTokendupe)
-    except Exception as e:
-        print e
-    try:
-        EnablePrivilege("SeImpersonatePrivilege")
-    except Exception as e:
-        print e
+        EnablePrivilege('SeAssignPrimaryTokenPrivilege', hToken=hTokendupe, exc=False)
+        EnablePrivilege('SeIncreaseQuotaPrivilege', hToken=hTokendupe, exc=False)
 
-    if not ImpersonateLoggedOnUser(hTokendupe):
-        raise WinError(get_last_error())
+        if not ImpersonateLoggedOnUser(hTokendupe):
+            raise WinError(get_last_error())
+
+    except Exception:
+        CloseHandle(hTokendupe)
+        raise
 
     return hTokendupe
 
@@ -915,28 +1051,27 @@ def isSystem():
     sids = ListSids()
     for sid in sids:
         if sid[0] == os.getpid():
-            if sid[2] == "S-1-5-18":
+            if sid[2] == SID_SYSTEM:
                 return True
     return False
 
-def create_proc_as_sid(sid, prog="cmd.exe"):
-
-    # If a user try to impersonate a user token
-    if sid != "S-1-5-18":
-        if not isSystem():
-            raise OSError("You need System privileges to impersonate a user token")
-    else:
-        # the user tries to getsystem
-        if not IsUserAnAdmin():
-            raise OSError("You need admin rights to run getsystem !")
+def create_proc_as_sid(sid, prog='cmd.exe'):
+    if not sid.startswith('S-1-'):
+        sid = sidbyname(sid)
+        if not sid:
+            raise ValueError('Unknown username {}'.format(sid.encode('utf-8')))
 
     hTokendupe = impersonate_sid(sid, close=False)
-    pid = start_proc_with_token([prog], hTokendupe)
-    CloseHandle(hTokendupe)
+
+    try:
+        pid = start_proc_with_token([prog], hTokendupe)
+    finally:
+        CloseHandle(hTokendupe)
+
     return pid
 
-def getsystem(prog="cmd.exe"):
-    return create_proc_as_sid("S-1-5-18", prog=prog)
+def getsystem(prog='cmd.exe'):
+    return create_proc_as_sid(SID_SYSTEM, prog=prog)
 
 def start_proc_with_token(args, hTokendupe, hidden=True):
     ##Start the process with the token.
@@ -946,60 +1081,61 @@ def start_proc_with_token(args, hTokendupe, hidden=True):
         lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
         lpStartupInfo.wShowWindow = subprocess.SW_HIDE
 
-    CREATE_NEW_CONSOLE          = 0x00000010
-    CREATE_UNICODE_ENVIRONMENT  = 0x00000400
-    NORMAL_PRIORITY_CLASS       = 0x00000020
-
     dwCreationflag = NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE
 
-    userenv = WinDLL('userenv', use_last_error=True)
-    userenv.CreateEnvironmentBlock.argtypes = (POINTER(c_void_p), c_void_p, c_int)
-    userenv.DestroyEnvironmentBlock.argtypes = (c_void_p,)
     cenv = c_void_p()
 
-    success = userenv.CreateEnvironmentBlock(byref(cenv), hTokendupe, 0)
-    if not success:
+    if not CreateEnvironmentBlock(byref(cenv), hTokendupe, 0):
         raise WinError(get_last_error())
 
-    success = CreateProcessAsUser(hTokendupe, None, ' '.join(args), None, None, True, dwCreationflag, cenv, None, byref(lpStartupInfo), byref(lpProcessInformation))
-    if not success:
+    if not CreateProcessAsUser(
+        hTokendupe, None, ' '.join(args), None, None, True,
+        dwCreationflag, cenv, None,
+        byref(lpStartupInfo), byref(lpProcessInformation)):
         raise WinError(get_last_error())
 
-    print "[+] process created PID: " + str(lpProcessInformation.dwProcessId)
     return lpProcessInformation.dwProcessId
 
 def rev2self():
     global global_ref
+
     RevertToSelf()
-    try:
-        if global_ref is not None:
-            CloseHandle(global_ref)
-    except Exception, e:
-        print e
-        pass
-    global_ref=None
-    print u'\t[+] Running as: ' + GetUserName()
+
+    if global_ref is not None:
+        CloseHandle(global_ref)
+
+    global_ref = None
 
 def get_currents_privs():
     '''
     Get all privileges associated with the current process.
     '''
-    return_length = DWORD()
-    params = [
-        get_process_token(),
-        TOKEN_INFORMATION_CLASS.TokenPrivileges,
-        None,
-        0,
-        return_length,
-    ]
-    res = GetTokenInformation(*params)
-    buffer = create_string_buffer(return_length.value)
-    params[2] = buffer
-    params[3] = return_length.value
-    res = GetTokenInformation(*params)
-    assert res > 0, "Error in second GetTokenInformation (%d)" % res
-    privileges = cast(buffer, POINTER(TOKEN_PRIVS)).contents
-    return privileges
+    dwSize = DWORD()
+    hToken = get_process_token()
+
+    try:
+        if not GetTokenInformation(
+            hToken, TOKEN_INFORMATION_CLASS.TokenPrivileges, None, 0, byref(dwSize)):
+
+            error = get_last_error()
+            if error != ERROR_INSUFFICIENT_BUFFER:
+                raise WinError(error)
+
+        cBuffer = create_string_buffer(dwSize.value)
+        if not GetTokenInformation(
+            hToken, TOKEN_INFORMATION_CLASS.TokenPrivileges,
+            cBuffer, dwSize.value, byref(dwSize)):
+            raise WinError(get_last_error())
+
+    finally:
+        CloseHandle(hToken)
+
+    privs = tuple(
+        (x.get_name(), x.is_enabled()) for x in cast(
+            cBuffer, POINTER(TOKEN_PRIVS)).contents
+    )
+
+    return privs
 
 def can_get_admin_access():
     """
