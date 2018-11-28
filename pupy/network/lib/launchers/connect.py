@@ -46,6 +46,7 @@ class ConnectLauncher(BaseLauncher):
     def iterate(self):
         if self.args is None:
             raise LauncherError("parse_args needs to be called before iterate")
+
         for current_host in self.args.host:
             self.parse_host(current_host)
             try:
@@ -56,7 +57,7 @@ class ConnectLauncher(BaseLauncher):
                 client_args=t.client_kwargs
                 transport_args=t.client_transport_kwargs
 
-                if 'host' in transport_args and 'host' not in opt_args:
+                if 'host' not in opt_args:
                     transport_args['host'] = '{}{}'.format(
                         self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
                     )
@@ -71,6 +72,7 @@ class ConnectLauncher(BaseLauncher):
 
                 logging.info("using client options: %s"%client_args)
                 logging.info("using transports options: %s"%transport_args)
+
                 try:
                     t.parse_args(transport_args)
                 except Exception as e:
@@ -78,11 +80,13 @@ class ConnectLauncher(BaseLauncher):
                     raise SystemExit(e)
 
                 try:
-                    client=t.client(**client_args)
+                    client = t.client(**client_args)
                 except Exception as e:
                     raise SystemExit(e)
-                s=client.connect(self.rhost, self.rport)
+
+                s = client.connect(self.rhost, self.rport)
                 stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
                 yield stream
+
             except Exception as e:
                 logging.exception(e)
