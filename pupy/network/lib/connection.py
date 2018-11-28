@@ -317,7 +317,12 @@ class PupyConnection(Connection):
             return None, None
 
     def sync_request(self, handler, *args):
-        seq = self._send_request(handler, args)
+        try:
+            seq = self._send_request(handler, args)
+        except EOFError:
+            self.close()
+            raise
+
         if __debug__:
             synclogger.debug('Sync request wait(%s): %s / %s:%s %s (%s)',
                 self, seq, *traceback.extract_stack()[-4])

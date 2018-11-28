@@ -151,7 +151,8 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
     if verbose:
         config_table = [{
             'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (
-                unicode(v) if type(v) not in (tuple,list,set) else ' '.join(v))
+                unicode(v) if type(v) not in (tuple,list,set) else ' '.join(
+                    unicode(x) for x in v))
         } for k,v in conf.iteritems() if v]
 
         display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
@@ -436,7 +437,8 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
 
     config_table = [{
         'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (
-                unicode(v) if type(v) not in (tuple,list,set) else ' '.join(v))
+                unicode(v) if type(v) not in (tuple,list,set) else ' '.join(
+                    unicode(x) for x in v))
     } for k,v in config.iteritems() if v]
 
     display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
