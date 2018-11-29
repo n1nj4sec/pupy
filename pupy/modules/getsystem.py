@@ -166,9 +166,10 @@ class GetSystem(PupyModule):
 
             if args.parentID:
                 self.info('Using the Parent Process method on the pid {0}...'.format(args.parentID))
+                self.info('Command: {}'.format(cmdToExecute))
 
                 pid = create_new_process_from_ppid(int(args.parentID), cmdToExecute)
-                self.success('Created: {}, ppid={}'.format(pid, args.parentID))
+                self.success('Created: pid={}, ppid={}'.format(pid, args.parentID))
                 return
 
             else:
@@ -188,9 +189,14 @@ class GetSystem(PupyModule):
                     self.info("{0} (pid {1}) has a 'SYSTEM' integrity level, trying to use it".format(
                         aprocess['name'],aprocess['pid']))
 
-                    pid = create_new_process_from_ppid(aprocess['pid'], cmdToExecute)
-                    self.success('Created: {}, ppid={}'.format(pid, aprocess['pid']))
-                    return
+                    try:
+                        pid = create_new_process_from_ppid(aprocess['pid'], cmdToExecute)
+                        self.success('Created: pid={}, ppid={}'.format(pid, aprocess['pid']))
+                        return
+
+                    except Exception, e:
+                        self.error('Failed: {}'.format(' '.join(x for x in e.args if type(x) is str)))
+
 
         elif args.method == 'impersonate':
             if cmdToExecute is None:

