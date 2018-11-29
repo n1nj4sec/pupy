@@ -25,7 +25,7 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade setuptools
     $PYTHON -m pip install --upgrade $PACKAGES pycryptodomex==3.7.0
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
-    $PYTHON -m pip install --force-reinstall cryptography==2.2.2
+    $PYTHON -m pip install --force-reinstall cryptography==1.7.2
     $PYTHON -m pip install --upgrade --no-binary :all: pycryptodome==3.7.0
 
     rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
