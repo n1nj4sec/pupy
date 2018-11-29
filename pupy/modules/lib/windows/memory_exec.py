@@ -77,7 +77,7 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
             complete.set()
             module.error('Launch failed. Press ENTER')
     else:
-        pid = module.mp.execute(complete.set, None)
+        pid = module.mp.execute(complete.set)
         if pid:
             complete.wait()
             module.success('[Process launched: PID={}]'.format(pid))
