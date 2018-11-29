@@ -2,7 +2,7 @@
 
 PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr tinyec pypiwin32 poster win_inet_pton dnslib"
 PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog"
-PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip pyOpenSSL colorama pyuv pynacl pyaudio"
+PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyuv pynacl pyaudio"
 PACKAGES="$PACKAGES https://github.com/CoreSecurity/impacket/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES adodbapi"
@@ -25,8 +25,13 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade setuptools
     $PYTHON -m pip install --upgrade $PACKAGES pycryptodomex==3.7.0
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
-    $PYTHON -m pip install --force-reinstall cryptography==1.7.2
-    $PYTHON -m pip install --upgrade --no-binary :all: pycryptodome==3.7.0
+    $PYTHON -m pip install cryptography==1.7.2 pyOpenSSL==17.5.0 paramiko
+    $PYTHON -m pip install --no-binary :all: pycryptodome==3.6.6
+    $PYTHON -c "from Crypto.Cipher import AES"
+    if [ ! $? -eq 0 ]; then
+	echo "pycryptodome build failed"
+	exit 1
+    fi
 
     rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
     $PYTHON -m pip install --upgrade --force $PYKCP
