@@ -18,16 +18,17 @@
 #
 
 from struct import pack, unpack
+from struct import error as struct_error
 
 # from impacket.examples import logger
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
-import socket
 # import logging
 from binascii import a2b_hex
 from Crypto.Cipher import ARC4
 from impacket import ntlm
 
+from network.lib.scan import scanthread_parse
 
 TDPU_CONNECTION_REQUEST  = 0xe0
 TPDU_CONNECTION_CONFIRM  = 0xd0
@@ -374,12 +375,11 @@ class SPNEGOCipher:
 
         return signature, answer
 
-def check_rdp(host, username, password, domain, hashes = None):
+def check_rdp_socket(s, username, password, domain, hashes=None):
     try:
         from OpenSSL import SSL, crypto
     except:
-        print "pyOpenSSL is not installed, can't continue"
-        return
+        return "pyOpenSSL is not installed, can't continue"
 
     if hashes is not None:
         lmhash, nthash = hashes.split(':')
@@ -399,34 +399,25 @@ def check_rdp(host, username, password, domain, hashes = None):
     tpdu['Code'] = TDPU_CONNECTION_REQUEST
     tpkt['TPDU'] = str(tpdu)
 
-    s = socket.socket()
-    try:
-        # s.settimeout(5) # not work adding this
-        if ':' in host:
-            host, port = host.split(':')
-            port = int(port)
-        else:
-            port = 3389
-        s.connect((host,port))
-    except Exception as e:
-        if e.errno == 113:
-            print '[-] No route to host : %s' % host
-        else:
-            print '[-] %s - RDP should not be enabled' % str(e)
-        return
-
+    s.setblocking(1)
     s.sendall(str(tpkt))
     pkt = s.recv(8192)
-    tpkt.fromString(pkt)
-    tpdu.fromString(tpkt['TPDU'])
-    cr_tpdu = CR_TPDU(tpdu['VariablePart'])
-    if cr_tpdu['Type'] == TYPE_RDP_NEG_FAILURE:
-        rdp_failure = RDP_NEG_FAILURE(tpdu['VariablePart'])
-        rdp_failure.dump()
-        print "Server doesn't support PROTOCOL_HYBRID, hence we can't use CredSSP to check credentials"
-        return
-    else:
-        rdp_neg.fromString(tpdu['VariablePart'])
+
+    try:
+        tpkt.fromString(pkt)
+        tpdu.fromString(tpkt['TPDU'])
+
+        cr_tpdu = CR_TPDU(tpdu['VariablePart'])
+        if cr_tpdu['Type'] == TYPE_RDP_NEG_FAILURE:
+            rdp_failure = RDP_NEG_FAILURE(tpdu['VariablePart'])
+            rdp_failure.dump()
+            return "Server doesn't support PROTOCOL_HYBRID, hence we can't use CredSSP to check credentials"
+        else:
+            rdp_neg.fromString(tpdu['VariablePart'])
+
+    except struct_error:
+        return False
+
 
     # Since we were accepted to talk PROTOCOL_HYBRID, below is its implementation
 
@@ -443,8 +434,9 @@ def check_rdp(host, username, password, domain, hashes = None):
     # Switching to TLS now
     ctx = SSL.Context(SSL.TLSv1_METHOD)
     ctx.set_cipher_list('RC4')
-    tls = SSL.Connection(ctx,s)
+    tls = SSL.Connection(ctx, s)
     tls.set_connect_state()
+    tls.setblocking(1)
     tls.do_handshake()
 
     # If you want to use Python internal ssl, uncomment this and comment
@@ -475,8 +467,13 @@ def check_rdp(host, username, password, domain, hashes = None):
     ts_request['NegoData'] = str(auth)
 
     tls.send(ts_request.getData())
+
     buff = tls.recv(4096)
-    ts_request.fromString(buff)
+
+    try:
+        ts_request.fromString(buff)
+    except struct_error:
+        return False
 
     # 3. The client encrypts the public key it received from the server (contained
     # in the X.509 certificate) in the TLS handshake from step 1, by using the
@@ -519,12 +516,13 @@ def check_rdp(host, username, password, domain, hashes = None):
         # anything. So, I'm sending garbage so the server returns an error.
         # Luckily, it's a different error so we can determine whether or not auth worked ;)
         buff = tls.recv(1024)
-    except Exception, err:
-        if str(err).find("denied") > 0:
-            print "[-] Access Denied"
-        else:
-            print err
-        return
+
+    except SSL.Error:
+        # Likely communication error
+        return False
+
+    except Exception, e:
+        return str(type(e)) + ': ' + str(e)
 
     # 4. After the server receives the public key in step 3, it first verifies that
     # it has the same public key that it used as part of the TLS handshake in step 1.
@@ -542,7 +540,10 @@ def check_rdp(host, username, password, domain, hashes = None):
     # Note During this phase of the protocol, the OPTIONAL authInfo and negoTokens
     # fields are omitted from the TSRequest structure.
 
-    ts_request = TSRequest(buff)
+    try:
+        ts_request = TSRequest(buff)
+    except struct_error:
+        return False
 
     # Now we're decrypting the certificate + 1 sent by the server. Not worth checking ;)
     signature, plain_text = cipher.decrypt(ts_request['pubKeyAuth'][16:])
@@ -561,9 +562,11 @@ def check_rdp(host, username, password, domain, hashes = None):
     # Note During this phase of the protocol, the OPTIONAL pubKeyAuth and negoTokens
     # fields are omitted from the TSRequest structure.
     tsp = TSPasswordCreds()
+
     tsp['domainName'] = domain
     tsp['userName']   = username
     tsp['password']   = password
+
     tsc = TSCredentials()
     tsc['credType'] = 1 # TSPasswordCreds
     tsc['credentials'] = tsp.getData()
@@ -573,4 +576,23 @@ def check_rdp(host, username, password, domain, hashes = None):
     ts_request['authInfo'] = str(signature) + cripted_creds
     tls.send(ts_request.getData())
     tls.close()
-    print "[+] Valid RDP credentials"
+
+    return True
+
+def check_rdp(targets, username, password, domain, hashes, on_complete=None, on_result=None):
+    def check_rdp_port(info):
+        host, port, socket = info
+        try:
+            result = check_rdp_socket(socket, username, password, domain, hashes)
+            if on_result:
+                on_result(host, result)
+        except Exception, e:
+            on_result(host, str(type(e)) + ': ' + str(e))
+
+    def on_exception(e):
+        on_result('Exception', '{}: {}'.format(type(e), e))
+
+    return scanthread_parse(
+        targets, '3389', on_complete, timeout=5,
+        pass_socket=True, on_open_port=check_rdp_port,
+        on_exception=on_exception).set
