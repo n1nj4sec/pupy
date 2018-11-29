@@ -8,11 +8,11 @@ from ctypes import (
     POINTER, create_unicode_buffer, create_string_buffer,
     get_last_error, cast, c_void_p, sizeof, c_int, c_ulong,
     c_wchar, GetLastError, WinError, byref, addressof, c_size_t,
-    c_ushort, c_ubyte, resize
+    c_ubyte, resize
 )
 
 from ctypes.wintypes import (
-    BOOL, LPSTR, LPWSTR, BYTE, LPCSTR, LPCWSTR
+    BOOL, LPSTR, LPWSTR, BYTE, LPCSTR, LPCWSTR, USHORT, HANDLE
 )
 
 import subprocess
@@ -36,7 +36,6 @@ LPTSTR                          = LPSTR
 LPCTSTR                         = LPSTR
 PSID                            = PVOID
 DWORD                           = c_uint32
-HANDLE                          = LPVOID
 INVALID_HANDLE_VALUE            = c_void_p(-1).value
 LONG                            = c_long
 WORD                            = c_uint16
@@ -213,8 +212,7 @@ CREATE_NO_WINDOW = 0x08000000
 DETACHED_PROCESS = 0x00000008
 CREATE_UNICODE_ENVIRONMENT = 0x00000400
 ENTRIES = 0x00006000
-DWORD_PTR = DWORD
-USHORT = c_ushort
+PROCESS_ALL_ACCESS = 0x001fffff
 
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
@@ -392,23 +390,6 @@ class PRIVILEGE_SET_HEADER(Structure):
         ('PrivilegeCount', DWORD),
         ('Control', DWORD)
     ]
-
-class PROC_THREAD_ATTRIBUTE_ENTRY(Structure):
-    _fields_ = [
-               ("Attribute",     DWORD),
-               ("cbSize",       SIZE_T),
-               ("lpValue",       PVOID)
-]
-
-class PROC_THREAD_ATTRIBUTE_LIST(Structure):
-    _fields_ = [
-               ("dwFlags", DWORD),
-               ("Size",    ULONG),
-               ("Count",   ULONG),
-               ("Reserved",ULONG),
-               ("Unknown", PULONG),
-               ("Entries", PROC_THREAD_ATTRIBUTE_ENTRY * 1)
-]
 
 class _STARTUPINFOA(Structure):
         _fields_ = [
@@ -790,11 +771,11 @@ LocalFree.argtypes                  = [HANDLE]
 
 InitializeProcThreadAttributeList          = kernel32.InitializeProcThreadAttributeList
 InitializeProcThreadAttributeList.restype  = BOOL
-InitializeProcThreadAttributeList.argtypes = [POINTER(PROC_THREAD_ATTRIBUTE_LIST), DWORD, DWORD, POINTER(SIZE_T)]
+InitializeProcThreadAttributeList.argtypes = [PVOID, DWORD, DWORD, POINTER(SIZE_T)]
 
 UpdateProcThreadAttribute                  = kernel32.UpdateProcThreadAttribute
 UpdateProcThreadAttribute.restype          = BOOL
-UpdateProcThreadAttribute.argtypes         = [POINTER(PROC_THREAD_ATTRIBUTE_LIST), DWORD, DWORD_PTR, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
+UpdateProcThreadAttribute.argtypes         = [PVOID, DWORD, PVOID, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
 
 # ntdll
 RtlGetVersion                       = ntdll.RtlGetVersion
@@ -1743,14 +1724,13 @@ def create_new_process_from_ppid(ppid, cmd):
     lpAttributeList = None
     lpSize = c_size_t(0)
 
-    if not IsUserAnAdmin():
-        raise OSError("You need admin rights to run getsystem !")
+    EnablePrivilege("SeDebugPrivilege")
 
     # 1.Call with null lpAttributeList first to get back the lpSize
     InitializeProcThreadAttributeList(None, 1, 0, byref(lpSize))
 
     # 2.Initialize the attribute list
-    lpAttributeList = PROC_THREAD_ATTRIBUTE_LIST()
+    lpAttributeList = create_string_buffer(lpSize.value)
     if not InitializeProcThreadAttributeList(lpAttributeList, 1, 0, byref(lpSize)):
         raise WinError(get_last_error())
 
@@ -1762,15 +1742,12 @@ def create_new_process_from_ppid(ppid, cmd):
         raise WinError(get_last_error())
 
     last_error = None
+    hHandle = HANDLE(handle)
 
-    lpValue = PVOID(handle)
     if not UpdateProcThreadAttribute(
         lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
-        byref(lpValue), sizeof(lpValue), None, None):
-
+        byref(hHandle), sizeof(hHandle), 0, None):
         last_error = get_last_error()
-
-    if last_error:
         CloseHandle(handle)
         raise WinError(last_error)
 
@@ -1795,13 +1772,12 @@ def create_new_process_from_ppid(ppid, cmd):
 
     dwCreationFlags = (CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT)
 
-    cmd = create_unicode_buffer(cmd)
     if not CreateProcessW(
         None, cmd, None, None, 0, dwCreationFlags, None,
         None,  byref(lpStartupInfo), byref(lpProcessInformation)):
-        CloseHandle(handle)
         raise WinError(get_last_error())
 
+    CloseHandle(handle)
     return lpProcessInformation.dwProcessId
 
 def get_integrity_level(pid):
