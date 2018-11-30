@@ -109,7 +109,8 @@ os = windows
 arch = x86
 external = false
 #The command used for packing the 'client' output format (incompatible with py, pyinst, py_oneliner, ps1, ps1_oneliner, rubber_ducky for example)
-packer = 
+packer =
+mcs_sdk = 2
 #launcher =
 #launcher_args = 
 

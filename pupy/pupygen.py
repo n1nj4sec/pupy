@@ -552,9 +552,9 @@ def pupygen(args, config, pupsrv, display):
                 'py_oneliner': 'same as \'py\' format but served over http',
                 'ps1': 'generate ps1 file which embeds pupy dll (x86-x64) and inject it to current process',
                 'ps1_oneliner': 'load pupy remotely from memory with a single command line using powershell',
-                'csharp' : 'generate C# source that executes pupy. This source can be used to craft various applocker bypasses (ex: InstallUtil, MSBuild, ...)',
-                '.NET' : 'compile a C# payload into a windows executable.',
-                '.NET_oneliner' : 'Loads .NET assembly from memory via powershell'
+                'csharp': 'generate C# source (.cs) that executes pupy',
+                '.NET': 'compile a C# payload into a windows executable.',
+                '.NET_oneliner': 'Loads .NET assembly from memory via powershell'
             }.iteritems()], ['FORMAT', 'DESCRIPTION'], Color('Available formats (usage: -f <format>)', 'yellow')),
 
             Table([{
@@ -736,23 +736,29 @@ def pupygen(args, config, pupsrv, display):
         raise NoOutput()
 
     elif args.format == 'csharp':
-        if args.os!="windows" or args.arch!="x64":
-            raise ValueError("This format only support windows x64. x86 payloads are not implemented")
+        if args.os != 'windows' or args.arch != 'x64':
+            raise ValueError('This format only support windows x64. x86 payloads are not implemented')
+
         rawdll = generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0]
-        dn=DotNetPayload(display, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
+        dn = DotNetPayload(display, pupsrv, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
         outpath = dn.gen_source()
+
     elif args.format == '.NET':
-        if args.os!="windows" or args.arch!="x64":
-            raise ValueError("This format only support windows x64. x86 payloads are not implemented")
+        if args.os != 'windows' or args.arch != 'x64':
+            raise ValueError('This format only support windows x64. x86 payloads are not implemented')
+
         rawdll = generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0]
-        dn=DotNetPayload(display, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
+        dn = DotNetPayload(display, pupsrv, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
         outpath = dn.gen_exe()
+
         if outpath is None:
             raise NoOutput()
+
     elif args.format == '.NET_oneliner':
-        i = conf["launcher_args"].index("--host")+1
-        link_ip = conf["launcher_args"][i].split(":",1)[0]
+        i = conf['launcher_args'].index('--host')+1
+        link_ip, _ = conf['launcher_args'][i].split(':',1)
         rawdll = generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0]
+
         dotnet_serve_payload(display, pupsrv, rawdll, conf, link_ip=link_ip)
 
         raise NoOutput()
