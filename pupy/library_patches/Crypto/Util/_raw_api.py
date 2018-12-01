@@ -28,9 +28,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ===================================================================
 
-import sys
+import abc
 from Crypto.Util.py3compat import byte_string
-from Crypto.Util._file_system import pycryptodome_filename
+
+#
+# List of file suffixes for Python extensions
+#
 
 import imp
 extension_suffixes = []
@@ -38,10 +41,30 @@ for ext, mod, typ in imp.get_suffixes():
     if typ == imp.C_EXTENSION:
         extension_suffixes.append(ext)
 
-from ctypes import (CDLL, c_void_p, byref, c_ulong, c_ulonglong, c_size_t,
-                    create_string_buffer, c_ubyte)
+_buffer_type = (bytearray, memoryview)
+
+class _VoidPointer(object):
+    @abc.abstractmethod
+    def get(self):
+        """Return the memory location we point to"""
+        return
+
+    @abc.abstractmethod
+    def address_of(self):
+        """Return a raw pointer to this pointer"""
+        return
+
+
+import ctypes
+from ctypes import (CDLL, c_void_p, byref, c_ubyte)
 from ctypes.util import find_library
-from _ctypes import Array
+from ctypes import Array as _Array
+
+from ctypes import create_string_buffer
+from ctypes import c_size_t
+
+assert(create_string_buffer)
+assert(c_size_t)
 
 null_pointer = None
 
@@ -61,19 +84,48 @@ def get_c_string(c_string):
 def get_raw_buffer(buf):
     return buf.raw
 
+# ---- Get raw pointer ---
+
+_PyBUF_SIMPLE = 0
+_PyObject_GetBuffer = ctypes.pythonapi.PyObject_GetBuffer
+_py_object = ctypes.py_object
+_c_ssize_t = ctypes.c_ssize_t
+_c_ssize_p = ctypes.POINTER(_c_ssize_t)
+
+# See Include/object.h for CPython
+# and https://github.com/pallets/click/blob/master/click/_winconsole.py
+class _Py_buffer(ctypes.Structure):
+    _fields_ = [
+        ('buf',         c_void_p),
+        ('obj',         ctypes.py_object),
+        ('len',         _c_ssize_t),
+        ('itemsize',    _c_ssize_t),
+        ('readonly',    ctypes.c_int),
+        ('ndim',        ctypes.c_int),
+        ('format',      ctypes.c_char_p),
+        ('shape',       _c_ssize_p),
+        ('strides',     _c_ssize_p),
+        ('suboffsets',  _c_ssize_p),
+        ('internal',    c_void_p),
+        ('smalltable', _c_ssize_t * 2)
+    ]
+
 def c_uint8_ptr(data):
-    if byte_string(data) or isinstance(data, Array):
+    if byte_string(data) or isinstance(data, _Array):
         return data
-    elif isinstance(data, bytearray):
-        local_type = c_ubyte * len(data)
-        return local_type.from_buffer(data)
+    elif isinstance(data, _buffer_type):
+        obj = _py_object(data)
+        buf = _Py_buffer()
+        _PyObject_GetBuffer(obj, byref(buf), _PyBUF_SIMPLE)
+        buffer_type = c_ubyte * buf.len
+        return buffer_type.from_address(buf.buf)
     else:
         raise TypeError("Object type %s cannot be passed to C code" % type(data))
 
-class VoidPointer(object):
-    """Model a newly allocated pointer to void"""
+# ---
 
-    __slots__ = [ '_p' ]
+class VoidPointer_ctypes(_VoidPointer):
+    """Model a newly allocated pointer to void"""
 
     def __init__(self):
         self._p = c_void_p()
@@ -84,12 +136,14 @@ class VoidPointer(object):
     def address_of(self):
         return byref(self._p)
 
+def VoidPointer():
+    return VoidPointer_ctypes()
+
 backend = "ctypes"
+del ctypes
 
 class SmartPointer(object):
     """Class to hold a non-managed piece of memory"""
-
-    __slots__ = ( '_raw_pointer', '_destructor' )
 
     def __init__(self, raw_pointer, destructor):
         self._raw_pointer = raw_pointer
@@ -107,10 +161,17 @@ class SmartPointer(object):
             if self._raw_pointer is not None:
                 self._destructor(self._raw_pointer)
                 self._raw_pointer = None
-
-            self._destructor = None
         except AttributeError:
             pass
+
+
+def is_buffer(x):
+    """Return True if object x supports the buffer interface"""
+    return isinstance(x, (bytes, bytearray, memoryview))
+
+def is_writeable_buffer(x):
+    return (isinstance(x, bytearray) or
+            (isinstance(x, memoryview) and not x.readonly))
 
 def load_pycryptodome_raw_lib(name, cdecl):
     """Load a shared library and return a handle to it.

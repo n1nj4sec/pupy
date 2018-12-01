@@ -64,7 +64,8 @@ else
 	  python -m pip install pyuv --upgrade --no-binary :all:
 fi
 
-python -m pip install --upgrade --no-binary :all: pycryptodome==3.7.0
+# python -m pip install --upgrade --no-binary :all: pycryptodome==3.7.0
+python -m pip install --upgrade --no-binary :all: https://github.com/Legrandin/pycryptodome/archive/master.zip
 
 cd /usr/lib/python2.7
 

@@ -26,8 +26,8 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install --upgrade $PACKAGES pycryptodomex==3.7.0
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
     $PYTHON -m pip install cryptography==1.7.2 pyOpenSSL==17.5.0 paramiko
-    $PYTHON -m pip install --no-binary :all: pycryptodome==3.6.6
-    $PYTHON -c "from Crypto.Cipher import AES"
+    $PYTHON -m pip install --upgrade --no-binary :all: https://github.com/Legrandin/pycryptodome/archive/master.zip
+    $PYTHON -c "from Crypto.Cipher import AES; AES.new"
     if [ ! $? -eq 0 ]; then
 	echo "pycryptodome build failed"
 	exit 1
