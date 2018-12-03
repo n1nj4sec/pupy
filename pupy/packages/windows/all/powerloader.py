@@ -21,7 +21,8 @@ WaitNamedPipe.argtypes = (
 
 PIPE_LOADER_TEMPLATE = '''
 $ps=new-object System.IO.Pipes.PipeSecurity;
-$acl=new-object System.IO.Pipes.PipeAccessRule("Users","FullControl","Allow");
+$all=New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0");
+$acl=new-object System.IO.Pipes.PipeAccessRule($all,"FullControl","Allow");
 $ps.AddAccessRule($acl);
 $p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0,$ps);
 $p.WaitForConnection();
