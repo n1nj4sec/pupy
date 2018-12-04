@@ -7,14 +7,9 @@ from pupylib.PupyModule import (
     REQUIRE_STREAM
 )
 from netaddr import IPNetwork
-
-import modules.lib.windows.powerloader
-reload(modules.lib.windows.powerloader)
-
 from modules.lib.windows import powerloader
 
 __class_name__ = "PSExec"
-
 
 @config(cat="admin")
 class PSExec(PupyModule):

