@@ -30,7 +30,7 @@ def serve(
             tpl, len(payload)))
 
     dotnet_payload_path = DotNetPayload(
-        module.log, module.client.pupsrv, payload_config, payload).gen_exe()
+        module.log, module.client.pupsrv, payload_config, payload).gen_exe(options='-target:library')
 
     dotnet_payload = None
 

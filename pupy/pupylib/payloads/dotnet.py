@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import random
+import shlex
 
 from string import ascii_uppercase, ascii_lowercase
 from os.path import join, splitext
@@ -55,7 +56,7 @@ class DotNetPayload(object):
         outfile.close()
         return outfile.name
 
-    def gen_exe(self):
+    def gen_exe(self, options=''):
         sourcepath = self.gen_source(random_path=True)
 
         if not self.outpath:
@@ -69,13 +70,28 @@ class DotNetPayload(object):
         try:
             command = ['mcs']
 
-            if not self.conf.get('debug', False):
-                command.append('-target:winexe')
-
             sdk = self.server.config.get('gen', 'mcs_sdk', 4)
+            options = ' '.join([
+                options,
+                self.server.config.get('gen', 'mcs_options', '') or ''
+            ])
+
+            if options:
+                command.extend(shlex.split(options))
+
+            if not self.conf.get('debug', False):
+                if '-target:' not in options:
+                    command.append('-target:winexe')
+
+                if '-debug' not in options:
+                    command.append('-debug-')
+
+                if '-optimize' not in options:
+                    command.append('-optimize+')
 
             command.extend([
                 '-unsafe',
+                '-noconfig',
                 '-sdk:{}'.format(sdk),
                 '-OUT:{}'.format(outfile),
                 sourcepath
@@ -112,7 +128,7 @@ def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
         return
 
     dn = DotNetPayload(display, server, conf, rawdll)
-    exe_path = dn.gen_exe()
+    exe_path = dn.gen_exe(options='-target:library')
 
     with open(exe_path, 'rb') as r:
         payload = r.read()
