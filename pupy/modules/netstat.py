@@ -9,6 +9,14 @@ __class_name__="NetStatModule"
 
 ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
+def to_unicode(x):
+    if type(x) == str:
+        return x.decode('utf-8')
+    elif type(x) == unicode:
+        return x
+    else:
+        return unicode(x)
+
 @config(cat="admin")
 class NetStatModule(PupyModule):
     """ list terminal sessions """
@@ -90,9 +98,9 @@ class NetStatModule(PupyModule):
                 }
 
                 for v in connection.itervalues():
-                    if any(str(h) in unicode(v.data) for h in args.hide):
+                    if any(to_unicode(h) in to_unicode(v.data) for h in args.hide):
                         deny = True
-                    if any(str(h) in unicode(v.data) for h in args.show):
+                    if any(to_unicode(h) in to_unicode(v.data) for h in args.show):
                         deny = False
 
                 if not deny:
