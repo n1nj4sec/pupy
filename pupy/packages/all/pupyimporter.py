@@ -1013,7 +1013,18 @@ def install(debug=None, trace=False):
                     else:
                         return self._FuncPtr_orig(search_tuple)
 
+        class PupyPyDLL(PupyCDLL):
+            _func_flags_ = ctypes._FUNCFLAG_CDECL | ctypes._FUNCFLAG_PYTHONAPI
+
+            def __init__(self, name, **kwargs):
+                if name == 'python dll':
+                    name = 'python27.dll'
+                    kwargs['handle'] = False
+
+                super(PupyPyDLL, self).__init__(name, **kwargs)
+
         ctypes.CDLL = PupyCDLL
+        ctypes.PyDLL = PupyPyDLL
 
     ctypes._dlopen = pupy_dlopen
     ctypes.util.find_library = pupy_find_library
@@ -1021,6 +1032,25 @@ def install(debug=None, trace=False):
     if sys.platform == 'win32':
         import pywintypes
         assert pywintypes
+
+    if builtin_memimporter:
+        # Workarounds for libpython
+
+        libpython = None
+
+        if sys.platform == 'win32':
+            try:
+                libpython = ctypes.PyDLL('python27.dll', handle=False)
+            except WindowsError:
+                dprint('python27.dll not found')
+        else:
+            try:
+                libpython = ctypes.PyDLL('libpython2.7.so.1.0')
+            except OSError:
+                dprint('libpython2.7.so.1.0 not found')
+
+        if libpython:
+            ctypes.pythonapi = libpython
 
     import logging
     logger = logging.getLogger().getChild('ppi')

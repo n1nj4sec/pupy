@@ -103,6 +103,10 @@ class MemoryPE(object):
         # Killing the program if he is still alive
         self.EOF.set()
 
+        if self.pStdout:
+            CloseHandle(self.pStdout)
+            self.pStdout = None
+
         if self.pStdin:
             CloseHandle(self.pStdin)
             self.pStdin = None
@@ -121,13 +125,13 @@ class MemoryPE(object):
         if self.write_cb:
             self.write_cb = None
 
-    def execute(self, complete_cb, write_cb):
+    def execute(self, complete_cb, write_cb=True):
         ''' Execute process '''
 
         if complete_cb:
             self.complete_cb = rpyc.async(complete_cb)
 
-        if write_cb:
+        if write_cb and write_cb is not True:
             self.write_cb = rpyc.async(write_cb)
             self.terminate = True
 
@@ -176,15 +180,13 @@ class MemoryPE(object):
                     buffer[c_read.value] = '\x00'
 
                     if self.write_cb:
-                        self.stdout += buffer.value
                         try:
                             self.write_cb(buffer.value)
                         except:
                             # We need to empty pipe anyway
                             pass
-
-            CloseHandle(self.pStdout)
-            self.pStdout = None
+                    else:
+                        self.stdout += buffer.value
 
         except Exception, e:
             if self.write_cb:
