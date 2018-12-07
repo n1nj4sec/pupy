@@ -219,7 +219,7 @@ class PupyWebServer(object):
             self.pupsrv.info(Error(message))
 
     def start(self):
-        webstatic = self.config.get_folder('webstatic')
+        webstatic = self.config.get_folder('webstatic', create=False)
         cert = self.config.get('webserver', 'cert', None)
         key = self.config.get('webserver', 'key', None)
 
