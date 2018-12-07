@@ -139,15 +139,34 @@ class PupyConfig(ConfigParser):
         prefer_workdir = self.getboolean('paths', 'prefer_workdir')
         from_config = self.get('paths', filepath)
 
-        retfilepath = ''
         if from_config:
-            retfilepath = from_config
-        elif path.isabs(filepath):
+            filepath = from_config
+
+        retfilepath = ''
+
+        # 1. If path is absolute filepath use as-is
+        if path.isabs(filepath):
             retfilepath = filepath
-        elif prefer_workdir:
+
+        # 2. If file exists in workdir then use it
+        elif path.exists(filepath):
             retfilepath = filepath
-        else:
+
+        # 3. If file exists in userdir then use it
+        elif path.exists(path.join(self.user_root, filepath)):
             retfilepath = path.join(self.user_root, filepath)
+
+        # 4. If file exists in root dir, and we are not going to
+        #    create something new (default) then use it
+        elif path.exists(path.join(self.root, filepath)) and not create:
+            retfilepath = path.join(self.root, filepath)
+
+        # 5. File/path is not exists. We need to create one
+        else:
+            if prefer_workdir:
+                retfilepath = filepath
+            else:
+                retfilepath = path.join(self.user_root, filepath)
 
         substitutions.update({
             '%t': str(datetime.datetime.now()).replace(' ','_').replace(':','-')
