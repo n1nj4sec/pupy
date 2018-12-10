@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-#Author: @n1nj4sec
-#Contributor(s): @bobsecq
+# Author: @n1nj4sec
+# Contributor(s): @bobsecq
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, Color
 
-__class_name__="GetPrivsModule"
+__class_name__ = "GetPrivsModule"
+
 
 @config(compat=["windows"], cat="manage")
 class GetPrivsModule(PupyModule):
@@ -23,12 +24,12 @@ class GetPrivsModule(PupyModule):
 
     def run(self, args):
         if args.privileges:
-            EnablePrivilege = self.client.remote('pupwinutils.security', 'EnablePrivilege', False)
+            enable_privilege = self.client.remote('pupwinutils.security', 'EnablePrivilege', False)
             for privilege in args.privileges:
                 try:
-                    EnablePrivilege(privilege)
+                    enable_privilege(privilege)
                     self.success('{} enabled'.format(privilege))
-                except Exception, e:
+                except Exception as e:
                     self.error('{} was not enabled: {}'.format(
                         privilege, e.args[1]))
         else:

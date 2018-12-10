@@ -167,6 +167,7 @@ class Log(object):
         self.cleaner = re.compile('(\033[^m]+m)')
         self.closed = False
         self.stream = stream
+        self.is_stream = self.stream
 
         if self.rec == 'asciinema1':
             height, width = consize
@@ -303,6 +304,7 @@ class Log(object):
 
     def read(self, size=None):
         return self.out.read(size)
+
 
 class PupyModuleMetaclass(type):
     def __init__(self, *args, **kwargs):

