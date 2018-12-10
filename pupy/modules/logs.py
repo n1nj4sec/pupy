@@ -48,6 +48,9 @@ class Logs(PupyModule):
 
                 items.append(Color(date_str, 'lightgrey'))
 
+            if 'EventID' in item:
+                items.append(Color('EventID: ' + str(item['EventID']), 'green'))
+
             msg = item['msg']
 
             if not args.width:

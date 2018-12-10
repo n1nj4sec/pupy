@@ -260,6 +260,7 @@ class EventLog(object):
 
                     yield {
                         'id': int(winerror.HRESULT_CODE(ev_obj.EventID)) + UTC_OFFSET_TIMEDELTA,
+                        'EventID' : int(winerror.HRESULT_CODE(ev_obj.EventID)),
                         'record': ev_obj.RecordNumber,
                         'date': int(ev_obj.TimeGenerated),
                         'computer': ev_obj.ComputerName,
