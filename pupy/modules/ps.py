@@ -332,7 +332,7 @@ def print_ps(fout, data, colinfo={},
 class PsModule(PupyModule):
     """ list processes """
 
-    dependencies = ['pupyps', 'pupwinutils.security']
+    dependencies = ['pupyps']
     is_module = False
 
     @classmethod
@@ -355,14 +355,6 @@ class PsModule(PupyModule):
     def run(self, args):
         psinfo = self.client.remote('pupyps', 'psinfo')
         pstree = self.client.remote('pupyps', 'pstree')
-
-        if self.client.desc['intgty_lvl'] == "High" or self.client.desc['intgty_lvl'] == "System":
-            try:
-                enable_privilege = self.client.remote('pupwinutils.security', 'EnablePrivilege', False)
-                enable_privilege('SeDebugPrivilege')
-                self.success('{} enabled'.format('SeDebugPrivilege'))
-            except Exception as e:
-                self.error('{} was not enabled: {}'.format('SeDebugPrivilege', e.args[1]))
 
         families = {
             int(k):v for k,v in self.client.remote_const(
