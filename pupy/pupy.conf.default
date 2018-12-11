@@ -120,7 +120,7 @@ colors = yes
 shadow_screen = yes
 
 [paths]
-prefer_workdir = noprefer_workdir
+prefer_workdir = no
 downloads = data/downloads/%c
 memstrings = data/memstrings/%c
 searches = data/searches/%c
