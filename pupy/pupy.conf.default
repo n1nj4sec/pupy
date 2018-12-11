@@ -120,7 +120,7 @@ colors = yes
 shadow_screen = yes
 
 [paths]
-prefer_workdir = no
+prefer_workdir = noprefer_workdir
 downloads = data/downloads/%c
 memstrings = data/memstrings/%c
 searches = data/searches/%c
@@ -166,6 +166,15 @@ xdg_open = xdg-open
 #these are kali 2.0 default path
 exe_Win32=/usr/share/mimikatz/Win32/mimikatz.exe
 exe_x64=/usr/share/mimikatz/x64/mimikatz.exe
+
+[bypassuac]
+# Method ids taken from https://github.com/rootm0s/WinPwnage
+preferred_methods = 1,2,3,4,8,9,10
+
+[persistence]
+# Method ids taken from https://github.com/rootm0s/WinPwnage
+preferred_methods = 2,8,3,9
+name = OneDriveUpdate
 
 [aliases]
 info = get_info
