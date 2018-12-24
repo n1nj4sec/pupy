@@ -792,7 +792,7 @@ def pupygen(args, config, pupsrv, display):
                     bind_port=bind_port, target_ip=target_ip, nothidden=args.oneliner_nothidden)
 
                 display(Success(
-                    'You have to connect manually to the target {} '
+                    'You have to connect manually to the target {1} '
                     'with "connect --host {0}:{1}"'.format(target_ip, bind_port)))
 
                 raise NoOutput()
