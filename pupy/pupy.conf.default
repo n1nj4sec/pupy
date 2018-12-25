@@ -117,6 +117,7 @@ mcs_sdk = 2
 [cmdline]
 display_banner = yes
 colors = yes
+#If 'shadow_screen = no', this can fix some scrollback issues in some terminals (e.g. Terminator)
 shadow_screen = yes
 
 [paths]
