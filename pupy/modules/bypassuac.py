@@ -169,9 +169,11 @@ class BypassUAC(PupyModule):
             elif os.path.exists(arg0):
                 self.info('Using custom executable (local)')
                 local_file = args.exe
-                cmd = rjoin(
-                    tempdir, "{random_name}.{ext}".format(
-                        random_name=random_name, ext="exe")) + ' ' + argv
+                remoteFileName = "{random_name}.{ext}".format(
+                        random_name=random_name, 
+                        ext="exe")
+                remote_file = rjoin(tempdir(), remoteFileName)
+                cmd = remote_file + ' ' + argv
             else:
                 self.error('Executable file not found: {}'.format(arg0))
                 return
