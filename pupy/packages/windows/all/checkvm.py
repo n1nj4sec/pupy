@@ -146,6 +146,11 @@ class Check_VM():
             string = str(_winreg.QueryValueEx(h, 'ProcessorNameString')[0])
             if 'vmware' in string:
                 return True
+        h = self.check_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System\\BIOS')
+        if h:
+            string = str(_winreg.QueryValueEx(h, 'SystemManufacturer')[0])
+            if 'qemu' in string.lower():
+                return True
 
     def run(self):
         vm = []
