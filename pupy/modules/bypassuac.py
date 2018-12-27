@@ -17,6 +17,9 @@ __class_name__ = "BypassUAC"
 
 @config(compat="windows", category="privesc")
 class BypassUAC(PupyModule):
+    '''
+    Be carefull, most of bypass methods are detected by AV...
+    '''
 
     dependencies = ['winpwnage.core', 'winpwnage.functions.uac', 'powerloader']
 
