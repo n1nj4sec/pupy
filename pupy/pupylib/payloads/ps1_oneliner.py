@@ -3,9 +3,13 @@
 from pupylib.PupyOutput import List, Success, Warn, Error
 
 from base64 import b64encode
+from time import sleep
 
 import pupygen
 import socket
+import errno
+
+CONNECTION_RETRY_SLEEP_TIME = 3
 
 def serve_ps1_payload(display, server, conf, link_ip="<your_ip>", useTargetProxy=False, nothidden=False):
     if not server:
@@ -118,7 +122,24 @@ def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
 
     display(Success('Connecting to {0}:{1}'.format(target_ip, bind_port)))
 
-    s = socket.create_connection((target_ip, int(bind_port)))
+    s = None
+
+    for _ in xrange(10):
+        try:
+            s = socket.create_connection((target_ip, int(bind_port)))
+            break
+
+        except socket.error, e:
+            if e.errno not in (errno.ECONNREFUSED, errno.ETIMEDOUT):
+                display(Error('Connection failed: {}'.format(e)))
+                return
+
+            sleep(CONNECTION_RETRY_SLEEP_TIME)
+
+    if s is None:
+        display(Error('Connection failed'))
+        return
+
     s.settimeout(30)
     s.sendall("\n")
 
