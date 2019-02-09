@@ -5,6 +5,7 @@ pupy/proxy/proxy
 pupy/crypto/*.py
 pupy/.pupy_history
 pupy/pupy_*
+pupy/db
 .DS_Store
 *.swp
 
