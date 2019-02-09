@@ -173,7 +173,7 @@ class BypassUAC(PupyModule):
                 self.info('Using custom executable (local)')
                 local_file = args.exe
                 remoteFileName = "{random_name}.{ext}".format(
-                        random_name=random_name, 
+                        random_name=random_name,
                         ext="exe")
                 remote_file = rjoin(tempdir(), remoteFileName)
                 cmd = remote_file + ' ' + argv

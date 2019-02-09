@@ -233,7 +233,7 @@ class ConnectionInfo(object):
             return smb, None
 
         except SessionError, e:
-                return None, e.getErrorString()[0]
+            return None, e.getErrorString()[0]
 
         except (OSError, socket.error), e:
             return None, str(e)

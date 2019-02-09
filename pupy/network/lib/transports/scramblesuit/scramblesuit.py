@@ -218,8 +218,8 @@ class ScrambleSuitTransport(base.BaseTransport):
 
         # The preferred authentication mechanism is a session ticket.
         if self.uniformDHSecret is None:
-                #log.warning("A UniformDH password is not set, most likely " \
-                #            "a missing 'password' argument.")
+            # log.warning("A UniformDH password is not set, most likely " \
+            #            "a missing 'password' argument.")
 
             raise EOFError('A UniformDH password is not set')
             #log.debug("No session ticket to redeem.  Running UniformDH.")

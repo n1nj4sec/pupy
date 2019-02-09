@@ -200,7 +200,7 @@ try:
                 try:
                     name, value, _ = EnumValue(h, idx)
                 except WindowsError:
-                        break
+                    break
 
                 if type(value) in (str, unicode):
                     new_value = unquote(value)

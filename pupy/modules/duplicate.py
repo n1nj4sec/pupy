@@ -29,7 +29,7 @@ class MemoryDuplicate(PupyModule):
     def run(self, args):
         #usefull for bind connection
         launcherType, addressPort = self.client.desc['launcher'], self.client.desc['address']
-        newClientConf = self.client.get_conf() 
+        newClientConf = self.client.get_conf()
         listeningAddressPort =None #For Bind mode
         if self.client.is_windows() and launcherType == "bind":
             listeningPort = -1
@@ -48,10 +48,9 @@ class MemoryDuplicate(PupyModule):
             listeningAddressPort = "{0}:{1}".format(listeningAddress, listeningPort)
             self.info("The new pupy instance will listen on {0} on the target".format(listeningAddressPort))
             newClientConf = self.client.get_conf()
-            #Modify the listening port on the conf. If it is not modified, 
+            #Modify the listening port on the conf. If it is not modified,
             #the payload will listen on the same port as the inital pupy launcher on the target
             newClientConf['launcher_args'][newClientConf['launcher_args'].index("--port")+1] = str(listeningPort)
-            
             #Delete --oneliner-host argument, not compatible with exe payload
             for pos, val in enumerate(newClientConf['launcher_args']):
                 if "--oneliner-host" in val:

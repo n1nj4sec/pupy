@@ -229,14 +229,14 @@ def is_filtered(pid, columns, hide, show):
             if hide_rule == pid:
                 deny = True
         elif any(hide_rule.match(x) for x in [exe, name, cmd, username]):
-                deny = True
+            deny = True
 
     for show_rule in show:
         if type(show_rule) == int:
             if show_rule == pid:
                 deny = False
         elif any(show_rule.match(x) for x in [exe, name, cmd, username]):
-                deny = False
+            deny = False
 
     return deny
 
