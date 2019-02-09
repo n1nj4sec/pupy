@@ -26,7 +26,12 @@ from PupyCompile import pupycompile
 
 import additional_imports
 import Crypto
-import idna
+
+try:
+    import idna
+except ImportError:
+    print "[W] idna not found"
+
 import pp
 import site
 import marshal
