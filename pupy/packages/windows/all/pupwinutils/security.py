@@ -927,7 +927,7 @@ def ListSids():
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
         if not hProcess:
             error = get_last_error()
-            if error != ERROR_INVALID_PARAMETER:
+            if error not in (ERROR_INVALID_PARAMETER, ERROR_ACCESS_DENIED):
                 # Process exited, dead, whatever
                 raise WinError(get_last_error())
 
