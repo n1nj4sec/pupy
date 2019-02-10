@@ -998,7 +998,10 @@ def gethTokenFromPid(pid, exc=True):
     CloseHandle(hProcess)
 
     if dwError:
-        raise WinError(dwError)
+        if exc:
+            raise WinError(dwError)
+        else:
+            return None
 
     return hToken
 
