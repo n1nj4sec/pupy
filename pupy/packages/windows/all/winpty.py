@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from contextlib import contextmanager
-from pupwinutils.security import (
-    EnablePrivilege, get_currents_privs,
-    impersonate_token
-)
+from pupwinutils.security import impersonate_token
 
 from pupwinutils.security import CloseHandle as WinApiCloseHandle
 

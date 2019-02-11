@@ -48,7 +48,7 @@ class MsgPackMessages(object):
         data = self._conn.recv(datalen)
         if data == '':
             raise EOFError
-        
+
         return msgpack.loads(data)
 
     def send(self, msg):
