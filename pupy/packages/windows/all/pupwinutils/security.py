@@ -812,6 +812,7 @@ ERROR_INSUFFICIENT_BUFFER = 122
 ERROR_ACCESS_DENIED = 5
 ERROR_INVALID_PARAMETER = 87
 ERROR_NOT_ALL_ASSIGNED = 1300
+ERROR_NO_TOKEN = 1008
 
 def GetUserName():
     nSize = DWORD(0)
@@ -828,7 +829,7 @@ def GetUserName():
 
     return lpBuffer.value
 
-def GetTokenSid(hToken):
+def GetTokenSid(hToken, exc=True):
 
     """Retrieve SID from Token"""
 
@@ -839,7 +840,10 @@ def GetTokenSid(hToken):
     if not GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize)):
         error = get_last_error()
         if error != ERROR_INSUFFICIENT_BUFFER:
-            raise WinError(error)
+            if exc:
+                raise WinError(error)
+
+            return None
 
     address = LocalAlloc(0x0040, dwSize)
     if GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize)):
@@ -907,7 +911,7 @@ def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
     return bSuccess
 
-def ListSids():
+def ListSids(exc=False):
     sids=[]
 
     for proc in psutil.process_iter():
@@ -927,7 +931,7 @@ def ListSids():
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
         if not hProcess:
             error = get_last_error()
-            if error not in (ERROR_INVALID_PARAMETER, ERROR_ACCESS_DENIED):
+            if exc and error not in (ERROR_INVALID_PARAMETER, ERROR_ACCESS_DENIED):
                 # Process exited, dead, whatever
                 raise WinError(get_last_error())
 
@@ -944,12 +948,20 @@ def ListSids():
             if error == ERROR_ACCESS_DENIED:
                 continue
 
-            raise WinError(error)
+            if exc:
+                raise WinError(error)
+
+            continue
 
         try:
-            sids.append((pinfo['pid'], pinfo['name'], GetTokenSid(hToken), pinfo['username']))
+            sid = GetTokenSid(hToken, exc)
         finally:
             CloseHandle(hToken)
+
+        if sid is None:
+            continue
+
+        sids.append((pinfo['pid'], pinfo['name'], sid, pinfo['username']))
 
     return list(sids)
 
@@ -967,6 +979,23 @@ def getProcessToken(pid):
     CloseHandle(hProcess)
 
     if dwError:
+        raise WinError(dwError)
+
+    return hToken
+
+def get_thread_token():
+    hThread = GetCurrentThread()
+    hToken = HANDLE(INVALID_HANDLE_VALUE)
+    dwError = None
+
+    if not OpenThreadToken(hThread, tokenprivs, False, byref(hToken)):
+        dwError = get_last_error()
+
+    CloseHandle(hThread)
+
+    if dwError:
+        if dwError == ERROR_NO_TOKEN:
+            return get_process_token()
         raise WinError(dwError)
 
     return hToken
@@ -1006,34 +1035,21 @@ def gethTokenFromPid(pid, exc=True):
     return hToken
 
 def getSidToken(token_sid):
-
     # trying to get system privileges
-    if token_sid == SID_SYSTEM:
-        sids = ListSids()
-        for sid in sids:
-            if 'winlogon' not in sid[1].lower():
+    for (pid, name, sid, _) in ListSids():
+        if token_sid == SID_SYSTEM:
+            if 'winlogon' not in name.lower():
                 continue
 
-            hToken = gethTokenFromPid(sid[0], exc=False)
-            if not hToken:
-                continue
+        elif token_sid != sid:
+            continue
 
-            return hToken
+        hToken = gethTokenFromPid(pid, exc=True)
+        # hToken = gethTokenFromPid(pid, exc=False)
+        if not hToken:
+            continue
 
-    # trying to impersonate a token
-    else:
-        for p in psutil.process_iter():
-            if p.pid <= 4:
-                continue
-
-            hToken = gethTokenFromPid(p.pid, exc=False)
-            if not hToken:
-                continue
-
-            if GetTokenSid(hToken) == token_sid:
-                return hToken
-
-            CloseHandle(hToken)
+        return hToken
 
 def impersonate_pid(pid, close=True):
     EnablePrivilege("SeDebugPrivilege")
@@ -1046,6 +1062,8 @@ def impersonate_pid(pid, close=True):
 
     if close and hTokendupe:
         CloseHandle(hTokendupe)
+
+    CloseHandle(hToken)
 
     return hTokendupe
 
@@ -1064,6 +1082,8 @@ def impersonate_sid(sid, close=True):
     hTokendupe = impersonate_token(hToken)
     if close and hTokendupe:
         CloseHandle(hTokendupe)
+
+    CloseHandle(hToken)
 
     if not hTokendupe:
         raise ValueError('Could not impersonate token for SID {}'.format(sid))
@@ -1140,6 +1160,9 @@ def isSystem():
             if sid[2] == SID_SYSTEM:
                 return True
     return False
+
+def token_impersonated_as_system(hToken):
+    return GetTokenSid(hToken) == SID_SYSTEM
 
 def create_proc_as_sid(sid, prog='cmd.exe'):
     if not sid.startswith('S-1-'):

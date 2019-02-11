@@ -72,7 +72,11 @@ class InteractiveShell(PupyModule):
         acquire_shell = self.client.remote('ptyshell', 'acquire', False)
         release_shell = self.client.remote('ptyshell', 'release', False)
 
-        new, ps = acquire_shell(args.program, term, args.su)
+        try:
+            new, ps = acquire_shell(args.program, term, args.su)
+        except Exception as e:
+            self.error(' '.join(x for x in e.args if type(x) == str))
+            return
 
         if not ps:
             self.error('Can\'t create shell')

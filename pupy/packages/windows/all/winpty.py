@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from contextlib import contextmanager
+from pupwinutils.security import (
+    EnablePrivilege, get_currents_privs,
+    impersonate_token
+)
+
+from pupwinutils.security import CloseHandle as WinApiCloseHandle
 
 from ctypes import (
     windll, c_int, c_uint, c_void_p, pointer,
@@ -52,6 +58,7 @@ class WinPty(object):
             'winpty_config_free': CFUNCTYPE(None, c_void_p),
             'winpty_config_set_initial_size': CFUNCTYPE(None, c_void_p, c_int, c_int),
             'winpty_config_set_mouse_mode': CFUNCTYPE(None, c_void_p, c_int),
+            'winpty_config_set_htoken': CFUNCTYPE(None, c_void_p, c_void_p),
             'winpty_config_set_agent_timeout': CFUNCTYPE(None, c_void_p, c_uint),
             'winpty_open': CFUNCTYPE(c_void_p, c_void_p, c_void_p),
             'winpty_free': CFUNCTYPE(None, c_void_p),
@@ -66,10 +73,14 @@ class WinPty(object):
             'winpty_conerr_name': CFUNCTYPE(LPCWSTR, c_void_p)
         }
 
+        _new_api = set(['winpty_config_set_htoken'])
+
         for funcname, definition in _functions.iteritems():
             funcaddr = pupy.find_function_address(DLLNAME, funcname)
-            if not funcaddr:
-                raise ImportError("Couldn't find function {} at winpty.dll".format(funcname))
+            if not funcaddr and funcname not in _new_api:
+                raise ImportError(
+                    "Couldn't find function {} at winpty.dll".format(
+                        funcname))
 
             setattr(self, funcname[len('winpty_'):], definition(funcaddr))
 
@@ -94,7 +105,7 @@ def winpty_error():
 
 class WinPTY(object):
     def __init__(self, program,
-            cmdline=None, cwd=None, env=None,
+            cmdline=None, cwd=None, env=None, htoken=None,
             spawn_flags=WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN|WINPTY_SPAWN_FLAG_EXIT_AFTER_SHUTDOWN,
             pty_flags=0, pty_size=(80,25), pty_mouse=WINPTY_MOUSE_MODE_NONE):
 
@@ -109,6 +120,14 @@ class WinPTY(object):
             if cols and rows:
                 winpty.config_set_initial_size(config, cols, rows)
             winpty.config_set_mouse_mode(config, pty_mouse)
+
+            if htoken:
+                caller_thread_htoken, requested_htoken = htoken
+                htokendup = impersonate_token(caller_thread_htoken)
+                WinApiCloseHandle(caller_thread_htoken)
+
+                if htokendup:
+                    winpty.config_set_htoken(config, requested_htoken)
 
             with winpty_error() as error:
                 self._pty = winpty.open(config, error)
@@ -160,7 +179,7 @@ class WinPTY(object):
                     )
 
                 with winpty_error() as error:
-                    winpty.spawn(
+                    spawned = winpty.spawn(
                         self._pty, spawn_ctx,
                         pointer(process_handle),
                         pointer(thread_handle),
@@ -168,7 +187,8 @@ class WinPTY(object):
                         error
                     )
 
-                self._process_handle = process_handle
+                    if spawned:
+                        self._process_handle = process_handle
 
             finally:
                 winpty.spawn_config_free(spawn_ctx)
