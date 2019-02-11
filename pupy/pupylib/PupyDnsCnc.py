@@ -44,6 +44,32 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
 
+    def _kex_is_disabled(self, node):
+        if node is None:
+            return False
+
+        nodeid = node.node
+        kex_disabled = self.config.get('dnscnc', 'kex_disabled')
+        if not kex_disabled:
+            return False
+
+        for disabled in kex_disabled.split(','):
+            disabled = disabled.strip()
+
+            try:
+                disabled = int(disabled, 16)
+                if disabled == nodeid:
+                    return True
+
+            except ValueError:
+                for tagged in self.config.by_tags(disabled):
+                    tagged = int(tagged, 16)
+                    if tagged == nodeid:
+                        return True
+
+        return False
+
+
     def _whitelist(self, nodeid, cid, version):
         if not self.config.getboolean('dnscnc', 'whitelist'):
             return True

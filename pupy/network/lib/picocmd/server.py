@@ -710,10 +710,10 @@ class DnsCommandServerHandler(BaseResolver):
             node.iid if node else None)
 
         if isinstance(command, Poll) and session is None:
-            if not self.kex:
+            if not self.kex or self._kex_is_disabled(node):
                 if node:
                     return node.commands or [
-                        Policy(self.interval, self.kex)
+                        Policy(self.interval, False)
                     ]
 
                 elif self.commands:
@@ -1003,7 +1003,6 @@ class DnsCommandServerHandler(BaseResolver):
         except DnsCommandServerException as e:
             nonce = e.nonce
             version = e.version
-
             responses = [e.error, Policy(self.interval, self.kex), Poll()]
             emsg = 'Server Error: {} (v={})'.format(e, version)
             logger.debug(emsg)
@@ -1079,6 +1078,9 @@ class DnsCommandServerHandler(BaseResolver):
             return None
 
         return self._a_page_encoder(payload, encoder, nonce)
+
+    def _kex_is_disabled(self, node):
+        return False
 
     def _resolve(self, request, handler):
         qname = request.q.qname
