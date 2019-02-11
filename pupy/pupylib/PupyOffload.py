@@ -46,6 +46,9 @@ class MsgPackMessages(object):
 
         datalen, = struct.unpack('>I', datalen_b)
         data = self._conn.recv(datalen)
+        if data == '':
+            raise EOFError
+        
         return msgpack.loads(data)
 
     def send(self, msg):
