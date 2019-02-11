@@ -23,10 +23,9 @@ echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
     $PYTHON -m pip install -q --upgrade setuptools
-    $PYTHON -m pip install --upgrade $PACKAGES pycryptodomex==3.7.0
+    $PYTHON -m pip install --upgrade $PACKAGES pycryptodomex pycryptodome
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
     $PYTHON -m pip install cryptography==1.7.2 pyOpenSSL==17.5.0 paramiko
-    $PYTHON -m pip install --upgrade --no-binary :all: https://github.com/Legrandin/pycryptodome/archive/master.zip
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
     if [ ! $? -eq 0 ]; then
 	echo "pycryptodome build failed"
@@ -73,13 +72,25 @@ $CL64 \
     /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
 
 echo "[+] Compile winpty /32"
+rm -f $WINPTY/build/winpty.dll
 make -C ${WINPTY} clean
-make -C ${WINPTY} MINGW_CXX="${MINGW32} -Os -s" build/winpty.dll
+make -C ${WINPTY} MINGW_CXX="${MINGW32}-win32 -mabi=ms -Os" V=1 build/winpty.dll
+if [ ! -f $WINPTY/build/winpty.dll ]; then
+    echo "WinPTY/x86 build failed"
+    exit 1
+fi
+
 mv $WINPTY/build/winpty.dll ${WINE32}/drive_c/Python27/DLLs/
 
 echo "[+] Compile winpty /64"
+rm -f $WINPTY/build/winpty.dll
 make -C ${WINPTY} clean
-make -C ${WINPTY} MINGW_CXX="${MINGW64} -Os -s" build/winpty.dll
+make -C ${WINPTY} MINGW_CXX="${MINGW64}-win32 -mabi=ms -Os" V=1 build/winpty.dll
+if [ ! -f rm -f $WINPTY/build/winpty.dll ]; then
+    echo "WinPTY/x64 build failed"
+    exit 1
+fi
+
 mv ${WINPTY}/build/winpty.dll ${WINE64}/drive_c/Python27/DLLs/
 
 TEMPLATES=`readlink -f ../../pupy/payload_templates`
@@ -128,9 +139,9 @@ make -f Makefile -j BUILDENV=/build ARCH=win32
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
 make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1 
+make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1 
+make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1
 make -f Makefile -j BUILDENV=/build ARCH=win64 distclean
 make -f Makefile -j BUILDENV=/build ARCH=win64
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
@@ -145,7 +156,7 @@ for object in $TARGETS; do
     if [ -z "$object" ]; then
 	continue
     fi
-    
+
     if [ ! -f $TEMPLATES/$object ]; then
 	echo "[-] $object - failed"
 	FAILED=1
