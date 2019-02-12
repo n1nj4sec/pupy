@@ -43,13 +43,18 @@ import psutil
 import pyexpat
 
 try:
+    import dukpy
+except ImportError:
+    print "dukpy not found"
+
+try:
     import kcp
-except:
+except ImportError:
     print "kcp not found"
 
 try:
     import uidle
-except:
+except ImportError:
     print "uidle not found"
 
 import poster

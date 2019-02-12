@@ -37,6 +37,9 @@ python -m pip install --upgrade \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
        watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
 
+CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
+      python -m pip install --force-reinstall --upgrade dukpy --no-binary :all:
+
 LDFLAGS="$LDFLAGS -lasound" python -m pip install --upgrade pyaudio
 
 python -m pip -q install --upgrade --force-reinstall pycparser==2.17
