@@ -769,13 +769,18 @@ LocalFree                           = kernel32.LocalFree
 LocalFree.restype                   = HANDLE
 LocalFree.argtypes                  = [HANDLE]
 
-InitializeProcThreadAttributeList          = kernel32.InitializeProcThreadAttributeList
-InitializeProcThreadAttributeList.restype  = BOOL
-InitializeProcThreadAttributeList.argtypes = [PVOID, DWORD, DWORD, POINTER(SIZE_T)]
+try:
+    InitializeProcThreadAttributeList          = kernel32.InitializeProcThreadAttributeList
+    InitializeProcThreadAttributeList.restype  = BOOL
+    InitializeProcThreadAttributeList.argtypes = [PVOID, DWORD, DWORD, POINTER(SIZE_T)]
 
-UpdateProcThreadAttribute                  = kernel32.UpdateProcThreadAttribute
-UpdateProcThreadAttribute.restype          = BOOL
-UpdateProcThreadAttribute.argtypes         = [PVOID, DWORD, PVOID, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
+    UpdateProcThreadAttribute                  = kernel32.UpdateProcThreadAttribute
+    UpdateProcThreadAttribute.restype          = BOOL
+    UpdateProcThreadAttribute.argtypes         = [PVOID, DWORD, PVOID, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
+
+except AttributeError:
+    # Windows XP, ignore
+    pass
 
 # ntdll
 RtlGetVersion                       = ntdll.RtlGetVersion
