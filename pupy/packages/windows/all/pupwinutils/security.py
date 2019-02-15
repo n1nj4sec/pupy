@@ -24,6 +24,15 @@ import logging
 
 from os import W_OK, X_OK, R_OK
 
+def to_unicode(x):
+    tx = type(x)
+    if tx == unicode:
+        return x
+    elif tx == str:
+        return x.decode(sys.getfilesystemencoding())
+    else:
+        return x
+
 ntdll    = WinDLL('ntdll',    use_last_error=True)
 advapi32 = WinDLL('advapi32', use_last_error=True)
 shell32  = WinDLL('shell32',  use_last_error=True)
@@ -966,7 +975,10 @@ def ListSids(exc=False):
         if sid is None:
             continue
 
-        sids.append((pinfo['pid'], pinfo['name'], sid, pinfo['username']))
+        sids.append((
+            pinfo['pid'],
+            to_unicode(pinfo['name']), sid,
+            to_unicode(pinfo['username'])))
 
     return list(sids)
 
