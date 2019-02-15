@@ -34,6 +34,10 @@ def serve(
 
     dotnet_payload = None
 
+    if not dotnet_payload_path:
+        module.error(".NET Compilation failed")
+        return
+
     with open(dotnet_payload_path, 'rb') as dotnet_payload_obj:
         dotnet_payload = dotnet_payload_obj.read()
 
