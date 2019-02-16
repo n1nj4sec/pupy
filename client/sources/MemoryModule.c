@@ -432,6 +432,42 @@ static void _FreeLibrary(HCUSTOMMODULE module, void *userdata)
     FreeLibrary((HMODULE) module);
 }
 
+//===============================================================================================//
+#if defined(_WIN64)
+BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
+{
+	UINT_PTR uiLibraryAddress = 0;
+    UINT_PTR uiAddressArray = 0;
+    UINT_PTR uiNameArray    = 0;
+    UINT_PTR uiNameOrdinals = 0;
+    PIMAGE_NT_HEADERS pNtHeaders             = NULL;
+    PIMAGE_DATA_DIRECTORY pDataDirectory     = NULL;
+    PIMAGE_RUNTIME_FUNCTION_ENTRY pExceptionDirectory = NULL;
+    DWORD dwCount;
+    BOOL bResult;
+    unsigned char *codeBase = pModule->codeBase;
+
+	if( pModule == NULL )
+		return FALSE;
+
+    pDataDirectory = GET_HEADER_DICTIONARY(pModule, IMAGE_DIRECTORY_ENTRY_EXCEPTION);
+
+    if (pDataDirectory->Size == 0 || pDataDirectory->VirtualAddress == 0)
+        return TRUE;
+
+    // get the VA of the export directory
+    pExceptionDirectory = (PIMAGE_RUNTIME_FUNCTION_ENTRY)(codeBase + pDataDirectory->VirtualAddress);
+
+    if (!pExceptionDirectory)
+            return TRUE;
+
+    dwCount = (pDataDirectory->Size / sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY)) - 1;
+
+    return RtlAddFunctionTable((PRUNTIME_FUNCTION)pExceptionDirectory, dwCount, (UINT_PTR)codeBase);
+}
+#endif
+
+
 HMEMORYMODULE MemoryLoadLibrary(const void *data)
 {
     return MemoryLoadLibraryEx(data, _LoadLibrary, _GetProcAddress, _FreeLibrary, NULL);
@@ -550,6 +586,13 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     if (!BuildImportTable(result)) {
         goto error;
     }
+
+#if defined(_WIN64)
+    // Enable exceptions
+    if (!RegisterExceptionTable(result)) {
+        goto error;
+    }
+#endif
 
     // mark memory pages depending on section headers and release
     // sections that are marked as "discardable"
