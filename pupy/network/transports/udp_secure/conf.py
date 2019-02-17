@@ -7,7 +7,7 @@ from network.lib import PupyUDPServer, PupyUDPClient, PupyUDPSocketStream
 from network.lib import RSA_AESClient, RSA_AESServer, DummyPupyTransport
 
 class TransportConf(Transport):
-    info = "Simple UDP transport transmitting in cleartext"
+    info = "Simple UDP transport transmitting with RSA"
     name="udp_secure"
     server=PupyUDPServer
     client=PupyUDPClient
