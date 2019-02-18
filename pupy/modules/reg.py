@@ -18,6 +18,7 @@ TYPE_COLORS = {
     'BINARY': 'grey',
     'LE32': 'lightgreen',
     'BE32': 'blue',
+    'LE64': 'lightgreen',
     'LINK': 'lightyellow',
     'MULTI_SZ': 'lightred',
     'RESOURCE': 'red',

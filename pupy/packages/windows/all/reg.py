@@ -32,6 +32,7 @@ WELL_KNOWN_TYPES = {
 
 WELL_KNOWN_TYPES_NAMES = {
     _winreg.REG_DWORD: 'DWORD',
+    _winreg.REG_QWORD: 'LE64',
     _winreg.REG_BINARY: 'BINARY',
     _winreg.REG_DWORD_LITTLE_ENDIAN: 'LE32',
     _winreg.REG_DWORD_BIG_ENDIAN: 'BE32',
