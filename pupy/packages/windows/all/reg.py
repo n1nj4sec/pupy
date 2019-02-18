@@ -375,7 +375,12 @@ def search(term, roots=('HKU', 'HKLM', 'HKCC'), key=True, name=True, value=True,
 
     return typleized
 
-def enum(path):
+def enum(path=None):
+    if path is None:
+        return [(
+            True, unicode(item)
+        ) for item in WELL_KNOWN_KEYS]
+
     try:
         tupleized = []
 

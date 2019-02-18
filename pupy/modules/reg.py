@@ -26,12 +26,27 @@ TYPE_COLORS = {
 }
 
 def as_unicode(x):
-    if type(x) is str:
+    if x is None:
+        return None
+    elif type(x) is str:
         return x.decode('utf-8')
     elif type(x) is unicode:
         return x
     else:
         return unicode(x)
+
+def fix_key(x):
+    x = as_unicode(x)
+    if x is None:
+        return x
+    elif '\\' not in x:
+        x = x.replace('/', '\\')
+
+    while '\\\\' in x:
+        x = x.replace('\\\\', '\\')
+
+    return x
+
 
 @config(cat='admin', compatibilities=['windows'])
 class reg(PupyModule):
@@ -47,7 +62,7 @@ class reg(PupyModule):
         commands = cls.arg_parser.add_subparsers(dest='command')
 
         ls = commands.add_parser('ls')
-        ls.add_argument('key', default='HKCU', help='List key (HKCU by default)')
+        ls.add_argument('key', nargs='?', help='List key (HKCU by default)')
         ls.add_argument('-w', '--wide', action='store_true', default=False, help='Show all the things')
         ls.set_defaults(func=cls.ls)
 
@@ -107,6 +122,9 @@ class reg(PupyModule):
 
     def run(self, args):
         try:
+            if args.key:
+                args.key = fix_key(args.key)
+
             args.func(self, args)
 
         except Exception, e:
@@ -168,7 +186,7 @@ class reg(PupyModule):
 
     def ls(self, args):
         ls = self.client.remote('reg', 'enum')
-        result = ls(as_unicode(args.key))
+        result = ls(args.key)
 
         if result is None:
             self.error('No such key')
@@ -179,7 +197,7 @@ class reg(PupyModule):
     def get(self, args):
         get = self.client.remote('reg', 'get')
 
-        value = get(as_unicode(args.key), as_unicode(args.name))
+        value = get(args.key, as_unicode(args.name))
         if value is None:
             self.error('No such key')
         else:
@@ -195,7 +213,7 @@ class reg(PupyModule):
             value = as_unicode(value)
 
         try:
-            if kset(as_unicode(args.key), as_unicode(args.name), value, args.create):
+            if kset(args.key, as_unicode(args.name), value, args.create):
                 self.success('OK')
             else:
                 self.error('No such key')
@@ -206,7 +224,7 @@ class reg(PupyModule):
     def rm(self, args):
         rm = self.client.remote('reg', 'rm')
 
-        if rm(as_unicode(args.key), as_unicode(args.name)):
+        if rm(args.key, as_unicode(args.name)):
             self.success('OK')
         else:
             self.error('No such key')
