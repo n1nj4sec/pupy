@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ['HTTP']
-
 import urllib2
 import urllib
 import urlparse
@@ -12,7 +10,13 @@ import types
 
 import StringIO
 
-from . import socks
+from netaddr import IPAddress, AddrFormatError
+
+from .socks import (
+    ProxyConnectionError, socksocket, PROXY_TYPES, DEFAULT_PORTS
+)
+
+from .socks import HTTP as PROXY_SCHEME_HTTP
 
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
@@ -185,7 +189,7 @@ class SocksiPyConnection(StreamingHTTPConnection):
 
     def connect(self):
         if self.sock is None:
-            self.sock = socks.socksocket()
+            self.sock = socksocket()
             self.sock.setproxy(*self.proxyargs)
             if isinstance(self.timeout, float):
                 self.sock.settimeout(self.timeout)
@@ -200,7 +204,7 @@ class SocksiPyConnectionS(StreamingHTTPSConnection):
 
     def connect(self):
         if self.sock is None:
-            sock = socks.socksocket()
+            sock = socksocket()
             sock.setproxy(*self.proxyargs)
             if type(self.timeout) in (int, float):
                 sock.settimeout(self.timeout)
@@ -254,9 +258,17 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
 
 class HTTP(object):
 
-    __slots__ = ('ctx', 'proxy', 'noverify', 'timeout', 'opener')
+    __slots__ = (
+        'ctx', 'proxy', 'noverify',
+        'no_proxy_locals', 'no_proxy_for',
+        'timeout', 'headers', 'follow_redirects')
 
-    def __init__(self, proxy=None, noverify=True, follow_redirects=False, headers={}, timeout=5, cadata=None):
+    def __init__(
+        self,
+            proxy=None, noverify=True, follow_redirects=False,
+            headers={}, timeout=5, cadata=None,
+            no_proxy_locals=True, no_proxy_for=[]):
+
         self.ctx = ssl.create_default_context(cadata=cadata)
 
         if noverify:
@@ -264,6 +276,10 @@ class HTTP(object):
             self.ctx.verify_mode = ssl.CERT_NONE
 
         self.proxy = None
+        self.headers = headers
+        self.follow_redirects = follow_redirects
+        self.no_proxy_locals = no_proxy_locals
+        self.no_proxy_for = no_proxy_for
 
         tproxy = type(proxy)
         if tproxy in (str, unicode):
@@ -277,7 +293,10 @@ class HTTP(object):
                 proxyscheme.username or None, \
                 proxyscheme.password or None
         elif proxy in (True, None):
-            self.proxy = find_default_proxy()
+            if has_wpad():
+                self.proxy = 'wpad'
+            else:
+                self.proxy = find_default_proxy()
         elif hasattr(proxy, 'as_tuple'):
             self.proxy = proxy.as_tuple()
         else:
@@ -286,17 +305,47 @@ class HTTP(object):
         self.noverify = noverify
         self.timeout = timeout
 
-        if not self.proxy:
+    def _is_local_network(self, address):
+        url = urlparse.urlparse(address)
+        try:
+            net = IPAddress(url).hostname
+            return net.is_private()
+        except (AddrFormatError, TypeError):
+            return False
+
+    def _is_direct(self, address):
+        if self.no_proxy_locals and self._is_local_network(address):
+            return True
+
+        if self.no_proxy_for and urlparse(address).hostname in self.no_proxy_for:
+            return True
+
+        return False
+
+    def make_opener(self, address):
+        scheme = None
+        proxy_host = None
+
+        if self.proxy == 'wpad':
+            proxy = get_proxy_for_address(address)
+            if proxy:
+                proxy = proxy[0]
+            else:
+                proxy = None
+        else:
+            proxy = self.proxy
+
+        if not proxy or proxy[0] == 'DIRECT' or self._is_direct(address):
             handlers = [
                 StreamingHTTPHandler,
                 StreamingHTTPSHandler(context=self.ctx),
                 TCPReaderHandler(context=self.ctx)
             ]
         else:
-            scheme, host, user, password = self.proxy
+            scheme, host, user, password = proxy
 
-            scheme = socks.PROXY_TYPES[scheme]
-            port = socks.DEFAULT_PORTS[scheme]
+            scheme = PROXY_TYPES[scheme]
+            port = DEFAULT_PORTS[scheme]
 
             if ':' in host:
                 host, maybe_port = host.split(':')
@@ -306,6 +355,8 @@ class HTTP(object):
                 except ValueError:
                     pass
 
+            proxy_host = host+':'+str(port)
+
             sockshandler = SocksiPyHandler(
                 scheme, host, port,
                 user or None, password or None,
@@ -313,8 +364,9 @@ class HTTP(object):
             )
 
             handlers = []
-            if scheme == socks.HTTP:
-                http_proxy = '{}:{}'.format(host, port)
+
+            if scheme == PROXY_SCHEME_HTTP:
+                http_proxy = proxy_host
 
                 if user and password:
                     http_proxy = '{}:{}@{}'.format(user, password, http_proxy)
@@ -327,29 +379,40 @@ class HTTP(object):
 
             handlers.append(sockshandler)
 
-        if not follow_redirects:
+        if not self.follow_redirects:
             handlers.append(NoRedirects)
 
         handlers.append(UDPReaderHandler)
 
-        self.opener = urllib2.OpenerDirector()
+        opener = urllib2.OpenerDirector()
         for h in handlers:
             if isinstance(h, (types.ClassType, type)):
                 h = h()
-            self.opener.add_handler(h)
+            opener.add_handler(h)
 
-        if type(headers) == dict:
-            self.opener.addheaders = [
-                (x, y) for x,y in headers.iteritems()
+        if type(self.headers) == dict:
+            opener.addheaders = [
+                (x, y) for x,y in self.headers.iteritems()
             ]
         else:
-            self.opener.addheaders = headers
+            opener.addheaders = self.headers
+
+        return opener, scheme, proxy_host
 
     def get(self, url, save=None, headers=None, return_url=False, return_headers=False, code=False):
         if headers:
             url = urllib2.Request(url, headers=headers)
 
-        response = self.opener.open(url, timeout=self.timeout)
+        opener, scheme, host = self.make_opener(url)
+
+        try:
+            response = opener.open(url, timeout=self.timeout)
+        except ProxyConnectionError as e:
+            if self.proxy == 'wpad':
+                set_proxy_unavailable(scheme, host)
+
+            raise e
+
         result = []
 
         if save:
@@ -403,11 +466,19 @@ class HTTP(object):
 
         url = urllib2.Request(url, data, headers)
 
-        if file:
-            with open(file, 'rb') as body:
-                response = self.opener.open(url, body, timeout=self.timeout)
-        else:
-            response = self.opener.open(url, timeout=self.timeout)
+        opener, scheme, host = self.make_opener(url)
+
+        try:
+            if file:
+                with open(file, 'rb') as body:
+                    response = opener.open(url, body, timeout=self.timeout)
+            else:
+                response = opener.open(url, timeout=self.timeout)
+        except ProxyConnectionError as e:
+            if self.proxy == 'wpad':
+                set_proxy_unavailable(scheme, host)
+
+            raise e
 
         if save:
             with open(save, 'w+b') as output:
@@ -436,4 +507,9 @@ class HTTP(object):
         else:
             return tuple(result)
 
-from network.lib.proxies import find_default_proxy
+from .proxies import (
+    find_default_proxy, set_proxy_unavailable,
+    has_wpad, get_proxy_for_address
+)
+
+__all__ = [HTTP]

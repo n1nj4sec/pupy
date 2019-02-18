@@ -2,6 +2,7 @@
 
 __all__ = (
     'check_transparent_proxy',
+    'internal_ip',
     'external_ip',
     'external_headers',
     'online',
@@ -193,6 +194,16 @@ def check_transparent_proxy():
         logger.debug('Check transparent proxy: %s', e)
 
     return False
+
+def internal_ip(check='8.8.8.8'):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((check, 123))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except socket.error:
+        pass
 
 def external_ip(force_ipv4=False):
     global LAST_EXTERNAL_IP, LAST_EXTERNAL_IP_TIME

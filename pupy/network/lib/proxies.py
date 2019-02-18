@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ['get_proxies']
-
 import re
 import os
-import socket
 import time
 
 from . import getLogger
@@ -25,6 +22,11 @@ PROXY_ENV += [
 
 LAST_PROXY = None
 LAST_PROXY_TIME = None
+
+LAST_WPAD = None
+LAST_WPAD_TIME = None
+
+CHECK_CONNECTIVITY_URL = 'http://connectivitycheck.gstatic.com/generate_204'
 
 gio = None
 
@@ -270,26 +272,6 @@ def get_processes_proxies():
             yield parsed
 
 
-LAST_WPAD = None
-def get_wpad_proxies(wpad_timeout=600):
-    global LAST_WPAD
-
-    # to avoid flooding the network with wpad requests :)
-    if LAST_WPAD is None or time.time() - LAST_WPAD > wpad_timeout:
-        LAST_WPAD = time.time()
-        try:
-            wpad_domain = socket.getfqdn('wpad')
-            wpad_request = urllib.urlopen('http://%s/wpad.dat'%(wpad_domain))
-            wpad_data = wpad_request.read()
-            r=re.findall(r'PROXY\s+([a-zA-Z0-9.-]+:[0-9]+);?\s*', wpad_data)
-            for p in r:
-                logger.debug('HTTP Proxy found via wpad: %s', p)
-                yield ('HTTP', p, None, None)
-
-        except:
-            pass
-
-
 def get_proxies(additional_proxies=None):
     global PROXY_MATCHER
     global LAST_PROXY
@@ -350,11 +332,6 @@ def get_proxies(additional_proxies=None):
             yield proxy
             dups.add(proxy)
 
-    for proxy in get_wpad_proxies():
-        if proxy not in dups:
-            yield proxy
-            dups.add(proxy)
-
     if os.name == 'nt':
         for proxy in get_win_proxies():
             if proxy not in dups:
@@ -372,7 +349,12 @@ def get_proxies(additional_proxies=None):
             yield proxy
             dups.add(proxy)
 
-from network.lib.tinyhttp import HTTP
+from .tinyhttp import HTTP
+from .pac import (
+    get_proxy_for_address, set_proxy_unavailable,
+    refresh_pac_player
+)
+
 
 def find_default_proxy():
     global LAST_PROXY, LAST_PROXY_TIME
@@ -386,21 +368,66 @@ def find_default_proxy():
 
     LAST_PROXY_TIME = time.time()
 
-    for proxy_info in get_proxies():
+    def _check_proxy_info(proxy_info):
         logger.debug('%s - check', proxy_info)
         ctx = HTTP(proxy=proxy_info, timeout=5)
         try:
-            data, code = ctx.get(
-                'http://connectivitycheck.gstatic.com/generate_204',
-                code=True)
+            data, code = ctx.get(CHECK_CONNECTIVITY_URL, code=True)
 
         except Exception, e:
             logger.debug('%s - failed - %s', proxy_info, e)
+            return False
+
+        if code == 204 and data == '':
+            logger.debug('%s - ok', proxy_info)
+            return True
+
+        return False
+
+    for proxy_info in get_proxies():
+        if _check_proxy_info(proxy_info):
+            LAST_PROXY = proxy_info
+            return LAST_PROXY
+
+    return LAST_PROXY
+
+
+def has_wpad():
+    global LAST_WPAD, LAST_WPAD_TIME
+
+    if LAST_WPAD is not None:
+        if time.time() - LAST_WPAD_TIME < 3600:
+            logger.debug('Cached wpad: %s', LAST_WPAD)
+            return LAST_WPAD
+
+    LAST_WPAD_TIME = time.time()
+
+    pac_player = refresh_pac_player()
+    if not pac_player:
+        LAST_WPAD = False
+        return False
+
+    LAST_WPAD = False
+
+    for proxy_info in get_proxy_for_address(CHECK_CONNECTIVITY_URL):
+        ctx = HTTP(proxy=proxy_info, timeout=5)
+        try:
+            data, code = ctx.get(CHECK_CONNECTIVITY_URL, code=True)
+        except Exception, e:
+            logger.debug('WPAD: %s - failed - %s', proxy_info, e)
             continue
 
         if code == 204 and data == '':
-            LAST_PROXY = proxy_info
-            logger.debug('%s - ok', proxy_info)
+            logger.debug('WPAD: %s - ok', proxy_info)
+            LAST_WPAD = True
             break
 
-    return LAST_PROXY
+    return LAST_WPAD
+
+
+__all__ = (
+    get_proxies,
+    get_proxy_for_address, set_proxy_unavailable,
+    has_wpad,
+    CHECK_CONNECTIVITY_URL
+)

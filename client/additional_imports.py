@@ -41,6 +41,7 @@ import __future__
 import netaddr
 import psutil
 import pyexpat
+import fnmatch
 
 try:
     import dukpy
