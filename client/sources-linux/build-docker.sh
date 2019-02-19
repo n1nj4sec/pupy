@@ -35,7 +35,7 @@ python -m pip install --upgrade \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
-       zeroconf=0.19.1 \
+       zeroconf==0.19.1 \
        watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
 
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
