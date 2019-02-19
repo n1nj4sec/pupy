@@ -10,14 +10,14 @@ from os import name as os_name
 from time import time
 from re import match
 from .tinyhttp import HTTP
-from .online import internal_ip
-from . import getLogger
 
 try:
     from pupyimporter import dprint
 except ImportError:
     def dprint(x):
         pass
+
+from . import getLogger
 
 logger = getLogger('pac')
 
@@ -41,6 +41,9 @@ def get_autoconfig_url_nt():
 
 def propose_pac_domains():
     local_domain = getfqdn()
+    if not local_domain:
+        return
+
     if local_domain == 'localhost' or '.' not in local_domain:
         return
 
@@ -138,6 +141,8 @@ class PACPlayer(object):
     )
 
     def __init__(self, script, source):
+        from .online import internal_ip
+
         self.js = JSInterpreter()
         self.unavailable = set()
         self.source = source
