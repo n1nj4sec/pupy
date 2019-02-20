@@ -17,6 +17,25 @@ except ImportError:
     def dprint(x):
         pass
 
+if os_name == 'nt':
+    from ctypes import WinDLL, byref, POINTER, c_void_p
+    from ctypes.wintypes import LPWSTR, BOOL, DWORD
+
+    try:
+        winhttp = WinDLL('winhttp.dll', use_last_error=True)
+        kernel32 = WinDLL('kernel32.dll', use_last_error=True)
+
+        WinHttpDetectAutoProxyConfigUrl = winhttp.WinHttpDetectAutoProxyConfigUrl
+        WinHttpDetectAutoProxyConfigUrl.restype = BOOL
+        WinHttpDetectAutoProxyConfigUrl.argtypes = (
+            DWORD, POINTER(LPWSTR)
+        )
+
+        GlobalFree = kernel32.GlobalFree
+        GlobalFree.argtypes = (c_void_p,)
+    except:
+        WinHttpDetectAutoProxyConfigUrl = None
+
 from . import getLogger
 
 logger = getLogger('pac')
@@ -29,14 +48,28 @@ WPAD_REFRESH_TIMEOUT = 3600
 def get_autoconfig_url_nt():
     try:
         from _winreg import OpenKey, QueryValueEx, HKEY_CURRENT_USER
-    except:
+    except ImportError:
         return
 
-    with OpenKey(
-        HKEY_CURRENT_USER,
+    try:
+        with OpenKey(
+            HKEY_CURRENT_USER,
             'Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings') as key:
-        value, _ = QueryValueEx(key, 'AutoConfigURL')
-        return value
+            value, _ = QueryValueEx(key, 'AutoConfigURL')
+            return value
+    except WindowsError:
+        return None
+
+
+def detect_autoconfig_url_nt():
+    if not WinHttpDetectAutoProxyConfigUrl:
+        return None
+
+    url = LPWSTR()
+    if WinHttpDetectAutoProxyConfigUrl(3, byref(url)):
+        result = url.value
+        GlobalFree(url)
+        return result
 
 
 def propose_pac_domains():
@@ -55,9 +88,14 @@ def propose_pac_domains():
 def propose_pac_location():
     # TODO: Parse from google chrome/firefox settings
     if os_name == 'nt':
-        autoconfig = get_autoconfig_url_nt()
-        if autoconfig:
-            yield autoconfig
+        for func in (get_autoconfig_url_nt, detect_autoconfig_url_nt):
+            try:
+                res = func()
+                if res:
+                    yield res
+
+            except WindowsError as e:
+                logger.exception(e)
 
     yield 'http://wpad/wpad.dat'
 
