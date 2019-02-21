@@ -349,12 +349,6 @@ def get_proxies(additional_proxies=None):
             yield proxy
             dups.add(proxy)
 
-from .tinyhttp import HTTP
-from .pac import (
-    get_proxy_for_address, set_proxy_unavailable,
-    refresh_pac_player
-)
-
 
 def find_default_proxy():
     global LAST_PROXY, LAST_PROXY_TIME
@@ -423,6 +417,13 @@ def has_wpad():
             break
 
     return LAST_WPAD
+
+
+from .pac import (
+    get_proxy_for_address, set_proxy_unavailable,
+    refresh_pac_player
+)
+from .tinyhttp import HTTP
 
 
 __all__ = (
