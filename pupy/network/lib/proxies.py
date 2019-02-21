@@ -426,7 +426,7 @@ def has_wpad():
 
 
 __all__ = (
-    get_proxies,
+    get_proxies, find_default_proxy,
     get_proxy_for_address, set_proxy_unavailable,
     has_wpad,
     CHECK_CONNECTIVITY_URL
