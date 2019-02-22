@@ -35,6 +35,7 @@ python -m pip install --upgrade \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
+       https://github.com/warner/python-ed25519/archive/master.zip \
        zeroconf==0.19.1 \
        watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
 

@@ -22,6 +22,7 @@ cerberus
 logutils
 secretstorage
 https://github.com/AlessandroZ/pypykatz/archive/master.zip
+https://github.com/warner/python-ed25519/archive/master.zip
 pygments
 requests
 tornado
