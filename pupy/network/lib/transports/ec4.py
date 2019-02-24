@@ -6,15 +6,13 @@ __all__ = ['EC4TransportServer', 'EC4TransportClient']
 
 from ..base import BasePupyTransport
 from ...lib.picocmd.ecpv import ECPV
+from .cryptoutils import RC4, SHA384
 
 from network.lib.buffer import Buffer
 
 import struct
 import time
 import random
-
-from Crypto.Cipher import ARC4
-from Crypto.Hash import SHA384
 
 class EC4Transport(BasePupyTransport):
 
@@ -63,8 +61,8 @@ class EC4Transport(BasePupyTransport):
         else:
             key = self.encoder.process_kex_response(request[2:], 0, key_size=128)
 
-        self.encryptor = ARC4.new(key=key[0])
-        self.decryptor = ARC4.new(key=key[1])
+        self.encryptor = RC4(key=key[0])
+        self.decryptor = RC4(key=key[1])
 
         # https://wikileaks.org/ciav7p1/cms/files/NOD%20Cryptographic%20Requirements%20v1.1%20TOP%20SECRET.pdf
         # Okay...

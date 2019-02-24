@@ -2,7 +2,7 @@ import binascii
 
 __all__ = ['UniformDH']
 
-from ..obfscommon import rand
+from ..cryptoutils import get_random
 from ..obfscommon import modexp
 
 def int_to_bytes(lvalue, width):
@@ -54,7 +54,7 @@ class UniformDH(object):
                     self.group_len, len(private_key)))
             self.priv_str = private_key
         else:
-            self.priv_str = rand.random_bytes(self.group_len)
+            self.priv_str = get_random(self.group_len)
         self.priv = int(binascii.hexlify(self.priv_str), 16)
 
         # Make the private key even

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 import struct
 import base64
 
@@ -10,9 +9,13 @@ from tinyec.ec import (
     ec2osp, osp2ec
 )
 
-from Crypto.Cipher import AES
-from Crypto.Util import Counter
-from Crypto.Hash import SHA1, SHA3_256, SHA3_512
+from ..transports.cryptoutils import (
+    NewAESCipher, get_random,
+    SHA1, SHA3_256, SHA3_512,
+    AES_BLOCK_SIZE,
+    AES_MODE_CTR, AES_MODE_CFB
+)
+
 
 class ECPV(object):
     __slots__ = (
@@ -37,6 +40,9 @@ class ECPV(object):
                 hash = SHA3_512
             else:
                 raise ValueError('Appropriate hash should be specified')
+
+            if hash is None:
+                raise ValueError('Hash is unsupported (native only?)')
 
         self._curve = get_curve(curve)
 
@@ -73,7 +79,7 @@ class ECPV(object):
         self._kex_private_key = None
 
         if self._public_key:
-            self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES.block_size)
+            self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
         else:
             self._public_key_digest = None
 
@@ -113,7 +119,7 @@ class ECPV(object):
     def _gen_random(self):
         value = None
         while not value > 1 and value < self._curve.field.n:
-            value = from_bytes(os.urandom(self._curve.bytes))
+            value = from_bytes(get_random(self._curve.bytes))
         return value
 
 
@@ -132,7 +138,7 @@ class ECPV(object):
     def generate_key(self):
         self._private_key = self._gen_random()
         self._public_key = self._curve.g * self._private_key
-        self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES.block_size)
+        self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
 
         self._public_key.precompute()
 
@@ -202,7 +208,7 @@ class ECPV(object):
         return ec2osp(self._kex_public_key)
 
 
-    def process_kex_request(self, request, nonce=None, encrypt=False, key_size=AES.block_size):
+    def process_kex_request(self, request, nonce=None, encrypt=False, key_size=AES_BLOCK_SIZE):
         if request == self._cached_kex_request and self._kex_shared_key:
             return self._cached_kex_response, self._kex_shared_key
 
@@ -215,7 +221,7 @@ class ECPV(object):
         return self._cached_kex_response, self._kex_shared_key
 
 
-    def process_kex_response(self, response, nonce=None, decrypt=False, key_size=AES.block_size):
+    def process_kex_response(self, response, nonce=None, decrypt=False, key_size=AES_BLOCK_SIZE):
         if decrypt:
             response = self.unpack(response, nonce)
         P1 = osp2ec(self._curve, response)
@@ -263,21 +269,17 @@ class ECPV(object):
                 key = self._public_key_digest
 
         if nonce is not None:
-            counter = Counter.new(
-                nbits=AES.block_size*8,
-                initial_value=nonce
-            )
-            encrypted = AES.new(
-                key, AES.MODE_CTR, counter=counter
+            encrypted = NewAESCipher(
+                key, nonce, AES_MODE_CTR
             ).encrypt(message)
         else:
-            bs = AES.block_size
-            iv = os.urandom(AES.block_size)
+            bs = AES_BLOCK_SIZE
+            iv = get_random(AES_BLOCK_SIZE)
             length = struct.pack('>I', len(message))
             pad = (bs - (len(message) + len(length))%bs) % bs
             padding = struct.pack('B', pad)*pad
-            encrypted = iv + AES.new(
-                key, AES.MODE_CFB, IV=iv
+            encrypted = iv + NewAESCipher(
+                key, iv, AES_MODE_CFB
             ).encrypt(length + message + padding)
 
         return encrypted
@@ -291,19 +293,15 @@ class ECPV(object):
                 key = self._public_key_digest
 
         if nonce is not None:
-            counter = Counter.new(
-                nbits=AES.block_size*8,
-                initial_value=nonce
-            )
-            decrypted = AES.new(
-                key, AES.MODE_CTR, counter=counter
+            decrypted = NewAESCipher(
+                key, nonce, AES_MODE_CTR
             ).decrypt(message)
         else:
-            bs = AES.block_size
+            bs = AES_BLOCK_SIZE
             iv, body = message[:bs], message[bs:]
 
-            payload = AES.new(
-                key, AES.MODE_CFB, IV=iv
+            payload = NewAESCipher(
+                key, iv, AES_MODE_CFB
             ).decrypt(body)
 
             length = struct.unpack_from('>I', payload)[0]

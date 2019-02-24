@@ -9,11 +9,12 @@ __all__ = ('Obfs3Client', 'Obfs3Server')
 
 import random
 
-from ..obfscommon import aes
 from . import obfs3_dh
 from ...base import BaseTransport
-from ..obfscommon import hmac_sha256
-from ..obfscommon import rand
+from ..cryptoutils import (
+    NewAESCipher, AES_MODE_CTR,
+    get_random, hmac_sha256_digest
+)
 
 from network.lib.buffer import Buffer
 from network.lib import getLogger
@@ -89,7 +90,7 @@ class Obfs3Transport(BaseTransport):
 
         public_key = self.dh.get_public()
 
-        handshake_message = public_key + rand.random_bytes(padding_length)
+        handshake_message = public_key + get_random(padding_length)
 
         if __debug__:
             logger.debug(
@@ -120,10 +121,10 @@ class Obfs3Transport(BaseTransport):
             if __debug__:
                 logger.debug("Flush %d bytes of queued data (???) ", len(self.queued_data))
 
-            self.queued_data.write_to(self.downstream, modificator=self.send_crypto.crypt)
+            self.queued_data.write_to(self.downstream, modificator=self.send_crypto.encrypt)
 
         # Proxy encrypted message.
-        data.write_to(self.downstream, modificator=self.send_crypto.crypt)
+        data.write_to(self.downstream, modificator=self.send_crypto.encrypt)
 
     def receivedDownstream(self, data):
         """
@@ -151,7 +152,7 @@ class Obfs3Transport(BaseTransport):
                 if __debug__:
                     logger.debug('Flush queued data: %d', len(self.queued_data))
 
-                self.queued_data.write_to(self.downstream, modificator=self.send_crypto.crypt)
+                self.queued_data.write_to(self.downstream, modificator=self.send_crypto.encrypt)
 
         if self.state == ST_OPEN: # Handshake is done. Just decrypt and read application data.
             if __debug__:
@@ -161,7 +162,7 @@ class Obfs3Transport(BaseTransport):
             if not data:
                 return
 
-            data.write_to(self.upstream, modificator=self.recv_crypto.crypt)
+            data.write_to(self.upstream, modificator=self.recv_crypto.encrypt)
 
     def _read_handshake(self, data):
         """
@@ -219,7 +220,7 @@ class Obfs3Transport(BaseTransport):
         # Set up our crypto.
         self.send_crypto = self._derive_crypto(self.send_keytype)
         self.recv_crypto = self._derive_crypto(self.recv_keytype)
-        self.other_magic_value = hmac_sha256.hmac_sha256_digest(
+        self.other_magic_value = hmac_sha256_digest(
             self.shared_secret, self.recv_magic_const)
 
         # Send our magic value to the remote end
@@ -229,8 +230,8 @@ class Obfs3Transport(BaseTransport):
         if __debug__:
             logger.debug('Padding length: %d', padding_length)
 
-        magic = hmac_sha256.hmac_sha256_digest(self.shared_secret, self.send_magic_const)
-        message = rand.random_bytes(padding_length) + magic
+        magic = hmac_sha256_digest(self.shared_secret, self.send_magic_const)
+        message = get_random(padding_length) + magic
 
         self.state = ST_SEARCHING_MAGIC
         self.downstream.write(message)
@@ -268,9 +269,8 @@ class Obfs3Transport(BaseTransport):
         """
         Derive and return an obfs3 key using the pad string in 'pad_string'.
         """
-        secret = hmac_sha256.hmac_sha256_digest(self.shared_secret, pad_string)
-        return aes.AES_CTR_128(secret[:KEYLEN], secret[KEYLEN:],
-                               counter_wraparound=True)
+        secret = hmac_sha256_digest(self.shared_secret, pad_string)
+        return NewAESCipher(secret[:KEYLEN], secret[KEYLEN:], AES_MODE_CTR)
 
 class Obfs3Client(Obfs3Transport):
 

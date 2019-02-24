@@ -8,7 +8,9 @@ the Uniform Diffie-Hellman handshake used by ScrambleSuit.
 import const
 import random
 
-import Crypto.Hash.SHA256
+
+from ..cryptoutils import SHA256, get_random
+
 
 import util
 import mycrypto
@@ -81,7 +83,7 @@ class UniformDH(object):
             raise ValueError("Corrupted public key.")
 
         # First, hash the 4096-bit UniformDH secret to obtain the master key.
-        masterKey = Crypto.Hash.SHA256.new(uniformDHSecret).digest()
+        masterKey = SHA256.new(uniformDHSecret).digest()
 
         # Second, session keys are now derived from the master key.
         callback(masterKey)
@@ -176,7 +178,7 @@ class UniformDH(object):
         # Subtract the length of the public key to make the handshake on
         # average as long as a redeemed ticket.  That should thwart statistical
         # length-based attacks.
-        padding = mycrypto.strongRandom(
+        padding = get_random(
             random.randint(0, const.MAX_PADDING_LENGTH - const.PUBLIC_KEY_LENGTH))
 
         # Add a mark which enables efficient location of the HMAC.

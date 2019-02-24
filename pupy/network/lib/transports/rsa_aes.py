@@ -4,18 +4,12 @@
 
 """ This module contains an implementation of a simple xor transport for pupy. """
 
-__all__ = ('RSA_AESClient', 'RSA_AESServer')
-
 from ..base import BasePupyTransport, TransportError
-import os
 import traceback
 import struct
 import rsa
-try:
-    from Crypto import Random
-except ImportError as e:
-    Random=None
-from cryptoutils.aes import NewAESCipher
+
+from cryptoutils import get_random, NewAESCipher
 
 from network.lib.buffer import Buffer
 from network.lib import getLogger
@@ -52,11 +46,7 @@ class RSA_AESTransport(BasePupyTransport):
         else:
             raise TransportError("Only AES 256 and 128 are supported")
 
-        if Random:
-            self._iv_enc = Random.new().read(BLOCK_SIZE)
-        else:
-            self._iv_enc = os.urandom(BLOCK_SIZE)
-
+        self._iv_enc = get_random(BLOCK_SIZE)
         self.enc_cipher = None
         self.dec_cipher = None
         self._iv_dec = None
@@ -198,11 +188,7 @@ class RSA_AESClient(RSA_AESTransport):
 
     def on_connect(self):
         pk = rsa.PublicKey.load_pkcs1(self.pubkey)
-        if Random:
-            self.aes_key = Random.new().read(self.key_size)
-        else:
-            self.aes_key = os.urandom(self.key_size)
-
+        self.aes_key = get_random(self.key_size)
         self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
 
         pkey = rsa.encrypt(self.aes_key, pk)
@@ -275,3 +261,6 @@ class RSA_AESServer(RSA_AESTransport):
         else:
             data.write_to(self.buffer)
             logger.debug('Pending data: len=%d', len(self.buffer))
+
+
+__all__ = (RSA_AESClient, RSA_AESServer)

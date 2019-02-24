@@ -21,7 +21,6 @@ import struct
 import netaddr
 import re
 import base64
-import baseconv
 import binascii
 import time
 import datetime
@@ -29,7 +28,13 @@ import platform
 import uuid
 import urlparse
 import socket
-import psutil
+
+from . import baseconv
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 try:
     import uidle

@@ -17,12 +17,13 @@ import random
 
 import const
 import replay
-import mycrypto
 import probdist
 import base64
 
 import logging
 import StringIO
+
+from ..cryptoutils import get_random
 
 log = logging
 
@@ -111,11 +112,11 @@ class State(object):
         log.info("Generating parameters for the server's state file.")
 
         # PRNG seed for the client to reproduce the packet and IAT morpher.
-        self.prngSeed = mycrypto.strongRandom(const.PRNG_SEED_LENGTH)
+        self.prngSeed = get_random(const.PRNG_SEED_LENGTH)
 
         # HMAC and AES key used to encrypt and authenticate tickets.
-        self.hmacKey = mycrypto.strongRandom(const.TICKET_HMAC_KEY_LENGTH)
-        self.aesKey = mycrypto.strongRandom(const.TICKET_AES_KEY_LENGTH)
+        self.hmacKey = get_random(const.TICKET_HMAC_KEY_LENGTH)
+        self.aesKey = get_random(const.TICKET_AES_KEY_LENGTH)
         self.keyCreation = int(time.time())
 
         # The previous HMAC and AES keys.

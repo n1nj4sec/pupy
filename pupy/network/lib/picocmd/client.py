@@ -16,7 +16,6 @@ import time
 import uuid
 
 from threading import Thread, Lock
-
 import ascii85
 
 try:
@@ -25,7 +24,7 @@ except ImportError:
     logging.info('dnslib not available')
     dnslib = None
 
-from Crypto.Random import get_random_bytes
+from network.lib.transports.cryptoutils import get_random
 
 from ecpv import ECPV
 from picocmd import (
@@ -121,7 +120,7 @@ class DnsCommandsClient(Thread):
             self.resolve = self._native_resolve
 
         self.node = uuid.getnode()
-        self.nonce = from_bytes(get_random_bytes(4))
+        self.nonce = from_bytes(get_random(4))
         self.domains = domain.split(',')
         self.domain_id = 0
         self.domain = self.domains[self.domain_id]
