@@ -1,21 +1,4 @@
-__all__ = [
-    'Command',
-    'Poll', 'Ack', 'Idle',
-    'SystemStatus',
-    'Sleep', 'CheckConnect',
-    'Reexec', 'Exit', 'Disconnect',
-    'Policy', 'Kex', 'SystemInfo',
-    'SetProxy', 'Connect', 'DownloadExec',
-    'PasteLink', 'OnlineStatus', 'PortQuizPort',
-    'OnlineStatusRequest', 'PupyState',
-    'ConnectablePort', 'Error', 'ParcelInvalidCrc',
-    'ParcelInvalidPayload', 'ParcelInvalidCommand',
-    'Parcel', 'PackError',
-
-    'from_bytes', 'to_bytes',
-
-    'DnsCommandsClient'
-]
+# -*- encoding: utf-8 -*-
 
 from .picocmd import (
     Command,
@@ -35,3 +18,22 @@ from .picocmd import (
 )
 
 from .client import DnsCommandsClient
+
+__all__ = (
+    Command,
+    Poll, Ack, Idle,
+    SystemStatus,
+    Sleep, CheckConnect,
+    Reexec, Exit, Disconnect,
+    Policy, Kex, SystemInfo,
+    SetProxy, Connect, DownloadExec,
+    PasteLink, OnlineStatus, PortQuizPort,
+    OnlineStatusRequest, PupyState,
+    ConnectablePort, Error, ParcelInvalidCrc,
+    ParcelInvalidPayload, ParcelInvalidCommand,
+    Parcel, PackError,
+
+    from_bytes, to_bytes,
+
+    DnsCommandsClient
+)
