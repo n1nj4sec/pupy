@@ -318,24 +318,19 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
-                if ext == 'py' and base+'.pyo' not in modules_dic:
+                if ext == 'py':
                     module_code = pupycompile(module_code, modpath)
                     modpath = base+'.pyo'
+                    if base+'.pyc' in modules_dic:
+                        del modules_dic[base+'.pyc']
                 elif ext == 'pyc':
-                    if base+'.py' in modules_dic:
-                        del modules_dic[base+'.py']
-
                     if base+'.pyo' in modules_dic:
                         continue
                 elif ext == 'pyo':
-                    if base+'.py' in modules_dic:
-                        del modules_dic[base+'.py']
-
-                    if base+'.pyc' in modules_dic:
-                        del modules_dic[base+'.pyc']
-
                     if base+'.pyo' in modules_dic:
                         continue
+                    if base+'.pyc' in modules_dic:
+                        del modules_dic[base+'.pyc']
 
                 # Special case with pyd loaders
                 elif ext == 'pyd':
