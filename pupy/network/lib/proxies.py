@@ -389,6 +389,9 @@ def find_default_proxy():
 def has_wpad():
     global LAST_WPAD, LAST_WPAD_TIME
 
+    if not get_proxy_for_address:
+        return None
+
     if LAST_WPAD is not None:
         if time.time() - LAST_WPAD_TIME < 3600:
             logger.debug('Cached wpad: %s', LAST_WPAD)
@@ -419,10 +422,17 @@ def has_wpad():
     return LAST_WPAD
 
 
-from .pac import (
-    get_proxy_for_address, set_proxy_unavailable,
-    refresh_pac_player
-)
+try:
+    from .pac import (
+        get_proxy_for_address, set_proxy_unavailable,
+        refresh_pac_player
+    )
+except ImportError:
+    get_proxy_for_address = None
+    refresh_pac_player = None
+    set_proxy_unavailable = None
+
+
 from .tinyhttp import HTTP
 
 
