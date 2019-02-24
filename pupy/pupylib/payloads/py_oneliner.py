@@ -32,11 +32,11 @@ def pack_py_payload(display, conf, debug=False):
             dependencies.loader(pupyimportercode, 'pupyimporter'),
             'import pupyimporter',
             'pupyimporter.install(debug={})'.format(repr(debug if debug is not None else False)),
-            dependencies.importer('network', path=ROOT),
             dependencies.importer((
-                'rpyc', 'pyasn1', 'rsa',
+                'rpyc', 'pyasn1', 'rsa', 'pyaes',
                 'netaddr', 'tinyec', 'umsgpack',
-                'poster', 'win_inet_pton'))
+                'poster', 'win_inet_pton')),
+            dependencies.importer('network', path=ROOT)
         ]) + '\n'
     )
 

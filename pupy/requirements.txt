@@ -41,6 +41,7 @@ pyelftools
 filemagic
 xattr
 dukpy
+pyaes
 -e external/pykcp
 flake8
 flake8-per-file-ignores
