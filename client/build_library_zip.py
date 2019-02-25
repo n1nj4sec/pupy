@@ -40,17 +40,17 @@ sys_modules = [
     (x,sys.modules[x]) for x in sys.modules.keys()
 ]
 
-fileid = 0
-compile_map = {}
+compile_map = []
 
 def compile_py(path):
     global compile_map
     global fileid
 
-    compile_map[fileid] = path
+    fileid = len(compile_map)
+    compile_map.append(path)
+
     data = pupycompile(path, 'f:{:x}'.format(fileid), path=True)
     print "[C] {} -> f:{:x}".format(path, fileid)
-    fileid += 1
 
     return data
 
