@@ -43,7 +43,7 @@ class ECMTransport(BasePupyTransport):
         else:
             self.encoder = ECPV(
                 curve='brainpoolP384r1',
-                public_key=self.privkey,
+                private_key=self.privkey,
                 hash=SHA384
             )
 
