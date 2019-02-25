@@ -11,7 +11,7 @@ from tinyec.ec import (
     ec2osp, osp2ec
 )
 
-from ..transports.cryptoutils import (
+from . import (
     NewAESCipher, get_random,
     SHA1, SHA3_256, SHA3_512,
     AES_BLOCK_SIZE,
@@ -354,6 +354,9 @@ class ECPV(object):
         if symmetric:
             return self.decrypt(message, nonce)
         return self.unpack(message, nonce)
+
+
+__all__ = (PubKeyCache, ECPV)
 
 
 if __name__ == '__main__':

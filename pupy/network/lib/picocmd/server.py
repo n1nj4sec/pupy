@@ -54,7 +54,7 @@ from picocmd import (
     from_bytes
 )
 
-from ecpv import ECPV
+from network.lib.transports.cryptoutils import ECPV
 
 def convert_node(node):
     try:

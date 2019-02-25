@@ -5,7 +5,7 @@
 __all__ = ('ECMTransportServer', 'ECMTransportClient')
 
 from ..base import BasePupyTransport
-from ...lib.picocmd.ecpv import ECPV
+from .cryptoutils import ECPV
 
 from network.lib.buffer import Buffer
 

@@ -15,7 +15,7 @@ import json
 
 from datetime import datetime
 
-from network.lib.picocmd.ecpv import ECPV
+from network.lib.transports.cryptoutils import ECPV
 from getpass import getpass
 
 from M2Crypto import X509, EVP, RSA, ASN1

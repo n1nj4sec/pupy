@@ -24,9 +24,8 @@ except ImportError:
     logging.info('dnslib not available')
     dnslib = None
 
-from network.lib.transports.cryptoutils import get_random
+from network.lib.transports.cryptoutils import ECPV, get_random
 
-from ecpv import ECPV
 from picocmd import (
     Poll, Ack,
     SystemStatus,

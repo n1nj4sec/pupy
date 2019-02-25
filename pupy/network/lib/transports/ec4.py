@@ -5,8 +5,7 @@
 __all__ = ['EC4TransportServer', 'EC4TransportClient']
 
 from ..base import BasePupyTransport
-from ...lib.picocmd.ecpv import ECPV
-from .cryptoutils import RC4, SHA384
+from .cryptoutils import RC4, SHA384, ECPV
 
 from network.lib.buffer import Buffer
 
