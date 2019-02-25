@@ -3,6 +3,8 @@
 import struct
 import base64
 
+from collections import deque
+
 from tinyec.registry import get_curve
 from tinyec.ec import (
     to_bytes, from_bytes,
@@ -15,6 +17,29 @@ from ..transports.cryptoutils import (
     AES_BLOCK_SIZE,
     AES_MODE_CTR, AES_MODE_CFB
 )
+
+
+class PubKeyCache(object):
+    __slots__ = ('records',)
+
+    def __init__(self, maxlen=64):
+        self.records = deque(maxlen=maxlen)
+
+    def get(self, get_key):
+        for (key, value) in self.records:
+            if key == get_key:
+                return value
+
+    def set(self, set_key, pubkey):
+        for (key, value) in self.records:
+            if key == set_key:
+                return value
+
+        self.records.append((set_key, pubkey))
+        return pubkey
+
+
+_PUBKEY_CACHE = PubKeyCache()
 
 
 class ECPV(object):
@@ -65,23 +90,31 @@ class ECPV(object):
             self._private_key = None
 
         if private_key and not public_key:
-            self._public_key = self._curve.g * self._private_key
+            record = _PUBKEY_CACHE.get(self._private_key)
+            if record:
+                self._public_key, self._public_key_digest = record
+            else:
+                self._public_key = self._curve.g * self._private_key
+                self._public_key.precompute()
+                self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
+                _PUBKEY_CACHE.set(self._private_key, (self._public_key, self._public_key_digest))
+
         elif public_key:
-            self._public_key = osp2ec(self._curve, base64.decodestring(public_key))
+            record = _PUBKEY_CACHE.get(public_key)
+            if record:
+                self._public_key, self._public_key_digest = _PUBKEY_CACHE.get(public_key)
+            else:
+                self._public_key = osp2ec(self._curve, base64.decodestring(public_key))
+                self._public_key.precompute()
+                self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
+                _PUBKEY_CACHE.set(public_key, (self._public_key, self._public_key_digest))
         else:
             self._public_key = None
-
-        if self._public_key is not None:
-            self._public_key.precompute()
+            self._public_key_digest = None
 
         self._kex_shared_key = None
         self._kex_public_key = None
         self._kex_private_key = None
-
-        if self._public_key:
-            self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
-        else:
-            self._public_key_digest = None
 
         self._cached_kex_request = None
         self._cached_kex_response = None
@@ -139,8 +172,6 @@ class ECPV(object):
         self._private_key = self._gen_random()
         self._public_key = self._curve.g * self._private_key
         self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
-
-        self._public_key.precompute()
 
         return (
             base64.b64encode(to_bytes(self._private_key)),
@@ -204,7 +235,6 @@ class ECPV(object):
     def generate_kex_request(self):
         self._kex_private_key = self._gen_random()
         self._kex_public_key = self._curve.g * self._kex_private_key
-        self._kex_public_key.precompute()
         return ec2osp(self._kex_public_key)
 
 
