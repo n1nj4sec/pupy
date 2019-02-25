@@ -9,7 +9,6 @@ from inspect import getmembers, ismethod
 from os import name as os_name
 from time import time
 from re import match
-from .tinyhttp import HTTP
 
 try:
     from pupyimporter import dprint
@@ -103,6 +102,8 @@ def propose_pac_location():
         yield 'http://wpad.{}/wpad.dat'.format(domain)
 
 def get_pac_content():
+    from .tinyhttp import HTTP
+
     for url in propose_pac_location():
         try:
             parsed = urlparse(url)

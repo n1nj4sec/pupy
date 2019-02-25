@@ -360,6 +360,8 @@ def find_default_proxy():
 
     logger.debug('Refresh required')
 
+    from .tinyhttp import HTTP
+
     LAST_PROXY_TIME = time.time()
 
     def _check_proxy_info(proxy_info):
@@ -397,6 +399,8 @@ def has_wpad():
             logger.debug('Cached wpad: %s', LAST_WPAD)
             return LAST_WPAD
 
+    from .tinyhttp import HTTP
+
     LAST_WPAD_TIME = time.time()
 
     pac_player = refresh_pac_player()
@@ -431,9 +435,6 @@ except ImportError:
     get_proxy_for_address = None
     refresh_pac_player = None
     set_proxy_unavailable = None
-
-
-from .tinyhttp import HTTP
 
 
 __all__ = (
