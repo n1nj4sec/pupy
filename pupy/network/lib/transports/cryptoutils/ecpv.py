@@ -105,6 +105,9 @@ class ECPV(object):
                 self._public_key, self._public_key_digest = _PUBKEY_CACHE.get(public_key)
             else:
                 self._public_key = osp2ec(self._curve, base64.decodestring(public_key))
+                if not self._public_key:
+                    raise ValueError('Invalid public key')
+
                 self._public_key.precompute()
                 self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
                 _PUBKEY_CACHE.set(public_key, (self._public_key, self._public_key_digest))
