@@ -53,12 +53,19 @@ class EC4Transport(BasePupyTransport):
         request = data.read(2 + length)
 
         if self.privkey:
-            response, key = self.encoder.process_kex_request(request[2:], 0, key_size=128)
+            try:
+                response, key = self.encoder.process_kex_request(request[2:], 0, key_size=128)
+            except ValueError as e:
+                raise EOFError(str(e))
+
             # Add jitter, tinyec is quite horrible
             time.sleep(random.random())
             self.downstream.write(struct.pack('H', len(response)) + response)
         else:
-            key = self.encoder.process_kex_response(request[2:], 0, key_size=128)
+            try:
+                key = self.encoder.process_kex_response(request[2:], 0, key_size=128)
+            except ValueError as e:
+                raise EOFError(str(e))
 
         self.encryptor = RC4(key=key[0])
         self.decryptor = RC4(key=key[1])

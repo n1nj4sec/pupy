@@ -257,7 +257,11 @@ class ECPV(object):
     def process_kex_response(self, response, nonce=None, decrypt=False, key_size=AES_BLOCK_SIZE):
         if decrypt:
             response = self.unpack(response, nonce)
+            
         P1 = osp2ec(self._curve, response)
+        if not P1:
+            raise ValueError('Invalid ECDH PK response')
+        
         key = self._mgf2(ec2osp(P1 * self._kex_private_key), key_size)
         self._kex_shared_key = (key, b''.join(reversed(key)))
         return self._kex_shared_key
