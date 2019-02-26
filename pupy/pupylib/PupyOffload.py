@@ -77,7 +77,7 @@ class PupyOffloadDNS(threading.Thread):
             try:
                 self._serve()
 
-            except EOFError:
+            except (socks.GeneralProxyError, EOFError):
                 logger.error('DNS: Lost connection (EOF)')
                 time.sleep(1)
                 continue
