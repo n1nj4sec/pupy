@@ -19,6 +19,9 @@ WINPTY=$EXTERNAL/winpty
 PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
 
+echo "[+] Patching cpuid in docker image"
+cp /usr/lib/gcc/i686-w64-mingw32/7.3-win32/include/cpuid.h "/build/win32/drive_c/Program Files/Common Files/Microsoft/Visual C++ for Python/9.0/VC/include/cpuid.h"
+
 echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
@@ -29,8 +32,8 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install --upgrade --no-binary :all: https://github.com/Legrandin/pycryptodome/archive/master.zip
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
     if [ ! $? -eq 0 ]; then
-	echo "pycryptodome build failed"
-	exit 1
+		echo "pycryptodome build failed"
+		exit 1
     fi
 
     rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
@@ -128,9 +131,9 @@ make -f Makefile -j BUILDENV=/build ARCH=win32
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
 make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1 
+make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1 
+make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1
 make -f Makefile -j BUILDENV=/build ARCH=win64 distclean
 make -f Makefile -j BUILDENV=/build ARCH=win64
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
@@ -145,7 +148,7 @@ for object in $TARGETS; do
     if [ -z "$object" ]; then
 	continue
     fi
-    
+
     if [ ! -f $TEMPLATES/$object ]; then
 	echo "[-] $object - failed"
 	FAILED=1
