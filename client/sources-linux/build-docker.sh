@@ -30,7 +30,7 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
 export PRCTL_SKIP_KERNEL_CHECK=yes
 
 python -m pip install --upgrade \
-       rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa \
+       rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa idna \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
