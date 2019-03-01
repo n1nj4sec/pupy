@@ -365,7 +365,7 @@ def wtmp(input='/var/log/wtmp'):
             else:
                 data = struct.pack('IIII', *ipbin).encode('hex')
                 ipaddr = ''
-                while data is not '':
+                while data != '':
                     ipaddr = ipaddr + ':'
                     ipaddr = ipaddr + data[:4]
                     data = data[4:]

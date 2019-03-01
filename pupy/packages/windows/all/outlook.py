@@ -75,8 +75,8 @@ class outlook():
         try:
             info['CurrentProfileName']=self.mapi.CurrentProfileName
         except Exception,e:
-                logging.debug("Impossible to get CurrentProfileName configuration: {0}".format(e))
-                info['CurrentProfileName']=""
+            logging.debug("Impossible to get CurrentProfileName configuration: {0}".format(e))
+            info['CurrentProfileName']=""
         #info['CurrentUserAddress']=repr(self.mapi.CurrentUser) #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
         try:
             info['SessionType']=self.outlook.Session.Type
@@ -108,24 +108,24 @@ class outlook():
         try:
             info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
         except Exception,e:
-                logging.debug("Impossible to get ExchangeMailboxServerName configuration: {0}".format(e))
-                info['ExchangeMailboxServerName'.format(i)]=""
+            logging.debug("Impossible to get ExchangeMailboxServerName configuration: {0}".format(e))
+            info['ExchangeMailboxServerName'.format(i)]=""
         try:
             info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
         except Exception,e:
-                logging.debug("Impossible to get ExchangeMailboxServerVersion configuration: {0}".format(e))
-                info['ExchangeMailboxServerVersion'.format(i)]=""
+            logging.debug("Impossible to get ExchangeMailboxServerVersion configuration: {0}".format(e))
+            info['ExchangeMailboxServerVersion'.format(i)]=""
         try:
             info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
         except Exception,e:
-                logging.debug("Impossible to get Offline configuration: {0}".format(e))
-                info['Offline'.format(i)]=""
+            logging.debug("Impossible to get Offline configuration: {0}".format(e))
+            info['Offline'.format(i)]=""
         try:
             info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
             self.mapi.SendAndReceive(True)
         except Exception,e:
-                logging.debug("Impossible to get ExchangeConnectionMode configuration: {0}".format(e))
-                info['ExchangeConnectionMode']=None
+            logging.debug("Impossible to get ExchangeConnectionMode configuration: {0}".format(e))
+            info['ExchangeConnectionMode']=None
         return info
 
 

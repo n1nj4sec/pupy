@@ -44,9 +44,9 @@ def memcpy(dest, source):
 
 
 def change_argv(argv="/bin/bash", env=""):
-        info = parse_proc_stat()
-        memcpy(info.argv, argv) #clean argv
-        memcpy(info.env, env) #clean environ
+    info = parse_proc_stat()
+    memcpy(info.argv, argv) #clean argv
+    memcpy(info.env, env) #clean environ
 
 
 if __name__=="__main__":

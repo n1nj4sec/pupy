@@ -74,5 +74,5 @@ if __name__=="__main__":
         print 'pid: ', pid
     print
     for s in strings:
-            print s
+        print s
     print

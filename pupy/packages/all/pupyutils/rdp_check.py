@@ -103,9 +103,9 @@ class RDP_NEG_REQ(CR_TPDU):
     )
 
     def __init__(self,data=None):
-            CR_TPDU.__init__(self,data)
-            if data is None:
-                    self['Type'] = TYPE_RDP_NEG_REQ
+        CR_TPDU.__init__(self,data)
+        if data is None:
+            self['Type'] = TYPE_RDP_NEG_REQ
 
 class RDP_NEG_RSP(CR_TPDU):
     structure = (
@@ -197,7 +197,7 @@ class TSRequest(GSSAPI):
 
         next_byte = unpack('B',decode_data[:1])[0]
         if next_byte != 0xa0:
-                raise Exception('0xa0 tag not found %x' % next_byte)
+            raise Exception('0xa0 tag not found %x' % next_byte)
         decode_data = decode_data[1:]
         next_bytes, total_bytes = asn1decode(decode_data)
         # The INTEGER tag must be here
@@ -258,11 +258,11 @@ class TSRequest(GSSAPI):
     def getData(self):
         # Do we have pubKeyAuth?
         if 'pubKeyAuth' in self.fields:
-                pubKeyAuth = pack('B',0xa3)
-                pubKeyAuth += asn1encode(pack('B', ASN1_OCTET_STRING) + \
-                                asn1encode(self['pubKeyAuth']))
+            pubKeyAuth = pack('B',0xa3)
+            pubKeyAuth += asn1encode(pack('B', ASN1_OCTET_STRING) + \
+                              asn1encode(self['pubKeyAuth']))
         else:
-                pubKeyAuth = ''
+            pubKeyAuth = ''
 
         if 'authInfo' in self.fields:
             authInfo = pack('B',0xa2)
@@ -272,12 +272,12 @@ class TSRequest(GSSAPI):
             authInfo = ''
 
         if 'NegoData' in self.fields:
-                negoData = pack('B',0xa1)
-                negoData += asn1encode(pack('B', ASN1_SEQUENCE) + \
-                                asn1encode(pack('B', ASN1_SEQUENCE) + \
-                                asn1encode(pack('B', 0xa0) + \
-                                asn1encode(pack('B', ASN1_OCTET_STRING) + \
-                                asn1encode(self['NegoData'])))))
+            negoData = pack('B',0xa1)
+            negoData += asn1encode(pack('B', ASN1_SEQUENCE) + \
+                            asn1encode(pack('B', ASN1_SEQUENCE) + \
+                            asn1encode(pack('B', 0xa0) + \
+                            asn1encode(pack('B', ASN1_OCTET_STRING) + \
+                            asn1encode(self['NegoData'])))))
         else:
             negoData = ''
         ans = pack('B', ASN1_SEQUENCE)
@@ -308,45 +308,45 @@ class SPNEGOCipher:
     def __init__(self, flags, randomSessionKey):
         self.__flags = flags
         if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-                self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
-                self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
-                self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
-                self.__serverSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey,"Server")
-                # Preparing the keys handle states
-                cipher3 = ARC4.new(self.__clientSealingKey)
-                self.__clientSealingHandle = cipher3.encrypt
-                cipher4 = ARC4.new(self.__serverSealingKey)
-                self.__serverSealingHandle = cipher4.encrypt
+            self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
+            self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
+            self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
+            self.__serverSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey,"Server")
+            # Preparing the keys handle states
+            cipher3 = ARC4.new(self.__clientSealingKey)
+            self.__clientSealingHandle = cipher3.encrypt
+            cipher4 = ARC4.new(self.__serverSealingKey)
+            self.__serverSealingHandle = cipher4.encrypt
         else:
-                # Same key for everything
-                self.__clientSigningKey = randomSessionKey
-                self.__serverSigningKey = randomSessionKey
-                self.__clientSealingKey = randomSessionKey
-                self.__clientSealingKey = randomSessionKey
-                cipher = ARC4.new(self.__clientSigningKey)
-                self.__clientSealingHandle = cipher.encrypt
-                self.__serverSealingHandle = cipher.encrypt
+            # Same key for everything
+            self.__clientSigningKey = randomSessionKey
+            self.__serverSigningKey = randomSessionKey
+            self.__clientSealingKey = randomSessionKey
+            self.__clientSealingKey = randomSessionKey
+            cipher = ARC4.new(self.__clientSigningKey)
+            self.__clientSealingHandle = cipher.encrypt
+            self.__serverSealingHandle = cipher.encrypt
         self.__sequence = 0
 
     def encrypt(self, plain_data):
         if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-                # When NTLM2 is on, we sign the whole pdu, but encrypt just
-                # the data, not the dcerpc header. Weird..
-                sealedMessage, signature = ntlm.SEAL(self.__flags,
-                    self.__clientSigningKey,
-                    self.__clientSealingKey,
-                    plain_data,
-                    plain_data,
-                    self.__sequence,
-                    self.__clientSealingHandle)
+            # When NTLM2 is on, we sign the whole pdu, but encrypt just
+            # the data, not the dcerpc header. Weird..
+            sealedMessage, signature = ntlm.SEAL(self.__flags,
+                self.__clientSigningKey,
+                self.__clientSealingKey,
+                plain_data,
+                plain_data,
+                self.__sequence,
+                self.__clientSealingHandle)
         else:
-                sealedMessage, signature = ntlm.SEAL(self.__flags,
-                    self.__clientSigningKey,
-                    self.__clientSealingKey,
-                    plain_data,
-                    plain_data,
-                    self.__sequence,
-                    self.__clientSealingHandle)
+            sealedMessage, signature = ntlm.SEAL(self.__flags,
+                self.__clientSigningKey,
+                self.__clientSealingKey,
+                plain_data,
+                plain_data,
+                self.__sequence,
+                self.__clientSealingHandle)
 
         self.__sequence += 1
 
@@ -354,24 +354,24 @@ class SPNEGOCipher:
 
     def decrypt(self, answer):
         if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-                # TODO: FIX THIS, it's not calculating the signature well
-                # Since I'm not testing it we don't care... yet
-                answer, signature = ntlm.SEAL(self.__flags,
-                                self.__serverSigningKey,
-                                self.__serverSealingKey,
-                                answer,
-                                answer,
-                                self.__sequence,
-                                self.__serverSealingHandle)
+            # TODO: FIX THIS, it's not calculating the signature well
+            # Since I'm not testing it we don't care... yet
+            answer, signature = ntlm.SEAL(self.__flags,
+                            self.__serverSigningKey,
+                            self.__serverSealingKey,
+                            answer,
+                            answer,
+                            self.__sequence,
+                            self.__serverSealingHandle)
         else:
-                answer, signature = ntlm.SEAL(self.__flags,
-                                self.__serverSigningKey,
-                                self.__serverSealingKey,
-                                answer,
-                                answer,
-                                self.__sequence,
-                                self.__serverSealingHandle)
-                self.__sequence += 1
+            answer, signature = ntlm.SEAL(self.__flags,
+                            self.__serverSigningKey,
+                            self.__serverSealingKey,
+                            answer,
+                            answer,
+                            self.__sequence,
+                            self.__serverSealingHandle)
+            self.__sequence += 1
 
         return signature, answer
 

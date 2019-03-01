@@ -392,7 +392,7 @@ class PRIVILEGE_SET_HEADER(Structure):
     ]
 
 class _STARTUPINFOA(Structure):
-        _fields_ = [
+    _fields_ = [
         ("cb", DWORD),
         ("lpReserved", LPSTR),
         ("lpDesktop", LPSTR),
