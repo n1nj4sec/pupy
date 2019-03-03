@@ -57,7 +57,8 @@ class BaseLauncher(object):
             prog=cls.__name__, description=cls.__doc__)
 
     def parse_args(self, args):
-        self.args = self.arg_parser.parse_args(args)
+        if not self.args:
+            self.args = self.arg_parser.parse_args(args)
 
     def set_host(self, host):
         self.host = host

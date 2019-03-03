@@ -1,6 +1,13 @@
+# -*- encoding: utf-8 -*-
+
 import logging
+from collections import namedtuple
+
+Proxy = namedtuple('Proxy', [
+       'type', 'addr', 'username', 'password'])
 
 logger = logging.getLogger('pupy.network')
+
 def getLogger(name):
     return logger.getChild(name)
 
@@ -60,3 +67,22 @@ except Exception as e:
     logger.exception('Transport scramblesuit disabled: %s', e)
     ScrambleSuitClient = None
     ScrambleSuitServer = None
+
+
+__all__ = (
+    Proxy, getLogger,
+    PupySocketStream, PupyUDPSocketStream,
+    chain_transports,
+    PupyTCPServer, PupyUDPServer,
+    PupyTCPClient, PupySSLClient,
+    PupyProxifiedTCPClient, PupyProxifiedSSLClient,
+    PupyUDPClient,
+    DummyPupyTransport,
+
+    RSA_AESClient, RSA_AESServer,
+    PupyHTTPClient, PupyHTTPServer,
+    PupyWebSocketClient, PupyWebSocketServer,
+    EC4TransportServer, EC4TransportClient,
+    ECMTransportServer, ECMTransportClient,
+    ScrambleSuitClient, ScrambleSuitServer
+)

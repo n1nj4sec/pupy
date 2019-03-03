@@ -225,7 +225,13 @@ class PupySocketStream(SocketStream):
         self.buf_in = Buffer()
         self.buf_out = Buffer()
 
-        self.on_connect()
+        self.failed = False
+        try:
+            self.on_connect()
+
+        except Exception:
+            self.failed = True
+            raise
 
     def on_connect(self):
         self.transport.on_connect()
@@ -408,7 +414,13 @@ class PupyUDPSocketStream(object):
 
         self._wake_after = None
 
-        self.on_connect()
+        self.failed = False
+        try:
+            self.on_connect()
+
+        except Exception:
+            self.failed = True
+            raise
 
     def on_connect(self):
         # Poor man's connection initialization

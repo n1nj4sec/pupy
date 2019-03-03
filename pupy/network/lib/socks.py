@@ -69,7 +69,6 @@ import os
 from collections import Callable
 from base64 import b64encode
 
-
 if os.name == 'nt':
     try:
         import win_inet_pton
@@ -315,7 +314,7 @@ class socksocket(_BaseSocket):
             data += d
         return data
 
-    def set_proxy(self, proxy_type=None, addr=None, port=None, rdns=True, username=None, password=None):
+    def add_proxy(self, proxy_type=None, addr=None, port=None, rdns=True, username=None, password=None):
         """set_proxy(proxy_type, addr[, port[, rdns[, username[, password]]]])
         Sets the proxy to be used.
 
@@ -333,15 +332,20 @@ class socksocket(_BaseSocket):
         password -    Password to authenticate with to the server.
                        Only relevant when username is also provided.
         """
-        self.proxy = [(proxy_type, addr, port, rdns,
-                      username.encode() if username else None,
-                      password.encode() if password else None)]
 
-    def add_proxy(self, proxy_type=None, addr=None, port=None, rdns=True, username=None, password=None):
+        if type(proxy_type) in (str, unicode):
+            proxy_type = PROXY_TYPES.get(proxy_type)
+            if not proxy_type:
+                raise ValueError('Unknown proxy type {}'.format(proxy_type))
+
         self.proxy.append((
             proxy_type, addr, port, rdns,
             username.encode() if username else None,
             password.encode() if password else None))
+
+    def set_proxy(self, *args, **kwargs):
+        self.reset_proxies()
+        self.add_proxy(*args, **kwargs)
 
     def reset_proxies(self):
         self.proxy = []
@@ -362,7 +366,7 @@ class socksocket(_BaseSocket):
 
     def accept(self):
         if not self.proxy:
-            return _orig_socket.accept(self, cnt)
+            return _orig_socket.accept(self)
 
         if self.proxy[-1][0] != SOCKS5:
             raise socket.error(EINVAL, 'Only SOCKS5 proxies supported')

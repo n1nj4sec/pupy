@@ -4,7 +4,14 @@ import re
 import os
 import time
 
+from collections import namedtuple
+
 from . import getLogger
+from . import Proxy
+
+from .clients import PupyTCPClient, PupySSLClient
+from .clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
+
 logger = getLogger('proxies')
 
 PROXY_MATCHER = re.compile(
@@ -30,6 +37,13 @@ CHECK_CONNECTIVITY_URL = 'http://connectivitycheck.gstatic.com/generate_204'
 
 gio = None
 
+ProxyInfo = namedtuple(
+    'ProxyArgs', [
+        'client', 'client_args', 'transport_args',
+        'host', 'port', 'chain'
+    ])
+
+
 try:
     from urllib import request as urllib
 except ImportError:
@@ -42,9 +56,12 @@ def parse_win_proxy(val):
             tab=p.split('=',1)
             if tab[0]=='socks':
                 tab[0]='SOCKS4'
-            proxies.append((tab[0].upper(), tab[1], None, None)) #type, addr:port, username, password
+            proxies.append(
+                Proxy(tab[0].upper(), tab[1], None, None))
         else:
-            proxies.append(('HTTP', p, None, None))
+            proxies.append(
+                Proxy('HTTP', p, None, None))
+
     return proxies
 
 def get_win_proxies():
@@ -106,7 +123,7 @@ def get_python_proxies():
             '%s proxy found via standard python API: %s user=%s passwd=%s',
             key, proxy, user, passwd)
 
-        yield(key.upper(), proxy, user, passwd)
+        yield Proxy(key.upper(), proxy, user, passwd)
 
 def parse_env_proxies(var):
     global PROXY_MATCHER
@@ -117,18 +134,18 @@ def parse_env_proxies(var):
 
     schema, user, passwd, proxy = match.groups()
     if not schema:
-        yield ('HTTP', proxy, user, passwd)
-        yield ('SOCKS5', proxy, user, passwd)
-        yield ('SOCKS4', proxy, user, passwd)
+        yield Proxy('HTTP', proxy, user, passwd)
+        yield Proxy('SOCKS5', proxy, user, passwd)
+        yield Proxy('SOCKS4', proxy, user, passwd)
     elif schema.lower().startswith('http'):
-        yield ('HTTP', proxy, user, passwd)
+        yield Proxy('HTTP', proxy, user, passwd)
     elif schema.lower() == 'socks4':
-        yield ('SOCKS4', proxy, user, passwd)
+        yield Proxy('SOCKS4', proxy, user, passwd)
     elif schema.lower() == 'socks5':
-        yield ('SOCKS5', proxy, user, passwd)
+        yield Proxy('SOCKS5', proxy, user, passwd)
     elif schema.lower().startswith('socks'):
-        yield ('SOCKS5', proxy, user, passwd)
-        yield ('SOCKS4', proxy, user, passwd)
+        yield Proxy('SOCKS5', proxy, user, passwd)
+        yield Proxy('SOCKS4', proxy, user, passwd)
 
 def get_env_proxies():
     global PROXY_ENV
@@ -227,7 +244,7 @@ def get_gio_proxies(force=True):
 
         if host and port:
             logger.debug('HTTP Proxy found via GIO: %s:%s user=%s password=%s', host, port, user, password)
-            yield ('HTTP', '{}:{}'.format(host, port), user, password)
+            yield Proxy('HTTP', '{}:{}'.format(host, port), user, password)
 
         socks = gio.g_settings_get_child(proxy, 'socks')
         host = gio.g_settings_get_string(socks, 'host')
@@ -236,7 +253,7 @@ def get_gio_proxies(force=True):
 
         if host and port:
             logger.debug('SOCKS Proxy found via GIO: %s:%s user=%s password=%s', host, port, user, password)
-            yield ('SOCKS', '{}:{}'.format(host, port), None, None)
+            yield Proxy('SOCKS', '{}:{}'.format(host, port), None, None)
 
     except Exception, e:
         logger.exception('GIO request exception: %s', e)
@@ -272,82 +289,79 @@ def get_processes_proxies():
             yield parsed
 
 
-def get_proxies(additional_proxies=None):
+def parse_proxy(proxy_str):
+    login, password = None, None
+
+    if hasattr(proxy_str, 'as_tuple'):
+        yield Proxy(*proxy_str.as_tuple())
+    # HTTP:login:password@ip:port
+    elif '://' in proxy_str:
+        for proxy in parse_env_proxies(proxy_str):
+            yield proxy
+    else:
+        #HTTP:ip:port OR HTTP:ip:[port:]login:password
+        parts = proxy_str.split(':')
+
+        if len(parts) >= 4:
+            login, password = parts[-2], parts[-1]
+            parts = parts[:-2]
+
+        if len(parts) not in (2,3):
+            return
+
+        elif len(parts) == 2:
+            proxy_type = 'SOCKS5'
+            address, port = parts
+        else:
+            proxy_type, address, port = parts
+
+        yield Proxy(
+            proxy_type.upper(), address+':'+port, login, password
+        )
+
+
+def get_proxies():
     global PROXY_MATCHER
     global LAST_PROXY
 
-    dups = set()
-
     if LAST_PROXY is not None:
-        dups.add(LAST_PROXY)
         yield LAST_PROXY
 
-    if additional_proxies is not None:
-        for proxy_str in additional_proxies:
-            if not proxy_str:
-                continue
-
-            login, password = None, None
-
-            if hasattr(proxy_str, 'as_tuple'):
-                proxy = proxy_str.as_tuple()
-                if proxy not in dups:
-                    yield proxy
-                    dups.add(proxy)
-            # HTTP:login:password@ip:port
-            elif '://' in proxy_str:
-                for proxy in parse_env_proxies(proxy_str):
-                    if proxy not in dups:
-                        yield proxy
-                        dups.add(proxy)
-            else:
-                #HTTP:ip:port OR HTTP:ip:[port:]login:password
-                parts = proxy_str.split(':')
-
-                if len(parts) >= 4:
-                    login, password = parts[-2], parts[-1]
-                    parts = parts[:-2]
-
-                if len(parts) not in (2,3):
-                    continue
-
-                elif len(parts) == 2:
-                    proxy_type = 'SOCKS5'
-                    address, port = parts
-                else:
-                    proxy_type, address, port = parts
-
-                proxy = proxy_type.upper(), address+':'+port, login, password
-                if proxy not in dups:
-                    yield proxy
-                    dups.add(proxy)
-
     for proxy in get_python_proxies():
-        if proxy not in dups:
-            yield proxy
-            dups.add(proxy)
+        yield proxy
 
     for proxy in get_env_proxies():
-        if proxy not in dups:
-            yield proxy
-            dups.add(proxy)
+        yield proxy
 
     if os.name == 'nt':
         for proxy in get_win_proxies():
-            if proxy not in dups:
-                yield proxy
-                dups.add(proxy)
+            yield proxy
 
     elif os.name == 'posix':
         for proxy in get_gio_proxies():
-            if proxy not in dups:
-                yield proxy
-                dups.add(proxy)
+            yield proxy
 
     for proxy in get_processes_proxies():
-        if proxy not in dups:
-            yield proxy
-            dups.add(proxy)
+        yield proxy
+
+
+def _check_proxy_info(proxy_info):
+    from .tinyhttp import HTTP
+
+    logger.debug('%s - check', proxy_info)
+    ctx = HTTP(proxy=proxy_info, timeout=5)
+    try:
+        data, code = ctx.get(CHECK_CONNECTIVITY_URL, code=True)
+
+    except Exception, e:
+        logger.debug('%s - failed - %s', proxy_info, e)
+        return False
+
+    if code == 204 and data == '':
+        logger.debug('%s - ok', proxy_info)
+        return True
+
+    return False
 
 
 def find_default_proxy():
@@ -360,27 +374,16 @@ def find_default_proxy():
 
     logger.debug('Refresh required')
 
-    from .tinyhttp import HTTP
-
     LAST_PROXY_TIME = time.time()
 
-    def _check_proxy_info(proxy_info):
-        logger.debug('%s - check', proxy_info)
-        ctx = HTTP(proxy=proxy_info, timeout=5)
-        try:
-            data, code = ctx.get(CHECK_CONNECTIVITY_URL, code=True)
-
-        except Exception, e:
-            logger.debug('%s - failed - %s', proxy_info, e)
-            return False
-
-        if code == 204 and data == '':
-            logger.debug('%s - ok', proxy_info)
-            return True
-
-        return False
+    dups = set()
 
     for proxy_info in get_proxies():
+        if proxy_info in dups:
+            continue
+
+        dups.add(proxy_info)
+
         if _check_proxy_info(proxy_info):
             LAST_PROXY = proxy_info
             return LAST_PROXY
@@ -437,9 +440,163 @@ except ImportError:
     set_proxy_unavailable = None
 
 
+def find_proxies(url=None):
+    wpad_proxies = None
+
+    if url and get_proxy_for_address:
+        wpad_proxies = get_proxy_for_address(url)
+        logger.info('URL: %s WPAD: %s', url, wpad_proxies)
+
+    if wpad_proxies:
+        logger.info('WPAD for %s: %s', url, wpad_proxies)
+        for proxy_info in wpad_proxies:
+            yield proxy_info
+
+    # Try proxies which works
+    proxy_info = find_default_proxy()
+    if proxy_info:
+        yield proxy_info
+
+    # Try everything
+    for proxy_info in get_proxies():
+        if proxy_info:
+            yield proxy_info
+
+
+def make_args_for_transport_info(transport_info, host_info, chain):
+
+    chost, cport = host_info
+    transport_args = transport_info.transport_args.copy()
+    client_args = transport_info.client_args.copy()
+    client = transport_info.transport.client
+
+    if not chain:
+        return ProxyInfo(
+            client, client_args, transport_args,
+            chost, cport, chain
+        )
+
+    first = chain[0]
+
+    if _is_native_for(chain, transport_info.transport):
+        chost, cport = first.addr.split(':')
+        cport = int(cport)
+        chain = []
+    else:
+        client_args['proxies'] = chain
+
+        if client is PupyTCPClient:
+            client = PupyProxifiedTCPClient
+        elif client is PupySSLClient:
+            client = PupyProxifiedSSLClient
+        else:
+            raise ValueError(
+                'Proxification for {} is not implemented'.format(
+                    client))
+
+    transport_args['proxy'] = True
+    if first.password or first.username:
+        transport_args['auth'] = (first.username, first.password)
+
+    transport_args['connect'] = host_info.host, host_info.port
+
+    return ProxyInfo(
+        client, client_args, transport_args, chost, cport, chain
+    )
+
+
+def _parse_proxies(proxies):
+    if not proxies:
+        return
+
+    for proxy in proxies:
+        for parsed_proxy in parse_proxy(proxy):
+            yield parsed_proxy
+
+
+def find_proxies_for_transport(
+        transport_info, host_info,
+        lan_proxies=None, wan_proxies=None, auto=True, wpad=True, direct=True):
+
+    host, port = host_info
+    wpad_uri = None
+    parsed_wan_proxies = list(_parse_proxies(wan_proxies))
+    dups = set()
+
+    if auto:
+        if wpad:
+            wpad_uri = 'tcp://{}:{}'.format(host, port)
+            if 'HTTP' in transport_info.transport.internal_proxy_impl:
+                wpad_uri = 'http://{}:{}'.format(host, port)
+
+        for lan_proxy in find_proxies(wpad_uri):
+            chain = []
+            if lan_proxy in dups:
+                continue
+
+            dups.add(lan_proxy)
+
+            if lan_proxy.type != 'DIRECT':
+                chain.append(lan_proxy)
+
+            chain.extend(parsed_wan_proxies)
+            yield make_args_for_transport_info(
+                transport_info, host_info, chain)
+
+    for lan_proxy in _parse_proxies(lan_proxies):
+        if lan_proxy in dups:
+            continue
+
+        if _check_proxy_info(lan_proxy):
+            global LAST_PROXY, LAST_PROXY_TIME
+
+            LAST_PROXY = lan_proxy
+            LAST_PROXY_TIME = time.time()
+
+        dups.add(lan_proxy)
+
+        chain = [lan_proxy]
+        chain.extend(parsed_wan_proxies)
+
+        yield make_args_for_transport_info(
+            transport_info, host_info, chain)
+
+    if direct:
+        if parsed_wan_proxies:
+            yield make_args_for_transport_info(
+                transport_info, host_info, parsed_wan_proxies)
+        else:
+            # Just return same info
+            yield make_args_for_transport_info(
+                transport_info, host_info, [])
+
+
+def _is_native_for(proxies, transport):
+    if not proxies or not len(proxies) == 1:
+        return False
+
+    first_proxy = proxies[0]
+
+    return first_proxy.type in transport.internal_proxy_impl
+
+
+def connect_client_with_proxy_info(transport_info, proxy_info):
+    client = proxy_info.client(**proxy_info.client_args)
+    sock = client.connect(proxy_info.host, proxy_info.port)
+    stream = transport_info.transport.stream(
+        sock,
+        transport_info.transport.client_transport,
+        proxy_info.transport_args
+    )
+
+    return stream
+
+
 __all__ = (
     get_proxies, find_default_proxy,
     get_proxy_for_address, set_proxy_unavailable,
-    has_wpad,
+    has_wpad, parse_proxy, find_proxies,
+    find_proxies_for_transport, ProxyInfo,
+    connect_client_with_proxy_info,
     CHECK_CONNECTIVITY_URL
 )

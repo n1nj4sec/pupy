@@ -11,4 +11,5 @@ parser = launcher.arg_parser
 
 def do(server, handler, config, args):
     launcher.args = args
+    launcher.parse_args(None)
     server.connect_on_client(launcher)

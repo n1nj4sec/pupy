@@ -365,11 +365,13 @@ def get_uuid():
 
     proxy = None
     try:
-        from network.lib.proxies import LAST_PROXY
+        from network.lib.proxies import LAST_PROXY, has_wpad
         if LAST_PROXY:
             proxy = tuple([
                 x for x in LAST_PROXY if x
             ])
+        elif has_wpad:
+            proxy = 'wpad'
     except ImportError:
         proxy = None
 

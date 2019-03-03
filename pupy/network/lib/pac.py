@@ -35,6 +35,8 @@ if os_name == 'nt':
     except:
         WinHttpDetectAutoProxyConfigUrl = None
 
+
+from . import Proxy
 from . import getLogger
 
 logger = getLogger('pac')
@@ -213,7 +215,7 @@ class PACPlayer(object):
 
         for proxy in (x.strip() for x in proxies.split(';')):
             if proxy == 'DIRECT':
-                yield 'DIRECT', None, None, None
+                yield Proxy('DIRECT', None, None, None)
                 continue
 
             proto, addr = proxy.split()
@@ -223,7 +225,7 @@ class PACPlayer(object):
                 proto == 'SOCKS5'
 
             if frozenset((proto, addr)) not in self.unavailable:
-                yield proto, addr, None, None
+                yield Proxy(proto, addr, None, None)
 
     def _export_functions(self):
         for method, impl in getmembers(self):
