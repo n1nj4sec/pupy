@@ -1,7 +1,7 @@
 #!/bin/sh
 
 PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog dukpy zeroconf=0.19.1"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog dukpy zeroconf==0.19.1"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyuv pynacl pyaudio"
 PACKAGES="$PACKAGES idna https://github.com/CoreSecurity/impacket/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
