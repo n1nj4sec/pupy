@@ -1,5 +1,6 @@
 import sys
 import os
+import imp
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -32,7 +33,11 @@ try:
 except ImportError:
     print "[W] idna not found"
 
-import pp
+try:
+    import pp
+except ImportError:
+    pass
+
 import site
 import marshal
 
@@ -120,12 +125,13 @@ if 'win' in sys.platform:
 try:
     content = set(ignore)
     for dep in all_dependencies:
-        mdep = __import__(dep)
-        print "DEPENDENCY: ", dep, mdep
-        if hasattr(mdep, '__path__') and getattr(mdep, '__path__'):
-            print('adding package %s / %s'%(dep, mdep.__path__))
-            path, root = os.path.split(mdep.__path__[0])
-            for root, dirs, files in os.walk(mdep.__path__[0]):
+        _, mpath, info = imp.find_module(dep)
+
+        print "DEPENDENCY: ", dep, mpath
+        if info[2] == imp.PKG_DIRECTORY:
+            print('adding package %s / %s'%(dep, mpath))
+            path, root = os.path.split(mpath)
+            for root, dirs, files in os.walk(mpath):
                 for f in list(set([x.rsplit('.',1)[0] for x in files])):
                     found=False
                     need_compile=True
@@ -180,7 +186,7 @@ try:
 
                             break
         else:
-            if '<memimport>' in mdep.__file__:
+            if '<memimport>' in mpath:
                 continue
 
             found_patch = None
@@ -202,19 +208,19 @@ try:
                     zf.write(found_patch[0], dep+found_patch[1])
 
             else:
-                _, ext = os.path.splitext(mdep.__file__)
+                _, ext = os.path.splitext(mpath)
                 if dep+ext in content:
                     continue
 
-                print('adding %s -> %s'%(mdep.__file__, dep+ext))
-                if mdep.__file__.endswith(('.pyc', '.pyo', '.py')):
-                    srcfile = mdep.__file__
+                print('adding %s -> %s'%(mpath, dep+ext))
+                if mpath.endswith(('.pyc', '.pyo', '.py')):
+                    srcfile = mpath
                     if srcfile.endswith(('.pyc', '.pyo')):
                         srcfile = srcfile[:-1]
 
                     zf.writestr(dep+'.pyo', compile_py(srcfile))
                 else:
-                    zf.write(mdep.__file__, dep+ext)
+                    zf.write(mpath, dep+ext)
 
 finally:
     zf.writestr('fid.toc', marshal.dumps(compile_map))

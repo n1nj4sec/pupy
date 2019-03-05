@@ -39,7 +39,10 @@ import urllib2
 import getpass
 import __future__
 import netaddr
-import psutil
+try:
+    import psutil
+except Exception as e:
+    print "psutil: ", e
 import pyexpat
 import fnmatch
 
