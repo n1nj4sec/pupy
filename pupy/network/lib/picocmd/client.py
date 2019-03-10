@@ -184,7 +184,7 @@ class DnsCommandsClient(Thread):
 
         return [
             addr[0] for af_family, _, _, _, addr in socket.getaddrinfo(
-                hostname, 80, family, socket.IPPROTO_TCP
+                hostname, 80, family
             ) if af_family == family
         ]
 
