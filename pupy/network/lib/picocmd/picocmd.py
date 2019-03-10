@@ -1053,8 +1053,6 @@ class Parcel(object):
 
     __slots__ = ('commands')
 
-    MAX_PARCEL_SIZE = 48
-
     # Explicitly define commands. In other case make break something
     COMMANDS = [
         Poll, Ack, Policy, Idle, Kex,
@@ -1102,11 +1100,7 @@ class Parcel(object):
             chr(self.commands_encode[type(command)]) + command.pack() for command in self.commands
         ])
 
-        result = gen_csum(data, nonce) + data
-        if len(result) > self.MAX_PARCEL_SIZE:
-            raise PackError('To big parcel')
-
-        return result
+        return gen_csum(data, nonce) + data
 
     def __repr__(self):
         return '|PARCEL: {}|'.format(str(self.commands))
