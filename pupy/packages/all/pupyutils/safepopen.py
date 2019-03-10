@@ -88,6 +88,7 @@ class SafePopen(object):
     def __init__(self, *popen_args, **popen_kwargs):
         self._popen_args = popen_args
         self._interactive = popen_kwargs.pop('interactive', False)
+        self._stdin_data = popen_kwargs.pop('stdin_data', None)
         self._suid = popen_kwargs.pop('suid', None)
 
         if not ON_POSIX:
@@ -138,6 +139,10 @@ class SafePopen(object):
                 *self._popen_args,
                 **kwargs
             )
+
+            if self._stdin_data:
+                self._pipe.stdin.write(self._stdin_data)
+                self._pipe.stdin.flush()
 
             if not self._interactive:
                 self._pipe.stdin.close()
