@@ -58,7 +58,7 @@ class Shares(PupyModule):
                         'Name': share_name,
                         'Path': share_path
                     } for share_name, share_path in folders], ['Name', 'Path']))
-                    
+
                 else:
                     self.warning('this module works only for windows. Try using: run shares remote -t 127.0.0.1')
                 return

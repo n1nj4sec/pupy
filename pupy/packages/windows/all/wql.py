@@ -18,7 +18,6 @@ def execute_final(query):
     columns = set()
     keys = set()
     result = []
-    order = None
 
     for item in response:
         keys.update(item.keys)

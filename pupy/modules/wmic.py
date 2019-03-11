@@ -43,8 +43,6 @@ class WMIC(PupyModule):
             self.log(List(columns, caption='Columns'))
             return
 
-        values = []
-
         records = [{
             k:unicode(v) or '' for k,v in record
         } for record in result]
