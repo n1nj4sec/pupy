@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 
 __all__ = (
     'convert_node',
@@ -80,7 +80,8 @@ class NodeBlocked(Exception):
 class ExpirableObject(object):
 
     __slots__ = (
-        '_start', '_last_access', 'timeout'
+        '_start', '_last_access',
+        '_additional_timeout', 'timeout'
     )
 
     def __init__(self, timeout):
@@ -89,9 +90,13 @@ class ExpirableObject(object):
         self._start = time.time()
         self._last_access = 0
 
+        self.bump()
+
+        self._additional_timeout = 240
+
     @property
     def expired(self):
-        return (self.idle > self.timeout)
+        return (self.idle > self.timeout + self._additional_timeout)
 
     @property
     def idle(self):
@@ -103,6 +108,7 @@ class ExpirableObject(object):
 
     def bump(self):
         self._last_access = time.time()
+        self._additional_timeout = 0
 
 class Node(ExpirableObject):
     __slots__ = (
