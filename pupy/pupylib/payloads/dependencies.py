@@ -82,6 +82,12 @@ WELL_KNOWN_DEPS = {
     'xml': {
         'all': ['xml.etree']
     },
+    'wql': {
+        'windows':[
+            'win32api', 'win32com', 'pythoncom',
+            'winerror', 'wmi'
+        ]
+    },
     'secretstorage': {
         'linux': ['dbus']
     },
