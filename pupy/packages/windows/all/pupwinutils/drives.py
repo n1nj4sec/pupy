@@ -36,7 +36,13 @@ def list_drives():
         (int (i), j) for (i, j) in (l.split ("\t") for l in DRIVE_TYPES.splitlines () if l)
     )
 
-    c = wmi.WMI()
+    try:
+        c = wmi.WMI()
+    except wmi.x_wmi_uninitialised_thread:
+        import pythoncom
+        pythoncom.CoInitialize()
+        c = wmi.WMI()
+        
     wql = 'SELECT Name,DriveType,Size,FreeSpace,ProviderName FROM Win32_LogicalDisk'
     output = [
         '\n%s%s%s%s%s' % (
