@@ -37,8 +37,6 @@ from win32evtlog import (
     EVENTLOG_BACKWARDS_READ, EVENTLOG_SEQUENTIAL_READ
 )
 
-from datetime import datetime
-
 LANGID = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
 BLACKLIST = (
     'Application Error'
@@ -145,10 +143,6 @@ class EventLog(object):
     def get_events(self, logtype, server='', filter_event_id=None):
         if filter_event_id is not None:
             filter_event_id = int(filter_event_id)
-
-        UTC_OFFSET_TIMEDELTA = (
-            datetime.now() - datetime.utcnow()
-        ).total_seconds()
 
         log = OpenEventLog(server, logtype)
         if not log:
@@ -268,7 +262,7 @@ class EventLog(object):
                     yield {
                         'EventID': event_id,
                         'record': ev_obj.RecordNumber,
-                        'date': int(ev_obj.TimeGenerated) + UTC_OFFSET_TIMEDELTA,
+                        'date': int(ev_obj.TimeGenerated),
                         'computer': ev_obj.ComputerName,
                         'category': ev_obj.EventCategory,
                         'msg': message,
