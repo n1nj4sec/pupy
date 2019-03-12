@@ -406,7 +406,7 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
 
     return source_events
 
-def get_last_events(count=10, includes=[], excludes=[]):
+def get_last_events(count=10, includes=[], excludes=[], eventid=None):
     try:
         source_events = get_last_events_journald(count, includes, excludes)
     except SDJournalException:

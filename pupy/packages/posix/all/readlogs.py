@@ -8,7 +8,7 @@ import os
 
 from readlogs_generic import GenericLogReader
 
-def get_last_events(count=10, includes=[], excludes=[]):
+def get_last_events(count=10, includes=[], excludes=[], eventid=None):
     events = {}
     for d in ['/var/log', '/var/adm']:
         if os.path.isdir(d):
