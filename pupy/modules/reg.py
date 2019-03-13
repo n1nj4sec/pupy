@@ -8,7 +8,7 @@ from pupylib.PupyOutput import Color, List, Table, MultiPart, TruncateToTerm
 TYPES = (
     'NONE', 'SZ', 'EXPAND_SZ', 'BINARY', 'LE32', 'BE32',
     'LINK', 'MULTI_SZ', 'RESOURCE', 'RESOURCE_DESCRIPTOR',
-    'RESOURCE_REQUIREMENTS_LIST'
+    'RESOURCE_REQUIREMENTS_LIST', 'LE64'
 )
 
 TYPE_COLORS = {
