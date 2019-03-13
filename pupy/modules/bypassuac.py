@@ -63,7 +63,7 @@ class BypassUAC(PupyModule):
         Check all possible methods found on the target to bypass uac
         """
         scanner = self.client.remote('winpwnage.core.scanner', 'scanner', False)
-        result = scanner(uac=True, persist=False).start()
+        result = scanner(uac=True, persist=False, elevate=False, execute=False).start()
         return self.parse_result(result, print_result)
 
     def run(self, args):

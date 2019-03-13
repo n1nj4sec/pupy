@@ -116,7 +116,7 @@ class Persistence(PupyModule):
         Check all possible methods found on the target to persist
         """
         scanner = self.client.remote('winpwnage.core.scanner', 'scanner', False)
-        result = scanner(uac=False, persist=True).start()
+        result = scanner(uac=False, persist=True, elevate=False, execute=False).start()
         return self.parse_result(result, print_result)
 
     def windows(self, args):
