@@ -25,7 +25,7 @@ https://github.com/AlessandroZ/pypykatz/archive/master.zip
 https://github.com/warner/python-ed25519/archive/master.zip
 pygments
 requests
-tornado
+tornado==v5.1.1
 poster
 win_inet_pton
 scandir
