@@ -20,7 +20,7 @@ dnslib
 http-parser
 cerberus
 logutils
-secretstorage
+secretstorage==2.3.1
 https://github.com/AlessandroZ/pypykatz/archive/master.zip
 https://github.com/warner/python-ed25519/archive/master.zip
 pygments
