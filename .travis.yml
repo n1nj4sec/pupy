@@ -3,7 +3,6 @@ services:
 - docker
 os:
 - linux
-dist: trusty
 before_script:
   - sudo pip2 install flake8 flake8-per-file-ignores
   - cd $TRAVIS_BUILD_DIR/pupy && python2 -m flake8 .
