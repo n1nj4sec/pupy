@@ -94,9 +94,21 @@ BOOL MapNewExecutableRegionInProcess(
 	SIZE_T                    dwBytesWritten;
 	SIZE_T                    dwBytesRead;
 	int                       Count;
-	PCONTEXT                  ThreadContext;
+	CONTEXT                   ThreadContext;
 	PMINI_PEB                 ProcessPeb;
 	ULONG                     SizeOfBasicInformation;
+	BYTE                      iBrk = 0xCC;
+	BYTE                      iOriginal = 0x0;
+
+	HMODULE                   hNtlDll = NULL;
+	PBYTE                     pRtlUserThreadStart = NULL;
+	PBYTE                     pLdrSystemDllInitBlock = NULL;
+	PULONGLONG                pulFlag = NULL;
+
+	ULONGLONG                 ulFlags = 0;
+	LONGLONG                  ulDiff = 0;
+	LONGLONG                  ulOriginalFlags = 0;
+
 
 	DosHeader = (PIMAGE_DOS_HEADER)NewExecutableRawImage;
 	if (DosHeader->e_magic != IMAGE_DOS_SIGNATURE)
@@ -106,29 +118,20 @@ BOOL MapNewExecutableRegionInProcess(
 	if (NtHeader64->Signature != IMAGE_NT_SIGNATURE)
 		return FALSE;
 
+	RtlZeroMemory(&ThreadContext, sizeof(ThreadContext));
 	RtlZeroMemory(&BasicInformation, sizeof(PROCESS_INFORMATION));
-	ThreadContext = (PCONTEXT)VirtualAlloc(NULL, sizeof(ThreadContext) + 4, MEM_COMMIT, PAGE_READWRITE);
-	ThreadContext = (PCONTEXT)Align((DWORD_PTR)ThreadContext, 4);
-	ThreadContext->ContextFlags = CONTEXT_FULL;
+	ThreadContext.ContextFlags = CONTEXT_FULL;
 
-	if (!GetThreadContext(TargetThreadHandle, ThreadContext))
+	if (!GetThreadContext(TargetThreadHandle, &ThreadContext))
 		return FALSE;
 
 	if (!ReadProcessMemory(
 			TargetProcessHandle,
-			(LPCVOID)(ThreadContext->Rdx + 16),
+			(LPCVOID)(ThreadContext.Rdx + 16),
 			&dwImageBase,
 			sizeof(DWORD_PTR),
 			&dwBytesRead))
 		return FALSE;
-
-	pNtUnmapViewOfSection = (NtUnmapViewOfSection)
-		GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtUnmapViewOfSection");
-
-	if (!pNtUnmapViewOfSection)
-		return FALSE;
-
-	pNtUnmapViewOfSection(TargetProcessHandle, (LPVOID)NtHeader64->OptionalHeader.ImageBase);
 
 	pImageBase = VirtualAllocEx(
 		TargetProcessHandle,
@@ -162,17 +165,68 @@ BOOL MapNewExecutableRegionInProcess(
 
 	WriteProcessMemory(
 		TargetProcessHandle,
-		(LPVOID)(ThreadContext->Rdx + 16),
+		(LPVOID)(ThreadContext.Rdx + 16),
 		(LPVOID)&NtHeader64->OptionalHeader.ImageBase,
 		sizeof(DWORD_PTR),
 		&dwBytesWritten
 	);
 
-	ThreadContext->Rcx = (DWORD_PTR) pImageBase + NtHeader64->OptionalHeader.AddressOfEntryPoint;
+	ThreadContext.Rcx = (DWORD_PTR) pImageBase + NtHeader64->OptionalHeader.AddressOfEntryPoint;
 	SetThreadContext(
 		TargetThreadHandle,
-		(LPCONTEXT)ThreadContext
+		&ThreadContext
 	);
+
+	// CFG Workaround?
+	// Check own flag
+	//
+	// Find offset for ntdll!RtlUserThreadStart == RIP
+	// Find offset for ntdll!LdrSystemDllInitBlock
+	// Find diff in current process
+	// Expect that diff is same in parent process
+	// current ntdll (ntdll!LdrSystemDllInitBlock+0xa8)
+	// Check value in remote process
+	// If 2000100000000010 - replace to 2000000000000000
+
+	hNtlDll = GetModuleHandleA("NTDLL.DLL");
+	if (hNtlDll) {
+		pRtlUserThreadStart = (PBYTE) GetProcAddress(
+			hNtlDll, "RtlUserThreadStart");
+
+		pLdrSystemDllInitBlock = (PBYTE) GetProcAddress(
+			hNtlDll, "LdrSystemDllInitBlock");
+
+		if (pLdrSystemDllInitBlock && pRtlUserThreadStart) {
+			pulFlag = (PULONGLONG) (pLdrSystemDllInitBlock + 0xa8);
+
+			if (*pulFlag == 0x2000100000000010L) {
+				ulDiff = ((LONGLONG) pLdrSystemDllInitBlock) -	\
+					((LONGLONG) pRtlUserThreadStart);
+			}
+		}
+	}
+
+	if (ulDiff) {
+		ReadProcessMemory(
+			TargetProcessHandle,
+			(PVOID)(ThreadContext.Rip + ulDiff + 0xa8),
+			&ulOriginalFlags,
+			sizeof(ulOriginalFlags),
+			&dwBytesRead);
+
+
+		if (ulOriginalFlags == 0x2000100000000010L) {
+			ulOriginalFlags = 0x2000000000000000L;
+
+			WriteProcessMemory(
+				TargetProcessHandle,
+				(PVOID) (ThreadContext.Rip + ulDiff + 0xa8),
+				&ulOriginalFlags,
+				sizeof(ulOriginalFlags),
+				&dwBytesRead);
+		}
+	}
+
 
 	return ResumeThread(TargetThreadHandle) != (DWORD) -1;
 }
