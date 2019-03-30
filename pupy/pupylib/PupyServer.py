@@ -994,7 +994,7 @@ class PupyServer(object):
 
     def add_listener(self, name, config=None, motd=False, ignore_pproxy=False):
         if self.listeners and name in self.listeners:
-            self.handler.display_warning('Listener {} alrady registered'.format(name))
+            self.handler.display_warning('Listener {} already registered'.format(name))
             return
 
         if name not in transports:
