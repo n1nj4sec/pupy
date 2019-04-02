@@ -21,7 +21,7 @@ class InteractiveShell(PupyModule):
     io = REQUIRE_TERMINAL
 
     dependencies = {
-        'windows': ['winpty.dll', 'winpty'],
+        'windows': ['winpty.dll', 'winpty', 'pupwinutils.security'],
         'all': ['ptyshell'],
     }
 
