@@ -14,7 +14,7 @@ class FStat(PupyModule):
 
     dependencies = {
         'all': [
-            'pupyutils', 'fsutils', 'fsutils_ext'
+            'pupyutils.basic_cmds', 'fsutils', 'fsutils_ext'
         ],
         'windows': ['junctions', 'ntfs_streams'],
         'linux': ['xattr', 'posix1e', 'prctl', '_prctl']
