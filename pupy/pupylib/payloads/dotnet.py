@@ -9,7 +9,7 @@ import random
 import shlex
 
 from string import ascii_uppercase, ascii_lowercase
-from os.path import join, splitext
+from os.path import join, splitext, isfile
 from base64 import b64encode
 
 from pupylib.PupyOutput import Success, Error, List
@@ -135,6 +135,10 @@ def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
 
     dn = DotNetPayload(display, server, conf, rawdll)
     exe_path = dn.gen_exe(options='-target:library')
+
+    if not exe_path or not isfile(exe_path):
+        display(Error('Build failed'))
+        return
 
     with open(exe_path, 'rb') as r:
         payload = r.read()
