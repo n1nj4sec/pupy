@@ -8,17 +8,19 @@ from ctypes import (
     POINTER, create_unicode_buffer, create_string_buffer,
     get_last_error, cast, c_void_p, sizeof, c_int, c_ulong,
     c_wchar, GetLastError, WinError, byref, addressof, c_size_t,
-    c_ubyte, resize
+    c_ubyte, resize, c_longlong
 )
 
 from ctypes.wintypes import (
-    BOOL, LPSTR, LPWSTR, BYTE, LPCSTR, LPCWSTR, USHORT, HANDLE
+    BOOL, LPSTR, LPWSTR, BYTE,
+    LPCSTR, LPCWSTR, USHORT, HANDLE
 )
 
 import subprocess
 import psutil
 import sys
 import os
+import socket
 
 import logging
 
@@ -38,6 +40,7 @@ advapi32 = WinDLL('advapi32', use_last_error=True)
 shell32  = WinDLL('shell32',  use_last_error=True)
 kernel32 = WinDLL('kernel32', use_last_error=True)
 userenv  = WinDLL('userenv',  use_last_error=True)
+secur32  = WinDLL('secur32',  use_last_error=True)
 
 LPVOID                          = c_void_p
 PVOID                           = LPVOID
@@ -52,6 +55,9 @@ PULONG                          = c_void_p
 LPBYTE                          = c_char_p
 SIZE_T                          = c_size_t
 ULONG                           = c_ulong
+WCHAR                           = c_wchar
+NTSTATUS                        = DWORD
+LARGE_INTEGER                   = c_longlong
 
 INVALID_HANDLE_VALUE = c_void_p(-1).value
 SECURITY_INFORMATION = DWORD
@@ -778,6 +784,346 @@ LocalFree                           = kernel32.LocalFree
 LocalFree.restype                   = HANDLE
 LocalFree.argtypes                  = [HANDLE]
 
+class LSA_UNICODE_STRING(Structure):
+    _fields_ = (
+        ('Length', USHORT),
+        ('MaximumLength', USHORT),
+        ('Buffer', LPWSTR)
+    )
+
+class LSA_LAST_INTER_LOGON_INFO(Structure):
+    _fields_ = (
+        ('LastSuccessfulLogon',     LARGE_INTEGER),
+        ('LastFailedLogon',         LARGE_INTEGER),
+        ('FailedAttemptCountSinceLastSuccessfulLogon', ULONG)
+    )
+
+class SECURITY_LOGON_SESSION_DATA(Structure):
+    _fields_ = (
+        ('Size',                     ULONG),
+        ('LogonId',                  LUID),
+        ('UserName',                 LSA_UNICODE_STRING),
+        ('LogonDomain',              LSA_UNICODE_STRING),
+        ('AuthenticationPackage',    LSA_UNICODE_STRING),
+        ('LogonType',                ULONG),
+        ('Session',                  ULONG),
+        ('Sid',                      PSID),
+        ('LogonTime',                LARGE_INTEGER),
+        ('LogonServer',              LSA_UNICODE_STRING),
+        ('DnsDomainName',            LSA_UNICODE_STRING),
+        ('Upn',                      LSA_UNICODE_STRING),
+        ('UserFlags',                ULONG),
+        ('LastLogonInfo',            LSA_LAST_INTER_LOGON_INFO),
+        ('LogonScript',              LSA_UNICODE_STRING),
+        ('ProfilePath',              LSA_UNICODE_STRING),
+        ('HomeDirectory',            LSA_UNICODE_STRING),
+        ('HomeDirectoryDrive',       LSA_UNICODE_STRING),
+        ('LogoffTime',               LARGE_INTEGER),
+        ('KickOffTime',              LARGE_INTEGER),
+        ('PasswordLastSet',          LARGE_INTEGER),
+        ('PasswordCanChange',        LARGE_INTEGER),
+        ('PasswordMustChange',       LARGE_INTEGER),
+    )
+
+PSECURITY_LOGON_SESSION_DATA = POINTER(SECURITY_LOGON_SESSION_DATA)
+PPSECURITY_LOGON_SESSION_DATA = POINTER(PSECURITY_LOGON_SESSION_DATA)
+
+LOGON_TYPE = (
+    'Undefined',
+    'Interactive',
+    'Network',
+    'Batch',
+    'Service',
+    'Proxy',
+    'Unlock',
+    'NetworkCleartext',
+    'NewCredentials',
+    'RemoteInteractive',
+    'CachedInteractive',
+    'CachedRemoteInteractive',
+    'CachedUnlock'
+)
+
+def LsaSessionDataFlagsToStr(flags):
+    result = []
+
+    if flags & 0x4000:
+        result.append('Optimized')
+    if flags & 0x8000:
+        result.append('WinLogon')
+    if flags & 0x10000:
+        result.append('Kerberos')
+    if flags & 0x20000:
+        result.append('Not Optimized')
+
+    return result
+
+def FileTimeToUnix(filetime):
+    if filetime < 1:
+        return filetime
+
+    return (filetime / 10000000) - 11644473600L
+
+LsaEnumerateLogonSessions           = secur32.LsaEnumerateLogonSessions
+LsaEnumerateLogonSessions.restype   = NTSTATUS
+LsaEnumerateLogonSessions.argtypes  = [PULONG, PVOID()]
+
+LsaGetLogonSessionData              = secur32.LsaGetLogonSessionData
+LsaGetLogonSessionData.restype      = NTSTATUS
+LsaGetLogonSessionData.argtypes     = [PLUID, PPSECURITY_LOGON_SESSION_DATA]
+
+LsaFreeReturnBuffer                 = secur32.LsaFreeReturnBuffer
+LsaFreeReturnBuffer.restype         = NTSTATUS
+LsaFreeReturnBuffer.argtypes        = [PVOID]
+
+LsaNtStatusToWinError               = advapi32.LsaNtStatusToWinError
+LsaNtStatusToWinError.restype       = ULONG
+LsaNtStatusToWinError.argtypes      = [NTSTATUS]
+
+try:
+    wtsapi32 = WinDLL('wtsapi32', use_last_error=True)
+
+    class WTS_SERVER_INFOW(Structure):
+        _fields_ = (
+            ('pServerName', LPWSTR),
+        )
+
+
+    WTS_CONNECTSTATE_CLASS = (
+        'Active',
+        'Connected',
+        'ConnectQuery',
+        'Shadow',
+        'Disconnected',
+        'Idle',
+        'Listen',
+        'Reset',
+        'Down',
+        'Init'
+    )
+
+    class WTS_SESSION_INFOW(Structure):
+        _fields_ = (
+            ('SessionId', DWORD),
+            ('pWinStationName', LPWSTR),
+            ('State', DWORD),
+        )
+
+    PWTS_SESSION_INFOW = POINTER(WTS_SESSION_INFOW)
+    PPWTS_SESSION_INFOW = POINTER(PWTS_SESSION_INFOW)
+
+    PWTS_SERVER_INFOW = POINTER(WTS_SERVER_INFOW)
+    PPWTS_SERVER_INFOW = POINTER(PWTS_SERVER_INFOW)
+
+    WTSEnumerateServersW = wtsapi32.WTSEnumerateServersW
+    WTSEnumerateServersW.restype = BOOL
+    WTSEnumerateServersW.argtypes = (
+        LPWSTR, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
+    )
+
+    WTSFreeMemory = wtsapi32.WTSFreeMemory
+    WTSFreeMemory.argtypes = (PVOID,)
+
+    WTSEnumerateSessionsW = wtsapi32.WTSEnumerateSessionsW
+    WTSEnumerateSessionsW.restype = BOOL
+    WTSEnumerateSessionsW.argtypes = (
+        HANDLE, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
+    )
+
+    WTSQuerySessionInformationW = wtsapi32.WTSQuerySessionInformationW
+    WTSQuerySessionInformationW.restype = BOOL
+    WTSQuerySessionInformationW.argtypes = (
+        HANDLE, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
+    )
+
+    WTSInitialProgram, WTSApplicationName, WTSWorkingDirectory, WTSOEMId, \
+      WTSSessionId, WTSUserName, WTSWinStationName, WTSDomainName, WTSConnectState, \
+      WTSClientBuildNumber, WTSClientName, WTSClientDirectory, WTSClientProductId, \
+      WTSClientHardwareId, WTSClientAddress, WTSClientDisplay, \
+      WTSClientProtocolType, WTSIdleTime, WTSLogonTime, WTSIncomingBytes, \
+      WTSOutgoingBytes, WTSIncomingFrames, WTSOutgoingFrames, WTSClientInfo, \
+      WTSSessionInfo, WTSSessionInfoEx, WTSConfigInfo, WTSValidationInfo, \
+      WTSSessionAddressV4, WTSIsRemoteSession = xrange(30)
+
+    MAX_PATH                 = 260
+
+    WDPREFIX_LENGTH          =  12
+    STACK_ADDRESS_LENGTH     = 128
+    MAX_BR_NAME              =  65
+    DIRECTORY_LENGTH         = 256
+    INITIALPROGRAM_LENGTH    = 256
+    USERNAME_LENGTH          =  20
+    DOMAIN_LENGTH            =  17
+    PASSWORD_LENGTH          =  14
+    NASISPECIFICNAME_LENGTH  =  14
+    NASIUSERNAME_LENGTH      =  47
+    NASIPASSWORD_LENGTH      =  24
+    NASISESSIONNAME_LENGTH   =  16
+    NASIFILESERVER_LENGTH    =  47
+
+    CLIENTDATANAME_LENGTH    =   7
+    CLIENTNAME_LENGTH        =  20
+    CLIENTADDRESS_LENGTH     =  30
+    IMEFILENAME_LENGTH       =  32
+    DIRECTORY_LENGTH         = 256
+    CLIENTLICENSE_LENGTH     =  32
+    CLIENTMODEM_LENGTH       =  40
+    CLIENT_PRODUCT_ID_LENGTH =  32
+    MAX_COUNTER_EXTENSIONS   =   2
+    WINSTATIONNAME_LENGTH    =  32
+
+    class WTSCLIENTW(Structure):
+        _fields_ = (
+            ('ClientName', WCHAR * (CLIENTNAME_LENGTH+1)),
+            ('Domain', WCHAR * (DOMAIN_LENGTH+1)),
+            ('UserName', WCHAR * (USERNAME_LENGTH+1)),
+            ('WorkDirectory', WCHAR * (MAX_PATH+1)),
+            ('InitialProgram', WCHAR * (MAX_PATH+1)),
+            ('EncryptionLevel', BYTE),
+            ('ClientAddressFamily', ULONG),
+            ('ClientAddress', USHORT*(CLIENTADDRESS_LENGTH+1)),
+            ('HRes', USHORT),
+            ('VRes', USHORT),
+            ('ColorDepth', USHORT),
+            ('ClientDirectory', WCHAR * (MAX_PATH+1)),
+            ('ClientBuildNumber', ULONG),
+            ('ClientHardwareId', ULONG),
+            ('ClientProductId', USHORT),
+            ('OutBufCountHost', USHORT),
+            ('OutBufCountClient', USHORT),
+            ('OutBufLength', USHORT),
+            ('DeviceId', WCHAR * (MAX_PATH+1))
+        )
+
+    PWTSCLIENTW = POINTER(WTSCLIENTW)
+
+    class WTSINFOW(Structure):
+        _fields_ = (
+            ('State', DWORD),
+            ('SessionId', DWORD),
+            ('IncomingBytes', DWORD),
+            ('OutgoingBytes', DWORD),
+            ('IncomingFrames', DWORD),
+            ('OutgoingFrames', DWORD),
+            ('IncomingCompressedBytes', DWORD),
+            ('OutgoingCompressedBytes', DWORD),
+            ('WinStationName', WCHAR * WINSTATIONNAME_LENGTH),
+            ('Domain', WCHAR * DOMAIN_LENGTH),
+            ('UserName', WCHAR * (USERNAME_LENGTH+1)),
+            ('ConnectTime', LARGE_INTEGER),
+            ('DisconnectTime', LARGE_INTEGER),
+            ('LastInputTime', LARGE_INTEGER),
+            ('LogonTime', LARGE_INTEGER),
+            ('CurrentTime', LARGE_INTEGER)
+        )
+
+    PWTSINFOW = POINTER(WTSINFOW)
+
+    def mkzstring(data):
+        if '\0' in data:
+            return data[:data.index('\0')]
+
+        return data
+
+    def mkaddress(family, data):
+        if family == socket.AF_UNSPEC:
+            return None
+
+        addr_len = data[0]
+        addr_data = data[1:addr_len]
+
+        if family == socket.AF_INET:
+            return ''.join(chr(x) for x in addr_data)
+        else:
+            return ''.join(hex(x)[2:] for x in addr_data)
+
+    def EnumerateWTS():
+        info = PVOID()
+        count = DWORD()
+
+        if WTSEnumerateSessionsW(None, 0, 1, byref(info), byref(count)) == 0:
+            raise WinError(get_last_error())
+
+        sessions = []
+        try:
+            _info = cast(info, POINTER(WTS_SESSION_INFOW))
+            for idx in xrange(count.value):
+                sessions.append((
+                    _info[idx].SessionId, _info[idx].pWinStationName,
+                    _info[idx].State
+                ))
+
+            del _info
+
+        finally:
+            WTSFreeMemory(info)
+
+        session_infos = {}
+
+        for session_id, station, state in sessions:
+            info = PVOID()
+            dwSize = DWORD()
+
+            session_infos[station] = {
+                'state': WTS_CONNECTSTATE_CLASS[state]
+            }
+
+
+            if WTSQuerySessionInformationW(
+                    None, session_id, WTSClientInfo, byref(info), byref(dwSize)) == 0:
+                raise WinError(get_last_error())
+
+            try:
+                _info = cast(info, PWTSCLIENTW)
+                session_infos[station]['client'] = {
+                    'ClientName': mkzstring(_info[0].ClientName),
+                    'Domain': mkzstring(_info[0].Domain),
+                    'UserName': mkzstring(_info[0].UserName),
+                    'WorkDirectory': mkzstring(_info[0].WorkDirectory),
+                    'EncryptionLevel': _info[0].EncryptionLevel,
+                    'ClientAddress': mkaddress(
+                        _info[0].ClientAddressFamily, _info[0].ClientAddress),
+                    'HRes': _info[0].HRes,
+                    'VRes': _info[0].VRes,
+                    'ColorDepth': _info[0].ColorDepth,
+                    'ClientDirectory': mkzstring(_info[0].ClientDirectory),
+                    'ClientBuildNumber': _info[0].ClientBuildNumber,
+                    'ClientProductId': _info[0].ClientProductId,
+                    'DeviceIdD': mkzstring(_info[0].DeviceId)
+                }
+
+                del _info
+            finally:
+                WTSFreeMemory(info)
+
+            if WTSQuerySessionInformationW(
+                    None, session_id, WTSSessionInfo, byref(info), byref(dwSize)) == 0:
+                raise WinError(get_last_error())
+
+            try:
+                _info = cast(info, PWTSINFOW)
+                session_infos[station]['info'] = {
+                    'Domain': mkzstring(_info[0].Domain),
+                    'UserName': mkzstring(_info[0].UserName),
+                    'ConnectTime': FileTimeToUnix(_info[0].ConnectTime),
+                    'DisconnectTime': FileTimeToUnix(_info[0].DisconnectTime),
+                    'LastInputTime': FileTimeToUnix(_info[0].LastInputTime),
+                    'LogonTime': FileTimeToUnix(_info[0].LogonTime),
+                    'CurrentTime': FileTimeToUnix(_info[0].CurrentTime),
+                }
+
+                del _info
+            finally:
+                WTSFreeMemory(info)
+
+        return session_infos
+
+
+except (WindowsError, AttributeError):
+    # Unsupported
+    def EnumerateWTS():
+        raise NotImplementedError('WTS Enumeration not implemented')
+
 try:
     InitializeProcThreadAttributeList          = kernel32.InitializeProcThreadAttributeList
     InitializeProcThreadAttributeList.restype  = BOOL
@@ -827,6 +1173,65 @@ ERROR_ACCESS_DENIED = 5
 ERROR_INVALID_PARAMETER = 87
 ERROR_NOT_ALL_ASSIGNED = 1300
 ERROR_NO_TOKEN = 1008
+
+
+def EnumerateLogonSessions():
+    uids = PVOID()
+    uids_cnt = ULONG()
+
+    status = LsaEnumerateLogonSessions(byref(uids_cnt), byref(uids))
+    if status != 0:
+        raise WinError(LsaNtStatusToWinError(status))
+
+    sessions = []
+
+    try:
+        for pluid in cast(uids, POINTER(LUID*uids_cnt.value)).contents:
+            session = PSECURITY_LOGON_SESSION_DATA()
+            try:
+                status = LsaGetLogonSessionData(pluid, byref(session))
+                if status != 0:
+                    raise WinError(LsaNtStatusToWinError(status))
+
+                content = session.contents
+
+                sessions.append({
+                    'user': content.UserName.Buffer,
+                    'domain': content.LogonDomain.Buffer,
+                    'auth': content.AuthenticationPackage.Buffer,
+                    'type': LOGON_TYPE[content.LogonType],
+                    'session': content.Session,
+                    'sid': strsid(content.Sid),
+                    'logon': FileTimeToUnix(content.LogonTime),
+                    'server': content.LogonServer.Buffer,
+                    'dns': content.DnsDomainName.Buffer,
+                    'upn': content.Upn.Buffer,
+                    'flags': LsaSessionDataFlagsToStr(content.UserFlags),
+                    'logon-info': {
+                        'success': FileTimeToUnix(content.LastLogonInfo.LastSuccessfulLogon),
+                        'failed':  FileTimeToUnix(content.LastLogonInfo.LastFailedLogon),
+                        'attempts': content.LastLogonInfo.FailedAttemptCountSinceLastSuccessfulLogon,
+                    },
+                    'profile': content.ProfilePath.Buffer,
+                    'home': content.HomeDirectory.Buffer,
+                    'drive': content.HomeDirectoryDrive.Buffer,
+                    'logoff': FileTimeToUnix(content.LogoffTime),
+                    'kickoff': FileTimeToUnix(content.KickOffTime),
+                    'password': {
+                        'last': FileTimeToUnix(content.PasswordLastSet),
+                        'changable': FileTimeToUnix(content.PasswordCanChange),
+                        'change': FileTimeToUnix(content.PasswordMustChange)
+                    }
+                })
+
+            finally:
+                LsaFreeReturnBuffer(session)
+
+    finally:
+        LsaFreeReturnBuffer(uids)
+
+    return sessions
+
 
 def GetUserName():
     nSize = DWORD(0)
@@ -1440,6 +1845,9 @@ def access(path, mode):
     return is_access_granted
 
 def strsid(sid, exc=True):
+    if not sid:
+        return None
+
     StringSid = LPTSTR()
 
     if ConvertSidToStringSidA(sid, byref(StringSid)):
