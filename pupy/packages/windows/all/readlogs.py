@@ -7,6 +7,8 @@ __all__ = [
 import winerror
 import re
 
+from time import time
+
 from win32security import LookupAccountSid
 from pywintypes import error
 from win32api import MAKELANGID, LoadLibraryEx, FreeLibrary, FormatMessageW
@@ -41,6 +43,19 @@ LANGID = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
 BLACKLIST = (
     'Application Error'
 )
+
+LOGON_TYPES = {
+    2: 'Con',
+    3: 'Net',
+    4: 'Batch',
+    5: 'Service',
+    7: 'Unlock',
+    8: 'Net(CT)',
+    9: 'NewCreds',
+    10: 'RDP',
+    11: 'RDP(C)',
+}
+
 
 class EventLog(object):
     event_types = {
@@ -140,9 +155,15 @@ class EventLog(object):
 
         return events_count
 
-    def get_events(self, logtype, server='', filter_event_id=None):
+    def get_events(self, logtype, server='', filter_event_id=None, fmt=True):
         if filter_event_id is not None:
-            filter_event_id = int(filter_event_id)
+            if type(filter_event_id) in (int, long):
+                filter_event_id = {filter_event_id}
+            elif type(filter_event_id) in (str, unicode):
+                if ',' in filter_event_id:
+                    filter_event_id = set(int(x.strip()) for x in filter_event_id.split(','))
+                else:
+                    filter_event_id = {int(filter_event_id)}
 
         log = OpenEventLog(server, logtype)
         if not log:
@@ -175,7 +196,7 @@ class EventLog(object):
                 for ev_obj in events:
                     event_id = int(winerror.HRESULT_CODE(ev_obj.EventID))
 
-                    if filter_event_id is not None and event_id != filter_event_id:
+                    if filter_event_id is not None and event_id not in filter_event_id:
                         continue
 
                     if not ev_obj.StringInserts:
@@ -183,7 +204,8 @@ class EventLog(object):
 
                     message = None
 
-                    if ev_obj.SourceName not in self._formatters_cache and ev_obj.SourceName not in BLACKLIST:
+                    if fmt and ev_obj.SourceName not in self._formatters_cache \
+                          and ev_obj.SourceName not in BLACKLIST:
                         source_name = ev_obj.SourceName
                         if type(source_name) == str:
                             source_name = source_name.decode(getdefaultencoding())
@@ -234,6 +256,10 @@ class EventLog(object):
 
                         except WindowsError:
                             self._formatters_cache[ev_obj.SourceName] = None
+                    elif not fmt:
+                        message = [
+                            unicode(x) for x in ev_obj.StringInserts
+                        ]
 
                     elif ev_obj.SourceName in BLACKLIST or not self._formatters_cache[ev_obj.SourceName]:
                         message = '\n'.join(ev_obj.StringInserts)
@@ -341,3 +367,92 @@ class EventLog(object):
 
 def get_last_events(count=10, includes=[], excludes=[], eventid=None):
     return EventLog().get_last_events(count, includes, excludes, eventid)
+
+def lastlog():
+    events = []
+    now = int(time())
+
+    sessions = {}
+
+    for event in EventLog().get_events('Security', filter_event_id=(4624,4634), fmt=False):
+        session_id = None
+
+        if event['EventID'] == 4624:
+            _, _, _, _, _, user, domain, session_id, logon_type, _, \
+              _, hostname, _, _, _, _, pid, comm, ip, _ = event['msg']
+
+            raw = repr(event)
+
+            session_id = int(session_id, 16)
+            logon_type = int(logon_type)
+            pid = int(pid, 16)
+
+            if logon_type in (0, 5) or (pid == 0 and logon_type == 3):
+                # Filter out system crap
+                continue
+
+            if comm.endswith('winlogon.exe'):
+                # This is by default, who cares
+                comm = None
+
+            if logon_type == 2 or '-' in ip:
+                ip = None
+
+            if session_id not in sessions:
+                sessions[session_id] = {
+                    'end': None
+                }
+
+            logon_type = LOGON_TYPES.get(logon_type, logon_type)
+
+            sessions[session_id].update({
+                'start': event['date'],
+                'type': None,
+                'host': hostname,
+                'user': domain + '\\' + user,
+                'ip': ip,
+                'line': logon_type,
+                'pid': comm,
+                'raw': raw
+            })
+
+        elif event['EventID'] == 4634:
+            _, _, _, session_id, _ = event['msg']
+            session_id = int(session_id, 16)
+
+            if session_id not in sessions:
+                sessions[session_id] = {
+                    'start': None
+                }
+
+            sessions[session_id]['end'] = event['date']
+
+        if not session_id:
+            continue
+
+        if sessions[session_id]['start'] and sessions[session_id]['end']:
+            sessions[session_id]['duration'] = \
+              sessions[session_id]['end'] - sessions[session_id]['start']
+            events.append(sessions[session_id])
+            del sessions[session_id]
+
+    if sessions:
+        orphan = [
+            session for session in sessions.values() \
+                  if 'start' in session and session['start']
+        ]
+
+        for session in orphan:
+            session['end'] = -1
+            session['duration'] = now - session['start']
+
+        events.extend(
+            sorted(orphan, key=lambda x: x['start'])
+        )
+
+    events = sorted(events, key=lambda x: x['start'], reverse=True)
+
+    return {
+        'now': now,
+        'records': events
+    }

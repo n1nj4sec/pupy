@@ -8,11 +8,15 @@ import logging
 
 __class_name__="LastModule"
 
-@config(cat='admin', compat=['linux'])
+@config(cat='admin', compat=['linux', 'windows'])
 class LastModule(PupyModule):
     """ list terminal sessions """
 
-    dependencies = ['pupyps']
+    dependencies = {
+        'linux': ['pupyps'],
+        'windows': ['readlogs']
+    }
+
     is_module=False
 
     @classmethod
@@ -28,7 +32,15 @@ class LastModule(PupyModule):
 
     def run(self, args):
         try:
-            wtmp = self.client.remote('pupyps', 'wtmp')
+            wtmp = None
+
+            is_windows = False
+
+            if self.client.is_windows():
+                wtmp = self.client.remote('readlogs', 'lastlog')
+                is_windows = True
+            else:
+                wtmp = self.client.remote('pupyps', 'wtmp')
 
             data = wtmp()
 
@@ -45,7 +57,7 @@ class LastModule(PupyModule):
                 if args.include and not any([x in args.include for x in record.itervalues()]):
                     continue
 
-                if record['type'] not in ('boot', 'process'):
+                if not is_windows and record['type'] not in ('boot', 'process'):
                     continue
 
                 color = ''
@@ -58,8 +70,6 @@ class LastModule(PupyModule):
                         color = 'cyan'
                 elif record['user'] == 'root':
                     color = 'yellow'
-                elif record['ip'] != '0.0.0.0':
-                    color = 'cyan'
                 elif record['end'] > 24*60*60:
                     color = 'grey'
                 elif record['end'] > 7*24*60*60:
@@ -79,18 +89,18 @@ class LastModule(PupyModule):
                     record['end'] = 'up'
 
                 for f in record:
-                    record[f] = Color(str(record[f]), color)
+                    if record[f]:
+                        record[f] = Color(str(record[f]), color)
 
                 output.append(record)
 
                 if args.lines and len(output) >= args.lines:
                     break
 
-
             columns = [
                 x for x in [
                     'user', 'line', 'pid', 'host', 'ip', 'start', 'end', 'duration'
-                ] if any([bool(y[x]) for y in output])
+                ] if any((x in y and y[x]) for y in output)
             ]
 
             self.table(output, columns)
