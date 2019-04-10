@@ -19,6 +19,7 @@ from win32con import (
 
 from sys import getdefaultencoding
 from os.path import expandvars, isfile
+from socket import gethostbyaddr
 
 from win32con import (
     EVENTLOG_AUDIT_FAILURE,
@@ -371,6 +372,7 @@ def get_last_events(count=10, includes=[], excludes=[], eventid=None):
 def lastlog():
     events = []
     now = int(time())
+    hostmap = {}
 
     sessions = {}
 
@@ -379,15 +381,13 @@ def lastlog():
 
         if event['EventID'] == 4624:
             _, _, _, _, _, user, domain, session_id, logon_type, _, \
-              _, hostname, _, _, _, _, pid, comm, ip, _ = event['msg']
-
-            raw = repr(event)
+              _, _, _, _, _, _, pid, comm, ip, _ = event['msg']
 
             session_id = int(session_id, 16)
             logon_type = int(logon_type)
             pid = int(pid, 16)
 
-            if logon_type in (0, 5) or (pid == 0 and logon_type == 3):
+            if logon_type in (0, 4, 5) or (pid == 0 and logon_type == 3):
                 # Filter out system crap
                 continue
 
@@ -405,15 +405,23 @@ def lastlog():
 
             logon_type = LOGON_TYPES.get(logon_type, logon_type)
 
+            if ip and ip not in hostmap:
+                hostname = None
+                try:
+                    hostname = gethostbyaddr(ip)[0]
+                except WindowsError:
+                    pass
+
+                hostmap[ip] = hostname
+
             sessions[session_id].update({
                 'start': event['date'],
                 'type': None,
-                'host': hostname,
+                'host': hostmap[ip] if ip else None,
                 'user': domain + '\\' + user,
                 'ip': ip,
                 'line': logon_type,
                 'pid': comm,
-                'raw': raw
             })
 
         elif event['EventID'] == 4634:
