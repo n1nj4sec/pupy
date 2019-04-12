@@ -1020,7 +1020,7 @@ try:
             ('OutgoingFrames', DWORD),
             ('IncomingCompressedBytes', DWORD),
             ('OutgoingCompressedBytes', DWORD),
-            ('WinStationName', WCHAR * WINSTATIONNAME_LENGTH),
+            ('WinStationName', WCHAR * (WINSTATIONNAME_LENGTH)),
             ('Domain', WCHAR * DOMAIN_LENGTH),
             ('UserName', WCHAR * (USERNAME_LENGTH+1)),
             ('ConnectTime', LARGE_INTEGER),
@@ -1064,7 +1064,7 @@ try:
             return None
 
         try:
-            name = str(cast(info, LPWSTR).value)
+            name = str(cast(info, LPWSTR).value) or '{Empty}'
         finally:
             WTSFreeMemory(info)
 
@@ -1085,7 +1085,8 @@ try:
             _info = cast(info, POINTER(WTS_SESSION_INFOW))
             for idx in xrange(count.value):
                 sessions.append((
-                    _info[idx].SessionId, _info[idx].pWinStationName,
+                    _info[idx].SessionId,
+                    _info[idx].pWinStationName or '{Empty}',
                     _info[idx].State
                 ))
 
@@ -1104,9 +1105,9 @@ try:
 
             session_infos[station] = {
                 'state': WTS_CONNECTSTATE_CLASS[state],
-                'current': is_current
+                'current': is_current,
+                'session_id': session_id
             }
-
 
             if WTSQuerySessionInformationW(
                     None, session_id, WTSClientInfo, byref(info), byref(dwSize)) == 0:
@@ -1144,6 +1145,7 @@ try:
                 session_infos[station]['info'] = {
                     'Domain': mkzstring(_info[0].Domain),
                     'UserName': mkzstring(_info[0].UserName),
+                    'WinStationName': mkzstring(_info[0].WinStationName),
                     'ConnectTime': FileTimeToUnix(_info[0].ConnectTime),
                     'DisconnectTime': FileTimeToUnix(_info[0].DisconnectTime),
                     'LastInputTime': FileTimeToUnix(_info[0].LastInputTime),

@@ -14,7 +14,7 @@ class LastModule(PupyModule):
 
     dependencies = {
         'linux': ['pupyps'],
-        'windows': ['readlogs']
+        'windows': ['readlogs', 'pupwinutils.security']
     }
 
     is_module=False

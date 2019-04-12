@@ -12,6 +12,7 @@ class Logs(PupyModule):
 
     dependencies = {
         'posix': ['readlogs_generic'],
+        'windows': ['pupwinutils.security'],
         'all': ['readlogs']
     }
 

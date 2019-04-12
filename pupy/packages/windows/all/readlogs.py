@@ -4,13 +4,20 @@ __all__ = [
     'EventLog', 'get_last_events'
 ]
 
-import winerror
 import re
+
+from winerror import HRESULT_CODE
 
 from time import time
 
-from win32security import LookupAccountSid
+from pupwinutils.security import LookupAccountSidW as LookupAccountSid
+try:
+    from pupwinutils.security import StationNameByPid
+except ImportError:
+    StationNameByPid = None
+
 from pywintypes import error
+
 from win32api import MAKELANGID, LoadLibraryEx, FreeLibrary, FormatMessageW
 from win32con import (
     LANG_NEUTRAL, SUBLANG_NEUTRAL,
@@ -20,6 +27,7 @@ from win32con import (
 from sys import getdefaultencoding
 from os.path import expandvars, isfile
 from socket import gethostbyaddr
+from socket import error as socket_error
 
 from win32con import (
     EVENTLOG_AUDIT_FAILURE,
@@ -195,7 +203,7 @@ class EventLog(object):
                     break
 
                 for ev_obj in events:
-                    event_id = int(winerror.HRESULT_CODE(ev_obj.EventID))
+                    event_id = int(HRESULT_CODE(ev_obj.EventID))
 
                     if filter_event_id is not None and event_id not in filter_event_id:
                         continue
@@ -409,10 +417,16 @@ def lastlog():
                 hostname = None
                 try:
                     hostname = gethostbyaddr(ip)[0]
-                except WindowsError:
+                except socket_error:
                     pass
 
                 hostmap[ip] = hostname
+
+            line = logon_type
+            if StationNameByPid:
+                station = StationNameByPid(pid)
+                if station:
+                    line = '{}: {} ({})'.format(line, station, pid)
 
             sessions[session_id].update({
                 'start': event['date'],
@@ -420,7 +434,7 @@ def lastlog():
                 'host': hostmap[ip] if ip else None,
                 'user': domain + '\\' + user,
                 'ip': ip,
-                'line': logon_type,
+                'line': line,
                 'pid': comm,
             })
 
