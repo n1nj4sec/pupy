@@ -62,6 +62,9 @@ WELL_KNOWN_DEPS = {
             'pupymemexec'
         ],
     },
+    'pupyps': {
+        'windows': ['pupwinutils.security']
+    },
     'pupyutils.basic_cmds': {
         'windows': ['junctions', 'ntfs_streams', '_scandir'],
         'linux': ['xattr', '_scandir'],

@@ -918,6 +918,12 @@ try:
     PWTS_SERVER_INFOW = POINTER(WTS_SERVER_INFOW)
     PPWTS_SERVER_INFOW = POINTER(PWTS_SERVER_INFOW)
 
+    ProcessIdToSessionId = kernel32.ProcessIdToSessionId
+    ProcessIdToSessionId.restype = BOOL
+    ProcessIdToSessionId.argtypes = (
+        DWORD, POINTER(DWORD)
+    )
+
     WTSEnumerateServersW = wtsapi32.WTSEnumerateServersW
     WTSEnumerateServersW.restype = BOOL
     WTSEnumerateServersW.argtypes = (
@@ -1043,6 +1049,26 @@ try:
             return ''.join(chr(x) for x in addr_data)
         else:
             return ''.join(hex(x)[2:] for x in addr_data)
+
+    def StationNameByPid(pid):
+        SessionID = DWORD()
+
+        if not ProcessIdToSessionId(pid, byref(SessionID)):
+            return None
+
+        info = PVOID()
+        dwSize = DWORD()
+
+        if not WTSQuerySessionInformationW(
+            None, SessionID, WTSWinStationName, byref(info), byref(dwSize)):
+            return None
+
+        try:
+            name = str(cast(info, LPWSTR).value)
+        finally:
+            WTSFreeMemory(info)
+
+        return name
 
     def EnumerateWTS():
         info = PVOID()

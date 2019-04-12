@@ -34,6 +34,21 @@ KNOWN_FIELDS = tuple(
     ) if field in psutil._as_dict_attrnames
 )
 
+if os.name == 'nt':
+    try:
+        import pupwinutils.security
+        if hasattr(pupwinutils.security, 'StationNameByPid'):
+            if not 'terminal' in psutil._as_dict_attrnames:
+
+                def terminal(self):
+                    return pupwinutils.security.StationNameByPid(self.pid)
+
+                setattr(psutil.Process, 'terminal', terminal)
+                psutil._as_dict_attrnames.add('terminal')
+
+    except ImportError:
+        pass
+
 
 def to_unicode(x):
     tx = type(x)
@@ -117,6 +132,7 @@ def pstree():
             k:to_unicode(v) for k,v in safe_as_dict(p, [
                 'name', 'username', 'cmdline', 'exe', 'status',
                 'cpu_percent', 'memory_percent', 'connections',
+                'terminal'
             ]).iteritems()
         }
 

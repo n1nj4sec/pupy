@@ -68,6 +68,7 @@ def gen_columns(record, colinfo=None):
     columns['cpu_percent'] = '{:3}%'.format(int(cpu)) if cpu is not None else ' '*4
     mem = record.get('memory_percent')
     columns['memory_percent'] = '{:3}%'.format(int(mem)) if mem is not None else ' '*4
+    columns['terminal'] = record.get('terminal') or ''
 
     if 'pid' not in record:
         return columns
@@ -78,6 +79,13 @@ def gen_columns(record, colinfo=None):
             if type(username) == str:
                 username = username.decode('utf-8')
             columns['username'] = u'{{:{}}}'.format(colinfo['username']).format(username)
+
+        if 'terminal' in colinfo and colinfo['terminal']:
+            terminal = columns['terminal']
+            if type(terminal) == str:
+                terminal = terminal.decode('utf-8')
+            columns['terminal'] = u'{{:{}}}'.format(colinfo['terminal']).format(terminal)
+
         columns['pid'] = '{{:{}}}'.format(colinfo['pid']).format(record['pid'])
     else:
         columns['pid'] = '{}'.format(record['pid'])
@@ -196,7 +204,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
         else:
             outcols = ['pid'] + [
                 x for x in (
-                    'cpu_percent', 'memory_percent', 'username',
+                    'terminal', 'cpu_percent', 'memory_percent', 'username',
                     'exe', 'name', 'cmdline', 'status'
                 ) if x in colinfo
             ]
@@ -280,8 +288,15 @@ def print_pstree(fout, parent, tree, data,
 
         columns['prefix'] = prefix
 
-        before_tree = [x for x in info if x in ('cpu_percent', 'memory_percent', 'username')]
-        after_tree = [x for x in info if x in ('exe', 'name', 'cmdline')]
+        before_tree = [
+            x for x in info if x in (
+                'terminal', 'cpu_percent', 'memory_percent', 'username'
+            )
+        ]
+
+        after_tree = [
+            x for x in info if x in ('exe', 'name', 'cmdline')
+        ]
 
         outcols = ['pid'] + before_tree + ['prefix'] + after_tree
 
@@ -314,7 +329,10 @@ def print_ps(fout, data, colinfo={},
                  info=['exe', 'cmdline'], hide=[], show=[], wide=False):
 
     outcols = ['pid'] + [
-        x for x in info if x in ('cpu_percent', 'memory_percent', 'username', 'exe', 'name', 'cmdline')
+        x for x in info if x in (
+            'terminal', 'cpu_percent', 'memory_percent', 'username',
+            'exe', 'name', 'cmdline'
+        )
     ]
 
     for process in sorted(data):
@@ -397,7 +415,7 @@ class PsModule(PupyModule):
                 hide.append(2)
 
             if args.info:
-                info = ['username', 'cpu_percent', 'memory_percent'] + info
+                info = ['username', 'terminal', 'cpu_percent', 'memory_percent'] + info
 
             if args.tree:
                 print_pstree(
