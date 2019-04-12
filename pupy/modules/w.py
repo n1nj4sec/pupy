@@ -38,8 +38,6 @@ class WModule(PupyModule):
 
                 sessions = wts_sessions.keys()
 
-                cols.extend(sessions)
-
                 records = []
 
                 session_colors = {}
@@ -56,9 +54,15 @@ class WModule(PupyModule):
                 }
 
                 for session in sessions:
+                    current = wts_sessions[session]['current']
                     session_state = wts_sessions[session]['state']
                     session_info = wts_sessions[session]['info']
                     session_client = wts_sessions[session]['client']
+
+                    if current:
+                        session = '<' + session + '>'
+
+                    cols.append(session)
 
                     current_time = datetime.now()
                     disconnect_time = None
@@ -136,7 +140,7 @@ class WModule(PupyModule):
                             str(time_info[time_info_type][session]).rsplit('.')[0]
                             if time_info[time_info_type][session] else '',
                             session_colors[session]
-                        ) for session in sessions
+                        ) for session in cols[1:]
                     })
                     records.append(record)
                 records.append(client_info)
@@ -194,7 +198,7 @@ class WModule(PupyModule):
                                     str(timedelta(seconds=session['idle'])), color
                                 ) if session.get('idle') else '',
                                 'PID': Color(str(session.get('pid', '')), color),
-                                'WHAT': Color(what[:30]+'…' if len(what) > 30 else what, color)
+                                'WHAT': Color(what[:30]+'...' if len(what) > 30 else what, color)
                             })
 
                         tablein.append(object)

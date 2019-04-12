@@ -859,6 +859,9 @@ def LsaSessionDataFlagsToStr(flags):
     return result
 
 def FileTimeToUnix(filetime):
+    if filetime >= (0x8000000000000000L - 1):
+        filetime = filetime - 0x8000000000000000L
+
     if filetime < 1:
         return filetime
 
@@ -920,6 +923,10 @@ try:
     WTSEnumerateServersW.argtypes = (
         LPWSTR, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
     )
+
+    WTSGetActiveConsoleSessionId = kernel32.WTSGetActiveConsoleSessionId
+    WTSGetActiveConsoleSessionId.restype = DWORD
+    WTSGetActiveConsoleSessionId.argtypes = []
 
     WTSFreeMemory = wtsapi32.WTSFreeMemory
     WTSFreeMemory.argtypes = (PVOID,)
@@ -1041,6 +1048,9 @@ try:
         info = PVOID()
         count = DWORD()
 
+
+        current = WTSGetActiveConsoleSessionId()
+
         if WTSEnumerateSessionsW(None, 0, 1, byref(info), byref(count)) == 0:
             raise WinError(get_last_error())
 
@@ -1064,8 +1074,11 @@ try:
             info = PVOID()
             dwSize = DWORD()
 
+            is_current = session_id == current
+
             session_infos[station] = {
-                'state': WTS_CONNECTSTATE_CLASS[state]
+                'state': WTS_CONNECTSTATE_CLASS[state],
+                'current': is_current
             }
 
 

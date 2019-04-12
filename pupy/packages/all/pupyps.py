@@ -44,6 +44,20 @@ def to_unicode(x):
     else:
         return x
 
+
+def safe_as_dict(p, data):
+    try:
+        return p.as_dict(data)
+    except:
+        data = list(data)
+        if 'cmdline' in data:
+            data.remove('cmdline')
+
+        result = p.as_dict(data)
+        result['cmdline'] = None
+        return result
+
+
 def psinfo(pids):
     data = {}
 
@@ -54,7 +68,7 @@ def psinfo(pids):
             continue
 
         info = {}
-        for key, val in process.as_dict(KNOWN_FIELDS).iteritems():
+        for key, val in safe_as_dict(process, KNOWN_FIELDS).iteritems():
             newv = None
             if type(val) == list:
                 newv = []
@@ -81,17 +95,6 @@ def psinfo(pids):
 
     return data
 
-def safe_as_dict(p, data):
-    try:
-        return p.as_dict(data)
-    except:
-        data = list(data)
-        if 'cmdline' in data:
-            data.remove('cmdline')
-
-        result = p.as_dict(data)
-        result['cmdline'] = None
-        return result
 
 def pstree():
     data = {}
