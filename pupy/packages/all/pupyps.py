@@ -38,7 +38,7 @@ if os.name == 'nt':
     try:
         import pupwinutils.security
         if hasattr(pupwinutils.security, 'StationNameByPid'):
-            if not 'terminal' in psutil._as_dict_attrnames:
+            if 'terminal' not in psutil._as_dict_attrnames:
 
                 def terminal(self):
                     return pupwinutils.security.StationNameByPid(self.pid)
