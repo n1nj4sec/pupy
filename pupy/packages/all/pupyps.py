@@ -36,15 +36,14 @@ KNOWN_FIELDS = tuple(
 
 if os.name == 'nt':
     try:
-        import pupwinutils.security
-        if hasattr(pupwinutils.security, 'StationNameByPid'):
-            if 'terminal' not in psutil._as_dict_attrnames:
+        from pupwinutils import security
 
-                def terminal(self):
-                    return pupwinutils.security.StationNameByPid(self.pid)
+        if hasattr(security, 'StationNameByPid'):
+            def terminal(self):
+                return security.StationNameByPid(self.pid)
 
-                setattr(psutil.Process, 'terminal', terminal)
-                psutil._as_dict_attrnames.add('terminal')
+            setattr(psutil.Process, 'terminal', terminal)
+            psutil._as_dict_attrnames.add('terminal')
 
     except ImportError:
         pass
