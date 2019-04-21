@@ -96,7 +96,7 @@ class TransportConf(Transport):
     credentials = [
         'SSL_CA_CERT',
         'SSL_BIND_KEY', 'SSL_BIND_CERT',
-        'SSL_CLIENT_KEY', 'SSL_CLIENT_CERT'
+        'SSL_CLIENT_KEY', 'SSL_CLIENT_CERT',
         'SIMPLE_RSA_PUB_KEY', 'SIMPLE_RSA_PRIV_KEY',
     ]
 
