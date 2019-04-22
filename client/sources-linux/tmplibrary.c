@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
@@ -15,6 +16,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <stddef.h>
 
 #include "list.h"
 #include "tmplibrary.h"
@@ -25,6 +28,15 @@
 #endif
 
 #include "decompress.h"
+
+#ifndef MREMAP_FIXED
+#define MREMAP_FIXED	2
+
+#endif
+
+void (*__mremap)(
+   void *old_address, size_t old_size,
+   size_t new_size, int flags, void *new_address) = mremap;
 
 extern char **environ;
 
@@ -350,12 +362,141 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     return -1;
 }
 
+#if defined(Linux)
+
+#ifndef RTLD_DI_LINKMAP
+#define RTLD_DI_LINKMAP 2
+#endif
+
+static inline int _dlinfo(void *handle, int request, void *info) {
+	static int (*__dlinfo) (void *handle, int request, void *info) = (void *) - 1;;
+
+	if (__dlinfo == (void *) -1) {
+		__dlinfo = dlsym(NULL, "dlinfo");
+	}
+
+	if (! __dlinfo) {
+		return -1;
+	}
+
+	return __dlinfo(handle, request, info);
+}
+
+static inline
+void _remap(const char *path) {
+    char line_buf[PATH_MAX + 256] = {};
+	struct stat dl_stat = {};
+
+	FILE *maps = fopen("/proc/self/maps", "r");
+
+	if (!maps) {
+		return;
+	}
+
+	if (stat(path, &dl_stat) < 0) {
+		goto lbExit;
+	}
+
+	if (dl_stat.st_ino == 0) {
+		goto lbExit;
+	}
+
+	while (fgets(line_buf, sizeof(line_buf), maps)) {
+		char addr1[40], addr2[40], perm[8], offset[40],
+			dev[10], inode[40], pathname[PATH_MAX];
+
+		_pmparser_split_line(
+			line_buf, addr1, addr2, perm, offset, dev, inode, pathname
+		);
+
+		unsigned int s_maj = 0, s_min = 0;
+		unsigned short s_dev = 0;
+
+		unsigned long long l_inode = 0;
+		unsigned long long l_addr_size = 0;
+
+#if __WORDSIZE == 32
+        unsigned int l_addr_start = 0;
+        unsigned int l_addr_end = 0;
+        unsigned int l_size = 0;
+
+		sscanf(addr1, "%x", &l_addr_start);
+		sscanf(addr2, "%x", &l_addr_end);
+
+#else
+        unsigned long long l_addr_start = 0;
+        unsigned long long l_addr_end = 0;
+        unsigned long long l_size = 0;
+
+		sscanf(addr1, "%Lx", &l_addr_start);
+		sscanf(addr2, "%Lx", &l_addr_end);
+#endif
+        l_size = l_addr_end - l_addr_start;
+
+		sscanf(inode, "%Lu", &l_inode);
+
+		sscanf(dev, "%02x:%02x", &s_maj, &s_min);
+
+		s_dev = (unsigned short) ((s_maj << 16 | s_min) & 0xFFFF);
+
+		if (!(s_dev == dl_stat.st_dev && l_inode == dl_stat.st_ino))
+            continue;
+
+		int flags = 0;
+
+		if (perm[0] == 'r')
+			flags |= PROT_READ;
+		if (perm[1] == 'w')
+			flags |= PROT_WRITE;
+		if (perm[2] == 'x')
+			flags |= PROT_EXEC;
+
+		void *new_map = MAP_FAILED;
+
+		if (flags) {
+			new_map = mmap(
+				NULL, l_size,
+				PROT_WRITE | PROT_READ | PROT_EXEC,
+				MAP_PRIVATE | MAP_ANONYMOUS,
+				-1, 0
+			);
+
+			if (new_map == MAP_FAILED)
+				continue;
+
+			memcpy(new_map, l_addr_start, l_size);
+
+			if (flags != PROT_READ | PROT_WRITE)
+				mprotect(new_map, l_size, flags);
+		}
+
+        munmap(l_addr_start, l_size);
+
+		if (flags)
+			__mremap(
+				new_map, l_size, l_size,
+				MREMAP_FIXED | MREMAP_MAYMOVE,
+				l_addr_start
+			);
+    }
+
+ lbExit:
+	fclose(maps);
+}
+#else
+
+#define _remap(x) do {} while(0)
+
+#endif
+
+
 #if defined(SunOS)
 // For some unknown reason malloc doesn't work on newly created LM in Solaris 10
 // Fallback to old shitty way of loading libs
 // TODO: write own ELF loader
 static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     void *handle = dlopen(path, flags | RTLD_PARENT | RTLD_GLOBAL);
+
     if (fd != -1) {
         unlink(path);
         close(fd);
@@ -425,9 +566,12 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     bool is_memfd = is_memfd_path(path);
     bool linkmap_hacked = false;
 
+	_remap(path);
+
     if (soname) {
         struct link_map_private *linkmap = NULL;
         dlinfo(handle, RTLD_DI_LINKMAP, &linkmap);
+
         /* If memfd, then try to verify as best as possible that all that
            addresses are valid. If not - there is no reason to touch this
         */
@@ -488,7 +632,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
             if (fake_path[i] == '/')
                 fake_path[i] = '!';
 
-        if (!symlink(path, fake_path)) {
+        if (symlink(path, fake_path) == 0) {
             effective_path = fake_path;
             is_memfd = false;
         } else {
@@ -497,18 +641,104 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     }
 
     void *handle = dlopen(effective_path, flags);
+
+    _remap(effective_path);
+
     if (fd != -1) {
         unlink(effective_path);
 
         /*
           If all workarounds failed we have nothing to do but leave this as
-          is */
+          is*/
+
         if (!is_memfd)
             close(fd);
     }
     return handle;
 }
 #endif
+
+// https://github.com/ouadev/proc_maps_parser/blob/master/pmparser.c
+void _pmparser_split_line(
+	char *buf, char *addr1, char *addr2,
+	char *perm, char *offset, char *device, char *inode,
+	char *pathname) {
+
+	int orig=0;
+	int i=0;
+
+	while (buf[i] != '-') {
+		addr1[i-orig] = buf[i];
+		i++;
+	}
+
+	addr1[i] = '\0';
+	i++;
+
+	orig = i;
+
+	while (buf[i] != '\t' && buf[i] != ' ') {
+		addr2[i-orig] = buf[i];
+		i++;
+	}
+
+	addr2[i-orig] = '\0';
+
+	while (buf[i]=='\t' || buf[i]==' ')
+		i++;
+
+	orig = i;
+
+	while (buf[i]!='\t' && buf[i]!=' ') {
+		perm[i-orig] = buf[i];
+		i++;
+	}
+	perm[i-orig] = '\0';
+
+	while (buf[i] == '\t' || buf[i] == ' ')
+		i++;
+
+	orig = i;
+	while (buf[i] != '\t' && buf[i] != ' ') {
+		offset[i-orig]=buf[i];
+		i++;
+	}
+	offset[i-orig] = '\0';
+
+	while (buf[i] == '\t' || buf[i] == ' ')
+		i++;
+
+	orig = i;
+	while (buf[i] != '\t' && buf[i] != ' ') {
+		device[i-orig] = buf[i];
+		i++;
+	}
+	device[i-orig]='\0';
+
+	//inode
+	while (buf[i] == '\t' || buf[i] == ' ')
+		i++;
+	orig=i;
+
+	while (buf[i] != '\t' && buf[i] != ' ') {
+		inode[i-orig] = buf[i];
+		i++;
+	}
+	inode[i-orig] = '\0';
+
+	//pathname
+	pathname[0] = '\0';
+	while (buf[i] == '\t' || buf[i] == ' ')
+		i++;
+
+	orig = i;
+	while (buf[i] != '\t' && buf[i] != ' ' && buf[i] != '\n') {
+		pathname[i-orig] = buf[i];
+		i++;
+	}
+	pathname[i-orig] = '\0';
+}
+
 
 void *memdlopen(const char *soname, const char *buffer, size_t size) {
     dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
@@ -558,6 +788,8 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         dprint("Couldn't load library %s (%s): %s\n", soname, buf, dlerror());
         return NULL;
     }
+
+	_remap(base);
 
     dprint("Library %s loaded to %p\n", soname, base);
 
