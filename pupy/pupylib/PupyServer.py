@@ -18,10 +18,11 @@ from threading import Thread, Event, Lock
 
 import imp
 
-from os import path, listdir, stat
+from os import path, listdir, stat, unlink
 from itertools import count, ifilterfalse
 from netaddr import IPAddress
 from random import randint
+from tempfile import NamedTemporaryFile
 
 import socket
 import errno
@@ -348,6 +349,7 @@ class PupyServer(object):
         self._current_id_lock = Lock()
         self.modules = {}
         self._modules_stats = {}
+        self.served_content = {}
 
         self.motd = {
             'fail': [],
@@ -1102,6 +1104,45 @@ class PupyServer(object):
         self.handler.display_srvinfo('Closed: {}'.format(self.listeners[name]))
         del self.listeners[name]
 
+    def serve_content(self, payload, alias=None):
+        if self.pupweb:
+            return self.pupweb.serve_content(payload, alias)
+
+        url = None
+
+        wwwroot = self.config.get_folder('wwwroot')
+        secret = self.config.getboolean('httpd', 'secret')
+
+        with NamedTemporaryFile(dir=wwwroot, prefix='', delete=False) as served:
+            served.write(payload)
+
+        if secret:
+            url = '/'.join([
+                self.config.get('randoms', 'wwwsecret', random=5),
+                    path.basename(served.name)
+            ])
+        else:
+            url = path.basename(served.name)
+
+        if alias is None:
+            alias = path.basename(served.name)
+
+        self.served_content[served.name] = alias
+
+        return '/' + url
+
+    @property
+    def web_handler_enabled(self):
+        return bool(self.web_handler_port)
+
+    @property
+    def web_handler_port(self):
+        if self.pupweb:
+            return self.pupweb.port
+        elif self.httpd:
+            for listener in self.listeners.values():
+                return listener.external_port or listener.port
+
     def register_cleanup(self, cleanup):
         self._cleanups.append(cleanup)
 
@@ -1132,5 +1173,14 @@ class PupyServer(object):
         if self.pupweb:
             self.pupweb.stop()
             self.pupweb = None
+
+        for served in self.served_content.keys():
+            if path.isfile(served):
+                try:
+                    unlink(served)
+                except OSError:
+                    pass
+
+            del self.served_content[served]
 
         self.finished.set()

