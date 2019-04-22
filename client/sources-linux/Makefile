@@ -33,6 +33,7 @@ NAME := 64
 LDFLAGS += -m64
 else
 NAME := 86
+CFLAGS += -D_FILE_OFFSET_BITS=64
 endif
 
 CFLAGS += -Iresources/$(ARCH) -Iresources
