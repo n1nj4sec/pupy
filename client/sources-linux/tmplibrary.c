@@ -34,9 +34,9 @@
 
 #endif
 
-void (*__mremap)(
+void*  (*__mremap) (
    void *old_address, size_t old_size,
-   size_t new_size, int flags, void *new_address) = mremap;
+   size_t new_size, int flags, void *new_address) = (void *) mremap;
 
 static
 void _pmparser_split_line(
@@ -419,7 +419,6 @@ void remap(const char *path) {
 		unsigned short s_dev = 0;
 
 		unsigned long long l_inode = 0;
-		unsigned long long l_addr_size = 0;
 
 #if __WORDSIZE == 32
         unsigned int l_addr_start = 0;
@@ -462,7 +461,7 @@ void remap(const char *path) {
 		if (flags) {
 			new_map = mmap(
 				NULL, l_size,
-				PROT_WRITE | PROT_READ | PROT_EXEC,
+				PROT_WRITE | PROT_READ,
 				MAP_PRIVATE | MAP_ANONYMOUS,
 				-1, 0
 			);
@@ -470,19 +469,23 @@ void remap(const char *path) {
 			if (new_map == MAP_FAILED)
 				continue;
 
-			memcpy(new_map, l_addr_start, l_size);
+			memcpy(new_map, (void *) l_addr_start, l_size);
 
-			if (flags != PROT_READ | PROT_WRITE)
-				mprotect(new_map, l_size, flags);
+			if (flags != (PROT_READ | PROT_WRITE))
+				if (mprotect(new_map, l_size, flags) != 0) {
+                    munmap(new_map, l_size);
+                    continue;
+                }
 
-			__mremap(
+			if (__mremap(
 				 new_map, l_size, l_size,
 				 MREMAP_FIXED | MREMAP_MAYMOVE,
-				 l_addr_start
-			);
-			
+				 (void *) l_addr_start) == MAP_FAILED) {
+                munmap(new_map, l_size);
+            }
+
 		} else {
-		  munmap(l_addr_start, l_size);
+            munmap((void *) l_addr_start, l_size);
 		}
 	}
 
