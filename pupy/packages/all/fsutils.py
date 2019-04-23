@@ -59,8 +59,15 @@ try:
         if not as_text:
             return item.st_uid, item.st_gid
 
-        pw = getpwuid(item.st_uid)
-        gr = getgrgid(item.st_gid)
+        try:
+            pw = getpwuid(item.st_uid)
+        except KeyError:
+            pw = None
+
+        try:
+            gr = getgrgid(item.st_gid)
+        except KeyError:
+            gr = None
 
         return \
           pw.pw_name if pw else str(item.st_uid), \
