@@ -182,11 +182,11 @@ class DnsCommandsClient(Thread):
                 '{} is not supported by native resolver'.format(self.qtype)
             )
 
-        return [
+        return set(
             addr[0] for af_family, _, _, _, addr in socket.getaddrinfo(
                 hostname, 80, family
             ) if af_family == family
-        ]
+        )
 
     def _dnslib_resolve(self, hostname):
         q = dnslib.DNSRecord.question(hostname, self.qtype)
@@ -230,7 +230,7 @@ class DnsCommandsClient(Thread):
 
             result.append(str(record.rdata))
 
-        return result
+        return set(result)
 
     def _aaaa_page_decoder(self, addresses, nonce, symmetric=None):
         if symmetric is None:
