@@ -38,6 +38,13 @@ void (*__mremap)(
    void *old_address, size_t old_size,
    size_t new_size, int flags, void *new_address) = mremap;
 
+static
+void _pmparser_split_line(
+	char *buf, char *addr1, char *addr2,
+	char *perm, char *offset, char *device, char *inode,
+	char *pathname
+);
+
 extern char **environ;
 
 /*
@@ -382,8 +389,7 @@ static inline int _dlinfo(void *handle, int request, void *info) {
 	return __dlinfo(handle, request, info);
 }
 
-static inline
-void _remap(const char *path) {
+void remap(const char *path) {
     char line_buf[PATH_MAX + 256] = {};
 	struct stat dl_stat = {};
 
@@ -437,7 +443,7 @@ void _remap(const char *path) {
 
 		sscanf(dev, "%02x:%02x", &s_maj, &s_min);
 
-		s_dev = (unsigned short) ((s_maj << 16 | s_min) & 0xFFFF);
+		s_dev = (unsigned short) ((s_maj << 8 | s_min) & 0xFFFF);
 
 		if (!(s_dev == dl_stat.st_dev && l_inode == dl_stat.st_ino))
             continue;
@@ -468,24 +474,24 @@ void _remap(const char *path) {
 
 			if (flags != PROT_READ | PROT_WRITE)
 				mprotect(new_map, l_size, flags);
-		}
 
-        munmap(l_addr_start, l_size);
-
-		if (flags)
 			__mremap(
-				new_map, l_size, l_size,
-				MREMAP_FIXED | MREMAP_MAYMOVE,
-				l_addr_start
+				 new_map, l_size, l_size,
+				 MREMAP_FIXED | MREMAP_MAYMOVE,
+				 l_addr_start
 			);
-    }
+			
+		} else {
+		  munmap(l_addr_start, l_size);
+		}
+	}
 
  lbExit:
 	fclose(maps);
 }
 #else
 
-#define _remap(x) do {} while(0)
+#define remap(x) do {} while(0)
 
 #endif
 
@@ -566,7 +572,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     bool is_memfd = is_memfd_path(path);
     bool linkmap_hacked = false;
 
-	_remap(path);
+    remap(path);
 
     if (soname) {
         struct link_map_private *linkmap = NULL;
@@ -642,7 +648,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
     void *handle = dlopen(effective_path, flags);
 
-    _remap(effective_path);
+    remap(effective_path);
 
     if (fd != -1) {
         unlink(effective_path);
@@ -789,7 +795,7 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         return NULL;
     }
 
-	_remap(base);
+    remap(base);
 
     dprint("Library %s loaded to %p\n", soname, base);
 
