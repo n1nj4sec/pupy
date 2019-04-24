@@ -33,6 +33,7 @@ PyObject *, PyErr_Occurred, (void)
 void, PyErr_Fetch, (PyObject **, PyObject **, PyObject **)
 void, PyErr_Clear, (void)
 int, PyObject_IsInstance, (PyObject *, PyObject *)
+PyObject *, PyCapsule_New, (void *, const char *, void *)
 
 PyObject, PyInt_Type
 PyObject, _Py_NoneStruct
