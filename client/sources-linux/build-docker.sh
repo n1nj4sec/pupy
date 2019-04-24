@@ -18,7 +18,7 @@ set -e
 echo "[+] Install python packages"
 
 python -m pip install --upgrade pip
-python -m pip install --upgrade setuptools
+python -m pip install --upgrade setuptools cython
 python -m pip install --upgrade -q six packaging appdirs
 
 CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
@@ -39,6 +39,16 @@ python -m pip install --upgrade \
        https://github.com/warner/python-ed25519/archive/master.zip \
        zeroconf==0.19.1 \
        watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
+
+if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
+    CFLAGS_PYJNIUS="$CFLAGS"
+else
+    CFLAGS_PYJNIUS="$CFLAGS -D_LP64"
+fi
+
+CFLAGS="${CFLAGS_PYJNIUS}" NO_JAVA=1 \
+      python -m pip install --upgrade --force-reinstall \
+      https://github.com/alxchk/pyjnius/archive/master.zip
 
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
       python -m pip install --force-reinstall --upgrade dukpy --no-binary :all:
