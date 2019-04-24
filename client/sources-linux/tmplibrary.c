@@ -393,17 +393,26 @@ void remap(const char *path) {
     char line_buf[PATH_MAX + 256] = {};
 	struct stat dl_stat = {};
 
+	if (!path || path[0] == '\0') {
+		return;
+	}
+
 	FILE *maps = fopen("/proc/self/maps", "r");
 
+	dprint("Remap %s\n", path);
+
 	if (!maps) {
+		dprint("Remap %s - failed, couldn't read maps\n", path);
 		return;
 	}
 
 	if (stat(path, &dl_stat) < 0) {
+		dprint("Remap %s - failed, stat() failed: %m\n", path);
 		goto lbExit;
 	}
 
 	if (dl_stat.st_ino == 0) {
+		dprint("Remap %s - failed, stat() failed: st_ino == 0\n", path);
 		goto lbExit;
 	}
 
@@ -447,6 +456,8 @@ void remap(const char *path) {
 		if (!(s_dev == dl_stat.st_dev && l_inode == dl_stat.st_ino))
             continue;
 
+        dprint("Remap %s - %p - %p (%s)\n", pathname, l_addr_start, l_addr_end, perm);
+
 		int flags = 0;
 
 		if (perm[0] == 'r')
@@ -466,30 +477,40 @@ void remap(const char *path) {
 				-1, 0
 			);
 
-			if (new_map == MAP_FAILED)
+			if (new_map == MAP_FAILED) {
+				dprint("Remap %s - %p - %p (%s) - failed, new mmap: %m\n",
+					   pathname, l_addr_start, l_addr_end, perm);
 				continue;
+            }
 
 			memcpy(new_map, (void *) l_addr_start, l_size);
 
 			if (flags != (PROT_READ | PROT_WRITE))
 				if (mprotect(new_map, l_size, flags) != 0) {
-                    munmap(new_map, l_size);
-                    continue;
-                }
+					dprint("Remap %s - %p - %p (%s) - failed, mprotect: %m\n",
+						   pathname, l_addr_start, l_addr_end, perm);
+					munmap(new_map, l_size);
+					continue;
+				}
 
 			if (__mremap(
 				 new_map, l_size, l_size,
 				 MREMAP_FIXED | MREMAP_MAYMOVE,
 				 (void *) l_addr_start) == MAP_FAILED) {
-                munmap(new_map, l_size);
-            }
+				dprint("Remap %s - %p - %p (%s) - failed, remap: %m\n",
+					   pathname, l_addr_start, l_addr_end, perm);
+				munmap(new_map, l_size);
+			}
 
 		} else {
-            munmap((void *) l_addr_start, l_size);
+			dprint("Remap %s - unmap %p - %p (%s) - not required\n",
+				   pathname, l_addr_start, l_addr_end, perm);
+			munmap((void *) l_addr_start, l_size);
 		}
 	}
 
  lbExit:
+	dprint("Remap %s - completed\n", path);
 	fclose(maps);
 }
 #else
@@ -548,17 +569,35 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     void *handle = NULL;
 
 #if defined(WIP_LMID)
-    static Lmid_t lmid = LM_ID_NEWLM;
+    static Lmid_t lmid = LM_ID_BASE;
+    static int need_lmid_checked = 0;
 
-    flags &= ~RTLD_GLOBAL;
+    if (!need_lmid_checked) {
+        if (dlsym(NULL, "PyEval_InitThreads")) {
+            lmid = LM_ID_NEWLM;
+            dprint("Python library found, require LMID\n");
+        } else {
+            dprint("Python library not found\n");
+        }
 
-    if ((flags & RTLD_NOLOAD) && (lmid == LM_ID_NEWLM))
-	    return NULL;
+        need_lmid_checked = 1;
+    }
 
-    handle = dlmopen(lmid, path, flags);
-    if (lmid == LM_ID_NEWLM && handle) {
-        dlinfo(handle, RTLD_DI_LMID, &lmid);
-        dprint("memdlopen - dlmopen - new lmid created: %08x\n", lmid);
+    if (lmid != LM_ID_BASE) {
+        flags &= ~RTLD_GLOBAL;
+
+        if ((flags & RTLD_NOLOAD) && (lmid == LM_ID_NEWLM))
+            return NULL;
+
+        dprint("dlmopen(%d, %s, %08x)\n", lmid, path, flags);
+        handle = dlmopen(lmid, path, flags);
+        dprint("dlmopen(%d, %s, %08x) = %p\n", lmid, path, flags, handle);
+        if (lmid == LM_ID_NEWLM && handle) {
+            dlinfo(handle, RTLD_DI_LMID, &lmid);
+            dprint("memdlopen - dlmopen - new lmid created: %08x\n", lmid);
+        }
+    } else {
+        handle = dlopen(path, flags);
     }
 
 #else
