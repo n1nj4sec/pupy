@@ -35,6 +35,10 @@ for PYTHON in $PYTHON32 $PYTHON64; do
        INCLUDE="C:\\Windows\\openssl-build\\include" \
        $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
 
+    NO_JAVA=1 \
+      $PYTHON -m pip install --upgrade --force-reinstall \
+      https://github.com/alxchk/pyjnius/archive/master.zip
+    
     $PYTHON -m pip install --upgrade $PACKAGES
 
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
@@ -137,9 +141,9 @@ done
 
 echo "[+] Build pupy"
 
-TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64d.unc.dll pupyx64d.unc.exe"
-TARGETS="$TARGETS pupyx64.exe pupyx64.unc.dll pupyx64.unc.exe pupyx86d.dll pupyx86d.exe pupyx86.dll"
-TARGETS="$TARGETS pupyx86d.unc.dll pupyx86d.unc.exe pupyx86.exe pupyx86.unc.dll pupyx86.unc.exe"
+TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64.exe"
+TARGETS="$TARGETS pupyx86d.dll pupyx86d.exe pupyx86.dll pupyx86.exe"
+TARGETS="$TARGETS "
 
 cd ${SRC}
 
@@ -149,19 +153,10 @@ make -f Makefile -j BUILDENV=/build ARCH=win32 clean
 make -f Makefile -j BUILDENV=/build ARCH=win32
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
-make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build ARCH=win32 UNCOMPRESSED=1
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 UNCOMPRESSED=1
 make -f Makefile -j BUILDENV=/build ARCH=win64 distclean
 make -f Makefile -j BUILDENV=/build ARCH=win64
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
-make -f Makefile -j BUILDENV=/build ARCH=win64 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build ARCH=win64 UNCOMPRESSED=1
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 UNCOMPRESSED=1 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 UNCOMPRESSED=1
-make -f Makefile -j BUILDENV=/build ARCH=win64 UNCOMPRESSED=1 distclean
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then

@@ -34,6 +34,8 @@ extern const DWORD dwPupyArch;
 
 static PyObject *Py_on_exit_session_callback = NULL;
 
+void * __JVM = NULL;
+
 void on_exit_session(void) {
     PyGILState_STATE gstate;
 	PyObject * pResult;
@@ -172,7 +174,12 @@ initpupy(void)
 	}
 
 	PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
-    ExecError = PyErr_NewException("pupy.error", NULL, NULL);
-    Py_INCREF(ExecError);
-    PyModule_AddObject(pupy, "error", ExecError);
+	ExecError = PyErr_NewException("pupy.error", NULL, NULL);
+	Py_INCREF(ExecError);
+	PyModule_AddObject(pupy, "error", ExecError);
+
+	if (__JVM) {
+		PySys_SetObject("JVM", PyCapsule_New(__JVM, "JVM", NULL));
+	}
+
 }
