@@ -90,16 +90,16 @@ static LIST *_FindMemoryModule(LPCSTR name, HMODULE module)
 	LIST *lib = libraries;
 	while (lib) {
 		if (name && 0 == _stricmp(name, lib->name)) {
-			dprintf("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount);
+			/* dprintf("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount); */
 			return lib;
 		} else if (module == lib->module) {
-			dprintf("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount);
+			/* dprintf("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount); */
 			return lib;
 		} else {
 			lib = lib->next;
 		}
 	}
-	dprintf("_FindMemoryModule(%s, %p) -> NONE\n", name, module);
+	/* dprintf("_FindMemoryModule(%s, %p) -> NONE\n", name, module); */
 	return NULL;
 }
 
@@ -223,11 +223,11 @@ FARPROC MyGetProcAddress(HMODULE module, LPCSTR procname)
 	FARPROC proc;
 	LIST *lib = _FindMemoryModule(NULL, module);
 	if (lib) {
-		dprintf("MyGetProcAddress(%p, %p(%s))\n", module, procname, HIWORD(procname) ? procname : "");
+		/* dprintf("MyGetProcAddress(%p, %p(%s))\n", module, procname, HIWORD(procname) ? procname : ""); */
 		PUSH();
 		proc = MemoryGetProcAddress(lib->module, procname);
 		POP();
-		dprintf("MyGetProcAddress(%p, %p(%s)) -> %p\n", module, procname, HIWORD(procname) ? procname : "", proc);
+		/* dprintf("MyGetProcAddress(%p, %p(%s)) -> %p\n", module, procname, HIWORD(procname) ? procname : "", proc); */
 		return proc;
 	} else
 		return GetProcAddress(module, procname);
@@ -237,11 +237,11 @@ FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname)
 {
 	HCUSTOMMODULE mod = MyGetModuleHandle(modulename);
 	void *addr = NULL;
-	dprintf("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, mod);
+	/* dprintf("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, mod); */
 	if (mod) {
 		addr = MyGetProcAddress(mod, procname);
 	}
 
-	dprintf("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, addr);
+	/* dprintf("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, addr); */
 	return addr;
 }
