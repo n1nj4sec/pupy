@@ -247,7 +247,7 @@ namespace PELoader
 
             _dllEntry = (DllEntryDelegate)Marshal.GetDelegateForFunctionPointer(OEP, typeof(DllEntryDelegate));
 
-            if (_dllEntry == null || !_dllEntry((byte*)CodeBase, DllReason.DLL_PROCESS_ATTACH, null))
+            if (_dllEntry == null || !_dllEntry((byte*)CodeBase, DllReason.DLL_PROCESS_ATTACH, (void*)1))
             {
                 throw new Exception("Can't attach DLL to process.");
             }

@@ -2521,7 +2521,7 @@ $RemoteScriptBlock = {
                 $DllMainDelegate = Get-DelegateType @([IntPtr], [UInt32], [IntPtr]) ([Bool])
                 $DllMain = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($DllMainPtr, $DllMainDelegate)
 
-                $DllMain.Invoke($PEInfo.PEHandle, 1, [IntPtr]::Zero) | Out-Null
+                $DllMain.Invoke($PEInfo.PEHandle, 1, [IntPtr] 1) | Out-Null
             }
             else
             {
