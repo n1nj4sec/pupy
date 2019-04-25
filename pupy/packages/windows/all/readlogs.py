@@ -10,7 +10,7 @@ from winerror import HRESULT_CODE
 
 from time import time
 
-from pupwinutils.security import LookupAccountSidW as LookupAccountSid
+from pupwinutils.security import namebysid
 try:
     from pupwinutils.security import StationNameByPid
 except ImportError:
@@ -286,7 +286,7 @@ class EventLog(object):
 
                     if ev_obj.Sid is not None:
                         try:
-                            domain, domain_user, _ = LookupAccountSid(server, ev_obj.Sid)
+                            domain, domain_user = namebysid(str(ev_obj.Sid))
                             user = u'{}\\{}'.format(domain, domain_user)
                         except error:
                             user = str(ev_obj.Sid)

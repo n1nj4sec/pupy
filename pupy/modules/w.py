@@ -99,6 +99,8 @@ class WModule(PupyModule):
 
                         if idle is not None and idle < 10 * 60:
                             color = 'cyan'
+                        elif disconnect_time is None:
+                            color = 'green'
                         elif disconnect_time > current_time:
                             color = 'lightgrey'
 
@@ -149,7 +151,7 @@ class WModule(PupyModule):
                 self.log(Table(records, cols))
                 return
 
-            except Exception:
+            except Exception as e:
                 pass
 
         try:
