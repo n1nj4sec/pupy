@@ -47,7 +47,7 @@ else
 fi
 
 CFLAGS="${CFLAGS_PYJNIUS}" NO_JAVA=1 \
-      python -m pip install --upgrade --force-reinstall \
+      python -m pip install --upgrade \
       https://github.com/alxchk/pyjnius/archive/master.zip
 
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
