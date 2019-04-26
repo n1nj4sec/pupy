@@ -586,7 +586,7 @@ static
 PyObject *Py_get_preferred_classloader_name(PyObject *self, PyObject *args) {
 	char *new_classloader_name = NULL;
 
-	if (new_classloader_name != NULL && new_classloader_name[0] != '\0') {
+	if (new_classloader_name != NULL || new_classloader_name[0] != '\0') {
 		return Py_BuildValue("");
 	}
 
