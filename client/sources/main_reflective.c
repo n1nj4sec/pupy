@@ -82,26 +82,3 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
     dprint("Call DllMain - completed\n");
     return bReturnValue;
 }
-
-__declspec(dllexport)
-int JNI_OnLoad(void *vm, void *reserved) {
-    DWORD threadId;
-
-    dprint("Call JNI_OnLoad\n");
-
-    __JVM = vm;
-
-    if (!hThread) {
-        dprint("Crearting thread from JNI_OnLoad\n");
-        hThread = CreateThread(
-            NULL,
-            0,      // dwStackSize
-            mainThread,     // lpStartAddress
-            NULL,       // lpParameter
-            0,      // dwCreationFlags (0==run right after creation)
-            &threadId
-        );
-    }
-
-    return 0x00010006;
-}

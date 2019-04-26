@@ -3,7 +3,7 @@ CC ?= gcc
 OS ?= $(shell uname -s)
 SUFFIX ?= $(shell echo $(OS) | cut -c -3 | tr '[:upper:]' '[:lower:]')
 
-CFLAGS := $(shell pkg-config --cflags python-2.7) -I../lzma -fPIC $(CFLAGS_EXTRA) -pipe -Wall
+CFLAGS := $(shell pkg-config --cflags python-2.7) -I. -I../lzma -I../jvm -fPIC $(CFLAGS_EXTRA) -pipe -Wall
 LDFLAGS := -lpthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
 PFLAGS := -OO
 PIE ?= -pie
@@ -59,7 +59,9 @@ endif
 PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 
-PYOBJS := _memimporter.o Python-dynload.o pupy_load.o pupy.o
+PYOBJS := _memimporter.o Python-dynload.o pupy_load.o
+SHARED_OBJS := main_so.o pupy_shared.o tmplibrary_lmid.o
+APP_OBJS := main_exe.o pupy.o tmplibrary.o
 COMMON_OBJS := list.o daemonize.o decompress.o
 
 ifeq ($(UNCOMPRESSED),)
@@ -88,7 +90,11 @@ revision.h:
 	if [ x"$$COMMIT" = x"" ]; then rev=`cat ../../.git/\`cat ../../.git/HEAD | cut -f 2 -d \ \` | cut -c 1-8`; \
 		else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-pupy.o: resources/$(ARCH)/library.c revision.h
+pupy.o: pupy.c resources/$(ARCH)/library.c revision.h
+
+pupy_shared.o: pupy.c resources/$(ARCH)/library.c revision.h ../jvm/jni_on_load.c
+	$(CC) -c -o $@ $< $(CFLAGS) -D_PUPY_SO
+
 pupy_load.o: resources/bootloader.c resources/$(ARCH)/python27.c \
 	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c revision.h
 
@@ -157,10 +163,10 @@ resources/$(ARCH)/libssl.c: ../gen_resource_header.py resources/$(ARCH)/libssl.s
 resources/$(ARCH)/libcrypto.c: ../gen_resource_header.py resources/$(ARCH)/libcrypto.so
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): main_exe.o $(PYOBJS) $(COMMON_OBJS) tmplibrary.o 
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): $(APP_OBJS) $(PYOBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: main_so.o $(PYOBJS) $(COMMON_OBJS) tmplibrary_lmid.o 
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: $(SHARED_OBJS) $(PYOBJS) $(COMMON_OBJS)
 	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).$(SUFFIX).so
 
 .PHONY: clean all

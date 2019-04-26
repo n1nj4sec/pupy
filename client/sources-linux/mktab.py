@@ -48,7 +48,7 @@ void, PyGILState_Release, (PyGILState_STATE)
 
 void, PySys_SetObject, (char *, PyObject *)
 PyObject *, PySys_GetObject, (char *)
-PyObject *, PyString_FromString, (char *)
+PyObject *, PyString_FromString, (const char *)
 int, Py_FdIsInteractive, (FILE *, char *)
 int, PyRun_InteractiveLoop, (FILE *, char *)
 void, PySys_SetArgv, (int, char **)
