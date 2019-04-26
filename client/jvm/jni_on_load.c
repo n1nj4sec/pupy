@@ -23,7 +23,8 @@ struct __thread_name_and_classloader_to_dict_ctx {
 	jmethodID getClassName;
 };
 
-static inline JNIEnv* Py_get_jni_env(JNIEnv *env) {
+static JNIEnv*
+Py_get_jni_env(JNIEnv *env) {
 	jint ret;
 	void *penv = NULL;
 
@@ -133,6 +134,7 @@ static jint jvm_for_each_thread(JNIEnv *env, thread_enum_cb callback, void *data
 	jmethodID method_activeCount;
 	jmethodID method_enumerate;
 	jint i;
+    jobject iThread;
 
 	if (__jvm == NULL) {
 		dprint("jvm_enumerate_thread_classloaders - __jvm is not initialized\n");
@@ -195,7 +197,7 @@ static jint jvm_for_each_thread(JNIEnv *env, thread_enum_cb callback, void *data
 
 	for (i=0; i<active_threads; i++) {
 		dprint("enumerate() - process %d thread\n", i);
-		jobject iThread = (*env)->GetObjectArrayElement(env, ThreadArray, i);
+		iThread = (*env)->GetObjectArrayElement(env, ThreadArray, i);
 		if ((*env)->ExceptionCheck(env)) {
 			dprint("get %d element of array list failed\n", i);
 			return JNI_ERR;
@@ -305,7 +307,7 @@ static jint __find_preferred_classloader_finder(JNIEnv *env, jobject thread, voi
 }
 
 
-static inline jobject __find_preferred_classloader(JNIEnv *env) {
+static jobject __find_preferred_classloader(JNIEnv *env) {
 	struct __thread_name_and_classloader_to_dict_ctx ctx;
 
 	if (!__jvm) {
@@ -340,13 +342,14 @@ static inline jobject __find_preferred_classloader(JNIEnv *env) {
 static
 PyObject * Py_get_PreferredClassLoader(PyObject *self, PyObject *args) {
 	jobject classloader = NULL;
+    JNIEnv *env = NULL;
 
 	if  (!__jvm) {
 		PyErr_SetString(jvm_error, "JVM was not loaded yet");
 		return NULL;
 	}
 
-	JNIEnv *env = Py_get_jni_env(NULL);
+	env = Py_get_jni_env(NULL);
 	if (env == NULL)
 		return NULL;
 
@@ -357,7 +360,7 @@ PyObject * Py_get_PreferredClassLoader(PyObject *self, PyObject *args) {
 	return PyCapsule_New(__jclassloader, "PreferredClassLoader", NULL);
 }
 
-static inline jclass get_thread_class(JNIEnv *env) {
+static jclass get_thread_class(JNIEnv *env) {
 	jclass Thread;
 
 	env = Py_get_jni_env(env);
@@ -373,7 +376,7 @@ static inline jclass get_thread_class(JNIEnv *env) {
 	return Thread;
 }
 
-static inline jint call_method(
+static jint call_method(
 	JNIEnv *env, jclass klass, jobject instance,
 	jboolean is_static, const char *method,
 	const char *signature, jobject *result, va_list a_list) {
@@ -414,7 +417,7 @@ static inline jint call_method(
 	return retcode;
 }
 
-static inline jint call_class_method(
+static jint call_class_method(
 	JNIEnv *env, jclass klass, const char *method,
 	const char *signature, jobject *result, ...) {
 
@@ -433,7 +436,7 @@ static inline jint call_class_method(
 	return ret;
 }
 
-static inline jint call_instance_method(
+static jint call_instance_method(
 	JNIEnv *env, jobject instance, const char *method,
 	const char *signature, jobject *result, ...) {
 
@@ -689,8 +692,8 @@ void __jni_deinit(int status, void *data) {
 	// Do nothing for now
 }
 
-JNIEXPORT
-int JNI_OnLoad(JavaVM *vm, void *reserved) {
+JNIEXPORT jint JNICALL
+JNI_OnLoad(JavaVM *vm, void *reserved) {
 	jclass Thread;
 	jobject classLoader;
 	JNIEnv* env;
@@ -754,7 +757,9 @@ int JNI_OnLoad(JavaVM *vm, void *reserved) {
 
 	dprint("New global ref to Current Thread ClassLoader: %p\n", __jclassloader);
 
+#ifndef _WIN32
 	on_exit(__jni_deinit, NULL);
+#endif
 
 	return JNI_VERSION_1_6;
 }

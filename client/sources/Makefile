@@ -51,8 +51,14 @@ COMMON_OBJS := \
 	actctx.obj list.obj thread.obj remote_thread.obj \
 	LoadLibraryR.obj
 
-SHARED_OBJS := ReflectiveLoader.obj pupy_shared.obj main_reflective.obj 
-APP_OBJS := main_exe.obj pupy.obj
+SHARED_OBJS := \
+	ReflectiveLoader.obj \
+	pupy_shared.obj \
+	main_reflective.obj 
+
+APP_OBJS := \
+	main_exe.obj \
+	pupy.obj
 
 ifeq ($(UNCOMPRESSED),)
 COMMON_OBJS += LzmaDec.obj
@@ -68,9 +74,6 @@ all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe $(TEMPLATE_OUTPUT_PATH)/
 revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
-
-pupy.c: pupy.c resources/$(ARCH)/library.c revision.h
-pupy_load.c: resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
 
 import-tab.c import-tab.h: mktab.py
 	$(HOST_PYTHON) $(PFLAGS) $<
@@ -106,25 +109,28 @@ resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_hea
 resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
-$(PYOBJS): %.obj: %.c
-	$(CC) /c $(CFLAGS) /I$(PYTHONPATH)\\include $<
+pupy_load.c: resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
+
 
 ifeq ($(UNCOMPRESSED),)
 LzmaDec.obj: ../lzma/LzmaDec.c
-	$(CC) /c $(CFLAGS) $<
+	$(CC) /c $(CFLAGS) $< /Fo$@
 endif
 
-main_exe.obj: main_exe.c
-	$(CC) /c $(CFLAGS) $<
-
 %.obj: %.c
-	$(CC) /c $(CFLAGS) $<
+	$(CC) /Fo$@ /I$(PYTHONPATH)\\include /c $(CFLAGS) $<
 
 ReflectiveLoader.obj: ReflectiveLoader.c
-	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN /DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $<
+	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN \
+		/DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $< /Fo$@
+
+pupy_load.obj: pupy_load.c resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
+
+pupy.obj: pupy.c resources/$(ARCH)/library.c revision.h
+	$(CC) /c $(CFLAGS) $< /Fo$@
 
 pupy_shared.obj: pupy.c resources/$(ARCH)/library.c revision.h
-	$(CC) /c $(CFLAGS) /D_PUPY_DLL $<
+	$(CC) /c $(CFLAGS) /D_PUPY_DLL $< /Fo$@
 
 $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: $(PYOBJS) $(APP_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
