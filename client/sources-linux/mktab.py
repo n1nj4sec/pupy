@@ -34,6 +34,7 @@ void, PyErr_Fetch, (PyObject **, PyObject **, PyObject **)
 void, PyErr_Clear, (void)
 int, PyObject_IsInstance, (PyObject *, PyObject *)
 PyObject *, PyCapsule_New, (void *, const char *, void *)
+void *, PyCapsule_GetPointer, (PyObject *, const char *)
 
 PyObject, PyInt_Type
 PyObject, _Py_NoneStruct
@@ -41,6 +42,7 @@ PyObject, _Py_ZeroStruct
 
 PyObject *, PyExc_ImportError
 PyObject *, PyExc_Exception
+PyObject *, PyExc_KeyError
 char *, _Py_PackageContext
 
 PyGILState_STATE, PyGILState_Ensure, (void)
