@@ -31,6 +31,9 @@ endif
 ifeq ($(ARCH),64)
 NAME := 64
 LDFLAGS += -m64
+ifeq ($(DEBUG),)
+CFLAGS += -fvisibility=hidden
+endif
 else
 NAME := 86
 CFLAGS += -D_FILE_OFFSET_BITS=64
@@ -44,6 +47,7 @@ LINUX_INJECT_CFLAGS := -include fixes.h -include debug.h \
 ifneq ($(DEBUG),)
 DEBUG_ADD := -debug
 CFLAGS += -DDEBUG -O0 -g
+LDFLAGS += -g
 NAME   := "$(NAME)d"
 else
 CFLAGS += -Os
