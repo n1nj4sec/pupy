@@ -5,6 +5,7 @@ os:
 - linux
 before_script:
   - sudo pip2 install flake8 flake8-per-file-ignores
+  - sudo apt-get install swig libssl-dev python-all-dev
   - cd $TRAVIS_BUILD_DIR/pupy && python2 -m flake8 .
   - |
     docker pull alxchk/tc-windows & docker pull alxchk/tc-linux32 &
