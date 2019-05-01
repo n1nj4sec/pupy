@@ -45,6 +45,8 @@ PyObject *, PyExc_Exception
 PyObject *, PyExc_KeyError
 char *, _Py_PackageContext
 
+PyObject *, PyObject_CallObject, (PyObject *, PyObject *)
+
 PyGILState_STATE, PyGILState_Ensure, (void)
 void, PyGILState_Release, (PyGILState_STATE)
 
@@ -114,7 +116,7 @@ for decl in decls:
         print >> cfile, '#ifdef _DEBUG'
         print >> cfile, '\t{ "Py_InitModule4TraceRefs", NULL },' % locals()
         print >> cfile, '#else'
-        print >> cfile, '#  if defined (__x86_64__)'
+        print >> cfile, '#  if defined (__x86_64__) || defined (_WIN64)'
         print >> cfile, '\t{ "Py_InitModule4_64", NULL },' % locals()
         print >> cfile, '#  else'
         print >> cfile, '\t{ "Py_InitModule4", NULL },' % locals()

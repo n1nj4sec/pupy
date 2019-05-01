@@ -105,7 +105,7 @@ pupy_load.o: resources/bootloader.c resources/$(ARCH)/python27.c \
 tmplibrary_lmid.o: tmplibrary.c
 	$(CC) -c -o $@ $< $(CFLAGS) -DWIP_LMID
 
-import-tab.c import-tab.h: mktab.py
+import-tab.c import-tab.h: ../mktab.py
 	$(PYTHON) $(PFLAGS) $<
 
 Python-dynload.o: Python-dynload.c import-tab.c import-tab.h

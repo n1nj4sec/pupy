@@ -75,7 +75,7 @@ revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-import-tab.c import-tab.h: mktab.py
+import-tab.c import-tab.h: ../mktab.py
 	$(HOST_PYTHON) $(PFLAGS) $<
 
 Python-dynload.obj: import-tab.c import-tab.h
