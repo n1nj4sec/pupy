@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <alloca.h>
 #include <string.h>
-#include <dlfcn.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -30,7 +29,7 @@
 #include "decompress.h"
 
 #ifndef MREMAP_FIXED
-#define MREMAP_FIXED	2
+#define MREMAP_FIXED    2
 
 #endif
 
@@ -40,9 +39,9 @@ void*  (*__mremap) (
 
 static
 void _pmparser_split_line(
-	char *buf, char *addr1, char *addr2,
-	char *perm, char *offset, char *device, char *inode,
-	char *pathname
+    char *buf, char *addr1, char *addr2,
+    char *perm, char *offset, char *device, char *inode,
+    char *pathname
 );
 
 extern char **environ;
@@ -369,153 +368,143 @@ pid_t memexec(const char *buffer, size_t size, const char* const* argv, int stdi
     return -1;
 }
 
-#if defined(Linux)
+#ifdef Linux
 
-#ifndef RTLD_DI_LINKMAP
-#define RTLD_DI_LINKMAP 2
-#endif
-
-static inline int _dlinfo(void *handle, int request, void *info) {
-	static int (*__dlinfo) (void *handle, int request, void *info) = (void *) - 1;;
-
-	if (__dlinfo == (void *) -1) {
-		__dlinfo = dlsym(NULL, "dlinfo");
-	}
-
-	if (! __dlinfo) {
-		return -1;
-	}
-
-	return __dlinfo(handle, request, info);
-}
-
-void remap(const char *path) {
+int remap(const char *path) {
     char line_buf[PATH_MAX + 256] = {};
-	struct stat dl_stat = {};
+    struct stat dl_stat = {};
+    int remapped = -1;
 
-	if (!path || path[0] == '\0') {
-		return;
-	}
+    if (!path || path[0] == '\0') {
+        return -1;
+    }
 
-	FILE *maps = fopen("/proc/self/maps", "r");
+    FILE *maps = fopen("/proc/self/maps", "r");
 
-	dprint("Remap %s\n", path);
+    dprint("Remap %s\n", path);
 
-	if (!maps) {
-		dprint("Remap %s - failed, couldn't read maps\n", path);
-		return;
-	}
+    if (!maps) {
+        dprint("Remap %s - failed, couldn't read maps\n", path);
+        return -1;
+    }
 
-	if (stat(path, &dl_stat) < 0) {
-		dprint("Remap %s - failed, stat() failed: %m\n", path);
-		goto lbExit;
-	}
+    if (stat(path, &dl_stat) < 0) {
+        dprint("Remap %s - failed, stat() failed: %m\n", path);
+        goto lbExit;
+    }
 
-	if (dl_stat.st_ino == 0) {
-		dprint("Remap %s - failed, stat() failed: st_ino == 0\n", path);
-		goto lbExit;
-	}
+    if (dl_stat.st_ino == 0) {
+        dprint("Remap %s - failed, stat() failed: st_ino == 0\n", path);
+        goto lbExit;
+    }
 
-	while (fgets(line_buf, sizeof(line_buf), maps)) {
-		char addr1[40], addr2[40], perm[8], offset[40],
-			dev[10], inode[40], pathname[PATH_MAX];
+    while (fgets(line_buf, sizeof(line_buf), maps)) {
+        char addr1[40], addr2[40], perm[8], offset[40],
+            dev[10], inode[40], pathname[PATH_MAX];
 
-		_pmparser_split_line(
-			line_buf, addr1, addr2, perm, offset, dev, inode, pathname
-		);
+        _pmparser_split_line(
+            line_buf, addr1, addr2, perm, offset, dev, inode, pathname
+        );
 
-		unsigned int s_maj = 0, s_min = 0;
-		unsigned short s_dev = 0;
+        unsigned int s_maj = 0, s_min = 0;
+        unsigned short s_dev = 0;
 
-		unsigned long long l_inode = 0;
+        unsigned long long l_inode = 0;
 
 #if __WORDSIZE == 32
         unsigned int l_addr_start = 0;
         unsigned int l_addr_end = 0;
         unsigned int l_size = 0;
 
-		sscanf(addr1, "%x", &l_addr_start);
-		sscanf(addr2, "%x", &l_addr_end);
+        sscanf(addr1, "%x", &l_addr_start);
+        sscanf(addr2, "%x", &l_addr_end);
 
 #else
         unsigned long long l_addr_start = 0;
         unsigned long long l_addr_end = 0;
         unsigned long long l_size = 0;
 
-		sscanf(addr1, "%Lx", &l_addr_start);
-		sscanf(addr2, "%Lx", &l_addr_end);
+        sscanf(addr1, "%Lx", &l_addr_start);
+        sscanf(addr2, "%Lx", &l_addr_end);
 #endif
         l_size = l_addr_end - l_addr_start;
 
-		sscanf(inode, "%Lu", &l_inode);
+        sscanf(inode, "%Lu", &l_inode);
 
-		sscanf(dev, "%02x:%02x", &s_maj, &s_min);
+        sscanf(dev, "%02x:%02x", &s_maj, &s_min);
 
-		s_dev = (unsigned short) ((s_maj << 8 | s_min) & 0xFFFF);
+        s_dev = (unsigned short) ((s_maj << 8 | s_min) & 0xFFFF);
 
-		if (!(s_dev == dl_stat.st_dev && l_inode == dl_stat.st_ino))
+        if (!(s_dev == dl_stat.st_dev && l_inode == dl_stat.st_ino))
             continue;
 
         dprint("Remap %s - %p - %p (%s)\n", pathname, l_addr_start, l_addr_end, perm);
 
-		int flags = 0;
+        int flags = 0;
 
-		if (perm[0] == 'r')
-			flags |= PROT_READ;
-		if (perm[1] == 'w')
-			flags |= PROT_WRITE;
-		if (perm[2] == 'x')
-			flags |= PROT_EXEC;
+        if (perm[0] == 'r')
+            flags |= PROT_READ;
+        if (perm[1] == 'w')
+            flags |= PROT_WRITE;
+        if (perm[2] == 'x')
+            flags |= PROT_EXEC;
 
-		void *new_map = MAP_FAILED;
+        void *new_map = MAP_FAILED;
 
-		if (flags) {
-			new_map = mmap(
-				NULL, l_size,
-				PROT_WRITE | PROT_READ,
-				MAP_PRIVATE | MAP_ANONYMOUS,
-				-1, 0
-			);
+        if (flags) {
+            new_map = mmap(
+                NULL, l_size,
+                PROT_WRITE | PROT_READ,
+                MAP_PRIVATE | MAP_ANONYMOUS,
+                -1, 0
+            );
 
-			if (new_map == MAP_FAILED) {
-				dprint("Remap %s - %p - %p (%s) - failed, new mmap: %m\n",
-					   pathname, l_addr_start, l_addr_end, perm);
-				continue;
+            if (new_map == MAP_FAILED) {
+                dprint("Remap %s - %p - %p (%s) - failed, new mmap: %m\n",
+                       pathname, l_addr_start, l_addr_end, perm);
+                continue;
             }
 
-			memcpy(new_map, (void *) l_addr_start, l_size);
+            memcpy(new_map, (void *) l_addr_start, l_size);
 
-			if (flags != (PROT_READ | PROT_WRITE))
-				if (mprotect(new_map, l_size, flags) != 0) {
-					dprint("Remap %s - %p - %p (%s) - failed, mprotect: %m\n",
-						   pathname, l_addr_start, l_addr_end, perm);
-					munmap(new_map, l_size);
-					continue;
-				}
+            if (flags != (PROT_READ | PROT_WRITE))
+                if (mprotect(new_map, l_size, flags) != 0) {
+                    dprint("Remap %s - %p - %p (%s) - failed, mprotect: %m\n",
+                           pathname, l_addr_start, l_addr_end, perm);
+                    munmap(new_map, l_size);
+                    remapped = 0;
+                    continue;
+                }
 
-			if (__mremap(
-				 new_map, l_size, l_size,
-				 MREMAP_FIXED | MREMAP_MAYMOVE,
-				 (void *) l_addr_start) == MAP_FAILED) {
-				dprint("Remap %s - %p - %p (%s) - failed, remap: %m\n",
-					   pathname, l_addr_start, l_addr_end, perm);
-				munmap(new_map, l_size);
-			}
+            if (__mremap(
+                 new_map, l_size, l_size,
+                 MREMAP_FIXED | MREMAP_MAYMOVE,
+                 (void *) l_addr_start) == MAP_FAILED) {
+                dprint("Remap %s - %p - %p (%s) - failed, remap: %m\n",
+                       pathname, l_addr_start, l_addr_end, perm);
+                munmap(new_map, l_size);
+                remapped = -1;
+            }
 
-		} else {
-			dprint("Remap %s - unmap %p - %p (%s) - not required\n",
-				   pathname, l_addr_start, l_addr_end, perm);
-			munmap((void *) l_addr_start, l_size);
-		}
-	}
+        } else {
+            dprint("Remap %s - unmap %p - %p (%s) - not required\n",
+                   pathname, l_addr_start, l_addr_end, perm);
+            munmap((void *) l_addr_start, l_size);
+            remapped = 0;
+        }
+    }
 
  lbExit:
-	dprint("Remap %s - completed\n", path);
-	fclose(maps);
+    dprint("Remap %s - completed\n", path);
+    fclose(maps);
+
+    return remapped;
 }
 #else
 
-#define remap(x) do {} while(0)
+int remap(const char *path) {
+    return -1;
+}
 
 #endif
 
@@ -561,8 +550,6 @@ struct link_map_private {
     struct libname_list *l_libname;  // ancient
 
     /* ------------- .... and there much more ----------------- */
-
-
 };
 
 static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
@@ -708,83 +695,83 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
 // https://github.com/ouadev/proc_maps_parser/blob/master/pmparser.c
 void _pmparser_split_line(
-	char *buf, char *addr1, char *addr2,
-	char *perm, char *offset, char *device, char *inode,
-	char *pathname) {
+    char *buf, char *addr1, char *addr2,
+    char *perm, char *offset, char *device, char *inode,
+    char *pathname) {
 
-	int orig=0;
-	int i=0;
+    int orig=0;
+    int i=0;
 
-	while (buf[i] != '-') {
-		addr1[i-orig] = buf[i];
-		i++;
-	}
+    while (buf[i] != '-') {
+        addr1[i-orig] = buf[i];
+        i++;
+    }
 
-	addr1[i] = '\0';
-	i++;
+    addr1[i] = '\0';
+    i++;
 
-	orig = i;
+    orig = i;
 
-	while (buf[i] != '\t' && buf[i] != ' ') {
-		addr2[i-orig] = buf[i];
-		i++;
-	}
+    while (buf[i] != '\t' && buf[i] != ' ') {
+        addr2[i-orig] = buf[i];
+        i++;
+    }
 
-	addr2[i-orig] = '\0';
+    addr2[i-orig] = '\0';
 
-	while (buf[i]=='\t' || buf[i]==' ')
-		i++;
+    while (buf[i]=='\t' || buf[i]==' ')
+        i++;
 
-	orig = i;
+    orig = i;
 
-	while (buf[i]!='\t' && buf[i]!=' ') {
-		perm[i-orig] = buf[i];
-		i++;
-	}
-	perm[i-orig] = '\0';
+    while (buf[i]!='\t' && buf[i]!=' ') {
+        perm[i-orig] = buf[i];
+        i++;
+    }
+    perm[i-orig] = '\0';
 
-	while (buf[i] == '\t' || buf[i] == ' ')
-		i++;
+    while (buf[i] == '\t' || buf[i] == ' ')
+        i++;
 
-	orig = i;
-	while (buf[i] != '\t' && buf[i] != ' ') {
-		offset[i-orig]=buf[i];
-		i++;
-	}
-	offset[i-orig] = '\0';
+    orig = i;
+    while (buf[i] != '\t' && buf[i] != ' ') {
+        offset[i-orig]=buf[i];
+        i++;
+    }
+    offset[i-orig] = '\0';
 
-	while (buf[i] == '\t' || buf[i] == ' ')
-		i++;
+    while (buf[i] == '\t' || buf[i] == ' ')
+        i++;
 
-	orig = i;
-	while (buf[i] != '\t' && buf[i] != ' ') {
-		device[i-orig] = buf[i];
-		i++;
-	}
-	device[i-orig]='\0';
+    orig = i;
+    while (buf[i] != '\t' && buf[i] != ' ') {
+        device[i-orig] = buf[i];
+        i++;
+    }
+    device[i-orig]='\0';
 
-	//inode
-	while (buf[i] == '\t' || buf[i] == ' ')
-		i++;
-	orig=i;
+    //inode
+    while (buf[i] == '\t' || buf[i] == ' ')
+        i++;
+    orig=i;
 
-	while (buf[i] != '\t' && buf[i] != ' ') {
-		inode[i-orig] = buf[i];
-		i++;
-	}
-	inode[i-orig] = '\0';
+    while (buf[i] != '\t' && buf[i] != ' ') {
+        inode[i-orig] = buf[i];
+        i++;
+    }
+    inode[i-orig] = '\0';
 
-	//pathname
-	pathname[0] = '\0';
-	while (buf[i] == '\t' || buf[i] == ' ')
-		i++;
+    //pathname
+    pathname[0] = '\0';
+    while (buf[i] == '\t' || buf[i] == ' ')
+        i++;
 
-	orig = i;
-	while (buf[i] != '\t' && buf[i] != ' ' && buf[i] != '\n') {
-		pathname[i-orig] = buf[i];
-		i++;
-	}
-	pathname[i-orig] = '\0';
+    orig = i;
+    while (buf[i] != '\t' && buf[i] != ' ' && buf[i] != '\n') {
+        pathname[i-orig] = buf[i];
+        i++;
+    }
+    pathname[i-orig] = '\0';
 }
 
 

