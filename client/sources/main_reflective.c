@@ -9,7 +9,6 @@
 #include "debug.h"
 
 extern HINSTANCE hAppInstance;
-extern void * __JVM;
 
 #define REFLECTIVE_SPECIAL 5
 
@@ -19,7 +18,7 @@ HANDLE hThread = NULL;
 
 DWORD WINAPI delayedMainThread(LPVOID lpArg)
 {
-    Sleep(5000);
+    Sleep(1000);
     return mainThread(lpArg);
 }
 
@@ -60,8 +59,6 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
                     0,      // dwCreationFlags (0==run right after creation)
                     &threadId
                );
-            } else {
-                dprint("Thread already exists\n");
             }
             break;
 
