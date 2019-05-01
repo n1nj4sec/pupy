@@ -27,7 +27,7 @@ thread_start(void *arg) {
 
     sleep(1);
 
-#ifdef Linux
+#if defined(Linux) && defined(WIP_LMID)
     /*
      * Remap may be possible only after library load,
      */
