@@ -571,7 +571,7 @@ def rm(path):
 
 # -------------------------- For cat function --------------------------
 
-def cat(path, N, n, grep, encoding=None):
+def cat(path, N, n, grep, encoding=None, filter_out=False):
     if grep:
         grep = re.compile(grep)
 
@@ -610,11 +610,12 @@ def cat(path, N, n, grep, encoding=None):
                         fin.readline()
 
                     if N:
-                        data += tail(fin, N, grep)
+                        data += tail(fin, N, grep, filter_out)
                     elif grep or n:
                         for line in fin:
                             line = line.rstrip('\n')
-                            if not grep or grep.search(line):
+                            if not grep or (not filter_out and grep.search(line)) or \
+                               (filter_out and not grep.search(line)):
                                 data.append(line)
                             if n and len(data) >= n:
                                 break
@@ -637,7 +638,7 @@ def cat(path, N, n, grep, encoding=None):
 
     return '\n'.join(data)
 
-def tail(f, n, grep):
+def tail(f, n, grep, filter_out=False):
     if n <= 0:
         raise ValueError('Invalid amount of lines: {}'.format(n))
 
@@ -673,7 +674,8 @@ def tail(f, n, grep):
                 for idx in xrange(llines-1):
                     line = lines[llines-idx-1]
 
-                    if grep.search(line):
+                    if (not filter_out and grep.search(line)) or \
+                       (filter_out and not grep.search(line)):
                         retval.insert(0, line)
 
                     if len(retval) >= n:

@@ -23,7 +23,9 @@ class cat(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog="cat", description=cls.__doc__)
         cls.arg_parser.add_argument('-N', type=int, help='Tail lines')
         cls.arg_parser.add_argument('-n', type=int, help='Head lines')
-        cls.arg_parser.add_argument('-G', type=str, help='Grep sequence')
+        grep = cls.arg_parser.add_mutually_exclusive_group()
+        grep.add_argument('-G', type=str, help='Grep sequence')
+        grep.add_argument('-g', type=str, help='Grep out sequence')
         cls.arg_parser.add_argument('-E', type=str, help='Set encoding of text file')
         cls.arg_parser.add_argument(
             '-C', '--color', action='store_true', help='Enable coloring (pygments)')
@@ -32,7 +34,16 @@ class cat(PupyModule):
     def run(self, args):
         try:
             cat = self.client.remote('pupyutils.basic_cmds', 'cat', False)
-            r = cat(args.path, args.N, args.n, args.G, args.E)
+
+            grep = None
+            filter_out = False
+            if args.G:
+                grep = args.G
+            elif args.g:
+                grep = args.g
+                filter_out = True
+            
+            r = cat(args.path, args.N, args.n, grep, args.E, filter_out)
             if r:
                 lexer = None
 
