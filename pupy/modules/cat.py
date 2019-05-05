@@ -42,7 +42,7 @@ class cat(PupyModule):
             elif args.g:
                 grep = args.g
                 filter_out = True
-            
+
             r = cat(args.path, args.N, args.n, grep, args.E, filter_out)
             if r:
                 lexer = None
