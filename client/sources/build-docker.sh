@@ -26,7 +26,7 @@ PYOPUS=$EXTERNAL/pyopus/src
 echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
-    $PYTHON -m pip install -q --upgrade setuptools
+    $PYTHON -m pip install -q --upgrade setuptools cython
 
     # Still problems here
     $PYTHON -m pip install -q --upgrade pynacl
