@@ -582,6 +582,7 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
     found = False
 
     data = []
+    dups = set()
 
     for path in glob.iglob(path):
         if os.path.exists(path):
@@ -614,9 +615,21 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
                     elif grep or n:
                         for line in fin:
                             line = line.rstrip('\n')
-                            if not grep or (not filter_out and grep.search(line)) or \
-                               (filter_out and not grep.search(line)):
-                                data.append(line)
+                            matches = grep.search(line)
+                            if not grep or (not filter_out and matches) or \
+                               (filter_out and not matches):
+                                if matches:
+                                    groups = matches.groups()
+                                    if groups:
+                                        record = '\t'.join(groups)
+                                        if record not in dups:
+                                            data.append(record)
+                                            dups.add(record)
+                                    else:
+                                        data.append(line)
+                                else:
+                                    data.append(line)
+
                             if n and len(data) >= n:
                                 break
                     else:
@@ -653,6 +666,7 @@ def tail(f, n, grep, filter_out=False):
     exit = False
 
     retval = []
+    dups = set()
 
     while not exit:
         step = (block * BUFSIZ)
@@ -674,9 +688,20 @@ def tail(f, n, grep, filter_out=False):
                 for idx in xrange(llines-1):
                     line = lines[llines-idx-1]
 
-                    if (not filter_out and grep.search(line)) or \
-                       (filter_out and not grep.search(line)):
-                        retval.insert(0, line)
+                    matches = grep.search(line)
+                    if (not filter_out and matches) or \
+                       (filter_out and not matches):
+                        if matches:
+                            groups = matches.groups()
+                            if groups:
+                                record = '\t'.join(groups)
+                                if record not in dups:
+                                    retval.insert(0, record)
+                                    dups.add(record)
+                            else:
+                                retval.insert(0, line)
+                        else:
+                            retval.insert(0, line)
 
                     if len(retval) >= n:
                         break
