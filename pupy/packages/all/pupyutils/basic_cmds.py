@@ -615,7 +615,9 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
                     elif grep or n:
                         for line in fin:
                             line = line.rstrip('\n')
-                            matches = grep.search(line)
+                            matches = None
+                            if grep:
+                                matches = grep.search(line)
                             if not grep or (not filter_out and matches) or \
                                (filter_out and not matches):
                                 if matches:
@@ -688,7 +690,10 @@ def tail(f, n, grep, filter_out=False):
                 for idx in xrange(llines-1):
                     line = lines[llines-idx-1]
 
-                    matches = grep.search(line)
+                    matches = None
+                    if grep:
+                        matches = grep.search(line)
+
                     if (not filter_out and matches) or \
                        (filter_out and not matches):
                         if matches:
@@ -751,7 +756,8 @@ def fputcontent(path, content, append=False):
             pass
 
     with open(path, 'ab' if append else 'wb') as f:
-        f.write(content)
+        if content:
+            f.write(content)
 
     if ftime:
         os.utime(path, ftime)
