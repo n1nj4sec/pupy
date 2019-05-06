@@ -64,6 +64,7 @@
 pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     pid_t pid;
     int pipes[2];
+    char *set_argv0 = NULL;
 
 #ifdef Linux
     setresuid(0, 0, 0);
@@ -95,13 +96,12 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
 
     if (triple_fork && exit_parent && fdenv < 0 && readlink("/proc/self/exe", self, sizeof(self)-1) != -1) {
 #ifdef USE_ENV_ARGS
-        char *set_argv0 = getenv(DEFAULT_ENV_SA0);
+        set_argv0 = getenv(DEFAULT_ENV_SA0);
         char *set_cwd = getenv(DEFAULT_ENV_SCWD);
         char *cleanup = getenv(DEFAULT_ENV_CLEANUP);
         char *move = getenv(DEFAULT_ENV_MOVE);
         char *mtime_from = DEFAULT_MTIME_FROM;
 #else
-        char *set_argv0 = NULL;
         char *set_cwd = NULL;
         char *move = NULL;
         char *mtime_from = DEFAULT_MTIME_FROM;
@@ -240,6 +240,8 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     }
 
     if (fdenv > 0) {
+        set_argv0 = argv[0];
+
         for (;;) {
             unsigned int size = 0;
             int r = read(fdenv, &size, 4);
@@ -302,7 +304,7 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-    setenv("_", "/bin/true", 1);
+    setenv("_", set_argv0 ? set_argv0 : DEFAULT_ARGV0, 1);
 
     if (!exit_parent) {
         pid_t current_pid = getpid();
@@ -333,7 +335,7 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     prctl(4, 0, 0, 0, 0);
     prctl(31, 0, 0, 0, 0);
 
-    int exe_fd = open(DEFAULT_ARGV0, O_RDONLY);
+    int exe_fd = open(set_argv0? set_argv0 : DEFAULT_ARGV0, O_RDONLY);
     if (exe_fd != -1) {
         remap("/proc/self/exe");
         prctl(35, 13, exe_fd, 0, 0);
