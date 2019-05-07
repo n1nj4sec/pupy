@@ -41,8 +41,7 @@ endif
 
 CFLAGS += -Iresources/$(ARCH) -Iresources
 
-LINUX_INJECT_CFLAGS := -include fixes.h -include debug.h \
-	-Dmain=linux_inject_main -Drealpath=fakepath
+LINUX_INJECT_CFLAGS := -include fixes.h -Iinjector/src/linux
 
 ifneq ($(DEBUG),)
 DEBUG_ADD := -debug
@@ -51,7 +50,6 @@ LDFLAGS += -g
 NAME   := "$(NAME)d"
 else
 CFLAGS += -Os
-LINUX_INJECT_CFLAGS += -Dprintf=dprint -Dfprintf=dfprint
 ifeq ($(OS),Linux)
 LDFLAGS += -O1 -Wl,-s -Wl,-x -Wl,--gc-sections -Wl,--no-undefined
 LDFLAGS += -Wl,-z,now -Wl,-z,combreloc -Wl,--enable-new-dtags
@@ -78,14 +76,15 @@ COMPRESSED = 0
 endif
 
 ifeq ($(OS),Linux)
-ifeq ($(ARCH),64)
-COMMON_OBJS += linux-inject/inject-x86_64.o
-else
-COMMON_OBJS += linux-inject/inject-x86.o
-endif
+COMMON_OBJS += injector/src/linux/elf.o
+COMMON_OBJS += injector/src/linux/injector.o
+COMMON_OBJS += injector/src/linux/ptrace.o
+COMMON_OBJS += injector/src/linux/remote_call.o
+COMMON_OBJS += injector/src/linux/util.o
+COMMON_OBJS += fixes.o
 
-COMMON_OBJS += linux-inject/ptrace.o
-COMMON_OBJS += linux-inject/utils.o
+CFLAGS += -Iinjector/include
+LDFLAGS += -Wl,-wrap,realpath
 endif
 
 all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX) $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so
@@ -128,7 +127,7 @@ resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pu
 resources/bootloader.c: ../gen_resource_header.py resources/bootloader.pyc
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-linux-inject/%.o: linux-inject/%.c
+injector/%.o: injector/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
 
 resources/$(ARCH)/python27.so: $(LIBPYTHON)
@@ -179,7 +178,6 @@ clean:
 	rm -f $(COMMON_OBJS) $(PYOBJS)
 	rm -f pupy pupy.so
 	rm -f *.o
-	rm -f linux-inject/*.o
 	rm -f resources/bootloader.pyc
 	rm -f resources/*.c
 	rm -f resources/$(ARCH)/*.c

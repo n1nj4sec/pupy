@@ -25,7 +25,9 @@ thread_start(void *arg) {
      * sleep is better then nothing.
      */
 
-    sleep(1);
+	dfprint(stderr, "Launch dedicated thread\n");
+
+	sleep(1);
 
 #if defined(Linux) && defined(WIP_LMID)
     /*
@@ -48,19 +50,20 @@ thread_start(void *arg) {
     }
 #endif
 
+	dfprint(stderr, "Starting main payload\n");
     mainThread(__argc, __argv, true);
     return NULL;
 }
 
-static
-void unloader(void) {
+static void
+unloader(void) {
     dprint("Wait until pupy thread exits\n");
     pthread_join(thread_id, NULL);
     dprint("Sutting down\n");
 }
 
-static
-void __handle_exit(int status) {
+static void
+__handle_exit(int status) {
     dprint("Catch exit (%d)\n", __to_wait);
     __attribute__((noreturn))
         void (*orig_exit)(int status) = dlsym(RTLD_NEXT, "_exit");
@@ -73,24 +76,26 @@ void __handle_exit(int status) {
     orig_exit(status);
 }
 
-static
-void __atexit() {
+static void
+__atexit() {
     dprint("At exit\n");
     __handle_exit(0);
 }
 
-static
-void __on_exit(int status, void *data) {
+static void
+__on_exit(int status, void *data) {
     dprint("On exit\n");
     __handle_exit(status);
 }
 
-static void _pupy_main(int argc, char* argv[], char* envp[]) {
-    dprint("fill_argv called: %d/%p/%p\n", argc, argv, envp);
+static void
+_pupy_main(int argc, char* argv[], char* envp[]) {
+	dfprint(stderr, "pupy loader ctor called\n");
+	dfprint(stderr, "fill_argv called: %d/%p/%p\n", argc, argv, envp);
 #ifdef DEBUG
     int i;
     for (i=0; i<argc; i++) {
-        dprint("ARGV[%d] = %s\n", i, argv[i]);
+        dfprint(stderr, "ARGV[%d] = %s\n", i, argv[i]);
     }
 #endif
 
@@ -105,17 +110,17 @@ static void _pupy_main(int argc, char* argv[], char* envp[]) {
         __to_wait = 1;
 
     if (ldpreload) {
-        dprint("REMAP SELF\n0");
+        dfprint(stderr, "REMAP SELF\n0");
         __unmapped = remap(ldpreload);
     }
 
     if (cleanup && ldpreload && !strcmp(cleanup, "1")) {
-        dprint("Cleanup requested. Cleanup %s\n", ldpreload);
+        dfprint(stderr, "Cleanup requested. Cleanup %s\n", ldpreload);
         unlink(ldpreload);
     }
 
     if (ldpreload) {
-        dprint("Unset LD_PRELOAD (%s)\n", ldpreload);
+        dfprint(stderr, "Unset LD_PRELOAD (%s)\n", ldpreload);
         unsetenv("LD_PRELOAD");
     }
 
@@ -129,19 +134,21 @@ static void _pupy_main(int argc, char* argv[], char* envp[]) {
         if ((strncmp(*envp, "LD_PRELOAD=", 11) == 0)
             || strncmp(*envp, "CLEANUP=", 8) == 0
             || strncmp(*envp, "HOOK_EXIT=", 10) == 0) {
-            dprint("CLEAN %s\n", *envp);
+            dfprint(stderr, "CLEAN %s\n", *envp);
             memset(*envp, 0, strlen(*envp));
         }
         envp++;
     }
 
-    dprint("Start payload, wait=%d\n", __to_wait);
+    dfprint(stderr, "Start payload, wait=%d\n", __to_wait);
 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_create(
             &thread_id, &attr,
             thread_start, NULL);
+
+	dfprint(stderr, "init_array completed\n");
 }
 
 __attribute__((section(".init_array"))) void (* pupy_main)(int, char*[], char*[]) = _pupy_main;

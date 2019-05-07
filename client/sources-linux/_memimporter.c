@@ -14,8 +14,7 @@
 #include "_memimporter.h"
 #include "debug.h"
 
-static char module_doc[] =
-"Importer which can load extension modules from memory";
+static char module_doc[] = DOC("Importer which can load extension modules from memory");
 
 bool
 import_module(const char *initfuncname, char *modname, const char *data, size_t size) {
@@ -24,7 +23,7 @@ import_module(const char *initfuncname, char *modname, const char *data, size_t 
     dprint("import_module: init=%s mod=%s (%p:%lu)\n",
            initfuncname, modname, data, size);
 
-    void *hmem=memdlopen(modname, data, size);
+    void *hmem = memdlopen(modname, data, size, RTLD_LOCAL | RTLD_NOW);
     if (!hmem) {
         dprint("Couldn't load %s: %m\n", modname);
         return false;
@@ -39,11 +38,11 @@ import_module(const char *initfuncname, char *modname, const char *data, size_t 
 
     oldcontext = _Py_PackageContext;
     _Py_PackageContext = modname;
-    dprint("Call %s@%s\n", initfuncname, modname);
+    dprint("Call %s@%s (%p)\n", initfuncname, modname, do_init);
     do_init();
     _Py_PackageContext = oldcontext;
 
-    dprint("Call %s@%s - complete\n", initfuncname, modname);
+    dprint("Call %s@%s (%p) - complete\n", initfuncname, modname, do_init);
 
     return true;
 }
@@ -83,15 +82,15 @@ get_verbose_flag(PyObject *self, PyObject *args)
 
 static PyMethodDef methods[] = {
     { "import_module", Py_import_module, METH_VARARGS,
-      "import_module(data, size, initfuncname, path) -> module" },
+      DOC("import_module(data, size, initfuncname, path) -> module") },
     { "get_verbose_flag", get_verbose_flag, METH_NOARGS,
-      "Return the Py_Verbose flag" },
+      DOC("Return the Py_Verbose flag") },
     { NULL, NULL },     /* Sentinel */
 };
 
 DL_EXPORT(void)
 init_memimporter(void)
 {
-    dprint("Importing... %p\n", Py_InitModule4);
+    dprint("Init memiporter\n");
     Py_InitModule3("_memimporter", methods, module_doc);
 }

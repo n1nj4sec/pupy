@@ -19,10 +19,12 @@ def has_proc_migrated(client, pid):
     return None
 
 def get_payload(module, compressed=True):
+    conf = module.client.get_conf()
     dllbuf, _, _ = pupygen.generate_binary_from_template(
         module.log,
-        module.client.get_conf(), 'linux',
-        arch=module.client.arch, shared=True
+        conf, 'linux',
+        arch=module.client.arch, shared=True,
+        debug=conf['debug']
     )
 
     if not compressed:

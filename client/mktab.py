@@ -36,6 +36,9 @@ int, PyObject_IsInstance, (PyObject *, PyObject *)
 PyObject *, PyCapsule_New, (void *, const char *, void *)
 void *, PyCapsule_GetPointer, (PyObject *, const char *)
 
+void, Py_IncRef, (PyObject *)
+void, Py_DecRef, (PyObject *)
+
 PyObject, PyInt_Type
 PyObject, _Py_NoneStruct
 PyObject, _Py_ZeroStruct

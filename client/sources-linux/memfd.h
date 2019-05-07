@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <stdio.h>
 
 #define MFD_CLOEXEC         0x0001U
 #define MFD_ALLOW_SEALING   0x0002U
@@ -62,7 +63,8 @@ inline static int pupy_memfd_create(char *path, unsigned int path_size)
 
 inline static bool is_memfd_path(const char *path)
 {
-    return !strncmp(path, PROCFS_PATH, strlen(PROCFS_PATH));
+    return !strncmp(path, PROCFS_PATH, strlen(PROCFS_PATH)) && \
+        strstr(path, "/fd/");
 }
 
 #endif

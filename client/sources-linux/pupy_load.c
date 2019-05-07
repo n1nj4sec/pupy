@@ -51,7 +51,8 @@ static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzs
 	abort();
     }
 
-    void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
+    void *res = memdlopen(
+	 soname, (char *) uncompressed, uncompressed_size, RTLD_NOW | RTLD_GLOBAL);
 
     lzmafree(uncompressed, uncompressed_size);
 
@@ -148,13 +149,14 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
 
 	PySys_SetPath("");
 
+	PySys_SetObject("executable", PyString_FromString(exe));
+
 #ifndef DEBUG
 	PySys_SetObject("frozen", PyBool_FromLong(1));
 #endif
-	PySys_SetObject("executable", PyString_FromString(exe));
 	dprint("Py_Initialize() complete\n");
     }
-    restore_state=PyGILState_Ensure();
+    restore_state = PyGILState_Ensure();
 
     init_memimporter();
     dprint("init_memimporter()\n");

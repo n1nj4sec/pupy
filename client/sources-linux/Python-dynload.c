@@ -15,23 +15,6 @@ struct IMPORT imports[] = {
     { NULL, NULL }, /* sentinel */
 };
 
-void Py_XDECREF(PyObject *ob)
-{
-    static PyObject *tup;
-    if (tup == NULL)
-        tup = PyTuple_New(1);
-    /* Let the tuple take the refcount */
-    PyTuple_SetItem(tup, 0, ob);
-    /* and overwrite it */
-    PyTuple_SetItem(tup, 0, PyInt_FromLong(0));
-}
-
-void Py_XINCREF(PyObject *ob)
-{
-    if (ob)
-        Py_BuildValue("O", ob);
-}
-
 typedef struct python_search {
     const char *libname;
     void *base;

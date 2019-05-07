@@ -20,22 +20,21 @@ struct IMPORT imports[] = {
 	{ NULL, NULL }, /* sentinel */
 };
 
-void Py_XDECREF(PyObject *ob)
-{
-	static PyObject *tup;
-	if (tup == NULL)
-		tup = PyTuple_New(1);
-	/* Let the tuple take the refcount */
-	PyTuple_SetItem(tup, 0, ob);
-	/* and overwrite it */
-	PyTuple_SetItem(tup, 0, PyInt_FromLong(0));
-}
+#ifndef PY_INCREF
+#define PY_INCREF Py_IncRef
+#endif
 
-void Py_XINCREF(PyObject *ob)
-{
-	if (ob)
-		Py_BuildValue("O", ob);
-}
+#ifndef PY_DECREF
+#define PY_DECREF Py_DecRef
+#endif
+
+#ifndef Py_XINCREF
+#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
+#endif
+
+#ifndef Py_XDECREF
+#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#endif
 
 int _load_python_FromFile(char *dllname)
 {

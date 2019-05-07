@@ -868,22 +868,22 @@ PyObject *Py_find_class(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef JVM_Methods[] = {
-        { "get_jvm", Py_get_JVM, METH_NOARGS, "Get pointer to JVM" },
-        { "find_class", Py_find_class, METH_VARARGS, "Call hinted FindClass" },
+        { "get_jvm", Py_get_JVM, METH_NOARGS, DOC("Get pointer to JVM") },
+        { "find_class", Py_find_class, METH_VARARGS, DOC("Call hinted FindClass") },
         { "get_preferred_classloader", Py_get_PreferredClassLoader,
-          METH_VARARGS, "Get pointer to initializer thread's ClassLoader" },
+          METH_VARARGS, DOC("Get pointer to initializer thread's ClassLoader") },
         { "set_preferred_classloader_name", Py_set_preferred_classloader_name,
-          METH_VARARGS, "Class name of required default classloader" },
+          METH_VARARGS, DOC("Class name of required default classloader") },
         { "get_preferred_classloader_name", Py_get_preferred_classloader_name,
-          METH_NOARGS, "Get current class name of requried default classloader" },
+          METH_NOARGS, DOC("Get current class name of requried default classloader") },
         { "set_preferred_loadable_class", Py_set_preferred_loadable_class,
-          METH_VARARGS, "Class name of class which required classloader should be able to load" },
+          METH_VARARGS, DOC("Class name of class which required classloader should be able to load") },
         { "get_preferred_loadable_class", Py_get_preferred_loadable_class,
-          METH_NOARGS, "Get current class name of class which required classloader should be able to load" },
+          METH_NOARGS, DOC("Get current class name of class which required classloader should be able to load") },
         { "enumerate_threads_classloaders", Py_enumerate_threads_classloaders,
-          METH_NOARGS, "Get dict of thread names and names of their classloaders" },
+          METH_NOARGS, DOC("Get dict of thread names and names of their classloaders") },
         { "apply_preferred_classloader", Py_set_ClassLoader, METH_NOARGS,
-          "initializer thread's ClassLoader to current thread" },
+          DOC("initializer thread's ClassLoader to current thread") },
         { NULL, NULL },		/* Sentinel */
 };
 

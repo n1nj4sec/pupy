@@ -25,12 +25,23 @@ extern struct IMPORT imports[];
 
 #include "import-tab.h"
 
-extern void Py_XINCREF(PyObject *);
-#define snprintf _snprintf
-#define Py_DECREF(x) Py_XDECREF(x)
-#define Py_INCREF(x) Py_XINCREF(x)
+#ifndef Py_INCREF
+#define Py_INCREF Py_IncRef
+#endif
 
-extern void Py_XDECREF(PyObject *ob);
+#ifndef Py_DECREF
+#define Py_DECREF Py_DecRef
+#endif
+
+#ifndef Py_XINCREF
+#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
+#endif
+
+#ifndef Py_XDECREF
+#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#endif
+
+#define snprintf _snprintf
 
 #define METH_OLDARGS  0x0000
 #define METH_VARARGS  0x0001

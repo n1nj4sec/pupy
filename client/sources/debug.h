@@ -13,6 +13,7 @@ static int dprint(const char *fmt, ...) {
 	va_start (args, fmt);
 	n = vfprintf(stderr, fmt, args);
 	va_end (args);
+	fflush(stdout);
 	return n;
 }
 
@@ -23,10 +24,16 @@ static int dfprint(FILE *stream, const char *fmt, ...) {
 	va_start (args, fmt);
 	n = vfprintf(stream, fmt, args);
 	va_end (args);
+	fflush(stream);
+
 	return n;
 }
 
+#define DOC(x) x
+
 #else
+
+#define DOC(x) ""
 
 #define dprint(...)	do {} while (0)
 #define dfprint(...) do {} while (0)

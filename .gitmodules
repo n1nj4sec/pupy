@@ -4,9 +4,6 @@
 [submodule "pupy/external/linux-exploit-suggester"]
 	path = pupy/external/linux-exploit-suggester
 	url = https://github.com/mzet-/linux-exploit-suggester
-[submodule "client/sources-linux/linux-inject"]
-	path = client/sources-linux/linux-inject
-	url = https://github.com/gaffe23/linux-inject.git
 [submodule "pupy/external/pywerview"]
 	path = pupy/external/pywerview
 	url = https://github.com/the-useless-one/pywerview.git
@@ -46,3 +43,6 @@
 [submodule "pupy/external/wesng"]
 	path = pupy/external/wesng
 	url = https://github.com/bitsadmin/wesng
+[submodule "client/sources-linux/injector"]
+	path = client/sources-linux/injector
+	url = https://github.com/kubo/injector

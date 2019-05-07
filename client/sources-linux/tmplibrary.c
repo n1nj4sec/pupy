@@ -775,7 +775,7 @@ void _pmparser_split_line(
 }
 
 
-void *memdlopen(const char *soname, const char *buffer, size_t size) {
+void *memdlopen(const char *soname, const char *buffer, size_t size, int flags) {
     dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
 
     static PLIST libraries = NULL;
@@ -812,8 +812,6 @@ void *memdlopen(const char *soname, const char *buffer, size_t size) {
         dprint("Couldn't drop library %s: %m\n", soname);
         return NULL;
     }
-
-    int flags = RTLD_NOW | RTLD_LOCAL;
 
     dprint("dlopen(%s, %08x)\n", buf, flags);
     base = _dlopen(fd, buf, flags, soname);
