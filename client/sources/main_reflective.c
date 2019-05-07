@@ -22,6 +22,12 @@ DWORD WINAPI delayedMainThread(LPVOID lpArg)
     return mainThread(lpArg);
 }
 
+__declspec(dllexport)
+VOID WINAPI Launch()
+{
+    mainThread(NULL);
+}
+
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 {
     DWORD threadId;
@@ -48,7 +54,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
                 return TRUE;
             }
 
-            if (!hThread) {
+            if (!hThread && lpReserved != 0x2) {
                 dprint("Creating delayed thread from DllMain\n");
 
                 hThread = CreateThread(
