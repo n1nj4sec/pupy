@@ -2521,7 +2521,7 @@ $RemoteScriptBlock = {
                 $DllMainDelegate = Get-DelegateType @([IntPtr], [UInt32], [IntPtr]) ([Bool])
                 $DllMain = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($DllMainPtr, $DllMainDelegate)
 
-                $DllMain.Invoke($PEInfo.PEHandle, 1, [IntPtr] 1) | Out-Null
+                $DllMain.Invoke($PEInfo.PEHandle, 1, [IntPtr] 2) | Out-Null
             }
             else
             {
@@ -2793,7 +2793,7 @@ $RemoteScriptBlock = {
 
                 'Void' {
                     Write-Verbose "Calling function with Void return type"
-                    [IntPtr]$VoidFuncAddr = Get-MemoryProcAddress -PEHandle $PEHandle -FunctionName "VoidFunc"
+                    [IntPtr]$VoidFuncAddr = Get-MemoryProcAddress -PEHandle $PEHandle -FunctionName "Launch"
                     if ($VoidFuncAddr -eq [IntPtr]::Zero)
                     {
                         Throw "Couldn't find function address."
