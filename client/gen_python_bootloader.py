@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys
-import marshal
-import struct
-import base64
 import os.path
 import os
 import argparse
@@ -13,7 +10,7 @@ sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
 from PupyCompile import pupycompile
 
-remove_stdout='''
+remove_stdout = '''
 import sys
 sys.tracebacklimit = 0
 class Blackhole(object):
@@ -38,7 +35,7 @@ exec marshal.loads({}) in mod.__dict__
 sys.modules[fullname]=mod
 '''
 
-if __name__=="__main__":
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-debug',
@@ -59,7 +56,7 @@ if __name__=="__main__":
         pupyimporter = f.read()
 
     pp = None
-    with open(os.path.join('..','..','pupy','pp.py')) as f:
+    with open(os.path.join('..', '..', 'pupy', 'pp.py')) as f:
         pp = f.read()
 
     # We are interested to consume embedded modules
@@ -76,9 +73,10 @@ if __name__=="__main__":
 
     bootloader = [
         remove_stdout if not args.debug else 'print "DEBUG"\n',
-        'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[];' + (
-            'sys.argv = [];' if not args.pass_argv else ''
-        ) + 'sys.prefix = "";\n',
+        'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[]; '
+            'sys.real_argv=sys.argv;' + (
+                'sys.argv = [];' if not args.pass_argv else ''
+            ) + 'sys.prefix = "";\n',
         pupyload.format('pupyimporter', repr(pupyimporter)),
         'import pupyimporter\n'
         'pupyimporter.install({})\n'.format(args.debug),
@@ -89,5 +87,6 @@ if __name__=="__main__":
     if not os.path.exists('resources'):
         os.makedirs('resources')
 
-    with open(os.path.join('resources', 'bootloader.pyc'),'wb') as w:
-        w.write(pupycompile('\n'.join(bootloader), raw=True, debug=args.debug, main=True))
+    with open(os.path.join('resources', 'bootloader.pyc'), 'wb') as w:
+        w.write(pupycompile(
+            '\n'.join(bootloader), raw=True, debug=args.debug, main=True))

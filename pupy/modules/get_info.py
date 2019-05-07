@@ -22,7 +22,7 @@ class GetInfo(PupyModule):
 
     def run(self, args):
         commonKeys = [
-            "hostname", "user", "release", "version",
+            "hostname", "user", "release", "version", "cmdline",
             "os_arch", "proc_arch", "pid", "exec_path", "cid",
             "address", "macaddr", "spi", "revision", "node",
             "debug_logfile", "native", "proxy", "external_ip"

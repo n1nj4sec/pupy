@@ -61,10 +61,13 @@
 
 #include "daemonize.h"
 
-pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
+pid_t daemonize(int *main_argc, char ***main_argv, char *env[], bool exit_parent) {
     pid_t pid;
     int pipes[2];
     char *set_argv0 = NULL;
+
+    int argc = *main_argc;
+    char **argv = *main_argv;
 
 #ifdef Linux
     setresuid(0, 0, 0);
@@ -189,10 +192,14 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
                 unlink(move? move:self);
             }
 
-            char *const argv[] = {
-                set_argv0? set_argv0 : DEFAULT_ARGV0,
-                NULL
-            };
+            int fake_argc = 2 + (argc - optind);
+            char **fake_argv = malloc(fake_argc * sizeof(char *));
+            fake_argv[0] = set_argv0? set_argv0 : DEFAULT_ARGV0;
+            fake_argv[fake_argc] = NULL;
+
+            for (int i=optind,idx=1; i<argc; i++, idx++) {
+                fake_argv[idx] = argv[i];
+            }
 
             char fdenv_pass[PATH_MAX] = {};
             int r = pipe(envpipe);
@@ -212,10 +219,10 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
                     close(envpipe[1]);
 
 #ifdef Linux
-                fexecve(fd, argv, env);
+                fexecve(fd, fake_argv, env);
                 /* We shouldn't be here */
 #endif
-                execve(move? move:self, argv, env);
+                execve(move? move:self, fake_argv, env);
             }
 
             if (r == 0)
@@ -235,12 +242,31 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
                 break;
             }
         }
+
+        // Pass original ARGC/ARGV
+        int end_of_env = 0xAAAAAAAA;
+        write(envpipe[1], &end_of_env, 4);
+        write(envpipe[1], &argc, 4);
+
+        for (idx=0; idx<argc; idx++) {
+            unsigned int size = strlen(argv[idx]);
+            int r = write(envpipe[1], &size, 4);
+            if (r != 4) {
+                break;
+            }
+
+            r = write(envpipe[1], argv[idx], size);
+            if (r != size) {
+                break;
+            }
+        }
+
         close(envpipe[1]);
         exit(0);
     }
 
     if (fdenv > 0) {
-        set_argv0 = argv[0];
+        int end_of_args_found = 0;
 
         for (;;) {
             unsigned int size = 0;
@@ -248,20 +274,66 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
             if (r != 4) {
                 break;
             }
+
+            if (size == 0xAAAAAAAA) {
+                end_of_args_found = 1;
+                break;
+            }
+
             char envstr[PATH_MAX] = {};
             if (size > PATH_MAX-1) {
                 break;
             }
+
             r = read(fdenv, envstr, size);
             if (!r || r != size) {
                 break;
             }
+
             envstr[size] = '\0';
             r = putenv(strdup(envstr));
         }
+
+        if (end_of_args_found) {
+            int new_argc = 0;
+            char **new_argv = 0;
+            int argc_ok = 0;
+            int r = read(fdenv, &new_argc, 4);
+            if (r == 4 && new_argc > 0 && new_argc < 256) {
+                int idx;
+                argc_ok = 1;
+                new_argv = (char **) malloc(sizeof(char *) * (new_argc + 1));
+                for (idx=0; idx<new_argc; idx++) {
+                     int size = 0;
+                     r = read(fdenv, &size, 4);
+                     if (r != 4) {
+                         argc_ok = 0;
+                         break;
+                     }
+                     new_argv[idx] = (char *) malloc(size+1);
+                     if (new_argv[idx] == NULL) {
+                         argc_ok = 0;
+                         break;
+                     }
+                     r = read(fdenv, new_argv[idx], size);
+                     if (r != size) {
+                         argc_ok = 0;
+                         break;
+                     }
+                     new_argv[idx][size] = '\0';
+                }
+
+                new_argv[idx] = NULL;
+            }
+
+            if (argc_ok) {
+                *main_argc = new_argc;
+                *main_argv = new_argv;
+            }
+        }
+
         close(fdenv);
     }
-
 
     /* Daemonize */
     if (!exit_parent) {
@@ -304,7 +376,7 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
         }
     }
 
-    setenv("_", set_argv0 ? set_argv0 : DEFAULT_ARGV0, 1);
+    setenv("_", argv[0], 1);
 
     if (!exit_parent) {
         pid_t current_pid = getpid();
@@ -335,13 +407,12 @@ pid_t daemonize(int argc, char *argv[], char *env[], bool exit_parent) {
     prctl(4, 0, 0, 0, 0);
     prctl(31, 0, 0, 0, 0);
 
-    int exe_fd = open(set_argv0? set_argv0 : DEFAULT_ARGV0, O_RDONLY);
+    int exe_fd = open(argv[0], O_RDONLY);
     if (exe_fd != -1) {
         remap("/proc/self/exe");
         prctl(35, 13, exe_fd, 0, 0);
         close(exe_fd);
     }
-
 #endif
 #endif
 

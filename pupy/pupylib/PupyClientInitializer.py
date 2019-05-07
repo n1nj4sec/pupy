@@ -251,6 +251,15 @@ def get_uuid():
     pid = None
     proc_arch = None
     proc_path = sys.executable
+    cmdline = None
+
+    if hasattr(sys, 'real_argv'):
+        cmdline = ' '.join(sys.real_argv)
+    elif sys.argv:
+        cmdline = ' '.join(sys.argv)
+    else:
+        cmdline = proc_path
+
     uacLevel = None
     integrity_level = None
     try:
@@ -398,6 +407,7 @@ def get_uuid():
         'pid': pid,
         'proc_arch': proc_arch,
         'exec_path': proc_path,
+        'cmdline': cmdline,
         'uac_lvl': uacLevel,
         'intgty_lvl': integrity_level,
         'cid': cid,

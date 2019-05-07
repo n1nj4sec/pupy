@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[], char *env[]) {
 #ifndef DEBUG
-    daemonize(argc, argv, env, true);
+    daemonize(&argc, &argv, env, true);
 #else
 #ifdef Linux
     mtrace();
