@@ -74,7 +74,7 @@ if __name__ == "__main__":
     bootloader = [
         remove_stdout if not args.debug else 'print "DEBUG"\n',
         'import sys; sys.path=[]; sys.path_hooks=[]; sys.meta_path=[]; '
-            'sys.real_argv=sys.argv;' + (
+            'sys.real_argv=getattr(sys, "argv", []);' + (
                 'sys.argv = [];' if not args.pass_argv else ''
             ) + 'sys.prefix = "";\n',
         pupyload.format('pupyimporter', repr(pupyimporter)),
