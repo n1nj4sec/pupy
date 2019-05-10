@@ -12,6 +12,7 @@ import errno
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
 from tarfile import open as open_tarfile
+from gzip import GzipFile
 
 from scandir import scandir
 if scandir is None:
@@ -599,6 +600,11 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
                         fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-le')
                     elif bom == codecs.BOM_UTF32_BE:
                         fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-be')
+                    elif bom == '\x1f\x8b':
+                        if N:
+                            raise ValueError('Tail is not supported for GZip files')
+                        fin.seek(0)
+                        fin = GzipFile(mode='r', fileobj=fin)
                     elif encoding is not None:
                         fin = codecs.EncodedFile(fin, 'utf-8', encoding)
                         fin.seek(0)
