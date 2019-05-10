@@ -40,8 +40,16 @@ class WMIC(PupyModule):
             self.log(List(columns, caption='Columns'))
             return
 
-        records = [{
-            k:v or '' for k,v in record
-        } for record in result]
+        if len(columns) == 1:
+            records = []
+            for record in result:
+                for item in record:
+                    if item[0] == columns[0]:
+                        records.append(item[1])
+            self.log(List(records, caption=columns[0]))
+        else:
+           records = [{
+               k:v or '' for k,v in record
+           } for record in result]
 
-        self.log(Table(records, columns))
+           self.log(Table(records, columns))
