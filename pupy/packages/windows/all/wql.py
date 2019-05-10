@@ -2,6 +2,18 @@
 
 import wmi
 
+def to_utf8(data):
+    if type(data) != str:
+        return data
+
+    for encoding in ('utf-8', 'mbcs', 'utf-16le', 'latin1'):
+        try:
+            return data.decode(encoding)
+        except UnicodeError:
+            pass
+
+    return data
+
 def execute(query):
     try:
         client = wmi.WMI()
@@ -24,7 +36,7 @@ def execute_final(query):
         columns.update(item.properties.keys())
 
         result.append(
-            tuple((column, getattr(item, column)) for column in item.properties)
+            tuple((to_utf8(column), to_utf8(getattr(item, column))) for column in item.properties)
         )
 
     _query = query.lower()
@@ -32,7 +44,7 @@ def execute_final(query):
         idx_select = _query.index('select') + 7
         idx_from = _query.index('from')
 
-        fields = query[idx_select:idx_from]
+        fields = to_utf8(query[idx_select:idx_from])
         if '*' not in fields:
             maybe_columns = tuple(x.strip() for x in fields.split(','))
             if all(column in columns for column in maybe_columns):

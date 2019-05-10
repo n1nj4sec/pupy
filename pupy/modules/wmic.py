@@ -44,7 +44,7 @@ class WMIC(PupyModule):
             return
 
         records = [{
-            k:unicode(v) or '' for k,v in record
+            k:v or '' for k,v in record
         } for record in result]
 
         self.log(Table(records, columns))
