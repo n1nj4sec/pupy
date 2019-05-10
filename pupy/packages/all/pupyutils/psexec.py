@@ -24,6 +24,8 @@ from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.rpcrt import \
+     RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 from impacket.system_errors import \
      ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE, \
      ERROR_SERVICE_REQUEST_TIMEOUT
@@ -608,6 +610,80 @@ def wmiexec(conninfo, command, share='C$', output=True):
     dcom.disconnect()
 
     return output_filename
+
+def wql(
+    host, port, user, domain, password, ntlm,
+        query, timeout=30, namespace='//./root/cimv2', rpc_auth_level=None):
+
+    conninfo = ConnectionInfo(
+        host, port, user, domain, password, ntlm, timeout=timeout
+    )
+
+    dcom = DCOMConnection(
+        conninfo.host,
+        conninfo.user,
+        conninfo.password,
+        conninfo.domain,
+        conninfo.lm, conninfo.nt,
+        conninfo.aes,
+        oxidResolver=True,
+        doKerberos=conninfo.kerberos
+    )
+
+    try:
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        try:
+            iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
+
+            if rpc_auth_level == 'privacy':
+                iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+
+            elif rpc_auth_level == 'integrity':
+                iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+
+            iEnumWbemClassObject = iWbemServices.ExecQuery(query.strip())
+
+            first = True
+            columns = None
+
+            try:
+                result = []
+                while True:
+                    try:
+                        pEnum = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+                        header = pEnum.getProperties()
+                        if first:
+                            columns = tuple(x for x in header)
+                            first = False
+
+                        item = [None]*len(columns)
+
+                        for idx, key in enumerate(columns):
+                            if type(header[key]['value']) is list:
+                                item[idx] = tuple([
+                                    item for item in header[key]['value']
+                                ])
+                            else:
+                                item[idx] = header[key]['value']
+                        result.append(item)
+
+                    except Exception as e:
+                        if str(e).find('S_FALSE') < 0:
+                            raise
+                        else:
+                            break
+
+                return columns, tuple(result)
+
+            finally:
+                iEnumWbemClassObject.RemRelease()
+
+        finally:
+            iWbemLevel1Login.RemRelease()
+
+    finally:
+        dcom.disconnect()
 
 def check(host, port, user, domain, password, ntlm, timeout=30):
     conninfo = ConnectionInfo(
