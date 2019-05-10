@@ -54,10 +54,6 @@ class RWMIC(PupyModule):
             hosts = list()
             hosts.append(args.target[0])
 
-        smbexec = self.client.remote('pupyutils.psexec', 'smbexec')
-
-        completions = []
-
         for host in hosts:
             try:
                 columns, values = wql(

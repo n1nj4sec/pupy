@@ -662,7 +662,7 @@ def wql(
                         for idx, key in enumerate(columns):
                             if type(header[key]['value']) is list:
                                 item[idx] = tuple([
-                                    item for item in header[key]['value']
+                                    value for value in header[key]['value']
                                 ])
                             else:
                                 item[idx] = header[key]['value']

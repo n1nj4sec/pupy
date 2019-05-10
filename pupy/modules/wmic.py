@@ -48,8 +48,8 @@ class WMIC(PupyModule):
                         records.append(item[1])
             self.log(List(records, caption=columns[0]))
         else:
-           records = [{
-               k:v or '' for k,v in record
-           } for record in result]
+            records = [{
+                k:v or '' for k,v in record
+            } for record in result]
 
-           self.log(Table(records, columns))
+            self.log(Table(records, columns))
