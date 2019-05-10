@@ -28,11 +28,9 @@ def execute_final(query):
     response = execute(query)
 
     columns = set()
-    keys = set()
     result = []
 
     for item in response:
-        keys.update(item.keys)
         columns.update(item.properties.keys())
 
         result.append(
@@ -53,4 +51,4 @@ def execute_final(query):
     except ValueError:
         pass
 
-    return tuple(keys), tuple(columns), tuple(result)
+    return tuple(columns), tuple(result)

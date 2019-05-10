@@ -31,15 +31,12 @@ class WMIC(PupyModule):
               'FROM Win32_WMISetting'
 
         try:
-            keys, columns, result = wql(cmdline)
+            columns, result = wql(cmdline)
         except Exception as e:
             self.error(e.strerror)
             return
 
         if args.columns_only:
-            if keys:
-                self.log(List(keys, caption='Keys'))
-
             self.log(List(columns, caption='Columns'))
             return
 
