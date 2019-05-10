@@ -40,16 +40,28 @@ class WMIC(PupyModule):
             self.log(List(columns, caption='Columns'))
             return
 
-        if len(columns) == 1:
+        def _stringify(x):
+            if type(x) in (str, unicode):
+                return x
+            elif type(x) in (list, tuple):
+                return ';'.join(_stringify(y) for y in x)
+            elif type(x) is None:
+                return ''
+            else:
+                return str(x)
+
+        if not columns:
+            return
+        elif len(columns) == 1:
             records = []
             for record in result:
                 for item in record:
                     if item[0] == columns[0]:
-                        records.append(item[1])
+                        records.append(_stringify(item[1]))
             self.log(List(records, caption=columns[0]))
         else:
             records = [{
-                k:v or '' for k,v in record
+                k:_stringify(v) for k,v in record
             } for record in result]
 
             self.log(Table(records, columns))

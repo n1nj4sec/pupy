@@ -9,6 +9,18 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__ = 'RWMIC'
 
+
+def _stringify(x):
+    if type(x) in (str, unicode):
+        return x
+    elif type(x) in (list, tuple):
+        return ';'.join(_stringify(y) for y in x)
+    elif type(x) is None:
+        return ''
+    else:
+        return str(x)
+
+
 @config(category='admin')
 class RWMIC(PupyModule):
     ''' Remote WMI query using WQL '''
@@ -63,16 +75,31 @@ class RWMIC(PupyModule):
                     cmdline, args.timeout
                 )
 
-                if len(columns) == 1:
-                    self.log(List(list(x[0] for x in values), caption=columns[0]))
+                if not columns:
+                    return
+                elif len(columns) == 1:
+                    self.log(List(list(
+                        _stringify(x[0]) for x in values), caption=columns[0]))
                 else:
-                    records = [
-                        {
-                            column: value[idx] or '' for idx, column in enumerate(columns)
-                        } for value in values
-                    ]
+                    if not values:
+                        return
 
-                    self.log(Table(records, columns))
+                    elif len(values) == 1:
+                        records = [
+                            {
+                                'KEY': column,
+                                'VALUE': _stringify(values[0][idx])
+                            } for idx, column in enumerate(columns)
+                        ]
+                        self.log(Table(records, ['KEY', 'VALUE']))
+                    else:
+                        records = [
+                            {
+                                column: _stringify(value[idx]) for
+                                idx, column in enumerate(columns)
+                            } for value in values
+                        ]
+                        self.log(Table(records, columns))
 
             except Exception as e:
                 self.error(e)
