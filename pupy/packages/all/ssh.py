@@ -16,7 +16,7 @@ from psutil import process_iter
 from os import path, walk, environ
 from getpass import getuser
 
-from paramiko import SSHClient
+from paramiko import SSHClient, Transport
 from paramiko.client import AutoAddPolicy
 from paramiko.config import SSHConfig
 from paramiko.ssh_exception import (
@@ -48,8 +48,14 @@ from netaddr import (IPNetwork, AddrFormatError)
 from urlparse import urlparse
 
 from socket import error as socket_error, gaierror
+from hashlib import md5
+from base64 import b64encode
+
+from network.lib.scan import scanthread_parse
 
 from rpyc import async
+
+Transport._CLIENT_ID = 'OpenSSH'
 
 SUCCESS_CACHE = {}
 
@@ -820,6 +826,7 @@ class SSH(object):
 
     def _connect(self):
         client = SSHClient()
+
         client.set_missing_host_key_policy(AutoAddPolicy())
         client.load_system_host_keys()
 
@@ -1070,7 +1077,10 @@ def iter_hosts(hosts, default_passwords=None, default_port=None, default_user=No
     if type(hosts) in (str, unicode):
         hosts = [hosts]
 
-    ssh_passwords, key_passwords = default_passwords
+    ssh_passwords, key_passwords = None, None
+    if default_passwords:
+        ssh_passwords, key_passwords = default_passwords
+
 
     for host in hosts:
 
@@ -1278,6 +1288,56 @@ def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, c
         hosts, port, user, passwords, private_keys,
         data_cb, close_cb, timeout
     )
+
+def ssh_keyscan(hosts, port, key_type, data_cb, close_cb, timeout):
+    data_cb = async(data_cb)
+
+    default_port = '22'
+    if port:
+        default_port += ',' + str(port)
+
+    def _on_open_port(args):
+        host, port, socket = args
+        try:
+            ssh_conn = Transport(socket)
+
+            if key_type is not None:
+                new_preferred_keys = [key_type]
+                new_preferred_keys.extend(ssh_conn._preferred_keys)
+                ssh_conn._preferred_keys = tuple(new_preferred_keys)
+
+            try:
+                ssh_conn.start_client()
+
+                key = ssh_conn.get_remote_server_key()
+                key_md5 = md5(str(key)).hexdigest()
+                fingerprint = ':'.join(
+                    a+b for a, b in zip(key_md5[::2], key_md5[1::2]))
+
+                data_cb(
+                    host, port, True, (
+                        key.get_name(), fingerprint, b64encode(str(key))))
+
+            finally:
+                ssh_conn.close()
+
+        except (socket_error, NoValidConnectionsError):
+            data_cb(host, port, None, None)
+
+        except Exception as e:
+            data_cb(host, port, False, 'Exception: {}: {}'.format(
+                type(e), str(e)))
+
+        finally:
+            socket.close()
+
+    closer = scanthread_parse(
+        hosts, default_port, close_cb,
+        on_open_port=_on_open_port, pass_socket=True
+    )
+
+    return closer.set
+
 
 if __name__ == '__main__':
     def try_int(x):

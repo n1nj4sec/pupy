@@ -37,7 +37,7 @@ class SSH(PupyModule):
         cls.arg_parser.add_argument('-T', '--timeout',
                                     type=int, default=30, help='Set communication timeout (default=30s)')
         cls.arg_parser.add_argument('-u', '--user', help='Use user name')
-        cls.arg_parser.add_argument('-p', '--port', type=int, help='Use port')
+        cls.arg_parser.add_argument('-p', '--port', help='Use port')
         cls.arg_parser.add_argument('-P', '--password', default=[], action='append',
                                     help='SSH auth password (may be specified many times)')
         cls.arg_parser.add_argument('-KP', '--key-password', default=[], action='append',
@@ -46,6 +46,17 @@ class SSH(PupyModule):
                                     completer=path_completer)
 
         commands = cls.arg_parser.add_subparsers(dest='command')
+
+        key_scan = commands.add_parser('scan')
+        key_scan.add_argument('host', help='host(s) to connect')
+        key_scan.add_argument(
+            'key_type', choices=(
+                'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384',
+                'ecdsa-sha2-nistp521', 'ssh-rsa', 'ssh-dss'
+            ), default=None, help='Key type to scan', nargs='?'
+        )
+        key_scan.set_defaults(func=cls.key_scan)
+
         rexec = commands.add_parser('exec')
         rexec.add_argument('host', help='host(s) to connect')
         rexec.add_argument(
@@ -78,15 +89,19 @@ class SSH(PupyModule):
 
     def run(self, args):
         if args.func == SSH.hosts:
-            self.hosts(args)
+            args.func(self, args)
             return
 
-        if args.private_keys:
-            self.pkeys = list(self._find_private_keys(args.private_keys))
+        if args.func != SSH.key_scan:
+            if args.private_keys:
+                self.pkeys = list(self._find_private_keys(args.private_keys))
 
-        args.host = tuple([
-            x.strip() for x in args.host.split(',')
-        ])
+            args.host = tuple([
+                x.strip() for x in args.host.split(',')
+            ])
+
+            if args.port:
+                args.port = int(args.port)
 
         self.waiter = Event()
 
@@ -181,6 +196,29 @@ class SSH(PupyModule):
                 self.error('Completed with error={}'.format(args[1]))
                 if complete_cb:
                     complete_cb(False)
+
+    def key_scan(self, args):
+        key_scan = self.client.remote('ssh', 'ssh_keyscan', False)
+
+        def on_data(host, port, success, payload):
+            if success is False:
+                self.error('{}:{} - {}'.format(host, port, payload))
+            elif success is None:
+                # Print nothing
+                # self.error('{}:{} - no connection'.format(host, port))
+                pass
+            else:
+                name, fingerprint, publickey = payload
+                self.success('{}:{} {} {} {}'.format(host, port, name, fingerprint, publickey))
+
+        def on_complete(connectable):
+            self.waiter.set()
+
+        self.closer = key_scan(
+            args.host, args.port, args.key_type, on_data, on_complete, args.timeout
+        )
+
+        return True
 
     def rexec(self, args):
         rexec = self.client.remote('ssh', 'ssh_exec', False)
