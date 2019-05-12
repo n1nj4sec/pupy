@@ -15,6 +15,8 @@ except ImportError:
 
 import encodings
 
+from contextlib import contextmanager
+
 from StringIO import StringIO
 from base64 import b64encode
 from hashlib import md5
@@ -200,6 +202,40 @@ class ConnectionInfo(object):
             self.lm, self.nt,
             self.aes, self.TGT, self.TGS
         ]
+
+    def create_dcom_connection(self):
+        return DCOMConnection(
+            self.host, self.user, self.password, self.domain,
+            self.lm, self.nt, self.aes, oxidResolver=True,
+            doKerberos=self.kerberos
+        )
+
+    @contextmanager
+    def create_wbem(self, namespace='//./root/cimv2', rpc_auth_level=None):
+        dcom = self.create_dcom_connection()
+        try:
+            iInterface = dcom.CoCreateInstanceEx(
+                wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+            iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+
+            try:
+                iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
+
+                if rpc_auth_level == 'privacy':
+                    iWbemServices.get_dce_rpc().set_auth_level(
+                        RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+
+                elif rpc_auth_level == 'integrity':
+                    iWbemServices.get_dce_rpc().set_auth_level(
+                        RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+
+                yield iWbemServices
+
+            finally:
+                iWbemLevel1Login.RemRelease()
+
+        finally:
+            dcom.disconnect()
 
     def create_connection(self, klass=SMBConnection):
         try:
@@ -578,36 +614,20 @@ def sc(conninfo, command, output=True, wait=30):
     return rpctransport.get_smb_connection(), output_filename
 
 def wmiexec(conninfo, command, share='C$', output=True):
-    dcom = DCOMConnection(
-        conninfo.host,
-        conninfo.user,
-        conninfo.password,
-        conninfo.domain,
-        conninfo.lm, conninfo.nt,
-        conninfo.aes,
-        oxidResolver=True,
-        doKerberos=conninfo.kerberos
-    )
-
-    iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
-    iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-    iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
-    iWbemLevel1Login.RemRelease()
-
     output_filename = None
 
-    win32Process, _ = iWbemServices.GetObject('Win32_Process')
-    if output:
-        output_filename = '\\'.join([
-            r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
-        ])
+    with conninfo.create_wbem() as iWbemServices:
+        win32Process, _ = iWbemServices.GetObject('Win32_Process')
+        if output:
+            output_filename = '\\'.join([
+                r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
+            ])
 
-        command = r'cmd.exe /Q /c {} 2>&1 1> \\127.0.0.1\{}\{}'.format(
-            command, share, output_filename
-        )
+            command = r'cmd.exe /Q /c {} 2>&1 1> \\127.0.0.1\{}\{}'.format(
+                command, share, output_filename
+            )
 
-    win32Process.Create(command, r'C:\Windows\Temp', None)
-    dcom.disconnect()
+        win32Process.Create(command, r'C:\Windows\Temp', None)
 
     return output_filename
 
@@ -619,71 +639,43 @@ def wql(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    dcom = DCOMConnection(
-        conninfo.host,
-        conninfo.user,
-        conninfo.password,
-        conninfo.domain,
-        conninfo.lm, conninfo.nt,
-        conninfo.aes,
-        oxidResolver=True,
-        doKerberos=conninfo.kerberos
-    )
+    with conninfo.create_wbem(namespace, rpc_auth_level) as iWbemServices:
+        iEnumWbemClassObject = iWbemServices.ExecQuery(query.strip())
 
-    try:
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
-        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        first = True
+        columns = None
+
         try:
-            iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
+            result = []
+            while True:
+                try:
+                    pEnum = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+                    header = pEnum.getProperties()
+                    if first:
+                        columns = tuple(x for x in header)
+                        first = False
 
-            if rpc_auth_level == 'privacy':
-                iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+                    item = [None]*len(columns)
 
-            elif rpc_auth_level == 'integrity':
-                iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-
-            iEnumWbemClassObject = iWbemServices.ExecQuery(query.strip())
-
-            first = True
-            columns = None
-
-            try:
-                result = []
-                while True:
-                    try:
-                        pEnum = iEnumWbemClassObject.Next(0xffffffff,1)[0]
-                        header = pEnum.getProperties()
-                        if first:
-                            columns = tuple(x for x in header)
-                            first = False
-
-                        item = [None]*len(columns)
-
-                        for idx, key in enumerate(columns):
-                            if type(header[key]['value']) is list:
-                                item[idx] = tuple([
-                                    value for value in header[key]['value']
-                                ])
-                            else:
-                                item[idx] = header[key]['value']
-                        result.append(item)
-
-                    except Exception as e:
-                        if str(e).find('S_FALSE') < 0:
-                            raise
+                    for idx, key in enumerate(columns):
+                        if type(header[key]['value']) is list:
+                            item[idx] = tuple([
+                                value for value in header[key]['value']
+                            ])
                         else:
-                            break
+                            item[idx] = header[key]['value']
+                    result.append(item)
 
-                return columns, tuple(result)
+                except Exception as e:
+                    if str(e).find('S_FALSE') < 0:
+                        raise
+                    else:
+                        break
 
-            finally:
-                iEnumWbemClassObject.RemRelease()
+            return columns, tuple(result)
 
         finally:
-            iWbemLevel1Login.RemRelease()
-
-    finally:
-        dcom.disconnect()
+            iEnumWbemClassObject.RemRelease()
 
 def check(host, port, user, domain, password, ntlm, timeout=30):
     conninfo = ConnectionInfo(
