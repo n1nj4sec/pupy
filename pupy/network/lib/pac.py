@@ -214,11 +214,19 @@ class PACPlayer(object):
             return
 
         for proxy in (x.strip() for x in proxies.split(';')):
-            if proxy == 'DIRECT':
+            if not proxy:
+                continue
+
+            elif proxy == 'DIRECT':
                 yield Proxy('DIRECT', None, None, None)
                 continue
 
-            proto, addr = proxy.split()
+            try:
+                proto, addr = proxy.split()
+            except ValueError:
+                logger.info('Invalid proxy spec: %s', proxy)
+                continue
+
             if proto == 'PROXY':
                 proto = 'HTTP'
             elif proto == 'SOCKS':
