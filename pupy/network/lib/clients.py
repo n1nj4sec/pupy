@@ -161,7 +161,11 @@ class PupySSLClient(PupyTCPClient):
 
     def connect_any(self, host, port):
         socket = super(PupySSLClient, self).connect(host, port)
-        ctx = ssl.create_default_context()
+
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        ctx.verify_mode = ssl.CERT_NONE
+        ctx.check_hostname = False
+
         return ctx.wrap_socket(
             socket,
             server_hostname=self.hostname or host
