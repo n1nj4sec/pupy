@@ -741,7 +741,7 @@ def pupygen(args, config, pupsrv, display):
         if args.os != 'windows':
             raise ValueError('This format only support windows')
 
-        rawdll = generate_binary_from_template(display, conf, 'windows', arch=args.arch, shared=True)[0]
+        rawdll = generate_binary_from_template(display, conf, 'windows', arch=args.arch, shared=True, debug=args.debug)[0]
         dn = DotNetPayload(display, pupsrv, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
         outpath = dn.gen_source()
 
@@ -749,7 +749,7 @@ def pupygen(args, config, pupsrv, display):
         if args.os != 'windows':
             raise ValueError('This format only support windows')
 
-        rawdll = generate_binary_from_template(display, conf, 'windows', arch=args.arch, shared=True)[0]
+        rawdll = generate_binary_from_template(display, conf, 'windows', arch=args.arch, shared=True, debug=args.debug)[0]
         dn = DotNetPayload(display, pupsrv, conf, rawdll, outpath=outpath, output_dir=args.output_dir)
         outpath = dn.gen_exe()
 
@@ -767,7 +767,7 @@ def pupygen(args, config, pupsrv, display):
         raise NoOutput()
 
     elif args.format == 'ps1':
-        outpath = generate_ps1(display, conf, outpath=outpath, output_dir=args.output_dir, both=True)
+        outpath = generate_ps1(display, conf, outpath=outpath, output_dir=args.output_dir, both=True, debug=args.debug)
 
     elif args.format == 'ps1_oneliner':
         if conf['launcher'] in ["connect", "auto_proxy"]:
