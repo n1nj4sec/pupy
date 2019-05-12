@@ -406,7 +406,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             d = data.peek()
             # Handle HTTP GET requests, strip websocket keys, verify UA etc
             if not d.startswith('GET '):
-                self.bad_request('Invalid HTTP method or data (%s)', repr(d))
+                self.bad_request('Invalid HTTP method or data ({})'.format(repr(d)))
 
             if '\r\n\r\n' not in d:
                 if __debug__:
