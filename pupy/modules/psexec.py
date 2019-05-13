@@ -77,7 +77,10 @@ class PSExec(PupyModule):
                     timeout=args.timeout,
                     arch='x64' if args.command == 'pupy64' else 'x86'
                 )
-                completions.append(completion)
+
+                if completion:
+                    completions.append(completion)
+
                 continue
 
             output, error = smbexec(

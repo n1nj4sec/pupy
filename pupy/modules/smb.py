@@ -5,6 +5,7 @@ import ntpath
 import StringIO
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupylib.PupyOutput import Table
 from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="SMB"
@@ -34,6 +35,11 @@ class SMB(PupyModule):
         cls.arg_parser.add_argument('-c', '--codepage', default=None, help='Codepage')
 
         commands = cls.arg_parser.add_subparsers(dest="command")
+
+        cache = commands.add_parser('cache')
+        cache.add_argument('command', choices=('get', 'enable', 'disable', 'clear'))
+        cache.set_defaults(func=cls.cache)
+
         cp = commands.add_parser('cp')
         cp.add_argument('src', help='Source')
         cp.add_argument('dst', help='Destination')
@@ -68,6 +74,31 @@ class SMB(PupyModule):
             args.func(self, args)
         except SMBError, e:
             self.error(str(e))
+
+    def cache(self, args):
+        if args.command in ('enable', 'disable'):
+            set_use_cache = self.client.remote(
+            'pupyutils.psexec', 'set_use_cache', False)
+
+            set_use_cache(args.command == 'enable')
+
+        elif args.command == 'get':
+            get_cache = self.client.remote(
+            'pupyutils.psexec', 'get_cache', False)
+            try:
+                cache = get_cache()
+                self.log(Table([{
+                    'Host': host, 'User': user or '', 'Domain': domain or ''
+                } for host, user, _, domain, _, _, _, _ in cache], [
+                    'Host', 'User', 'Domain'
+                ]))
+            except Exception as e:
+                self.error(e)
+
+        elif args.command == 'clear':
+            clear_session_caches = self.client.remote(
+            'pupyutils.psexec', 'clear_session_caches', False)
+            clear_session_caches()
 
     def get_ft(self, args, host):
         create_filetransfer = self.client.remote(

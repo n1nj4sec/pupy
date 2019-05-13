@@ -83,6 +83,10 @@ def serve(
     cmd, pipename = push_payload(
         dotnet_payload, timeout=timeout, log_cb=_power_logger)
 
+    if not cmd or not pipename:
+        module.error('PowerLoader: failed')
+        return None, None
+
     module.success("PowerLoader: Serving payload to pipe={} for {} seconds".format(
         pipename, timeout))
 

