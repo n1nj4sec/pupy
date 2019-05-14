@@ -12,19 +12,14 @@ before_script:
 script:
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
   - cd $TRAVIS_BUILD_DIR && ./build-docker.sh
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.lin
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.so
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.dll
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.exe
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.lin
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.so
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.dll
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx86*.exe
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupy.apk
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/windows-amd64.zip
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/windows-x86.zip
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-amd64.zip
-  - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/linux-x86.zip
+  - |
+    for i in pupyx64*.lin pupyx64*.so pupyx64*.dll pupyx64*.exe \
+             pupyx86*.lin pupyx86*.so pupyx86*.dll pupyx86*.exe \
+             pupy.apk windows-amd64.zip windows-x86.zip linux-amd64.zip linux-x86.zip
+    do
+      ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/$i
+    done
+
 after_success:
 - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
 - |
