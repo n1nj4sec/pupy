@@ -32,7 +32,7 @@ export PRCTL_SKIP_KERNEL_CHECK=yes
 python -m pip install --upgrade \
        rpyc==3.4.4 pyaml rsa netaddr pyyaml ecdsa idna \
        paramiko pylzma pydbus python-ptrace psutil scandir \
-       scapy colorama pyOpenSSL python-xlib msgpack-python \
+       scapy colorama pyOpenSSL python-xlib msgpack-python python-ntlm \
        u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
        https://github.com/alxchk/tinyec/archive/master.zip \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
@@ -52,6 +52,8 @@ CFLAGS="${CFLAGS_PYJNIUS}" NO_JAVA=1 \
 
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
       python -m pip install --force-reinstall --upgrade dukpy --no-binary :all:
+
+python -m pip install https://github.com/apple/ccs-pykerberos/archive/master.zip
 
 LDFLAGS="$LDFLAGS -lasound" python -m pip install --upgrade pyaudio
 
