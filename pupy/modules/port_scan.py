@@ -59,7 +59,7 @@ class PortScan(PupyModule):
 
                 port = int(port)
 
-                if host in connectable:
+                if host in objects:
                     objects[host].add(port)
                 else:
                     objects[host] = set([port])
