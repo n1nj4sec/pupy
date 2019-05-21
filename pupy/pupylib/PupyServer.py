@@ -23,6 +23,7 @@ from itertools import count, ifilterfalse
 from netaddr import IPAddress
 from random import randint
 from tempfile import NamedTemporaryFile
+from inspect import isclass
 
 import socket
 import errno
@@ -35,7 +36,7 @@ from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyService import PupyBindService
 from pupylib.PupyCompile import pupycompile
 from pupylib.PupyOutput import Error, Line, Color
-from pupylib.PupyModule import QA_STABLE, IgnoreModule
+from pupylib.PupyModule import QA_STABLE, IgnoreModule, PupyModule
 from pupylib.PupyDnsCnc import PupyDnsCnc
 from pupylib.PupyTriggers import event, event_to_string, register_event_id, CUSTOM
 from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
@@ -741,6 +742,9 @@ class PupyServer(object):
 
         self._refresh_modules()
         for module_name in self.modules:
+            if module_name.startswith('_'):
+                continue
+
             try:
                 module = self.get_module(module_name)
             except PupyModuleDisabled:
@@ -840,13 +844,13 @@ class PupyServer(object):
         module = self.modules[name]
         class_name = None
 
-        if hasattr(module, '__class_name__'):
-            class_name = module.__class_name__
-            if not hasattr(module, class_name):
-                logger.error(
-                    'script %s has a class_name="%s" global variable '
-                    'defined but this class does not exists in the script!',
-                    name, class_name)
+        for item_name in dir(module):
+            item = getattr(module, item_name)
+            if not isclass(item):
+                continue
+
+            if issubclass(item, PupyModule) and item != PupyModule:
+                class_name = item_name
 
         if hasattr(module, '__events__'):
             for event_id, event_name in module.__events__.iteritems():
