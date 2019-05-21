@@ -504,7 +504,7 @@ class Acceptor(object):
         self.neighbor.register_connection(connection)
 
         try:
-            remote_id = self.neighbor.callbacks.create_connection(
+            remote_id_promise = self.neighbor.callbacks.create_connection(
                 self.neighbor.remote_id,
                 connection.local_id,
                 peername
@@ -513,6 +513,27 @@ class Acceptor(object):
         except EOFError:
             self.neighbor.stop(dead=True)
             return
+
+        self.neighbor.manager.defer(
+            self._deferred_on_connection, connection, address, dns, bind, remote_id_promise)
+
+    def _deferred_on_connection(self, connection, address, dns, bind, remote_id_promise):
+        if remote_id_promise.expired:
+            logger.debug('on_connection promise expiration')
+            self.neighbor.stop(dead=True)
+            return
+
+        elif remote_id_promise.error:
+            logger.debug('on_connection promise error')
+            self.neighbor.stop(dead=True)
+            return
+
+        elif not remote_id_promise.ready:
+            self.neighbor.manager.defer(
+                self._deferred_on_connection, connection, address, dns, bind, remote_id_promise)
+            return
+
+        remote_id = remote_id_promise.value
 
         connection.register_remote_id(remote_id)
 
@@ -542,7 +563,7 @@ class Acceptor(object):
 
 class Callbacks(object):
     def __init__(self, ref):
-        self.create_connection = ref['create_connection']
+        self.create_connection = rpyc.async(ref['create_connection'])
         self.connect = rpyc.async(ref['connect'])
         self.on_connected = rpyc.async(ref['on_connected'])
         self.on_data = rpyc.async(ref['on_data'])
