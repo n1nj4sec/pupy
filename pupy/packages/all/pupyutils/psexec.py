@@ -15,8 +15,6 @@ except ImportError:
 
 import encodings
 
-from contextlib import contextmanager
-
 from StringIO import StringIO
 from base64 import b64encode
 from hashlib import md5
