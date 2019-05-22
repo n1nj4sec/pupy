@@ -385,9 +385,25 @@ def hint_to_text(text, width=0):
             } for record in text.data
         ]
 
+        columns = set()
+        for record in table_data:
+            for column, value in record.iteritems():
+                if value and (not text.headers or column in text.headers):
+                    columns.add(column)
+                    if hasattr(value, '__iter__'):
+                        record[column] = ';'.join(obj2utf8(x) for x in value)
+
+        headers = None
+        if text.headers:
+            headers = [
+                column for column in text.headers if column in columns
+            ]
+        else:
+            headers = list(columns)
+
         return (
             '\n'*text.vspace + '{ ' + hint_to_text(text.caption, width) + ' }\n' if text.caption else ''
-        ) + table_format(table_data, wl=text.headers, legend=text.legend) + '\n'*text.vspace
+        ) + table_format(table_data, wl=headers, legend=text.legend) + '\n'*text.vspace
 
     elif hint == Pygment:
         lexer = text.lexer

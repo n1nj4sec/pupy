@@ -22,6 +22,7 @@ from network.lib.proxies import (
 )
 
 from network.lib.socks import ProxyError
+from network.lib.netcreds import add_cred
 
 from . import getLogger
 
@@ -106,8 +107,20 @@ class AutoProxyLauncher(BaseLauncher):
 
         for proxy_info in proposed_proxy_infos:
             try:
-                yield connect_client_with_proxy_info(
+                connection = connect_client_with_proxy_info(
                     transport_info, proxy_info)
+
+                # Add to netcreds
+                if proxy_info.chain:
+                    for proxy in proxy_info.chain:
+                        if not (proxy.username and proxy.password):
+                            continue
+
+                        schema = proxy.type.lower()
+                        hostname, port = proxy.addr.split(':')
+                        add_cred(proxy.username, proxy.password, True, schema, hostname, None, port)
+
+                yield connection
 
             except (ProxyError, EOFError) as e:
                 logger.info(

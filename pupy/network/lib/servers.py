@@ -415,8 +415,7 @@ class PupyUDPServer(object):
             logging.error("EOF")
             pass # server closed by another thread
         except KeyboardInterrupt:
-            print("")
-            print "keyboard interrupt!"
+            logging.error('Keyboard interrupt')
         except Exception, e:
             logging.exception('Unknown exception %s: %s', type(e), e)
         finally:

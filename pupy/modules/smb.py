@@ -70,10 +70,11 @@ class SMB(PupyModule):
         shares.set_defaults(func=cls.shares)
 
     def run(self, args):
-        try:
-            args.func(self, args)
-        except SMBError, e:
-            self.error(str(e))
+        args.func(self, args)
+        # try:
+        #     args.func(self, args)
+        # except SMBError, e:
+        #     self.error(str(e))
 
     def cache(self, args):
         if args.command in ('enable', 'disable'):

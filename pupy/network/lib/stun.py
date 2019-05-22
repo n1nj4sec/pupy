@@ -130,7 +130,8 @@ def stun_test(sock, host, port, send_data="", count=3):
                 log.debug("recvfrom: %s", addr)
                 recieved = True
             except Exception, e:
-                print e
+                log.exception(e)
+
                 recieved = False
                 if count > 0:
                     count -= 1

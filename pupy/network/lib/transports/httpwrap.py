@@ -139,10 +139,6 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                             self.server.info('{}: GET {}'.format(
                                 '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath),
                                              error=True)
-
-            except Exception, e:
-                print "Exception: {}".format(e)
-
             finally:
                 self.close()
 
