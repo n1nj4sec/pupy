@@ -61,9 +61,32 @@ class LaZagne(PupyModule):
 
         cls.arg_parser = PupyArgumentParser(prog="lazagne", description=header + cls.__doc__)
         cls.arg_parser.add_argument('-p', '--password', help='Specify user password (windows only)')
+        cls.arg_parser.add_argument('-d', '--debug', default=False, action='store_true',
+                                    help='Redirect debug prints')
         cls.arg_parser.add_argument('category', nargs='?', help='specify category', default='all')
 
     def run(self, args):
+        write_output = None
+        print_debug = None
+
+        try:
+            if args.debug:
+                write_output = self.client.remote('lazagne.config.write_output')
+                print_debug = write_output.print_debug
+
+                def _log(level, message):
+                    message = str(message).strip()
+                    self.log('{} | {}'.format(level, message.strip()))
+
+                write_output.print_debug = _log
+
+            self._run(args)
+
+        finally:
+            if write_output and print_debug:
+                write_output.print_debug = print_debug
+
+    def _run(self, args):
         db = Credentials(client=self.client, config=self.config)
 
         whole = self.client.remote('whole', 'to_strings_list', False)
