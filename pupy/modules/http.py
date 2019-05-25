@@ -98,16 +98,15 @@ class http(PupyModule):
                 self.log(result)
 
         except Exception, e:
-            raise
             if hasattr(e, 'reason'):
                 message = '{} {} ({})'.format(e.code, e.reason, e.filename)
                 if e.code / 100 < 4:
                     self.warning(message)
                 else:
                     self.error(message)
-                    
+
                 return
-                
+
             elif hasattr(e, 'msg'):
                 message = e.msg
             else:

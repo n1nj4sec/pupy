@@ -112,31 +112,40 @@ class ProxyError(IOError):
     def __str__(self):
         return self.msg
 
+
 class GeneralProxyError(ProxyError):
     pass
+
 
 class ProxyConnectionError(ProxyError):
     pass
 
+
 class SOCKS5AuthError(ProxyError):
     pass
+
 
 class SOCKS5Error(ProxyError):
     pass
 
+
 class SOCKS4Error(ProxyError):
     pass
+
 
 class HTTPError(ProxyError):
     pass
 
+
 class AuthenticationRequired(ProxyError):
     __slots__ = ('methods',)
+
     def __init__(self, methods):
         super(AuthenticationRequired, self).__init__(
             'Authentication required, supported methods: {}'.format(
                 ';'.join(methods)))
         self.methods = methods
+
 
 class AuthenticationImpossible(EOFError):
     pass
@@ -1131,7 +1140,7 @@ class socksocket(_BaseSocket):
             try:
                 self._connect(self, dest_pair)
                 break
-            except AuthenticationRequired as e:
+            except AuthenticationRequired:
                 _orig_socket.__init__(
                     self, *self._orig_args, **self._orig_kwargs)
 

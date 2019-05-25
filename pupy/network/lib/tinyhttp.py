@@ -95,7 +95,7 @@ class ProxyPasswordManager(object):
 
 class HTTPContext(urllib2.BaseHandler):
     default = None
-    
+
     __slots__ = ('cookies', 'headers')
 
     handler_order = 999
@@ -106,11 +106,11 @@ class HTTPContext(urllib2.BaseHandler):
             HTTPContext.default = HTTPContext()
 
         return HTTPContext.default
-    
+
     def __init__(self):
         self.cookies = cookielib.CookieJar()
         self.headers = {}
-        
+
     def http_request(self, request):
         self.cookies.add_cookie_header(request)
         host = request.get_host()
@@ -123,7 +123,7 @@ class HTTPContext(urllib2.BaseHandler):
 
     def http_response(self, request, response):
         self.cookies.extract_cookies(response, request)
-        
+
         host = request.get_host()
         headers = request.headers
         code = response.headers
@@ -150,12 +150,12 @@ class HTTPContext(urllib2.BaseHandler):
                     if host not in self.headers:
                         self.headers[host] = {}
 
-                    self.headers[host][header] = request.get_headers(header)
+                    self.headers[host][header] = headers.get(header)
 
     https_request = http_request
-    https_response = http_response     
+    https_response = http_response
 
-            
+
 class NoRedirects(urllib2.HTTPErrorProcessor):
     __slots__ = ()
 
@@ -532,7 +532,7 @@ class HTTP(object):
         password_managers.append(http_password_manager)
 
         context = HTTPContext.get_default()
-        
+
         handlers.append(context)
 
         handlers.append(urllib2.HTTPDefaultErrorHandler)
@@ -561,10 +561,10 @@ class HTTP(object):
         opener, scheme, host, password_managers, context = self.make_opener(url)
 
         result = []
-        
+
         try:
             response = opener.open(url, timeout=self.timeout)
-            
+
         except ProxyConnectionError as e:
             if self.proxy == 'wpad':
                 set_proxy_unavailable(scheme, host)
@@ -573,21 +573,21 @@ class HTTP(object):
 
         except urllib2.HTTPError as e:
             context.update_from_error(e)
-            
+
             if not return_headers:
                 raise
-            
+
             result = [e.fp.read() if e.fp.read else '']
-                        
+
             if return_url:
                 result.append(e.url)
-             
+
             if code:
                 result.append(e.code)
-             
+
             if return_headers:
                 result.append(e.hdrs.dict)
-             
+
             if len(result) == 1:
                 return result[0]
             else:
@@ -668,16 +668,16 @@ class HTTP(object):
                 raise
 
             result = [e.fp.read() if e.fp.read else '']
-            
+
             if return_url:
                 result.append(e.url)
-             
+
             if code:
                 result.append(e.code)
-             
+
             if return_headers:
                 result.append(e.hdrs.dict)
-             
+
             if len(result) == 1:
                 return result[0]
             else:

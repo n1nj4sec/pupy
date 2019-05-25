@@ -3,6 +3,8 @@
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table
 
+
+@config(cat='creds')
 class NetCreds(PupyModule):
     ''' Manage saved authentication information '''
 
