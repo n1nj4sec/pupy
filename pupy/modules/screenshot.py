@@ -104,7 +104,7 @@ class Screenshoter(PupyModule):
                                 with open(os.devnull, 'w') as DEVNULL:
                                     subprocess.Popen(
                                         [viewer, filepath],
-                                        stdout=DEVNULL, stderr=DEVNULL)
+                                        stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL)
 
                                 found = True
                                 break

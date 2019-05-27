@@ -79,7 +79,7 @@ class DownloaderScript(PupyModule):
                 with open(devnull, 'w') as DEVNULL:
                     Popen(
                         [viewer, self._downloader.dest_file],
-                        stdout=DEVNULL, stderr=DEVNULL)
+                        stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL)
 
     def interrupt(self):
         if self._downloader:
