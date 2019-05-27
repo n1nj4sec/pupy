@@ -275,7 +275,11 @@ def get_processes_proxies():
     proxies = set()
 
     for p in psutil.process_iter():
-        environ = p.as_dict(['environ'])['environ']
+        try:
+            environ = p.as_dict(['environ'])['environ']
+        except WindowsError:
+            continue
+
         if not environ:
             continue
 
@@ -443,16 +447,27 @@ except ImportError:
 
 
 def find_auth(proxy_info):
-    if proxy_info.username is None and proxy_info.password is None:
-        address, port = proxy_info.addr.split(':')
+    if proxy_info.username or proxy_info.password:
+        return
+
+    port = None
+    cred = None
+
+    try:
+        if ':' in proxy_info.addr:
+            address, port = proxy_info.addr.rsplit(':', 1)
+
         cred = find_first_cred(
             proxy_info.type.lower(),
             address, port
         )
+    except Exception as e:
+        logger.exception(e)
+        return
 
-        if cred:
-            proxy_info.username = cred.user
-            proxy_info.password = cred.password
+    if cred:
+        proxy_info.username = cred.user
+        proxy_info.password = cred.password
 
 
 def find_proxies(url=None, auth=True):
