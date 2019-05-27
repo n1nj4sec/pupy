@@ -346,7 +346,10 @@ def complete(path, limit=32, dirs=None):
         path = path[:-1]
 
     if path and cwd not in ('/', '\\'):
-        relpath = os.path.relpath(path, start=cwd)
+        try:
+            relpath = os.path.relpath(path, start=cwd)
+        except ValueError:
+            relpath = os.path.relpath(path, start='/')
         if not relpath.startswith('..'):
             path = relpath
 
