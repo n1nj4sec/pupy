@@ -33,7 +33,7 @@ python -m pip install --upgrade \
        rpyc==3.4.4 pyaml rsa netaddr pyyaml ecdsa idna \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy colorama pyOpenSSL python-xlib msgpack-python python-ntlm \
-       u-msgpack-python poster dnslib pyxattr pylibacl python-prctl \
+       u-msgpack-python poster dnslib pyxattr pylibacl python-prctl http_parser \
        https://github.com/alxchk/tinyec/archive/master.zip \
        https://github.com/CoreSecurity/impacket/archive/master.zip \
        https://github.com/warner/python-ed25519/archive/master.zip \

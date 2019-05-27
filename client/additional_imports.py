@@ -39,6 +39,9 @@ import urllib2
 import getpass
 import __future__
 import netaddr
+import ntlm
+import http_parser
+
 try:
     import psutil
 except Exception as e:

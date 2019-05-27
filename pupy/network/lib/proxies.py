@@ -446,7 +446,7 @@ def find_auth(proxy_info):
     if proxy_info.username is None and proxy_info.password is None:
         address, port = proxy_info.addr.split(':')
         cred = find_first_cred(
-            proxy_info.schema.lower(),
+            proxy_info.type.lower(),
             address, port
         )
 
