@@ -60,16 +60,22 @@ def to_unicode(x):
 
 
 def safe_as_dict(p, data):
-    try:
-        return p.as_dict(data)
-    except:
-        data = list(data)
-        if 'cmdline' in data:
-            data.remove('cmdline')
+    removed = set()
 
-        result = p.as_dict(data)
-        result['cmdline'] = None
-        return result
+    for unsafe in (None, 'cmdline', 'exe'):
+        if unsafe is not None and unsafe in data:
+            data = list(data)
+            data.remove(unsafe)
+            removed.add(unsafe)
+
+        try:
+            result = p.as_dict(data)
+            for item in removed:
+                result[item] = None
+            return result
+
+        except WindowsError:
+            pass
 
 
 def psinfo(pids):
