@@ -43,6 +43,8 @@ xattr
 dukpy
 pyaes
 chardet
+python-ntlm
+http_request
 -e external/pykcp
 flake8
 flake8-per-file-ignores
