@@ -757,8 +757,13 @@ def pupygen(args, config, pupsrv, display):
             raise NoOutput()
 
     elif args.format == '.NET_oneliner':
-        i = conf['launcher_args'].index('--host')+1
-        link_ip, _ = conf['launcher_args'][i].split(':',1)
+        link_ip = None
+        try:
+            i = conf['launcher_args'].index('--host')+1
+            link_ip, _ = conf['launcher_args'][i].split(':',1)
+        except ValueError:
+            pass
+
         rawdll = generate_binary_from_template(
             display, conf, 'windows', arch=args.arch, shared=True, debug=args.debug)[0]
 
