@@ -178,6 +178,8 @@ def _event(eventid, client, server, handler, triggers, config, **kwargs):
         if kwargs:
             action = action.format(**kwargs)
 
+        criterias = []
+
         if eventid & DNSCNC:
             if client:
                 action = action.replace('%c', '{:08x}'.format(client.spi))
