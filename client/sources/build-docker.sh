@@ -9,7 +9,7 @@ PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip c
 PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
-PACKAGES="$PACKAGES adodbapi idna wmi winkerberos http_parser"
+PACKAGES="$PACKAGES adodbapi idna wmi winkerberos http_parser python-ntlm"
 
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`

@@ -11,3 +11,4 @@ win_inet_pton
 dnslib
 dukpy
 zeroconf==0.19.1
+python-ntlm
