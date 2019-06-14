@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
 
+__all__ = (
+    'get_proxies', 'find_default_proxy',
+    'get_proxy_for_address', 'set_proxy_unavailable',
+    'has_wpad', 'parse_proxy', 'find_proxies',
+    'find_proxies_for_transport', 'ProxyInfo',
+    'connect_client_with_proxy_info',
+    'CHECK_CONNECTIVITY_URL'
+)
+
+
 import re
 import os
 import time
@@ -629,13 +639,3 @@ def connect_client_with_proxy_info(transport_info, proxy_info):
     )
 
     return stream
-
-
-__all__ = (
-    get_proxies, find_default_proxy,
-    get_proxy_for_address, set_proxy_unavailable,
-    has_wpad, parse_proxy, find_proxies,
-    find_proxies_for_transport, ProxyInfo,
-    connect_client_with_proxy_info,
-    CHECK_CONNECTIVITY_URL
-)

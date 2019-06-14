@@ -1,5 +1,24 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = (
+    'Proxy', 'getLogger',
+    'PupySocketStream', 'PupyUDPSocketStream',
+    'chain_transports',
+    'PupyTCPServer', 'PupyUDPServer',
+    'PupyTCPClient', 'PupySSLClient',
+    'PupyProxifiedTCPClient', 'PupyProxifiedSSLClient',
+    'PupyUDPClient',
+    'DummyPupyTransport',
+
+    'RSA_AESClient', 'RSA_AESServer',
+    'PupyHTTPClient', 'PupyHTTPServer',
+    'PupyWebSocketClient', 'PupyWebSocketServer',
+    'EC4TransportServer', 'EC4TransportClient',
+    'ECMTransportServer', 'ECMTransportClient',
+    'ScrambleSuitClient', 'ScrambleSuitServer'
+)
+
+
 import logging
 from collections import namedtuple
 
@@ -67,22 +86,3 @@ except Exception as e:
     logger.exception('Transport scramblesuit disabled: %s', e)
     ScrambleSuitClient = None
     ScrambleSuitServer = None
-
-
-__all__ = (
-    Proxy, getLogger,
-    PupySocketStream, PupyUDPSocketStream,
-    chain_transports,
-    PupyTCPServer, PupyUDPServer,
-    PupyTCPClient, PupySSLClient,
-    PupyProxifiedTCPClient, PupyProxifiedSSLClient,
-    PupyUDPClient,
-    DummyPupyTransport,
-
-    RSA_AESClient, RSA_AESServer,
-    PupyHTTPClient, PupyHTTPServer,
-    PupyWebSocketClient, PupyWebSocketServer,
-    EC4TransportServer, EC4TransportClient,
-    ECMTransportServer, ECMTransportClient,
-    ScrambleSuitClient, ScrambleSuitServer
-)

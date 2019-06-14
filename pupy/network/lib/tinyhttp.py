@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+__all__ = ('HTTP',)
+
+
 import urllib2
 import urllib
 import cookielib
@@ -718,5 +721,3 @@ from .proxies import (
     find_default_proxy, set_proxy_unavailable,
     has_wpad, get_proxy_for_address
 )
-
-__all__ = [HTTP]
