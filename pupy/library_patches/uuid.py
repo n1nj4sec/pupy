@@ -344,7 +344,7 @@ def _sysfs_getnode():
                 open('/sys/class/net/{}/address'.format(x)).read().strip()
             ) for x in os.listdir(
                 '/sys/class/net'
-            ) if int(open('/sys/class/net/{}/type'.format(x)).read()) == 1 ])[:1]
+            ) if int(open('/sys/class/net/{}/type'.format(x)).read()) == 1])[:1]
 
         if ifaces:
             return int(ifaces[0][1].replace(':', ''), 16)
@@ -362,7 +362,7 @@ def _ifconfig_getnode():
 
 def _arp_getnode():
     """Get the hardware address on Unix by running arp."""
-    import os, socket
+    import socket
     try:
         ip_addr = socket.gethostbyname(socket.gethostname())
     except EnvironmentError:
@@ -418,17 +418,33 @@ def _ipconfig_getnode():
         except:
             raise NotImplementedError('Usage only on Windows 2000 and above')
 
-        # Doesn't work with loopbacks, but let's try and help.
-        host = socket.gethostname()
+        inetaddr = None
 
-        # gethostbyname blocks, so use it wisely.
+        # Try external ip first
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            inetaddr = ctypes.windll.wsock32.inet_addr(host)
-            if inetaddr in (0, -1):
-                raise Exception
-        except:
-            hostip = socket.gethostbyname(host)
+            s.connect(('8.8.8.8', 53))
+            hostip = s.getsockname()[0]
             inetaddr = ctypes.windll.wsock32.inet_addr(hostip)
+
+        except socket.error:
+            pass
+
+        finally:
+            s.close()
+
+        if inetaddr is None:
+            # Doesn't work with loopbacks, but let's try and help.
+            host = socket.gethostname()
+
+            # gethostbyname blocks, so use it wisely.
+            try:
+                inetaddr = ctypes.windll.wsock32.inet_addr(host)
+                if inetaddr in (0, -1):
+                    raise Exception
+            except:
+                hostip = socket.gethostbyname(host)
+                inetaddr = ctypes.windll.wsock32.inet_addr(hostip)
 
         buffer = ctypes.c_buffer(6)
         addlen = ctypes.c_ulong(ctypes.sizeof(buffer))
@@ -439,7 +455,8 @@ def _ipconfig_getnode():
         return int(''.join("%02x"%(x) for x in struct.unpack('BBBBBB', buffer)), 16)
 
     except:
-        import os, re
+        import os
+        import re
         dirs = ['', r'c:\windows\system32', r'c:\winnt\system32']
         try:
             import ctypes
@@ -462,7 +479,8 @@ def _ipconfig_getnode():
 def _netbios_getnode():
     """Get the hardware address on Windows using NetBIOS calls.
     See http://support.microsoft.com/kb/118623 for details."""
-    import win32wnet, netbios
+    import win32wnet
+    import netbios
     ncb = netbios.NCB()
     ncb.Command = netbios.NCBENUM
     ncb.Buffer = adapters = netbios.LANA_ENUM()
@@ -493,7 +511,9 @@ def _netbios_getnode():
 # If ctypes is available, use it to find system routines for UUID generation.
 _uuid_generate_random = _uuid_generate_time = _UuidCreate = None
 try:
-    import ctypes, ctypes.util
+    import os
+    import ctypes
+    import ctypes.util
 
     # The uuid_generate_* routines are provided by libuuid on at least
     # Linux and FreeBSD, and provided by libc on Mac OS X.
@@ -552,6 +572,137 @@ def _windll_getnode():
     if _UuidCreate(_buffer) == 0:
         return UUID(bytes=_buffer.raw).node
 
+def _netiface_getnode():
+    from socket import AF_INET, AF_INET6, SOCK_DGRAM, inet_ntop, socket
+    from ctypes import (
+        Structure, Union, POINTER,
+        pointer, get_errno, cast,
+        c_ushort, c_byte, c_void_p, c_char_p, c_uint,
+        c_uint16, c_uint32, CDLL
+    )
+    import fcntl
+    import struct
+
+    class struct_sockaddr(Structure):
+        _fields_ = [
+            ('sa_family', c_ushort),
+            ('sa_data', c_byte * 14),]
+
+    class struct_sockaddr_in(Structure):
+        _fields_ = [
+            ('sin_family', c_ushort),
+            ('sin_port', c_uint16),
+            ('sin_addr', c_byte * 4)]
+
+    class struct_sockaddr_in6(Structure):
+        _fields_ = [
+            ('sin6_family', c_ushort),
+            ('sin6_port', c_uint16),
+            ('sin6_flowinfo', c_uint32),
+            ('sin6_addr', c_byte * 16),
+            ('sin6_scope_id', c_uint32)]
+
+    class union_ifa_ifu(Union):
+        _fields_ = [
+            ('ifu_broadaddr', POINTER(struct_sockaddr)),
+            ('ifu_dstaddr', POINTER(struct_sockaddr)),]
+
+    class struct_ifaddrs(Structure):
+        pass
+
+    struct_ifaddrs._fields_ = [
+        ('ifa_next', POINTER(struct_ifaddrs)),
+        ('ifa_name', c_char_p),
+        ('ifa_flags', c_uint),
+        ('ifa_addr', POINTER(struct_sockaddr)),
+        ('ifa_netmask', POINTER(struct_sockaddr)),
+        ('ifa_ifu', union_ifa_ifu),
+        ('ifa_data', c_void_p),]
+
+    self_c = CDLL('')
+
+    def ifap_iter(ifap):
+        ifa = ifap.contents
+        while True:
+            yield ifa
+            if not ifa.ifa_next:
+                break
+            ifa = ifa.ifa_next.contents
+
+    def getfamaddr(sa):
+        family = sa.sa_family
+        addr = None
+        if family == AF_INET:
+            sa = cast(pointer(sa), POINTER(struct_sockaddr_in)).contents
+            addr = inet_ntop(family, sa.sin_addr)
+        elif family == AF_INET6:
+            sa = cast(pointer(sa), POINTER(struct_sockaddr_in6)).contents
+            addr = inet_ntop(family, sa.sin6_addr)
+        return family, addr
+
+    class NetworkInterface(object):
+        def __init__(self, name):
+            self.name = name
+            self.addresses = {}
+
+        def __str__(self):
+            return "%s [IPv4=%s, IPv6=%s]" % (
+                self.name, self.addresses.get(AF_INET),
+                self.addresses.get(AF_INET6))
+
+    def get_network_interfaces():
+        ifap = POINTER(struct_ifaddrs)()
+        result = self_c.getifaddrs(pointer(ifap))
+        if result != 0:
+            raise OSError(get_errno())
+
+        del result
+
+        try:
+            retval = {}
+            for ifa in ifap_iter(ifap):
+                name = ifa.ifa_name.decode("UTF-8")
+                i = retval.get(name)
+                if not i:
+                    i = retval[name] = NetworkInterface(name)
+                family, addr = getfamaddr(ifa.ifa_addr.contents)
+                if addr:
+                    if family not in i.addresses:
+                        i.addresses[family] = list()
+                    i.addresses[family].append(addr)
+
+            return retval.values()
+
+        finally:
+            self_c.freeifaddrs(ifap)
+
+    s = socket(AF_INET, SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 53))
+        src_ip = s.getsockname()[0]
+
+        interface_name = None
+
+        for interface in get_network_interfaces():
+            for addresses in interface.addresses.itervalues():
+                if src_ip in addresses:
+                    interface_name = interface.name
+                    break
+
+        if interface_name is not None:
+            input_buffer = struct.pack('256s', str(interface_name))
+            output_buffer = fcntl.ioctl(s.fileno(), 0x8927, input_buffer)
+            ether_addr = ''
+
+            for c in output_buffer[18:24]:
+                ether_addr = ether_addr + format(ord(c), '02X')
+
+            return int(ether_addr, 16)
+
+    finally:
+        s.close()
+
+
 def _random_getnode():
     """Get a random node ID, with eighth bit set as suggested by RFC 4122."""
     import random
@@ -576,8 +727,10 @@ def getnode():
     if sys.platform == 'win32':
         getters = [_windll_getnode, _netbios_getnode, _ipconfig_getnode]
     else:
-        getters = [_unixdll_getnode, _sysfs_getnode, _ifconfig_getnode,
-                       _arp_getnode, _lanscan_getnode, _netstat_getnode]
+        getters = [_unixdll_getnode, _netiface_getnode,
+            _sysfs_getnode, _ifconfig_getnode,
+            _arp_getnode, _lanscan_getnode, _netstat_getnode
+        ]
 
     for getter in getters + [_random_getnode]:
         try:
