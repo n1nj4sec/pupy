@@ -63,6 +63,7 @@ connect = commands.add_parser('connect', help='Request reverse connection')
 connect.add_argument('-c', '--host', help='Manually specify external IP address for connection')
 connect.add_argument('-p', '--port', help='Manually specify external PORT for connection')
 connect.add_argument('-t', '--transport', help='Manually specify transport for connection')
+connect.add_argument('-f', '--fronting', help='Hostname for fronting')
 
 reset = commands.add_parser('reset', help='Reset scheduled commands')
 disconnect = commands.add_parser('disconnect', help='Request disconnection')
@@ -461,17 +462,18 @@ def do(server, handler, config, args):
             handler.display(Error('Node {} not found'.format(args.node)))
 
     elif args.command == 'connect':
-        try:
-            count = server.dnscnc.connect(
-                host=args.host,
-                port=args.port,
-                transport=args.transport,
-                node=args.node,
-                default=args.default
-            )
-        except Exception, e:
-            handler.display(Error(e))
-            return
+        # try:
+        count = server.dnscnc.connect(
+            args.host,
+            args.port,
+            args.transport,
+            args.fronting,
+            node=args.node,
+            default=args.default
+        )
+        # except Exception, e:
+        #     handler.display(Error(e))
+        #     return
 
         if count:
             handler.display(Success('Schedule connect {} known nodes'.format(count)))

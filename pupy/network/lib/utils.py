@@ -3,6 +3,14 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at
 # the root of the project for the detailed licence terms
 
+__all__ = (
+    'TransportInfo', 'TransportException',
+    'create_client_transport_info_for_addr',
+    'parse_host', 'parse_transports_args',
+    'HostInfo'
+)
+
+
 import shlex
 import sys
 
@@ -16,7 +24,7 @@ TransportInfo = namedtuple(
 
 HostInfo = namedtuple(
     'HostInfo', [
-        'host', 'port'
+        'host', 'port', 'hostname'
     ])
 
 
@@ -51,7 +59,7 @@ def parse_transports_args(args, exit=True):
     return result
 
 
-def parse_host(host, default_port=443):
+def parse_host(host, default_port=443, hostname=None):
     port = default_port
 
     if ':' in host:
@@ -61,14 +69,16 @@ def parse_host(host, default_port=443):
     if host.startswith('[') and host.endswith(']'):
         host = host[1:-1]
 
-    return HostInfo(host, port)
+    return HostInfo(host, port, hostname or host)
 
 
 def create_client_transport_info_for_addr(
     transport_name,
         hostinfo, opt_args={}, bind_payload=None, exit=True):
 
-    host, port = hostinfo
+    host, port, hostname = hostinfo
+    if hostname is None:
+        hostname = host
 
     if transport_name not in sys.pupy_transports:
         error('Unregistered transport {}'.format(transport_name), exit=exit)
@@ -81,7 +91,7 @@ def create_client_transport_info_for_addr(
 
     if 'host' not in opt_args:
         transport_args['host'] = '{}{}'.format(
-            host, ':{}'.format(port) if port != 80 else ''
+            hostname, ':{}'.format(port) if port != 80 else ''
         )
 
     for key, value in opt_args.iteritems():
@@ -93,10 +103,3 @@ def create_client_transport_info_for_addr(
             error('Unknown transport argument: {}'.format(key), exit=exit)
 
     return TransportInfo(host, port, transport, transport_args, client_args)
-
-
-__all__ = (
-    TransportInfo, TransportException,
-    create_client_transport_info_for_addr,
-    parse_host, parse_transports_args, HostInfo
-)

@@ -9,7 +9,6 @@ __all__ = (
     'PupyProxifiedSSLClient'
 )
 
-
 import socket
 import ssl
 import tempfile

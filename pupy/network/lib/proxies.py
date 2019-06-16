@@ -460,6 +460,10 @@ def find_auth(proxy_info):
     if proxy_info.username or proxy_info.password:
         return
 
+    if proxy_info.addr is None:
+        # DIRECT for example
+        return
+
     port = None
     cred = None
 
@@ -514,10 +518,13 @@ def find_proxies(url=None, auth=True):
 
 def make_args_for_transport_info(transport_info, host_info, chain):
 
-    chost, cport = host_info
+    chost, cport, chostname = host_info
     transport_args = transport_info.transport_args.copy()
     client_args = transport_info.client_args.copy()
     client = transport_info.transport.client
+
+    if chostname is not None and chostname != chost:
+        transport_args['host'] = chostname
 
     if not chain:
         return ProxyInfo(
@@ -567,7 +574,7 @@ def find_proxies_for_transport(
         transport_info, host_info,
         lan_proxies=None, wan_proxies=None, auto=True, wpad=True, direct=True):
 
-    host, port = host_info
+    host, port, _ = host_info
     wpad_uri = None
     parsed_wan_proxies = list(_parse_proxies(wan_proxies))
     dups = set()

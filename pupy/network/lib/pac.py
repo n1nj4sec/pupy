@@ -302,7 +302,8 @@ class PACPlayer(object):
             '{}/{}'.format(network, mask))
 
     def myIpAddress(self):
-        return self.internal_ip
+        if self.internal_ip:
+            return str(self.internal_ip)
 
     def isResolvable(self, host):
         try:

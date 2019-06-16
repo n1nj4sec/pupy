@@ -707,7 +707,7 @@ if __name__ == '__main__':
                         except ValueError:
                             continue
 
-                        if priv == '*' or all(x in 'abcdef1234567890' for x in priv) :
+                        if priv == '*' or all(x in 'abcdef1234567890' for x in priv):
                             priv = ''
 
                         if not all(x in DNS_ALPHABET+'*;' for x in priv):

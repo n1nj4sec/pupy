@@ -85,8 +85,8 @@ class AutoProxyLauncher(BaseLauncher):
         ]
 
     def connect_to_host(self, host_info):
-        logger.info('connecting to %s:%d using transport %s ...',
-            host_info.host, host_info.port, self.args.transport)
+        logger.info('connecting to %s:%d (hostname=%s) using transport %s ...',
+            host_info.host, host_info.port, host_info.hostname, self.args.transport)
 
         transport_info = create_client_transport_info_for_addr(
             self.args.transport, host_info,
