@@ -119,9 +119,11 @@ class Listener(Thread):
         else:
             args = []
 
+        default_ipv6 = self.config.getboolean('pupyd', 'ipv6') or False
+
         if not args:
             self.port = randint(20000, 50000)
-            self.ipv6 = False
+            self.ipv6 = default_ipv6
         else:
             if ':' in args[0]:
                 ip, port = args[0].rsplit(':', 1)
@@ -143,13 +145,13 @@ class Listener(Thread):
                     elif self.address:
                         self.external = self.address
 
-                    self.ipv6 = address.version == 6
+                    self.ipv6 = (address.version == 6) or default_ipv6
                 except Exception, e:
                     raise ListenerException('Invalid IP: {} ({})'.format(ip, e))
 
             else:
                 port = args[0]
-                self.ipv6 = False
+                self.ipv6 = default_ipv6
 
         if self.pproxy:
             self.external = self.pproxy.external
