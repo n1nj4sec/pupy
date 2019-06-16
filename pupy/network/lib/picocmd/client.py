@@ -351,7 +351,7 @@ class DnsCommandsClient(Thread):
         return answer
 
     def _request_unsafe(self, commands):
-        parcel = Parcel(*commands)
+        parcel = Parcel(commands)
 
         gen_csum = None
         check_csum = None

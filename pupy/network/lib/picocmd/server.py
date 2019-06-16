@@ -54,6 +54,7 @@ from picocmd import (
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
     Parcel, PackError, CustomEvent,
+    PayloadTooBig,
     from_bytes
 )
 
@@ -692,10 +693,9 @@ class DnsCommandServerHandler(BaseResolver):
         max_payload_len = self.max_payload_len(qname_len, 4)
 
         if len(payload) > max_payload_len:
-            raise ValueError(
-                'Page size more than {} bytes ({})'.format(
-                    max_payload_len,
-                    len(payload)))
+            raise PayloadTooBig(
+                'Page size more than {max_len} bytes ({required_len})',
+                len(payload), max_payload_len)
 
         response = []
 
@@ -715,14 +715,18 @@ class DnsCommandServerHandler(BaseResolver):
 
         max_payload_len = self.max_payload_len(qname_len, 4)
 
+        if len(data) > 0xFF:
+            raise PayloadTooBig(
+                'Payload size more than {max_len} bytes ({required_len})',
+                len(data), 0xFF)
+
         length = struct.pack('B', len(data))
         payload = length + data
 
         if len(payload) > max_payload_len:
-            raise ValueError(
-                'Page size more than {} bytes ({})'.format(
-                    max_payload_len,
-                    len(payload)))
+            raise PayloadTooBig(
+                'Page size more than {max_len} bytes ({required_len})',
+                len(payload), max_payload_len)
 
         response = []
 
@@ -1085,6 +1089,14 @@ class DnsCommandServerHandler(BaseResolver):
 
         version = 1
 
+        page_encoder = None
+        if qtype == QTYPE.A:
+            page_encoder = self._a_page_encoder
+        elif qtype == QTYPE.AAAA:
+            page_encoder = self._aaaa_page_encoder
+        else:
+            raise NotImplementedError(qtype)
+
         try:
             request, session, nonce, nodeid, cid, iid, version = \
               self._q_page_decoder(qname)
@@ -1216,6 +1228,9 @@ class DnsCommandServerHandler(BaseResolver):
 
             return None
 
+        if not responses:
+            responses = [Ack()]
+
         logger.debug(
             'responses=%s session=%s',
             responses,
@@ -1224,29 +1239,37 @@ class DnsCommandServerHandler(BaseResolver):
 
         encoder = self.encoder_from_session(session, version)
         gen_csum = encoder.gen_csum if version > 1 else None
+        total = len(responses)
 
-        try:
-            payload = Parcel(*responses).pack(nonce, gen_csum)
-        except PackError, e:
-            emsg = 'Could not create parcel from commands: {} (session={})'.format(
-                e, '{:08x}'.format(session.spi) if session else None)
+        for postpone in xrange(total):
+            to_send = responses[:total-postpone]
 
-            logger.error(emsg)
+            try:
+                payload = Parcel(to_send).pack(nonce, gen_csum)
+            except PackError, e:
+                emsg = 'Could not create parcel from commands: {} (session={})'.format(
+                    e, '{:08x}'.format(session.spi) if session else None)
 
-            if node:
-                node.warning = emsg
+                logger.error(emsg)
 
-            return None
+                if node:
+                    node.warning = emsg
 
-        page_encoder = None
-        if qtype == QTYPE.A:
-            page_encoder = self._a_page_encoder
-        elif qtype == QTYPE.AAAA:
-            page_encoder = self._aaaa_page_encoder
-        else:
-            raise NotImplementedError(qtype)
+                return None
 
-        return page_encoder(payload, encoder, nonce, qname)
+            try:
+
+                encoded = page_encoder(payload, encoder, nonce, qname)
+                if postpone:
+                    logger.debug('Postponed %d commands', postpone)
+
+                return encoded
+
+            except PayloadTooBig as e:
+                if session is None and node is None:
+                    break
+
+        raise PackError('Unable to pack payload')
 
     def _kex_is_disabled(self, node):
         return False

@@ -16,7 +16,7 @@ __all__ = (
 
     'ParcelInvalidCrc',
     'ParcelInvalidPayload', 'ParcelInvalidCommand',
-    'Parcel', 'PackError',
+    'Parcel', 'PackError', 'PayloadTooBig',
     'UnregisteredTargetId',
 
     'from_bytes', 'to_bytes',
@@ -71,6 +71,16 @@ def unpack_ip_address(packed):
 
 class PackError(Exception):
     pass
+
+
+class PayloadTooBig(Exception):
+    __slots__ = ('required_len', 'max_len')
+
+    def __init__(self, message, required_len, max_len):
+        return super(PayloadTooBig, self).__init__(message.format(
+            required_len=required_len, max_len=max_len))
+        self.required_len = required_len
+        self.max_len = max_len
 
 
 class UnregisteredTargetId(PackError):
@@ -702,10 +712,11 @@ class Connect(Command):
             code = (1 << 7) | self.well_known_transports.encode(self.transport)
             message = message + struct.pack('B', code)
         else:
-            if len(self.transport) > 24:
-                raise PackError('Transport name is too large')
-            else:
-                code = len(self.transport)
+            code = len(self.transport)
+            if code > 0x7F:
+                raise PackError(
+                    'Transport name {} can not be encoded'.format(self.transport))
+
             message = message + struct.pack('B', code) + self.transport
 
         message = message + struct.pack('>I', int(self.ip))
@@ -1345,7 +1356,7 @@ class ConnectEx(Command):
     def __init__(self, address, port, transport, fronting=None):
         self.address = None
 
-        if type(address) in (str, unicode):
+        if type(address) in (str, unicode, netaddr.IPAddress):
             try:
                 self.address = netaddr.IPAddress(address)
                 if self.address.version == 6:
@@ -1381,7 +1392,7 @@ class ConnectEx(Command):
         if self.address_type == ConnectEx.TARGET_ID:
             address = struct.pack('>H', self.address)
         else:
-            address = address.packed
+            address = self.address.packed
 
         if self.fronting:
             if type(self.fronting) in (long, int) and \
@@ -1554,7 +1565,7 @@ class Parcel(object):
         SystemInfoEx, ConnectEx, RegisterHostnameId
     )
 
-    def __init__(self, *commands):
+    def __init__(self, commands):
         missing = set()
 
         for command in commands:
@@ -1623,4 +1634,4 @@ class Parcel(object):
         except struct.error, e:
             raise ParcelInvalidPayload('Unpack Failed: {}'.format(e))
 
-        return Parcel(*messages)
+        return Parcel(messages)
