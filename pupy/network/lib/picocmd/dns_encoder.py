@@ -186,6 +186,7 @@ class Huffman(object):
             for term, value, bitlen in self.encoding_table:
                 if phrase.startswith(term):
                     found = True
+
                     while bitlen:
                         consume_bits = min(bitlen, remainder_bits)
                         rest_bits = bitlen - consume_bits
@@ -208,7 +209,7 @@ class Huffman(object):
             if not found:
                 raise ValueError('Not found beginning for ', phrase)
 
-        if remainder and remainder_bits:
+        if remainder_bits:
             remainder <<= remainder_bits
             encoded.append(remainder)
 
@@ -220,11 +221,11 @@ class Huffman(object):
 
         decoded = []
 
-        max_bitlen= max(
+        max_bitlen = max(
             bitlen for _, bitlen, _ in self.decoding_table
         )
 
-        min_bitlen= min(
+        min_bitlen = min(
             bitlen for _, bitlen, _ in self.decoding_table
         )
 
