@@ -13,6 +13,7 @@ __all__ = (
 
 import shlex
 import sys
+import netaddr
 
 from collections import namedtuple
 
@@ -63,8 +64,11 @@ def parse_host(host, default_port=443, hostname=None):
     port = default_port
 
     if ':' in host:
-        host, port = host.rsplit(':', 1)
-        port = int(port)
+        try:
+            netaddr.IPAddress(host)
+        except netaddr.AddrFormatError:
+            host, port = host.rsplit(':', 1)
+            port = int(port)
 
     if host.startswith('[') and host.endswith(']'):
         host = host[1:-1]
@@ -90,6 +94,9 @@ def create_client_transport_info_for_addr(
     client_args = transport.client_kwargs
 
     if 'host' not in opt_args:
+        if ':' in hostname:
+            hostname = '[' + hostname + ']'
+
         transport_args['host'] = '{}{}'.format(
             hostname, ':{}'.format(port) if port != 80 else ''
         )

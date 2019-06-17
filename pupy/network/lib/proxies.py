@@ -524,6 +524,9 @@ def make_args_for_transport_info(transport_info, host_info, chain):
     client = transport_info.transport.client
 
     if chostname is not None and chostname != chost:
+        if ':' in chostname:
+            chostname = '[' + chostname + ']'
+
         transport_args['host'] = chostname
 
     if not chain:
@@ -581,9 +584,13 @@ def find_proxies_for_transport(
 
     if auto:
         if wpad:
-            wpad_uri = 'tcp://{}:{}'.format(host, port)
+            uri_host = host
+            if ':' in host:
+                uri_host = '[' + host + ']'
+            wpad_uri = 'tcp://{}:{}'.format(uri_host, port)
             if 'HTTP' in transport_info.transport.internal_proxy_impl:
-                wpad_uri = 'http://{}:{}'.format(host, port)
+                wpad_uri = 'http://{}{}'.format(
+                    uri_host, ':{}'.format(port) if port != 80 else '')
 
         for lan_proxy in find_proxies(wpad_uri):
             chain = []
