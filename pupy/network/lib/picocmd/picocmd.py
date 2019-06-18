@@ -1261,8 +1261,8 @@ class SystemInfoEx(Command):
             to_bytes(self.node, 6),
             struct.pack('>I', int(time.mktime(self.boottime.timetuple()))),
             chr(flags),
-            self.external_ip.packed if self.external_ip else b'',
             self.internal_ip.packed if self.internal_ip else b'',
+            self.external_ip.packed if self.external_ip else b'',
         ])
 
     @staticmethod
