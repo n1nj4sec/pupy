@@ -245,7 +245,7 @@ class TTYRec(Task):
                 self._buffer.append(packet)
 
                 fire_event = False
-        
+
                 if not self._dirty:
                     fire_event = True
 
@@ -254,8 +254,8 @@ class TTYRec(Task):
                 try:
                     if fire_event and self._event_id is not None:
                         self.broadcast_event(self._event_id)
-                except:
-                    print_exception('T/BE:{}'.format(self.name))
+                except Exception:
+                    pass
 
     @property
     def results(self):
