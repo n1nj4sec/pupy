@@ -40,6 +40,7 @@ from picocmd import (
     AddressTable,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
+    PayloadTooBig,
     Parcel,
     from_bytes, to_bytes
 )
@@ -281,10 +282,18 @@ class DnsCommandsClient(Thread):
 
         if ldata > 35:
             # 35 -- limit, 4 - nonce, 1 - version, 4 - CID, 2 - IID, 6 - NODE
-            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 4 + 2 + 6 < 35):
-                data, data_append = data[:35], data[35:]
+            if CLIENT_VERSION > 1:
+                # Total limit: 52 bytes
+                if (ldata - 35 + 4 + 1 + 4 + 2 + 6 < 35):
+                    data, data_append = data[:35], data[35:]
+                else:
+                    raise PayloadTooBig(
+                        'Page size more than {max_len} bytes ({required_len})',
+                        ldata, 52)
             else:
-                raise ValueError('Too big page size ({})'.format(ldata))
+                raise PayloadTooBig(
+                    'Page size more than {max_len} bytes ({required_len})',
+                    ldata, 35)
 
         nonce = self.nonce
         node_block = ''
