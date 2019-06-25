@@ -1475,6 +1475,107 @@ class RegisterHostnameId(Command):
             self.id, self.hostname)
 
 
+class DataTransferControl(Command):
+    __slots__ = ('transfer_id', 'total_size', 'crc', 'action')
+
+    ACTION_START = 0x0
+    ACTION_CANCEL = 0x1
+    ACTION_FINISH = 0x2
+    ACTION_CORRUPTED = 0x3
+
+    def __init__(self, action, transfer_id, total_size=None, crc=None):
+        if transfer_id > 0xF:
+            raise ValueError('transfer_id should be less than 0xF')
+
+        if action == DataTransferControl.ACTION_START:
+            if (total_size is None or crc is None):
+                raise ValueError('total_size and crc must be specified')
+
+            if type(crc) not in (int, long) or crc < 0 or crc > 0xFFFFFFFF:
+                raise ValueError('Invalid CRC field, should be uint32')
+
+            if total_size > 0xFFFF:
+                raise ValueError('total_size should be less than 0xFFFF')
+
+        if action > DataTransferControl.ACTION_CORRUPTED or \
+                action < DataTransferControl.ACTION_START:
+            raise ValueError('Invalid action')
+
+        self.transfer_id = transfer_id
+        self.total_size = total_size
+        self.crc = crc
+
+    def _action_to_text(self):
+        if self.action == DataTransferControl.ACTION_START:
+            return 'START'
+        elif self.action == DataTransferControl.ACTION_CORRUPTED:
+            return 'CORRUPTED'
+        elif self.action == DataTransferControl.ACTION_FINISH:
+            return 'FINISH'
+        elif self.action == DataTransferControl.ACTION_CANCEL:
+            return 'CANCEL'
+        else:
+            return 'INVALID'
+
+    def __repr__(self):
+        return '{{DC {}: {}{}}}'.format(
+            self.transfer_id, self._action_to_text(),
+            ' size={} crc={:08X}'.format(
+                self.total_size, self.crc
+            ) if self.action == DataTransferControl.ACTION_START else ''
+        )
+
+    def pack(self):
+        packed = chr(self.action << 4 | self.transfer_id)
+        if self.action == DataTransferControl.ACTION_START:
+            packed += struct.pack('>HI', self.total_size, self.crc)
+
+        return packed
+
+    @staticmethod
+    def unpack(data):
+        control_byte = ord(data[0])
+        action = (control_byte >> 4) & 0xFFFF
+        transfer_id = control_byte & 0xFFFF
+        total_size = None
+        crc = None
+        consumed = 1
+
+        if action == DataTransferControl.ACTION_START:
+            total_size, crc = struct.unpack_from('>HI', data[1:])
+            consumed += 6
+
+        return DataTransferControl(action, transfer_id, total_size, crc), consumed
+
+
+class DataTransferPayload(Command):
+    __slots__ = ('transfer_id', 'payload')
+
+    def __init__(self, transfer_id, payload):
+        if transfer_id > 0xF:
+            raise ValueError('transfer_id should be less than 0xF')
+
+        if len(payload) > 0xFF:
+            raise ValueError('one parcel should not have more than 256 bytes')
+
+        self.transfer_id = transfer_id
+        self.payload = payload
+
+    def __repr__(self):
+        return '{{DT {}: {}}}'.format(
+            self.transfer_id, repr(self.payload))
+
+    def pack(self):
+        return struct.pack(
+            '>BB', self.transfer_id, len(self.payload)) + self.payload
+
+    @staticmethod
+    def unpack(data):
+        transfer_id, payload_len = struct.unpack_from('>BB', data)
+        consumed = 2 + payload_len
+        return DataTransferPayload(transfer_id, data[2:consumed]), consumed
+
+
 class Error(Command):
 
     __slots__ = ('error', 'message')
