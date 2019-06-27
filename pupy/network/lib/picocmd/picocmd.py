@@ -543,10 +543,7 @@ class SystemInfo(Command):
                     self.external_ip = None
         elif online:
             self.external_ip = online.external_ip(force_ipv4=True)
-            if self.external_ip:
-                self.internet = True
-            else:
-                self.internet = online.online()
+            self.internet = online.online()
 
     def pack(self):
         # 3 bits for system, 3 bits for arch, 1 bit for internet
@@ -1191,10 +1188,7 @@ class SystemInfoEx(Command):
             self.boottime = datetime.datetime.fromtimestamp(0)
 
         self.external_ip = online.external_ip()
-        if self.external_ip:
-            self.internet = True
-        else:
-            self.internet = online.online()
+        self.internet = online.online()
 
         self.internal_ip = online.internal_ip()
 
