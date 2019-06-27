@@ -727,7 +727,7 @@ def getnode():
     if sys.platform == 'win32':
         getters = [_windll_getnode, _netbios_getnode, _ipconfig_getnode]
     else:
-        getters = [_unixdll_getnode, _netiface_getnode,
+        getters = [_netiface_getnode, _unixdll_getnode,
             _sysfs_getnode, _ifconfig_getnode,
             _arp_getnode, _lanscan_getnode, _netstat_getnode
         ]
