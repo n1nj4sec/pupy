@@ -305,7 +305,10 @@ class PupyOffloadManager(object):
             c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3  * 60)
             c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
-        c = self._ctx.wrap_socket(c)
+        try:
+            c = self._ctx.wrap_socket(c)
+        except (EOFError, ssl.SSLError, socket.error):
+            raise EOFError('Failure during communication with offload server')
 
         m = MsgPackMessages(c)
         m.send({
