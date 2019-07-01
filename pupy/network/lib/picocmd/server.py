@@ -742,8 +742,12 @@ class DnsCommandServerHandler(BaseResolver):
         return response
 
     def _q_page_decoder(self, data):
-        domain = data
-        parts = data.split('.')
+        domain = None
+        parts = []
+
+        if data:
+            domain = data
+            parts = data.split('.')
 
         if len(parts) == 0:
             raise DnsPingRequest(1)
