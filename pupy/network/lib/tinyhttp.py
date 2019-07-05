@@ -557,7 +557,13 @@ class HTTP(object):
 
         return opener, scheme, proxy_host, password_managers, context
 
-    def get(self, url, save=None, headers=None, return_url=False, return_headers=False, code=False):
+    def get(
+            self, url, save=None, headers=None, return_url=False,
+            return_headers=False, code=False, params={}):
+
+        if params:
+            url = url + '?' + urllib.urlencode(params)
+
         if headers:
             url = urllib2.Request(url, headers=headers)
 
@@ -576,9 +582,6 @@ class HTTP(object):
 
         except urllib2.HTTPError as e:
             context.update_from_error(e)
-
-            if not return_headers:
-                raise
 
             result = [e.fp.read() if e.fp.read else '']
 
@@ -627,9 +630,13 @@ class HTTP(object):
         else:
             return tuple(result)
 
-    def post(self, url, file=None, data=None, save=None, headers={}, multipart=False, return_url=False, return_headers=False, code=False):
+    def post(
+            self, url, file=None, data=None, save=None, headers={},
+            multipart=False, return_url=False, return_headers=False,
+            code=False, params={}):
+
         if not (file or data):
-            return self.get(url, save, headers=headers)
+            return self.get(url, save, headers2=headers)
 
         response = None
         result = []
@@ -649,6 +656,9 @@ class HTTP(object):
             elif type(data) == dict:
                 data = urllib.urlencode(data)
 
+        if params:
+            url = url + '?' + urllib.urlencode(params)
+
         url = urllib2.Request(url, data, headers)
 
         opener, scheme, host, password_managers, context = self.make_opener(url)
@@ -667,9 +677,6 @@ class HTTP(object):
             raise e
 
         except urllib2.HTTPError as e:
-            if not return_headers:
-                raise
-
             result = [e.fp.read() if e.fp.read else '']
 
             if return_url:
