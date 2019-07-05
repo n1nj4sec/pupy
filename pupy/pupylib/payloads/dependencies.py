@@ -172,8 +172,11 @@ def remove_dt_needed(data, libname):
 
 
 def safe_file_exists(f):
-    """ some file systems like vmhgfs are case insensitive and os.isdir() return True for "lAzAgNE", so we need this check for modules like LaZagne.py and lazagne gets well imported """
+    """ some file systems like vmhgfs are case insensitive and
+        os.isdir() return True for "lAzAgNE", so we need this check for modules
+        like LaZagne.py and lazagne gets well imported """
     return os.path.basename(f) in os.listdir(os.path.dirname(f))
+
 
 def loader(code, modulename):
     code = '''
@@ -189,7 +192,8 @@ sys.modules[fullname]=mod
 
     return code
 
-def importer(dependencies, os='all', arch=None, path=None, posix=None, native=False):
+
+def importer(dependencies, os='all', arch=None, path=None, posix=None, native=False, ignore_native=False):
     if path:
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
@@ -201,9 +205,13 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None, native=Fa
         blob = cPickle.dumps(modules)
         blob = zlib.compress(blob, 9)
     else:
-        blob, modules, _ = package(dependencies, os, arch, posix=posix, native=native)
+        blob, modules, _ = package(
+            dependencies, os, arch, posix=posix,
+            native=native, ignore_native=ignore_native
+        )
 
     return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
+
 
 def modify_native_content(filename, content):
     if content.startswith('\x7fELF'):
@@ -215,6 +223,7 @@ def modify_native_content(filename, content):
         content = image.getvalue()
 
     return content
+
 
 def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=True, native=False):
     if filepath.startswith(prefix) and honor_ignore:
@@ -276,8 +285,9 @@ def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=Tru
 
     return content
 
+
 def from_path(platform, arch, search_path, start_path, pure_python_only=False,
-              remote=False, honor_ignore=True, native=False):
+              remote=False, honor_ignore=True, native=False, ignore_native=False):
 
     query = start_path
 
@@ -300,12 +310,16 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
                 if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
                     continue
 
-                if pure_python_only and f.endswith(('.so', '.pyd', '.dll')):
-                    # avoid loosing shells when looking for packages in
-                    # sys.path and unfortunatelly pushing a .so ELF on a
-                    # remote windows
-                    raise BinaryObjectError('Path contains binary objects: {} (query={})'.format(
-                        f, query))
+                if f.endswith(('.so', '.pyd', '.dll')):
+                    if pure_python_only:
+                        if ignore_native:
+                            continue
+
+                        # avoid loosing shells when looking for packages in
+                        # sys.path and unfortunatelly pushing a .so ELF on a
+                        # remote windows
+                        raise BinaryObjectError('Path contains binary objects: {} (query={})'.format(
+                            f, query))
 
                 if not f.endswith(('.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
                     continue
@@ -390,6 +404,7 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
 
     return modules_dic
 
+
 def paths(platform='all', arch=None, posix=None):
     """ return the list of path to search packages for depending on client OS and architecture """
 
@@ -437,7 +452,9 @@ def _dependencies(module_name, os, dependencies):
     for dependency in mod_deps.get('all', []) + mod_deps.get(os, []):
         _dependencies(dependency, os, dependencies)
 
-def _package(modules, module_name, platform, arch, remote=False, posix=None, honor_ignore=True, native=False):
+def _package(
+        modules, module_name, platform, arch, remote=False,
+        posix=None, honor_ignore=True, native=False, ignore_native=False):
 
     initial_module_name = module_name
 
@@ -545,7 +562,8 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
             try:
                 modules_dic = from_path(
                     platform, arch,
-                    search_path, start_path, pure_python_only=True, remote=remote
+                    search_path, start_path, pure_python_only=True,
+                    ignore_native=ignore_native, remote=remote
                 )
 
                 if modules_dic:
@@ -564,8 +582,9 @@ def _package(modules, module_name, platform, arch, remote=False, posix=None, hon
 
     modules.update(modules_dic)
 
+
 def package(requirements, platform, arch, remote=False, posix=False,
-            filter_needed_cb=None, honor_ignore=True, native=False):
+            filter_needed_cb=None, honor_ignore=True, native=False, ignore_native=False):
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
@@ -602,7 +621,7 @@ def package(requirements, platform, arch, remote=False, posix=False,
                 modules, dependency, platform, arch,
                 remote=remote, posix=posix,
                 honor_ignore=honor_ignore,
-                native=native
+                native=native, ignore_native=ignore_native
             )
 
         blob = zlib.compress(cPickle.dumps(modules), 9)
@@ -629,6 +648,7 @@ def bundle(platform, arch):
         return None
 
     return ZipFile(arch_bundle, 'r')
+
 
 def dll(name, platform, arch, honor_ignore=True, native=False):
     buf = b''
