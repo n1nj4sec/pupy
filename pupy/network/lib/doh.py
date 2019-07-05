@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 __all__ = (
-    'InvalidHostName', 'SecureDNS', 'A', 'AAAA'
+    'InvalidHostName', 'SecureDNS', 'A', 'AAAA',
+    'GOOGLE', 'CLOUDFLARE', 'QUAD9', 'QUAD9_IP'
 )
 
 from urllib import urlencode
-from random import randint, choice
 from json import loads
 
 import tinyhttp
@@ -23,54 +23,78 @@ UNRESERVED_CHARS = \
     '0123456789-._~'
 
 
+# Providers
+GOOGLE = 'https://dns.google.com/resolve'
+CLOUDFLARE = 'https://cloudflare-dns.com/dns-query'
+# Unstable
+QUAD9 = 'https://dns.quad9.net/dns-query'
+QUAD9_IP = 'https://9.9.9.9/dns-query'
+# Down
+# CZNIC = 'https://odvr.nic.cz/doh'
+
+
 class InvalidHostName(Exception):
     pass
 
 
 class SecureDNS(object):
-    __slots__ = ('client', 'url', 'cd', 'edns_client_subnet')
+    __slots__ = ('client', 'url', 'cd')
 
     '''Resolve domains using Google's Public DNS-over-HTTPS API'''
 
-    def __init__(self, cd=False, edns_client_subnet='0.0.0.0/0'):
+    @staticmethod
+    def available(hostname, ipv6, *expected_ips):
+        qtype = AAAA if ipv6 else A
+
+        for provider in (GOOGLE, CLOUDFLARE, QUAD9_IP, QUAD9):
+            dns = SecureDNS(provider)
+            resolved = dns.resolve(hostname, qtype)
+            if not resolved:
+                continue
+
+            if not expected_ips:
+                return dns
+
+            if set(expected_ips) == set(resolved):
+                return dns
+
+    def __init__(self, url=GOOGLE, cd=False):
         self.client = tinyhttp.HTTP()
-        self.url = 'https://dns.google.com/resolve'
-        self.cd = cd
-        self.edns_client_subnet = edns_client_subnet
+        self.url = url
+        self.cd = 0 if bool(cd) is False else 1
 
     def resolve(self, hostname, query_type=A):
         '''return ip address(es) of hostname'''
 
-        hostname = self._prepare_hostname(hostname)
-        params = {
-            'cd': self.cd,
-            'type': query_type,
-            'edns_client_subnet': self.edns_client_subnet,
-            'name': hostname,
-            'random_padding': self._generate_padding()
-        }
-
         payload, code = self.client.get(
-            self.url + '?' + urlencode(params), code=True
+            self.url, code=True,
+            headers={
+                'Accept': 'application/dns-json'
+            },
+            params={
+                'cd': self.cd,
+                'type': query_type,
+                'name': self._prepare_hostname(hostname),
+            },
         )
 
-        if code == 200:
-            response = loads(payload)
+        if code != 200:
+            return None
 
-            if response['Status'] == NOERROR:
-                answers = []
-                for answer in response['Answer']:
-                    name, response_type, ttl, data = \
-                        map(answer.get, ('name', 'type', 'ttl', 'data'))
-                    if response_type in (A, AAAA):
-                        answers.append(str(data))
+        response = loads(payload)
 
-                if answers == []:
-                    return None
+        if response['Status'] == NOERROR:
+            answers = []
+            for answer in response['Answer']:
+                name, response_type, ttl, data = \
+                    map(answer.get, ('name', 'type', 'ttl', 'data'))
+                if response_type in (A, AAAA):
+                    answers.append(str(data))
 
-                return answers
+            if answers == []:
+                return None
 
-        return None
+            return answers
 
     def _prepare_hostname(self, hostname):
         '''verify the hostname is well-formed'''
@@ -88,7 +112,7 @@ class SecureDNS(object):
         except UnicodeEncodeError:
             raise InvalidHostName
 
-    def _generate_padding(self):
-        '''generate a pad using unreserved chars'''
-        pad_len = randint(10, 50)
-        return ''.join(choice(UNRESERVED_CHARS) for _ in range(pad_len))
+    def __repr__(self):
+        return 'SecureDNS({}, {})'.format(
+            repr(self.url), bool(self.cd)
+        )
