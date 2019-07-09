@@ -59,6 +59,19 @@ def to_unicode(x):
         return x
 
 
+def _psiter(obj):
+    if hasattr(obj, '_fields'):
+        for field in obj._fields:
+            yield field, getattr(obj, field)
+    elif hasattr(obj, '__dict__'):
+        for k,v in obj.__dict__.iteritems():
+            yield k, v
+
+
+def _is_iterable(obj):
+    return hasattr(obj, '_fields') or hasattr(obj, '__dict__')
+
+
 def safe_as_dict(p, data):
     removed = set()
 
@@ -93,19 +106,19 @@ def psinfo(pids):
             if type(val) == list:
                 newv = []
                 for item in val:
-                    if hasattr(item, '__dict__'):
+                    if _is_iterable(item):
                         newv.append({
-                            k:to_unicode(v) for k,v in item.__dict__.iteritems()
+                            k:to_unicode(v) for k,v in _psiter(item)
                         })
                     else:
                         newv.append(to_unicode(item))
 
                 if all([type(x) in (str, unicode) for x in newv]):
                     newv = to_unicode(' '.join(newv))
-            elif hasattr(val, '__dict__'):
+            elif _is_iterable(val):
                 newv = [{
                     'KEY': k, 'VALUE':to_unicode(v)
-                } for k,v in val.__dict__.iteritems()]
+                } for k,v in _psiter(val)]
             else:
                 newv = to_unicode(val)
 
@@ -194,7 +207,7 @@ def users():
 
     for term in psutil.users():
         terminfo = {
-            k:to_unicode(v) for k,v in term.__dict__.iteritems() if v and k not in ('host', 'name')
+            k:to_unicode(v) for k,v in _psiter(term) if v and k not in ('host', 'name')
         }
 
         if 'pid' in terminfo:
