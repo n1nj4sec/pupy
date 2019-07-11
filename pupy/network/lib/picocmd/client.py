@@ -125,7 +125,7 @@ class DnsCommandsClient(Thread):
                         'opendns.org', False, online.KNOWN_DNS['opendns.org']
                     )
 
-                    if self.ns == None:
+                    if self.ns is None:
                         raise ValueError('All known DoH servers are not working')
                 else:
                     self.ns = securedns.SecureDNS(self.ns)
