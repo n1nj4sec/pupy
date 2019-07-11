@@ -35,7 +35,8 @@ def pack_py_payload(display, conf, debug=False):
             dependencies.importer((
                 'rpyc', 'pyasn1', 'rsa', 'pyaes',
                 'netaddr', 'tinyec', 'umsgpack',
-                'poster', 'win_inet_pton')),
+                'poster', 'win_inet_pton', 'http_parser', 'ntlm'), ignore_native=True
+            ),
             dependencies.importer('network', path=ROOT)
         ]) + '\n'
     )

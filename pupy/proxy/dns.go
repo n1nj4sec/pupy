@@ -241,10 +241,13 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			}
 
 			payloadLen := len(question) - len(p.Domain) - 1
+			if payloadLen <= 0 {
+				payloadLen = 0
+			}
 
 			qtype := dns.Type(q.Qtype).String()
 
-			log.Debug("DNS: Request: ", qtype, q.Name)
+			log.Debug("DNS: Request: ", qtype, " ", q.Name)
 
 			record := &DNSCacheRecord{}
 			ok := true
@@ -260,11 +263,11 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			}
 
 			if !ok {
-				log.Info("DNS: Request: ", q.Name, " not in cache")
+				log.Info("DNS: Request: ", q.Name, " not in cache; PL: ", payloadLen)
 
 				responses := []string{}
 
-				if strings.HasSuffix(question, p.Domain) && payloadLen > 0 {
+				if strings.HasSuffix(question, p.Domain) {
 					if p.active {
 						p.dnsRemoteRequestsCounter.Incr(1)
 
@@ -279,9 +282,9 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 								IPs:  result,
 							}
 
-							log.Debug("DNS: Send request: ", q.Name)
+							log.Debug("DNS: Send request: ", question)
 							responses = <-result
-							log.Info("DNS: Response: ", q.Name, ": ", responses)
+							log.Info("DNS: Response: ", question, ": ", responses)
 
 							warnSlow(fmt.Sprintf(
 								"DNS: Slow RR communication: (Rates: Remote=%dps Total=%dps Processed=%dps)",

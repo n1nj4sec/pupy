@@ -4,7 +4,11 @@ __all__ = ['PupyHTTPWrapperServer']
 
 from ..base import BasePupyTransport, ReleaseChainedTransport
 
-from http_parser.parser import HttpParser
+try:
+    from http_parser.parser import HttpParser
+except ImportError:
+    from http_parser.pyparser import HttpParser
+
 from os import path, stat
 from network.lib.buffer import Buffer
 from network.lib import getLogger

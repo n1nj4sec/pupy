@@ -224,14 +224,15 @@ class TTYMon(object):
 
 
 class TTYRec(Task):
-    __slots__ = ('_ttymon', '_results_lock', '_state')
+    __slots__ = ('_ttymon', '_results_lock', '_state', '_event_id')
 
-    def __init__(self, manager):
+    def __init__(self, manager, event_id=None):
         super(TTYRec, self).__init__(manager)
         self._ttymon = TTYMon(ignore=[os.getpid(), os.getppid()])
         self._results_lock = Lock()
         self._buffer = Buffer()
         self._compressor = zlib.compressobj(9)
+        self._event_id = event_id
 
     def task(self):
         for comm, pid, probe, sec, usec, buf in self._ttymon:
@@ -242,7 +243,19 @@ class TTYRec(Task):
                         comm[:16], probe, pid,
                         sec, usec, len(buf)) + buf)
                 self._buffer.append(packet)
+
+                fire_event = False
+
+                if not self._dirty:
+                    fire_event = True
+
                 self._dirty = True
+
+                try:
+                    if fire_event and self._event_id is not None:
+                        self.broadcast_event(self._event_id)
+                except Exception:
+                    pass
 
     @property
     def results(self):

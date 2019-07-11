@@ -538,7 +538,11 @@ class PupyConnection(Connection):
             t.daemon = True
             t.start()
 
-            self._init_service()
+            try:
+                self._init_service()
+            except AttributeError:
+                # Connection was broken in the middle
+                pass
         else:
             logger.debug('Local root is absent')
 

@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
 
+__all__ = (
+    'get_proxies', 'find_default_proxy',
+    'get_proxy_for_address', 'set_proxy_unavailable',
+    'has_wpad', 'parse_proxy', 'find_proxies',
+    'find_proxies_for_transport', 'ProxyInfo',
+    'connect_client_with_proxy_info',
+    'CHECK_CONNECTIVITY_URL'
+)
+
+
 import re
 import os
 import time
@@ -450,6 +460,10 @@ def find_auth(proxy_info):
     if proxy_info.username or proxy_info.password:
         return
 
+    if proxy_info.addr is None:
+        # DIRECT for example
+        return
+
     port = None
     cred = None
 
@@ -504,10 +518,16 @@ def find_proxies(url=None, auth=True):
 
 def make_args_for_transport_info(transport_info, host_info, chain):
 
-    chost, cport = host_info
+    chost, cport, chostname = host_info
     transport_args = transport_info.transport_args.copy()
     client_args = transport_info.client_args.copy()
     client = transport_info.transport.client
+
+    if chostname is not None and chostname != chost:
+        if ':' in chostname:
+            chostname = '[' + chostname + ']'
+
+        transport_args['host'] = chostname
 
     if not chain:
         return ProxyInfo(
@@ -557,16 +577,20 @@ def find_proxies_for_transport(
         transport_info, host_info,
         lan_proxies=None, wan_proxies=None, auto=True, wpad=True, direct=True):
 
-    host, port = host_info
+    host, port, _ = host_info
     wpad_uri = None
     parsed_wan_proxies = list(_parse_proxies(wan_proxies))
     dups = set()
 
     if auto:
         if wpad:
-            wpad_uri = 'tcp://{}:{}'.format(host, port)
+            uri_host = host
+            if ':' in host:
+                uri_host = '[' + host + ']'
+            wpad_uri = 'tcp://{}:{}'.format(uri_host, port)
             if 'HTTP' in transport_info.transport.internal_proxy_impl:
-                wpad_uri = 'http://{}:{}'.format(host, port)
+                wpad_uri = 'http://{}{}'.format(
+                    uri_host, ':{}'.format(port) if port != 80 else '')
 
         for lan_proxy in find_proxies(wpad_uri):
             chain = []
@@ -629,13 +653,3 @@ def connect_client_with_proxy_info(transport_info, proxy_info):
     )
 
     return stream
-
-
-__all__ = (
-    get_proxies, find_default_proxy,
-    get_proxy_for_address, set_proxy_unavailable,
-    has_wpad, parse_proxy, find_proxies,
-    find_proxies_for_transport, ProxyInfo,
-    connect_client_with_proxy_info,
-    CHECK_CONNECTIVITY_URL
-)

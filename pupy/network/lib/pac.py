@@ -1,5 +1,11 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = (
+    'get_proxy_for_address', 'set_proxy_unavailable',
+    'refresh_pac_player'
+)
+
+
 from dukpy import JSInterpreter, JSRuntimeError
 from urlparse import urlparse
 from urllib2 import URLError
@@ -296,7 +302,8 @@ class PACPlayer(object):
             '{}/{}'.format(network, mask))
 
     def myIpAddress(self):
-        return self.internal_ip
+        if self.internal_ip:
+            return str(self.internal_ip)
 
     def isResolvable(self, host):
         try:
@@ -317,9 +324,3 @@ class PACPlayer(object):
 
     def alert(self, *args):
         dprint(' '.join(str(x) if type(x) is not unicode else x for x in args))
-
-
-__all__ = (
-    get_proxy_for_address, set_proxy_unavailable,
-    refresh_pac_player
-)

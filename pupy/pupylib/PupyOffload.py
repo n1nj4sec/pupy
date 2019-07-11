@@ -198,7 +198,7 @@ class PupyOffloadAcceptor(object):
                     conninfo['rhost'], conninfo['rport']
                 ), (conninfo['rhost'], conninfo['rport'])
 
-            except (socket.error, OSError), e:
+            except (socks.GeneralProxyError, socket.error, OSError), e:
                 if e.errno in COMMON_EXCEPTIONS:
                     logger.error('Acceptor (%s): Lost connection (refused)', self._port)
                     time.sleep(5)
@@ -212,7 +212,7 @@ class PupyOffloadAcceptor(object):
                 continue
 
             except Exception, e:
-                logger.exception('Acceptor (%s): Exception: %s', e)
+                logger.exception('Acceptor (%s): Exception: %s', self._port, e)
                 raise
 
 class PupyOffloadManager(object):
@@ -305,7 +305,10 @@ class PupyOffloadManager(object):
             c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3  * 60)
             c.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
-        c = self._ctx.wrap_socket(c)
+        try:
+            c = self._ctx.wrap_socket(c)
+        except (socks.GeneralProxyError, EOFError, ssl.SSLError, socket.error):
+            raise EOFError('Failure during communication with offload server')
 
         m = MsgPackMessages(c)
         m.send({

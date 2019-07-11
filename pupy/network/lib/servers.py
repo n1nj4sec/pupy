@@ -241,6 +241,8 @@ class PupyUDPServer(object):
             self.ping_interval = None
             self.ping_timeout = None
 
+        self.ipv6 = kwargs.get('ipv6', False)
+
         self.authenticator = kwargs.get('authenticator', None)
         self.protocol_config = kwargs.get('protocol_config', {})
         self.service = service
@@ -274,7 +276,7 @@ class PupyUDPServer(object):
                     'UDP',
                     self.port,
                     intIP=self.host if self.host and self.host not in (
-                        '', '0.0.0.0', 'igd'
+                        '', '::', '0.0.0.0', 'igd'
                     ) else None,
                     desc='pupy'
                 )
@@ -299,9 +301,11 @@ class PupyUDPServer(object):
         if not self.host:
             self.host = None
 
+        family = socket.AF_INET6 if self.ipv6 else socket.AF_INET
+
         last_exc = None
         for res in socket.getaddrinfo(
-                self.host, self.port, socket.AF_UNSPEC,
+                self.host, self.port, family,
                 socket.SOCK_DGRAM, 0, socket.AI_PASSIVE):
 
             af, socktype, proto, canonname, sa = res

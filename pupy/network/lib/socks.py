@@ -69,7 +69,10 @@ import os
 from collections import Callable
 from base64 import b64encode
 
-from http_parser.parser import HttpParser
+try:
+    from http_parser.parser import HttpParser
+except ImportError:
+    from http_parser.pyparser import HttpParser
 
 from ntlm import ntlm
 from .netcreds import find_first_cred
@@ -84,7 +87,6 @@ if os.name == 'nt':
         raise ImportError('To run PySocks under windows you need to install win_inet_pton')
 else:
     import socket
-
 
 PROXY_TYPE_SOCKS4 = SOCKS4 = 1
 PROXY_TYPE_SOCKS5 = SOCKS5 = 2

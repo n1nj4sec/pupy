@@ -200,10 +200,13 @@ def internal_ip(check='8.8.8.8'):
     try:
         s.connect((check, 123))
         ip = s.getsockname()[0]
-        s.close()
-        return ip
+        return netaddr.IPAddress(ip)
+
     except socket.error:
         pass
+
+    finally:
+        s.close()
 
 def external_ip(force_ipv4=False):
     global LAST_EXTERNAL_IP, LAST_EXTERNAL_IP_TIME

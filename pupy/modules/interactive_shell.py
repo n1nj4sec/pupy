@@ -3,6 +3,7 @@
 import sys
 import os
 import rpyc
+from argparse import REMAINDER
 
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
@@ -34,7 +35,7 @@ class InteractiveShell(PupyModule):
         cls.arg_parser.add_argument('-R', default='asciinema', dest='recorder',
                                          choices=['ttyrec', 'asciinema', 'asciinema1', 'none'],
                                          help="Change tty recorder")
-        cls.arg_parser.add_argument('program', nargs='?', help='Execute in shell')
+        cls.arg_parser.add_argument('program', nargs=REMAINDER, help='Execute in shell')
 
     def init(self, args):
         if args.recorder == 'none':
@@ -72,8 +73,10 @@ class InteractiveShell(PupyModule):
         acquire_shell = self.client.remote('ptyshell', 'acquire', False)
         release_shell = self.client.remote('ptyshell', 'release', False)
 
+        cmdline = ' '.join(args.program)
+
         try:
-            new, ps = acquire_shell(args.program, term, args.su)
+            new, ps = acquire_shell(cmdline, term, args.su)
         except Exception as e:
             self.error(' '.join(x for x in e.args if type(x) == str))
             return

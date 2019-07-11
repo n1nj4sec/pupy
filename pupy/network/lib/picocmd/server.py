@@ -9,6 +9,8 @@ __all__ = (
     'DnsNoCommandServerException',
     'DnsPingRequest',
     'DnsCommandServerException',
+
+    'SessionDependedCommand'
 )
 
 import struct
@@ -48,9 +50,11 @@ from picocmd import (
     Exit, ConnectablePort, PortQuizPort,
     Policy, Kex, SystemInfo,
     PupyState,
+    SystemInfoEx, AddressTable,
     Error, ParcelInvalidCrc,
     ParcelInvalidPayload,
     Parcel, PackError, CustomEvent,
+    PayloadTooBig,
     from_bytes
 )
 
@@ -68,14 +72,67 @@ def convert_node(node):
     except:
         return int(node, 16)
 
+
 class DeprecatedVersion(Exception):
     pass
+
 
 class UnknownVersion(Exception):
     pass
 
+
 class NodeBlocked(Exception):
     pass
+
+
+class SessionDependedCommand(object):
+    __slots__ = ('rules', 'default')
+
+    def __init__(self, default, *rules):
+        self.rules = rules
+        self.default = default
+
+    def add_to_session(self, session):
+        amount = 0
+
+        if self.rules:
+            for rule in self.rules:
+                if isinstance(rule, (tuple, list)):
+                    min_version, commands = rule
+                    if session.system_info_version is not None and \
+                            session.system_info_version >= min_version:
+                        if hasattr(commands, '__iter__'):
+                            for command in commands:
+                                session.add_command(command)
+                                amount += 1
+                        else:
+                            session.add_command(commands)
+                            amount = 1
+
+                        return amount
+                else:
+                    result = rule(session)
+                    if result is not None:
+                        if hasattr(result, '__iter__'):
+                            for command in result:
+                                session.add_command(command)
+                                amount += 1
+                        else:
+                            session.add_command(result)
+                            amount = 1
+
+                        return amount
+
+        if hasattr(self.default, '__iter__'):
+            for command in self.default:
+                session.add_command(command)
+                amount += 1
+        else:
+            session.add_command(self.default)
+            amount = 1
+
+        return amount
+
 
 class ExpirableObject(object):
 
@@ -109,6 +166,7 @@ class ExpirableObject(object):
     def bump(self):
         self._last_access = time.time()
         self._additional_timeout = 0
+
 
 class Node(ExpirableObject):
     __slots__ = (
@@ -154,6 +212,7 @@ class Node(ExpirableObject):
         return '{{NODE:{:012X} IID:{} CID:{:08X} ALERT:{} COMMANDS:{}}}'.format(
             self.node, self.iid, self.cid, self.alert, len(self.commands))
 
+
 class Session(ExpirableObject):
 
     __slots__ = (
@@ -161,6 +220,7 @@ class Session(ExpirableObject):
         'system_info', 'system_status', 'online_status',
         'open_ports', 'egress_ports', 'commands',
         'last_nonce', 'last_qname', 'pstore_dirty', 'connected',
+        'system_info_version', 'registered_hosts',
         'cache', '_encoder',
         '_pstore_dirty_reported', '_users_cnt_reported',
         '_high_resource_usage_reported', '_user_active_reported'
@@ -174,6 +234,7 @@ class Session(ExpirableObject):
         self.node = node
         self.cid = cid
         self.spi = spi
+        self.system_info_version = None
         self.system_info = None
         self.system_status = None
         self.online_status = None
@@ -185,6 +246,7 @@ class Session(ExpirableObject):
         self.pstore_dirty = False
         self.connected = False
         self.cache = {}
+        self.registered_hosts = AddressTable()
 
         self._pstore_dirty_reported = False
         self._users_cnt_reported = None
@@ -206,11 +268,14 @@ class Session(ExpirableObject):
             self.spi, self.system_info or ''
         )
 
+
 class DnsNoCommandServerException(Exception):
     pass
 
+
 class DnsPingRequest(Exception):
     pass
+
 
 class DnsCommandServerException(Exception):
 
@@ -232,6 +297,7 @@ class DnsCommandServerException(Exception):
 
     def __repr__(self):
         return repr(self.error)
+
 
 class DnsCommandServerHandler(BaseResolver):
     ENCODER_V1 = 0
@@ -358,6 +424,9 @@ class DnsCommandServerHandler(BaseResolver):
 
     @locked
     def add_command(self, command, session=None, default=False):
+        if not isinstance(command, SessionDependedCommand):
+            command = SessionDependedCommand(command)
+
         if default and session:
             nodes = session
 
@@ -374,19 +443,19 @@ class DnsCommandServerHandler(BaseResolver):
                 if node.node in nodes_with_sessions:
                     continue
 
-                node.add_command(command)
+                node.add_command(command.default)
 
             for nodeid in nodes:
                 if nodeid not in self.node_commands:
                     self.node_commands[nodeid] = []
 
-                self.node_commands[nodeid].append(command)
+                self.node_commands[nodeid].append(command.default)
                 idx += 1
 
             return idx
 
         if default:
-            self.commands.append(command)
+            self.commands.append(command.default)
 
         if session:
             sessions = self.find_sessions(spi=session) or \
@@ -398,17 +467,17 @@ class DnsCommandServerHandler(BaseResolver):
             count = 0
             if type(sessions) in (list, tuple):
                 for session in sessions:
-                    session.add_command(command)
+                    command.add_to_session(session)
                     count += 1
             else:
                 count = 1
-                sessions.add_command(command)
+                command.add_to_session(sessions)
 
             return count
         else:
             count = 0
             for session in self.find_sessions():
-                session.add_command(command)
+                command.add_to_session(session)
                 count += 1
 
             return count
@@ -624,10 +693,9 @@ class DnsCommandServerHandler(BaseResolver):
         max_payload_len = self.max_payload_len(qname_len, 4)
 
         if len(payload) > max_payload_len:
-            raise ValueError(
-                'Page size more than {} bytes ({})'.format(
-                    max_payload_len,
-                    len(payload)))
+            raise PayloadTooBig(
+                'Page size more than {max_len} bytes ({required_len})',
+                len(payload), max_payload_len)
 
         response = []
 
@@ -647,14 +715,18 @@ class DnsCommandServerHandler(BaseResolver):
 
         max_payload_len = self.max_payload_len(qname_len, 4)
 
+        if len(data) > 0xFF:
+            raise PayloadTooBig(
+                'Payload size more than {max_len} bytes ({required_len})',
+                len(data), 0xFF)
+
         length = struct.pack('B', len(data))
         payload = length + data
 
         if len(payload) > max_payload_len:
-            raise ValueError(
-                'Page size more than {} bytes ({})'.format(
-                    max_payload_len,
-                    len(payload)))
+            raise PayloadTooBig(
+                'Page size more than {max_len} bytes ({required_len})',
+                len(payload), max_payload_len)
 
         response = []
 
@@ -670,8 +742,12 @@ class DnsCommandServerHandler(BaseResolver):
         return response
 
     def _q_page_decoder(self, data):
-        domain = data
-        parts = data.split('.')
+        domain = None
+        parts = []
+
+        if data:
+            domain = data
+            parts = data.split('.')
 
         if len(parts) == 0:
             raise DnsPingRequest(1)
@@ -873,7 +949,6 @@ class DnsCommandServerHandler(BaseResolver):
 
         elif isinstance(command, SystemInfo) and not session:
             extip = str(command.external_ip)
-            commands = []
 
             if not node:
                 with self.lock:
@@ -883,8 +958,6 @@ class DnsCommandServerHandler(BaseResolver):
                         node = self.nodes[(command.node, 0)]
 
                     node.bump()
-
-                    commands = node.commands or [SystemInfo()]
 
             logger.debug('SystemStatus + No session + node_commands: %s/%s in %s?',
                 node, extip, node.commands)
@@ -929,9 +1002,11 @@ class DnsCommandServerHandler(BaseResolver):
 
             return [Ack(1)]
 
-        elif isinstance(command, SystemInfo) and session is not None:
+        elif isinstance(command, (SystemInfo, SystemInfoEx)) and session is not None:
             new_session = not bool(session.system_info)
             session.system_info = command.get_dict()
+            if isinstance(command, SystemInfoEx):
+                session.system_info_version = command.version
 
             if not node:
                 with self.lock:
@@ -942,7 +1017,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                     node.bump()
 
-                    commands = node.commands or [SystemInfo()]
+                    commands = node.commands or [Ack(1)]
 
             if new_session:
                 self.on_new_session(session)
@@ -1017,6 +1092,14 @@ class DnsCommandServerHandler(BaseResolver):
         node = None
 
         version = 1
+
+        page_encoder = None
+        if qtype == QTYPE.A:
+            page_encoder = self._a_page_encoder
+        elif qtype == QTYPE.AAAA:
+            page_encoder = self._aaaa_page_encoder
+        else:
+            raise NotImplementedError(qtype)
 
         try:
             request, session, nonce, nodeid, cid, iid, version = \
@@ -1149,6 +1232,9 @@ class DnsCommandServerHandler(BaseResolver):
 
             return None
 
+        if not responses:
+            responses = [Ack()]
+
         logger.debug(
             'responses=%s session=%s',
             responses,
@@ -1157,29 +1243,37 @@ class DnsCommandServerHandler(BaseResolver):
 
         encoder = self.encoder_from_session(session, version)
         gen_csum = encoder.gen_csum if version > 1 else None
+        total = len(responses)
 
-        try:
-            payload = Parcel(*responses).pack(nonce, gen_csum)
-        except PackError, e:
-            emsg = 'Could not create parcel from commands: {} (session={})'.format(
-                e, '{:08x}'.format(session.spi) if session else None)
+        for postpone in xrange(total):
+            to_send = responses[:total-postpone]
 
-            logger.error(emsg)
+            try:
+                payload = Parcel(to_send).pack(nonce, gen_csum)
+            except PackError, e:
+                emsg = 'Could not create parcel from commands: {} (session={})'.format(
+                    e, '{:08x}'.format(session.spi) if session else None)
 
-            if node:
-                node.warning = emsg
+                logger.error(emsg)
 
-            return None
+                if node:
+                    node.warning = emsg
 
-        page_encoder = None
-        if qtype == QTYPE.A:
-            page_encoder = self._a_page_encoder
-        elif qtype == QTYPE.AAAA:
-            page_encoder = self._aaaa_page_encoder
-        else:
-            raise NotImplementedError(qtype)
+                return None
 
-        return page_encoder(payload, encoder, nonce, qname)
+            try:
+
+                encoded = page_encoder(payload, encoder, nonce, qname)
+                if postpone:
+                    logger.debug('Postponed %d commands', postpone)
+
+                return encoded
+
+            except PayloadTooBig as e:
+                if session is None and node is None:
+                    break
+
+        raise PackError('Unable to pack payload')
 
     def _kex_is_disabled(self, node):
         return False
