@@ -5,7 +5,6 @@ __all__ = (
     'GOOGLE', 'CLOUDFLARE', 'QUAD9', 'QUAD9_IP'
 )
 
-from urllib import urlencode
 from json import loads
 
 import tinyhttp
