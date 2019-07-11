@@ -24,7 +24,7 @@ COPY ./external/pykcp /opt/external/pykcp
 
 RUN cd /opt && pip install --no-cache-dir --upgrade -r requirements.txt && rm -rf /opt && mkdir -p /opt/pupy
 
-ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20190504/mimikatz_trunk.zip \
+ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20190710/mimikatz_trunk.zip \
 	/opt/mimikatz/mimikatz.zip
 
 RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
