@@ -25,18 +25,18 @@ int __futex_wake(volatile void *ftx, int count);
  */
 LOCK * lock_create( VOID )
 {
-	LOCK * lock = (LOCK *)malloc( sizeof( LOCK ) );
-	if( lock != NULL )
-	{
-		memset( lock, 0, sizeof( LOCK ) );
+    LOCK * lock = (LOCK *)malloc( sizeof( LOCK ) );
+    if( lock != NULL )
+    {
+        memset( lock, 0, sizeof( LOCK ) );
 
 #ifdef _WIN32
-		lock->handle = CreateMutex( NULL, FALSE, NULL );
+        lock->handle = CreateMutex( NULL, FALSE, NULL );
 #else
-		pthread_mutex_init(lock->handle, NULL);
+        pthread_mutex_init(lock->handle, NULL);
 #endif
-	}
-	return lock;
+    }
+    return lock;
 }
 
 /*
@@ -44,18 +44,18 @@ LOCK * lock_create( VOID )
  */
 VOID lock_destroy( LOCK * lock )
 {
-	if( lock != NULL  )
-	{
-		lock_release( lock );
+    if( lock != NULL  )
+    {
+        lock_release( lock );
 
 #ifdef _WIN32
-		CloseHandle( lock->handle );
+        CloseHandle( lock->handle );
 #else
-		pthread_mutex_destroy(lock->handle);
+        pthread_mutex_destroy(lock->handle);
 #endif
 
-		free( lock );
-	}
+        free( lock );
+    }
 }
 
 /*
@@ -63,13 +63,13 @@ VOID lock_destroy( LOCK * lock )
  */
 VOID lock_acquire( LOCK * lock )
 {
-	if( lock != NULL  ) {
+    if( lock != NULL  ) {
 #ifdef _WIN32
-		WaitForSingleObject( lock->handle, INFINITE );
+        WaitForSingleObject( lock->handle, INFINITE );
 #else
-		pthread_mutex_lock(lock->handle);
+        pthread_mutex_lock(lock->handle);
 #endif
-	}
+    }
 }
 
 /*
@@ -77,13 +77,13 @@ VOID lock_acquire( LOCK * lock )
  */
 VOID lock_release( LOCK * lock )
 {
-	if( lock != NULL  ) {
+    if( lock != NULL  ) {
 #ifdef _WIN32
-		ReleaseMutex( lock->handle );
+        ReleaseMutex( lock->handle );
 #else
-		pthread_mutex_unlock(lock->handle);
+        pthread_mutex_unlock(lock->handle);
 #endif
-	}
+    }
 }
 
 /*****************************************************************************************/
@@ -93,24 +93,24 @@ VOID lock_release( LOCK * lock )
  */
 EVENT * event_create( VOID )
 {
-	EVENT * event = NULL;
+    EVENT * event = NULL;
 
-	event = (EVENT *)malloc( sizeof( EVENT ) );
-	if( event == NULL )
-		return NULL;
+    event = (EVENT *)malloc( sizeof( EVENT ) );
+    if( event == NULL )
+        return NULL;
 
-	memset( event, 0, sizeof( EVENT ) );
+    memset( event, 0, sizeof( EVENT ) );
 
 #ifdef _WIN32
-	event->handle = CreateEvent( NULL, FALSE, FALSE, NULL );
-	if( event->handle == NULL )
-	{
-		free( event );
-		return NULL;
-	}
+    event->handle = CreateEvent( NULL, FALSE, FALSE, NULL );
+    if( event->handle == NULL )
+    {
+        free( event );
+        return NULL;
+    }
 #endif
 
-	return event;
+    return event;
 }
 
 /*
@@ -118,16 +118,16 @@ EVENT * event_create( VOID )
  */
 BOOL event_destroy( EVENT * event )
 {
-	if( event == NULL )
-		return FALSE;
+    if( event == NULL )
+        return FALSE;
 
 #ifdef _WIN32
-	CloseHandle( event->handle );
+    CloseHandle( event->handle );
 #endif
 
-	free( event );
+    free( event );
 
-	return TRUE;
+    return TRUE;
 }
 
 /*
@@ -135,21 +135,21 @@ BOOL event_destroy( EVENT * event )
  */
 BOOL event_signal( EVENT * event )
 {
-	if( event == NULL )
-		return FALSE;
+    if( event == NULL )
+        return FALSE;
 
 #ifdef _WIN32
-	//dprintf( "Signalling 0x%x", event->handle );
-	if( SetEvent( event->handle ) == 0 ) {
-		//dprintf( "Signalling 0x%x failed %u", event->handle, GetLastError() );
-		return FALSE;
-	}
+    //dprintf( "Signalling 0x%x", event->handle );
+    if( SetEvent( event->handle ) == 0 ) {
+        //dprintf( "Signalling 0x%x failed %u", event->handle, GetLastError() );
+        return FALSE;
+    }
 #else
-	event->handle = (HANDLE)1;
-	__futex_wake(&(event->handle), 1);
+    event->handle = (HANDLE)1;
+    __futex_wake(&(event->handle), 1);
 #endif
 
-	return TRUE;
+    return TRUE;
 }
 
 /*
@@ -159,51 +159,51 @@ BOOL event_signal( EVENT * event )
 BOOL event_poll( EVENT * event, DWORD timeout )
 {
 #ifdef _WIN32
-	if( event == NULL )
-		return FALSE;
+    if( event == NULL )
+        return FALSE;
 
-	if( WaitForSingleObject( event->handle, timeout ) == WAIT_OBJECT_0 )
-		return TRUE;
+    if( WaitForSingleObject( event->handle, timeout ) == WAIT_OBJECT_0 )
+        return TRUE;
 
-	return FALSE;
+    return FALSE;
 #else
-	BOOL result = FALSE;
+    BOOL result = FALSE;
 
-	// DWORD WINAPI WaitForSingleObject(
-	// __in  HANDLE hHandle,
-	// __in  DWORD dwMilliseconds
-	// );
-	// http://msdn.microsoft.com/en-us/library/ms687032(VS.85).aspx
+    // DWORD WINAPI WaitForSingleObject(
+    // __in  HANDLE hHandle,
+    // __in  DWORD dwMilliseconds
+    // );
+    // http://msdn.microsoft.com/en-us/library/ms687032(VS.85).aspx
 
-	if( event == NULL )
-		return FALSE;
+    if( event == NULL )
+        return FALSE;
 
-	if(timeout) {
-		struct timespec ts;
+    if(timeout) {
+        struct timespec ts;
 
-		// XXX, need to verify for -1. below modified from bionic/pthread.c
-		// and maybe loop if needed ;\
+        // XXX, need to verify for -1. below modified from bionic/pthread.c
+        // and maybe loop if needed ;\
 
-		ts.tv_sec = timeout / 1000;
-		ts.tv_nsec = (timeout%1000)*1000000;
-		if (ts.tv_nsec >= 1000000000) {
-			ts.tv_sec++;
-			ts.tv_nsec -= 1000000000;
-		}
+        ts.tv_sec = timeout / 1000;
+        ts.tv_nsec = (timeout%1000)*1000000;
+        if (ts.tv_nsec >= 1000000000) {
+            ts.tv_sec++;
+            ts.tv_nsec -= 1000000000;
+        }
 
-		// atomically checks if event->handle is 0, if so,
-		// it sleeps for timeout. if event->handle is 1, it
-		// returns straight away.
+        // atomically checks if event->handle is 0, if so,
+        // it sleeps for timeout. if event->handle is 1, it
+        // returns straight away.
 
-		__futex_wait(&(event->handle), 0, &ts);
-	}
+        __futex_wait(&(event->handle), 0, &ts);
+    }
 
-	// We should behave like an auto-reset event
-	result = event->handle ? TRUE : FALSE;
-	if( result )
-		event->handle = (HANDLE)0;
+    // We should behave like an auto-reset event
+    result = event->handle ? TRUE : FALSE;
+    if( result )
+        event->handle = (HANDLE)0;
 
-	return result;
+    return result;
 #endif
 }
 
@@ -214,83 +214,83 @@ BOOL event_poll( EVENT * event, DWORD timeout )
  */
 THREAD * thread_open( VOID )
 {
-	THREAD * thread        = NULL;
+    THREAD * thread        = NULL;
 #ifdef _WIN32
-	OPENTHREAD pOpenThread = NULL;
-	HMODULE hKernel32      = NULL;
+    OPENTHREAD pOpenThread = NULL;
+    HMODULE hKernel32      = NULL;
 
 
-	thread = (THREAD *)malloc( sizeof( THREAD ) );
-	if( thread != NULL )
-	{
-		memset( thread, 0, sizeof(THREAD) );
+    thread = (THREAD *)malloc( sizeof( THREAD ) );
+    if( thread != NULL )
+    {
+        memset( thread, 0, sizeof(THREAD) );
 
-		thread->id      = GetCurrentThreadId();
-		thread->sigterm = event_create();
+        thread->id      = GetCurrentThreadId();
+        thread->sigterm = event_create();
 
-		// Windows specific process of opening a handle to the current thread which
-		// works on NT4 up. We only want THREAD_TERMINATE|THREAD_SUSPEND_RESUME access
-		// for now.
+        // Windows specific process of opening a handle to the current thread which
+        // works on NT4 up. We only want THREAD_TERMINATE|THREAD_SUSPEND_RESUME access
+        // for now.
 
-		// First we try to use the normal OpenThread function, available on Windows 2000 and up...
-		hKernel32 = LoadLibrary( "kernel32.dll" );
-		pOpenThread = (OPENTHREAD)GetProcAddress( hKernel32, "OpenThread" );
-		if( pOpenThread )
-		{
-			thread->handle = pOpenThread( THREAD_TERMINATE|THREAD_SUSPEND_RESUME, FALSE, thread->id );
-		}
-		else
-		{
-			NTOPENTHREAD pNtOpenThread = NULL;
-			// If we can't use OpenThread, we try the older NtOpenThread function as found on NT4 machines.
-			HMODULE hNtDll = LoadLibrary( "ntdll.dll" );
-			pNtOpenThread = (NTOPENTHREAD)GetProcAddress( hNtDll, "NtOpenThread" );
-			if( pNtOpenThread )
-			{
-				_OBJECT_ATTRIBUTES oa = {0};
-				_CLIENT_ID cid        = {0};
+        // First we try to use the normal OpenThread function, available on Windows 2000 and up...
+        hKernel32 = LoadLibrary( "kernel32.dll" );
+        pOpenThread = (OPENTHREAD)GetProcAddress( hKernel32, "OpenThread" );
+        if( pOpenThread )
+        {
+            thread->handle = pOpenThread( THREAD_TERMINATE|THREAD_SUSPEND_RESUME, FALSE, thread->id );
+        }
+        else
+        {
+            NTOPENTHREAD pNtOpenThread = NULL;
+            // If we can't use OpenThread, we try the older NtOpenThread function as found on NT4 machines.
+            HMODULE hNtDll = LoadLibrary( "ntdll.dll" );
+            pNtOpenThread = (NTOPENTHREAD)GetProcAddress( hNtDll, "NtOpenThread" );
+            if( pNtOpenThread )
+            {
+                _OBJECT_ATTRIBUTES oa = {0};
+                _CLIENT_ID cid        = {0};
 
-				cid.UniqueThread = (PVOID)thread->id;
+                cid.UniqueThread = (PVOID)thread->id;
 
-				pNtOpenThread( &thread->handle, THREAD_TERMINATE|THREAD_SUSPEND_RESUME, &oa, &cid );
-			}
+                pNtOpenThread( &thread->handle, THREAD_TERMINATE|THREAD_SUSPEND_RESUME, &oa, &cid );
+            }
 
-			FreeLibrary( hNtDll );
-		}
+            FreeLibrary( hNtDll );
+        }
 
-		FreeLibrary( hKernel32 );
-	}
+        FreeLibrary( hKernel32 );
+    }
 
-	return thread;
+    return thread;
 #else
-	thread = (THREAD *)malloc( sizeof( THREAD ) );
+    thread = (THREAD *)malloc( sizeof( THREAD ) );
 
-	if( thread != NULL )
-	{
-		memset( thread, 0, sizeof(THREAD) );
+    if( thread != NULL )
+    {
+        memset( thread, 0, sizeof(THREAD) );
 
-		thread->id      = gettid();
-		thread->sigterm = event_create();
-		thread->pid	= pthread_self();
-	}
-	return thread;
+        thread->id      = gettid();
+        thread->sigterm = event_create();
+        thread->pid	= pthread_self();
+    }
+    return thread;
 #endif
 }
 
 #ifndef _WIN32
 
 struct thread_conditional {
-	pthread_mutex_t suspend_mutex;
-	pthread_cond_t suspend_cond;
-	int engine_running;
-	LPVOID (*funk)(void *arg);
-	THREAD *thread;
+    pthread_mutex_t suspend_mutex;
+    pthread_cond_t suspend_cond;
+    int engine_running;
+    LPVOID (*funk)(void *arg);
+    THREAD *thread;
 };
 
 void __thread_cancelled(int signo)
 {
-	signal(SIGTERM, SIG_DFL);
-	pthread_exit(NULL);
+    signal(SIGTERM, SIG_DFL);
+    pthread_exit(NULL);
 }
 
 /*
@@ -302,34 +302,34 @@ void __thread_cancelled(int signo)
 
 void *__paused_thread(void *req)
 {
-	LPVOID (*funk)(void *arg);
-	THREAD *thread;
+    LPVOID (*funk)(void *arg);
+    THREAD *thread;
 
-	struct thread_conditional *tc = (struct thread_conditional *)(req);
-	tc->thread->id = gettid();
+    struct thread_conditional *tc = (struct thread_conditional *)(req);
+    tc->thread->id = gettid();
 
-	signal(SIGTERM, __thread_cancelled);
+    signal(SIGTERM, __thread_cancelled);
 
-	pthread_mutex_lock(&tc->suspend_mutex);
+    pthread_mutex_lock(&tc->suspend_mutex);
 
-	while(tc->engine_running == FALSE) {
-		pthread_cond_wait(&tc->suspend_cond, &tc->suspend_mutex);
-	}
+    while(tc->engine_running == FALSE) {
+        pthread_cond_wait(&tc->suspend_cond, &tc->suspend_mutex);
+    }
 
-	pthread_mutex_unlock(&tc->suspend_mutex);
+    pthread_mutex_unlock(&tc->suspend_mutex);
 
-	funk = tc->funk;
-	thread = tc->thread;
-	free(tc);
+    funk = tc->funk;
+    thread = tc->thread;
+    free(tc);
 
-	if(event_poll(thread->sigterm, 0) == TRUE) {
-		/*
-		 * In some cases, we might want to stop a thread before it does anything :/
-		 */
-		return NULL;
-	}
+    if(event_poll(thread->sigterm, 0) == TRUE) {
+        /*
+         * In some cases, we might want to stop a thread before it does anything :/
+         */
+        return NULL;
+    }
 
-	return funk(thread);
+    return funk(thread);
 }
 #endif
 
@@ -338,79 +338,79 @@ void *__paused_thread(void *req)
  */
 THREAD * thread_create( THREADFUNK funk, LPVOID param1, LPVOID param2, LPVOID param3 )
 {
-	THREAD * thread = NULL;
+    THREAD * thread = NULL;
 
-	if( funk == NULL )
-		return NULL;
+    if( funk == NULL )
+        return NULL;
 
-	thread = (THREAD *)malloc( sizeof( THREAD ) );
-	if( thread == NULL )
-		return NULL;
+    thread = (THREAD *)malloc( sizeof( THREAD ) );
+    if( thread == NULL )
+        return NULL;
 
-	memset( thread, 0, sizeof( THREAD ) );
+    memset( thread, 0, sizeof( THREAD ) );
 
-	thread->sigterm = event_create();
-	if( thread->sigterm == NULL )
-	{
-		free( thread );
-		return NULL;
-	}
+    thread->sigterm = event_create();
+    if( thread->sigterm == NULL )
+    {
+        free( thread );
+        return NULL;
+    }
 
 
-	thread->parameter1 = param1;
-	thread->parameter2 = param2;
-	thread->parameter3 = param3;
+    thread->parameter1 = param1;
+    thread->parameter2 = param2;
+    thread->parameter3 = param3;
 
 #ifdef _WIN32
-	thread->handle = CreateThread( NULL, 0, funk, thread, CREATE_SUSPENDED, &thread->id );
+    thread->handle = CreateThread( NULL, 0, funk, thread, CREATE_SUSPENDED, &thread->id );
 
-	if( thread->handle == NULL )
-	{
-		event_destroy( thread->sigterm );
-		free( thread );
-		return NULL;
-	}
+    if( thread->handle == NULL )
+    {
+        event_destroy( thread->sigterm );
+        free( thread );
+        return NULL;
+    }
 
 #else
-	// PKS, this is fucky.
-	// we need to use conditionals to implement this.
+    // PKS, this is fucky.
+    // we need to use conditionals to implement this.
 
-	thread->thread_started = FALSE;
+    thread->thread_started = FALSE;
 
-	do {
-		pthread_t pid;
+    do {
+        pthread_t pid;
 
-		struct thread_conditional *tc;
-		tc = (struct thread_conditional *) malloc(sizeof(struct thread_conditional));
+        struct thread_conditional *tc;
+        tc = (struct thread_conditional *) malloc(sizeof(struct thread_conditional));
 
-		if( tc == NULL ) {
-			event_destroy(thread->sigterm);
-			free(thread);
-			return NULL;
-		}
+        if( tc == NULL ) {
+            event_destroy(thread->sigterm);
+            free(thread);
+            return NULL;
+        }
 
-		memset( tc, 0, sizeof(struct thread_conditional));
+        memset( tc, 0, sizeof(struct thread_conditional));
 
-		pthread_mutex_init(&tc->suspend_mutex, NULL);
-		pthread_cond_init(&tc->suspend_cond, NULL);
+        pthread_mutex_init(&tc->suspend_mutex, NULL);
+        pthread_cond_init(&tc->suspend_cond, NULL);
 
-		tc->funk = funk;
-		tc->thread = thread;
+        tc->funk = funk;
+        tc->thread = thread;
 
-		thread->suspend_thread_data = (void *)(tc);
+        thread->suspend_thread_data = (void *)(tc);
 
-		if(pthread_create(&(thread->pid), NULL, __paused_thread, tc) == -1) {
-			free(tc);
-			event_destroy(thread->sigterm);
-			free(thread);
-			return NULL;
-		}
-		// __paused_thread free's the allocated memory.
+        if(pthread_create(&(thread->pid), NULL, __paused_thread, tc) == -1) {
+            free(tc);
+            event_destroy(thread->sigterm);
+            free(thread);
+            return NULL;
+        }
+        // __paused_thread free's the allocated memory.
 
-	} while(0);
+    } while(0);
 #endif
 
-	return thread;
+    return thread;
 }
 
 /*
@@ -418,24 +418,24 @@ THREAD * thread_create( THREADFUNK funk, LPVOID param1, LPVOID param2, LPVOID pa
  */
 BOOL thread_run( THREAD * thread )
 {
-	if( thread == NULL )
-		return FALSE;
+    if( thread == NULL )
+        return FALSE;
 
 #ifdef _WIN32
-	if( ResumeThread( thread->handle ) < 0 )
-		return FALSE;
+    if( ResumeThread( thread->handle ) < 0 )
+        return FALSE;
 
 #else
-	struct thread_conditional *tc;
-	tc = (struct thread_conditional *)thread->suspend_thread_data;
-	pthread_mutex_lock(&tc->suspend_mutex);
-	tc->engine_running = TRUE;
-	pthread_mutex_unlock(&tc->suspend_mutex);
-	pthread_cond_signal(&tc->suspend_cond);
+    struct thread_conditional *tc;
+    tc = (struct thread_conditional *)thread->suspend_thread_data;
+    pthread_mutex_lock(&tc->suspend_mutex);
+    tc->engine_running = TRUE;
+    pthread_mutex_unlock(&tc->suspend_mutex);
+    pthread_cond_signal(&tc->suspend_cond);
 
-	thread->thread_started = TRUE;
+    thread->thread_started = TRUE;
 #endif
-	return TRUE;
+    return TRUE;
 }
 
 /*
@@ -444,26 +444,26 @@ BOOL thread_run( THREAD * thread )
  */
 BOOL thread_sigterm( THREAD * thread )
 {
-	BOOL ret;
+    BOOL ret;
 
-	if( thread == NULL )
-		return FALSE;
+    if( thread == NULL )
+        return FALSE;
 
-	ret = event_signal( thread->sigterm );
+    ret = event_signal( thread->sigterm );
 
 #ifndef _WIN32
-	/*
-	 * If we sig term a thread before it's started execution, we will leak memory / not be
-	 * able to join on the thread, etc.
-	 *
-	 * Therefore, we need to start the thread executing before calling thread_join
-	 */
-	if(thread->thread_started != TRUE) {
-		thread_run(thread);
-	}
+    /*
+     * If we sig term a thread before it's started execution, we will leak memory / not be
+     * able to join on the thread, etc.
+     *
+     * Therefore, we need to start the thread executing before calling thread_join
+     */
+    if(thread->thread_started != TRUE) {
+        thread_run(thread);
+    }
 #endif
 
-	return ret;
+    return ret;
 }
 
 /*
@@ -471,28 +471,28 @@ BOOL thread_sigterm( THREAD * thread )
  */
 BOOL thread_kill( THREAD * thread )
 {
-	if( thread == NULL )
-		return FALSE;
+    if( thread == NULL )
+        return FALSE;
 
 #ifdef _WIN32
-	if( TerminateThread( thread->handle, -1 ) == 0 )
-		return FALSE;
+    if( TerminateThread( thread->handle, -1 ) == 0 )
+        return FALSE;
 
-	return TRUE;
+    return TRUE;
 #else
-	// bionic/libc/bionic/CAVEATS
-	// - pthread cancellation is *not* supported. this seemingly simple "feature" is the source
-	// of much bloat and complexity in a C library. Besides, you'd better write correct
-	// multi-threaded code instead of relying on this stuff.
+    // bionic/libc/bionic/CAVEATS
+    // - pthread cancellation is *not* supported. this seemingly simple "feature" is the source
+    // of much bloat and complexity in a C library. Besides, you'd better write correct
+    // multi-threaded code instead of relying on this stuff.
 
-	// pthread_kill says: Note  that  pthread_kill()  only  causes  the
-	// signal to be handled in the context of the given thread; the signal
-	// action (termination or stopping) affects the process as a whole.
+    // pthread_kill says: Note  that  pthread_kill()  only  causes  the
+    // signal to be handled in the context of the given thread; the signal
+    // action (termination or stopping) affects the process as a whole.
 
-	// We send our thread a SIGTERM, and a signal handler calls pthread_exit().
+    // We send our thread a SIGTERM, and a signal handler calls pthread_exit().
 
-	pthread_kill(thread->id, SIGTERM);
-	return FALSE;
+    pthread_kill(thread->id, SIGTERM);
+    return FALSE;
 #endif
 }
 
@@ -502,19 +502,19 @@ BOOL thread_kill( THREAD * thread )
  */
 BOOL thread_join( THREAD * thread )
 {
-	if( thread == NULL )
-		return FALSE;
+    if( thread == NULL )
+        return FALSE;
 
 #ifdef _WIN32
-	if( WaitForSingleObject( thread->handle, INFINITE ) == WAIT_OBJECT_0 )
-		return TRUE;
+    if( WaitForSingleObject( thread->handle, INFINITE ) == WAIT_OBJECT_0 )
+        return TRUE;
 
-	return FALSE;
+    return FALSE;
 #else
-	if(pthread_join(thread->pid, NULL) == 0)
-		return TRUE;
+    if(pthread_join(thread->pid, NULL) == 0)
+        return TRUE;
 
-	return FALSE;
+    return FALSE;
 #endif
 }
 
@@ -524,19 +524,19 @@ BOOL thread_join( THREAD * thread )
  */
 BOOL thread_destroy( THREAD * thread )
 {
-	if( thread == NULL )
-		return FALSE;
+    if( thread == NULL )
+        return FALSE;
 
-	event_destroy( thread->sigterm );
+    event_destroy( thread->sigterm );
 
 #ifdef _WIN32
-	CloseHandle( thread->handle );
+    CloseHandle( thread->handle );
 #else
-	pthread_detach(thread->pid);
+    pthread_detach(thread->pid);
 #endif
 
-	free( thread );
+    free( thread );
 
-	return TRUE;
+    return TRUE;
 }
 

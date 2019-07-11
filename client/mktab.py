@@ -1,34 +1,31 @@
 # A script to generate helper files for dynamic linking to the Python dll
 #
+import string
 decls = '''
-void, Py_Initialize, (void)
 void, Py_InitializeEx, (int)
-int, PyRun_SimpleString, (char *)
 void, Py_Finalize, (void)
 char *, Py_GetPath, (void)
-void, PySys_SetPath, (char *)
-void, Py_SetPythonHome, (char *)
-void, Py_SetProgramName, (char *)
+void, PySys_SetPath, (const char *)
+void, Py_SetPythonHome, (const char *)
+void, Py_SetProgramName, (const char *)
 PyObject *, PyMarshal_ReadObjectFromString, (char *, Py_ssize_t)
-PyObject *, PyObject_CallFunction, (PyObject *, char *, ...)
 int, PyString_AsStringAndSize, (PyObject *, char **, Py_ssize_t *)
-char *, PyString_AsString, (PyObject *)
-int, PyArg_ParseTuple, (PyObject *, char *, ...)
+const char *, PyString_AsString, (PyObject *)
+int, PyArg_ParseTuple, (PyObject *, const char *, ...)
 PyObject *, PyErr_Format, (PyObject *, const char *, ...)
-PyObject *, PyImport_ImportModule, (char *)
+PyObject *, PyImport_ImportModule, (const char *)
 PyObject *, PyInt_FromLong, (long)
 long, PyInt_AsLong, (PyObject *)
 PyObject *, PyLong_FromVoidPtr, (void *)
-PyObject *, Py_InitModule4, (char *, PyMethodDef *, char *, PyObject *, int)
-PyObject *, PyTuple_New, (Py_ssize_t)
-int, PyTuple_SetItem, (PyObject*, Py_ssize_t, PyObject *)
+PyObject *, Py_InitModule4, (const char *, PyMethodDef *, const char *, PyObject *, int)
 int, Py_IsInitialized, (void)
-int, PyObject_SetAttrString, (PyObject *, char *, PyObject *)
+int, PyObject_SetAttrString, (PyObject *, const char *, PyObject *)
 PyObject *, PyCFunction_NewEx, (PyMethodDef *, PyObject *, PyObject *)
-PyObject *, PyObject_GetAttrString, (PyObject *, char *)
-PyObject *, Py_BuildValue, (char *, ...)
+PyObject *, PyObject_GetAttrString, (PyObject *, const char *)
+PyObject *, Py_BuildValue, (const char *, ...)
 PyObject *, PyObject_Call, (PyObject *, PyObject *, PyObject *)
-void, PySys_WriteStderr, (const char *, ...)
+PyObject *, PyObject_CallFunctionObjArgs, (PyObject *, ...)
+PyObject *, PyObject_CallFunction, (PyObject *, const char *, ...)
 PyObject *, PyErr_Occurred, (void)
 void, PyErr_Fetch, (PyObject **, PyObject **, PyObject **)
 void, PyErr_Clear, (void)
@@ -48,54 +45,50 @@ PyObject *, PyExc_Exception
 PyObject *, PyExc_KeyError
 char *, _Py_PackageContext
 
-PyObject *, PyObject_CallObject, (PyObject *, PyObject *)
-
-PyGILState_STATE, PyGILState_Ensure, (void)
-void, PyGILState_Release, (PyGILState_STATE)
-
-void, PySys_SetObject, (char *, PyObject *)
-PyObject *, PySys_GetObject, (char *)
-PyObject *, PyString_FromString, (const char *)
-int, Py_FdIsInteractive, (FILE *, char *)
-int, PyRun_InteractiveLoop, (FILE *, char *)
-void, PySys_SetArgv, (int, char **)
-PyObject *, PyImport_AddModule, (char *)
-PyObject *, PyModule_GetDict, (PyObject *)
-Py_ssize_t, PySequence_Length, (PyObject *)
-PyObject *, PySequence_GetItem, (PyObject *, Py_ssize_t)
-//int, PyCode_Check, (PyObject *)
-PyObject *, PyEval_EvalCode, (PyCodeObject *, PyObject *, PyObject *)
-void, PyErr_Print, (void)
-PyObject *, PyBool_FromLong, (long)
-int, Py_VerboseFlag
 int, Py_NoSiteFlag
 int, Py_OptimizeFlag
 int, Py_NoUserSiteDirectory
 int, Py_DontWriteBytecodeFlag
 int, Py_IgnoreEnvironmentFlag
+
+PyObject *, PyObject_CallObject, (PyObject *, PyObject *)
+
+PyGILState_STATE, PyGILState_Ensure, (void)
+void, PyGILState_Release, (PyGILState_STATE)
+
+void, PySys_SetObject, (const char *, PyObject *)
+PyObject *, PyString_FromString, (const char *)
+PyObject *, PyImport_AddModule, (const char *)
+PyObject *, PyModule_GetDict, (PyObject *)
+Py_ssize_t, PySequence_Length, (PyObject *)
+PyObject *, PySequence_GetItem, (PyObject *, Py_ssize_t)
+PyObject *, PyEval_EvalCode, (PyCodeObject *, PyObject *, PyObject *)
+PyObject *, PyEval_GetBuiltins, ()
+void, PyErr_Print, (void)
+PyObject *, PyBool_FromLong, (long)
 const char *, Py_FileSystemDefaultEncoding
-PyObject *, PyObject_Str, (PyObject *)
-PyObject *, PyList_New, (Py_ssize_t)
-int, PyList_SetItem, (PyObject *, Py_ssize_t, PyObject *)
-int, PyList_Append, (PyObject *, PyObject *)
-PyObject *, PyThreadState_GetDict, (void)
+PyObject*, PyList_New, (Py_ssize_t)
+PyObject*, PyList_GetItem, (PyObject *, Py_ssize_t)
+PyObject*, PyList_Append, (PyObject *, PyObject *)
 int, PyObject_IsTrue, (PyObject *)
 void, PyErr_SetString, (PyObject *, const char *)
 void, PyEval_InitThreads, (void)
-void, PySys_SetArgvEx, (int, char **, int)
 
 PyObject *, PyFile_FromFile, (FILE *fp, char *name, char *mode, int (*close)(FILE*))
 void, PyFile_SetBufSize, (PyObject *, int)
-PyObject *, PyErr_NewException, (char *name, PyObject *base, PyObject *dict)
+PyObject *, PyErr_NewException, (const char *name, PyObject *base, PyObject *dict)
 int, PyModule_AddObject, (PyObject *, const char *, PyObject *)
 int, PyModule_AddStringConstant, (PyObject *module, const char *name, const char *value)
 
 PyObject*, PyDict_New, ()
 PyObject*, PyString_FromStringAndSize, (const char *v, Py_ssize_t len)
+int, PyDict_Update, (PyObject *a, PyObject *b)
 int, PyDict_SetItem, (PyObject *p, PyObject *key, PyObject *val)
+int, PyDict_SetItemString, (PyObject *, const char *, PyObject *)
+int, PyDict_DelItem, (PyObject *a, PyObject *b)
+PyObject*, PyDict_GetItemString, (PyObject *p, const char *key)
 '''.strip().splitlines()
 
-import string
 
 hfile = open("import-tab.h", "w")
 cfile = open("import-tab.c", "w")
@@ -108,11 +101,13 @@ for decl in decls:
     if len(items) == 3:
         # exported function with argument list
         restype, name, argtypes = map(string.strip, items)
-        print >> hfile, '#define %(name)s ((%(restype)s(*)%(argtypes)s)imports[%(index)d].proc)' % locals()
+        print >> hfile, '#define %(name)s ((%(restype)s(*)%(argtypes)s)py_sym_table[%(index)d].proc)' % locals(
+        )
     elif len(items) == 2:
         # exported data
         typ, name = map(string.strip, items)
-        print >> hfile, '#define %(name)s (*(%(typ)s(*))imports[%(index)s].proc)' % locals()
+        print >> hfile, '#define %(name)s (*(%(typ)s(*))py_sym_table[%(index)s].proc)' % locals(
+        )
     else:
         raise ValueError, "could not parse %r" % decl
     if name == "Py_InitModule4":

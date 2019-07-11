@@ -24,17 +24,11 @@
  *
  */
 
-#ifdef DEBUG
-#define DEBUG_OUTPUT
-#endif
-
 #include <windows.h>
 #include <winnt.h>
 #include <stddef.h>
 #include <tchar.h>
-#ifdef DEBUG_OUTPUT
-#include <stdio.h>
-#endif
+#include "debug.h"
 
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 // Vista SDKs no longer define IMAGE_SIZEOF_BASE_RELOCATION!?
@@ -436,7 +430,7 @@ static void _FreeLibrary(HCUSTOMMODULE module, void *userdata)
 #if defined(_WIN64)
 BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
 {
-	UINT_PTR uiLibraryAddress = 0;
+    UINT_PTR uiLibraryAddress = 0;
     UINT_PTR uiAddressArray = 0;
     UINT_PTR uiNameArray    = 0;
     UINT_PTR uiNameOrdinals = 0;
@@ -447,8 +441,8 @@ BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
     BOOL bResult;
     unsigned char *codeBase = pModule->codeBase;
 
-	if( pModule == NULL )
-		return FALSE;
+    if( pModule == NULL )
+        return FALSE;
 
     pDataDirectory = GET_HEADER_DICTIONARY(pModule, IMAGE_DIRECTORY_ENTRY_EXCEPTION);
 
@@ -485,7 +479,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     unsigned char *code, *headers;
     SIZE_T locationDelta;
     SYSTEM_INFO sysInfo;
-	HMODULE hModule;
+    HMODULE hModule;
 
     dos_header = (PIMAGE_DOS_HEADER)data;
     if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
@@ -548,12 +542,12 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     result->freeLibrary = freeLibrary;
     result->userdata = userdata;
 
-	hModule = LoadLibrary ("kernel32.dll");
-	if (hModule) {
-		int (WINAPI *GetNativeSystemInfo) (SYSTEM_INFO *systemInfo);
-		GetNativeSystemInfo = (void *) GetProcAddress (hModule, "GetNativeSystemInfo");
-		GetNativeSystemInfo(&sysInfo);
-	}
+    hModule = LoadLibrary ("kernel32.dll");
+    if (hModule) {
+        int (WINAPI *GetNativeSystemInfo) (SYSTEM_INFO *systemInfo);
+        GetNativeSystemInfo = (void *) GetProcAddress (hModule, "GetNativeSystemInfo");
+        GetNativeSystemInfo(&sysInfo);
+    }
     result->pageSize = sysInfo.dwPageSize;
 
     // commit memory for headers
@@ -587,13 +581,6 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
         goto error;
     }
 
-#if defined(_WIN64)
-    // Enable exceptions
-    if (!RegisterExceptionTable(result)) {
-        goto error;
-    }
-#endif
-
     // mark memory pages depending on section headers and release
     // sections that are marked as "discardable"
     if (!FinalizeSections(result)) {
@@ -604,6 +591,13 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     if (!ExecuteTLS(result)) {
         goto error;
     }
+
+#ifdef _WIN64
+    // Enable exceptions
+    if (!RegisterExceptionTable(result)) {
+        goto error;
+    }
+#endif
 
     // get entry point of loaded library
     if (result->headers->OptionalHeader.AddressOfEntryPoint != 0) {
@@ -626,6 +620,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     return (HMEMORYMODULE)result;
 
 error:
+    dprint("MemoryLoadLibraryEx: error\n");
     // cleanup
     MemoryFreeLibrary(result);
     return NULL;

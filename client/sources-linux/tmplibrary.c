@@ -33,7 +33,7 @@
 
 #endif
 
-void*  (*__mremap) (
+void*  (*___mremap) (
    void *old_address, size_t old_size,
    size_t new_size, int flags, void *new_address) = (void *) mremap;
 
@@ -122,7 +122,7 @@ typedef struct library {
     void *base;
 } library_t;
 
-bool search_library(void *pState, void *pData) {
+BOOL search_library(void *pState, void *pData) {
     library_t *search = (library_t *) pState;
     library_t *current = (library_t *) pData;
 
@@ -130,30 +130,30 @@ bool search_library(void *pState, void *pData) {
         search->base = current->base;
         dprint("FOUND! %s = %p\n", search->name, search->base);
 
-        return true;
+        return TRUE;
     }
 
-    return false;
+    return FALSE;
 }
 
 int drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
 #if defined(Linux)
     int fd = pupy_memfd_create(path, path_size);
-    bool memfd = true;
+    BOOL memfd = TRUE;
 #elif defined(SunOS)
     char tmp[PATH_MAX] = {};
     snprintf(tmp, sizeof(tmp), "/tmp/%s", path);
     int fd = open(tmp, O_CREAT | O_RDWR, 0600);
     strncpy(path, tmp, path_size);
-    bool memfd = false;
+    BOOL memfd = FALSE;
 #else
     int fd = -1;
-    bool memfd = false;
+    BOOL memfd = FALSE;
 #endif
 
     if (fd < 0) {
         dprint("pupy_memfd_create() failed: %m\n");
-        memfd = false;
+        memfd = FALSE;
 
         const char *template = gettemptpl();
 
@@ -476,7 +476,7 @@ int remap(const char *path) {
                     continue;
                 }
 
-            if (__mremap(
+            if (___mremap(
                  new_map, l_size, l_size,
                  MREMAP_FIXED | MREMAP_MAYMOVE,
                  (void *) l_addr_start) == MAP_FAILED) {
@@ -598,8 +598,8 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
         return handle;
     }
 
-    bool is_memfd = is_memfd_path(path);
-    bool linkmap_hacked = false;
+    BOOL is_memfd = is_memfd_path(path);
+    BOOL linkmap_hacked = FALSE;
 
     remap(path);
 
@@ -616,7 +616,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
                 linkmap->l_libname && linkmap->l_libname->name &&
                 !strncmp(linkmap->l_name, linkmap->l_libname->name, strlen(linkmap->l_name))) {
 
-                dprint("memdlopen - change l_name %s/%p (%s/%p) -> %s (linkmap: %p)\n",
+                dprint("memdlopen - change l_name %s|%p (%s|%p) -> %s (linkmap: %p)\n",
                        linkmap->l_name, linkmap->l_name,
                        linkmap->l_libname->name,
                        linkmap->l_libname->name,
@@ -626,7 +626,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
                 linkmap->l_name = strdup(soname);
                 linkmap->l_libname->name = strdup(soname);
 
-                linkmap_hacked = true;
+                linkmap_hacked = TRUE;
             } else {
                 dprint("memdlopen - bad signature (lmid=%08x name1=%s name2=%s)\n",
                        linkmap->l_ns, linkmap->l_name, linkmap->l_libname->name);
@@ -652,7 +652,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
     /* Try to fallback to symlink hack */
 
-    bool is_memfd = is_memfd_path(path);
+    BOOL is_memfd = is_memfd_path(path);
     char fake_path[PATH_MAX] = {};
 
     const char *effective_path = path;
@@ -669,7 +669,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
         if (symlink(path, fake_path) == 0) {
             effective_path = fake_path;
-            is_memfd = false;
+            is_memfd = FALSE;
         } else {
             dprint("symlink error %s -> %s: %m\n", path, fake_path);
         }

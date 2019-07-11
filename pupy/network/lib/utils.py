@@ -12,10 +12,11 @@ __all__ = (
 
 
 import shlex
-import sys
 import netaddr
 
 from collections import namedtuple
+from network.conf import transports
+
 
 TransportInfo = namedtuple(
     'TransportInfo', [
@@ -84,10 +85,10 @@ def create_client_transport_info_for_addr(
     if hostname is None:
         hostname = host
 
-    if transport_name not in sys.pupy_transports:
+    if transport_name not in transports:
         error('Unregistered transport {}'.format(transport_name), exit=exit)
 
-    transport_klass = sys.pupy_transports[transport_name]
+    transport_klass = transports[transport_name]
     transport = transport_klass(bind_payload=bind_payload)
 
     transport_args = transport.client_transport_kwargs

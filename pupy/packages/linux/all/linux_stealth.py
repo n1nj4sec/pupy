@@ -7,11 +7,7 @@ import time
 
 def run(port=None):
     if port is None:
-        try:
-            import pupy
-            host, port=pupy.get_connect_back_host().split(":")
-        except:
-            raise Exception("pupy connect back port couldn't be found, please precise it manually")
+        raise Exception("pupy connect back port couldn't be found, please precise it manually")
 
     print "hidding port %s ..."%port
 

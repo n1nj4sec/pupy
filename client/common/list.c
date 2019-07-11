@@ -27,7 +27,7 @@ PLIST list_create(void)
         pList->start = NULL;
         pList->end = NULL;
         pList->count = 0;
-        pthread_mutex_init(&pList->lock, NULL);
+        OSMutexInit(&pList->lock);
     }
     return pList;
 }
@@ -45,16 +45,14 @@ void list_destroy(PLIST pList)
 
     if (pList != NULL)
     {
-        pthread_mutex_lock(&pList->lock);
+        OSMutexLock(&pList->lock);
 
         current_node = pList->start;
 
         while (current_node != NULL)
         {
             next_node = current_node->next;
-
             current_node->next = NULL;
-
             current_node->prev = NULL;
 
             free(current_node);
@@ -64,10 +62,8 @@ void list_destroy(PLIST pList)
 
         pList->count = 0;
 
-        pthread_mutex_unlock(&pList->lock);
-
-        pthread_mutex_destroy(&pList->lock);
-
+        OSMutexUnlock(&pList->lock);
+        OSMutexDestroy(&pList->lock);
         free(pList);
     }
 }
@@ -85,11 +81,11 @@ unsigned int list_count(PLIST pList)
 
     if (pList != NULL)
     {
-        pthread_mutex_lock(&pList->lock);
+        OSMutexLock(&pList->lock);
 
         count = pList->count;
 
-        pthread_mutex_unlock(&pList->lock);
+        OSMutexUnlock(&pList->lock);
     }
 
     return count;
@@ -111,11 +107,11 @@ void * list_get(PLIST pList, unsigned int index)
     if (pList == NULL)
         return NULL;
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
     if (pList->count <= index)
     {
-        pthread_mutex_unlock(&pList->lock);
+        OSMutexUnlock(&pList->lock);
         return NULL;
     }
 
@@ -138,7 +134,7 @@ void * list_get(PLIST pList, unsigned int index)
         data = current_node->data;
     }
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
 
     return data;
 }
@@ -150,7 +146,7 @@ void * list_get(PLIST pList, unsigned int index)
  * @returns Indication of success or failure.
  * @sa list_push
  */
-bool list_add(PLIST pList, void * data)
+BOOL list_add(PLIST pList, void * data)
 {
     return list_push(pList, data);
 }
@@ -162,11 +158,11 @@ bool list_add(PLIST pList, void * data)
  * @returns Indication of success or failure.
  * @remark Assumes caller has aquired the appropriate lock first.
  */
-bool list_remove_node(PLIST pList, PNODE pNode)
+BOOL list_remove_node(PLIST pList, PNODE pNode)
 {
     if (pList == NULL || pNode == NULL)
     {
-        return false;
+        return FALSE;
     }
 
     if (pList->count - 1 == 0)
@@ -201,7 +197,7 @@ bool list_remove_node(PLIST pList, PNODE pNode)
 
     free(pNode);
 
-    return true;
+    return TRUE;
 }
 
 /*!
@@ -212,17 +208,17 @@ bool list_remove_node(PLIST pList, PNODE pNode)
  * @returns Indication of success or failure.
  * @sa list_remove_node
  */
-bool list_remove(PLIST pList, void * data)
+BOOL list_remove(PLIST pList, void * data)
 {
-    bool result = false;
+    BOOL result = FALSE;
     PNODE current_node = NULL;
 
     if (pList == NULL || data == NULL)
     {
-        return false;
+        return FALSE;
     }
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
     current_node = pList->start;
 
@@ -238,7 +234,7 @@ bool list_remove(PLIST pList, void * data)
 
     result = list_remove_node(pList, current_node);
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
 
     return result;
 }
@@ -249,17 +245,17 @@ bool list_remove(PLIST pList, void * data)
  * @param index Index of the item to remove.
  * @returns Indication of success or failure.
  */
-bool list_delete(PLIST pList, unsigned int index)
+BOOL list_delete(PLIST pList, unsigned int index)
 {
-    bool result = false;
+    BOOL result = FALSE;
     PNODE current_node = NULL;
 
     if (pList == NULL)
     {
-        return false;
+        return FALSE;
     }
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
     if (pList->count > index)
     {
@@ -279,7 +275,7 @@ bool list_delete(PLIST pList, unsigned int index)
         }
     }
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
 
     return result;
 }
@@ -290,24 +286,24 @@ bool list_delete(PLIST pList, unsigned int index)
  * @param data Pointer to the data to append.
  * @returns Indication of success or failure.
  */
-bool list_push(PLIST pList, void * data)
+BOOL list_push(PLIST pList, void * data)
 {
     PNODE pNode = NULL;
 
     if (pList == NULL)
-        return false;
+        return FALSE;
 
     pNode = (PNODE)malloc(sizeof(NODE));
     if (pNode == NULL)
     {
-        return false;
+        return FALSE;
     }
 
     pNode->data = data;
     pNode->next = NULL;
     pNode->prev = NULL;
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
     if (pList->end != NULL)
     {
@@ -325,9 +321,9 @@ bool list_push(PLIST pList, void * data)
 
     pList->count += 1;
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
 
-    return true;
+    return TRUE;
 }
 
 /*!
@@ -345,7 +341,7 @@ void * list_pop(PLIST pList)
         return NULL;
     }
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
     if (pList->end != NULL)
     {
@@ -354,7 +350,7 @@ void * list_pop(PLIST pList)
         list_remove_node(pList, pList->end);
     }
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
 
     return data;
 }
@@ -374,7 +370,7 @@ void * list_shift(PLIST pList)
         return NULL;
     }
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
     if (pList->start != NULL)
     {
@@ -383,7 +379,7 @@ void * list_shift(PLIST pList)
         list_remove_node(pList, pList->start);
     }
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
 
     return data;
 }
@@ -394,20 +390,20 @@ void * list_shift(PLIST pList)
  * @param pCallback Callback function to invoke for each element in the list.
  * @param pState Pointer to the state to pass with each function call.
  */
-bool list_enumerate(PLIST pList, PLISTENUMCALLBACK pCallback, void * pState)
+BOOL list_enumerate(PLIST pList, PLISTENUMCALLBACK pCallback, void * pState)
 {
     PNODE pCurrent;
-    bool bResult;
+    BOOL bResult;
     if (pList == NULL || pCallback == NULL)
     {
-        return false;
+        return FALSE;
     }
 
-    pthread_mutex_lock(&pList->lock);
+    OSMutexLock(&pList->lock);
 
 
     pCurrent=pList->start;
-    bResult = false;
+    bResult = FALSE;
 
     while (pCurrent != NULL)
     {
@@ -415,6 +411,6 @@ bool list_enumerate(PLIST pList, PLISTENUMCALLBACK pCallback, void * pState)
         pCurrent = pCurrent->next;
     }
 
-    pthread_mutex_unlock(&pList->lock);
+    OSMutexUnlock(&pList->lock);
     return bResult;
 }

@@ -3,23 +3,32 @@ CC ?= gcc
 OS ?= $(shell uname -s)
 SUFFIX ?= $(shell echo $(OS) | cut -c -3 | tr '[:upper:]' '[:lower:]')
 
-CFLAGS := $(shell pkg-config --cflags python-2.7) -I. -I../lzma -I../jvm -fPIC $(CFLAGS_EXTRA) -pipe -Wall
-LDFLAGS := -lpthread -ldl -fPIC $(LDFLAGS_EXTRA) -Wl,-Bstatic -lz -Wl,-Bdynamic
+STATIC_LIBZ := -Wl,-Bstatic -lz -Wl,-Bdynamic
+# STATIC_LIBZ := -lz
+
+CFLAGS := $(shell pkg-config --cflags python-2.7) -I. -I../common -fPIC $(CFLAGS_EXTRA) -pipe -Wall
+LDFLAGS := $(LDFLAGS) $(STATIC_LIBZ) -lpthread -ldl -fPIC $(LDFLAGS_EXTRA)
 PFLAGS := -OO
 PIE ?= -pie
 
 CFLAGS += -D$(OS) -std=gnu99
+
+ifeq ($(OPENSSL_LIB_VERSION),)
+OPENSSL_LIB_VERSION := 1.0.0
+endif
+
+CFLAGS += "-DOPENSSL_LIB_VERSION=\"$(OPENSSL_LIB_VERSION)\""
 
 ifeq ($(LIBPYTHON),)
 LIBPYTHON := $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
 endif
 
 ifeq ($(LIBCRYPTO),)
-LIBCRYPTO := $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.1.0.0/{print $$4}' | head -n 1)
+LIBCRYPTO := $(shell /sbin/ldconfig -p  | awk '/libcrypto.so.$(OPENSSL_LIB_VERSION)/{print $$4}' | head -n 1)
 endif
 
 ifeq ($(LIBSSL),)
-LIBSSL := $(shell /sbin/ldconfig -p  | awk '/libssl.so.1.0.0/{print $$4}' | head -n 1)
+LIBSSL := $(shell /sbin/ldconfig -p  | awk '/libssl.so.$(OPENSSL_LIB_VERSION)/{print $$4}' | head -n 1)
 endif
 
 XZARGS ?= "gcc" "aligned(0x1000)" 'section(".xzrodata")'
@@ -61,10 +70,14 @@ endif
 PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 
-PYOBJS := _memimporter.o Python-dynload.o pupy_load.o
+PYOBJS := pupy_load.o
 SHARED_OBJS := main_so.o pupy_shared.o tmplibrary_lmid.o
 APP_OBJS := main_exe.o pupy.o tmplibrary.o
 COMMON_OBJS := list.o daemonize.o decompress.o
+
+ifneq ($(DEBUG),)
+COMMON_OBJS += debug.o
+endif
 
 ifeq ($(UNCOMPRESSED),)
 COMMON_OBJS += LzmaDec.o
@@ -93,13 +106,25 @@ revision.h:
 	if [ x"$$COMMIT" = x"" ]; then rev=`cat ../../.git/\`cat ../../.git/HEAD | cut -f 2 -d \ \` | cut -c 1-8`; \
 		else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
-pupy.o: pupy.c resources/$(ARCH)/library.c revision.h
+list.o: ../common/list.c ../common/list.h
+	$(CC) -c -o $@ $< $(CFLAGS)
 
-pupy_shared.o: pupy.c resources/$(ARCH)/library.c revision.h ../jvm/jni_on_load.c
+debug.o: ../common/debug.c ../common/debug.h
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+pupy.o: pupy.c revision.h ../common/Python-dynload.h import-tab.h
+
+pupy_shared.o: pupy.c revision.h ../common/jni_on_load.c ../common/Python-dynload.h import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS) -D_PUPY_SO
 
-pupy_load.o: resources/bootloader.c resources/$(ARCH)/python27.c \
-	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c revision.h
+pupy_load.o: pupy_load.c \
+	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c \
+	resources/$(ARCH)/python27.c \
+	resources/$(ARCH)/library.c \
+	../common/Python-dynload.c ../common/Python-dynload.h \
+	../common/Python-dynload.c ../common/Python-dynload.h \
+	../common/LzmaDec.c ../common/LzmaDec.h ../common/lzmaunpack.c \
+	revision.h
 
 tmplibrary_lmid.o: tmplibrary.c
 	$(CC) -c -o $@ $< $(CFLAGS) -DWIP_LMID
@@ -111,7 +136,7 @@ Python-dynload.o: Python-dynload.c import-tab.c import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 ifeq ($(UNCOMPRESSED),)
-LzmaDec.o: ../lzma/LzmaDec.c
+LzmaDec.o: ../common/LzmaDec.c
 	$(CC) $(CFLAGS) -O3 -fPIC -c -o $@ $<
 endif
 
@@ -121,11 +146,6 @@ resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(A
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(PYTHON) $(PFLAGS) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(XZARGS)
 
-resources/bootloader.pyc: ../gen_python_bootloader.py ../../pupy/packages/all/pupyimporter.py ../../pupy/pp.py
-	$(PYTHON) $(PFLAGS) ../gen_python_bootloader.py $(DEBUG_ADD)
-
-resources/bootloader.c: ../gen_resource_header.py resources/bootloader.pyc
-	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
 injector/%.o: injector/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
@@ -178,11 +198,10 @@ clean:
 	rm -f $(COMMON_OBJS) $(PYOBJS)
 	rm -f pupy pupy.so
 	rm -f *.o
-	rm -f resources/bootloader.pyc
-	rm -f resources/*.c
-	rm -f resources/$(ARCH)/*.c
 
 distclean: clean
+	rm -f resources/*.c
+	rm -f resources/$(ARCH)/*.c
 	rm -f import-tab.c
 	rm -f import-tab.h
 	rm -f revision.h

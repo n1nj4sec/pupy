@@ -1,7 +1,5 @@
-/* **************** Python-dynload.h **************** */
-#include <sys/types.h>
-#include <stdio.h>
-#include "Python-version.h"
+#ifndef PYTHON_DYNLOAD_H
+#define PYTHON_DYNLOAD_H
 
 typedef void *PyObject;
 typedef void *PyCodeObject;
@@ -18,31 +16,43 @@ typedef struct {
     char *ml_doc;
 } PyMethodDef;
 
-struct IMPORT {
+struct py_imports {
     char *name;
     void (*proc)();
 };
 
-extern int _load_python(void *hmod);
+#ifndef Py_ssize_t
+    #ifdef ssize_t
+        typedef ssize_t Py_ssize_t;
+    #else
+        typedef signed long long Py_ssize_t;
+    #endif
+#endif
 
-extern struct IMPORT imports[];
-
-#include "import-tab.h"
+#ifndef BOOL
+    typedef int BOOL;
+    #define TRUE 1
+    #define FALSE 0
+#endif
 
 #ifndef Py_INCREF
-#define Py_INCREF Py_IncRef
+    #define Py_INCREF Py_IncRef
 #endif
 
 #ifndef Py_DECREF
-#define Py_DECREF Py_DecRef
+    #define Py_DECREF Py_DecRef
 #endif
 
 #ifndef Py_XINCREF
-#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
+    #define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
 #endif
 
 #ifndef Py_XDECREF
-#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+    #define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#endif
+
+#ifdef _WIN32
+    #define snprintf _snprintf
 #endif
 
 #define METH_OLDARGS  0x0000
@@ -65,6 +75,19 @@ extern struct IMPORT imports[];
 
 #define DL_EXPORT(x) x
 
+#define PYTHON_API_VERSION 1013
+
 #define Py_InitModule3(name, methods, doc) \
-    Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
-               PYTHON_API_VERSION)
+       Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
+                      PYTHON_API_VERSION)
+
+extern struct py_imports py_sym_table[];
+
+BOOL initialize_python();
+void run_pupy();
+DL_EXPORT(void) init_pupy(void);
+DL_EXPORT(void) init_memimporter(void);
+
+#include "import-tab.h"
+
+#endif // PYTHON_DYNLOAD_H

@@ -5,6 +5,8 @@ import os
 import sys
 import cPickle
 import zlib
+import marshal
+
 from zipfile import ZipFile
 
 from elftools.elf.elffile import ELFFile
@@ -178,22 +180,30 @@ def safe_file_exists(f):
     return os.path.basename(f) in os.listdir(os.path.dirname(f))
 
 
-def loader(code, modulename):
-    code = '''
-import imp, sys, marshal
-fullname = {}
-mod = imp.new_module(fullname)
-mod.__file__ = "<bootloader>/%s.pyo" % fullname
-exec marshal.loads({}) in mod.__dict__
-sys.modules[fullname]=mod
-'''.format(
-        repr(modulename),
-        repr(pupycompile(code, modulename, raw=True)))
+def bootstrap(stdlib, config):
+    loader = '\n'.join([
+        'import imp, sys, marshal',
+        'stdlib = marshal.loads({stdlib})',
+        'config = marshal.loads({config})',
+        'pupy = imp.new_module("pupy")',
+        'pupy.__file__ = "pupy://pupy/__init__.pyo"',
+        'pupy.__package__ = "pupy"',
+        'pupy.__path__ = ["pupy://pupy/"]',
+        'sys.modules["pupy"] = pupy',
+        'exec marshal.loads(stdlib["pupy/__init__.pyo"][8:]) in pupy.__dict__',
+        'pupy.main(stdlib=stdlib, config=config)'
+    ])
 
-    return code
+    return loader.format(
+        stdlib=repr(marshal.dumps(stdlib)),
+        config=repr(marshal.dumps(config))
+    )
 
 
-def importer(dependencies, os='all', arch=None, path=None, posix=None, native=False, ignore_native=False):
+def importer(
+    dependencies, os='all', arch=None, path=None,
+        posix=None, native=False, ignore_native=False,
+        as_bundle=False, as_dict=False):
     if path:
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
@@ -202,15 +212,22 @@ def importer(dependencies, os='all', arch=None, path=None, posix=None, native=Fa
         for dependency in dependencies:
             modules.update(from_path(os, arch, path, dependency))
 
-        blob = cPickle.dumps(modules)
-        blob = zlib.compress(blob, 9)
+        if not as_dict:
+            blob = cPickle.dumps(modules)
+            blob = zlib.compress(blob, 9)
+        else:
+            blob = modules
     else:
         blob, modules, _ = package(
             dependencies, os, arch, posix=posix,
-            native=native, ignore_native=ignore_native
+            native=native, ignore_native=ignore_native,
+            as_dict=as_dict
         )
 
-    return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
+    if as_bundle or as_dict:
+        return blob
+    else:
+        return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
 
 
 def modify_native_content(filename, content):
@@ -584,7 +601,7 @@ def _package(
 
 
 def package(requirements, platform, arch, remote=False, posix=False,
-            filter_needed_cb=None, honor_ignore=True, native=False, ignore_native=False):
+            filter_needed_cb=None, honor_ignore=True, native=False, ignore_native=False, as_dict=False):
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
@@ -609,7 +626,7 @@ def package(requirements, platform, arch, remote=False, posix=False,
         if dll_deps:
             dll_deps = filter_needed_cb(dll_deps, True)
 
-    blob = b''
+    payload = b''
     contents = []
     dlls = []
 
@@ -624,14 +641,18 @@ def package(requirements, platform, arch, remote=False, posix=False,
                 native=native, ignore_native=ignore_native
             )
 
-        blob = zlib.compress(cPickle.dumps(modules), 9)
+        if not as_dict:
+            payload = zlib.compress(cPickle.dumps(modules), 9)
+        else:
+            payload = modules
+
         contents = list(dependencies)
 
     if dll_deps:
         for dependency in dll_deps:
             dlls.append((dependency, dll(dependency, platform, arch)))
 
-    return blob, contents, dlls
+    return payload, contents, dlls
 
 
 def bundle(platform, arch):

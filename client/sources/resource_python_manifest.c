@@ -1,6 +1,6 @@
 
 #ifdef _WIN64
-	const char resource_python_manifest[]="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+    const char resource_python_manifest[]="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
 "<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\" manifestVersion=\"1.0\">\n"
 "<trustInfo xmlns=\"urn:schemas-microsoft-com:asm.v3\">\n"
 "<security>\n"
@@ -16,7 +16,7 @@
 "</dependency>\n"
 "</assembly>\n";
 #else
-	const char resource_python_manifest[]="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+    const char resource_python_manifest[]="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
 "<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\" manifestVersion=\"1.0\">\n"
 "<trustInfo xmlns=\"urn:schemas-microsoft-com:asm.v3\">\n"
 "<security>\n"

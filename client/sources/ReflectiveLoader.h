@@ -62,17 +62,17 @@ typedef DWORD  (NTAPI * NTFLUSHINSTRUCTIONCACHE)( HANDLE, PVOID, ULONG );
 
 __forceinline DWORD ror( DWORD d )
 {
-	return _rotr( d, HASH_KEY );
+   return _rotr( d, HASH_KEY );
 }
 
 __forceinline DWORD hash( char * c )
 {
     register DWORD h = 0;
-	do
-	{
-		h = ror( h );
+   do
+   {
+      h = ror( h );
         h += *c;
-	} while( *++c );
+   } while( *++c );
 
     return h;
 }
@@ -88,19 +88,19 @@ typedef struct _UNICODE_STR
 //__declspec( align(8) ) 
 typedef struct _LDR_DATA_TABLE_ENTRY
 {
-	//LIST_ENTRY InLoadOrderLinks; // As we search from PPEB_LDR_DATA->InMemoryOrderModuleList we dont use the first entry.
-	LIST_ENTRY InMemoryOrderModuleList;
-	LIST_ENTRY InInitializationOrderModuleList;
-	PVOID DllBase;
-	PVOID EntryPoint;
-	ULONG SizeOfImage;
-	UNICODE_STR FullDllName;
-	UNICODE_STR BaseDllName;
-	ULONG Flags;
-	SHORT LoadCount;
-	SHORT TlsIndex;
-	LIST_ENTRY HashTableEntry;
-	ULONG TimeDateStamp;
+   //LIST_ENTRY InLoadOrderLinks; // As we search from PPEB_LDR_DATA->InMemoryOrderModuleList we dont use the first entry.
+   LIST_ENTRY InMemoryOrderModuleList;
+   LIST_ENTRY InInitializationOrderModuleList;
+   PVOID DllBase;
+   PVOID EntryPoint;
+   ULONG SizeOfImage;
+   UNICODE_STR FullDllName;
+   UNICODE_STR BaseDllName;
+   ULONG Flags;
+   SHORT LoadCount;
+   SHORT TlsIndex;
+   LIST_ENTRY HashTableEntry;
+   ULONG TimeDateStamp;
 } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
 
 // WinDbg> dt -v ntdll!_PEB_LDR_DATA
@@ -195,8 +195,8 @@ typedef struct __PEB // 65 elements, 0x210 bytes
 
 typedef struct
 {
-	WORD	offset:12;
-	WORD	type:4;
+   WORD	offset:12;
+   WORD	type:4;
 } IMAGE_RELOC, *PIMAGE_RELOC;
 //===============================================================================================//
 #endif

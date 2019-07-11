@@ -6,6 +6,10 @@ pupy/crypto/*.py
 pupy/.pupy_history
 pupy/pupy_*
 pupy/db
+pupy/config
+client/sources-linux/resources/
+client/sources/resources/
+client/sources/opus/
 .DS_Store
 *.swp
 

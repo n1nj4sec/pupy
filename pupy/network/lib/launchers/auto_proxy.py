@@ -24,15 +24,19 @@ from network.lib.proxies import (
 from network.lib.socks import ProxyError
 from network.lib.netcreds import add_cred
 
+from network.conf import transports
+
 from . import getLogger
 
 logger = getLogger('auto_proxy')
+
 
 class AutoProxyLauncher(BaseLauncher):
     '''
     Communicate to server via proxy or chain of proxies
     '''
 
+    name = 'auto_proxy'
     credentials = ['SSL_BIND_CERT']
 
     __slots__ = (
@@ -52,7 +56,7 @@ class AutoProxyLauncher(BaseLauncher):
             help='host:port of the pupy server to connect to. You can provide multiple '
             '--host arguments to attempt to connect to multiple IPs')
         cls.arg_parser.add_argument(
-            '-t', '--transport', choices=cls.transports, default='ssl',
+            '-t', '--transport', choices=transports, default='ssl',
             help='The transport to use')
         cls.arg_parser.add_argument(
             '-P', '--no-wpad', action='store_true', default=False,
@@ -78,7 +82,6 @@ class AutoProxyLauncher(BaseLauncher):
     def parse_args(self, args):
         super(AutoProxyLauncher, self).parse_args(args)
 
-        self.set_transport(self.args.transport)
         self.opt_args = parse_transports_args(self.args.transport_args)
         self.hosts = [
             parse_host(host) for host in self.args.host
@@ -120,7 +123,15 @@ class AutoProxyLauncher(BaseLauncher):
                         hostname, port = proxy.addr.split(':')
                         add_cred(proxy.username, proxy.password, True, schema, hostname, None, port)
 
+                self.set_connection_info(
+                    host_info.hostname, host_info.host,
+                    host_info.port, proxy_info.chain,
+                    self.args.transport
+                )
+
                 yield connection
+
+                self.reset_connection_info()
 
             except (ProxyError, EOFError) as e:
                 logger.info(
@@ -136,7 +147,6 @@ class AutoProxyLauncher(BaseLauncher):
 
         for host_info in self.hosts:
             streams_iterator = self.connect_to_host(host_info)
-            self.set_host((host_info.host, host_info.port))
 
             while True:
                 try:

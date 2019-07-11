@@ -10,10 +10,11 @@ __all__ = (
 )
 
 import argparse
-import sys
+
 
 class LauncherError(Exception):
     __slots__ = ()
+
 
 class LauncherArgumentParser(argparse.ArgumentParser):
     __slots__ = ()
@@ -27,29 +28,32 @@ class LauncherArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         self.exit(2, str('%s: error: %s\n') % (self.prog, message))
 
+
 class BaseLauncherMetaclass(type):
     def __init__(self, *args, **kwargs):
         super(BaseLauncherMetaclass, self).__init__(*args, **kwargs)
-
-        self.transports = getattr(sys, 'pupy_transports', {})
         self.init_argparse()
+
 
 class BaseLauncher(object):
     arg_parser = None
     args = None
-    transports = None
+    name = None
 
-    __slots__ = ('args', 'host', 'transport')
+    __slots__ = (
+        'args', 'host', 'hostname', 'port',
+        '_transport', 'proxies', '_default_transport'
+    )
     __metaclass__ = BaseLauncherMetaclass
 
     def __init__(self):
         self.args = None
-        self.host = "unknown"
-        self.transport = "unknown"
+        self.reset_connection_info()
+        self._default_transport = None
 
     def iterate(self):
-        """ iterate must be an iterator returning rpyc stream instances"""
-        raise NotImplementedError("iterate launcher's method needs to be implemented")
+        ''' iterate must be an iterator returning rpyc stream instances '''
+        raise NotImplementedError('iterate launcher\'s method needs to be implemented')
 
     @classmethod
     def init_argparse(cls):
@@ -60,14 +64,26 @@ class BaseLauncher(object):
         if not self.args:
             self.args = self.arg_parser.parse_args(args)
 
-    def set_host(self, host):
+        if hasattr(self.args, 'transport'):
+            self.set_default_transport(self.args.transport)
+
+    def set_default_transport(self, transport):
+        self._default_transport = transport
+
+    @property
+    def transport(self):
+        return self._transport or self._default_transport
+
+    def set_connection_info(self, hostname, host, port, proxies, transport=None):
+        self.hostname = hostname
         self.host = host
+        self.port = port
+        self.proxies = proxies
+        self._transport = transport
 
-    def get_host(self):
-        return self.host
-
-    def set_transport(self, t):
-        self.transport = t
-
-    def get_transport(self):
-        return self.transport
+    def reset_connection_info(self):
+        self.hostname = None
+        self.host = None
+        self.port = None
+        self.proxies = None
+        self._transport = None

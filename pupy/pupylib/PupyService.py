@@ -176,6 +176,7 @@ class PupyService(rpyc.Service):
             self.events_receiver(eventid)
             logger.info('Event handled: %08x', eventid)
 
+
 class PupyBindService(PupyService):
     def exposed_get_password(self):
         credentials = Credentials()

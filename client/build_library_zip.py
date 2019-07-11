@@ -1,9 +1,24 @@
+# -*- coding: utf-8 -*-
+
+import site
 import sys
 import os
 import imp
+import marshal
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+import shutil
+import zipfile
 
+from glob import glob
+from distutils.core import setup
+
+import additional_imports
+
+
+THIS = os.path.abspath(__file__)
+ROOT = os.path.dirname(os.path.dirname(THIS))
+
+print "THIS:", THIS
 print "ROOT: ", ROOT
 
 PATCHES = os.path.join(ROOT, 'pupy', 'library_patches')
@@ -12,6 +27,7 @@ sys.path.insert(0, PATCHES)
 sys.path.append(os.path.join(ROOT, 'pupy'))
 sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
+pupycompile = __import__('PupyCompile').pupycompile
 
 sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'all'))
 
@@ -23,29 +39,14 @@ elif sys.platform.startswith('linux'):
 else:
     sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'posix', 'all'))
 
-from PupyCompile import pupycompile
-
-import additional_imports
-import Crypto
-
-try:
-    import idna
-except ImportError:
-    print "[W] idna not found"
-
-try:
-    import pp
-except ImportError:
-    pass
-
-import site
-import marshal
+__import__('pupy').prepare()
 
 sys_modules = [
-    (x,sys.modules[x]) for x in sys.modules.keys()
+    (x, sys.modules[x]) for x in sys.modules.keys()
 ]
 
 compile_map = []
+
 
 def compile_py(path):
     global compile_map
@@ -59,28 +60,30 @@ def compile_py(path):
 
     return data
 
-all_dependencies=set(
+
+all_dependencies = set(
     [
-        x.split('.')[0] for x,m in sys_modules \
-            if not '(built-in)' in str(m) and x != '__main__'
+        x.split('.')[0] for x, m in sys_modules
+        if '(built-in)' not in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'rpyc', 'pyasn1', 'rsa', 'stringprep'
+        'Crypto', 'rpyc', 'pyasn1', 'rsa', 'stringprep',
     ]
 )
 
 all_dependencies.add('site')
 
+exceptions = (
+    'pupy', 'network', 'pupyimporter', 'additional_imports'
+)
+
 all_dependencies = sorted(list(set(all_dependencies)))
-all_dependencies.remove('pupy')
-all_dependencies.remove('additional_imports')
+for dep in list(all_dependencies):
+    for excluded in exceptions:
+        if dep == excluded or dep.startswith(excluded + '.'):
+            all_dependencies.remove(dep)
 
 ignore = {
     '_cffi_backend.so', '_cffi_backend.pyd',
-    'network/lib/picocmd/server.py',
-    'network/lib/transports/cryptoutils/pyaes/__init__.py',
-    'network/lib/transports/cryptoutils/pyaes/aes.py',
-    'network/lib/transports/cryptoutils/pyaes/blockfeeder.py',
-    'network/lib/transports/cryptoutils/pyaes/util.py',
     'rpyc/utils/teleportation.py',
     'rpyc/utils/zerodeploy.py',
     'rpyc/experemental/__init__.py',
@@ -109,10 +112,6 @@ for dep in ('cffi', 'pycparser', 'pyaes'):
 
 print "ALLDEPS: ", all_dependencies
 
-from distutils.core import setup
-from glob import glob
-import zipfile
-import shutil
 
 zf = zipfile.ZipFile(sys.argv[1], mode='w', compression=zipfile.ZIP_DEFLATED)
 
@@ -129,34 +128,35 @@ try:
 
         print "DEPENDENCY: ", dep, mpath
         if info[2] == imp.PKG_DIRECTORY:
-            print('adding package %s / %s'%(dep, mpath))
+            print('adding package %s / %s' % (dep, mpath))
             path, root = os.path.split(mpath)
             for root, dirs, files in os.walk(mpath):
-                for f in list(set([x.rsplit('.',1)[0] for x in files])):
-                    found=False
-                    need_compile=True
+                for f in list(set([x.rsplit('.', 1)[0] for x in files])):
+                    found = False
+                    need_compile = True
                     for ext in ('.dll', '.so', '.pyd', '.py', '.pyc', '.pyo'):
-                        if ( ext == '.pyc' or ext == '.pyo' ) and found:
+                        if (ext == '.pyc' or ext == '.pyo') and found:
                             continue
 
-                        pypath = os.path.join(root,f+ext)
+                        pypath = os.path.join(root, f+ext)
                         if os.path.exists(pypath):
                             ziproot = root[len(path)+1:].replace('\\', '/')
-                            zipname = '/'.join([ziproot, f.split('.', 1)[0] + ext])
+                            zipname = '/'.join([ziproot,
+                                                f.split('.', 1)[0] + ext])
                             found = True
 
                             if ziproot.startswith('site-packages'):
                                 ziproot = ziproot[14:]
 
                             if zipname.startswith('network/transports/') and \
-                              not zipname.startswith('network/transports/__init__.py'):
+                                    not zipname.startswith('network/transports/__init__.py'):
                                 continue
 
                             # Remove various testcases if any
-                            if any([ '/'+x+'/' in zipname for x in [
+                            if any(['/'+x+'/' in zipname for x in [
                                 'tests', 'test', 'SelfTest', 'SelfTests', 'examples',
                                 'experimental'
-                                ]
+                            ]
                             ]):
                                 continue
 
@@ -171,7 +171,8 @@ try:
                                 ext = '.py'
                             elif os.path.exists(os.path.sep.join([PATCHES] + zipname.split('/'))):
                                 print('found [PATCH ZROOT] for {}'.format(f))
-                                file_root = os.path.sep.join([PATCHES] + ziproot.split('/'))
+                                file_root = os.path.sep.join(
+                                    [PATCHES] + ziproot.split('/'))
                                 ext = '.py'
 
                             print('adding file : {}'.format(zipname))
@@ -180,9 +181,10 @@ try:
                             if ext == '.py' and need_compile:
                                 zf.writestr(
                                     zipname+'o',
-                                    compile_py(os.path.join(file_root,f+ext)))
+                                    compile_py(os.path.join(file_root, f+ext)))
                             else:
-                                zf.write(os.path.join(file_root,f+ext), zipname)
+                                zf.write(os.path.join(
+                                    file_root, f+ext), zipname)
 
                             break
         else:
@@ -190,7 +192,7 @@ try:
                 continue
 
             found_patch = None
-            for extp in ( '.py', '.pyc', '.pyo' ):
+            for extp in ('.py', '.pyc', '.pyo'):
                 if os.path.exists(os.path.join(PATCHES, dep+extp)):
                     found_patch = (os.path.join(PATCHES, dep+extp), extp)
                     break
@@ -199,7 +201,8 @@ try:
                 if dep+found_patch[1] in content:
                     continue
 
-                print('adding [PATCH] %s -> %s'%(found_patch[0], dep+found_patch[1]))
+                print('adding [PATCH] %s -> %s' %
+                      (found_patch[0], dep+found_patch[1]))
                 if found_patch[0].endswith('.py'):
                     zf.writestr(
                         dep+found_patch[1]+'o',
@@ -212,7 +215,7 @@ try:
                 if dep+ext in content:
                     continue
 
-                print('adding %s -> %s'%(mpath, dep+ext))
+                print('adding %s -> %s' % (mpath, dep+ext))
                 if mpath.endswith(('.pyc', '.pyo', '.py')):
                     srcfile = mpath
                     if srcfile.endswith(('.pyc', '.pyo')):

@@ -19,13 +19,13 @@ HANDLE hThread = NULL;
 DWORD WINAPI delayedMainThread(LPVOID lpArg)
 {
     Sleep(1000);
-    return mainThread(lpArg);
+    return mainThread(TRUE);
 }
 
 __declspec(dllexport)
 VOID WINAPI Launch()
 {
-    mainThread(NULL);
+    mainThread(TRUE);
 }
 
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )

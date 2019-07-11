@@ -17,6 +17,9 @@ from network.lib.base_launcher import (
     LauncherError, LauncherArgumentParser, BaseLauncher
 )
 
+from network.conf import transports
+
+
 from . import getLogger
 
 logger = getLogger('connect')
@@ -25,6 +28,7 @@ logger = getLogger('connect')
 class ConnectLauncher(BaseLauncher):
     """ simple launcher that uses TCP connect with a chosen transport """
 
+    name = 'connect'
     credentials = ['SSL_BIND_CERT']
 
     __slots__ = (
@@ -46,7 +50,7 @@ class ConnectLauncher(BaseLauncher):
             '--host arguments to attempt to connect to multiple IPs'
         )
         cls.arg_parser.add_argument(
-            '-t', '--transport', choices=cls.transports, default="ssl",
+            '-t', '--transport', choices=transports, default="ssl",
             help='The transport to use'
         )
         cls.arg_parser.add_argument(
@@ -57,7 +61,6 @@ class ConnectLauncher(BaseLauncher):
     def parse_args(self, args):
         super(ConnectLauncher, self).parse_args(args)
 
-        self.set_transport(self.args.transport)
         self.opt_args = parse_transports_args(self.args.transport_args)
         self.hosts = [
             parse_host(host) for host in self.args.host
@@ -69,9 +72,8 @@ class ConnectLauncher(BaseLauncher):
 
         for host_info in self.hosts:
             try:
-                self.set_host((host_info.host, host_info.port))
-
                 yield self.connect_to_host(host_info)
+                self.reset_connection_info()
             except EOFError as e:
                 logger.info('Connection closed: %s', e)
 
@@ -100,5 +102,10 @@ class ConnectLauncher(BaseLauncher):
             sock,
             info.transport.client_transport,
             info.transport_args)
+
+        self.set_connection_info(
+            host_info.hostname, host_info.host, host_info.port,
+            None, self.args.transport
+        )
 
         return stream

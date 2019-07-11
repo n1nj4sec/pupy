@@ -581,22 +581,24 @@ class PupyServer(object):
             conn._conn.close()
             return
 
+        client_info = {}
+        client_info.update(uuid)
+
         with self.clients_lock:
             client_id = self.create_id()
-            client_info = {}
 
             try:
-                client_info = conn.get_infos()
-                client_info = obtain(client_info)
-            except:
-                client_info = {
+                client_info.update(obtain(conn.get_infos()))
+            except Exception as e:
+                logger.exception(e)
+                client_info.update({
                     "launcher": str(conn.get_infos("launcher")),
                     "launcher_args": [x for x in conn.get_infos("launcher_args")],
                     "transport": str(conn.get_infos("transport")),
                     "daemonize": bool(conn.get_infos("daemonize")),
                     "native": bool(conn.get_infos("native")),
                     "sid": conn.get_infos("sid") or '',
-                }
+                })
 
             conn_id = obtain(conn._conn._config['connid'])
 
@@ -604,17 +606,14 @@ class PupyServer(object):
                 if type(conn_id) is list:
                     address = conn_id[0]
                 address = conn_id.rsplit(':',1)[0]
-
             except:
                 address = str(address)
 
             client_info.update({
-                "id": client_id,
-                "conn": conn,
-                "address": address
+                'id': client_id,
+                'conn': conn,
+                'address': address
             })
-
-            client_info.update(uuid)
 
             client = PupyClient(client_info, self)
             self.clients.append(client)
@@ -623,20 +622,17 @@ class PupyServer(object):
                 try:
                     client_ip, client_port = conn_id.rsplit(':', 1)
                 except:
-                    client_ip, client_port = "0.0.0.0", 0 # TODO for bind payloads
+                    client_ip, client_port = '0.0.0.0', 0
 
-                addr = obtain(conn.modules.pupy.get_connect_back_host())
-                remote = ' ({}{}:{})'.format(
-                    '{} <- '.format(addr) if '0.0.0.0' not in addr else '',
-                    client_ip, client_port)
+                remote = ' ({}:{})'.format(client_ip, client_port)
 
-                user = client_info.get('user','?')
+                user = client_info.get('user', '?')
                 if type(user) == unicode:
                     user = user.encode('utf-8')
 
                 user_info = user
                 if '\\' not in user:
-                    hostname = client_info.get('hostname','?')
+                    hostname = client_info.get('hostname', '?')
                     if type(hostname) == unicode:
                         hostname = hostname.encode('utf-8')
 
@@ -962,7 +958,7 @@ class PupyServer(object):
         """ connect on a client that would be running a bind payload """
 
         try:
-            stream=launcher.iterate().next()
+            stream = launcher.iterate().next()
         except socket.error as e:
             self.handler.display_error("Couldn't connect to pupy: {}".format(e))
             return
@@ -972,7 +968,7 @@ class PupyServer(object):
 
         self.handler.display_success('Starting session ({})'.format(host))
 
-        bgsrv=PupyConnectionThread(
+        bgsrv = PupyConnectionThread(
             self,
             PupyBindService,
             PupyChannel(stream),

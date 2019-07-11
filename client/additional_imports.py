@@ -1,3 +1,4 @@
+import umsgpack
 import socket
 import threading
 import Queue
@@ -24,7 +25,8 @@ import datetime
 import random
 import shutil
 import platform
-import errno, stat
+import errno
+import stat
 import zlib
 import code
 import glob
@@ -69,7 +71,10 @@ import poster
 if 'win' in sys.platform:
     import ctypes.wintypes
     import win_inet_pton
+    import winkerberos
 else:
     import pty
-
-import umsgpack
+    try:
+        import kerberos
+    except ImportError:
+        print "keberos not found"

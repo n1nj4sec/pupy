@@ -25,3 +25,7 @@ from PupyModule import PupyModule
 from PupyCredentials import Credentials
 from PupyClient import PupyClient
 from PupyServer import PupyServer
+
+from network.conf import load_network_modules
+
+load_network_modules()

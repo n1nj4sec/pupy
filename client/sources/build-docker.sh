@@ -18,7 +18,8 @@ PUPY=`readlink -f ../../pupy`
 
 cd $SRC
 
-EXTERNAL=../../pupy/external
+EXTERNAL=`readlink -f ../../pupy/external`
+TEMPLATES=`readlink -f ../../pupy/payload_templates`
 WINPTY=$EXTERNAL/winpty
 PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
@@ -38,13 +39,13 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     NO_JAVA=1 \
       $PYTHON -m pip install --upgrade --force-reinstall \
       https://github.com/alxchk/pyjnius/archive/master.zip
-    
+
     $PYTHON -m pip install --upgrade $PACKAGES
 
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
     if [ ! $? -eq 0 ]; then
-	echo "pycryptodome build failed"
-	exit 1
+    echo "pycryptodome build failed"
+    exit 1
     fi
 
     rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
@@ -101,14 +102,12 @@ echo "[+] Compile winpty /64"
 rm -f $WINPTY/build/winpty.dll
 make -C ${WINPTY} clean
 make -C ${WINPTY} MINGW_CXX="${MINGW64}-win32 -mabi=ms -Os" V=1 build/winpty.dll
-if [ ! -f rm -f $WINPTY/build/winpty.dll ]; then
+if [ ! -f $WINPTY/build/winpty.dll ]; then
     echo "WinPTY/x64 build failed"
     exit 1
 fi
 
 mv ${WINPTY}/build/winpty.dll ${WINE64}/drive_c/Python27/DLLs/
-
-TEMPLATES=`readlink -f ../../pupy/payload_templates`
 
 echo "[+] Build templates /32"
 cd $WINE32/drive_c/Python27
@@ -149,6 +148,8 @@ cd ${SRC}
 
 for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
+set -e
+
 make -f Makefile -j BUILDENV=/build ARCH=win32 clean
 make -f Makefile -j BUILDENV=/build ARCH=win32
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
@@ -160,12 +161,12 @@ make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then
-	continue
+    continue
     fi
 
     if [ ! -f $TEMPLATES/$object ]; then
-	echo "[-] $object - failed"
-	FAILED=1
+    echo "[-] $object - failed"
+    FAILED=1
     fi
 done
 

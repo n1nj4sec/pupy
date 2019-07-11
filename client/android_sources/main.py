@@ -7,16 +7,16 @@ import os
 import platform
 import time
 
-os.environ['KIVY_NO_FILELOG']='yes'
+os.environ['KIVY_NO_FILELOG'] = 'yes'
 platform.system = lambda: 'android'
 
 if __name__ == '__main__':
-    import pp
+    import pupyclient
     import sys
     setattr(sys, 'executable', 'PythonService')
     while True:
         try:
-            pp.main()
+            pupyclient.__main__()
         except Exception, e:
             import traceback
             traceback.print_exc(e)

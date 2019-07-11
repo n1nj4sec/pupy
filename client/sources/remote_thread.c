@@ -1,16 +1,28 @@
 //#include "common.h"
 #include <windows.h>
+#include "debug.h"
+
 #include "remote_thread.h"
 /*! @brief Container structure for a client identifer used when creating remote threads with RtlCreateUserThread. */
 typedef struct _MIMI_CLIENT_ID {
-	PVOID UniqueProcess;
-	PVOID UniqueThread;
+    PVOID UniqueProcess;
+    PVOID UniqueThread;
 } CLIENTID;
 
 /*! @brief Function pointer type for the RtlCreateUserThread function in ntdll.dll */
-typedef NTSTATUS (WINAPI * PRtlCreateUserThread)(HANDLE, PSECURITY_DESCRIPTOR, BOOL, ULONG, SIZE_T, SIZE_T, PTHREAD_START_ROUTINE, PVOID, PHANDLE, CLIENTID*);
+typedef NTSTATUS (WINAPI * PRtlCreateUserThread)(
+    HANDLE, PSECURITY_DESCRIPTOR, BOOL, ULONG, SIZE_T,
+    SIZE_T, PTHREAD_START_ROUTINE, PVOID, PHANDLE,
+    CLIENTID*
+);
+
+typedef DWORD (WINAPI *PGetThreadId)(HANDLE Thread);
+
 /*! @brief Reference to the loaded RtlCreateUserThread function pointer. */
 static PRtlCreateUserThread pRtlCreateUserThread = NULL;
+
+static PGetThreadId fGetThreadId = NULL;
+
 /*! @brief Indication of whether an attempt to locate the pRtlCreateUserThread pointer has been made. */
 static BOOL pRtlCreateUserThreadAttempted = FALSE;
 
@@ -35,65 +47,82 @@ static BOOL pRtlCreateUserThreadAttempted = FALSE;
  */
 HANDLE create_remote_thread(HANDLE hProcess, SIZE_T sStackSize, LPVOID pvStartAddress, LPVOID pvStartParam, DWORD dwCreateFlags, LPDWORD pdwThreadId)
 {
-	NTSTATUS ntResult;
-	BOOL bCreateSuspended;
-	DWORD dwThreadId;
-	HANDLE hThread;
-	
-	if (pdwThreadId == NULL)
-	{
-		pdwThreadId = &dwThreadId;
-	}
+    NTSTATUS ntResult;
+    BOOL bCreateSuspended;
+    DWORD dwThreadId;
+    HANDLE hThread;
 
-	hThread = CreateRemoteThread(hProcess, NULL, sStackSize, (LPTHREAD_START_ROUTINE)pvStartAddress, pvStartParam, dwCreateFlags, pdwThreadId);
+    if (pdwThreadId == NULL)
+    {
+        pdwThreadId = &dwThreadId;
+    }
 
-	// ERROR_NOT_ENOUGH_MEMORY is returned when the function fails due to insufficient privs
-	// on Vista and later.
-	if (GetLastError() == ERROR_NOT_ENOUGH_MEMORY)
-	{
-		//dprintf("[REMOTETHREAD] CreateRemoteThread seems to lack permissions, trying alternative options");
-		hThread = NULL;
+    hThread = CreateRemoteThread(
+        hProcess, NULL, sStackSize,
+        (LPTHREAD_START_ROUTINE) pvStartAddress, pvStartParam,
+        dwCreateFlags, pdwThreadId
+    );
 
-		// Only attempt to load the function pointer if we haven't attempted it already.
-		if (!pRtlCreateUserThreadAttempted)
-		{
-			if (pRtlCreateUserThread == NULL)
-			{
-				pRtlCreateUserThread = (PRtlCreateUserThread)GetProcAddress(GetModuleHandleA("ntdll"), "RtlCreateUserThread");
-				if (pRtlCreateUserThread)
-				{
-					//dprintf("[REMOTETHREAD] RtlCreateUserThread found at %p, using for backup remote thread creation", pRtlCreateUserThread);
-				}
-			}
-			pRtlCreateUserThreadAttempted = TRUE;
-		}
+    dprint("[REMOTETHREAD] CreateRemoteThread hThread = %p, ret=%d\n", hThread, GetLastError());
 
-		// if at this point we don't have a valid pointer, it means that we don't have this function available
-		// on the current OS
-		if (pRtlCreateUserThread)
-		{
-			DWORD (WINAPI *fGetThreadId)(HANDLE Thread);
-			fGetThreadId = (void*)GetProcAddress(GetModuleHandleA("kernel32"), "GetThreadId");
-			if(fGetThreadId){
-			//dprintf("[REMOTETHREAD] Attempting thread creation with RtlCreateUserThread");
-			bCreateSuspended = (dwCreateFlags & CREATE_SUSPENDED) == CREATE_SUSPENDED;
-			ntResult = pRtlCreateUserThread(hProcess, NULL, bCreateSuspended, 0, 0, 0, (PTHREAD_START_ROUTINE)pvStartAddress, pvStartParam, &hThread, NULL);
-			SetLastError(ntResult);
+    // ERROR_NOT_ENOUGH_MEMORY is returned when the function fails due to insufficient privs
+    // on Vista and later.
+    if (GetLastError() == ERROR_NOT_ENOUGH_MEMORY)
+    {
+        dprint("[REMOTETHREAD] CreateRemoteThread seems to lack permissions, trying alternative options\n");
+        hThread = NULL;
 
-			if (ntResult == 0 && pdwThreadId)
-			{
-				*pdwThreadId = fGetThreadId(hThread);
-			}
-			}
-		}
-		else
-		{
-			// restore the previous error so that it looks like we haven't done anything else
-			SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-		}
-	}
+        // Only attempt to load the function pointer if we haven't attempted it already.
+        if (!pRtlCreateUserThreadAttempted)
+        {
+            if (pRtlCreateUserThread == NULL)
+            {
+                pRtlCreateUserThread = (PRtlCreateUserThread) GetProcAddress(
+                    GetModuleHandleA("NTDLL.DLL"), "RtlCreateUserThread");
 
-	return hThread;
+                fGetThreadId = (PGetThreadId) GetProcAddress(
+                    GetModuleHandleA("KERNEL32.DLL"), "GetThreadId");
+
+                if (pRtlCreateUserThread)
+                {
+                    dprint("[REMOTETHREAD] RtlCreateUserThread found at %p\n",
+                    pRtlCreateUserThread);
+                } else {
+                    dprint("[REMOTETHREAD] RtlCreateUserThread not found\n");
+                }
+            }
+            pRtlCreateUserThreadAttempted = TRUE;
+        }
+
+        // if at this point we don't have a valid pointer, it means that we don't have this function available
+        // on the current OS
+        if (pRtlCreateUserThread && fGetThreadId)
+        {
+            dprint("[REMOTETHREAD] Attempting thread creation with RtlCreateUserThread\n");
+            bCreateSuspended = (dwCreateFlags & CREATE_SUSPENDED) == CREATE_SUSPENDED;
+            ntResult = pRtlCreateUserThread(
+                hProcess, NULL, bCreateSuspended, 0, 0, 0,
+                (PTHREAD_START_ROUTINE) pvStartAddress, pvStartParam,
+                &hThread, NULL
+            );
+            SetLastError(ntResult);
+
+            dprint("[REMOTETHREAD] Created: %p (ret=%d)\n", hThread, ntResult);
+
+            if (ntResult == 0 && pdwThreadId)
+            {
+                *pdwThreadId = fGetThreadId(hThread);
+                dprint("[REMOTETHREAD] Thread ID: %08x\n", *pdwThreadId);
+            }
+        }
+        else
+        {
+            // restore the previous error so that it looks like we haven't done anything else
+            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        }
+    }
+
+    return hThread;
 }
 
 
