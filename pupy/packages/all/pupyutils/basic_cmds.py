@@ -644,13 +644,20 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
                             if n and len(data) >= n:
                                 break
                     else:
-                        fin.seek(0, os.SEEK_END)
-                        file_size = fin.tell()
-                        fin.seek(0)
-                        block_size = 4*8192
-                        block = fin.read(block_size)
-                        if file_size > block_size:
-                            block += "\n[FILE TRUNCATED, USE DOWNLOAD]"
+                        try:
+                            fin.seek(0, os.SEEK_END)
+                            file_size = fin.tell()
+                            fin.seek(0)
+                            block_size = 4*8192
+                            block = fin.read(block_size)
+                            if file_size > block_size:
+                                block += "\n[FILE TRUNCATED, USE DOWNLOAD]"
+                        except IOError as e:
+                            if e.errno != errno.EINVAL:
+                                # File does not support seek
+                                raise
+                            block = fin.read()
+
                         return block
             else:
                 raise ValueError('Not a file')
