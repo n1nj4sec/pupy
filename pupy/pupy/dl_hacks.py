@@ -140,10 +140,16 @@ def apply_dl_hacks():
         except WindowsError:
             pupy.dprint('python27.dll not found')
     else:
-        try:
-            libpython = ctypes.PyDLL('libpython2.7.so.1.0')
-        except OSError:
-            pupy.dprint('libpython2.7.so.1.0 not found')
+        for libname in (None, 'libpython2.7.so.1.0', 'libpython2.7.so'):
+            try:
+                candidate = ctypes.PyDLL(libname)
+            except OSError:
+                continue
 
-    if libpython:
+            if hasattr(candidate, '_Py_PackageContext'):
+                libpython = candidate
+                break
+
+    if libpython is not None:
+        pupy.dprint('Set ctypes.pythonapi to {}', libpython)
         ctypes.pythonapi = libpython
