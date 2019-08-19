@@ -10,7 +10,10 @@ import ctypes
 
 import pupy
 
-from .utils import load_library_common, find_writable_folder
+from .utils import (
+    load_library_common, find_writable_folder, _Py_PackageContext
+)
+
 from .posix import _does_dest_allows_executable_mappings
 
 TMP_FOLDERS = ['/dev/shm', '/tmp', '/var/tmp']
@@ -119,6 +122,10 @@ def memfd_is_supported():
 
     if platform.system() == 'Java':
         pupy.dprint('memfd: disabled for jython')
+        return False
+
+    if _Py_PackageContext is None:
+        pupy.dprint('disable memfd because _Py_PackageContext is not supported')
         return False
 
     maj, min = platform.release().split('.')[:2]

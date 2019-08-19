@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ('package_context', 'find_writable_folder', 'load_library_common')
+__all__ = (
+    'package_context', 'find_writable_folder',
+    'load_library_common', '_Py_PackageContext'
+)
 
 import ctypes
+
+from imp import load_dynamic
 
 from os import path
 from tempfile import gettempdir
@@ -10,11 +15,16 @@ from tempfile import gettempdir
 import pupy
 
 INITIALIZER = ctypes.PYFUNCTYPE(None)
+_Py_PackageContext = None
+
+try:
+    _Py_PackageContext = ctypes.c_char_p.in_dll(
+            ctypes.pythonapi, '_Py_PackageContext')
+except ValueError:
+    pupy.dprint('_Py_PackageContext not found in pythonapi')
 
 
 class package_context(object):
-    _Py_PackageContext = ctypes.c_char_p.in_dll(
-        ctypes.pythonapi, '_Py_PackageContext')
 
     __slots__ = ('name', 'previous')
 
@@ -23,11 +33,14 @@ class package_context(object):
         self.previous = None
 
     def __enter__(self):
-        self.previous = package_context._Py_PackageContext.value
-        package_context._Py_PackageContext.value = self.name
+        if _Py_PackageContext is None:
+            raise ValueError('_Py_PackageContext is not available')
+
+        self.previous = _Py_PackageContext.value
+        _Py_PackageContext.value = self.name
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        package_context._Py_PackageContext.value = self.previous
+        _Py_PackageContext.value = self.previous
         self.previous = None
 
 
@@ -52,6 +65,10 @@ def find_writable_folder(folders, validate=None):
 
         if validate(folder):
             return folder
+
+    pupy.dprint(
+        'find_writable_folder: no folders found'
+    )
 
 
 def load_library_common(
@@ -83,6 +100,16 @@ def load_library_common(
 
     if initfuncname is None:
         initfuncname = 'init' + module_name
+
+    if _Py_PackageContext is None:
+        # Fallback to built-in imp.load_dynamic
+        if initfuncname != 'init' + module_name:
+            raise ValueError('Unexpected module_name')
+
+        x = load_dynamic(module_name, filepath)
+        pupy.dprint(
+            'load_dynamic({}, {}) -> {}', module_name, filepath, x)
+        return x
 
     try:
         lib = ctypes.PyDLL(filepath)
