@@ -23,12 +23,16 @@ def _does_dest_allows_executable_mappings(folder):
         return False
 
     try:
-        fileobj = fdopen(fd, 'rwb')
+        fileobj = fdopen(fd, 'wb')
         fileobj.truncate(4096)
         mapping = mmap(fileobj.fileno(), 4096, prot=PROT_WRITE | PROT_EXEC)
         mapping.close()
         pupy.dprint('Folder {} does allows executables', folder)
         return True
+
+    except IOError as e:
+        pupy.dprint('Exception during mmap {}: {}', e)
+        return False
 
     except OSError as e:
         pupy.dprint('Folder {} does not allow executables: {}', folder, e)
