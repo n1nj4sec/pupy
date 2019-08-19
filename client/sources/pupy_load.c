@@ -110,13 +110,16 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
         return NULL;
     }
 
-    bufLen = storage - numArgs * sizeof(LPSTR);
-    buffer = ((LPSTR)result) + numArgs * sizeof(LPSTR);
+    bufLen = storage - (numArgs * sizeof(LPSTR));
+    buffer = ((LPSTR)result) + (numArgs * sizeof(LPSTR));
     for (i = 0; i < numArgs; ++ i)
     {
         BOOL lpUsedDefaultChar = FALSE;
 
-        assert(bufLen > 0);
+        if (bufLen < 0) {
+            dprint("Buflen exhaused, arg %d (%d/%d)\n", i, bufLen, storage);
+            break;
+        }
 
         retval = WideCharToMultiByte(
             CP_UTF8, 0, args[i], -1, buffer,
