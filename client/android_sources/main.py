@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     while True:
         try:
-            pp.main(debug=True)
+            pp.main()
         except Exception as e:
             import traceback
             traceback.print_exc()
