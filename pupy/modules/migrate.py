@@ -23,6 +23,9 @@ class MigrateModule(PupyModule):
         cls.arg_parser.add_argument('--no-wait', action='store_false', default=True,
                             help='Does not Hook exit thread function and wait until pupy exists (Linux)')
 
+        cls.arg_parser.add_argument('-d', '--debug', action='store_true', default=False,
+                            help='enable debug option in pupy config')
+
         group = cls.arg_parser.add_mutually_exclusive_group(required=True)
         group.add_argument('-c', '--create', metavar='<exe_path>',
                             help='create a new process and inject into it')
@@ -71,7 +74,7 @@ class MigrateModule(PupyModule):
             else:
                 self.success("Migrating to existing windows process identified with the pid {0}".format(args.pid))
                 pid=args.pid
-            win_migrate(self, pid, args.keep, args.timeout, bindPort=listeningPort)
+            win_migrate(self, pid, args.keep, args.timeout, bindPort=listeningPort, debug=args.debug)
             if isBindConnection:
                 listeningAddress = self.client.desc['address'].split(':')[0]
                 listeningAddressPortForBind = "{0}:{1}".format(listeningAddress, listeningPort)
@@ -79,7 +82,7 @@ class MigrateModule(PupyModule):
         elif self.client.is_linux():
             if args.create:
                 self.success("Migrating to new linux process using LD_PRELOAD")
-                ld_preload(self, args.create, wait_thread=args.no_wait, keep=args.keep)
+                ld_preload(self, args.create, wait_thread=args.no_wait, keep=args.keep, debug=args.debug)
             else:
                 self.success("Migrating to existing linux process")
-                lin_migrate(self, args.pid, args.keep)
+                lin_migrate(self, args.pid, args.keep, debug=args.debug)

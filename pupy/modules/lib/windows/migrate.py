@@ -8,7 +8,7 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def migrate(module, pid, keep=False, timeout=30, bindPort=None):
+def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False):
     '''
     - bindPort: The port used for listening on the target WHEN the current launcher uses a BIND connection.
                 When the current launcher uses a BIND connection, this session is kept even if keep==False
@@ -43,7 +43,7 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None):
     dllbuff, filename, _ = pupygen.generate_binary_from_template(
         module.log,
         conf, 'windows',
-        arch=arch, shared=True
+        arch=arch, shared=True, debug=debug
     )
     module.success("Template: {}".format(filename))
 

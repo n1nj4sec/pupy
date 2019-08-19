@@ -437,6 +437,8 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
 
+    if debug:
+        config['debug'] = True
 
     config_table = [{
         'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (

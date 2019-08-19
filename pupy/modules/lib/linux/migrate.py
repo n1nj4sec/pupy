@@ -18,13 +18,13 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def get_payload(module, compressed=True):
+def get_payload(module, compressed=True, debug=False):
     conf = module.client.get_conf()
     dllbuf, _, _ = pupygen.generate_binary_from_template(
         module.log,
         conf, 'linux',
         arch=module.client.arch, shared=True,
-        debug=conf['debug']
+        debug=debug or conf['debug']
     )
 
     if not compressed:
@@ -56,8 +56,8 @@ def wait_connect(module, pid, timeout=10):
 
         time.sleep(1)
 
-def ld_preload(module, command, wait_thread=False, keep=False):
-    payload = get_payload(module)
+def ld_preload(module, command, wait_thread=False, keep=False, debug=False):
+    payload = get_payload(module, debug)
 
     pid = module.client.conn.modules['pupy'].ld_preload_inject_dll(
         command, payload, wait_thread
@@ -74,8 +74,8 @@ def ld_preload(module, command, wait_thread=False, keep=False):
 
     module.success("migration completed")
 
-def migrate(module, pid, keep=False, timeout=10):
-    payload = get_payload(module)
+def migrate(module, pid, keep=False, timeout=10, debug=False):
+    payload = get_payload(module, debug)
 
     r = module.client.conn.modules['pupy'].reflective_inject_dll(
         pid, payload
