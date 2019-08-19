@@ -43,6 +43,7 @@ import __future__
 import netaddr
 import ntlm
 import http_parser
+import unicodedata
 
 try:
     import psutil
