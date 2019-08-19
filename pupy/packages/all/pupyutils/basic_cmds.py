@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 import glob
 import shutil
 import getpass
@@ -62,6 +63,27 @@ def try_unicode(path):
             pass
 
     return path
+
+
+def try_utf8(data):
+    if type(data) == unicode:
+        return data.encode('utf-8')
+    elif type(data) != str:
+        return data
+
+    try:
+        return data.decode(
+            sys.getfilesystemencoding()).encode('utf-8')
+    except UnicodeError:
+        return data
+
+
+def try_exc_utf8(exc):
+    exc.args = tuple(
+        try_utf8(arg) for arg in exc.args
+    )
+    exc.message = try_utf8(exc.message)
+
 
 class FakeStat(object):
     st_mode = 0b100000
@@ -390,18 +412,22 @@ def ls(path=None, listdir=True, limit=4096, list_arc=False, resolve_uidgid=False
         found = True
 
         if os.path.isdir(path):
-            if listdir:
-                results.append({
-                    T_PATH: path,
-                    T_FILES: list_dir(
-                        path, max_files=limit,
-                        resolve_uidgid=resolve_uidgid)
-                })
-            else:
-                results.append({
-                    T_PATH: path,
-                    T_FILE: list_file(path, resolve_uidgid)
-                })
+            try:
+                if listdir:
+                    results.append({
+                        T_PATH: path,
+                        T_FILES: list_dir(
+                            path, max_files=limit,
+                            resolve_uidgid=resolve_uidgid)
+                    })
+                else:
+                    results.append({
+                        T_PATH: path,
+                        T_FILE: list_file(path, resolve_uidgid)
+                    })
+            except Exception as e:
+                try_exc_utf8(e)
+                raise
 
         elif os.path.isfile(path):
             if safe_is_zipfile(path):
@@ -460,11 +486,12 @@ def cd(path=None):
     try:
         os.chdir(path)
         PREV_CWD = cwd
-    except OSError:
+    except OSError as exc:
         if path == '-' and PREV_CWD is not None:
             os.chdir(PREV_CWD)
             PREV_CWD = cwd
         else:
+            try_exc_utf8(exc)
             raise
 
 # -------------------------- For mkdir function --------------------------
@@ -475,7 +502,11 @@ def mkdir(directory):
     directory = os.path.expanduser(directory)
     directory = os.path.expandvars(directory)
 
-    os.makedirs(directory)
+    try:
+        os.makedirs(directory)
+    except OSError as exc:
+        try_exc_utf8(exc)
+        raise
 
 # -------------------------- For cp function --------------------------
 
@@ -502,10 +533,14 @@ def cp(src, dst):
             if os.path.exists(real_dst):
                 raise ValueError('{} already exists'.format(real_dst))
 
-            if os.path.isdir(src):
-                shutil.copytree(src, real_dst)
-            else:
-                shutil.copyfile(src, real_dst)
+            try:
+                if os.path.isdir(src):
+                    shutil.copytree(src, real_dst)
+                else:
+                    shutil.copyfile(src, real_dst)
+            except Exception as e:
+                try_exc_utf8(e)
+                raise
         else:
             raise ValueError('The file {} does not exist'.format(src))
 
@@ -538,7 +573,11 @@ def mv(src, dst):
             if os.path.exists(real_dst):
                 raise ValueError('File/directory already exists')
 
-            shutil.move(src, real_dst)
+            try:
+                shutil.move(src, real_dst)
+            except Exception as e:
+                try_exc_utf8(e)
+                raise
 
     if not found:
         raise ValueError('The file/directory does not exist')
@@ -571,9 +610,69 @@ def rm(path):
         raise ValueError("File/directory does not exists")
 
     if files == 1 and exception:
-        raise exception
+        try_exc_utf8(exception)
+        raise
 
 # -------------------------- For cat function --------------------------
+
+def _cat(data, dups, fin, N, n, grep, encoding=None, filter_out=False):
+    bom = fin.read(2)
+    need_newline = True
+    if bom == codecs.BOM_UTF16_LE:
+        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-le')
+    elif bom == codecs.BOM_UTF16_BE:
+        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-be')
+    elif bom == codecs.BOM_UTF32_LE:
+        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-le')
+    elif bom == codecs.BOM_UTF32_BE:
+        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-be')
+    elif bom == '\x1f\x8b':
+        if N:
+            raise ValueError('Tail is not supported for GZip files')
+        fin.seek(0)
+        fin = GzipFile(mode='r', fileobj=fin)
+    elif encoding is not None:
+        fin = codecs.EncodedFile(fin, 'utf-8', encoding)
+        fin.seek(0)
+        need_newline = False
+    else:
+        need_newline = False
+        fin.seek(0)
+
+    if need_newline:
+        fin.readline()
+
+    if N:
+        data += tail(fin, N, grep, filter_out)
+    elif grep or n:
+        for line in fin:
+            line = line.rstrip('\n')
+            matches = None
+            if grep:
+                matches = grep.search(line)
+            if not grep or (not filter_out and matches) or \
+                (filter_out and not matches):
+                if matches:
+                    groups = matches.groups()
+                    if groups:
+                        record = '\t'.join(groups)
+                        if record not in dups:
+                            data.append(record)
+                            dups.add(record)
+                    else:
+                        data.append(line)
+                else:
+                    data.append(line)
+
+            if n and len(data) >= n:
+                break
+    else:
+        block_size = 4*8192
+        block = fin.read(block_size)
+        if len(block) == block_size:
+            block += "\n[FILE TRUNCATED, USE DOWNLOAD]"
+
+        data.append(block)
 
 def cat(path, N, n, grep, encoding=None, filter_out=False):
     if grep:
@@ -589,71 +688,19 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
     dups = set()
 
     for path in glob.iglob(path):
-        if os.path.exists(path):
-            found = True
-            if os.path.isfile(path):
-                with open(path, 'r') as fin:
-                    bom = fin.read(2)
-                    need_newline = True
-                    if bom == codecs.BOM_UTF16_LE:
-                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-le')
-                    elif bom == codecs.BOM_UTF16_BE:
-                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-be')
-                    elif bom == codecs.BOM_UTF32_LE:
-                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-le')
-                    elif bom == codecs.BOM_UTF32_BE:
-                        fin = codecs.EncodedFile(fin, 'utf-8', 'utf-32-be')
-                    elif bom == '\x1f\x8b':
-                        if N:
-                            raise ValueError('Tail is not supported for GZip files')
-                        fin.seek(0)
-                        fin = GzipFile(mode='r', fileobj=fin)
-                    elif encoding is not None:
-                        fin = codecs.EncodedFile(fin, 'utf-8', encoding)
-                        fin.seek(0)
-                        need_newline = False
-                    else:
-                        need_newline = False
-                        fin.seek(0)
+        if not os.path.exists(path):
+            continue
 
-                    if need_newline:
-                        fin.readline()
+        found = True
+        if not os.path.isfile(path):
+            raise ValueError('Not a file')
 
-                    if N:
-                        data += tail(fin, N, grep, filter_out)
-                    elif grep or n:
-                        for line in fin:
-                            line = line.rstrip('\n')
-                            matches = None
-                            if grep:
-                                matches = grep.search(line)
-                            if not grep or (not filter_out and matches) or \
-                               (filter_out and not matches):
-                                if matches:
-                                    groups = matches.groups()
-                                    if groups:
-                                        record = '\t'.join(groups)
-                                        if record not in dups:
-                                            data.append(record)
-                                            dups.add(record)
-                                    else:
-                                        data.append(line)
-                                else:
-                                    data.append(line)
-
-                            if n and len(data) >= n:
-                                break
-                    else:
-                        block_size = 4*8192
-                        block = fin.read(block_size)
-                        if len(block) == block_size:
-                            block += "\n[FILE TRUNCATED, USE DOWNLOAD]"
-
-                        return block
-            else:
-                raise ValueError('Not a file')
-        else:
-            raise ValueError('File does not exists')
+        with open(path, 'r') as fin:
+            try:
+                _cat(data, dups, fin, N, n, grep, encoding, filter_out)
+            except Exception as e:
+                try_exc_utf8(e)
+                raise
 
     if not found:
         raise ValueError('File does not exists')
@@ -783,14 +830,24 @@ def getuid():
 
 def dlstat(path):
     path = try_unicode(path)
-    pstat = os.stat(path)
+    try:
+        pstat = os.stat(path)
+    except OSError as e:
+        try_exc_utf8(e)
+        raise
+
     return {
         k:getattr(pstat, k) for k in dir(pstat) if not k.startswith('__')
     }
 
 def dstatvfs(path):
     path = try_unicode(path)
-    pstat = os.statvfs(path)
+    try:
+        pstat = os.statvfs(path)
+    except OSError as e:
+        try_exc_utf8(e)
+        raise
+
     return {
         k:getattr(pstat, k) for k in dir(pstat) if not k.startswith('__')
     }
