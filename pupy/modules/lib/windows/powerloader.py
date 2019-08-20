@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 __all__ = (
-    'serve'
+    'serve',
 )
 
 from os import unlink

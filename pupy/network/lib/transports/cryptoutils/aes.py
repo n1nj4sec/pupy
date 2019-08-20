@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-""" wrapper around pycryptodome or pyaes depending on their availabilities """
+__all__ = (
+    'append_PKCS7_padding',
+    'strip_PKCS7_padding',
+    'NewAESCipher', 'AES_BLOCK_SIZE',
+    'AES_MODE_CTR', 'AES_MODE_CFB', 'AES_MODE_CBC'
+)
 
 import logging
 
@@ -103,11 +108,3 @@ except ImportError as e:
                 cleartext.append(self.cipher.decrypt(data[i:i+AES_BLOCK_SIZE]))
 
             return b''.join(cleartext)
-
-
-__all__ = (
-    append_PKCS7_padding,
-    strip_PKCS7_padding,
-    NewAESCipher, AES_BLOCK_SIZE,
-    AES_MODE_CTR, AES_MODE_CFB, AES_MODE_CBC
-)

@@ -2,6 +2,8 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+__all__ = ('RSA_AESClient', 'RSA_AESServer')
+
 """ This module contains an implementation of a simple xor transport for pupy. """
 
 from ..base import BasePupyTransport, TransportError
@@ -261,6 +263,3 @@ class RSA_AESServer(RSA_AESTransport):
         else:
             data.write_to(self.buffer)
             logger.debug('Pending data: len=%d', len(self.buffer))
-
-
-__all__ = (RSA_AESClient, RSA_AESServer)

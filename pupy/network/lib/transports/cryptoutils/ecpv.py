@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+__all__ = ('PubKeyCache', 'ECPV')
+
 import struct
 import base64
 
@@ -361,9 +363,6 @@ class ECPV(object):
         if symmetric:
             return self.decrypt(message, nonce)
         return self.unpack(message, nonce)
-
-
-__all__ = (PubKeyCache, ECPV)
 
 
 if __name__ == '__main__':

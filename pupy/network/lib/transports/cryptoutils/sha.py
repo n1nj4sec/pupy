@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = (
+    'SHA1', 'SHA256', 'SHA384', 'SHA3_256', 'SHA3_512'
+)
+
 try:
     from Crypto.Hash import SHA1, SHA256, SHA384, SHA3_256, SHA3_512
 except ImportError:
@@ -29,8 +33,3 @@ except ImportError:
         @staticmethod
         def new(*args):
             return sha384(*args)
-
-
-__all__ = (
-    SHA1, SHA256, SHA384, SHA3_256, SHA3_512
-)

@@ -8,4 +8,4 @@ def getLogger(name):
     return logger.getChild(name)
 
 
-__all__ = (getLogger,)
+__all__ = ('getLogger',)

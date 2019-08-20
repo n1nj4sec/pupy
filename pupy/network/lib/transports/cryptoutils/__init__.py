@@ -1,5 +1,13 @@
 # -*- encoding: utf-8 -*-
 
+__all__ = (
+    'append_PKCS7_padding', 'strip_PKCS7_padding',
+    'NewAESCipher', 'get_random',
+    'SHA1', 'SHA256', 'SHA384', 'SHA3_256', 'SHA3_512',
+    'AES_MODE_CTR', 'AES_MODE_CFB', 'AES_MODE_CBC',
+    'hmac_sha256_digest', 'AES_BLOCK_SIZE', 'RC4', 'ECPV'
+)
+
 from .aes import (
     append_PKCS7_padding,
     strip_PKCS7_padding,
@@ -33,12 +41,3 @@ except ImportError as e:
         return hmac.new(key, msg, hashlib.sha256).digest()
 
 from .ecpv import ECPV
-
-
-__all__ = (
-    append_PKCS7_padding, strip_PKCS7_padding,
-    NewAESCipher, get_random,
-    SHA1, SHA256, SHA384, SHA3_256, SHA3_512,
-    AES_MODE_CTR, AES_MODE_CFB, AES_MODE_CBC,
-    hmac_sha256_digest, AES_BLOCK_SIZE, RC4, ECPV
-)
