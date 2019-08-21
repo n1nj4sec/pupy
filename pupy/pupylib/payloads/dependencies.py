@@ -57,6 +57,10 @@ COMMON_MODULE_ENDINGS = (
     '/', '.py', '.pyo', '.pyc', '.pyd', '.so', '.dll'
 )
 
+IGNORED_ENDINGS = (
+    'tests', 'test', 'SelfTest', 'examples', 'demos'
+)
+
 # dependencies to load for each modules
 WELL_KNOWN_DEPS = {
     'pupwinutils.memexec': {
@@ -331,7 +335,7 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
     if os.path.isdir(module_path) and safe_file_exists(module_path):
         for root, dirs, files in os.walk(module_path, followlinks=True):
             for f in files:
-                if root.endswith(('tests', 'test', 'SelfTest', 'examples')) or f.startswith('.#'):
+                if root.endswith(IGNORED_ENDINGS) or f.startswith('.#'):
                     continue
 
                 if f.endswith(('.so', '.pyd', '.dll')):
