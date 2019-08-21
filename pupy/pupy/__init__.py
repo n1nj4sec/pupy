@@ -210,7 +210,7 @@ def broadcast_event(eventid, *args, **kwargs):
     dprint('Event {:08x}', eventid)
 
     if _broadcast_event:
-        _broadcast_event(*args, **kwargs)
+        _broadcast_event(eventid, *args, **kwargs)
 
 
 def get_logger(name):
