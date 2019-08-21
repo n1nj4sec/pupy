@@ -49,11 +49,10 @@ void redirect_stdout() {
 // https://stackoverflow.com/questions/291424/
 LPSTR* CommandLineToArgvA(INT *pNumArgs)
 {
+    LPWSTR cmdline;
     LPWSTR* args;
     LPSTR* result;
     LPSTR buffer;
-
-    BOOL lpUsedDefaultChar;
 
     int retval;
     int numArgs;
@@ -78,7 +77,14 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
 
     numArgs = 0;
 
-    args = CommandLineToArgvW_(GetCommandLineW(), &numArgs);
+    cmdline = GetCommandLineW();
+    if (!cmdline) {
+        dprint("Command line not found");
+        *pNumArgs = 0;
+        return NULL;
+    }
+
+    args = CommandLineToArgvW_(cmdline, &numArgs);
     if (args == NULL) {
         *pNumArgs = 0;
         return NULL;
@@ -87,10 +93,9 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
     storage = numArgs * sizeof(LPSTR);
     for (i = 0; i < numArgs; ++ i)
     {
-        lpUsedDefaultChar = FALSE;
         retval = WideCharToMultiByte(
             CP_UTF8, 0, args[i], -1, NULL,
-            0, NULL, &lpUsedDefaultChar
+            0, NULL, NULL
         );
         if (!SUCCEEDED(retval))
         {
@@ -114,23 +119,22 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
     buffer = ((LPSTR)result) + (numArgs * sizeof(LPSTR));
     for (i = 0; i < numArgs; ++ i)
     {
-        BOOL lpUsedDefaultChar = FALSE;
-
         if (bufLen < 0) {
             dprint("Buflen exhaused, arg %d (%d/%d)\n", i, bufLen, storage);
+            numArgs = i;
             break;
         }
 
         retval = WideCharToMultiByte(
             CP_UTF8, 0, args[i], -1, buffer,
-            bufLen, NULL, &lpUsedDefaultChar
+            bufLen, NULL, NULL
         );
 
         if (!SUCCEEDED(retval))
         {
             LocalFree(result);
             LocalFree(args);
-            *pNumArgs = 0;
+            *pNumArgs = i;
             return NULL;
         }
 
