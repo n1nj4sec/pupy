@@ -5,7 +5,7 @@ __all__ = (
     'new_dlls', 'invalidate_module',
     'register_package_request_hook', 'register_package_error_hook',
     'unregister_package_error_hook', 'unregister_package_request_hook',
-    'broadcast_event', 'safe_obtain', 'register_pupyimporter'
+    'safe_obtain', 'register_pupyimporter'
 )
 
 import sys
@@ -134,26 +134,6 @@ def unregister_package_error_hook():
 
 def unregister_package_request_hook():
     pupy.remote_load_package = None
-
-
-def broadcast_event(eventid):
-    if pupy.connection:
-        logger.debug(
-            'Pupy connected: broadcast event via connection. EventId = %08x',
-            eventid)
-
-        pupy.connection.root.broadcast_event(eventid)
-
-    elif pupy.broadcast_event:
-        logger.debug(
-            'Pupy is not connected, but broadcast_event defined (%s). EventId = %08x',
-            pupy.broadcast_event, eventid)
-        pupy.broadcast_event(eventid)
-        logger.debug('Pupy connected: broadcast completed')
-
-    else:
-        logger.debug(
-            'No way to report event. EventId = %08x', eventid)
 
 
 def safe_obtain(proxy):

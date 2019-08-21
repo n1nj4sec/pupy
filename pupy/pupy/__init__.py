@@ -77,6 +77,7 @@ def is_supported(function):
 
 # Pupy client API
 
+client = None
 config = {}
 
 try:
@@ -171,13 +172,10 @@ logger = None
 
 creds_cache = {}
 namespace = None
-connection = None
 obtain = None
 manager = None
 Task = None
 Manager = None
-
-_broadcast_event = None
 
 aliases = {
     'Cryptodome': 'Crypto',
@@ -201,16 +199,18 @@ def set_pupy_config(new_config):
 
 
 def set_broadcast_event(callback):
-    global _broadcast_event
+    if not client:
+        # Not ready?
+        return
 
-    _broadcast_event = callback
+    client.set_broadcast_event(callback)
 
 
 def broadcast_event(eventid, *args, **kwargs):
-    dprint('Event {:08x}', eventid)
+    if not client:
+        return
 
-    if _broadcast_event:
-        _broadcast_event(eventid, *args, **kwargs)
+    client.broadcast_event(eventid, *args, **kwargs)
 
 
 def get_logger(name):
