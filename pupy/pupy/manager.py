@@ -72,8 +72,8 @@ class Task(Thread):
         except:
             pupy.remote_error('Task (append) error: {}', self.name)
 
-    def broadcast_event(self, eventid):
-        pupy.broadcast_event(eventid)
+    def broadcast_event(self, eventid, *args, **kwargs):
+        pupy.broadcast_event(eventid, *args, **kwargs)
 
     def stop(self):
         pupy.dprint('Stopping task {}', self.__class__.__name__)

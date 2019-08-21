@@ -78,16 +78,16 @@ class EventRegistrationException(Exception):
 
 class UnregisteredEventId(EventRegistrationException):
     def __str__(self):
-        return 'Unregistered Event ID %{:02x}'.format(self.eventid)
+        return 'Unregistered Event ID {:08x}'.format(self.eventid)
 
 class RegisteredEventId(EventRegistrationException):
     def __str__(self):
-        return 'Already registered Event ID %{:02x}'.format(self.eventid)
+        return 'Already registered Event ID %{:08x}'.format(self.eventid)
 
 class RegistrationNotAllowed(EventRegistrationException):
     def __str__(self):
         return 'Registrations of global events are not allowed ' \
-          '(Event ID %{:02x})'.format(self.eventid)
+          '(Event ID {:08x})'.format(self.eventid)
 
 def register_event_id(eventid, name, scope=CLIENT):
     global EVENTS_ID_REGISTRY
@@ -97,10 +97,13 @@ def register_event_id(eventid, name, scope=CLIENT):
 
     if eventid > 0x1F000000:
         raise ValueError('Invalid Event ID: should be less then 0x1F')
+
     elif scope not in (SERVER, CLIENT, DNSCNC):
         raise ValueError('Invalid scope, should be one of SERVER, CLIENT, DNSCNC')
+
     elif not all(x in ALLOWED_CHARS for x in name):
         raise ValueError('Only digits, letters, space and underscore allowed for event names')
+
     elif scope | eventid in EVENTS_ID_REGISTRY:
         raise RegisteredEventId(eventid)
 

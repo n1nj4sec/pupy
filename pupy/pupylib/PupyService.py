@@ -170,7 +170,7 @@ class PupyService(rpyc.Service):
 
         return data
 
-    def exposed_broadcast_event(self, eventid):
+    def exposed_broadcast_event(self, eventid, *args, **kwargs):
         logger.info('Event received: %08x', eventid)
         if self.events_receiver:
             self.events_receiver(eventid)
