@@ -66,6 +66,44 @@ LOGON_TYPES = {
 }
 
 
+class Match(object):
+    __slots__ = (
+        'value', 'is_num'
+    )
+
+    def __init__(self, value):
+        self.is_num = False
+
+        if value.startswith('0x'):
+            try:
+                self.value = int(value[2:], 16)
+                self.is_num = True
+            except ValueError:
+                pass
+
+        elif all(ch in '0123456789' for ch in value):
+            self.value = int(value)
+            self.is_num = True
+
+        elif all(ch in '0123456789aAbBcCdDeEfF' for ch in value):
+            self.value = int(value, 16)
+            self.is_num = True
+
+        if not self.is_num:
+            self.value = re.compile(value, re.IGNORECASE | re.MULTILINE)
+
+    def matches(self, other):
+        if self.is_num:
+            if type(other) in (str, unicode):
+                return any(
+                    tpl.format(self.value) in other for tpl in (
+                        '{}', '{:x}', '{:08x}', '0x{:08x}', '0x{:x}'
+                ))
+            return self.value == other
+        else:
+            return bool(self.value.search(other))
+
+
 class EventLog(object):
     event_types = {
         EVENTLOG_AUDIT_FAILURE: 'FAILURE',
@@ -320,11 +358,11 @@ class EventLog(object):
         events = {}
 
         includes = [
-            re.compile(x, re.IGNORECASE | re.MULTILINE) for x in includes
+            Match(x) for x in includes
         ]
 
         excludes = [
-            re.compile(x, re.IGNORECASE | re.MULTILINE) for x in excludes
+            Match(x) for x in excludes
         ]
 
         for log in self.sources:
@@ -343,11 +381,8 @@ class EventLog(object):
                     if append:
                         break
 
-                    if type(value) not in (str, unicode):
-                        value = str(value)
-
                     for exclude in excludes:
-                        if exclude.search(value):
+                        if exclude.matches(value):
                             append = False
                             excluded = True
                             break
@@ -356,7 +391,7 @@ class EventLog(object):
                         break
 
                     for include in includes:
-                        if include.search(value):
+                        if include.matches(value):
                             append = True
                             break
 
@@ -383,10 +418,17 @@ def lastlog():
     hostmap = {}
 
     sessions = {}
+    powerdowns = []
 
-    for event in EventLog().get_events('Security', filter_event_id=(4624,4634), fmt=False):
+    eventlog = EventLog()
+
+    for event in eventlog.get_events('System', filter_event_id=6008, fmt=False):
+        powerdowns.append(event['date'])
+
+    powerdowns = sorted(powerdowns)
+
+    for event in eventlog.get_events('Security', filter_event_id=(4624,4634,4647), fmt=False):
         session_id = None
-
         if event['EventID'] == 4624:
             _, _, _, _, _, user, domain, session_id, logon_type, _, \
               _, _, _, _, _, _, pid, comm, ip, _ = event['msg']
@@ -408,8 +450,13 @@ def lastlog():
 
             if session_id not in sessions:
                 sessions[session_id] = {
+                    'logon_type': logon_type,
+                    'type': None,
+                    'start': None,
                     'end': None
                 }
+            elif logon_type != sessions[session_id]['logon_type']:
+                continue
 
             logon_type = LOGON_TYPES.get(logon_type, logon_type)
 
@@ -428,31 +475,61 @@ def lastlog():
                 if station:
                     line = '{}: {} ({})'.format(line, station, pid)
 
-            sessions[session_id].update({
-                'start': event['date'],
-                'type': None,
-                'host': hostmap[ip] if ip else None,
-                'user': domain + '\\' + user,
-                'ip': ip,
-                'line': line,
-                'pid': comm,
-            })
+                line += ' {:08x}'.format(session_id)
 
-        elif event['EventID'] == 4634:
-            _, _, _, session_id, _ = event['msg']
+            if not sessions[session_id]['start'] or \
+                   event['date'] < sessions[session_id]['start']:
+                sessions[session_id]['start'] = event['date']
+
+            if not sessions[session_id].get('host'):
+                sessions[session_id]['host'] = hostmap[ip] if ip else None
+
+            if not sessions[session_id].get('user'):
+                sessions[session_id]['user'] = domain + '\\' + user
+
+            if not sessions[session_id].get('ip'):
+                sessions[session_id]['ip'] = ip
+
+            if not sessions[session_id].get('line'):
+                sessions[session_id]['line'] = line
+
+            if not sessions[session_id].get('ip'):
+                sessions[session_id]['pid'] = comm
+
+        elif event['EventID'] in (4634, 4647):
+
+            logon_type = None
+            session_id = None
+
+            if event['EventID'] == 4634:
+                _, _, _, session_id, logon_type = event['msg']
+                logon_type = int(logon_type)
+            else:
+                _, _, _, session_id = event['msg']
+
             session_id = int(session_id, 16)
 
             if session_id not in sessions:
                 sessions[session_id] = {
-                    'start': None
+                    'start': None,
+                    'end': None,
+                    'type': None,
+                    'logon_type': logon_type
                 }
 
-            sessions[session_id]['end'] = event['date']
+            if logon_type is not None and \
+                   sessions[session_id]['logon_type'] != logon_type:
+                continue
+
+            if not sessions[session_id]['end'] or \
+                   event['date'] > sessions[session_id]['end']:
+                sessions[session_id]['end'] = event['date']
 
         if not session_id:
             continue
 
-        if sessions[session_id]['start'] and sessions[session_id]['end']:
+    for session_id in sessions.keys():
+        if sessions[session_id].get('start') and sessions[session_id].get('end'):
             sessions[session_id]['duration'] = \
               sessions[session_id]['end'] - sessions[session_id]['start']
             events.append(sessions[session_id])
@@ -465,8 +542,16 @@ def lastlog():
         ]
 
         for session in orphan:
-            session['end'] = -1
-            session['duration'] = now - session['start']
+            end = now
+            for powerdown in powerdowns:
+                if session['start'] < powerdown:
+                    session['end'] = powerdown
+                    end = powerdown
+                    break
+                else:
+                    session['end'] = -1
+
+            session['duration'] = end - session['start']
 
         events.extend(
             sorted(orphan, key=lambda x: x['start'])
