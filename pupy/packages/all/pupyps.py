@@ -24,6 +24,17 @@ socktypes = {
     v:k[5:] for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
 }
 
+KNOWN_FIELDS = tuple(
+    field for field in (
+        'cmdline', 'connections', 'cpu_percent', 'cpu_times', 'create_time',
+        'cwd', 'environ', 'exe', 'io_counters', 'memory_info',
+        'memory_maps', 'memory_percent', 'name', 'nice', 'num_handles',
+        'num_threads', 'open_files', 'pid', 'ppid', 'status', 'threads', 'username',
+        'terminal', 'uids', 'gids', 'num_fds', 'ionice'
+    ) if field in psutil._as_dict_attrnames
+)
+
+
 def to_unicode(x):
     tx = type(x)
     if tx == unicode:
@@ -35,9 +46,6 @@ def to_unicode(x):
 
 def psinfo(pids):
     data = {}
-    garbage = (
-        'num_ctx_switches', 'memory_full_info', 'cpu_affinity'
-    )
 
     for pid in pids:
         try:
@@ -46,10 +54,7 @@ def psinfo(pids):
             continue
 
         info = {}
-        for key, val in process.as_dict().iteritems():
-            if key in garbage:
-                continue
-
+        for key, val in process.as_dict(KNOWN_FIELDS).iteritems():
             newv = None
             if type(val) == list:
                 newv = []

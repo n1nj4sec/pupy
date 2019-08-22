@@ -1,4 +1,6 @@
-import wmi
+# -*- encoding: utf-8 -*-
+
+import wql
 
 def sizeof_fmt(num, suffix='B'):
     try:
@@ -20,74 +22,43 @@ def sizeof_fmt(num, suffix='B'):
 # 5 => The drive is a CD-ROM drive.
 # 6 => The drive is a RAM disk.
 
-DRIVE_TYPES = """
-0 	unknown
-1 	no_root
-2 	removable
-3 	fixed
-4 	remote
-5 	cdrom
-6 	ramdisk
-"""
+DRIVE_TYPES = (
+    'unknown',
+    'no_root',
+    'removable',
+    'fixed',
+    'remote',
+    'cdrom',
+    'ramdisk'
+)
+
+WQL_DRIVES_QUERY = 'SELECT Name,DriveType,Size,FreeSpace,ProviderName FROM Win32_LogicalDisk'
+WQL_SHARES_QUERY = 'SELECT * FROM Win32_Share Where Type=0'
 
 def list_drives():
     output = []
-    drive_types = dict(
-        (int (i), j) for (i, j) in (l.split ("\t") for l in DRIVE_TYPES.splitlines () if l)
-    )
 
-    c = wmi.WMI()
-    wql = 'SELECT Name,DriveType,Size,FreeSpace,ProviderName FROM Win32_LogicalDisk'
-    output = [
-        '\n%s%s%s%s%s' % (
-            'Name'.ljust(10),
-            'Type'.ljust(15),
-            'Size (Total)'.ljust(20),
-            'Size (Free)'.ljust(20),
-            'Mapped to'.ljust(10)
-        ),
-        '%s%s%s%s%s' % (
-            '----'.ljust(10),
-            '----'.ljust(15),
-            '------------'.ljust(20),
-            '-----------'.ljust(20),
-            '---------'.ljust(10)
-        )
-    ]
-
-    for disk in c.query(wql):
+    for disk in wql.execute(WQL_DRIVES_QUERY):
         unc_path = ''
         if disk.ProviderName:
             unc_path = disk.ProviderName
 
         name = disk.Name + '\\'
-        driveType = drive_types[int(disk.DriveType)]
+        driveType = DRIVE_TYPES[int(disk.DriveType)]
         size = sizeof_fmt(disk.Size)
         free = sizeof_fmt(disk.FreeSpace)
 
-        output.append(
-            '%s%s%s%s%s' % (
-                name.ljust(10),
-                driveType.ljust(15),
-                size.ljust(20),
-                free.ljust(20),
-                unc_path
-            )
-        )
+        output.append((
+            name, driveType, size, free, unc_path
+        ))
 
-    return '\n'.join(output)+'\n'
+    return tuple(output)
 
 def shared_folders():
-    c = wmi.WMI()
-    shared = c.query("Select * from Win32_Share Where Type=0")
+    shared = wql.execute(WQL_SHARES_QUERY)
     if not shared:
         return ''
 
-    output = [
-        '%s%s' % ('Name'.ljust(20), 'Path'.ljust(23)),
-        '%s%s' % ('----'.ljust(20), '----'.ljust(23))
-    ] + [
-        '%s%s' % (s.Name.ljust(20), s.Path.ljust(23)) for s in shared
-    ]
-
-    return '\n'.join(output)+'\n'
+    return tuple(
+        (item.Name, item.Path) for item in shared
+    )

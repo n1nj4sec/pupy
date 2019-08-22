@@ -1,13 +1,15 @@
 #!/bin/sh
 
-PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
 PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog dukpy zeroconf==0.19.1"
-PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyuv pynacl pyaudio"
-PACKAGES="$PACKAGES idna https://github.com/CoreSecurity/impacket/archive/master.zip"
+PACKAGES_BUILD="$PACKAGES_BUILD https://github.com/CoreSecurity/impacket/archive/master.zip"
+PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
+
+PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
+PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyuv pyaudio"
 PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
-PACKAGES="$PACKAGES adodbapi"
+PACKAGES="$PACKAGES adodbapi idna wmi"
 
 SELF=`readlink -f "$0"`
 SELFPWD=`dirname "$SELF"`
@@ -25,9 +27,16 @@ echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
     $PYTHON -m pip install -q --upgrade setuptools
-    $PYTHON -m pip install --upgrade $PACKAGES pycryptodomex pycryptodome
-    $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
-    $PYTHON -m pip install cryptography==1.7.2 pyOpenSSL==17.5.0 paramiko
+
+    # Still problems here
+    $PYTHON -m pip install -q --upgrade pynacl
+
+    LIB="C:\\Windows\\openssl-build\\lib" \
+       INCLUDE="C:\\Windows\\openssl-build\\include" \
+       $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
+
+    $PYTHON -m pip install --upgrade $PACKAGES
+
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
     if [ ! $? -eq 0 ]; then
 	echo "pycryptodome build failed"

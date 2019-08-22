@@ -1,9 +1,6 @@
 [submodule "pupy/external/LaZagne"]
 	path = pupy/external/LaZagne
 	url = https://github.com/AlessandroZ/LaZagne
-[submodule "pupy/external/Windows-Exploit-Suggester"]
-	path = pupy/external/Windows-Exploit-Suggester
-	url = https://github.com/GDSSecurity/Windows-Exploit-Suggester
 [submodule "pupy/external/linux-exploit-suggester"]
 	path = pupy/external/linux-exploit-suggester
 	url = https://github.com/mzet-/linux-exploit-suggester
@@ -46,3 +43,6 @@
 [submodule "pupy/external/WinPwnage"]
 	path = pupy/external/WinPwnage
 	url = https://github.com/rootm0s/WinPwnage
+[submodule "pupy/external/wesng"]
+	path = pupy/external/wesng
+	url = https://github.com/bitsadmin/wesng

@@ -162,7 +162,7 @@ func (p *DNSListener) queryProcessor(
 
 		p.Conn.SetDeadline(time.Now().Add(20 * time.Second))
 
-		err = SendMessage(p.Conn, r.Name)
+		err = SendMessage(p.Conn, r.Type+":"+r.Name)
 		if err != nil {
 			log.Error("DNS: Send message failed: ", err)
 			r.IPs <- []string{}
@@ -242,10 +242,22 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 			payloadLen := len(question) - len(p.Domain) - 1
 
-			log.Debug("DNS: Request: ", q.Name)
-			p.cacheLock.Lock()
-			record, ok := p.DNSCache[q.Name]
-			p.cacheLock.Unlock()
+			qtype := dns.Type(q.Qtype).String()
+
+			log.Debug("DNS: Request: ", qtype, q.Name)
+
+			record := &DNSCacheRecord{}
+			ok := true
+
+			cacheKey := ""
+
+			if q.Qtype == dns.TypeA || q.Qtype == dns.TypeAAAA {
+				cacheKey = qtype + ":" + q.Name
+
+				p.cacheLock.Lock()
+				record, ok = p.DNSCache[cacheKey]
+				p.cacheLock.Unlock()
+			}
 
 			if !ok {
 				log.Info("DNS: Request: ", q.Name, " not in cache")
@@ -263,6 +275,7 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 							p.DNSRequests <- &DNSRequest{
 								Name: question,
+								Type: qtype,
 								IPs:  result,
 							}
 
@@ -283,15 +296,25 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 						dnsResponses := make([]dns.RR, len(responses))
 
 						for i, response := range responses {
-							a := new(dns.A)
-							a.Hdr = dns.RR_Header{
+							header := dns.RR_Header{
 								Name:   q.Name,
-								Rrtype: dns.TypeA,
+								Rrtype: q.Qtype,
 								Class:  dns.ClassINET,
 								Ttl:    60,
 							}
-							a.A = net.ParseIP(response).To4()
-							dnsResponses[i] = a
+
+							switch q.Qtype {
+							case dns.TypeA:
+								dnsResponses[i] = &dns.A{
+									Hdr: header,
+									A:   net.ParseIP(response).To4(),
+								}
+							case dns.TypeAAAA:
+								dnsResponses[i] = &dns.AAAA{
+									Hdr:  header,
+									AAAA: net.ParseIP(response).To16(),
+								}
+							}
 						}
 
 						record = &DNSCacheRecord{
@@ -299,7 +322,7 @@ func (p *DNSListener) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 						}
 
 						p.cacheLock.Lock()
-						p.DNSCache[q.Name] = record
+						p.DNSCache[cacheKey] = record
 						p.cacheLock.Unlock()
 					} else {
 						processed = false

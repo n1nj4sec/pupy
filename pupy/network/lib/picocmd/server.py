@@ -37,7 +37,7 @@ import netaddr
 
 from threading import Thread, RLock, Event
 
-from dnslib import DNSRecord, RR, QTYPE, A, RCODE
+from dnslib import DNSRecord, RR, QTYPE, A, AAAA, EDNS0, RCODE
 from dnslib.server import DNSHandler, BaseResolver, DNSLogger
 
 import ascii85
@@ -55,6 +55,12 @@ from picocmd import (
 )
 
 from network.lib.transports.cryptoutils import ECPV
+
+SUPPORTED_METHODS = {
+    QTYPE.A: A,
+    QTYPE.AAAA: AAAA,
+}
+
 
 def convert_node(node):
     try:
@@ -74,7 +80,8 @@ class NodeBlocked(Exception):
 class ExpirableObject(object):
 
     __slots__ = (
-        '_start', '_last_access', 'timeout'
+        '_start', '_last_access',
+        '_additional_timeout', 'timeout'
     )
 
     def __init__(self, timeout):
@@ -83,9 +90,13 @@ class ExpirableObject(object):
         self._start = time.time()
         self._last_access = 0
 
+        self.bump()
+
+        self._additional_timeout = 240
+
     @property
     def expired(self):
-        return (self.idle > self.timeout)
+        return (self.idle > self.timeout + self._additional_timeout)
 
     @property
     def idle(self):
@@ -97,6 +108,7 @@ class ExpirableObject(object):
 
     def bump(self):
         self._last_access = time.time()
+        self._additional_timeout = 0
 
 class Node(ExpirableObject):
     __slots__ = (
@@ -225,7 +237,8 @@ class DnsCommandServerHandler(BaseResolver):
     ENCODER_V1 = 0
     ENCODER_V2 = 1
 
-    def __init__(self, domain, key, recursor=None, timeout=None, whitelist=None):
+    def __init__(self, domain, key, recursor=None, timeout=None, whitelist=None, edns=False):
+
         self.sessions = {}
         self.nodes = {}
         self.domain = domain
@@ -254,6 +267,46 @@ class DnsCommandServerHandler(BaseResolver):
         self.lock = RLock()
         self.finished = Event()
         self.whitelist = whitelist
+        self.edns = edns
+
+
+    def max_payload_len(self, query_len, record_len):
+        # Calculate max packet size
+
+        # https://tools.ietf.org/html/rfc791
+        #  All hosts must be prepared to accept datagrams of up to 576 octets (whether they
+        # arrive whole or in fragments).  It is recommended that hosts only send datagrams
+        # larger than 576 octets if they have assurance that the destination is prepared to
+        # accept the larger datagrams.
+
+        # https://dnsflagday.net/
+        # Default expected UDP DNS payload size = 512B
+        # EDNS Record size = 11B
+        # Query header size = len(domain) + 2 + 4
+        # Answer header size = 2 {if name = .} + 10 + len(record)
+
+        # Default length limited to 256B to spend only 1 byte for info about the length
+        # Each payload has index field
+        # As request is dynamic, we don't count it here, but in encoder
+
+        # Efficiency:
+        # A Records ~ 15%
+        # AAAA Records ~ 45%
+
+        domain_len = 1 + len(self.domain) + query_len + 1
+        query_header_len = 4 + domain_len
+        edns_len = 11
+
+        dns_packet_room = 512 - (query_header_len + edns_len)
+
+        answer_len = 2 + 10 + record_len
+
+        max_records = dns_packet_room / answer_len
+        max_size = max_records * (record_len - 1)
+
+        packet_length_len = 1
+
+        return max_size - packet_length_len
 
     def cleanup(self):
         while not self.finished.is_set():
@@ -560,14 +613,21 @@ class DnsCommandServerHandler(BaseResolver):
         encoder = self.encoder_from_session(session, version)
         return encoder.gen_csum, encoder.check_csum
 
-    def _a_page_encoder(self, data, encoder, nonce):
+    def _a_page_encoder(self, data, encoder, nonce, qname):
         data = encoder.encode(data, nonce, symmetric=encoder.kex_completed)
+
+        qname_len = len(qname)
 
         length = struct.pack('B', len(data))
         payload = length + data
 
-        if len(payload) > 75:
-            raise ValueError('Page size more than 75 bytes ({})'.format(len(payload)))
+        max_payload_len = self.max_payload_len(qname_len, 4)
+
+        if len(payload) > max_payload_len:
+            raise ValueError(
+                'Page size more than {} bytes ({})'.format(
+                    max_payload_len,
+                    len(payload)))
 
         response = []
 
@@ -577,6 +637,35 @@ class DnsCommandServerHandler(BaseResolver):
             bits = (struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0]) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
             response.append('.'.join(['{}'.format(int(x)) for x in packed]))
+
+        return response
+
+    def _aaaa_page_encoder(self, data, encoder, nonce, qname):
+        data = encoder.encode(data, nonce, symmetric=encoder.kex_completed)
+
+        qname_len = len(qname)
+
+        max_payload_len = self.max_payload_len(qname_len, 4)
+
+        length = struct.pack('B', len(data))
+        payload = length + data
+
+        if len(payload) > max_payload_len:
+            raise ValueError(
+                'Page size more than {} bytes ({})'.format(
+                    max_payload_len,
+                    len(payload)))
+
+        response = []
+
+        for idx, part in enumerate([payload[i:i+15] for i in xrange(0, len(payload), 15)]):
+            packed = struct.pack('B', idx) + part
+            if len(packed) < 16:
+                packed = packed + '\x00' * (16 - len(packed))
+            addr = ':'.join([
+                packed[i:i+2].encode('hex') for i in xrange(0, len(packed), 2)
+            ])
+            response.append(addr)
 
         return response
 
@@ -900,7 +989,7 @@ class DnsCommandServerHandler(BaseResolver):
         return [Ack()]
 
     def resolve(self, request, handler):
-        if request.q.qtype != QTYPE.A:
+        if request.q.qtype not in SUPPORTED_METHODS:
             reply = request.reply()
             reply.header.rcode = RCODE.NXDOMAIN
             logger.debug('Request unknown qtype: %s', QTYPE.get(request.q.qtype))
@@ -908,17 +997,19 @@ class DnsCommandServerHandler(BaseResolver):
 
         with self.lock:
             data = request.q.qname
+            qtype = request.q.qtype
             part = data.stripSuffix(self.domain).idna()[:-1]
-            if part in self.cache:
-                response = self.cache[part]
+            key = (part, qtype)
+            if key in self.cache:
+                response = self.cache[key]
                 response.header.id = request.header.id
-                return self.cache[part]
+                return response
 
             response = self._resolve(request, handler)
-            self.cache[part] = response
+            self.cache[key] = response
             return response
 
-    def process(self, qname):
+    def process(self, qtype, qname):
         responses = []
 
         session = None
@@ -1021,9 +1112,12 @@ class DnsCommandServerHandler(BaseResolver):
         except DnsPingRequest, e:
             replies = []
             for i in xrange(e.args[0]):
-                x = (i % 65536) >> 8
-                y = i % 256
-                replies.append('127.0.{}.{}'.format(x, y))
+                x = (i % 65535) >> 8
+                y = i % 255
+                template = '127.0.{}.{}'
+                if qtype == QTYPE.AAAA:
+                    template = '::{}:{}'
+                replies.append(template.format(x, y+1))
 
             logger.debug('ping request:%s', i)
             return replies
@@ -1077,13 +1171,22 @@ class DnsCommandServerHandler(BaseResolver):
 
             return None
 
-        return self._a_page_encoder(payload, encoder, nonce)
+        page_encoder = None
+        if qtype == QTYPE.A:
+            page_encoder = self._a_page_encoder
+        elif qtype == QTYPE.AAAA:
+            page_encoder = self._aaaa_page_encoder
+        else:
+            raise NotImplementedError(qtype)
+
+        return page_encoder(payload, encoder, nonce, qname)
 
     def _kex_is_disabled(self, node):
         return False
 
     def _resolve(self, request, handler):
         qname = request.q.qname
+        qtype = request.q.qtype
         reply = request.reply()
 
         # TODO:
@@ -1103,11 +1206,15 @@ class DnsCommandServerHandler(BaseResolver):
             return reply
 
 
-        arecords = self.process(qname.stripSuffix(self.domain).idna()[:-1])
+        answers = self.process(qtype, qname.stripSuffix(self.domain).idna()[:-1])
+        klass = SUPPORTED_METHODS[qtype]
 
-        if arecords:
-            for address in arecords:
-                reply.add_answer(RR(qname, QTYPE.A, rdata=A(address), ttl=600))
+        if answers:
+            for answer in answers:
+                reply.add_answer(RR(qname, qtype, rdata=klass(answer), ttl=600))
+
+            if self.edns:
+                reply.add_ar(EDNS0(udp_len=512))
         else:
             reply.header.rcode = RCODE.NXDOMAIN
 
