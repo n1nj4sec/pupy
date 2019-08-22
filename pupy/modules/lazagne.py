@@ -7,8 +7,10 @@ from pupylib.utils.credentials import Credentials
 from pupylib.utils.rpyc_utils import obtain
 
 import ntpath
+import traceback
 
 __class_name__="LaZagne"
+
 
 @config(cat="creds", compat=["linux", "windows"])
 class LaZagne(PupyModule):
@@ -42,7 +44,7 @@ class LaZagne(PupyModule):
     }
 
     NON_TABLE = set([
-        'Ssh', 'Secretstorage', 'Libsecret'
+        'Ssh', 'Secretstorage', 'Libsecret', 'Cli',
     ])
 
     FILTER_COLUMNS = set([
@@ -123,15 +125,14 @@ class LaZagne(PupyModule):
                 passwordsFound = True
                 try:
                     self.print_results(r[0], r[1], r[2], db)
-                except Exception, e:
-                    import traceback
+                except Exception as e:
                     self.error('{}: {}: {}'.format(r[1], e, traceback.format_exc()))
 
         if not passwordsFound:
             self.warning('no passwords found !')
 
     def print_module_title(self, module):
-        self.log(Color(u'------------------- {} -------------------'.format(module), 'yellow'))
+        self.log(Color(u'\n------------------- {} -------------------'.format(module), 'yellow'))
         self.log(NewLine())
 
     # print hex value
@@ -141,7 +142,7 @@ class LaZagne(PupyModule):
         N=0
         result=''
         while src:
-            s,src = src[:length],src[length:]
+            s,src = src[:length], src[length:]
             hexa = ' '.join(["%02X"%ord(x) for x in s])
             s = s.translate(self.FILTER)
             result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
@@ -161,7 +162,7 @@ class LaZagne(PupyModule):
                         'Login': user,
                         'Hash': '%s:%s' % (str(lm), str(nt))
                     })
-                except:
+                except Exception:
                     pass
 
         return results
@@ -170,7 +171,7 @@ class LaZagne(PupyModule):
         results = []
 
         for cred in creds:
-            for pwd in creds[0]:
+            for pwd in cred[0]:
                 try:
                     user, d, dn, h = pwd.split(':')
                     results.append({
@@ -179,7 +180,7 @@ class LaZagne(PupyModule):
                         'Login': user,
                         'Hash': '%s:%s:%s:%s' % (user.lower(), h.encode('hex'), d.lower(), dn.lower())
                     })
-                except:
+                except Exception:
                     pass
 
         return results
@@ -188,7 +189,7 @@ class LaZagne(PupyModule):
         for cred in creds:
             filename = cred['File']
             parts = ntpath.abspath(filename).split('\\')
-            ## Common format
+            # Common format
             if len(parts) == 8 and parts[1].lower() == 'users' and \
               parts[3].lower() == 'appdata':
                 filename = u'{}:{}'.format(parts[2], parts[-1])
@@ -215,8 +216,7 @@ class LaZagne(PupyModule):
                 return self.cachedump_to_dict(creds)
             elif module.lower() == 'credfiles':
                 return self.credfiles_to_dict(creds)
-        except:
-            import traceback
+        except Exception:
             traceback.print_exc()
             return []
 
@@ -317,12 +317,10 @@ class LaZagne(PupyModule):
                         {
                             'KEY':self.try_utf8(k),
                             'VALUE':self.try_utf8(v)
-                        } for k,v in cred.iteritems() if k not in self.FILTER_COLUMNS
+                        } for k, v in cred.iteritems() if k not in self.FILTER_COLUMNS
                     ], ['KEY', 'VALUE'], truncate=True, legend=False, vspace=1)
 
         try:
             db.add(creds)
-        except Exception, e:
-            import traceback
-            self.error(e)
+        except Exception:
             self.error(traceback.format_exc())
