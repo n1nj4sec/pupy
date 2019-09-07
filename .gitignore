@@ -1,122 +1,39 @@
-#pupy stuff
-pupy/data/
-pupy/output/
-pupy/proxy/proxy
-pupy/crypto/*.py
-pupy/.pupy_history
-pupy/pupy_*
-pupy/db
-pupy/config
-client/sources-linux/resources/
-client/sources/resources/
-client/sources/opus/
-.DS_Store
-*.swp
+# Temporary files
+*.pyc
+*.pyo
+.#*
 
-
-#do not redistribute microsoft visual C++ DLLs (LICENSE)
-client/sources/resources/msvcr90.dll
-client/sources/resources/msvcr90_x86.dll
-client/sources/resources/msvcr90_x64.dll
-
-#Client build related stuff
-*.obj
-*.lib
-*.exp
-*.exe
-*.dll
-client/sources/resources_bootloader_pyc.c
-client/sources/resources_bootloader.pyc
-client/sources/resources_python27_dll.c
-client/sources/resources/library_compressed_string.txt
-client/sources/resources/python27.dll
-client/sources/resources_library_compressed_string_txt.c
-client/sources/resources/library_compressed_string_x86.txt
-client/sources/resources/library_compressed_string_x64.txt
-client/sources/resources_msvcr90_dll.c
-client/sources/resources/libraryx64.zip
-client/sources/resources/libraryx86.zip
-client/sources/buildenv
+# Generated sources
 client/sources/import-tab.c
 client/sources/import-tab.h
 client/sources/revision.h
-client/sources-linux/buildenv
-client/sources-linux/buildenv-sunos
-client/sources/resources/library.zip
-client/sources-linux/import-tab.c
-client/sources-linux/import-tab.h
 client/sources-linux/revision.h
-client/sources-linux/resources/library.zip
-client/android_sources/bin
-client/android_sources/.buildozer
+client/android_sources/buildozer.spec
 
+# Compiled files
+client/sources/*.obj
+client/sources/*.obj
+client/sources/_pupy*
+client/sources/resources
 
-# Byte-compiled / optimized / DLL files
-*.pyc
-*.pyo
-__pycache__/
-pupy/pupy.conf
+client/sources-linux/*.o
+client/sources-linux/*.lin
+client/sources-linux/*.so
+client/sources-linux/resources
 
-# do not ignore package & templates files
-!pupy/packages/
-!pupy/payload_templates/
-!pupy/packages/**/*.dll
+pupy/payload_templates/*.toc
+pupy/payload_templates/*.dll
+pupy/payload_templates/*.exp
+pupy/payload_templates/*.lib
+pupy/payload_templates/*.zip
+pupy/payload_templates/*.exe
+pupy/payload_templates/*.lin
+pupy/payload_templates/*.lin.so
+pupy/payload_templates/*.pyr
 
-pupy/payload_templates/pupy*.*
-pupy/payload_templates/*-*.zip
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*,cover
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-*.orig
-*.patch
+# pupy
+pupy/.pupy_history
+pupy/config
+pupy/crypto
+pupy/data
+pupy/proxy/proxy

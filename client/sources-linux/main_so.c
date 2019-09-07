@@ -10,6 +10,9 @@
 #include "tmplibrary.h"
 #include "debug.h"
 
+#include "Python-dynload.h"
+#include "jni_on_load.c"
+
 static pthread_t thread_id;
 
 static int __argc = 0;

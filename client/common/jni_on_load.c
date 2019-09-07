@@ -887,8 +887,7 @@ static PyMethodDef JVM_Methods[] = {
     { NULL, NULL },		/* Sentinel */
 };
 
-static
-PyObject* setup_jvm_class(void) {
+void setup_jvm_class(void) {
     PyObject *jvm_klass = Py_InitModule3("jvm", JVM_Methods, jvm_module_doc);
     if (!jvm_klass) {
         return NULL;
@@ -897,8 +896,6 @@ PyObject* setup_jvm_class(void) {
     jvm_error = PyErr_NewException("jvm.error", NULL, NULL);
     Py_INCREF(jvm_error);
     PyModule_AddObject(jvm_klass, "error", jvm_error);
-
-    return jvm_klass;
 }
 
 static

@@ -25,7 +25,6 @@
  */
 
 #include <windows.h>
-#include <winnt.h>
 #include <stddef.h>
 #include <tchar.h>
 #include "debug.h"
@@ -464,14 +463,14 @@ BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
 
 HMEMORYMODULE MemoryLoadLibrary(const void *data)
 {
-    return MemoryLoadLibraryEx(data, _LoadLibrary, _GetProcAddress, _FreeLibrary, NULL);
+    return MemoryLoadLibraryEx(data, _LoadLibrary, _GetProcAddress, _FreeLibrary, NULL, NULL);
 }
 
 HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     CustomLoadLibraryFunc loadLibrary,
     CustomGetProcAddressFunc getProcAddress,
     CustomFreeLibraryFunc freeLibrary,
-    void *userdata)
+    void *userdata, void *dllmainArg)
 {
     PMEMORYMODULE result;
     PIMAGE_DOS_HEADER dos_header;
@@ -604,7 +603,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
         if (result->isDLL) {
             DllEntryProc DllEntry = (DllEntryProc) (code + result->headers->OptionalHeader.AddressOfEntryPoint);
             // notify library about attaching to process
-            BOOL successfull = (*DllEntry)((HINSTANCE)code, DLL_PROCESS_ATTACH, 0);
+            BOOL successfull = (*DllEntry)((HINSTANCE)code, DLL_PROCESS_ATTACH, dllmainArg);
             if (!successfull) {
                 SetLastError(ERROR_DLL_INIT_FAILED);
                 goto error;

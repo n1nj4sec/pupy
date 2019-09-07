@@ -16,13 +16,15 @@ struct py_imports py_sym_table[] = {
 };
 
 static char __config__[262144] = "####---PUPY_CONFIG_COMES_HERE---####\n";
+static PyGILState_STATE restore_state;
+static BOOL is_initialized = FALSE;
 
 
 #include "lzmaunpack.c"
 #include "library.c"
 
 
-static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize) {
+static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize, void *arg) {
     HMODULE hModule;
     void *uncompressed = NULL;
     size_t uncompressed_size = 0;
@@ -39,7 +41,7 @@ static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize)
     dprint("%s decompressed to %p (size=%d)\n", libname, uncompressed, uncompressed_size);
 
     hModule = MemLoadLibrary(
-        libname, (char *) uncompressed, uncompressed_size
+        libname, (char *) uncompressed, uncompressed_size, arg
     );
 
 #if FREE_HMODULE_AFTER_LOAD
@@ -55,13 +57,19 @@ static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize)
 }
 
 
-BOOL initialize_python() {
+BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     HMODULE hPython = NULL;
+    PyObject *py_argv = NULL;
     dependency_t dependencies[] = DEPENDENCIES;
     resolve_symbol_t resolver = NULL;
     dependency_t *dependency = NULL;
     struct py_imports *py_sym = NULL;
-    
+    int i;
+
+    if (is_initialized) {
+        return TRUE;
+    }
+
     for (dependency=dependencies; !hPython; dependency ++) {
         HMODULE hModule = CheckLibraryLoaded(dependency->name);
 
@@ -77,7 +85,7 @@ BOOL initialize_python() {
         dprint("Loading %s\n", dependency->name);
 
         hModule = xz_dynload(
-            dependency->name, dependency->bytes, dependency->size
+            dependency->name, dependency->bytes, dependency->size, NULL
         );
 
         dprint("Loaded %s -> %p\n", dependency->name, hModule);
@@ -105,66 +113,6 @@ BOOL initialize_python() {
         }
     }
 
-    return TRUE;
-}
-
-
-const char *program_name() {
-    static BOOL is_set = FALSE;
-    static char exe[PATH_MAX] = { '\0' };
-
-    if (is_set)
-        return exe;
-
-#if defined(Linux)
-    dprint("INVOCATION NAME: %s\n", program_invocation_name);
-
-    if (readlink("/proc/self/exe", exe, sizeof(exe)) > 0) {
-        if (strstr(exe, "/memfd:")) {
-        snprintf(exe, sizeof(exe), "/proc/%d/exe", getpid());
-        }
-    } else {
-        char *upx_env = getenv("   ");
-        if (upx_env) {
-        snprintf(exe, sizeof(exe), "%s", upx_env);
-        }
-    }
-#elif defined(_WIN32)
-    GetModuleFileNameA(NULL, exe, PATH_MAX);
-#elif defined(SunOS)
-    strcpy(exe, getexecname());
-#endif
-
-    is_set = TRUE;
-    return exe;
-}
-
-
-void run_pupy(int argc, char *argv[], BOOL is_shared_object) {
-    PyGILState_STATE restore_state;
-    union {
-            unsigned int l;
-            unsigned char c[4];
-    } len;
-
-    PyObject *py_config_list;
-    PyObject *py_config;
-    PyObject *py_pupylib;
-    PyObject *py_stdlib;
-    PyObject *pupy;
-    PyObject *pupy_dict;
-    PyObject *pupy_init;
-    PyObject *pupy_init_bytecode;
-    PyObject *py_eval_result;
-    PyObject *py_builtins;
-    PyObject *py_debug;
-    PyObject *py_main;
-    PyObject *py_argv;
-
-    int i;
-    char *pupy_init_bytecode_c;
-    Py_ssize_t pupy_init_bytecode_c_size;
-
     PyEval_InitThreads();
     if(!Py_IsInitialized()) {
         char * ppath = Py_GetPath();
@@ -176,8 +124,8 @@ void run_pupy(int argc, char *argv[], BOOL is_shared_object) {
         Py_NoUserSiteDirectory = 1;
         Py_OptimizeFlag = 2;
         Py_DontWriteBytecodeFlag = 1;
-        Py_SetProgramName(program_name());
 
+        Py_SetProgramName(OSGetProgramName());
         Py_InitializeEx(is_shared_object? 0 : 1);
     }
 
@@ -208,12 +156,41 @@ void run_pupy(int argc, char *argv[], BOOL is_shared_object) {
     for (i = 0; i<argc; i++)
         PyList_Append(py_argv, PyString_FromString(argv[i]));
 
-    PySys_SetObject("executable", PyString_FromString(program_name()));
+    PySys_SetObject("executable", PyString_FromString(OSGetProgramName()));
     PySys_SetObject("argv", py_argv);
 
     Py_DecRef(py_argv);
 
-    init_pupy();
+    setup_jvm_class();
+
+    return TRUE;
+
+lbExit1:
+    return FALSE;
+}
+
+void run_pupy() {
+    union {
+        unsigned int l;
+        unsigned char c[4];
+    } len;
+
+    PyObject *py_config_list;
+    PyObject *py_config;
+    PyObject *py_pupylib;
+    PyObject *py_stdlib;
+    PyObject *pupy;
+    PyObject *pupy_dict;
+    PyObject *pupy_init;
+    PyObject *pupy_init_bytecode;
+    PyObject *py_eval_result;
+    PyObject *py_builtins;
+    PyObject *py_debug;
+    PyObject *py_main;
+
+    char *pupy_init_bytecode_c;
+    Py_ssize_t pupy_init_bytecode_c_size;
+
 
     dprint("Load config\n");
     len.c[3] = __config__[0];
@@ -358,9 +335,11 @@ lbExit2:
     Py_DecRef(py_config);
 
 lbExit1:
+    dprint("Exit\n");
+}
+
+void deinitialize_python() {
     dprint("Deinitialize python\n");
     PyGILState_Release(restore_state);
     Py_Finalize();
-
-    dprint("Exit\n");
 }

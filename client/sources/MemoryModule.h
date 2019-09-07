@@ -60,7 +60,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *,
     CustomLoadLibraryFunc,
     CustomGetProcAddressFunc,
     CustomFreeLibraryFunc,
-    void *);
+    void *, void *);
 
 /**
  * Get address of exported method. Supports loading both by name and by

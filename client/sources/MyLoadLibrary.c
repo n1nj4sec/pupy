@@ -1,7 +1,7 @@
-#include "Python-dynload.h"
-#include "debug.h"
 #include "MemoryModule.h"
 #include "MyLoadLibrary.h"
+
+#include "debug.h"
 
 //#define VERBOSE /* enable to print debug output */
 
@@ -49,12 +49,36 @@ typedef struct tagLIST {
     int refcount;
 } LIST;
 
-static LIST *libraries;
+static LIST *libraries = NULL;
 
 int level;
 
 #define PUSH() level++
 #define POP()  level--
+
+VOID MySetLibraries(PVOID pLibraries) {
+    if (!libraries) {
+        dprint("Initialize libraries with: %p\n", pLibraries);
+        libraries = pLibraries;
+
+#ifdef DEBUG
+        do {
+            LIST *iter = libraries;
+            while (iter) {
+                dprint("LIB: %s: REFS: %d\n", iter->name, iter->refcount);
+                iter = iter->next;
+            }
+        } while(0);
+#endif
+
+    } else {
+        dprint("Libraries already initialized\n");
+    }
+}
+
+PVOID MyGetLibraries() {
+    return (PVOID) libraries;
+}
 
 /****************************************************************
  * Search for a loaded MemoryModule in the linked list, either by name
@@ -65,16 +89,16 @@ static LIST *_FindMemoryModule(LPCSTR name, HMODULE module)
     LIST *lib = libraries;
     while (lib) {
         if (name && 0 == _stricmp(name, lib->name)) {
-            /* dprint("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount); */
+            dprint("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount);
             return lib;
         } else if (module == lib->module) {
-            /* dprint("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount); */
+            dprint("_FindMemoryModule(%s, %p) -> %s[%d]\n", name, module, lib->name, lib->refcount);
             return lib;
         } else {
             lib = lib->next;
         }
     }
-    /* dprint("_FindMemoryModule(%s, %p) -> NONE\n", name, module); */
+    dprint("_FindMemoryModule(%s, %p) -> NONE\n", name, module);
     return NULL;
 }
 
@@ -83,7 +107,8 @@ static LIST *_FindMemoryModule(LPCSTR name, HMODULE module)
  */
 static LIST *_AddMemoryModule(LPCSTR name, HCUSTOMMODULE module)
 {
-    LIST *entry = (LIST *) malloc(sizeof(LIST));
+    LIST *entry = (LIST *) HeapAlloc(
+        GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(LIST));
     entry->name = _strdup(name);
     entry->module = module;
     entry->next = libraries;
@@ -130,28 +155,6 @@ static HCUSTOMMODULE _LoadLibrary(LPCSTR filename, void *userdata)
         );
     }
 
-    if (userdata) {
-        PyObject *findproc = (PyObject *)userdata;
-        PyObject *res = PyObject_CallFunction(findproc, "s", filename);
-        if (res && PyString_AsString(res)) {
-            result = MemoryLoadLibraryEx(PyString_AsString(res),
-                             _LoadLibrary, _GetProcAddress, _FreeLibrary,
-                             userdata);
-            Py_DECREF(res);
-            if (result) {
-                lib = _AddMemoryModule(filename, result);
-                POP();
-                dprint("_LoadLibrary(%s, %p) -> %s[%d]\n\n",
-                    filename, userdata, lib->name, lib->refcount);
-                return lib->module;
-            } else {
-                dprint("_LoadLibrary(%s, %p) failed with error %d\n",
-                    filename, userdata, GetLastError());
-            }
-        } else {
-            PyErr_Clear();
-        }
-    }
     result = (HCUSTOMMODULE) LoadLibraryA(filename);
     POP();
     dprint("LoadLibraryA(%s) -> %p\n\n", filename, result);
@@ -170,20 +173,20 @@ HMODULE MyGetModuleHandle(LPCSTR name)
     return GetModuleHandle(name);
 }
 
-HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *userdata)
+HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
 {
-    dprint("MyLoadLibrary: loading %s (userdata=%p)\n", name, userdata);
-
-    if (userdata) {
-        HCUSTOMMODULE mod = _LoadLibrary(name, userdata);
-        if (mod)
-            return mod;
-    } else if (bytes) {
+    if (bytes) {
         HCUSTOMMODULE mod = MemoryLoadLibraryEx(bytes,
                             _LoadLibrary,
                             _GetProcAddress,
                             _FreeLibrary,
-                            userdata);
+                            NULL, dllmainArg);
+
+        dprint(
+            "MyLoadLibrary: loading %s, buf=%p (dllmainArg=%p) -> %p\n",
+            name, bytes, dllmainArg, mod
+        );
+
         if (mod) {
             LIST *lib = _AddMemoryModule(name, mod);
             dprint("MemoryLoadLibraryEx: loaded %s -> %p (%p)\n", name, mod, lib->module);

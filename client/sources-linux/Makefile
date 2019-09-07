@@ -187,10 +187,13 @@ resources/$(ARCH)/libcrypto.c: ../gen_resource_header.py resources/$(ARCH)/libcr
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): $(APP_OBJS) $(PYOBJS) $(COMMON_OBJS)
-	$(CC) $(PIE) $+ -o $@ $(LDFLAGS)
+	$(CC) $(PIE) $+ -o $@ $(LDFLAGS) \
+		-Wl,--version-script=pupy.ldscript
 
 $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: $(SHARED_OBJS) $(PYOBJS) $(COMMON_OBJS)
-	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).$(SUFFIX).so
+	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).$(SUFFIX).so \
+		-Wl,--version-script=pupy.so.ldscript
+
 
 .PHONY: clean all
 

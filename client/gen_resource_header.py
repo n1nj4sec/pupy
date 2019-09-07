@@ -13,8 +13,31 @@ if __name__ == "__main__":
     file_bytes = b""
     output = os.path.basename(sys.argv[2]).replace('.', '_')
 
+    reflective_loader = None
+
     with open(sys.argv[1], "rb") as f:
         file_bytes = f.read()
+
+    try:
+        image_base = 0
+
+        with open(sys.argv[1]+'.map') as f:
+            for line in f:
+                line = line.strip().split()
+
+                if len(line) < 4:
+                    continue
+
+                if line[1] == '__ImageBase':
+                    image_base = int(line[2], 16)
+                    continue
+
+                if line[1] in ('ReflectiveLoader', '_ReflectiveLoader@4'):
+                    reflective_loader = int(line[2], 16) - image_base
+                    break
+
+    except (OSError, IOError):
+        pass
 
     compressed = int(sys.argv[3])
 
@@ -40,6 +63,13 @@ if __name__ == "__main__":
             file_bytes, dictionary=24, fastBytes=255
         ) if compressed else file_bytes
     )
+
+    if reflective_loader:
+        h_file += "static const size_t %s_loader = 0x%x;\n" % (
+            output, reflective_loader)
+
+        with open(sys.argv[2].rsplit('.', 1)[0] + '.loader', 'w') as w:
+            w.write(struct.pack('>I', reflective_loader))
 
     h_file += "static const int %s_size = %s;" % (output, len(payload))
     h_file += attribute

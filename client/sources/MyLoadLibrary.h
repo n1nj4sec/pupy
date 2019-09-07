@@ -9,4 +9,11 @@ BOOL MyFreeLibrary(HMODULE);
 FARPROC MyGetProcAddress(HMODULE, LPCSTR);
 FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 
+VOID MySetLibraries(PVOID pLibraries);
+PVOID MyGetLibraries();
+
+#ifndef DLL_QUERY_HMODULE
+#define DLL_QUERY_HMODULE 6
+#endif
+
 #endif

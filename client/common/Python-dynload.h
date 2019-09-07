@@ -83,10 +83,9 @@ struct py_imports {
 
 extern struct py_imports py_sym_table[];
 
-BOOL initialize_python();
-void run_pupy();
-DL_EXPORT(void) init_pupy(void);
-DL_EXPORT(void) init_memimporter(void);
+BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object);
+void run_pupy(void);
+void deinitialize_python(void);
 
 #include "import-tab.h"
 

@@ -14,7 +14,7 @@
 #define OSMutexDestroy(mutex) DeleteCriticalSection(mutex)
 #else
 #include <pthread.h>
-#define os_mutex_t pthread_mutex_t 
+#define os_mutex_t pthread_mutex_t
 #define OSMutexInit(mutex) pthread_mutex_init(mutex, NULL)
 #define OSMutexLock(mutex) pthread_mutex_lock(mutex)
 #define OSMutexUnlock(mutex) pthread_mutex_unlock(mutex)

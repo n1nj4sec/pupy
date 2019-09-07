@@ -48,8 +48,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "base_inject.h"
 #include "debug.h"
 
+#ifdef _PUPY_DYNLOAD
+#include <Python.h>
+#else
 #include "Python-dynload.h"
-
+#endif
 
 #define BREAK_ON_ERROR( str ) { \
     dprint(str "\n"); \
@@ -542,7 +545,7 @@ DWORD inject_via_remotethread(HANDLE hProcess, DWORD dwDestinationArch, LPVOID l
  *
  * Note: This function largely depreciates LoadRemoteLibraryR().
  */
-DWORD inject_dll( DWORD dwPid, LPVOID lpDllBuffer, DWORD dwDllLenght, const char * cpCommandLine , int remoteProcessArch)
+DWORD inject_dll( DWORD dwPid, const LPVOID lpDllBuffer, DWORD dwDllLenght, const char * cpCommandLine , int remoteProcessArch)
 {
     DWORD dwResult         = ERROR_ACCESS_DENIED;
     DWORD dwNativeArch         = PROCESS_ARCH_UNKNOWN;

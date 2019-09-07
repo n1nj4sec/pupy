@@ -25,12 +25,7 @@
 
 static const char module_doc[] = DOC("Builtins utilities for pupy");
 
-
 static PyObject *ExecError;
-
-#ifdef _PUPY_SO
-#include "jni_on_load.c"
-#endif
 
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 {

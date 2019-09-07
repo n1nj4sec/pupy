@@ -26,6 +26,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //===============================================================================================//
 #include "LoadLibraryR.h"
+#include "ReflectiveLoader.h"
+
 #include <stdio.h>
 //===============================================================================================//
 DWORD Rva2Offset( DWORD dwRva, UINT_PTR uiBaseAddress, BOOL is64 )
@@ -67,7 +69,7 @@ DWORD Rva2Offset( DWORD dwRva, UINT_PTR uiBaseAddress, BOOL is64 )
     return 0;
 }
 //===============================================================================================//
-DWORD GetReflectiveLoaderOffset( VOID * lpReflectiveDllBuffer )
+DWORD GetReflectiveLoaderOffset( const VOID * lpReflectiveDllBuffer )
 {
     UINT_PTR uiBaseAddress   = 0;
     UINT_PTR uiExportDir     = 0;
@@ -122,7 +124,7 @@ DWORD GetReflectiveLoaderOffset( VOID * lpReflectiveDllBuffer )
     {
         char * cpExportedFunctionName = (char *)(uiBaseAddress + Rva2Offset( DEREF_32( uiNameArray ), uiBaseAddress, is64 ));
 
-        if( strstr( cpExportedFunctionName, "ReflectiveLoader" ) != NULL )
+        if( strstr( cpExportedFunctionName, REFLECTIVE_LOADER_SYMNAME ) != NULL )
         {
             // get the File Offset for the array of addresses
             uiAddressArray = uiBaseAddress + Rva2Offset( ((PIMAGE_EXPORT_DIRECTORY )uiExportDir)->AddressOfFunctions, uiBaseAddress, is64 );	
@@ -142,9 +144,12 @@ DWORD GetReflectiveLoaderOffset( VOID * lpReflectiveDllBuffer )
 
     return 0;
 }
+
+#ifdef USE_LOCAL_LOADLIBRARY
+
 //===============================================================================================//
 // Loads a DLL image from memory via its exported ReflectiveLoader function
-HMODULE WINAPI LoadLibraryR( LPVOID lpBuffer, DWORD dwLength )
+HMODULE WINAPI LoadLibraryR( LPVOID lpBuffer, DWORD dwLength, LPVOID lpParameter )
 {
     HMODULE hResult                    = NULL;
     DWORD dwReflectiveLoaderOffset     = 0;
@@ -169,7 +174,7 @@ HMODULE WINAPI LoadLibraryR( LPVOID lpBuffer, DWORD dwLength )
             if( VirtualProtect( lpBuffer, dwLength, PAGE_EXECUTE_READWRITE, &dwOldProtect1 ) )
             {
                 // call the librarys ReflectiveLoader...
-                pDllMain = (DLLMAIN)pReflectiveLoader();
+                pDllMain = (DLLMAIN)pReflectiveLoader(lpParameter);
                 if( pDllMain != NULL )
                 {
                     // call the loaded librarys DllMain to get its HMODULE
@@ -188,6 +193,9 @@ HMODULE WINAPI LoadLibraryR( LPVOID lpBuffer, DWORD dwLength )
 
     return hResult;
 }
+
+#else
+
 //===============================================================================================//
 // Loads a PE image from memory into the address space of a host process via the image's exported ReflectiveLoader function
 // Note: You must compile whatever you are injecting with REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR 
@@ -218,15 +226,19 @@ HANDLE WINAPI LoadRemoteLibraryR( HANDLE hProcess, LPVOID lpBuffer, DWORD dwLeng
             if( !dwReflectiveLoaderOffset )
                 break;
 
-            // alloc memory (RWX) in the host process for the image...
-            lpRemoteLibraryBuffer = VirtualAllocEx( hProcess, NULL, dwLength, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE ); 
+            // alloc memory (RW) in the host process for the image...
+            lpRemoteLibraryBuffer = VirtualAllocEx( hProcess, NULL, dwLength, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE ); 
             if( !lpRemoteLibraryBuffer )
                 break;
 
             // write the image into the host process...
             if( !WriteProcessMemory( hProcess, lpRemoteLibraryBuffer, lpBuffer, dwLength, NULL ) )
                 break;
-            
+
+            // change the permissions to (RX) to bypass W^X protections
+            if (!VirtualProtectEx(hProcess, lpRemoteLibraryBuffer, dwLength, PAGE_EXECUTE_READ, NULL))
+                break;
+
             // add the offset to ReflectiveLoader() to the remote library address...
             lpReflectiveLoader = (LPTHREAD_START_ROUTINE)( (ULONG_PTR)lpRemoteLibraryBuffer + dwReflectiveLoaderOffset );
 
@@ -243,4 +255,6 @@ HANDLE WINAPI LoadRemoteLibraryR( HANDLE hProcess, LPVOID lpBuffer, DWORD dwLeng
 
     return hThread;
 }
+
 //===============================================================================================//
+#endif

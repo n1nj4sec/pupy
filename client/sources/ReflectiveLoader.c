@@ -38,18 +38,8 @@ HINSTANCE hAppInstance = NULL;
 __declspec(noinline) ULONG_PTR caller( VOID ) { return (ULONG_PTR)_ReturnAddress(); }
 //===============================================================================================//
 
-// Note 1: If you want to have your own DllMain, define REFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN,
-//         otherwise the DllMain at the end of this file will be used.
-
-// Note 2: If you are injecting the DLL via LoadRemoteLibraryR, define REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR,
-//         otherwise it is assumed you are calling the ReflectiveLoader via a stub.
-
 // This is our position independent reflective DLL loader/injector
-#ifdef REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR
-DLLEXPORT ULONG_PTR WINAPI ReflectiveLoader( LPVOID lpParameter )
-#else
-DLLEXPORT ULONG_PTR WINAPI ReflectiveLoader( VOID )
-#endif
+DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM( LPVOID lpParameter )
 {
     // the functions we need
     LOADLIBRARYA pLoadLibraryA     = NULL;
@@ -458,39 +448,10 @@ DLLEXPORT ULONG_PTR WINAPI ReflectiveLoader( VOID )
     pNtFlushInstructionCache( (HANDLE)-1, NULL, 0 );
 
     // call our respective entry point, fudging our hInstance value
-#ifdef REFLECTIVEDLLINJECTION_VIA_LOADREMOTELIBRARYR
     // if we are injecting a DLL via LoadRemoteLibraryR we call DllMain and pass in our parameter (via the DllMain lpReserved parameter)
     ((DLLMAIN)uiValueA)( (HINSTANCE)uiBaseAddress, DLL_PROCESS_ATTACH, lpParameter );
-#else
-    // if we are injecting an DLL via a stub we call DllMain with no parameter
-    ((DLLMAIN)uiValueA)( (HINSTANCE)uiBaseAddress, DLL_PROCESS_ATTACH, 1 );
-#endif
 
     // STEP 8: return our new entry point address so whatever called us can call DllMain() if needed.
     return uiValueA;
 }
-//===============================================================================================//
-#ifndef REFLECTIVEDLLINJECTION_CUSTOM_DLLMAIN
-
-BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
-{
-    BOOL bReturnValue = TRUE;
-    switch( dwReason )
-    {
-        case DLL_QUERY_HMODULE:
-            if( lpReserved != NULL )
-                *(HMODULE *)lpReserved = hAppInstance;
-            break;
-        case DLL_PROCESS_ATTACH:
-            hAppInstance = hinstDLL;
-            break;
-        case DLL_PROCESS_DETACH:
-        case DLL_THREAD_ATTACH:
-        case DLL_THREAD_DETACH:
-            break;
-    }
-    return bReturnValue;
-}
-
-#endif
-//===============================================================================================//
+//

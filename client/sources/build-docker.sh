@@ -72,20 +72,6 @@ git clean -fdx
 make -f Makefile.msvc CL=$CL64
 mv -f opus.pyd ${WINE64}/drive_c/Python27/Lib/site-packages/
 
-cd $SRC
-echo "[+] Compile pupymemexec /32"
-$CL32 \
-    ../../pupy/packages/src/pupymemexec/pupymemexec.c \
-    /LD /D_WIN32 /IC:\\Python27\\Include \
-    C:\\Python27\\libs\\python27.lib advapi32.lib \
-    /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
-
-echo "[+] Compile pupymemexec /64"
-$CL64 \
-    ../../pupy/packages/src/pupymemexec/pupymemexec.c \
-    /LD /D_WIN64 /IC:\\Python27\\Include \
-    C:\\Python27\\libs\\python27.lib advapi32.lib \
-    /FeC:\\Python27\\Lib\\site-packages\\pupymemexec.pyd
 
 echo "[+] Compile winpty /32"
 rm -f $WINPTY/build/winpty.dll
@@ -150,11 +136,11 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 set -e
 
-make -f Makefile -j BUILDENV=/build ARCH=win32 clean
+make -f Makefile -j BUILDENV=/build ARCH=win32 distclean
 make -f Makefile -j BUILDENV=/build ARCH=win32
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
-make -f Makefile -j BUILDENV=/build ARCH=win64 distclean
+make -f Makefile -j BUILDENV=/build ARCH=win64 clean
 make -f Makefile -j BUILDENV=/build ARCH=win64
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
 make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64

@@ -41,7 +41,7 @@ struct ifaddrs
 
 
 static int (*_getifaddrs) (struct ifaddrs **__ifap) = NULL;
-static void (*_freeifaddrs) (struct ifaddrs *__ifa) = NULL; 
+static void (*_freeifaddrs) (struct ifaddrs *__ifa) = NULL;
 
 static int getifaddrs (struct ifaddrs **__ifap) {
     if (_getifaddrs == -1) return -1;
@@ -56,5 +56,5 @@ static int getifaddrs (struct ifaddrs **__ifap) {
 static void freeifaddrs (struct ifaddrs *__ifa) {
     if (_freeifaddrs == -1) return -1;
     if (_freeifaddrs == NULL) _freeifaddrs = dlsym(RTLD_NEXT, "freeifaddrs");
-    if (_freeifaddrs) _freeifaddrs(__ifa);    
+    if (_freeifaddrs) _freeifaddrs(__ifa);
 }

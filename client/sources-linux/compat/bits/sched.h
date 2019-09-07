@@ -204,7 +204,7 @@ typedef struct
 
 __BEGIN_DECLS
 
-static inline 
+static inline
 cpu_set_t * __sched_cpualloc (size_t count) {
     return malloc (__CPU_ALLOC_SIZE (count));
 }

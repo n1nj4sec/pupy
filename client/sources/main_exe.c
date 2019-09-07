@@ -8,8 +8,7 @@
 #include "pupy_load.h"
 #include "debug.h"
 
-void on_exit_session(void);
-
+static on_exit_session_t on_exit_session_cb = NULL;
 static BOOL on_exit_session_called = FALSE;
 
 #ifdef HAVE_WINDOW
@@ -19,9 +18,9 @@ LRESULT CALLBACK WinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_QUERYENDSESSION:
     case WM_CLOSE:
     case WM_QUIT:
-        if (on_exit_session && !on_exit_session_called) {
+        if (on_exit_session_cb && !on_exit_session_called) {
             on_exit_session_called = TRUE;
-            on_exit_session();
+            on_exit_session_cb();
         }
         return 1;
 
@@ -75,11 +74,13 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return -2;
     }
 
+    initialize(FALSE, &on_exit_session_cb);
+
     hThread = CreateThread(
         NULL,
         0,
-        mainThread,
-        FALSE,
+        execute,
+        NULL,
         0,
         &threadId
     );
@@ -100,12 +101,14 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
         switch (dwWake) {
         case WAIT_FAILED:
+            deinitialize();
             return -3;
 
         case WAIT_TIMEOUT:
             continue;
 
         case WAIT_OBJECT_0:
+            deinitialize();
             return 0;
 
         case WAIT_OBJECT_0 + 1:
@@ -123,6 +126,10 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #else
 int main()
 {
-    mainThread(FALSE);
+    initialize(FALSE, NULL);
+    execute(NULL);
+    deinitialize();
 }
 #endif
+
+void setup_jvm_class(void) {}
