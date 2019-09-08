@@ -28,6 +28,7 @@
 #include <stddef.h>
 #include <tchar.h>
 #include "debug.h"
+#include "uthash.h"
 
 #ifndef IMAGE_SIZEOF_BASE_RELOCATION
 // Vista SDKs no longer define IMAGE_SIZEOF_BASE_RELOCATION!?
@@ -38,6 +39,18 @@
 
 typedef BOOL (WINAPI *DllEntryProc)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved);
 typedef int (WINAPI *ExeEntryProc)(void);
+
+typedef struct {
+    const char *name;
+    FARPROC proc;
+    UT_hash_handle hh;
+} FUNCHASH;
+
+typedef struct {
+    DWORD dwFunctionsCount;
+    DWORD dwBase;
+    FARPROC *fpFunctions;
+} FUNCIDX;
 
 typedef struct {
     PIMAGE_NT_HEADERS headers;
@@ -53,6 +66,9 @@ typedef struct {
     void *userdata;
     ExeEntryProc exeEntry;
     DWORD pageSize;
+    FUNCIDX exports;
+    FUNCHASH *phExportsIndex;
+    DllEntryProc pcDllEntry;
 } MEMORYMODULE, *PMEMORYMODULE;
 
 typedef struct {
@@ -405,26 +421,6 @@ BuildImportTable(PMEMORYMODULE module)
     return result;
 }
 
-static HCUSTOMMODULE _LoadLibrary(LPCSTR filename, void *userdata)
-{
-    HMODULE result = LoadLibraryA(filename);
-    if (result == NULL) {
-        return NULL;
-    }
-
-    return (HCUSTOMMODULE) result;
-}
-
-static FARPROC _GetProcAddress(HCUSTOMMODULE module, LPCSTR name, void *userdata)
-{
-    return (FARPROC) GetProcAddress((HMODULE) module, name);
-}
-
-static void _FreeLibrary(HCUSTOMMODULE module, void *userdata)
-{
-    FreeLibrary((HMODULE) module);
-}
-
 //===============================================================================================//
 #if defined(_WIN64)
 BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
@@ -460,10 +456,93 @@ BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
 }
 #endif
 
-
-HMEMORYMODULE MemoryLoadLibrary(const void *data)
+VOID BuildExportTable(PMEMORYMODULE module)
 {
-    return MemoryLoadLibraryEx(data, _LoadLibrary, _GetProcAddress, _FreeLibrary, NULL, NULL);
+    unsigned char *codeBase = module->codeBase;
+    DWORD i;
+    PDWORD nameRef;
+    PWORD ordinal;
+    FUNCHASH *phIdx, *phExports = NULL;
+    PIMAGE_EXPORT_DIRECTORY exports = NULL;
+    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY((PMEMORYMODULE)module, IMAGE_DIRECTORY_ENTRY_EXPORT);
+
+    if (module->headers->OptionalHeader.AddressOfEntryPoint != 0) {
+        if (module->isDLL) {
+            module->pcDllEntry = (DllEntryProc) (module->codeBase +
+                    module->headers->OptionalHeader.AddressOfEntryPoint);
+            module->exeEntry = NULL;
+        } else {
+            module->pcDllEntry= NULL;
+            module->exeEntry = (ExeEntryProc) (module->codeBase +
+                module->headers->OptionalHeader.AddressOfEntryPoint);
+        }
+    }
+
+    if (directory->Size)
+        exports = (PIMAGE_EXPORT_DIRECTORY) (codeBase + directory->VirtualAddress);
+
+    if (!(exports && exports->NumberOfNames &&
+             exports->NumberOfFunctions)) {
+        module->exports.dwFunctionsCount = 0;
+        module->exports.fpFunctions = NULL;
+        module->phExportsIndex = NULL;
+        return;
+    }
+
+    module->exports.dwFunctionsCount = exports->NumberOfFunctions;
+    module->exports.dwBase = exports->Base;
+    module->exports.fpFunctions = (FARPROC*) malloc(
+        exports->NumberOfFunctions * sizeof(FARPROC));
+
+    // search function name in list of exported names
+    nameRef = (DWORD *) (codeBase + exports->AddressOfNames);
+    ordinal = (WORD *) (codeBase + exports->AddressOfNameOrdinals);
+
+    for (i=0; i<exports->NumberOfNames; i++, nameRef++, ordinal++) {
+        char * pcName = (const char *) (codeBase + (*nameRef));
+        DWORD dwIdx = *ordinal;
+        FARPROC proc = NULL;
+
+        if (dwIdx > exports->NumberOfFunctions)
+            continue;
+
+        proc = (FARPROC) (
+            codeBase + (*(DWORD *) (
+                codeBase + exports->AddressOfFunctions + (dwIdx*4))));
+
+        module->exports.fpFunctions[dwIdx] = proc;
+
+        phIdx = (FUNCHASH*) malloc (sizeof(FUNCHASH));
+        phIdx->name = strdup(pcName);
+        phIdx->proc = proc;
+        HASH_ADD_KEYPTR(
+            hh, phExports, phIdx->name, strlen(phIdx->name), phIdx
+        );
+    }
+
+    module->phExportsIndex = phExports;
+}
+
+DWORD SizeOfPEHeader(IMAGE_NT_HEADERS *headers)
+{
+    return offsetof(IMAGE_NT_HEADERS, OptionalHeader) +
+        headers->FileHeader.SizeOfOptionalHeader +
+        (headers->FileHeader.NumberOfSections * sizeof (IMAGE_SECTION_HEADER));
+}
+
+VOID CleanupHeaders(PMEMORYMODULE module) {
+    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(
+        module, IMAGE_DIRECTORY_ENTRY_EXPORT);
+
+    dprint(
+        "Cleaning PE headers at %p, size %d\n",
+        module->headers, SizeOfPEHeader(module->headers));
+
+    if (!VirtualFree(
+        module->headers, SizeOfPEHeader(module->headers),
+        MEM_DECOMMIT)) {
+            dprint("Cleaning PE Header failed: %d\n", GetLastError());
+        }
 }
 
 HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
@@ -541,12 +620,8 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     result->freeLibrary = freeLibrary;
     result->userdata = userdata;
 
-    hModule = LoadLibrary ("kernel32.dll");
-    if (hModule) {
-        int (WINAPI *GetNativeSystemInfo) (SYSTEM_INFO *systemInfo);
-        GetNativeSystemInfo = (void *) GetProcAddress (hModule, "GetNativeSystemInfo");
-        GetNativeSystemInfo(&sysInfo);
-    }
+    GetNativeSystemInfo(&sysInfo);
+
     result->pageSize = sysInfo.dwPageSize;
 
     // commit memory for headers
@@ -598,23 +673,28 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
     }
 #endif
 
+    // Build functions table
+    BuildExportTable(result);
+
     // get entry point of loaded library
-    if (result->headers->OptionalHeader.AddressOfEntryPoint != 0) {
-        if (result->isDLL) {
-            DllEntryProc DllEntry = (DllEntryProc) (code + result->headers->OptionalHeader.AddressOfEntryPoint);
-            // notify library about attaching to process
-            BOOL successfull = (*DllEntry)((HINSTANCE)code, DLL_PROCESS_ATTACH, dllmainArg);
-            if (!successfull) {
-                SetLastError(ERROR_DLL_INIT_FAILED);
-                goto error;
-            }
-            result->initialized = TRUE;
-        } else {
-            result->exeEntry = (ExeEntryProc) (code + result->headers->OptionalHeader.AddressOfEntryPoint);
+    if (result->isDLL && result->pcDllEntry) {
+        // notify library about attaching to process
+        BOOL successfull = result->pcDllEntry(
+            (HINSTANCE)code, DLL_PROCESS_ATTACH, dllmainArg);
+
+        if (!successfull) {
+            SetLastError(ERROR_DLL_INIT_FAILED);
+            goto error;
         }
-    } else {
-        result->exeEntry = NULL;
+        result->initialized = TRUE;
     }
+
+    dprint("MemoryLoadLibraryEx: Library loaded\n");
+
+    // Cleanup PE headers
+    CleanupHeaders(result);
+
+    dprint("MemoryLoadLibraryEx: headers cleaned up\n");
 
     return (HMEMORYMODULE)result;
 
@@ -625,72 +705,54 @@ error:
     return NULL;
 }
 
-FARPROC MemoryGetProcAddress(HMEMORYMODULE module, LPCSTR name)
+FARPROC MemoryGetProcAddress(HMEMORYMODULE hmodule, LPCSTR name)
 {
-    unsigned char *codeBase = ((PMEMORYMODULE)module)->codeBase;
-    DWORD idx;
-    PIMAGE_EXPORT_DIRECTORY exports;
-    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY((PMEMORYMODULE)module, IMAGE_DIRECTORY_ENTRY_EXPORT);
-    if (directory->Size == 0) {
-        // no export table found
-        SetLastError(ERROR_PROC_NOT_FOUND);
-        return NULL;
-    }
-
-    exports = (PIMAGE_EXPORT_DIRECTORY) (codeBase + directory->VirtualAddress);
-    if (exports->NumberOfNames == 0 || exports->NumberOfFunctions == 0) {
-        // DLL doesn't export anything
+    PMEMORYMODULE module = (PMEMORYMODULE) hmodule;
+    if (!module || !module->exports.dwFunctionsCount) {
         SetLastError(ERROR_PROC_NOT_FOUND);
         return NULL;
     }
 
     if (HIWORD(name) == 0) {
+        DWORD idx;
         // load function by ordinal value
-        if (LOWORD(name) < exports->Base) {
+        if (LOWORD(name) < module->exports.dwBase) {
             SetLastError(ERROR_PROC_NOT_FOUND);
             return NULL;
         }
 
-        idx = LOWORD(name) - exports->Base;
+        idx = LOWORD(name) - module->exports.dwBase;
+        if (idx > module->exports.dwFunctionsCount) {
+            SetLastError(ERROR_PROC_NOT_FOUND);
+            return NULL;
+        }
+
+        return module->exports.fpFunctions[idx];
     } else {
-        // search function name in list of exported names
-        DWORD i;
-        DWORD *nameRef = (DWORD *) (codeBase + exports->AddressOfNames);
-        WORD *ordinal = (WORD *) (codeBase + exports->AddressOfNameOrdinals);
-        BOOL found = FALSE;
-        for (i=0; i<exports->NumberOfNames; i++, nameRef++, ordinal++) {
-            if (_stricmp(name, (const char *) (codeBase + (*nameRef))) == 0) {
-                idx = *ordinal;
-                found = TRUE;
-                break;
-            }
-        }
+        FUNCHASH *phIdx;
+        HASH_FIND_STR(module->phExportsIndex, name, phIdx);
 
-        if (!found) {
-            // exported symbol not found
+        if (!phIdx) {
             SetLastError(ERROR_PROC_NOT_FOUND);
             return NULL;
         }
-    }
 
-    if (idx > exports->NumberOfFunctions) {
-        // name <-> ordinal number don't match
-        SetLastError(ERROR_PROC_NOT_FOUND);
-        return NULL;
+        return phIdx->proc;
     }
-
-    // AddressOfFunctions contains the RVAs to the "real" functions
-    return (FARPROC) (codeBase + (*(DWORD *) (codeBase + exports->AddressOfFunctions + (idx*4))));
 }
 
 void MemoryFreeLibrary(HMEMORYMODULE mod)
 {
     PMEMORYMODULE module = (PMEMORYMODULE)mod;
+    FUNCHASH *phIdx, *phTmp, *phExports;
 
     if (module == NULL) {
         return;
     }
-    if (module->initialized) {
+
+    phExports = module->phExportsIndex;
+
+    if (module->initialized && module->pcDllEntry) {
         // notify library about detaching from process
         DllEntryProc DllEntry = (DllEntryProc) (module->codeBase + module->headers->OptionalHeader.AddressOfEntryPoint);
         (*DllEntry)((HINSTANCE)module->codeBase, DLL_PROCESS_DETACH, 0);
@@ -713,246 +775,13 @@ void MemoryFreeLibrary(HMEMORYMODULE mod)
         VirtualFree(module->codeBase, 0, MEM_RELEASE);
     }
 
+    free(module->exports.fpFunctions);
+
+    HASH_ITER(hh, phExports, phIdx, phTmp) {
+        HASH_DEL(phExports, phIdx);
+        free(phIdx->name);
+        free(phIdx);
+    }
+
     HeapFree(GetProcessHeap(), 0, module);
-}
-
-int MemoryCallEntryPoint(HMEMORYMODULE mod)
-{
-    PMEMORYMODULE module = (PMEMORYMODULE)mod;
-
-    if (module == NULL || module->isDLL || module->exeEntry == NULL || !module->isRelocated) {
-        return -1;
-    }
-
-    return module->exeEntry();
-}
-
-#define DEFAULT_LANGUAGE        MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
-
-HMEMORYRSRC MemoryFindResource(HMEMORYMODULE module, LPCTSTR name, LPCTSTR type)
-{
-    return MemoryFindResourceEx(module, name, type, DEFAULT_LANGUAGE);
-}
-
-static PIMAGE_RESOURCE_DIRECTORY_ENTRY _MemorySearchResourceEntry(
-    void *root,
-    PIMAGE_RESOURCE_DIRECTORY resources,
-    LPCTSTR key)
-{
-    PIMAGE_RESOURCE_DIRECTORY_ENTRY entries = (PIMAGE_RESOURCE_DIRECTORY_ENTRY) (resources + 1);
-    PIMAGE_RESOURCE_DIRECTORY_ENTRY result = NULL;
-    DWORD start;
-    DWORD end;
-    DWORD middle;
-
-    if (!IS_INTRESOURCE(key) && key[0] == TEXT('#')) {
-        // special case: resource id given as string
-        TCHAR *endpos = NULL;
-        long int tmpkey = (WORD) _tcstol((TCHAR *) &key[1], &endpos, 10);
-        if (tmpkey <= 0xffff && lstrlen(endpos) == 0) {
-            key = MAKEINTRESOURCE(tmpkey);
-        }
-    }
-
-    // entries are stored as ordered list of named entries,
-    // followed by an ordered list of id entries - we can do
-    // a binary search to find faster...
-    if (IS_INTRESOURCE(key)) {
-        WORD check = (WORD) (uintptr_t) key;
-        start = resources->NumberOfNamedEntries;
-        end = start + resources->NumberOfIdEntries;
-
-        while (end > start) {
-            WORD entryName;
-            middle = (start + end) >> 1;
-            entryName = (WORD) entries[middle].Name;
-            if (check < entryName) {
-                end = (end != middle ? middle : middle-1);
-            } else if (check > entryName) {
-                start = (start != middle ? middle : middle+1);
-            } else {
-                result = &entries[middle];
-                break;
-            }
-        }
-    } else {
-        LPCWSTR searchKey;
-        size_t searchKeyLen = _tcslen(key);
-#if defined(UNICODE)
-        searchKey = key;
-#else
-        // Resource names are always stored using 16bit characters, need to
-        // convert string we search for.
-#define MAX_LOCAL_KEY_LENGTH 2048
-        // In most cases resource names are short, so optimize for that by
-        // using a pre-allocated array.
-        wchar_t _searchKeySpace[MAX_LOCAL_KEY_LENGTH+1];
-        LPWSTR _searchKey;
-        if (searchKeyLen > MAX_LOCAL_KEY_LENGTH) {
-            size_t _searchKeySize = (searchKeyLen + 1) * sizeof(wchar_t);
-            _searchKey = (LPWSTR) malloc(_searchKeySize);
-            if (_searchKey == NULL) {
-                SetLastError(ERROR_OUTOFMEMORY);
-                return NULL;
-            }
-        } else {
-            _searchKey = &_searchKeySpace[0];
-        }
-
-        mbstowcs(_searchKey, key, searchKeyLen);
-        _searchKey[searchKeyLen] = 0;
-        searchKey = _searchKey;
-#endif
-        start = 0;
-        end = resources->NumberOfNamedEntries;
-        while (end > start) {
-            int cmp;
-            PIMAGE_RESOURCE_DIR_STRING_U resourceString;
-            middle = (start + end) >> 1;
-            resourceString = (PIMAGE_RESOURCE_DIR_STRING_U) (((char *) root) + (entries[middle].Name & 0x7FFFFFFF));
-            cmp = wcsnicmp(searchKey, resourceString->NameString, resourceString->Length);
-            if (cmp == 0) {
-                // Handle partial match
-                cmp = searchKeyLen - resourceString->Length;
-            }
-            if (cmp < 0) {
-                end = (middle != end ? middle : middle-1);
-            } else if (cmp > 0) {
-                start = (middle != start ? middle : middle+1);
-            } else {
-                result = &entries[middle];
-                break;
-            }
-        }
-#if !defined(UNICODE)
-        if (searchKeyLen > MAX_LOCAL_KEY_LENGTH) {
-            free(_searchKey);
-        }
-#undef MAX_LOCAL_KEY_LENGTH
-#endif
-    }
-
-    return result;
-}
-
-HMEMORYRSRC MemoryFindResourceEx(HMEMORYMODULE module, LPCTSTR name, LPCTSTR type, WORD language)
-{
-    unsigned char *codeBase = ((PMEMORYMODULE) module)->codeBase;
-    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY((PMEMORYMODULE) module, IMAGE_DIRECTORY_ENTRY_RESOURCE);
-    PIMAGE_RESOURCE_DIRECTORY rootResources;
-    PIMAGE_RESOURCE_DIRECTORY nameResources;
-    PIMAGE_RESOURCE_DIRECTORY typeResources;
-    PIMAGE_RESOURCE_DIRECTORY_ENTRY foundType;
-    PIMAGE_RESOURCE_DIRECTORY_ENTRY foundName;
-    PIMAGE_RESOURCE_DIRECTORY_ENTRY foundLanguage;
-    if (directory->Size == 0) {
-        // no resource table found
-        SetLastError(ERROR_RESOURCE_DATA_NOT_FOUND);
-        return NULL;
-    }
-
-    if (language == DEFAULT_LANGUAGE) {
-        // use language from current thread
-        language = LANGIDFROMLCID(GetThreadLocale());
-    }
-
-    // resources are stored as three-level tree
-    // - first node is the type
-    // - second node is the name
-    // - third node is the language
-    rootResources = (PIMAGE_RESOURCE_DIRECTORY) (codeBase + directory->VirtualAddress);
-    foundType = _MemorySearchResourceEntry(rootResources, rootResources, type);
-    if (foundType == NULL) {
-        SetLastError(ERROR_RESOURCE_TYPE_NOT_FOUND);
-        return NULL;
-    }
-
-    typeResources = (PIMAGE_RESOURCE_DIRECTORY) (codeBase + directory->VirtualAddress + (foundType->OffsetToData & 0x7fffffff));
-    foundName = _MemorySearchResourceEntry(rootResources, typeResources, name);
-    if (foundName == NULL) {
-        SetLastError(ERROR_RESOURCE_NAME_NOT_FOUND);
-        return NULL;
-    }
-
-    nameResources = (PIMAGE_RESOURCE_DIRECTORY) (codeBase + directory->VirtualAddress + (foundName->OffsetToData & 0x7fffffff));
-    foundLanguage = _MemorySearchResourceEntry(rootResources, nameResources, (LPCTSTR) (uintptr_t) language);
-    if (foundLanguage == NULL) {
-        // requested language not found, use first available
-        if (nameResources->NumberOfIdEntries == 0) {
-            SetLastError(ERROR_RESOURCE_LANG_NOT_FOUND);
-            return NULL;
-        }
-
-        foundLanguage = (PIMAGE_RESOURCE_DIRECTORY_ENTRY) (nameResources + 1);
-    }
-
-    return (codeBase + directory->VirtualAddress + (foundLanguage->OffsetToData & 0x7fffffff));
-}
-
-DWORD MemorySizeofResource(HMEMORYMODULE module, HMEMORYRSRC resource)
-{
-    PIMAGE_RESOURCE_DATA_ENTRY entry = (PIMAGE_RESOURCE_DATA_ENTRY) resource;
-    if (entry == NULL) {
-        return 0;
-    }
-
-    return entry->Size;
-}
-
-LPVOID MemoryLoadResource(HMEMORYMODULE module, HMEMORYRSRC resource)
-{
-    unsigned char *codeBase = ((PMEMORYMODULE) module)->codeBase;
-    PIMAGE_RESOURCE_DATA_ENTRY entry = (PIMAGE_RESOURCE_DATA_ENTRY) resource;
-    if (entry == NULL) {
-        return NULL;
-    }
-
-    return codeBase + entry->OffsetToData;
-}
-
-int
-MemoryLoadString(HMEMORYMODULE module, UINT id, LPTSTR buffer, int maxsize)
-{
-    return MemoryLoadStringEx(module, id, buffer, maxsize, DEFAULT_LANGUAGE);
-}
-
-int
-MemoryLoadStringEx(HMEMORYMODULE module, UINT id, LPTSTR buffer, int maxsize, WORD language)
-{
-    HMEMORYRSRC resource;
-    PIMAGE_RESOURCE_DIR_STRING_U data;
-    DWORD size;
-    if (maxsize == 0) {
-        return 0;
-    }
-
-    resource = MemoryFindResourceEx(module, MAKEINTRESOURCE((id >> 4) + 1), RT_STRING, language);
-    if (resource == NULL) {
-        buffer[0] = 0;
-        return 0;
-    }
-
-    data = (PIMAGE_RESOURCE_DIR_STRING_U) MemoryLoadResource(module, resource);
-    id = id & 0x0f;
-    while (id--) {
-        data = (PIMAGE_RESOURCE_DIR_STRING_U) (((char *) data) + (data->Length + 1) * sizeof(WCHAR));
-    }
-    if (data->Length == 0) {
-        SetLastError(ERROR_RESOURCE_NAME_NOT_FOUND);
-        buffer[0] = 0;
-        return 0;
-    }
-
-    size = data->Length;
-    if (size >= (DWORD) maxsize) {
-        size = maxsize;
-    } else {
-        buffer[size] = 0;
-    }
-#if defined(UNICODE)
-    wcsncpy(buffer, data->NameString, size);
-#else
-    wcstombs(buffer, data->NameString, size);
-#endif
-    return size;
 }

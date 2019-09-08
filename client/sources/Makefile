@@ -43,8 +43,7 @@ CFLAGS      := $(CFLAGS) /I..\\common
 COMMON_OBJS := \
 	actctx.obj \
 	MyLoadLibrary.obj \
-	MemoryModule.obj \
-	list.obj
+	MemoryModule.obj
 
 LOADER_OBJS := \
 	pupy_load.obj

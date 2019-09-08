@@ -182,7 +182,7 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
 
     dprint("Initializing python...\n");
     if (!initialize_python(argc, argv, isDll)) {
-        return -1;
+        return;
     }
 
 #ifdef _PUPY_DYNLOAD
@@ -201,7 +201,7 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
 
     if (args.blInitialized != TRUE) {
         dprint("_pupy.pyd initialization failed\n");
-        return -1;
+        return;
     }
 
     dprint("cbExit: %p\n", args.cbExit);
@@ -217,7 +217,7 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
     }
 #endif
 
-    return 0;
+    return;
 }
 
 void deinitialize() {

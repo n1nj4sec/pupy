@@ -73,7 +73,7 @@ TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 PYOBJS := pupy_load.o
 SHARED_OBJS := main_so.o pupy_shared.o tmplibrary_lmid.o
 APP_OBJS := main_exe.o pupy.o tmplibrary.o
-COMMON_OBJS := list.o daemonize.o decompress.o
+COMMON_OBJS := daemonize.o decompress.o
 
 ifneq ($(DEBUG),)
 COMMON_OBJS += debug.o
@@ -105,9 +105,6 @@ all: $(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX) $(TEMPLATE_OUTPUT_PATH)/pupy
 revision.h:
 	if [ x"$$COMMIT" = x"" ]; then rev=`cat ../../.git/\`cat ../../.git/HEAD | cut -f 2 -d \ \` | cut -c 1-8`; \
 		else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
-
-list.o: ../common/list.c ../common/list.h
-	$(CC) -c -o $@ $< $(CFLAGS)
 
 debug.o: ../common/debug.c ../common/debug.h
 	$(CC) -c -o $@ $< $(CFLAGS)
