@@ -26,6 +26,7 @@ import base64
 import os
 import pylzma
 import struct
+import pefile
 
 from io import BytesIO
 
@@ -97,6 +98,12 @@ def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
 
     offset = offsets[0]
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
+
+    if binary[:2] == 'MZ':
+        pe = pefile.PE(data=binary, fast_load=True)
+        pe.OPTIONAL_HEADER.CheckSum = pe.generate_checksum()
+        binary = pe.write()
+
     return binary
 
 def get_raw_conf(display, conf, verbose=False):
