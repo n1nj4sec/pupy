@@ -751,6 +751,8 @@ class DnsCommandServerHandler(BaseResolver):
 
         if len(parts) == 0:
             raise DnsPingRequest(1)
+        elif '_' in data:
+            raise DnsNoCommandServerException()
         elif len(parts) == 1 and parts[0].startswith('ping'):
             if len(parts[0]) == 4:
                 raise DnsPingRequest(15)
