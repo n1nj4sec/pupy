@@ -166,11 +166,17 @@ class DnsCommandsClient(Thread):
         Thread.__init__(self)
 
     def next(self):
+        logging.debug('Next() ; sleep for %ds', self.poll)
+        time.sleep(self.poll)
+
         self.domain_id = (self.domain_id + 1) % len(self.domains)
         self.domain = self.domains[self.domain_id]
         self.failed = 0
 
         self.qtype = self._default_qtype
+
+        if self.qtype is None:
+            self._probe_record_type()
 
     def bad_response(self):
         self.failed += 1
