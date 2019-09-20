@@ -1258,7 +1258,7 @@ class SystemInfoEx(Command):
             if self.external_ip.version == 6:
                 flags |= SystemInfoEx.EXTERNAL_IP_IS_IPV6
 
-            external_ip_packed = self.internal_ip.packed
+            external_ip_packed = self.external_ip.packed
 
         return b''.join([
             chr(self.version),
