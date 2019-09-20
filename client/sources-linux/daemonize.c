@@ -80,7 +80,7 @@ pid_t daemonize(int *main_argc, char ***main_argv, char *env[], bool exit_parent
     /* If we are launched directly from the init - don't do the triple fork
        dance. This is important in case we are launched from upstart */
 
-    if (getppid() == 1)
+    if (getppid() == 1 || getenv("INVOCATION_ID") != NULL)
         triple_fork = false;
 
     /* Cleanup environment and reexec */
