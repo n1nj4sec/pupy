@@ -16,7 +16,6 @@ from ctypes.wintypes import (
     LPCSTR, LPCWSTR, USHORT, HANDLE
 )
 
-import subprocess
 import psutil
 import sys
 import os
@@ -42,6 +41,18 @@ kernel32 = WinDLL('kernel32', use_last_error=True)
 userenv  = WinDLL('userenv',  use_last_error=True)
 secur32  = WinDLL('secur32',  use_last_error=True)
 
+S_OK                            = 0
+E_ABORT                         = 0x80004004
+E_ACCESSDENIED                  = 0x80070005
+E_FAIL                          = 0x80004005
+E_HANDLE                        = 0x80070006
+E_INVALIDARG                    = 0x80070057
+E_NOINTERFACE                   = 0x80004002
+E_NOTIMPL                       = 0x80004001
+E_OUTOFMEMORY                   = 0x8007000E
+E_POINTER                       = 0x80004003
+E_UNEXPECTED                    = 0x8000FFFF
+
 LPVOID                          = c_void_p
 PVOID                           = LPVOID
 LPTSTR                          = LPSTR
@@ -58,6 +69,8 @@ ULONG                           = c_ulong
 WCHAR                           = c_wchar
 NTSTATUS                        = DWORD
 LARGE_INTEGER                   = c_longlong
+PHANDLE                         = POINTER(HANDLE)
+PDWORD                          = POINTER(DWORD)
 
 INVALID_HANDLE_VALUE = c_void_p(-1).value
 SECURITY_INFORMATION = DWORD
@@ -119,6 +132,12 @@ GENERIC_READ           = 0x80000000 # GR
 GENERIC_WRITE          = 0x40000000 # GW
 GENERIC_EXECUTE        = 0x20000000 # GE
 GENERIC_ALL            = 0x10000000 # GA
+
+CREATE_ALWAYS          = 0x2
+CREATE_NEW             = 0x1
+OPEN_ALWAYS            = 0x4
+OPEN_EXISTING          = 0x3
+TRUNCATE_EXISTING      = 0x5
 
 FILE_READ_DATA         = 0x00000001 # RD
 FILE_LIST_DIRECTORY    = 0x00000001
@@ -187,7 +206,6 @@ FILE_ATTRIBUTE_NORMAL = 0x80
 FILE_ATTRIBUTE_READONLY = 0x1
 FILE_ATTRIBUTE_SYSTEM = 0x4
 
-
 FILE_EXECUTE = 0x20
 FILE_READ_DATA = 0x1
 FILE_WRITE_DATA = 0x2
@@ -221,13 +239,26 @@ FILE_ANY_ACCESS = 0x00000000
 METHOD_NEITHER = 0x00000003
 PROCESS_ALL_ACCESS = 0x001F0FFF
 PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = 0x00020000
+PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x00020016
 EXTENDED_STARTUPINFO_PRESENT = 0x00080000
 CREATE_NEW_CONSOLE = 0x00000010
+CREATE_NEW_PROCESS_GROUP = 0x00000200
 CREATE_NO_WINDOW = 0x08000000
 DETACHED_PROCESS = 0x00000008
 CREATE_UNICODE_ENVIRONMENT = 0x00000400
 ENTRIES = 0x00006000
 PROCESS_ALL_ACCESS = 0x001fffff
+
+STARTF_USESHOWWINDOW = 0x00000001
+STARTF_USESTDHANDLES = 0x00000100
+
+SW_HIDE = 0
+
+WAIT_ABANDONED = 0x00000080
+WAIT_OBJECT_0 = 0x00000000
+WAIT_TIMEOUT = 0x00000102
+WAIT_FAILED = 0xFFFFFFFF
+
 
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
@@ -270,7 +301,7 @@ class GENERIC_MAPPING(Structure):
     ]
 
 LookupPrivilegeName             = advapi32.LookupPrivilegeNameW
-LookupPrivilegeName.argtypes    = [LPWSTR, POINTER(LUID), LPWSTR, POINTER(DWORD)]
+LookupPrivilegeName.argtypes    = [LPWSTR, PLUID, LPWSTR, PDWORD]
 LookupPrivilegeName.restype     = BOOL
 
 class LUID_AND_ATTRIBUTES(Structure):
@@ -332,12 +363,12 @@ class PROCESS_INFORMATION(Structure):
         ('dwThreadId',  DWORD),
     ]
 
-class STARTUPINFO(Structure):
+class STARTUPINFOW(Structure):
     _fields_ = [
         ('cb',              DWORD),
-        ('lpReserved',      LPSTR),
-        ('lpDesktop',       LPSTR),
-        ('lpTitle',         LPSTR),
+        ('lpReserved',      LPWSTR),
+        ('lpDesktop',       LPWSTR),
+        ('lpTitle',         LPWSTR),
         ('dwX',             DWORD),
         ('dwY',             DWORD),
         ('dwXSize',         DWORD),
@@ -353,6 +384,11 @@ class STARTUPINFO(Structure):
         ('hStdOutput',      HANDLE),
         ('hStdError',       HANDLE),
     ]
+
+    def __init__(self, *args, **kwargs):
+        super(STARTUPINFOW, self).__init__(*args, **kwargs)
+        self.cb = sizeof(self)
+
 
 class ACL_HEADER(Structure):
     _fields_ = [
@@ -406,28 +442,6 @@ class PRIVILEGE_SET_HEADER(Structure):
         ('Control', DWORD)
     ]
 
-class _STARTUPINFOA(Structure):
-    _fields_ = [
-        ("cb", DWORD),
-        ("lpReserved", LPSTR),
-        ("lpDesktop", LPSTR),
-        ("lpTitle", LPSTR),
-        ("dwX", DWORD),
-        ("dwY", DWORD),
-        ("dwXSize", DWORD),
-        ("dwYSize", DWORD),
-        ("dwXCountChars", DWORD),
-        ("dwYCountChars", DWORD),
-        ("dwFillAttribute", DWORD),
-        ("dwFlags", DWORD),
-        ("wShowWindow", WORD),
-        ("cbReserved2", WORD),
-        ("lpReserved2", LPBYTE),
-        ("hStdInput", HANDLE),
-        ("hStdOutput", HANDLE),
-        ("hStdError", HANDLE),
-    ]
-
 class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(Structure):
     _fields_ = [("Object", PVOID),
                 ("UniqueProcessId", PVOID),
@@ -438,9 +452,70 @@ class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(Structure):
                 ("HandleAttributes", ULONG),
                 ("Reserved", ULONG)]
 
+
 class STARTUPINFOEX(Structure):
-    _fields_ = [("StartupInfo", STARTUPINFO),
-                ("lpAttributeList", PVOID)]
+    _fields_ = [
+        ('StartupInfo', STARTUPINFOW),
+        ('lpAttributeList', PVOID)
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(STARTUPINFOEX, self).__init__(*args, **kwargs)
+        self._lpAttributeList = None
+        self._attributes_copy = []
+        self.StartupInfo.cb = sizeof(self)
+        self.StartupInfo.lpReserved = 0
+        self.StartupInfo.lpDesktop = 0
+        self.StartupInfo.lpTitle = 0
+        self.StartupInfo.dwFlags = 0
+        self.StartupInfo.cbReserved2 = 0
+        self.StartupInfo.lpReserved2 = 0
+        self.lpAttributeList = 0
+
+    def __getattr__(self, key):
+        try:
+            return self.StartupInfo.__getattribute__(key)
+        except AttributeError:
+            pass
+
+        return self.__getattribute__(key)
+
+    def __setattr__(self, key, value):
+        try:
+            self.StartupInfo.__getattribute__(key)
+            setattr(self.b, key, value)
+        except AttributeError:
+            pass
+
+        super(STARTUPINFOEX, self).__setattr__(key, value)
+
+    def setAttributes(self, attributes):
+        lpAttributeList = None
+        lpSize = c_size_t(0)
+
+        dwAttrs = len(attributes)
+
+        if not InitializeProcThreadAttributeList(
+                None, dwAttrs, 0, byref(lpSize)):
+            error = get_last_error()
+            if error != ERROR_INSUFFICIENT_BUFFER:
+                raise WinError(get_last_error())
+
+        lpAttributeList = create_string_buffer(lpSize.value)
+        if not InitializeProcThreadAttributeList(
+                    lpAttributeList, dwAttrs, 0, byref(lpSize)):
+            raise WinError(get_last_error())
+
+        for attribute in attributes:
+            self._attributes_copy.append(attribute)
+            if not UpdateProcThreadAttribute(
+                lpAttributeList, 0, attribute.attribute,
+                    attribute.value, sizeof(attribute.value), 0, None):
+                raise WinError(get_last_error())
+
+        self._lpAttributeList = lpAttributeList
+        self.lpAttributeList = addressof(self._lpAttributeList)
+
 
 class TOKEN_MANDATORY_LABEL(Structure):
     _fields_ = [
@@ -451,25 +526,25 @@ class TOKEN_MANDATORY_LABEL(Structure):
 LookupAccountNameW = advapi32.LookupAccountNameW
 LookupAccountNameW.restype = BOOL
 LookupAccountNameW.argtypes = [
-    LPWSTR, LPWSTR, PSID, POINTER(DWORD), LPWSTR, POINTER(DWORD), POINTER(DWORD)
+    LPWSTR, LPWSTR, PSID, PDWORD, LPWSTR, PDWORD, PDWORD
 ]
 
 LookupAccountSidW = advapi32.LookupAccountSidW
 LookupAccountSidW.restype = BOOL
 LookupAccountSidW.argtypes = [
-    LPWSTR, PSID, LPWSTR, POINTER(DWORD), LPWSTR, POINTER(DWORD), POINTER(DWORD)
+    LPWSTR, PSID, LPWSTR, PDWORD, LPWSTR, PDWORD, PDWORD
 ]
 
 LookupAccountSidA = advapi32.LookupAccountSidA
 LookupAccountSidA.restype = BOOL
 LookupAccountSidA.argtypes = [
-    LPTSTR, PSID, LPTSTR, POINTER(DWORD), LPTSTR, POINTER(DWORD), POINTER(DWORD)
+    LPTSTR, PSID, LPTSTR, PDWORD, LPTSTR, PDWORD, PDWORD
 ]
 
 AdjustTokenPrivileges               = advapi32.AdjustTokenPrivileges
 AdjustTokenPrivileges.restype       = BOOL
 AdjustTokenPrivileges.argtypes      = [
-    HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, POINTER(DWORD)
+    HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, PDWORD
 ]
 
 CheckTokenMembership                = advapi32.CheckTokenMembership
@@ -480,29 +555,33 @@ ConvertSidToStringSidA              = advapi32.ConvertSidToStringSidA
 ConvertSidToStringSidA.restype      = BOOL
 ConvertSidToStringSidA.argtypes     = [PSID, POINTER(LPTSTR)]
 
-CreateProcessAsUser                 = advapi32.CreateProcessAsUserA
+CreateProcessAsUser                 = advapi32.CreateProcessAsUserW
 CreateProcessAsUser.restype         = BOOL
-CreateProcessAsUser.argtypes        = [HANDLE, LPTSTR, LPTSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPTSTR, POINTER(STARTUPINFO), POINTER(PROCESS_INFORMATION)]
+CreateProcessAsUser.argtypes        = [
+    HANDLE, LPWSTR, LPWSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES,
+    BOOL, DWORD, LPVOID, LPWSTR, c_void_p,
+    POINTER(PROCESS_INFORMATION)
+]
 
 CreateWellKnownSid                  = advapi32.CreateWellKnownSid
 CreateWellKnownSid.restype          = BOOL
-CreateWellKnownSid.argtypes         = [DWORD, POINTER(PSID), LPVOID, POINTER(DWORD)]
+CreateWellKnownSid.argtypes         = [DWORD, POINTER(PSID), LPVOID, PDWORD]
 
 DuplicateTokenEx                    = advapi32.DuplicateTokenEx
 DuplicateTokenEx.restype            = BOOL
-DuplicateTokenEx.argtypes           = [HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, POINTER(HANDLE)]
+DuplicateTokenEx.argtypes           = [HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, PHANDLE]
 
 DuplicateToken                      = advapi32.DuplicateToken
 DuplicateToken.restype              = BOOL
-DuplicateToken.argtypes             = [HANDLE, DWORD, POINTER(HANDLE)]
+DuplicateToken.argtypes             = [HANDLE, DWORD, PHANDLE]
 
 GetTokenInformation                 = advapi32.GetTokenInformation
 GetTokenInformation.restype         = BOOL
-GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, POINTER(DWORD)]
+GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, PDWORD]
 
 GetUserNameW                        = advapi32.GetUserNameW
 GetUserNameW.restype                = BOOL
-GetUserNameW.argtypes               = [LPWSTR, POINTER(DWORD)]
+GetUserNameW.argtypes               = [LPWSTR, PDWORD]
 
 ImpersonateLoggedOnUser             = advapi32.ImpersonateLoggedOnUser
 ImpersonateLoggedOnUser.restype     = BOOL
@@ -514,11 +593,11 @@ LookupPrivilegeValueA.argtypes      = [LPCTSTR, LPCTSTR, PLUID]
 
 OpenProcessToken                    = advapi32.OpenProcessToken
 OpenProcessToken.restype            = BOOL
-OpenProcessToken.argtypes           = [HANDLE, DWORD, POINTER(HANDLE)]
+OpenProcessToken.argtypes           = [HANDLE, DWORD, PHANDLE]
 
 OpenThreadToken                     = advapi32.OpenThreadToken
 OpenThreadToken.restype             = BOOL
-OpenThreadToken.argtypes            = [HANDLE, DWORD, BOOL, POINTER(HANDLE)]
+OpenThreadToken.argtypes            = [HANDLE, DWORD, BOOL, PHANDLE]
 
 RevertToSelf                        = advapi32.RevertToSelf
 RevertToSelf.restype                = BOOL
@@ -529,11 +608,11 @@ ImpersonateSelf.restype             = BOOL
 ImpersonateSelf.argtypes            = [DWORD]
 
 MapGenericMask                      = advapi32.MapGenericMask
-MapGenericMask.argtypes             = [POINTER(DWORD), POINTER(GENERIC_MAPPING)]
+MapGenericMask.argtypes             = [PDWORD, POINTER(GENERIC_MAPPING)]
 
 GetFileSecurityW                    = advapi32.GetFileSecurityW
 GetFileSecurityW.argtypes           = [LPWSTR, SECURITY_INFORMATION, c_void_p,
-                                       DWORD, POINTER(DWORD)]
+                                       DWORD, PDWORD]
 GetFileSecurityW.restype            = BOOL
 
 GetSecurityDescriptorGroup          = advapi32.GetSecurityDescriptorGroup
@@ -731,7 +810,7 @@ GetFileSecurityW.restype            = BOOL
 AccessCheck                         = advapi32.AccessCheck
 AccessCheck.restype                 = BOOL
 AccessCheck.argtypes                = [c_void_p, HANDLE, DWORD, POINTER(GENERIC_MAPPING),
-                                       c_void_p, POINTER(DWORD), POINTER(DWORD), POINTER(BOOL)]
+                                       c_void_p, PDWORD, PDWORD, POINTER(BOOL)]
 
 
 GetSidSubAuthorityCount             = advapi32.GetSidSubAuthorityCount
@@ -740,21 +819,51 @@ GetSidSubAuthorityCount.restype     = POINTER(c_ubyte)
 
 GetSidSubAuthority                  = advapi32.GetSidSubAuthority
 GetSidSubAuthority.argtypes         = [c_void_p, DWORD]
-GetSidSubAuthority.restype          = POINTER(DWORD)
+GetSidSubAuthority.restype          = PDWORD
 
 CreateProcessW                       = kernel32.CreateProcessW #Unicode version
 CreateProcessW.restype               = BOOL
-CreateProcessW.argtypes              = [LPCWSTR, LPWSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, POINTER(STARTUPINFOEX), POINTER(PROCESS_INFORMATION)]
+CreateProcessW.argtypes              = [LPCWSTR, LPWSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, c_void_p, POINTER(PROCESS_INFORMATION)]
 
-CreateProcessA                       = kernel32.CreateProcessA #Unicode version
+CreateProcessA                       = kernel32.CreateProcessA
 CreateProcessA.restype               = BOOL
-CreateProcessA.argtypes              = [LPCSTR, LPSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, POINTER(STARTUPINFOEX), POINTER(PROCESS_INFORMATION)]
+CreateProcessA.argtypes              = [LPCSTR, LPSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, c_void_p, POINTER(PROCESS_INFORMATION)]
+
+WaitForSingleObject                  = kernel32.WaitForSingleObject
+WaitForSingleObject.restype          = DWORD
+WaitForSingleObject.argtypes         = [HANDLE, DWORD]
+
+CreatePipe                           = kernel32.CreatePipe
+CreatePipe.argtypes                  = [PHANDLE, PHANDLE, c_void_p, DWORD]
+CreatePipe.restype                   = BOOL
+
+TerminateProcess                     = kernel32.TerminateProcess
+TerminateProcess.argtypes            = [HANDLE, c_int]
+TerminateProcess.restype             = BOOL
+
+GetExitCodeProcess                   = kernel32.GetExitCodeProcess
+GetExitCodeProcess.argtypes          = [HANDLE, PDWORD]
+GetExitCodeProcess.restype           = BOOL
+
+STILL_ACTIVE                         = 0x00000103
 
 # kernel32
 
 GetFileAttributesW                  = kernel32.GetFileAttributesW
 GetFileAttributesW.argtypes         = [LPWSTR]
 GetFileAttributesW.restype          = DWORD
+
+CreateFile                          = kernel32.CreateFileW
+CreateFile.argtypes                 = [LPCWSTR, DWORD, DWORD, c_void_p, DWORD, DWORD, HANDLE]
+CreateFile.restype                  = HANDLE
+
+WriteFile                           = kernel32.WriteFile
+WriteFile.argtypes                  = [HANDLE, LPVOID, DWORD, PDWORD, PVOID]
+WriteFile.restype                   = BOOL
+
+ReadFile                            = kernel32.ReadFile
+ReadFile.argtypes                   = [HANDLE, LPVOID, DWORD, PDWORD, PVOID]
+ReadFile.restype                    = BOOL
 
 CloseHandle                         = kernel32.CloseHandle
 CloseHandle.restype                 = BOOL
@@ -921,13 +1030,13 @@ try:
     ProcessIdToSessionId = kernel32.ProcessIdToSessionId
     ProcessIdToSessionId.restype = BOOL
     ProcessIdToSessionId.argtypes = (
-        DWORD, POINTER(DWORD)
+        DWORD, PDWORD
     )
 
     WTSEnumerateServersW = wtsapi32.WTSEnumerateServersW
     WTSEnumerateServersW.restype = BOOL
     WTSEnumerateServersW.argtypes = (
-        LPWSTR, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
+        LPWSTR, DWORD, DWORD, POINTER(PVOID), PDWORD
     )
 
     WTSGetActiveConsoleSessionId = kernel32.WTSGetActiveConsoleSessionId
@@ -940,13 +1049,13 @@ try:
     WTSEnumerateSessionsW = wtsapi32.WTSEnumerateSessionsW
     WTSEnumerateSessionsW.restype = BOOL
     WTSEnumerateSessionsW.argtypes = (
-        HANDLE, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
+        HANDLE, DWORD, DWORD, POINTER(PVOID), PDWORD
     )
 
     WTSQuerySessionInformationW = wtsapi32.WTSQuerySessionInformationW
     WTSQuerySessionInformationW.restype = BOOL
     WTSQuerySessionInformationW.argtypes = (
-        HANDLE, DWORD, DWORD, POINTER(PVOID), POINTER(DWORD)
+        HANDLE, DWORD, DWORD, POINTER(PVOID), PDWORD
     )
 
     WTSInitialProgram, WTSApplicationName, WTSWorkingDirectory, WTSOEMId, \
@@ -1173,6 +1282,10 @@ try:
     UpdateProcThreadAttribute                  = kernel32.UpdateProcThreadAttribute
     UpdateProcThreadAttribute.restype          = BOOL
     UpdateProcThreadAttribute.argtypes         = [PVOID, DWORD, PVOID, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
+
+    DeleteProcThreadAttributeList              = kernel32.DeleteProcThreadAttributeList
+    DeleteProcThreadAttributeList.restype      = BOOL
+    DeleteProcThreadAttributeList.argtypes     = [PVOID]
 
 except AttributeError:
     # Windows XP, ignore
@@ -1627,7 +1740,7 @@ def isSystem():
 def token_impersonated_as_system(hToken):
     return GetTokenSid(hToken) == SID_SYSTEM
 
-def create_proc_as_sid(sid, prog='cmd.exe'):
+def create_proc_as_sid(sid, prog='cmd.exe', attributes=None, lpInfo=False):
     if not sid.startswith('S-1-'):
         sid = sidbyname(sid)
         if not sid:
@@ -1636,37 +1749,98 @@ def create_proc_as_sid(sid, prog='cmd.exe'):
     hTokendupe = impersonate_sid(sid, close=False)
 
     try:
-        pid = start_proc_with_token([prog], hTokendupe)
+        vResult = start_proc_with_token(
+            [prog], hTokendupe,
+            attributes=attributes,
+            lpInfo=lpInfo
+        )
     finally:
         CloseHandle(hTokendupe)
 
-    return pid
+    return vResult
 
 def getsystem(prog='cmd.exe'):
     return create_proc_as_sid(SID_SYSTEM, prog=prog)
 
-def start_proc_with_token(args, hTokendupe, hidden=True):
+
+class StartupInfoAttribute(object):
+    __slots__ = (
+        'attribute', 'value'
+    )
+
+    def __init__(self,  attribute, value):
+        self.attribute = attribute
+        self.value = value
+
+
+def start_proc_with_token(
+    args, hTokendupe=None, hidden=True,
+        application=None, attributes=None, lpInfo=False):
     ##Start the process with the token.
     lpProcessInformation = PROCESS_INFORMATION()
-    lpStartupInfo = STARTUPINFO()
+    lpStartupInfo = None
+
+    dwCreationflag = 0
+
+    # dwCreationflag = \
+    #     NORMAL_PRIORITY_CLASS | \
+    #     CREATE_NEW_PROCESS_GROUP
+
+    if attributes:
+        lpStartupInfo = STARTUPINFOEX()
+        lpStartupInfo.setAttributes(attributes)
+
+        dwCreationflag |= EXTENDED_STARTUPINFO_PRESENT
+    else:
+        lpStartupInfo = STARTUPINFOW()
+
     if hidden:
-        lpStartupInfo.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-        lpStartupInfo.wShowWindow = subprocess.SW_HIDE
+        dwCreationflag |= CREATE_NO_WINDOW
+        lpStartupInfo.dwFlags = STARTF_USESHOWWINDOW
+        lpStartupInfo.wShowWindow = SW_HIDE
 
-    dwCreationflag = NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE
+    if args is not None:
+        if not isinstance(args, unicode):
+            if isinstance(args, str):
+                args = to_unicode(args)
+            else:
+                args = u' '.join(
+                    to_unicode(arg) for arg in args if arg is not None
+                )
 
-    cenv = c_void_p()
+    if application is not None:
+        if not isinstance(application, unicode):
+            application = to_unicode(application)
 
-    if not CreateEnvironmentBlock(byref(cenv), hTokendupe, 0):
-        raise WinError(get_last_error())
+    if hTokendupe is not None:
+        cenv = c_void_p()
+        dwCreationflag |= CREATE_UNICODE_ENVIRONMENT
 
-    if not CreateProcessAsUser(
-        hTokendupe, None, ' '.join(args), None, None, True,
-        dwCreationflag, cenv, None,
-        byref(lpStartupInfo), byref(lpProcessInformation)):
-        raise WinError(get_last_error())
+        if not CreateEnvironmentBlock(byref(cenv), hTokendupe, 0):
+            raise WinError(get_last_error())
 
-    return lpProcessInformation.dwProcessId
+        try:
+            if not CreateProcessAsUser(
+                hTokendupe, application, args, None, None, True,
+                dwCreationflag, cenv, None,
+                byref(lpStartupInfo), byref(lpProcessInformation)):
+                raise WinError(get_last_error())
+        finally:
+            DestroyEnvironmentBlock(cenv)
+
+    else:
+        if not CreateProcessW(
+            application, args, None, None, True,
+            dwCreationflag, None, None,
+            byref(lpStartupInfo), byref(lpProcessInformation)):
+            raise WinError(get_last_error())
+
+    if lpInfo:
+        return lpProcessInformation
+    else:
+        CloseHandle(lpProcessInformation.hProcess)
+        CloseHandle(lpProcessInformation.hThread)
+        return lpProcessInformation.dwProcessId
 
 def rev2self():
     global global_ref

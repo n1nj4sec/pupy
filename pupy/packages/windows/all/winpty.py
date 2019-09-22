@@ -3,23 +3,28 @@
 from contextlib import contextmanager
 from pupwinutils.security import impersonate_token
 
-from pupwinutils.security import CloseHandle as WinApiCloseHandle
+from pupwinutils.security import (
+    CreateFile, ReadFile, WriteFile, CloseHandle, TerminateProcess,
+    GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING, INVALID_HANDLE_VALUE
+)
 
 from ctypes import (
-    windll, c_int, c_uint, c_void_p, pointer,
-    c_ulonglong, CFUNCTYPE
+    c_int, c_uint, c_void_p, pointer, byref,
+    c_ulonglong, CFUNCTYPE, WinError, get_last_error,
+    create_string_buffer
 )
 from ctypes.wintypes import (
     HANDLE, DWORD, LPCWSTR, HWND,
 )
 
-from win32file import CreateFile, ReadFile, WriteFile, CloseHandle
-from win32file import GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING
-
 import pupy
 
-TerminateProcess = windll.kernel32.TerminateProcess
-TerminateProcess.argtypes = (HANDLE, c_int)
+if hasattr(pupy, 'get_logger'):
+    logger = pupy.get_logger('winpty')
+else:
+    import logging
+    logger = logging.getLogger('winpty')
+
 
 WINPTY_ERROR_SUCCESS = 0
 WINPTY_ERROR_OUT_OF_MEMORY = 1
@@ -100,6 +105,7 @@ def winpty_error():
     finally:
         winpty.error_free(error)
 
+
 class WinPTY(object):
     def __init__(self, program,
             cmdline=None, cwd=None, env=None, htoken=None,
@@ -121,7 +127,7 @@ class WinPTY(object):
             if htoken:
                 caller_thread_htoken, requested_htoken = htoken
                 htokendup = impersonate_token(caller_thread_htoken)
-                WinApiCloseHandle(caller_thread_htoken)
+                CloseHandle(caller_thread_htoken)
 
                 if htokendup:
                     winpty.config_set_htoken(config, requested_htoken)
@@ -145,6 +151,9 @@ class WinPTY(object):
                 0, None
             )
 
+            if self._conin_pipe == INVALID_HANDLE_VALUE:
+                raise WinError(get_last_error())
+
             self._conout_pipe = CreateFile(
                 self._conout,
                 GENERIC_READ,
@@ -152,6 +161,9 @@ class WinPTY(object):
                 OPEN_EXISTING,
                 0, None
             )
+
+            if self._conout_pipe == INVALID_HANDLE_VALUE:
+                raise WinError(get_last_error())
 
             if self._conerr:
                 self._conerr_pipe = CreateFile(
@@ -161,6 +173,9 @@ class WinPTY(object):
                     OPEN_EXISTING,
                     0, None
                 )
+                if self._conerr_pipe == INVALID_HANDLE_VALUE:
+                    raise WinError(get_last_error())
+
             else:
                 self._conerr_pipe = None
 
@@ -190,7 +205,8 @@ class WinPTY(object):
             finally:
                 winpty.spawn_config_free(spawn_ctx)
 
-        except:
+        except Exception as e:
+            logger.exception(e)
             self.close()
             raise
 
@@ -198,22 +214,36 @@ class WinPTY(object):
         if self._closed:
             return False
 
-        try:
-            WriteFile(self._conin_pipe, data)
-            return True
-        except:
-            return False
+        written = DWORD()
+
+        if not WriteFile(self._conin_pipe, data, len(data), byref(written), None):
+            raise WinError(get_last_error())
 
     def read(self, amount=8192):
-        if self._closed:
-            return False
+        buffer = create_string_buffer(amount)
+        read = DWORD()
 
-        try:
-            error, data = ReadFile(self._conout_pipe, amount)
-        except:
-            data = None
+        if not ReadFile(self._conout_pipe, buffer, amount, byref(read), None):
+            error = get_last_error()
 
-        return data
+            # Closed pipe
+            if error == 109:
+                return ''
+
+            raise WinError(error)
+
+        if not read.value:
+            return ''
+
+        return buffer[:read.value]
+
+    def read_loop(self, read_cb):
+        while True:
+            data = self.read()
+            if not data:
+                break
+
+            read_cb(data)
 
     def resize(self, cols, rows):
         if self._closed:
@@ -228,33 +258,16 @@ class WinPTY(object):
 
         self._closed = True
 
-        # Ensure _conin_pipe empty
-
         if self._process_handle:
             try:
                 TerminateProcess(self._process_handle, 0)
+                CloseHandle(self._process_handle)
             except:
                 pass
 
-        while True:
-            try:
-                error, data = ReadFile(self._conout_pipe, 8192)
-                if not data:
-                    break
-            except:
-                break
-
-        if self._conerr_pipe:
-            while True:
-                try:
-                    error, data = ReadFile(self._conerr_pipe, 8192)
-                    if not data:
-                        break
-                except:
-                    break
-
         CloseHandle(self._conin_pipe)
         CloseHandle(self._conout_pipe)
+
         if self._conerr_pipe:
             CloseHandle(self._conerr_pipe)
 
