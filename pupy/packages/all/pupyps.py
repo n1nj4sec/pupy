@@ -24,6 +24,33 @@ socktypes = {
     v:k[5:] for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
 }
 
+SELF = psutil.Process()
+
+
+def to_unicode(x):
+    tx = type(x)
+    if tx == unicode:
+        return x
+    elif tx == str:
+        return x.decode(sys.getfilesystemencoding())
+    else:
+        return x
+
+
+try:
+    USERNAME = to_unicode(SELF.username())
+except:
+    try:
+        import getpass
+        USERNAME = getpass.getuser()
+    except:
+        USERNAME = None
+
+KNOWN_DOMAINS = (
+    'NT AUTHORITY\\',
+    socket.gethostname() + '\\'
+)
+
 KNOWN_FIELDS = tuple(
     field for field in (
         'cmdline', 'connections', 'cpu_percent', 'cpu_times', 'create_time',
@@ -49,14 +76,20 @@ if os.name == 'nt':
         pass
 
 
-def to_unicode(x):
-    tx = type(x)
-    if tx == unicode:
-        return x
-    elif tx == str:
-        return x.decode(sys.getfilesystemencoding())
-    else:
-        return x
+def set_relations(infos):
+    if SELF.pid == infos.get('pid'):
+        infos['self'] = True
+
+    username = infos.get('username')
+    if not username:
+        return
+
+    if USERNAME and USERNAME == username:
+        infos['same_user'] = True
+
+    if username.startswith(KNOWN_DOMAINS):
+        _, username = username.split('\\', 1)
+        infos['username'] = to_unicode(username)
 
 
 def _psiter(obj):
@@ -132,35 +165,23 @@ def psinfo(pids):
 def pstree():
     data = {}
     tree = {}
-    me = psutil.Process()
-    try:
-        my_user = to_unicode(me.username())
-    except:
-        try:
-            import getpass
-            my_user = getpass.getuser()
-        except:
-            my_user = None
 
     for p in psutil.process_iter():
         if not psutil.pid_exists(p.pid):
             continue
 
-        data[p.pid] = {
+        props = {
             k:to_unicode(v) for k,v in safe_as_dict(p, [
                 'name', 'username', 'cmdline', 'exe', 'status',
                 'cpu_percent', 'memory_percent', 'connections',
-                'terminal'
+                'terminal', 'pid'
             ]).iteritems()
         }
 
-        if p.pid == me.pid:
-            data[p.pid]['self'] = True
-        elif my_user and data[p.pid].get('username') == my_user:
-            data[p.pid]['same_user'] = True
+        set_relations(props)
 
-        if 'connections' in data[p.pid]:
-            data[p.pid]['connections'] = bool(data[p.pid]['connections'])
+        if 'connections' in props:
+            props['connections'] = bool(props['connections'])
 
         parent = None
 
@@ -168,10 +189,12 @@ def pstree():
             parent = p.parent()
 
         except (psutil.ZombieProcess):
-            data[p.pid]['name'] = '< Z: ' + data[p.pid]['name'] + ' >'
+            props['name'] = '< Z: ' + props['name'] + ' >'
 
         except (psutil.NoSuchProcess, psutil.AccessDenied):
-            data[p.pid]['name'] = '< ?: ' + data[p.pid]['name'] + ' >'
+            props['name'] = '< ?: ' + props['name'] + ' >'
+
+        data[p.pid] = props
 
         ppid = parent.pid if parent else 0
         if ppid not in tree:
@@ -187,23 +210,13 @@ def pstree():
 
 def users():
     info = {}
-    me = psutil.Process()
     terminals = {}
 
-    if hasattr(me, 'terminal'):
+    if hasattr(SELF, 'terminal'):
         for p in psutil.process_iter():
             pinfo = safe_as_dict(p, ['terminal', 'pid', 'exe', 'name', 'cmdline'])
             if pinfo.get('terminal'):
                 terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
-
-    try:
-        me = me.username()
-    except:
-        try:
-            import getpass
-            me = getpass.getuser()
-        except:
-            me = ''
 
     for term in psutil.users():
         terminfo = {
@@ -245,7 +258,7 @@ def users():
         if host not in info[term.name]:
             info[term.name][host] = []
 
-        if term.name == me or me.endswith('\\'+term.name):
+        if term.name == USERNAME or USERNAME.endswith('\\'+term.name):
             terminfo['me'] = True
 
         info[term.name][host].append(terminfo)
@@ -254,8 +267,6 @@ def users():
 
 def connections():
     connections = []
-
-    me = psutil.Process()
 
     for connection in psutil.net_connections():
         obj = {
@@ -271,10 +282,7 @@ def connections():
                            'pid', 'exe', 'name', 'username'
                        }).iteritems()
                 })
-                if connection.pid == me.pid:
-                    obj.update({
-                        'me': True
-                    })
+                set_relations(obj)
         except:
             pass
 

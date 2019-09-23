@@ -113,8 +113,13 @@ class WModule(PupyModule):
 
                     client_line = ''
                     if session_client['ClientName'] and session_client['ClientProductId']:
-                        client_line = '{}\\{}@{} ({}/{} {}.{})'.format(
-                            session_client['Domain'], session_client['UserName'],
+                        username = session_client['UserName']
+                        domain = session_client['Domain']
+                        if domain and domain != '.':
+                            username = domain + '\\' + username
+
+                        client_line = '{}@{} ({}/{} {}.{})'.format(
+                            username,
                             session_client['ClientAddress'],
                             session_client['ClientName'], session_client['DeviceIdD'],
                             session_client['ClientProductId'], session_client['ClientBuildNumber']
