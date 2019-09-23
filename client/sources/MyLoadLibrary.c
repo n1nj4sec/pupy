@@ -211,6 +211,10 @@ HMODULE MyGetModuleHandle(LPCSTR name)
 
 HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
 {
+    HMODULE hLoadedModule = MyGetModuleHandle(name);
+    if (hLoadedModule)
+        return hLoadedModule;
+
     if (bytes) {
         HCUSTOMMODULE mod = MemoryLoadLibraryEx(bytes,
                             _LoadLibrary,
