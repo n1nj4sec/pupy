@@ -43,6 +43,10 @@ class Task(Thread):
         results = self._pstore[self]
         self._pstore[self] = self.results_type()
         self._dirty = False
+
+        if isinstance(results, list):
+            results = tuple(results)
+
         return results
 
     @property
@@ -56,6 +60,8 @@ class Task(Thread):
             self._pstore[self].append(result)
         elif self.results_type == set:
             self._pstore[self].add(result)
+        elif self.results_type == dict:
+            self._pstore[self][result[0]] = result[1]
         else:
             raise TypeError('Unknown results type: {}'.format(self.results_type))
 
@@ -147,7 +153,7 @@ class Manager(object):
                 if force:
                     del self.tasks[name]
 
-    def active(self, klass=None):
+    def active(self, klass):
         name = klass.__name__
         if name in self.tasks:
             if not self.tasks[name].stopped:
