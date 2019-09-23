@@ -1151,12 +1151,11 @@ try:
         if family == socket.AF_UNSPEC:
             return None
 
-        addr_len = data[0]
-        addr_data = data[1:addr_len]
-
         if family == socket.AF_INET:
-            return ''.join(chr(x) for x in addr_data)
+            return '.'.join(str(x) for i, x in enumerate(data) if i < 4)
         else:
+            addr_len = data[0]
+            addr_data = data[1:addr_len]
             return ''.join(hex(x)[2:] for x in addr_data)
 
     def StationNameByPid(pid):
