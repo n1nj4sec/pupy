@@ -34,15 +34,17 @@ TYPE_COLORS = {
 def as_unicode(x):
     if x is None:
         return None
-    elif type(x) is str:
-        return x.decode('utf-8')
-    elif type(x) is unicode:
+    elif isinstance(x, unicode):
         return x
+    elif isinstance(x, str):
+        return x.decode('utf-8')
     else:
         return unicode(x)
 
 def fix_key(x):
     x = as_unicode(x)
+    x = x.strip()
+
     if x is None:
         return x
     elif '\\' not in x:
@@ -175,7 +177,11 @@ class reg(PupyModule):
             color = TYPE_COLORS[ktype]
 
             name = as_unicode(name)
-            value = as_unicode(value)
+
+            if ktype == 'BINARY':
+                value = 'hex:' + value.encode('hex')
+            else:
+                value = as_unicode(value)
 
             if not wide and isinstance(value, (str,unicode)):
                 value = value.strip()
@@ -183,7 +189,7 @@ class reg(PupyModule):
             values.append({
                 'KEY': Color(key, color),
                 'NAME': Color(name, color),
-                'VALUE': Color(value if ktype != 'BINARY' else repr(value), color),
+                'VALUE': Color(value, color),
                 'TYPE': Color(ktype, color)
             })
 
@@ -263,7 +269,7 @@ class reg(PupyModule):
         is_key, key, rest = record[0], record[1], record[2:]
 
         if is_key is None:
-            self.error('Search error: {}'.format(key))
+            self.error(key)
             return
 
         if self._last_key != key:
@@ -297,7 +303,7 @@ class reg(PupyModule):
         self.interrupt_cb = search(
             self._format_by_one, completed.set,
             as_unicode(args.term),
-            tuple([as_unicode(x.strip()) for x in args.roots.split(',')]),
+            tuple(fix_key(x) for x in args.roots.split(',')),
             args.exclude_key_name, args.exclude_value_name,
             args.exclude_value,
             args.regex, args.ignorecase,

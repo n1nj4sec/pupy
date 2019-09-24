@@ -9,17 +9,22 @@
 
 typedef struct {
     PSTR name;
+    PSTR fileName;
+
     HCUSTOMMODULE module;
     int refcount;
 
     UT_hash_handle by_name;
+    UT_hash_handle by_filename;
     UT_hash_handle by_module;
 } HCUSTOMLIBRARY, *PHCUSTOMLIBRARY;
 
 typedef struct {
     PHCUSTOMLIBRARY by_module;
     PHCUSTOMLIBRARY by_name;
+    PHCUSTOMLIBRARY by_filename;
     SRWLOCK lock;
+    PDL_CALLBACKS pCallbacks;
 } HLIBRARIES, *PHLIBRARIES;
 
 static PHLIBRARIES libraries = NULL;
@@ -51,31 +56,59 @@ static PHCUSTOMLIBRARY _FindMemoryModule(LPCSTR name, HMODULE module)
     AcquireSRWLockShared(&libraries->lock);
 
     if (name) {
-        PSTR srcName = NULL;
+        LPCSTR srcName = NULL;
         PSTR psName;
-        size_t len;
+        PSTR psFileName;
+        PSTR psi;
+        size_t len, fileNameLen;
 
         srcName = strrchr(name, '\\');
+        if (srcName)
+            srcName ++;
 
-        if (!srcName)
+        if (!srcName || !srcName[0]) {
             srcName = strrchr(name, '/');
+            if (srcName)
+                srcName ++;
+        }
 
-        if (!srcName)
+        if (!srcName || !srcName[0])
             srcName = name;
 
         len = strlen(srcName);
+        fileNameLen = strlen(name);
+
         psName = _alloca(len + 1);
+        psFileName = _alloca(fileNameLen + 1);
         memcpy(psName, srcName, len+1);
+        memcpy(psFileName, name, len+1);
+
         _strupr(psName);
+        _strupr(psFileName);
+
+        psi = strrchr(psName, '.');
+        if (psi && !strcmp(psi, ".DLL"))
+            *psi = '\0';
+
+        for (psi=psFileName; *psi; psi++)
+            if (*psi == '/')
+                *psi = '\\';
 
         dprint(
             "_FindMemoryModule by name %s %d (%s).. \n",
             srcName, len, psName);
 
         HASH_FIND(
-            by_name, libraries->by_name,
-            psName, len, phIdx
+            by_filename, libraries->by_filename,
+            psFileName, fileNameLen, phIdx
         );
+
+        if (!phIdx) {
+            HASH_FIND(
+                by_name, libraries->by_name,
+                psName, len, phIdx
+            );
+        }
 
         dprint(
             "_FindMemoryModule by name %s -> %p (%p)\n",
@@ -96,6 +129,14 @@ static PHCUSTOMLIBRARY _FindMemoryModule(LPCSTR name, HMODULE module)
     return phIdx;
 }
 
+static DL_CALLBACKS callbacks = {
+    MyLoadLibraryA, MyLoadLibraryW,
+    MyLoadLibraryExA, MyLoadLibraryExW,
+    MyGetModuleHandleA, MyGetModuleHandleW,
+    MyGetProcAddress,
+    MyFreeLibrary
+};
+
 /****************************************************************
  * Insert a MemoryModule into the linked list of loaded modules
  */
@@ -105,35 +146,50 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
     PHCUSTOMLIBRARY hmodule = (PHCUSTOMLIBRARY) malloc(
         sizeof(HCUSTOMLIBRARY));
 
-    PSTR srcName = NULL;
+    LPCSTR srcName = NULL;
+    PSTR psi;
 
     if (!libraries) {
         libraries = (PHLIBRARIES) malloc(sizeof(HLIBRARIES));
         libraries->by_module = NULL;
         libraries->by_name = NULL;
+        libraries->by_filename = NULL;
+        libraries->pCallbacks = &callbacks;
+
         InitializeSRWLock(&libraries->lock);
         dprint("Initialize libraries: %p\n", libraries);
     }
 
     srcName = strrchr(name, '\\');
+    if (srcName)
+        srcName ++;
 
-    if (!srcName)
+    if (!srcName || !srcName[0]) {
         srcName = strrchr(name, '/');
+        if (srcName)
+            srcName ++;
+    }
 
-    if (!srcName)
+    if (!srcName || !srcName[0])
         srcName = name;
 
     hmodule->refcount = 1;
     hmodule->name = strdup(srcName);
+    hmodule->fileName = strdup(name);
     hmodule->module = module;
 
     _strupr(hmodule->name);
+    _strupr(hmodule->fileName);
+
+    psi = strchr(hmodule->name, '.');
+    if (psi && !strcmp(psi, ".DLL"))
+        *psi = '\0';
+
+    for (psi=hmodule->fileName; *psi; psi++)
+        if (*psi == '/')
+            *psi = '\\';
 
     AcquireSRWLockExclusive(&libraries->lock);
-
-    dprint(
-        "_AddMemoryModule(%s, %p (s=%d)) .. #1\n",
-        hmodule->name, module, sizeof(hmodule->module));
 
     HASH_ADD_KEYPTR(
         by_module, libraries->by_module,
@@ -141,15 +197,22 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
         hmodule
     );
 
-    dprint("_AddMemoryModule(%s, %p) .. #2\n", hmodule->name, module);
+    dprint(
+        "_AddMemoryModule(%s (%s), %p)\n",
+        hmodule->name,
+        hmodule->fileName,
+        module
+    );
 
     HASH_ADD_KEYPTR(
         by_name, libraries->by_name, hmodule->name,
         strlen(hmodule->name), hmodule
     );
 
-    dprint("_AddMemoryModule(%s, %p) .. #3\n", 
-        hmodule->name, module);
+    HASH_ADD_KEYPTR(
+        by_filename, libraries->by_filename, hmodule->fileName,
+        strlen(hmodule->fileName), hmodule
+    );
 
     ReleaseSRWLockExclusive(&libraries->lock);
 
@@ -160,63 +223,38 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
 }
 
 /****************************************************************
- * Helper functions for MemoryLoadLibraryEx
- */
-static FARPROC _GetProcAddress(HCUSTOMMODULE module, LPCSTR name, void *userdata)
-{
-    return MyGetProcAddress(module, name);
-}
-
-static void _FreeLibrary(HCUSTOMMODULE module, void *userdata)
-{
-    MyFreeLibrary(module);
-}
-
-static HCUSTOMMODULE _LoadLibrary(LPCSTR filename, void *userdata)
-{
-    HCUSTOMMODULE result;
-    PHCUSTOMLIBRARY lib;
-
-    lib = _FindMemoryModule(filename, NULL);
-    if (lib) {
-        lib->refcount += 1;
-
-        printf("_LoadLibrary(%s, %p) -> %s[%d]\n\n",
-            filename, userdata, lib->name, lib->refcount);
-        return lib->module;
-    } else {
-        dprint(
-            "_LoadLibrary(%s, %p): _FindMemoryModule failed\n",
-            filename, userdata
-        );
-    }
-
-    result = (HCUSTOMMODULE) LoadLibraryA(filename);
-
-    dprint("LoadLibraryA(%s) -> %p\n\n", filename, result);
-    return result;
-}
-
-/****************************************************************
  * Public functions
  */
-HMODULE MyGetModuleHandle(LPCSTR name)
+HMODULE MyGetModuleHandleA(LPCSTR name)
 {
     PHCUSTOMLIBRARY lib;
+
     lib = _FindMemoryModule(name, NULL);
     if (lib)
         return lib->module;
-    return GetModuleHandle(name);
+
+    return GetModuleHandleA(name);
 }
 
 HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
 {
+    HMODULE hLoadedModule;
+
+    dprint("MyLoadLibrary '%s'..\n", name);
+    hLoadedModule = MyGetModuleHandleA(name);
+
+    dprint("MyLoadLibrary %s registered? %p\n", name, hLoadedModule);
+
+    if (hLoadedModule)
+        return hLoadedModule;
+
     if (bytes) {
-        HCUSTOMMODULE mod = MemoryLoadLibraryEx(bytes,
-                            _LoadLibrary,
-                            _GetProcAddress,
-                            _FreeLibrary,
-                            NULL, dllmainArg);
+        HCUSTOMMODULE mod;
+        PDL_CALLBACKS cb = libraries ? libraries->pCallbacks : &callbacks;
+
+        dprint("Callbacks: %p\n", cb);
+
+        mod = MemoryLoadLibraryEx(bytes, cb, dllmainArg);
 
         dprint(
             "MyLoadLibrary: loading %s, buf=%p (dllmainArg=%p) -> %p\n",
@@ -236,6 +274,71 @@ HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
     return LoadLibrary(name);
 }
 
+HMODULE MyGetModuleHandleW(LPCWSTR name) {
+    PSTR pszName = NULL;
+    HMODULE hResult = NULL;
+    DWORD dwRequiredSize = WideCharToMultiByte(
+        CP_OEMCP, 0, name, -1, NULL,
+        0, NULL, NULL
+    );
+
+    if (!SUCCEEDED(dwRequiredSize))
+        return NULL;
+
+    dwRequiredSize += 1;
+
+    pszName = LocalAlloc(LMEM_FIXED, dwRequiredSize);
+    if (!pszName)
+        return NULL;
+
+    dwRequiredSize = WideCharToMultiByte(
+        CP_OEMCP, 0, name, -1, pszName,
+        dwRequiredSize, NULL, NULL
+    );
+
+    if (SUCCEEDED(dwRequiredSize))
+        hResult = MyGetModuleHandleA(pszName);
+
+    LocalFree(pszName);
+
+    if (hResult)
+        return hResult;
+
+    return GetModuleHandleW(name);
+}
+
+HMODULE MyLoadLibraryExA(LPCSTR name, HANDLE hFile, DWORD dwFlags) {
+    HMODULE hModule = MyGetModuleHandleA(name);
+    if (hModule)
+        return hModule;
+
+    return LoadLibraryExA(name, hFile, dwFlags);
+}
+
+HMODULE MyLoadLibraryExW(LPCWSTR name, HANDLE hFile, DWORD dwFlags) {
+    HMODULE hModule = MyGetModuleHandleW(name);
+    if (hModule)
+        return hModule;
+
+    return LoadLibraryExW(name, hFile, dwFlags);
+}
+
+HMODULE MyLoadLibraryA(LPCSTR name) {
+    HMODULE hModule = MyGetModuleHandleA(name);
+    if (hModule)
+        return hModule;
+
+    return LoadLibraryA(name);
+}
+
+HMODULE MyLoadLibraryW(LPCWSTR name) {
+    HMODULE hModule = MyGetModuleHandleW(name);
+    if (hModule)
+        return hModule;
+
+    return LoadLibraryW(name);
+}
+
 BOOL MyFreeLibrary(HMODULE module)
 {
     PHCUSTOMLIBRARY lib = _FindMemoryModule(NULL, module);
@@ -244,6 +347,7 @@ BOOL MyFreeLibrary(HMODULE module)
             AcquireSRWLockExclusive(&libraries->lock);
 
             HASH_DELETE(by_name, libraries->by_name, lib);
+            HASH_DELETE(by_filename, libraries->by_filename, lib);
             HASH_DELETE(by_module, libraries->by_module, lib);
 
             ReleaseSRWLockExclusive(&libraries->lock);
@@ -260,22 +364,28 @@ BOOL MyFreeLibrary(HMODULE module)
 
 FARPROC MyGetProcAddress(HMODULE module, LPCSTR procname)
 {
-    FARPROC proc;
-    PHCUSTOMLIBRARY lib = _FindMemoryModule(NULL, module);
-    if (lib) {
-        /* dprint("MyGetProcAddress(%p, %p(%s))\n", module, procname, HIWORD(procname) ? procname : ""); */
+    PHCUSTOMLIBRARY lib;
+    FARPROC fpFunc = NULL;
 
-        proc = MemoryGetProcAddress(lib->module, procname);
+    lib = _FindMemoryModule(NULL, module);
+    if (lib)
+        fpFunc = MemoryGetProcAddress(lib->module, procname);
+    else
+        fpFunc = GetProcAddress(module, procname);
 
-        /* dprint("MyGetProcAddress(%p, %p(%s)) -> %p\n", module, procname, HIWORD(procname) ? procname : "", proc); */
-        return proc;
-    } else
-        return GetProcAddress(module, procname);
+    if (HIWORD(procname) == 0) {
+        dprint("MyGetProcAddress(%p, %d) -> %p (lib: %p)\n",
+            module, LOWORD(procname), lib);
+    } else {
+        dprint("MyGetProcAddress(%p, %s) -> %p (lib: %p)\n", module, procname, lib);
+    }
+
+    return fpFunc;
 }
 
 FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname)
 {
-    HCUSTOMMODULE mod = MyGetModuleHandle(modulename);
+    HCUSTOMMODULE mod = MyGetModuleHandleA(modulename);
     void *addr = NULL;
     /* dprint("MyFindProcAddress(%s, %s) -> %p\n", modulename, procname, mod); */
     if (mod) {

@@ -499,12 +499,17 @@ class Value(object):
 
         if isinstance(value, str):
             if ktype in (REG_SZ, REG_EXPAND_SZ):
-                value = value.decode('utf-16le')
+                try:
+                    value = value.decode('utf-16le')
+                except UnicodeError:
+                    try:
+                        value = value.decode('mbcs')
+                    except UnicodeError:
+                        raise ValueError('{}: {}'.format(repr(value), len(value)))
                 value = value.rstrip('\0')
 
             elif ktype == REG_MULTI_SZ:
                 values = []
-                value = value.rstrip('\0')
 
                 while value:
                     try:
@@ -717,39 +722,64 @@ def _search(
 
     compare = None
 
-    def contains(x, y, case=False):
-        if type(x) != type(y):
-            if isinstance(y, str):
-                x = as_local(x)
-            else:
-                x = unicode(x)
-                y = unicode(y)
+    def contains(u_term, b_term, i_term, value, ignorecase=False):
+        if isinstance(value, unicode):
+            if ignorecase:
+                value = value.lower()
+            return u_term in value
+        elif isinstance(value, (int, long)):
+            if i_term is None:
+                return False
+            return i_term == value
+        elif isinstance(value, str):
+            if ignorecase:
+                value = value.lower()
+            return b_term in value
+        elif isinstance(value, list):
+            return any(
+                contains(
+                    u_term, b_term, i_term, x, ignorecase
+                ) for x in value
+            )
+        else:
+            return False
 
-            if not case:
-                x = x.lower()
-                y = y.lower()
+    def issame(u_term, b_term, i_term, value, ignorecase=False):
+        if isinstance(value, unicode):
+            if ignorecase:
+                value = value.lower()
+            return u_term == value
+        elif isinstance(value, (int, long)):
+            if i_term is None:
+                return False
+            return i_term == value
+        elif isinstance(value, str):
+            if ignorecase:
+                value = value.lower()
+            return b_term == value
+        elif isinstance(value, list):
+            return any(
+                issame(
+                    u_term, b_term, i_term, x, ignorecase
+                ) for x in value
+            )
+        else:
+            return False
 
-        return x in y
+    if ignorecase:
+        term = term.lower()
 
-    def issame(x, y, case=False):
-        assert(type(x) != str)
-        assert(type(y) != str)
+    u_term = as_unicode(term)
+    b_term = as_str(term)
 
-        if type(x) != type(y):
-            x = unicode(x)
-            y = unicode(y)
-
-            if not case:
-                x = x.lower()
-                y = y.lower()
-
-        return x == y
-
-    term = as_unicode(term)
+    try:
+        i_term = int(term)
+    except ValueError:
+        i_term = None
 
     if regex:
         term_re = re.compile(
-            term,
+            u_term,
             re.UNICODE | \
                 re.MULTILINE | \
                     (re.IGNORECASE if ignorecase else 0))
@@ -760,80 +790,64 @@ def _search(
         else:
             compare = lambda x: \
                 term_re.search(x) if isinstance(x, unicode) else False
-    elif ignorecase:
-        if equals:
-            compare = lambda x: issame(term, x)
-        else:
-            compare = lambda x: contains(term, x)
+
     else:
         if equals:
-            compare = lambda x: issame(term, x, True)
+            compare = lambda x: issame(u_term, b_term, i_term, x, ignorecase)
         else:
-            compare = lambda x: contains(term, x, True)
+            compare = lambda x: contains(u_term, b_term, i_term, x, ignorecase)
 
     if type(roots) in (str, unicode):
         roots = [roots]
 
-    def _walk(root):
-        results = []
-
+    def _walk(root, data_cb):
         for kv in root:
-            if completed.is_set() or first and results:
+            if completed.is_set():
                 break
 
-            tkv = type(kv)
-
-            if tkv == Key:
+            if isinstance(kv, Key):
                 if key and compare(kv.name):
-                    results.append(kv)
-                    if first and results:
-                        break
+                    data_cb((True, kv.name))
+                    if first:
+                        completed.set()
+                        return
 
                 try:
-                    results.extend(_walk(kv))
-
-                    if first and results:
-                        break
-
+                    _walk(kv, data_cb)
                 except WindowsError:
                     pass
 
-            elif tkv == Value:
-                if name and compare(kv.name):
-                    results.append(kv)
-
-                elif value and compare(kv.value):
-                    results.append(kv)
-
+            elif isinstance(kv, Value):
+                if (
+                    name and compare(kv.name)
+                ) or (
+                    value and compare(kv.value)
+                ):
+                    data_cb((
+                        False, kv.parent, kv.name,
+                        kv.value, kv.type))
+                    if first:
+                        completed.set()
+                        return
             else:
                 raise TypeError(
                     'Unknown type {} in search'.format(
-                        tkv.__name__))
-
-        return results
+                        type(kv)))
 
     try:
         for root in roots:
             try:
-                results = _walk(Key(root))
+                _walk(Key(root), data_cb)
             except WindowsError:
                 continue
-
-            for result in results:
-                if type(result) == Key:
-                    data_cb((True, result.arg))
-                else:
-                    data_cb((
-                        False, result.parent, result.name,
-                        result.value, result.type))
-
-                if first or completed.is_set():
-                    break
 
     except Exception as e:
         data_cb((None, '{}\n{}'.format(e, traceback.format_exc())))
 
     finally:
+        if completed.is_set():
+            data_cb((None, 'Interrupted'))
+
         completed.set()
         close_cb()
 
@@ -861,7 +875,12 @@ def search(
     )
 
     worker.start()
-    return completed.set
+
+    def interrupt():
+        completed.set()
+        worker.join()
+
+    return interrupt
 
 
 def enum(path=None):
