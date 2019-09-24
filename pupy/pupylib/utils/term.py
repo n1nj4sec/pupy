@@ -283,13 +283,13 @@ def hint_to_text(text, width=0):
         raise ValueError('hint_to_text() support only Text messages')
     elif issubclass(hint, Text):
         pass
-    elif hint == str:
+    elif isinstance(text, str):
         try:
             return text.decode('utf-8')
-        except UnicodeDecodeError:
-            return text.decode('latin1')
-    elif hint == unicode:
-        return text.encode('utf-8')
+        except UnicodeError:
+            return text.decode('latin-1')
+    elif isinstance(text, unicode):
+        return text
     else:
         return obj2utf8(text)
 
@@ -331,21 +331,19 @@ def hint_to_text(text, width=0):
             width = real_width + width
 
         text = hint_to_text(text.data, width)
-        if text == str:
-            text = text.decode('utf-8', errors='replace')
-
         return '\n'.join(ejust(x, width) for x in text.split('\n'))
+
     elif hint == Error:
         header = text.header
         text = text.data
         etype = type(text)
         if issubclass(etype, Exception) and etype.__class__.__name__ != 'type':
-            text = '({}) {}'.format(type(text).__class__.__name__, text)
+            text = u'({}) {}'.format(type(text).__class__.__name__, text)
         else:
             text = hint_to_text(text, width).rstrip()
 
         if header:
-            text = '{}: {}'.format(colorize(header, 'yellow'), text)
+            text = u'{}: {}'.format(colorize(header, 'yellow'), text)
 
         return colorize('[-] ','red')+text
     elif hint == Log:
