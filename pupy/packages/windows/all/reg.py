@@ -5,53 +5,433 @@ __all__ = [
   'set', 'get', 'rm'
 ]
 
-import _winreg
+
 import re
 import sys
 import struct
+import threading
+import traceback
+import rpyc
+
+from ctypes import (
+    POINTER, byref,
+    c_wchar_p, c_char_p, c_void_p, c_long, c_ubyte,
+    c_ulonglong,
+    Structure, WinError, WinDLL,
+    create_unicode_buffer, create_string_buffer,
+    wstring_at, get_last_error
+)
+
+from ctypes.wintypes import (
+    DWORD, LPCWSTR
+)
+
+
+class FILETIME(Structure):
+    _fields_ = [
+        ('dwLowDateTime', DWORD),
+        ('dwHighDateTime', DWORD)
+    ]
+
+
+HKEY = c_ulonglong
+PHKEY = POINTER(HKEY)
+PFILETIME = POINTER(FILETIME)
+PDWORD = POINTER(DWORD)
+LPDWORD = PDWORD
+LPBYTE = c_char_p
+REGSAM = DWORD
+
+ERROR_SUCCESS = 0
+ERROR_MORE_DATA = 234
+
+REG_NONE = 0
+REG_SZ = 1
+REG_EXPAND_SZ = 2
+REG_BINARY = 3
+REG_DWORD = 4
+REG_DWORD_BIG_ENDIAN = 5
+REG_DWORD_LITTLE_ENDIAN = 4
+REG_QWORD = 11
+REG_LINK = 6
+REG_MULTI_SZ = 7
+REG_RESOURCE_LIST = 8
+REG_FULL_RESOURCE_DESCRIPTOR = 9
+REG_RESOURCE_REQUIREMENTS_LIST = 10
+
+REG_OPTION_RESERVED = 0x0000
+REG_OPTION_NON_VOLATILE = 0x0000
+REG_OPTION_VOLATILE = 0x0001
+REG_OPTION_CREATE_LINK = 0x0002
+REG_OPTION_BACKUP_RESTORE = 0x0004
+REG_OPTION_OPEN_LINK = 0x0008
+
+KEY_QUERY_VALUE = 0x0001
+KEY_SET_VALUE = 0x0002
+KEY_CREATE_SUB_KEY = 0x0004
+KEY_ENUMERATE_SUB_KEYS = 0x0008
+KEY_NOTIFY = 0x0010
+KEY_CREATE_LINK = 0x0020
+KEY_WOW64_32KEY = 0x0200
+KEY_WOW64_64KEY = 0x0100
+KEY_WOW64_RES = 0x0300
+READ_CONTROL = 0x00020000
+SYNCHRONIZE = 0x00100000
+STANDARD_RIGHTS_READ = READ_CONTROL
+STANDARD_RIGHTS_WRITE = READ_CONTROL
+STANDARD_RIGHTS_ALL = 0x001F0000
+
+KEY_READ = (
+    (
+        STANDARD_RIGHTS_READ |
+        KEY_QUERY_VALUE |
+        KEY_ENUMERATE_SUB_KEYS |
+        KEY_NOTIFY
+    ) & (~SYNCHRONIZE)
+)
+KEY_WRITE = (
+    (
+        STANDARD_RIGHTS_WRITE |
+        KEY_SET_VALUE |
+        KEY_CREATE_SUB_KEY
+    ) & (~SYNCHRONIZE)
+)
+KEY_ALL_ACCESS = (
+    (
+        STANDARD_RIGHTS_ALL |
+        KEY_QUERY_VALUE |
+        KEY_SET_VALUE |
+        KEY_CREATE_SUB_KEY |
+        KEY_ENUMERATE_SUB_KEYS |
+        KEY_NOTIFY |
+        KEY_CREATE_LINK
+    ) & (~SYNCHRONIZE)
+)
+
+advapi32 = WinDLL('advapi32', use_last_error=True)
+
+RegOpenKeyEx = advapi32.RegOpenKeyExW
+RegOpenKeyEx.restype = c_long
+RegOpenKeyEx.argtypes = (
+    HKEY, LPCWSTR, DWORD, REGSAM, PHKEY
+)
+
+RegCreateKeyEx = advapi32.RegCreateKeyExW
+RegCreateKeyEx.restype = c_long
+RegCreateKeyEx.argtypes = (
+    HKEY, LPCWSTR, DWORD,
+    LPCWSTR, DWORD, REGSAM,
+    c_void_p, PHKEY, LPDWORD
+)
+
+RegQueryInfoKey = advapi32.RegQueryInfoKeyW
+RegQueryInfoKey.restype = c_long
+RegQueryInfoKey.argtypes = (
+    HKEY, LPCWSTR, LPDWORD, LPDWORD,
+    PDWORD, LPDWORD, LPDWORD, LPDWORD,
+    LPDWORD, LPDWORD, LPDWORD,
+    PFILETIME
+)
+
+RegEnumValue = advapi32.RegEnumValueW
+RegEnumValue.restype = c_long
+RegEnumValue.argtypes = (
+    HKEY, DWORD, LPCWSTR, LPDWORD,
+    LPDWORD, LPDWORD, LPBYTE, LPDWORD
+)
+
+RegEnumKeyEx = advapi32.RegEnumKeyExW
+RegEnumKeyEx.restype = c_long
+RegEnumKeyEx.argtypes = (
+    HKEY, DWORD, LPCWSTR, LPDWORD,
+    LPDWORD, LPCWSTR, LPDWORD,
+    PFILETIME
+)
+
+RegQueryValueEx = advapi32.RegQueryValueExW
+RegQueryValueEx.restype = c_long
+RegQueryValueEx.argtypes = (
+    HKEY, LPCWSTR, LPDWORD, LPDWORD,
+    LPBYTE, LPDWORD
+)
+
+RegSetValueEx = advapi32.RegSetValueExW
+RegSetValueEx.restype = c_long
+RegSetValueEx.argtypes = (
+    HKEY, LPCWSTR, DWORD, DWORD,
+    LPBYTE, DWORD
+)
+
+RegCloseKey = advapi32.RegCloseKey
+RegCloseKey.restype = c_long
+RegCloseKey.argtypes = (
+    HKEY,
+)
+
+RegDeleteValue = advapi32.RegDeleteValueW
+RegDeleteValue.restype = c_long
+RegDeleteValue.argtypes = (HKEY, LPCWSTR)
+
+RegDeleteKey = advapi32.RegDeleteValueW
+RegDeleteKey.restype = c_long
+RegDeleteKey.argtypes = (HKEY, LPCWSTR)
+
+
+HKEY_CLASSES_ROOT = HKEY(0x80000000)
+HKEY_CURRENT_USER = HKEY(0x80000001)
+HKEY_LOCAL_MACHINE = HKEY(0x80000002)
+HKEY_USERS = HKEY(0x80000003)
+HKEY_PERFORMANCE_DATA = HKEY(0x80000004)
+HKEY_CURRENT_CONFIG = HKEY(0x80000005)
+HKEY_DYN_DATA = HKEY(0x80000006)
 
 WELL_KNOWN_KEYS = {
-    'HKEY_LOCAL_MACHINE': _winreg.HKEY_LOCAL_MACHINE,
-    'HKLM': _winreg.HKEY_LOCAL_MACHINE,
-    'HKEY_CURRENT_USER': _winreg.HKEY_CURRENT_USER,
-    'HKCU': _winreg.HKEY_CURRENT_USER,
-    'HKEY_CURRENT_CONFIG': _winreg.HKEY_CURRENT_CONFIG,
-    'HKCC': _winreg.HKEY_CURRENT_CONFIG,
-    'HKEY_CLASSES_ROOT': _winreg.HKEY_CLASSES_ROOT,
-    'HKCR': _winreg.HKEY_CLASSES_ROOT,
-    'HKEY_USERS': _winreg.HKEY_USERS,
-    'HKU': _winreg.HKEY_USERS,
-    'HKEY_PERFORMANCE_DATA': _winreg.HKEY_PERFORMANCE_DATA,
-    'HKPD': _winreg.HKEY_PERFORMANCE_DATA,
+    'HKEY_LOCAL_MACHINE': HKEY_LOCAL_MACHINE,
+    'HKLM': HKEY_LOCAL_MACHINE,
+    'HKEY_CURRENT_USER': HKEY_CURRENT_USER,
+    'HKCU': HKEY_CURRENT_USER,
+    'HKEY_CURRENT_CONFIG': HKEY_CURRENT_CONFIG,
+    'HKCC': HKEY_CURRENT_CONFIG,
+    'HKEY_CLASSES_ROOT': HKEY_CLASSES_ROOT,
+    'HKCR': HKEY_CLASSES_ROOT,
+    'HKEY_USERS': HKEY_USERS,
+    'HKU': HKEY_USERS,
+    'HKEY_PERFORMANCE_DATA': HKEY_PERFORMANCE_DATA,
+    'HKPD': HKEY_PERFORMANCE_DATA,
 }
 
 WELL_KNOWN_TYPES = {
-    int: _winreg.REG_DWORD,
-    str: _winreg.REG_SZ,
-    unicode: _winreg.REG_SZ,
+    int: REG_DWORD,
+    str: REG_SZ,
+    unicode: REG_SZ,
 }
-
-if not hasattr(_winreg, 'REG_QWORD'):
-    setattr(_winreg, 'REG_QWORD', 11)
 
 WELL_KNOWN_TYPES_NAMES = {
-    _winreg.REG_DWORD: 'DWORD',
-    _winreg.REG_QWORD: 'LE64',
-    _winreg.REG_BINARY: 'BINARY',
-    _winreg.REG_DWORD_LITTLE_ENDIAN: 'LE32',
-    _winreg.REG_DWORD_BIG_ENDIAN: 'BE32',
-    _winreg.REG_EXPAND_SZ: 'EXPAND_SZ',
-    _winreg.REG_LINK: 'LINK',
-    _winreg.REG_MULTI_SZ: 'MULTI_SZ',
-    _winreg.REG_NONE: 'NONE',
-    _winreg.REG_RESOURCE_LIST: 'RESOURCE',
-    _winreg.REG_FULL_RESOURCE_DESCRIPTOR: 'RESOURCE_DESCRIPTOR',
-    _winreg.REG_RESOURCE_REQUIREMENTS_LIST: 'RESOURCE_REQUIREMENTS_LIST',
-    _winreg.REG_SZ: 'SZ'
+    REG_DWORD: 'DWORD',
+    REG_QWORD: 'LE64',
+    REG_BINARY: 'BINARY',
+    REG_DWORD_LITTLE_ENDIAN: 'LE32',
+    REG_DWORD_BIG_ENDIAN: 'BE32',
+    REG_EXPAND_SZ: 'EXPAND_SZ',
+    REG_LINK: 'LINK',
+    REG_MULTI_SZ: 'MULTI_SZ',
+    REG_NONE: 'NONE',
+    REG_RESOURCE_LIST: 'RESOURCE',
+    REG_FULL_RESOURCE_DESCRIPTOR: 'RESOURCE_DESCRIPTOR',
+    REG_RESOURCE_REQUIREMENTS_LIST: 'RESOURCE_REQUIREMENTS_LIST',
+    REG_SZ: 'SZ'
 }
 
+
+def value_to_bytes(value, ktype):
+    if isinstance(value, str):
+        return value
+
+    if ktype in (REG_SZ, REG_EXPAND_SZ):
+        if isinstance(value, unicode):
+            value = value.encode('utf-16le')
+        else:
+            value = str(value)
+
+    elif ktype == REG_MULTI_SZ:
+        value = u'\0'.join(value) + u'\0\0'
+
+    elif ktype == REG_DWORD:
+        value = struct.pack('<i', value)
+
+    elif ktype == REG_DWORD_LITTLE_ENDIAN:
+        value = struct.pack('<i', value)
+
+    elif ktype == REG_DWORD_BIG_ENDIAN:
+        value = struct.pack('>i', value)
+
+    elif ktype == REG_QWORD:
+        value = struct.pack('<q', value)
+
+    return value
+
+
+def as_unicode(value):
+    if isinstance(value, unicode):
+        return value
+
+    elif isinstance(value, str):
+        try:
+            value = value.decode(sys.getfilesystemencoding())
+        except UnicodeError:
+            try:
+                value = value.decode('utf-8')
+            except UnicodeError:
+                value = value.decode('latin-1')
+
+    return value
+
+
+def as_str(value):
+    if isinstance(value, str):
+        return value
+    elif isinstance(value, unicode):
+        return value.encode('utf-8')
+
+    return str(value)
+
+
+def as_local(value):
+    if isinstance(value, str):
+        return value
+
+    elif isinstance(value, unicode):
+        return value.encode(sys.getfilesystemencoding())
+
+    return value
+
+
+def raise_on_error(code):
+    if code == ERROR_SUCCESS:
+        return
+
+    raise WinError(code)
+
+
+def QueryValueEx(key, value_name):
+    typ = DWORD()
+    size = DWORD(0)
+
+    value_name = as_unicode(value_name)
+
+    rc = RegQueryValueEx(
+        key, value_name, None,
+        byref(typ),
+        None, byref(size)
+    )
+
+    if rc != ERROR_MORE_DATA:
+        raise_on_error(rc)
+
+    buf = create_string_buffer(size.value)
+    rc = RegQueryValueEx(
+        key, value_name, None,
+        byref(typ),
+        buf, byref(size)
+    )
+
+    raise_on_error(rc)
+    return buf[:size.value], typ.value
+
+
+def EnumValue(key, index, max_value_size=None, max_data_size=None):
+    if max_data_size is None or max_value_size is None:
+        value_size = DWORD(0)
+        data_size = DWORD(0)
+
+        rc = RegQueryInfoKey(
+            key, None, None, None, None,
+            None, None, None,
+            byref(value_size), byref(data_size),
+            None, None
+        )
+
+        raise_on_error(rc)
+
+        value_size.value += 1
+
+        value = create_unicode_buffer(value_size.value)
+        data = create_string_buffer(data_size.value)
+    else:
+        value_size = DWORD(max_value_size)
+        data_size = DWORD(max_data_size)
+
+        value = create_unicode_buffer(value_size.value)
+        data = create_string_buffer(data_size.value)
+
+    typ = DWORD()
+    rc = RegEnumValue(
+        key, index,
+        value, byref(value_size),
+        None, byref(typ),
+        data, byref(data_size)
+    )
+
+    raise_on_error(rc)
+    return value.value, data[:data_size.value], typ.value
+
+
+def EnumKey(key, index):
+    tmpbuf = create_unicode_buffer(257)
+    length = DWORD(257)
+
+    rc = RegEnumKeyEx(
+        key, index,
+        tmpbuf,
+        byref(length), None,
+        None, None, None
+    )
+
+    raise_on_error(rc)
+    return wstring_at(tmpbuf, length.value).rstrip(u'\x00')
+
+
+def OpenKey(key, sub_key, access=KEY_READ, options=REG_OPTION_RESERVED):
+    sub_key = as_unicode(sub_key)
+
+    new_key = HKEY()
+    rc = RegOpenKeyEx(
+        key, sub_key,
+        options,
+        access,
+        byref(new_key)
+    )
+
+    raise_on_error(rc)
+    return new_key
+
+
+def CreateKey(key, sub_key, access=KEY_WRITE, options=REG_OPTION_RESERVED):
+    sub_key = as_unicode(sub_key)
+    new_key = HKEY()
+    rc = RegCreateKeyEx(
+        key, sub_key, 0, None, options, access,
+        None, byref(new_key), None
+    )
+
+    raise_on_error(rc)
+    return new_key
+
+
+def SetValueEx(key, name, ktype, value):
+    value = value_to_bytes(value, ktype)
+    name = as_unicode(name)
+    size = len(value)
+
+    rc = RegSetValueEx(
+        key, name, 0, ktype, value, size
+    )
+    raise_on_error(rc)
+
+
+def DeleteKey(key, subkey):
+    subkey = as_unicode(subkey)
+    rc = RegDeleteKey(key, subkey)
+    raise_on_error(rc)
+
+
+def DeleteValue(key, value):
+    value = as_unicode(value)
+    rc = RegDeleteValue(key, value)
+    raise_on_error(rc)
+
+
+def CloseKey(key):
+    rc = RegCloseKey(key)
+    raise_on_error(rc)
+
+
 class KeyIter(object):
-    __slots__ = ('handle', 'orig_name', 'key', 'sub', 'idx', 'is_value')
+    __slots__ = (
+        'handle', 'orig_name', 'key',
+        'sub', 'idx', 'is_value',
+        'max_value_size', 'max_data_size'
+    )
 
     def __init__(self, orig_name, key, sub, handle):
         self.orig_name = orig_name
@@ -60,23 +440,44 @@ class KeyIter(object):
         self.handle = handle
         self.idx = 0
         self.is_value = False
+        self.max_value_size = None
+        self.max_data_size = None
 
     def next(self):
         try:
             result = None
             if self.is_value:
-                name, value, ktype = _winreg.EnumValue(self.handle, self.idx)
+                if self.max_value_size is None or self.max_data_size is None:
+                    value_size = DWORD(0)
+                    data_size = DWORD(0)
+
+                    rc = RegQueryInfoKey(
+                        self.handle, None, None, None, None,
+                        None, None, None,
+                        byref(value_size), byref(data_size),
+                        None, None
+                    )
+
+                    raise_on_error(rc)
+
+                    self.max_value_size = value_size.value + 2
+                    self.max_data_size = data_size.value
+
+                name, value, ktype = EnumValue(
+                    self.handle, self.idx,
+                    self.max_value_size, self.max_data_size
+                )
                 result = Value(self.orig_name, name, value, ktype)
             else:
-                value = _winreg.EnumKey(self.handle, self.idx)
-                value = value.decode(sys.getfilesystemencoding())
-                result = Key(self.orig_name + '\\' + value)
+                value = EnumKey(self.handle, self.idx)
+                result = Key(u'\\'.join([self.orig_name, value]))
 
             self.idx += 1
             return result
 
-        except WindowsError, e:
+        except WindowsError as e:
             if e.winerror != 259:
+                self.idx += 1
                 raise
 
             if self.is_value:
@@ -90,60 +491,91 @@ class Value(object):
     __slots__ = ('parent', 'name', 'value', 'type')
 
     def __init__(self, parent, name, value, ktype):
-        if type(parent) == str:
-            parent = parent.decode(sys.getfilesystemencoding())
+        parent = as_unicode(parent)
+        name = as_unicode(name)
 
-        if type(name) == str:
-            name = name.decode(sys.getfilesystemencoding())
+        if len(value) < 5 and all(x == '\0' for x in value):
+            value = ''
 
-        if type(value) == str and ktype in (_winreg.REG_SZ, _winreg.REG_MULTI_SZ):
-            value = value.decode(sys.getfilesystemencoding())
-        elif type(value) == str and ktype == _winreg.REG_QWORD:
-            value, = struct.unpack('<q', value)
+        if isinstance(value, str):
+            if ktype in (REG_SZ, REG_EXPAND_SZ):
+                value = value.decode('utf-16le')
+                value = value.rstrip('\0')
+
+            elif ktype == REG_MULTI_SZ:
+                values = []
+                value = value.rstrip('\0')
+
+                while value:
+                    try:
+                        last_zero = value.index('\0\0')
+                        record = value[:last_zero]
+                        record = record.decode('utf-16le')
+                        values.append(record)
+                        value = value[last_zero+1:]
+                    except ValueError:
+                        break
+
+                if value:
+                    values.append(value)
+
+                value = values
+
+            elif ktype == REG_DWORD:
+                if len(value):
+                    value, = struct.unpack('<i', value)
+                else:
+                    value = 0
+
+            elif ktype == REG_DWORD_LITTLE_ENDIAN:
+                if len(value):
+                    value, = struct.unpack('<i', value)
+                else:
+                    value = 0
+
+            elif ktype == REG_DWORD_BIG_ENDIAN:
+                if len(value):
+                    value, = struct.unpack('>i', value)
+                else:
+                    value = 0
+
+            elif ktype == REG_QWORD:
+                if len(value):
+                    value, = struct.unpack('<q', value)
+                else:
+                    value = 0
 
         self.parent = parent
         self.name = name
         self.value = value
         self.type = ktype
 
+    @property
+    def raw(self):
+        return value_to_bytes(self.value, self.type)
+
     def __str__(self):
-        if self.type == _winreg.REG_EXPAND_SZ:
-            value = self.value
-            if type(value) is not unicode:
-                try:
-                    value = value.decode(sys.getfilesystemencoding())
-                except UnicodeDecodeError:
-                    value = value.decode('latin1')
-
-            try:
-                return _winreg.ExpandEnvironmentStrings(value)
-            except TypeError:
-                pass
-
-            return value
-
-        elif self.type == _winreg.REG_SZ:
-            return self.value
-
-        return str(self.value)
+        return as_str(self.value)
 
     def __int__(self):
         return int(self.value)
 
     def __repr__(self):
-        return '{}={} ({})'.format(
-            self.name, self.value, WELL_KNOWN_TYPES_NAMES[self.type])
+        return 'Value({}, {}, {}, {})'.format(
+            repr(self.parent),
+            repr(self.name),
+            repr(self.value),
+            repr(self.type)
+        )
 
 class Key(object):
     __slots__ = ('arg', 'key', 'sub', 'access', 'create')
 
-    def __init__(self, key, access=_winreg.KEY_READ, create=False):
+    def __init__(self, key, access=KEY_READ, create=False):
         sub_key = None
         top_key = None
 
-        if type(key) == str:
-            key = key.decode(sys.getfilesystemencoding())
-
+        key = as_unicode(key)
         for wkk, wrk in WELL_KNOWN_KEYS.iteritems():
             if key == wkk:
                 top_key = wrk
@@ -170,33 +602,27 @@ class Key(object):
 
     @property
     def parent(self):
-        return '\\'.join(self.arg.split('\\')[:-1])
+        return u'\\'.join(self.arg.split('\\')[:-1])
 
-    def _open_key(self, access=None):
+    def _open_key(self, access=KEY_READ):
+        if access is None:
+            access = self.access
         try:
-            sub = self.sub
-
-            if type(sub) == unicode:
-                sub = sub.encode(sys.getfilesystemencoding())
-
             if self.create:
-                return _winreg.CreateKey(
-                    self.key, sub)
+                return CreateKey(self.key, self.sub, access)
             else:
-                return _winreg.OpenKey(
-                    self.key, sub, 0,
-                    access if access is not None else self.access)
-        except WindowsError, e:
+                return OpenKey(self.key, self.sub, access)
+
+        except WindowsError as e:
             if e.winerror != 2:
                 raise
 
             raise KeyError(self.sub)
 
     def _query_value(self, handle, attr):
+        attr = as_unicode(attr)
         try:
-            if type(attr) == unicode:
-                attr = attr.encode(sys.getfilesystemencoding())
-            value, ktype = _winreg.QueryValueEx(handle, attr)
+            value, ktype = QueryValueEx(handle, attr)
         except WindowsError, e:
             if e.winerror != 2:
                 raise
@@ -207,7 +633,7 @@ class Key(object):
 
     def __iter__(self):
         handle = self._open_key(
-            _winreg.KEY_QUERY_VALUE | _winreg.KEY_ENUMERATE_SUB_KEYS)
+            KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS)
 
         iterator = KeyIter(self.arg, self.key, self.sub, handle)
         try:
@@ -221,47 +647,47 @@ class Key(object):
             return
 
         finally:
-            _winreg.CloseKey(handle)
+            CloseKey(handle)
 
     def __str__(self):
-        return self.arg.encode(sys.getfilesystemencoding())
+        return as_str(self.arg)
 
     def __unicode__(self):
-        return self.arg
+        return as_unicode(self.arg)
 
     def __repr__(self):
-        return self.arg
+        return repr(self.arg)
+
+    def __int__(self):
+        return repr(self.arg)
 
     def __delitem__(self, attr):
-        handle = self._open_key(_winreg.KEY_SET_VALUE)
-
-        if type(attr) == unicode:
-            attr = attr.encode(sys.getfilesystemencoding())
+        handle = self._open_key(KEY_SET_VALUE)
 
         try:
             try:
-                return _winreg.DeleteValue(handle, attr)
-            except WindowsError, e:
+                return DeleteValue(handle, attr)
+            except WindowsError as e:
                 if e.winerror != 2:
                     raise
 
             try:
-                return _winreg.DeleteKey(handle, attr)
-            except WindowsError, e:
+                return DeleteKey(handle, attr)
+            except WindowsError as e:
                 if e.winerror != 2:
                     raise
 
             raise KeyError(attr)
 
         finally:
-            _winreg.CloseKey(handle)
+            CloseKey(handle)
 
     def __getitem__(self, attr):
-        handle = self._open_key()
+        handle = self._open_key(KEY_QUERY_VALUE)
         try:
             return self._query_value(handle, attr)
         finally:
-            _winreg.CloseKey(handle)
+            CloseKey(handle)
 
     def __setitem__(self, attr, value):
         vtype = type(value)
@@ -272,64 +698,78 @@ class Key(object):
         ktype = value.type if vtype is Value else WELL_KNOWN_TYPES[vtype]
         if vtype is Value:
             value = value.value
+        elif ktype == REG_SZ and '%' in value:
+            ktype = REG_EXPAND_SZ
 
-        handle = self._open_key(_winreg.KEY_SET_VALUE)
-
-        if type(attr) == unicode:
-            attr = attr.encode(sys.getfilesystemencoding())
-
-        if type(value) == unicode:
-            value = value.encode(sys.getfilesystemencoding())
-
+        handle = self._open_key(KEY_ALL_ACCESS)
         try:
-            return _winreg.SetValueEx(
-                handle, attr, 0, ktype, value)
+            return SetValueEx(
+                handle, attr, ktype, value
+            )
         finally:
-            _winreg.CloseKey(handle)
+            CloseKey(handle)
 
-def search(term, roots=('HKU', 'HKLM', 'HKCC'), key=True, name=True, value=True, regex=False, ignorecase=False, first=False, equals=False):
+def _search(
+    completed, data_cb, close_cb,
+    term, roots=('HKU', 'HKLM', 'HKCC'), key=True,
+        name=True, value=True, regex=False,
+        ignorecase=False, first=False, equals=False):
+
     compare = None
 
-    def as_str(x):
-        vtype = type(x)
-        if vtype == str:
-            return x
-        elif vtype == unicode:
-            return x.encode('utf-8')
-        else:
-            return str(x)
-
-    def contains(x, y):
-        try:
-            if type(x) == str and type(y) == unicode:
-                return x in y.encode(sys.getfilesystemencoding())
-            elif type(x) == unicode and type(y) == str:
-                return x.encode(sys.getfilesystemencoding()) in y.encode
+    def contains(x, y, case=False):
+        if type(x) != type(y):
+            if isinstance(y, str):
+                x = as_local(x)
             else:
-                return x in y
+                x = unicode(x)
+                y = unicode(y)
 
-        except Exception:
-            return False
+            if not case:
+                x = x.lower()
+                y = y.lower()
+
+        return x in y
+
+    def issame(x, y, case=False):
+        assert(type(x) != str)
+        assert(type(y) != str)
+
+        if type(x) != type(y):
+            x = unicode(x)
+            y = unicode(y)
+
+            if not case:
+                x = x.lower()
+                y = y.lower()
+
+        return x == y
+
+    term = as_unicode(term)
 
     if regex:
-        term = re.compile(
+        term_re = re.compile(
             term,
-            re.MULTILINE | (re.IGNORECASE if ignorecase else 0))
+            re.UNICODE | \
+                re.MULTILINE | \
+                    (re.IGNORECASE if ignorecase else 0))
 
         if equals:
-            compare = lambda x: term.match(as_str(x))
+            compare = lambda x: \
+                term_re.match(x) if isinstance(x, unicode) else False
         else:
-            compare = lambda x: term.search(as_str(x))
+            compare = lambda x: \
+                term_re.search(x) if isinstance(x, unicode) else False
     elif ignorecase:
         if equals:
-            compare = lambda x: as_str(term).lower() == as_str(x).lower()
-        else:
-            compare = lambda x: as_str(term).lower() in as_str(x).lower()
-    else:
-        if equals:
-            compare = lambda x: term == x
+            compare = lambda x: issame(term, x)
         else:
             compare = lambda x: contains(term, x)
+    else:
+        if equals:
+            compare = lambda x: issame(term, x, True)
+        else:
+            compare = lambda x: contains(term, x, True)
 
     if type(roots) in (str, unicode):
         roots = [roots]
@@ -338,6 +778,9 @@ def search(term, roots=('HKU', 'HKLM', 'HKCC'), key=True, name=True, value=True,
         results = []
 
         for kv in root:
+            if completed.is_set() or first and results:
+                break
+
             tkv = type(kv)
 
             if tkv == Key:
@@ -359,28 +802,67 @@ def search(term, roots=('HKU', 'HKLM', 'HKCC'), key=True, name=True, value=True,
                 if name and compare(kv.name):
                     results.append(kv)
 
-                elif value and (equals or type(kv.value) in (str, unicode)) and compare(kv.value):
+                elif value and compare(kv.value):
                     results.append(kv)
 
-                if first and results:
-                    break
-
             else:
-                raise TypeError('Unknown type {} in search'.format(tkv.__name__))
+                raise TypeError(
+                    'Unknown type {} in search'.format(
+                        tkv.__name__))
 
         return results
 
-    typleized = []
-    for root in roots:
-        for result in _walk(Key(root)):
-            if type(result) == Key:
-                typleized.append((True, str(result)))
-            else:
-                typleized.append((
-                    False, result.parent, result.name,
-                    result.value, result.type))
+    try:
+        for root in roots:
+            try:
+                results = _walk(Key(root))
+            except WindowsError:
+                continue
 
-    return typleized
+            for result in results:
+                if type(result) == Key:
+                    data_cb((True, result.arg))
+                else:
+                    data_cb((
+                        False, result.parent, result.name,
+                        result.value, result.type))
+
+                if first or completed.is_set():
+                    break
+
+    except Exception as e:
+        data_cb((None, '{}\n{}'.format(e, traceback.format_exc())))
+
+    finally:
+        completed.set()
+        close_cb()
+
+
+def search(
+    data_cb, close_cb,
+    term, roots=('HKU', 'HKLM', 'HKCC'), key=True,
+        name=True, value=True, regex=False,
+        ignorecase=False, first=False, equals=False):
+
+    data_cb = rpyc.async(data_cb)
+    close_cb = rpyc.async(close_cb)
+
+    completed = threading.Event()
+    worker = threading.Thread(
+        name='Reg:Search',
+        target=_search,
+        args=(
+            completed,
+            data_cb, close_cb,
+            term, roots, key,
+            name, value, regex,
+            ignorecase, first, equals
+        )
+    )
+
+    worker.start()
+    return completed.set
+
 
 def enum(path=None):
     if path is None:
@@ -409,11 +891,8 @@ def set(path, name, value, create):
         k = Key(path, create=create)
         try:
             old_value = k[name]
-            if old_value.type in (_winreg.REG_SZ, _winreg.REG_BINARY):
-                if type(value) not in (str, unicode):
-                    value = str(value)
-            elif old_value.type in (_winreg.REG_DWORD, _winreg.REG_DWORD_LITTLE_ENDIAN):
-                if type(value) != int:
+            if old_value.type in (REG_DWORD, REG_DWORD_LITTLE_ENDIAN):
+                if not isinstance(value, (int, long)):
                     value = int(value)
         except KeyError:
             pass
