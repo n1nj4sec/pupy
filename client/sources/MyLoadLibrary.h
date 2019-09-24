@@ -6,6 +6,10 @@
 HMODULE MyLoadLibrary(LPCSTR, void *, void *);
 HMODULE MyGetModuleHandle(LPCSTR);
 BOOL MyFreeLibrary(HMODULE);
+
+HMODULE MyLoadLibraryA(LPCSTR);
+HMODULE MyLoadLibraryW(LPCWSTR);
+
 FARPROC MyGetProcAddress(HMODULE, LPCSTR);
 FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 

@@ -60,10 +60,14 @@ typedef struct {
     BOOL initialized;
     BOOL isDLL;
     BOOL isRelocated;
-    CustomLoadLibraryFunc loadLibrary;
-    CustomGetProcAddressFunc getProcAddress;
     CustomFreeLibraryFunc freeLibrary;
-    void *userdata;
+    CustomGetProcAddress getProcAddress;
+    CustomLoadLibraryW loadLibraryW;
+    CustomLoadLibraryA loadLibraryA;
+    CustomLoadLibraryExA loadLibraryExA;
+    CustomLoadLibraryExW loadLibraryExW;
+    CustomGetModuleHandleA getModuleHandleA;
+    CustomGetModuleHandleW getModuleHandleW;
     ExeEntryProc exeEntry;
     DWORD pageSize;
     FUNCIDX exports;
@@ -356,6 +360,34 @@ PerformBaseRelocation(PMEMORYMODULE module, SIZE_T delta)
     return TRUE;
 }
 
+typedef struct {
+    const char *symbol;
+    FARPROC addr;
+} ImportHooks;
+
+static FARPROC
+GetImportAddr(
+    ImportHooks *hooks, CustomGetProcAddress getProcAddress,
+        HCUSTOMMODULE hModule, LPCSTR pszSymName)
+{
+    ImportHooks *iter;
+
+    if (!hooks)
+        return getProcAddress(hModule, pszSymName);
+
+    for (iter = hooks; iter->symbol; iter ++) {
+        if (!iter->addr)
+            continue;
+
+        if (!strcmp(iter->symbol, pszSymName)) {
+            dprint("HOOK %s -> %p\n", pszSymName, iter->addr);
+            return iter->addr;
+        }
+    }
+
+    return getProcAddress(hModule, pszSymName);
+}
+
 static BOOL
 BuildImportTable(PMEMORYMODULE module)
 {
@@ -363,56 +395,121 @@ BuildImportTable(PMEMORYMODULE module)
     PIMAGE_IMPORT_DESCRIPTOR importDesc;
     BOOL result = TRUE;
 
-    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(module, IMAGE_DIRECTORY_ENTRY_IMPORT);
-    if (directory->Size == 0) {
+    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(
+        module, IMAGE_DIRECTORY_ENTRY_IMPORT);
+
+    ImportHooks kernel32Hooks[] = {
+        {"LoadLibraryA", (FARPROC) module->loadLibraryA},
+        {"LoadLibraryW", (FARPROC) module->loadLibraryW},
+        {"LoadLibraryExA", (FARPROC) module->loadLibraryExA},
+        {"LoadLibraryExW", (FARPROC) module->loadLibraryExW},
+        {"GetModuleHandleA", (FARPROC) module->getModuleHandleA},
+        {"GetModuleHandleW", (FARPROC) module->getModuleHandleW},
+        {"GetProcAddress", (FARPROC) module->getProcAddress},
+        {"FreeLibrary", (FARPROC) module->freeLibrary},
+        {NULL, NULL}
+    };
+
+    if (directory->Size == 0)
         return TRUE;
-    }
+
+    dprint("Resolving imports\n");
 
     importDesc = (PIMAGE_IMPORT_DESCRIPTOR) (codeBase + directory->VirtualAddress);
-    for (; !IsBadReadPtr(importDesc, sizeof(IMAGE_IMPORT_DESCRIPTOR)) && importDesc->Name; importDesc++) {
+    for (
+        ;
+        !IsBadReadPtr(importDesc, sizeof(IMAGE_IMPORT_DESCRIPTOR)) && importDesc->Name; importDesc++
+    ) {
+        ImportHooks *hooks = NULL;
         uintptr_t *thunkRef;
         FARPROC *funcRef;
         HCUSTOMMODULE *tmp;
-        HCUSTOMMODULE handle = module->loadLibrary((LPCSTR) (codeBase + importDesc->Name), module->userdata);
-        if (handle == NULL) {
+        HCUSTOMMODULE handle;
+        LPCSTR lpcszLibraryName = (LPCSTR) (codeBase + importDesc->Name);
+
+        dprint("Import %s (LoadLibraryA = %p)\n", lpcszLibraryName, module->loadLibraryA);
+
+        handle = module->loadLibraryA(lpcszLibraryName);
+
+        dprint("Import %s -> %p\n", lpcszLibraryName, handle);
+
+        if (!handle) {
             SetLastError(ERROR_MOD_NOT_FOUND);
             result = FALSE;
             break;
         }
 
-        tmp = (HCUSTOMMODULE *) realloc(module->modules, (module->numModules+1)*(sizeof(HCUSTOMMODULE)));
+        tmp = (HCUSTOMMODULE *) realloc(
+            module->modules, (module->numModules+1)*(sizeof(HCUSTOMMODULE)));
         if (tmp == NULL) {
-            module->freeLibrary(handle, module->userdata);
+            module->freeLibrary(handle);
             SetLastError(ERROR_OUTOFMEMORY);
             result = FALSE;
             break;
         }
-        module->modules = tmp;
 
+        module->modules = tmp;
         module->modules[module->numModules++] = handle;
+
         if (importDesc->OriginalFirstThunk) {
             thunkRef = (uintptr_t *) (codeBase + importDesc->OriginalFirstThunk);
             funcRef = (FARPROC *) (codeBase + importDesc->FirstThunk);
+            dprint("%s have hint table, offset=%lu\n",
+                lpcszLibraryName, importDesc->OriginalFirstThunk);
         } else {
             // no hint table
+            dprint("%s does not have hint table\n", lpcszLibraryName);
             thunkRef = (uintptr_t *) (codeBase + importDesc->FirstThunk);
             funcRef = (FARPROC *) (codeBase + importDesc->FirstThunk);
         }
-        for (; *thunkRef; thunkRef++, funcRef++) {
+
+        if (!_stricmp(lpcszLibraryName, "KERNEL32.DLL")) {
+            hooks = kernel32Hooks;
+            dprint("Use hooks for kernel32: %p\n", hooks);
+        }
+
+        dprint("Resolving symbols.. (%p)\n", thunkRef);
+
+        for (; thunkRef && *thunkRef; thunkRef++, funcRef++) {
+            dprint("Thunk value: %p\n", *thunkRef);
+
             if (IMAGE_SNAP_BY_ORDINAL(*thunkRef)) {
-                *funcRef = module->getProcAddress(handle, (LPCSTR)IMAGE_ORDINAL(*thunkRef), module->userdata);
+
+                dprint("Import by thunk (%d)\n", IMAGE_ORDINAL(*thunkRef));
+
+                *funcRef = module->getProcAddress(
+                    handle, (LPCSTR)IMAGE_ORDINAL(*thunkRef)
+                );
+
+                dprint("Import %d@%s -> %p\n",
+                    IMAGE_ORDINAL(*thunkRef), lpcszLibraryName, *funcRef);
+
             } else {
-                PIMAGE_IMPORT_BY_NAME thunkData = (PIMAGE_IMPORT_BY_NAME) (codeBase + (*thunkRef));
-                *funcRef = module->getProcAddress(handle, (LPCSTR)&thunkData->Name, module->userdata);
+                PIMAGE_IMPORT_BY_NAME thunkData = (PIMAGE_IMPORT_BY_NAME) (
+                    codeBase + (*thunkRef));
+
+                dprint("Import %s@%s -> ?\n",
+                    (LPCSTR)&thunkData->Name, lpcszLibraryName);
+
+                *funcRef = GetImportAddr(
+                    hooks, module->getProcAddress,
+                    handle, (LPCSTR)&thunkData->Name
+                );
+
+                dprint("Import %s@%s -> %p\n",
+                    (LPCSTR)&thunkData->Name, lpcszLibraryName, *funcRef);
             }
-            if (*funcRef == 0) {
+
+            if (!*funcRef) {
                 result = FALSE;
                 break;
             }
         }
 
+        dprint("Resolving symbols %s -> complete, result=%p\n", lpcszLibraryName, result);
+
         if (!result) {
-            module->freeLibrary(handle, module->userdata);
+            module->freeLibrary(handle);
             SetLastError(ERROR_PROC_NOT_FOUND);
             break;
         }
@@ -499,7 +596,7 @@ VOID BuildExportTable(PMEMORYMODULE module)
     ordinal = (WORD *) (codeBase + exports->AddressOfNameOrdinals);
 
     for (i=0; i<exports->NumberOfNames; i++, nameRef++, ordinal++) {
-        char * pcName = (const char *) (codeBase + (*nameRef));
+        LPCSTR pcName = (LPCSTR) (codeBase + (*nameRef));
         DWORD dwIdx = *ordinal;
         FARPROC proc = NULL;
 
@@ -545,11 +642,10 @@ VOID CleanupHeaders(PMEMORYMODULE module) {
         }
 }
 
-HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
-    CustomLoadLibraryFunc loadLibrary,
-    CustomGetProcAddressFunc getProcAddress,
-    CustomFreeLibraryFunc freeLibrary,
-    void *userdata, void *dllmainArg)
+HMEMORYMODULE MemoryLoadLibraryEx(
+    const void *data,
+    PDL_CALLBACKS callbacks,
+    void *dllmainArg)
 {
     PMEMORYMODULE result;
     PIMAGE_DOS_HEADER dos_header;
@@ -615,10 +711,15 @@ HMEMORYMODULE MemoryLoadLibraryEx(const void *data,
 
     result->codeBase = code;
     result->isDLL = (old_header->FileHeader.Characteristics & IMAGE_FILE_DLL) != 0;
-    result->loadLibrary = loadLibrary;
-    result->getProcAddress = getProcAddress;
-    result->freeLibrary = freeLibrary;
-    result->userdata = userdata;
+
+    result->loadLibraryA = callbacks->loadLibraryA;
+    result->loadLibraryW = callbacks->loadLibraryW;
+    result->loadLibraryExA = callbacks->loadLibraryExA;
+    result->loadLibraryExW = callbacks->loadLibraryExW;
+    result->getModuleHandleA = callbacks->getModuleHandleA;
+    result->getModuleHandleW = callbacks->getModuleHandleW;
+    result->getProcAddress = callbacks->getProcAddress;
+    result->freeLibrary = callbacks->freeLibrary;
 
     GetNativeSystemInfo(&sysInfo);
 
@@ -763,7 +864,7 @@ void MemoryFreeLibrary(HMEMORYMODULE mod)
         int i;
         for (i=0; i<module->numModules; i++) {
             if (module->modules[i] != NULL) {
-                module->freeLibrary(module->modules[i], module->userdata);
+                module->freeLibrary(module->modules[i]);
             }
         }
 

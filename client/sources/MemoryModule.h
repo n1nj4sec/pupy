@@ -39,9 +39,14 @@ typedef void *HCUSTOMMODULE;
 extern "C" {
 #endif
 
-typedef HCUSTOMMODULE (*CustomLoadLibraryFunc)(LPCSTR, void *);
-typedef FARPROC (*CustomGetProcAddressFunc)(HCUSTOMMODULE, LPCSTR, void *);
-typedef void (*CustomFreeLibraryFunc)(HCUSTOMMODULE, void *);
+typedef HMODULE (*CustomGetModuleHandleA)(LPCSTR);
+typedef HMODULE (*CustomGetModuleHandleW)(LPCWSTR);
+typedef HMODULE (*CustomLoadLibraryExA)(LPCSTR, HANDLE, DWORD);
+typedef HMODULE (*CustomLoadLibraryExW)(LPCWSTR, HANDLE, DWORD);
+typedef HCUSTOMMODULE (*CustomLoadLibraryW)(LPCWSTR);
+typedef HCUSTOMMODULE (*CustomLoadLibraryA)(LPCSTR);
+typedef FARPROC (*CustomGetProcAddress)(HCUSTOMMODULE, LPCSTR);
+typedef void (*CustomFreeLibraryFunc)(HCUSTOMMODULE);
 
 /**
  * Load EXE/DLL from memory location.
@@ -51,16 +56,23 @@ typedef void (*CustomFreeLibraryFunc)(HCUSTOMMODULE, void *);
  */
 HMEMORYMODULE MemoryLoadLibrary(const void *);
 
+typedef struct {
+    CustomLoadLibraryA loadLibraryA;
+    CustomLoadLibraryW loadLibraryW;
+    CustomLoadLibraryExA loadLibraryExA;
+    CustomLoadLibraryExW loadLibraryExW;
+    CustomGetModuleHandleA getModuleHandleA;
+    CustomGetModuleHandleW getModuleHandleW;
+    CustomGetProcAddress getProcAddress;
+    CustomFreeLibraryFunc freeLibrary;
+} DL_CALLBACKS, *PDL_CALLBACKS;
+
 /**
  * Load EXE/DLL from memory location using custom dependency resolvers.
  *
  * Dependencies will be resolved using passed callback methods.
  */
-HMEMORYMODULE MemoryLoadLibraryEx(const void *,
-    CustomLoadLibraryFunc,
-    CustomGetProcAddressFunc,
-    CustomFreeLibraryFunc,
-    void *, void *);
+HMEMORYMODULE MemoryLoadLibraryEx(const void *, PDL_CALLBACKS, void *);
 
 /**
  * Get address of exported method. Supports loading both by name and by
@@ -72,6 +84,14 @@ FARPROC MemoryGetProcAddress(HMEMORYMODULE, LPCSTR);
  * Free previously loaded EXE/DLL.
  */
 void MemoryFreeLibrary(HMEMORYMODULE);
+
+HMODULE MyGetModuleHandleA(LPCSTR name);
+HMODULE MyGetModuleHandleW(LPCWSTR name);
+HMODULE MyLoadLibraryA(LPCSTR name);
+HMODULE MyLoadLibraryW(LPCWSTR name);
+
+HMODULE MyLoadLibraryExA(LPCSTR lpLibFileName, HANDLE hFile, DWORD  dwFlags);
+HMODULE MyLoadLibraryExW(LPCWSTR lpLibFileName, HANDLE hFile, DWORD  dwFlags);
 
 #ifdef __cplusplus
 }

@@ -22,44 +22,6 @@ NATIVE_LIB_PATTERNS = [
     'lib{}27.dll'
 ]
 
-# TODO: Add search paths ?
-
-class PupyCDLL(ctypes.CDLL):
-    __slots__ = ('_FuncPtr_orig', '_FuncPtr', '_name')
-
-    def __init__(self, name, **kwargs):
-        super(PupyCDLL, self).__init__(name, **kwargs)
-        self._FuncPtr_orig = self._FuncPtr
-        self._FuncPtr = self._find_function_address
-        self._name = _pupy_make_library_path(self._name)
-        pupy.dprint('CDLL({})', self._name)
-
-    def _find_function_address(self, search_tuple):
-        name, handle = search_tuple
-        pupy.dprint('PupyCDLL._find_function_address: {}', name)
-        if not type(name) in (str, unicode):
-            return self._FuncPtr_orig(search_tuple)
-
-        else:
-            addr = pupy.find_function_address(self._name, name)
-            pupy.dprint(
-                'PupyCDLL._find_function_address: {} = {}', name, addr)
-            if addr:
-                return self._FuncPtr_orig(addr)
-            else:
-                return self._FuncPtr_orig(search_tuple)
-
-
-class PupyPyDLL(PupyCDLL):
-    _func_flags_ = ctypes._FUNCFLAG_CDECL | ctypes._FUNCFLAG_PYTHONAPI
-
-    def __init__(self, name, **kwargs):
-        if name in ('python dll', 'python.dll'):
-            name = 'python27.dll'
-            kwargs['handle'] = False
-
-        super(PupyPyDLL, self).__init__(name, **kwargs)
-
 
 def _find_library(name):
     for pattern in NATIVE_LIB_PATTERNS:
@@ -123,12 +85,6 @@ def apply_dl_hacks():
 
         setattr(ctypes_util, '_system_find_library', _find_library)
 
-    if pupy.is_supported(pupy.find_function_address):
-        setattr(ctypes, 'CDLL_ORIG', ctypes.CDLL)
-
-        ctypes.CDLL = PupyCDLL
-        ctypes.PyDLL = PupyPyDLL
-
     ctypes._dlopen = _pupy_dlopen
     ctypes.util.find_library = _pupy_find_library
 
@@ -136,7 +92,7 @@ def apply_dl_hacks():
 
     if sys.platform == 'win32':
         try:
-            libpython = ctypes.PyDLL('python27.dll', handle=False)
+            libpython = ctypes.PyDLL('python27.dll')
         except WindowsError:
             pupy.dprint('python27.dll not found')
     else:
