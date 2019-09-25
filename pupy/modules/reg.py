@@ -6,8 +6,7 @@ from threading import Event
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import (
-    Color, List, Table, Line, NewLine,
-    MultiPart, TruncateToTerm
+    Color, List, Table, Line, MultiPart, TruncateToTerm
 )
 
 TYPES = (

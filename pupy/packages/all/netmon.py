@@ -17,7 +17,8 @@ class NetMon(pupy.Task):
     __slots__ = (
         'known_listeners_tcp', 'known_listeners_udp',
         'known_egress_tcp', 'known_egress_udp',
-        'known_ingress_tcp', 'known_ingress_udp'
+        'known_ingress_tcp', 'known_ingress_udp',
+        'pending_udp_listeners'
     )
 
     def __init__(self, *args, **kwargs):
@@ -29,6 +30,7 @@ class NetMon(pupy.Task):
         self.known_listeners_udp = set()
         self.known_egress_udp = set()
         self.known_ingress_udp = set()
+        self.pending_udp_listeners = dict()
 
     def _update(self, connections):
         listeners_tcp = set()
@@ -39,8 +41,6 @@ class NetMon(pupy.Task):
 
         egress_tcp = set()
         egress_udp = set()
-
-        have_non_listeners = False
 
         # Register listeners first
         for connection in connections:
@@ -70,8 +70,27 @@ class NetMon(pupy.Task):
         new_listeners_tcp = listeners_tcp - self.known_listeners_tcp
         new_listeners_udp = listeners_udp - self.known_listeners_udp
 
+        for new_listener_udp in new_listeners_udp:
+            if new_listener_udp not in self.pending_udp_listeners:
+                self.pending_udp_listeners[new_listener_udp] = 1
+            else:
+                self.pending_udp_listeners[new_listener_udp] += 1
+
+        for old_listener_udp in self.pending_udp_listeners.keys():
+            if old_listener_udp not in new_listener_udp:
+                del self.pending_udp_listeners[old_listener_udp]
+
+        new_listeners_udp = set(
+            new_listener_udp for new_listener_udp, cnt in
+            self.pending_udp_listeners.iteritems() if
+            cnt > 16
+        )
+
+        for new_listener_udp in new_listeners_udp:
+            del self.pending_udp_listeners[new_listener_udp]
+
         self.known_listeners_tcp.update(listeners_tcp)
-        self.known_listeners_udp.update(listeners_udp)
+        self.known_listeners_udp.update(new_listeners_udp)
 
         known_listeners_udp = set(
             (ip, port) for _, ip, port in self.known_listeners_udp

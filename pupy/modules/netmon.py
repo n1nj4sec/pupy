@@ -2,7 +2,6 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, MultiPart
-from datetime import datetime, timedelta
 
 NETMON_EVENT = 0x11000002
 
@@ -146,5 +145,3 @@ class NetMon(PupyModule):
                 self.render_diff(data)
 
             self.success('Netmon stopped')
-
-

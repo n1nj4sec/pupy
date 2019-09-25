@@ -15,11 +15,10 @@ import rpyc
 
 from ctypes import (
     POINTER, byref,
-    c_wchar_p, c_char_p, c_void_p, c_long, c_ubyte,
-    c_ulonglong,
-    Structure, WinError, WinDLL,
+    c_char_p, c_void_p, c_long,
+    c_ulonglong, Structure, WinError, WinDLL,
     create_unicode_buffer, create_string_buffer,
-    wstring_at, get_last_error
+    wstring_at
 )
 
 from ctypes.wintypes import (
@@ -83,27 +82,27 @@ STANDARD_RIGHTS_ALL = 0x001F0000
 
 KEY_READ = (
     (
-        STANDARD_RIGHTS_READ |
-        KEY_QUERY_VALUE |
-        KEY_ENUMERATE_SUB_KEYS |
+        STANDARD_RIGHTS_READ | \
+        KEY_QUERY_VALUE | \
+        KEY_ENUMERATE_SUB_KEYS | \
         KEY_NOTIFY
     ) & (~SYNCHRONIZE)
 )
 KEY_WRITE = (
     (
-        STANDARD_RIGHTS_WRITE |
-        KEY_SET_VALUE |
+        STANDARD_RIGHTS_WRITE | \
+        KEY_SET_VALUE | \
         KEY_CREATE_SUB_KEY
     ) & (~SYNCHRONIZE)
 )
 KEY_ALL_ACCESS = (
     (
-        STANDARD_RIGHTS_ALL |
-        KEY_QUERY_VALUE |
-        KEY_SET_VALUE |
-        KEY_CREATE_SUB_KEY |
-        KEY_ENUMERATE_SUB_KEYS |
-        KEY_NOTIFY |
+        STANDARD_RIGHTS_ALL | \
+        KEY_QUERY_VALUE | \
+        KEY_SET_VALUE | \
+        KEY_CREATE_SUB_KEY | \
+        KEY_ENUMERATE_SUB_KEYS | \
+        KEY_NOTIFY | \
         KEY_CREATE_LINK
     ) & (~SYNCHRONIZE)
 )
