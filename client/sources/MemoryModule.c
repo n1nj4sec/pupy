@@ -195,9 +195,14 @@ FinalizeSection(PMEMORYMODULE module, PSECTIONFINALIZEDATA sectionData) {
         if (sectionData->address == sectionData->alignedAddress &&
             (sectionData->last ||
              module->headers->OptionalHeader.SectionAlignment == module->pageSize ||
-             (sectionData->size % module->pageSize) == 0)
-           ) {
+             (sectionData->size % module->pageSize) == 0))
+        {
             // Only allowed to decommit whole pages
+            dprint(
+                "VirtualFree: %p - %p (%lu)\n",
+                sectionData->address, (PCHAR) sectionData->address + sectionData->size, sectionData->size
+            );
+
             VirtualFree(sectionData->address, sectionData->size, MEM_DECOMMIT);
         }
         return TRUE;
@@ -213,6 +218,10 @@ FinalizeSection(PMEMORYMODULE module, PSECTIONFINALIZEDATA sectionData) {
     }
 
     // change memory access flags
+    dprint(
+        "VirtualProtect: %p - %p (%lu) %08x\n",
+        sectionData->address, (PCHAR) sectionData->address + sectionData->size, sectionData->size, protect
+    );
     if (VirtualProtect(sectionData->address, sectionData->size, protect, &oldProtect) == 0) {
 #ifdef DEBUG_OUTPUT
         OutputLastError("Error protecting memory page");
@@ -285,7 +294,8 @@ ExecuteTLS(PMEMORYMODULE module)
     PIMAGE_TLS_DIRECTORY tls;
     PIMAGE_TLS_CALLBACK* callback;
 
-    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(module, IMAGE_DIRECTORY_ENTRY_TLS);
+    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(
+        module, IMAGE_DIRECTORY_ENTRY_TLS);
     if (directory->VirtualAddress == 0) {
         return TRUE;
     }
@@ -294,6 +304,7 @@ ExecuteTLS(PMEMORYMODULE module)
     callback = (PIMAGE_TLS_CALLBACK *) tls->AddressOfCallBacks;
     if (callback) {
         while (*callback) {
+            dprint("Call TLS Callback %p\n", callback);
             (*callback)((LPVOID) codeBase, DLL_PROCESS_ATTACH, NULL);
             callback++;
         }
@@ -809,10 +820,12 @@ HMEMORYMODULE MemoryLoadLibraryEx(
 
     dprint("MemoryLoadLibraryEx: Library loaded\n");
 
+#ifndef DEBUG
     // Cleanup PE headers
     CleanupHeaders(result);
 
     dprint("MemoryLoadLibraryEx: headers cleaned up\n");
+#endif
 
     return (HMEMORYMODULE)result;
 

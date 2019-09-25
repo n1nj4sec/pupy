@@ -153,8 +153,9 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
 
     Py_IncRef(py_argv);
 
-    for (i = 0; i<argc; i++)
+    for (i = 0; i<argc && argv[i]; i++) {
         PyList_Append(py_argv, PyString_FromString(argv[i]));
+    }
 
     PySys_SetObject("executable", PyString_FromString(OSGetProgramName()));
     PySys_SetObject("argv", py_argv);
@@ -163,6 +164,7 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
 
     setup_jvm_class();
 
+    dprint("Python initialized\n");
     return TRUE;
 
 lbExit1:
@@ -190,7 +192,6 @@ void run_pupy() {
 
     char *pupy_init_bytecode_c;
     Py_ssize_t pupy_init_bytecode_c_size;
-
 
     dprint("Load config\n");
     len.c[3] = __config__[0];

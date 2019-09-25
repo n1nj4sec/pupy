@@ -252,7 +252,7 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
 /****************************************************************
  * Public functions
  */
-HMODULE MyGetModuleHandleA(LPCSTR name)
+HMODULE CALLBACK MyGetModuleHandleA(LPCSTR name)
 {
     PHCUSTOMLIBRARY lib;
 
@@ -331,7 +331,8 @@ BOOL _CreateModuleMapping(HMODULE hModule, HANDLE *phMapping, PVOID *ppvMem)
     return TRUE;
 }
 
-HMODULE MyLoadLibraryEx(LPCSTR name, void *bytes, void *dllmainArg, BOOL blPrivate)
+HMODULE
+MyLoadLibraryEx(LPCSTR name, void *bytes, void *dllmainArg, BOOL blPrivate)
 {
     HMODULE hLoadedModule = NULL;
 
@@ -402,7 +403,7 @@ HMODULE MyLoadLibraryEx(LPCSTR name, void *bytes, void *dllmainArg, BOOL blPriva
     return LoadLibrary(name);
 }
 
-HMODULE MyGetModuleHandleW(LPCWSTR name) {
+HMODULE CALLBACK MyGetModuleHandleW(LPCWSTR name) {
     PSTR pszName = NULL;
     HMODULE hResult = NULL;
     DWORD dwRequiredSize = WideCharToMultiByte(
@@ -435,7 +436,7 @@ HMODULE MyGetModuleHandleW(LPCWSTR name) {
     return GetModuleHandleW(name);
 }
 
-HMODULE MyLoadLibraryExA(LPCSTR name, HANDLE hFile, DWORD dwFlags) {
+HMODULE CALLBACK MyLoadLibraryExA(LPCSTR name, HANDLE hFile, DWORD dwFlags) {
     HMODULE hModule = MyGetModuleHandleA(name);
     if (hModule)
         return hModule;
@@ -443,7 +444,7 @@ HMODULE MyLoadLibraryExA(LPCSTR name, HANDLE hFile, DWORD dwFlags) {
     return LoadLibraryExA(name, hFile, dwFlags);
 }
 
-HMODULE MyLoadLibraryExW(LPCWSTR name, HANDLE hFile, DWORD dwFlags) {
+HMODULE CALLBACK MyLoadLibraryExW(LPCWSTR name, HANDLE hFile, DWORD dwFlags) {
     HMODULE hModule = MyGetModuleHandleW(name);
     if (hModule)
         return hModule;
@@ -451,7 +452,7 @@ HMODULE MyLoadLibraryExW(LPCWSTR name, HANDLE hFile, DWORD dwFlags) {
     return LoadLibraryExW(name, hFile, dwFlags);
 }
 
-HMODULE MyLoadLibraryA(LPCSTR name) {
+HMODULE CALLBACK MyLoadLibraryA(LPCSTR name) {
     HMODULE hModule = MyGetModuleHandleA(name);
     if (hModule)
         return hModule;
@@ -459,7 +460,7 @@ HMODULE MyLoadLibraryA(LPCSTR name) {
     return LoadLibraryA(name);
 }
 
-HMODULE MyLoadLibraryW(LPCWSTR name) {
+HMODULE CALLBACK MyLoadLibraryW(LPCWSTR name) {
     HMODULE hModule = MyGetModuleHandleW(name);
     if (hModule)
         return hModule;
@@ -467,7 +468,7 @@ HMODULE MyLoadLibraryW(LPCWSTR name) {
     return LoadLibraryW(name);
 }
 
-BOOL MyFreeLibrary(HMODULE module)
+BOOL CALLBACK MyFreeLibrary(HMODULE module)
 {
     PHCUSTOMLIBRARY lib = _FindMemoryModule(NULL, module);
     if (lib) {
@@ -540,7 +541,7 @@ BOOL isAllowedSymbol(PHCUSTOMLIBRARY lib, LPCSTR procname) {
     return FALSE;
 }
 
-FARPROC MyGetProcAddress(HMODULE module, LPCSTR procname)
+FARPROC CALLBACK MyGetProcAddress(HMODULE module, LPCSTR procname)
 {
     PHCUSTOMLIBRARY lib;
     FARPROC fpFunc = NULL;

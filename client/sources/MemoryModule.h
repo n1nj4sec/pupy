@@ -39,14 +39,14 @@ typedef void *HCUSTOMMODULE;
 extern "C" {
 #endif
 
-typedef HMODULE (*CustomGetModuleHandleA)(LPCSTR);
-typedef HMODULE (*CustomGetModuleHandleW)(LPCWSTR);
-typedef HMODULE (*CustomLoadLibraryExA)(LPCSTR, HANDLE, DWORD);
-typedef HMODULE (*CustomLoadLibraryExW)(LPCWSTR, HANDLE, DWORD);
-typedef HCUSTOMMODULE (*CustomLoadLibraryW)(LPCWSTR);
-typedef HCUSTOMMODULE (*CustomLoadLibraryA)(LPCSTR);
-typedef FARPROC (*CustomGetProcAddress)(HCUSTOMMODULE, LPCSTR);
-typedef void (*CustomFreeLibraryFunc)(HCUSTOMMODULE);
+typedef HMODULE (CALLBACK *CustomGetModuleHandleA)(LPCSTR);
+typedef HMODULE (CALLBACK *CustomGetModuleHandleW)(LPCWSTR);
+typedef HMODULE (CALLBACK *CustomLoadLibraryExA)(LPCSTR, HANDLE, DWORD);
+typedef HMODULE (CALLBACK *CustomLoadLibraryExW)(LPCWSTR, HANDLE, DWORD);
+typedef HCUSTOMMODULE (CALLBACK *CustomLoadLibraryW)(LPCWSTR);
+typedef HCUSTOMMODULE (CALLBACK *CustomLoadLibraryA)(LPCSTR);
+typedef FARPROC (CALLBACK *CustomGetProcAddress)(HCUSTOMMODULE, LPCSTR);
+typedef void (CALLBACK *CustomFreeLibraryFunc)(HCUSTOMMODULE);
 
 /**
  * Load EXE/DLL from memory location.
@@ -84,14 +84,6 @@ FARPROC MemoryGetProcAddress(HMEMORYMODULE, LPCSTR);
  * Free previously loaded EXE/DLL.
  */
 void MemoryFreeLibrary(HMEMORYMODULE);
-
-HMODULE MyGetModuleHandleA(LPCSTR name);
-HMODULE MyGetModuleHandleW(LPCWSTR name);
-HMODULE MyLoadLibraryA(LPCSTR name);
-HMODULE MyLoadLibraryW(LPCWSTR name);
-
-HMODULE MyLoadLibraryExA(LPCSTR lpLibFileName, HANDLE hFile, DWORD  dwFlags);
-HMODULE MyLoadLibraryExW(LPCWSTR lpLibFileName, HANDLE hFile, DWORD  dwFlags);
 
 #ifdef __cplusplus
 }

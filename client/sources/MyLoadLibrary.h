@@ -3,16 +3,22 @@
 
 #include <windows.h>
 
+#ifndef CALLBACK
+#define CALLBACK WINAPI
+#endif
+
 HMODULE MyLoadLibrary(LPCSTR, void *, void *);
 HMODULE MyLoadLibraryEx(LPCSTR, void *, void *, BOOL);
 
-HMODULE MyGetModuleHandle(LPCSTR);
-BOOL MyFreeLibrary(HMODULE);
+HMODULE CALLBACK MyLoadLibraryA(LPCSTR);
+HMODULE CALLBACK MyLoadLibraryW(LPCWSTR);
+HMODULE CALLBACK MyLoadLibraryExA(LPCSTR name, HANDLE hFile, DWORD dwFlags);
+HMODULE CALLBACK MyLoadLibraryExW(LPCWSTR name, HANDLE hFile, DWORD dwFlags);
+HMODULE CALLBACK MyGetModuleHandleA(LPCSTR name);
+HMODULE CALLBACK MyGetModuleHandleW(LPCWSTR name);
+FARPROC CALLBACK MyGetProcAddress(HMODULE, LPCSTR);
+BOOL CALLBACK MyFreeLibrary(HMODULE module);
 
-HMODULE MyLoadLibraryA(LPCSTR);
-HMODULE MyLoadLibraryW(LPCWSTR);
-
-FARPROC MyGetProcAddress(HMODULE, LPCSTR);
 FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 
 VOID MySetLibraries(PVOID pLibraries);

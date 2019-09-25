@@ -14,10 +14,10 @@
 #define PATH_MAX 260
 #endif
 
-typedef FARPROC (*resolve_symbol_t) (HMODULE hModule, const char *name);
+typedef FARPROC (WINAPI *resolve_symbol_t) (HMODULE hModule, const char *name);
 
 static char *OSGetProgramName() {
-    static char *program_name = NULL;
+    static const char *program_name = "";
     static BOOL is_set = FALSE;
 
     wchar_t exe[PATH_MAX];
