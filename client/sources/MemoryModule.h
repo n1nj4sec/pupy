@@ -72,7 +72,7 @@ typedef struct {
  *
  * Dependencies will be resolved using passed callback methods.
  */
-HMEMORYMODULE MemoryLoadLibraryEx(const void *, PDL_CALLBACKS, void *);
+HMEMORYMODULE MemoryLoadLibraryEx(const void *, PDL_CALLBACKS, void *, BOOL);
 
 /**
  * Get address of exported method. Supports loading both by name and by

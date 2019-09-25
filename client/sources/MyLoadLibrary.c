@@ -11,6 +11,10 @@ typedef struct {
     PSTR name;
     PSTR fileName;
 
+    HMODULE hAlias;
+    PSTR *pAllowedPrefixes;
+    PSTR *pAllowedSymbols;
+
     HCUSTOMMODULE module;
     int refcount;
 
@@ -129,6 +133,26 @@ static PHCUSTOMLIBRARY _FindMemoryModule(LPCSTR name, HMODULE module)
     return phIdx;
 }
 
+BOOL SetAliasedModule(
+    HMODULE hCustomModule, HMODULE hAliasedModule,
+    const PSTR* ppAllowedPrefixes, const PSTR* ppAllowedSymbols)
+{
+    PHCUSTOMLIBRARY lib = _FindMemoryModule(NULL, hCustomModule);
+    if (!lib)
+        return FALSE;
+
+    if (hAliasedModule)
+        lib->hAlias = hAliasedModule;
+
+    if (ppAllowedPrefixes)
+        lib->pAllowedPrefixes = ppAllowedPrefixes;
+
+    if (ppAllowedSymbols)
+        lib->pAllowedSymbols = ppAllowedSymbols;
+
+    return TRUE;
+}
+
 static DL_CALLBACKS callbacks = {
     MyLoadLibraryA, MyLoadLibraryW,
     MyLoadLibraryExA, MyLoadLibraryExW,
@@ -177,6 +201,9 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
     hmodule->name = strdup(srcName);
     hmodule->fileName = strdup(name);
     hmodule->module = module;
+    hmodule->hAlias = NULL;
+    hmodule->pAllowedPrefixes = NULL;
+    hmodule->pAllowedSymbols = NULL;
 
     _strupr(hmodule->name);
     _strupr(hmodule->fileName);
@@ -238,23 +265,98 @@ HMODULE MyGetModuleHandleA(LPCSTR name)
 
 HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
 {
-    HMODULE hLoadedModule;
+    return MyLoadLibraryEx(name, bytes, dllmainArg, FALSE);
+}
+
+BOOL _CreateModuleMapping(HMODULE hModule, HANDLE *phMapping, PVOID *ppvMem)
+{
+    CHAR szDllPath[MAX_PATH+1];
+
+    HANDLE hFile;
+    HANDLE hMapping;
+    PVOID pvMem;
+
+    if (!GetModuleFileNameA(hModule, szDllPath, sizeof(szDllPath))) {
+        return FALSE;
+    }
+
+    dprint("CreateMapping of %s\n", szDllPath);
+    hFile = CreateFileA(
+        szDllPath,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        dprint("Failed to open %s: %d\n", szDllPath, GetLastError());
+        return FALSE;
+    }
+
+    hMapping = CreateFileMappingA(
+        hFile,
+        NULL,
+        PAGE_READONLY,
+        0,
+        0,
+        NULL
+    );
+
+    CloseHandle(hFile);
+
+    if (hMapping == INVALID_HANDLE_VALUE) {
+        dprint("Failed create mapping of %s: %d\n", szDllPath, GetLastError());
+        return FALSE;
+    }
+
+    pvMem = MapViewOfFile(
+        hMapping,
+        FILE_MAP_READ,
+        0,
+        0,
+        0
+    );
+
+    if (!pvMem) {
+        dprint("Failed create view of %s: %d\n", szDllPath, GetLastError());
+        CloseHandle(hMapping);
+        return FALSE;
+    }
+
+    *phMapping = hMapping;
+    *ppvMem = pvMem;
+    return TRUE;
+}
+
+HMODULE MyLoadLibraryEx(LPCSTR name, void *bytes, void *dllmainArg, BOOL blPrivate)
+{
+    HMODULE hLoadedModule = NULL;
 
     dprint("MyLoadLibrary '%s'..\n", name);
-    hLoadedModule = MyGetModuleHandleA(name);
+    if (blPrivate) {
+        PHCUSTOMLIBRARY lib;
+        lib = _FindMemoryModule(name, NULL);
+        if (lib)
+            return lib->module;
+    } else {
+        hLoadedModule = MyGetModuleHandleA(name);
+    }
 
     dprint("MyLoadLibrary %s registered? %p\n", name, hLoadedModule);
 
     if (hLoadedModule)
         return hLoadedModule;
 
-    if (bytes) {
+    if (bytes && !blPrivate) {
         HCUSTOMMODULE mod;
         PDL_CALLBACKS cb = libraries ? libraries->pCallbacks : &callbacks;
 
         dprint("Callbacks: %p\n", cb);
 
-        mod = MemoryLoadLibraryEx(bytes, cb, dllmainArg);
+        mod = MemoryLoadLibraryEx(bytes, cb, dllmainArg, TRUE);
 
         dprint(
             "MyLoadLibrary: loading %s, buf=%p (dllmainArg=%p) -> %p\n",
@@ -267,6 +369,32 @@ HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
             return lib->module;
         } else {
             dprint("MemoryLoadLibraryEx(%s, %p) failed\n", name, bytes);
+        }
+    }
+
+    if (bytes && blPrivate) {
+        // Load private copy of system library
+        HMODULE hAliased = (HMODULE) bytes;
+        PVOID pvMem = NULL;
+        HANDLE hMapping;
+
+        if (_CreateModuleMapping(hAliased, &hMapping, &pvMem)) {
+            HCUSTOMMODULE mod = NULL;
+            PHCUSTOMLIBRARY lib = NULL;
+            PDL_CALLBACKS cb = libraries ? libraries->pCallbacks : &callbacks;
+
+            mod = MemoryLoadLibraryEx(pvMem, cb, NULL, FALSE);
+            if (mod) {
+                dprint("Loaded private %s aliased by %p\n", name, hAliased);
+                lib = _AddMemoryModule(name, mod);
+                lib->hAlias = hAliased;
+            }
+
+            UnmapViewOfFile(pvMem);
+            CloseHandle(hMapping);
+
+            if (lib)
+                return lib->module;
         }
     }
 
@@ -362,16 +490,71 @@ BOOL MyFreeLibrary(HMODULE module)
         return FreeLibrary(module);
 }
 
+BOOL isAllowedSymbol(PHCUSTOMLIBRARY lib, LPCSTR procname) {
+    size_t proclen;
+
+    if (HIWORD(procname) == 0) {
+        return TRUE;
+    }
+
+    if (!lib->hAlias) {
+        return TRUE;
+    }
+
+    if (!lib->pAllowedPrefixes && !lib->pAllowedSymbols) {
+        return TRUE;
+    }
+
+    proclen = strlen(procname);
+
+    if (lib->pAllowedPrefixes) {
+        const PSTR *pIter;
+        for (pIter=lib->pAllowedPrefixes; pIter && *pIter; pIter++) {
+            LPCSTR pPrefix = *pIter;
+            size_t len = strlen(pPrefix);
+
+            if (len > proclen)
+                continue;
+
+            if (!strncmp(pPrefix, procname, len)) {
+                dprint("Allow import %s@%s - prefix '%s' (%d)\n",
+                    procname, lib->name, pPrefix, len);
+                return TRUE;
+            }
+        }
+    }
+
+    if (lib->pAllowedSymbols) {
+        const PSTR *pIter;
+        for (pIter=lib->pAllowedSymbols; pIter && *pIter; pIter++) {
+            LPCSTR pSymbol = *pIter;
+            if (!strcmp(pSymbol, procname)) {
+                dprint("Allow import %s@%s - by symbol\n");
+                return TRUE;
+            }
+        }
+    }
+
+    dprint("Deny import: %s@%s (aliased: %p)\n",
+        procname, lib->name, lib->hAlias);
+    return FALSE;
+}
+
 FARPROC MyGetProcAddress(HMODULE module, LPCSTR procname)
 {
     PHCUSTOMLIBRARY lib;
     FARPROC fpFunc = NULL;
 
     lib = _FindMemoryModule(NULL, module);
-    if (lib)
-        fpFunc = MemoryGetProcAddress(lib->module, procname);
-    else
+    if (lib) {
+        if (isAllowedSymbol(lib, procname))
+            fpFunc = MemoryGetProcAddress(lib->module, procname);
+        if (!fpFunc && lib->hAlias) {
+            fpFunc = GetProcAddress(lib->hAlias, procname);
+        }
+    } else {
         fpFunc = GetProcAddress(module, procname);
+    }
 
     if (HIWORD(procname) == 0) {
         dprint("MyGetProcAddress(%p, %d) -> %p (lib: %p)\n",

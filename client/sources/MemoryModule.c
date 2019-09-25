@@ -645,7 +645,8 @@ VOID CleanupHeaders(PMEMORYMODULE module) {
 HMEMORYMODULE MemoryLoadLibraryEx(
     const void *data,
     PDL_CALLBACKS callbacks,
-    void *dllmainArg)
+    void *dllmainArg,
+    BOOL blExecuteCallbacks)
 {
     PMEMORYMODULE result;
     PIMAGE_DOS_HEADER dos_header;
@@ -654,6 +655,8 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     SIZE_T locationDelta;
     SYSTEM_INFO sysInfo;
     HMODULE hModule;
+
+    dprint("MemoryLoadLibraryEx: Load from %p\n", data);
 
     dos_header = (PIMAGE_DOS_HEADER)data;
     if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
@@ -701,6 +704,8 @@ HMEMORYMODULE MemoryLoadLibraryEx(
             return NULL;
         }
     }
+
+    dprint("ImageBase: %p\n", code);
 
     result = (PMEMORYMODULE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MEMORYMODULE));
     if (result == NULL) {
@@ -752,35 +757,47 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     }
 
     // load required dlls and adjust function table of imports
+    dprint("Build import table..\n");
     if (!BuildImportTable(result)) {
         goto error;
     }
 
     // mark memory pages depending on section headers and release
     // sections that are marked as "discardable"
+    dprint("Finalize sections..\n");
     if (!FinalizeSections(result)) {
         goto error;
     }
 
     // TLS callbacks are executed BEFORE the main loading
+    dprint("Execute TLS..\n");
     if (!ExecuteTLS(result)) {
         goto error;
     }
 
 #ifdef _WIN64
     // Enable exceptions
+    dprint("Register Exception table..\n");
     if (!RegisterExceptionTable(result)) {
         goto error;
     }
 #endif
 
     // Build functions table
+    dprint("Build export table..\n");
     BuildExportTable(result);
 
     // get entry point of loaded library
-    if (result->isDLL && result->pcDllEntry) {
+    if (blExecuteCallbacks && result->isDLL && result->pcDllEntry) {
+        BOOL successfull;
+
+        dprint(
+            "Execute EP (ImageBase: %p EP: %p ARG: %p)..\n",
+            code, result->pcDllEntry, dllmainArg
+        );
+
         // notify library about attaching to process
-        BOOL successfull = result->pcDllEntry(
+        successfull = result->pcDllEntry(
             (HINSTANCE)code, DLL_PROCESS_ATTACH, dllmainArg);
 
         if (!successfull) {

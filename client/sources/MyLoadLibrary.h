@@ -4,6 +4,8 @@
 #include <windows.h>
 
 HMODULE MyLoadLibrary(LPCSTR, void *, void *);
+HMODULE MyLoadLibraryEx(LPCSTR, void *, void *, BOOL);
+
 HMODULE MyGetModuleHandle(LPCSTR);
 BOOL MyFreeLibrary(HMODULE);
 
@@ -15,6 +17,8 @@ FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 
 VOID MySetLibraries(PVOID pLibraries);
 PVOID MyGetLibraries();
+
+BOOL SetAliasedModule(HMODULE, HMODULE, const PSTR*, const PSTR*);
 
 #ifndef DLL_QUERY_HMODULE
 #define DLL_QUERY_HMODULE 6
