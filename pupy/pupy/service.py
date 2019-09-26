@@ -556,7 +556,7 @@ def run(config):
 
         logger.debug('Scriptlets completed')
 
-    logger.debug('CID: %08x', config.get('cid'))
+    logger.debug('CID: %08x', config.get('cid', 0))
 
     pupy.namespace = UpdatableModuleNamespace(_import)
 
