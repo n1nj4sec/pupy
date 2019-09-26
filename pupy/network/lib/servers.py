@@ -397,7 +397,11 @@ class PupyUDPServer(object):
                         self.clients[f] = self.new(f, kcp)
 
                     for f in updated:
-                        x = self.clients[f].consume()
+                        try:
+                            x = self.clients[f].consume()
+                        except EOFError:
+                            x = None
+
                         if not x:
                             failed.add(f)
 
@@ -428,6 +432,9 @@ class PupyUDPServer(object):
 
     def close(self):
         self.active = False
+
+        for f in self.clients.keys():
+            self.clients[f].close()
 
         if self.sock:
             self.sock.close()
