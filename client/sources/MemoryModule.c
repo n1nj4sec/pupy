@@ -37,9 +37,24 @@
 
 #include "MemoryModule.h"
 
+HMEMORYRSRC _MemoryFindResourceW(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type);
+static PIMAGE_RESOURCE_DIRECTORY_ENTRY _MemorySearchResourceEntry(
+    void *root,
+    PIMAGE_RESOURCE_DIRECTORY resources,
+    LPCWSTR key);
+HMEMORYRSRC _MemoryFindResourceExW(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR type, WORD language);
+DWORD _MemorySizeofResource(HMEMORYMODULE module, HMEMORYRSRC resource);
+LPVOID _MemoryLoadResource(HMEMORYMODULE module, HMEMORYRSRC resource);
+int _MemoryLoadString(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize);
+int _MemoryLoadStringEx(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize, WORD language);
+
 typedef BOOL (WINAPI *DllEntryProc)(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved);
 typedef int (WINAPI *ExeEntryProc)(void);
 
+static void*
+OffsetPointer(void* data, ptrdiff_t offset) {
+    return (void*) ((uintptr_t) data + offset);
+}
 typedef struct {
     const char *name;
     FARPROC proc;
@@ -53,26 +68,31 @@ typedef struct {
 } FUNCIDX;
 
 typedef struct {
-    PIMAGE_NT_HEADERS headers;
-    unsigned char *codeBase;
     HCUSTOMMODULE *modules;
+    FUNCIDX exports;
+    FUNCHASH *phExportsIndex;
+
     int numModules;
+
     BOOL initialized;
     BOOL isDLL;
     BOOL isRelocated;
-    CustomFreeLibraryFunc freeLibrary;
-    CustomGetProcAddress getProcAddress;
-    CustomLoadLibraryW loadLibraryW;
-    CustomLoadLibraryA loadLibraryA;
-    CustomLoadLibraryExA loadLibraryExA;
-    CustomLoadLibraryExW loadLibraryExW;
-    CustomGetModuleHandleA getModuleHandleA;
-    CustomGetModuleHandleW getModuleHandleW;
-    ExeEntryProc exeEntry;
     DWORD pageSize;
-    FUNCIDX exports;
-    FUNCHASH *phExportsIndex;
+
+    PIMAGE_NT_HEADERS headers;
+    unsigned char *codeBase;
+
+    HMODULE hOriginalModule;
+    HMODULE hAliasedModule;
+    PDL_CALLBACKS callbacks;
+
+    PVOID pvExportFilter;
+    MEMORY_LOAD_FLAGS flags;
+
+    ExeEntryProc exeEntry;
     DllEntryProc pcDllEntry;
+
+    unsigned char *resources;
 } MEMORYMODULE, *PMEMORYMODULE;
 
 typedef struct {
@@ -272,6 +292,7 @@ FinalizeSections(PMEMORYMODULE module)
         if (!FinalizeSection(module, &sectionData)) {
             return FALSE;
         }
+
         sectionData.address = sectionAddress;
         sectionData.alignedAddress = alignedAddress;
         sectionData.size = sectionSize;
@@ -400,6 +421,23 @@ GetImportAddr(
 }
 
 static BOOL
+BuildResourceTables(PMEMORYMODULE module)
+{
+    unsigned char *codeBase = ((PMEMORYMODULE) module)->codeBase;
+    PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(
+        (PMEMORYMODULE) module, IMAGE_DIRECTORY_ENTRY_RESOURCE);
+    PIMAGE_RESOURCE_DIRECTORY rootResources;
+
+    if (directory->Size == 0) {
+        module->resources = NULL;
+        return TRUE;
+    }
+
+    module->resources = codeBase + directory->VirtualAddress;
+    return TRUE;
+}
+
+static BOOL
 BuildImportTable(PMEMORYMODULE module)
 {
     unsigned char *codeBase = module->codeBase;
@@ -410,14 +448,24 @@ BuildImportTable(PMEMORYMODULE module)
         module, IMAGE_DIRECTORY_ENTRY_IMPORT);
 
     ImportHooks kernel32Hooks[] = {
-        {"LoadLibraryA", (FARPROC) module->loadLibraryA},
-        {"LoadLibraryW", (FARPROC) module->loadLibraryW},
-        {"LoadLibraryExA", (FARPROC) module->loadLibraryExA},
-        {"LoadLibraryExW", (FARPROC) module->loadLibraryExW},
-        {"GetModuleHandleA", (FARPROC) module->getModuleHandleA},
-        {"GetModuleHandleW", (FARPROC) module->getModuleHandleW},
-        {"GetProcAddress", (FARPROC) module->getProcAddress},
-        {"FreeLibrary", (FARPROC) module->freeLibrary},
+        {"LoadLibraryA", (FARPROC) module->callbacks->loadLibraryA},
+        {"LoadLibraryW", (FARPROC) module->callbacks->loadLibraryW},
+        {"LoadLibraryExA", (FARPROC) module->callbacks->loadLibraryExA},
+        {"LoadLibraryExW", (FARPROC) module->callbacks->loadLibraryExW},
+        {"GetModuleHandleA", (FARPROC) module->callbacks->getModuleHandleA},
+        {"GetModuleHandleW", (FARPROC) module->callbacks->getModuleHandleW},
+        {"GetModuleFileNameA", (FARPROC) module->callbacks->getModuleFileNameA},
+        {"GetModuleFileNameW", (FARPROC) module->callbacks->getModuleFileNameW},
+
+        {"FindResourceA", (FARPROC) module->callbacks->getFindResourceA},
+        {"FindResourceW", (FARPROC) module->callbacks->getFindResourceW},
+        {"FindResourceExA", (FARPROC) module->callbacks->getFindResourceExA},
+        {"FindResourceExW", (FARPROC) module->callbacks->getFindResourceExW},
+        {"SizeofResource", (FARPROC) module->callbacks->getSizeofResource},
+        {"LoadResource", (FARPROC) module->callbacks->getLoadResource},
+
+        {"GetProcAddress", (FARPROC) module->callbacks->getProcAddress},
+        {"FreeLibrary", (FARPROC) module->callbacks->freeLibrary},
         {NULL, NULL}
     };
 
@@ -438,9 +486,13 @@ BuildImportTable(PMEMORYMODULE module)
         HCUSTOMMODULE handle;
         LPCSTR lpcszLibraryName = (LPCSTR) (codeBase + importDesc->Name);
 
-        dprint("Import %s (LoadLibraryA = %p)\n", lpcszLibraryName, module->loadLibraryA);
+        dprint(
+            "Import %s (LoadLibraryA = %p)\n",
+            lpcszLibraryName,
+            module->callbacks->loadLibraryA
+        );
 
-        handle = module->loadLibraryA(lpcszLibraryName);
+        handle = module->callbacks->loadLibraryA(lpcszLibraryName);
 
         dprint("Import %s -> %p\n", lpcszLibraryName, handle);
 
@@ -453,7 +505,7 @@ BuildImportTable(PMEMORYMODULE module)
         tmp = (HCUSTOMMODULE *) realloc(
             module->modules, (module->numModules+1)*(sizeof(HCUSTOMMODULE)));
         if (tmp == NULL) {
-            module->freeLibrary(handle);
+            module->callbacks->freeLibrary(handle);
             SetLastError(ERROR_OUTOFMEMORY);
             result = FALSE;
             break;
@@ -488,7 +540,7 @@ BuildImportTable(PMEMORYMODULE module)
 
                 dprint("Import by thunk (%d)\n", IMAGE_ORDINAL(*thunkRef));
 
-                *funcRef = module->getProcAddress(
+                *funcRef = module->callbacks->getProcAddress(
                     handle, (LPCSTR)IMAGE_ORDINAL(*thunkRef)
                 );
 
@@ -503,7 +555,7 @@ BuildImportTable(PMEMORYMODULE module)
                     (LPCSTR)&thunkData->Name, lpcszLibraryName);
 
                 *funcRef = GetImportAddr(
-                    hooks, module->getProcAddress,
+                    hooks, module->callbacks->getProcAddress,
                     handle, (LPCSTR)&thunkData->Name
                 );
 
@@ -520,7 +572,7 @@ BuildImportTable(PMEMORYMODULE module)
         dprint("Resolving symbols %s -> complete, result=%p\n", lpcszLibraryName, result);
 
         if (!result) {
-            module->freeLibrary(handle);
+            module->callbacks->freeLibrary(handle);
             SetLastError(ERROR_PROC_NOT_FOUND);
             break;
         }
@@ -563,6 +615,83 @@ BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
     return RtlAddFunctionTable((PRUNTIME_FUNCTION)pExceptionDirectory, dwCount, (UINT_PTR)codeBase);
 }
 #endif
+
+static
+DWORD fnv1a(const unsigned char *ucData, size_t size) {
+    size_t i;
+    DWORD dwHash = 2166136261;
+    for (i=0; i<size; i++) {
+        dwHash ^= ucData[i];
+        dwHash *= 16777619;
+    }
+    return dwHash;
+}
+
+static
+BOOL isAllowedSymbol(LPCSTR procname, PVOID pvExportFilter, MEMORY_LOAD_FLAGS flags) {
+    size_t proclen;
+
+    if (HIWORD(procname) == 0) {
+        return TRUE;
+    }
+
+    if (!pvExportFilter) {
+        return TRUE;
+    }
+
+    proclen = strlen(procname);
+
+    switch (flags & (MEMORY_LOAD_EXPORT_FILTER_FNV1A | MEMORY_LOAD_EXPORT_FILTER_PREFIX)) {
+        case MEMORY_LOAD_DEFAULT: {
+            const PSTR *pIter;
+            for (pIter=pvExportFilter; pIter && *pIter; pIter++) {
+                LPCSTR pSymbol = *pIter;
+                if (!strcmp(pSymbol, procname)) {
+                    dprint("Allow import %s - by symbol\n", procname);
+                    return TRUE;
+                }
+            }
+        }
+        break;
+
+        case MEMORY_LOAD_EXPORT_FILTER_FNV1A: {
+            DWORD dwProcHash = fnv1a((const unsigned char *) procname, proclen);
+            PDWORD pIter;
+            for (pIter=pvExportFilter; pIter && *pIter; pIter++) {
+                if (*pIter == dwProcHash) {
+                    dprint("Allow import %s - by fnv1a (%08x)\n",
+                        procname, dwProcHash);
+                    return TRUE;
+                }
+            }
+        }
+        break;
+
+        case MEMORY_LOAD_EXPORT_FILTER_PREFIX: {
+            const PSTR *pIter;
+            for (pIter=pvExportFilter; pIter && *pIter; pIter++) {
+                LPCSTR pPrefix = *pIter;
+                size_t len = strlen(pPrefix);
+
+                if (len > proclen)
+                    continue;
+
+                if (!strncmp(pPrefix, procname, len)) {
+                    dprint("Allow import %s - prefix '%s' (%d)\n",
+                        procname, pPrefix, len);
+                    return TRUE;
+                }
+            }
+        }
+        break;
+
+        default:
+            dprint("Invalid flags %08x\n", flags);
+    }
+
+    dprint("Deny import: %s\n", procname);
+    return FALSE;
+}
 
 VOID BuildExportTable(PMEMORYMODULE module)
 {
@@ -614,6 +743,9 @@ VOID BuildExportTable(PMEMORYMODULE module)
         if (dwIdx > exports->NumberOfFunctions)
             continue;
 
+        if (!isAllowedSymbol(pcName, module->pvExportFilter, module->flags))
+            continue;
+
         proc = (FARPROC) (
             codeBase + (*(DWORD *) (
                 codeBase + exports->AddressOfFunctions + (dwIdx*4))));
@@ -653,32 +785,123 @@ VOID CleanupHeaders(PMEMORYMODULE module) {
         }
 }
 
-HMEMORYMODULE MemoryLoadLibraryEx(
-    const void *data,
-    PDL_CALLBACKS callbacks,
-    void *dllmainArg,
-    BOOL blExecuteCallbacks)
+BOOL _CreateModuleMapping(HMODULE hModule, HANDLE *phMapping, PVOID *ppvMem)
 {
-    PMEMORYMODULE result;
+    CHAR szDllPath[MAX_PATH+1];
+
+    HANDLE hFile;
+    HANDLE hMapping;
+    PVOID pvMem;
+
+    if (!GetModuleFileNameA(hModule, szDllPath, sizeof(szDllPath))) {
+        return FALSE;
+    }
+
+    dprint("CreateMapping of %s\n", szDllPath);
+    hFile = CreateFileA(
+        szDllPath,
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        dprint("Failed to open %s: %d\n", szDllPath, GetLastError());
+        return FALSE;
+    }
+
+    hMapping = CreateFileMappingA(
+        hFile,
+        NULL,
+        PAGE_READONLY,
+        0,
+        0,
+        NULL
+    );
+
+    CloseHandle(hFile);
+
+    if (hMapping == INVALID_HANDLE_VALUE) {
+        dprint("Failed create mapping of %s: %d\n", szDllPath, GetLastError());
+        return FALSE;
+    }
+
+    pvMem = MapViewOfFile(
+        hMapping,
+        FILE_MAP_READ,
+        0,
+        0,
+        0
+    );
+
+    if (!pvMem) {
+        dprint("Failed create view of %s: %d\n", szDllPath, GetLastError());
+        CloseHandle(hMapping);
+        return FALSE;
+    }
+
+    *phMapping = hMapping;
+    *ppvMem = pvMem;
+    return TRUE;
+}
+
+#define _ISSET(dw, x) ((dw) & (x))
+
+HMEMORYMODULE MemoryLoadLibraryEx(
+    const PVOID pvData,
+    PDL_CALLBACKS pdlCallbacks,
+    PVOID pvDllMainReserved,
+    const PVOID pvExportFilter,
+    MEMORY_LOAD_FLAGS flags
+)
+{
+    PMEMORYMODULE result = NULL;
     PIMAGE_DOS_HEADER dos_header;
     PIMAGE_NT_HEADERS old_header;
-    unsigned char *code, *headers;
+    unsigned char *code = NULL;
+    unsigned char *headers = NULL;
     SIZE_T locationDelta;
     SYSTEM_INFO sysInfo;
     HMODULE hModule;
+    HMODULE hOriginalModule = NULL;
+    HMODULE hAliasedModule = NULL;
+    HANDLE hMapping = INVALID_HANDLE_VALUE;
+    const void *pvViewOfFile = NULL;
+    const unsigned char *data = NULL;
+
+    if (!pdlCallbacks) {
+        dprint("No callbacks!\n");
+        return NULL;
+    }
+
+    if (_ISSET(flags, MEMORY_LOAD_FROM_HMODULE | MEMORY_LOAD_UNHOOK)) {
+        hOriginalModule = (HMODULE) pvData;
+        if (!_CreateModuleMapping(hOriginalModule, &hMapping, &pvViewOfFile)) {
+            dprint("MemoryLoadLibraryEx: Failed to mmap original module\n");
+            SetLastError(ERROR_OUTOFMEMORY);
+            return NULL;
+        }
+
+        data = pvViewOfFile;
+    } else {
+        data = (const unsigned char *) pvData;
+    }
 
     dprint("MemoryLoadLibraryEx: Load from %p\n", data);
 
     dos_header = (PIMAGE_DOS_HEADER)data;
     if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) {
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        return NULL;
+        goto cleanup;
     }
 
     old_header = (PIMAGE_NT_HEADERS)&((const unsigned char *)(data))[dos_header->e_lfanew];
     if (old_header->Signature != IMAGE_NT_SIGNATURE) {
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        return NULL;
+        goto cleanup;
     }
 
 #ifdef _WIN64
@@ -687,15 +910,16 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     if (old_header->FileHeader.Machine != IMAGE_FILE_MACHINE_I386) {
 #endif
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        return NULL;
+        goto cleanup;
     }
 
     if (old_header->OptionalHeader.SectionAlignment & 1) {
         // Only support section alignments that are a multiple of 2
         SetLastError(ERROR_BAD_EXE_FORMAT);
-        return NULL;
+        goto cleanup;
     }
 
+#if DEBUG
     // reserve memory for image of library
     // XXX: is it correct to commit the complete memory region at once?
     //      calling DllEntry raises an exception if we don't...
@@ -703,6 +927,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(
         old_header->OptionalHeader.SizeOfImage,
         MEM_RESERVE | MEM_COMMIT,
         PAGE_READWRITE);
+#endif
 
     if (code == NULL) {
         // try to allocate memory at arbitrary position
@@ -712,7 +937,8 @@ HMEMORYMODULE MemoryLoadLibraryEx(
             PAGE_READWRITE);
         if (code == NULL) {
             SetLastError(ERROR_OUTOFMEMORY);
-            return NULL;
+            dprint("Can't allocate base image\n");
+            goto cleanup;
         }
     }
 
@@ -722,20 +948,19 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     if (result == NULL) {
         VirtualFree(code, 0, MEM_RELEASE);
         SetLastError(ERROR_OUTOFMEMORY);
-        return NULL;
+        goto cleanup;
     }
 
     result->codeBase = code;
     result->isDLL = (old_header->FileHeader.Characteristics & IMAGE_FILE_DLL) != 0;
 
-    result->loadLibraryA = callbacks->loadLibraryA;
-    result->loadLibraryW = callbacks->loadLibraryW;
-    result->loadLibraryExA = callbacks->loadLibraryExA;
-    result->loadLibraryExW = callbacks->loadLibraryExW;
-    result->getModuleHandleA = callbacks->getModuleHandleA;
-    result->getModuleHandleW = callbacks->getModuleHandleW;
-    result->getProcAddress = callbacks->getProcAddress;
-    result->freeLibrary = callbacks->freeLibrary;
+    result->callbacks = pdlCallbacks;
+    result->flags = flags;
+    result->pvExportFilter = pvExportFilter;
+    result->hOriginalModule = hOriginalModule;
+    if (_ISSET(flags, MEMORY_LOAD_ALIASED)) {
+        result->hAliasedModule = (HMODULE) pvDllMainReserved;
+    }
 
     GetNativeSystemInfo(&sysInfo);
 
@@ -767,6 +992,11 @@ HMEMORYMODULE MemoryLoadLibraryEx(
         result->isRelocated = TRUE;
     }
 
+    // Save Resources VA
+    if (!BuildResourceTables(result)) {
+        goto error;
+    }
+
     // load required dlls and adjust function table of imports
     dprint("Build import table..\n");
     if (!BuildImportTable(result)) {
@@ -781,35 +1011,41 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     }
 
     // TLS callbacks are executed BEFORE the main loading
-    dprint("Execute TLS..\n");
-    if (!ExecuteTLS(result)) {
-        goto error;
-    }
+    if (!_ISSET(flags, MEMORY_LOAD_NO_CALLBACKS)) {
+        dprint("Execute TLS..\n");
+        if (!ExecuteTLS(result)) {
+            goto error;
+        }
 
 #ifdef _WIN64
-    // Enable exceptions
-    dprint("Register Exception table..\n");
-    if (!RegisterExceptionTable(result)) {
-        goto error;
-    }
+        // Enable exceptions
+        dprint("Register Exception table..\n");
+        if (!RegisterExceptionTable(result)) {
+            goto error;
+        }
 #endif
+    }
 
     // Build functions table
     dprint("Build export table..\n");
     BuildExportTable(result);
 
     // get entry point of loaded library
-    if (blExecuteCallbacks && result->isDLL && result->pcDllEntry) {
+    if (!_ISSET(flags, MEMORY_LOAD_NO_EP | MEMORY_LOAD_NO_CALLBACKS) &&
+            result->isDLL && result->pcDllEntry)
+    {
         BOOL successfull;
 
         dprint(
             "Execute EP (ImageBase: %p EP: %p ARG: %p)..\n",
-            code, result->pcDllEntry, dllmainArg
+            code, result->pcDllEntry, pvDllMainReserved
         );
 
         // notify library about attaching to process
         successfull = result->pcDllEntry(
-            (HINSTANCE)code, DLL_PROCESS_ATTACH, dllmainArg);
+            (HINSTANCE)code, DLL_PROCESS_ATTACH,
+            _ISSET(flags, MEMORY_LOAD_ALIASED) ? NULL : pvDllMainReserved
+        );
 
         if (!successfull) {
             SetLastError(ERROR_DLL_INIT_FAILED);
@@ -827,18 +1063,32 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     dprint("MemoryLoadLibraryEx: headers cleaned up\n");
 #endif
 
+cleanup:
+    if (pvViewOfFile)
+        UnmapViewOfFile(pvViewOfFile);
+
+    if (hMapping != INVALID_HANDLE_VALUE)
+        CloseHandle(hMapping);
+
     return (HMEMORYMODULE)result;
 
 error:
     dprint("MemoryLoadLibraryEx: error\n");
     // cleanup
     MemoryFreeLibrary(result);
+
+    if (pvViewOfFile)
+        UnmapViewOfFile(pvViewOfFile);
+
+    if (hMapping != INVALID_HANDLE_VALUE)
+        CloseHandle(hMapping);
+
     return NULL;
 }
 
-FARPROC MemoryGetProcAddress(HMEMORYMODULE hmodule, LPCSTR name)
+static
+FARPROC _MemoryGetProcAddress(PMEMORYMODULE module, LPCSTR name)
 {
-    PMEMORYMODULE module = (PMEMORYMODULE) hmodule;
     if (!module || !module->exports.dwFunctionsCount) {
         SetLastError(ERROR_PROC_NOT_FOUND);
         return NULL;
@@ -872,6 +1122,72 @@ FARPROC MemoryGetProcAddress(HMEMORYMODULE hmodule, LPCSTR name)
     }
 }
 
+FARPROC MemoryGetProcAddress(HMEMORYMODULE hmodule, LPCSTR name)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hmodule;
+    FARPROC fpAddress;
+
+    if (!module)
+        return NULL;
+
+    fpAddress = _MemoryGetProcAddress(module, name);
+
+    if (!fpAddress && module->hAliasedModule) {
+        dprint(
+            "MemoryGetProcAddress fallback aliased -> %p\n",
+            module->hAliasedModule
+        );
+        fpAddress = module->callbacks->systemGetProcAddress(
+            module->hAliasedModule, name
+        );
+    }
+
+    if (!fpAddress && module->hOriginalModule) {
+        dprint(
+            "MemoryGetProcAddress fallback -> %p\n",
+            module->hOriginalModule
+        );
+        fpAddress = module->callbacks->systemGetProcAddress(
+            module->hOriginalModule, name
+        );
+    }
+
+    return fpAddress;
+}
+
+
+DWORD MemoryModuleFileNameA(HMODULE hModule, LPSTR name, DWORD dwDest)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hModule;
+    if (module->hAliasedModule) {
+        return module->callbacks->systemGetModuleFileNameA(
+            module->hAliasedModule, name, dwDest);
+    }
+
+    if (module->hOriginalModule) {
+        return module->callbacks->systemGetModuleFileNameA(
+            module->hOriginalModule, name, dwDest);
+    }
+
+    return 0xFFFFFFFF;
+}
+
+DWORD MemoryModuleFileNameW(HMODULE hModule, LPWSTR name, DWORD dwDest)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hModule;
+    if (module->hAliasedModule) {
+        return module->callbacks->systemGetModuleFileNameW(
+            module->hAliasedModule, name, dwDest);
+    }
+
+    if (module->hOriginalModule) {
+        return module->callbacks->systemGetModuleFileNameW(
+            module->hOriginalModule, name, dwDest);
+    }
+
+    return 0xFFFFFFFF;
+}
+
 void MemoryFreeLibrary(HMEMORYMODULE mod)
 {
     PMEMORYMODULE module = (PMEMORYMODULE)mod;
@@ -894,7 +1210,7 @@ void MemoryFreeLibrary(HMEMORYMODULE mod)
         int i;
         for (i=0; i<module->numModules; i++) {
             if (module->modules[i] != NULL) {
-                module->freeLibrary(module->modules[i]);
+                module->callbacks->freeLibrary(module->modules[i]);
             }
         }
 
@@ -915,4 +1231,316 @@ void MemoryFreeLibrary(HMEMORYMODULE mod)
     }
 
     HeapFree(GetProcessHeap(), 0, module);
+}
+
+#define DEFAULT_LANGUAGE MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
+
+HMEMORYRSRC _MemoryFindResourceW(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type)
+{
+    return _MemoryFindResourceExW(module, name, type, DEFAULT_LANGUAGE);
+}
+
+static PIMAGE_RESOURCE_DIRECTORY_ENTRY _MemorySearchResourceEntry(
+    void *root,
+    PIMAGE_RESOURCE_DIRECTORY resources,
+    LPCWSTR key)
+{
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY entries = (PIMAGE_RESOURCE_DIRECTORY_ENTRY) (
+        resources + 1);
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY result = NULL;
+
+    DWORD start;
+    DWORD end;
+    DWORD middle;
+
+    if (!IS_INTRESOURCE(key) && key[0] == TEXT('#')) {
+        // special case: resource id given as string
+        TCHAR *endpos = NULL;
+        long int tmpkey = (WORD) _tcstol((TCHAR *) &key[1], &endpos, 10);
+        if (tmpkey <= 0xffff && lstrlen(endpos) == 0) {
+            key = MAKEINTRESOURCEW(tmpkey);
+        }
+    }
+
+    // entries are stored as ordered list of named entries,
+    // followed by an ordered list of id entries - we can do
+    // a binary search to find faster...
+    if (IS_INTRESOURCE(key)) {
+        WORD check = (WORD) (uintptr_t) key;
+        start = resources->NumberOfNamedEntries;
+        end = start + resources->NumberOfIdEntries;
+
+        while (end > start) {
+            WORD entryName;
+            middle = (start + end) >> 1;
+            entryName = (WORD) entries[middle].Name;
+            if (check < entryName) {
+                end = (end != middle ? middle : middle-1);
+            } else if (check > entryName) {
+                start = (start != middle ? middle : middle+1);
+            } else {
+                result = &entries[middle];
+                break;
+            }
+        }
+    } else {
+        LPCWSTR searchKey;
+        size_t searchKeyLen = wcslen(key);
+        searchKey = key;
+        start = 0;
+        end = resources->NumberOfNamedEntries;
+        while (end > start) {
+            int cmp;
+            PIMAGE_RESOURCE_DIR_STRING_U resourceString;
+            middle = (start + end) >> 1;
+            resourceString = (PIMAGE_RESOURCE_DIR_STRING_U) OffsetPointer(root, entries[middle].Name & 0x7FFFFFFF);
+            cmp = _wcsnicmp(searchKey, resourceString->NameString, resourceString->Length);
+            if (cmp == 0) {
+                // Handle partial match
+                if (searchKeyLen > resourceString->Length) {
+                    cmp = 1;
+                } else if (searchKeyLen < resourceString->Length) {
+                    cmp = -1;
+                }
+            }
+            if (cmp < 0) {
+                end = (middle != end ? middle : middle-1);
+            } else if (cmp > 0) {
+                start = (middle != start ? middle : middle+1);
+            } else {
+                result = &entries[middle];
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+HMEMORYRSRC _MemoryFindResourceExW(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR type, WORD language)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hModule;
+    PIMAGE_RESOURCE_DIRECTORY rootResources;
+    PIMAGE_RESOURCE_DIRECTORY nameResources;
+    PIMAGE_RESOURCE_DIRECTORY typeResources;
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY foundType;
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY foundName;
+    PIMAGE_RESOURCE_DIRECTORY_ENTRY foundLanguage;
+
+    if (!module->resources) {
+        // no resource table found
+        SetLastError(ERROR_RESOURCE_DATA_NOT_FOUND);
+        return NULL;
+    }
+
+    if (language == DEFAULT_LANGUAGE) {
+        // use language from current thread
+        language = LANGIDFROMLCID(GetThreadLocale());
+    }
+
+    // resources are stored as three-level tree
+    // - first node is the type
+    // - second node is the name
+    // - third node is the language
+    rootResources = (PIMAGE_RESOURCE_DIRECTORY) module->resources;
+    foundType = _MemorySearchResourceEntry(rootResources, rootResources, type);
+    if (foundType == NULL) {
+        SetLastError(ERROR_RESOURCE_TYPE_NOT_FOUND);
+        return NULL;
+    }
+
+    typeResources = (PIMAGE_RESOURCE_DIRECTORY) (module->resources + (foundType->OffsetToData & 0x7fffffff));
+    foundName = _MemorySearchResourceEntry(rootResources, typeResources, name);
+    if (foundName == NULL) {
+        SetLastError(ERROR_RESOURCE_NAME_NOT_FOUND);
+        return NULL;
+    }
+
+    nameResources = (PIMAGE_RESOURCE_DIRECTORY) (module->resources + (foundName->OffsetToData & 0x7fffffff));
+    foundLanguage = _MemorySearchResourceEntry(rootResources, nameResources, (LPCWSTR) (uintptr_t) language);
+    if (foundLanguage == NULL) {
+        // requested language not found, use first available
+        if (nameResources->NumberOfIdEntries == 0) {
+            SetLastError(ERROR_RESOURCE_LANG_NOT_FOUND);
+            return NULL;
+        }
+
+        foundLanguage = (PIMAGE_RESOURCE_DIRECTORY_ENTRY) (nameResources + 1);
+    }
+
+    return (module->resources + (foundLanguage->OffsetToData & 0x7fffffff));
+}
+
+DWORD _MemorySizeofResource(HMEMORYMODULE module, HMEMORYRSRC resource)
+{
+    PIMAGE_RESOURCE_DATA_ENTRY entry;
+    UNREFERENCED_PARAMETER(module);
+    entry = (PIMAGE_RESOURCE_DATA_ENTRY) resource;
+    if (entry == NULL) {
+        return 0;
+    }
+
+    return entry->Size;
+}
+
+LPVOID _MemoryLoadResource(HMEMORYMODULE module, HMEMORYRSRC resource)
+{
+    unsigned char *codeBase = ((PMEMORYMODULE) module)->codeBase;
+    PIMAGE_RESOURCE_DATA_ENTRY entry = (PIMAGE_RESOURCE_DATA_ENTRY) resource;
+    if (entry == NULL) {
+        return NULL;
+    }
+
+    return codeBase + entry->OffsetToData;
+}
+
+int _MemoryLoadString(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize)
+{
+    return _MemoryLoadStringEx(module, id, buffer, maxsize, DEFAULT_LANGUAGE);
+}
+
+int _MemoryLoadStringEx(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize, WORD language)
+{
+    HMEMORYRSRC resource;
+    PIMAGE_RESOURCE_DIR_STRING_U data;
+    DWORD size;
+    if (maxsize == 0) {
+        return 0;
+    }
+
+    resource = MemoryFindResourceExW(module, (LPCWSTR) MAKEINTRESOURCEW((id >> 4) + 1), RT_STRING, language);
+    if (resource == NULL) {
+        buffer[0] = 0;
+        return 0;
+    }
+
+    data = (PIMAGE_RESOURCE_DIR_STRING_U) MemoryLoadResource(module, resource);
+    id = id & 0x0f;
+    while (id--) {
+        data = (PIMAGE_RESOURCE_DIR_STRING_U) OffsetPointer(data, (data->Length + 1) * sizeof(WCHAR));
+    }
+    if (data->Length == 0) {
+        SetLastError(ERROR_RESOURCE_NAME_NOT_FOUND);
+        buffer[0] = 0;
+        return 0;
+    }
+
+    size = data->Length;
+    if (size >= (DWORD) maxsize) {
+        size = maxsize;
+    } else {
+        buffer[size] = 0;
+    }
+
+    wcsncpy(buffer, data->NameString, size);
+    return size;
+}
+
+HMEMORYRSRC MemoryFindResourceA(HMEMORYMODULE module, LPCSTR name, LPCSTR type)
+{
+    return MemoryFindResourceExA(module, name, type, DEFAULT_LANGUAGE);
+}
+
+
+HMEMORYRSRC MemoryFindResourceW(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type)
+{
+    return _MemoryFindResourceW(module, name, type);
+}
+
+HMEMORYRSRC MemoryFindResourceExA(HMEMORYMODULE hModule, LPCSTR name, LPCSTR type, WORD language)
+{
+    size_t namelen;
+    size_t typelen;
+    LPWSTR wName;
+    LPWSTR wType;
+
+    if (!name || !type)
+        return NULL;
+
+    namelen = (strlen(name) + 1) * 2;
+    typelen = (strlen(type) + 1) * 2;
+    wName = _alloca(namelen);
+    wType = _alloca(typelen);
+    mbstowcs(wName, name, namelen);
+    mbstowcs(wType, type, typelen);
+
+    return MemoryFindResourceW(hModule, wName, wType);
+}
+
+HMEMORYRSRC MemoryFindResourceExW(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR type, WORD language)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE)hModule;
+    HMEMORYRSRC resource = NULL;
+
+    if (!hModule)
+        return NULL;
+
+    if (!resource && module->hAliasedModule) {
+        resource = module->callbacks->systemFindResourceExW(
+            module->hAliasedModule, name, type, language
+        );
+    }
+
+    if (!resource && module->hOriginalModule) {
+        resource = module->callbacks->systemFindResourceExW(
+            module->hOriginalModule, name, type, language
+        );
+    }
+
+    if (resource)
+        return resource;
+
+    return _MemoryFindResourceExW(hModule, name, type, language);
+}
+
+DWORD MemorySizeofResource(HMEMORYMODULE hModule, HMEMORYRSRC resource)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hModule;
+    DWORD dwSize = 0;
+
+    if (!hModule)
+        return 0;
+
+    if (!dwSize && module->hAliasedModule) {
+        dwSize = module->callbacks->systemSizeofResource(
+            module->hAliasedModule, resource
+        );
+    }
+
+    if (!dwSize && module->hOriginalModule) {
+        dwSize = module->callbacks->systemSizeofResource(
+            module->hOriginalModule, resource
+        );
+    }
+
+    if (dwSize)
+        return dwSize;
+
+    return _MemorySizeofResource(hModule, resource);
+}
+
+LPVOID MemoryLoadResource(HMEMORYMODULE hModule, HMEMORYRSRC resource)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hModule;
+    PVOID *pvData = NULL;
+
+    if (!hModule)
+        return 0;
+
+    if (!pvData && module->hAliasedModule) {
+        pvData = module->callbacks->systemLoadResource(
+            module->hAliasedModule, resource
+        );
+    }
+
+    if (!pvData && module->hOriginalModule) {
+        pvData = module->callbacks->systemLoadResource(
+            module->hOriginalModule, resource
+        );
+    }
+
+    if (pvData)
+        return pvData;
+
+    return _MemoryLoadResource(module, resource);
 }

