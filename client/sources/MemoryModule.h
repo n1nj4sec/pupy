@@ -51,7 +51,7 @@ typedef DWORD (CALLBACK *CustomGetModuleFileNameA)(HMODULE, LPSTR, DWORD);
 typedef DWORD (CALLBACK *CustomGetModuleFileNameW)(HMODULE, LPWSTR, DWORD);
 
 typedef HRSRC (CALLBACK *CustomFindResourceA)(HMEMORYMODULE module, LPCSTR name, LPCSTR type);
-typedef HRSRC (CALLBACK *CustomFindResourceW)(HMEMORYMODULE module, LPCWSTR name, LPCSTR type);
+typedef HRSRC (CALLBACK *CustomFindResourceW)(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type);
 
 typedef HRSRC (CALLBACK *CustomFindResourceExA)(HMEMORYMODULE hModule, LPCSTR name, LPCSTR type, WORD language);
 typedef HRSRC (CALLBACK *CustomFindResourceExW)(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR type, WORD language);
@@ -100,12 +100,13 @@ typedef struct {
 typedef enum {
     MEMORY_LOAD_DEFAULT = 0,
     MEMORY_LOAD_NO_EP = 1 << 0,
-    MEMORY_LOAD_NO_CALLBACKS = 1 << 1,
-    MEMORY_LOAD_FROM_HMODULE = 1 << 2,
-    MEMORY_LOAD_ALIASED = 1 << 3,
-    MEMORY_LOAD_UNHOOK = 1 << 4,
-    MEMORY_LOAD_EXPORT_FILTER_FNV1A = 1 << 5,
-    MEMORY_LOAD_EXPORT_FILTER_PREFIX = 1 << 6,
+    MEMORY_LOAD_NO_TLS_CALLBACKS = 1 << 1,
+    MEMORY_LOAD_NO_EXCEPTION_HANDLING = 1 << 2,
+    MEMORY_LOAD_FROM_HMODULE = 1 << 3,
+    MEMORY_LOAD_ALIASED = 1 << 4,
+    MEMORY_LOAD_UNHOOK = 1 << 5,
+    MEMORY_LOAD_EXPORT_FILTER_FNV1A = 1 << 6,
+    MEMORY_LOAD_EXPORT_FILTER_PREFIX = 1 << 7,
 } MEMORY_LOAD_FLAGS;
 
 /**
@@ -143,12 +144,6 @@ HMEMORYRSRC MemoryFindResourceExW(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR t
 
 DWORD MemorySizeofResource(HMEMORYMODULE module, HMEMORYRSRC resource);
 LPVOID MemoryLoadResource(HMEMORYMODULE module, HMEMORYRSRC resource);
-
-MemoryLoadStringA(HMEMORYMODULE module, UINT id, LPSTR buffer, int maxsize);
-MemoryLoadStringExA(HMEMORYMODULE module, UINT id, LPSTR buffer, int maxsize, WORD language);
-
-MemoryLoadStringW(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize);
-MemoryLoadStringExW(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize, WORD language);
 
 #ifdef __cplusplus
 }

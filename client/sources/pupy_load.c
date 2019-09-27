@@ -213,7 +213,8 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
                 "KERNEL32.DLL", hKernelBase, hKernel32,
                 Kernel32AllowedPrefixes,
                 MEMORY_LOAD_FROM_HMODULE | MEMORY_LOAD_ALIASED | \
-                    MEMORY_LOAD_EXPORT_FILTER_PREFIX | MEMORY_LOAD_NO_EP
+                    MEMORY_LOAD_EXPORT_FILTER_PREFIX | \
+                    MEMORY_LOAD_NO_EP
             );
 
             if (hPrivate) {
@@ -221,6 +222,8 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
                     "Private copy of KERNELBASE.DLL loaded to %p as KERNEL32 (orig: %p)\n",
                     hPrivate, hKernel32
                 );
+            } else {
+                dprint("PRIVATE LOAD OF KERNEL32 FAILED\n");
             }
         }
     }

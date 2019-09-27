@@ -1011,27 +1011,29 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     }
 
     // TLS callbacks are executed BEFORE the main loading
-    if (!_ISSET(flags, MEMORY_LOAD_NO_CALLBACKS)) {
+    if (!_ISSET(flags, MEMORY_LOAD_NO_TLS_CALLBACKS)) {
         dprint("Execute TLS..\n");
         if (!ExecuteTLS(result)) {
             goto error;
         }
+    }
 
 #ifdef _WIN64
+    if (!_ISSET(flags, MEMORY_LOAD_NO_EXCEPTION_HANDLING)) {
         // Enable exceptions
         dprint("Register Exception table..\n");
         if (!RegisterExceptionTable(result)) {
             goto error;
         }
-#endif
     }
+#endif
 
     // Build functions table
     dprint("Build export table..\n");
     BuildExportTable(result);
 
     // get entry point of loaded library
-    if (!_ISSET(flags, MEMORY_LOAD_NO_EP | MEMORY_LOAD_NO_CALLBACKS) &&
+    if (!_ISSET(flags, MEMORY_LOAD_NO_EP) &&
             result->isDLL && result->pcDllEntry)
     {
         BOOL successfull;
@@ -1196,6 +1198,8 @@ void MemoryFreeLibrary(HMEMORYMODULE mod)
     if (module == NULL) {
         return;
     }
+
+    dprint("MemoryFreeLibrary (%p)\n", mod);
 
     phExports = module->phExportsIndex;
 
@@ -1392,48 +1396,6 @@ LPVOID _MemoryLoadResource(HMEMORYMODULE module, HMEMORYRSRC resource)
     }
 
     return codeBase + entry->OffsetToData;
-}
-
-int _MemoryLoadString(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize)
-{
-    return _MemoryLoadStringEx(module, id, buffer, maxsize, DEFAULT_LANGUAGE);
-}
-
-int _MemoryLoadStringEx(HMEMORYMODULE module, UINT id, LPWSTR buffer, int maxsize, WORD language)
-{
-    HMEMORYRSRC resource;
-    PIMAGE_RESOURCE_DIR_STRING_U data;
-    DWORD size;
-    if (maxsize == 0) {
-        return 0;
-    }
-
-    resource = MemoryFindResourceExW(module, (LPCWSTR) MAKEINTRESOURCEW((id >> 4) + 1), RT_STRING, language);
-    if (resource == NULL) {
-        buffer[0] = 0;
-        return 0;
-    }
-
-    data = (PIMAGE_RESOURCE_DIR_STRING_U) MemoryLoadResource(module, resource);
-    id = id & 0x0f;
-    while (id--) {
-        data = (PIMAGE_RESOURCE_DIR_STRING_U) OffsetPointer(data, (data->Length + 1) * sizeof(WCHAR));
-    }
-    if (data->Length == 0) {
-        SetLastError(ERROR_RESOURCE_NAME_NOT_FOUND);
-        buffer[0] = 0;
-        return 0;
-    }
-
-    size = data->Length;
-    if (size >= (DWORD) maxsize) {
-        size = maxsize;
-    } else {
-        buffer[size] = 0;
-    }
-
-    wcsncpy(buffer, data->NameString, size);
-    return size;
 }
 
 HMEMORYRSRC MemoryFindResourceA(HMEMORYMODULE module, LPCSTR name, LPCSTR type)
