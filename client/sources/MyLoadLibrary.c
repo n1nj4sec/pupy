@@ -127,6 +127,37 @@ static PHCUSTOMLIBRARY _FindMemoryModule(LPCSTR name, HMODULE module)
     return phIdx;
 }
 
+static PHCUSTOMLIBRARY _FindMemoryModuleW(LPCWSTR name)
+{
+    PSTR pszName = NULL;
+    PHCUSTOMLIBRARY hResult = NULL;
+    DWORD dwRequiredSize = WideCharToMultiByte(
+        CP_OEMCP, 0, name, -1, NULL,
+        0, NULL, NULL
+    );
+
+    if (!SUCCEEDED(dwRequiredSize))
+        return NULL;
+
+    dwRequiredSize += 1;
+
+    pszName = LocalAlloc(LMEM_FIXED, dwRequiredSize);
+    if (!pszName)
+        return NULL;
+
+    dwRequiredSize = WideCharToMultiByte(
+        CP_OEMCP, 0, name, -1, pszName,
+        dwRequiredSize, NULL, NULL
+    );
+
+    if (SUCCEEDED(dwRequiredSize))
+        hResult = _FindMemoryModule(pszName, NULL);
+
+    LocalFree(pszName);
+
+    return hResult;
+}
+
 static DL_CALLBACKS callbacks = {
     MyLoadLibraryA, MyLoadLibraryW,
     MyLoadLibraryExA, MyLoadLibraryExW,
@@ -332,8 +363,10 @@ MyLoadLibraryEx(
     if (flags & MEMORY_LOAD_FROM_HMODULE) {
         PHCUSTOMLIBRARY lib;
         lib = _FindMemoryModule(name, NULL);
-        if (lib)
+        if (lib)  {
+            lib->refcount ++;
             return lib->module;
+        }
     } else {
         hLoadedModule = MyGetModuleHandleA(name);
     }
@@ -370,32 +403,7 @@ MyLoadLibraryEx(
 }
 
 HMODULE CALLBACK MyGetModuleHandleW(LPCWSTR name) {
-    PSTR pszName = NULL;
-    HMODULE hResult = NULL;
-    DWORD dwRequiredSize = WideCharToMultiByte(
-        CP_OEMCP, 0, name, -1, NULL,
-        0, NULL, NULL
-    );
-
-    if (!SUCCEEDED(dwRequiredSize))
-        return NULL;
-
-    dwRequiredSize += 1;
-
-    pszName = LocalAlloc(LMEM_FIXED, dwRequiredSize);
-    if (!pszName)
-        return NULL;
-
-    dwRequiredSize = WideCharToMultiByte(
-        CP_OEMCP, 0, name, -1, pszName,
-        dwRequiredSize, NULL, NULL
-    );
-
-    if (SUCCEEDED(dwRequiredSize))
-        hResult = MyGetModuleHandleA(pszName);
-
-    LocalFree(pszName);
-
+    PHCUSTOMLIBRARY hResult = _FindMemoryModuleW(name);
     if (hResult)
         return hResult;
 
@@ -403,33 +411,41 @@ HMODULE CALLBACK MyGetModuleHandleW(LPCWSTR name) {
 }
 
 HMODULE CALLBACK MyLoadLibraryExA(LPCSTR name, HANDLE hFile, DWORD dwFlags) {
-    HMODULE hModule = MyGetModuleHandleA(name);
-    if (hModule)
-        return hModule;
+    PHCUSTOMLIBRARY hResult = _FindMemoryModule(name, NULL);
+    if (hResult) {
+        hResult->refcount ++;
+        return hResult->module;
+    }
 
     return LoadLibraryExA(name, hFile, dwFlags);
 }
 
 HMODULE CALLBACK MyLoadLibraryExW(LPCWSTR name, HANDLE hFile, DWORD dwFlags) {
-    HMODULE hModule = MyGetModuleHandleW(name);
-    if (hModule)
-        return hModule;
+    PHCUSTOMLIBRARY hResult = _FindMemoryModuleW(name);
+    if (hResult) {
+        hResult->refcount ++;
+        return hResult->module;
+    }
 
     return LoadLibraryExW(name, hFile, dwFlags);
 }
 
 HMODULE CALLBACK MyLoadLibraryA(LPCSTR name) {
-    HMODULE hModule = MyGetModuleHandleA(name);
-    if (hModule)
-        return hModule;
+    PHCUSTOMLIBRARY hResult = _FindMemoryModule(name, NULL);
+    if (hResult) {
+        hResult->refcount ++;
+        return hResult->module;
+    }
 
     return LoadLibraryA(name);
 }
 
 HMODULE CALLBACK MyLoadLibraryW(LPCWSTR name) {
-    HMODULE hModule = MyGetModuleHandleW(name);
-    if (hModule)
-        return hModule;
+    PHCUSTOMLIBRARY hResult = _FindMemoryModuleW(name);
+    if (hResult) {
+        hResult->refcount ++;
+        return hResult->module;
+    }
 
     return LoadLibraryW(name);
 }
@@ -437,7 +453,11 @@ HMODULE CALLBACK MyLoadLibraryW(LPCWSTR name) {
 BOOL CALLBACK MyFreeLibrary(HMODULE module)
 {
     PHCUSTOMLIBRARY lib = _FindMemoryModule(NULL, module);
+
     if (lib) {
+        dprint("MyFreeLibrary(%p) -> %s REFCNT: %d\n",
+            module, lib->name, lib->refcount);
+
         if (--lib->refcount == 0) {
             AcquireSRWLockExclusive(&libraries->lock);
 
@@ -470,9 +490,9 @@ FARPROC CALLBACK MyGetProcAddress(HMODULE module, LPCSTR procname)
 
     if (HIWORD(procname) == 0) {
         dprint("MyGetProcAddress(%p, %d) -> %p (lib: %p)\n",
-            module, LOWORD(procname), lib);
+            module, LOWORD(procname), fpFunc, lib);
     } else {
-        dprint("MyGetProcAddress(%p, %s) -> %p (lib: %p)\n", module, procname, lib);
+        dprint("MyGetProcAddress(%p, %s) -> %p (lib: %p)\n", module, procname, fpFunc, lib);
     }
 
     return fpFunc;
@@ -491,7 +511,7 @@ FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname)
     return addr;
 }
 
-HRSRC CALLBACK MyFindResourceA(HMEMORYMODULE module, LPCSTR name, LPCSTR type)
+HRSRC CALLBACK MyFindResourceA(HMODULE module, LPCSTR name, LPCSTR type)
 {
     HRSRC res;
     PHCUSTOMLIBRARY lib;
@@ -506,7 +526,7 @@ HRSRC CALLBACK MyFindResourceA(HMEMORYMODULE module, LPCSTR name, LPCSTR type)
     return res;
 }
 
-HRSRC CALLBACK MyFindResourceW(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type)
+HRSRC CALLBACK MyFindResourceW(HMODULE module, LPCWSTR name, LPCWSTR type)
 {
     HRSRC res;
     PHCUSTOMLIBRARY lib;
@@ -521,7 +541,7 @@ HRSRC CALLBACK MyFindResourceW(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type)
     return res;
 }
 
-HRSRC CALLBACK MyFindResourceExA(HMEMORYMODULE hModule, LPCSTR name, LPCSTR type, WORD language)
+HRSRC CALLBACK MyFindResourceExA(HMODULE hModule, LPCSTR name, LPCSTR type, WORD language)
 {
     HRSRC res;
     PHCUSTOMLIBRARY lib;
@@ -536,7 +556,7 @@ HRSRC CALLBACK MyFindResourceExA(HMEMORYMODULE hModule, LPCSTR name, LPCSTR type
     return res;
 }
 
-HRSRC CALLBACK MyFindResourceExW(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR type, WORD language)
+HRSRC CALLBACK MyFindResourceExW(HMODULE hModule, LPCWSTR name, LPCWSTR type, WORD language)
 {
     HRSRC res;
     PHCUSTOMLIBRARY lib;
@@ -551,7 +571,7 @@ HRSRC CALLBACK MyFindResourceExW(HMEMORYMODULE hModule, LPCWSTR name, LPCWSTR ty
     return res;
 }
 
-DWORD CALLBACK MySizeofResource(HMEMORYMODULE hModule, HRSRC resource)
+DWORD CALLBACK MySizeofResource(HMODULE hModule, HRSRC resource)
 {
     PHCUSTOMLIBRARY lib;
     DWORD res;
@@ -566,7 +586,7 @@ DWORD CALLBACK MySizeofResource(HMEMORYMODULE hModule, HRSRC resource)
     return res;
 }
 
-LPVOID CALLBACK MyLoadResource(HMEMORYMODULE hModule, HRSRC resource)
+LPVOID CALLBACK MyLoadResource(HMODULE hModule, HRSRC resource)
 {
     PHCUSTOMLIBRARY lib;
     LPVOID res;
