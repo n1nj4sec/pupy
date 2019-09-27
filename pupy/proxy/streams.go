@@ -70,27 +70,32 @@ func netForwarder(local, remote net.Conn, errout chan error, out chan []byte) (e
 	defer close(errin)
 	defer close(in)
 
-	go netReader(-1, remote, in, errin)
-
 	localAddr := strings.Split(remote.LocalAddr().String(), ":")
 	remoteAddr := strings.Split(remote.RemoteAddr().String(), ":")
 
 	localPort, _ := strconv.Atoi(localAddr[1])
 	remotePort, _ := strconv.Atoi(remoteAddr[1])
 
+	var (
+		err  error
+		data []byte
+		to   net.Conn
+	)
+
 	log.Warning("Accept: ", remote.LocalAddr(), " <- ", remote.RemoteAddr())
-	SendMessage(local, ConnectionAcceptHeader{
+	err = SendMessage(local, ConnectionAcceptHeader{
 		LocalHost:  localAddr[0],
 		LocalPort:  localPort,
 		RemoteHost: remoteAddr[0],
 		RemotePort: remotePort,
 	})
 
-	var (
-		err  error
-		data []byte
-		to   net.Conn
-	)
+	if err == nil {
+		go netReader(-1, remote, in, errin)
+	} else {
+		log.Error("Couldn't inform client about connection")
+		return err, nil
+	}
 
 	for {
 		select {
