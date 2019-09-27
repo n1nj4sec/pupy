@@ -484,6 +484,16 @@ def find_auth(proxy_info):
         proxy_info.password = cred.password
 
 
+def is_proxiable(chain, transport_info):
+    if _is_native_for(chain, transport_info.transport):
+        return True
+
+    if not issubclass(transport_info.transport.client, PupyTCPClient):
+        return False
+
+    return True
+
+
 def find_proxies(url=None, auth=True):
     wpad_proxies = None
 
@@ -603,6 +613,11 @@ def find_proxies_for_transport(
                 chain.append(lan_proxy)
 
             chain.extend(parsed_wan_proxies)
+
+            if not is_proxiable(chain, transport_info):
+                logger.debug('Rejected proposition %s - unsupported transport', chain)
+                continue
+
             yield make_args_for_transport_info(
                 transport_info, host_info, chain)
 
@@ -620,6 +635,10 @@ def find_proxies_for_transport(
 
         chain = [lan_proxy]
         chain.extend(parsed_wan_proxies)
+
+        if not is_proxiable(chain, transport_info):
+            logger.debug('Rejected proposition %s - unsupported transport', chain)
+            continue
 
         yield make_args_for_transport_info(
             transport_info, host_info, chain)
