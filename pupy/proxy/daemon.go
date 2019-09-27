@@ -133,7 +133,7 @@ func (d *Daemon) handle(conn net.Conn) {
 	case KCP:
 		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - start")
 		d.onListenerEnabled()
-		d.serveStream(int(UDPSize-24), conn, brh.BindInfo, d.listenAcceptKCP)
+		d.serveStream(int(UDPSize-(24+5)), conn, brh.BindInfo, d.listenAcceptKCP)
 		d.onListenerDisabled()
 		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
 

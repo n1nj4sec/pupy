@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"crypto/tls"
 	"crypto/x509"
+	"math/rand"
 
 	log "github.com/sirupsen/logrus"
 	kcp "github.com/xtaci/kcp-go"
@@ -265,6 +267,119 @@ func (d *Daemon) listenAcceptTLS(in net.Conn, port int, cherr chan error, chconn
 	log.Debug("Acceptor completed")
 }
 
+func NewKCPConn(in net.Conn) net.Conn {
+	localId := [4]byte{}
+	for i := 0; i < 4; i++ {
+		localId[i] = byte(rand.Intn(255))
+	}
+
+	kcpconn := &KCPConn{
+		localId: localId,
+		Conn:    in,
+	}
+	return kcpconn
+}
+
+func (c *KCPConn) sendEOF() {
+	end := [5]byte{}
+	end[0] = KCP_END
+	copy(end[1:], c.localId[:])
+	c.Conn.Write(end[:])
+}
+
+func compareId(id1, id2 []byte) bool {
+	if len(id1) != 4 || len(id2) != 4 {
+		return false
+	}
+
+	for i := 0; i < 4; i++ {
+		if id1[i] != id2[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (c *KCPConn) Read(b []byte) (n int, err error) {
+	buf := make([]byte, len(b)+5)
+	n, err = c.Conn.Read(buf)
+	if err != nil || n < 5 {
+		log.Debug(
+			"KCP: Invalid KCP header (too small or error) ",
+			n, err,
+		)
+		return 0, io.EOF
+	}
+
+	switch buf[0] {
+	case KCP_NEW:
+		if !c.initialized {
+			log.Debug("KCP: NEW received")
+			copy(c.remoteId[:], buf[1:5])
+			c.initialized = true
+		} else {
+			log.Debug("KCP: Unexpected NEW")
+			c.sendEOF()
+			return 0, io.EOF
+		}
+	case KCP_DAT:
+		if !c.initialized || !compareId(c.remoteId[:], buf[1:5]) {
+			log.Debug("KCP: Unexpected DAT")
+			c.sendEOF()
+			return 0, io.EOF
+		}
+	case KCP_END:
+		log.Debug("KCP: EOF Received")
+		return 0, io.EOF
+
+	default:
+		log.Debug("KCP: Unknown flag")
+		return 0, io.EOF
+	}
+
+	return copy(b[:], buf[5:n]), nil
+}
+
+func (c *KCPConn) Write(b []byte) (n int, err error) {
+	buf := make([]byte, len(b)+5)
+	if c.new_sent {
+		buf[0] = KCP_DAT
+	} else {
+		buf[0] = KCP_NEW
+		c.new_sent = true
+	}
+	copy(buf[1:5], c.localId[:])
+	copy(buf[5:], b[:])
+	return c.Conn.Write(buf)
+}
+
+func (c *KCPConn) Close() error {
+	log.Debug("KCP: Close() called, send EOF")
+	c.sendEOF()
+	return c.Conn.Close()
+}
+
+func (c *KCPConn) LocalAddr() net.Addr {
+	return c.Conn.LocalAddr()
+}
+
+func (c *KCPConn) RemoteAddr() net.Addr {
+	return c.Conn.RemoteAddr()
+}
+
+func (c *KCPConn) SetDeadline(t time.Time) error {
+	return c.Conn.SetDeadline(t)
+}
+
+func (c *KCPConn) SetReadDeadline(t time.Time) error {
+	return c.Conn.SetReadDeadline(t)
+}
+
+func (c *KCPConn) SetWriteDeadline(t time.Time) error {
+	return c.Conn.SetWriteDeadline(t)
+}
+
 func (d *Daemon) listenAcceptKCP(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
 	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
 		log.Debug("New KCP listener requested, port:", port)
@@ -282,42 +397,16 @@ func (d *Daemon) listenAcceptKCP(in net.Conn, port int, cherr chan error, chconn
 		return l, nil
 	})
 
-	log.Debug("Accepted connection")
+	log.Debug("KCP: Accepted connection")
+
+	if err == nil && conn != nil {
+		conn = NewKCPConn(conn)
+	}
 
 	if err != nil || conn == nil {
-		log.Debug("Acceptor flushed error")
+		log.Debug("KCP: Acceptor flushed error")
 		cherr <- err
-		log.Debug("Acceptor exited")
-		return
-	}
-
-	pupyKCPpreamble := make([]byte, 512)
-
-	n, err := conn.Read(pupyKCPpreamble)
-	if err != nil {
-		conn.Close()
-		cherr <- errors.New("preamble failed")
-		return
-	}
-
-	if n != 512 {
-		conn.Close()
-		cherr <- errors.New(fmt.Sprintf("invalid preamble size=%d", n))
-		return
-	}
-
-	for _, c := range pupyKCPpreamble {
-		if c != 0x0 {
-			conn.Close()
-			cherr <- errors.New("invalid preamble")
-			return
-		}
-	}
-
-	_, err = conn.Write(pupyKCPpreamble)
-	if err != nil {
-		conn.Close()
-		cherr <- errors.New("preamble communication failed")
+		log.Debug("KCP: Acceptor exited")
 		return
 	}
 

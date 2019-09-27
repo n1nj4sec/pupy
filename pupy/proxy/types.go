@@ -17,6 +17,14 @@ type (
 		close chan bool
 	}
 
+	KCPConn struct {
+		net.Conn
+		localId     [4]byte
+		remoteId    [4]byte
+		initialized bool
+		new_sent    bool
+	}
+
 	Listener struct {
 		Listener net.Listener
 		refcnt   int
@@ -115,4 +123,8 @@ const (
 	TCP  ListenerProtocol = iota
 	KCP  ListenerProtocol = iota
 	TLS  ListenerProtocol = iota
+
+	KCP_NEW = 0x0
+	KCP_DAT = 0x1
+	KCP_END = 0x2
 )

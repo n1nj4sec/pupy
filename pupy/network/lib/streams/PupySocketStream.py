@@ -380,6 +380,7 @@ class PupyUDPSocketStream(object):
         self.LONG_SLEEP_INTERRUPT_TIMEOUT = lsi
         self.KEEP_ALIVE_REQUIRED = lsi * 3
         self.INITIALIZED = False
+        self.NEW_SENT = False
 
         self.sock, self.dst_addr = sock[0], sock[1]
         if len(sock) == 3:
@@ -417,7 +418,7 @@ class PupyUDPSocketStream(object):
 
         self.transport = transport_class(self, **transport_kwargs)
 
-        self.MAX_IO_CHUNK = self.kcp.mtu - 24
+        self.MAX_IO_CHUNK = self.kcp.mtu - (24 + 5)
         self.compress = True
         self.close_callback = close_cb
 
@@ -432,17 +433,19 @@ class PupyUDPSocketStream(object):
             raise
 
     def on_connect(self):
-        # Poor man's connection initialization
-        # Without this client side bind payloads will not be able to
-        # determine when our connection was established
-        # So first who knows where to send data will trigger other side as well
-
-        self._send_packet(self.NEW)
         self.transport.on_connect()
 
     def _send_packet(self, flag, data=''):
-        self.kcp.send(flag + self.local_connid + data)
+        need_flush = False
         if flag in (self.NEW, self.END):
+            need_flush = True
+
+        if flag == self.DAT and not self.NEW_SENT:
+            flag = self.NEW
+            self.NEW_SENT = True
+
+        self.kcp.send(flag + self.local_connid + data)
+        if need_flush:
             self.kcp.flush()
 
     def poll(self, timeout):
