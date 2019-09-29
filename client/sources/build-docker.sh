@@ -6,7 +6,7 @@ PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSS
 
 PACKAGES="rpyc==3.4.4 rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyuv pyaudio"
-PACKAGES="$PACKAGES https://github.com/AlessandroZ/pypykatz/archive/master.zip"
+PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES adodbapi idna wmi winkerberos http_parser python-ntlm"
@@ -136,14 +136,14 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 set -e
 
-make -f Makefile -j BUILDENV=/build ARCH=win32 distclean
-make -f Makefile -j BUILDENV=/build ARCH=win32
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
-make -f Makefile -j BUILDENV=/build ARCH=win64 clean
-make -f Makefile -j BUILDENV=/build ARCH=win64
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win32 distclean
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win32
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win32 clean
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win32
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win64 clean
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win64
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win64 clean
+make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win64
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then
