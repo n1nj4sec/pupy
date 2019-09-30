@@ -162,9 +162,12 @@ LPSTR* CommandLineToArgvA(INT *pNumArgs)
 #ifdef _PUPY_PRIVATE_NT
 typedef BOOL (WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
 
-static const PSTR NtDllAllowedPrefixes[] = {"Nt", NULL};
+static const PSTR NtDllAllowedPrefixes[] = {
+    "Nt", "RtlAdjust", "RtlAllocate", "RtlConnect",
+    NULL
+};
 static const PSTR Kernel32AllowedPrefixes[] = {
-    "CreateRemote", "CreateFile", "Delete", "Open",
+    "Open", "CreateRemote", "CreateFile",
     "Write", "Read", "Terminate", "Resume", "Virtual",
     "Reg", NULL
 };

@@ -136,14 +136,14 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 set -e
 
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win32 distclean
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win32
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win32 clean
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win32
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win64 clean
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 ARCH=win64
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win64 clean
-make -f Makefile -j BUILDENV=/build PUPY_DYNLOAD=1 DEBUG=1 ARCH=win64
+make -f Makefile -j BUILDENV=/build ARCH=win32 distclean
+make -f Makefile -j BUILDENV=/build ARCH=win32
+make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
+make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
+make -f Makefile -j BUILDENV=/build ARCH=win64 clean
+make -f Makefile -j BUILDENV=/build ARCH=win64
+make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
+make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then
