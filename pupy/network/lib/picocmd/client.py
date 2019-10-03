@@ -52,37 +52,8 @@ CLIENT_VERSION = 2
 from network.lib import tinyhttp
 from network.lib import online
 from network.lib import doh as securedns
+from network.lib import Proxy
 
-
-class ProxyInfo(object):
-    __slots__ = (
-        'scheme', 'ip', 'port', 'user', 'password'
-    )
-
-    def __init__(self, scheme, ip, port, user, password):
-        scheme = scheme.upper()
-        if scheme == 'SOCKS':
-            scheme = 'SOCKS5'
-
-        self.scheme = scheme
-        self.ip = str(ip)
-        self.port = port
-        self.user = user
-        self.password = password
-
-    def as_tuple(self):
-        return self.scheme, self.ip+(
-            ':'+str(self.port) if self.port else ''
-        ), self.user, self.password
-
-    def __str__(self):
-        if self.user and self.password:
-            auth = '{}:{}@'.format(self.user, self.password)
-        else:
-            auth = ''
-
-        return '{}://{}{}:{}'.format(
-            self.scheme.lower(), auth, self.ip, self.port)
 
 class DnsCommandsClient(Thread):
     def __init__(
@@ -547,8 +518,14 @@ class DnsCommandsClient(Thread):
             if self.proxy in (None, True, False):
                 self.proxy = []
 
+            if scheme:
+                scheme = scheme.upper()
+
+            if scheme == 'SOCKS':
+                scheme = 'SOCKS5'
+
             self.proxy.append(
-                ProxyInfo(scheme, ip, port, user, password)
+                Proxy(scheme, '{}:{}'.format(ip, port), user, password)
             )
 
     def process(self):

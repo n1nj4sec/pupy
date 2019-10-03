@@ -47,6 +47,7 @@ from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
 from network.lib.buffer import Buffer
+from network.lib.msgtypes import MSG_TYPES_PACK
 
 import umsgpack
 
@@ -106,7 +107,7 @@ class ReverseSlaveService(Service):
         infos = self.exposed_get_infos()
 
         try:
-            umsgpack.dump(infos, infos_buffer)
+            umsgpack.dump(infos, infos_buffer, ext_handlers=MSG_TYPES_PACK)
         except Exception as e:
             pupy.remote_error('on_connect failed: {}; infos={}', e, infos)
 

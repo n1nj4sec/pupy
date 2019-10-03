@@ -308,7 +308,9 @@ def get_processes_proxies():
 def parse_proxy(proxy_str):
     login, password = None, None
 
-    if hasattr(proxy_str, 'as_tuple'):
+    if isinstance(proxy_str, Proxy):
+        yield proxy_str
+    elif hasattr(proxy_str, 'as_tuple'):
         yield Proxy(*proxy_str.as_tuple())
     # HTTP:login:password@ip:port
     elif '://' in proxy_str:
