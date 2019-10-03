@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import pupylib
 
 from . import main
 
