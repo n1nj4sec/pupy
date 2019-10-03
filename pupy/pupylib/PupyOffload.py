@@ -191,17 +191,24 @@ class PupyOffloadAcceptor(object):
                 m = MsgPackMessages(self._conn)
 
                 while True:
-                    conninfo = m.recv()
-                    if 'keepalive' in conninfo:
-                        logger.debug('KeepAlive: %s', conninfo['keepalive'])
+                    message = m.recv()
+                    if message.get('keepalive', None):
+                        logger.debug('KeepAlive: %s', message['keepalive'])
+                        m.send(message)
+                        continue
+                    elif message.get('extra', None):
+                        data = self._extra[message['data']]
+                        m.send(data)
                         continue
 
+                    logger.debug('Send last keepalive')
+                    m.send({
+                        'keepalive': int(time.time()),
+                        'last': True
+                    })
                     break
 
-                if conninfo['extra']:
-                    data = self._extra[conninfo['data']]
-                    m.send(data)
-                    conninfo = m.recv()
+                conninfo = message
 
                 return PupyOffloadSocket(
                     self._conn,

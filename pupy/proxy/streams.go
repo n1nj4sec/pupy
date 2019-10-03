@@ -9,6 +9,7 @@ import (
 
 	"time"
 
+	"context"
 	"errors"
 
 	"crypto/tls"
@@ -19,131 +20,151 @@ import (
 	kcp "github.com/xtaci/kcp-go"
 )
 
-func netReader(mtu int, conn net.Conn, ch chan []byte, cherr chan error) {
-	buffers := [][]byte{
-		make([]byte, 65535),
-		make([]byte, 65535),
+func NewNetReader(mtu int, in, out net.Conn) *NetReader {
+	return &NetReader{
+		mtu:  mtu,
+		in:   in,
+		out:  out,
+		wait: make(chan error),
 	}
-
-	buffIdx := 0
-
-	for {
-		buffer := buffers[buffIdx]
-		n, err := conn.Read(buffer)
-
-		if n > 0 {
-			if n < mtu || mtu == -1 {
-				ch <- buffer[:n]
-			} else {
-				offset := 0
-				for n > 0 {
-					portion := n
-					if n > mtu {
-						portion = mtu
-					}
-
-					ch <- buffer[offset : offset+portion]
-					n -= portion
-					offset += portion
-				}
-			}
-			buffIdx = (buffIdx + 1) % 2
-		}
-
-		if err != nil {
-			log.Debug("Flush close")
-			ch <- nil
-			log.Debug("Flush error")
-			cherr <- err
-			log.Debug("Flushed")
-			break
-		}
-	}
-
-	log.Debug("netReader exited!")
 }
 
-func netForwarder(local, remote net.Conn, errout chan error, out chan []byte) (error, error) {
-	in := make(chan []byte)
-	errin := make(chan error)
+func (n *NetReader) recv() ([]byte, error) {
+	portion := 1024 * n.mtu
+	if portion <= 0 {
+		portion = 4 * 1024 * 1024
+	}
 
-	defer close(errin)
-	defer close(in)
+	buffer := make([]byte, portion)
+	l, err := n.in.Read(buffer)
+	if err != nil {
+		return nil, err
+	}
 
-	localAddr := strings.Split(remote.LocalAddr().String(), ":")
-	remoteAddr := strings.Split(remote.RemoteAddr().String(), ":")
+	return buffer[:l], err
+}
+
+func (n *NetReader) send(buffer []byte) error {
+	toSend := len(buffer)
+	offset := 0
+
+	for {
+		if toSend == 0 {
+			break
+		}
+
+		portion := toSend
+		if n.mtu > 0 && portion > n.mtu {
+			portion = n.mtu
+		}
+
+		cnt, err := n.out.Write(buffer[offset : offset+portion])
+		if err != nil {
+			return err
+		}
+
+		offset += cnt
+		toSend -= cnt
+	}
+
+	return nil
+}
+
+func (n *NetReader) Serve() {
+	for {
+		buffer, err := n.recv()
+		if err != nil {
+			n.ReportError(err)
+			return
+		}
+
+		err = n.send(buffer)
+		if err != nil {
+			n.ReportError(err)
+			return
+		}
+	}
+}
+
+func (n *NetReader) ReportError(err error) {
+	log.Error(
+		"NetReader: ", n.in.RemoteAddr(), " -> ",
+		n.out.RemoteAddr(), ": ", err,
+	)
+
+	n.err = err
+	select {
+	case n.wait <- err:
+	default:
+	}
+}
+
+func NewNetForwarder(pproxy, remote net.Conn) *NetForwarder {
+	return &NetForwarder{
+		pproxy: pproxy,
+		remote: remote,
+	}
+}
+
+func (n *NetForwarder) sendRemoteConnectionInfo() error {
+	localAddr := strings.Split(n.remote.LocalAddr().String(), ":")
+	remoteAddr := strings.Split(n.remote.RemoteAddr().String(), ":")
 
 	localPort, _ := strconv.Atoi(localAddr[1])
 	remotePort, _ := strconv.Atoi(remoteAddr[1])
 
-	var (
-		err  error
-		data []byte
-		to   net.Conn
-	)
-
-	log.Warning("Accept: ", remote.LocalAddr(), " <- ", remote.RemoteAddr())
-	err = SendMessage(local, ConnectionAcceptHeader{
+	return SendMessage(n.pproxy, ConnectionAcceptHeader{
 		LocalHost:  localAddr[0],
 		LocalPort:  localPort,
 		RemoteHost: remoteAddr[0],
 		RemotePort: remotePort,
 	})
-
-	if err == nil {
-		go netReader(-1, remote, in, errin)
-	} else {
-		log.Error("Couldn't inform client about connection")
-		return err, nil
-	}
-
-	for {
-		select {
-		case data = <-in:
-			to = local
-			if data == nil {
-				in = nil
-				remote.Close()
-			}
-
-		case data = <-out:
-			to = remote
-			if data == nil {
-				out = nil
-				local.Close()
-			}
-		}
-
-		if data == nil {
-			to.Close()
-		} else {
-			_, err := to.Write(data)
-			if err != nil {
-				if out != nil {
-					local.Close()
-				}
-
-				if in != nil {
-					remote.Close()
-				}
-				log.Warning("Send error: ", err)
-			}
-		}
-
-		if in == nil && out == nil {
-			log.Debug("Both sides are down")
-			break
-		}
-	}
-
-	log.Debug("FORWARD COMPLETED")
-	err1 := <-errin
-	log.Debug("ERROR MESSAGES PASSED / ERRIN")
-	log.Info("Closed: ", remoteAddr)
-	return err, err1
 }
 
-func (d *Daemon) Accept(in net.Conn, port int, cherr chan error, createListener func(net.Conn) (net.Listener, error)) (net.Conn, error) {
+func (n *NetForwarder) Serve(ctx context.Context, l7ready chan error, remoteMtu int) error {
+	log.Warning(
+		"Forwarder: ", n.remote.LocalAddr(), " <- ", n.remote.RemoteAddr(),
+	)
+
+	err := n.sendRemoteConnectionInfo()
+	if err != nil {
+		log.Error("Notification handler send failed: ", err)
+		return err
+	}
+
+	select {
+	case err = <-l7ready:
+		if err != nil {
+			return err
+		}
+	case <-ctx.Done():
+		return errors.New("Cancelled")
+	}
+
+	log.Debug("Start network readers")
+
+	remoteLocalReader := NewNetReader(remoteMtu, n.remote, n.pproxy)
+	localRemoteReader := NewNetReader(remoteMtu, n.pproxy, n.remote)
+
+	go remoteLocalReader.Serve()
+	go localRemoteReader.Serve()
+
+	select {
+	case err = <-remoteLocalReader.wait:
+		log.Debug("NetForwarder: Remote->Local Closed: ", err)
+		return err
+
+	case err = <-localRemoteReader.wait:
+		log.Debug("NetForwarder: Local->Remote Closed: ", err)
+		return err
+
+	case <-ctx.Done():
+		log.Debug("NetForwarder: Cancellation received")
+		return errors.New("Cancelled")
+	}
+}
+
+func (d *Daemon) Accept(in net.Conn, port int, createListener func(net.Conn) (net.Listener, error)) (net.Conn, error) {
 	var (
 		listener *Listener
 		ok       bool
@@ -172,7 +193,6 @@ func (d *Daemon) Accept(in net.Conn, port int, cherr chan error, createListener 
 	log.Info(fmt.Sprintf("Create new listener [%d]: ok: refcnt=%d", port, listener.refcnt))
 	d.ListenersLock.Unlock()
 
-	cherr <- nil
 	return listener.Listener.Accept()
 }
 
@@ -196,32 +216,26 @@ func (d *Daemon) Remove(port int) {
 	d.ListenersLock.Unlock()
 }
 
-func (d *Daemon) listenAcceptTCP(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
-	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
+func (d *Daemon) listenAcceptTCP(in net.Conn, port int) (net.Conn, error) {
+	conn, err := d.Accept(in, port, func(in net.Conn) (net.Listener, error) {
 		log.Println("New listener requested, port:", port)
 		return net.Listen("tcp", fmt.Sprintf("%s:%d", ExternalBindHost, port))
 	})
 
 	log.Debug("TCP: Accepted connection")
 
-	if err != nil || conn == nil {
-		log.Debug("Acceptor flushed error")
-		cherr <- err
-		log.Debug("Acceptor exited")
-		return
-	} else {
+	if conn != nil {
 		conn.(*net.TCPConn).SetKeepAlive(true)
 		conn.(*net.TCPConn).SetKeepAlivePeriod(1 * time.Minute)
 		conn.(*net.TCPConn).SetNoDelay(true)
-
-		chconn <- conn
 	}
 
-	log.Debug("Acceptor completed")
+	log.Debug("TCP Acceptor completed: ", conn, err)
+	return conn, err
 }
 
-func (d *Daemon) listenAcceptTLS(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
-	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
+func (d *Daemon) listenAcceptTLS(in net.Conn, port int) (net.Conn, error) {
+	conn, err := d.Accept(in, port, func(in net.Conn) (net.Listener, error) {
 		log.Debug("Load certificates")
 		err := SendMessage(in, &Extra{
 			Extra: true,
@@ -258,18 +272,8 @@ func (d *Daemon) listenAcceptTLS(in net.Conn, port int, cherr chan error, chconn
 		})
 	})
 
-	log.Debug("SSL: Accepted connection")
-
-	if err != nil || conn == nil {
-		log.Debug("Acceptor flushed error")
-		cherr <- err
-		log.Debug("Acceptor exited")
-		return
-	} else {
-		chconn <- conn
-	}
-
-	log.Debug("Acceptor completed")
+	log.Debug("SSL: Accepted connection: ", conn, err)
+	return conn, err
 }
 
 func NewKCPConn(in net.Conn) net.Conn {
@@ -308,7 +312,9 @@ func compareId(id1, id2 []byte) bool {
 
 func (c *KCPConn) Read(b []byte) (n int, err error) {
 	buf := make([]byte, len(b)+5)
+
 	n, err = c.Conn.Read(buf)
+
 	if err != nil || n < 5 {
 		log.Debug(
 			"KCP: Invalid KCP header (too small or error) ",
@@ -354,9 +360,16 @@ func (c *KCPConn) Write(b []byte) (n int, err error) {
 		buf[0] = KCP_NEW
 		c.new_sent = true
 	}
+
 	copy(buf[1:5], c.localId[:])
 	copy(buf[5:], b[:])
-	return c.Conn.Write(buf)
+
+	n, err = c.Conn.Write(buf)
+	if err != nil {
+		return 0, err
+	}
+
+	return n - 5, nil
 }
 
 func (c *KCPConn) Close() error {
@@ -385,8 +398,8 @@ func (c *KCPConn) SetWriteDeadline(t time.Time) error {
 	return c.Conn.SetWriteDeadline(t)
 }
 
-func (d *Daemon) listenAcceptKCP(in net.Conn, port int, cherr chan error, chconn chan net.Conn) {
-	conn, err := d.Accept(in, port, cherr, func(in net.Conn) (net.Listener, error) {
+func (d *Daemon) listenAcceptKCP(in net.Conn, port int) (net.Conn, error) {
+	conn, err := d.Accept(in, port, func(in net.Conn) (net.Listener, error) {
 		log.Debug("New KCP listener requested, port:", port)
 
 		ll, err := kcp.Listen(fmt.Sprintf("%s:%d", ExternalBindHost, port))
@@ -402,47 +415,127 @@ func (d *Daemon) listenAcceptKCP(in net.Conn, port int, cherr chan error, chconn
 		return l, nil
 	})
 
-	log.Debug("KCP: Accepted connection")
-
-	if err == nil && conn != nil {
-		conn = NewKCPConn(conn)
-	}
-
-	if err != nil || conn == nil {
-		log.Debug("KCP: Acceptor flushed error")
-		cherr <- err
-		log.Debug("KCP: Acceptor exited")
-		return
-	}
-
-	chconn <- conn
-	log.Debug("Acceptor completed (KCP)")
+	log.Debug("KCP: Accepted connection", conn, err)
+	return NewKCPConn(conn), err
 }
 
-func (d *Daemon) serveStream(mtu int, in net.Conn, bind string,
-	acceptor func(net.Conn, int, chan error, chan net.Conn)) {
+func l7KeepAliveSender(ctx context.Context, conn net.Conn, cherr chan error) {
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		case t := <-ticker.C:
+			err := SendKeepAlive(conn, t)
+			if err != nil {
+				select {
+				case cherr <- err:
+				default:
+				}
+				return
+			}
+		}
+	}
+}
 
-	defer in.Close()
+func l7KeepAliveReceiver(ctx context.Context, conn net.Conn, cherr chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			keepalive := &KeepAlive{}
+			err := RecvMessage(conn, keepalive)
+			if err != nil {
+				select {
+				case cherr <- err:
+				default:
+				}
+				return
+			}
+
+			rtt := time.Now().Unix() - keepalive.Tick
+
+			log.Debug(
+				"KeepAlive: ", keepalive.Tick,
+				" RTT: ", rtt,
+				" Last: ", keepalive.Last)
+
+			if keepalive.Last {
+				select {
+				case cherr <- nil:
+				default:
+				}
+			}
+		}
+	}
+}
+
+func withAccept(
+	in net.Conn, port int,
+	acceptor func(net.Conn, int) (net.Conn, error),
+	chconn chan net.Conn, cherr chan error) {
+	conn, err := acceptor(in, port)
+
+	if err != nil {
+		select {
+		case cherr <- err:
+		default:
+		}
+	} else {
+		select {
+		case chconn <- conn:
+		default:
+		}
+	}
+}
+
+func acceptOrWait(
+	in net.Conn, port int,
+	acceptor func(net.Conn, int) (net.Conn, error)) (chan error, net.Conn, error) {
+
+	chconn := make(chan net.Conn)
+	cherr := make(chan error)
+	l7rcherr := make(chan error)
+
+	pingContext, pingCancel := context.WithCancel(context.Background())
+	defer pingCancel()
+
+	pingRecvContext, pingRecvCancel := context.WithCancel(
+		context.Background())
+
+	defer pingRecvCancel()
+
+	go withAccept(in, port, acceptor, chconn, cherr)
+	go l7KeepAliveSender(pingContext, in, cherr)
+	go l7KeepAliveReceiver(pingRecvContext, in, l7rcherr)
+
+	select {
+	case conn := <-chconn:
+		return l7rcherr, conn, nil
+	case err := <-l7rcherr:
+		log.Error("L7 KeepAlive Receiver failed for ", in.RemoteAddr())
+		return nil, nil, err
+	case err := <-cherr:
+		log.Error("Accept failed for ", in.RemoteAddr())
+		return nil, nil, err
+	}
+}
+
+func (d *Daemon) serveStream(
+	mtu int, pproxy net.Conn, bind string,
+	acceptor func(net.Conn, int) (net.Conn, error),
+) {
+
+	defer pproxy.Close()
 
 	port, err := strconv.Atoi(bind)
 	if err != nil {
 		log.Error("Invalid port: ", err.Error())
-		SendMessage(in, ConnectionAcceptHeader{
-			Error: err.Error(),
-		})
+		SendError(pproxy, err)
 		return
 	}
-
-	errout := make(chan error)
-	out := make(chan []byte)
-
-	chconn := make(chan net.Conn)
-	cherr := make(chan error)
-
-	defer close(errout)
-	defer close(out)
-	defer close(cherr)
-	defer close(chconn)
 
 	for _, mapping := range PortMaps {
 		if port == mapping.From {
@@ -451,48 +544,16 @@ func (d *Daemon) serveStream(mtu int, in net.Conn, bind string,
 		}
 	}
 
-	go acceptor(in, port, cherr, chconn)
+	defer d.Remove(port)
 
-	needFinishAcceptor := true
-
-	prepared := <-cherr
-	if prepared != nil {
-		log.Error("Acceptor preparation failed:", prepared)
+	done, remote, err := acceptOrWait(pproxy, port, acceptor)
+	if err != nil {
+		SendError(pproxy, err)
 		return
 	}
 
-	go netReader(mtu, in, out, errout)
+	defer remote.Close()
 
-	select {
-	case conn := <-chconn:
-		log.Debug("Starting forwarder..")
-		err1, err2 := netForwarder(in, conn, cherr, out)
-		log.Debug("Wait for out forwarder error")
-		err3 := <-errout
-		log.Info("Forwarder error: ", err1, err2, err3)
-
-		needFinishAcceptor = false
-
-	case _ = <-out:
-		<-errout
-
-	case err := <-cherr:
-		log.Error("Error during accept: ", err.Error())
-		SendMessage(in, ConnectionAcceptHeader{
-			Error: err.Error(),
-		})
-
-		<-out
-		<-errout
-
-		needFinishAcceptor = false
-	}
-
-	d.Remove(port)
-
-	if needFinishAcceptor {
-		log.Debug("Need finish acceptor!")
-		<-cherr
-		log.Debug("Need finish acceptor - done")
-	}
+	forwarder := NewNetForwarder(pproxy, remote)
+	forwarder.Serve(context.Background(), done, mtu)
 }

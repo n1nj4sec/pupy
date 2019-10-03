@@ -2,13 +2,26 @@ package main
 
 import (
 	"encoding/binary"
+	"time"
 
 	"io"
 	"net"
 
-	log "github.com/sirupsen/logrus"
 	msgpack "github.com/vmihailenco/msgpack"
 )
+
+func SendError(conn net.Conn, err error) error {
+	return SendMessage(conn, ConnectionAcceptHeader{
+		Error: err.Error(),
+	})
+}
+
+func SendKeepAlive(conn net.Conn, tick time.Time) error {
+	return SendMessage(conn, KeepAlive{
+		Tick: tick.Unix(),
+		Last: false,
+	})
+}
 
 func SendMessage(conn net.Conn, msg interface{}) error {
 	data, err := msgpack.Marshal(msg)
@@ -31,15 +44,11 @@ func SendMessage(conn net.Conn, msg interface{}) error {
 func RecvMessage(conn net.Conn, msg interface{}) error {
 	var datalen uint32
 
-	log.Debug("READ LEN")
-
 	err := binary.Read(conn, binary.BigEndian, &datalen)
 	if err != nil {
-		log.Debug("READ LEN FAILED: ", err)
 		return err
 	}
 
-	log.Debug("READ LEN:", datalen)
 	data := make([]byte, datalen)
 
 	_, err = io.ReadFull(conn, data)
@@ -47,6 +56,5 @@ func RecvMessage(conn net.Conn, msg interface{}) error {
 		return err
 	}
 
-	log.Debug("UNMARSHAL:", data)
 	return msgpack.Unmarshal(data, msg)
 }

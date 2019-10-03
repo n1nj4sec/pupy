@@ -42,8 +42,6 @@ func (d *Daemon) ListenAndServe() error {
 
 		go d.handle(conn)
 	}
-
-	return nil
 }
 
 func (d *Daemon) onListenerEnabled() {
@@ -93,21 +91,31 @@ func (d *Daemon) handle(conn net.Conn) {
 
 		d.DNSCheck.Lock()
 		if d.DNSListener != nil {
-			log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ",
-				client, " - request shutdown")
+			log.Warning(
+				"Request: DNS Handler for domain:", brh.BindInfo,
+				" client: ", client, " - request shutdown",
+			)
 			d.DNSListener.sendEmptyMessage()
 			d.DNSListener.Shutdown()
 		} else {
-			log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ",
-				client, " - wait for availability")
+			log.Warning(
+				"Request: DNS Handler for domain:", brh.BindInfo,
+				" client: ", client, " - wait for availability",
+			)
 		}
 		d.DNSCheck.Unlock()
 
 		d.DNSLock.Lock()
 		d.onListenerEnabled()
-		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - start")
+		log.Warning(
+			"Request: DNS Handler for domain:", brh.BindInfo,
+			" client: ", client, " - start",
+		)
 		d.serveDNS(conn, brh.BindInfo)
-		log.Warning("Request: DNS Handler for domain:", brh.BindInfo, " client: ", client, " - complete")
+		log.Warning(
+			"Request: DNS Handler for domain:", brh.BindInfo,
+			" client: ", client, " - complete",
+		)
 		d.onListenerDisabled()
 		d.DNSLock.Unlock()
 
@@ -124,25 +132,43 @@ func (d *Daemon) handle(conn net.Conn) {
 		})
 
 	case TCP:
-		log.Warning("Request: TCP handler with port:", brh.BindInfo, " client: ", client, " - start")
+		log.Warning(
+			"Request: TCP handler with port:", brh.BindInfo,
+			" client: ", client, " - start",
+		)
 		d.onListenerEnabled()
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTCP)
 		d.onListenerDisabled()
-		log.Warning("Request: TCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
+		log.Warning(
+			"Request: TCP handler with port:", brh.BindInfo,
+			" client: ", client, " - complete",
+		)
 
 	case KCP:
-		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - start")
+		log.Warning(
+			"Request: KCP handler with port:", brh.BindInfo,
+			" client: ", client, " MTU:", brh.MTU, " - start",
+		)
 		d.onListenerEnabled()
-		d.serveStream(int(UDPSize-(24+5)), conn, brh.BindInfo, d.listenAcceptKCP)
+		d.serveStream(brh.MTU, conn, brh.BindInfo, d.listenAcceptKCP)
 		d.onListenerDisabled()
-		log.Warning("Request: KCP handler with port:", brh.BindInfo, " client: ", client, " - complete")
+		log.Warning(
+			"Request: KCP handler with port:", brh.BindInfo,
+			" client: ", client, " - complete",
+		)
 
 	case TLS:
-		log.Warning("Request: SSL handler with port:", brh.BindInfo, " client: ", client, " - start")
+		log.Warning(
+			"Request: SSL handler with port:", brh.BindInfo,
+			" client: ", client, " - start",
+		)
 		d.onListenerEnabled()
 		d.serveStream(-1, conn, brh.BindInfo, d.listenAcceptTLS)
 		d.onListenerDisabled()
-		log.Warning("Request: SSL handler with port:", brh.BindInfo, " client: ", client, " - complete")
+		log.Warning(
+			"Request: SSL handler with port:", brh.BindInfo,
+			" client: ", client, " - complete",
+		)
 
 	default:
 		log.Error("Unknown protocol", brh.Protocol)

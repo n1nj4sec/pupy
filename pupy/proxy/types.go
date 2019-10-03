@@ -42,6 +42,7 @@ type (
 		Protocol ListenerProtocol `msgpack:"prot"`
 		BindInfo string           `msgpack:"bind"`
 		Timeout  int              `msgpack:"timeout"`
+		MTU      int              `msgpack:"mtu"`
 	}
 
 	DNSRequest struct {
@@ -114,6 +115,24 @@ type (
 		CACert string `msgpack:"ca"`
 		Cert   string `msgpack:"cert"`
 		Key    string `msgpack:"key"`
+	}
+
+	KeepAlive struct {
+		Tick int64 `msgpack:"keepalive"`
+		Last bool  `msgpack:"last"`
+	}
+
+	NetReader struct {
+		mtu  int
+		in   net.Conn
+		out  net.Conn
+		err  error
+		wait chan error
+	}
+
+	NetForwarder struct {
+		pproxy net.Conn
+		remote net.Conn
 	}
 )
 
