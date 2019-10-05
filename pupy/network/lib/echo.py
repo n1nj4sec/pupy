@@ -11,6 +11,7 @@ from socket import socket, SOCK_DGRAM, AF_INET
 from select import select
 from string import letters
 from threading import Thread, Lock, Event
+from netaddr import IPAddress
 from urllib2 import (
     OpenerDirector, HTTPHandler, Request
 )
@@ -227,7 +228,7 @@ class Echo(Thread):
     def __init__(self, host, amount=8, on_complete=None):
         Thread.__init__(self)
         self.daemon = True
-        self.host = host
+        self.host = IPAddress(host)
         self.amount = amount
         self._abort = Event()
 
@@ -242,19 +243,21 @@ class Echo(Thread):
 
     def run(self):
         self.tcp, self.http = tcp(
-            self.host,
+            str(self.host),
             amount=self.amount,
             abort=self._abort
         )
 
         self.udp = udp(
-            self.host,
+            str(self.host),
             amount=self.amount,
             abort=self._abort
         )
 
         if self._on_complete:
-            self._on_complete(self.tcp, self.http, self.udp)
+            self._on_complete(
+                self.tcp, self.http, str(self.udp)
+            )
 
 
 def echo(host, amount, on_complete):
