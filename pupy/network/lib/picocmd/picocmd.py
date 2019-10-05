@@ -322,12 +322,14 @@ class SystemStatus(Command):
         )
 
     def __repr__(self):
-        return ('{{SS: CPU:{cpu}% MEM:{mem}% L:{listen} ' + \
-                    'E:{remote} U:{users} I:{idle}}}').format(**self.get_dict())
+        return (
+            '{{SS: CPU:{cpu}% MEM:{mem}% L:{listen} ' + \
+                'E:{remote} U:{users} I:{idle}}}').format(
+                    **self.get_dict())
 
 
 class Ack(Command):
-    __slots__ = ('amount')
+    __slots__ = ('amount',)
 
     def __init__(self, amount=0):
         self.amount = amount
@@ -355,7 +357,7 @@ class Idle(Command):
 
 
 class Sleep(Command):
-    __slots__ = ('timeout')
+    __slots__ = ('timeout',)
 
     @staticmethod
     def unpack(data):
@@ -462,7 +464,7 @@ class Policy(Command):
 
 
 class Kex(Command):
-    __slots__ = ('parcel')
+    __slots__ = ('parcel',)
 
     def __init__(self, parcel):
         self.parcel = parcel
@@ -1004,7 +1006,7 @@ class OnlineStatus(Command):
 
 class PortQuizPort(Command):
 
-    __slots__ = ('ports')
+    __slots__ = ('ports',)
 
     @staticmethod
     def unpack(data):
@@ -1664,7 +1666,7 @@ class Error(Command):
 
 
 class CustomEvent(Command):
-    __slots__ = ('eventid')
+    __slots__ = ('eventid',)
 
     def __init__(self, eventid):
         self.eventid = eventid
@@ -1698,7 +1700,7 @@ class ParcelInvalidPayload(Exception):
 
 class ParcelInvalidCommand(Exception):
 
-    __slots__ = ('command')
+    __slots__ = ('command',)
 
     def __init__(self, command):
         self.command = command
@@ -1709,7 +1711,7 @@ class ParcelInvalidCommand(Exception):
 
 class Parcel(object):
 
-    __slots__ = ('commands')
+    __slots__ = ('commands',)
 
     # Explicitly define commands. In other case make break something
 
