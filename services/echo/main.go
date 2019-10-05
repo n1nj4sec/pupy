@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/LiamHaworth/go-tproxy"
 )
@@ -12,7 +17,28 @@ import (
 var (
 	EchoBindHost = "0.0.0.0"
 	EchoBindPort = 31337
+	EchoMagic    = "\xDE\xAD\xBE\xEF"
 )
+
+func isHttpEchoRequest(body []byte) bool {
+	buf := bufio.NewReader(bytes.NewReader(body))
+	req, err := http.ReadRequest(buf)
+	if err != nil {
+		return false
+	}
+
+	for k, v := range req.URL.Query() {
+		if strings.ToLower(k) == "echo" {
+			for _, value := range v {
+				if value == EchoMagic {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
 
 func handleConn(conn net.Conn) {
 	defer conn.Close()
@@ -21,10 +47,28 @@ func handleConn(conn net.Conn) {
 
 	n, err := conn.Read(buffer)
 	if err != nil {
-		log.Println("TCP: "+conn.LocalAddr().String(), " err: ", err)
 		return
-	} else {
-		log.Println("TCP: "+conn.LocalAddr().String(), " b: ", n)
+	}
+
+	switch {
+	case isHttpEchoRequest(buffer):
+		log.Println(
+			"TCP/HTTP: "+conn.RemoteAddr().String(), "->",
+			conn.LocalAddr().String(), " b: ", n,
+		)
+		conn.Write(
+			[]byte(fmt.Sprintf(
+				"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream"+
+					"\r\nContent-Length: %d\r\n\r\n", n,
+			)),
+		)
+	case bytes.Equal(buffer[:4], []byte(EchoMagic)):
+		log.Println(
+			"TCP/RAW: "+conn.RemoteAddr().String(), "->",
+			conn.LocalAddr().String(), " b: ", n,
+		)
+	default:
+		return
 	}
 
 	conn.Write(buffer[:n])
@@ -55,12 +99,30 @@ func udpEchoServer(listener *net.UDPConn) {
 			log.Fatalln("UDP reader failed: ", err)
 		}
 
-		if srcAddr.IP.Equal(dstAddr.IP) {
+		if srcAddr.IP.Equal(dstAddr.IP) || n < 4 {
 			continue
 		}
 
-		log.Println("UDP: "+dstAddr.String(), " b: ", n)
-		listener.WriteToUDP(buffer[:n], srcAddr)
+		if !bytes.Equal(buffer[:4], []byte(EchoMagic)) {
+			continue
+		}
+
+		log.Println(
+			"UDP: "+srcAddr.String(), "->",
+			dstAddr.String(), " b: ", n,
+		)
+
+		remoteConn, err := tproxy.DialUDP("udp", dstAddr, srcAddr)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		_, err = remoteConn.Write(buffer[:n])
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 	}
 }
 
