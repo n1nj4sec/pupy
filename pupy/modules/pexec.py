@@ -38,7 +38,7 @@ class PExec(PupyModule):
         cls.arg_parser.add_argument(
             '-N',
             action='store_true',
-            help='Don\'t receive stdout (read still be done on the other side)',
+            help='Start detached',
         )
         encodings = cls.arg_parser.add_mutually_exclusive_group()
         encodings.add_argument(

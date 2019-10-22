@@ -8,6 +8,8 @@ import Queue
 import rpyc
 import sys
 import os
+import struct
+import errno
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 DETACHED_PROCESS = 0x00000008
@@ -124,6 +126,8 @@ class SafePopen(object):
 
     def _execute(self, read_cb, close_cb):
         returncode = None
+        need_fork = False
+
         try:
             kwargs = self._popen_kwargs
             # Setup some required arguments
@@ -151,25 +155,57 @@ class SafePopen(object):
                     'stderr': devnull,
                 })
 
-            if self._stdin_data:
-                kwargs['stdin'] = subprocess.PIPE
-
             if self._suid:
                 kwargs.update({
                     'preexec_fn': lambda: prepare(self._suid)
                 })
 
-            self._pipe = subprocess.Popen(
-                *self._popen_args,
-                **kwargs
-            )
+            if need_fork:
+                p_read, p_write = os.pipe()
+                pid = os.fork()
+                if pid == 0:
+                    os.close(p_read)
 
-            if self._stdin_data:
-                self._pipe.stdin.write(self._stdin_data)
-                self._pipe.stdin.flush()
+                    if 'preexec_fn' not in kwargs:
+                        kwargs['preexec_fn'] = os.setsid
 
-            if not self._interactive and self._pipe.stdin:
-                self._pipe.stdin.close()
+                    try:
+                        self._pipe = subprocess.Popen(
+                            *self._popen_args,
+                            **kwargs
+                        )
+
+                        os.write(p_write, struct.pack('i', self._pipe.poll() or 0))
+
+                    except OSError as e:
+                        os.write(p_write, struct.pack('i', e.errno))
+
+                    except Exception as e:
+                        os.write(p_write, struct.pack('i', 1))
+
+                    finally:
+                        os.close(p_write)
+
+                    os._exit(0)
+
+                else:
+                    os.close(p_write)
+                    returncode, = struct.unpack('i', os.read(p_read, 4))
+                    os.waitpid(pid, 0)
+
+            else:
+                self._pipe = subprocess.Popen(
+                    *self._popen_args,
+                    **kwargs
+                )
+
+            if self._pipe and self._pipe.stdin:
+                if self._stdin_data:
+                    self._pipe.stdin.write(self._stdin_data)
+                    self._pipe.stdin.flush()
+
+                if not self._interactive:
+                    self._pipe.stdin.close()
 
         except OSError as e:
             if read_cb:
@@ -200,7 +236,11 @@ class SafePopen(object):
                 return
 
         if self._detached:
-            self.returncode = self._pipe.poll()
+            if self._pipe:
+                self.returncode = self._pipe.poll()
+            else:
+                self.returncode = returncode or None
+
             if close_cb:
                 close_cb()
             return
@@ -244,7 +284,9 @@ class SafePopen(object):
         t.start()
 
     def get_returncode(self):
-        return self.returncode
+        return errno.errorcode.get(
+            self.returncode, self.returncode
+        )
 
     def terminate(self):
         if not self.returncode and self._pipe:
