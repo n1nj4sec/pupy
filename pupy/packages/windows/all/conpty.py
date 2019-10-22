@@ -20,7 +20,8 @@ from pupwinutils.security import (
     StartupInfoAttribute, GetExitCodeProcess,
     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, S_OK,
     INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
-    STILL_ACTIVE
+    CREATE_NEW_PROCESS_GROUP, STARTF_USESTDHANDLES,
+    STILL_ACTIVE, INVALID_HANDLE
 )
 
 if hasattr(pupy, 'get_logger'):
@@ -102,6 +103,11 @@ class ConPTY(object):
                     COORD(*pty_size), hPipePTYIn, hPipePTYOut, 0, byref(hPTY)) != S_OK:
                 raise WinError(get_last_error())
 
+            logger.info('hPTY: %x', hPTY.value)
+
+            if hPTY.value == INVALID_HANDLE_VALUE:
+                raise WinError(get_last_error())
+
         except WinError:
             for handle in (hPipePTYOut, hPipePTYIn, hPipeOut, hPipeIn):
                 if handle.value != INVALID_HANDLE_VALUE:
@@ -135,7 +141,10 @@ class ConPTY(object):
                     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
                     self._pty
                 )
-            ]
+            ],
+            stdout=INVALID_HANDLE,
+            stderr=INVALID_HANDLE,
+            stdin=INVALID_HANDLE
         )
 
     @property
@@ -177,7 +186,11 @@ class ConPTY(object):
                 continue
 
             elif result == WAIT_OBJECT_0:
-                logger.info('Exited!')
+                status = DWORD(-1)
+                GetExitCodeProcess(self._lpInfo.hProcess, byref(status))
+                logger.info(
+                    'Exited (%08x, hPTY=%x)!', status.value, self._pty.value
+                )
                 break
 
             else:
@@ -190,12 +203,15 @@ class ConPTY(object):
 
     def write(self, data):
         if self._closed or self._conin_pipe == INVALID_HANDLE_VALUE:
+            logger.info('Write - invalid state')
             return False
 
         written = DWORD()
 
         if not WriteFile(self._conin_pipe, data, len(data), byref(written), None):
-            raise WinError(get_last_error())
+            error = get_last_error()
+            logger.info('Write error (%d)', error)
+            raise WinError(error)
 
     def read(self, amount=8192):
         buffer = create_string_buffer(amount)
@@ -203,6 +219,7 @@ class ConPTY(object):
 
         if not ReadFile(self._conout_pipe, buffer, amount, byref(read), None):
             error = get_last_error()
+            logger.info('Read error (%d)', error)
 
             # Closed pipe
             if error == 109:
@@ -220,7 +237,9 @@ class ConPTY(object):
             return False
 
         if ResizePseudoConsole(self._pty, COORD(cols, rows)) != S_OK:
-            raise WinError(get_last_error())
+            error = get_last_error()
+            logger.info('Resize error (%d)', error)
+            raise WinError(error)
 
     def close(self):
         if self._closed:
