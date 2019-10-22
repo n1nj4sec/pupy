@@ -38,7 +38,7 @@ class PExec(PupyModule):
         cls.arg_parser.add_argument(
             '-N',
             action='store_true',
-            help='Don\'t receive stdout (read still be done on the other side)',
+            help='Start detached',
         )
         encodings = cls.arg_parser.add_mutually_exclusive_group()
         encodings.add_argument(
@@ -79,6 +79,7 @@ class PExec(PupyModule):
         cmdenv = {
             'stderr': (None if args.n else subprocess.STDOUT),
             'universal_newlines': False,
+            'detached': args.N
         }
 
         if len(cmdargs) == 1 and ' ' in cmdargs[0]:
@@ -100,9 +101,7 @@ class PExec(PupyModule):
                 ]
 
         if args.set_uid:
-            cmdenv.update({
-                'suid': args.set_uid
-            })
+            cmdenv['suid'] = args.set_uid
 
         close_event = threading.Event()
 
@@ -134,19 +133,19 @@ class PExec(PupyModule):
         kwargs = tuple((k,v) for k,v in cmdenv.iteritems())
 
         self.terminate_pipe, get_returncode = safe_exec(
-            None if args.N else on_read,
-            close_event.set, cmdargs, kwargs)
+            on_read, close_event.set, cmdargs, kwargs
+        )
 
         if hasattr(self.job, 'id'):
-            self.success('Started at {}): '.format(
+            self.success('Started at {}'.format(
                 datetime.datetime.now()))
 
         close_event.wait()
 
         retcode = get_returncode()
         if retcode == 0:
-            self.success('Successful at {}: '.format(datetime.datetime.now()))
-        else:
+            self.success('Completed at {}'.format(datetime.datetime.now()))
+        elif retcode is not None:
             self.error(
                 'Ret: {} at {}'.format(retcode, datetime.datetime.now()))
 

