@@ -401,7 +401,7 @@ def check():
 
     try:
         data = ctx_mitm.get(CHECKS['https']['url'])
-        if not CHECKS['https']['text'] in data:
+        if result | HTTPS and CHECKS['https']['text'] not in data:
             result |= HTTPS_MITM
 
     except Exception, e:
@@ -530,15 +530,16 @@ class PortQuiz(threading.Thread):
     PORTQUIZ_ADDR='5.196.70.86'
     PORTQUIZ_HOSTNAME='portquiz.net'
     PORTQUIZ_443_MESSAGE='Your browser sent a request that this server could not understand'
-    PORTQUIZ_MESSAGE='<html><body><h1>It works!</h1></body></html>'
+    PORTQUIZ_MESSAGE='test successful!'
 
     __slots__ = (
         'table', 'lock', 'abort', 'amount',
         'opener', 'http_timeout',
-        'connect_timeout', 'available'
+        'connect_timeout', 'available',
+        'hostname', 'ip'
     )
 
-    def __init__(self, amount=5, http_timeout=15, connect_timeout=10):
+    def __init__(self, amount=5, http_timeout=15, connect_timeout=10, portquiz=None):
         threading.Thread.__init__(self)
         self.daemon = True
 
@@ -553,6 +554,16 @@ class PortQuiz(threading.Thread):
         self.http_timeout = http_timeout
         self.connect_timeout = connect_timeout
         self.available = list()
+
+        if portquiz is not None:
+            self.hostname = portquiz
+            self.ip = socket.gethostbyname(portquiz)
+        else:
+            self.hostname = self.PORTQUIZ_HOSTNAME
+            try:
+                self.ip = socket.gethostbyname(self.PORTQUIZ_HOSTNAME)
+            except socket.gaierror:
+                self.ip = self.PORTQUIZ_ADDR
 
     def _on_open_port(self, info):
         host, port, sock = info
@@ -569,13 +580,13 @@ class PortQuiz(threading.Thread):
             url = urllib2.Request(
                 'http://{}:{}'.format(host, port),
                 headers={
-                    'Host': self.PORTQUIZ_HOSTNAME,
+                    'Host': self.hostname,
                     'User-Agent': 'curl',
                 })
 
             response = self.opener.open(url, timeout=self.http_timeout)
             data = response.read()
-            if 'test successful!' in data \
+            if self.PORTQUIZ_MESSAGE in data \
               or (port == 443 and self.PORTQUIZ_443_MESSAGE in data):
                 self.available.append(port)
                 if len(self.available) >= self.amount:
@@ -597,14 +608,9 @@ class PortQuiz(threading.Thread):
             80, 443, 8080, 53, 5222, 25, 110, 465
         ]
 
-        try:
-            portquiz_addr = socket.gethostbyname(self.PORTQUIZ_HOSTNAME)
-        except socket.gaierror:
-            portquiz_addr = self.PORTQUIZ_ADDR
+        logger.debug('Scan most important. IP: %s', self.ip)
 
-        logger.debug('Scan most important. IP: %s', portquiz_addr)
-
-        scan.scan([portquiz_addr], most_important, timeout=self.connect_timeout, abort=self.abort,
+        scan.scan([self.ip], most_important, timeout=self.connect_timeout, abort=self.abort,
              on_open_port=self._on_open_port, pass_socket=True)
 
         logger.debug('Scan other ports')
@@ -617,7 +623,7 @@ class PortQuiz(threading.Thread):
             random.shuffle(other)
 
             scan.scan(
-                [portquiz_addr], other, timeout=self.connect_timeout, abort=self.abort,
+                [self.ip], other, timeout=self.connect_timeout, abort=self.abort,
                 on_open_port=self._on_open_port, pass_socket=True)
 
         logger.debug('Done. Found %d ports', len(self.available))
