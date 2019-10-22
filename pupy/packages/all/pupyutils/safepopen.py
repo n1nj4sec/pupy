@@ -10,6 +10,7 @@ import sys
 import os
 
 ON_POSIX = 'posix' in sys.builtin_module_names
+DETACHED_PROCESS = 0x00000008
 
 
 def read_pipe(queue, pipe, bufsize):
@@ -88,8 +89,12 @@ class SafePopen(object):
     def __init__(self, *popen_args, **popen_kwargs):
         self._popen_args = popen_args
         self._interactive = popen_kwargs.pop('interactive', False)
+        self._detached = popen_kwargs.pop('detached', False)
         self._stdin_data = popen_kwargs.pop('stdin_data', None)
         self._suid = popen_kwargs.pop('suid', None)
+
+        if self._detached:
+            self._interactive = False
 
         if not ON_POSIX:
             self._suid = None
@@ -107,15 +112,14 @@ class SafePopen(object):
 
         if hasattr(subprocess, 'STARTUPINFO'):
             startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= \
-              subprocess.CREATE_NEW_CONSOLE | \
-              subprocess.STARTF_USESHOWWINDOW
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             self._popen_kwargs.update({
                 'startupinfo': startupinfo,
+                'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP
             })
 
-        if 'stderr' not in self._popen_kwargs:
+        if not self._detached and 'stderr' not in self._popen_kwargs:
             self._popen_kwargs['stderr'] = subprocess.STDOUT
 
     def _execute(self, read_cb, close_cb):
@@ -124,11 +128,31 @@ class SafePopen(object):
             kwargs = self._popen_kwargs
             # Setup some required arguments
             kwargs.update({
-                'stdin': subprocess.PIPE,
-                'stdout': subprocess.PIPE,
                 'bufsize': self._bufsize,
                 'close_fds': ON_POSIX
             })
+
+            if not self._detached:
+                kwargs.update({
+                    'stdin': subprocess.PIPE,
+                    'stdout': subprocess.PIPE,
+                })
+
+            elif 'creationflags' in kwargs:
+                kwargs['creationflags'] |= DETACHED_PROCESS
+                for arg in ('stderr', 'stdin', 'stdout'):
+                    if arg in kwargs:
+                        del kwargs[arg]
+            else:
+                need_fork = True
+                devnull = open(os.devnull, 'a')
+                kwargs.update({
+                    'stdout': devnull,
+                    'stderr': devnull,
+                })
+
+            if self._stdin_data:
+                kwargs['stdin'] = subprocess.PIPE
 
             if self._suid:
                 kwargs.update({
@@ -144,12 +168,13 @@ class SafePopen(object):
                 self._pipe.stdin.write(self._stdin_data)
                 self._pipe.stdin.flush()
 
-            if not self._interactive:
+            if not self._interactive and self._pipe.stdin:
                 self._pipe.stdin.close()
 
         except OSError as e:
             if read_cb:
                 read_cb("[ LAUNCH ERROR: {} ]\n".format(e.strerror))
+
             try:
                 returncode = self._pipe.poll()
             except Exception:
@@ -173,6 +198,12 @@ class SafePopen(object):
             if close_cb:
                 close_cb()
                 return
+
+        if self._detached:
+            self.returncode = self._pipe.poll()
+            if close_cb:
+                close_cb()
+            return
 
         queue = Queue.Queue()
         self._reader = threading.Thread(
