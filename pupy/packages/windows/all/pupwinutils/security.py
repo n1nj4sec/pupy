@@ -60,6 +60,7 @@ LPCTSTR                         = LPSTR
 PSID                            = PVOID
 DWORD                           = c_uint32
 INVALID_HANDLE_VALUE            = c_void_p(-1).value
+INVALID_HANDLE                  = HANDLE(INVALID_HANDLE_VALUE)
 LONG                            = c_long
 WORD                            = c_uint16
 PULONG                          = c_void_p
@@ -72,7 +73,6 @@ LARGE_INTEGER                   = c_longlong
 PHANDLE                         = POINTER(HANDLE)
 PDWORD                          = POINTER(DWORD)
 
-INVALID_HANDLE_VALUE = c_void_p(-1).value
 SECURITY_INFORMATION = DWORD
 
 PROCESS_QUERY_INFORMATION       = 0x0400
@@ -241,11 +241,9 @@ PROCESS_ALL_ACCESS = 0x001F0FFF
 PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = 0x00020000
 PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x00020016
 EXTENDED_STARTUPINFO_PRESENT = 0x00080000
-CREATE_NEW_CONSOLE = 0x00000010
 CREATE_NEW_PROCESS_GROUP = 0x00000200
 CREATE_NO_WINDOW = 0x08000000
 DETACHED_PROCESS = 0x00000008
-CREATE_UNICODE_ENVIRONMENT = 0x00000400
 ENTRIES = 0x00006000
 PROCESS_ALL_ACCESS = 0x001fffff
 
@@ -1774,16 +1772,15 @@ class StartupInfoAttribute(object):
 
 def start_proc_with_token(
     args, hTokendupe=None, hidden=True,
-        application=None, attributes=None, lpInfo=False):
+        application=None, attributes=None, lpInfo=False,
+        flags=0, stdout=None, stdin=None, stderr=None):
     ##Start the process with the token.
     lpProcessInformation = PROCESS_INFORMATION()
     lpStartupInfo = None
-
-    dwCreationflag = 0
-
-    # dwCreationflag = \
-    #     NORMAL_PRIORITY_CLASS | \
-    #     CREATE_NEW_PROCESS_GROUP
+    dwCreationflag = flags or (
+        NORMAL_PRIORITY_CLASS | \
+        CREATE_NEW_PROCESS_GROUP
+    )
 
     if attributes:
         lpStartupInfo = STARTUPINFOEX()
@@ -1793,9 +1790,15 @@ def start_proc_with_token(
     else:
         lpStartupInfo = STARTUPINFOW()
 
+    if any(x is not None for x in (stdout, stdin, stderr)):
+        lpStartupInfo.dwFlags |= STARTF_USESTDHANDLES
+        lpStartupInfo.hStdInput = stdin
+        lpStartupInfo.hStdOutput = stdout
+        lpStartupInfo.hStdError = stderr
+
     if hidden:
         dwCreationflag |= CREATE_NO_WINDOW
-        lpStartupInfo.dwFlags = STARTF_USESHOWWINDOW
+        lpStartupInfo.dwFlags |= STARTF_USESHOWWINDOW
         lpStartupInfo.wShowWindow = SW_HIDE
 
     if args is not None:
