@@ -55,6 +55,23 @@ static void*
 OffsetPointer(void* data, ptrdiff_t offset) {
     return (void*) ((uintptr_t) data + offset);
 }
+
+typedef NTSTATUS (WINAPI *t_RtlGetVersion)(OSVERSIONINFOEXW *infow);
+
+static NTSTATUS WINAPI RtlGetVersion(OSVERSIONINFOEXW *infow) {
+    static t_RtlGetVersion _RtlGetVersion = NULL;
+    if (!_RtlGetVersion) {
+        HMODULE ntdll = GetModuleHandle("NTDLL");
+        _RtlGetVersion = (t_RtlGetVersion) GetProcAddress(ntdll, "RtlGetVersion");
+    }
+
+    if (!_RtlGetVersion) {
+        return E_UNEXPECTED;
+    }
+
+    return _RtlGetVersion(infow);
+}
+
 typedef struct {
     const char *name;
     FARPROC proc;
@@ -437,6 +454,44 @@ BuildResourceTables(PMEMORYMODULE module)
     return TRUE;
 }
 
+static
+BOOL CALLBACK
+GetVersionExW_Hooked(OSVERSIONINFOEXW *info) {
+    NTSTATUS ntResult = RtlGetVersion(info);
+    return ntResult == S_OK;
+}
+
+static
+BOOL CALLBACK
+GetVersionExA_Hooked(OSVERSIONINFOEXA *info) {
+    OSVERSIONINFOEXW infow;
+    DWORD dwResult;
+    NTSTATUS ntResult = RtlGetVersion(&infow);
+    if (ntResult != S_OK)
+        return FALSE;
+
+    dwResult = WideCharToMultiByte(
+        CP_OEMCP, 0, infow.szCSDVersion, -1, info->szCSDVersion,
+        sizeof(info->szCSDVersion), NULL, NULL
+    );
+
+    if (!SUCCEEDED(dwResult))
+        return FALSE;
+
+    info->dwOSVersionInfoSize = infow.dwOSVersionInfoSize;
+    info->dwMajorVersion = infow.dwMajorVersion;
+    info->dwMinorVersion = infow.dwMinorVersion;
+    info->dwBuildNumber = infow.dwBuildNumber;
+    info->dwPlatformId = infow.dwPlatformId;
+    info->wServicePackMajor = infow.wServicePackMajor;
+    info->wServicePackMinor = infow.wServicePackMinor;
+    info->wSuiteMask = infow.wSuiteMask;
+    info->wProductType = infow.wProductType;
+    info->wReserved = infow.wReserved;
+
+    return TRUE;
+}
+
 static BOOL
 BuildImportTable(PMEMORYMODULE module)
 {
@@ -456,6 +511,9 @@ BuildImportTable(PMEMORYMODULE module)
         {"GetModuleHandleW", (FARPROC) module->callbacks->getModuleHandleW},
         {"GetModuleFileNameA", (FARPROC) module->callbacks->getModuleFileNameA},
         {"GetModuleFileNameW", (FARPROC) module->callbacks->getModuleFileNameW},
+
+        {"GetVersionExA", (FARPROC) GetVersionExA_Hooked},
+        {"GetVersionExW", (FARPROC) GetVersionExW_Hooked},
 
         {"FindResourceA", (FARPROC) module->callbacks->getFindResourceA},
         {"FindResourceW", (FARPROC) module->callbacks->getFindResourceW},
