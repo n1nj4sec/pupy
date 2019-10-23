@@ -233,6 +233,9 @@ class PupyOffloadAcceptor(object):
                 logger.exception('Acceptor (%s): Exception: %s', self._port, e)
                 raise
 
+        raise EOFError('Socket closed')
+
+
 class PupyOffloadManager(object):
     def __init__(self, server, ca, key, crt, via):
         if ':' in server:

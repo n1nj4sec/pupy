@@ -285,7 +285,10 @@ class Listener(Thread):
         self.server.listener = method(self.external_port, extra=extra)
 
     def run(self):
-        self.server.start()
+        try:
+            self.server.start()
+        except EOFError:
+            pass
 
     def close(self):
         if self.igd and self.igd_mapping:
