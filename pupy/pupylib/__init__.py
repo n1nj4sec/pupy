@@ -9,6 +9,7 @@ __all__ = [
 ]
 
 import os
+import sys
 import platform
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -18,14 +19,16 @@ HOST_OS_ARCH = platform.machine()
 
 from PupyLogger import getLogger
 
-from PupyCmd import PupyCmdLoop
 from PupyConfig import PupyConfig
-from PupyService import PupyService
-from PupyModule import PupyModule
 from PupyCredentials import Credentials
-from PupyClient import PupyClient
-from PupyServer import PupyServer
 
 from network.conf import load_network_modules
 
 load_network_modules()
+
+if not getattr(sys, '__pupy_main__', False):
+    from PupyCmd import PupyCmdLoop
+    from PupyService import PupyService
+    from PupyModule import PupyModule
+    from PupyClient import PupyClient
+    from PupyServer import PupyServer
