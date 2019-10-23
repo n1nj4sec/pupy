@@ -25,11 +25,30 @@ from .socks import HTTP as PROXY_SCHEME_HTTP
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
 from ntlm.HTTPNtlmAuthHandler import ProxyNtlmAuthHandler, HTTPNtlmAuthHandler
+
+try:
+    from urllib_kerberos import ProxyKerberosAuthHandler, HTTPKerberosAuthHandler
+    KerberosInitError = None
+
+except ImportError:
+    import traceback
+
+    ProxyKerberosAuthHandler = None
+    HTTPKerberosAuthHandler = None
+    KerberosInitError = traceback.format_exc()
+
 from poster.encode import multipart_encode
 
 from .netcreds import (
     find_first_cred, find_creds_for_uri, add_cred_for_uri, add_cred
 )
+
+from . import getLogger
+
+logger = getLogger('tinyhttp')
+
+if KerberosInitError is not None:
+    logger.warning('Kerberos disabled: %s', KerberosInitError)
 
 def merge_dict(a, b):
     d = a.copy()
@@ -51,11 +70,24 @@ class OptionalPasswordManager(object):
         if self.username and self.password:
             self.authuri = authuri
             self.realm = realm
+            logger.info(
+                'Force preconfigured user/password for %s (realm=%s) -> user=%s',
+                authuri, realm, self.username
+            )
             return self.username, self.password
         else:
             for cred in find_creds_for_uri(authuri, realm=realm):
-                return cred.username, cred.password
+                username = cred.username
+                if cred.domain:
+                    username = cred.domain + '\\' + username
 
+                logger.info(
+                    'Found creds for %s (realm=%s) -> user=%s',
+                    authuri, realm, username
+                )
+                return username, cred.password
+
+        logger.info('Creds for %s (realm=%s) not found', authuri, realm)
         return None, None
 
     def add_password(self, *args, **kwargs):
@@ -437,7 +469,7 @@ class HTTP(object):
     def _is_local_network(self, address):
         url = urlparse.urlparse(address)
         try:
-            net = IPAddress(url).hostname
+            net = IPAddress(url)
             return net.is_private()
         except (AddrFormatError, TypeError):
             return False
@@ -446,7 +478,8 @@ class HTTP(object):
         if self.no_proxy_locals and self._is_local_network(address):
             return True
 
-        if self.no_proxy_for and urlparse(address).hostname in self.no_proxy_for:
+        if self.no_proxy_for and urlparse.urlparse(
+                address).hostname in self.no_proxy_for:
             return True
 
         return False
@@ -509,10 +542,16 @@ class HTTP(object):
                 )
 
                 for handler_klass in (
-                    ProxyNtlmAuthHandler, urllib2.ProxyBasicAuthHandler,
-                        urllib2.ProxyDigestAuthHandler):
+                    ProxyKerberosAuthHandler, ProxyNtlmAuthHandler,
+                        urllib2.ProxyBasicAuthHandler, urllib2.ProxyDigestAuthHandler):
+                    if handler_klass is None:
+                        continue
 
-                    handlers.append(handler_klass(proxy_password_manager))
+                    instance = handler_klass(proxy_password_manager)
+                    if hasattr(instance, 'set_logger'):
+                        instance.set_logger(logger)
+
+                    handlers.append(instance)
 
                 password_managers.append(proxy_password_manager)
                 handlers.append(StreamingHTTPHandler)
@@ -526,11 +565,18 @@ class HTTP(object):
 
         handlers.append(UDPReaderHandler)
 
-        for klass in (
+        for handler_klass in (
             urllib2.HTTPBasicAuthHandler, urllib2.HTTPDigestAuthHandler,
-                HTTPNtlmAuthHandler):
-            handlers.append(
-                klass(http_password_manager))
+                ProxyKerberosAuthHandler, HTTPNtlmAuthHandler):
+
+            if handler_klass is None:
+                continue
+
+            instance = handler_klass(http_password_manager)
+            if hasattr(instance, 'set_logger'):
+                instance.set_logger(logger)
+
+            handlers.append(instance)
 
         password_managers.append(http_password_manager)
 
