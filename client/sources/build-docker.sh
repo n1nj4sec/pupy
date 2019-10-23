@@ -9,17 +9,18 @@ PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip c
 PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
-PACKAGES="$PACKAGES adodbapi idna wmi winkerberos http_parser python-ntlm"
+PACKAGES="$PACKAGES https://github.com/alxchk/python-ntlm/archive/master.zip"
+PACKAGES="$PACKAGES adodbapi idna wmi winkerberos http_parser"
 
-SELF=`readlink -f "$0"`
-SELFPWD=`dirname "$SELF"`
-SRC=${SELFPWD:-`pwd`}
-PUPY=`readlink -f ../../pupy`
+SELF=$(readlink -f "$0")
+SELFPWD=$(dirname "$SELF")
+SRC=${SELFPWD:-$(pwd)}
+PUPY=$(readlink -f ../../pupy)
 
 cd $SRC
 
-EXTERNAL=`readlink -f ../../pupy/external`
-TEMPLATES=`readlink -f ../../pupy/payload_templates`
+EXTERNAL=$(readlink -f ../../pupy/external)
+TEMPLATES=$(readlink -f ../../pupy/payload_templates)
 WINPTY=$EXTERNAL/winpty
 PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
@@ -33,19 +34,19 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pynacl
 
     LIB="C:\\Windows\\openssl-build\\lib" \
-       INCLUDE="C:\\Windows\\openssl-build\\include" \
-       $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
+        INCLUDE="C:\\Windows\\openssl-build\\include" \
+        $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
 
     NO_JAVA=1 \
-      $PYTHON -m pip install --upgrade --force-reinstall \
-      https://github.com/alxchk/pyjnius/archive/master.zip
+        $PYTHON -m pip install --upgrade --force-reinstall \
+        https://github.com/alxchk/pyjnius/archive/master.zip
 
     $PYTHON -m pip install --upgrade $PACKAGES
 
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
     if [ ! $? -eq 0 ]; then
-    echo "pycryptodome build failed"
-    exit 1
+        echo "pycryptodome build failed"
+        exit 1
     fi
 
     rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
@@ -71,7 +72,6 @@ echo "[+] Compile opus /64"
 git clean -fdx
 make -f Makefile.msvc CL=$CL64
 mv -f opus.pyd ${WINE64}/drive_c/Python27/Lib/site-packages/
-
 
 echo "[+] Compile winpty /32"
 rm -f $WINPTY/build/winpty.dll
@@ -99,14 +99,14 @@ echo "[+] Build templates /32"
 cd $WINE32/drive_c/Python27
 rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
-cd $dir
-zip -q -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" -x "*.chm" \
-    -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
-    -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
-    -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-    -r9 ${TEMPLATES}/windows-x86.zip .
-cd -
+    cd $dir
+    zip -q -y \
+        -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" -x "*.chm" \
+        -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
+        -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
+        -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
+        -r9 ${TEMPLATES}/windows-x86.zip .
+    cd -
 done
 
 cd $WINE64/drive_c/Python27
@@ -114,14 +114,14 @@ rm -f ${TEMPLATES}/windows-amd64.zip
 
 echo "[+] Build templates /64"
 for dir in Lib DLLs; do
-cd $dir
-zip -q -y \
-    -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" -x "*.chm" \
-    -x "*test/*" -x "*tests/*" -x "*examples/*"	 -x "pythonwin/*" \
-    -x "idlelib/*" -x "lib-tk/*" -x "tk*"  -x "tcl*" \
-    -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-    -r9 ${TEMPLATES}/windows-amd64.zip .
-cd -
+    cd $dir
+    zip -q -y \
+        -x "*.a" -x "*.o" -x "*.whl" -x "*.txt" -x "*.pyo" -x "*.pyc" -x "*.chm" \
+        -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
+        -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
+        -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
+        -r9 ${TEMPLATES}/windows-amd64.zip .
+    cd -
 done
 
 echo "[+] Build pupy"
@@ -147,12 +147,12 @@ make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then
-    continue
+        continue
     fi
 
     if [ ! -f $TEMPLATES/$object ]; then
-    echo "[-] $object - failed"
-    FAILED=1
+        echo "[-] $object - failed"
+        FAILED=1
     fi
 done
 
