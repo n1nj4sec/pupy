@@ -38,6 +38,7 @@ python -m pip install --upgrade \
     https://github.com/CoreSecurity/impacket/archive/master.zip \
     https://github.com/warner/python-ed25519/archive/master.zip \
     https://github.com/alxchk/python-ntlm/archive/master.zip \
+    https://github.com/alxchk/urllib_kerberos/archive/master.zip \
     zeroconf==0.19.1 \
     watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
 

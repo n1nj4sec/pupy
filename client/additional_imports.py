@@ -36,12 +36,14 @@ import shlex
 import json
 import ctypes
 import threading
+import urlparse
 import urllib
 import urllib2
 import getpass
 import __future__
 import netaddr
 import ntlm
+import urllib_kerberos
 import http_parser
 import unicodedata
 

@@ -12,3 +12,4 @@ dnslib
 dukpy
 zeroconf==0.19.1
 https://github.com/alxchk/python-ntlm/archive/master.zip
+https://github.com/alxchk/urllib_kerberos/archive/master.zip

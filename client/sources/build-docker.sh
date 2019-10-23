@@ -10,6 +10,7 @@ PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/python-ntlm/archive/master.zip"
+PACKAGES="$PACKAGES https://github.com/alxchk/urllib_kerberos/archive/master.zip"
 PACKAGES="$PACKAGES adodbapi idna wmi winkerberos http_parser"
 
 SELF=$(readlink -f "$0")
