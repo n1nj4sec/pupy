@@ -24,18 +24,7 @@ from .socks import HTTP as PROXY_SCHEME_HTTP
 
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
-from ntlm.HTTPNtlmAuthHandler import ProxyNtlmAuthHandler, HTTPNtlmAuthHandler
-
-try:
-    from urllib_kerberos import ProxyKerberosAuthHandler, HTTPKerberosAuthHandler
-    KerberosInitError = None
-
-except ImportError:
-    import traceback
-
-    ProxyKerberosAuthHandler = None
-    HTTPKerberosAuthHandler = None
-    KerberosInitError = traceback.format_exc()
+from urllib_auth import ProxyAuthHandler, HTTPAuthHandler
 
 from poster.encode import multipart_encode
 
@@ -45,10 +34,8 @@ from .netcreds import (
 
 from . import getLogger
 
-logger = getLogger('tinyhttp')
 
-if KerberosInitError is not None:
-    logger.warning('Kerberos disabled: %s', KerberosInitError)
+logger = getLogger('tinyhttp')
 
 def merge_dict(a, b):
     d = a.copy()
@@ -542,7 +529,7 @@ class HTTP(object):
                 )
 
                 for handler_klass in (
-                    ProxyKerberosAuthHandler, ProxyNtlmAuthHandler,
+                    ProxyAuthHandler,
                         urllib2.ProxyBasicAuthHandler, urllib2.ProxyDigestAuthHandler):
                     if handler_klass is None:
                         continue
@@ -567,7 +554,7 @@ class HTTP(object):
 
         for handler_klass in (
             urllib2.HTTPBasicAuthHandler, urllib2.HTTPDigestAuthHandler,
-                ProxyKerberosAuthHandler, HTTPNtlmAuthHandler):
+                HTTPAuthHandler):
 
             if handler_klass is None:
                 continue

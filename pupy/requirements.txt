@@ -43,8 +43,7 @@ xattr
 dukpy
 pyaes
 chardet
-https://github.com/alxchk/python-ntlm/archive/master.zip
-https://github.com/alxchk/urllib_kerberos/archive/master.zip
+https://github.com/alxchk/urllib-auth/archive/master.zip
 http_request
 -e external/pykcp
 flake8

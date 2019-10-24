@@ -74,8 +74,13 @@ try:
 except ImportError:
     from http_parser.pyparser import HttpParser
 
-from ntlm import ntlm
+from urllib_auth import (
+    AuthenticationError, Authentication
+)
+
 from .netcreds import find_first_cred
+
+from . import getLogger
 
 if os.name == 'nt':
     try:
@@ -87,6 +92,8 @@ if os.name == 'nt':
         raise ImportError('To run PySocks under windows you need to install win_inet_pton')
 else:
     import socket
+
+logger = getLogger('tinyhttp')
 
 PROXY_TYPE_SOCKS4 = SOCKS4 = 1
 PROXY_TYPE_SOCKS5 = SOCKS5 = 2
@@ -837,29 +844,33 @@ class socksocket(_BaseSocket):
                     username = cred.user
                     password = cred.password
 
-            if not (username and password):
-                raise AuthenticationImpossible('Authentication required, but credentials are not provided')
-
             if 'BASIC' in auth_type:
+                if not (username and password):
+                    raise AuthenticationImpossible(
+                        'Authentication required, but credentials are not provided')
+
                 http_headers.append(b"Proxy-Authorization: basic " + b64encode(username + b":" + password))
 
-            elif 'NTLM' in auth_type:
-                domain = ''
-                flags = ntlm.NTLM_TYPE1_FLAGS
-                parts = username.split('\\', 1)
+            elif 'NTLM' in auth_type or 'NEGOTIATE' in auth_type:
+                ctx = Authentication(logger)
 
-                if len(parts) == 2:
-                    domain, username = parts
-                    domain = domain.upper()
-                else:
-                    flags &= ~ntlm.NTLM_NegotiateOemDomainSupplied
+                domain = None
+                if username and '\\' in username:
+                    domain, username = username.split('\\', 1)
+
+                try:
+                    _, method, payload = self.create_auth1_message(
+                        domain, username, password,
+                        'http://{}:{}'.format(dest_addr, dest_port), auth_methods
+                    )
+
+                except AuthenticationError as e:
+                    raise AuthenticationImpossible('Error during SSP authentication: {}'.format(e))
 
                 ntlm_headers = list(http_headers)
-                ntlm_headers.append(
-                    b"Proxy-Authorization: NTLM " + ntlm.create_NTLM_NEGOTIATE_MESSAGE(
-                        username, flags))
-                ntlm_headers.append(b"\r\n")
-                ntlm_payload = b"\r\n".join(ntlm_headers)
+                ntlm_headers.append(b'Proxy-Authorization: ' + ' '.join([method, payload]))
+                ntlm_headers.append(b'\r\n')
+                ntlm_payload = b'\r\n'.join(ntlm_headers)
 
                 conn.sendall(ntlm_payload)
 
@@ -867,7 +878,7 @@ class socksocket(_BaseSocket):
 
                 if status_code != 407:
                     raise GeneralProxyError(
-                        'Invalid NTLM Authentication Sequence (STATUS: {})'.format(
+                        'Invalid Authentication Sequence (STATUS: {})'.format(
                             status_code))
 
                 challenge = None
@@ -875,31 +886,30 @@ class socksocket(_BaseSocket):
                 for header, value in headers.iteritems():
                     if header.lower() == 'proxy-authenticate':
                         value = value.strip()
-                        if not value.startswith('NTLM '):
+                        if not value.startswith(method + ' '):
                             raise GeneralProxyError(
-                                'Invalid NTLM Authentication Sequence (Invalid payload)')
+                                'Invalid Authentication Sequence (Invalid payload)')
 
                         _, challenge = value.split(' ', 1)
 
                 if not challenge:
                     raise GeneralProxyError(
-                        'Invalid NTLM Authentication Sequence (Challenge not found)')
+                        'Invalid Authentication Sequence (Challenge not found)')
 
-                server_challenge, flags = ntlm.parse_NTLM_CHALLENGE_MESSAGE(challenge)
-                response = ntlm.create_NTLM_AUTHENTICATE_MESSAGE(
-                        server_challenge, username, domain, password, flags)
+                try:
+                    _, method, payload = self.create_auth2_message(challenge)
+                except AuthenticationError as e:
+                    raise AuthenticationImpossible(
+                        'Error during SSP authentication (Step 2): {}'.format(e))
 
-                if response is None:
-                    raise GeneralProxyError('NTLM sequence failed (response)')
-
-                http_headers.append("Proxy-Authorization: NTLM " + response)
+                http_headers.append('Proxy-Authorization: ' + ' '.join([method, payload]))
 
             else:
                 raise GeneralProxyError('Unsupported authentication scheme: {}'.format(auth_type))
 
-        http_headers.append(b"\r\n")
+        http_headers.append(b'\r\n')
 
-        request = b"\r\n".join(http_headers)
+        request = b'\r\n'.join(http_headers)
 
         conn.sendall(request)
 

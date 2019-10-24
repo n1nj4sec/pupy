@@ -27,7 +27,7 @@ def pack_py_payload(display, conf, debug=False, autostart=True):
         'rpyc', 'pyasn1', 'rsa', 'pyaes',
         'netaddr', 'tinyec', 'umsgpack',
         'poster', 'win_inet_pton', 'http_parser',
-        'ntlm', 'urllib_kerberos'
+        'urllib_auth',
     ), ignore_native=True, as_dict=True)
 
     stdlib.update(
