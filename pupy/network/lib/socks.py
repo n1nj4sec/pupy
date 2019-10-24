@@ -280,6 +280,7 @@ def create_connection(dest_pair, proxy_type=None, proxy_addr=None,
 class _BaseSocket(socket.socket):
     """Allows Python 2's "delegated" methods such as send() to be overridden
     """
+
     def __init__(self, *args, **kwargs):
         _orig_socket.__init__(self, *args, **kwargs)
 
@@ -538,30 +539,34 @@ class socksocket(_BaseSocket):
         return bytes
 
     def recv_http_response(self, conn):
-        fobj = conn.makefile()
         response = HttpParser(kind=1)
+        status_code = None
         headers = None
 
         try:
             while True:
-                line = fobj.readline()
-                if not line:
-                    raise EOFError('Incomplete Header')
+                chunk = conn.recv(1024)
 
-                response.execute(line, len(line))
+                response.execute(chunk, len(chunk))
                 if response.is_headers_complete():
+                    headers = response.get_headers()
+                    status_code = response.get_status_code()
+
+                    content_length = headers.get('content-length')
+                    if not content_length or int(content_length) == 0:
+                        break
+
+                if response.is_message_complete():
                     break
 
-            fobj.close()
+                if not chunk:
+                    raise EOFError('Incomplete Message')
 
-            status_code = response.get_status_code()
-            headers = response.get_headers()
-
-        except Exception:
-            raise GeneralProxyError('Not HTTP Proxy (invalid response)')
+        except Exception as e:
+            raise GeneralProxyError(
+                'HTTP Proxy communication error ({})'.format(e))
 
         return status_code, headers
-
 
     def close(self):
         if self._proxyconn:
@@ -859,9 +864,9 @@ class socksocket(_BaseSocket):
                     domain, username = username.split('\\', 1)
 
                 try:
-                    _, method, payload = self.create_auth1_message(
+                    _, method, payload = ctx.create_auth1_message(
                         domain, username, password,
-                        'http://{}:{}'.format(dest_addr, dest_port), auth_methods
+                        'http://{}:{}'.format(dest_addr, dest_port), auth_type
                     )
 
                 except AuthenticationError as e:
@@ -897,7 +902,7 @@ class socksocket(_BaseSocket):
                         'Invalid Authentication Sequence (Challenge not found)')
 
                 try:
-                    _, method, payload = self.create_auth2_message(challenge)
+                    _, method, payload = ctx.create_auth2_message(challenge)
                 except AuthenticationError as e:
                     raise AuthenticationImpossible(
                         'Error during SSP authentication (Step 2): {}'.format(e))
@@ -908,7 +913,6 @@ class socksocket(_BaseSocket):
                 raise GeneralProxyError('Unsupported authentication scheme: {}'.format(auth_type))
 
         http_headers.append(b'\r\n')
-
         request = b'\r\n'.join(http_headers)
 
         conn.sendall(request)
@@ -978,7 +982,6 @@ class socksocket(_BaseSocket):
                 printable_type, proxy_server, e)
 
             raise ProxyConnectionError(msg, e)
-
 
     def _connect_rest(self, conn=None, last=None, port=None):
         if conn is None:
