@@ -42,8 +42,7 @@ import urllib2
 import getpass
 import __future__
 import netaddr
-import ntlm
-import urllib_kerberos
+import urllib_auth
 import http_parser
 import unicodedata
 
