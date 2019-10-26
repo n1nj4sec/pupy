@@ -24,7 +24,12 @@ from .socks import HTTP as PROXY_SCHEME_HTTP
 
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
-from urllib_auth import ProxyAuthHandler, HTTPAuthHandler
+
+try:
+    from urllib_auth import ProxyAuthHandler, HTTPAuthHandler
+except ImportError:
+    ProxyAuthHandler = None
+    HTTPAuthHandler = None
 
 from poster.encode import multipart_encode
 

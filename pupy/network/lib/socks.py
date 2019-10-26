@@ -74,9 +74,12 @@ try:
 except ImportError:
     from http_parser.pyparser import HttpParser
 
-from urllib_auth import (
-    AuthenticationError, Authentication
-)
+try:
+    from urllib_auth import (
+        AuthenticationError, Authentication
+    )
+except ImportError:
+    Authentication = None
 
 from .netcreds import find_first_cred
 
@@ -856,7 +859,7 @@ class socksocket(_BaseSocket):
 
                 http_headers.append(b"Proxy-Authorization: basic " + b64encode(username + b":" + password))
 
-            elif 'NTLM' in auth_type or 'NEGOTIATE' in auth_type:
+            elif Authentication and ('NTLM' in auth_type or 'NEGOTIATE' in auth_type):
                 ctx = Authentication(logger)
 
                 domain = None
