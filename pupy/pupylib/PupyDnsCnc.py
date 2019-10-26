@@ -12,7 +12,7 @@ from network.lib.picocmd.picocmd import (
 )
 
 from pupylib.PupyConfig import PupyConfig
-from pupylib.utils.network import get_listener_ip_with_local, get_listener_port
+from pupylib.utils.listener import get_listener_ip_with_local, get_listener_port
 
 import requests
 import netaddr

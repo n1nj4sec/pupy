@@ -30,7 +30,7 @@ import pefile
 
 from io import BytesIO
 
-from pupylib.utils.network import get_listener_ip, get_listener_port
+from pupylib.utils.listener import get_listener_ip, get_listener_port
 from pupylib.utils.jarsigner import jarsigner
 from pupylib.payloads import dependencies
 from pupylib.payloads.dotnet import dotnet_serve_payload, DotNetPayload

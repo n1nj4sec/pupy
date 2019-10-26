@@ -5,8 +5,8 @@ import os
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Info, Warn, Success, Error
 
-from pupylib.utils.network import get_listener_ip, get_listener_port
-from pupylib.utils.network import get_listener_ip_with_local
+from pupylib.utils.listener import get_listener_ip, get_listener_port
+from pupylib.utils.listener import get_listener_ip_with_local
 
 import pupygen
 

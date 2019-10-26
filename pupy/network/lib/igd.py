@@ -293,10 +293,14 @@ class IGDClient(object):
 
     def AddPortMapping(self, extPort, proto, intPort, enabled=1, duration=0, intIP=None, desc='', remoteHost=''):
         upnp_method = 'AddPortMapping'
+
+        if netaddr.IPAddress(intIP).is_reserved():
+            intIP = self.intIP
+
         sendArgs = {
             'NewPortMappingDescription': (desc, 'string'),
             'NewLeaseDuration': (duration, 'ui4'),
-            'NewInternalClient': (intIP or self.intIP, 'string'),
+            'NewInternalClient': (intIP, 'string'),
             'NewEnabled': (enabled, 'boolean'),
             'NewExternalPort': (extPort, 'ui2'),
             'NewRemoteHost': (remoteHost, 'string'),

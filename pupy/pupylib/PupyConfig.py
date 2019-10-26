@@ -283,6 +283,7 @@ class PupyConfig(ConfigParser):
         ip = self.get(*args, **kwargs)
         if not ip:
             return None
+
         return IPAddress(ip)
 
     def sections(self):
