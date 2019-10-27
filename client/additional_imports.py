@@ -79,4 +79,4 @@ else:
     try:
         import kerberos
     except ImportError:
-        print "keberos not found"
+        print "kerberos not found"
