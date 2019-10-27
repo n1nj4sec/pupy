@@ -11,6 +11,7 @@ setattr(sys, '__pupy_main__', True)
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import pupylib
+assert(pupylib)
 
 from network.conf import launchers
 

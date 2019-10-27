@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import netifaces
-import urllib2
 import logging
 
 from netaddr import IPAddress, AddrFormatError

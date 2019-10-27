@@ -5,7 +5,6 @@ __all__ = (
     'refresh_pac_player'
 )
 
-
 from dukpy import JSInterpreter, JSRuntimeError
 from urlparse import urlparse
 from urllib2 import URLError
@@ -51,6 +50,7 @@ PAC_PLAYER = None
 PAC_PLAYER_LAST_UPDATED = None
 
 WPAD_REFRESH_TIMEOUT = 3600
+
 
 def get_autoconfig_url_nt():
     try:
@@ -108,6 +108,7 @@ def propose_pac_location():
 
     for domain in propose_pac_domains():
         yield 'http://wpad.{}/wpad.dat'.format(domain)
+
 
 def get_pac_content():
     from .tinyhttp import HTTP
