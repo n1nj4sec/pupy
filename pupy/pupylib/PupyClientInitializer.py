@@ -287,7 +287,9 @@ def get_uuid():
         pass
 
     try:
-        hostname = socket.getfqdn()
+        hostname = socket.getfqdn().lower()
+        if hostname.endswith(('.localdomain', '.localhost')):
+            hostname, _ = hostname.rsplit('.', 1)
     except Exception:
         pass
 
