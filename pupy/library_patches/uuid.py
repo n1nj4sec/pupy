@@ -335,21 +335,57 @@ def _find_mac(command, args, hw_identifiers, get_index):
         pass
 
 def _sysfs_getnode():
-    """Get the hardware address on Unix by running ifconfig."""
+    ' Get MAC address from sysfs '
+
     import os
+
     try:
-        ifaces = sorted([
-            (
-                int(open('/sys/class/net/{}/ifindex'.format(x)).read()),
-                open('/sys/class/net/{}/address'.format(x)).read().strip()
-            ) for x in os.listdir(
-                '/sys/class/net'
-            ) if int(open('/sys/class/net/{}/type'.format(x)).read()) == 1])[:1]
+        SYSFS_CLASS_NET = '/sys/class/net'
 
-        if ifaces:
-            return int(ifaces[0][1].replace(':', ''), 16)
+        devices = []
+        non_devices = []
 
-    except:
+        for device in os.listdir(SYSFS_CLASS_NET):
+            device = os.path.join(SYSFS_CLASS_NET, device)
+
+            address_node = os.path.join(SYSFS_CLASS_NET, device, 'address')
+            device_node = os.path.join(SYSFS_CLASS_NET, device, 'device')
+            carrier_node = os.path.join(SYSFS_CLASS_NET, device, 'carrier')
+            type_node = os.path.join(SYSFS_CLASS_NET, device, 'type')
+
+            try:
+                address = int(open(address_node).read().strip().replace(':', ''), 16)
+            except ValueError:
+                # Omit interfaces without MAC (virtual tunnels etc)
+                continue
+
+            try:
+                carrier = int(open(carrier_node).read().strip())
+            except IOError:
+                carrier = 2
+
+            nettype = int(open(type_node).read().strip())
+
+            # Prioirty have physical devices, then by carrier
+            # Then by lowest 3 bytes of MAC address
+            weight = ((
+                ((nettype << 3) | (1 - carrier)) << 24) | \
+                    (address & 0xFFFFFF))
+
+            if os.path.exists(device_node):
+                devices.append((address, weight))
+            else:
+                non_devices.append((address, weight))
+
+        # Order by weight, in case there are several interfaces
+        devices = sorted(devices, key=lambda (_, weight): weight)
+        non_devices = sorted(non_devices, key=lambda (_, weight): weight)
+
+        devices.extend(non_devices)
+        if devices:
+            return devices[0][0]
+
+    except OSError:
         pass
 
 def _ifconfig_getnode():
@@ -727,9 +763,10 @@ def getnode():
     if sys.platform == 'win32':
         getters = [_windll_getnode, _netbios_getnode, _ipconfig_getnode]
     else:
-        getters = [_netiface_getnode, _unixdll_getnode,
-            _sysfs_getnode, _ifconfig_getnode,
-            _arp_getnode, _lanscan_getnode, _netstat_getnode
+        getters = [
+            _sysfs_getnode, _netiface_getnode, _unixdll_getnode,
+            _ifconfig_getnode, _arp_getnode,
+            _lanscan_getnode, _netstat_getnode
         ]
 
     for getter in getters + [_random_getnode]:
