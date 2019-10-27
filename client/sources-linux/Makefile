@@ -114,6 +114,9 @@ pupy.o: pupy.c revision.h ../common/Python-dynload.h import-tab.h
 pupy_shared.o: pupy.c revision.h ../common/jni_on_load.c ../common/Python-dynload.h import-tab.h
 	$(CC) -c -o $@ $< $(CFLAGS) -D_PUPY_SO
 
+main_so.o:	import-tab.h
+main_exe.o:	import-tab.h
+
 pupy_load.o: pupy_load.c \
 	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c \
 	resources/$(ARCH)/python27.c \
@@ -121,16 +124,13 @@ pupy_load.o: pupy_load.c \
 	../common/Python-dynload.c ../common/Python-dynload.h \
 	../common/Python-dynload.c ../common/Python-dynload.h \
 	../common/LzmaDec.c ../common/LzmaDec.h ../common/lzmaunpack.c \
-	revision.h
+	import-tab.h revision.h
 
 tmplibrary_lmid.o: tmplibrary.c
 	$(CC) -c -o $@ $< $(CFLAGS) -DWIP_LMID
 
 import-tab.c import-tab.h: ../mktab.py
 	$(PYTHON) $(PFLAGS) $<
-
-Python-dynload.o: Python-dynload.c import-tab.c import-tab.h
-	$(CC) -c -o $@ $< $(CFLAGS)
 
 ifeq ($(UNCOMPRESSED),)
 LzmaDec.o: ../common/LzmaDec.c
