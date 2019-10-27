@@ -89,6 +89,19 @@ ignore = {
     'rpyc/experemental/__init__.py',
     'rpyc/experemental/retunnel.py',
     'rpyc/experemental/splitbrain.py',
+
+    # We don't use this anyway
+    'Crypto/PublicKey/ElGamal.py',
+    'Crypto/PublicKey/RSA.py',
+    'Crypto/PublicKey/_openssh.py',
+    'Crypto/PublicKey/_ec_ws.s',
+    'Crypto/PublicKey/ECC.py',
+    'Crypto/PublicKey/__init__.py',
+    'Crypto/PublicKey/DSA.py',
+
+    # If it's known that GSSAPI is not used,
+    # it's worth to remove it from library.zip (1MB)
+    # 'kerberos.so',
     'json/tool.py',
     'rsa/cli.py',
 }
