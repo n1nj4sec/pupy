@@ -12,24 +12,25 @@ TEMPLATES=$PUPY/payload_templates
 EXTERNAL=../../pupy/external
 PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
+PIP_INSTALL="python -m pip install --upgrade"
 
 set -e
 
 echo "[+] Install python packages"
 
-python -m pip install --upgrade pip
-python -m pip install --upgrade setuptools cython
-python -m pip install --upgrade -q six packaging appdirs
+$PIP_INSTALL pip
+$PIP_INSTALL setuptools cython
+$PIP_INSTALL -q six packaging appdirs
 
 CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
-    python -m pip install --upgrade -q pynacl --no-binary :all:
+    $PIP_INSTALL -q pynacl --no-binary :all:
 
 CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
-    python -m pip install --upgrade -q cryptography --no-binary :all:
+    $PIP_INSTALL -q cryptography --no-binary :all:
 
 export PRCTL_SKIP_KERNEL_CHECK=yes
 
-python -m pip install --upgrade \
+$PIP_INSTALL \
     rpyc==3.4.4 pyaml rsa netaddr pyyaml ecdsa idna \
     paramiko pylzma pydbus python-ptrace psutil scandir \
     scapy colorama pyOpenSSL python-xlib msgpack-python \
@@ -52,17 +53,17 @@ CFLAGS="${CFLAGS_PYJNIUS}" NO_JAVA=1 \
     https://github.com/alxchk/pyjnius/archive/master.zip
 
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
-    python -m pip install --force-reinstall --upgrade dukpy --no-binary :all:
+    $PIP_INSTALL dukpy --no-binary :all:
 
-python -m pip install https://github.com/apple/ccs-pykerberos/archive/master.zip
+$PIP_INSTALL https://github.com/apple/ccs-pykerberos/archive/master.zip
 
-LDFLAGS="$LDFLAGS -lasound" python -m pip install --upgrade pyaudio
+LDFLAGS="$LDFLAGS -lasound" $PIP_INSTALL pyaudio
 
-python -m pip -q install --upgrade --force-reinstall pycparser==2.17
+$PIP_INSTALL --force-reinstall pycparser==2.17
 
 echo "[+] Compile pykcp"
 rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
-python -m pip install --upgrade --force $PYKCP
+$PIP_INSTALL --force $PYKCP
 python -c 'import kcp' || exit 1
 
 echo "[+] Compile opus"
@@ -77,14 +78,14 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     CFLAGS_PYUV="$CFLAGS_PYUV -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'"
 
     CC=/gccwrap CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64" CFLAGS="$CFLAGS_PYUV" \
-        python -m pip install pyuv --upgrade --no-binary :all:
+        $PIP_INSTALL pyuv --no-binary :all:
 else
     CFLAGS="$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
-        python -m pip install pyuv --upgrade --no-binary :all:
+        $PIP_INSTALL pyuv --no-binary :all:
 fi
 
-# python -m pip install --upgrade --no-binary :all: pycryptodome==3.7.0
-python -m pip install --upgrade --no-binary :all: https://github.com/Legrandin/pycryptodome/archive/master.zip
+# $PIP_INSTALL --no-binary :all: pycryptodome==3.7.0
+$PIP_INSTALL --no-binary :all: https://github.com/Legrandin/pycryptodome/archive/master.zip
 
 cd /usr/lib/python2.7
 
