@@ -94,14 +94,15 @@ ignore = {
     'Crypto/PublicKey/ElGamal.py',
     'Crypto/PublicKey/RSA.py',
     'Crypto/PublicKey/_openssh.py',
-    'Crypto/PublicKey/_ec_ws.s',
+    'Crypto/PublicKey/_ec_ws.so',
     'Crypto/PublicKey/ECC.py',
     'Crypto/PublicKey/__init__.py',
     'Crypto/PublicKey/DSA.py',
 
-    # If it's known that GSSAPI is not used,
-    # it's worth to remove it from library.zip (1MB)
-    # 'kerberos.so',
+    # If it's known that GSSAPI is used and required during bootstrap,
+    # it's worth to comment this line (adds 1MB)
+    'kerberos.so',
+
     'json/tool.py',
     'rsa/cli.py',
 }
