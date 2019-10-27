@@ -26,8 +26,10 @@ from .netcreds import find_first_cred
 
 logger = getLogger('proxies')
 
+PROXY_RE = r'(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*'
+
 PROXY_MATCHER = re.compile(
-    r'^(?:(?P<schema>[a-z45]+)://)?(?:(?P<user>\w+):?(?P<password>\w*)@)?(?P<proxy_addr>\S+:[0-9]+)/*$'
+    r'^{}$'.format(PROXY_RE)
 )
 
 PROXY_ENV = [
@@ -38,6 +40,17 @@ PROXY_ENV = [
 PROXY_ENV += [
     x.upper() for x in PROXY_ENV
 ]
+
+PROFILE_MATCHER = re.compile(
+    r'(?:{})(?:(?:\s*=\s*)|\s+)[\'\"]?{}?[\'\"]?.*'.format(
+        '|'.join(
+            PROXY_ENV + [
+                'Acquire::http::Proxy'
+            ]
+        ),
+        PROXY_RE
+    )
+)
 
 LAST_PROXY = None
 LAST_PROXY_TIME = None
@@ -61,8 +74,10 @@ try:
 except ImportError:
     import urllib2 as urllib
 
+
 def parse_win_proxy(val):
     proxies=[]
+
     for p in val.split(';'):
         if '=' in p:
             tab=p.split('=',1)
@@ -75,6 +90,7 @@ def parse_win_proxy(val):
                 Proxy('HTTP', p, None, None))
 
     return proxies
+
 
 def get_win_proxies():
     try:
@@ -116,8 +132,6 @@ def get_win_proxies():
 
 
 def get_python_proxies():
-    global PROXY_MATCHER
-
     python_proxies = urllib.getproxies()
 
     for key, value in python_proxies.iteritems():
@@ -137,14 +151,8 @@ def get_python_proxies():
 
         yield Proxy(key.upper(), proxy, user, passwd)
 
-def parse_env_proxies(var):
-    global PROXY_MATCHER
 
-    match = PROXY_MATCHER.match(var)
-    if not match:
-        return
-
-    schema, user, passwd, proxy = match.groups()
+def _normalize_env_proxies(schema, user, passwd, proxy):
     if not schema:
         yield Proxy('HTTP', proxy, user, passwd)
         yield Proxy('SOCKS5', proxy, user, passwd)
@@ -159,9 +167,18 @@ def parse_env_proxies(var):
         yield Proxy('SOCKS5', proxy, user, passwd)
         yield Proxy('SOCKS4', proxy, user, passwd)
 
-def get_env_proxies():
-    global PROXY_ENV
 
+def parse_env_proxies(var):
+    match = PROXY_MATCHER.match(var)
+    if not match:
+        return
+
+    schema, user, passwd, proxy = match.groups()
+    for proxy in _normalize_env_proxies(schema, user, passwd, proxy):
+        yield proxy
+
+
+def get_env_proxies():
     for env in PROXY_ENV:
         var = os.environ.get(env)
         if not var:
@@ -169,6 +186,60 @@ def get_env_proxies():
 
         for proxy in parse_env_proxies(var):
             yield proxy
+
+
+def _try_read(path):
+    try:
+        return open(path).read()
+    except (OSError, IOError):
+        return None
+
+
+def _get_profile_files_content():
+    try:
+        profile_d = os.listdir('/etc/profile.d')
+    except OSError:
+        profile_d = []
+
+    for profile_file in profile_d:
+        content = _try_read(
+            os.path.join('/etc/profile.d', profile_file))
+        if content:
+            yield content
+
+    content = _try_read('/etc/profile')
+    if content:
+        yield content
+
+    try:
+        apt_d = os.listdir('/etc/apt/apt.conf.d')
+    except OSError:
+        apt_d = []
+
+    for apt_file in apt_d:
+        content = _try_read(os.path.join(
+            '/etc/apt/apt.conf.d', apt_file))
+        if content:
+            yield content
+
+    try:
+        import pwd
+    except ImportError:
+        return
+
+    for user in pwd.getpwall():
+        for profile in ('.bashrc', '.profile'):
+            content = _try_read(os.path.join(user.pw_dir, profile))
+            if content:
+                yield content
+
+
+def get_profile_proxies():
+    for content in _get_profile_files_content():
+        for match in PROFILE_MATCHER.findall(content):
+            for proxy in _normalize_env_proxies(*match):
+                yield proxy
+
 
 def gio_init():
     global gio
@@ -216,6 +287,7 @@ def gio_init():
         gio = False
 
     return gio
+
 
 def get_gio_proxies(force=True):
     gio = gio_init()
@@ -275,8 +347,6 @@ def get_gio_proxies(force=True):
 
 
 def get_processes_proxies():
-    global PROXY_ENV
-
     try:
         import psutil
     except:
@@ -339,9 +409,6 @@ def parse_proxy(proxy_str):
 
 
 def get_proxies():
-    global PROXY_MATCHER
-    global LAST_PROXY
-
     if LAST_PROXY is not None:
         yield LAST_PROXY
 
@@ -356,6 +423,9 @@ def get_proxies():
             yield proxy
 
     elif os.name == 'posix':
+        for proxy in get_profile_proxies():
+            yield proxy
+
         for proxy in get_gio_proxies():
             yield proxy
 
