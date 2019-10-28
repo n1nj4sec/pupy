@@ -17,6 +17,22 @@ secret = true
 
 [paths]
 prefer_workdir = yes
+downloads = data/downloads/%c
+memstrings = data/memstrings/%c
+searches = data/searches/%c
+screenshots = data/screenshots/%c/%t
+pcaps = data/pcaps/%c/%t.pcap
+logs = data/logs/%c/%t-%M
+creds = data/creds
+crypto = crypto
+wwwroot = data/wwwroot
+webstatic = webstatic
+records = data/%c
+keystrokes = data/keylogger/%c/%t.log
+mouseshots = data/mouselogger/%c/%w-%t.png
+payload_output = output
+plugins = data/plugindata
+ad = data/ad/%c/%r/%n.json
 
 [on_connect]
 #run_module = gather/keylogger start
