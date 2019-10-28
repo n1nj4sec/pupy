@@ -24,8 +24,9 @@ def resolve_ip(hostname, port=0):
     ips = set()
     try:
         ip = set()
-        for _, _, _, _, (ip, _) in getaddrinfo(hostname, port):
-            ips.add(ip)
+        for addr in getaddrinfo(hostname, port):
+            _, _, _, _, endpoint = addr
+            ips.add(endpoint[0])
 
     except gaierror:
         return None
