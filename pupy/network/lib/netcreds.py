@@ -99,17 +99,17 @@ class AuthInfo(object):
         if self.ip is None and self.hostname:
             self.ip = resolve_ip(self.hostname, self.port)
 
-    def _weight(self):
+    def _weight(self, available_fields):
         value = 0b0
 
         for field, weight in _TARGET_WEIGHTS.iteritems():
+            if field not in available_fields:
+                continue
+
             if getattr(self, field):
                 value |= weight
 
         return value
-
-    def __lt__(self, other):
-        return self._weight() < other._weight()
 
     def __eq__(self, other):
         if type(other) != type(self):
@@ -236,15 +236,28 @@ class NetCreds(object):
             if '\\' in username and domain is None:
                 domain, username = username.split('\\', 1)
 
-        for cred in sorted(self.creds, key=lambda x: x._weight(), reverse=True):
-            pairs = (
-                (realm, cred.realm),
-                (domain, cred.domain),
-                (schema, cred.schema),
-                (ip, cred.ip),
-                (hostname, cred.hostname),
-                (port, cred.port),
-                (username, cred.username),
+        fields = {
+            'realm': realm,
+            'domain': domain,
+            'schema': schema,
+            'ip': ip,
+            'hostname': hostname,
+            'port': port,
+            'username': username,
+        }
+
+        available_fields = tuple(
+            field for field in fields if fields[field]
+        )
+
+        sorted_creds = sorted(
+            self.creds,
+            key=lambda x: x._weight(available_fields), reverse=True
+        )
+
+        for cred in sorted_creds:
+            pairs = tuple(
+                (fields[field], getattr(cred, field)) for field in fields
             )
 
             different = False
