@@ -143,7 +143,7 @@ def safe_obtain(proxy):
         return proxy
 
     try:
-        conn = object.__getattribute__(proxy, '____conn__', None)()
+        conn = object.__getattribute__(proxy, '____conn__')()
     except AttributeError:
         return proxy
 
