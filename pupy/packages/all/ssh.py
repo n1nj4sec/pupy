@@ -40,6 +40,14 @@ except ImportError:
         return None
 
 try:
+    import gssapi
+    GSSAPI_MIC_SUPPORT = getattr(
+        gssapi, 'GSSAPI_MIC_SUPPORT', True)
+
+except ImportError:
+    GSSAPI_MIC_SUPPORT = False
+
+try:
     from paramiko.ed25519key import Ed25519Key
 except ImportError:
     Ed25519Key = None
@@ -962,6 +970,7 @@ class SSH(object):
                     username=username,
                     allow_agent=True,
                     look_for_keys=False,
+                    gss_auth=GSSAPI_MIC_SUPPORT,
                     password=None,
                     compress=not self._interactive,
                     timeout=self.timeout
