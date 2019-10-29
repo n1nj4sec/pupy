@@ -59,7 +59,8 @@ class NetCreds(PupyModule):
 
     def _draw_creds(self, creds):
         columns = [
-            'schema', 'hostname', 'ip', 'port', 'path', 'domain', 'username', 'password'
+            'schema', 'hostname', 'ip', 'port', 'path', 'domain',
+            'username', 'password', 'realm'
         ]
 
         objects = []
