@@ -18,6 +18,30 @@ else:
 
 from base64 import b64encode, b64decode
 
+C_NT_HOSTBASED_SERVICE = 0
+
+C_PROT_READY_FLAG = krb.GSS_C_PROT_READY_FLAG
+C_SEQUENCE_FLAG = krb.GSS_C_SEQUENCE_FLAG
+C_INTEG_FLAG = krb.GSS_C_INTEG_FLAG
+C_MUTUAL_FLAG = krb.GSS_C_MUTUAL_FLAG
+C_DELEG_FLAG = krb.GSS_C_DELEG_FLAG
+
+
+class OID(object):
+    __slots__ = ()
+
+    @staticmethod
+    def mech_from_string(mech):
+
+        if mech == '1.2.840.113554.1.2.2':
+            return krb.GSS_MECH_OID_KRB5
+        elif mech == '1.3.6.1.5.5.2':
+            return krb.GSS_MECH_OID_SPNEGO
+        else:
+            raise NotImplementedError(
+                'Unsupported mech {}'.format(mech))
+
+
 class ExtPassword(tuple):
     @property
     def username(self):
@@ -32,15 +56,30 @@ class ExtPassword(tuple):
 
 
 GSSAPI_EXT_PASSWORD = ExtPassword
+GSSAPI_MIC_SUPPORT = hasattr(krb, 'authGSSSign')
+
+GSSException = krb.GSSError
 
 
 class GSSAPIAdapterException(Exception):
     pass
 
 
+class RequirementFlag(object):
+    protection_ready = krb.GSS_C_PROT_READY_FLAG
+    integrity = krb.GSS_C_INTEG_FLAG
+    mutual_authentication = krb.GSS_C_MUTUAL_FLAG
+    delegate_to_peer = krb.GSS_C_DELEG_FLAG
+
+
 class exceptions(object):
     MissingContextError = GSSAPIAdapterException
-    GSSError = krb.GSSError
+    GSSError = GSSException
+    GeneralError = GSSAPIAdapterException
+
+
+class raw(object):
+    misc = exceptions
 
 
 class NameType(object):
@@ -87,17 +126,22 @@ class Credentials(object):
         )
 
 
-class SecurityContext(object):
+class Context(object):
     __slots__ = (
-        'name', 'mech', 'creds', 'complete',
+        'name', 'mech', 'creds', 'complete', 'flags', 'usage',
         '_ctx'
     )
 
-    def __init__(self, name=None, mech=None, creds=None):
-        self.name = name
-        self.mech = mech
+    def __init__(self, name=None, mech=None, creds=None, flags=0, usage=None):
+        if hasattr(flags, '__iter__'):
+            flags = reduce(lambda x, y: x|y, flags, 0)
+
+        self.name = name or ''
+        self.mech = mech or krb.GSS_MECH_OID_KRB5
         self.creds = creds
         self.complete = False
+        self.flags = flags or C_SEQUENCE_FLAG | C_MUTUAL_FLAG
+        self.usage = usage
         self._ctx = None
 
         if __debug__:
@@ -108,50 +152,62 @@ class SecurityContext(object):
             '(name={}, mech={}, creds={}, complete={})'.format(
                 self.name, self.mech, self.creds, self.complete)
 
-    def step(self, in_token):
-        if not self._ctx:
-            if __debug__:
-                logger.debug('Initialize security context: %s', self)
+    def init(self):
+        if self._ctx:
+            return self._ctx
 
-            args = [
-                self.name,
-                self.creds.name if self.creds else None
-            ]
+        if __debug__:
+            logger.debug('Initialize security context: %s', self)
 
-            kwargs = {
-                'gssflags': krb.GSS_C_SEQUENCE_FLAG | krb.GSS_C_MUTUAL_FLAG,
-                'mech_oid': self.mech
-            }
+        args = [
+            self.name,
+            self.creds.name if self.creds else None
+        ]
 
-            need_inquire_creds = True
+        kwargs = {
+            'gssflags': self.flags,
+            'mech_oid': self.mech
+        }
 
-            if self.creds and self.creds.password:
-                kwargs['password'] = self.creds.password,
+        need_inquire_creds = True
 
-                try:
-                    result, self._ctx = krb.authGSSClientInit(
-                        *args, **kwargs
-                    )
+        print "\n\nKWARGS:", kwargs, "\n\n"
 
-                    logger.debug('GSSApiExt: password ok')
-                    need_inquire_creds = False
-                except TypeError:
-                    logger.debug('GSSApiExt: password is not supported')
-                    del kwargs['password']
+        if self.creds and self.creds.password:
+            kwargs['password'] = self.creds.password,
 
-            if not self._ctx:
+            try:
                 result, self._ctx = krb.authGSSClientInit(
                     *args, **kwargs
                 )
 
+                logger.debug('GSSApiExt: password ok')
+                need_inquire_creds = False
+            except TypeError:
+                logger.debug('GSSApiExt: password is not supported')
+                del kwargs['password']
+
+        if not self._ctx:
+            result, self._ctx = krb.authGSSClientInit(
+                *args, **kwargs
+            )
+
+        if result < 0:
+            raise GSSAPIAdapterException(result)
+
+        if need_inquire_creds:
+            logger.debug('GSSApiExt: inquire credentials')
+            result = krb.authGSSClientInquireCred(self._ctx)
             if result < 0:
                 raise GSSAPIAdapterException(result)
 
-            if need_inquire_creds:
-                logger.debug('GSSApiExt: inquire credentials')
-                result = krb.authGSSClientInquireCred(self._ctx)
-                if result < 0:
-                    raise GSSAPIAdapterException(result)
+    @property
+    def established(self):
+        return self.complete
+
+    def step(self, in_token):
+        if not self._ctx:
+            self.init()
 
         in_token = b64encode(in_token) if in_token else ''
 
@@ -163,7 +219,7 @@ class SecurityContext(object):
 
         self.complete = result == krb.AUTH_GSS_COMPLETE
         out_token = krb.authGSSClientResponse(self._ctx)
-        return b64decode(out_token) if out_token else ''
+        return b64decode(out_token) if out_token else None
 
     def wrap(self, data, protect=None):
         if data:
@@ -190,3 +246,23 @@ class SecurityContext(object):
 
         out_data = krb.authGSSClientResponse(self._ctx)
         return WrappedToken(b64decode(out_data))
+
+    def sign(self, sid):
+        return b64decode(krb.authGSSSign(self._ctx, b64encode(sid)))
+
+    get_signature = sign
+
+    def verify_mic(self, sid, token):
+        krb.authGSSVerify(self._ctx, b64encode(sid), b64encode(token))
+
+    verify_signature = verify_mic
+
+
+class SecurityContext(Context):
+    pass
+
+
+def InitContext(peer_name=None, mech_type=None, req_flags=None):
+    context = Context(name=peer_name, mech=mech_type, flags=req_flags)
+    context.init()
+    return context
