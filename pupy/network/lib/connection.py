@@ -185,8 +185,8 @@ class SyncRequestDispatchQueue(object):
                 except Full:
                     if __debug__:
                         syncqueuelogger.debug(
-                            'Task not queued - no empty slots. Launch new worker'.format(self,
-                                                                                         self._pending_workers))
+                            'Task not queued - no empty slots. Launch new worker (%s, %s)'.format(
+                                self, self._pending_workers))
 
                         pass
 
@@ -324,8 +324,10 @@ class PupyConnection(Connection):
             raise
 
         if __debug__:
-            synclogger.debug('Sync request wait(%s): %s / %s:%s %s (%s)',
-                self, seq, *traceback.extract_stack()[-4])
+            trace = traceback.extract_stack()
+            if len(trace) >= 4:
+                synclogger.debug('Sync request wait(%s): %s / %s:%s %s (%s)',
+                    self, seq, *trace[-4])
 
         self._sync_events[seq].wait()
 
@@ -474,8 +476,10 @@ class PupyConnection(Connection):
             self._closed = True
 
         if __debug__:
-            logger.debug('Connection(%s) - close - start (at: %s:%s %s(%s))',
-                self, *traceback.extract_stack()[-2])
+            trace = traceback.extract_stack()
+            if len(trace) >= 2:
+                logger.debug('Connection(%s) - close - start (at: %s:%s %s(%s))',
+                    self, *trace[-2])
 
         try:
             self.buf_in.wake()
