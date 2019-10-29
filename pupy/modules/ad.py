@@ -4,7 +4,7 @@ from ldap3.protocol.formatters.formatters import format_sid
 
 from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Pygment
+from pupylib.PupyOutput import Pygment, List
 
 from pygments import lexers
 
@@ -274,6 +274,9 @@ class AD(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='ad', description=cls.__doc__)
         cls.arg_parser.add_argument('realm', help='Realm to dump')
         cls.arg_parser.add_argument('-l', '--ldap-server', help='DNS address of LDAP server')
+        cls.arg_parser.add_argument(
+            '-G', '--global-catalog', default=False, action='store_true',
+            help='Use AD Global catalg')
         cls.arg_parser.add_argument('-u', '--username', help='Username to authenticate')
         cls.arg_parser.add_argument('-p', '--password', help='Password to authenticate')
         cls.arg_parser.add_argument('-d', '--domain', help='Domain for Username')
@@ -286,7 +289,13 @@ class AD(PupyModule):
         dump.add_argument(
             '-f', '--full', default=False,
             action='store_true', help='Dump all attributes')
+        dump.add_argument(
+            'categories', nargs='?', help='Categories to dump, i.e.: users,computers'
+        )
         dump.set_defaults(func=cls.dump)
+
+        childs = commands.add_parser('childs', help='Related AD servers')
+        childs.set_defaults(func=cls.childs)
 
         search = commands.add_parser('search', help='Search in AD')
         search.add_argument(
@@ -314,7 +323,7 @@ class AD(PupyModule):
     def search(self, args):
         search = self.client.remote('ad', 'search')
         result = search(
-            args.realm, args.ldap_server,
+            args.realm, args.ldap_server, args.global_catalog,
             args.domain, args.username, args.password,
             args.root,
 
@@ -337,6 +346,16 @@ class AD(PupyModule):
         self.log(
              Pygment(lexers.JsonLexer(), formatted_json)
         )
+
+    def childs(self, args):
+        search = self.client.remote('ad', 'childs')
+        rootdn, childs = search(
+            args.realm, args.ldap_server, args.global_catalog,
+            args.domain, args.username, args.password,
+            args.root
+        )
+
+        self.log(List(childs, caption=rootdn))
 
     def dump(self, args):
         addump = self.client.remote('ad', 'dump', False)
@@ -420,7 +439,8 @@ class AD(PupyModule):
 
         self.terminate = addump(
             on_data, on_complete,
-            args.realm, args.ldap_server, args.filter, not args.full,
+            args.realm, args.ldap_server, args.global_catalog,
+            args.filter or args.categories, not args.full,
             args.domain, args.username, args.password,
             args.root
         )

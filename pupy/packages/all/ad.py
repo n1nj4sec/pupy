@@ -3,13 +3,14 @@
 # Stolen from ldapdomaindump
 
 from ldap3 import (
-    Server, Connection, SIMPLE, ALL,
+    Server, Connection, SIMPLE, ALL, BASE,
     SASL, NTLM, ALL_ATTRIBUTES, GSSAPI,
 )
 
 from ldap3.core.exceptions import (
     LDAPKeyError, LDAPAttributeError, LDAPCursorError, LDAPInvalidDnError,
-    LDAPSocketOpenError
+    LDAPSocketOpenError, LDAPSocketReceiveError,
+    LDAPUnknownAuthenticationMethodError
 )
 
 from ldap3.abstract import attribute, attrDef
@@ -28,7 +29,24 @@ from threading import Thread, Event
 from time import clock, mktime
 from inspect import isgenerator
 
-from network.lib.netcreds import find_first_cred
+from gssapi import exceptions as gssexceptions
+
+try:
+    from gssapi import GSSAPI_EXT_PASSWORD
+except ImportError:
+    GSSAPI_EXT_PASSWORD = False
+
+try:
+    import pupy
+    from network.lib.netcreds import find_creds
+
+    logger = pupy.get_logger('ad')
+except ImportError:
+    import logging
+    logger = logging.getLogger()
+
+    def find_creds(*args, **kwargs):
+        return
 
 try:
     import dnslib
@@ -278,7 +296,11 @@ class ADLdapServer(object):
     )
 
     def __init__(self, address, port, priority):
-        self.address = '.'.join(address.label)
+        if hasattr(address, 'label'):
+            self.address = '.'.join(address.label)
+        else:
+            self.address = address
+
         self.port = port
         self.priority = priority
 
@@ -419,29 +441,54 @@ class ADCtx(object):
                 if dnslib.QTYPE[record.rtype] == qtype
             ]
 
-    def _autodiscovery(self):
+    def _autodiscovery(self, global_catalog=False):
         if not auto_discovery:
             raise ValueError('Autodiscovery is not available')
 
         self._select_fastest_ns()
+
         ldap_servers = self._resolve('_ldap._tcp.' + self.realm, 'SRV')
         if not ldap_servers:
             raise ValueError('LDAP Servers autodiscovery failed')
 
-        for ldap_server in ldap_servers:
-            if self._interrupt.is_set():
-                return
+        _ldap_servers = []
 
-            self._ldap_servers.append(
+        for ldap_server in ldap_servers:
+            _ldap_servers.append(
                 ADLdapServer(
                     ldap_server.target, ldap_server.port,
-                    ldap_server.priority)
+                    ldap_server.priority
                 )
+            )
 
-        self._ldap_servers = sorted(self._ldap_servers)
+        _ldap_servers = sorted(_ldap_servers)
+
+        self._ldap_servers = []
+
+        _gc_ldap_servers = []
+
+        if global_catalog:
+            gc_ldap_servers = self._resolve(
+                '_ldap._tcp.gc._msdcs.' + self.realm, 'SRV')
+
+            if gc_ldap_servers:
+                for ldap_server in gc_ldap_servers:
+                    _gc_ldap_servers.append(
+                        ADLdapServer(
+                            ldap_server.target, ldap_server.port,
+                            ldap_server.priority
+                        )
+                    )
+
+                _gc_ldap_servers = sorted(_gc_ldap_servers)
+
+                # Global catalog has priority
+                self._ldap_servers.extend(_gc_ldap_servers)
+
+        self._ldap_servers.extend(_ldap_servers)
 
     def _try_connect_exact(
-        self, ldap_server,
+        self, ldap_server, global_catalog=False,
             domain=None, user=None, password=None, authentication=None):
 
         kwargs = {
@@ -460,16 +507,20 @@ class ADCtx(object):
             })
 
         if authentication == SASL:
+            bind_user = None
+
             if user:
-                authz = user + '@' + (domain if domain else self.realm)
-            else:
-                authz = None
+                bind_user = user + '@' + (domain or self.realm).upper()
+
+            if password and GSSAPI_EXT_PASSWORD:
+                bind_user = GSSAPI_EXT_PASSWORD((bind_user, password))
 
             kwargs.update({
-                'sasl_mechanism': GSSAPI,
+                'user': bind_user,
                 'sasl_credentials': (
-                    ldap_server + '/' + self.realm, authz
-                )
+                    ldap_server + '/' + self.realm,
+                ),
+                'sasl_mechanism': GSSAPI,
             })
 
         elif authentication == NTLM:
@@ -477,10 +528,11 @@ class ADCtx(object):
                 raise ADDumperException(
                     'Insufficient credentials for NTLM authentication')
 
-            if not domain:
-                domain = self.realm
+            if not '\\' in user:
+                if not domain:
+                    domain = self.realm.lower()
 
-            user = domain + '\\' + user
+                kwargs['user'] = domain + '\\' + user
 
         elif authentication == SIMPLE:
             if not (user and password):
@@ -490,25 +542,37 @@ class ADCtx(object):
         self._kwargs = kwargs
         self._connect()
 
-    def _connect(self):
-        self.connection = Connection(self.server, **self._kwargs)
+    def _connect(self, timeout=None):
+        kwargs = dict(self._kwargs)
+        if timeout:
+            kwargs['receive_timeout'] = timeout
+
+        self.connection = Connection(self.server, **kwargs)
         if not self.connection.bind():
             self.connection = None
             raise ADDumperException('Bind error')
 
     def _try_connect_multi(
-        self, ldap_server,
+        self, ldap_server, global_catalog=False,
             domain=None, user=None, password=None, authentication=None):
 
         if authentication is not None:
-            self._try_connect_exact(ldap_server, domain, user, password, authentication)
+            self._try_connect_exact(
+                ldap_server, global_catalog,
+                domain, user, password, authentication
+            )
             return
 
         for authentication in (SASL, NTLM, SIMPLE):
             try:
-                self._try_connect_exact(ldap_server, domain, user, password, authentication)
+                self._try_connect_exact(
+                    ldap_server, global_catalog,
+                    domain, user, password, authentication
+                )
                 return
-            except (ValueError, ADDumperException):
+
+            except (ValueError, LDAPUnknownAuthenticationMethodError,
+                    ADDumperException, gssexceptions.GSSError) as e:
                 pass
 
         raise ADDumperException('Bind error (all failed)')
@@ -523,9 +587,9 @@ class ADCtx(object):
 
     def __init__(
         self, realm,
-        ldap_server=None, domain=None, user=None,
-            password=None, authentication=None, root=None,
-            interrupt=None):
+        ldap_server=None, global_catalog=False,
+            domain=None, user=None, password=None,
+            authentication=None, root=None, interrupt=None):
 
         if realm is None:
             if ldap_server:
@@ -549,18 +613,20 @@ class ADCtx(object):
             self.server = Server(
                 ldap_server,
                 get_info=ALL,
+                port=3268 if global_catalog else 389,
                 allowed_referral_hosts=[
                     ('*', True)
                 ]
             )
 
             self._try_connect_multi(
-                ldap_server, user, password, authentication
+                ldap_server, global_catalog,
+                domain, user, password, authentication
             )
 
             self._preferred_ldap_server = ldap_server
         else:
-            self._autodiscovery()
+            self._autodiscovery(global_catalog)
 
             for ldap_server in self._ldap_servers:
                 if self._interrupt.is_set():
@@ -578,14 +644,14 @@ class ADCtx(object):
                     )
 
                     self._try_connect_multi(
-                        ldap_server.address,
-                        user, password, authentication
+                        ldap_server.address, global_catalog,
+                        domain, user, password, authentication
                     )
 
                     self._preferred_ldap_server = ldap_server.address
                     break
 
-                except (socket_error, LDAPSocketOpenError):
+                except (socket_error, LDAPSocketOpenError, LDAPSocketReceiveError):
                     continue
 
         if not self.server:
@@ -600,10 +666,19 @@ class ADCtx(object):
         self._interrupt.set()
 
     def dump(self, on_data, on_completed, interrupt,
-            filter=None, minimal=False):
+            filter=None, minimal=False, timeout=600):
         ctx = LDAPContext(self.server, self.connection, self.root)
 
+        categories = None
+
+        if isinstance(filter, (str, unicode)):
+            categories = tuple(set(cat.strip() for cat in filter.split(',')))
+            filter = None
+
         for name, request in self.SIMPLE_DUMP_REQUESTS.iteritems():
+            if categories and name not in categories:
+                continue
+
             if interrupt.is_set():
                 if on_completed:
                     on_completed()
@@ -621,18 +696,49 @@ class ADCtx(object):
             for _ in xrange(2):
                 try:
                     request(
-                        ctx, _on_data, on_completed, interrupt,
+                        ctx, _on_data, None, interrupt,
                         minimal=minimal, custom_filter=filter
                     )
 
                     exception = None
                     break
 
-                except LDAPSocketOpenError as e:
+                except (LDAPSocketOpenError, LDAPSocketReceiveError) as e:
+                    self._connect(timeout)
                     exception = e
 
             if exception:
                 raise exception
+
+        if on_completed:
+            on_completed()
+
+    def childs(self):
+        exception = None
+
+        for _ in xrange(2):
+            try:
+                self.connection.search(
+                    self.root, '(objectClass=domain)',
+                    BASE,
+                    attributes=['subRefs'],
+                    size_limit=1,
+                )
+
+                response = list(self.connection.response)
+                if len(response) != 1:
+                    return None
+
+                return response[0]['dn'], tuple(
+                    response[0]['attributes']['subRefs'])
+
+            except (LDAPSocketOpenError, LDAPSocketReceiveError) as e:
+                exception = e
+                self._connect()
+
+        if exception:
+            raise exception
+
 
     def search(self, filter, attributes,
             amount=5, timeout=30, root=None, as_json=False):
@@ -657,9 +763,9 @@ class ADCtx(object):
                 exception = None
                 break
 
-            except LDAPSocketOpenError as e:
+            except (LDAPSocketOpenError, LDAPSocketReceiveError) as e:
                 exception = e
-                self._connect()
+                self._connect(timeout)
 
         if exception:
             raise exception
@@ -676,7 +782,7 @@ class ADCtx(object):
 
 
 def _get_ctx(
-    realm, ldap_server,
+    realm, ldap_server, global_catalog,
         domain, user, password, root,
         interrupt=None):
 
@@ -684,18 +790,73 @@ def _get_ctx(
     if ctx:
         return ctx
 
-    if not (user and password):
-        cred = find_first_cred(address=realm)
-        if cred:
-            domain = cred.domain
-            user = cred.user
+    if (user and password):
+        logger.info(
+            '(Realm: %s) Use preconfigured credentials: domain=%s user=%s',
+            realm, domain, user
+        )
+
+        ctx = ADCtx(
+            realm, ldap_server, global_catalog,
+            domain, user, password,
+            root=root, interrupt=interrupt
+        )
+    else:
+
+        try:
+            logger.info('(Realm: %s) Use SSO', realm)
+
+            ctx = ADCtx(
+                realm, ldap_server, global_catalog,
+                root=root, interrupt=interrupt
+            )
+
+            REALM_CACHE[realm] = ctx
+            logger.info('(Realm: %s) Use SSO - ok (%s)', realm, ctx)
+            return ctx
+
+        except (ValueError, ADDumperException,
+                gssexceptions.GSSError, LDAPUnknownAuthenticationMethodError) as e:
+
+            logger.warning('(Realm: %s) Use SSO failed: %s', realm, e)
+
+
+        for cred in find_creds(schema='ldap', realm=realm, username=user):
+            logger.info(
+                '(Realm: %s) Try netcreds: domain=%s user=%s',
+                realm, domain, user
+            )
+
+            domain = cred.domain or cred.realm
+            if domain:
+                domain = domain.lower()
+
+            user = cred.username
             password = cred.password
 
-    ctx = ADCtx(
-        realm, ldap_server,
-        domain, user, password,
-        root=root, interrupt=interrupt
-    )
+            try:
+                ctx = ADCtx(
+                    realm, ldap_server, global_catalog,
+                    domain, user, password,
+                    root=root, interrupt=interrupt
+                )
+
+                logger.info(
+                    '(Realm: %s) Try netcreds: domain=%s user=%s: ok (%s)',
+                    realm, domain, user, ctx
+                )
+            except (ValueError, ADDumperException,
+                    gssexceptions.GSSError, LDAPUnknownAuthenticationMethodError) as e:
+
+                logger.warning(
+                    '(Realm: %s) Try netcreds: domain=%s user=%s failed: %s',
+                    realm, domain, user, e
+                )
+                continue
+
+        if not ctx:
+            logger.warning('(Realm: %s) No creds found', realm)
+            raise ADDumperException('Bind error (all possible creds failed)')
 
     REALM_CACHE[realm] = ctx
     return ctx
@@ -704,13 +865,13 @@ def _get_ctx(
 def _dump(
     interrupt,
     on_data, on_completed,
-        realm, ldap_server,
+        realm, ldap_server, global_catalog,
         filter, minimal,
         domain, user, password, root):
 
     try:
         ctx = _get_ctx(
-            realm, ldap_server,
+            realm, ldap_server, global_catalog,
             domain, user, password, root,
             interrupt
         )
@@ -740,8 +901,9 @@ def _dump(
 
 
 def dump(on_data, on_completed,
-    realm, ldap_server=None, filter=None, minimal=False,
-        domain=None, user=None, password=None, root=None):
+    realm, ldap_server=None, global_catalog=False,
+        filter=None, minimal=False, domain=None, user=None,
+        password=None, root=None):
 
     interrupt = Event()
     thread = Thread(
@@ -750,7 +912,7 @@ def dump(on_data, on_completed,
             interrupt,
             on_data,
             on_completed,
-            realm, ldap_server,
+            realm, ldap_server, global_catalog,
             filter, minimal,
             domain, user, password, root
         )
@@ -762,13 +924,13 @@ def dump(on_data, on_completed,
 
 
 def search(
-    realm, ldap_server,
+    realm, ldap_server, global_catalog,
         domain, user, password, root,
         term, attributes,
         amount, timeout, as_ldiff):
 
     ctx = _get_ctx(
-       realm, ldap_server,
+       realm, ldap_server, global_catalog,
        domain, user, password, root
     )
 
@@ -776,3 +938,15 @@ def search(
         term, attributes,
         amount, timeout,  as_ldiff
     )
+
+
+def childs(
+    realm, ldap_server, global_catalog,
+        domain, user, password, root):
+
+    ctx = _get_ctx(
+       realm, ldap_server, global_catalog,
+       domain, user, password, root
+    )
+
+    return ctx.childs()
