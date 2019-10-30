@@ -173,13 +173,17 @@ class LDAPLargeRequest(LDAPRequest):
             page_size=64, custom_filter=None, minimal=False, **kwargs):
 
         filter = self.filter(custom_filter, kwargs)
+        controls = []
+
+        if 'ntsecuritydescriptor' in tuple(attr.lower() for attr in self.attributes):
+            controls.append(build_sd_control())
 
         iterator = ctx.connection.extend.standard.paged_search(
             ctx.root, filter,
             attributes=self.minimal if (
                 minimal and self.minimal) else self.attributes,
             paged_size=page_size, paged_criticality=True,
-            controls=[build_sd_control()],
+            controls=controls,
             generator=True
         )
 
@@ -788,11 +792,16 @@ class ADCtx(object):
                     attr.strip() for attr in set(
                         attributes.split(',')))
 
+        controls = []
+
+        if 'ntsecuritydescriptor' in tuple(attr.lower() for attr in attributes):
+            controls.append(build_sd_control())
+
         result = self.connection.search(
             self.root, filter,
             BASE if base else SUBTREE,
             attributes=attributes,
-            controls=[build_sd_control()],
+            controls=controls,
             size_limit=amount,
             time_limit=timeout
         )
