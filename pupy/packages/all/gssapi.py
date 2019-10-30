@@ -171,8 +171,6 @@ class Context(object):
 
         need_inquire_creds = True
 
-        print "\n\nKWARGS:", kwargs, "\n\n"
-
         if self.creds and self.creds.password:
             kwargs['password'] = self.creds.password,
 
