@@ -297,7 +297,7 @@ def formatAttribute(key, att, formatCnAsGroup=False):
     return att
 
 
-def from_tuple_deep(obj):
+def from_tuple_deep(obj, format=True):
     kind, data = obj
     if kind == IMM:
         if isinstance(data, str):
@@ -313,9 +313,14 @@ def from_tuple_deep(obj):
             from_tuple_deep(item) for item in data
         )
 
-    elif kind == MAP:
+    elif kind == MAP and format:
         return {
             k: formatAttribute(k, from_tuple_deep(v)) for (k, v) in data
+        }
+
+    elif kind == MAP and not format:
+        return {
+            k: from_tuple_deep(v) for (k, v) in data
         }
 
     elif kind == DATE:
@@ -399,7 +404,15 @@ class AD(PupyModule):
 
 
     def run(self, args):
-        args.func(self, args)
+        try:
+            args.func(self, args)
+        except Exception as e:
+            if hasattr(e, 'message') and hasattr(e, 'type'):
+
+                self.error('AD Error ({}): {}'.format(
+                    e.type, e.message))
+            else:
+                raise
 
     def search(self, args):
         search = self.client.remote('ad', 'search')
@@ -469,22 +482,30 @@ class AD(PupyModule):
             args.root
         )
 
-        desc = from_tuple_deep(desc)
-        idesc = desc['info']
+        desc = from_tuple_deep(desc, False)
+        idesc = desc.get('info', {})
 
         infos = []
+
+        versions = idesc.get(
+            'supported_ldap_versions', []
+        )
+
+        if not hasattr(versions, '__iter__'):
+            versions = [versions]
+
         infos.append(
             List([
-                'Bind: ' + desc['bind'],
-                'Root: ' + desc['root'],
-                'LDAP: ' + desc['ldap'],
-                'DNS: ' + desc['dns'][4][0],
-                'Schema: ' + idesc['schema_entry'],
-                'Versions: ' + ', '.join(
-                    str(version) for version in idesc['supported_ldap_versions']
-                ),
+                'Bind: ' + desc.get('bind', ''),
+                'Root: ' + desc.get('root', ''),
+                'LDAP: ' + desc.get('ldap', ''),
+                'DNS: ' + desc['dns'][4][0] if desc.get('dns', None) else '',
+                'Schema: ' + idesc.get('schema_entry', ''),
+                'Versions: ' + ', '.join(str(version) for version in versions),
                 'SASL Mechs: ' + ', '.join(
-                    mech for mech in idesc['supported_sasl_mechanisms']
+                    mech for mech in idesc.get(
+                        'supported_sasl_mechanisms', []
+                    )
                 )
             ], caption='Connection')
         )
@@ -510,12 +531,17 @@ class AD(PupyModule):
                 ], ['IP', 'Delay'], caption='DNS Servers')
             )
 
+        if not idesc:
+            self.log(MultiPart(infos))
+            return
+
         if idesc['alt_servers']:
             infos.append(
                 List(idesc['alt_servers'], caption='Alternate servers')
             )
 
-        if idesc['naming_contexts']:
+        if idesc['naming_contexts'] and not isinstance(
+                idesc['naming_contexts'], (str, unicode)):
             infos.append(
                 List(
                     idesc['naming_contexts'],
