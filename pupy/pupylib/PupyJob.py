@@ -238,13 +238,20 @@ class PupyJob(object):
             return True
 
         self.interrupted = True
+        supported = True
 
         #calling the interrupt method is one is defined for the module instead of killing the thread
         if hasattr(self.pupymodules[0], 'interrupt'):
-            self.handler.display(Info('Sending interrupt request'))
             for m in self.pupymodules:
-                m.interrupt()
+                try:
+                    m.interrupt()
+                except NotImplementedError:
+                    supported = False
+        else:
+            supported = False
 
+        if supported:
+            self.handler.display(Info('Interrupt request sended'))
             return True
 
         else:
