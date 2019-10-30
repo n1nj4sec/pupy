@@ -3,8 +3,8 @@
 # Stolen from ldapdomaindump
 
 from ldap3 import (
-    Server, Connection, SIMPLE, ALL, BASE,
-    SASL, NTLM, ALL_ATTRIBUTES, GSSAPI,
+    Server, Connection, SIMPLE, ALL, BASE, SUBTREE,
+    SASL, NTLM, ALL_ATTRIBUTES, GSSAPI, RESTARTABLE
 )
 
 from ldap3.core.exceptions import (
@@ -16,6 +16,10 @@ from ldap3.core.exceptions import (
 from ldap3.abstract import attribute, attrDef
 from ldap3.utils import dn
 from ldap3.utils.ciDict import CaseInsensitiveDict
+from ldap3.protocol.controls import build_control
+
+from pyasn1.type.namedtype import NamedTypes, NamedType
+from pyasn1.type.univ import Sequence, OctetString, Integer
 
 from socket import (
     getfqdn, socket, getaddrinfo,
@@ -23,11 +27,13 @@ from socket import (
 )
 
 from socket import error as socket_error
+from sys import exc_info
 
 from datetime import datetime
 from threading import Thread, Event
 from time import clock, mktime
 from inspect import isgenerator
+from hashlib import md5
 
 from gssapi import exceptions as gssexceptions
 
@@ -76,6 +82,16 @@ MINIMAL_GROUPATTRIBUTES = (
     'whenCreated', 'whenChanged', 'objectSid', 'distinguishedName',
     'objectClass'
 )
+
+
+class SdFlags(Sequence):
+    componentType = NamedTypes(NamedType('Flags', Integer()))
+
+
+def build_sd_control(sdflags=0x04):
+    sdcontrol = SdFlags()
+    sdcontrol.setComponentByName('Flags', sdflags)
+    return build_control('1.2.840.113556.1.4.801', True, sdcontrol)
 
 
 class LDAPContext(object):
@@ -163,6 +179,7 @@ class LDAPLargeRequest(LDAPRequest):
             attributes=self.minimal if (
                 minimal and self.minimal) else self.attributes,
             paged_size=page_size, paged_criticality=True,
+            controls=[build_sd_control()],
             generator=True
         )
 
@@ -282,6 +299,12 @@ def as_tuple_deep(obj):
         if timetuple.tm_year < 1970:
             return DATE, 0
         return DATE, mktime(timetuple)
+    elif hasattr(obj, '__slots__'):
+        return MAP, tuple(
+            (k,
+                as_tuple_deep(getattr(obj, k))
+            ) for k in obj.__slots__
+        )
     else:
         return IMM, obj
 
@@ -319,8 +342,9 @@ class ADLdapServer(object):
 class ADCtx(object):
     __slots__ = (
         'realm', 'server', 'connection', 'root',
-        '_interrupt', '_kwargs',
+        '_interrupt', '_kwargs', '_timeout',
 
+        '_i_am',
         '_ldap_servers', '_name_servers', '_ns_socket', '_ns_udp',
         '_preferred_name_server', '_preferred_ldap_server'
     )
@@ -488,13 +512,15 @@ class ADCtx(object):
         self._ldap_servers.extend(_ldap_servers)
 
     def _try_connect_exact(
-        self, ldap_server, global_catalog=False,
+        self, ldap_server, global_catalog=False, recv_timeout=60,
             domain=None, user=None, password=None, authentication=None):
 
         kwargs = {
             'authentication': authentication,
             'auto_referrals': True,
-            'use_referral_cache': True
+            'use_referral_cache': True,
+            'receive_timeout': self._timeout,
+            'client_strategy': RESTARTABLE
         }
 
         if not (user and password) and authentication == SIMPLE:
@@ -552,13 +578,15 @@ class ADCtx(object):
             self.connection = None
             raise ADDumperException('Bind error')
 
+        self._i_am = self.connection.extend.standard.who_am_i()
+
     def _try_connect_multi(
-        self, ldap_server, global_catalog=False,
+        self, ldap_server, global_catalog=False, recv_timeout=60,
             domain=None, user=None, password=None, authentication=None):
 
         if authentication is not None:
             self._try_connect_exact(
-                ldap_server, global_catalog,
+                ldap_server, global_catalog, recv_timeout,
                 domain, user, password, authentication
             )
             return
@@ -566,7 +594,7 @@ class ADCtx(object):
         for authentication in (SASL, NTLM, SIMPLE):
             try:
                 self._try_connect_exact(
-                    ldap_server, global_catalog,
+                    ldap_server, global_catalog, recv_timeout,
                     domain, user, password, authentication
                 )
                 return
@@ -587,9 +615,9 @@ class ADCtx(object):
 
     def __init__(
         self, realm,
-        ldap_server=None, global_catalog=False,
+        ldap_server=None, global_catalog=False, recv_timeout=60,
             domain=None, user=None, password=None,
-            authentication=None, root=None, interrupt=None):
+            authentication=None, root=None, interrupt=None, timeout=600):
 
         if realm is None:
             if ldap_server:
@@ -605,6 +633,7 @@ class ADCtx(object):
         self._name_servers = []
         self._preferred_ldap_server = None
         self._preferred_name_server = None
+        self._timeout = timeout
 
         if not ldap_server and self._preferred_ldap_server:
             ldap_server = self._preferred_ldap_server
@@ -644,7 +673,7 @@ class ADCtx(object):
                     )
 
                     self._try_connect_multi(
-                        ldap_server.address, global_catalog,
+                        ldap_server.address, global_catalog, recv_timeout,
                         domain, user, password, authentication
                     )
 
@@ -671,14 +700,24 @@ class ADCtx(object):
 
         categories = None
 
+        dump_requests = self.SIMPLE_DUMP_REQUESTS
+
         if isinstance(filter, (str, unicode)):
-            categories = tuple(set(cat.strip() for cat in filter.split(',')))
-            filter = None
+            if filter.startswith('('):
+                dump_requests = {
+                    'custom_' + md5(filter).hexdigest(): LDAPLargeRequest(filter)
+                }
+            else:
+                categories = tuple(set(cat.strip() for cat in filter.split(',')))
+                filter = None
 
-        for name, request in self.SIMPLE_DUMP_REQUESTS.iteritems():
-            if categories and name not in categories:
-                continue
+                dump_requests = {
+                    name: request for name, request in
+                    self.SIMPLE_DUMP_REQUESTS.iteritems()
+                    if name in categories
+                }
 
+        for name, request in dump_requests.iteritems():
             if interrupt.is_set():
                 if on_completed:
                     on_completed()
@@ -692,55 +731,54 @@ class ADCtx(object):
                 } for record in data if record['type'] == 'searchResEntry')
             )
 
-            exception = None
-            for _ in xrange(2):
-                try:
-                    request(
-                        ctx, _on_data, None, interrupt,
-                        minimal=minimal, custom_filter=filter
-                    )
-
-                    exception = None
-                    break
-
-                except (LDAPSocketOpenError, LDAPSocketReceiveError) as e:
-                    self._connect(timeout)
-                    exception = e
-
-            if exception:
-                raise exception
+            request(
+                ctx, _on_data, None, interrupt,
+                minimal=minimal,
+                custom_filter=filter
+            )
 
         if on_completed:
             on_completed()
 
     def childs(self):
-        exception = None
+        result = self.connection.search(
+            self.root, '(objectClass=domain)',
+            BASE,
+            attributes=['subRefs'],
+            size_limit=1,
+        )
 
-        for _ in xrange(2):
-            try:
-                self.connection.search(
-                    self.root, '(objectClass=domain)',
-                    BASE,
-                    attributes=['subRefs'],
-                    size_limit=1,
+        if not result:
+            return False, self.connection.last_error
+
+        response = list(self.connection.response)
+        if len(response) != 1:
+            return True, None
+
+        return True, (self._i_am, response[0]['dn'], tuple(
+            response[0]['attributes']['subRefs']))
+
+    def info(self):
+        return as_tuple_deep({
+            'bind': self._i_am,
+            'root': self.server.info.other['defaultNamingContext'][0],
+            'dns': self._preferred_name_server,
+            'ldap': self._preferred_ldap_server,
+            'dns_servers': self._name_servers,
+            'ldap_servers': self._ldap_servers,
+            'info': {
+                k:getattr(self.server.info, k) for k in (
+                    'alt_servers', 'naming_contexts',
+                    'supported_controls', 'supported_extensions',
+                    'supported_features', 'supported_ldap_versions',
+                    'supported_sasl_mechanisms', 'vendor_name',
+                    'vendor_version', 'schema_entry',
+                    'other'
                 )
+            }
+        })
 
-                response = list(self.connection.response)
-                if len(response) != 1:
-                    return None
-
-                return response[0]['dn'], tuple(
-                    response[0]['attributes']['subRefs'])
-
-            except (LDAPSocketOpenError, LDAPSocketReceiveError) as e:
-                exception = e
-                self._connect()
-
-        if exception:
-            raise exception
-
-
-    def search(self, filter, attributes,
+    def search(self, filter, attributes, base,
             amount=5, timeout=30, root=None, as_json=False):
 
         if isinstance(attributes, (str, unicode)):
@@ -750,30 +788,22 @@ class ADCtx(object):
                     attr.strip() for attr in set(
                         attributes.split(',')))
 
-        exception = None
-        for _ in xrange(2):
-            try:
-                self.connection.search(
-                    self.root, filter,
-                    attributes=attributes,
-                    size_limit=amount,
-                    time_limit=timeout
-                )
+        result = self.connection.search(
+            self.root, filter,
+            BASE if base else SUBTREE,
+            attributes=attributes,
+            controls=[build_sd_control()],
+            size_limit=amount,
+            time_limit=timeout
+        )
 
-                exception = None
-                break
-
-            except (LDAPSocketOpenError, LDAPSocketReceiveError) as e:
-                exception = e
-                self._connect(timeout)
-
-        if exception:
-            raise exception
+        if not result:
+            return False, self.connection.last_error
 
         if as_json:
-            return self.connection.response_to_json(indent=1)
+            return True, self.connection.response_to_json(indent=1)
         else:
-            return as_tuple_deep({
+            return True, as_tuple_deep({
                 k:v for k,v in record.iteritems()
                 if k not in ('raw_attributes', 'raw_dn', 'type')
             } for record in self.connection.response
@@ -782,7 +812,7 @@ class ADCtx(object):
 
 
 def _get_ctx(
-    realm, ldap_server, global_catalog,
+    realm, ldap_server, global_catalog, recv_timeout,
         domain, user, password, root,
         interrupt=None):
 
@@ -797,7 +827,7 @@ def _get_ctx(
         )
 
         ctx = ADCtx(
-            realm, ldap_server, global_catalog,
+            realm, ldap_server, global_catalog, recv_timeout,
             domain, user, password,
             root=root, interrupt=interrupt
         )
@@ -807,7 +837,7 @@ def _get_ctx(
             logger.info('(Realm: %s) Use SSO', realm)
 
             ctx = ADCtx(
-                realm, ldap_server, global_catalog,
+                realm, ldap_server, global_catalog, recv_timeout,
                 root=root, interrupt=interrupt
             )
 
@@ -836,7 +866,7 @@ def _get_ctx(
 
             try:
                 ctx = ADCtx(
-                    realm, ldap_server, global_catalog,
+                    realm, ldap_server, global_catalog, recv_timeout,
                     domain, user, password,
                     root=root, interrupt=interrupt
                 )
@@ -865,13 +895,13 @@ def _get_ctx(
 def _dump(
     interrupt,
     on_data, on_completed,
-        realm, ldap_server, global_catalog,
+        realm, ldap_server, global_catalog, recv_timeout,
         filter, minimal,
         domain, user, password, root):
 
     try:
         ctx = _get_ctx(
-            realm, ldap_server, global_catalog,
+            realm, ldap_server, global_catalog, recv_timeout,
             domain, user, password, root,
             interrupt
         )
@@ -901,7 +931,7 @@ def _dump(
 
 
 def dump(on_data, on_completed,
-    realm, ldap_server=None, global_catalog=False,
+    realm, ldap_server=None, global_catalog=False, recv_timeout=60,
         filter=None, minimal=False, domain=None, user=None,
         password=None, root=None):
 
@@ -912,7 +942,7 @@ def dump(on_data, on_completed,
             interrupt,
             on_data,
             on_completed,
-            realm, ldap_server, global_catalog,
+            realm, ldap_server, global_catalog, recv_timeout,
             filter, minimal,
             domain, user, password, root
         )
@@ -924,29 +954,40 @@ def dump(on_data, on_completed,
 
 
 def search(
-    realm, ldap_server, global_catalog,
+    realm, ldap_server, global_catalog, recv_timeout,
         domain, user, password, root,
-        term, attributes,
+        term, attributes, base,
         amount, timeout, as_ldiff):
 
     ctx = _get_ctx(
-       realm, ldap_server, global_catalog,
+       realm, ldap_server, global_catalog, recv_timeout,
        domain, user, password, root
     )
 
     return ctx.search(
-        term, attributes,
+        term, attributes, base,
         amount, timeout,  as_ldiff
     )
 
 
 def childs(
-    realm, ldap_server, global_catalog,
+    realm, ldap_server, global_catalog, recv_timeout,
         domain, user, password, root):
 
     ctx = _get_ctx(
-       realm, ldap_server, global_catalog,
+       realm, ldap_server, global_catalog, recv_timeout,
        domain, user, password, root
     )
 
     return ctx.childs()
+
+def info(
+    realm, ldap_server, global_catalog, recv_timeout,
+        domain, user, password, root):
+
+    ctx = _get_ctx(
+       realm, ldap_server, global_catalog, recv_timeout,
+       domain, user, password, root
+    )
+
+    return ctx.info()

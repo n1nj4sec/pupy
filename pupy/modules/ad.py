@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from ldap3.protocol.formatters.formatters import format_sid
+from impacket.ldap.ldaptypes import (
+    SR_SECURITY_DESCRIPTOR, ACCESS_MASK
+)
 
 from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Pygment, List
+from pupylib.PupyOutput import Pygment, List, Table, MultiPart
 
 from pygments import lexers
 
@@ -23,6 +26,11 @@ IMM = 0
 LIST = 1
 MAP = 2
 DATE = 3
+
+# search attributes
+ALL_ATTRIBUTES = '*'
+NO_ATTRIBUTES = '1.1'  # as per RFC 4511
+ALL_OPERATIONAL_ATTRIBUTES = '+'  # as per RFC 3673
 
 
 # User account control flags
@@ -169,6 +177,59 @@ def parseFlags(attr, flags_def, bits=True):
         )
     )
 
+
+def LDAPAclMaskToSet(mask):
+    flags = (
+        'GENERIC_READ', 'GENERIC_WRITE', 'GENERIC_EXECUTE',
+        'GENERIC_ALL', 'MAXIMUM_ALLOWED', 'ACCESS_SYSTEM_SECURITY',
+        'SYNCHRONIZE', 'WRITE_OWNER', 'WRITE_DACL', 'READ_CONTROL',
+        'DELETE'
+    )
+
+    result = []
+
+    for flag in flags:
+        value = getattr(ACCESS_MASK, flag)
+        if mask['Mask'] & value == value:
+            result.append(flag)
+
+    return result
+
+
+def LDAPAclToDict(acl):
+    if not acl:
+        return None
+
+    result = []
+    for ace in acl.aces:
+        result.append({
+            'Type': ace['TypeName'][:-4],
+            'Sid': ace['Ace']['Sid'].formatCanonical(),
+            'Mask': LDAPAclMaskToSet(ace['Ace']['Mask'])
+        })
+
+    return result
+
+
+def LDAPAclOwnerToDict(owner):
+    if not owner:
+        return None
+
+    return owner.formatCanonical()
+
+
+def LDAPSdToDict(descriptor):
+    if not descriptor:
+        return None
+
+    return {
+        'Owner': LDAPAclOwnerToDict(descriptor['OwnerSid']),
+        'Group': LDAPAclOwnerToDict(descriptor['GroupSid']),
+        'SACL': LDAPAclToDict(descriptor['Sacl']),
+        'DACL': LDAPAclToDict(descriptor['Dacl'])
+    }
+
+
 def formatAttribute(key, att, formatCnAsGroup=False):
     aname = key.lower()
 
@@ -226,6 +287,13 @@ def formatAttribute(key, att, formatCnAsGroup=False):
             'lastlogontimestamp', 'lockouttime'):
         return toDateTime(att)
 
+    elif aname in ('ntsecuritydescriptor',):
+        if att.startswith('hex:'):
+            att = att[4:].decode('hex')
+        srsd = SR_SECURITY_DESCRIPTOR()
+        srsd.fromString(att)
+        return LDAPSdToDict(srsd)
+
     return att
 
 
@@ -277,6 +345,7 @@ class AD(PupyModule):
         cls.arg_parser.add_argument(
             '-G', '--global-catalog', default=False, action='store_true',
             help='Use AD Global catalg')
+        cls.arg_parser.add_argument('-T', '--recv-timeout', default=60, help='Socket read timeout')
         cls.arg_parser.add_argument('-u', '--username', help='Username to authenticate')
         cls.arg_parser.add_argument('-p', '--password', help='Password to authenticate')
         cls.arg_parser.add_argument('-d', '--domain', help='Domain for Username')
@@ -285,26 +354,38 @@ class AD(PupyModule):
 
         commands = cls.arg_parser.add_subparsers(title='commands')
 
-        dump = commands.add_parser('dump', help='Dump AD users etc')
+        info = commands.add_parser('info', help='Info about current AD context')
+        info.set_defaults(func=cls.getinfo)
+
+        dump = commands.add_parser('dump', help='Dump results of large searches')
         dump.add_argument(
             '-f', '--full', default=False,
             action='store_true', help='Dump all attributes')
         dump.add_argument(
-            'categories', nargs='?', help='Categories to dump, i.e.: users,computers'
+            'target', nargs='?',
+            help='Categories to dump, i.e.: users,computers OR '
+            'filter like (&(attr=XYZ)(attr2=CCC))'
         )
         dump.set_defaults(func=cls.dump)
 
         childs = commands.add_parser('childs', help='Related AD servers')
         childs.set_defaults(func=cls.childs)
 
-        search = commands.add_parser('search', help='Search in AD')
+        search = commands.add_parser(
+            'search',
+            help='Search in AD (only small and fast, for large use dump)'
+        )
         search.add_argument(
             'term', help='Search filter',
             default='(objectClass=domain)',
         )
         search.add_argument(
-            'attributes', nargs='?', default='cn',
-            help='Attributes to search (Use * for ALL)'
+            'attributes', nargs='?', default=NO_ATTRIBUTES,
+            help='Attributes to search (Use * for ALL, default none)'
+        )
+        search.add_argument(
+            '-B', '--base', default=False, action='store_true',
+            help='Use base search instead of subtree search. Default: False'
         )
         search.add_argument(
             '-n', '--amount', default=5, type=int,
@@ -322,40 +403,158 @@ class AD(PupyModule):
 
     def search(self, args):
         search = self.client.remote('ad', 'search')
-        result = search(
-            args.realm, args.ldap_server, args.global_catalog,
+
+        ok, result = search(
+            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
             args.domain, args.username, args.password,
             args.root,
 
-            args.term, args.attributes, args.amount, args.timeout,
+            args.term, args.attributes, args.base,
+            args.amount, args.timeout,
             False
         )
 
-        result = tuple(
-            record for record in from_tuple_deep(result)
-            if 'dn' in record
-        )
+        if not ok:
+            self.error(result)
+            return
 
-        formatted_json = dumps(
-            result,
-            indent=2, sort_keys=True,
-            default=json_default,
-            ensure_ascii=False
-        )
+        if not args.attributes or args.attributes == NO_ATTRIBUTES:
+            result = tuple(
+                record['dn'] for record in from_tuple_deep(result)
+            )
 
-        self.log(
-             Pygment(lexers.JsonLexer(), formatted_json)
-        )
+            self.log(
+                List(
+                    result, caption='Search: ' + args.term
+                )
+            )
+        else:
+            result = tuple(
+                record for record in from_tuple_deep(result)
+                if 'dn' in record
+            )
+
+            formatted_json = dumps(
+                result,
+                indent=2, sort_keys=True,
+                default=json_default,
+                ensure_ascii=False
+            )
+
+            self.log(
+                Pygment(lexers.JsonLexer(), formatted_json)
+            )
 
     def childs(self, args):
-        search = self.client.remote('ad', 'childs')
-        rootdn, childs = search(
-            args.realm, args.ldap_server, args.global_catalog,
+        childs = self.client.remote('ad', 'childs')
+        ok, result = childs(
+            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
             args.domain, args.username, args.password,
             args.root
         )
 
-        self.log(List(childs, caption=rootdn))
+        if not ok:
+            self.error(result)
+            return
+
+        i_am, rootdn, childs = result
+
+        self.log(List(childs, caption='Root: {} Whoami: {}'.format(rootdn, i_am)))
+
+    def getinfo(self, args):
+        info = self.client.remote('ad', 'info')
+        desc = info(
+            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
+            args.domain, args.username, args.password,
+            args.root
+        )
+
+        desc = from_tuple_deep(desc)
+        idesc = desc['info']
+
+        infos = []
+        infos.append(
+            List([
+                'Bind: ' + desc['bind'],
+                'Root: ' + desc['root'],
+                'LDAP: ' + desc['ldap'],
+                'DNS: ' + desc['dns'][4][0],
+                'Schema: ' + idesc['schema_entry'],
+                'Versions: ' + ', '.join(
+                    str(version) for version in idesc['supported_ldap_versions']
+                ),
+                'SASL Mechs: ' + ', '.join(
+                    mech for mech in idesc['supported_sasl_mechanisms']
+                )
+            ], caption='Connection')
+        )
+
+        if desc['ldap_servers']:
+            infos.append(
+                Table(
+                    desc['ldap_servers'],
+                    ['address', 'port', 'priority'],
+                    caption='LDAP Servers'
+                )
+            )
+
+        if desc['dns_servers']:
+            infos.append(
+                Table([
+                    {
+                        'IP': dns[0][4][0] + (
+                            '/tcp' if dns[0][2] == 2 else '/udp'
+                        ),
+                        'Delay': '{:.02f}ms'.format(dns[1] * 1000),
+                    } for dns in desc['dns_servers']
+                ], ['IP', 'Delay'], caption='DNS Servers')
+            )
+
+        if idesc['alt_servers']:
+            infos.append(
+                List(idesc['alt_servers'], caption='Alternate servers')
+            )
+
+        if idesc['naming_contexts']:
+            infos.append(
+                List(
+                    idesc['naming_contexts'],
+                    caption='Naming contexts'
+                )
+            )
+
+        supported = []
+        for table in ('supported_controls',
+                'supported_extensions', 'supported_features'):
+            for oid, klass, name, vendor in idesc[table]:
+                supported.append({
+                    'OID': oid,
+                    'Type': klass,
+                    'Name': name,
+                    'Vendor': vendor
+                })
+
+        if supported:
+            infos.append(
+                Table(
+                    supported, [
+                        'OID', 'Type', 'Name', 'Vendor'
+                    ],
+                    caption='Supported features and extensions'
+                )
+            )
+
+        if 'other' in idesc:
+            infos.append(
+                List(tuple(
+                    '{}: {}'.format(key, value)
+                    for key, value in idesc['other'].iteritems()
+                    if key not in ('supportedLDAPPolicies',)
+                ),
+                caption='Other info')
+            )
+
+        self.log(MultiPart(infos))
 
     def dump(self, args):
         addump = self.client.remote('ad', 'dump', False)
@@ -439,8 +638,8 @@ class AD(PupyModule):
 
         self.terminate = addump(
             on_data, on_complete,
-            args.realm, args.ldap_server, args.global_catalog,
-            args.filter or args.categories, not args.full,
+            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
+            args.filter or args.target, not args.full,
             args.domain, args.username, args.password,
             args.root
         )
@@ -450,3 +649,5 @@ class AD(PupyModule):
     def interrupt(self):
         if self.terminate:
             self.terminate()
+        else:
+            raise NotImplementedError()
