@@ -825,6 +825,10 @@ class socksocket(_BaseSocket):
         dest_addr, dest_port = dest
         rdns, username, password, auth_type = properties
 
+        status_code = None
+        headers = None
+        need_request = True
+
         # If we need to resolve locally, we do this now
         addr = dest_addr if rdns else socket.gethostbyname(dest_addr)
         try:
@@ -859,7 +863,8 @@ class socksocket(_BaseSocket):
 
                 http_headers.append(b"Proxy-Authorization: basic " + b64encode(username + b":" + password))
 
-            elif Authentication and ('NTLM' in auth_type or 'NEGOTIATE' in auth_type):
+            elif Authentication and (
+                    'NTLM' in auth_type or 'NEGOTIATE' in auth_type):
                 ctx = Authentication(logger)
 
                 domain = None
@@ -884,43 +889,50 @@ class socksocket(_BaseSocket):
 
                 status_code, headers = self.recv_http_response(conn)
 
-                if status_code != 407:
-                    raise GeneralProxyError(
-                        'Invalid Authentication Sequence (STATUS: {})'.format(
-                            status_code))
+                if status_code == 200:
+                    need_request = False
+                else:
+                    if status_code != 407:
+                        raise GeneralProxyError(
+                            'Invalid Authentication Sequence (STATUS: {})'.format(
+                                status_code))
 
-                challenge = None
+                    need_request = True
+                    challenge = None
 
-                for header, value in headers.iteritems():
-                    if header.lower() == 'proxy-authenticate':
-                        value = value.strip()
-                        if not value.startswith(method + ' '):
-                            raise GeneralProxyError(
-                                'Invalid Authentication Sequence (Invalid payload)')
+                    for header, value in headers.iteritems():
+                        if header.lower() == 'proxy-authenticate':
+                            value = value.strip()
+                            if not value.startswith(method + ' '):
+                                raise GeneralProxyError(
+                                    'Invalid Authentication Sequence (Invalid payload)')
 
-                        _, challenge = value.split(' ', 1)
+                            _, challenge = value.split(' ', 1)
 
-                if not challenge:
-                    raise GeneralProxyError(
-                        'Invalid Authentication Sequence (Challenge not found)')
+                    if not challenge:
+                        raise GeneralProxyError(
+                            'Invalid Authentication Sequence (Challenge not found)')
 
-                try:
-                    _, method, payload = ctx.create_auth2_message(challenge)
-                except AuthenticationError as e:
-                    raise AuthenticationImpossible(
-                        'Error during SSP authentication (Step 2): {}'.format(e))
+                    try:
+                        _, method, payload = ctx.create_auth2_message(challenge)
+                    except AuthenticationError as e:
+                        raise AuthenticationImpossible(
+                            'Error during SSP authentication (Step 2): {}'.format(e))
 
-                http_headers.append('Proxy-Authorization: ' + ' '.join([method, payload]))
+                    http_headers.append('Proxy-Authorization: ' + ' '.join([method, payload]))
 
             else:
-                raise GeneralProxyError('Unsupported authentication scheme: {}'.format(auth_type))
+                raise GeneralProxyError(
+                    'Unsupported authentication scheme: {}'.format(
+                        auth_type))
 
-        http_headers.append(b'\r\n')
-        request = b'\r\n'.join(http_headers)
+        if need_request:
+            http_headers.append(b'\r\n')
+            request = b'\r\n'.join(http_headers)
 
-        conn.sendall(request)
+            conn.sendall(request)
 
-        status_code, headers = self.recv_http_response(conn)
+            status_code, headers = self.recv_http_response(conn)
 
         if status_code in (401, 407):
             if auth_type is not None:
