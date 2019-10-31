@@ -6,18 +6,19 @@ from ldap3 import (
     Server, Connection, SIMPLE, ALL, BASE, SUBTREE,
     SASL, NTLM, ALL_ATTRIBUTES, GSSAPI, RESTARTABLE
 )
-
 from ldap3.core.exceptions import (
     LDAPKeyError, LDAPAttributeError, LDAPCursorError, LDAPInvalidDnError,
     LDAPSocketOpenError, LDAPSocketReceiveError,
     LDAPUnknownAuthenticationMethodError, LDAPStartTLSError,
-    LDAPCommunicationError
+    LDAPCommunicationError, LDAPMaximumRetriesError
 )
 
 from ldap3.abstract import attribute, attrDef
 from ldap3.utils import dn
+from ldap3.utils.config import set_config_parameter
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ldap3.protocol.controls import build_control
+from ldap3.strategy.restartable import RestartableStrategy
 
 from pyasn1.type.namedtype import NamedTypes, NamedType
 from pyasn1.type.univ import Sequence, OctetString, Integer
@@ -25,16 +26,19 @@ from pyasn1.type.univ import Sequence, OctetString, Integer
 from ssl import CERT_NONE
 
 from socket import (
-    getfqdn, socket, getaddrinfo,
-    AF_UNSPEC, SOCK_DGRAM, SOCK_STREAM
+    getfqdn, socket, getaddrinfo, gaierror,
+    AF_UNSPEC, SOCK_DGRAM, SOCK_STREAM,
+    AF_INET, AF_INET6
 )
 
 from socket import error as socket_error
+from socket import gaierror
 from sys import exc_info
+from os import environ
 
 from datetime import datetime
 from threading import Thread, Event
-from time import clock, mktime
+from time import time, clock, mktime
 from inspect import isgenerator
 from hashlib import md5
 
@@ -44,6 +48,10 @@ try:
     from gssapi import GSSAPI_EXT_PASSWORD
 except ImportError:
     GSSAPI_EXT_PASSWORD = False
+
+from netaddr import IPAddress
+
+from network.lib.dnsinfo import dnsinfo
 
 try:
     import pupy
@@ -64,7 +72,28 @@ except ImportError:
     auto_discovery = False
 
 
+# Monkey-patch _add_exception_to_history to save original exception,
+# not some derived shit
+
+_orig_add_exception_to_history = RestartableStrategy._add_exception_to_history
+
+def _add_exception_to_history(self, exc):
+    # exc ignored here
+    exc_type, exc_value, exc_trace = exc_info()
+
+    # GSSAPI exceptions to be raised fast. Unlikely something will change
+    if issubclass(exc_type, gssexceptions.GSSError):
+        raise exc_type, exc_value, exc_trace
+
+    _orig_add_exception_to_history(self, exc_type(*exc_value))
+
+RestartableStrategy._add_exception_to_history = _add_exception_to_history
+
+set_config_parameter('RESTARTABLE_TRIES', 5)
+
 REALM_CACHE = {}
+DISCOVERY_CACHE = {}
+KNOWN_UNREACHABLE = {}
 
 MINIMAL_COMPUTERATTRIBUTES = (
     'cn', 'sAMAccountName', 'dNSHostName', 'operatingSystem',
@@ -87,6 +116,21 @@ MINIMAL_GROUPATTRIBUTES = (
 )
 
 
+def mark_unreachable(addr):
+    logger.info('Mark as unreachable %s', addr)
+    KNOWN_UNREACHABLE[addr] = time()
+
+
+def check_unreachable(addr):
+    ts = KNOWN_UNREACHABLE.get(addr, None)
+    if ts is None or time() - ts > 3600:
+        if addr in KNOWN_UNREACHABLE:
+            del KNOWN_UNREACHABLE[addr]
+        return False
+
+    return True
+
+
 class SdFlags(Sequence):
     componentType = NamedTypes(NamedType('Flags', Integer()))
 
@@ -99,53 +143,93 @@ def build_sd_control(sdflags=0x04):
 
 class ADException(Exception):
     type = 'generic'
-    message = 'unknown exception'
+    default_message = 'unknown exception'
+    childs = []
 
-    __slots__ = ()
+    __slots__ = ('message',)
 
-    def __init__(self, description=None):
+    def __init__(self, description=None, replace=False):
+        self.message = self.default_message
         if description:
-            self.message = self.message + ': ' + description
+            if replace:
+                self.message += ': ' + description
+            else:
+                self.message += ': ' + description
+
+        super(ADException, self).__init__(self.message)
 
     def __str__(self):
         return self.__class__.__name__ + ': ' + self.message
 
 
+class NoContext(ADException):
+    type = 'operations'
+    default_message = 'Realm not bound'
+
+
 class AutodiscoveryFailed(ADException):
     type = 'discovery'
-    message = 'Autodiscovery failed'
+    default_message = 'Autodiscovery failed'
 
     __slots__ = ()
 
 
 class AutodiscoveryNotAvailable(AutodiscoveryFailed):
-    message = 'Autodiscovery not available'
+    default_message = 'Autodiscovery not available'
 
     __slots__ = ()
 
 
 class AutodiscoveryNoDnsServersFound(AutodiscoveryFailed):
-    message = 'Autodiscovery not available - no discoverable DNS servers'
+    default_message = 'Autodiscovery not available - no discoverable DNS servers'
 
     __slots__ = ()
 
 
 class AuthenticationError(ADException):
-    type = 'authentication'
-    message = 'Authentication failed'
+    type = 'auth'
+    default_message = 'Authentication failed'
 
 
 class BindError(AuthenticationError):
-    pass
+    default_message = 'Bind failed'
+
+
+class NoCredentials(AuthenticationError):
+    default_message = 'No creds'
+
+
+class BindErrorMulti(BindError):
+    default_message = 'Authentications failed'
+
+    def __init__(self, childs):
+        super(BindErrorMulti, self).__init__()
+        self.childs = tuple(childs)
+
+
+class CredentialsError(BindError):
+    default_message = 'Invalid credentials'
 
 
 class CommunicationError(ADException):
     type = 'communication'
-    message = 'Connection failed'
+    default_message = 'Connection failed'
 
 
 class CommunicationErrorDiscovered(CommunicationError):
-    message = 'Connection to all discovered servers failed'
+    default_message = 'Connection to all discovered servers failed'
+
+    def __init__(self, childs):
+        super(CommunicationErrorDiscovered, self).__init__()
+        self.childs = tuple(
+            (
+                authentication, ldap_server, domain, user, e.type, e.message
+            ) for authentication, ldap_server, domain, user, e in childs
+        )
+
+
+class CommunicationErrorNoDiscovered(CommunicationError):
+    default_message = 'No servers found'
 
 
 class LDAPContext(object):
@@ -416,7 +500,22 @@ class ADCtx(object):
     def _bootstrap_ns(self, timeout=1, first=False):
         query = dnslib.DNSRecord.question(self.realm, 'SOA')
 
-        for addr in getaddrinfo(self.realm, 53):
+        try:
+            addrs = getaddrinfo(self.realm, 53)
+        except gaierror:
+            logger.info('No DNS servers found for this realm')
+            addrs, _ = dnsinfo()
+            addrs = tuple(
+                (
+                    AF_INET6 if IPAddress(addr).version == 6 else AF_INET,
+                    SOCK_DGRAM,
+                    0,
+                    '',
+                    (addr, 53)
+                ) for addr in addrs
+            )
+
+        for addr in addrs:
             if self._interrupt.is_set():
                 break
 
@@ -519,11 +618,30 @@ class ADCtx(object):
                 if dnslib.QTYPE[record.rtype] == qtype
             ]
 
-    def _autodiscovery(self, global_catalog=False):
+    def _autodiscovery(self, global_catalog=False, on_data=None):
         if not auto_discovery:
             raise AutodiscoveryNotAvailable()
 
+        key = (self.realm, global_catalog)
+
+        if key in DISCOVERY_CACHE:
+            ts, _ldap_servers = DISCOVERY_CACHE[key]
+
+            if time() - ts < 3600:
+                self._ldap_servers = _ldap_servers
+            else:
+                del DISCOVERY_CACHE[key]
+
+            if self._ldap_servers:
+                return
+
         self._select_fastest_ns()
+
+        if on_data:
+            on_data(
+                'Discovery {} servers for realm {} using DNS {}'.format(
+                    'MSGC' if global_catalog else 'LDAP', self.realm,
+                    self._preferred_name_server[4][0]))
 
         ldap_servers = self._resolve('_ldap._tcp.' + self.realm, 'SRV')
         if not ldap_servers:
@@ -532,12 +650,16 @@ class ADCtx(object):
         _ldap_servers = []
 
         for ldap_server in ldap_servers:
-            _ldap_servers.append(
-                ADLdapServer(
-                    ldap_server.target, ldap_server.port,
-                    ldap_server.priority
-                )
+            record = ADLdapServer(
+                ldap_server.target, ldap_server.port,
+                ldap_server.priority
             )
+
+            if check_unreachable((
+                    record.address, record.port)):
+                continue
+
+            _ldap_servers.append(record)
 
         _ldap_servers = sorted(_ldap_servers)
 
@@ -551,12 +673,16 @@ class ADCtx(object):
 
             if gc_ldap_servers:
                 for ldap_server in gc_ldap_servers:
-                    _gc_ldap_servers.append(
-                        ADLdapServer(
-                            ldap_server.target, ldap_server.port,
-                            ldap_server.priority
-                        )
+                    record = ADLdapServer(
+                        ldap_server.target, ldap_server.port,
+                        ldap_server.priority
                     )
+
+                    if check_unreachable((
+                            record.address, record.port)):
+                        continue
+
+                    _gc_ldap_servers.append(record)
 
                 _gc_ldap_servers = sorted(_gc_ldap_servers)
 
@@ -564,6 +690,13 @@ class ADCtx(object):
                 self._ldap_servers.extend(_gc_ldap_servers)
 
         self._ldap_servers.extend(_ldap_servers)
+
+        DISCOVERY_CACHE[key] = time(), self._ldap_servers
+
+        if on_data:
+            on_data(('Discovered', tuple(
+                '{}:{}'.format(server.address, server.port)
+                for server in self._ldap_servers)))
 
     def _try_connect_exact(
         self, server, ldap_server, global_catalog=False, recv_timeout=60,
@@ -579,7 +712,7 @@ class ADCtx(object):
         }
 
         if not (user and password) and authentication == SIMPLE:
-            raise AuthenticationError('User and Password must be specified')
+            raise NoCredentials()
 
         if (user and password):
             kwargs.update({
@@ -610,8 +743,7 @@ class ADCtx(object):
 
         elif authentication == NTLM:
             if not (user and password):
-                raise AuthenticationError(
-                    'Insufficient credentials for NTLM authentication')
+                raise NoCredentials()
 
             if '\\' not in user:
                 if not domain:
@@ -621,22 +753,43 @@ class ADCtx(object):
 
         elif authentication == SIMPLE:
             if not (user and password):
-                raise AuthenticationError(
-                    'Insufficient credentials for SIMPLE authentication')
+                raise NoCredentials()
 
         self._kwargs = kwargs
 
         try:
             self._connect(server)
-        except gssexceptions.GSSError:
-            if authentication == SASL and sasl_princ_use_realm:
+        except gssexceptions.GSSError as e:
+            gssmaj, gssmin = e.args
+            msgmaj, majcode = gssmaj
+            msgmin, _ = gssmin
+            if (majcode & 0xb0000 == 0xb0000) \
+                and authentication == SASL and sasl_princ_use_realm:
+
                 self._try_connect_exact(
-                    ldap_server, global_catalog, recv_timeout,
+                    server, ldap_server, global_catalog, recv_timeout,
                     domain, user, password,
                     authentication, False
                 )
+            elif majcode & 0xd0000 == 0xd0000:
+                raise NoCredentials(
+                    'GSSAPI: ' + msgmin, replace=True
+                )
             else:
-                raise
+                raise NoCredentials(
+                    'GSSAPI: ' + msgmaj + (
+                        (': ' + msgmin) if msgmin != 'Success' else ''
+                    ), replace=True
+                )
+
+        except LDAPMaximumRetriesError as e:
+            for error in e.args[1]:
+                if isinstance(e, LDAPSocketOpenError):
+                    mark_unreachable((
+                        ldap_server.address, server.port))
+
+            raise
+
         except Exception as e:
             logger.info(
                 'LDAP Connect failed: server=%s args=%s: %s',
@@ -659,10 +812,9 @@ class ADCtx(object):
             logger.info('StartTLS failed: %s', e)
 
         if not self.connection.bind():
+            last_error = self.connection.last_error
             self.connection = None
-            raise BindError(
-                self.connection.last_error
-            )
+            raise BindError(last_error)
 
         self._i_am = self.connection.extend.standard.who_am_i()
         self.server = server
@@ -670,6 +822,8 @@ class ADCtx(object):
     def _try_connect_multi(
         self, server, ldap_server, global_catalog=False, recv_timeout=60,
             domain=None, user=None, password=None, authentication=None):
+
+        errors = []
 
         if authentication is not None:
             self._try_connect_exact(
@@ -686,13 +840,19 @@ class ADCtx(object):
                     ldap_server, global_catalog, recv_timeout,
                     domain, user, password, authentication
                 )
+
+                logger.info(
+                    'Authenticated to %s with %s',
+                    ldap_server, authentication
+                )
                 return
 
-            except (ValueError, LDAPUnknownAuthenticationMethodError,
-                    ADException, gssexceptions.GSSError):
-                pass
+            except AuthenticationError as e:
+                errors.append(
+                    (authentication, ldap_server, domain, user, e)
+                )
 
-        raise BindError('Bind error (all failed)')
+        raise BindErrorMulti(errors)
 
     @property
     def ldap_server(self):
@@ -706,13 +866,11 @@ class ADCtx(object):
         self, realm,
         ldap_server=None, global_catalog=False, recv_timeout=60,
             domain=None, user=None, password=None,
-            authentication=None, root=None, interrupt=None, timeout=600):
+            authentication=None, root=None, interrupt=None, timeout=600,
+            on_data=None):
 
-        if realm is None:
-            if ldap_server:
-                realm = ldap_server.upper()
-            else:
-                _, realm = getfqdn().split('.', 1)
+        if not realm:
+            raise ValueError('Realm can not be empty')
 
         self.realm = realm.upper()
         self.server = None
@@ -738,6 +896,9 @@ class ADCtx(object):
                 ]
             )
 
+            if on_data:
+                on_data('Connecting to {}'.format(ldap_server))
+
             self._try_connect_multi(
                 server,
                 ldap_server, global_catalog,
@@ -747,8 +908,13 @@ class ADCtx(object):
             self._preferred_ldap_server = ldap_server
         else:
             try:
-                self._autodiscovery(global_catalog)
+                self._autodiscovery(global_catalog, on_data)
             except AutodiscoveryFailed as e:
+                if on_data:
+                    on_data(
+                        'Autodiscovery failed, try {} as LDAP'.format(
+                            realm))
+
                 logger.info(
                     'Autodiscovery failed: %s. Try realm as LDAP',
                     e.message
@@ -758,39 +924,73 @@ class ADCtx(object):
                     ADLdapServer(realm, 389, 0)
                 ]
 
-            for ldap_server in self._ldap_servers:
+            errors = []
+            known_invalid_creds = []
+
+            for multi_ldap_server in self._ldap_servers:
                 if self._interrupt.is_set():
                     break
 
+                if (domain, user, password, authentication) in known_invalid_creds:
+                    logger.info(
+                        'Omit %s: no creds for method %s', multi_ldap_server.address,
+                        authentication
+                    )
+                    continue
+
                 try:
                     server = Server(
-                        ldap_server.address,
+                        multi_ldap_server.address,
                         connect_timeout=5,
-                        port=ldap_server.port,
+                        port=multi_ldap_server.port,
                         get_info=ALL,
                         allowed_referral_hosts=[
                             ('*', True)
                         ]
                     )
 
+                    if on_data:
+                        on_data('[Try] Connecting to {}'.format(
+                            multi_ldap_server.address))
+
                     self._try_connect_multi(
                         server,
-                        ldap_server.address, global_catalog, recv_timeout,
+                        multi_ldap_server.address, global_catalog, recv_timeout,
                         domain, user, password, authentication
                     )
 
-                    self._preferred_ldap_server = ldap_server.address
+                    self._preferred_ldap_server = multi_ldap_server.address
                     break
 
+                except gaierror as e:
+                    logger.info(
+                        'Can not resolve %s: %s, try next if any',
+                        multi_ldap_server.address,
+                        e
+                    )
+                    errors.append(
+                        CommunicationError(str(e))
+                    )
+
+                except BindErrorMulti as e:
+                    errors.extend(e.childs)
+                    for (authentication, ldap_server, domain, user, exc) in e.childs:
+                        if isinstance(exc, NoCredentials):
+                            known_invalid_creds.append(
+                                (domain, user, password, authentication)
+                            )
+
                 except (
-                    socket_error, LDAPSocketOpenError, LDAPSocketReceiveError, LDAPCommunicationError):
+                    socket_error, LDAPSocketOpenError, LDAPSocketReceiveError,
+                    LDAPCommunicationError, LDAPMaximumRetriesError) as e:
+                    errors.append(e)
                     continue
 
         if not self.server:
-            if ldap_server:
-                raise CommunicationError()
+            if errors:
+                raise BindErrorMulti(errors)
             else:
-                raise CommunicationErrorDiscovered()
+                raise CommunicationErrorNoDiscovered()
 
         self.root = root
 
@@ -920,18 +1120,49 @@ class ADCtx(object):
         if as_json:
             return True, self.connection.response_to_json(indent=1)
         else:
-            return True, as_tuple_deep({
+            return True, [{
                 k:v for k,v in record.iteritems()
                 if k not in ('raw_attributes', 'raw_dn', 'type')
             } for record in self.connection.response
-            if record['type'] == 'searchResEntry'
-        )
+            if record['type'] == 'searchResEntry']
+
+
+
+def _get_realm(realm, on_data=None):
+    if not realm:
+        if len(REALM_CACHE) == 1:
+            realm = REALM_CACHE[next(iter(REALM_CACHE))].realm
+            if on_data:
+                on_data('[Resue] Realm: {}'.format(realm))
+        else:
+            realm = environ.get('USERDNSDOMAIN', None)
+            if realm:
+                if on_data:
+                    on_data('[env] Realm: {}'.format(realm))
+            else:
+                fqdn = getfqdn()
+                if '.' in fqdn:
+                    _, realm = fqdn.split('.', 1)
+                    if on_data:
+                        on_data('[fqdn] Realm: {}'.format(realm))
+                else:
+                    _, domains = dnsinfo()
+                    if not domains:
+                        raise AutodiscoveryFailed('No way to find default realm')
+                    else:
+                        realm = domains[0]
+                        if on_data:
+                            on_data('[dnsinfo] Realm: {}'.format(realm))
+
+    return realm.upper()
 
 
 def _get_ctx(
+    interrupt, on_data,
     realm, ldap_server, global_catalog, recv_timeout,
-        domain, user, password, root,
-        interrupt=None):
+        domain, user, password, root):
+
+    realm = _get_realm(realm, on_data)
 
     ctx = REALM_CACHE.get(realm, None)
     if ctx:
@@ -943,55 +1174,74 @@ def _get_ctx(
             realm, domain, user
         )
 
+        on_data('[auth] Realm: {} - user: {}\\{}'.format(realm, domain, user))
         ctx = ADCtx(
             realm, ldap_server, global_catalog, recv_timeout,
             domain, user, password,
-            root=root, interrupt=interrupt
+            root=root, interrupt=interrupt, on_data=on_data
         )
     else:
+        errors = []
 
         try:
             logger.info('(Realm: %s) Use SSO', realm)
+            if on_data:
+                on_data('[auth] Realm: {} - try SSO'.format(realm))
 
             ctx = ADCtx(
                 realm, ldap_server, global_catalog, recv_timeout,
-                root=root, interrupt=interrupt
+                root=root, interrupt=interrupt, on_data=on_data
             )
 
             REALM_CACHE[realm] = ctx
             logger.info('(Realm: %s) Use SSO - ok (%s)', realm, ctx)
             return ctx
 
-        except (ValueError, ADException,
-                gssexceptions.GSSError, LDAPUnknownAuthenticationMethodError) as e:
+        except BindErrorMulti as e:
+            errors.extend(e.childs)
+
+        except (
+            ADException, gssexceptions.GSSError,
+                LDAPUnknownAuthenticationMethodError, LDAPMaximumRetriesError) as e:
 
             logger.warning('(Realm: %s) Use SSO failed: %s', realm, e)
 
+        for cred in find_creds(schema='ldap', realm=realm.lower(), username=user):
+            if interrupt.is_set():
+                break
 
-        for cred in find_creds(schema='ldap', realm=realm, username=user):
+            domain = cred.domain or cred.realm
+            user = cred.username
+            password = cred.password
+
+            if not user:
+                # We already tried SSO
+                continue
+
+            if on_data:
+                on_data('[Try] Credentials {}\\{}'.format(
+                    domain, user))
+
             logger.info(
                 '(Realm: %s) Try netcreds: domain=%s user=%s',
                 realm, domain, user
             )
 
-            domain = cred.domain or cred.realm
-            if domain:
-                domain = domain.lower()
-
-            user = cred.username
-            password = cred.password
-
             try:
                 ctx = ADCtx(
                     realm, ldap_server, global_catalog, recv_timeout,
                     domain, user, password,
-                    root=root, interrupt=interrupt
+                    root=root, interrupt=interrupt, on_data=on_data
                 )
 
                 logger.info(
                     '(Realm: %s) Try netcreds: domain=%s user=%s: ok (%s)',
                     realm, domain, user, ctx
                 )
+
+            except BindErrorMulti as e:
+                errors.extend(e.childs)
+
             except (ValueError, ADException,
                     gssexceptions.GSSError, LDAPUnknownAuthenticationMethodError) as e:
 
@@ -1003,30 +1253,14 @@ def _get_ctx(
 
         if not ctx:
             logger.warning('(Realm: %s) No creds found', realm)
-            raise CommunicationErrorDiscovered()
+            raise CommunicationErrorDiscovered(errors)
 
     REALM_CACHE[realm] = ctx
     return ctx
 
 
-def _dump(
-    interrupt,
-    on_data, on_completed,
-        realm, ldap_server, global_catalog, recv_timeout,
-        filter, minimal,
-        domain, user, password, root):
-
+def _dump(ctx, interrupt, on_data, on_completed, filter, minimal):
     try:
-        ctx = _get_ctx(
-            realm, ldap_server, global_catalog, recv_timeout,
-            domain, user, password, root,
-            interrupt
-        )
-
-        if on_data:
-            on_data('dns', ctx.name_server)
-            on_data('ldap', ctx.ldap_server)
-
         ctx.dump(
             on_data, on_completed,
             interrupt, filter, minimal
@@ -1047,20 +1281,43 @@ def _dump(
         on_completed()
 
 
-def dump(on_data, on_completed,
+def _bind(
+    interrupt, on_data, on_completed,
     realm, ldap_server=None, global_catalog=False, recv_timeout=60,
-        filter=None, minimal=False, domain=None, user=None,
-        password=None, root=None):
+    domain=None, user=None, password=None, root=None
+):
+    bound_to = None
 
+    try:
+        ctx = _get_ctx(
+            interrupt, on_data,
+            realm, ldap_server, global_catalog, recv_timeout,
+            domain, user, password, root
+        )
+
+        bound_to = ctx.ldap_server
+
+        if on_completed:
+            on_completed(True, bound_to)
+
+    except Exception as e:
+        if on_completed:
+            on_completed(False, e)
+        else:
+            raise
+
+
+def bind(
+    on_data, on_completed,
+    realm, ldap_server=None, global_catalog=False, recv_timeout=60,
+    domain=None, user=None, password=None, root=None
+):
     interrupt = Event()
     thread = Thread(
-        target=_dump,
+        target=_bind,
         args=(
-            interrupt,
-            on_data,
-            on_completed,
+            interrupt, on_data, on_completed,
             realm, ldap_server, global_catalog, recv_timeout,
-            filter, minimal,
             domain, user, password, root
         )
     )
@@ -1070,41 +1327,96 @@ def dump(on_data, on_completed,
     return interrupt.set
 
 
-def search(
-    realm, ldap_server, global_catalog, recv_timeout,
-        domain, user, password, root,
-        term, attributes, base,
-        amount, timeout, as_ldiff):
+def unbind(realm):
+    realm = _get_realm(realm)
 
-    ctx = _get_ctx(
-       realm, ldap_server, global_catalog, recv_timeout,
-       domain, user, password, root
+    ctx = REALM_CACHE.get(realm, None)
+    if not ctx:
+        raise NoContext()
+
+    try:
+        ctx.connection.unbind()
+    finally:
+        del REALM_CACHE[realm]
+
+
+def dump(on_data, on_completed, realm, filter=None, minimal=False):
+    realm = _get_realm(realm)
+
+    ctx = REALM_CACHE.get(realm, None)
+    if not ctx:
+        raise NoContext()
+
+    interrupt = Event()
+    thread = Thread(
+        target=_dump,
+        args=(
+            ctx, interrupt, on_data, on_completed,
+            filter, minimal
+        )
     )
+    thread.daemon = True
+    thread.start()
 
-    return ctx.search(
-        term, attributes, base,
-        amount, timeout,  as_ldiff
-    )
+    return interrupt.set
 
 
-def childs(
-    realm, ldap_server, global_catalog, recv_timeout,
-        domain, user, password, root):
+def search(realm, term, attributes, base, amount, timeout, as_ldiff):
+    ctx = []
+    if realm:
+        realm = _get_realm(realm)
 
-    ctx = _get_ctx(
-       realm, ldap_server, global_catalog, recv_timeout,
-       domain, user, password, root
-    )
+        ctx.append(REALM_CACHE.get(realm, None))
+    else:
+        ctx = list(REALM_CACHE.values())
+
+    if not ctx:
+        raise NoContext()
+
+    if len(ctx) > 1:
+        results = {}
+    else:
+        results = []
+
+    errors = []
+    ok = False
+
+    for c in ctx:
+        success, result = c.search(
+            term, attributes, base,
+            amount, timeout,  as_ldiff
+        )
+
+        if success:
+            if len(ctx) > 1:
+                results[c.realm] = result
+            else:
+                results.extend(result)
+
+            ok = True
+        else:
+            errors.append(result)
+
+    if not ok:
+        return False, '\n'.join(errors)
+
+    return ok, as_tuple_deep(results)
+
+
+def childs(realm):
+    realm = _get_realm(realm)
+
+    ctx = REALM_CACHE.get(realm, None)
+    if not ctx:
+        raise NoContext()
 
     return ctx.childs()
 
-def info(
-    realm, ldap_server, global_catalog, recv_timeout,
-        domain, user, password, root):
+def info(realm):
+    realm = _get_realm(realm)
 
-    ctx = _get_ctx(
-       realm, ldap_server, global_catalog, recv_timeout,
-       domain, user, password, root
-    )
+    ctx = REALM_CACHE.get(realm, None)
+    if not ctx:
+        raise NoContext()
 
     return ctx.info()

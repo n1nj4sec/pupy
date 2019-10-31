@@ -136,6 +136,27 @@ attr_translations = {
     'flatName':'NETBIOS Domain name'
 }
 
+sid_translations = {
+    'S-1-0-0': 'NULL',
+    'S-1-1-0': 'EVERYONE',
+    'S-1-2-0': 'LOCAL',
+    'S-1-2-1': 'CONSOLE',
+    'S-1-3-0': 'OWNER',
+    'S-1-3-1': 'OWNER GROUP',
+    'S-1-3-2': 'OWNER SERVER',
+    'S-1-3-3': 'OWNER SERVER GROUP',
+    'S-1-3-4': 'OWNER RIGHTS',
+    'S-1-4': 'AUTHORITY',
+    'S-1-5': 'NT AUTHORITY',
+    'S-1-5-18': 'Local System',
+    'S-1-5-19': 'Local Service',
+    'S-1-5-20': 'Network Service',
+    'S-1-5-80': 'All services',
+    'S-1-5-18': 'Local Admin',
+    'S-1-5-32-544': r'BUILTIN\Administrators',
+    'S-1-5-32-546': 'GUESTS'
+}
+
 
 def json_default(o):
     if isinstance(o, datetime):
@@ -202,9 +223,10 @@ def LDAPAclToDict(acl):
 
     result = []
     for ace in acl.aces:
+        sid = ace['Ace']['Sid'].formatCanonical()
         result.append({
             'Type': ace['TypeName'][:-4],
-            'Sid': ace['Ace']['Sid'].formatCanonical(),
+            'Sid': sid_translations.get(sid, sid),
             'Mask': LDAPAclMaskToSet(ace['Ace']['Mask'])
         })
 
@@ -215,7 +237,8 @@ def LDAPAclOwnerToDict(owner):
     if not owner:
         return None
 
-    return owner.formatCanonical()
+    sid = owner.formatCanonical()
+    return sid_translations.get(sid, sid)
 
 
 def LDAPSdToDict(descriptor):
@@ -271,7 +294,8 @@ def formatAttribute(key, att, formatCnAsGroup=False):
 
     elif aname in (
             'securityidentifier', 'objectsid') and att.startswith('hex:'):
-        return format_sid(att[4:].decode('hex'))
+        sid = format_sid(att[4:].decode('hex'))
+        return sid_translations.get(sid, sid)
 
     elif aname == 'minpwdage' or aname == 'maxpwdage':
         return '%.2f days' % nsToDays(att)
@@ -345,26 +369,34 @@ class AD(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='ad', description=cls.__doc__)
-        cls.arg_parser.add_argument('realm', help='Realm to dump')
-        cls.arg_parser.add_argument('-l', '--ldap-server', help='DNS address of LDAP server')
         cls.arg_parser.add_argument(
-            '-G', '--global-catalog', default=False, action='store_true',
-            help='Use AD Global catalg')
-        cls.arg_parser.add_argument('-T', '--recv-timeout', default=60, help='Socket read timeout')
-        cls.arg_parser.add_argument('-u', '--username', help='Username to authenticate')
-        cls.arg_parser.add_argument('-p', '--password', help='Password to authenticate')
-        cls.arg_parser.add_argument('-d', '--domain', help='Domain for Username')
-        cls.arg_parser.add_argument('-r', '--root', help='LDAP root')
-        cls.arg_parser.add_argument('-f', '--filter', help='LDAP custom filter')
+            '-r', '--realm', help='Realm to work with'
+        )
 
         commands = cls.arg_parser.add_subparsers(title='commands')
+
+        bind = commands.add_parser('bind', help='Bind to server')
+        bind.add_argument('-l', '--ldap-server', help='DNS address of LDAP server')
+        bind.add_argument(
+            '-G', '--global-catalog', default=False, action='store_true',
+            help='Use AD Global catalg')
+        bind.add_argument('-T', '--recv-timeout', default=60, help='Socket read timeout')
+        bind.add_argument('-u', '--username', help='Username to authenticate')
+        bind.add_argument('-p', '--password', help='Password to authenticate')
+        bind.add_argument('-d', '--domain', help='Domain for Username')
+        bind.add_argument('-r', '--root', help='LDAP root')
+        bind.set_defaults(func=cls.bind)
+
+        unbind = commands.add_parser('unbind', help='Disconnect and forget realm')
+        unbind.set_defaults(func=cls.unbind)
 
         info = commands.add_parser('info', help='Info about current AD context')
         info.set_defaults(func=cls.getinfo)
 
         dump = commands.add_parser('dump', help='Dump results of large searches')
+        dump.add_argument('-f', '--filter', help='LDAP custom filter')
         dump.add_argument(
-            '-f', '--full', default=False,
+            '-F', '--full', default=False,
             action='store_true', help='Dump all attributes')
         dump.add_argument(
             'target', nargs='?',
@@ -402,26 +434,45 @@ class AD(PupyModule):
         )
         search.set_defaults(func=cls.search)
 
+    def _show_exception(self, e):
+        if hasattr(e, 'message') and hasattr(e, 'type'):
+            report = []
+            if hasattr(e, 'childs') and e.childs and not isinstance(e.childs, str):
+                for (authentication, ldap_server,
+                        domain, user, _, emessage) in e.childs:
+                    report.append({
+                        'Method': authentication,
+                        'Server': ldap_server,
+                        'Domain': domain,
+                        'User': user,
+                        'Message': emessage
+                    })
+
+                self.error(
+                    Table(report, [
+                        'Method', 'Server', 'Domain', 'User', 'Message'
+                    ], caption=e.message)
+                )
+            else:
+                self.error('AD Error ({}): {}'.format(
+                    e.type, e.message))
+        else:
+            self.error(e)
 
     def run(self, args):
         try:
+            if args.realm == '.':
+                args.realm = None
+
             args.func(self, args)
         except Exception as e:
-            if hasattr(e, 'message') and hasattr(e, 'type'):
-
-                self.error('AD Error ({}): {}'.format(
-                    e.type, e.message))
-            else:
-                raise
+            self._show_exception(e)
 
     def search(self, args):
         search = self.client.remote('ad', 'search')
 
         ok, result = search(
-            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
-            args.domain, args.username, args.password,
-            args.root,
-
+            args.realm,
             args.term, args.attributes, args.base,
             args.amount, args.timeout,
             False
@@ -431,22 +482,25 @@ class AD(PupyModule):
             self.error(result)
             return
 
+        result = from_tuple_deep(result)
+
         if not args.attributes or args.attributes == NO_ATTRIBUTES:
-            result = tuple(
-                record['dn'] for record in from_tuple_deep(result)
-            )
+            if isinstance(result, dict):
+                parts = []
+                for realm, records in result.iteritems():
+                    parts.append(List(
+                        tuple(record['dn'] for record in records),
+                        caption=realm))
 
-            self.log(
-                List(
-                    result, caption='Search: ' + args.term
+                self.log(MultiPart(parts))
+
+            else:
+                result = tuple(
+                    record['dn'] for record in result
                 )
-            )
-        else:
-            result = tuple(
-                record for record in from_tuple_deep(result)
-                if 'dn' in record
-            )
+                self.log(List(result))
 
+        else:
             formatted_json = dumps(
                 result,
                 indent=2, sort_keys=True,
@@ -458,13 +512,13 @@ class AD(PupyModule):
                 Pygment(lexers.JsonLexer(), formatted_json)
             )
 
+    def unbind(self, args):
+        unbind = self.client.remote('ad', 'unbind')
+        unbind(args.realm)
+
     def childs(self, args):
         childs = self.client.remote('ad', 'childs')
-        ok, result = childs(
-            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
-            args.domain, args.username, args.password,
-            args.root
-        )
+        ok, result = childs()
 
         if not ok:
             self.error(result)
@@ -476,13 +530,7 @@ class AD(PupyModule):
 
     def getinfo(self, args):
         info = self.client.remote('ad', 'info')
-        desc = info(
-            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
-            args.domain, args.username, args.password,
-            args.root
-        )
-
-        desc = from_tuple_deep(desc, False)
+        desc = from_tuple_deep(info(args.realm), False)
         idesc = desc.get('info', {})
 
         infos = []
@@ -656,16 +704,35 @@ class AD(PupyModule):
 
             completion.set()
 
-        self.info('Starting dump for realm {}{}'.format(
-            args.realm,
-            ' ldap={}'.format(
-                args.ldap_server
-            ) if args.ldap_server else ''))
-
         self.terminate = addump(
             on_data, on_complete,
+            args.realm, args.filter or args.target, not args.full
+        )
+
+        completion.wait()
+
+    def bind(self, args):
+        bind = self.client.remote('ad', 'bind', False)
+        completion = Event()
+
+        def on_data(payload):
+            if isinstance(payload, tuple):
+                self.info(List(payload[1], caption=payload[0]))
+            else:
+                self.info(payload)
+
+        def on_completed(success, payload):
+            try:
+                if success:
+                    self.success('Bound to server: {}'.format(payload))
+                else:
+                    self._show_exception(payload)
+            finally:
+                completion.set()
+
+        self.terminate = bind(
+            on_data, on_completed,
             args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
-            args.filter or args.target, not args.full,
             args.domain, args.username, args.password,
             args.root
         )
