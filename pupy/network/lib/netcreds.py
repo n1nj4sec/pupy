@@ -202,7 +202,7 @@ class NetCreds(object):
         if realm is not None:
             realm = realm.upper()
 
-        if domain is not None:
+        if isinstance(domain, (str, unicode)):
             domain = domain.lower()
 
         self.creds.add(
@@ -263,7 +263,7 @@ class NetCreds(object):
         if realm is not None:
             realm = realm.upper()
 
-        if domain is not None:
+        if isinstance(domain, (str, unicode)):
             domain = domain.lower()
 
         fields = {
