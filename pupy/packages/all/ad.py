@@ -3,36 +3,30 @@
 # Stolen from ldapdomaindump
 
 from ldap3 import (
-    Server, Connection, SIMPLE, ALL, BASE, SUBTREE,
+    Server, Connection, SIMPLE, ALL, BASE,
     SASL, NTLM, ALL_ATTRIBUTES, GSSAPI, RESTARTABLE
 )
 from ldap3.core.exceptions import (
-    LDAPKeyError, LDAPAttributeError, LDAPCursorError, LDAPInvalidDnError,
+    LDAPKeyError, LDAPAttributeError, LDAPInvalidDnError,
     LDAPSocketOpenError, LDAPSocketReceiveError,
     LDAPUnknownAuthenticationMethodError, LDAPStartTLSError,
-    LDAPCommunicationError, LDAPMaximumRetriesError, LDAPAttributeError
+    LDAPCommunicationError, LDAPMaximumRetriesError
 )
 
-from ldap3.abstract import attribute, attrDef
-from ldap3.utils import dn
 from ldap3.utils.config import set_config_parameter
 from ldap3.utils.ciDict import CaseInsensitiveDict
 from ldap3.protocol.controls import build_control
 from ldap3.strategy.restartable import RestartableStrategy
 
 from pyasn1.type.namedtype import NamedTypes, NamedType
-from pyasn1.type.univ import Sequence, OctetString, Integer
-
-from ssl import CERT_NONE
+from pyasn1.type.univ import Sequence, Integer
 
 from socket import (
     getfqdn, socket, getaddrinfo, gaierror,
-    AF_UNSPEC, SOCK_DGRAM, SOCK_STREAM,
-    AF_INET, AF_INET6
+    SOCK_DGRAM, SOCK_STREAM, AF_INET, AF_INET6
 )
 
 from socket import error as socket_error
-from socket import gaierror
 from sys import exc_info
 from os import environ
 
@@ -52,6 +46,7 @@ except ImportError:
 from netaddr import IPAddress
 
 from network.lib.dnsinfo import dnsinfo
+from network.lib.scan import scan
 
 try:
     import pupy
@@ -93,7 +88,6 @@ set_config_parameter('RESTARTABLE_TRIES', 5)
 
 REALM_CACHE = {}
 DISCOVERY_CACHE = {}
-KNOWN_UNREACHABLE = {}
 
 MINIMAL_COMPUTERATTRIBUTES = (
     'cn', 'sAMAccountName', 'dNSHostName', 'operatingSystem',
@@ -114,21 +108,6 @@ MINIMAL_GROUPATTRIBUTES = (
     'whenCreated', 'whenChanged', 'objectSid', 'distinguishedName',
     'objectClass'
 )
-
-
-def mark_unreachable(addr):
-    logger.info('Mark as unreachable %s', addr)
-    KNOWN_UNREACHABLE[addr] = time()
-
-
-def check_unreachable(addr):
-    ts = KNOWN_UNREACHABLE.get(addr, None)
-    if ts is None or time() - ts > 3600:
-        if addr in KNOWN_UNREACHABLE:
-            del KNOWN_UNREACHABLE[addr]
-        return False
-
-    return True
 
 
 class SdFlags(Sequence):
@@ -574,6 +553,7 @@ class ADCtx(object):
                 try:
                     self._ns_socket = socket(family, kind, proto)
                     self._ns_socket.connect(addr)
+                    self._ns_socket.settimeout(5)
                 except socket_error:
                     self._broken_ns(addr)
                     self._select_fastest_ns()
@@ -609,6 +589,9 @@ class ADCtx(object):
 
                     continue
 
+            if not response:
+                continue
+
             parsed = dnslib.DNSRecord.parse(response)
             if parsed.header.rcode != dnslib.RCODE.NOERROR:
                 return []
@@ -618,7 +601,9 @@ class ADCtx(object):
                 if dnslib.QTYPE[record.rtype] == qtype
             ]
 
-    def _autodiscovery(self, global_catalog=False, on_data=None):
+    def _autodiscovery(self,
+            global_catalog=False, on_data=None, interrupt=None):
+
         if not auto_discovery:
             raise AutodiscoveryNotAvailable()
 
@@ -655,10 +640,6 @@ class ADCtx(object):
                 ldap_server.priority
             )
 
-            if check_unreachable((
-                    record.address, record.port)):
-                continue
-
             _ldap_servers.append(record)
 
         _ldap_servers = sorted(_ldap_servers)
@@ -678,10 +659,6 @@ class ADCtx(object):
                         ldap_server.priority
                     )
 
-                    if check_unreachable((
-                            record.address, record.port)):
-                        continue
-
                     _gc_ldap_servers.append(record)
 
                 _gc_ldap_servers = sorted(_gc_ldap_servers)
@@ -690,6 +667,19 @@ class ADCtx(object):
                 self._ldap_servers.extend(_gc_ldap_servers)
 
         self._ldap_servers.extend(_ldap_servers)
+
+        hosts = set(server.address for server in self._ldap_servers)
+        ports = set(server.port for server in self._ldap_servers)
+
+        if on_data:
+            on_data('Check connection ({} servers)'.format(len(
+                self._ldap_servers)))
+
+        connectables = scan(hosts, ports, interrupt)
+        self._ldap_servers = [
+            server for server in self._ldap_servers
+            if (server.address, server.port) in connectables
+        ]
 
         DISCOVERY_CACHE[key] = time(), self._ldap_servers
 
@@ -705,8 +695,10 @@ class ADCtx(object):
 
         kwargs = {
             'authentication': authentication,
-            'auto_referrals': True,
-            'use_referral_cache': True,
+            # Broken with SASL
+            # 'auto_referrals': True,
+            # 'use_referral_cache': True,
+            'auto_referrals': False,
             'receive_timeout': self._timeout,
             'client_strategy': RESTARTABLE
         }
@@ -782,14 +774,6 @@ class ADCtx(object):
                     ), replace=True
                 )
 
-        except LDAPMaximumRetriesError as e:
-            for error in e.args[1]:
-                if isinstance(e, LDAPSocketOpenError):
-                    mark_unreachable((
-                        ldap_server.address, server.port))
-
-            raise
-
         except Exception as e:
             logger.info(
                 'LDAP Connect failed: server=%s args=%s: %s',
@@ -805,11 +789,6 @@ class ADCtx(object):
         self.connection = Connection(
             server or self.server, **kwargs
         )
-
-        try:
-            self.connection.start_tls(read_server_info=False)
-        except LDAPStartTLSError as e:
-            logger.info('StartTLS failed: %s', e)
 
         if not self.connection.bind():
             last_error = self.connection.last_error
@@ -891,9 +870,10 @@ class ADCtx(object):
                 ldap_server,
                 get_info=ALL,
                 port=3268 if global_catalog else 389,
-                allowed_referral_hosts=[
-                    ('*', True)
-                ]
+                # Broken in ldap3 (SASL issues)
+                # allowed_referral_hosts=[
+                #     ('*', True)
+                # ]
             )
 
             if on_data:
@@ -908,7 +888,7 @@ class ADCtx(object):
             self._preferred_ldap_server = ldap_server
         else:
             try:
-                self._autodiscovery(global_catalog, on_data)
+                self._autodiscovery(global_catalog, on_data, interrupt)
             except AutodiscoveryFailed as e:
                 if on_data:
                     on_data(
@@ -1110,15 +1090,14 @@ class ADCtx(object):
 
         try:
             result = self.connection.search(
-                root or self.root, filter,
-                BASE if base else SUBTREE,
+                root or self.root, filter, base,
                 attributes=attributes,
                 controls=controls,
                 size_limit=amount,
                 time_limit=timeout
             )
-        except LDAPAttributeError as e:
-            return False, e.args[0]
+        except (LDAPAttributeError, LDAPInvalidDnError) as e:
+            return False, str(e)
 
         if not result:
             return False, self.connection.last_error
@@ -1132,6 +1111,9 @@ class ADCtx(object):
                     continue
 
                 item = record['attributes']
+                if 'distinguishedName' in item:
+                    del item['distinguishedName']
+
                 item['dn'] = record['dn']
                 result.append(item)
 
@@ -1164,7 +1146,7 @@ def _get_realm(realm, on_data=None):
                         if on_data:
                             on_data('[dnsinfo] Realm: {}'.format(realm))
 
-    return realm.upper()
+    return str(realm).strip().upper()
 
 
 def _get_ctx(
@@ -1372,18 +1354,22 @@ def dump(on_data, on_completed, realm, filter=None, minimal=False):
 
 
 def search(realm, term, attributes, base, root, amount, timeout, as_ldiff):
-    ctx = []
+    ctxs = []
     if realm:
         realm = _get_realm(realm)
 
-        ctx.append(REALM_CACHE.get(realm, None))
+        ctx = REALM_CACHE.get(realm, None)
+        if not ctx:
+            raise NoContext(realm)
+
+        ctxs.append(ctx)
     else:
-        ctx = list(REALM_CACHE.values())
+        ctxs.extend(REALM_CACHE.values())
 
-    if not ctx:
-        raise NoContext()
+    if not ctxs:
+        raise NoContext('any')
 
-    if len(ctx) > 1:
+    if len(ctxs) > 1:
         results = {}
     else:
         results = []
@@ -1391,15 +1377,15 @@ def search(realm, term, attributes, base, root, amount, timeout, as_ldiff):
     errors = []
     ok = False
 
-    for c in ctx:
-        success, result = c.search(
+    for ctx in ctxs:
+        success, result = ctx.search(
             term, attributes, base, root,
-            amount, timeout,  as_ldiff
+            amount, timeout, as_ldiff
         )
 
         if success:
-            if len(ctx) > 1:
-                results[c.realm] = result
+            if len(ctxs) > 1:
+                results[ctx.realm] = result
             else:
                 results.extend(result)
 
@@ -1422,6 +1408,7 @@ def childs(realm):
 
     return ctx.childs()
 
+
 def info(realm):
     realm = _get_realm(realm)
 
@@ -1430,3 +1417,7 @@ def info(realm):
         raise NoContext()
 
     return ctx.info()
+
+
+def bounded():
+    return tuple(REALM_CACHE.keys())

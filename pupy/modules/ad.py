@@ -32,6 +32,10 @@ ALL_ATTRIBUTES = '*'
 NO_ATTRIBUTES = '1.1'  # as per RFC 4511
 ALL_OPERATIONAL_ATTRIBUTES = '+'  # as per RFC 3673
 
+# search scope
+BASE = 'BASE'
+LEVEL = 'LEVEL'
+SUBTREE = 'SUBTREE'
 
 # User account control flags
 # From: https://blogs.technet.microsoft.com/askpfeplat/2014/01/15/understanding-the-useraccountcontrol-attribute-in-active-directory/
@@ -390,6 +394,9 @@ class AD(PupyModule):
         unbind = commands.add_parser('unbind', help='Disconnect and forget realm')
         unbind.set_defaults(func=cls.unbind)
 
+        bounded = commands.add_parser('list', help='Show bounded realms')
+        bounded.set_defaults(func=cls.bounded)
+
         info = commands.add_parser('info', help='Info about current AD context')
         info.set_defaults(func=cls.getinfo)
 
@@ -420,10 +427,17 @@ class AD(PupyModule):
             'attributes', nargs='?', default=NO_ATTRIBUTES,
             help='Attributes to search (Use * for ALL, default none)'
         )
-        search.add_argument(
+
+        level = search.add_mutually_exclusive_group()
+        level.add_argument(
             '-B', '--base', default=False, action='store_true',
             help='Use base search instead of subtree search. Default: False'
         )
+        level.add_argument(
+            '-L', '--level', default=False, action='store_true',
+            help='Use level search instead of subtree search. Default: False'
+        )
+
         search.add_argument(
             '-r', '--root', help='Use root instead of autodiscovered one'
         )
@@ -474,10 +488,16 @@ class AD(PupyModule):
     def search(self, args):
         search = self.client.remote('ad', 'search')
 
+        level = SUBTREE
+        if args.base:
+            level = BASE
+        elif args.level:
+            level = LEVEL
+
         ok, result = search(
             args.realm,
             args.term, args.attributes,
-            args.base, args.root,
+            level, args.root,
             args.amount, args.timeout,
             False
         )
@@ -486,9 +506,8 @@ class AD(PupyModule):
             self.error(result)
             return
 
-        result = from_tuple_deep(result)
-
         if not args.attributes or args.attributes == NO_ATTRIBUTES:
+            result = from_tuple_deep(result, False)
             if isinstance(result, dict):
                 parts = []
                 for realm, records in result.iteritems():
@@ -505,6 +524,7 @@ class AD(PupyModule):
                 self.log(List(result))
 
         else:
+            result = from_tuple_deep(result)
             formatted_json = dumps(
                 result,
                 indent=2, sort_keys=True,
@@ -531,6 +551,10 @@ class AD(PupyModule):
         i_am, rootdn, childs = result
 
         self.log(List(childs, caption='Root: {} Whoami: {}'.format(rootdn, i_am)))
+
+    def bounded(self, args):
+        bounded = self.client.remote('ad', 'bounded')
+        self.log(List(bounded()))
 
     def getinfo(self, args):
         info = self.client.remote('ad', 'info')
