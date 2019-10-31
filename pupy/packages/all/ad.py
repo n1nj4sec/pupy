@@ -10,7 +10,7 @@ from ldap3.core.exceptions import (
     LDAPKeyError, LDAPAttributeError, LDAPCursorError, LDAPInvalidDnError,
     LDAPSocketOpenError, LDAPSocketReceiveError,
     LDAPUnknownAuthenticationMethodError, LDAPStartTLSError,
-    LDAPCommunicationError, LDAPMaximumRetriesError
+    LDAPCommunicationError, LDAPMaximumRetriesError, LDAPAttributeError
 )
 
 from ldap3.abstract import attribute, attrDef
@@ -1050,12 +1050,15 @@ class ADCtx(object):
             on_completed()
 
     def childs(self):
-        result = self.connection.search(
-            self.root, '(objectClass=domain)',
-            BASE,
-            attributes=['subRefs'],
-            size_limit=1,
-        )
+        try:
+            result = self.connection.search(
+                self.root, '(objectClass=domain)',
+                BASE,
+                attributes=['subRefs'],
+                size_limit=1,
+            )
+        except LDAPAttributeError:
+            return False, "Not supported"
 
         if not result:
             return False, self.connection.last_error
@@ -1090,8 +1093,8 @@ class ADCtx(object):
 
         return as_tuple_deep(info)
 
-    def search(self, filter, attributes, base,
-            amount=5, timeout=30, root=None, as_json=False):
+    def search(self, filter, attributes, base, root,
+            amount=5, timeout=30, as_json=False):
 
         if isinstance(attributes, (str, unicode)):
             attributes = attributes.strip()
@@ -1105,14 +1108,17 @@ class ADCtx(object):
         if 'ntsecuritydescriptor' in tuple(attr.lower() for attr in attributes):
             controls.append(build_sd_control())
 
-        result = self.connection.search(
-            self.root, filter,
-            BASE if base else SUBTREE,
-            attributes=attributes,
-            controls=controls,
-            size_limit=amount,
-            time_limit=timeout
-        )
+        try:
+            result = self.connection.search(
+                root or self.root, filter,
+                BASE if base else SUBTREE,
+                attributes=attributes,
+                controls=controls,
+                size_limit=amount,
+                time_limit=timeout
+            )
+        except LDAPAttributeError as e:
+            return False, e.args[0]
 
         if not result:
             return False, self.connection.last_error
@@ -1120,12 +1126,16 @@ class ADCtx(object):
         if as_json:
             return True, self.connection.response_to_json(indent=1)
         else:
-            return True, [{
-                k:v for k,v in record.iteritems()
-                if k not in ('raw_attributes', 'raw_dn', 'type')
-            } for record in self.connection.response
-            if record['type'] == 'searchResEntry']
+            result = []
+            for record in self.connection.response:
+                if record['type'] != 'searchResEntry':
+                    continue
 
+                item = record['attributes']
+                item['dn'] = record['dn']
+                result.append(item)
+
+            return True, result
 
 
 def _get_realm(realm, on_data=None):
@@ -1361,7 +1371,7 @@ def dump(on_data, on_completed, realm, filter=None, minimal=False):
     return interrupt.set
 
 
-def search(realm, term, attributes, base, amount, timeout, as_ldiff):
+def search(realm, term, attributes, base, root, amount, timeout, as_ldiff):
     ctx = []
     if realm:
         realm = _get_realm(realm)
@@ -1383,7 +1393,7 @@ def search(realm, term, attributes, base, amount, timeout, as_ldiff):
 
     for c in ctx:
         success, result = c.search(
-            term, attributes, base,
+            term, attributes, base, root,
             amount, timeout,  as_ldiff
         )
 

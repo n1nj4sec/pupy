@@ -425,6 +425,9 @@ class AD(PupyModule):
             help='Use base search instead of subtree search. Default: False'
         )
         search.add_argument(
+            '-r', '--root', help='Use root instead of autodiscovered one'
+        )
+        search.add_argument(
             '-n', '--amount', default=5, type=int,
             help='Amount of records. Default: 5'
         )
@@ -473,7 +476,8 @@ class AD(PupyModule):
 
         ok, result = search(
             args.realm,
-            args.term, args.attributes, args.base,
+            args.term, args.attributes,
+            args.base, args.root,
             args.amount, args.timeout,
             False
         )
@@ -518,7 +522,7 @@ class AD(PupyModule):
 
     def childs(self, args):
         childs = self.client.remote('ad', 'childs')
-        ok, result = childs()
+        ok, result = childs(args.realm)
 
         if not ok:
             self.error(result)
