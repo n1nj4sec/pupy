@@ -190,6 +190,21 @@ class NetCreds(object):
         self, username, password=None, domain=None, schema=None,
             hostname=None, ip=None, port=None, realm=None, path=None, **kwargs):
 
+        if port is not None:
+            port = int(port)
+
+        if schema is not None:
+            schema = schema.lower()
+
+        if hostname is not None:
+            hostname = hostname.lower()
+
+        if realm is not None:
+            realm = realm.upper()
+
+        if domain is not None:
+            domain = domain.lower()
+
         self.creds.add(
             AuthInfo(
                 username, password, domain, schema,
@@ -235,6 +250,21 @@ class NetCreds(object):
         if username is not None:
             if '\\' in username and domain is None:
                 domain, username = username.split('\\', 1)
+
+        if port is not None:
+            port = int(port)
+
+        if schema is not None:
+            schema = schema.lower()
+
+        if address is not None:
+            address = address.lower()
+
+        if realm is not None:
+            realm = realm.upper()
+
+        if domain is not None:
+            domain = domain.lower()
 
         fields = {
             'realm': realm,
