@@ -476,29 +476,35 @@ class ADCtx(object):
         'security_groups': SecurityGroups
     }
 
-    def _bootstrap_ns(self, timeout=1, first=False):
+    def _bootstrap_ns(self, timeout=1, first=True, on_data=None):
         query = dnslib.DNSRecord.question(self.realm, 'SOA')
 
         try:
             addrs = getaddrinfo(self.realm, 53)
         except gaierror:
             logger.info('No DNS servers found for this realm')
-            addrs, _ = dnsinfo()
-            addrs = tuple(
-                (
-                    AF_INET6 if IPAddress(addr).version == 6 else AF_INET,
-                    SOCK_DGRAM,
-                    0,
-                    '',
-                    (addr, 53)
-                ) for addr in addrs
-            )
 
-        for addr in addrs:
+        local_addrs, _ = dnsinfo()
+        local_addrs = [
+            (
+                AF_INET6 if IPAddress(addr).version == 6 else AF_INET,
+                SOCK_DGRAM,
+                0,
+                '',
+                (addr, 53)
+            ) for addr in local_addrs
+        ]
+
+        local_addrs.extend(addrs)
+
+        # Also add local DNS
+
+        for addr in local_addrs:
             if self._interrupt.is_set():
                 break
 
             family, kind, proto, _, endpoint = addr
+            logger.info('DNS: Try %s:%d', *endpoint)
 
             try:
                 start = clock()
@@ -511,32 +517,46 @@ class ADCtx(object):
 
                 parsed = dnslib.DNSRecord.parse(data)
                 if parsed.header.rcode != dnslib.RCODE.NOERROR:
+                    logger.info(
+                        'Bootstrap DNS: %s: SOA request failed', endpoint[0])
                     continue
 
                 self._name_servers.append((addr, duration))
                 if first:
                     return True
 
-            except socket_error:
+            except socket_error as e:
+                logger.info('Bootstrap DNS %s: Socket error %s', endpoint[0], e)
                 pass
+
+            except Exception as e:
+                logger.exception(e)
 
             finally:
                 s.close()
 
+        logger.info('Selected DNS: %s', self._name_servers)
         return bool(self._name_servers)
 
-    def _select_fastest_ns(self):
+    def _select_fastest_ns(self, on_data=None):
         if not self._name_servers:
             for timeout in (1, 5):
-                if self._bootstrap_ns(timeout=timeout):
+                if self._bootstrap_ns(timeout=timeout, on_data=None):
                     break
 
         if not self._name_servers:
+            if on_data:
+                on_data('No accessible DNS found')
+
             raise AutodiscoveryNoDnsServersFound()
 
         self._preferred_name_server, duration = sorted(
             self._name_servers, key=lambda (_, duration): duration
         )[0]
+
+        if on_data:
+            on_data('Preferred DNS: {} (rt: {:02f}ms)'.format(
+                self._preferred_name_server[4][0], duration * 1000))
 
     def _broken_ns(self, ns):
         for known_ns in self._name_servers:
@@ -620,7 +640,7 @@ class ADCtx(object):
             if self._ldap_servers:
                 return
 
-        self._select_fastest_ns()
+        self._select_fastest_ns(on_data)
 
         if on_data:
             on_data(
@@ -1293,6 +1313,8 @@ def _bind(
             on_completed(True, bound_to)
 
     except Exception as e:
+        logger.exception(e)
+
         if on_completed:
             on_completed(False, e)
         else:
