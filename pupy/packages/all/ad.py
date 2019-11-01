@@ -1096,13 +1096,6 @@ class ADCtx(object):
     def search(self, filter, attributes, base, root,
             amount=5, timeout=30, as_json=False):
 
-        if isinstance(attributes, (str, unicode)):
-            attributes = attributes.strip()
-            if attributes != '*':
-                attributes = list(
-                    attr.strip() for attr in set(
-                        attributes.split(',')))
-
         controls = []
 
         if 'ntsecuritydescriptor' in tuple(attr.lower() for attr in attributes):

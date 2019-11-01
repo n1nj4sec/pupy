@@ -420,6 +420,10 @@ class AD(PupyModule):
             help='Search in AD (only small and fast, for large use dump)'
         )
         search.add_argument(
+            '-T', '--table', action='store_true', default=False,
+            help='Output as table'
+        )
+        search.add_argument(
             'term', help='Search filter',
             default='(objectClass=domain)',
         )
@@ -494,9 +498,34 @@ class AD(PupyModule):
         elif args.level:
             level = LEVEL
 
+        need_attrs = []
+
+        attributes = args.attributes
+        fields = []
+
+        if args.attributes in (ALL_ATTRIBUTES, ALL_OPERATIONAL_ATTRIBUTES):
+            pass
+        elif args.attributes == NO_ATTRIBUTES:
+            fields.append('dn')
+        else:
+            attributes = [
+                attribute.strip() for attribute in args.attributes.split(',')
+            ]
+
+            for attribute in attributes:
+                fields.append(attribute)
+
+                if attribute.lower() == 'dn':
+                    continue
+
+                need_dn = False
+                need_attrs.append(attribute)
+
+            attributes = tuple(need_attrs)
+
         ok, result = search(
             args.realm,
-            args.term, args.attributes,
+            args.term, attributes,
             level, args.root,
             args.amount, args.timeout,
             False
@@ -506,35 +535,36 @@ class AD(PupyModule):
             self.error(result)
             return
 
-        if not args.attributes or args.attributes == NO_ATTRIBUTES:
-            result = from_tuple_deep(result, False)
-            if isinstance(result, dict):
-                parts = []
-                for realm, records in result.iteritems():
-                    parts.append(List(
-                        tuple(record['dn'] for record in records),
-                        caption=realm))
-
-                self.log(MultiPart(parts))
-
-            else:
-                result = tuple(
-                    record['dn'] for record in result
-                )
-                self.log(List(result))
+        results = from_tuple_deep(result, True)
+        if len(fields) == 1:
+            self.log(
+                List(line[fields[0]] for line in results)
+            )
 
         else:
-            result = from_tuple_deep(result)
-            formatted_json = dumps(
-                result,
-                indent=2, sort_keys=True,
-                default=json_default,
-                ensure_ascii=False
-            )
+            if args.table:
+                self.log(
+                    Table(results, fields or None)
+                )
+            else:
+                filtered = results
+                if fields:
+                    filtered = [
+                        {
+                            field: result[field] for field in fields
+                        } for result in results
+                    ]
 
-            self.log(
-                Pygment(lexers.JsonLexer(), formatted_json)
-            )
+                formatted_json = dumps(
+                    filtered,
+                    indent=2, sort_keys=True,
+                    default=json_default,
+                    ensure_ascii=False
+                )
+
+                self.log(
+                    Pygment(lexers.JsonLexer(), formatted_json)
+                )
 
     def unbind(self, args):
         unbind = self.client.remote('ad', 'unbind')
