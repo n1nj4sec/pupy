@@ -76,7 +76,7 @@ def _config_win32_nameservers(nameservers):
     if isinstance(nameservers, unicode):
         nameservers = nameservers.encode('utf-8')
 
-    split_char = self._determine_split_char(nameservers)
+    split_char = _determine_split_char(nameservers)
     return list(set(
         nameserver.strip() for nameserver in nameservers.split(split_char)
     ))
@@ -86,7 +86,7 @@ def _config_win32_search(searches):
     if isinstance(searches, unicode):
         searches = searches.encode('utf-8')
 
-    split_char = self._determine_split_char(searches)
+    split_char = _determine_split_char(searches)
     return list(set(
         search.strip() for search in searches.split(split_char)
     ))
@@ -200,7 +200,7 @@ def _win32_is_nic_enabled(_winreg, lm, guid, interface_key):
 
 def _parse_registry():
     """Extract resolver configuration from the Windows registry."""
-    import _winreg
+    _winreg = __import__('_winreg')
 
     lm = _winreg.ConnectRegistry(None, _winreg.HKEY_LOCAL_MACHINE)
     want_scan = False
@@ -222,7 +222,19 @@ def _parse_registry():
                                             r'SYSTEM\CurrentControlSet'
                                             r'\Services\VxD\MSTCP')
         try:
-            self._config_win32_fromkey(tcp_params, True)
+            c_servers, c_domains, c_searches = _config_win32_fromkey(
+                _winreg, tcp_params)
+
+            for server in c_servers:
+                if server not in servers:
+                    servers.append(server)
+
+            for domain in c_domains:
+                if domain not in domains:
+                    domains.append(domain)
+
+            searches.extend(c_searches)
+
         finally:
             tcp_params.Close()
 
