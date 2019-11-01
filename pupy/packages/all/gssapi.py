@@ -10,17 +10,19 @@ logger = logging.getLogger().getChild('gssapi_wrap')
 if sys.platform == 'win32':
     import winkerberos as krb
     NTLM = krb.GSS_MECH_OID_NTLM
+    have_inquire_creds = False
     logger.info('Using WinKerberos')
 else:
     import kerberos as krb
     logger.info('Using PyKerberos')
+    have_inquire_creds = True
     NTLM = None
 
 from base64 import b64encode, b64decode
 
 C_NT_HOSTBASED_SERVICE = 0
 
-C_PROT_READY_FLAG = krb.GSS_C_PROT_READY_FLAG
+C_PROT_READY_FLAG = getattr(krb, 'GSS_C_PROT_READY_FLAG', 0)
 C_SEQUENCE_FLAG = krb.GSS_C_SEQUENCE_FLAG
 C_INTEG_FLAG = krb.GSS_C_INTEG_FLAG
 C_MUTUAL_FLAG = krb.GSS_C_MUTUAL_FLAG
@@ -66,10 +68,10 @@ class GSSAPIAdapterException(Exception):
 
 
 class RequirementFlag(object):
-    protection_ready = krb.GSS_C_PROT_READY_FLAG
-    integrity = krb.GSS_C_INTEG_FLAG
-    mutual_authentication = krb.GSS_C_MUTUAL_FLAG
-    delegate_to_peer = krb.GSS_C_DELEG_FLAG
+    protection_ready = C_PROT_READY_FLAG
+    integrity = C_INTEG_FLAG
+    mutual_authentication = C_MUTUAL_FLAG
+    delegate_to_peer = C_DELEG_FLAG
 
 
 class exceptions(object):
@@ -193,7 +195,7 @@ class Context(object):
         if result < 0:
             raise GSSAPIAdapterException(result)
 
-        if need_inquire_creds:
+        if need_inquire_creds and have_inquire_creds:
             logger.debug('GSSApiExt: inquire credentials')
             result = krb.authGSSClientInquireCred(self._ctx)
             if result < 0:
