@@ -126,7 +126,7 @@ class ReverseSlaveService(Service):
         )
 
     def on_disconnect(self):
-        if self.terminated:
+        if self.client.terminated:
             return
 
         for cleanup in self.exposed_cleanups:
