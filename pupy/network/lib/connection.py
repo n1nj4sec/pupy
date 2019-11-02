@@ -248,9 +248,9 @@ class PupyConnection(Connection):
         self._sync_raw_exceptions = {}
 
         self._last_recv = time.time()
-        self._ping = False
-        self._ping_timeout = 30
-        self._serve_timeout = 10
+        self._ping = True
+        self._ping_timeout = 60
+        self._serve_timeout = 600
         self._last_ping = None
         self._default_serve_timeout = 5
         self._queue = SyncRequestDispatchQueue.get_queue()
@@ -640,7 +640,7 @@ class PupyConnection(Connection):
         timeout = mintimeout
 
         if __debug__:
-            logger.debug('Serve(%s): start / timeout = %s / interval = %s / ping = %s / %s',
+            logger.debug('Serve(%s): start / timeout = %s / interval = %s / ping timeout = %s / %s',
                 self, timeout, interval, ping_timeout, self._last_ping)
 
         data = self._recv(timeout, wait_for_lock=False)
