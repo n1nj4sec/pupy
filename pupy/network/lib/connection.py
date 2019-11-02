@@ -7,6 +7,9 @@ import time
 import traceback
 
 from rpyc.core import Connection, consts, brine
+from rpyc.core.consts import (
+    HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT
+)
 from threading import Thread, Lock, current_thread
 from Queue import Queue, Full, Empty
 
@@ -18,6 +21,12 @@ syncqueuelogger = getLogger('syncqueue')
 
 from network.lib.ack import Ack
 from network.lib.buffer import Buffer
+
+
+FAST_CALLS = (
+    HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT
+)
+
 
 ############# Monkeypatch brine to be buffer firendly #############
 
@@ -670,9 +679,14 @@ class PupyConnection(Connection):
                     logger.debug('Processing message request, type(%s): %s seq: %s - started',
                         self, args[0], seq)
 
-                self._queue(
-                    self._on_sync_request_exception,
-                    self._dispatch_request, seq, args)
+                handler = args[0]
+
+                if handler in FAST_CALLS:
+                    self._dispatch_request(seq, args)
+                else:
+                    self._queue(
+                        self._on_sync_request_exception,
+                        self._dispatch_request, seq, args)
 
             else:
                 if __debug__:
