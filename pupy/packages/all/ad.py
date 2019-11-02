@@ -1113,6 +1113,9 @@ class ADCtx(object):
             return False, str(e)
 
         if not result:
+            if not self.connection.last_error:
+                return True, []
+
             return False, self.connection.last_error
 
         if as_json:

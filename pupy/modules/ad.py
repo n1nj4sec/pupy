@@ -156,7 +156,6 @@ sid_translations = {
     'S-1-5-19': 'Local Service',
     'S-1-5-20': 'Network Service',
     'S-1-5-80': 'All services',
-    'S-1-5-18': 'Local Admin',
     'S-1-5-32-544': r'BUILTIN\Administrators',
     'S-1-5-32-546': 'GUESTS'
 }
@@ -260,7 +259,8 @@ def LDAPSdToDict(descriptor):
 def formatAttribute(key, att, formatCnAsGroup=False):
     aname = key.lower()
 
-    if isinstance(att, tuple) and len(att) == 1:
+    if isinstance(att, tuple) and \
+            len(att) == 1 and not isinstance(att[0], dict):
         att = att[0]
         if isinstance(att, (str, unicode)):
             att = att.strip()
@@ -356,6 +356,18 @@ def from_tuple_deep(obj, format=True):
 
     else:
         raise ValueError('Invalid kind ({})'.format(kind))
+
+
+def _get_field(result, field):
+    if field in result:
+        return result[field]
+
+    l_field = field.lower()
+    for r_field in result:
+        if r_field.lower() == l_field:
+            return result[r_field]
+
+    raise AttributeError(field)
 
 
 @config(cat='admin')
@@ -489,6 +501,69 @@ class AD(PupyModule):
         except Exception as e:
             self._show_exception(e)
 
+    def _output_search_results(self, results, fields, table=False, realm=None):
+        if not results:
+            return
+
+        is_list = False
+        is_table = False
+
+        if len(fields) == 1:
+            results = [
+                _get_field(line, fields[0]) for line in results
+            ]
+
+            is_list = all(
+                not isinstance(record, (dict, tuple, list))
+                for record in results
+            )
+
+        elif table and fields:
+            results = [
+                {
+                    field: _get_field(result, field)
+                    for field in fields
+                } for result in results
+            ]
+
+            is_table = all(
+                all(
+                    not isinstance(value, (dict, tuple, list))
+                    for value in record.itervalues()
+                ) for record in results
+            )
+
+        if is_list:
+            self.log(
+                List(results, caption=realm)
+            )
+        elif is_table:
+            self.log(
+                Table(results, fields or None, caption=realm)
+            )
+        else:
+            filtered = results
+            if fields:
+                filtered = [
+                    {
+                        field: _get_field(result, field) for field in fields
+                    } for result in results
+                ]
+
+            formatted_json = dumps(
+                filtered,
+                indent=2, sort_keys=True,
+                default=json_default,
+                ensure_ascii=False
+            )
+
+            if realm:
+                self.log('+ ' + realm)
+
+            self.log(
+                Pygment(lexers.JsonLexer(), formatted_json)
+            )
+
     def search(self, args):
         search = self.client.remote('ad', 'search')
 
@@ -518,7 +593,6 @@ class AD(PupyModule):
                 if attribute.lower() == 'dn':
                     continue
 
-                need_dn = False
                 need_attrs.append(attribute)
 
             attributes = tuple(need_attrs)
@@ -536,35 +610,13 @@ class AD(PupyModule):
             return
 
         results = from_tuple_deep(result, True)
-        if len(fields) == 1:
-            self.log(
-                List(line[fields[0]] for line in results)
-            )
 
+        if isinstance(results, dict):
+            print results
+            for realm, results in results.iteritems():
+                self._output_search_results(results, fields, args.table, realm)
         else:
-            if args.table:
-                self.log(
-                    Table(results, fields or None)
-                )
-            else:
-                filtered = results
-                if fields:
-                    filtered = [
-                        {
-                            field: result[field] for field in fields
-                        } for result in results
-                    ]
-
-                formatted_json = dumps(
-                    filtered,
-                    indent=2, sort_keys=True,
-                    default=json_default,
-                    ensure_ascii=False
-                )
-
-                self.log(
-                    Pygment(lexers.JsonLexer(), formatted_json)
-                )
+            self._output_search_results(results, fields, args.table)
 
     def unbind(self, args):
         unbind = self.client.remote('ad', 'unbind')
