@@ -19,6 +19,8 @@ from threading import Event
 from datetime import datetime
 from uuid import UUID
 
+from collections import OrderedDict
+
 
 __class_name__ = 'AD'
 
@@ -141,24 +143,96 @@ attr_translations = {
 }
 
 sid_translations = {
-    'S-1-0-0': 'NULL',
-    'S-1-1-0': 'EVERYONE',
-    'S-1-2-0': 'LOCAL',
-    'S-1-2-1': 'CONSOLE',
-    'S-1-3-0': 'OWNER',
-    'S-1-3-1': 'OWNER GROUP',
-    'S-1-3-2': 'OWNER SERVER',
-    'S-1-3-3': 'OWNER SERVER GROUP',
-    'S-1-3-4': 'OWNER RIGHTS',
-    'S-1-4': 'AUTHORITY',
-    'S-1-5': 'NT AUTHORITY',
-    'S-1-5-18': 'Local System',
-    'S-1-5-19': 'Local Service',
-    'S-1-5-20': 'Network Service',
-    'S-1-5-80': 'All services',
-    'S-1-5-32-544': r'BUILTIN\Administrators',
-    'S-1-5-32-546': 'GUESTS'
+    'S-1-0': ('Null Authority', 'USER'),
+    'S-1-0-0': ('Nobody', 'USER'),
+    'S-1-1': ('World Authority', 'USER'),
+    'S-1-1-0': ('Everyone', 'GROUP'),
+    'S-1-2': ('Local Authority', 'USER'),
+    'S-1-2-0': ('Local', 'GROUP'),
+    'S-1-2-1': ('Console Logon', 'GROUP'),
+    'S-1-3': ('Creator Authority', 'USER'),
+    'S-1-3-0': ('Creator Owner', 'USER'),
+    'S-1-3-1': ('Creator Group', 'GROUP'),
+    'S-1-3-2': ('Creator Owner Server', 'COMPUTER'),
+    'S-1-3-3': ('Creator Group Server', 'COMPUTER'),
+    'S-1-3-4': ('Owner Rights', 'GROUP'),
+    'S-1-4': ('Non-unique Authority', 'USER'),
+    'S-1-5': ('NT Authority', 'USER'),
+    'S-1-5-1': ('Dialup', 'GROUP'),
+    'S-1-5-2': ('Network', 'GROUP'),
+    'S-1-5-3': ('Batch', 'GROUP'),
+    'S-1-5-4': ('Interactive', 'GROUP'),
+    'S-1-5-6': ('Service', 'GROUP'),
+    'S-1-5-7': ('Anonymous', 'GROUP'),
+    'S-1-5-8': ('Proxy', 'GROUP'),
+    'S-1-5-9': ('Enterprise Domain Controllers', 'GROUP'),
+    'S-1-5-10': ('Principal Self', 'USER'),
+    'S-1-5-11': ('Authenticated Users', 'GROUP'),
+    'S-1-5-12': ('Restricted Code', 'GROUP'),
+    'S-1-5-13': ('Terminal Server Users', 'GROUP'),
+    'S-1-5-14': ('Remote Interactive Logon', 'GROUP'),
+    'S-1-5-15': ('This Organization ', 'GROUP'),
+    'S-1-5-17': ('This Organization ', 'GROUP'),
+    'S-1-5-18': ('Local System', 'USER'),
+    'S-1-5-19': ('NT Authority', 'USER'),
+    'S-1-5-20': ('NT Authority', 'USER'),
+    'S-1-5-80-0': ('All Services ', 'GROUP'),
+    'S-1-5-32-544': ('Administrators', 'GROUP'),
+    'S-1-5-32-545': ('Users', 'GROUP'),
+    'S-1-5-32-546': ('Guests', 'GROUP'),
+    'S-1-5-32-547': ('Power Users', 'GROUP'),
+    'S-1-5-32-548': ('Account Operators', 'GROUP'),
+    'S-1-5-32-549': ('Server Operators', 'GROUP'),
+    'S-1-5-32-550': ('Print Operators', 'GROUP'),
+    'S-1-5-32-551': ('Backup Operators', 'GROUP'),
+    'S-1-5-32-552': ('Replicators', 'GROUP'),
+    'S-1-5-32-554': ('Pre-Windows 2000 Compatible Access', 'GROUP'),
+    'S-1-5-32-555': ('Remote Desktop Users', 'GROUP'),
+    'S-1-5-32-556': ('Network Configuration Operators', 'GROUP'),
+    'S-1-5-32-557': ('Incoming Forest Trust Builders', 'GROUP'),
+    'S-1-5-32-558': ('Performance Monitor Users', 'GROUP'),
+    'S-1-5-32-559': ('Performance Log Users', 'GROUP'),
+    'S-1-5-32-560': ('Windows Authorization Access Group', 'GROUP'),
+    'S-1-5-32-561': ('Terminal Server License Servers', 'GROUP'),
+    'S-1-5-32-562': ('Distributed COM Users', 'GROUP'),
+    'S-1-5-32-568': ('IIS_IUSRS', 'GROUP'),
+    'S-1-5-32-569': ('Cryptographic Operators', 'GROUP'),
+    'S-1-5-32-573': ('Event Log Readers', 'GROUP'),
+    'S-1-5-32-574': ('Certificate Service DCOM Access', 'GROUP'),
+    'S-1-5-32-575': ('RDS Remote Access Servers', 'GROUP'),
+    'S-1-5-32-576': ('RDS Endpoint Servers', 'GROUP'),
+    'S-1-5-32-577': ('RDS Management Servers', 'GROUP'),
+    'S-1-5-32-578': ('Hyper-V Administrators', 'GROUP'),
+    'S-1-5-32-579': ('Access Control Assistance Operators', 'GROUP'),
+    'S-1-5-32-580': ('Access Control Assistance Operators', 'GROUP')
 }
+
+access_mask_flags = OrderedDict([
+    ('GenericAll', 0x000F01FF),
+    ('GenericWrite', 0x00020028),
+    ('GenericRead', 0x00020094),
+    ('GENERIC_EXECUTE', 0x00020004),
+    ('ACCESS_SYSTEM_SECURITY', 0x01000000),
+    ('SYNCHRONIZE', 0x00100000),
+    ('WriteOwner', 0x00080000),
+    ('WriteDacl', 0x00040000),
+    ('READ_CONTROL', 0x00020000),
+    ('DELETE', 0x00010000),
+    ('ADS_RIGHT_DS_CONTROL_ACCESS', 0x00000100),
+    ('ADS_RIGHT_DS_CREATE_CHILD', 0x00000001),
+    ('ADS_RIGHT_DS_DELETE_CHILD', 0x00000002),
+    ('ADS_RIGHT_DS_READ_PROP', 0x00000010),
+    ('ADS_RIGHT_DS_WRITE_PROP', 0x00000020),
+    ('ADS_RIGHT_DS_SELF', 0x00000008),
+])
+
+
+def _sid(sid):
+    value, _ = sid_translations.get(sid, (None, None))
+    if value:
+        return value
+
+    return sid
 
 
 def json_default(o):
@@ -203,19 +277,18 @@ def parseFlags(attr, flags_def, bits=True):
 
 
 def LDAPAclMaskToSet(mask):
-    flags = (
-        'GENERIC_READ', 'GENERIC_WRITE', 'GENERIC_EXECUTE',
-        'GENERIC_ALL', 'MAXIMUM_ALLOWED', 'ACCESS_SYSTEM_SECURITY',
-        'SYNCHRONIZE', 'WRITE_OWNER', 'WRITE_DACL', 'READ_CONTROL',
-        'DELETE'
-    )
-
     result = []
+    rest = mask['Mask']
 
-    for flag in flags:
-        value = getattr(ACCESS_MASK, flag)
-        if mask['Mask'] & value == value:
+    for flag, value in access_mask_flags.iteritems():
+        if (rest & value) == value:
             result.append(flag)
+            rest &= ~value
+            if not rest:
+                break
+
+    if not result and rest:
+        result.append(rest)
 
     return result
 
@@ -229,7 +302,7 @@ def LDAPAclToDict(acl):
         sid = ace['Ace']['Sid'].formatCanonical()
         result.append({
             'Type': ace['TypeName'][:-4],
-            'Sid': sid_translations.get(sid, sid),
+            'Sid': _sid(sid),
             'Mask': LDAPAclMaskToSet(ace['Ace']['Mask'])
         })
 
@@ -241,7 +314,7 @@ def LDAPAclOwnerToDict(owner):
         return None
 
     sid = owner.formatCanonical()
-    return sid_translations.get(sid, sid)
+    return _sid(sid)
 
 
 def LDAPSdToDict(descriptor):
@@ -299,7 +372,7 @@ def formatAttribute(key, att, formatCnAsGroup=False):
     elif aname in (
             'securityidentifier', 'objectsid') and att.startswith('hex:'):
         sid = format_sid(att[4:].decode('hex'))
-        return sid_translations.get(sid, sid)
+        return _sid(sid)
 
     elif aname == 'minpwdage' or aname == 'maxpwdage':
         return '%.2f days' % nsToDays(att)
@@ -384,7 +457,13 @@ class AD(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='ad', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(
+            prog='ad', description=cls.__doc__)
+        cls.arg_parser.add_argument(
+            '-G', '--global-catalog', default=False, action='store_true',
+            help='Use AD Global catalg'
+        )
+
         cls.arg_parser.add_argument(
             '-r', '--realm', help='Realm to work with'
         )
@@ -393,9 +472,6 @@ class AD(PupyModule):
 
         bind = commands.add_parser('bind', help='Bind to server')
         bind.add_argument('-l', '--ldap-server', help='DNS address of LDAP server')
-        bind.add_argument(
-            '-G', '--global-catalog', default=False, action='store_true',
-            help='Use AD Global catalg')
         bind.add_argument('-T', '--recv-timeout', default=60, help='Socket read timeout')
         bind.add_argument('-u', '--username', help='Username to authenticate')
         bind.add_argument('-p', '--password', help='Password to authenticate')
@@ -440,13 +516,13 @@ class AD(PupyModule):
             default='(objectClass=domain)',
         )
         search.add_argument(
-            'attributes', nargs='?', default=NO_ATTRIBUTES,
+            'attributes', nargs='?',
             help='Attributes to search (Use * for ALL, default none)'
         )
 
         level = search.add_mutually_exclusive_group()
         level.add_argument(
-            '-B', '--base', default=False, action='store_true',
+            '-1', '--base', default=False, action='store_true',
             help='Use base search instead of subtree search. Default: False'
         )
         level.add_argument(
@@ -509,14 +585,17 @@ class AD(PupyModule):
         is_table = False
 
         if len(fields) == 1:
-            results = [
+            _results = [
                 _get_field(line, fields[0]) for line in results
             ]
 
             is_list = all(
                 not isinstance(record, (dict, tuple, list))
-                for record in results
+                for record in _results
             )
+
+            if is_list:
+                results = _results
 
         elif table and fields:
             results = [
@@ -575,16 +654,31 @@ class AD(PupyModule):
 
         need_attrs = []
 
+        term = args.term
         attributes = args.attributes
+
+        if term:
+            term = term.strip()
+
+        if attributes:
+            attributes = attributes.strip()
+
+        if not attributes:
+            if term and not term.startswith('('):
+                attributes = term
+                term = '(objectClass=*)'
+            else:
+                attributes = NO_ATTRIBUTES
+
         fields = []
 
-        if args.attributes in (ALL_ATTRIBUTES, ALL_OPERATIONAL_ATTRIBUTES):
+        if attributes in (ALL_ATTRIBUTES, ALL_OPERATIONAL_ATTRIBUTES):
             pass
-        elif args.attributes == NO_ATTRIBUTES:
+        elif attributes == NO_ATTRIBUTES:
             fields.append('dn')
         else:
             attributes = [
-                attribute.strip() for attribute in args.attributes.split(',')
+                attribute.strip() for attribute in attributes.split(',')
             ]
 
             for attribute in attributes:
@@ -598,8 +692,8 @@ class AD(PupyModule):
             attributes = tuple(need_attrs)
 
         ok, result = search(
-            args.realm,
-            args.term, attributes,
+            args.realm, args.global_catalog,
+            term, attributes,
             level, args.root,
             args.amount, args.timeout,
             False
@@ -612,7 +706,6 @@ class AD(PupyModule):
         results = from_tuple_deep(result, True)
 
         if isinstance(results, dict):
-            print results
             for realm, results in results.iteritems():
                 self._output_search_results(results, fields, args.table, realm)
         else:
@@ -620,11 +713,11 @@ class AD(PupyModule):
 
     def unbind(self, args):
         unbind = self.client.remote('ad', 'unbind')
-        unbind(args.realm)
+        unbind(args.realm, args.global_catalog)
 
     def childs(self, args):
         childs = self.client.remote('ad', 'childs')
-        ok, result = childs(args.realm)
+        ok, result = childs(args.realm, args.global_catalog)
 
         if not ok:
             self.error(result)
@@ -636,11 +729,17 @@ class AD(PupyModule):
 
     def bounded(self, args):
         bounded = self.client.remote('ad', 'bounded')
-        self.log(List(bounded()))
+        self.log(Table([
+            {
+                'TYPE': btype,
+                'REALM': realm
+            } for (btype, realm) in bounded()
+        ], ['TYPE', 'REALM']))
 
     def getinfo(self, args):
         info = self.client.remote('ad', 'info')
-        desc = from_tuple_deep(info(args.realm), False)
+        desc = from_tuple_deep(info(
+            args.realm, args.global_catalog), False)
         idesc = desc.get('info', {})
 
         infos = []
@@ -816,7 +915,8 @@ class AD(PupyModule):
 
         self.terminate = addump(
             on_data, on_complete,
-            args.realm, args.filter or args.target, not args.full
+            args.realm, args.global_catalog,
+            args.filter or args.target, not args.full
         )
 
         completion.wait()
@@ -842,7 +942,8 @@ class AD(PupyModule):
 
         self.terminate = bind(
             on_data, on_completed,
-            args.realm, args.ldap_server, args.global_catalog, args.recv_timeout,
+            args.realm, args.global_catalog,
+            args.ldap_server, args.recv_timeout,
             args.domain, args.username, args.password,
             args.root
         )

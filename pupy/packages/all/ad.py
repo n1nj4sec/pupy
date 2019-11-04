@@ -9,7 +9,7 @@ from ldap3 import (
 from ldap3.core.exceptions import (
     LDAPKeyError, LDAPAttributeError, LDAPInvalidDnError,
     LDAPSocketOpenError, LDAPSocketReceiveError,
-    LDAPUnknownAuthenticationMethodError, LDAPStartTLSError,
+    LDAPUnknownAuthenticationMethodError,
     LDAPCommunicationError, LDAPMaximumRetriesError
 )
 
@@ -80,7 +80,10 @@ def _add_exception_to_history(self, exc):
     if issubclass(exc_type, gssexceptions.GSSError):
         raise exc_type, exc_value, exc_trace
 
-    _orig_add_exception_to_history(self, exc_type(*exc_value))
+    if exc_type:
+        _orig_add_exception_to_history(self, exc_type(*exc_value))
+    else:
+        _orig_add_exception_to_history(self, exc)
 
 RestartableStrategy._add_exception_to_history = _add_exception_to_history
 
@@ -114,7 +117,7 @@ class SdFlags(Sequence):
     componentType = NamedTypes(NamedType('Flags', Integer()))
 
 
-def build_sd_control(sdflags=0x04):
+def build_sd_control(sdflags=0x05):
     sdcontrol = SdFlags()
     sdcontrol.setComponentByName('Flags', sdflags)
     return build_control('1.2.840.113556.1.4.801', True, sdcontrol)
@@ -459,6 +462,7 @@ class ADLdapServer(object):
 class ADCtx(object):
     __slots__ = (
         'realm', 'server', 'connection', 'root',
+        'global_catalog',
         '_interrupt', '_kwargs', '_timeout',
 
         '_i_am',
@@ -645,7 +649,7 @@ class ADCtx(object):
         if on_data:
             on_data(
                 'Discovery {} servers for realm {} using DNS {}'.format(
-                    'MSGC' if global_catalog else 'LDAP', self.realm,
+                    'GC' if global_catalog else 'LDAP', self.realm,
                     self._preferred_name_server[4][0]))
 
         ldap_servers = self._resolve('_ldap._tcp.' + self.realm, 'SRV')
@@ -872,6 +876,7 @@ class ADCtx(object):
             raise ValueError('Realm can not be empty')
 
         self.realm = realm.upper()
+        self.global_catalog = global_catalog
         self.server = None
 
         self._interrupt = interrupt or Event()
@@ -1165,14 +1170,22 @@ def _get_realm(realm, on_data=None):
     return str(realm).strip().upper()
 
 
+def _get_cached_ctx(realm, global_catalog=False, on_data=None):
+    realm = _get_realm(realm, on_data)
+    key = (
+        ('GC' if global_catalog else 'LDAP'),
+        realm
+    )
+
+    return key, realm, REALM_CACHE.get(key, None)
+
+
 def _get_ctx(
     interrupt, on_data,
     realm, ldap_server, global_catalog, recv_timeout,
         domain, user, password, root):
 
-    realm = _get_realm(realm, on_data)
-
-    ctx = REALM_CACHE.get(realm, None)
+    key, realm, ctx = _get_cached_ctx(realm, global_catalog, on_data)
     if ctx:
         return ctx
 
@@ -1201,7 +1214,7 @@ def _get_ctx(
                 root=root, interrupt=interrupt, on_data=on_data
             )
 
-            REALM_CACHE[realm] = ctx
+            REALM_CACHE[key] = ctx
             logger.info('(Realm: %s) Use SSO - ok (%s)', realm, ctx)
             return ctx
 
@@ -1263,7 +1276,7 @@ def _get_ctx(
             logger.warning('(Realm: %s) No creds found', realm)
             raise CommunicationErrorDiscovered(errors)
 
-    REALM_CACHE[realm] = ctx
+    REALM_CACHE[key] = ctx
     return ctx
 
 
@@ -1291,10 +1304,16 @@ def _dump(ctx, interrupt, on_data, on_completed, filter, minimal):
 
 def _bind(
     interrupt, on_data, on_completed,
-    realm, ldap_server=None, global_catalog=False, recv_timeout=60,
+    realm, global_catalog, ldap_server=None, recv_timeout=60,
     domain=None, user=None, password=None, root=None
 ):
     bound_to = None
+
+    if on_data:
+        if global_catalog:
+            on_data(
+                'Bind to ' + (
+                    'Global Catalog' if global_catalog else 'LDAP'))
 
     try:
         ctx = _get_ctx(
@@ -1319,7 +1338,7 @@ def _bind(
 
 def bind(
     on_data, on_completed,
-    realm, ldap_server=None, global_catalog=False, recv_timeout=60,
+    realm, global_catalog, ldap_server=None, recv_timeout=60,
     domain=None, user=None, password=None, root=None
 ):
     interrupt = Event()
@@ -1327,7 +1346,7 @@ def bind(
         target=_bind,
         args=(
             interrupt, on_data, on_completed,
-            realm, ldap_server, global_catalog, recv_timeout,
+            realm, global_catalog, ldap_server, recv_timeout,
             domain, user, password, root
         )
     )
@@ -1337,23 +1356,20 @@ def bind(
     return interrupt.set
 
 
-def unbind(realm):
-    realm = _get_realm(realm)
-
-    ctx = REALM_CACHE.get(realm, None)
+def unbind(realm, global_catalog=False):
+    key, _, ctx =_get_cached_ctx(realm, global_catalog)
     if not ctx:
         raise NoContext()
 
     try:
         ctx.connection.unbind()
     finally:
-        del REALM_CACHE[realm]
+        del REALM_CACHE[key]
 
 
-def dump(on_data, on_completed, realm, filter=None, minimal=False):
-    realm = _get_realm(realm)
-
-    ctx = REALM_CACHE.get(realm, None)
+def dump(on_data, on_completed, realm, global_catalog=False,
+        filter=None, minimal=False):
+    key, _, ctx =_get_cached_ctx(realm, global_catalog)
     if not ctx:
         raise NoContext()
 
@@ -1371,18 +1387,23 @@ def dump(on_data, on_completed, realm, filter=None, minimal=False):
     return interrupt.set
 
 
-def search(realm, term, attributes, base, root, amount, timeout, as_ldiff):
+def search(realm, global_catalog, term,
+        attributes, base, root, amount, timeout, as_ldiff):
     ctxs = []
     if realm:
-        realm = _get_realm(realm)
-
-        ctx = REALM_CACHE.get(realm, None)
+        key, _, ctx =_get_cached_ctx(realm, global_catalog)
         if not ctx:
-            raise NoContext(realm)
+            raise NoContext()
 
         ctxs.append(ctx)
+    elif global_catalog is not None:
+        expected_btype = 'GC' if global_catalog else 'LDAP'
+        ctxs.extend([
+            ctx for (btype, _), ctx in REALM_CACHE.iteritems()
+            if btype == expected_btype
+        ])
     else:
-        ctxs.extend(REALM_CACHE.values())
+        ctx.extend(REALM_CACHE.values())
 
     if not ctxs:
         raise NoContext('any')
@@ -1396,19 +1417,28 @@ def search(realm, term, attributes, base, root, amount, timeout, as_ldiff):
     ok = False
 
     for ctx in ctxs:
-        success, result = ctx.search(
-            term, attributes, base, root,
-            amount, timeout, as_ldiff
-        )
+        try:
+            success, result = ctx.search(
+                term, attributes, base, root,
+                amount, timeout, as_ldiff
+            )
+        except Exception:
+            success = False
+            import traceback
+            result = traceback.format_exc()
 
         if success:
             if len(ctxs) > 1:
-                results[ctx.realm] = result
+                key = (
+                    'GC ' if ctx.global_catalog else ''
+                ) + ctx.realm
+                results[key] = result
             else:
                 results.extend(result)
 
             ok = True
         else:
+            result = ctx.realm + ': ' + result
             errors.append(result)
 
     if not ok:
@@ -1417,20 +1447,16 @@ def search(realm, term, attributes, base, root, amount, timeout, as_ldiff):
     return ok, as_tuple_deep(results)
 
 
-def childs(realm):
-    realm = _get_realm(realm)
-
-    ctx = REALM_CACHE.get(realm, None)
+def childs(realm, global_catalog):
+    key, _, ctx =_get_cached_ctx(realm, global_catalog)
     if not ctx:
         raise NoContext()
 
     return ctx.childs()
 
 
-def info(realm):
-    realm = _get_realm(realm)
-
-    ctx = REALM_CACHE.get(realm, None)
+def info(realm, global_catalog):
+    key, _, ctx =_get_cached_ctx(realm, global_catalog)
     if not ctx:
         raise NoContext()
 
