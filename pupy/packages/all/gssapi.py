@@ -9,14 +9,12 @@ logger = logging.getLogger().getChild('gssapi_wrap')
 
 if sys.platform == 'win32':
     import winkerberos as krb
-    NTLM = krb.GSS_MECH_OID_NTLM
     have_inquire_creds = False
     logger.info('Using WinKerberos')
 else:
     import kerberos as krb
     logger.info('Using PyKerberos')
     have_inquire_creds = True
-    NTLM = None
 
 from base64 import b64encode, b64decode
 
@@ -91,7 +89,6 @@ class NameType(object):
 class MechType(object):
     kerberos = krb.GSS_MECH_OID_KRB5
     spnego = krb.GSS_MECH_OID_SPNEGO
-    ntlm = NTLM
 
 
 class WrappedToken(object):
