@@ -1416,6 +1416,7 @@ def GetTokenSid(hToken, exc=True):
             return None
 
     address = LocalAlloc(0x0040, dwSize)
+    sid = None
     if GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize)):
         pToken_User = cast(address, POINTER(TOKEN_USER))
         ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
