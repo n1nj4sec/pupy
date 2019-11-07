@@ -11,7 +11,7 @@ PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
-PACKAGES="$PACKAGES adodbapi idna wmi http_parser"
+PACKAGES="$PACKAGES adodbapi idna wmi http_parser pyodbc"
 
 SELF=$(readlink -f "$0")
 SELFPWD=$(dirname "$SELF")

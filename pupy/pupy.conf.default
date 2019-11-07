@@ -138,6 +138,7 @@ mouseshots = data/mouselogger/%c/%w-%t.png
 payload_output = output
 plugins = data/plugindata
 ad = data/ad/%c/%r/%n.json
+odbc = data/odbc/%c/%d.txt
 
 [on_connect]
 
