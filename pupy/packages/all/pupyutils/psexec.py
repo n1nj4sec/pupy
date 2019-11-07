@@ -48,11 +48,15 @@ USE_CACHE = False
 
 class PsExecException(Exception):
     def as_unicode(self, codepage=None):
+        error = self.message
+        if not isinstance(error, str):
+            error = str(error)
+
         try:
             if codepage:
-                error = self.message.decode(codepage)
+                error = error.decode(codepage)
             else:
-                error = self.message.decode(getdefaultencoding())
+                error = error.decode(getdefaultencoding())
 
             return error
 
