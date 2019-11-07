@@ -39,7 +39,7 @@ $PIP_INSTALL \
     https://github.com/CoreSecurity/impacket/archive/master.zip \
     https://github.com/warner/python-ed25519/archive/master.zip \
     https://github.com/alxchk/urllib-auth/archive/master.zip \
-    zeroconf==0.19.1 \
+    zeroconf==0.19.1 pyodbc \
     watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
 
 if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
