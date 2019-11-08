@@ -690,7 +690,7 @@ def dll(name, platform, arch, honor_ignore=True, native=False):
         if os.path.exists(dll_path):
             try:
                 buf = get_content(
-                    platform, arch, name, packages_path, dll_path,
+                    platform, arch, name, dll_path,
                     honor_ignore=honor_ignore, native=native)
             except IgnoreFileException:
                 pass
