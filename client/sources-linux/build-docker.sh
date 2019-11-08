@@ -30,6 +30,10 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
 
 export PRCTL_SKIP_KERNEL_CHECK=yes
 
+if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
+    export CFLAGS="$CFLAGS -D__NR_ioprio_get=290 -D__NR_ioprio_set=289"
+fi
+
 $PIP_INSTALL \
     rpyc==3.4.4 pyaml rsa netaddr pyyaml ecdsa idna \
     paramiko pylzma pydbus python-ptrace psutil scandir \
@@ -55,7 +59,7 @@ CFLAGS="${CFLAGS_PYJNIUS}" NO_JAVA=1 \
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
     $PIP_INSTALL dukpy --no-binary :all:
 
-$PIP_INSTALL https://github.com/apple/ccs-pykerberos/archive/master.zip
+$PIP_INSTALL https://github.com/alxchk/ccs-pykerberos/archive/master.zip
 
 LDFLAGS="$LDFLAGS -lasound" $PIP_INSTALL pyaudio
 
