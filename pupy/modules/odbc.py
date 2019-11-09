@@ -161,7 +161,7 @@ class ODBC(PupyModule):
 
     def run(self, args):
         need_impl = self.client.remote('odbc', 'need_impl')
-        if need_impl():
+        if not self.client.is_windows() and need_impl():
             self.client.load_dll('libodbc.so')
             self.client.load_dll('libodbcinst.so')
             self.client.load_package('pyodbc')
@@ -171,7 +171,7 @@ class ODBC(PupyModule):
         except Exception as e:
             if len(e.args) == 2 and e.args[1].startswith('['):
                 self.error(
-                    e.args[1].rsplit('\n', 1)[0].split(':', 1)[1].strip()
+                    e.args[1].rsplit('\n', 1)[0].strip()
                 )
             else:
                 self.error(e)
@@ -234,6 +234,8 @@ class ODBC(PupyModule):
         catalogs = tables(args.alias)
         if not catalogs:
             return
+
+        print "CATALOGS:", catalogs
 
         re_filter = None
 
@@ -329,6 +331,8 @@ class ODBC(PupyModule):
                 completion.set()
             elif code != DATA:
                 self.error('Unexpected code {}'.format(code))
+            elif payload is None:
+                return
             elif output or args.tabs:
                 total.inc(len(payload))
                 for record in payload:

@@ -57,6 +57,28 @@ def _get(alias):
     return alias, ctx
 
 
+def as_cursor(func):
+    def _wrapper(alias, *args, **kwargs):
+        from pyodbc import connect, OperationalError
+
+        try:
+            key, (connstr, ctx) = _get(alias)
+            return func(ctx.cursor(), *args, **kwargs)
+        except OperationalError as e:
+            if e.args[0] in ('08S01', '08003'):
+                try:
+                    new_ctx = connect(connstr)
+                    CONNECTIONS[key] = connstr, new_ctx
+                    return func(new_ctx.cursor(), *args, **kwargs)
+                except OperationalError:
+                    pass
+
+            del CONNECTIONS[key]
+            raise
+
+    return _wrapper
+
+
 def bind(alias, connstring, encoding=False):
     if alias in CONNECTIONS:
         raise ValueError('Alias already registered')
@@ -75,8 +97,10 @@ def bind(alias, connstring, encoding=False):
 
 def unbind(alias):
     alias, (_, ctx) = _get(alias)
-    ctx.close()
-    del CONNECTIONS[alias]
+    try:
+        ctx.close()
+    finally:
+        del CONNECTIONS[alias]
     return alias
 
 
@@ -152,10 +176,8 @@ def _sql(cursor, on_data, completion, limit, portion=4096):
         on_data(ERROR, '{}: {}'.format(e, traceback.format_exc()))
 
 
-def tables(alias):
-    _, (_, ctx) = _get(alias)
-    cursor = ctx.cursor()
-
+@as_cursor
+def tables(cursor):
     catalogs = {}
 
     try:
@@ -168,7 +190,10 @@ def tables(alias):
 
             cur = catalogs[catalog]
             cur.append((
-                '.'.join([table[1], table[2]]),
+                '.'.join(
+                    part for part in [
+                        table[1], table[2]
+                    ] if part),
                 table[3]
             ))
     finally:
@@ -177,9 +202,8 @@ def tables(alias):
     return catalogs
 
 
-def describe(alias, table):
-    _, (_, ctx) = _get(alias)
-    cursor = ctx.cursor()
+@as_cursor
+def describe(cursor, table):
 
     try:
         cursor.execute('SELECT * FROM {} WHERE 1=0'.format(table))
@@ -192,11 +216,10 @@ def describe(alias, table):
         cursor.close()
 
 
-def many(alias, query, limit, on_data):
-    _, (_, ctx) = _get(alias)
+@as_cursor
+def many(cursor, query, limit, on_data):
 
     query = query.strip()
-    cursor = ctx.cursor()
     cursor = cursor.execute(query)
     completion = Event()
 
@@ -217,11 +240,9 @@ def many(alias, query, limit, on_data):
     return _completion
 
 
-def one(alias, query):
-    _, (_, ctx) = _get(alias)
-
+@as_cursor
+def one(cursor, query):
     query = query.strip()
-    cursor = ctx.cursor()
     try:
         return cursor.execute(query).fetchval()
     finally:
