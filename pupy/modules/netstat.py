@@ -91,6 +91,10 @@ class NetStatModule(PupyModule):
                     'RADDR': Color(':'.join([str(x) for x in connection['raddr']]), color),
                     'PID': Color(connection.get('pid', ''), color),
                     'USER': Color((connection.get('username') or ''), color),
+                    'NAME': Color(
+                        connection.get(
+                            'name', (connection.get('name') or '')
+                        ), color),
                     'EXE': Color(
                         connection.get(
                             'exe', (connection.get('name') or '')
@@ -107,7 +111,7 @@ class NetStatModule(PupyModule):
                     objects.append(connection)
 
             self.table(objects, [
-                'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'PID', 'EXE'
+                'AF', 'TYPE', 'LADDR', 'RADDR', 'USER', 'PID', 'NAME', 'EXE'
             ], truncate=True)
 
         except Exception, e:
