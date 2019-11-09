@@ -2,6 +2,7 @@
 
 import sys
 
+from inspect import isfunction
 from threading import Thread, Event
 
 use_system_odbc = True
@@ -57,32 +58,63 @@ def _get(alias):
     return alias, ctx
 
 
-def as_cursor(func):
-    def _wrapper(alias, *args, **kwargs):
-        from pyodbc import connect, OperationalError, SQL_WCHAR
+def as_cursor(cleanup=True):
+    def _as_cursor_wrap_gen(func, cleanup):
+        def _wrapper(alias, *args, **kwargs):
+            from pyodbc import connect, OperationalError, SQL_WCHAR
 
-        try:
-            key, (connstr, encoding, ctx) = _get(alias)
-            return func(ctx.cursor(), *args, **kwargs)
-        except OperationalError as e:
-            if e.args[0] in ('08S01', '08003'):
+            try:
+                key, (connstr, encoding, ctx) = _get(alias)
+                cursor = ctx.cursor()
                 try:
-                    new_ctx = connect(connstr)
+                    return func(cursor, *args, **kwargs)
+                except Exception:
+                    if cleanup:
+                        cursor.cancel()
+                    raise
+                finally:
+                    if cleanup:
+                        cursor.close()
+            except OperationalError as e:
+                if e.args[0] in ('08S01', '08003'):
+                    try:
+                        new_ctx = connect(connstr)
 
-                    if encoding is True:
-                        new_ctx.setdecoding(SQL_WCHAR, encoding='utf-8')
-                    elif encoding:
-                        new_ctx.setdecoding(SQL_WCHAR, encoding=encoding)
+                        if encoding is True:
+                            new_ctx.setdecoding(SQL_WCHAR, encoding='utf-8')
+                        elif encoding:
+                            new_ctx.setdecoding(SQL_WCHAR, encoding=encoding)
 
-                    CONNECTIONS[key] = connstr, encoding, new_ctx
-                    return func(new_ctx.cursor(), *args, **kwargs)
-                except OperationalError:
-                    pass
+                        CONNECTIONS[key] = connstr, encoding, new_ctx
+                        ctx.close()
+                        cursor = new_ctx.cursor()
+                        try:
+                            return func(cursor, *args, **kwargs)
+                        except Exception:
+                            if cleanup:
+                                cursor.close()
+                            raise
+                        finally:
+                            if cleanup:
+                                cursor.close()
+                    except OperationalError:
+                        pass
 
-            del CONNECTIONS[key]
-            raise
+                _, _, ctx = CONNECTIONS[key]
+                ctx.close()
 
-    return _wrapper
+                del CONNECTIONS[key]
+                raise
+
+        return _wrapper
+
+    if isfunction(cleanup):
+        return _as_cursor_wrap_gen(cleanup, True)
+
+    def _wrap(func):
+        return _as_cursor_wrap_gen(func, cleanup)
+
+    return _wrap
 
 
 def bind(alias, connstring, encoding=False):
@@ -180,49 +212,44 @@ def _sql(cursor, on_data, completion, limit, portion=4096):
     except Exception as e:
         import traceback
         on_data(ERROR, '{}: {}'.format(e, traceback.format_exc()))
+    finally:
+        cursor.cancel()
+        cursor.close()
 
 
 @as_cursor
 def tables(cursor):
     catalogs = {}
 
-    try:
-        for table in cursor.tables():
-            catalog = table[0]
-            cur = None
+    for table in cursor.tables():
+        catalog = table[0]
+        cur = None
 
-            if catalog not in catalogs:
-                catalogs[catalog] = []
+        if catalog not in catalogs:
+            catalogs[catalog] = []
 
-            cur = catalogs[catalog]
-            cur.append((
-                '.'.join(
-                    part for part in [
-                        table[1], table[2]
-                    ] if part),
-                table[3]
-            ))
-    finally:
-        cursor.close()
+        cur = catalogs[catalog]
+        cur.append((
+            '.'.join(
+                part for part in [
+                    table[1], table[2]
+                ] if part),
+            table[3]
+        ))
 
     return catalogs
 
 
 @as_cursor
 def describe(cursor, table):
+    cursor.execute('SELECT * FROM {} WHERE 1=0'.format(table))
 
-    try:
-        cursor.execute('SELECT * FROM {} WHERE 1=0'.format(table))
-
-        return tuple(
-            (info[0], info[1].__name__) for info in cursor.description
-        )
-
-    finally:
-        cursor.close()
+    return tuple(
+        (info[0], info[1].__name__) for info in cursor.description
+    )
 
 
-@as_cursor
+@as_cursor(cleanup=False)
 def many(cursor, query, limit, on_data):
 
     query = query.strip()
@@ -249,10 +276,7 @@ def many(cursor, query, limit, on_data):
 @as_cursor
 def one(cursor, query):
     query = query.strip()
-    try:
-        return cursor.execute(query).fetchval()
-    finally:
-        cursor.close()
+    return cursor.execute(query).fetchval()
 
 
 def bounded():
