@@ -105,6 +105,10 @@ zip -y -r -9 ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}.zip . \
     -x "*.egg-info/*" -x "*.dist-info/*" \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" >/dev/null
 
+cd /usr/lib
+zip -9 ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}.zip \
+    libpq.so libodbc.so psqlodbcw.so libodbcinst.so libmaodbc.so
+
 ldconfig
 
 echo "[+] Build pupy"
