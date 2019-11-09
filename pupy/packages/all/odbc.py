@@ -59,16 +59,22 @@ def _get(alias):
 
 def as_cursor(func):
     def _wrapper(alias, *args, **kwargs):
-        from pyodbc import connect, OperationalError
+        from pyodbc import connect, OperationalError, SQL_WCHAR
 
         try:
-            key, (connstr, ctx) = _get(alias)
+            key, (connstr, encoding, ctx) = _get(alias)
             return func(ctx.cursor(), *args, **kwargs)
         except OperationalError as e:
             if e.args[0] in ('08S01', '08003'):
                 try:
                     new_ctx = connect(connstr)
-                    CONNECTIONS[key] = connstr, new_ctx
+
+                    if encoding is True:
+                        new_ctx.setdecoding(SQL_WCHAR, encoding='utf-8')
+                    elif encoding:
+                        new_ctx.setdecoding(SQL_WCHAR, encoding=encoding)
+
+                    CONNECTIONS[key] = connstr, encoding, new_ctx
                     return func(new_ctx.cursor(), *args, **kwargs)
                 except OperationalError:
                     pass
@@ -91,12 +97,12 @@ def bind(alias, connstring, encoding=False):
     elif encoding:
         ctx.setdecoding(pyodbc.SQL_WCHAR, encoding=encoding)
 
-    CONNECTIONS[alias] = connstring, ctx
+    CONNECTIONS[alias] = connstring, encoding, ctx
     return alias
 
 
 def unbind(alias):
-    alias, (_, ctx) = _get(alias)
+    alias, (_, _, ctx) = _get(alias)
     try:
         ctx.close()
     finally:
@@ -252,7 +258,7 @@ def one(cursor, query):
 def bounded():
     return tuple(
         (alias, connstring) for alias, (
-            connstring, _) in CONNECTIONS.iteritems()
+            connstring, _, _) in CONNECTIONS.iteritems()
     )
 
 

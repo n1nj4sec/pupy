@@ -85,6 +85,10 @@ class ODBC(PupyModule):
             default='default', help='Short alias to identify connection'
         )
         bind.add_argument(
+            '-e', '--encoding',
+            default='default', help='Specify encoding'
+        )
+        bind.add_argument(
             'connstring', nargs=REMAINDER,
             help='ODBC connection string (read docs, pyodbc)')
         bind.set_defaults(func=cls.bind)
@@ -179,7 +183,7 @@ class ODBC(PupyModule):
     def bind(self, args):
         bind = self.client.remote('odbc', 'bind')
         connstring = ' '.join(args.connstring)
-        alias = bind(args.alias, connstring)
+        alias = bind(args.alias, connstring, args.encoding)
 
         self.success('Bind: {} -> {}'.format(alias, connstring))
 
