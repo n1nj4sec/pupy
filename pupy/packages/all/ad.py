@@ -203,9 +203,15 @@ class CommunicationErrorDiscovered(CommunicationError):
 
     def __init__(self, childs):
         super(CommunicationErrorDiscovered, self).__init__()
+        if not childs:
+            self.childs = tuple()
+            return
+
         self.childs = tuple(
             (
-                authentication, ldap_server, domain, user, e.type, e.message
+                authentication, ldap_server, domain, user,
+                getattr(e, 'type', e.__class__.__name__),
+                e.message
             ) for authentication, ldap_server, domain, user, e in childs
         )
 
@@ -486,6 +492,7 @@ class ADCtx(object):
         try:
             addrs = getaddrinfo(self.realm, 53)
         except gaierror:
+            addrs = []
             logger.info('No DNS servers found for this realm')
 
         local_addrs, _ = dnsinfo()
@@ -988,7 +995,7 @@ class ADCtx(object):
                 except (
                     socket_error, LDAPSocketOpenError, LDAPSocketReceiveError,
                     LDAPCommunicationError, LDAPMaximumRetriesError) as e:
-                    errors.append(e)
+                    errors.append((domain, user, password, authentication, e))
                     continue
 
         if not self.server:
@@ -1328,10 +1335,11 @@ def _bind(
             on_completed(True, bound_to)
 
     except Exception as e:
+        import traceback
         logger.exception(e)
 
         if on_completed:
-            on_completed(False, e)
+            on_completed(False, str(e))
         else:
             raise
 
