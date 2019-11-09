@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from ldap3.protocol.formatters.formatters import format_sid
-from impacket.ldap.ldaptypes import (
-    SR_SECURITY_DESCRIPTOR, ACCESS_MASK
-)
+from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
 from pupylib.PupyConfig import PupyConfig
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser

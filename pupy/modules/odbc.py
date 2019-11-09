@@ -254,8 +254,8 @@ class ODBC(PupyModule):
                 self.log(
                     List([
                         table for (table, tabletype) in records
-                        if not re_filter or re_filter.match(table)
-                        and tabletype == 'TABLE'
+                        if not re_filter or re_filter.match(
+                            table) and tabletype == 'TABLE'
                     ], caption=catalog)
                 )
 

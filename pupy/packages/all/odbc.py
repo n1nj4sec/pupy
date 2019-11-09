@@ -9,7 +9,6 @@ use_system_odbc = True
 if sys.platform != 'win32':
     import os
     import tempfile
-    import ctypes
 
     odbcinstini = tempfile.NamedTemporaryFile()
     os.environ['ODBCSYSINI'] = ''
@@ -247,7 +246,7 @@ def drivers():
 
 def need_impl():
     try:
-        import pyodbc
+        __import__('pyodbc')
         return False
     except (ImportError, OSError):
         return True

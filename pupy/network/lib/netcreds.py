@@ -23,7 +23,6 @@ _TARGET_WEIGHTS = {
 def resolve_ip(hostname, port=0):
     ips = set()
     try:
-        ip = set()
         for addr in getaddrinfo(hostname, port):
             _, _, _, _, endpoint = addr
             ips.add(endpoint[0])
