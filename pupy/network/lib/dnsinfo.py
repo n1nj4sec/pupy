@@ -53,7 +53,7 @@ def _parse_resolv_conf(path='/etc/resolv.conf'):
                     searches.append(search)
 
     searches = [
-        suffix for suffix in searches if not suffix in domains
+        suffix for suffix in searches if suffix not in domains
     ]
 
     domains.extend(searches)
