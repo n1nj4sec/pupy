@@ -67,6 +67,18 @@ class ODBC(PupyModule):
 
         commands = cls.arg_parser.add_subparsers(title='commands')
 
+        register = commands.add_parser('register', help='Register driver')
+        register.add_argument('name', help='Driver name (f.e. pg)')
+        register.add_argument(
+            '-d', '--description', help='Driver description')
+        register.add_argument(
+            'library', help='Driver library (f.e. psqlodbcw.so)')
+        register.set_defaults(func=cls.register)
+
+        drivers = commands.add_parser(
+            'drivers', help='Show registered drivers')
+        drivers.set_defaults(func=cls.drivers)
+
         bind = commands.add_parser('bind', help='Bind to server')
         bind.add_argument(
             '-a', '--alias',
@@ -148,7 +160,21 @@ class ODBC(PupyModule):
         query.set_defaults(func=cls.query)
 
     def run(self, args):
-        args.func(self, args)
+        need_impl = self.client.remote('odbc', 'need_impl')
+        if need_impl():
+            self.client.load_dll('libodbc.so')
+            self.client.load_dll('libodbcinst.so')
+            self.client.load_package('pyodbc')
+
+        try:
+            args.func(self, args)
+        except Exception as e:
+            if len(e.args) == 2 and e.args[1].startswith('['):
+                self.error(
+                    e.args[1].rsplit('\n', 1)[0].split(':', 1)[1].strip()
+                )
+            else:
+                self.error(e)
 
     def bind(self, args):
         bind = self.client.remote('odbc', 'bind')
@@ -156,6 +182,19 @@ class ODBC(PupyModule):
         alias = bind(args.alias, connstring)
 
         self.success('Bind: {} -> {}'.format(alias, connstring))
+
+    def drivers(self, args):
+        drivers = self.client.remote('odbc', 'drivers')
+        self.log(List(drivers()))
+
+    def register(self, args):
+        register = self.client.remote('odbc', 'register_driver')
+        drivers = self.client.remote('odbc', 'drivers')
+
+        if register(args.name, args.description, args.library):
+            self.client.load_dll(args.library)
+
+        self.log(List(drivers()))
 
     def unbind(self, args):
         unbind = self.client.remote('odbc', 'unbind')
@@ -306,25 +345,30 @@ class ODBC(PupyModule):
                     Table([
                         {
                             title: value
-                        } for title, value in zip(
-                            titles, payload
-                        )
+                            for title, value in zip(
+                                titles, values
+                            )
+                        } for values in payload
                     ], titles)
                 )
             else:
                 total.inc(len(payload))
                 titles = tuple(col[0] for col in header)
 
-                for record in payload:
-                    self.log(
-                        List([
-                            '{}: {}'.format(title, value) for
-                            (title, value) in zip(
-                                titles, record
-                            )
-                        ])
-                    )
-                    self.log(NewLine())
+                if len(header) == 1:
+                    for record in payload:
+                        self.log(record[0])
+                else:
+                    for record in payload:
+                        self.log(
+                            List([
+                                u'{}: {}'.format(title, value) for
+                                (title, value) in zip(
+                                    titles, record
+                                )
+                            ])
+                        )
+                        self.log(NewLine())
 
         self.info('QUERY: {} LIMIT: {}'.format(query, args.limit))
         self.terminate = many(

@@ -1,8 +1,40 @@
 # -*- coding: utf-8 -*-
 
-import pyodbc
+import sys
 
 from threading import Thread, Event
+
+use_system_odbc = True
+
+if sys.platform != 'win32':
+    import os
+    import tempfile
+    import ctypes
+
+    odbcinstini = tempfile.NamedTemporaryFile()
+    os.environ['ODBCSYSINI'] = ''
+    os.environ['ODBCINSTINI'] = odbcinstini.name
+
+    registered = set()
+
+    def register_driver(name, description, library):
+        if name in registered:
+            return False
+
+        odbcinstini.write('\n'.join([
+            '[{}]'.format(name),
+            'Description={}'.format(description or 'None'),
+            'Driver={}'.format(library),
+            ''
+        ]))
+        odbcinstini.flush()
+        registered.add(name)
+        return True
+
+else:
+    def register_driver(name, library):
+        raise NotImplementedError()
+
 
 CONNECTIONS = {}
 
@@ -29,6 +61,8 @@ def _get(alias):
 def bind(alias, connstring, encoding=False):
     if alias in CONNECTIONS:
         raise ValueError('Alias already registered')
+
+    import pyodbc
 
     ctx = pyodbc.connect(connstring)
     if encoding is True:
@@ -200,3 +234,20 @@ def bounded():
         (alias, connstring) for alias, (
             connstring, _) in CONNECTIONS.iteritems()
     )
+
+
+def drivers():
+    try:
+        import pyodbc
+    except ImportError:
+        return []
+
+    return pyodbc.drivers()
+
+
+def need_impl():
+    try:
+        import pyodbc
+        return False
+    except (ImportError, OSError):
+        return True
