@@ -16,6 +16,8 @@ from ctypes.wintypes import (
     LPCSTR, LPCWSTR, USHORT, HANDLE
 )
 
+from threading import Thread
+
 import psutil
 import sys
 import os
@@ -1675,7 +1677,32 @@ def impersonate_sid(sid, close=True):
 
     return hTokendupe
 
+
 global_ref = None
+
+
+if not hasattr(Thread, '__impersonate_patch'):
+    setattr(
+        Thread, '__bootstrap_inner_original',
+        Thread._Thread__bootstrap_inner
+    )
+
+    def __bootstrap_inner_patched(self):
+        try:
+            from pupwinutils.security import global_ref
+
+            if global_ref:
+                ImpersonateLoggedOnUser(global_ref)
+                setattr(self, 'impersonated', global_ref)
+
+        except ImportError:
+            pass
+
+        Thread.__bootstrap_inner_original(self)
+
+    setattr(Thread, '_Thread__bootstrap_inner', __bootstrap_inner_patched)
+    setattr(Thread, '__impersonate_patch', True)
+
 
 def impersonate_sid_long_handle(*args, **kwargs):
     global global_ref
