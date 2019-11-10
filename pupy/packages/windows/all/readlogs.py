@@ -431,7 +431,7 @@ def lastlog():
         session_id = None
         if event['EventID'] == 4624:
             _, _, _, _, _, user, domain, session_id, logon_type, _, \
-              _, _, _, _, _, _, pid, comm, ip, _ = event['msg']
+              _, _, _, _, _, _, pid, comm, ip = event['msg'][:19]
 
             session_id = int(session_id, 16)
             logon_type = int(logon_type)
