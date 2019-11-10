@@ -1607,14 +1607,20 @@ def gethTokenFromPid(pid, exc=True):
 IMPERSONATION_TOKENS = {}
 
 
+def ListCachedSids():
+    return tuple(
+        (sid, username) for sid, (username, value) in IMPERSONATION_TOKENS.iteritems()
+    )
+
+
 def getSidToken(token_sid):
     if token_sid in IMPERSONATION_TOKENS:
-        return IMPERSONATION_TOKENS[token_sid]
+        return IMPERSONATION_TOKENS[token_sid][1]
 
     EnablePrivilege("SeDebugPrivilege", exc=False)
 
     # trying to get system privileges
-    for (pid, name, sid, _) in ListSids():
+    for (pid, name, sid, username) in ListSids():
         if token_sid == SID_SYSTEM:
             if 'winlogon' not in name.lower():
                 continue
@@ -1627,7 +1633,7 @@ def getSidToken(token_sid):
         if not hToken:
             continue
 
-        IMPERSONATION_TOKENS[token_sid] = hToken
+        IMPERSONATION_TOKENS[token_sid] = username, hToken
         return hToken
 
 def impersonate_pid(pid, close=True):
