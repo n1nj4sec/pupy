@@ -1335,7 +1335,6 @@ def _bind(
             on_completed(True, bound_to)
 
     except Exception as e:
-        import traceback
         logger.exception(e)
 
         if on_completed:

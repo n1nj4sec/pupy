@@ -1733,7 +1733,7 @@ def impersonate_pid_long_handle(*args, **kwargs):
     except:
         pass
 
-    global_ref = hTokendupeimpersonate_token
+    global_ref = hTokendupe
     return addressof(hTokendupe)
 
 def impersonate_token(hToken):

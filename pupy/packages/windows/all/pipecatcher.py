@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 
-from threading import Thread
 from traceback import format_exc
 
 from pupwinutils.security import (
@@ -12,7 +11,7 @@ from pupwinutils.security import (
     HANDLE, DWORD, BOOL, LPVOID, sizeof, addressof, byref,
     INVALID_HANDLE_VALUE, WinError, get_last_error,
     create_string_buffer, ReadFile, CloseHandle,
-    EnablePrivilege, DuplicateTokenEx, namebysid,
+    EnablePrivilege, DuplicateTokenEx,
     get_thread_token, rev2self, GetTokenSid, GetUserName,
     TOKEN_ALL_ACCESS, IMPERSONATION_TOKENS
 )
