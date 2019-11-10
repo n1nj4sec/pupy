@@ -1301,7 +1301,7 @@ NORMAL_PRIORITY_CLASS       = 0x00000020
 CreateEnvironmentBlock = userenv.CreateEnvironmentBlock
 CreateEnvironmentBlock.restype = BOOL
 CreateEnvironmentBlock.argtypes = [
-    POINTER(c_void_p), c_void_p, c_int
+    POINTER(c_void_p), HANDLE, c_int
 ]
 
 DestroyEnvironmentBlock = userenv.DestroyEnvironmentBlock
@@ -1603,7 +1603,16 @@ def gethTokenFromPid(pid, exc=True):
 
     return hToken
 
+
+IMPERSONATION_TOKENS = {}
+
+
 def getSidToken(token_sid):
+    if token_sid in IMPERSONATION_TOKENS:
+        return IMPERSONATION_TOKENS[token_sid]
+
+    EnablePrivilege("SeDebugPrivilege", exc=False)
+
     # trying to get system privileges
     for (pid, name, sid, _) in ListSids():
         if token_sid == SID_SYSTEM:
@@ -1618,6 +1627,7 @@ def getSidToken(token_sid):
         if not hToken:
             continue
 
+        IMPERSONATION_TOKENS[token_sid] = hToken
         return hToken
 
 def impersonate_pid(pid, close=True):
@@ -1643,7 +1653,6 @@ def impersonate_sid(sid, close=True):
         if not sid:
             raise ValueError('Unknown username {}'.format(sid.encode('utf-8')))
 
-    EnablePrivilege("SeDebugPrivilege")
     hToken = getSidToken(sid)
     if not hToken:
         raise ValueError('Could not get token for SID {}'.format(sid))
@@ -1652,7 +1661,8 @@ def impersonate_sid(sid, close=True):
     if close and hTokendupe:
         CloseHandle(hTokendupe)
 
-    CloseHandle(hToken)
+    # Cached by getSidToken
+    # CloseHandle(hToken)
 
     if not hTokendupe:
         raise ValueError('Could not impersonate token for SID {}'.format(sid))
@@ -1695,7 +1705,7 @@ def impersonate_pid_long_handle(*args, **kwargs):
 
 def impersonate_token(hToken):
     EnablePrivilege('SeDebugPrivilege', exc=False)
-    EnablePrivilege('SeImpersonatePrivilege')
+    EnablePrivilege('SeImpersonatePrivilege', exc=False)
 
     hTokendupe = HANDLE(INVALID_HANDLE_VALUE)
 
@@ -1706,8 +1716,6 @@ def impersonate_token(hToken):
         hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation,
         TokenPrimary, byref(hTokendupe)):
         raise WinError(get_last_error())
-
-    CloseHandle(hToken)
 
     try:
         EnablePrivilege('SeAssignPrimaryTokenPrivilege', hToken=hTokendupe, exc=False)
@@ -2065,7 +2073,6 @@ def strsid(sid, exc=True):
 
     if ConvertSidToStringSidA(sid, byref(StringSid)):
         sid = str(StringSid.value)
-        LocalFree(StringSid)
         return sid
 
     if not exc:
