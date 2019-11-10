@@ -94,10 +94,11 @@ class Task(Thread):
             self.task()
         except:
             pupy.remote_error('Task (run) error: {}', self.name)
-            if self._stopped:
-                self._stopped.set()
         finally:
             pupy.dprint('Task {} completed', self.__class__.__name__)
+
+            if self._stopped:
+                self._stopped.set()
 
     @property
     def active(self):
