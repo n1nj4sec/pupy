@@ -14,7 +14,7 @@ from pupy import manager, Task
 
 from pupwinutils.security import (
     sidbyname, getSidToken, get_thread_token,
-    token_impersonated_as_system
+    token_impersonated_as_system, EnablePrivilege
 )
 
 class PtyShell(Task):
@@ -121,6 +121,7 @@ def acquire(argv=None, term=None, suid=None):
                 sid = suid
             else:
                 sid = sidbyname(suid)
+
                 if not sid:
                     raise ValueError(
                         'Unknown username {}'.format(
@@ -132,7 +133,10 @@ def acquire(argv=None, term=None, suid=None):
 
             hCurrentToken = get_thread_token()
             if not token_impersonated_as_system(hCurrentToken):
-                raise ValueError('Impersonate control thread as SYSTEM first')
+                try:
+                    EnablePrivilege('SeImpersonatePrivilege')
+                except ValueError:
+                    raise ValueError('Impersonate control thread as SYSTEM first')
 
             htoken = (hCurrentToken, hSidToken)
 
