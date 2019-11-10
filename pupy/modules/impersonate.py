@@ -22,8 +22,11 @@ class ImpersonateModule(PupyModule):
 
     def run(self, args):
         if args.list:
+            ListCachedSids = self.client.remote(
+                'pupwinutils.security', 'ListCachedSids')
             ListSids = self.client.remote('pupwinutils.security', 'ListSids')
 
+            cached = ListCachedSids()
             sids = ListSids()
 
             process_table = []
@@ -43,6 +46,12 @@ class ImpersonateModule(PupyModule):
             for sid, username in sids_dict.iteritems():
                 sids_table.append({
                     'sid': sid,
+                    'username': username
+                })
+
+            for (sid, username) in cached:
+                sids_table.append({
+                    'sid': sid + ' (CACHED)',
                     'username': username
                 })
 
