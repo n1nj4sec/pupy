@@ -130,6 +130,8 @@ class ConPTY(object):
         self._lpInfo = None
         self._create_pty(pty_size)
 
+        requested_htoken = None
+
         if htoken:
             caller_thread_htoken, requested_htoken = htoken
             impersonate_token(caller_thread_htoken)
