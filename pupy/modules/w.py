@@ -88,6 +88,7 @@ class WModule(PupyModule):
 
                         time_info[time_info_record][session] = value
 
+                    color = 'white'
                     if session_state == 'Disconnected':
                         color = 'grey'
                     elif session_state == 'Listen':
