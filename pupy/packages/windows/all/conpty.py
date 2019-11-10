@@ -18,6 +18,7 @@ from pupwinutils.security import (
     ReadFile, WriteFile,
     start_proc_with_token, kernel32,
     StartupInfoAttribute, GetExitCodeProcess,
+    impersonate_token,
     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, S_OK,
     INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
     STILL_ACTIVE, INVALID_HANDLE
@@ -129,8 +130,13 @@ class ConPTY(object):
         self._lpInfo = None
         self._create_pty(pty_size)
 
+        if htoken:
+            caller_thread_htoken, requested_htoken = htoken
+            impersonate_token(caller_thread_htoken)
+            CloseHandle(caller_thread_htoken)
+
         self._lpInfo = start_proc_with_token(
-            cmdline, htoken,
+            cmdline, requested_htoken,
             lpInfo=True,
             # Important - will not work otherwise
             hidden=False,
