@@ -313,7 +313,7 @@ class Powershell(threading.Thread):
             self._queue.put(request)
 
             if async and not wait:
-                return request
+                return request.rid
             else:
                 return request.result
 
@@ -372,7 +372,7 @@ class PowerHost(object):
 
     @property
     def dirty(self):
-        return bool(self._results)
+        return bool(self.results)
 
     def register(self, name, content, force=False, try_x64=False, daemon=False, width=None, v2=None):
         v2 = self._v2 if v2 is None else v2
