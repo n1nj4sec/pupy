@@ -883,13 +883,6 @@ OpenProcess                         = kernel32.OpenProcess
 OpenProcess.restype                 = HANDLE
 OpenProcess.argtypes                = [DWORD, BOOL, DWORD]
 
-LocalAlloc                          = kernel32.LocalAlloc
-LocalAlloc.restype                  = HANDLE
-LocalAlloc.argtypes                 = [PSID, DWORD]
-
-LocalFree                           = kernel32.LocalFree
-LocalFree.restype                   = HANDLE
-LocalFree.argtypes                  = [HANDLE]
 
 class LSA_UNICODE_STRING(Structure):
     _fields_ = (
@@ -1415,14 +1408,16 @@ def GetTokenSid(hToken, exc=True):
 
             return None
 
-    address = LocalAlloc(0x0040, dwSize)
+    address = create_string_buffer(dwSize.value)
     sid = None
     if GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize)):
         pToken_User = cast(address, POINTER(TOKEN_USER))
         ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
         sid = pStringSid.value
+    else:
+        if exc:
+            raise WinError(get_last_error())
 
-    LocalFree(address)
     return sid
 
 def EnablePrivilege(privilegeStr, hToken=None, exc=True):
@@ -1695,11 +1690,11 @@ def impersonate_pid_long_handle(*args, **kwargs):
     except:
         pass
 
-    global_ref = hTokendupe
+    global_ref = hTokendupeimpersonate_token
     return addressof(hTokendupe)
 
 def impersonate_token(hToken):
-    EnablePrivilege('SeDebugPrivilege')
+    EnablePrivilege('SeDebugPrivilege', exc=False)
     EnablePrivilege('SeImpersonatePrivilege')
 
     hTokendupe = HANDLE(INVALID_HANDLE_VALUE)
