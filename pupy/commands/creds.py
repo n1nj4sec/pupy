@@ -10,7 +10,7 @@ from pupylib.utils.credentials import Credentials
 
 usage = 'Credentials manager'
 parser = PupyArgumentParser(prog='creds', description=usage)
-parser.add_argument('-A', '--all', action='store_true', help='Search/Show info for all machines, not only active ones')
+parser.add_argument('-A', '--all', action='store_true', default=False, help='Search/Show info for all machines, not only active ones')
 parser.add_argument('-k', '--key', help='Search in key in objects with key')
 parser.add_argument('-s', '--sort', action='store_true', help='Search in key in objects with key')
 parser.add_argument('--delete-db', action='store_true', help='Delete DB')
@@ -25,7 +25,7 @@ def do(server, handler, config, modargs):
 
     clients = server.get_clients_list()
 
-    cids = None
+    filter_cids = None
 
     if modargs.delete_db:
         credentials.remove()
@@ -33,10 +33,10 @@ def do(server, handler, config, modargs):
         return
 
     if not modargs.all:
-        cids = set([
+        filter_cids = set([
             client.short_name() for client in clients
         ])
-        cids.update([
+        filter_cids.update([
             client.node() for client in clients
         ])
 
@@ -64,9 +64,17 @@ def do(server, handler, config, modargs):
         return
 
     try:
-        for category,info in categories.iteritems():
+        for category, info in categories.iteritems():
             if not info['creds']:
                 continue
+
+            if filter_cids:
+                info['creds'] = [
+                    cred for cred in info['creds'] if cred['cid'] in filter_cids
+                ]
+
+                if not info['creds']:
+                    continue
 
             credtype = info['credtype']
 
