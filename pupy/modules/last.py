@@ -81,7 +81,7 @@ class LastModule(PupyModule):
                 record['start'] = datetime.fromtimestamp(record['start'])
                 record['end'] = datetime.fromtimestamp(
                     record['end']
-                ) if record['end'] != -1 else 'logged in'
+                ) if record['end'] is not None and record['end'] != -1 else 'logged in'
                 record['duration'] = timedelta(seconds=int(record['duration']))
                 record['ip'] = '' if record['ip'] == '0.0.0.0' else record['ip']
 
