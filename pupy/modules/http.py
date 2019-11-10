@@ -2,7 +2,8 @@
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Pygment, Table, NewLine
-from pygments.lexers import guess_lexer
+from pygments.lexers import guess_lexer, JsonLexer
+from json import loads, dumps
 
 __class_name__='http'
 
@@ -19,6 +20,7 @@ class http(PupyModule):
         cls.arg_parser.add_argument('-H', '--header', default=[], action='append',
                                          help='User-Agent=Mozilla X-Forwarded-For=127.0.0.1')
         cls.arg_parser.add_argument('-C', '--color', action='store_true', help='Try to colorize output')
+        cls.arg_parser.add_argument('-j', '--json', action='store_true', help='Indent JSON response')
         cls.arg_parser.add_argument('-I', '--get-headers', action='store_true', default=False, help='Return headers')
         cls.arg_parser.add_argument('-R', '--no-result', action='store_true', default=False,
                                     help='Do not show result')
@@ -88,7 +90,18 @@ class http(PupyModule):
                     self.log(NewLine())
 
             if result and not args.no_result:
-                if args.color:
+                if args.json:
+                    try:
+                        result = dumps(
+                            loads(result),
+                            indent=1, sort_keys=True
+                        )
+                        if args.color:
+                            result = Pygment(JsonLexer(), result)
+                    except ValueError:
+                        pass
+
+                elif args.color:
                     try:
                         lexer = guess_lexer(result)
                         result = Pygment(lexer, result)
