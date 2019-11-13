@@ -1698,7 +1698,7 @@ if not hasattr(Thread, '__impersonate_patch'):
         except ImportError:
             pass
 
-        Thread.__bootstrap_inner_original(self)
+        self.__class__.__bootstrap_inner_original(self)
 
     setattr(Thread, '_Thread__bootstrap_inner', __bootstrap_inner_patched)
     setattr(Thread, '__impersonate_patch', True)
@@ -2361,17 +2361,21 @@ def getfileowneracls(path):
 
     pSDBuf, USid, GSid = _getfileinfo(path, requested_information)
 
-    owner_sid = strsid(USid)
-    group_sid = strsid(GSid)
+    if USid and GSid:
+        owner_sid = strsid(USid)
+        group_sid = strsid(GSid)
 
-    owner_name, owner_domain = namebysid(USid)
-    group_name, group_domain = namebysid(GSid)
+        owner_name, owner_domain = namebysid(USid)
+        group_name, group_domain = namebysid(GSid)
 
-    owner = owner_sid, owner_name, owner_domain
-    group = group_sid, group_name, group_domain
+        owner = owner_sid, owner_name, owner_domain
+        group = group_sid, group_name, group_domain
 
-    infos.append(owner)
-    infos.append(group)
+        infos.append(owner)
+        infos.append(group)
+
+    if not pSDBuf:
+        return
 
     pACL = c_void_p()
     bDaclPresent = BOOL()
@@ -2389,7 +2393,7 @@ def getfileowneracls(path):
     ACLs = []
 
     i = 0
-    while True:
+    while pACL and True:
         ace = PACCESS_ALLOWED_ACE()
         if not GetAce(pACL, i, byref(ace)):
             break
