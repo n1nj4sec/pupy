@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table
+from pupylib.PupyOutput import Table, MultiPart
 from pupylib.utils.term import colorize
 from modules.lib import size_human_readable
 
@@ -15,7 +15,7 @@ class Drives(PupyModule):
         'all': ['psutil'],
         'posix': ['mount'],
         'windows': [
-            'pupwinutils.drives', 'wql'
+            'pupyps', 'netresources',
         ],
     }
 
@@ -164,27 +164,12 @@ class Drives(PupyModule):
             ok = True
 
         elif self.client.is_windows():
-            try:
-                list_drives = self.client.remote('pupwinutils.drives', 'list_drives')
-                self.log(
-                    Table([{
-                        'Name': name,
-                        'Type': dtype,
-                        'Size': size,
-                        'Free': free,
-                        'UNC': unc
-                    } for name, dtype, size, free, unc in list_drives()
-                    ], ['Name', 'Type', 'Size', 'Free', 'UNC']))
-                ok = True
-            except Exception as e:
-                self.warning('WMI failed: {}'.format(e))
-                pass
-
-        if not ok:
             list_drives = self.client.remote('pupyps', 'drives')
+            EnumNetResources = self.client.remote('netresources', 'EnumNetResources')
             drives = list_drives()
 
             formatted_drives = []
+            parts = []
 
             for drive in drives:
                 formatted_drives.append({
@@ -200,4 +185,35 @@ class Drives(PupyModule):
                     ) if ('used' in drive and 'total' in drive) else '?'
                 })
 
-            self.log(Table(formatted_drives, ['DEV', 'MP', 'FS', 'OPTS', 'USED']))
+            parts.append(Table(formatted_drives, ['DEV', 'MP', 'FS', 'OPTS', 'USED']))
+
+            providers = {}
+
+            net_resources = EnumNetResources()
+            for resource in net_resources:
+                if resource['provider'] not in providers:
+                    providers[resource['provider']] = []
+
+                if 'used' in resource:
+                    resource['used'] = '{}% ({}/{})'.format(
+                        resource['percent'],
+                        size_human_readable(resource['used']),
+                        size_human_readable(resource['total'])
+                    )
+                else:
+                    resource['used'] = '?'
+
+                providers[resource['provider']].append(dict(
+                    (k, v) for k, v in resource.iteritems() if k not in (
+                        'usage', 'provider', 'scope'
+                    )
+                ))
+
+            for provider, records in providers.iteritems():
+
+                parts.append(
+                    Table(records, [
+                        'remote', 'local', 'type', 'used'
+                    ], caption=provider))
+
+            self.log(MultiPart(parts))
