@@ -173,7 +173,6 @@ class Drives(PupyModule):
 
             for drive in drives:
                 formatted_drives.append({
-                    'DEV': drive['device'],
                     'MP': drive['mountpoint'],
                     'FS': drive['fstype'],
                     'OPTS': drive['opts'],
@@ -185,7 +184,7 @@ class Drives(PupyModule):
                     ) if ('used' in drive and 'total' in drive) else '?'
                 })
 
-            parts.append(Table(formatted_drives, ['DEV', 'MP', 'FS', 'OPTS', 'USED']))
+            parts.append(Table(formatted_drives, ['MP', 'FS', 'OPTS', 'USED']))
 
             providers = {}
 
