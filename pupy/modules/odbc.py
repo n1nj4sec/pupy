@@ -85,8 +85,7 @@ class ODBC(PupyModule):
             default='default', help='Short alias to identify connection'
         )
         bind.add_argument(
-            '-e', '--encoding',
-            default='default', help='Specify encoding'
+            '-e', '--encoding', help='Specify encoding'
         )
         bind.add_argument(
             'connstring', nargs=REMAINDER,
