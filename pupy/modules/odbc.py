@@ -238,8 +238,6 @@ class ODBC(PupyModule):
         if not catalogs:
             return
 
-        print "CATALOGS:", catalogs
-
         re_filter = None
 
         if args.filter:
