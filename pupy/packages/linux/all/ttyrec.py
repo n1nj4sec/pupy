@@ -61,6 +61,7 @@ class TTYMon(object):
             self._probe_name
         )
 
+        self._tty_cache = {}
         self._started = False
         self._stopping = False
         self._stopped = True
@@ -220,7 +221,19 @@ class TTYMon(object):
             buf = rest[eob:]
 
             if pid not in self._ignore:
-                yield comm, pid, probe, sec, usec, data
+                cached_tty, cached_sec = self._tty_cache.get(
+                    pid, (None, None))
+
+                if not cached_tty or (sec - cached_sec > 600):
+                    cached_sec = sec
+                    try:
+                        cached_tty = os.readlink('/proc/{}/fd/1'.format(pid))
+                    except (OSError, IOError):
+                        cached_tty = None
+
+                    self._tty_cache[pid] = cached_tty, cached_sec
+
+                yield cached_tty, comm, pid, probe, sec, usec, data
 
 
 class TTYRec(Task):
@@ -235,12 +248,20 @@ class TTYRec(Task):
         self._event_id = event_id
 
     def task(self):
-        for comm, pid, probe, sec, usec, buf in self._ttymon:
+        for cached_tty, comm, pid, probe, sec, usec, buf in self._ttymon:
+            if cached_tty:
+                cached_tty = cached_tty.rsplit('/', 1)[-1]
+            else:
+                cached_tty = ''
+
+            cached_tty = cached_tty[:8].ljust(8)
+            comm = comm[:16].ljust(16)
+
             with self._results_lock:
                 packet = self._compressor.compress(
                     struct.pack(
-                        '<16ssIIII',
-                        comm[:16], probe, pid,
+                        '<8s16ssIIII',
+                        cached_tty, comm, probe, pid,
                         sec, usec, len(buf)) + buf)
                 self._buffer.append(packet)
 
