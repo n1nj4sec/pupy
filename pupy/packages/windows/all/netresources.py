@@ -2,11 +2,11 @@
 
 from ctypes import (
     WinDLL, Structure, POINTER, create_string_buffer,
-    get_last_error, cast, c_void_p, WinError, byref, addressof
+    cast, c_void_p, WinError, byref
 )
 
 from ctypes.wintypes import (
-    BOOL, DWORD, LPCWSTR, HANDLE
+    DWORD, LPCWSTR, HANDLE
 )
 
 from psutil import disk_usage
@@ -216,7 +216,7 @@ def EnumAllNetResources():
     results = {}
     for value, text in SCOPE_TEXT.iteritems():
         try:
-           results[text] = EnumNetResources(value)
+            results[text] = EnumNetResources(value)
         except WinError:
             pass
 

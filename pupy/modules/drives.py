@@ -27,7 +27,6 @@ class Drives(PupyModule):
         )
 
     def run(self, args):
-        ok = False
         if self.client.is_posix():
             tier1 = ('network', 'fuse', 'dm', 'block', 'vm')
 
@@ -160,8 +159,6 @@ class Drives(PupyModule):
                 output.append('')
 
             self.log('\n'.join(output))
-
-            ok = True
 
         elif self.client.is_windows():
             list_drives = self.client.remote('pupyps', 'drives')
