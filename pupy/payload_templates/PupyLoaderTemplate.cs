@@ -164,16 +164,16 @@ namespace PELoader
                             fixedAddr = originalAddr + delta;
 
                             Console.WriteLine(
-                                "[R] {0:X8} (+ {1}) -> {2:X8}", 
+                                "[R] {0:X8} (+ {1}) -> {2:X8}",
                                 originalAddr, delta, fixedAddr);
                             Marshal.WriteInt32(patchAddr, (int) fixedAddr);
                             break;
 
-                        case 0xA: 
+                        case 0xA:
                             originalAddr = Marshal.ReadInt64(patchAddr);
                             fixedAddr = originalAddr + delta;
                             Console.WriteLine(
-                                "[R] {0:X16} (+ {1}) -> {2:X16}", 
+                                "[R] {0:X16} (+ {1}) -> {2:X16}",
                                     originalAddr, delta, fixedAddr);
                             Marshal.WriteInt64(patchAddr, fixedAddr);
                             break;
@@ -196,19 +196,27 @@ namespace PELoader
 
             ImportTableVirtualAddress = (IntPtr)((byte*)CodeBase + ImportTableVirtualAddressOffset);
 
-            int oa2 = Marshal.ReadInt32((IntPtr)((byte*)ImportTableVirtualAddress + 16));
-
             //Get And Display Each DLL To Load
             for (int j = 0; j < MAX_RECORDS; j++) //HardCoded Number of DLL's Do this Dynamically.
             {
-                IntPtr a1 = (IntPtr)((byte*)CodeBase + (20 * j) + ImportTableVirtualAddressOffset);
+                IntPtr ImportRecord = (IntPtr)((byte*)ImportTableVirtualAddress + (20 * j));
 
-                int entryLength = Marshal.ReadInt32((IntPtr)((byte*)a1 + 16));
+                IntPtr DllFuncOFTOfft = (IntPtr)((byte*)(ImportRecord) + 0);
+                IntPtr DllNameOfft = (IntPtr)((byte*)(ImportRecord) + 12);
+                IntPtr DllFuncFTOfft = (IntPtr)((byte*)(ImportRecord) + 16);
 
-                //Need just last part?
-                IntPtr DllFuncNameIdx = (IntPtr)((byte*)CodeBase + pe.ImageSectionHeaders[1].VirtualAddress + (entryLength - oa2));
+                IntPtr dllNamePTR = (IntPtr)((byte*)CodeBase + Marshal.ReadInt32(DllNameOfft));
+                int FTPtr = Marshal.ReadInt32(DllFuncFTOfft);
+                int OFTPtr = Marshal.ReadInt32(DllFuncOFTOfft);
+                IntPtr DllFuncNameIdx = (IntPtr) 0;
+                IntPtr DllFuncPtrIdx = (IntPtr) (IntPtr)((byte*)CodeBase + FTPtr);
 
-                IntPtr dllNamePTR = (IntPtr)((byte*)CodeBase + Marshal.ReadInt32((IntPtr)((byte*)(a1) + 12)));
+                if (OFTPtr != 0) {
+                    DllFuncNameIdx = (IntPtr)((byte*)CodeBase + OFTPtr);
+                } else {
+                    DllFuncNameIdx = (IntPtr)((byte*)CodeBase + FTPtr);
+                }
+
                 string DllName = Marshal.PtrToStringAnsi(dllNamePTR);
 
                 Console.WriteLine("Import DLL {0}", DllName);
@@ -228,10 +236,12 @@ namespace PELoader
                     Console.WriteLine("Import Function {0} -> {1:X16}", DllFuncName, funcAddy);
 
                     if (pe.Is32BitHeader) {
-                        Marshal.WriteInt32(DllFuncNameIdx, (int)funcAddy);
+                        Marshal.WriteInt32(DllFuncPtrIdx, (int)funcAddy);
+                        DllFuncPtrIdx = (IntPtr)((byte*)DllFuncPtrIdx + 4);
                         DllFuncNameIdx = (IntPtr)((byte*)DllFuncNameIdx + 4);
                     } else {
-                        Marshal.WriteInt64(DllFuncNameIdx, (long)funcAddy);
+                        Marshal.WriteInt64(DllFuncPtrIdx, (long)funcAddy);
+                        DllFuncPtrIdx = (IntPtr)((byte*)DllFuncPtrIdx + 8);
                         DllFuncNameIdx = (IntPtr)((byte*)DllFuncNameIdx + 8);
                     }
 
