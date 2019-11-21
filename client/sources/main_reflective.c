@@ -51,7 +51,7 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
         case DLL_PROCESS_ATTACH:
             hAppInstance = hinstDLL;
 
-            initialize(TRUE, NULL);
+            initialize(TRUE);
 
             if (lpReserved == (LPVOID) 0x1) {
                 dprint("Special: Request for non-delayed thread\n");

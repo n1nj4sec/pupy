@@ -17,7 +17,7 @@ void on_exit_session(void);
 #endif
 
 
-void initialize(BOOL isDll, on_exit_session_t *cb);
+void initialize(BOOL isDll);
 DWORD WINAPI execute(LPVOID lpArg);
 void deinitialize();
 

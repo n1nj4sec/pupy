@@ -25,13 +25,13 @@ CFLAGS += /Iresources\\$(ARCH) /Iresources /DHAVE_WINDOW
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
-LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup user32.lib
+LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup
 #LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console
 PPARCH      := $(PPARCH)d
 else
 DEBUG_ADD   :=
-LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /LTCG user32.lib
-# LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console /LTCG user32.lib
+LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /LTCG
+# LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console /LTCG
 PPARCH      := $(PPARCH)
 CFLAGS      := $(CFLAGS) /Os /GL /GS-
 endif
@@ -105,13 +105,13 @@ TARGETS := \
 	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe \
 	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
 
-REQUIRED_LIBS :=
+REQUIRED_LIBS := user32.lib
 
 ifneq ($(PUPY_DYNLOAD),)
 	TARGETS += $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)pyr
 	PUPY_LOAD_DEPS += resources/$(ARCH)/$(PUPY_PYD_C)
 else
-	REQUIRED_LIBS := advapi32.lib
+	REQUIRED_LIBS += advapi32.lib
 endif
 
 all: $(TARGETS)

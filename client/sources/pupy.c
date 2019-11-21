@@ -38,10 +38,14 @@ static int is_shared = 0;
 
 void on_exit_session(void) {
     PyGILState_STATE gstate;
-        PyObject * pResult;
+    PyObject * pResult;
 
-        if (!Py_on_exit_session_callback)
-                return;
+    dprint(
+        "pupy:on_exit_session called, current callback: %p\n",
+        Py_on_exit_session_callback);
+
+    if (!Py_on_exit_session_callback)
+        return;
 
     gstate = PyGILState_Ensure();
     pResult = PyObject_CallObject(Py_on_exit_session_callback, NULL);
