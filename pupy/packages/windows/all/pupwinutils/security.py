@@ -260,6 +260,10 @@ WAIT_TIMEOUT = 0x00000102
 WAIT_FAILED = 0xFFFFFFFF
 
 
+def _bit(flag, mask):
+    return (flag & mask) == mask
+
+
 class TOKEN_INFORMATION_CLASS:
     #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
     TokenUser       = 1
@@ -311,7 +315,7 @@ class LUID_AND_ATTRIBUTES(Structure):
     ]
 
     def is_enabled(self):
-        return bool(self.Attributes & SE_PRIVILEGE_ENABLED)
+        return _bit(self.Attributes, SE_PRIVILEGE_ENABLED)
 
     def enable(self):
         self.Attributes |= SE_PRIVILEGE_ENABLED
@@ -949,13 +953,13 @@ LOGON_TYPE = (
 def LsaSessionDataFlagsToStr(flags):
     result = []
 
-    if flags & 0x4000:
+    if _bit(flags, 0x4000):
         result.append('Optimized')
-    if flags & 0x8000:
+    if _bit(flags, 0x8000):
         result.append('WinLogon')
-    if flags & 0x10000:
+    if _bit(flags, 0x10000):
         result.append('Kerberos')
-    if flags & 0x20000:
+    if _bit(flags, 0x20000):
         result.append('Not Optimized')
 
     return result
@@ -2230,51 +2234,51 @@ class Ace(object):
 
     @staticmethod
     def _map_generic(mask):
-        if mask & GENERIC_READ:
+        if _bit(mask, GENERIC_READ):
             mask = (mask & ~GENERIC_READ) | FILE_GENERIC_READ
-        if mask & GENERIC_WRITE:
+        if _bit(mask, GENERIC_WRITE):
             mask = (mask & ~GENERIC_WRITE) | FILE_GENERIC_WRITE
-        if mask & GENERIC_EXECUTE:
+        if _bit(mask, GENERIC_EXECUTE):
             mask = (mask & ~GENERIC_EXECUTE) | FILE_GENERIC_EXECUTE
-        if mask & GENERIC_ALL:
+        if _bit(mask, GENERIC_ALL):
             mask = (mask & ~GENERIC_ALL) | FILE_ALL_ACCESS
         return mask
 
     def inherited(self):         # I
-        return bool(self.flags & INHERITED_ACE)
+        return _bit(self.flags, INHERITED_ACE)
 
     def object_inherit(self):    # OI
-        return bool(self.flags & OBJECT_INHERIT_ACE)
+        return _bit(self.flags, OBJECT_INHERIT_ACE)
 
     def container_inherit(self): # CI
-        return bool(self.flags & CONTAINER_INHERIT_ACE)
+        return _bit(self.flags, CONTAINER_INHERIT_ACE)
 
     def inherit_only(self):      # IO
-        return bool(self.flags & INHERIT_ONLY_ACE)
+        return _bit(self.flags, INHERIT_ONLY_ACE)
 
     def no_propagate(self):      # NP
-        return bool(self.flags & NO_PROPAGATE_INHERIT_ACE)
+        return _bit(self.flags, NO_PROPAGATE_INHERIT_ACE)
 
     def no_access(self):         # N
         return self.mapped_mask == 0
 
     def full_access(self):       # F
-        return bool(self.mapped_mask & FILE_ALL_ACCESS)
+        return _bit(self.mapped_mask, FILE_ALL_ACCESS)
 
     def modify_access(self):     # M
-        return bool(self.mapped_mask & FILE_MODIIFY_ACCESS)
+        return _bit(self.mapped_mask, FILE_MODIIFY_ACCESS)
 
     def read_exec_access(self):  # RX
-        return bool(self.mapped_mask & FILE_READ_EXEC_ACCESS)
+        return _bit(self.mapped_mask, FILE_READ_EXEC_ACCESS)
 
     def read_only_access(self):  # R
-        return bool(self.mapped_mask == FILE_GENERIC_READ)
+        return _bit(self.mapped_mask, FILE_GENERIC_READ)
 
     def write_only_access(self): # W
-        return bool(self.mapped_mask == FILE_GENERIC_WRITE)
+        return _bit(self.mapped_mask, FILE_GENERIC_WRITE)
 
     def delete_access(self):     # D
-        return bool(self.mapped_mask & FILE_DELETE_ACCESS)
+        return _bit(self.mapped_mask, FILE_DELETE_ACCESS)
 
     def get_file_rights(self):
         if self.no_access():
@@ -2313,13 +2317,13 @@ class Ace(object):
             (FILE_READ_ATTRIBUTES, 'RA'),
             (FILE_WRITE_ATTRIBUTES, 'WA')):
 
-            if self.mask & right:
+            if _bit(self.mask, right):
                 rights.append(name)
 
         return rights
 
     def granted_access(self, mask):
-        return bool(self.mapped_mask & self._map_generic(mask))
+        return _bit(self.mapped_mask, self._map_generic(mask))
 
     def __str__(self):
         access = []
