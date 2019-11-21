@@ -12,29 +12,28 @@ logger = pupy.get_logger('signals')
 
 
 def _defered_close_exit(connection):
-    try:
-        # Should be the custom event, as generated on client
-        pupy.broadcast_event(0x10000000 | 0xFFFF)
-    except Exception, e:
-        logger.exception(e)
+    logger.warning('Defered close+exit')
 
-    logger.debug('Defered close+exit')
+    logger.info('Terminating client')
 
     pupy.client.terminate()
 
+    logger.info('Closing connection')
     if pupy.connection:
         pupy.connection.close()
+
+    logger.info('Done')
 
 
 def _handle_sigchld(*args, **kwargs):
     os.waitpid(-1, os.WNOHANG)
 
 
-def _handle_sighup(signal, frame):
+def _handle_sighup(*args):
     logger.debug('SIGHUP')
 
 
-def _handle_sigterm(signal, frame):
+def _handle_sigterm(*args):
     logger.warning('SIGTERM')
 
     if pupy.manager:
@@ -42,6 +41,13 @@ def _handle_sigterm(signal, frame):
             pupy.manager.event(pupy.Manager.TERMINATE)
         except Exception as e:
             logger.exception(e)
+
+    try:
+        # Should be the custom event, as generated on client
+        pupy.broadcast_event(0x10000000 | 0xFFFF)
+        logger.info('Event broadcasted')
+    except Exception, e:
+        logger.exception(e)
 
     if pupy.connection:
         pupy.connection.defer(
