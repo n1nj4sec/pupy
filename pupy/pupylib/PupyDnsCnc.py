@@ -31,6 +31,20 @@ from .PupyTriggers import (
     CUSTOM
 )
 
+
+class PupyDnsActivationHandler(object):
+    __slots__ = ('config',)
+
+    def __init__(self, config):
+        self.config = config
+
+    def __contains__(self, seed):
+        return bool(self.__getitem__(seed))
+
+    def __getitem__(self, seed):
+        return self.config.get('activations', seed)
+
+
 class PupyDnsCommandServerHandler(DnsCommandServerHandler):
     def __init__(self, *args, **kwargs):
         if 'config' in kwargs:
@@ -45,6 +59,10 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
         if 'whitelist' not in kwargs and self.config:
             kwargs['whitelist'] = self._whitelist
+
+        if self.config:
+            kwargs['activation'] = PupyDnsActivationHandler(
+                self.config)
 
         DnsCommandServerHandler.__init__(self, *args, **kwargs)
 

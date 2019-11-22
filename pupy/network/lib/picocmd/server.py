@@ -277,6 +277,10 @@ class DnsPingRequest(Exception):
     pass
 
 
+class DnsActivationRequest(Exception):
+    pass
+
+
 class DnsCommandServerException(Exception):
 
     __slots__ = ('message', 'nonce', 'version', 'domain')
@@ -303,7 +307,8 @@ class DnsCommandServerHandler(BaseResolver):
     ENCODER_V1 = 0
     ENCODER_V2 = 1
 
-    def __init__(self, domain, key, recursor=None, timeout=None, whitelist=None, edns=False):
+    def __init__(self, domain, key, recursor=None, timeout=None,
+            whitelist=None, edns=False, activation={}):
 
         self.sessions = {}
         self.nodes = {}
@@ -334,7 +339,7 @@ class DnsCommandServerHandler(BaseResolver):
         self.finished = Event()
         self.whitelist = whitelist
         self.edns = edns
-
+        self.activation = activation
 
     def max_payload_len(self, query_len, record_len):
         # Calculate max packet size
@@ -623,7 +628,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         return content
 
-    def on_custom_event(self, eventid):
+    def on_custom_event(self, eventid, session, node):
         pass
 
     def on_connect(self, info):
@@ -758,6 +763,8 @@ class DnsCommandServerHandler(BaseResolver):
                 raise DnsPingRequest(15)
             else:
                 raise DnsPingRequest(int(parts[0][4:]))
+        elif len(parts) == 1 and parts[0] in self.activation:
+            raise DnsActivationRequest(self.activation[parts[0]])
 
         elif len(parts) not in (2,3):
             raise DnsNoCommandServerException()
@@ -1194,7 +1201,11 @@ class DnsCommandServerHandler(BaseResolver):
 
             return None
 
-        except DnsPingRequest, e:
+        except DnsActivationRequest as e:
+            logger.warning('Activation request: %s', qname)
+            return [e.args[0]]
+
+        except DnsPingRequest as e:
             replies = []
             for i in xrange(e.args[0]):
                 x = (i % 65535) >> 8
