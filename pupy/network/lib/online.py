@@ -82,10 +82,11 @@ STUN_NAT_DESCRIPTION = {
     STUN_NAT_ERROR:     stun.ChangedAddressError,
 }
 
-NTP_SERVER     = 'pool.ntp.org'
+NTP_SERVER = 'pool.ntp.org'
 
-STUN_HOST      = 'stun.l.google.com'
-STUN_PORT      = 19302
+STUN_HOST = 'stun.l.google.com'
+STUN_PORT = 19302
+STUN_HOST_BROKEN = False
 
 # Don't want to import large (200k - 1Mb) dnslib/python dns just for that..
 OPENDNS_REQUEST = '\xe4\x9a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04' \
@@ -93,6 +94,7 @@ OPENDNS_REQUEST = '\xe4\x9a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04' \
 OPENDNS_RESPONSE = '\xe4\x9a\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x04' \
                    'myip\x07opendns\x03com\x00\x00\x01\x00\x01\xc0\x0c\x00' \
                    '\x01\x00\x01\x00\x00\x00\x00\x00\x04'
+OPENDNS_BROKEN = False
 
 PASTEBINS = {
     'https://pastebin.com': PASTEBIN,
@@ -176,8 +178,11 @@ OWN_IP = [
     'l2.io/ip'
 ]
 
+OWN_IP_BROKEN = set()
+
 LAST_EXTERNAL_IP = None
 LAST_EXTERNAL_IP_TIME = None
+
 
 def check_transparent_proxy():
     logger.debug('Check for transparent proxy')
@@ -210,6 +215,7 @@ def internal_ip(check='8.8.8.8'):
 
 def external_ip(force_ipv4=False):
     global LAST_EXTERNAL_IP, LAST_EXTERNAL_IP_TIME
+    global STUN_HOST_BROKEN, OWN_IP_BROKEN, OPENDNS_BROKEN
 
     if LAST_EXTERNAL_IP_TIME is not None:
         if time.time() - LAST_EXTERNAL_IP_TIME < 3600:
@@ -219,21 +225,33 @@ def external_ip(force_ipv4=False):
 
     logger.debug('Retrieve IP using external services')
 
+    if all(ip in OWN_IP_BROKEN for ip in OWN_IP):
+        # Try once again
+        OWN_IP_BROKEN.clear()
+        STUN_HOST_BROKEN = False
+        OPENDNS_BROKEN = False
+
     try:
-        stun_ip = stun.get_ip(stun_host=STUN_HOST, stun_port=STUN_PORT)
-        if stun_ip is not None:
-            stun_ip = netaddr.IPAddress(stun_ip)
+        if not STUN_HOST_BROKEN:
+            stun_ip = stun.get_ip(stun_host=STUN_HOST, stun_port=STUN_PORT)
+            if stun_ip is not None:
+                stun_ip = netaddr.IPAddress(stun_ip)
 
-            LAST_EXTERNAL_IP = stun_ip
-            LAST_EXTERNAL_IP_TIME = time.time()
+                LAST_EXTERNAL_IP = stun_ip
+                LAST_EXTERNAL_IP_TIME = time.time()
 
-            return LAST_EXTERNAL_IP
+                return LAST_EXTERNAL_IP
 
     except Exception, e:
+        STUN_HOST_BROKEN = True
         logger.debug('external_ip: STUN failed: %s', e)
 
     ctx = tinyhttp.HTTP(timeout=5, headers={'User-Agent': 'curl/7.12.3'})
+
     for service in OWN_IP:
+        if service in OWN_IP_BROKEN:
+            continue
+
         for scheme in ['https', 'http']:
             try:
                 data, code = ctx.get(scheme + '://' + service, code=True)
@@ -249,6 +267,7 @@ def external_ip(force_ipv4=False):
 
             except Exception, e:
                 logger.debug('Get IP service failed: %s: %s (%s)', service, e, type(e))
+                OWN_IP_BROKEN.add(service)
 
     LAST_EXTERNAL_IP = dns_external_ip()
     if LAST_EXTERNAL_IP:
@@ -257,6 +276,11 @@ def external_ip(force_ipv4=False):
     return LAST_EXTERNAL_IP
 
 def dns_external_ip():
+    global OPENDNS_BROKEN
+
+    if OPENDNS_BROKEN:
+        return None
+
     logger.debug('Retrieve IP using DNS')
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
@@ -269,6 +293,7 @@ def dns_external_ip():
 
     except Exception, e:
         logger.debug('DNS External IP failed: %s', e)
+        OPENDNS_BROKEN = True
 
     return None
 
