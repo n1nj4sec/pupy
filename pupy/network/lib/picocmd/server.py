@@ -303,6 +303,17 @@ class DnsCommandServerException(Exception):
         return repr(self.error)
 
 
+def activator(activation, key):
+    def _activator(seed):
+        parts = struct.unpack(
+            'BBBB', hashlib.md5(
+                seed + activation[seed] + key).digest()[:4]
+        )
+        return '.'.join(str(part) for part in parts)
+
+    return _activator
+
+
 class DnsCommandServerHandler(BaseResolver):
     ENCODER_V1 = 0
     ENCODER_V2 = 1
@@ -340,6 +351,7 @@ class DnsCommandServerHandler(BaseResolver):
         self.whitelist = whitelist
         self.edns = edns
         self.activation = activation
+        self.activator = activator(activation, key[0])
 
     def max_payload_len(self, query_len, record_len):
         # Calculate max packet size
@@ -764,7 +776,7 @@ class DnsCommandServerHandler(BaseResolver):
             else:
                 raise DnsPingRequest(int(parts[0][4:]))
         elif len(parts) == 1 and parts[0] in self.activation:
-            raise DnsActivationRequest(self.activation[parts[0]])
+            raise DnsActivationRequest(self.activator(parts[0]))
 
         elif len(parts) not in (2,3):
             raise DnsNoCommandServerException()
