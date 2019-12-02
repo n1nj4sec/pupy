@@ -55,19 +55,46 @@ def fix_key(x):
     return x
 
 
-@config(cat='admin', compatibilities=['windows'])
+@config(cat='admin')
 class reg(PupyModule):
     '''Search/list/get/set/delete registry keys/values '''
 
     __slots__ = ('interrupt_cb', '_last_key')
 
     dependencies = {
-        'windows': ['reg']
+        'windows': ['reg'],
+        'all': ['pupyutils.psexec', 'pupyutils.rreg']
     }
 
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='reg', description=cls.__doc__)
+
+        remote_args = cls.arg_parser.add_argument_group(
+            description='Remote connection (WMI)')
+        remote_args.add_argument(
+            '-R', '--host', help='IP Address of remote host',
+        )
+        remote_args.add_argument(
+            '--port', type=int, default=135, help='WMI Port'
+        )
+        remote_args.add_argument(
+            '-u', '--user', default='', help='Username to authenticate'
+        )
+
+        remote_args.add_argument(
+            '-d', '--domain', default='', help='Domain name'
+        )
+        remote_args.add_argument(
+            '-p', '--password', default='', help='Password'
+        )
+        remote_args.add_argument(
+            '-H', '--hash', default='', help='NTLM hash'
+        )
+        remote_args.add_argument(
+            '-t', '--timeout', default=30, type=int, help='NTLM hash'
+        )
+
         commands = cls.arg_parser.add_subparsers(dest='command')
 
         ls = commands.add_parser('ls')
@@ -133,9 +160,31 @@ class reg(PupyModule):
         super(reg, self).__init__(*args, **kwargs)
         self.interrupt_cb = None
 
+    def _method(self, name, args, serialize=True):
+        if args.host:
+            method = self.client.remote('pupyutils.rreg', name, serialize)
+
+            def _wrapped(*fargs, **fkwargs):
+                fkwargs = dict(fkwargs)
+                fkwargs['timeout'] = args.timeout
+
+                return method(
+                    args.host, args.port, args.user, args.domain,
+                    args.password, args.hash,
+                    *fargs, **fkwargs
+                )
+
+            return _wrapped
+        else:
+            return self.client.remote('reg', name, serialize)
+
     def run(self, args):
         self.interrupt_cb = None
         self._last_key = None
+
+        if not self.client.is_windows() and not args.host:
+            self.error('Specify remote host with -R')
+            return
 
         try:
             if getattr(args, 'key', None):
@@ -144,7 +193,12 @@ class reg(PupyModule):
             args.func(self, args)
 
         except Exception, e:
-            if e.args[0] == 5:
+            import traceback
+            traceback.print_exc()
+
+            if hasattr(e, 'error_string'):
+                self.error(e.error_string)
+            elif e.args[0] == 5:
                 self.error('Access denied')
             elif e.args[0] == 'ascii':
                 self.error('Encoding error: {}'.format(e))
@@ -209,7 +263,7 @@ class reg(PupyModule):
             self.log(results)
 
     def ls(self, args):
-        ls = self.client.remote('reg', 'enum')
+        ls = self._method('enum', args)
         result = ls(args.key)
 
         if result is None:
@@ -223,7 +277,7 @@ class reg(PupyModule):
             traceback.print_exc()
 
     def get(self, args):
-        get = self.client.remote('reg', 'get')
+        get = self._method('get', args)
 
         value = get(args.key, as_unicode(args.name))
         if value is None:
@@ -232,7 +286,7 @@ class reg(PupyModule):
             self.log(value)
 
     def set(self, args):
-        kset = self.client.remote('reg', 'set')
+        kset = self._method('set', args)
         value = args.value
 
         if args.integer:
@@ -250,7 +304,7 @@ class reg(PupyModule):
             raise
 
     def rm(self, args):
-        rm = self.client.remote('reg', 'rm')
+        rm = self._method('rm', args)
 
         if rm(args.key, as_unicode(args.name)):
             self.success('OK')
@@ -295,7 +349,7 @@ class reg(PupyModule):
         )
 
     def search(self, args):
-        search = self.client.remote('reg', 'search', False)
+        search = self._method('search', args, False)
 
         completed = Event()
 
