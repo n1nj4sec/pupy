@@ -139,6 +139,10 @@ class ODBC(PupyModule):
             help='Short alias to identify connection'
         )
         query.add_argument(
+            '-v', '--verbose', action='store_true', default=False,
+            help='Show query, fetched records etc'
+        )
+        query.add_argument(
             '-l', '--limit', default=10, type=int,
             help='Send cancelation after this amount of records fetched'
         )
@@ -315,7 +319,8 @@ class ODBC(PupyModule):
         def on_data(code, payload):
             if code == END:
                 completion.set()
-                self.info('DONE [Total: {}]'.format(total))
+                if args.verbose:
+                    self.info('DONE [Total: {}]'.format(total))
             elif code == HEADER:
                 del header[:]
                 header.extend(payload)
@@ -326,7 +331,8 @@ class ODBC(PupyModule):
                     else:
                         self.log(tabbed)
             elif code == LOG:
-                self.info(payload)
+                if args.verbose:
+                    self.info(payload)
             elif code == ERROR:
                 self.error(payload)
                 completion.set()
@@ -375,7 +381,9 @@ class ODBC(PupyModule):
                         )
                         self.log(NewLine())
 
-        self.info('QUERY: {} LIMIT: {}'.format(query, args.limit))
+        if args.verbose:
+            self.info('QUERY: {} LIMIT: {}'.format(query, args.limit))
+
         self.terminate = many(
             args.alias, query, args.limit, on_data
         )
