@@ -77,10 +77,17 @@ class ObjectStreamPipeConsumer(Thread):
 
     def write(self, object):
         text = hint_to_text(object)
+        text = text.strip(' ')
+        if not text:
+            return
+
         if not self._nocrlf:
             text += '\n'
 
         with self._write_lock:
+            if isinstance(text, unicode):
+                text = text.encode('utf-8')
+
             self.pipe.stdin.write(text)
 
     def close(self):
