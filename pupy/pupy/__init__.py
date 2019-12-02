@@ -697,8 +697,13 @@ class PupyPackageFinder(object):
 
 def initialize_basic_windows_modules():
     dprint('Initialize basic windows modules')
-    import pywintypes
-    assert pywintypes
+    try:
+        import pywintypes
+        assert pywintypes
+    except ImportError:
+        # We will try to leave without them..
+        # This may happen on default python27 install
+        pass
 
 
 def load_pupyimporter(stdlib=None):
