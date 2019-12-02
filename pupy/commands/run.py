@@ -17,6 +17,7 @@ parser.add_argument('-o', '--output', help='save command output to file.'
                         '%%c - client shortname, %%M - module name, '
                         '%%p - platform, %%u - user, %%a - ip address',
                         completer=path_completer)
+parser.add_argument('-p', '--pipe', help='Pass output via pipe')
 parser.add_argument(
     '-f', '--filter', metavar='<client filter>',
     help='filter to a subset of all clients. All fields available in the "info" module can be used. '
@@ -83,7 +84,10 @@ def do(server, handler, config, modargs):
         )
 
         ios = handler.acquire_io(
-            module.io, len(clients), modargs.background or module.daemon)
+            module.io, len(clients),
+            modargs.background or module.daemon,
+            modargs.pipe
+        )
 
         for io, client in zip(ios, clients):
             io.set_title(client if type(client) in (str, unicode) else str(client))

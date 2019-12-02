@@ -24,6 +24,7 @@ from .PupyOutput import (
 
 from pupylib.utils.term import hint_to_text, obj2utf8
 from pupylib import getLogger
+from threading import Thread
 
 import textwrap
 import time
@@ -547,6 +548,7 @@ class PupyModule(object):
             self.stdout.close()
 
         self.iogroup.close()
+
 
 def config(**kwargs):
     for l in ['compat', 'compatibilities', 'compatibility', 'tags']:

