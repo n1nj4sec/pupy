@@ -72,8 +72,8 @@ class Commands(object):
         if argv0 in aliases:
             aliased = aliases[argv0]
             if '{' in aliased or '%' in aliased:
-                cmdline = shlex.split(aliased.format(args))
-                argv0, args = argv[0], argv[1:]
+                aargv = shlex.split(aliased.format(*args))
+                argv0, args = aargv[0], aargv[1:]
             else:
                 aargv = shlex.split(aliased)
                 argv0, args = aargv[0], aargv[1:] + args
