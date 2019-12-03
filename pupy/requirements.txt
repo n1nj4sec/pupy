@@ -4,7 +4,7 @@ pefile
 pyyaml
 rsa
 netaddr
-ecdsa==0.13
+ecdsa==0.13.3
 paramiko==2.0.2
 https://github.com/alxchk/tinyec/archive/master.zip
 psutil
