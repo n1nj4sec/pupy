@@ -13,6 +13,7 @@ import socket
 
 from Queue import Queue, Empty
 from threading import Thread
+from netaddr import IPAddress, AddrFormatError
 
 from streams.PupySocketStream import PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread
@@ -80,6 +81,14 @@ class PupyTCPServer(ThreadedServer):
         del kwargs["transport"]
         del kwargs["transport_kwargs"]
         del kwargs["pupy_srv"]
+
+        try:
+            ip = IPAddress(kwargs.get('hostname', ''))
+            if ip.version == 4 and kwargs.get('ipv6', False):
+                kwargs['hostname'] = '::FFFF:' + kwargs['hostname']
+
+        except AddrFormatError:
+            pass
 
         ThreadedServer.__init__(self, *args, **kwargs)
 
@@ -305,6 +314,7 @@ class PupyUDPServer(object):
         family = socket.AF_INET6 if self.ipv6 else socket.AF_INET
 
         last_exc = None
+
         for res in socket.getaddrinfo(
                 self.host, self.port, family,
                 socket.SOCK_DGRAM, 0, socket.AI_PASSIVE):
