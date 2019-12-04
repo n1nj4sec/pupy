@@ -7,6 +7,7 @@ from pupylib.PupyModule import (
     REQUIRE_STREAM
 )
 from netaddr import IPNetwork
+from threading import Event
 from modules.lib.windows import powerloader
 
 __class_name__ = "PSExec"
@@ -33,12 +34,10 @@ class PSExec(PupyModule):
         cls.arg_parser.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         cls.arg_parser.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP",
                                     help="Domain name (default WORKGROUP)")
-        cls.arg_parser.add_argument("-s", metavar="SHARE", dest='share', default="C$",
-                                    help="Specify a share (default C$)")
         cls.arg_parser.add_argument("-S", dest='noout', action='store_true', help="Do not wait for command output")
         cls.arg_parser.add_argument("-T", metavar="TIMEOUT", dest='timeout', default=30, type=int,
                                     help="Try to set this timeout")
-        cls.arg_parser.add_argument("--port", dest='port', type=int, choices={139, 445}, default=445,
+        cls.arg_parser.add_argument("--port", dest='port', type=int, default=445,
                                     help="SMB port (default 445)")
         cls.arg_parser.add_argument("target", nargs=1, type=str, help="The target range or CIDR identifier")
 
@@ -46,6 +45,8 @@ class PSExec(PupyModule):
                                                                         "commands on the specified host")
         sgroup.add_argument('-execm', choices={"smbexec", "wmi"}, dest="execm", default="wmi",
                             help="Method to execute the command (default: wmi)")
+        sgroup.add_argument(
+            "-v", "--verbose", action='store_true', default=False, help="Print information messages")
         sgroup.add_argument(
             "-x", metavar="COMMAND", dest='command',
             help='Execute a command. Use pupy64/pupy86 for .NET loader. '
@@ -59,7 +60,7 @@ class PSExec(PupyModule):
             hosts = list()
             hosts.append(args.target[0])
 
-        smbexec = self.client.remote('pupyutils.psexec', 'smbexec')
+        psexec = self.client.remote('pupyutils.psexec', 'psexec', False)
 
         completions = []
 
@@ -83,24 +84,40 @@ class PSExec(PupyModule):
 
                 continue
 
-            output, error = smbexec(
+            completion = Event()
+
+            def _on_data(data):
+                if args.verbose:
+                    self.log(u'{}:{}: {}'.format(host, args.port, data))
+                else:
+                    self.log(data)
+
+            def _on_complete(message):
+                try:
+                    if message:
+                        self.error(message)
+                    elif message and args.verbose:
+                        self.info('Completed')
+                finally:
+                    completion.set()
+
+            psexec(
                 str(host), args.port,
                 args.user,  args.domain,
                 args.passwd, args.hash,
-                args.command, args.share,
+                args.command,
                 args.execm,
                 args.codepage,
-                args.timeout, not args.noout
+                args.timeout, not args.noout,
+                None, _on_data, _on_complete,
+                args.verbose
             )
 
-            if output:
-                self.log(output)
-
-            if error:
-                self.error(error)
+            completions.append(completion)
 
         if completions:
-            self.info('Wait for completions')
+            if args.verbose:
+                self.info('Wait for completions')
             for completion in completions:
                 if not completion.is_set():
                     completion.wait()

