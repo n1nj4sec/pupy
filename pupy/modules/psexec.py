@@ -90,7 +90,7 @@ class PSExec(PupyModule):
                 if args.verbose:
                     self.log(u'{}:{}: {}'.format(host, args.port, data))
                 else:
-                    self.log(data)
+                    self.stdout.write(data)
 
             def _on_complete(message):
                 try:
