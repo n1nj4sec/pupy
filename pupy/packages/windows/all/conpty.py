@@ -18,10 +18,11 @@ from pupwinutils.security import (
     ReadFile, WriteFile,
     start_proc_with_token, kernel32,
     StartupInfoAttribute, GetExitCodeProcess,
-    impersonate_token,
+    impersonate_token, CreateFile,
     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, S_OK,
     INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
-    STILL_ACTIVE, INVALID_HANDLE
+    STILL_ACTIVE, INVALID_HANDLE, GENERIC_READ, OPEN_EXISTING,
+
 )
 
 if hasattr(pupy, 'get_logger'):
@@ -53,6 +54,18 @@ try:
         HANDLE, POINTER(DWORD)
     )
 
+    GetFileType = kernel32.GetFileType
+    GetFileType.restype = DWORD
+    GetFileType.argtypes = (HANDLE,)
+
+    GetStdHandle = kernel32.GetStdHandle
+    GetStdHandle.restype = HANDLE
+    GetStdHandle.argtype = (DWORD,)
+
+    SetStdHandle = kernel32.SetStdHandle
+    SetStdHandle.restype = HANDLE
+    SetStdHandle.argtype = (DWORD, HANDLE)
+
     SetConsoleMode = kernel32.SetConsoleMode
     SetConsoleMode.restype = BOOL
     SetConsoleMode.argtypes = (
@@ -76,6 +89,25 @@ try:
 
 except AttributeError:
     raise ImportError('PseudoConsole is not supported')
+
+
+def fix_stdin():
+    hHandleStdin = GetStdHandle(-10)
+    if hHandleStdin == INVALID_HANDLE:
+        return
+
+    hStdinFileType = GetFileType(hHandleStdin)
+    if hStdinFileType != 3:
+        return
+
+    # Need to reopen CONNIN$
+    hHandleStdin = CreateFile(
+        'CONNIN$', GENERIC_READ, OPEN_EXISTING,
+        0, 4, 0, 0
+    )
+
+    if hHandleStdin != INVALID_HANDLE:
+        SetStdHandle(-10, hHandleStdin)
 
 
 class ConPTY(object):
@@ -135,7 +167,8 @@ class ConPTY(object):
         if htoken:
             caller_thread_htoken, requested_htoken = htoken
             impersonate_token(caller_thread_htoken)
-            CloseHandle(caller_thread_htoken)
+
+        fix_stdin()
 
         self._lpInfo = start_proc_with_token(
             cmdline, requested_htoken,
@@ -148,10 +181,7 @@ class ConPTY(object):
                     PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
                     self._pty
                 )
-            ],
-            stdout=INVALID_HANDLE,
-            stderr=INVALID_HANDLE,
-            stdin=INVALID_HANDLE
+            ]
         )
 
     @property
