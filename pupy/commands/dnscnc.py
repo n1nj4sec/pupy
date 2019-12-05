@@ -205,9 +205,9 @@ def do(server, handler, config, args):
                 if 'spi' in c.desc:
                     if c.desc['spi'] == '{:08x}'.format(session.spi):
                         pupy_session = c.desc['id']
+                        break
                 # elif c.node() == '{:012x}'.format(session.system_info['node']):
                 #     pupy_session = c.desc['id']
-                    break
 
             if pupy_session:
                 object.update({
@@ -294,9 +294,9 @@ def do(server, handler, config, args):
                 if 'spi' in c.desc:
                     if c.desc['spi'] == '{:08x}'.format(session.spi):
                         pupy_session = c.desc['id']
+                        break
                 # elif c.node() == '{:012x}'.format(session.system_info['node']):
                 #     pupy_session = c.desc['id']
-                    break
 
             color = None
 
