@@ -14,7 +14,8 @@ from pupy import manager, Task
 
 from pupwinutils.security import (
     sidbyname, getSidToken, get_thread_token,
-    token_impersonated_as_system, EnablePrivilege
+    token_impersonated_as_system, EnablePrivilege,
+    CloseHandle
 )
 
 class PtyShell(Task):
@@ -114,6 +115,7 @@ def acquire(argv=None, term=None, suid=None):
     new = False
     if not (shell and shell.active):
         htoken = None
+        hCurrentToken = None
 
         if suid:
             sid = None
@@ -140,9 +142,13 @@ def acquire(argv=None, term=None, suid=None):
 
             htoken = (hCurrentToken, hSidToken)
 
-        shell = manager.create(
-            PtyShell,
-            argv, term, htoken)
+        try:
+            shell = manager.create(
+                PtyShell,
+                argv, term, htoken)
+        finally:
+            if hCurrentToken:
+                CloseHandle(hCurrentToken)
 
         new = True
 

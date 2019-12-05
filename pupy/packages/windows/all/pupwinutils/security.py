@@ -1814,7 +1814,8 @@ class StartupInfoAttribute(object):
 def start_proc_with_token(
     args, hTokendupe=None, hidden=True,
         application=None, attributes=None, lpInfo=False,
-        flags=0, stdout=None, stdin=None, stderr=None):
+        flags=0, stdout=None, stdin=None, stderr=None,
+        inherit_handles=False):
     ##Start the process with the token.
     lpProcessInformation = PROCESS_INFORMATION()
     lpStartupInfo = None
@@ -1836,6 +1837,7 @@ def start_proc_with_token(
         lpStartupInfo.hStdInput = stdin
         lpStartupInfo.hStdOutput = stdout
         lpStartupInfo.hStdError = stderr
+        inherit_handles = True
 
     if hidden:
         dwCreationflag |= CREATE_NO_WINDOW
@@ -1855,6 +1857,9 @@ def start_proc_with_token(
         if not isinstance(application, unicode):
             application = to_unicode(application)
 
+    if hTokendupe is None and global_ref is not None:
+        hTokendupe = global_ref
+
     if hTokendupe is not None:
         cenv = c_void_p()
         dwCreationflag |= CREATE_UNICODE_ENVIRONMENT
@@ -1864,7 +1869,7 @@ def start_proc_with_token(
 
         try:
             if not CreateProcessAsUser(
-                hTokendupe, application, args, None, None, True,
+                hTokendupe, application, args, None, None, inherit_handles,
                 dwCreationflag, cenv, None,
                 byref(lpStartupInfo), byref(lpProcessInformation)):
                 raise WinError(get_last_error())
@@ -1873,7 +1878,7 @@ def start_proc_with_token(
 
     else:
         if not CreateProcessW(
-            application, args, None, None, True,
+            application, args, None, None, inherit_handles,
             dwCreationflag, None, None,
             byref(lpStartupInfo), byref(lpProcessInformation)):
             raise WinError(get_last_error())
