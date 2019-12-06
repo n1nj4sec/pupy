@@ -113,14 +113,20 @@ class EventLog(object):
         EVENTLOG_ERROR_TYPE: 'ERROR'
     }
 
-    def __init__(self):
+    def __init__(self, source=None, max_iters=32768):
+        self._source = source
         self._exceptions = {}
         self._formatters_cache = {}
+        self._max_iters = max_iters
 
         self.sources = self.get_types()
 
     def _iter_log_names(self):
         dups = set()
+
+        if self._source:
+            yield self._source.split('/', 1)[0]
+            return
 
         for well_known in ('Application', 'Security', 'System'):
             dups.add(well_known)
@@ -134,7 +140,7 @@ class EventLog(object):
 
         try:
             idx = 0
-            while True:
+            while idx < self._max_iters:
                 try:
                     source = EnumKey(key, idx)
                     if source in dups:
@@ -202,7 +208,7 @@ class EventLog(object):
 
         return events_count
 
-    def get_events(self, logtype, server='', filter_event_id=None, fmt=True):
+    def get_events(self, logtype, server='', filter_event_id=None, fmt=True, filter_source=None):
         if filter_event_id is not None:
             if type(filter_event_id) in (int, long):
                 filter_event_id = {filter_event_id}
@@ -244,6 +250,9 @@ class EventLog(object):
                     event_id = int(HRESULT_CODE(ev_obj.EventID))
 
                     if filter_event_id is not None and event_id not in filter_event_id:
+                        continue
+
+                    if filter_source is not None and ev_obj.SourceName != filter_source:
                         continue
 
                     if not ev_obj.StringInserts:
@@ -339,7 +348,7 @@ class EventLog(object):
                         'computer': ev_obj.ComputerName,
                         'category': ev_obj.EventCategory,
                         'msg': message,
-                        'source': logtype + ': ' + ev_obj.SourceName,
+                        'source': logtype + '/' + ev_obj.SourceName,
                         'type': EventLog.event_types.get(ev_obj.EventType, 'UNKNOWN'),
                         'user': user
                     }
@@ -368,7 +377,12 @@ class EventLog(object):
         for log in self.sources:
             amount = 0
 
-            for event in self.get_events(log, filter_event_id=eventid):
+            source = None
+
+            if self._source and '/' in self._source:
+                source = self._source.split('/', 1)[1]
+
+            for event in self.get_events(log, filter_event_id=eventid, filter_source=source):
                 source = event.pop('source')
 
                 if source not in events:
@@ -409,8 +423,8 @@ class EventLog(object):
 
         return events
 
-def get_last_events(count=10, includes=[], excludes=[], eventid=None):
-    return EventLog().get_last_events(count, includes, excludes, eventid)
+def get_last_events(count=10, includes=[], excludes=[], eventid=None, source=None):
+    return EventLog(source).get_last_events(count, includes, excludes, eventid)
 
 def lastlog():
     events = []

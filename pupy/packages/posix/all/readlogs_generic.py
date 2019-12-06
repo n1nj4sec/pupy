@@ -8,8 +8,12 @@ import datetime
 import re
 import os
 
+MAX_RECORDS_ITER = 65535
+
+
 def to_timestamp(d):
     return (d - datetime.datetime.fromtimestamp(0)).total_seconds()
+
 
 def ytail(f):
     BUFSIZ = 5
@@ -59,11 +63,15 @@ class GenericLogReader(object):
     _debian_generic_parser = re.compile(
         r'^([A-Z][a-z]{2}\s+\d+\s\d\d:\d\d:\d\d)\s(\S+)\s([^:]+):\s+(.*)')
 
-    def __init__(self, logs=u'/var/log'):
+    def __init__(self, logs=u'/var/log', source=None):
         self.files = {}
 
         for root, _, files in os.walk(logs):
             for logfile in files:
+                if source is not None and not logfile.startswith((
+                        source, source + '.', source + '-')):
+                    continue
+
                 logfile = os.path.join(root, logfile)
                 if not os.path.isfile(logfile):
                     continue
@@ -145,7 +153,10 @@ class GenericLogReader(object):
             mtime = datetime.datetime.fromtimestamp(os.fstat(log.fileno()).st_mtime)
             year = str(mtime.year)
 
-            for line in ytail(log):
+            for idx, line in enumerate(ytail(log)):
+                if idx > MAX_RECORDS_ITER:
+                    break
+
                 line = line.strip()
                 if '\n' in line:
                     # Something went wrong

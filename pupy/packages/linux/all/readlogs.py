@@ -15,6 +15,7 @@ import os
 from readlogs_generic import GenericLogReader
 
 LIBJOURNAL = None
+MAX_RECORDS_ITER = 65535
 
 for lib in ['libsystemd-journal.so', 'libsystemd.so']:
     try:
@@ -113,6 +114,7 @@ if LIBJOURNAL:
         ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulonglong)
     ]
 
+
 def _payload_to_key_value(payload):
     try:
         eq = payload.index('=')
@@ -132,6 +134,7 @@ def _payload_to_key_value(payload):
         payload = payload[eq+1:]
 
     return fieldname, payload
+
 
 def _value_to_timestamp(value):
     stype = type(value)
@@ -171,6 +174,7 @@ def _value_to_timestamp(value):
         ts = int(time.mktime(dt.timetuple())*1000000)
 
     return ts
+
 
 class SDJournalIterator(object):
     __slots__ = (
@@ -238,8 +242,10 @@ class SDJournalIterator(object):
 
         return records
 
+
 class SDJournalException(Exception):
     pass
+
 
 class SDJournalReader(object):
     __slots__ = (
@@ -312,7 +318,8 @@ class SDJournalReader(object):
             _sd_journal_close(self._journal)
             self._journal = None
 
-def get_last_events_journald(count=10, includes=[], excludes=[]):
+
+def get_last_events_journald(count=10, includes=[], excludes=[], filter_source=None):
     field_mappings = {
         'MESSAGE': 'msg',
         '_HOSTNAME': 'computer',
@@ -346,10 +353,18 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
     amount = 0
 
     with events:
-        for event in events:
+        for idx, event in enumerate(events):
+            if idx > max(MAX_RECORDS_ITER, count):
+                break
+
             event = {
                 v:event.get(k, '') for k,v in field_mappings.iteritems()
             }
+
+            source = event.pop('source')
+
+            if filter_source is not None and source != filter_source:
+                continue
 
             if event.get('user') != '':
                 try:
@@ -392,8 +407,6 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
             if not append:
                 continue
 
-            source = event.pop('source')
-
             if source not in source_events:
                 source_events[source] = []
 
@@ -406,15 +419,15 @@ def get_last_events_journald(count=10, includes=[], excludes=[]):
 
     return source_events
 
-def get_last_events(count=10, includes=[], excludes=[], eventid=None):
+def get_last_events(count=10, includes=[], excludes=[], eventid=None, source=None):
     try:
-        source_events = get_last_events_journald(count, includes, excludes)
+        source_events = get_last_events_journald(count, includes, excludes, source)
     except SDJournalException:
         source_events = {}
 
     for d in ['/var/log']:
         if os.path.isdir(d):
-            events = GenericLogReader(d).get_last_events(count, includes, excludes)
+            events = GenericLogReader(d, source).get_last_events(count, includes, excludes)
             source_events.update(events)
 
     return source_events

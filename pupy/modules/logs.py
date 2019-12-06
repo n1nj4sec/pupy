@@ -23,6 +23,7 @@ class Logs(PupyModule):
                         help='Show last n records of each category (if applicable)')
         cls.arg_parser.add_argument('-i', '--include', action='append', default=[],
                         help='Add regex to include content')
+        cls.arg_parser.add_argument('-s', '--source', help='Filter by source')
         cls.arg_parser.add_argument('-x', '--exclude', action='append', default=[],
                         help='Add regex to exclude content')
         cls.arg_parser.add_argument('-t', '--time', action='store_true', default=False,
@@ -71,7 +72,7 @@ class Logs(PupyModule):
             return Line(*items)
 
         for category, events in get_last_events(
-                    args.number, args.include, args.exclude, args.event_id
+                    args.number, args.include, args.exclude, args.event_id, args.source
                 ).iteritems():
             if not events:
                 continue
