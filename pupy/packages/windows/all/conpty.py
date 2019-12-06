@@ -102,7 +102,7 @@ def fix_stdin():
 
     # Need to reopen CONNIN$
     hHandleStdin = CreateFile(
-        'CONNIN$', GENERIC_READ, OPEN_EXISTING,
+        'CONIN$', GENERIC_READ, OPEN_EXISTING,
         0, 4, 0, 0
     )
 
