@@ -76,7 +76,7 @@ class PsExecException(Exception):
             return error.decode('latin1')
 
 
-# Use Start-Transcript -Path "C:\windows\temp\d.log" -Force; to debug
+# Use Start-Transcript -Path "C:\\temp\\transcript.log" -Force; to debug
 
 PIPE_LOADER_TEMPLATE = '''
 $p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
@@ -85,9 +85,11 @@ $x=new-object System.IO.BinaryReader($p);
 $a=$x.ReadBytes({size});
 $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
+exit;
 '''
 
 PIPE_STAGER_TEMPLATE = '''
+try {{
 $p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","In",2,"Byte",0,{size},0);
 $p.WaitForConnection();
 $pr = New-Object System.Diagnostics.Process -Property @{{
@@ -101,64 +103,77 @@ $pr = New-Object System.Diagnostics.Process -Property @{{
 $pr.Start();
 $p.CopyTo($pr.StandardInput.BaseStream);
 $pr.StandardInput.Close();
+}} finally {{
+$p.Close();
+exit;
+}}
 '''
 
 PIPE_STDOUT_TEMPLATE = '''
-$p=new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","Out",2,"Byte",0,0,{size});
-$p.WaitForConnection();
-$x=new-object System.IO.BinaryWriter($p);
-$StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
-    FileName = '{arg0}';
-    Arguments = '{argv}';
-    UseShellExecute = $false;
-    RedirectStandardInput = $true;
-    RedirectStandardOutput = $true;
-    RedirectStandardError = $true;
-}};
+try {{
+    $p = new-object System.IO.Pipes.NamedPipeServerStream("{pipename}","Out",2,"Byte",0,0,{size});
+    $p.WaitForConnection();
+    $x = new-object System.IO.BinaryWriter($p);
+    $enc = [system.Text.Encoding]::UTF8;
 
-$Process = New-Object System.Diagnostics.Process;
-$Process.StartInfo = $StartInfo;
+    $StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
+        FileName = '{arg0}';
+        Arguments = '{argv}';
+        UseShellExecute = $false;
+        RedirectStandardInput = $true;
+        RedirectStandardOutput = $true;
+        RedirectStandardError = $true;
+    }};
 
-$enc = [system.Text.Encoding]::UTF8;
+    $Process = New-Object System.Diagnostics.Process;
+    $Process.StartInfo = $StartInfo;
 
-$OutEvent = Register-ObjectEvent -Action {{
-    $d=$Event.SourceEventArgs.Data;
-    if (![string]::IsNullOrEmpty($d)) {{
-        $d.Split([Environment]::NewLine) | Foreach {{
-            $x.Write($enc.GetBytes($_));
-            $x.Write([Char](10));
-        }};
-        $x.Flush();
+    $OutEvent = Register-ObjectEvent -Action {{
+        $d=$Event.SourceEventArgs.Data;
+        if (![string]::IsNullOrEmpty($d)) {{
+            $d.Split([Environment]::NewLine) | Foreach {{
+                $x.Write($enc.GetBytes($_));
+                $x.Write([Char](10));
+            }};
+            $x.Flush();
+        }}
+    }} -InputObject $Process -EventName OutputDataReceived;
+
+    $ErrEvent = Register-ObjectEvent -Action {{
+        $d=$Event.SourceEventArgs.Data;
+        if (![string]::IsNullOrEmpty($d)) {{
+            $d.Split([Environment]::NewLine) | Foreach {{
+                $x.Write($enc.GetBytes($_));
+                $x.Write([Char](10));
+            }};
+            $x.Flush();
+        }}
+    }} -InputObject $Process -EventName ErrorDataReceived;
+
+    $Process.Start();
+
+    $Process.StandardInput.Close();
+    $Process.BeginOutputReadLine();
+    $Process.BeginErrorReadLine();
+
+}} catch {{
+    try {{
+        $x.Write($enc.GetBytes("PS Error: $($PSItem.ToString())"));
+        $x.Write([Char](10));
+        $x.Close();
+    }} finally {{
+        exit;
     }}
-}} -InputObject $Process -EventName OutputDataReceived;
-
-$ErrEvent = Register-ObjectEvent -Action {{
-    $d=$Event.SourceEventArgs.Data;
-    if (![string]::IsNullOrEmpty($d)) {{
-        $d.Split([Environment]::NewLine) | Foreach {{
-            $x.Write($enc.GetBytes($_));
-            $x.Write([Char](10));
-        }};
-        $x.Flush();
-    }}
-}} -InputObject $Process -EventName ErrorDataReceived;
-
-$Process.Start();
-
-$Process.StandardInput.Close();
-$Process.BeginOutputReadLine();
-$Process.BeginErrorReadLine();
-
-do
-{{
-    Start-Sleep -Seconds 1;
 }}
-while (!$Process.HasExited);
+
+while (!$Process.WaitForExit(100)) {{}}
 
 $OutEvent.Name, $ErrEvent.Name |
     ForEach-Object {{Unregister-Event -SourceIdentifier $_}};
 
+$x.Flush();
 $x.Close();
+exit;
 '''
 
 POWERSHELL_CMD_TEMPLATE_STD = '{powershell} -version 2 -noninteractive -EncodedCommand "{cmd}"'
