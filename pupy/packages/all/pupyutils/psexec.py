@@ -29,7 +29,7 @@ from impacket.dcerpc.v5.rpcrt import \
 from impacket.system_errors import \
      ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SERVICE_NOT_ACTIVE, \
      ERROR_SERVICE_REQUEST_TIMEOUT
-from impacket.smbconnection import SMBConnection, SessionError, SMB_DIALECT
+from impacket.smbconnection import SMBConnection, SessionError
 from impacket.smb3structs import (
     FILE_READ_DATA, FILE_WRITE_DATA, FILE_APPEND_DATA
 )

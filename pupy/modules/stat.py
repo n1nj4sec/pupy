@@ -2,7 +2,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Table, Line, List, MultiPart
 from modules.lib import size_human_readable, file_timestamp
-from M2Crypto.X509 import load_cert_string, X509Error, FORMAT_DER
+from M2Crypto.X509 import load_cert_string, FORMAT_DER
 from argparse import REMAINDER
 
 from magic import Magic

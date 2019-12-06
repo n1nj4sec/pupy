@@ -12,7 +12,7 @@ from pupwinutils.security import (
     getfileowneracls, kernel32,
     get_last_error, WinError, byref, cast, sizeof, addressof,
     WinDLL, create_string_buffer, Structure, _bit,
-    BOOL, WORD, WCHAR, DWORD, LPCWSTR, LPVOID, PDWORD,
+    BOOL, WORD, DWORD, LPCWSTR, LPVOID, PDWORD,
     POINTER, HANDLE, BYTE, ULONG
 )
 
