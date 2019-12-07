@@ -190,6 +190,9 @@ void initialize(BOOL isDll) {
     HMODULE hNtDll = GetModuleHandleA("NTDLL.DLL");
     HMODULE hKernelBase = GetModuleHandleA("KERNELBASE.DLL");
     HMODULE hKernel32 = GetModuleHandleA("KERNEL32.DLL");
+#ifdef _PUPY_PRIVATE_WS2_32
+    HMODULE hWs2_32 = LoadLibraryA("WS2_32.DLL");
+#endif
 
 #ifdef WIN_X64
     BOOL blIsWow64 = FALSE;
@@ -233,6 +236,22 @@ void initialize(BOOL isDll) {
             } else {
                 dprint("PRIVATE LOAD OF KERNEL32 FAILED\n");
             }
+
+#ifdef _PUPY_PRIVATE_WS2_32
+            hPrivate = MyLoadLibraryEx(
+                "WS2_32.DLL", hWs2_32, NULL, NULL, MEMORY_LOAD_FROM_HMODULE
+            );
+
+            if (hPrivate) {
+                dprint(
+                    "Private copy of WS2_32.DLL loaded to %p (orig %p)\n",
+                    hPrivate, hWs2_32
+                );
+                FreeLibrary(hWs2_32);
+            } else {
+                dprint("PRIVATE LOAD OF WS2_32 FAILED\n");
+            }
+#endif
         }
     }
 #endif

@@ -85,6 +85,16 @@ typedef struct {
 } FUNCIDX;
 
 typedef struct {
+    const char *symbol;
+    FARPROC addr;
+} ImportHooks;
+
+typedef struct {
+    const char *dllname;
+    ImportHooks *hooks;
+} DllHooks;
+
+typedef struct {
     HCUSTOMMODULE *modules;
     FUNCIDX exports;
     FUNCHASH *phExportsIndex;
@@ -409,11 +419,6 @@ PerformBaseRelocation(PMEMORYMODULE module, SIZE_T delta)
     return TRUE;
 }
 
-typedef struct {
-    const char *symbol;
-    FARPROC addr;
-} ImportHooks;
-
 static FARPROC
 GetImportAddr(
     ImportHooks *hooks, CustomGetProcAddress getProcAddress,
@@ -492,6 +497,21 @@ GetVersionExA_Hooked(OSVERSIONINFOEXA *info) {
     return TRUE;
 }
 
+static
+ImportHooks* GetHooks(DllHooks *dllhooks, const char *dllName)
+{
+    DllHooks *iter;
+
+    for (iter = dllhooks; iter->dllname; iter ++) {
+        if (!_stricmp(iter->dllname, dllName)) {
+            return iter->hooks;
+        }
+    }
+
+    return NULL;
+}
+
+
 static BOOL
 BuildImportTable(PMEMORYMODULE module)
 {
@@ -524,6 +544,33 @@ BuildImportTable(PMEMORYMODULE module)
 
         {"GetProcAddress", (FARPROC) module->callbacks->getProcAddress},
         {"FreeLibrary", (FARPROC) module->callbacks->freeLibrary},
+        {NULL, NULL}
+    };
+
+#ifdef _PUPY_PRIVATE_WS2_32
+    ImportHooks ntdllHooks[] = {
+        {"EtwEventRegister", (FARPROC) module->callbacks->systemEtwRegister},
+        {"EtwEventWrite", (FARPROC) module->callbacks->systemEtwEventWrite},
+        {"EtwEventWriteFull", (FARPROC) module->callbacks->systemEtwEventWriteFull},
+        {"EtwEventUnregister", (FARPROC) module->callbacks->systemEtwUnregister},
+        {NULL, NULL}
+    };
+
+    ImportHooks advapi32Hooks[] = {
+        {"EventRegister", (FARPROC) module->callbacks->systemEtwRegister},
+        {"EventWrite", (FARPROC) module->callbacks->systemEtwEventWrite},
+        {"EventWriteFull", (FARPROC) module->callbacks->systemEtwEventWriteFull},
+        {"EventUnregister", (FARPROC) module->callbacks->systemEtwUnregister},
+        {NULL, NULL}
+    };
+#endif
+
+    DllHooks dllHooks[] = {
+        { "KERNEL32.DLL", kernel32Hooks },
+#ifdef _PUPY_PRIVATE_WS2_32
+        { "ADVAPI32.DLL", advapi32Hooks },
+        { "NTDLL.DLL", ntdllHooks },
+#endif
         {NULL, NULL}
     };
 
@@ -584,9 +631,9 @@ BuildImportTable(PMEMORYMODULE module)
             funcRef = (FARPROC *) (codeBase + importDesc->FirstThunk);
         }
 
-        if (!_stricmp(lpcszLibraryName, "KERNEL32.DLL")) {
-            hooks = kernel32Hooks;
-            dprint("Use hooks for kernel32: %p\n", hooks);
+        hooks = GetHooks(dllHooks, lpcszLibraryName);
+        if (hooks) {
+            dprint("Use hooks for %s: %p\n", lpcszLibraryName, hooks);
         }
 
         dprint("Resolving symbols.. (%p)\n", thunkRef);

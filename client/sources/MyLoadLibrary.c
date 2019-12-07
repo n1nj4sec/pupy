@@ -158,6 +158,64 @@ static PHCUSTOMLIBRARY _FindMemoryModuleW(LPCWSTR name)
     return hResult;
 }
 
+#ifdef _PUPY_PRIVATE_WS2_32
+static
+NTSTATUS CALLBACK MyEtwRegister (
+    LPCGUID            ProviderId,
+    PVOID               EnableCallback,
+    PVOID              CallbackContext,
+    PULONGLONG         RegHandle
+) {
+    static ULONGLONG dwFakeRegHandle = 0x80000000;
+    dprint(
+        "MyEtwRegister "
+        "GUID=%08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x%02x -> %p\n",
+        ProviderId->Data1, ProviderId->Data2, ProviderId->Data3,
+        ProviderId->Data4[0], ProviderId->Data4[1],
+        ProviderId->Data4[2], ProviderId->Data4[3],
+        ProviderId->Data4[4], ProviderId->Data4[5],
+        ProviderId->Data4[6], ProviderId->Data4[7],
+        dwFakeRegHandle
+    );
+
+    *RegHandle = dwFakeRegHandle ++;
+    return ERROR_SUCCESS;
+}
+
+static
+ULONG CALLBACK MyEtwEventWrite (
+    ULONGLONG RegHandle,
+    PVOID EventDescriptor,
+    ULONG UserDataCount,
+    PVOID UserData
+) {
+    dprint("MyEtwEventWrite (RegHandle: %p)\n", RegHandle);
+    return ERROR_SUCCESS;
+}
+
+static
+ULONG CALLBACK MyEtwEventWriteFull (
+    ULONGLONG RegHandle,
+    PVOID EventDescriptor,
+    USHORT EventProperty,
+    LPCGUID ActivityId,
+    LPCGUID RelatedActivityId,
+    ULONG UserDataCount,
+    PVOID UserData
+) {
+    dprint("EtwEventWriteFull (RegHandle: %p)\n", RegHandle);
+    return ERROR_SUCCESS;
+}
+
+static
+NTSTATUS CALLBACK MyEtwUnregister (
+    ULONGLONG RegHandle
+) {
+    dprint("MyEtwUnregister (RegHandle: %p)\n", RegHandle);
+    return ERROR_SUCCESS;
+}
+#endif
+
 static DL_CALLBACKS callbacks = {
     MyLoadLibraryA, MyLoadLibraryW,
     MyLoadLibraryExA, MyLoadLibraryExW,
@@ -172,7 +230,12 @@ static DL_CALLBACKS callbacks = {
 
     GetProcAddress,
     GetModuleFileNameA, GetModuleFileNameW,
-    FindResourceExW, SizeofResource, LoadResource
+    FindResourceExW, SizeofResource, LoadResource,
+
+#ifdef _PUPY_PRIVATE_WS2_32
+    MyEtwRegister, MyEtwEventWrite,
+    MyEtwEventWriteFull, MyEtwUnregister
+#endif
 };
 
 /****************************************************************
