@@ -37,25 +37,29 @@
 typedef HMODULE (WINAPI * LOADLIBRARYA)( LPCSTR );
 typedef FARPROC (WINAPI * GETPROCADDRESS)( HMODULE, LPCSTR );
 typedef LPVOID  (WINAPI * VIRTUALALLOC)( LPVOID, SIZE_T, DWORD, DWORD );
+typedef LPVOID  (WINAPI * VIRTUALPROTECT)( LPVOID, SIZE_T, DWORD, PDWORD );
+typedef LPVOID  (WINAPI * VIRTUALFREE)( LPVOID, SIZE_T, DWORD );
 typedef DWORD  (NTAPI * NTFLUSHINSTRUCTIONCACHE)( HANDLE, PVOID, ULONG );
 
-#define KERNEL32DLL_HASH				0x6A4ABC5B
-#define NTDLLDLL_HASH					0x3CFA685D
+#define KERNEL32DLL_HASH               0x29cdd463
+#define NTDLLDLL_HASH                  0x145370bb
 
-#define LOADLIBRARYA_HASH				0xEC0E4E8E
-#define GETPROCADDRESS_HASH				0x7C0DFCAA
-#define VIRTUALALLOC_HASH				0x91AFCA54
-#define NTFLUSHINSTRUCTIONCACHE_HASH	0x534C0AB8
+#define LOADLIBRARYA_HASH              0x53b2070f
+#define GETPROCADDRESS_HASH            0xf8f45725
+#define VIRTUALALLOC_HASH              0x03285501
+#define VIRTUALPROTECT_HASH            0x820621f3
+#define VIRTUALFREE_HASH               0x3a9acc72
+#define NTFLUSHINSTRUCTIONCACHE_HASH   0x24f8dd09
 
-#define IMAGE_REL_BASED_ARM_MOV32A		5
-#define IMAGE_REL_BASED_ARM_MOV32T		7
+#define IMAGE_REL_BASED_ARM_MOV32A     5
+#define IMAGE_REL_BASED_ARM_MOV32T     7
 
-#define ARM_MOV_MASK					(DWORD)(0xFBF08000)
-#define ARM_MOV_MASK2					(DWORD)(0xFBF08F00)
-#define ARM_MOVW						0xF2400000
-#define ARM_MOVT						0xF2C00000
+#define ARM_MOV_MASK                   (DWORD)(0xFBF08000)
+#define ARM_MOV_MASK2                  (DWORD)(0xFBF08F00)
+#define ARM_MOVW                       0xF2400000
+#define ARM_MOVT                       0xF2C00000
 
-#define HASH_KEY						13
+#define HASH_KEY                       13
 
 #ifndef REFLECTIVE_LOADER_SYM
 #define REFLECTIVE_LOADER_SYM ReflectiveLoader
@@ -66,25 +70,47 @@ typedef DWORD  (NTAPI * NTFLUSHINSTRUCTIONCACHE)( HANDLE, PVOID, ULONG );
 
 #define REFLECTIVE_LOADER_SYMNAME TOSTRING(REFLECTIVE_LOADER_SYM)
 
+#define IMAGE_DOS_SIGNATURE_ALT  0x4548
+#define IMAGE_NT_SIGNATURE_ALT   0x0B15B00B5
+
 //===============================================================================================//
-#pragma intrinsic( _rotr )
 
-__forceinline DWORD ror( DWORD d )
-{
-   return _rotr( d, HASH_KEY );
+#define FNV_PRIME_32    16777619
+#define FNV_OFFSET_32   2166136261
+
+static
+DWORD hash(const unsigned char *s) {
+   register DWORD h = FNV_OFFSET_32;
+
+   while (s[0]) {
+      h = h ^ s[0];
+      h = h * FNV_PRIME_32;
+      s ++;
+   }
+
+   return h;
 }
 
-__forceinline DWORD hash( char * c )
-{
-    register DWORD h = 0;
-   do
-   {
-      h = ror( h );
-        h += *c;
-   } while( *++c );
+static
+DWORD hashmodname(const unsigned char *s, DWORD dwLength) {
+   register DWORD h = FNV_OFFSET_32;
 
-    return h;
+   while (dwLength --) {
+      unsigned char c = (*s ++);
+
+      if (!c)
+         continue;
+
+      if (c >= 'a')
+         c -= 0x20;
+
+      h ^= c;
+      h *= FNV_PRIME_32;
+   }
+
+   return h;
 }
+
 //===============================================================================================//
 typedef struct _UNICODE_STR
 {
