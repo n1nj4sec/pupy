@@ -28,12 +28,14 @@ CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
 LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup
 #LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console
 PPARCH      := $(PPARCH)d
+CFLAGS_OPT  :=
 else
 DEBUG_ADD   :=
 LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:windows /ENTRY:WinMainCRTStartup /LTCG
 # LINKER_OPTS := /link /NXCOMPAT:NO /subsystem:console /LTCG
 PPARCH      := $(PPARCH)
-CFLAGS      := $(CFLAGS) /Os /GL /GS-
+CFLAGS      := $(CFLAGS)
+CFLAGS_OPT  := /Os /GL /GS-
 endif
 
 SECARGS     := "cl" ".xzdata"
@@ -151,30 +153,33 @@ resources/$(ARCH)/$(PUPY_PYD_C): \
 	$(HOST_PYTHON) ../gen_resource_header.py $< resources/$(ARCH)/$(PUPY_PYD_C) \
 		$(COMPRESSED) $(SECARGS)
 
+ReflectiveLoader.obj:	ReflectiveLoader.c
+	$(CC) /Fo$@ /c $(CFLAGS) /O2 /Ob1  $<
+
 ifeq ($(UNCOMPRESSED),)
 LzmaDec.obj: ../common/LzmaDec.c
-	$(CC) /c $(CFLAGS) $< /Fo$@
+	$(CC) /c $(CFLAGS) $(CFLAGS_OPT) $< /Fo$@
 endif
 
 %.obj: %.c
-	$(CC) /Fo$@ /c $(CFLAGS) $(LIBPYTHON_INC) $<
+	$(CC) /Fo$@ /c $(CFLAGS) $(CFLAGS_OPT) $(LIBPYTHON_INC) $<
 
 %.obj: ../common/%.c
-	$(CC) /Fo$@ /c $(CFLAGS) $(LIBPYTHON_INC) $<
+	$(CC) /Fo$@ /c $(CFLAGS) $(CFLAGS_OPT) $(LIBPYTHON_INC) $<
 
 pupy_load.obj: $(PUPY_LOAD_DEPS)
 
 $(PUPY_PYD): $(PUPY_MODULE) $(COMMON_OBJS) | revision.h
-	$(CC) $(CFLAGS) $^ /Fe$@ /LD $(LIBPYTHON_LIBS) /link /MAP:$(PUPY_PYD).map
+	$(CC) $(CFLAGS) $(CFLAGS_OPT) $^ /Fe$@ /LD $(LIBPYTHON_LIBS) /link /MAP:$(PUPY_PYD).map
 
 $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: $(APP_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
-	$(CC) $(CFLAGS) $+ \
+	$(CC) $(CFLAGS) $(CFLAGS_OPT) $+ \
 		/Fe$(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH).$(SUFFIX)exe $(LINKER_OPTS) $(REQUIRED_LIBS)
 	mv $(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH).$(SUFFIX)exe $@
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
 $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: $(SHARED_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
-	$(CC) $(CFLAGS) $+ \
+	$(CC) $(CFLAGS) $(CFLAGS_OPT) $+ \
 		/Fe$(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH).$(SUFFIX)dll /LD $(REQUIRED_LIBS)
 	mv $(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH).$(SUFFIX)dll $@
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
