@@ -177,8 +177,8 @@ class TTYRec(PupyModule):
                             'height': resize[1],
                         })
 
-                json.dump(header, dests[filename])
-                dests[filename].write('\n')
+                    json.dump(header, dests[filename])
+                    dests[filename].write('\n')
 
             elif resize:
                 payload = '\033[18;{};{}t'.format(resize[1], resize[0])
