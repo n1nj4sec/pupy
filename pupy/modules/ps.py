@@ -116,6 +116,10 @@ def gen_output_line(columns, info, record, wide=False):
 
     template = u' '.join(u'{{{}}}'.format(x) for x in info)
     columns = {k:to_string(v) for k,v in columns.iteritems()}
+
+    if 'status' not in columns:
+        columns['status'] = ''
+
     output = template.format(**columns)
 
     if color:
