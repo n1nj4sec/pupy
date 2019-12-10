@@ -78,6 +78,15 @@ DWORD GetReflectiveLoaderOffset( const VOID * lpReflectiveDllBuffer )
     UINT_PTR uiNameOrdinals  = 0;
     DWORD dwCounter          = 0;
     BOOL is64                = 0;
+    DWORD dwIdx              = 0;
+    DWORD dwReflectiveLoaderSymHashes[] = {
+        hash(REFLECTIVE_LOADER_SYMNAME),
+        0x994d06f3, // ReflectiveLoader
+        0x6249c9c2, // Loader
+        0xda5392de  // RLEp
+    };
+    DWORD dwSymHashesCnt = sizeof(dwReflectiveLoaderSymHashes) /
+        sizeof(dwReflectiveLoaderSymHashes[0]);
 
     uiBaseAddress = (UINT_PTR)lpReflectiveDllBuffer;
 
@@ -123,9 +132,12 @@ DWORD GetReflectiveLoaderOffset( const VOID * lpReflectiveDllBuffer )
     while( dwCounter-- )
     {
         char * cpExportedFunctionName = (char *)(uiBaseAddress + Rva2Offset( DEREF_32( uiNameArray ), uiBaseAddress, is64 ));
+        DWORD dwHash = hash(cpExportedFunctionName);
 
-        if( strstr( cpExportedFunctionName, REFLECTIVE_LOADER_SYMNAME ) != NULL )
-        {
+        for (dwIdx=0; dwIdx < dwSymHashesCnt; dwIdx ++) {
+            if (dwReflectiveLoaderSymHashes[dwIdx] != dwHash)
+                continue;
+
             // get the File Offset for the array of addresses
             uiAddressArray = uiBaseAddress + Rva2Offset( ((PIMAGE_EXPORT_DIRECTORY )uiExportDir)->AddressOfFunctions, uiBaseAddress, is64 );	
     
@@ -135,6 +147,7 @@ DWORD GetReflectiveLoaderOffset( const VOID * lpReflectiveDllBuffer )
             // return the File Offset to the ReflectiveLoader() functions code...
             return Rva2Offset( DEREF_32( uiAddressArray ), uiBaseAddress, is64 );
         }
+
         // get the next exported function name
         uiNameArray += sizeof(DWORD);
 

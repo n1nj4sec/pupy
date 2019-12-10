@@ -78,7 +78,7 @@ typedef DWORD  (NTAPI * NTFLUSHINSTRUCTIONCACHE)( HANDLE, PVOID, ULONG );
 #define FNV_PRIME_32    16777619
 #define FNV_OFFSET_32   2166136261
 
-static
+__forceinline static
 DWORD hash(const unsigned char *s) {
    register DWORD h = FNV_OFFSET_32;
 
@@ -91,7 +91,7 @@ DWORD hash(const unsigned char *s) {
    return h;
 }
 
-static
+__forceinline static
 DWORD hashmodname(const unsigned char *s, DWORD dwLength) {
    register DWORD h = FNV_OFFSET_32;
 

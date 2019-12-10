@@ -8,6 +8,9 @@ import os
 
 MAX_CHAR_PER_LINE = 50
 
+ReflectiveLoaderSymName = 'ReflectiveLoader'
+
+
 if __name__ == "__main__":
     h_file = ""
     file_bytes = b""
@@ -32,7 +35,7 @@ if __name__ == "__main__":
                     image_base = int(line[2], 16)
                     continue
 
-                if line[1] in ('ReflectiveLoader', '_ReflectiveLoader@4'):
+                if line[1] in (ReflectiveLoaderSymName, '_' + ReflectiveLoaderSymName + '@4'):
                     reflective_loader = int(line[2], 16) - image_base
                     break
 

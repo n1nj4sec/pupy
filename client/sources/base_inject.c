@@ -520,7 +520,9 @@ DWORD inject_dll( DWORD dwPid, const LPVOID lpDllBuffer, DWORD dwDllLenght, cons
     HANDLE hProcess        = NULL;
     LPVOID lpRemoteLibraryBuffer   = NULL;
     LPVOID lpReflectiveLoader      = NULL;
+    LPVOID lpExecutableRegion      = NULL;
     DWORD dwReflectiveLoaderOffset = 0;
+    DWORD dwOldProtection = 0;
 
     dprint(
         "[INJECT] inject_dll(%d, %p, %d, %s, %d)\n",
@@ -540,12 +542,11 @@ DWORD inject_dll( DWORD dwPid, const LPVOID lpDllBuffer, DWORD dwDllLenght, cons
     dprint("[INJECT] ReflectiveLoader offset = %p\n", dwReflectiveLoaderOffset);
 
     hProcess = OpenProcess(
-            PROCESS_DUP_HANDLE | \
             PROCESS_VM_OPERATION | \
             PROCESS_VM_WRITE | \
             PROCESS_CREATE_THREAD | \
-            PROCESS_QUERY_INFORMATION | \
-            PROCESS_VM_READ, FALSE, dwPid );
+            PROCESS_QUERY_INFORMATION,
+            FALSE, dwPid );
     if( !hProcess )
         BREAK_ON_ERROR( "[INJECT] inject_dll. OpenProcess failed." );
 
@@ -561,7 +562,7 @@ DWORD inject_dll( DWORD dwPid, const LPVOID lpDllBuffer, DWORD dwDllLenght, cons
     }
 
     // alloc memory (RWX) in the host process for the image...
-    lpRemoteLibraryBuffer = VirtualAllocEx( hProcess, NULL, dwDllLenght, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE );
+    lpRemoteLibraryBuffer = VirtualAllocEx( hProcess, NULL, dwDllLenght, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE );
     if( !lpRemoteLibraryBuffer )
         BREAK_ON_ERROR( "[INJECT] inject_dll. VirtualAllocEx 2 failed" );
 
@@ -571,6 +572,11 @@ DWORD inject_dll( DWORD dwPid, const LPVOID lpDllBuffer, DWORD dwDllLenght, cons
 
     // add the offset to ReflectiveLoader() to the remote library address...
     lpReflectiveLoader = (LPTHREAD_START_ROUTINE)( (ULONG_PTR)lpRemoteLibraryBuffer + dwReflectiveLoaderOffset );
+
+    lpExecutableRegion = (LPVOID) (((UINT_PTR) lpReflectiveLoader) - (((UINT_PTR) lpReflectiveLoader) % 8192));
+
+    if ( !VirtualProtectEx( hProcess, lpExecutableRegion, 16384, PAGE_EXECUTE_READ, &dwOldProtection) )
+        BREAK_ON_ERROR( "[INJECT] inject_dll. VirtualProtectEx failed" );
 
     // First we try to inject by directly creating a remote thread in the target process
     if( inject_via_remotethread( hProcess, remoteProcessArch, lpReflectiveLoader, lpRemoteCommandLine ) != ERROR_SUCCESS )
