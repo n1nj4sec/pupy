@@ -91,6 +91,12 @@ class DnsCommandsClient(Thread):
                     )
 
                     if self.ns is None:
+                        # Maybe DNS->IP has changed. Something is better than nothing
+                        self.ns = securedns.SecureDNS.available(
+                            'opendns.org', False
+                        )
+
+                    if self.ns is None:
                         raise ValueError('All known DoH servers are not working')
                 else:
                     self.ns = securedns.SecureDNS(self.ns)
@@ -414,7 +420,7 @@ class DnsCommandsClient(Thread):
                 self.encoder.kex_reset()
                 self.on_session_lost()
 
-            except ParcelInvalidPayload, e:
+            except (IndexError, ParcelInvalidPayload), e:
                 logging.error(
                     'CRC FAILED / Invalid payload (%s) / %s/%s',
                         e, self.failed, 5)
