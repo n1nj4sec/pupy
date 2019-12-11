@@ -161,7 +161,7 @@ CAPTIVE_URLS = [
 ]
 
 KNOWN_DNS = {
-    'opendns.org': '67.215.92.210',
+    'opendns.org': '67.215.70.200',
     'quad9.net': '216.21.3.77',
 }
 
