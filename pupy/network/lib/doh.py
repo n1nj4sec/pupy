@@ -26,8 +26,8 @@ UNRESERVED_CHARS = \
 GOOGLE = 'https://dns.google.com/resolve'
 CLOUDFLARE = 'https://cloudflare-dns.com/dns-query'
 # Unstable
-QUAD9 = 'https://dns.quad9.net/dns-query'
-QUAD9_IP = 'https://9.9.9.9/dns-query'
+QUAD9 = 'https://dns.quad9.net:5053/dns-query'
+QUAD9_IP = 'https://9.9.9.9:5053/dns-query'
 # Down
 # CZNIC = 'https://odvr.nic.cz/doh'
 
@@ -57,10 +57,11 @@ class SecureDNS(object):
             if set(expected_ips) == set(resolved):
                 return dns
 
-    def __init__(self, url=GOOGLE, cd=False):
+    def __init__(self, url=GOOGLE, validation=False):
         self.client = tinyhttp.HTTP()
         self.url = url
-        self.cd = 0 if bool(cd) is False else 1
+        # Validation enabled
+        self.cd = 0 if bool(validation) else 1
 
     def resolve(self, hostname, query_type=A):
         '''return ip address(es) of hostname'''
