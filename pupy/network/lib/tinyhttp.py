@@ -476,7 +476,7 @@ class HTTP(object):
 
         return False
 
-    def make_opener(self, address):
+    def make_opener(self, address, headers=None):
         scheme = None
         proxy_host = None
         proxy_password_manager = None
@@ -586,12 +586,20 @@ class HTTP(object):
 
             opener.add_handler(h)
 
-        if type(self.headers) == dict:
+        if isinstance(self.headers, dict):
             opener.addheaders = [
                 (x, y) for x,y in self.headers.iteritems()
             ]
         else:
             opener.addheaders = self.headers
+
+        if headers:
+            if isinstance(headers, dict):
+                opener.addheaders.extend([
+                    (x, y) for x,y in self.headers.iteritems()
+                ])
+            else:
+                opener.addheaders.extend(headers)
 
         return opener, scheme, proxy_host, password_managers, context
 
@@ -602,10 +610,7 @@ class HTTP(object):
         if params:
             url = url + '?' + urllib.urlencode(params)
 
-        if headers:
-            url = urllib2.Request(url, headers=headers)
-
-        opener, scheme, host, password_managers, context = self.make_opener(url)
+        opener, scheme, host, password_managers, context = self.make_opener(url, headers)
 
         result = []
 
