@@ -586,9 +586,18 @@ class HTTP(object):
 
             opener.add_handler(h)
 
+        filter_headers = set()
+
+        if headers:
+            if isinstance(headers, dict):
+                filter_headers = set(headers.keys())
+            else:
+                filter_headers = set(x for x, _ in headers)
+
         if isinstance(self.headers, dict):
             opener.addheaders = [
                 (x, y) for x,y in self.headers.iteritems()
+                if x not in filter_headers
             ]
         else:
             opener.addheaders = self.headers
@@ -604,18 +613,20 @@ class HTTP(object):
         return opener, scheme, proxy_host, password_managers, context
 
     def get(
-            self, url, save=None, headers=None, return_url=False,
+            self, url, save=None, headers={}, return_url=False,
             return_headers=False, code=False, params={}):
 
         if params:
             url = url + '?' + urllib.urlencode(params)
 
-        opener, scheme, host, password_managers, context = self.make_opener(url, headers)
+        opener, scheme, host, password_managers, context = self.make_opener(url)
 
         result = []
 
+        request = urllib2.Request(url, None, headers)
+
         try:
-            response = opener.open(url, timeout=self.timeout)
+            response = opener.open(request, timeout=self.timeout)
 
         except ProxyConnectionError as e:
             if self.proxy == 'wpad':
@@ -679,7 +690,7 @@ class HTTP(object):
             code=False, params={}):
 
         if not (file or data):
-            return self.get(url, save, headers2=headers)
+            data = ''
 
         response = None
         result = []
@@ -692,26 +703,26 @@ class HTTP(object):
                 headers = headers.copy()
                 headers.update(_headers)
         else:
-            if type(data) in (list,tuple,set,frozenset):
+            if isinstance(data, (list,tuple,set,frozenset)):
                 data = urllib.urlencode({
                     k:v for k,v in data
                 })
-            elif type(data) == dict:
+            elif isinstance(data, dict):
                 data = urllib.urlencode(data)
 
         if params:
             url = url + '?' + urllib.urlencode(params)
 
-        url = urllib2.Request(url, data, headers)
-
         opener, scheme, host, password_managers, context = self.make_opener(url)
+
+        request = urllib2.Request(url, data, headers)
 
         try:
             if file:
                 with open(file, 'rb') as body:
-                    response = opener.open(url, body, timeout=self.timeout)
+                    response = opener.open(request, body, timeout=self.timeout)
             else:
-                response = opener.open(url, timeout=self.timeout)
+                response = opener.open(request, data, timeout=self.timeout)
 
         except ProxyConnectionError as e:
             if self.proxy == 'wpad':
@@ -720,6 +731,8 @@ class HTTP(object):
             raise e
 
         except urllib2.HTTPError as e:
+            context.update_from_error(e)
+
             result = [e.fp.read() if e.fp.read else '']
 
             if return_url:

@@ -5,7 +5,8 @@ from pupylib.PupyOutput import Pygment, Table, NewLine
 from pygments.lexers import guess_lexer, JsonLexer
 from json import loads, dumps
 
-__class_name__='http'
+__class_name__ = 'http'
+
 
 @config(cat='admin')
 class http(PupyModule):
@@ -43,13 +44,14 @@ class http(PupyModule):
             proxy=args.proxy,
             noverify=not args.verify,
             follow_redirects=args.follow_redirects,
-            headers=[
-                tuple(x.split('=', 1)) for x in (
-                    args.header if type(args.header) == list else [
-                        args.header
-                    ]
-                )
-            ]
+        )
+
+        headers = dict(
+            tuple(x.split('=', 1)) for x in (
+                args.header if type(args.header) == list else [
+                    args.header
+                ]
+            )
         )
 
         try:
@@ -60,12 +62,15 @@ class http(PupyModule):
                     args.url,
                     data=[
                           tuple(x.split('=', 1)) for x in args.data
-                    ],
+                    ] if all(
+                        '=' in param for param in args.data
+                    ) else ' '.join(args.data),
                     file=args.input,
                     save=args.output,
                     return_headers=args.get_headers,
                     code=args.get_headers,
                     return_url=args.get_headers,
+                    headers=headers
                 )
             else:
                 result = self.client.obtain_call(
@@ -75,6 +80,7 @@ class http(PupyModule):
                     return_headers=args.get_headers,
                     code=args.get_headers,
                     return_url=args.get_headers,
+                    headers=headers
                 )
 
             if args.get_headers:
