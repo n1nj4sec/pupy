@@ -85,21 +85,32 @@ class DnsCommandsClient(Thread):
             self.ns_socket_lock = Lock()
 
             if self.doh:
+                logging.info('Using DoH')
+
                 if not ns:
-                    self.ns = securedns.SecureDNS.available(
-                        'opendns.org', False, online.KNOWN_DNS['opendns.org']
-                    )
+                    for known_hostname, known_ip in online.KNOWN_DNS.iteritems():
+                        ns = securedns.SecureDNS.available(
+                            known_hostname, False, known_ip
+                        )
+
+                        if ns:
+                            self.ns = ns
+                            break
 
                     if self.ns is None:
                         # Maybe DNS->IP has changed. Something is better than nothing
-                        self.ns = securedns.SecureDNS.available(
-                            'opendns.org', False
-                        )
+                        for known_hostname in online.KNOWN_DNS:
+                            ns = securedns.SecureDNS.available(known_hostname, False)
+                            if ns:
+                                self.ns = ns
+                                break
 
                     if self.ns is None:
                         raise ValueError('All known DoH servers are not working')
                 else:
                     self.ns = securedns.SecureDNS(self.ns)
+
+                logging.info('DoH server: %s', self.ns.url)
 
                 self.resolve = self._doh_resolve
             else:

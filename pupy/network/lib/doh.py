@@ -8,6 +8,8 @@ __all__ = (
 from json import loads
 
 import tinyhttp
+import socket
+
 
 # Resource Record Types
 A = 1
@@ -28,8 +30,16 @@ CLOUDFLARE = 'https://cloudflare-dns.com/dns-query'
 # Unstable
 QUAD9 = 'https://dns.quad9.net:5053/dns-query'
 QUAD9_IP = 'https://9.9.9.9:5053/dns-query'
+
+NEXTDNS_1 = 'https://dns1.nextdns.io/dns-query'
+NEXTDNS_2 = 'https://dns2.nextdns.io/dns-query'
 # Down
 # CZNIC = 'https://odvr.nic.cz/doh'
+
+PROVIDERS = (
+    GOOGLE, CLOUDFLARE, QUAD9_IP, QUAD9,
+    NEXTDNS_1, NEXTDNS_2
+)
 
 
 class InvalidHostName(Exception):
@@ -45,10 +55,14 @@ class SecureDNS(object):
     def available(hostname, ipv6, *expected_ips):
         qtype = AAAA if ipv6 else A
 
-        for provider in (GOOGLE, CLOUDFLARE, QUAD9_IP, QUAD9):
+        for provider in PROVIDERS:
             dns = SecureDNS(provider)
-            resolved = dns.resolve(hostname, qtype)
-            if not resolved:
+            try:
+                resolved = dns.resolve(hostname, qtype)
+                if not resolved:
+                    continue
+
+            except Exception:
                 continue
 
             if not expected_ips:
@@ -101,16 +115,16 @@ class SecureDNS(object):
         hostname = hostname.rstrip('.')  # strip trailing dot if present
 
         if not(1 <= len(hostname) <= 253):  # test length of hostname
-            raise InvalidHostName
+            raise InvalidHostName()
 
         for label in hostname.split('.'):  # test length of each label
             if not(1 <= len(label) <= 63):
-                raise InvalidHostName
+                raise InvalidHostName()
         try:
             return hostname.encode('ascii')
 
         except UnicodeEncodeError:
-            raise InvalidHostName
+            raise InvalidHostName()
 
     def __repr__(self):
         return 'SecureDNS({}, {})'.format(
