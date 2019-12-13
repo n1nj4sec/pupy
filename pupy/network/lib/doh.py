@@ -62,7 +62,7 @@ class SecureDNS(object):
                 if not resolved:
                     continue
 
-            except Exception:
+            except (IOError, OSError, socket.error):
                 continue
 
             if not expected_ips:
