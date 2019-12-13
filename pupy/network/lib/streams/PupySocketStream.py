@@ -55,10 +55,12 @@ class PupyChannel(Channel):
         self._recv_channel_lock = threading.Lock()
 
     def consume(self):
-        return self.stream.consume()
+        if hasattr(self.stream, 'consume'):
+            return self.stream.consume()
 
     def wake(self):
-        return self.stream.wake()
+        if hasattr(self.stream, 'wake'):
+            return self.stream.wake()
 
     def recv(self):
         # print "RECV", threading.currentThread()

