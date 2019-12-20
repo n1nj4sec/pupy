@@ -60,6 +60,7 @@ static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize,
 BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     HMODULE hPython = NULL;
     PyObject *py_argv = NULL;
+    PyObject *py_empty_list = NULL;
     dependency_t dependencies[] = DEPENDENCIES;
     resolve_symbol_t resolver = NULL;
     dependency_t *dependency = NULL;
@@ -116,7 +117,8 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     PyEval_InitThreads();
     if(!Py_IsInitialized()) {
         char * ppath = Py_GetPath();
-        memset(ppath, '\0', strlen(ppath));
+        if (ppath)
+            memset(ppath, '\0', strlen(ppath));
 
         Py_FileSystemDefaultEncoding = FILE_SYSTEM_ENCODING;
         Py_IgnoreEnvironmentFlag = 1;
@@ -131,7 +133,13 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
 
     restore_state = PyGILState_Ensure();
 
-    PySys_SetPath("");
+    py_empty_list = PyList_New(0);
+    if (!py_empty_list) {
+        dprint("Couldn't allocate list for sys.path\n");
+        goto lbExit1;
+    }
+
+    PySys_SetObject("path", py_empty_list);
 
     dprint("SET ARGV (ARGC=%d; SHARED? %d)\n", argc, is_shared_object);
 

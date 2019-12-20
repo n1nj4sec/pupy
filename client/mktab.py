@@ -5,7 +5,6 @@ decls = '''
 void, Py_InitializeEx, (int)
 void, Py_Finalize, (void)
 char *, Py_GetPath, (void)
-void, PySys_SetPath, (const char *)
 void, Py_SetPythonHome, (const char *)
 void, Py_SetProgramName, (const char *)
 PyObject *, PyMarshal_ReadObjectFromString, (char *, Py_ssize_t)

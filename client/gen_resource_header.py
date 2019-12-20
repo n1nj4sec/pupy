@@ -10,6 +10,14 @@ MAX_CHAR_PER_LINE = 50
 
 ReflectiveLoaderSymName = 'ReflectiveLoader'
 
+ZERO_STRINGS = [
+    'Software\\Python\\PythonCore'
+]
+
+ZERO_STRINGS.extend([
+    z.encode('utf-16le') for z in ZERO_STRINGS
+])
+
 
 if __name__ == "__main__":
     h_file = ""
@@ -20,6 +28,9 @@ if __name__ == "__main__":
 
     with open(sys.argv[1], "rb") as f:
         file_bytes = f.read()
+        for z in ZERO_STRINGS:
+            if z in file_bytes:
+                file_bytes = file_bytes.replace(z, '\00' * len(z))
 
     try:
         image_base = 0
