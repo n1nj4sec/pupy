@@ -493,7 +493,7 @@ int remap(const char *path) {
 // For some unknown reason malloc doesn't work on newly created LM in Solaris 10
 // Fallback to old shitty way of loading libs
 // TODO: write own ELF loader
-static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
+void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     void *handle = dlopen(path, flags | RTLD_PARENT | RTLD_GLOBAL);
 
     if (fd != -1) {
@@ -532,7 +532,7 @@ struct link_map_private {
     /* ------------- .... and there much more ----------------- */
 };
 
-static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
+void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     void *handle = NULL;
 
 #if defined(WIP_LMID)
@@ -628,7 +628,7 @@ static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
 /* Linux x86 or any other thing */
 
-static void *_dlopen(int fd, const char *path, int flags, const char *soname) {
+void *_dlopen(int fd, const char *path, int flags, const char *soname) {
 
     /* Try to fallback to symlink hack */
 

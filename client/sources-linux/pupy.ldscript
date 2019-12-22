@@ -1,3 +1,10 @@
 {
+    global:
+        open; open64;
+        openat; openat64;
+        fopen; fopen64;
+        __lxstat; __lxstat64;
+        __xstat; __xstat64;
+
     local: *;
 };

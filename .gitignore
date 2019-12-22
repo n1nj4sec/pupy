@@ -8,6 +8,8 @@ client/sources/import-tab.c
 client/sources/import-tab.h
 client/sources/revision.h
 client/sources-linux/revision.h
+client/sources-linux/ld_hooks_64.c
+client/sources-linux/ld_hooks_64d.c
 client/android_sources/buildozer.spec
 
 # Compiled files
