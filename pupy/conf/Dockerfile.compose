@@ -9,7 +9,7 @@ RUN echo 'deb http://ftp.debian.org/debian stretch-backports main' >>/etc/apt/so
 	apt-get install -t stretch-backports --no-install-recommends -y \
 	libssl1.0-dev libffi-dev python-dev python-pip swig \
 	unzip libtool locales ncurses-term tcpdump \
-	netbase fuse && apt-get clean && \
+	netbase fuse build-essential && apt-get clean && \
 	rm -rf /var/lib/apt/lists/* /usr/share/doc* /usr/share/man/* /usr/share/info/*
 RUN echo 'en_US.UTF-8 UTF-8' >/etc/locale.gen; locale-gen; echo 'LC_ALL=en_US.UTF-8' >/etc/default/locale
 
@@ -24,7 +24,7 @@ COPY ./external/pykcp /opt/external/pykcp
 
 RUN cd /opt && pip install --no-cache-dir --upgrade -r requirements.txt && rm -rf /opt && mkdir -p /opt/pupy
 
-ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20190710/mimikatz_trunk.zip \
+ADD https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20191222/mimikatz_trunk.zip \
 	/opt/mimikatz/mimikatz.zip
 
 RUN cd /opt/mimikatz && unzip mimikatz.zip && rm -f mimikatz.zip
