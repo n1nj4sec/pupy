@@ -17,7 +17,7 @@ scapy
 https://github.com/CoreSecurity/impacket/archive/master.zip
 pyuv
 dnslib
-http-parser
+https://github.com/benoitc/http-parser/archive/master.zip
 cerberus
 logutils
 secretstorage==2.3.1
