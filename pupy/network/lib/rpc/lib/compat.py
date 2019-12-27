@@ -2,26 +2,40 @@
 compatibility module for various versions of python (2.4/3+/jython)
 and various platforms (posix/windows)
 """
+
+__all__ = (
+    'is_py3k', 'BYTES_LITERAL', 'maxint',
+    'Struct', 'BytesIO', 'pickle', 'callable',
+    'select_module', 'select', 'get_exc_errno',
+    'select_error', 'poll'
+)
+
+
 import sys
 import time
 
 is_py3k = (sys.version_info[0] >= 3)
 
+
 if is_py3k:
     exec("execute = exec")
+
     def BYTES_LITERAL(text):
         return bytes(text, "utf8")
+
     maxint = sys.maxsize
 
 else:
     exec("""def execute(code, globals = None, locals = None):
                 exec code in globals, locals""")
+
     def BYTES_LITERAL(text):
         return text
+
     maxint = sys.maxint
 
 try:
-    from struct import Struct #@UnusedImport
+    from struct import Struct
 
 except ImportError:
     import struct
@@ -36,15 +50,15 @@ except ImportError:
 
         def pack(self, *args):
             return struct.pack(self.format, *args)
-        def unpack(self, data):
 
+        def unpack(self, data):
             return struct.unpack(self.format, data)
 
 
 try:
     from cStringIO import StringIO as BytesIO
 except ImportError:
-    from io import BytesIO #@UnusedImport
+    from io import BytesIO
 
 
 try:
@@ -56,7 +70,7 @@ except NameError:
 try:
     import cPickle as pickle
 except ImportError:
-    import pickle #@UnusedImport
+    import pickle
 
 try:
     callable = callable
@@ -68,8 +82,10 @@ try:
     import select as select_module
 except ImportError:
     select_module = None
+
     def select(*args):
         raise ImportError("select not supported on this platform")
+
 else:
     # jython
     if hasattr(select_module, 'cpython_compatible_select'):
@@ -92,9 +108,11 @@ else:
 
 
 if hasattr(select_module, "poll"):
+
     class PollingPoll(object):
         def __init__(self):
             self._poll = select_module.poll()
+
         def register(self, fd, mode):
             flags = 0
             if "r" in mode:
@@ -108,16 +126,22 @@ if hasattr(select_module, "poll"):
                 # used and thus needed in the flags
                 POLLRDHUP = 0x2000
                 flags |= select_module.POLLHUP | select_module.POLLNVAL | POLLRDHUP
+
             self._poll.register(fd, flags)
+
         modify = register
+
         def unregister(self, fd):
             self._poll.unregister(fd)
+
         def poll(self, timeout = None):
             if timeout:
                 # the real poll takes milliseconds while we have seconds here
                 timeout = 1000*timeout
+
             events = self._poll.poll(timeout)
             processed = []
+
             for fd, evt in events:
                 mask = ""
                 if evt & (select_module.POLLIN | select_module.POLLPRI):
@@ -134,20 +158,26 @@ if hasattr(select_module, "poll"):
             return processed
 
     poll = PollingPoll
+
 else:
     class SelectingPoll(object):
+
         def __init__(self):
             self.rlist = set()
             self.wlist = set()
+
         def register(self, fd, mode):
             if "r" in mode:
                 self.rlist.add(fd)
             if "w" in mode:
                 self.wlist.add(fd)
+
         modify = register
+
         def unregister(self, fd):
             self.rlist.discard(fd)
             self.wlist.discard(fd)
+
         def poll(self, timeout = None):
             if not self.rlist and not self.wlist:
                 time.sleep(timeout)

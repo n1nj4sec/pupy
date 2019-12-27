@@ -9,14 +9,18 @@ import inspect
 
 class MissingModule(object):
     __slots__ = ["__name"]
+
     def __init__(self, name):
         self.__name = name
+
     def __getattr__(self, name):
         if name.startswith("__"): # issue 71
             raise AttributeError("module %r not found" % (self.__name,))
         raise ImportError("module %r not found" % (self.__name,))
+
     def __bool__(self):
         return False
+
     __nonzero__ = __bool__
 
 
@@ -31,6 +35,7 @@ def safe_import(name):
             mod = MissingModule(name)
         else:
             raise
+
     return mod
 
 

@@ -35,8 +35,3 @@ HANDLE_OLDSLICING  = 18
 
 # optimized exceptions
 EXC_STOP_ITERATION = 1
-
-# DEBUG
-#for k in globals().keys():
-#    globals()[k] = k
-

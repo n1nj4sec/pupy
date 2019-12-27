@@ -1,3 +1,11 @@
+__all__ = (
+    'Channel', 'Connection', 'BaseNetref',
+    'AsyncResult', 'AsyncResultTimeout',
+    'Service', 'VoidService', 'SlaveService',
+    'GenericException',
+    'Stream', 'ClosedFile', 'SocketStream'
+)
+
 from network.lib.rpc.core.channel import Channel
 from network.lib.rpc.core.protocol import Connection
 from network.lib.rpc.core.netref import BaseNetref

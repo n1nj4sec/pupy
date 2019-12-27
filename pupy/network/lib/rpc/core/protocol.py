@@ -6,7 +6,6 @@ import weakref
 import itertools
 import socket
 import time
-import gc
 
 from threading import Lock, RLock, Event, Thread
 from ..lib.compat import pickle, next, is_py3k, maxint, select_error
@@ -168,10 +167,13 @@ class Connection(object):
 
     def __del__(self):
         self.close()
+
     def __enter__(self):
         return self
+
     def __exit__(self, t, v, tb):
         self.close()
+
     def __repr__(self):
         a, b = object.__repr__(self).split(" object ")
         return "%s %r object %s" % (a, self._config["connid"], b)
@@ -319,13 +321,16 @@ class Connection(object):
             oid, clsname, modname = value
             if oid in self._proxy_cache:
                 proxy = self._proxy_cache[oid]
-                proxy.____refcount__ += 1  # other side increased refcount on boxing,
-                                           # if I'm returning from cache instead of new object,
-                                           # must increase refcount to match
+                # other side increased refcount on boxing,
+                # if I'm returning from cache instead of new object,
+                # must increase refcount to match
+                proxy.____refcount__ += 1
                 return proxy
+
             proxy = self._netref_factory(oid, clsname, modname)
             self._proxy_cache[oid] = proxy
             return proxy
+
         raise ValueError("invalid label %r" % (label,))
 
     def _netref_factory(self, oid, clsname, modname):
@@ -707,4 +712,3 @@ class Connection(object):
                 raise NameError("no constant defined for %r", name)
 
     del name, name2, obj
-

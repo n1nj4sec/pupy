@@ -3,7 +3,6 @@ import sys
 import os
 import inspect
 from network.lib.rpc.lib.compat import pickle, execute, is_py3k
-from network.lib.rpc import SlaveService
 from network.lib.rpc.core.service import ModuleNamespace
 from contextlib import contextmanager
 
@@ -211,18 +210,23 @@ class MockClassicConnection(object):
         self._conn = None
         self.namespace = {}
         self.modules = ModuleNamespace(self.getmodule)
+
         if is_py3k:
             self.builtin = self.modules.builtins
         else:
             self.builtin = self.modules.__builtin__
+
         self.builtins = self.builtin
 
     def execute(self, text):
         execute(text, self.namespace)
+
     def eval(self, text):
         return eval(text, self.namespace)
+
     def getmodule(self, name):
         return __import__(name, None, None, "*")
+
     def getconn(self):
         return None
 

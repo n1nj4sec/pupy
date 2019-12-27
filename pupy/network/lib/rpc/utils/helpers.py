@@ -96,12 +96,16 @@ class _Async(object):
     blocking"""
 
     __slots__ = ("proxy", "__weakref__")
+
     def __init__(self, proxy):
         self.proxy = proxy
+
     def __call__(self, *args, **kwargs):
         return asyncreq(self.proxy, HANDLE_CALL, args, tuple(kwargs.items()))
+
     def __repr__(self):
         return "nowait(%r)" % (self.proxy,)
+
 
 _async_proxies_cache = WeakValueDict()
 def nowait(proxy):
@@ -168,15 +172,19 @@ class timed(object):
     """
 
     __slots__ = ("__weakref__", "proxy", "timeout")
+
     def __init__(self, proxy, timeout):
         self.proxy = nowait(proxy)
         self.timeout = timeout
+
     def __call__(self, *args, **kwargs):
         res = self.proxy(*args, **kwargs)
         res.set_expiry(self.timeout)
         return res
+
     def __repr__(self):
         return "timed(%r, %r)" % (self.proxy.proxy, self.timeout)
+
 
 class BgServingThread(object):
     """Runs an RPyC server in the background to serve all requests and replies
@@ -207,9 +215,11 @@ class BgServingThread(object):
         self._active = True
         self._callback = callback
         self._thread.start()
+
     def __del__(self):
         if self._active:
             self.stop()
+
     def _bg_server(self):
         try:
             while self._active:
@@ -221,6 +231,7 @@ class BgServingThread(object):
                 if self._callback is None:
                     raise
                 self._callback()
+
     def stop(self):
         """stop the server thread. once stopped, it cannot be resumed. you will
         have to create a new BgServingThread object later."""
@@ -228,4 +239,3 @@ class BgServingThread(object):
         self._active = False
         self._thread.join()
         self._conn = None
-

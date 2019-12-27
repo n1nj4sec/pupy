@@ -62,7 +62,7 @@ class Server(object):
         self.clients = set()
 
         if socket_path is not None:
-            if hostname != "" or port != 0 or ipv6 != False:
+            if hostname != "" or port != 0 or ipv6 is not False:
                 raise ValueError("socket_path is mutually exclusive with: hostname, port, ipv6")
             self.listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.listener.bind(socket_path)
@@ -552,4 +552,3 @@ class ForkingServer(Server):
         else:
             # parent
             sock.close()
-

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Glue for backward compatibility
 
+__all__ = ('nowait', 'brine')
+
 import sys
 
 if 'rpyc' in sys.modules:

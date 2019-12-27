@@ -101,10 +101,12 @@ class ModuleNamespace(object):
     """used by the :class:`SlaveService` to implement the magical
     'module namespace'"""
 
-    __slots__ = ["__getmodule", "__cache", "__weakref__"]
+    __slots__ = ("__getmodule", "__cache", "__weakref__")
+
     def __init__(self, getmodule):
         self.__getmodule = getmodule
         self.__cache = {}
+
     def __contains__(self, name):
         try:
             self[name]
@@ -112,14 +114,17 @@ class ModuleNamespace(object):
             return False
         else:
             return True
+
     def __getitem__(self, name):
         if type(name) is tuple:
             name = ".".join(name)
         if name not in self.__cache:
             self.__cache[name] = self.__getmodule(name)
         return self.__cache[name]
+
     def __getattr__(self, name):
         return self[name]
+
 
 class SlaveService(Service):
     """The SlaveService allows the other side to perform arbitrary imports and
@@ -156,14 +161,15 @@ class SlaveService(Service):
     def exposed_execute(self, text):
         """execute arbitrary code (using ``exec``)"""
         execute(text, self.exposed_namespace)
+
     def exposed_eval(self, text):
         """evaluate arbitrary code (using ``eval``)"""
         return eval(text, self.exposed_namespace)
+
     def exposed_getmodule(self, name):
         """imports an arbitrary module"""
         return __import__(name, None, None, "*")
+
     def exposed_getconn(self):
         """returns the local connection instance to the other side"""
         return self._conn
-
-

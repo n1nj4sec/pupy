@@ -41,12 +41,26 @@ Classic-style usage::
     ...
 
 """
-from network.lib.rpc.core import (Channel,
-    Connection, Service, BaseNetref, AsyncResult, GenericException,
-    AsyncResultTimeout, VoidService, SlaveService)
-from network.lib.rpc.utils.helpers import nowait, timed, buffiter, BgServingThread, restricted
+
+__all__ = (
+    'Channel', 'Connection', 'Service', 'BaseNetref', 'AsyncResult',
+    'GenericException', 'AsyncResultTimeout', 'VoidService', 'SlaveService',
+    'nowait', 'timed', 'buffiter', 'BgServingThread', 'restricted',
+    'classic',
+    '__version__'
+)
+
+from network.lib.rpc.core import (
+    Channel, Connection, Service, BaseNetref, AsyncResult,
+    GenericException, AsyncResultTimeout, VoidService, SlaveService
+)
+
+from network.lib.rpc.utils.helpers import (
+    nowait, timed, buffiter, BgServingThread, restricted
+)
+
 from network.lib.rpc.utils import classic
+
 from network.lib.rpc.version import version as __version__
 
 __author__ = "Tomer Filiba (tomerfiliba@gmail.com)"
-

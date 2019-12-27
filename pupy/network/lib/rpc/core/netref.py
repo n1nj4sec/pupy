@@ -30,6 +30,7 @@ _builtin_types = [
     type(iter(())),         # tupleiterator
     type(iter(set())),      # setiterator
 ]
+
 """a list of types considered built-in (shared between connections)"""
 
 try:
@@ -53,6 +54,7 @@ else:
 _normalized_builtin_types = dict(((t.__name__, t.__module__), t)
     for t in _builtin_types)
 
+
 def syncreq(proxy, handler, *args):
     """Performs a synchronous request on the given proxy object.
     Not intended to be invoked directly.
@@ -70,6 +72,7 @@ def syncreq(proxy, handler, *args):
         raise ReferenceError('weakly-referenced object no longer exists')
     oid = object.__getattribute__(proxy, "____oid__")
     return conn.sync_request(handler, oid, *args)
+
 
 def asyncreq(proxy, handler, *args):
     """Performs an asynchronous request on the given proxy object.
@@ -89,17 +92,20 @@ def asyncreq(proxy, handler, *args):
     oid = object.__getattribute__(proxy, "____oid__")
     return conn.async_request(handler, oid, *args)
 
+
 class NetrefMetaclass(type):
     """A *metaclass* used to customize the ``__repr__`` of ``netref`` classes.
     It is quite useless, but it makes debugging and interactive programming
     easier"""
 
     __slots__ = ()
+
     def __repr__(self):
         if self.__module__:
             return "<netref class '%s.%s'>" % (self.__module__, self.__name__)
         else:
             return "<netref class '%s'>" % (self.__name__,)
+
 
 class BaseNetref(object):
     """The base netref class, from which all netref classes derive. Some netref
@@ -116,8 +122,12 @@ class BaseNetref(object):
     :param oid: the unique object ID of the remote object
     """
     # this is okay with py3k -- see below
+
     __metaclass__ = NetrefMetaclass
-    __slots__ = ["____conn__", "____oid__", "__weakref__", "____refcount__"]
+    __slots__ = (
+        "____conn__", "____oid__", "__weakref__", "____refcount__"
+    )
+
     def __init__(self, conn, oid):
         self.____conn__ = conn
         self.____oid__ = oid
@@ -149,34 +159,42 @@ class BaseNetref(object):
             return object.__getattribute__(self, "__call__")
         else:
             return syncreq(self, consts.HANDLE_GETATTR, name)
+
     def __getattr__(self, name):
         return syncreq(self, consts.HANDLE_GETATTR, name)
+
     def __delattr__(self, name):
         if name in _local_netref_attrs:
             object.__delattr__(self, name)
         else:
             syncreq(self, consts.HANDLE_DELATTR, name)
+
     def __setattr__(self, name, value):
         if name in _local_netref_attrs:
             object.__setattr__(self, name, value)
         else:
             syncreq(self, consts.HANDLE_SETATTR, name, value)
+
     def __dir__(self):
         return list(syncreq(self, consts.HANDLE_DIR))
 
     # support for metaclasses
     def __hash__(self):
         return syncreq(self, consts.HANDLE_HASH)
+
     def __cmp__(self, other):
         return syncreq(self, consts.HANDLE_CMP, other)
+
     def __repr__(self):
         return syncreq(self, consts.HANDLE_REPR)
+
     def __str__(self):
         return syncreq(self, consts.HANDLE_STR)
 
     # support for pickling netrefs
     def __reduce_ex__(self, proto):
         return pickle.loads, (syncreq(self, consts.HANDLE_PICKLE, proto),)
+
 
 if not isinstance(BaseNetref, NetrefMetaclass):
     # python 2 and 3 compatible metaclass...
@@ -190,30 +208,40 @@ def _make_method(name, doc):
     """creates a method with the given name and docstring that invokes
     :func:`syncreq` on its `self` argument"""
 
-    slicers = {"__getslice__" : "__getitem__", "__delslice__" : "__delitem__", "__setslice__" : "__setitem__"}
+    slicers = {
+        "__getslice__": "__getitem__",
+        "__delslice__": "__delitem__",
+        "__setslice__": "__setitem__"
+    }
 
     name = str(name)                                      # IronPython issue #10
     if name == "__call__":
         def __call__(_self, *args, **kwargs):
             kwargs = tuple(kwargs.items())
             return syncreq(_self, consts.HANDLE_CALL, args, kwargs)
+
         __call__.__doc__ = doc
         return __call__
-    elif name in slicers:                                 # 32/64 bit issue #41
+
+    elif name in slicers:
         def method(self, start, stop, *args):
             if stop == maxint:
                 stop = None
             return syncreq(self, consts.HANDLE_OLDSLICING, slicers[name], name, start, stop, args)
+
         method.__name__ = name
         method.__doc__ = doc
         return method
+
     else:
         def method(_self, *args, **kwargs):
             kwargs = tuple(kwargs.items())
             return syncreq(_self, consts.HANDLE_CALLATTR, name, args, kwargs)
+
         method.__name__ = name
         method.__doc__ = doc
         return method
+
 
 def inspect_methods(obj):
     """introspects the given (local) object, returning a list of all of its
@@ -238,6 +266,7 @@ def inspect_methods(obj):
             methods[name] = inspect.getdoc(attr)
     return methods.items()
 
+
 def class_factory(clsname, modname, methods):
     """Creates a netref class proxying the given class
 
@@ -250,27 +279,34 @@ def class_factory(clsname, modname, methods):
     """
     clsname = str(clsname)                                # IronPython issue #10
     modname = str(modname)                                # IronPython issue #10
-    ns = {"__slots__" : ()}
+    ns = {"__slots__": ()}
+
     for name, doc in methods:
         name = str(name)                                  # IronPython issue #10
         if name not in _local_netref_attrs:
             ns[name] = _make_method(name, doc)
+
     ns["__module__"] = modname
+
     if modname in sys.modules and hasattr(sys.modules[modname], clsname):
         ns["__class__"] = getattr(sys.modules[modname], clsname)
+
     elif (clsname, modname) in _normalized_builtin_types:
         ns["__class__"] = _normalized_builtin_types[clsname, modname]
+
     else:
         # to be resolved by the instance
         ns["__class__"] = None
+
     return type(clsname, (BaseNetref,), ns)
+
 
 builtin_classes_cache = {}
 """The cache of built-in netref classes (each of the types listed in
 :data:`_builtin_types`). These are shared between all  connections"""
 
+
 # init the builtin_classes_cache
 for cls in _builtin_types:
     builtin_classes_cache[cls.__name__, cls.__module__] = class_factory(
         cls.__name__, cls.__module__, inspect_methods(cls))
-

@@ -3,13 +3,11 @@ An abstraction layer over OS-dependent file-like objects, that provides a
 consistent view of a *duplex byte stream*.
 """
 import sys
-import os
 import socket
-import time
 import errno
 
 from network.lib.rpc.lib.compat import (
-    poll, select_error, BYTES_LITERAL, get_exc_errno, maxint
+    poll, select_error, BYTES_LITERAL, get_exc_errno
 )
 
 retry_errnos = (errno.EAGAIN, errno.EWOULDBLOCK)
@@ -103,7 +101,9 @@ class SocketStream(Stream):
     """A stream over a socket"""
 
     __slots__ = ("sock",)
+
     MAX_IO_CHUNK = 8000
+
     def __init__(self, sock):
         self.sock = sock
 

@@ -72,6 +72,7 @@ class AsyncResult(object):
             func(self)
         else:
             self._callbacks.append(func)
+
     def set_expiry(self, timeout):
         """Sets the expiry time (in seconds, relative to now) or ``None`` for
         unlimited time
@@ -91,12 +92,14 @@ class AsyncResult(object):
         if not self._is_ready:
             self._conn.poll_all()
         return self._is_ready
+
     @property
     def error(self):
         """Indicates whether the returned result is an exception"""
         if self.ready:
             return self._is_exc
         return False
+
     @property
     def expired(self):
         """Indicates whether the AsyncResult has expired"""

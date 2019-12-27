@@ -82,4 +82,3 @@ class Channel(object):
         self.stream.write(self.FRAME_HEADER.pack(len(data), compressed))
         self.stream.write(data)
         self.stream.write(self.FLUSHER)
-
