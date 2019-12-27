@@ -25,7 +25,8 @@ DEFAULT_CONFIG = dict(
     allow_exposed_attrs = True,
     allow_public_attrs = False,
     allow_all_attrs = False,
-    safe_attrs = set(['__abs__', '__add__', '__and__', '__bool__', '__cmp__', '__contains__',
+    safe_attrs = {
+        '__abs__', '__add__', '__and__', '__bool__', '__cmp__', '__contains__',
         '__delitem__', '__delslice__', '__div__', '__divmod__', '__doc__',
         '__eq__', '__float__', '__floordiv__', '__ge__', '__getitem__',
         '__getslice__', '__gt__', '__hash__', '__hex__', '__iadd__', '__iand__',
@@ -39,7 +40,8 @@ DEFAULT_CONFIG = dict(
         '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__',
         '__rxor__', '__setitem__', '__setslice__', '__str__', '__sub__',
         '__truediv__', '__xor__', 'next', '__length_hint__', '__enter__',
-        '__exit__', '__next__',]),
+        '__exit__', '__next__'
+    },
     exposed_prefix = "exposed_",
     allow_getattr = True,
     allow_setattr = False,
@@ -568,12 +570,16 @@ class Connection(object):
                 name2 = self._config["exposed_prefix"] + name
             if hasattr(obj, name2):
                 return name2
+
         if self._config["allow_all_attrs"]:
             return name
+
         if self._config["allow_safe_attrs"] and name in self._config["safe_attrs"]:
             return name
+
         if self._config["allow_public_attrs"] and not name.startswith("_"):
             return name
+
         return False
 
     def _access_attr(self, oid, name, args, overrider, param, default):
@@ -586,14 +592,20 @@ class Connection(object):
             if type(name) not in (str, unicode):
                 raise TypeError("name must be a string")
             name = str(name) # IronPython issue #10 + py3k issue
+
         obj = self._local_objects[oid]
         accessor = getattr(type(obj), overrider, None)
+
         if accessor is None:
             name2 = self._check_attr(obj, name)
             if not self._config[param] or not name2:
-                raise AttributeError("cannot access %r" % (name,))
+                raise AttributeError(
+                    'Cannot access {}->{} (overrider={} ({}))'.format(
+                        obj, name, overrider, accessor))
+
             accessor = default
             name = name2
+
         return accessor(obj, name, *args)
 
     #
@@ -601,16 +613,22 @@ class Connection(object):
     #
     def _handle_ping(self, data):
         return data
+
     def _handle_close(self):
         self._cleanup()
+
     def _handle_getroot(self):
         return self._local_root
+
     def _handle_del(self, oid, count=1):
         self._local_objects.decref(oid)
+
     def _handle_repr(self, oid):
         return repr(self._local_objects[oid])
+
     def _handle_str(self, oid):
         return str(self._local_objects[oid])
+
     def _handle_cmp(self, oid, other):
         # cmp() might enter recursive resonance... yet another workaround
         #return cmp(self._local_objects[oid], other)
@@ -619,30 +637,40 @@ class Connection(object):
             return type(obj).__cmp__(obj, other)
         except (AttributeError, TypeError):
             return NotImplemented
+
     def _handle_hash(self, oid):
         return hash(self._local_objects[oid])
+
     def _handle_call(self, oid, args, kwargs=()):
         return self._local_objects[oid](*args, **dict(kwargs))
+
     def _handle_dir(self, oid):
         return tuple(dir(self._local_objects[oid]))
+
     def _handle_inspect(self, oid):
         if hasattr(self._local_objects[oid], '____conn__'):
             conn = self._local_objects[oid].____conn__
             return conn.sync_request(consts.HANDLE_INSPECT, oid)
         else:
             return tuple(get_methods(netref._local_netref_attrs, self._local_objects[oid]))
+
     def _handle_getattr(self, oid, name):
-        return self._access_attr(oid, name, (), "__getattr", "allow_getattr", getattr)
+        return self._access_attr(oid, name, (), "_rpyc_getattr", "allow_getattr", getattr)
+
     def _handle_delattr(self, oid, name):
-        return self._access_attr(oid, name, (), "__delattr", "allow_delattr", delattr)
+        return self._access_attr(oid, name, (), "_rpyc_delattr", "allow_delattr", delattr)
+
     def _handle_setattr(self, oid, name, value):
-        return self._access_attr(oid, name, (value,), "__setattr", "allow_setattr", setattr)
+        return self._access_attr(oid, name, (value,), "_rpyc_setattr", "allow_setattr", setattr)
+
     def _handle_callattr(self, oid, name, args, kwargs):
         return self._handle_getattr(oid, name)(*args, **dict(kwargs))
+
     def _handle_pickle(self, oid, proto):
         if not self._config["allow_pickle"]:
             raise ValueError("pickling is disabled")
         return pickle.dumps(self._local_objects[oid], proto)
+
     def _handle_buffiter(self, oid, count):
         items = []
         obj = self._local_objects[oid]
@@ -654,6 +682,7 @@ class Connection(object):
         except StopIteration:
             pass
         return tuple(items)
+
     def _handle_oldslicing(self, oid, attempt, fallback, start, stop, args):
         try:
             # first try __xxxitem__
@@ -668,6 +697,7 @@ class Connection(object):
 
     # collect handlers
     _HANDLERS = {}
+
     for name, obj in dict(locals()).items():
         if name.startswith("_handle_"):
             name2 = "HANDLE_" + name[8:].upper()
@@ -675,5 +705,6 @@ class Connection(object):
                 _HANDLERS[getattr(consts, name2)] = obj
             else:
                 raise NameError("no constant defined for %r", name)
+
     del name, name2, obj
 
