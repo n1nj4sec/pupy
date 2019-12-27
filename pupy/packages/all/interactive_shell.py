@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from subprocess import PIPE, Popen
 import subprocess
-from threading import Thread
-from Queue import Queue, Empty
 import time
 import traceback
 import locale
 import re
-import rpyc
 import os
 
+from subprocess import PIPE, Popen
+from threading import Thread
+from Queue import Queue, Empty
+from network.lib.pupyrpc import nowait
+
+
 ON_POSIX = 'posix' in sys.builtin_module_names
+
 
 def write_output(out, queue):
     try:
@@ -27,8 +30,8 @@ def flush_loop(queue, encoding):
         stdout_write=sys.stdout.write
         stdout_flush=sys.stdout.flush
         if type(sys.stdout) is not file:
-            stdout_write=rpyc.async(sys.stdout.write)
-            stdout_flush=rpyc.async(sys.stdout.flush)
+            stdout_write=nowait(sys.stdout.write)
+            stdout_flush=nowait(sys.stdout.flush)
         while True:
             buf=b""
             while True:

@@ -61,8 +61,7 @@ from base64 import b64encode
 
 from network.lib.scan import scanthread_parse
 from network.lib.netcreds import add_cred, find_creds
-
-from rpyc import async
+from network.lib.pupyrpc import nowait
 
 Transport._CLIENT_ID = 'OpenSSH'
 
@@ -1060,8 +1059,8 @@ def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords,
                     private_keys, program, data_cb, close_cb, timeout):
     private_keys = obtain(private_keys)
     passwords = obtain(passwords)
-    data_cb = async(data_cb)
-    close_cb = async(close_cb)
+    data_cb = nowait(data_cb)
+    close_cb = nowait(close_cb)
 
     ssh_passwords, key_passwords = passwords
 
@@ -1137,8 +1136,8 @@ def _ssh_cmd(ssh_cmd, thread_name, arg, hosts, port, user, passwords, private_ke
     default_user = user
     default_port = port
 
-    data_cb = async(data_cb)
-    close_cb = async(close_cb)
+    data_cb = nowait(data_cb)
+    close_cb = nowait(close_cb)
 
     current_connection = [None]
     closed = Event()
@@ -1304,7 +1303,7 @@ def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, c
     )
 
 def ssh_keyscan(hosts, port, key_type, data_cb, close_cb, timeout):
-    data_cb = async(data_cb)
+    data_cb = nowait(data_cb)
 
     default_port = '22'
     if port:

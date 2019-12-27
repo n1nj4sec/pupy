@@ -5,7 +5,7 @@ from argparse import REMAINDER
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 from os import path
-from rpyc import GenericException
+from network.lib.rpc import GenericException
 
 __class_name__ = 'PowershellManager'
 

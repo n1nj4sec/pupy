@@ -15,11 +15,13 @@
 # --------------------------------------------------------------
 
 import sys
-from contextlib import contextmanager
-from rpyc.utils.helpers import restricted
 import json
 import zlib
 import msgpack
+from contextlib import contextmanager
+
+from network.lib.rpc.utils.helpers import restricted
+
 
 def safe_obtain(proxy):
     """ safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. """

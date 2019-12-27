@@ -3,7 +3,7 @@
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import path_completer, remote_dirs_completer
 
-from rpyc.utils.classic import upload
+from network.lib.rpc.utils.classic import upload
 
 import os
 import os.path

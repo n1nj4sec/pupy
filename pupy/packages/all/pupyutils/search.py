@@ -10,12 +10,13 @@ import re
 import sys
 
 import threading
-import rpyc
 
 import errno
 import traceback
 
 import string
+
+from uuid import uuid4
 
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
@@ -23,15 +24,16 @@ from tarfile import open as open_tarfile
 
 from fsutils import uidgid, username_to_uid, groupname_to_gid, has_xattrs
 
+from network.lib.pupyrpc import nowait
+
 PERMISSION_ERRORS = [
     getattr(errno, x) for x in ('EPERM', 'EACCESS') if hasattr(errno, x)
 ]
 
 SEARCH_WINDOW_SIZE = 32768
 
-from uuid import uuid4
-
 OWAW_PROBE_NAME = str(uuid4())
+
 
 class Search(object):
     def __init__(
@@ -437,7 +439,7 @@ class Search(object):
         if not self.terminate:
             self.terminate = threading.Event()
 
-        on_completed = rpyc.async(on_completed)
+        on_completed = nowait(on_completed)
 
         search = threading.Thread(target=self._run_thread, args=(on_data, on_completed, on_error))
         search.daemon = False

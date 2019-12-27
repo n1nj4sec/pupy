@@ -5,11 +5,12 @@ __all__ = ['SafePopen']
 import threading
 import subprocess
 import Queue
-import rpyc
 import sys
 import os
 import struct
 import errno
+
+from network.lib.pupyrpc import nowait
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 DETACHED_PROCESS = 0x00000008
@@ -274,10 +275,10 @@ class SafePopen(object):
 
     def execute(self, close_cb, read_cb=None):
         if read_cb:
-            read_cb = rpyc.async(read_cb)
+            read_cb = nowait(read_cb)
 
         if close_cb:
-            close_cb = rpyc.async(close_cb)
+            close_cb = nowait(close_cb)
 
         t = threading.Thread(target=self._execute, args=(read_cb, close_cb))
         t.daemon = True

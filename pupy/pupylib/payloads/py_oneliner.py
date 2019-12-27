@@ -24,7 +24,7 @@ def pack_py_payload(display, conf, debug=False, autostart=True):
     display(Success('Generating PY payload ...'))
 
     stdlib = dependencies.importer((
-        'rpyc', 'pyasn1', 'rsa', 'pyaes',
+        'pyasn1', 'rsa', 'pyaes',
         'netaddr', 'tinyec', 'umsgpack',
         'poster', 'win_inet_pton', 'http_parser',
         'urllib_auth',

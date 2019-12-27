@@ -2,11 +2,11 @@
 from threading import Thread, Event
 from Queue import Queue
 from os import path, stat
-from rpyc.core import brine
 
 import sys
 
 from network.lib.buffer import Buffer
+from network.lib.pupyrpc import nowait, brine
 
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
@@ -31,7 +31,6 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-import rpyc
 import sys
 import traceback
 
@@ -703,17 +702,17 @@ class Transfer(object):
         filepath = path.expanduser(filepath)
         return (filepath, )
 
-    def size(self, filepath, callback, async=False):
+    def size(self, filepath, callback, nonblock=False):
         filepath = decodepath(filepath)
-        if async:
-            callback = rpyc.async(callback)
+        if nonblock:
+            callback = nowait(callback)
         self._submit_command(
             self._size, self._expand(filepath), callback)
 
-    def transfer(self, filepath, callback, async=False):
+    def transfer(self, filepath, callback, nonblock=False):
         filepath = decodepath(filepath)
-        if async:
-            callback = rpyc.async(callback)
+        if nonblock:
+            callback = nowait(callback)
         self._submit_command(
             self._pack_any, self._expand(filepath), callback)
 
@@ -802,8 +801,8 @@ if __name__ == '__main__':
 
     t = Transfer()
     print "START"
-    t.size('/etc', callback=blob_printer, async=False)
-    t.transfer('/etc', callback=blob_printer, async=False)
+    t.size('/etc', callback=blob_printer, nonblock=False)
+    t.transfer('/etc', callback=blob_printer, nonblock=False)
     print "WAIT"
     t.stop(None)
     t.join()

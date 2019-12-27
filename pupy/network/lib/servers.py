@@ -6,9 +6,6 @@ __all__ = ('PupyTCPServer', 'PupyUDPServer')
 
 import logging
 
-from rpyc.utils.server import ThreadedServer
-from rpyc.utils.authenticators import AuthenticationError
-
 import socket
 
 from Queue import Queue, Empty
@@ -17,8 +14,10 @@ from netaddr import IPAddress, AddrFormatError
 
 from streams.PupySocketStream import PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread
+from network.lib.rpc.utils.server import ThreadedServer, AuthenticationError
 
 from network.lib.igd import UPNPError
+
 
 class PupyTCPServer(ThreadedServer):
     def __init__(self, *args, **kwargs):

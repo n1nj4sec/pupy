@@ -152,7 +152,6 @@ for prefix in $WINE32 $WINE64; do
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade pip
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q --upgrade setuptools
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pycparser==2.17
-    WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q rpyc
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q rsa
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q pefile
     WINEPREFIX=$prefix wine C:\\Python27\\python -OO -m pip install -q netaddr
