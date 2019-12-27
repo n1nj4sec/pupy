@@ -16,9 +16,10 @@ except ImportError:
 
 from select import select, error as select_error
 from threading import Thread, Event
-from rpyc import async
 from psutil import net_if_addrs
 from time import time
+from network.lib.pupyrpc import nowait
+
 
 def isniff(count=0, prn=None, lfilter=None,
           L2socket=None, timeout=None, completion=None,
@@ -223,13 +224,15 @@ class SniffSession(Thread):
     def is_stopped(self, x):
         return self.stopped
 
+
 def run(on_data, on_close, iface=None, bpf=None, timeout=None, count=0):
     sniffer = SniffSession(
-        async(on_data), async(on_close), iface, bpf, timeout, count)
+        nowait(on_data), nowait(on_close), iface, bpf, timeout, count)
 
     sniffer.start()
 
     return sniffer.nice_name, sniffer.stop
+
 
 if __name__=="__main__":
 

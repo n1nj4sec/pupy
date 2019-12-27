@@ -35,7 +35,7 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
 fi
 
 $PIP_INSTALL \
-    rpyc==3.4.4 pyaml rsa netaddr pyyaml ecdsa idna \
+    pyaml rsa netaddr pyyaml ecdsa idna \
     paramiko pylzma pydbus python-ptrace psutil scandir \
     scapy colorama pyOpenSSL python-xlib msgpack-python \
     u-msgpack-python poster dnslib pyxattr pylibacl python-prctl http_parser \

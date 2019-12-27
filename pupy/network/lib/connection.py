@@ -6,10 +6,6 @@ __all__ = ('SyncRequestDispatchQueue', 'PupyConnection',
 import time
 import traceback
 
-from rpyc.core import Connection, consts, brine
-from rpyc.core.consts import (
-    HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT
-)
 from threading import Thread, Lock, current_thread
 from Queue import Queue, Full, Empty
 
@@ -22,6 +18,10 @@ syncqueuelogger = getLogger('syncqueue')
 from network.lib.ack import Ack
 from network.lib.buffer import Buffer
 
+from network.lib.rpc.core import Connection, consts, brine
+from network.lib.rpc.core.consts import (
+    HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT
+)
 
 FAST_CALLS = (
     HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT

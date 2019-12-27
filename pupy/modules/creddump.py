@@ -17,7 +17,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 from modules.lib.utils.shell_exec import shell_exec
 
-from rpyc.utils.classic import download
+from network.lib.rpc.utils.classic import download
 
 import os
 import os.path

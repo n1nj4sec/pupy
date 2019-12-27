@@ -11,7 +11,6 @@ import sys
 import struct
 import threading
 import traceback
-import rpyc
 
 from ctypes import (
     POINTER, byref,
@@ -25,6 +24,7 @@ from ctypes.wintypes import (
     DWORD, LPCWSTR
 )
 
+from network.lib.pupyrpc import nowait
 
 class FILETIME(Structure):
     _fields_ = [
@@ -857,8 +857,8 @@ def search(
         name=True, value=True, regex=False,
         ignorecase=False, first=False, equals=False):
 
-    data_cb = rpyc.async(data_cb)
-    close_cb = rpyc.async(close_cb)
+    data_cb = nowait(data_cb)
+    close_cb = nowait(close_cb)
 
     completed = threading.Event()
     worker = threading.Thread(

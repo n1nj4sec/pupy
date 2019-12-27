@@ -5,7 +5,7 @@
 import os
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from rpyc.utils.classic import download
+from network.lib.rpc.utils.classic import download
 
 __class_name__="Outlook"
 

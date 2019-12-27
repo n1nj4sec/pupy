@@ -10,12 +10,13 @@ import sys
 import struct
 import threading
 import traceback
-import rpyc
 
 from pupyutils.psexec import ConnectionInfo
 
 from impacket.dcerpc.v5.dcom.wmi import ENCODED_STRING
 from impacket.structure import Structure
+
+from network.lib.pupyrpc import nowait
 
 
 ERROR_SUCCESS = 0
@@ -585,8 +586,8 @@ def search(
         host, port, user, domain, password, ntlm, timeout=timeout
     )
 
-    data_cb = rpyc.async(data_cb)
-    close_cb = rpyc.async(close_cb)
+    data_cb = nowait(data_cb)
+    close_cb = nowait(close_cb)
 
     completed = threading.Event()
     worker = threading.Thread(

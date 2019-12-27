@@ -39,15 +39,14 @@ import random
 import zlib
 import time
 
-from rpyc.core.service import Service, ModuleNamespace
-from rpyc.lib.compat import execute
-
 from network import conf
 from network.lib.base_launcher import LauncherError
 from network.lib.connection import PupyConnection
 from network.lib.streams.PupySocketStream import PupyChannel
 from network.lib.buffer import Buffer
 from network.lib.msgtypes import MSG_TYPES_PACK
+from network.lib.rpc.core.service import Service, ModuleNamespace
+from network.lib.rpc.lib.compat import execute
 
 import umsgpack
 

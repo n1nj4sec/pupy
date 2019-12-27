@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import rpyc
 
 import pyuv
 import struct
@@ -21,6 +20,7 @@ import errno
 
 import uuid
 
+from network.lib.pupyrpc import nowait
 from network.lib import getLogger
 logger = getLogger('pyuvproxy')
 
@@ -563,11 +563,11 @@ class Acceptor(object):
 
 class Callbacks(object):
     def __init__(self, ref):
-        self.create_connection = rpyc.async(ref['create_connection'])
-        self.connect = rpyc.async(ref['connect'])
-        self.on_connected = rpyc.async(ref['on_connected'])
-        self.on_data = rpyc.async(ref['on_data'])
-        self.on_disconnect = rpyc.async(ref['on_disconnect'])
+        self.create_connection = nowait(ref['create_connection'])
+        self.connect = nowait(ref['connect'])
+        self.on_connected = nowait(ref['on_connected'])
+        self.on_data = nowait(ref['on_data'])
+        self.on_disconnect = nowait(ref['on_disconnect'])
 
 
 class Neighbor(object):

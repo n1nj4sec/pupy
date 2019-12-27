@@ -282,7 +282,7 @@ python -OO -m pip install --upgrade setuptools
 python -OO -m pip install pycparser==2.17
 python -OO -m pip install -q six packaging appdirs
 python -OO -m pip install -q \
-       rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
+       pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
        --no-binary :all:
@@ -562,7 +562,7 @@ CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
  python -OO -m pip install -q cryptography --no-binary :all:
 
 python -OO -m pip install -q \
-       rpyc pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
+       pycryptodome pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko pylzma pydbus python-ptrace psutil scandir \
        scapy impacket colorama pyOpenSSL \
        --no-binary :all:

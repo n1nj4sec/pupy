@@ -66,7 +66,7 @@ all_dependencies = set(
         x.split('.')[0] for x, m in sys_modules
         if '(built-in)' not in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'rpyc', 'pyasn1', 'rsa', 'stringprep',
+        'Crypto', 'pyasn1', 'rsa', 'stringprep',
     ]
 )
 
@@ -84,11 +84,6 @@ for dep in list(all_dependencies):
 
 ignore = {
     '_cffi_backend.so', '_cffi_backend.pyd',
-    'rpyc/utils/teleportation.py',
-    'rpyc/utils/zerodeploy.py',
-    'rpyc/experemental/__init__.py',
-    'rpyc/experemental/retunnel.py',
-    'rpyc/experemental/splitbrain.py',
 
     # We don't use this anyway
     'Crypto/PublicKey/ElGamal.py',

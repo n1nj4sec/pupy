@@ -7,10 +7,10 @@ import select
 import errno
 import time
 import threading
-import rpyc
 import random
 
 from netaddr import IPNetwork
+from network.lib.rpc import nowait
 
 from . import getLogger
 logger = getLogger('scan')
@@ -180,7 +180,7 @@ def scanthread(hosts, ports, on_complete, **kwargs):
     abort = threading.Event()
     kwargs.update({
         'abort': abort,
-        'on_complete': rpyc.async(on_complete)
+        'on_complete': nowait(on_complete)
     })
     scanner = threading.Thread(target=safe_scan, args=(hosts, ports), kwargs=kwargs)
     scanner.daemon = True

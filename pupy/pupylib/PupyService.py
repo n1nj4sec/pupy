@@ -14,8 +14,6 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
-import rpyc.core.service
-import rpyc
 import sys
 import traceback
 import json
@@ -23,13 +21,14 @@ import zlib
 import msgpack
 
 from network.lib.msgtypes import msgpack_exthook
+from network.lib.rpc import Service, timed, nowait
 
 from . import getLogger
 logger = getLogger('service')
 
 from pupylib.PupyCredentials import Credentials
 
-class PupyService(rpyc.Service):
+class PupyService(Service):
     def __init__(self, *args, **kwargs):
         super(PupyService, self).__init__(*args, **kwargs)
         self._local_cleanups = []
@@ -82,10 +81,10 @@ class PupyService(rpyc.Service):
         self.namespace = namespace
         self.modules = modules
         self.builtin = self.builtins = builtin
-        self.register_remote_cleanup = rpyc.async(register_cleanup)
-        self.unregister_remote_cleanup = rpyc.async(unregister_cleanup)
+        self.register_remote_cleanup = nowait(register_cleanup)
+        self.unregister_remote_cleanup = nowait(unregister_cleanup)
         self.obtain_call = obtain_call
-        self.exit = rpyc.timed(remote_exit, 1)
+        self.exit = timed(remote_exit, 1)
         self.eval = remote_eval
         self.execute = remote_execute
         self.pupyimporter = pupyimporter

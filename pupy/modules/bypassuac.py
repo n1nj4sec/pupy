@@ -7,7 +7,7 @@ import os
 from modules.lib.windows import powerloader
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from rpyc.utils.classic import upload
+from network.lib.rpc.utils.classic import upload
 
 import shlex
 import random

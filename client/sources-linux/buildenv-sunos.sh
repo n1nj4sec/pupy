@@ -191,7 +191,7 @@ python -m pip install --upgrade six packaging appdirs setuptools
 export CFLAGS_FILTER="-Wno-error=sign-conversion"
 
 python -m pip install \
-       rpyc==3.4.4 pyaml rsa netaddr tinyec pyyaml ecdsa \
+       pyaml rsa netaddr tinyec pyyaml ecdsa \
        paramiko uptime cryptography cffi pylzma pydbus python-ptrace scandir \
        scapy colorama pyOpenSSL python-xlib msgpack-python \
        u-msgpack-python poster dnslib \

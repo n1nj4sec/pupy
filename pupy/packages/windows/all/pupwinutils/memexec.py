@@ -32,12 +32,12 @@
 
 import ctypes
 import threading
-import rpyc
 
 from ctypes.wintypes import DWORD, HANDLE, BOOL, LPVOID, UINT
 from ctypes import byref, create_string_buffer, POINTER, WinError
 
 from pupy import is_supported, mexec
+from network.lib.pupyrpc import nowait
 
 if not is_supported(mexec):
     import pupymemexec
@@ -76,6 +76,7 @@ GetProcessId.argtypes = [HANDLE]
 
 PIPE_READMODE_BYTE = 0x0
 PIPE_NOWAIT = 0x1
+
 
 class MemoryPE(object):
     ''' run a pe from memory. '''
@@ -135,10 +136,10 @@ class MemoryPE(object):
         ''' Execute process '''
 
         if complete_cb:
-            self.complete_cb = rpyc.async(complete_cb)
+            self.complete_cb = nowait(complete_cb)
 
         if write_cb and write_cb is not True:
-            self.write_cb = rpyc.async(write_cb)
+            self.write_cb = nowait(write_cb)
             self.terminate = True
 
         try:

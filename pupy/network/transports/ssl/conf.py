@@ -9,9 +9,9 @@ import ssl
 
 from network.lib import PupyTCPServer, PupySocketStream
 from network.lib import DummyPupyTransport, PupySSLClient
+from network.lib.rpc.utils.server import AuthenticationError
 from network.transports import Transport
 
-from rpyc.utils.authenticators import AuthenticationError
 
 class PupySSLAuthenticator(object):
     def __init__(self, role, keystr, certstr, castr, client_cert_required=True):

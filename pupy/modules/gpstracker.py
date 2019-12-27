@@ -8,7 +8,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from time import sleep
 import os
 import csv
-from rpyc.utils.classic import download
+from network.lib.rpc.utils.classic import download
 from pupylib.utils.common import getLocalAndroidPath
 
 KML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>

@@ -24,7 +24,8 @@ from .PupyConfig import PupyConfig
 from .PupyOutput import Info, Warn
 from .PupyTriggers import ON_JOB_EXIT, event
 
-import rpyc
+from network.lib.rpc import AsyncResultTimeout
+
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/
 def _async_raise(tid, exctype):
@@ -282,13 +283,13 @@ class PupyJob(object):
                 except KeyboardInterrupt:
                     continue
 
-                except (rpyc.AsyncResultTimeout, ReferenceError, EOFError), e:
+                except (AsyncResultTimeout, ReferenceError, EOFError), e:
                     logging.error('connection {} seems blocked ({}), reinitialising...'.format(
                         m.client.short_name(), e))
 
                     try:
                         m.client.conn._conn.close()
-                    except (rpyc.AsyncResultTimeout, ReferenceError, EOFError):
+                    except (AsyncResultTimeout, ReferenceError, EOFError):
                         pass
 
                     break

@@ -23,16 +23,15 @@ except ImportError:
 
 import sys
 import os
-from rpyc.core import SocketStream, Channel
 import socket
 import time
 import errno
 import traceback
 import zlib
 
-from rpyc.lib.compat import select, select_error, get_exc_errno
-
 from network.lib.buffer import Buffer
+from network.lib.rpc.lib.compat import select, select_error, get_exc_errno
+from network.lib.rpc.core import SocketStream, Channel
 
 import threading
 

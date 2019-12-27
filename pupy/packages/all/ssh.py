@@ -61,8 +61,7 @@ from base64 import b64encode
 
 from network.lib.scan import scanthread_parse
 from network.lib.netcreds import add_cred, find_creds
-
-from rpyc import async
+from network.lib.pupyrpc import nowait
 
 Transport._CLIENT_ID = 'OpenSSH'
 
