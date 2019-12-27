@@ -45,7 +45,7 @@ def buffiter(obj, chunk = 10, max_chunk = 1000, factor = 2):
         for elem in items:
             yield elem
 
-def restricted(obj, attrs, wattrs = None):
+def restricted(obj, attrs, wattrs=None):
     """Returns a 'restricted' version of an object, i.e., allowing access only to a subset of its
     attributes. This is useful when returning a "broad" or "dangerous" object, where you don't
     want the other party to have access to all of its attributes.
@@ -71,18 +71,24 @@ def restricted(obj, attrs, wattrs = None):
     """
     if wattrs is None:
         wattrs = attrs
+
     class Restricted(object):
         def _rpyc_getattr(self, name):
             if name not in attrs:
                 raise AttributeError(name)
             return getattr(obj, name)
+
         __getattr__ = _rpyc_getattr
+
         def _rpyc_setattr(self, name, value):
             if name not in wattrs:
                 raise AttributeError(name)
             setattr(obj, name, value)
+
         __setattr__ = _rpyc_setattr
+
     return Restricted()
+
 
 class _Async(object):
     """Creates an async proxy wrapper over an existing proxy. Async proxies

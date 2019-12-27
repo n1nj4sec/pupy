@@ -53,9 +53,11 @@ class Service(object):
 
     def __init__(self, conn):
         self._conn = conn
+
     def on_connect(self):
         """called when the connection is established"""
         pass
+
     def on_disconnect(self):
         """called when the connection had already terminated for cleanup
         (must not perform any IO on the connection)"""
@@ -66,6 +68,7 @@ class Service(object):
 
     def _rpyc_delattr(self, name):
         raise AttributeError("access denied")
+
     def _rpyc_setattr(self, name, value):
         raise AttributeError("access denied")
 
@@ -78,6 +81,7 @@ class Service(object):
         if name.endswith("SERVICE"):
             name = name[:-7]
         return (name,)
+
     @classmethod
     def get_service_name(cls):
         """returns the canonical name of the service (which is its first
