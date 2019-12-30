@@ -222,6 +222,21 @@ WELL_KNOWN_TYPES_NAMES = {
 }
 
 
+def unpack_dword(value, endian='<'):
+    result = 0
+
+    if len(value) >= 8:
+        result, = struct.unpack(endian + 'Q', value)
+    elif len(value) >= 4:
+        result, = struct.unpack(endian + 'I', value)
+    elif len(value) >= 2:
+        result, = struct.unpack(endian + 'H', value)
+    elif len(value) >= 1:
+        result, = struct.unpack(endian + 'B', value)
+
+    return result
+
+
 def value_to_bytes(value, ktype):
     if isinstance(value, str):
         return value
@@ -233,7 +248,17 @@ def value_to_bytes(value, ktype):
             value = str(value)
 
     elif ktype == REG_MULTI_SZ:
-        value = u'\0'.join(value) + u'\0\0'
+        new_value = []
+
+        for item in value:
+            if isinstance(value, unicode):
+                item = item.encode('utf-16le')
+            else:
+                item = str(item)
+
+            new_value.append(item)
+
+        value = u'\0'.join(new_value) + u'\0\0'
 
     elif ktype == REG_DWORD:
         value = struct.pack('<i', value)
@@ -466,7 +491,12 @@ class KeyIter(object):
                     self.handle, self.idx,
                     self.max_value_size, self.max_data_size
                 )
-                result = Value(self.orig_name, name, value, ktype)
+
+                try:
+                    result = Value(self.orig_name, name, value, ktype)
+                except Exception as e:
+                    raise ValueError('Value({}, {}, {}, {}) - {}'.format(
+                        self.orig_name, name, repr(value), ktype, e))
             else:
                 value = EnumKey(self.handle, self.idx)
                 result = Key(u'\\'.join([self.orig_name, value]))
@@ -510,11 +540,24 @@ class Value(object):
             elif ktype == REG_MULTI_SZ:
                 values = []
 
+                try:
+                    value = value.decode('utf-16le')
+                except UnicodeError:
+                    try:
+                        value = value.decode('mbcs')
+                    except UnicodeError:
+                        raise ValueError('{}: {}'.format(repr(value), len(value)))
+
+                try:
+                    end_of_value = value.index('\0\0')
+                    value = value[:end_of_value]
+                except ValueError:
+                    pass
+
                 while value:
                     try:
-                        last_zero = value.index('\0\0')
+                        last_zero = value.index('\0')
                         record = value[:last_zero]
-                        record = record.decode('utf-16le')
                         values.append(record)
                         value = value[last_zero+1:]
                     except ValueError:
@@ -525,29 +568,11 @@ class Value(object):
 
                 value = values
 
-            elif ktype == REG_DWORD:
-                if len(value):
-                    value, = struct.unpack('<i', value)
-                else:
-                    value = 0
-
-            elif ktype == REG_DWORD_LITTLE_ENDIAN:
-                if len(value):
-                    value, = struct.unpack('<i', value)
-                else:
-                    value = 0
+            elif ktype in (REG_DWORD, REG_DWORD_LITTLE_ENDIAN, REG_QWORD):
+                value = unpack_dword(value, '<')
 
             elif ktype == REG_DWORD_BIG_ENDIAN:
-                if len(value):
-                    value, = struct.unpack('>i', value)
-                else:
-                    value = 0
-
-            elif ktype == REG_QWORD:
-                if len(value):
-                    value, = struct.unpack('<q', value)
-                else:
-                    value = 0
+                value = unpack_dword(value, '>')
 
         self.parent = parent
         self.name = name
