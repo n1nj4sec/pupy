@@ -4,10 +4,7 @@ __all__ = ('load_content',)
 
 
 import os
-import sys
 import ctypes
-
-import pupy
 
 from pupy._linux_memfd import (
     memfd_is_supported, memfd_create

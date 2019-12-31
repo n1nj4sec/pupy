@@ -26,10 +26,8 @@ def create_mapped_file(path, data):
     pathmap[path] = filepath
     MAPPED_FDS[path] = fd
 
-    r = fd.write(data)
+    fd.write(data)
     fd.flush()
-
-    print "FLUSHED: ", r, len(data)
 
 
 def close_mapped_file(path):
