@@ -81,7 +81,7 @@ struct py_imports {
        Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
                       PYTHON_API_VERSION)
 
-static inline
+static
 int Py_RefCnt(const PyObject *object) {
     if (!object)
         return -1;
