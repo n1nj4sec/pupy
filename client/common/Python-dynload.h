@@ -81,6 +81,14 @@ struct py_imports {
        Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
                       PYTHON_API_VERSION)
 
+static inline
+int Py_RefCnt(const PyObject *object) {
+    if (!object)
+        return -1;
+
+    return *((int *) object);
+}
+
 extern struct py_imports py_sym_table[];
 
 BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object);
