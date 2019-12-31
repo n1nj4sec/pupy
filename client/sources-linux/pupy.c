@@ -39,10 +39,11 @@ static
 #endif
 const char *__pathmap_callback(const char *path, char *buf, size_t buf_size)
 {
+    PyGILState_STATE gil_state;
     PyObject* result = NULL;
     char *c_result = NULL;
 
-    if (!strncmp(path, "f:", 2) || 
+    if (!strncmp(path, "f:", 2) ||
         !strncmp(path, "pupy:/", 6) ||
         !strncmp(path, "pupy/", 5))
     {
@@ -55,15 +56,24 @@ const char *__pathmap_callback(const char *path, char *buf, size_t buf_size)
         return path;
     }
 
+    dprint("__pathmap_callback(%s) - get (%p (%d))\n",
+        path, py_pathmap, Py_RefCnt(py_pathmap));
+
+    gil_state = PyGILState_Ensure();
+
     result = PyDict_GetItemString(py_pathmap, path);
-    dprint("__pathmap_callback(%s) -> %p\n", path, result);
+
+    dprint("__pathmap_callback(%s) -> %p (%d)\n",
+        path, result, Py_RefCnt(result));
 
     if (!result) {
+        PyGILState_Release(gil_state);
         return path;
     }
 
     if (result == Py_None) {
         dprint("__pathmap_callback: None\n");
+        PyGILState_Release(gil_state);
         return NULL;
     }
 
@@ -71,10 +81,12 @@ const char *__pathmap_callback(const char *path, char *buf, size_t buf_size)
     if (!c_result) {
         dprint("__pathmap_callback: Not a string object\n");
         PyErr_Clear();
+        PyGILState_Release(gil_state);
         return path;
     }
 
     strncpy(buf, c_result, buf_size);
+    PyGILState_Release(gil_state);
     return buf;
 }
 #endif
@@ -400,7 +412,6 @@ init_pupy(void) {
     py_pathmap = PyDict_New();
     Py_INCREF(py_pathmap);
     PyModule_AddObject(pupy, "pathmap", py_pathmap);
-
 #ifndef _LD_HOOKS_NAME
     set_pathmap_callback(__pathmap_callback);
 #endif
