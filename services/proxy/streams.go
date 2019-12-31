@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"strings"
 
 	"time"
 
@@ -107,16 +106,16 @@ func NewNetForwarder(pproxy, remote net.Conn) *NetForwarder {
 }
 
 func (n *NetForwarder) sendRemoteConnectionInfo() error {
-	localAddr := strings.Split(n.remote.LocalAddr().String(), ":")
-	remoteAddr := strings.Split(n.remote.RemoteAddr().String(), ":")
+	localAddr, localPortS, _ := net.SplitHostPort(n.remote.LocalAddr().String())
+	remoteAddr, remotePortS, _ := net.SplitHostPort(n.remote.RemoteAddr().String())
 
-	localPort, _ := strconv.Atoi(localAddr[1])
-	remotePort, _ := strconv.Atoi(remoteAddr[1])
+	localPort, _ := strconv.Atoi(localPortS)
+	remotePort, _ := strconv.Atoi(remotePortS)
 
 	return SendMessage(n.pproxy, ConnectionAcceptHeader{
-		LocalHost:  localAddr[0],
+		LocalHost:  localAddr,
 		LocalPort:  localPort,
-		RemoteHost: remoteAddr[0],
+		RemoteHost: remoteAddr,
 		RemotePort: remotePort,
 	})
 }

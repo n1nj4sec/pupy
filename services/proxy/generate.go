@@ -16,7 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GetOutboundIP() string {
+func GetOutboundIPv4() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		log.Fatal(err)
@@ -28,7 +28,24 @@ func GetOutboundIP() string {
 	return localAddr.IP.String()
 }
 
+func GetOutboundIPv6() string {
+	conn, err := net.Dial("udp", "[2001:4860:4860::8888]:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String()
+}
+
 func CheckExternalBindHostIP() bool {
+	host := ExternalBindHost
+	if string(host[0]) == "[" {
+		host = ExternalBindHost[1 : len(ExternalBindHost)-1]
+	}
+
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return false
@@ -51,7 +68,7 @@ func CheckExternalBindHostIP() bool {
 			}
 			// process IP address
 
-			if ip.String() == ExternalBindHost {
+			if ip.String() == host {
 				return true
 			}
 		}
@@ -69,7 +86,7 @@ func getCN() string {
 		return ExternalBindHost
 
 	default:
-		return GetOutboundIP()
+		return GetOutboundIPv4()
 	}
 }
 

@@ -34,8 +34,10 @@ REQUEST_TCP_LISTENER = 2
 REQUEST_KCP_LISTENER = 3
 REQUEST_TLS_LISTENER = 4
 
+
 class OffloadProxyCommonError(Exception):
     pass
+
 
 class MsgPackMessages(object):
     def __init__(self, conn):
@@ -58,6 +60,7 @@ class MsgPackMessages(object):
         datalen = len(data)
         datalen_b = struct.pack('>I', datalen)
         self._conn.sendall(datalen_b + data)
+
 
 class PupyOffloadDNS(threading.Thread):
     QTYPE = QTYPE.reverse
@@ -135,6 +138,7 @@ class PupyOffloadDNS(threading.Thread):
         if self.handler:
             self.handler.finished.set()
 
+
 class PupyOffloadSocket(object):
     def __init__(self, sock, lhost, lport, rhost, rport):
         self._sock = sock
@@ -151,6 +155,7 @@ class PupyOffloadSocket(object):
         if attr in self.__dict__:
             return getattr(self, attr)
         return getattr(self._sock, attr)
+
 
 class PupyOffloadAcceptor(object):
     def __init__(self, manager, proto, port=None, extra={}, mtu=0):
@@ -239,8 +244,19 @@ class PupyOffloadAcceptor(object):
 class PupyOffloadManager(object):
     def __init__(self, server, ca, key, crt, via):
         if ':' in server:
-            host, port = server.rsplit(':', 1)
+            if server.startswith('['):
+                ipv6_end = server.index(']')
+                host = server[1:ipv6_end]
+                rest = server[ipv6_end:]
+                if ':' in rest:
+                    _, port = rest.rsplit(':', 1)
+                else:
+                    raise OffloadProxyCommonError('Invalid server specification')
+            else:
+                host, port = server.rsplit(':', 1)
+
             self._server = (host, int(port))
+
         elif len(server) == 2:
             self._server = server
         else:

@@ -120,12 +120,25 @@ func (d *Daemon) handle(conn net.Conn) {
 		d.DNSLock.Unlock()
 
 	case INFO:
-		ip := GetOutboundIP()
+		var ip string
+
 		if CheckExternalBindHostIP() {
 			ip = ExternalBindHost
-		}
+			if string(ip[0]) == "[" {
+				ip = ip[1 : len(ip)-1]
+			}
 
-		log.Warning("Request: External IP:", ip)
+			log.Warning("Request: External IP:", ip, " (Manual)")
+		} else {
+			ipv4 := GetOutboundIPv4()
+			ipv6 := GetOutboundIPv6()
+
+			log.Warning(
+				"Request: External IPv4:", ipv4,
+				" IPv6:", ipv6, " (Auto)")
+
+			ip = ipv4
+		}
 
 		SendMessage(conn, &IPInfo{
 			IP: ip,

@@ -309,15 +309,23 @@ class Listener(Thread):
         self.close()
 
     def __str__(self):
+        if self.external:
+            external = self.external
+            if ':' in external:
+                external = '[' + external + ']'
+        else:
+            external = ''
+
         if self.port == 0:
             return '{}: pproxy:{}:{}'.format(
-                self.name, self.external, self.external_port
+                self.name, external, self.external_port
             )
 
         result = str(self.port)
         if self.address:
             result = '{}:{}'.format(
-                self.address if not self.ipv6 else '[{}]'.format(self.address),
+                self.address if not self.ipv6 and ':' not in self.address
+                else '[{}]'.format(self.address),
                 self.port
             )
 
@@ -326,7 +334,7 @@ class Listener(Thread):
                 result = '0.0.0.0:{}'.format(result)
 
             result = 'Remote: {}:{} -> Local: {}'.format(
-                self.external, self.external_port, result
+                external, self.external_port, result
             )
 
         if self.kwargs:
@@ -626,6 +634,9 @@ class PupyServer(object):
                     client_ip, client_port = conn_id.rsplit(':', 1)
                 except:
                     client_ip, client_port = '0.0.0.0', 0
+
+                if ':' in client_ip:
+                    client_ip = '[' + client_ip + ']'
 
                 remote = ' ({}:{})'.format(client_ip, client_port)
 

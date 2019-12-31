@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"net"
 	"path"
 
 	"io/ioutil"
@@ -18,18 +18,18 @@ import (
 )
 
 var (
-	ProxyBindHost         = "0.0.0.0"
-	ExternalBindHost      = "0.0.0.0"
-	ProxyBindPort    uint = 9876
-	DnsBindPort      uint = 5454
-	ProxyHostname         = ""
-	UDPSize          uint = 1400
-	ListenerCA            = path.Join("..", "crypto", "proxy-ca.crt")
-	ListenerCAKey         = path.Join("..", "crypto", "proxy-ca.key")
-	ListenerKey           = path.Join("..", "crypto", "proxy.key")
-	ListenerCert          = path.Join("..", "crypto", "proxy.crt")
-	ClientKey             = path.Join("..", "crypto", "proxy-client.key")
-	ClientCert            = path.Join("..", "crypto", "proxy-client.crt")
+	ProxyBindHost    = "[::]:9876"
+	ExternalBindHost = "::"
+
+	DnsBindPort   uint = 5454
+	ProxyHostname      = ""
+	UDPSize       uint = 1400
+	ListenerCA         = path.Join("..", "crypto", "proxy-ca.crt")
+	ListenerCAKey      = path.Join("..", "crypto", "proxy-ca.key")
+	ListenerKey        = path.Join("..", "crypto", "proxy.key")
+	ListenerCert       = path.Join("..", "crypto", "proxy.crt")
+	ClientKey          = path.Join("..", "crypto", "proxy-client.key")
+	ClientCert         = path.Join("..", "crypto", "proxy-client.crt")
 
 	PortMaps []PortMap
 
@@ -45,7 +45,6 @@ func init() {
 	portmap := ""
 
 	flag.StringVar(&ProxyBindHost, "listen-proxy", ProxyBindHost, "IP address to bind pupysh listener side")
-	flag.UintVar(&ProxyBindPort, "port-proxy", ProxyBindPort, "Port to bind pupysh listener side")
 	flag.StringVar(&ExternalBindHost, "listen", ExternalBindHost, "IP address to bind services listener side")
 	flag.UintVar(&DnsBindPort, "dns-port", DnsBindPort, "Port to bind DNS listeners (if any)")
 	flag.UintVar(&UDPSize, "udp-mtu-size", UDPSize, "MTU Size for DNS and KCP UDP Packets")
@@ -115,21 +114,21 @@ func init() {
 		}
 	}
 
-	if strings.Index(ProxyBindHost, ":") == -1 {
-		if ExternalBindHost == "0.0.0.0" {
-			ExternalBindHost = ProxyBindHost
-		}
+	host, _, err := net.SplitHostPort(ExternalBindHost)
+	if err == nil && host != "" {
+		ExternalBindHost = host
+	}
 
-		ProxyBindHost = fmt.Sprintf("%s:%d", ProxyBindHost, ProxyBindPort)
-	} else {
-		if ExternalBindHost == "0.0.0.0" {
-			ExternalBindHost = strings.SplitN(ProxyBindHost, ":", 1)[0]
-		}
+	if ExternalBindHost == "" {
+		ExternalBindHost = "::"
 	}
 
 	if strings.Index(ExternalBindHost, ":") != -1 {
-		log.Fatalln("External IP address should be specified without port")
+		ExternalBindHost = "[" + ExternalBindHost + "]"
 	}
+
+	log.Warn("Mapper binds to ", ExternalBindHost)
+	log.Warn("Proxy binds to ", ProxyBindHost)
 
 	if generate {
 		log.Warn("Genrating NEW keys")
