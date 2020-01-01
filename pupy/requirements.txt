@@ -10,7 +10,7 @@ psutil
 netifaces
 pylzma
 colorama
-mss
+mss==4.0.3
 pyOpenSSL
 scapy
 https://github.com/CoreSecurity/impacket/archive/master.zip
