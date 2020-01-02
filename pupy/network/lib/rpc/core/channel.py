@@ -2,9 +2,13 @@
 *Channel* is an abstraction layer over streams that works with *packets of data*,
 rather than an endless stream of bytes, and adds support for compression.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from ..lib import safe_import
-from ..lib.compat import Struct, BYTES_LITERAL
+from network.lib.compat import Struct
 
 zlib = safe_import("zlib")
 
@@ -23,7 +27,7 @@ class Channel(object):
     COMPRESSION_THRESHOLD = 3000
     COMPRESSION_LEVEL = 1
     FRAME_HEADER = Struct("!LB")
-    FLUSHER = BYTES_LITERAL("\n") # cause any line-buffered layers below us to flush
+    FLUSHER = b'\n'
 
     __slots__ = ["stream", "compress"]
 

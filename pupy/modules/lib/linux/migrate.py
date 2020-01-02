@@ -1,7 +1,15 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import pupygen
 import time
 import gzip
 import cStringIO
+
+from io import open
+
 
 def has_proc_migrated(client, pid):
     for c in client.pupsrv.clients:
@@ -17,6 +25,7 @@ def has_proc_migrated(client, pid):
             if int(c.desc["pid"])==pid:
                 return c
     return None
+
 
 def get_payload(module, compressed=True, debug=False, from_payload=None):
     dllbuff = None
@@ -44,6 +53,7 @@ def get_payload(module, compressed=True, debug=False, from_payload=None):
 
     return dllgzbuf.getvalue()
 
+
 def wait_connect(module, pid, timeout=10):
     module.success("waiting for a connection from the DLL ...")
     for x in xrange(timeout):
@@ -63,6 +73,7 @@ def wait_connect(module, pid, timeout=10):
 
         time.sleep(1)
 
+
 def ld_preload(module, command, wait_thread=False, keep=False, debug=False, from_payload=None):
     payload = get_payload(module, debug, from_payload=from_payload)
 
@@ -80,6 +91,7 @@ def ld_preload(module, command, wait_thread=False, keep=False, debug=False, from
         wait_connect(module, pid)
 
     module.success("migration completed")
+
 
 def migrate(module, pid, keep=False, timeout=10, debug=False, from_payload=None):
     payload = get_payload(module, debug, from_payload=from_payload)

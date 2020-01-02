@@ -40,6 +40,10 @@
     :copyright: (c) Copyright 2011 by Armin Ronacher.
     :license: BSD, see LICENSE for more details.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import hmac
 import hashlib
 from struct import Struct
@@ -84,14 +88,14 @@ def test():
     def check(data, salt, iterations, keylen, expected):
         rv = pbkdf2_hex(data, salt, iterations, keylen)
         if rv != expected:
-            print 'Test failed:'
-            print '  Expected:   %s' % expected
-            print '  Got:        %s' % rv
-            print '  Parameters:'
-            print '    data=%s' % data
-            print '    salt=%s' % salt
-            print '    iterations=%d' % iterations
-            print
+            print('Test failed:')
+            print('  Expected:   %s' % expected)
+            print('  Got:        %s' % rv)
+            print('  Parameters:')
+            print('    data=%s' % data)
+            print('    salt=%s' % salt)
+            print('    iterations=%d' % iterations)
+            print()
             failed.append(1)
 
     # From RFC 6070

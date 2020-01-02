@@ -1,6 +1,14 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import platform
 import subprocess
 import os
+
+from io import open
+
 # inspired from the checkvm.rb from the metasploit framework
 
 def execute_command(dic, case=False):
@@ -14,6 +22,7 @@ def execute_command(dic, case=False):
     except:
         return ''
 
+
 def read_file(dic, case=False):
     try:
         vm = ''
@@ -23,6 +32,7 @@ def read_file(dic, case=False):
             return vm
     except:
         return ''
+
 
 def check_result(dic, output, case=False):
     if not case:
@@ -35,6 +45,7 @@ def check_result(dic, output, case=False):
                 vms_artifact = vms_artifact.lower()
             if vms_artifact in output:
                 return dic[1][vms_artifacts]
+
 
 def check_sysfs_dmi():
     vm = read_file([
@@ -65,6 +76,7 @@ def check_sysfs_dmi():
 
     return vm
 
+
 def check_sysfs_devices():
     for root, dirs, files in os.walk('/sys/devices'):
         for file in files:
@@ -82,6 +94,7 @@ def check_sysfs_devices():
                     return vm
     return ''
 
+
 # Check DMi Info
 def check_dmi():
     dic = [
@@ -95,6 +108,7 @@ def check_dmi():
             }
         ]
     return execute_command(dic)
+
 
 # Check Modules
 def check_modules():
@@ -120,6 +134,7 @@ def check_modules():
 
     return execute_command(dic)
 
+
 # Check SCSI Driver
 def scsi_driver():
     dic = [
@@ -130,6 +145,7 @@ def scsi_driver():
         }
     ]
     return read_file(dic)
+
 
 # Check IDE Devices
 def check_ide_devices():
@@ -143,6 +159,7 @@ def check_ide_devices():
         }
     ]
     return read_file(dic)
+
 
 # Check using lspci
 def check_lspci():
@@ -163,6 +180,7 @@ def check_lspci():
         ]
     return execute_command(dic)
 
+
 # Check using lscpu
 def check_lscpu():
     dic = [
@@ -174,6 +192,7 @@ def check_lscpu():
         }
     ]
     return execute_command(dic)
+
 
 # Check dmesg Output
 def check_dmesg_output():
@@ -187,6 +206,7 @@ def check_dmesg_output():
         }
     ]
     return execute_command(dic)
+
 
 def checkvm():
     functions = [

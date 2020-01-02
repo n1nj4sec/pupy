@@ -2,6 +2,10 @@
 
 # https://raw.githubusercontent.com/skorokithakis/python-fuse-sample/master/passthrough.py
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser, IgnoreModule
 
 import os
@@ -15,7 +19,7 @@ try:
     import fuse
     from fuse import FuseOSError, Operations
 
-except Exception, e:
+except Exception as e:
     raise IgnoreModule(e)
 
 class PupyFUSE(fuse.FUSE):

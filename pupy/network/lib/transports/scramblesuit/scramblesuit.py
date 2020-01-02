@@ -6,31 +6,41 @@ transport protocol is available here:
 http://www.cs.kau.se/philwint/scramblesuit/
 """
 
-from ... import base
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
 
 import random
 import base64
 import argparse
-
-import probdist
-import mycrypto
-import message
-import const
-import util
-import packetmorpher
-import uniformdh
-import state
-import fifobuf
-import ticket
 import time
 
+from io import open
+
+from ... import base
+
+from . import probdist
+from . import mycrypto
+from . import message
+from . import const
+from . import util
+from . import packetmorpher
+from . import uniformdh
+from . import state
+from . import fifobuf
+from . import ticket
+
 log = logging
+
 
 class ReadPassFile(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         with open(values) as f:
             setattr(namespace, self.dest, f.readline().strip())
+
 
 class ScrambleSuitTransport(base.BaseTransport):
 
@@ -186,7 +196,7 @@ class ScrambleSuitTransport(base.BaseTransport):
 
         # We need key material for two symmetric AES-CTR keys, nonces and
         # HMACs.  In total, this equals 144 bytes of key material.
-        hkdf = mycrypto.HKDF_SHA256(masterKey, "", (32 * 4) + (8 * 2))
+        hkdf = mycrypto.HKDF_SHA256(masterKey, b'', (32 * 4) + (8 * 2))
         okm = hkdf.expand()
         assert len(okm) >= ((32 * 4) + (8 * 2))
 
@@ -240,8 +250,8 @@ class ScrambleSuitTransport(base.BaseTransport):
 
         # Wrap the application's data in ScrambleSuit protocol messages.
         messages = message.createProtocolMessages(data, flags=flags)
-        blurb = "".join([msg.encryptAndHMAC(self.sendCrypter,
-                        self.sendHMAC) for msg in messages])
+        blurb = b''.join((msg.encryptAndHMAC(self.sendCrypter,
+                        self.sendHMAC) for msg in messages))
 
         # Flush data chunk for chunk to obfuscate inter-arrival times.
         if const.USE_IAT_OBFUSCATION:

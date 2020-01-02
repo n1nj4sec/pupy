@@ -6,6 +6,10 @@
 '''This module contains needed classes, functions and constants
 to implement dh-ietf1024-sha256-aes128-cbc-pkcs7 secret encryption
 algorithm.'''
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import hmac
 import os

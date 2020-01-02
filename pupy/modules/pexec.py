@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_STREAM
@@ -113,7 +117,7 @@ class PExec(PupyModule):
                         if encoding['confidence'] > 0.7 and \
                           encoding['encoding'] != 'ascii':
                             self.encoding = encoding['encoding']
-                except Exception, e:
+                except Exception as e:
                     self.errors = e
 
             if self.encoding:
@@ -121,7 +125,7 @@ class PExec(PupyModule):
                     data = data.decode(
                         self.encoding
                     ).encode('utf-8')
-                except UnicodeError, e:
+                except UnicodeError as e:
                     self.errors = e
 
 

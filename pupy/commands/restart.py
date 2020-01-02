@@ -1,12 +1,19 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Success
 
 import os
 
+from io import open
+
 usage  = 'Restart pupysh'
 parser = PupyArgumentParser(prog='restart', description=usage)
+
 
 def do(server, handler, config, args):
     argv0 = os.readlink('/proc/self/exe')

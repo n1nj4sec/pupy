@@ -19,39 +19,44 @@ Example::
     True
 """
 
-from network.lib.rpc.lib.compat import (
-    Struct, BytesIO, is_py3k, BYTES_LITERAL
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from network.lib.compat import (
+    Struct, BytesIO, is_py3k
 )
 
 # singletons
-TAG_NONE = BYTES_LITERAL("\x00")
-TAG_EMPTY_STR = BYTES_LITERAL("\x01")
-TAG_EMPTY_TUPLE = BYTES_LITERAL("\x02")
-TAG_TRUE = BYTES_LITERAL("\x03")
-TAG_FALSE = BYTES_LITERAL("\x04")
-TAG_NOT_IMPLEMENTED = BYTES_LITERAL("\x05")
-TAG_ELLIPSIS = BYTES_LITERAL("\x06")
+TAG_NONE = b'\x00'
+TAG_EMPTY_STR = b'\x01'
+TAG_EMPTY_TUPLE = b'\x02'
+TAG_TRUE = b'\x03'
+TAG_FALSE = b'\x04'
+TAG_NOT_IMPLEMENTED = b'\x05'
+TAG_ELLIPSIS = b'\x06'
 # types
-TAG_UNICODE = BYTES_LITERAL("\x08")
-TAG_LONG = BYTES_LITERAL("\x09")
-TAG_STR1 = BYTES_LITERAL("\x0a")
-TAG_STR2 = BYTES_LITERAL("\x0b")
-TAG_STR3 = BYTES_LITERAL("\x0c")
-TAG_STR4 = BYTES_LITERAL("\x0d")
-TAG_STR_L1 = BYTES_LITERAL("\x0e")
-TAG_STR_L4 = BYTES_LITERAL("\x0f")
-TAG_TUP1 = BYTES_LITERAL("\x10")
-TAG_TUP2 = BYTES_LITERAL("\x11")
-TAG_TUP3 = BYTES_LITERAL("\x12")
-TAG_TUP4 = BYTES_LITERAL("\x13")
-TAG_TUP_L1 = BYTES_LITERAL("\x14")
-TAG_TUP_L4 = BYTES_LITERAL("\x15")
-TAG_INT_L1 = BYTES_LITERAL("\x16")
-TAG_INT_L4 = BYTES_LITERAL("\x17")
-TAG_FLOAT = BYTES_LITERAL("\x18")
-TAG_SLICE = BYTES_LITERAL("\x19")
-TAG_FSET = BYTES_LITERAL("\x1a")
-TAG_COMPLEX = BYTES_LITERAL("\x1b")
+TAG_UNICODE = b'\x08'
+TAG_LONG = b'\x09'
+TAG_STR1 = b'\x0a'
+TAG_STR2 = b'\x0b'
+TAG_STR3 = b'\x0c'
+TAG_STR4 = b'\x0d'
+TAG_STR_L1 = b'\x0e'
+TAG_STR_L4 = b'\x0f'
+TAG_TUP1 = b'\x10'
+TAG_TUP2 = b'\x11'
+TAG_TUP3 = b'\x12'
+TAG_TUP4 = b'\x13'
+TAG_TUP_L1 = b'\x14'
+TAG_TUP_L4 = b'\x15'
+TAG_INT_L1 = b'\x16'
+TAG_INT_L4 = b'\x17'
+TAG_FLOAT = b'\x18'
+TAG_SLICE = b'\x19'
+TAG_FSET = b'\x1a'
+TAG_COMPLEX = b'\x1b'
 
 if is_py3k:
     IMM_INTS = dict((i, bytes([i + 0x50])) for i in range(-0x30, 0xa0))
@@ -111,7 +116,7 @@ def _dump_int(obj, stream):
     if obj in IMM_INTS:
         stream.append(IMM_INTS[obj])
     else:
-        obj = BYTES_LITERAL(str(obj))
+        obj = str(obj).encode('ascii')
         obj_len = len(obj)
         if obj_len < 256:
             stream.append(TAG_INT_L1 + I1.pack(obj_len) + obj)
@@ -150,7 +155,7 @@ if is_py3k:
     @register(_dump_registry, str)
     def _dump_str(obj, stream):
         stream.append(TAG_UNICODE)
-        _dump_bytes(obj.encode("utf8"), stream)
+        _dump_bytes(obj.encode('utf8'), stream)
 
 else:
     @register(_dump_registry, str)
@@ -176,7 +181,7 @@ else:
     @register(_dump_registry, unicode)
     def _dump_unicode(obj, stream):
         stream.append(TAG_UNICODE)
-        _dump_str(obj.encode("utf8"), stream)
+        _dump_str(obj.encode('utf8'), stream)
 
     @register(_dump_registry, long)
     def _dump_long(obj, stream):
@@ -246,15 +251,9 @@ def _load_empty_tuple(stream):
     return ()
 
 
-if is_py3k:
-    @register(_load_registry, TAG_EMPTY_STR)
-    def _load_empty_str(stream):
-        return BYTES_LITERAL("")
-
-else:
-    @register(_load_registry, TAG_EMPTY_STR)
-    def _load_empty_str(stream):
-        return ""
+@register(_load_registry, TAG_EMPTY_STR)
+def _load_empty_str(stream):
+    return b''
 
 
 if is_py3k:
@@ -392,7 +391,7 @@ def dump(obj):
     """
     stream = []
     _dump(obj, stream)
-    return BYTES_LITERAL("").join(stream)
+    return b''.join(stream)
 
 
 def load(data):

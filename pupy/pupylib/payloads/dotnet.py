@@ -2,12 +2,18 @@
 #Author: @n1nj4sec
 #Contributor(s):
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import subprocess
 import tempfile
 import random
 import shlex
 
+from io import open
 from string import ascii_uppercase, ascii_lowercase
 from os.path import join, splitext, isfile
 from base64 import b64encode

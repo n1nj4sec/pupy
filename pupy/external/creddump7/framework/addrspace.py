@@ -32,7 +32,10 @@
 import os
 import struct
 
-class FileAddressSpace:
+from io import open
+
+
+class FileAddressSpace(object):
     def __init__(self, fname, mode='rb', fast=False):
         self.fname = fname
 	self.name = fname
@@ -63,8 +66,9 @@ class FileAddressSpace:
     def is_valid_address(self, addr):
         return addr < self.fsize - 1
 
-    def close():
+    def close(self):
         self.fhandle.close()
+
 
 # Code below written by Brendan Dolan-Gavitt
 
@@ -80,7 +84,7 @@ class HiveFileAddressSpace:
 
     def read(self, vaddr, length, zero=False):
         first_block = BLOCK_SIZE - vaddr % BLOCK_SIZE
-        full_blocks = ((length + (vaddr % BLOCK_SIZE)) / BLOCK_SIZE) - 1
+        full_blocks = ((length + (vaddr % BLOCK_SIZE)) // BLOCK_SIZE) - 1
         left_over = (length + vaddr) % BLOCK_SIZE
         
         paddr = self.vtop(vaddr)

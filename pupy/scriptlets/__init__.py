@@ -3,24 +3,30 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = [
   'ScriptletArgumentError', 'Scriptlet',
   'ScriptletsPacker', 'load_scriptlets'
 ]
 
-from pupylib import getLogger
-from pupylib.payloads  import dependencies
-from pupylib.PupyCompile import Compiler
-
-from collections import OrderedDict
-
+from io import open
+from os import path, listdir
 from ast import (
     parse,
     TryExcept, FunctionDef,
     Num, Name, Str, Expr, Assign, If,
     Load, Param, NodeTransformer
 )
-from os import path, listdir
+
+from pupylib import getLogger
+from pupylib.payloads  import dependencies
+from pupylib.PupyCompile import Compiler
+
+from collections import OrderedDict
 
 ROOT = path.abspath(path.join(path.dirname(__file__), '..', 'packages'))
 
@@ -45,6 +51,7 @@ __{scriptlet}_closure__()
 del __{scriptlet}_closure__
 '''
 
+
 class AstCompiler(Compiler):
     def __init__(self):
         self._source_ast = None
@@ -60,8 +67,10 @@ class AstCompiler(Compiler):
         else:
             self._source_ast.body.extend(ast.body)
 
+
 class ScriptletArgumentError(Exception):
     pass
+
 
 class Scriptlet(object):
 
@@ -286,6 +295,7 @@ class ScriptletsPacker(object):
 
         return compiler.compile('sbundle', raw=True)
 
+
 def parse_scriptlet(filedir, filename):
     filepath = path.join(filedir, filename)
     filecontent = None
@@ -347,6 +357,7 @@ def parse_scriptlet(filedir, filename):
         fileast
     )
 
+
 def iterate_scriptlet_files():
     visited = set()
 
@@ -368,6 +379,7 @@ def iterate_scriptlet_files():
 
             yield filedir, filename
 
+
 def load_scriptlets(target_os, target_arch):
 
     scriptlets = {}
@@ -382,13 +394,13 @@ def load_scriptlets(target_os, target_arch):
 
             scriptlets[scriptlet.name] = scriptlet
 
-        except SyntaxError, e:
+        except SyntaxError as e:
             logger.error('SyntaxError (scriptlet=%s:%d:+%d):\nline: %s\nError: %s',
                          filename, e.lineno, e.offset, e.text.strip(), e.msg)
 
-        except IOError, e:
+        except IOError as e:
             logger.debug(e)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
 
     return scriptlets

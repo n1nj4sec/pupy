@@ -2,8 +2,17 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from pupylib.utils.pe import get_pe_arch, is_dotnet_bin
 from modules.lib.utils.cmdrepl import CmdRepl
+
+from io import open
+
 import threading
 
 

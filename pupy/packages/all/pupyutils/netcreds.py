@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 # #!/usr/bin/env python2
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import platform
 windows = platform.system() == "Windows"
 linux   = platform.system() == "Linux"
@@ -109,13 +113,13 @@ class Netcreds(pupy.Task):
         try:
             import dnet
         except:
-            print '[-] dnet needs to be installed in order to list interfaces'
+            print('[-] dnet needs to be installed in order to list interfaces')
             return
 
         interfaces = dnet.intf()
-        print '[*] Found interfaces :'
+        print('[*] Found interfaces :')
         for interface in interfaces:
-            print "    %s : hw=%s ip=%s" % (interface["name"], interface.get("addr", None), interface.get("link_addr", None))
+            print("    %s : hw=%s ip=%s" % (interface["name"], interface.get("addr", None), interface.get("link_addr", None)))
 
     def iface_finder(self):
         try:

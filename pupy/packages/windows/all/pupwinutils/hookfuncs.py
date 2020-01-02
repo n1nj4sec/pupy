@@ -3,6 +3,10 @@
 # Place to store various bindings, wrappers, etc
 # Reason: to avoid duplication of prototypes
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from ctypes import (
     byref, WinDLL, WinError, sizeof, pointer,
     c_int, c_ulong, c_void_p, c_wchar_p,

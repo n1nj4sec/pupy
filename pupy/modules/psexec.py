@@ -2,6 +2,10 @@
 # Author: byt3bl33d3r and Shawn Evans
 # Version used from the "rewrite" branch of smbexec written by byt3bl33d3r
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_STREAM

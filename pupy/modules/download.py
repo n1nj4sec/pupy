@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer, path_completer
 
@@ -7,8 +11,10 @@ from modules.lib.utils.download import DownloadFronted
 
 from os import path, devnull
 from subprocess import Popen
+from io import open
 
 __class_name__="DownloaderScript"
+
 
 def size_human_readable(num, suffix='B'):
     try:
@@ -20,6 +26,7 @@ def size_human_readable(num, suffix='B'):
         return "%.1f %s%s" % (num, 'Yi', suffix)
     except:
         return '0.00 B'
+
 
 @config(category="manage")
 class DownloaderScript(PupyModule):
@@ -78,7 +85,8 @@ class DownloaderScript(PupyModule):
                 viewer = self.config.get('default_viewers', 'xdg_open') or 'xdg-open'
                 if args.verbose:
                     self.info('Open file {} with {}'.format(self._downloader.dest_file, viewer))
-                with open(devnull, 'w') as DEVNULL:
+
+                with open(devnull, 'wb') as DEVNULL:
                     Popen(
                         [viewer, self._downloader.dest_file],
                         stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL)

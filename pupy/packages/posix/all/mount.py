@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
+from io import open
 
 class MountInfo(object):
     def __init__(self, line):
@@ -29,17 +35,17 @@ class MountInfo(object):
 
             if self.total > 0:
                 if self.free > Tb:
-                    self.hfree = '{}Tb'.format(self.free / Tb)
+                    self.hfree = '{}Tb'.format(self.free // Tb)
                 elif self.free > Gb:
-                    self.hfree = '{}Gb'.format(self.free / Gb)
+                    self.hfree = '{}Gb'.format(self.free // Gb)
                 elif self.free > Mb:
-                    self.hfree = '{}Mb'.format(self.free / Mb)
+                    self.hfree = '{}Mb'.format(self.free // Mb)
                 elif self.free > Kb:
-                    self.hfree = '{}Kb'.format(self.free / Kb)
+                    self.hfree = '{}Kb'.format(self.free // Kb)
                 else:
                     self.hfree = '{}b'.format(self.free)
 
-                self.pused = 100 - int(self.free/float(self.total)*100)
+                self.pused = 100 - int(self.free/self.total*100)
 
         except Exception as e:
             self.exception = e.message

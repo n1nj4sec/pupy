@@ -2,10 +2,14 @@
 **NetRef**: a transparent *network reference*. This module contains quite a lot
 of *magic*, so beware.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import inspect
 import types
-from ..lib.compat import pickle, is_py3k, maxint
+from network.lib.compat import pickle, is_py3k, maxint
 from . import consts
 
 
@@ -48,7 +52,7 @@ if is_py3k:
 else:
     _builtin_types.extend([
         basestring, unicode, long, xrange, type(iter(xrange(10))), file,
-        types.InstanceType, types.ClassType, types.DictProxyType,
+        types.InstanceType, type, types.DictProxyType,
     ])
 
 _normalized_builtin_types = dict(((t.__name__, t.__module__), t)

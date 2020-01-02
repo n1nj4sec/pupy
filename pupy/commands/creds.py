@@ -1,5 +1,8 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import (
     Color, Error, Success, Table,
@@ -19,7 +22,7 @@ parser.add_argument('search', default='', nargs='?', help='Keyword to search')
 def do(server, handler, config, modargs):
     try:
         credentials = Credentials(config=config)
-    except Exception, e:
+    except Exception as e:
         handler.display(Error(e))
         return
 
@@ -55,7 +58,7 @@ def do(server, handler, config, modargs):
                 k:v for k,v in item.iteritems() if k in ('cid', 'login', 'secret', 'resource')
             })
 
-    except Exception, e:
+    except Exception as e:
         handler.display(Error(e))
         return
 
@@ -116,6 +119,6 @@ def do(server, handler, config, modargs):
                 handler.display(MultiPart(parts))
 
             handler.display(NewLine())
-    except Exception, e:
+    except Exception as e:
         handler.display(Error(e))
         return

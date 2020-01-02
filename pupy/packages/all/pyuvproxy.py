@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import pyuv
 import struct
 import os
@@ -232,7 +236,7 @@ class Connection(object):
             logger.debug('Connection(%s) - _virtual_connect(%s) - socket:%s', self, port, self.socket)
             self._on_connected(self.socket, None)
             logger.debug('Connection(%s) - _virtual_connect(%s) - completed', self, port)
-        except Exception, e:
+        except Exception as e:
             logger.exception('Connection(%s) - _virtual_connect(%s) - exception', self, port)
             self._on_connected(None, e)
 
@@ -252,7 +256,7 @@ class Connection(object):
                     self.socket.connect(address, self._on_connected)
                 else:
                     if address[0] == '@':
-                        address = '\x00' + address[1:]
+                        address = b'\x00' + address[1:]
                     fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
                     try:
                         fd.setblocking(0)
@@ -343,7 +347,7 @@ class Acceptor(object):
             try:
                 fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
                 if self.local_address[0] == '@':
-                    self.local_address = '\x00' + self.local_address[1:]
+                    self.local_address = b'\x00' + self.local_address[1:]
                 fd.bind(self.local_address)
                 fd.setblocking(0)
                 self.socket.open(os.dup(fd.fileno()))
@@ -676,7 +680,7 @@ class VirtualSocket(object):
         try:
             self.on_data(data)
             on_complete(self, None)
-        except Exception, e:
+        except Exception as e:
             logger.debug(
                 'VirtualSocket(%s) - write - exception: %s', self, e)
             on_complete(self, -1)
@@ -708,7 +712,7 @@ class VirtualPortsManager(object):
         try:
             create_connection_cb = self.ports[port]
             on_start_read, on_data, on_close = create_connection_cb(peername)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
             raise
 
@@ -762,7 +766,7 @@ class Manager(Thread):
 
             try:
                 method(*args)
-            except Exception, e:
+            except Exception as e:
                 logger.exception(
                     'Defered call exception: %s (ignored)', e)
 

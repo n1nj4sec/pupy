@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import adodbapi
 import sys
 import datetime
@@ -35,7 +39,7 @@ def query(sql, limit):
                 line.append(column)
             data.append(tuple(line))
 
-    except adodbapi.apibase.DatabaseError, e:
+    except adodbapi.apibase.DatabaseError as e:
         # ZOMG
         parts = e.message.split('\n')
         code = eval(parts[0])[1].decode(encoding)

@@ -6,6 +6,10 @@
 """All secretstorage functions may raise various exceptions when
 something goes wrong. All exceptions derive from base
 :exc:`SecretStorageException` class."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 class SecretStorageException(Exception):
     """All exceptions derive from this class."""

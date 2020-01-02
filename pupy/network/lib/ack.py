@@ -13,6 +13,10 @@
 # <function Event at 0x7fc42a3681b8> 14.4261770248
 # <class '__main__.Ack'> 3.26524806023
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ['Ack']
 
 from threading import Lock

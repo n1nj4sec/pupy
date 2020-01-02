@@ -51,6 +51,10 @@ Modifications made by Anorov (https://github.com/Anorov)
 -Added clarification that the HTTP proxy connection method only supports CONNECT-style tunneling HTTP proxies
 -Various small bug fixes
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __all__ = (
     'PROXY_TYPES',

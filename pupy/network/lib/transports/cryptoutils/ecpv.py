@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 __all__ = ('PubKeyCache', 'ECPV')
 
 import struct
@@ -153,25 +158,22 @@ class ECPV(object):
         clone._kex_private_key = None
         return clone
 
-
     def _gen_random(self):
         value = None
         while not value > 1 and value < self._curve.field.n:
             value = from_bytes(get_random(self._curve.bytes))
         return value
 
-
     def _mgf2(self, value, length):
         result = []
         hash = self._hash.new()
-        k = length / self._mgf_size + 1
+        k = length // self._mgf_size + 1
         for i in xrange(1, k + 1):
             hash.update(value + struct.pack('>I', i))
             result.append(hash.digest())
             hash = self._hash.new()
 
-        return ''.join(result)[:length]
-
+        return b''.join(result)[:length]
 
     def generate_key(self):
         self._private_key = self._gen_random()
@@ -183,14 +185,13 @@ class ECPV(object):
             base64.b64encode(ec2osp(self._public_key))
         )
 
-
     def pack(self, message, nonce=None):
         if not self._private_key:
             raise ValueError('No private key')
         t = 0
         k = 0
         s = 0
-        r = ''
+        r = b''
         while not (t and s):
             k = self._gen_random()
             R = self._curve.g * k
@@ -215,7 +216,6 @@ class ECPV(object):
 
         return bytes + r
 
-
     def unpack(self, message, nonce=None):
         if not self._public_key:
             raise ValueError('No public key')
@@ -236,12 +236,10 @@ class ECPV(object):
 
         return self.decrypt(r, nonce, key=key)
 
-
     def generate_kex_request(self):
         self._kex_private_key = self._gen_random()
         self._kex_public_key = self._curve.g * self._kex_private_key
         return ec2osp(self._kex_public_key)
-
 
     def process_kex_request(self, request, nonce=None, encrypt=False, key_size=AES_BLOCK_SIZE):
         if request == self._cached_kex_request and self._kex_shared_key:
@@ -254,7 +252,6 @@ class ECPV(object):
         self._cached_kex_response = \
           self.pack(response, nonce) if encrypt else response
         return self._cached_kex_response, self._kex_shared_key
-
 
     def process_kex_response(self, response, nonce=None, decrypt=False, key_size=AES_BLOCK_SIZE):
         if decrypt:
@@ -323,7 +320,6 @@ class ECPV(object):
 
         return encrypted
 
-
     def decrypt(self, message, nonce, key=None):
         if not key:
             if self._kex_shared_key:
@@ -352,12 +348,10 @@ class ECPV(object):
 
         return decrypted
 
-
     def encode(self, message, nonce, symmetric = False):
         if symmetric:
             return self.encrypt(message, nonce)
         return self.pack(message, nonce)
-
 
     def decode(self, message, nonce, symmetric = False):
         if symmetric:
@@ -372,39 +366,39 @@ if __name__ == '__main__':
         x._curve.g * (1 << 47)
 
         priv, pub = x.generate_key()
-        print "PRIV:", priv
-        print "PUB:", pub
+        print("PRIV:", priv)
+        print("PUB:", pub)
         msg = 'Hello, world'
         msg2 = x.decode(x.encode(msg, 0), 0)
         if not msg == msg2:
-            print "VRFY1 FAIL: ", msg2
+            print("VRFY1 FAIL: ", msg2)
             break
 
         signer = ECPV(private_key=priv, curve='brainpoolP384r1')
         verifier = ECPV(public_key=pub, curve='brainpoolP384r1')
 
         if not signer._public_key_digest == verifier._public_key_digest:
-            print "PSK FAIL"
+            print("PSK FAIL")
             break
 
         if not verifier.decrypt(signer.encrypt(msg, 0), 0) == msg:
-            print "DEC FAIL"
+            print("DEC FAIL")
             break
 
         msg3 = verifier.decode(signer.encode(msg, 0), 0)
         if not msg == msg3:
-            print "VRFY2 FAIL: ", msg3
+            print("VRFY2 FAIL: ", msg3)
             break
 
         msg41 = msg + '1234'
         msg4 = verifier.unpack(signer.pack(msg41))
         if not msg41 == msg4:
-            print "VRFY3 FAIL: ", msg4
+            print("VRFY3 FAIL: ", msg4)
             break
 
         req = verifier.generate_kex_request()
         resp, key = signer.process_kex_request(req, 0)
         key2 = verifier.process_kex_response(resp, 0)
         if not list(key) == list(reversed(key2)):
-            print "KEX FAILED", key, key2
+            print("KEX FAILED", key, key2)
             break

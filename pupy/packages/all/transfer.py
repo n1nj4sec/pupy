@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
+from io import open
+from os import path, stat
 from threading import Thread, Event
 from Queue import Queue
-from os import path, stat
 
 import sys
 
@@ -128,11 +134,11 @@ class Transfer(object):
         if self.single_device:
             try:
                 topstat = stat(top)
-            except OSError, e:
+            except OSError as e:
                 logger.debug('_walk_scandir:topstat: %s', e)
                 return
 
-            except Exception, e:
+            except Exception as e:
                 logger.exception('_walk_scandir:topstat: %s', e)
                 raise
 
@@ -143,11 +149,11 @@ class Transfer(object):
 
         try:
             scandir_it = scandir(top)
-        except OSError, e:
+        except OSError as e:
             logger.debug('_walk_scandir:scandir: %s', e)
             return
 
-        except Exception, e:
+        except Exception as e:
             logger.exception('_walk_scandir:scandir: %s', e)
             raise
 
@@ -156,7 +162,7 @@ class Transfer(object):
                 try:
                     entry = next(scandir_it)
 
-                except UnicodeDecodeError, e:
+                except UnicodeDecodeError as e:
                     ## ???
                     logger.debug('_walk_scandir:next(scandir_it): %s', e)
                     continue
@@ -164,7 +170,7 @@ class Transfer(object):
                 except StopIteration:
                     break
 
-            except OSError, e:
+            except OSError as e:
                 logger.debug('_walk_scandir:next(scandir_it): %s', e)
                 return
 
@@ -192,21 +198,21 @@ class Transfer(object):
 
                     if not is_symlink and sys.platform == 'win32' and entry.is_dir(follow_symlinks=False):
                         is_symlink = islink(entry.path)
-                except OSError, e:
+                except OSError as e:
                     logger.debug('_walk_scandir:follow_symlinks: %s', e)
                     pass
 
             if not is_symlink:
                 try:
                     is_dir = entry.is_dir(follow_symlinks=self.follow_symlinks)
-                except OSError, e:
+                except OSError as e:
                     logger.debug('_walk_scandir:is_dir: %s', e)
                     pass
 
             if not is_dir and not is_symlink:
                 try:
                     is_file = entry.is_file(follow_symlinks=self.follow_symlinks)
-                except OSError, e:
+                except OSError as e:
                     logger.debug('_walk_scandir:is_file: %s', e)
                     pass
 
@@ -240,7 +246,7 @@ class Transfer(object):
                     if not hardlinked:
                         files.append(entry)
 
-                except OSError, e:
+                except OSError as e:
                     logger.debug('_walk_scandir:hardlinked: %s', e)
             else:
                 special.append(entry)
@@ -341,7 +347,7 @@ class Transfer(object):
                         callback(data, None)
                         del data
 
-            except Exception, e:
+            except Exception as e:
                 try:
                     callback(None, e)
                 except EOFError:
@@ -497,14 +503,14 @@ class Transfer(object):
                 for portion in self._pack_fileobj(infile):
                     yield portion
 
-        except (OSError, IOError), e:
+        except (OSError, IOError) as e:
             yield {
                 F_TYPE: T_C_EXC,
                 F_EXC: e.args[1],
                 F_DATA: e.filename,
             }
 
-        except Exception, e:
+        except Exception as e:
             yield {
                 F_TYPE: T_C_EXC,
                 F_EXC: str(type(e)),
@@ -687,7 +693,7 @@ class Transfer(object):
                 F_DATA: filepath
             }
 
-        except Exception, e:
+        except Exception as e:
             yield {
                 F_TYPE: T_EXC,
                 F_EXC: str(type(e)),
@@ -772,11 +778,11 @@ if __name__ == '__main__':
     def blob_printer(data, exception):
         if exception:
             import traceback
-            print "EXCEPTION!"
+            print("EXCEPTION!")
             traceback.print_exc(exception)
         elif data:
             data = StringIO(data)
-            print '========================================================='
+            print('=========================================================')
 
             while True:
                 try:
@@ -785,25 +791,25 @@ if __name__ == '__main__':
                     break
 
                 if msg['type'].endswith('content'):
-                    print "chunk size", len(msg['data'])
+                    print("chunk size", len(msg['data']))
                 elif msg['type'] == 'dirview':
                     line = msg['data']['root'] + ':'
                     for k,v in msg['data'].iteritems():
                         if k == 'root':
                             continue
                         line += ' {}:{}'.format(k, len(v))
-                    print line
+                    print(line)
 
                 else:
-                    print "DATA:", msg
+                    print("DATA:", msg)
 
-            print '========================================================='
+            print('=========================================================')
 
     t = Transfer()
-    print "START"
+    print("START")
     t.size('/etc', callback=blob_printer, nonblock=False)
     t.transfer('/etc', callback=blob_printer, nonblock=False)
-    print "WAIT"
+    print("WAIT")
     t.stop(None)
     t.join()
-    print "END"
+    print("END")

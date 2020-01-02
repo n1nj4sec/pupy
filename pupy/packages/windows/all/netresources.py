@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from ctypes import (
     WinDLL, Structure, POINTER, create_string_buffer,
     cast, c_void_p, WinError, byref

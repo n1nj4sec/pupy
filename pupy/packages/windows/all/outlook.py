@@ -2,6 +2,10 @@
 #Author: @bobsecq
 #Contributor(s):
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import logging
 import time
@@ -74,7 +78,7 @@ class outlook():
         info = OrderedDict()
         try:
             info['CurrentProfileName']=self.mapi.CurrentProfileName
-        except Exception,e:
+        except Exception as e:
             logging.debug("Impossible to get CurrentProfileName configuration: {0}".format(e))
             info['CurrentProfileName']=""
 
@@ -82,50 +86,50 @@ class outlook():
             # info['CurrentUserAddress']=repr(self.mapi.CurrentUser)
         try:
             info['SessionType']=self.outlook.Session.Type
-        except Exception,e:
+        except Exception as e:
             logging.debug("Impossible to get SessionType configuration: {0}".format(e))
             info['SessionType']=""
         for i, anAccount in enumerate(self.outlook.Session.Accounts):
             try:
                 info['Account{0}-DisplayName'.format(i)]=anAccount.DisplayName
-            except Exception,e:
+            except Exception as e:
                 logging.debug("Impossible to get DisplayName configuration: {0}".format(e))
                 info['Account{0}-DisplayName'.format(i)]=""
             try:
                 info['Account{0}-SmtpAddress'.format(i)]=anAccount.SmtpAddress
-            except Exception,e:
+            except Exception as e:
                 logging.debug("Impossible to get SmtpAddress configuration: {0}".format(e))
                 info['Account{0}-SmtpAddress'.format(i)]=""
             try:
                 info['Account{0}-AutoDiscoverXml'.format(i)]=anAccount.AutoDiscoverXml
-            except Exception,e:
+            except Exception as e:
                 logging.debug("Impossible to get AutoDiscoverXml configuration: {0}".format(e))
                 info['Account{0}-AutoDiscoverXml'.format(i)]=""
             try:
                 info['Account{0}-AccountType'.format(i)]=self.OL_ACCOUNT_TYPES[anAccount.AccountType]
-            except Exception,e:
+            except Exception as e:
                 logging.debug("Impossible to get AccountType configuration: {0}".format(e))
                 info['Account{0}-AccountType'.format(i)]=""
             #info['Account{0}-UserName'.format(i)]=anAccount.UserName #Needs to be authenticiated to remote mail server. Otherwise, infinite timeout
         try:
             info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
-        except Exception,e:
+        except Exception as e:
             logging.debug("Impossible to get ExchangeMailboxServerName configuration: {0}".format(e))
             info['ExchangeMailboxServerName'.format(i)]=""
         try:
             info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
-        except Exception,e:
+        except Exception as e:
             logging.debug("Impossible to get ExchangeMailboxServerVersion configuration: {0}".format(e))
             info['ExchangeMailboxServerVersion'.format(i)]=""
         try:
             info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
-        except Exception,e:
+        except Exception as e:
             logging.debug("Impossible to get Offline configuration: {0}".format(e))
             info['Offline'.format(i)]=""
         try:
             info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
             self.mapi.SendAndReceive(True)
-        except Exception,e:
+        except Exception as e:
             logging.debug("Impossible to get ExchangeConnectionMode configuration: {0}".format(e))
             info['ExchangeConnectionMode']=None
         return info
@@ -192,7 +196,7 @@ class outlook():
         try:
             subjectCleaned = ''.join(l for l in mailItem.Subject.encode('ascii','ignore') if l.isalnum())
             receivedTime = str(mailItem.ReceivedTime).replace('/','').replace('\\','').replace(':','-').replace(' ','_')
-        except Exception,e:
+        except Exception as e:
             logging.warning("Impossible to encode email subject or receivedTime:{0}".format(repr(e)))
         filename = "{0}_{1}_{2}.{3}".format(receivedTime, ctime, subjectCleaned[:100], 'msg')
         path = os.path.join(self.remoteTempFolder,filename)

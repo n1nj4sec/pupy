@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import traceback
 
 from pupylib import getLogger
@@ -266,7 +270,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
                     else:
                         self.error(
                             'Removal failed: port {} not found'.format(idx))
-            except Exception, e:
+            except Exception as e:
                 self.error('Removal failed: {}'.format(e))
 
             return
@@ -304,7 +308,7 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
                         return self.client.pupsrv.create_virtual_connection(
                             virt_transport, '{}@{}'.format(
                                 peername, self.client.node()))
-                    except Exception, e:
+                    except Exception as e:
                         logger.exception(e)
                         raise
 
@@ -330,5 +334,5 @@ Local port forwarding. Listen locally on 1234 and connection establishes by the 
 
             self.success('Forwarding added')
 
-        except Exception, e:
+        except Exception as e:
             self.error('Forwarding failed: {}:{}'.format(type(e), e))

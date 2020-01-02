@@ -1,9 +1,13 @@
 # -*- encoding: utf-8 -*-
 
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Success, Color, Table
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
+
+from pupylib.PupyModule import PupyArgumentParser
+from pupylib.PupyOutput import Success, Color, Table
 
 levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR']
 levels += [

@@ -30,6 +30,10 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import ctypes
 import threading
 
@@ -147,7 +151,7 @@ class MemoryPE(object):
                 self.cmdline, self.raw_pe, write_cb is not None,
                 self.hidden, self.dupHandle
             )
-        except Exception, e:
+        except Exception as e:
             self.write_cb('[!] memexec failed: {}\n'.format(e))
             return False
 
@@ -195,7 +199,7 @@ class MemoryPE(object):
                     else:
                         self.stdout += buffer.value
 
-        except Exception, e:
+        except Exception as e:
             if self.write_cb:
                 try:
                     self.write_cb('[+] Exception: {}'.format(e))

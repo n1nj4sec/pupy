@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser, REQUIRE_STREAM
 from pupylib.PupyCompleter import path_completer
 from pupylib.PupyOutput import Table, Color
 
+from io import open
 from os import path, makedirs, unlink, walk, stat
 from stat import S_ISDIR
 from errno import EEXIST
@@ -12,6 +18,7 @@ from threading import Event
 from argparse import REMAINDER
 
 __class_name__="SSH"
+
 
 @config(cat='admin')
 class SSH(PupyModule):
@@ -257,7 +264,7 @@ class SSH(PupyModule):
 
             try:
                 makedirs(folder_path)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != EEXIST:
                     raise
 
@@ -272,7 +279,7 @@ class SSH(PupyModule):
             if path.isfile(file_path):
                 unlink(file_path)
 
-            current_file_obj[0] = open(file_path, 'w')
+            current_file_obj[0] = open(file_path, 'wb')
 
         def close_file_obj(ok):
             current_file_obj[0].close()
@@ -316,7 +323,7 @@ class SSH(PupyModule):
 
         self.closer = upload_file(
             input_obj.read, args.dst_path,
-            args.chmod or (input_stat.st_mode & 0777),
+            args.chmod or (input_stat.st_mode & 0o777),
             args.relative_timestamp, args.chown, args.execute, args.unlink,
             args.host, args.port, args.user, (
                 tuple(args.password), tuple(args.key_password)), self.pkeys,
@@ -344,7 +351,7 @@ class SSH(PupyModule):
 
             return
 
-        for root, dirs, files in walk(fpath):
+        for root, _, files in walk(fpath):
             for sfile in files:
                 try:
                     sfile_path = path.join(root, sfile)

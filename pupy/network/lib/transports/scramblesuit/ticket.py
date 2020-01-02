@@ -16,9 +16,13 @@ The 64-byte encrypted state contains:
  | 4-byte issue date | 18-byte identifier | 32-byte master key | 10-byte pad |
  +-------------------+--------------------+--------------------+-------------+
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import time
-import const
+from . import const
 import struct
 import random
 import datetime
@@ -28,11 +32,11 @@ from ..cryptoutils import (
     get_random
 )
 
-from mycrypto import HMAC_SHA256_128
+from .mycrypto import HMAC_SHA256_128
 
 import logging
 
-import util
+from . import util
 
 
 def createTicketMessage(rawTicket, HMACKey):
@@ -181,7 +185,7 @@ class ProtocolState(object):
         self.masterKey = masterKey
         self.issueDate = issueDate
         # Pad to multiple of 16 bytes to match AES' block size.
-        self.pad = "\0\0\0\0\0\0\0\0\0\0"
+        self.pad = b'\0\0\0\0\0\0\0\0\0\0'
 
     def isValid(self):
         """

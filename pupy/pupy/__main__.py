@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import argparse
 import sys
 import os
@@ -30,7 +34,7 @@ main(config={
 if __debug__:
     import threading
     for thread in threading.enumerate():
-        print "> ALIVE:", thread, thread.daemon
+        print("> ALIVE:", thread, thread.daemon)
 else:
     import platform
 

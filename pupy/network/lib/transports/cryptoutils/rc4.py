@@ -21,6 +21,10 @@
     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
 
 def KSA(key):
@@ -85,5 +89,5 @@ if __name__ == '__main__':
 
     import sys
     for c in plaintext:
-        sys.stdout.write("%02X" % (ord(c) ^ keystream.next()))
-    print
+        sys.stdout.write("%02X" % (ord(c) ^ next(keystream)))
+    print()

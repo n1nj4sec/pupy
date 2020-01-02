@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from _winreg import (
     HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE, REG_DWORD,
     ConnectRegistry, OpenKey, SetValueEx, CloseKey, QueryValueEx
@@ -10,7 +14,7 @@ def modifyKey(keyPath, regPath, value, root=HKEY_LOCAL_MACHINE):
         aKey = OpenKey(aReg, keyPath, 0, KEY_WRITE)
         SetValueEx(aKey, regPath, 0, REG_DWORD, value)
         CloseKey(aKey)
-    except Exception, e:
+    except Exception as e:
         return False, e
 
     return True, ''

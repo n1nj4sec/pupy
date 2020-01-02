@@ -3,6 +3,11 @@
 # Using the same buffer object as in obfsproxy to enhance compatibility
 # some modifications brings to have waiting capabilities
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = (
     'Buffer',
     'DEFAULT_FORCED_FLUSH_BUFFER_SIZE',
@@ -12,9 +17,15 @@ __all__ = (
 import zlib
 
 from threading import Lock, Event
+from traceback import format_stack
+
+from . import getLogger
+
+logger = getLogger('buffer')
 
 DEFAULT_FORCED_FLUSH_BUFFER_SIZE = 32768
 DEFAULT_MAX_STR_SIZE = 4096
+
 
 class Buffer(object):
     """
@@ -29,6 +40,14 @@ class Buffer(object):
     )
 
     ALLOW_BUFFER_AS_DATA = True
+
+    @staticmethod
+    def _check_suppored_data_type(data):
+        if not isinstance(data, (memoryview, bytearray, bytes, Buffer)):
+            logger.error('Buffer: unsupported data type ({}) at {}'.format(
+                type(data), format_stack()))
+
+            raise TypeError('Buffer: unsupported data type ({})'.format(type(data)))
 
     def __init__(self, data='', on_write=None, transport_func=None, truncate=False,
                  chunk_size=None, compressed=False, shared=False):
@@ -56,6 +75,9 @@ class Buffer(object):
                 data = self.compressor.compress(data)
 
         if data:
+            if __debug__:
+                Buffer._check_suppored_data_type(data)
+
             self._data.append(data)
             self._len += len(data)
 
@@ -204,6 +226,9 @@ class Buffer(object):
         if self.compressor:
             raise ValueError('Insert is not supported for compressed buffers')
 
+        if __debug__:
+            Buffer._check_suppored_data_type(data)
+
         ldata = len(data)
         if self._bofft:
             if type(self._data[0]) in (bytearray, memoryview) and ldata <= self._bofft:
@@ -260,12 +285,18 @@ class Buffer(object):
             self._len = newlen
 
     def __iadd__(self, data):
+        if __debug__:
+            Buffer._check_suppored_data_type(data)
+
         self.append(data)
         return self
 
     def append(self, data):
         if not data:
             return
+
+        if __debug__:
+            Buffer._check_suppored_data_type(data)
 
         if isinstance(data, Buffer):
             if self.compressor:
@@ -299,6 +330,10 @@ class Buffer(object):
         """
         Append 'data' to the buffer.
         """
+
+        if __debug__:
+            Buffer._check_suppored_data_type(data)
+
 
         self.append(data)
         if notify:

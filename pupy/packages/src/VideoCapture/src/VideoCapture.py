@@ -3,6 +3,10 @@
 by Markus Gritsch <gritsch@iue.tuwien.ac.at>
 
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
 import vidcap
 from PIL import Image, ImageFont, ImageDraw
@@ -59,9 +63,9 @@ class Device:
         displayCapturePinProperties() instead.
 
         """
-        print 'WARNING: displayPropertyPage() is deprecated.'
-        print '         Use displayCaptureFilterProperties() and displayCapturePinProperties()'
-        print '         instead!'
+        print('WARNING: displayPropertyPage() is deprecated.')
+        print('         Use displayCaptureFilterProperties() and displayCapturePinProperties()')
+        print('         instead!')
         self.dev.displaypropertypage()
 
     def displayCaptureFilterProperties(self):
@@ -215,4 +219,4 @@ if __name__ == '__main__':
     #~ #cam.setResolution(768, 576) ## PAL
     #~ #cam.setResolution(352, 288) ## CIF
     #~ cam.saveSnapshot('test.jpg', quality=75, timestamp=3, boldfont=1)
-    print "Friendly name: ", cam.getDisplayName()
+    print("Friendly name: ", cam.getDisplayName())

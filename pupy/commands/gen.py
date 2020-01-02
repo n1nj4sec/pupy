@@ -1,5 +1,8 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os
 
 from pupylib.PupyModule import PupyArgumentParser
@@ -161,7 +164,7 @@ def do(server, handler, config, args):
     except pupygen.NoOutput:
         return
 
-    except Exception, e:
+    except Exception as e:
         handler.display(Error(e, 'payload generation failed'))
         import traceback
         traceback.print_exc()

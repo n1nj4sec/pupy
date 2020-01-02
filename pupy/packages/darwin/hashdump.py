@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 # Inspired from https://github.com/EmpireProject/EmPyre/blob/master/lib/modules/collection/osx/hashdump.py
 import os
 import base64
@@ -18,7 +22,7 @@ def getUserHash(userName):
             saltHex = saltRaw.encode("hex")
             return (userName, "$ml$%s$%s$%s" %(iterations, saltHex, entropyHex))
     except Exception as e:
-        print "getUserHash() exception: %s" %(e)
+        print("getUserHash() exception: %s" %(e))
         pass
 
 def hashdump():

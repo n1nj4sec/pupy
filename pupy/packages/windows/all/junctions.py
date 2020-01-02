@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 # https://eklausmeier.wordpress.com/2015/10/27/working-with-windows-junctions-in-python/
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from ctypes import (
     WinDLL, POINTER, c_ubyte, Structure, addressof,
     Union, WinError, c_buffer, byref

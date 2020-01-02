@@ -17,6 +17,10 @@
 
 #RFC @https://www.ietf.org/rfc/rfc1928.txt
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     QA_UNSTABLE
@@ -32,16 +36,17 @@ import time
 
 __class_name__="Socks5Proxy"
 
-CODE_SUCCEEDED='\x00'
-CODE_GENERAL_SRV_FAILURE='\x01'
-CODE_CONN_NOT_ALLOWED='\x02'
-CODE_NET_NOT_REACHABLE='\x03'
-CODE_HOST_UNREACHABLE='\x04'
-CODE_CONN_REFUSED='\x05'
-CODE_TTL_EXPIRED='\x06'
-CODE_COMMAND_NOT_SUPPORTED='\x07'
-CODE_ADDRESS_TYPE_NOT_SUPPORTED='\x08'
-CODE_UNASSIGNED='\x09'
+CODE_SUCCEEDED=b'\x00'
+CODE_GENERAL_SRV_FAILURE=b'\x01'
+CODE_CONN_NOT_ALLOWED=b'\x02'
+CODE_NET_NOT_REACHABLE=b'\x03'
+CODE_HOST_UNREACHABLE=b'\x04'
+CODE_CONN_REFUSED=b'\x05'
+CODE_TTL_EXPIRED=b'\x06'
+CODE_COMMAND_NOT_SUPPORTED=b'\x07'
+CODE_ADDRESS_TYPE_NOT_SUPPORTED=b'\x08'
+CODE_UNASSIGNED=b'\x09'
+
 
 class SocketPiper(threading.Thread):
     def __init__(self, read_sock, write_sock):
@@ -87,11 +92,12 @@ class SocketPiper(threading.Thread):
                 pass
         logging.debug("piper finished")
 
+
 class Socks5RequestHandler(SocketServer.BaseRequestHandler):
     def _socks_response(self, code, terminate=False):
         ip="".join([chr(int(i)) for i in self.server.server_address[0].split(".")])
         port=struct.pack("!H",self.server.server_address[1])
-        self.request.sendall("\x05"+code+"\x00"+"\x01"+ip+port)
+        self.request.sendall(b"\x05"+code+b"\x00"+b"\x01"+ip+port)
         if terminate:
             try:
                 self.request.shutdown(socket.SHUT_RDWR)
@@ -120,15 +126,15 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
         """
 
         #for now only no authentication is supported :
-        self.request.sendall("\x05\x00")
+        self.request.sendall(b"\x05\x00")
         VER=self.request.recv(1)
-        if VER!="\x05":
+        if VER!=b"\x05":
             self.server.module.error("receiving unsuported socks version: %s"%VER.encode('hex'))
             self._socks_response(CODE_GENERAL_SRV_FAILURE, terminate=True)
             return
 
         CMD=self.request.recv(1)
-        if CMD!="\x01": # we only support CONNECT for now
+        if CMD!=b"\x01": # we only support CONNECT for now
             self.server.module.error("receiving unsuported socks CMD: %s"%CMD.encode('hex'))
             self._socks_response(CODE_COMMAND_NOT_SUPPORTED, terminate=True)
             return
@@ -138,10 +144,10 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
         DST_ADDR=None
         DST_PORT=None
         ATYP=self.request.recv(1)
-        if ATYP=="\x01":
+        if ATYP==b"\x01":
             DST_ADDR=".".join([str(ord(x)) for x in self.request.recv(4)])
             DST_PORT=struct.unpack("!H",self.request.recv(2))[0]
-        elif ATYP=="\x03":
+        elif ATYP==b"\x03":
             DOMAIN_LEN=int(struct.unpack("!B",self.request.recv(1))[0])
             DST_ADDR=self.request.recv(DOMAIN_LEN)
             DST_PORT=struct.unpack("!H",self.request.recv(2))[0]

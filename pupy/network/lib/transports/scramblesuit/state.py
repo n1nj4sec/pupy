@@ -10,24 +10,32 @@ generate such state information.
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import time
 import cPickle
 import random
-
-import const
-import replay
-import probdist
 import base64
 
 import logging
 import StringIO
+
+from io import open
+
+from . import const
+from . import replay
+from . import probdist
 
 from ..cryptoutils import get_random
 
 log = logging
 
 memoryStateFile=StringIO.StringIO()
+
 
 def load():
     global memoryStateFile
@@ -51,6 +59,7 @@ def load():
     #stateObject = cPickle.load(memoryStateFile)
 
     #return stateObject
+
 
 def writeServerPassword(password):
     """
@@ -76,6 +85,7 @@ def writeServerPassword(password):
     except IOError as err:
         log.error("Error writing password file to `%s': %s" %
                   (passwordFile, err))
+
 
 class State(object):
 

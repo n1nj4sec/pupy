@@ -30,12 +30,17 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyConfig import PupyConfig
 
 import os
 import subprocess
 
+from io import open
 
 __class_name__="Screenshoter"
 
@@ -80,7 +85,7 @@ class Screenshoter(PupyModule):
 
             try:
                 screenshots, error = screenshot(args.screen)
-            except Exception, e:
+            except Exception as e:
                 self.error('Impossible to take a screenshot ("{0}"). Abording...'.format(e))
                 return -1
             if not screenshots:
@@ -91,7 +96,7 @@ class Screenshoter(PupyModule):
 
                 for i, screenshot in enumerate(screenshots):
                     filepath = filepath_base + '-{}.png'.format(i)
-                    with open(filepath, 'w') as out:
+                    with open(filepath, 'wb') as out:
                         out.write(screenshot)
                         self.success(filepath)
 
@@ -101,7 +106,7 @@ class Screenshoter(PupyModule):
                         found = False
                         for p in os.environ.get('PATH', '').split(':'):
                             if os.path.exists(os.path.join(p, viewer)):
-                                with open(os.devnull, 'w') as DEVNULL:
+                                with open(os.devnull, 'wb') as DEVNULL:
                                     subprocess.Popen(
                                         [viewer, filepath],
                                         stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL)

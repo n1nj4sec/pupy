@@ -1,5 +1,12 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import os
 import string
+
+from io import open
 
 oldWin = '''span {
     font-family: Verdana;
@@ -31,7 +38,7 @@ new = '''span {
 
 def fixhtmlfile(file):
     if os.path.isfile(file) and file[-5:] == '.html':
-        print file
+        print(file)
         fp = open(file, 'rt')
         cont = fp.read()
         fp.close()

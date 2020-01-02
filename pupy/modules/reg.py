@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 __class_name__ = 'reg'
 
 from threading import Event
@@ -192,7 +196,7 @@ class reg(PupyModule):
 
             args.func(self, args)
 
-        except Exception, e:
+        except Exception as e:
             import traceback
             traceback.print_exc()
 
@@ -299,8 +303,8 @@ class reg(PupyModule):
                 self.success('OK')
             else:
                 self.error('No such key')
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             raise
 
     def rm(self, args):

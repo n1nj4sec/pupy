@@ -2,6 +2,10 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ('PupyTCPServer', 'PupyUDPServer')
 
 import logging
@@ -12,7 +16,7 @@ from Queue import Queue, Empty
 from threading import Thread
 from netaddr import IPAddress, AddrFormatError
 
-from streams.PupySocketStream import PupyChannel
+from .streams.PupySocketStream import PupyChannel
 from network.lib.connection import PupyConnection, PupyConnectionThread
 from network.lib.rpc.utils.server import ThreadedServer, AuthenticationError
 
@@ -434,7 +438,7 @@ class PupyUDPServer(object):
             pass # server closed by another thread
         except KeyboardInterrupt:
             logging.error('Keyboard interrupt')
-        except Exception, e:
+        except Exception as e:
             logging.exception('Unknown exception %s: %s', type(e), e)
         finally:
             logging.info("server has terminated")

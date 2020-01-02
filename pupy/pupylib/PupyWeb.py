@@ -3,6 +3,11 @@
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__=['RequestHandler', 'WebSocketHandler']
 
 import threading
@@ -12,6 +17,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.template
 
+from io import open
 from os import path, unlink
 from ssl import create_default_context
 
@@ -314,7 +320,7 @@ class PupyWebServer(object):
         if as_file:
             filepath, filename = self.get_random_path_at_webroot()
             try:
-                with open(filepath, 'w') as out:
+                with open(filepath, 'wb') as out:
                     out.write(content)
                 self.served_files.add(filepath)
             except:

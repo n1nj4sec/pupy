@@ -188,7 +188,7 @@ def load_pycryptodome_raw_lib(name, cdecl):
         try:
             filename = basename + ext
             return CDLL(filename)
-        except OSError, exp:
+        except OSError as exp:
             attempts.append("Trying '%s': %s" % (filename, str(exp)))
 
     raise OSError("Crypto: Cannot load native module '%s': %s (%s)" % (name, ", ".join(attempts), exp))

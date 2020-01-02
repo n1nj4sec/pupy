@@ -17,6 +17,10 @@
 #        authentication process (check [MS-CSSP] section 3.1.5)
 #
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from struct import pack, unpack
 from struct import error as struct_error
 
@@ -509,7 +513,7 @@ def check_rdp_socket(s, username, password, domain, hashes=None):
 
     # Fix up due to PyOpenSSL lack for exporting public keys
     dump = dump[7:]
-    dump = '\x30'+ asn1encode(dump)
+    dump = b'\x30'+ asn1encode(dump)
 
     cipher = SPNEGOCipher(type3['flags'], exportedSessionKey)
     signature, cripted_key = cipher.encrypt(dump)
@@ -531,7 +535,7 @@ def check_rdp_socket(s, username, password, domain, hashes=None):
         # Likely communication error
         return False
 
-    except Exception, e:
+    except Exception as e:
         return str(type(e)) + ': ' + str(e)
 
     # 4. After the server receives the public key in step 3, it first verifies that
@@ -596,7 +600,7 @@ def check_rdp(targets, username, password, domain, hashes, on_complete=None, on_
             result = check_rdp_socket(socket, username, password, domain, hashes)
             if on_result:
                 on_result(host, result)
-        except Exception, e:
+        except Exception as e:
             on_result(host, str(type(e)) + ': ' + str(e))
 
     def on_exception(e):

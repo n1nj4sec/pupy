@@ -1,8 +1,16 @@
 from __future__ import with_statement
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 import os
 import inspect
-from network.lib.rpc.lib.compat import pickle, execute, is_py3k
+
+from io import open
+
+from network.lib.compat import pickle, execute, is_py3k
 from network.lib.rpc.core.service import ModuleNamespace
 from contextlib import contextmanager
 
@@ -147,7 +155,7 @@ def deliver(conn, localobj):
 
     :returns: a proxy to the remote object
     """
-    return conn.modules["network.lib.rpc.lib.compat"].pickle.loads(pickle.dumps(localobj))
+    return conn.modules["network.lib.compat"].pickle.loads(pickle.dumps(localobj))
 
 
 @contextmanager

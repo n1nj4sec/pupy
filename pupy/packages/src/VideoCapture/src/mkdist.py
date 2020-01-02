@@ -1,8 +1,12 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 version = '0.9-2'
 
 ###############################################################################
 
-print '- exportashtml'
+print('- exportashtml')
 
 import os
 
@@ -18,7 +22,7 @@ os.system(scite + ' -open:%s -exportashtml:%s -quit:' % (src, dest))
 
 ###############################################################################
 
-print '- fixhtmlfile'
+print('- fixhtmlfile')
 
 import time
 import fixhtml
@@ -28,7 +32,7 @@ fixhtml.fixhtmlfile(dest)
 
 ###############################################################################
 
-print '- pydoc_it'
+print('- pydoc_it')
 
 os.system(r'c:\Python22\python.exe c:\Python22\Lib\pydoc.py -w VideoCapture ')
 os.system(r'move VideoCapture.html ..\html\ ')
@@ -36,7 +40,7 @@ os.remove('VideoCapture.pyc')
 
 ###############################################################################
 
-print '- fixpydochtmlfile'
+print('- fixpydochtmlfile')
 
 import string
 
@@ -58,7 +62,7 @@ fp.close()
 
 ###############################################################################
 
-print '- zip_it'
+print('- zip_it')
 
 import zipfile
 

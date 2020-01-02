@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from M2Crypto import X509, EVP, RSA, BIO, m2
 
 from zipfile import ZipFile, ZIP_DEFLATED

@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 __all__ = (
     'DnsEncoder', 'Huffman'
 )
+
+from io import open
 
 IS_END = '\0'
 
@@ -348,7 +355,7 @@ class DnsEncoder(object):
     def __init__(self, tables=None):
 
         if tables is None:
-            from dns_encoder_table import TREES
+            from .dns_encoder_table import TREES
             tables = TREES
 
         mappings = {
@@ -785,7 +792,7 @@ if __name__ == '__main__':
                     k:self.terms[k] for k in to_leave
                 }
 
-                print("OPTIMIZED:", len(self.terms))
+                print(("OPTIMIZED:", len(self.terms)))
 
         def _inc_cdn(self, cdn):
             if not cdn:
@@ -826,7 +833,7 @@ if __name__ == '__main__':
                 table = work_table.items()
 
                 if not table:
-                    print("EMPTY TABLE", table)
+                    print(("EMPTY TABLE", table))
                     continue
 
                 h.train(table)

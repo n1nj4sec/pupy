@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import threading
 import random
 import string
@@ -9,6 +14,9 @@ import pupy
 import builtins
 import fcntl
 import select
+
+from io import open
+
 
 class USniper(pupy.Task):
     def __init__(self, manager, path, addr, reg='ax', ret=False, cast='', argtype=None):
@@ -167,7 +175,7 @@ class USniper(pupy.Task):
 
                             self._results[pid]['dump'][ts].append(value)
 
-        except IOError, e:
+        except IOError as e:
             if not e.errno == 9:
                 raise
 
@@ -185,6 +193,7 @@ class USniper(pupy.Task):
                     events.write('-:{}\n'.format(self._marker))
             except:
                 pass
+
 
 def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr', event_id=None):
     try:
@@ -206,8 +215,10 @@ def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr', event_id=No
         event_id=event_id
     ) is not None
 
+
 def stop():
     return pupy.manager.stop(USniper)
+
 
 def dump():
     usniper = pupy.manager.get(USniper)

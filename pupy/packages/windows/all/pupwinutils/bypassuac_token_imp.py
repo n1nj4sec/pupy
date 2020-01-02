@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # Code inspired from the C code of the UACME projet
 
@@ -44,18 +48,18 @@ SW_SHOW                         = 5
 SW_HIDE                         = 0
 STARTF_USESHOWWINDOW            = 0x00000001
 SEE_MASK_NOCLOSEPROCESS         = 0x00000040
-STATUS_SUCCESS                  = 0x00000000L
+STATUS_SUCCESS                  = 0x00000000
 
 INVALID_HANDLE_VALUE            = c_void_p(-1).value
-SECURITY_MANDATORY_MEDIUM_RID   = 0x00002000L
-SE_GROUP_INTEGRITY              = 0x00000020L
+SECURITY_MANDATORY_MEDIUM_RID   = 0x00002000
+SE_GROUP_INTEGRITY              = 0x00000020
 LUA_TOKEN                       = 0x4
 LOGON_NETCREDENTIALS_ONLY       = 0x00000002
 
-MAXIMUM_ALLOWED                 = 0x02000000L
-READ_CONTROL                    = 0x00020000L
+MAXIMUM_ALLOWED                 = 0x02000000
+READ_CONTROL                    = 0x00020000
 STANDARD_RIGHTS_READ            = READ_CONTROL
-STANDARD_RIGHTS_REQUIRED        = 0x000F0000L
+STANDARD_RIGHTS_REQUIRED        = 0x000F0000
 TOKEN_ASSIGN_PRIMARY            = 0x0001
 TOKEN_DUPLICATE                 = 0x0002
 TOKEN_IMPERSONATE               = 0x0004
@@ -68,7 +72,7 @@ TOKEN_ADJUST_SESSIONID          = 0x0100
 TOKEN_READ                      = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
 tokenprivs                      = (
     TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | \
-    TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072L | 4))
+    TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072 | 4))
 TOKEN_ALL_ACCESS                = (
     STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY | \
     TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE | \

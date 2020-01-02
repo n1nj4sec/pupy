@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from fsutils import has_xattrs
+from io import open
 from os import stat, path
 from junctions import islink, readlink
 from struct import pack, unpack
@@ -612,7 +618,7 @@ def getfilesec(filepath):
 
     if path.isfile(filepath):
         try:
-            with open(filepath) as fileobj:
+            with open(filepath, 'rb') as fileobj:
                 header = fileobj.read(4096)
         except (OSError, IOError):
             pass

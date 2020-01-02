@@ -1,5 +1,10 @@
 # -*- coding: utf-8-*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = [
     'Tags', 'PupyConfig', 'Error', 'NoSectionError'
 ]
@@ -9,6 +14,7 @@ try:
 except ImportError:
     from configparser import ConfigParser, Error, NoSectionError
 
+from io import open
 from os import path, makedirs
 from netaddr import IPAddress
 import platform

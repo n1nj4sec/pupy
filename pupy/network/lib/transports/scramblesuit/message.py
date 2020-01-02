@@ -5,11 +5,15 @@ The exported classes and functions provide interfaces to handle protocol
 messages, check message headers for validity and create protocol messages out
 of application data.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from ..obfscommon import serialize as pack
 from ... import base
-import mycrypto
-import const
+from . import mycrypto
+from . import const
 import logging
 
 log = logging
@@ -99,7 +103,7 @@ class ProtocolMessage(object):
     protocol messages.
     """
 
-    def __init__(self, payload="", paddingLen=0, flags=const.FLAG_PAYLOAD):
+    def __init__(self, payload=b'', paddingLen=0, flags=const.FLAG_PAYLOAD):
         """
         Initialises a ProtocolMessage object.
         """
@@ -125,8 +129,8 @@ class ProtocolMessage(object):
         encrypted = crypter.encrypt(
             pack.htons(self.totalLen) + \
             pack.htons(self.payloadLen) + \
-            chr(self.flags) + self.payload + \
-            (self.totalLen - self.payloadLen) * '\0')
+            pack.asbyte(self.flags) + self.payload + \
+            (self.totalLen - self.payloadLen) * b'\0')
 
         hmac = mycrypto.HMAC_SHA256_128(hmacKey, encrypted)
 
@@ -172,7 +176,7 @@ class MessageExtractor(object):
         Initialise a new MessageExtractor object.
         """
 
-        self.recvBuf = ""
+        self.recvBuf = b''
         self.totalLen = None
         self.payloadLen = None
         self.flags = None
@@ -197,10 +201,12 @@ class MessageExtractor(object):
             if self.totalLen is None and self.payloadLen is None and self.flags is None:
                 self.totalLen = pack.ntohs(aes.decrypt(self.recvBuf[16:18]))
                 self.payloadLen = pack.ntohs(aes.decrypt(self.recvBuf[18:20]))
-                self.flags = ord(aes.decrypt(self.recvBuf[20]))
+                self.flags = pack.frombyte(aes.decrypt(self.recvBuf[20]))
 
                 if not isSane(self.totalLen, self.payloadLen, self.flags):
-                    raise base.PluggableTransportError("Invalid header.")
+                    raise base.PluggableTransportError(
+                        "Invalid header. (totalLen={} payloadLen={} flags={})".format(
+                            self.totalLen, self.payloadLen, self.flags))
 
             # Parts of the message are still on the wire; waiting.
             if (len(self.recvBuf) - const.HDR_LENGTH) < self.totalLen:

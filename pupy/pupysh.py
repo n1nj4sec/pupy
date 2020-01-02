@@ -33,6 +33,10 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import os
 import logging
@@ -116,7 +120,7 @@ if __name__ == "__main__":
     # Try to initialize credentials before CMD loop
     try:
         credentials = PupyCredentials.Credentials(validate=True)
-    except PupyCredentials.EncryptionError, e:
+    except PupyCredentials.EncryptionError as e:
         logging.error(e)
         exit(1)
 

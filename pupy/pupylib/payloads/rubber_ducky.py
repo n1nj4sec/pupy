@@ -2,9 +2,16 @@
 #Author: @bobsecq
 #Contributor(s):
 
-from pupylib.PupyOutput import Success, Error
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import subprocess
+from io import open
+
+from pupylib.PupyOutput import Success, Error
+
 
 class rubber_ducky():
     '''
@@ -52,11 +59,11 @@ class rubber_ducky():
         rubberDuckyEncodeCmd = self.ENCODE_CMD.format(self.encoderPath, self.rubberDuckyScriptFilename, self.keyboardLayoutPath, self.rubberDuckyBinFilename)
         try:
             output = subprocess.check_output(rubberDuckyEncodeCmd, stderr=subprocess.STDOUT, stdin=subprocess.PIPE, shell = True)
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             self.display(Error('Impossible to generate {0} file with encoder: {1}'.format(
                 self.rubberDuckyBinFilename, repr(e.output))))
 
-        except Exception, e:
+        except Exception as e:
             self.display(Error('Impossible to generate {0} file with encoder: {1}'.format(
                 self.rubberDuckyBinFilename, repr(e))))
             return False
@@ -88,7 +95,7 @@ class rubber_ducky():
         '''
 
         if self.targetOs == 'Windows' and not self.unconfigured:
-            from ps1_oneliner import serve_ps1_payload
+            from .ps1_oneliner import serve_ps1_payload
 
             self.createRubberDuckyScriptForWindowsTarget()
             self.generateInjectBinFile()

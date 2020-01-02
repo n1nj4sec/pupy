@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'InvalidHostName', 'SecureDNS', 'A', 'AAAA',
     'GOOGLE', 'CLOUDFLARE', 'QUAD9', 'QUAD9_IP'
@@ -7,7 +11,7 @@ __all__ = (
 
 from json import loads
 
-import tinyhttp
+from . import tinyhttp
 import socket
 
 

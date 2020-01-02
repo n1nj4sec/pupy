@@ -2,9 +2,15 @@
 
 # Stolen from dns.resolver
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = ('dnsinfo',)
 
 import sys
+from io import open
 
 
 def _parse_resolv_conf(path='/etc/resolv.conf'):

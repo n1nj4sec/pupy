@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import netifaces
 import logging
 
@@ -49,7 +53,7 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
                 try:
                     LISTENER_IP_EXTERNAL = str(IPAddress(
                         igd.GetExternalIP()['NewExternalIPAddress']))
-                except Exception, e:
+                except Exception as e:
                     logging.warning('IGD Exception: %s', e)
 
             if not LISTENER_IP_EXTERNAL:
@@ -87,7 +91,7 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
                     LISTENER_IP_LOCAL = addr
                     break
 
-        except Exception, e:
+        except Exception as e:
             logging.debug('Exception during interfaces enumeration: %s', e)
             return None
 

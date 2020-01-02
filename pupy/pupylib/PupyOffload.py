@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import msgpack
 import threading
 import socket
@@ -89,7 +93,7 @@ class PupyOffloadDNS(threading.Thread):
                 time.sleep(1)
                 continue
 
-            except (socket.error, OSError), e:
+            except (socket.error, OSError) as e:
                 if e.errno in COMMON_EXCEPTIONS:
                     logger.error('DNS: Lost connection (refused)')
                     time.sleep(5)
@@ -98,7 +102,7 @@ class PupyOffloadDNS(threading.Thread):
                 logger.exception('DNS: Network: %s', e)
                 self.active = False
 
-            except Exception, e:
+            except Exception as e:
                 logger.exception('DNS: %s', e)
                 self.active = False
 
@@ -221,7 +225,7 @@ class PupyOffloadAcceptor(object):
                     conninfo['rhost'], conninfo['rport']
                 ), (conninfo['rhost'], conninfo['rport'])
 
-            except (socks.GeneralProxyError, socket.error, OSError), e:
+            except (socks.GeneralProxyError, socket.error, OSError) as e:
                 if e.errno in COMMON_EXCEPTIONS:
                     logger.error('Acceptor (%s): Lost connection (refused)', self._port)
                     time.sleep(5)
@@ -234,7 +238,7 @@ class PupyOffloadAcceptor(object):
                 time.sleep(1)
                 continue
 
-            except Exception, e:
+            except Exception as e:
                 logger.exception('Acceptor (%s): Exception: %s', self._port, e)
                 raise
 
@@ -286,7 +290,7 @@ class PupyOffloadManager(object):
             m = MsgPackMessages(c)
             self._external_ip = m.recv()['ip']
 
-        except Exception, e:
+        except Exception as e:
             logger.exception('Communication failed: %s', e)
             raise
 

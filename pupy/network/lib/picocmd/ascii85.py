@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import string
 
 def ascii85EncodeDG(str):
@@ -9,7 +13,7 @@ def ascii85EncodeDG(str):
     fetched = 0
 
     while 1:
-        buf = map(lambda x:ord(x)+0L, str[fetched:fetched+4])
+        buf = map(lambda x:ord(x)+0, str[fetched:fetched+4])
         fetched = fetched + len(buf)
 
         if not buf:
@@ -26,7 +30,7 @@ def ascii85EncodeDG(str):
         res = [0] * 5
         for i in (4, 3, 2, 1, 0):
             res[i] = ord('!') + num % 85
-            num = num / 85
+            num = num // 85
 
         res = res[:len(str)+1]
         result = result + string.join(map(chr, res), '')
@@ -49,7 +53,7 @@ def ascii85DecodeDG(str):
     fetched = 0
 
     while 1:
-        buf = map(lambda x:ord(x)+0L-33, str[fetched:fetched+5])
+        buf = map(lambda x:ord(x)+0-33, str[fetched:fetched+5])
         fetched = fetched + len(buf)
 
         if not buf:

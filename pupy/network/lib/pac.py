@@ -1,5 +1,10 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 __all__ = (
     'get_proxy_for_address', 'set_proxy_unavailable',
     'refresh_pac_player'
@@ -12,6 +17,7 @@ from urllib2 import URLError
 from socket import gethostbyname, gaierror, getfqdn
 from netaddr import IPAddress, IPNetwork, AddrFormatError
 from inspect import getmembers, ismethod
+from io import open
 from os import name as os_name
 from time import time
 from re import match
@@ -332,8 +338,8 @@ class PACPlayer(object):
         regexp = wildcard.replace('.','\\.').replace('*', '.*')
         try:
             return bool(match(regexp, host))
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
         return False
 

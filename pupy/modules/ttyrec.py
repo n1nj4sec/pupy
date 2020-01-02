@@ -32,11 +32,17 @@
 # all:
 #     make -C $(KERNELDIR) M=$(PWD) modules
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import zlib
 import struct
 import json
 
+from io import open
 from StringIO import StringIO
 
 from pupylib.PupyModule import PupyModule, PupyArgumentParser
@@ -162,7 +168,7 @@ class TTYRec(PupyModule):
                 self.info('{} -> {}'.format(tty, dest))
 
                 is_append = os.path.exists(dest)
-                dests[filename] = open(dest, 'a')
+                dests[filename] = open(dest, 'ab')
 
                 if not is_append:
                     header = {

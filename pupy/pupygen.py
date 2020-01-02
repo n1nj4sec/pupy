@@ -5,6 +5,11 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the
 # root of the project for the detailed licence terms
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import argparse
 import sys
 import os.path
@@ -28,7 +33,7 @@ import pylzma
 import struct
 import pefile
 
-from io import BytesIO
+from io import open, BytesIO
 
 from pupylib.utils.listener import get_listener_ip, get_listener_port
 from pupylib.utils.jarsigner import jarsigner
@@ -218,9 +223,9 @@ def updateTar(arcpath, arcname, file_path):
             tfr.extractall(tempdir)
             for root, dirs, files in os.walk(tempdir):
                 for dir in dirs:
-                    os.chmod(os.path.join(root, dir), 0700)
+                    os.chmod(os.path.join(root, dir), 0o700)
                 for file in files:
-                    os.chmod(os.path.join(root, file), 0600)
+                    os.chmod(os.path.join(root, file), 0o600)
 
             with tarfile.open(arcpath+"2", 'w:gz') as tfw:
                 for n in names:
@@ -270,7 +275,7 @@ def get_edit_apk(display, path, conf, compressed_config=None, debug=False):
         updateTar(os.path.join(tempdir,"assets/private.mp3"), "pp.pyo", os.path.join(tempdir, "pp.pyo"))
         #repacking the tar in the apk
 
-        with open(os.path.join(tempdir,"assets/private.mp3"), 'r') as t:
+        with open(os.path.join(tempdir,"assets/private.mp3"), 'rb') as t:
             updateZip(tempapk, "assets/private.mp3", t.read())
 
         # signing the tar
@@ -536,7 +541,7 @@ def get_parser(base_parser, config):
     default_payload_output = '.'
     try:
         default_payload_output = config.get_path('payload_output', dir=True)
-    except ValueError, e:
+    except ValueError as e:
         logger.error('Invalid value for "payload_output" in config file: %s', e)
 
     parser.add_argument('-D', '--output-dir', default=default_payload_output, help="output folder (default: %(default)s)")
@@ -611,7 +616,7 @@ def pupygen(args, config, pupsrv, display):
                 arch=args.arch,
                 debug=args.debug_scriptlets)
 
-    except ValueError, e:
+    except ValueError as e:
         display(Error(e.message))
         raise NoOutput()
 
@@ -704,7 +709,7 @@ def pupygen(args, config, pupsrv, display):
         outfile.close()
 
         if makex:
-            os.chmod(outfile.name, 0711)
+            os.chmod(outfile.name, 0o711)
 
         if args.packer:
             packingFinalCmd = args.packer.replace('%s', outfile.name)
@@ -846,7 +851,7 @@ def main():
     from traceback import print_exc
 
     def display(data):
-        print hint_to_text(data)
+        print(hint_to_text(data))
 
     Credentials.DEFAULT_ROLE = 'CLIENT'
 
@@ -864,12 +869,12 @@ def main():
     except InvalidOptions:
         sys.exit(1)
 
-    except (ValueError, EncryptionError), e:
+    except (ValueError, EncryptionError) as e:
         if args.debug:
             print_exc()
         display(Error(e))
 
-    except Exception, e:
+    except Exception as e:
         print_exc()
         sys.exit(str(e))
 

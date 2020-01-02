@@ -1,13 +1,20 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from os import path
+from io import open
 from argparse import REMAINDER
+
+from network.lib.rpc import GenericException
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
-from os import path
-from network.lib.rpc import GenericException
-
 __class_name__ = 'PowershellManager'
+
 
 @config(compat='windows', category='admin')
 class PowershellManager(PupyModule):
@@ -95,7 +102,7 @@ class PowershellManager(PupyModule):
                     args.context, content, args.force, args.try_64,
                     args.daemon, args.width, args.try_v2
                 )
-            except Exception, e:
+            except Exception as e:
                 self.error('load: {}'.format(e))
 
         elif args.name == 'iex':
@@ -131,7 +138,7 @@ class PowershellManager(PupyModule):
                 else:
                     self.error('iex: {}'.format(e))
 
-            except Exception, e:
+            except Exception as e:
                 self.error('iex: {}'.format(e))
 
         elif args.name == 'unload':
@@ -139,7 +146,7 @@ class PowershellManager(PupyModule):
 
             try:
                 unload(args.context)
-            except Exception, e:
+            except Exception as e:
                 self.error('unload: {}'.format(e))
 
         elif args.name == 'result':

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import sys
 import glob
@@ -10,12 +15,15 @@ import re
 import codecs
 import errno
 
+from io import open
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
 from tarfile import open as open_tarfile
+
 from gzip import GzipFile
 
 from scandir import scandir
+
 if scandir is None:
     from scandir import scandir_generic as scandir
 
@@ -267,7 +275,7 @@ def list_zip(path, max_files=None):
             T_NAME: item.filename,
             T_TYPE: '', # TODO - support flags
             T_SPEC: '', # TODO - support flags
-            T_MODE: 0666,
+            T_MODE: 0o666,
             T_UID: 0,
             T_GID: 0,
             T_SIZE: item.file_size,
@@ -601,7 +609,7 @@ def rm(path):
             else:
                 try:
                     os.remove(path)
-                except OSError, e:
+                except OSError as e:
                     exception = e
         else:
             raise ValueError("File/directory does not exists")
@@ -707,6 +715,7 @@ def cat(path, N, n, grep, encoding=None, filter_out=False):
 
     return '\n'.join(data)
 
+
 def tail(f, n, grep, filter_out=False):
     if n <= 0:
         raise ValueError('Invalid amount of lines: {}'.format(n))
@@ -795,6 +804,7 @@ def fgetcontent(path, max_size=1*1024*1024):
 
         return content
 
+
 def fputcontent(path, content, append=False):
     path = try_unicode(path)
     path = os.path.expanduser(path)
@@ -805,7 +815,7 @@ def fputcontent(path, content, append=False):
     try:
         s = os.stat(path)
         ftime = (s.st_atime, s.st_mtime)
-    except OSError, e:
+    except OSError as e:
         if e.errno == errno.EEXIST and not append:
             pass
 

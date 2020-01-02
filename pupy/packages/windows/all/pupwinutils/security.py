@@ -2,6 +2,10 @@
 #Author: ??? and original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
 #Contributor(s): @bobsecq
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from ctypes import (
     WinDLL, c_uint32, c_char_p,
     c_long, c_uint16, Structure, Union,
@@ -78,9 +82,9 @@ PDWORD                          = POINTER(DWORD)
 SECURITY_INFORMATION = DWORD
 
 PROCESS_QUERY_INFORMATION       = 0x0400
-READ_CONTROL                    = 0x00020000L
+READ_CONTROL                    = 0x00020000
 STANDARD_RIGHTS_READ            = READ_CONTROL
-STANDARD_RIGHTS_REQUIRED        = 0x000F0000L
+STANDARD_RIGHTS_REQUIRED        = 0x000F0000
 TOKEN_ASSIGN_PRIMARY            = 0x0001
 TOKEN_DUPLICATE                 = 0x0002
 TOKEN_IMPERSONATE               = 0x0004
@@ -91,7 +95,7 @@ TOKEN_ADJUST_GROUPS             = 0x0040
 TOKEN_ADJUST_DEFAULT            = 0x0080
 TOKEN_ADJUST_SESSIONID          = 0x0100
 TOKEN_READ                      = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
-tokenprivs                      = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072L | 4))
+tokenprivs                      = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072 | 4))
 TOKEN_ALL_ACCESS                = (
     STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY | \
     TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE | \
@@ -768,19 +772,19 @@ ACCESS_MODE_TEXT = {
     SET_AUDIT_FAILURE: '(AUDIT FAILURE)'
 }
 
-ACE_ACCESS_DELETE        = (0x00010000L)
-ACE_ACCESS_READ_CONTROL  = (0x00020000L)
-ACE_ACCESS_WRITE_DAC     = (0x00040000L)
-ACE_ACCESS_WRITE_OWNER   = (0x00080000L)
-ACE_ACCESS_SYNCHRONIZE   = (0x00100000L)
+ACE_ACCESS_DELETE        = (0x00010000)
+ACE_ACCESS_READ_CONTROL  = (0x00020000)
+ACE_ACCESS_WRITE_DAC     = (0x00040000)
+ACE_ACCESS_WRITE_OWNER   = (0x00080000)
+ACE_ACCESS_SYNCHRONIZE   = (0x00100000)
 
-STANDARD_RIGHTS_REQUIRED = (0x000F0000L)
+STANDARD_RIGHTS_REQUIRED = (0x000F0000)
 
 STANDARD_RIGHTS_READ     = (READ_CONTROL)
 STANDARD_RIGHTS_WRITE    = (READ_CONTROL)
 STANDARD_RIGHTS_EXECUTE  = (READ_CONTROL)
-STANDARD_RIGHTS_ALL      = (0x001F0000L)
-SPECIFIC_RIGHTS_ALL      = (0x0000FFFFL)
+STANDARD_RIGHTS_ALL      = (0x001F0000)
+SPECIFIC_RIGHTS_ALL      = (0x0000FFFF)
 
 class EXPLICIT_ACCESS_W(Structure):
     _fields_ = [
@@ -965,13 +969,13 @@ def LsaSessionDataFlagsToStr(flags):
     return result
 
 def FileTimeToUnix(filetime):
-    if filetime >= (0x8000000000000000L - 1):
-        filetime = filetime - 0x8000000000000000L
+    if filetime >= (0x8000000000000000 - 1):
+        filetime = filetime - 0x8000000000000000
 
     if filetime < 1:
         return filetime
 
-    return (filetime / 10000000) - 11644473600L
+    return (filetime / 10000000) - 11644473600
 
 LsaEnumerateLogonSessions           = secur32.LsaEnumerateLogonSessions
 LsaEnumerateLogonSessions.restype   = NTSTATUS
@@ -1972,7 +1976,7 @@ def can_get_admin_access():
             try:
                 cls = TokenLinkedToken
                 GetTokenInformation(token, cls, byref(lToken), sizeof(lToken), byref(sz))
-            except WindowsError, e:
+            except WindowsError as e:
                 if e.winerror == ERROR_NO_SUCH_LOGON_SESSION:
                     return False
                 elif e.winerror == ERROR_PRIVILEGE_NOT_HELD:
@@ -1987,12 +1991,12 @@ def can_get_admin_access():
                 CloseHandle(lToken)
         finally:
             CloseHandle(token)
-    except Exception,e:
+    except Exception as e:
         return None
     finally:
         try:
             CloseHandle(proc)
-        except Exception,e:
+        except Exception as e:
             pass
 
 # return string with major.minor version

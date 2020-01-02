@@ -1,4 +1,8 @@
 #!/usr/bin/env python2
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from impacket.smbconnection import SMBConnection, SessionError
 import ntpath
 import random

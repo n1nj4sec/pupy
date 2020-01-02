@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ('SyncRequestDispatchQueue', 'PupyConnection',
            'PupyConnectionThread')
 
@@ -125,7 +129,7 @@ class SyncRequestDispatchQueue(object):
                 if __debug__:
                     syncqueuelogger.debug('Process task(%s) - complete', name)
 
-            except Exception, e:
+            except Exception as e:
                 if __debug__:
                     syncqueuelogger.debug(
                         'Process task(%s) - exception: func=%s args=%s exc:%s/%s',
@@ -516,7 +520,7 @@ class PupyConnection(Connection):
 
         try:
             self._async_request(consts.HANDLE_CLOSE)
-        except EOFError, e:
+        except EOFError as e:
             logger.info(
                 'Connection(%s) - close - notification failed '
                 'because of EOF (%s)', self, e)
@@ -546,7 +550,7 @@ class PupyConnection(Connection):
 
                 self._channel.wake()
 
-        except Exception, e:
+        except Exception as e:
             if __debug__:
                 logger.debug('Connection(%s) - cleanup exception - %s', self, e)
             pass
@@ -658,7 +662,7 @@ class PupyConnection(Connection):
                 if self._timer_event_last + period < time.time():
                     try:
                         callback()
-                    except Exception, e:
+                    except Exception as e:
                         logger.exception(
                             'Callback exception(%s): %s: %s',
                             self, type(e), e)
@@ -673,10 +677,10 @@ class PupyConnection(Connection):
                 self._dispatch(data)
                 continue
 
-            except EOFError, e:
+            except EOFError as e:
                 logger.info('Serve loop(%s) - EOF (%s)', self, e)
 
-            except Exception, e:
+            except Exception as e:
                 logger.exception(
                     'Exception(%s): %s: %s', self, type(e), e)
 

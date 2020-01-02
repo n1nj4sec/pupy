@@ -1,4 +1,10 @@
 # -*- encoding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from io import open
 from os import path, lstat, readlink
 from stat import S_ISREG, S_ISLNK
 from struct import unpack_from, unpack
@@ -20,6 +26,7 @@ def getselinux(filepath):
         return None
 
     return sectx
+
 
 def getacls(filepath):
     acls = ''
@@ -48,6 +55,7 @@ def getacls(filepath):
             pass
 
     return acls
+
 
 def getcaps(filepath):
     try:
@@ -88,6 +96,7 @@ def getcaps(filepath):
 
     return permitted_flags, inheritable_flags, bool(effective)
 
+
 def getfilesec(filepath):
     filestat = lstat(filepath)
 
@@ -95,7 +104,7 @@ def getfilesec(filepath):
 
     if S_ISREG(filestat.st_mode):
         try:
-            with open(filepath) as fileobj:
+            with open(filepath, 'rb') as fileobj:
                 header = fileobj.read(4096)
         except IOError:
             pass

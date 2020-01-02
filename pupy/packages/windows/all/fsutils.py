@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'readlink', 'lstat', 'has_xattrs', 'uidgid',
     'username_to_uid', 'groupname_to_gid',

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 def to_string(x):
     if type(x) in (list, tuple, set, frozenset):
         return [to_string(y) for y in x]
@@ -22,7 +26,7 @@ def to_strings_list(function, *args, **kwargs):
 
     while True:
         try:
-            result = iterator.next()
+            result = next(iterator)
             results.append(to_string(result))
 
         except StopIteration:

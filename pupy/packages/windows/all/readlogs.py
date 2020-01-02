@@ -1,5 +1,9 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = [
     'EventLog', 'get_last_events'
 ]
@@ -179,13 +183,13 @@ class EventLog(object):
 
                 sources.append(logname)
 
-            except error, e:
+            except error as e:
                 if e.winerror not in (6, 87, 1314):
                     raise
 
                 self._exceptions[logname] = (e, handle)
 
-            except WindowsError, e:
+            except WindowsError as e:
                 self._exceptions[logname] = (e, handle)
 
         return sources
@@ -202,7 +206,7 @@ class EventLog(object):
                 events_count[logtype] = GetNumberOfEventLogRecords(log)
                 CloseEventLog(log)
 
-            except error, e:
+            except error as e:
                 if e.winerror != 6:
                     raise
 
@@ -226,7 +230,7 @@ class EventLog(object):
 
         try:
             events = ReadEventLog(log, flags, 0)
-        except error, e:
+        except error as e:
             if e.winerror not in {23}:
                 raise
 
@@ -237,7 +241,7 @@ class EventLog(object):
             while events:
                 try:
                     events = ReadEventLog(log, flags, 0)
-                except error, e:
+                except error as e:
                     if e.winerror not in {23}:
                         raise ValueError
 

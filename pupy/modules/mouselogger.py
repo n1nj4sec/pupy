@@ -2,6 +2,13 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from io import open
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 MOUSELOGGER_EVENT = 0x12000001
@@ -10,6 +17,7 @@ __class_name__="MouseLoggerModule"
 __events__ = {
     MOUSELOGGER_EVENT: 'keylogger'
 }
+
 
 @config(compat="windows", cat="gather")
 class MouseLoggerModule(PupyModule):

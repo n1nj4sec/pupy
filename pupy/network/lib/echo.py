@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'Echo', 'echo'
 )
@@ -20,7 +24,7 @@ from network.lib.scan import scan, TOP1000
 from network.lib.tinyhttp import NullHandler
 
 
-MAGIC = '\xDE\xAD\xBE\xEF'
+MAGIC = b'\xDE\xAD\xBE\xEF'
 USER_AGENT = 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)'
 
 
@@ -96,7 +100,7 @@ class EchoScanTcp(object):
             sock.setblocking(1)
             sock.settimeout(self.timeout)
 
-            payload = MAGIC + ''.join(
+            payload = MAGIC + b''.join(
                 choice(letters) for i in xrange(64))
 
             sock.send(payload)

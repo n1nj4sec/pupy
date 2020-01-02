@@ -2,16 +2,24 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = ('RSA_AESClient', 'RSA_AESServer')
 
 """ This module contains an implementation of a simple xor transport for pupy. """
 
 from ..base import BasePupyTransport, TransportError
+
 import traceback
 import struct
 import rsa
 
-from cryptoutils import get_random, NewAESCipher
+from io import open
+
+from .cryptoutils import get_random, NewAESCipher
 
 from network.lib.buffer import Buffer
 from network.lib import getLogger
@@ -227,7 +235,7 @@ class RSA_AESServer(RSA_AESTransport):
             if self.aes_key is None: #receive aes key
                 logger.debug('Read AES Key')
 
-                expected = self.rsa_key_size/8
+                expected = self.rsa_key_size // 8
                 if len(data) < expected:
                     logger.debug('Read AES Key: Short read: %d < %d', len(data), expected)
                     return

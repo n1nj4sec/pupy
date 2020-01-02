@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'convert_node',
     'Session',
@@ -42,9 +46,9 @@ from threading import Thread, RLock, Event
 from dnslib import DNSRecord, RR, QTYPE, A, AAAA, EDNS0, RCODE
 from dnslib.server import DNSHandler, BaseResolver, DNSLogger
 
-import ascii85
+from . import ascii85
 
-from picocmd import (
+from .picocmd import (
     Poll, Ack,
     SystemStatus, OnlineStatus,
     Exit, ConnectablePort, PortQuizPort,
@@ -384,7 +388,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         answer_len = 2 + 10 + record_len
 
-        max_records = dns_packet_room / answer_len
+        max_records = dns_packet_room // answer_len
         max_size = max_records * (record_len - 1)
 
         packet_length_len = 1
@@ -719,7 +723,7 @@ class DnsCommandServerHandler(BaseResolver):
         for idx, part in enumerate([payload[i:i+3] for i in xrange(0, len(payload), 3)]):
             header = (random.randint(1, 3) << 30)
             idx = idx << 25
-            bits = (struct.unpack('>I', '\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0]) << 1
+            bits = (struct.unpack('>I', b'\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0]) << 1
             packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
             response.append('.'.join(['{}'.format(int(x)) for x in packed]))
 
@@ -750,7 +754,7 @@ class DnsCommandServerHandler(BaseResolver):
         for idx, part in enumerate([payload[i:i+15] for i in xrange(0, len(payload), 15)]):
             packed = struct.pack('B', idx) + part
             if len(packed) < 16:
-                packed = packed + '\x00' * (16 - len(packed))
+                packed = packed + b'\x00' * (16 - len(packed))
             addr = ':'.join([
                 packed[i:i+2].encode('hex') for i in xrange(0, len(packed), 2)
             ])
@@ -829,7 +833,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         try:
             payload = encoder.decode(data+node_blob, nonce, symmetric=True)
-        except (ParcelInvalidPayload, ParcelInvalidCrc), e:
+        except (ParcelInvalidPayload, ParcelInvalidCrc) as e:
             raise DnsCommandServerException(
                 e.error, nonce, version, domain)
 
@@ -1233,7 +1237,7 @@ class DnsCommandServerHandler(BaseResolver):
         except NodeBlocked:
             return None
 
-        except TypeError, e:
+        except TypeError as e:
             # Usually - invalid padding
             emsg = None
 
@@ -1275,7 +1279,7 @@ class DnsCommandServerHandler(BaseResolver):
 
             try:
                 payload = Parcel(to_send).pack(nonce, gen_csum)
-            except PackError, e:
+            except PackError as e:
                 emsg = 'Could not create parcel from commands: {} (session={})'.format(
                     e, '{:08x}'.format(session.spi) if session else None)
 

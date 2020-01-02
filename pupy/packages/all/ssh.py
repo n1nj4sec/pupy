@@ -1,15 +1,20 @@
 # -*- encoding: utf-8 -*-
 
-__all__ = [
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
+__all__ = (
     'SSHNotConnected', 'SSH',
     'ssh_interactive',
     'ssh_exec', 'ssh_hosts',
     'ssh_upload_file',
     'ssh_download_file', 'ssh_download_tar'
-]
+)
 
 from threading import Thread, Event
-from io import BytesIO
+from io import open, BytesIO
 
 from psutil import process_iter
 
@@ -552,7 +557,7 @@ class SSH(object):
 
         return exit_status
 
-    def upload_file(self, reader_cb, remote_path, perm=0755, rtouch=None,
+    def upload_file(self, reader_cb, remote_path, perm=0o755, rtouch=None,
                      chown=None, run=False, delete=False, append=False, cat='cat', completed_cb=None):
 
         self._check_connected()
@@ -1373,22 +1378,22 @@ if __name__ == '__main__':
     s = SSH(*[try_int(x) for x in sys.argv[1:]])
     stdout, stderr, status = s.check_output('sleep 1 && id && sleep 1 && whoami')
 
-    print status
-    print stdout.getvalue()
-    print stderr.getvalue()
+    print(status)
+    print(stdout.getvalue())
+    print(stderr.getvalue())
 
-    print "Upload"
+    print("Upload")
     test = BytesIO('Hello, world!\n')
     stdout, stderr, status = s.upload_file(test.read, '/tmp/test123', rtouch='/bin/bash', append=True)
 
-    print status
-    print stdout.getvalue()
-    print stderr.getvalue()
+    print(status)
+    print(stdout.getvalue())
+    print(stderr.getvalue())
 
-    print "Download"
+    print("Download")
     test = BytesIO()
     executable, stderr, status = s.download_file('/tmp/test123', test.write)
-    print status
-    print executable
-    print test.getvalue()
-    print stderr.getvalue()
+    print(status)
+    print(executable)
+    print(test.getvalue())
+    print(stderr.getvalue())

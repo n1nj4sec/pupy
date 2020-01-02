@@ -8,6 +8,10 @@
 secret is possible only when the :doc:`collection <collection>` storing
 the item is unlocked. The collection can be unlocked using collection's
 :meth:`~secretstorage.collection.Collection.unlock` method."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import dbus
 from secretstorage.defines import SS_PREFIX

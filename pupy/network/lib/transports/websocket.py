@@ -6,6 +6,10 @@
 
     Lots of the WebSocket protocol code came from https://github.com/Pithikos/python-websocket-server
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __all__ = (
     'InvalidHTTPReq', 'PupyWebSocketTransport',
@@ -24,23 +28,25 @@ from network.lib.buffer import Buffer
 from ..base import BasePupyTransport
 
 from network.lib import getLogger
+from network.lib.transports.cryptoutils import XOR
+
 logger = getLogger('ws')
 
-class InvalidHTTPReq(Exception):
-    __slots__ = ()
-
-error_response_body="""<html><body><h1>It works!</h1>
+error_response_body = b'''<html><body><h1>It works!</h1>
 <p>This is the default web page for this server.</p>
 <p>The web server software is running but no content has been added, yet.</p>
-</body></html>"""
-error_response="HTTP/1.1 200 OK\r\n"
-error_response+="Server: Apache\r\n"
-error_response+="Content-Type: text/html; charset=utf-8\r\n"
-error_response+="Content-Length: %s\r\n"%len(error_response_body)
-error_response+="\r\n"
-error_response+=error_response_body
+</body></html>'''
 
-UPGRADE_101_SUCCESS = 'HTTP/1.1 101 '
+error_response = b'\r\n'.join((
+    b'HTTP/1.1 200 OK',
+    b'Server: Apache',
+    b'Content-Type: text/html; charset=utf-8',
+    b'Content-Length: %d' % len(error_response_body),
+    b'\r\n',
+    error_response_body
+))
+
+UPGRADE_101_SUCCESS = b'HTTP/1.1 101 '
 MASK_LEN = 4
 
 FIN                 = 0x80
@@ -57,26 +63,10 @@ OPCODE_CLOSE_CONN   = 0x8
 OPCODE_PING         = 0x9
 OPCODE_PONG         = 0xA
 
-class XOR(object):
-    __slots__ = ('offset', 'key')
 
-    def __init__(self, key, offset=0):
-        self.key = key
-        self.offset = offset
+class InvalidHTTPReq(Exception):
+    __slots__ = ()
 
-    def strxor(self, data):
-        ldata = len(data)
-        key = self.key
-        lkey = len(key)
-        offset = self.offset
-
-        result = bytearray(ldata)
-        for idx in xrange(ldata):
-            result[idx] = chr(ord(data[idx]) ^ ord(key[(offset+idx)%lkey]))
-
-        self.offset += idx+1
-
-        return result
 
 def add_ws_encapsulation(data, output, mask=None, opcode=OPCODE_BINARY):
     payload_len = len(data)
@@ -250,24 +240,30 @@ class PupyWebSocketClient(PupyWebSocketTransport):
 
             uri = 'http://' + host + uri
 
-        payload = "%s %s HTTP/1.1\r\n" % ('GET', uri)
-        payload += "Host: %s\r\n" % (self.host)
-        payload += "User-Agent: %s\r\n" % (self.user_agent)
-        payload += "Upgrade: websocket\r\n"
-        payload += "Connection: Upgrade\r\n"
+        payload = [
+            'GET ', uri, ' HTTP/1.1\r\n',
+            'Host: ', self.host, '\r\n',
+            'User-Agent: ', self.user_agent, '\r\n',
+            'Upgrade: websocket\r\n',
+            'Connection: Upgrade\r\n'
+        ]
 
         if self.proxy and self.auth:
-            payload += 'Proxy-Authorization: Basic ' + \
-              base64.b64encode('{}:{}'.format(*self.auth))
+            payload.append('Proxy-Authorization: Basic ')
+            payload.append(
+                base64.b64encode('{}:{}'.format(*self.auth))
+            )
 
-        payload += "Sec-WebSocket-Key: %s\r\n" % (base64.b64encode(self.socketkey))
-        payload += "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
-        payload += "Sec-WebSocket-Version: 13\r\n\r\n"
+        payload.extend((
+            'Sec-WebSocket-Key: ', base64.b64encode(self.socketkey), '\r\n',
+            'Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n',
+            'Sec-WebSocket-Version: 13\r\n\r\n'
+        ))
 
         if __debug__:
             logger.debug('Send upgrade request')
 
-        self.downstream.write(payload)
+        self.downstream.write(''.join(payload).encode('ascii'))
 
     def upstream_recv(self, data):
         """
@@ -283,7 +279,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
             else:
                 add_ws_encapsulation(data, self.upgraded_buf, mask)
 
-        except Exception, e:
+        except Exception as e:
             raise EOFError(str(e))
 
     def downstream_recv(self, data):
@@ -300,18 +296,18 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                     if __debug__:
                         logger.debug('Short answer (%s)', repr(d))
                     return
-                elif not d.startswith('HTTP/'):
+                elif not d.startswith(b'HTTP/'):
                     raise EOFError('Invalid data')
-                elif d.startswith('HTTP/') and not d.startswith(UPGRADE_101_SUCCESS):
+                elif d.startswith(b'HTTP/') and not d.startswith(UPGRADE_101_SUCCESS):
                     raise EOFError('Invalid response: {}'.format(repr(data.read())))
 
                 d = data.peek()
-                if '\r\n\r\n' not in d:
+                if b'\r\n\r\n' not in d:
                     if __debug__:
                         logger.debug('Incomplete header')
                     return
 
-                EOFP = d.index('\r\n\r\n')
+                EOFP = d.index(b'\r\n\r\n')
                 data.drain(EOFP + 4)
                 if __debug__:
                     logger.debug('Connection upgraded')
@@ -340,7 +336,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                 if not msg_len:
                     break
 
-        except Exception, e:
+        except Exception as e:
             raise EOFError(str(e))
 
 
@@ -369,8 +365,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
     def calculate_response_key(self, key):
         GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
         hsh = sha1(key.encode() + GUID.encode())
-        response_key = base64.b64encode(hsh.digest()).strip()
-        return response_key.decode('ASCII')
+        return base64.b64encode(hsh.digest()).strip()
 
     def bad_request(self, msg):
         if __debug__:
@@ -405,17 +400,18 @@ class PupyWebSocketServer(PupyWebSocketTransport):
 
             d = data.peek()
             # Handle HTTP GET requests, strip websocket keys, verify UA etc
-            if not d.startswith('GET '):
+            if not d.startswith(b'GET '):
                 self.bad_request('Invalid HTTP method or data ({})'.format(repr(d)))
 
-            if '\r\n\r\n' not in d:
+            if b'\r\n\r\n' not in d:
                 if __debug__:
                     logger.debug('Short read, incomplete header')
                 return
 
-            _, path, _ = d.split(' ', 2)
+            _, path, _ = d.split(b' ', 2)
             if path != self.path:
-                self.bad_request('Path does not match ({} != {})!'.format(path, self.path))
+                self.bad_request('Path does not match ({} != {})!'.format(
+                    repr(path), repr(self.path)))
                 return
 
             wskey = None
@@ -441,21 +437,25 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                             ua, self.user_agent))
                     return
 
-            payload = 'HTTP/1.1 101 Switching Protocols\r\n'
-            payload += 'Upgrade: websocket\r\n'
-            payload += 'Connection: Upgrade\r\n'
+            payload = [
+                'HTTP/1.1 101 Switching Protocols\r\n'
+                'Upgrade: websocket\r\n'
+                'Connection: Upgrade\r\n'
+            ]
 
             if wskey:
-                payload += 'Sec-WebSocket-Accept: %s\r\n' % (self.calculate_response_key(wskey))
+                payload.extend((
+                    'Sec-WebSocket-Accept: ', self.calculate_response_key(wskey), '\r\n'
+                ))
 
-            payload += '\r\n'
+            payload.append('\r\n')
 
-            data.drain(d.index('\r\n\r\n') + 4)
+            data.drain(d.index(b'\r\n\r\n') + 4)
 
             if __debug__:
                 logger.debug('Flush upgrade response')
 
-            self.downstream.write(payload)
+            self.downstream.write(''.join(payload).encode('ascii'))
 
             if self.upgraded_buf:
                 if __debug__:

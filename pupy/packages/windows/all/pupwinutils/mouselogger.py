@@ -1,3 +1,7 @@
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 # Mostly stolen from Nicolas VERDIER (contact@n1nj4.eu)
 # Mostly stolen and recreated by golind
 
@@ -6,7 +10,7 @@ import datetime
 
 from png import bmp_to_png
 
-from hookfuncs import (
+from .hookfuncs import (
     MSG, SetTimer, GetMessageW,
     byref, KillTimer, get_mouse_xy,
     GetSystemMetrics,
@@ -150,6 +154,6 @@ if __name__=="__main__":
     ml.start()
     while True:
         for d, height, width, exe, win_title, buf in ml.retrieve_screenshots():
-            print "screenshot of %s/%s taken at %s (%s bytes) from %s : %s "%(
-                height, width, d, len(buf), exe, win_title)
+            print("screenshot of %s/%s taken at %s (%s bytes) from %s : %s "%(
+                height, width, d, len(buf), exe, win_title))
         time.sleep(1)

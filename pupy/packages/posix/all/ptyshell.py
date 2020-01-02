@@ -2,6 +2,10 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ['acquire', 'release']
 
 import sys
@@ -16,6 +20,8 @@ import array
 import pwd
 import errno
 import shlex
+
+from io import open
 
 from collections import deque
 from network.lib.pupyrpc import nowait
@@ -332,16 +338,16 @@ class PtyShell(Task):
 
             try:
                 r, _, x = select.select([self.master], [], [self.master], None)
-            except OSError, e:
+            except OSError as e:
                 if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                     continue
-            except Exception, e:
+            except Exception as e:
                 break
 
             if x or r:
                 try:
                     data = os.read(fd, 32768)
-                except OSError, e:
+                except OSError as e:
                     if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                         continue
                 except Exception:

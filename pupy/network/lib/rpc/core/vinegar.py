@@ -8,6 +8,10 @@ import custom modules (imposes a security risk), etc.
 Note that by changing the configuration parameters, this module can be made
 non-secure. Keep this in mind.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import traceback
 try:
@@ -21,7 +25,7 @@ except ImportError:
 
 from network.lib.rpc.core import brine
 from network.lib.rpc.core import consts
-from network.lib.rpc.lib.compat import is_py3k
+from network.lib.compat import is_py3k
 
 
 try:

@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from ldap3.protocol.formatters.formatters import format_sid
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
@@ -11,7 +16,7 @@ from pygments import lexers
 
 from os.path import basename
 from json import dumps
-from io import open as io_open
+from io import open
 
 from threading import Event
 from datetime import datetime
@@ -240,11 +245,11 @@ def json_default(o):
 
 #Convert password max age (in 100 nanoseconds), to days
 def nsToDays(length):
-    return abs(length) * .0000001 / 86400
+    return abs(length) * .0000001 // 86400
 
 
 def nsToMinutes(length):
-    return abs(length) * .0000001 / 60
+    return abs(length) * .0000001 // 60
 
 
 def toDateTime(filetime):
@@ -255,7 +260,7 @@ def toDateTime(filetime):
         return datetime.utcfromtimestamp(0)
 
     return datetime.utcfromtimestamp(float(
-        (filetime / 10000000) - 11644473600))
+        (filetime // 10000000) - 11644473600))
 
 
 #Parse bitwise flags into a list
@@ -878,7 +883,7 @@ class AD(PupyModule):
                         context['last_fobj'].write(u'\n]')
                         context['last_fobj'].close()
 
-                    context['last_fobj'] = io_open(
+                    context['last_fobj'] = open(
                         dest, 'w+', encoding='utf-8')
 
                     context['last_fobj'].write(u'[\n')

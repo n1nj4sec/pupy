@@ -2,14 +2,24 @@
 #Author: @bobsecq
 #Contributor(s):
 
-__class_name__="gpstracker"
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from time import sleep
+
 import os
 import csv
+
+from io import open
+
 from network.lib.rpc.utils.classic import download
 from pupylib.utils.common import getLocalAndroidPath
+
+__class_name__="gpstracker"
+
 
 KML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -76,7 +86,9 @@ def generateKML(deviceName, traces, outputFile):
         aKmlPlacemark = aKmlPlacemark.replace("MY_COORDINATE_2", "{0},{1},0.0".format(aPlace[2], aPlace[1]))
         kmlPlacemarks += aKmlPlacemark+"\n"
         lastPlace = aPlace
+
     kmlData = kmlData.replace("MY_PLACEMARKS", "\n"+kmlPlacemarks)
+
     f = open(outputFile, 'w')
     f.write(kmlData)
     f.close()
@@ -108,10 +120,10 @@ class gpstracker(PupyModule):
         gpsTracker = self.client.conn.modules['pupydroid.gpsTracker'].GpsTracker(period=args.period, inMemory=args.in_memory)
         if args.is_GPS_enabled:
             self.success("Is GPS enabled?")
-            print gpsTracker.isGPSenabled()
+            print(gpsTracker.isGPSenabled())
         if args.is_network_rovider_enabled:
             self.success("Is Network Provider enabled?")
-            print gpsTracker.isNetworkProviderEnabled()
+            print(gpsTracker.isNetworkProviderEnabled())
         if args.get_position:
             if not gpsTracker.isNetworkProviderEnabled() and not gpsTracker.isGPSenabled():
                 self.error("GPS or Network Provider is not enabled on the device. You should not be able to get location!")
@@ -128,7 +140,7 @@ class gpstracker(PupyModule):
                     sleep(5)
                 else:
                     self.success("Current location:")
-                    print "latitude: {0} , longitude: {1}".format(lat, lon)
+                    print("latitude: {0} , longitude: {1}".format(lat, lon))
                     break
             gpsTracker.disable()
         if args.start:

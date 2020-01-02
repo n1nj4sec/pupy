@@ -1,13 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+from io import open
+
 import zlib
 import threading
 
 from modules.lib.utils.cmdrepl import CmdRepl
 
 def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage=None):
-    data = zlib.compress(path if raw else open(path).read())
+    data = zlib.compress(path if raw else open(path, 'rb').read())
 
     MExec = module.client.remote('memexec', 'MExec', False)
 

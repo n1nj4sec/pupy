@@ -4,6 +4,10 @@
 """
 The obfs3 module implements the obfs3 protocol.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __all__ = ('Obfs3Client', 'Obfs3Server')
 
@@ -188,9 +192,9 @@ class Obfs3Transport(BaseTransport):
         try:
             kex = self.dh.get_secret(other_pubkey)
             self._read_handshake_post_dh(kex, data)
-        except Exception, e:
+        except Exception as e:
             if __debug__:
-                logger.debug('DH Exception: %s', e)
+                logger.exception('DH Exception: %s', e)
 
             self._uniform_dh_errback(e, other_pubkey)
 
@@ -226,7 +230,7 @@ class Obfs3Transport(BaseTransport):
         # Send our magic value to the remote end
         # Padding is prepended so that the server does not just send the 32-byte magic
         # in a single TCP segment.
-        padding_length = random.randint(0, MAX_PADDING/2)
+        padding_length = random.randint(0, MAX_PADDING//2)
         if __debug__:
             logger.debug('Padding length: %d', padding_length)
 
@@ -284,10 +288,10 @@ class Obfs3Client(Obfs3Transport):
     def __init__(self, *args, **kwargs):
         Obfs3Transport.__init__(self, *args, **kwargs)
 
-        self.send_keytype = "Initiator obfuscated data"
-        self.recv_keytype = "Responder obfuscated data"
-        self.send_magic_const = "Initiator magic"
-        self.recv_magic_const = "Responder magic"
+        self.send_keytype = b"Initiator obfuscated data"
+        self.recv_keytype = b"Responder obfuscated data"
+        self.send_magic_const = b"Initiator magic"
+        self.recv_magic_const = b"Responder magic"
         self.we_are_initiator = True
 
 class Obfs3Server(Obfs3Transport):
@@ -302,8 +306,8 @@ class Obfs3Server(Obfs3Transport):
     def __init__(self, *args, **kwargs):
         Obfs3Transport.__init__(self, *args, **kwargs)
 
-        self.send_keytype = "Responder obfuscated data"
-        self.recv_keytype = "Initiator obfuscated data"
-        self.send_magic_const = "Responder magic"
-        self.recv_magic_const = "Initiator magic"
+        self.send_keytype = b"Responder obfuscated data"
+        self.recv_keytype = b"Initiator obfuscated data"
+        self.send_magic_const = b"Responder magic"
+        self.recv_magic_const = b"Initiator magic"
         self.we_are_initiator = False

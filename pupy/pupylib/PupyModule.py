@@ -13,7 +13,23 @@
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import textwrap
+import time
+import os
+import json
+import re
+import struct
+import math
 import argparse
+
+from io import open
+
 from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 from .PupyCompleter import PupyModCompleter, void_completer, list_completer
 from .PupyConfig import PupyConfig
@@ -24,15 +40,6 @@ from .PupyOutput import (
 
 from pupylib.utils.term import hint_to_text, obj2utf8
 from pupylib import getLogger
-
-import textwrap
-import time
-import os
-import json
-import re
-import struct
-import math
-import io
 
 REQUIRE_NOTHING  = 0
 REQUIRE_STREAM   = 1
@@ -401,10 +408,10 @@ class PupyModule(object):
                 log = self.config.get_file('logs', replacements)
 
             if self.rec:
-                log = open(log, 'w+')
+                log = open(log, 'w+b')
                 unicode = False
             else:
-                log = io.open(log, 'w+', encoding='utf8')
+                log = open(log, 'w+')
                 unicode = True
 
             self.stdout = Log(
@@ -443,7 +450,7 @@ class PupyModule(object):
         for d in self.new_deps:
             try:
                 self.client.unload_package(d)
-            except Exception, e:
+            except Exception as e:
                 logger.exception('Dependency unloading failed: %s', e)
 
     def start_webplugin(self):

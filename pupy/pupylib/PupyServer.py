@@ -14,6 +14,10 @@
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from threading import Thread, Event, Lock
 
 import imp
@@ -146,7 +150,7 @@ class Listener(Thread):
                         self.external = self.address
 
                     self.ipv6 = (address.version == 6) or default_ipv6
-                except Exception, e:
+                except Exception as e:
                     raise ListenerException('Invalid IP: {} ({})'.format(ip, e))
 
             else:
@@ -220,7 +224,7 @@ class Listener(Thread):
 
         try:
             self.transport.parse_args(self.kwargs)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
 
     def init(self):
@@ -415,10 +419,10 @@ class PupyServer(object):
                         pproxy_manager.external,
                         ' via {}'.format(via) if via else ''))
 
-            except (socket.error, OffloadProxyCommonError), e:
+            except (socket.error, OffloadProxyCommonError) as e:
                 self.motd['fail'].append('Offload proxy unavailable: {}'.format(e))
 
-            except Exception, e:
+            except Exception as e:
                 logger.exception(e)
                 self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
 
@@ -460,7 +464,7 @@ class PupyServer(object):
                     pproxy=pproxy_dnscnc,
                     server=self
                 )
-            except Exception, e:
+            except Exception as e:
                 logger.error('DnsCNC failed: %s', e)
 
 
@@ -814,7 +818,7 @@ class PupyServer(object):
                     if valid:
                         files[modname] = modpath
 
-                except Exception, e:
+                except Exception as e:
                     logger.exception(e)
 
         for modname, modpath in files.iteritems():
@@ -830,11 +834,11 @@ class PupyServer(object):
                 self.modules[modname] = module_object
                 self._modules_stats[modname] = current_stats.st_mtime
 
-            except IgnoreModule, e:
+            except IgnoreModule as e:
                 logger.debug('Ignore module %s: %s', modname, e)
                 continue
 
-            except Exception, e:
+            except Exception as e:
                 tb = '\n'.join(traceback.format_exc().split('\n')[1:-2])
                 error = Line(
                     Error('Invalid module:'),
@@ -972,7 +976,7 @@ class PupyServer(object):
         """ connect on a client that would be running a bind payload """
 
         try:
-            stream = launcher.iterate().next()
+            stream = next(launcher.iterate())
         except socket.error as e:
             self.handler.display_error("Couldn't connect to pupy: {}".format(e))
             return
@@ -1048,7 +1052,7 @@ class PupyServer(object):
                 pproxy=None if ignore_pproxy else self.pproxy_listener
             )
 
-        except (ListenerException, ValueError), e:
+        except (ListenerException, ValueError) as e:
             error = 'Listener: {}: Error: {}'.format(repr(name), e)
 
             if motd:
@@ -1057,7 +1061,7 @@ class PupyServer(object):
                 self.handler.display_error(error)
             return
 
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
             return
 

@@ -30,6 +30,10 @@
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import zlib
 
 import msgpack
@@ -475,7 +479,7 @@ class PupyClient(object):
 
             self.cached_modules.update(contents)
 
-        except dependencies.NotFoundError, e:
+        except dependencies.NotFoundError as e:
             raise ValueError('Module not found: {}'.format(e))
 
         if remote:

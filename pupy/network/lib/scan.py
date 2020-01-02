@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ['scan', 'scanthread']
 
 import socket
@@ -136,7 +140,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                                 on_open_port((host, port))
 
                         connectable.append(sockets[sock][:2])
-                except Exception, e:
+                except Exception as e:
                     logger.exception('%s:%d - error - %s', host, port, e)
                     pass
 
@@ -170,7 +174,7 @@ def safe_scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None
         return scan(
             hosts, ports, abort, timeout, portion,
             on_complete, on_open_port, pass_socket)
-    except Exception, e:
+    except Exception as e:
         if on_exception:
             on_exception(e)
         elif on_complete:

@@ -1,11 +1,16 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'append_PKCS7_padding', 'strip_PKCS7_padding',
     'NewAESCipher', 'get_random',
     'SHA1', 'SHA256', 'SHA384', 'SHA3_256', 'SHA3_512',
     'AES_MODE_CTR', 'AES_MODE_CFB', 'AES_MODE_CBC',
-    'hmac_sha256_digest', 'AES_BLOCK_SIZE', 'RC4', 'ECPV'
+    'hmac_sha256_digest', 'AES_BLOCK_SIZE', 'RC4', 'ECPV',
+    'XOR'
 )
 
 from .aes import (
@@ -41,3 +46,4 @@ except ImportError as e:
         return hmac.new(key, msg, hashlib.sha256).digest()
 
 from .ecpv import ECPV
+from .xor import XOR

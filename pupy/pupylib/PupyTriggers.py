@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'UnregisteredEventId',
     'SERVER', 'DNSCNC', 'CLIENT',
@@ -229,8 +233,8 @@ def event(eventid, client, server, **kwargs):
     try:
         _event(eventid, client, server, handler, triggers, config, **kwargs)
 
-    except Error, e:
+    except Error as e:
         logger.error(e)
 
-    except Exception, e:
+    except Exception as e:
         logger.exception(e)

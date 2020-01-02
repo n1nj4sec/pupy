@@ -7,6 +7,10 @@ This script uses memorpy to dumps cleartext passwords from browser's memory
 It has been tested on both windows 10 and ubuntu 16.04
 The regex have been taken from the mimikittenz https://github.com/putterpanda/mimikittenz
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import psutil
 import pupy
 import sys

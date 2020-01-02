@@ -1,10 +1,16 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import random
 import string
 import base64
 import threading
 
+from io import open
 from ctypes import WinDLL, get_last_error
 from ctypes.wintypes import BOOL, LPSTR, DWORD
 from time import sleep
@@ -79,7 +85,7 @@ def push_payload(payload, timeout=90, log_cb=None):
             if log_cb:
                 log_cb(None, 'Push - OK')
 
-        except Exception, e:
+        except Exception as e:
             if log_cb:
                 log_cb(False, 'Open/Push - Fail ({})'.format(e))
 
@@ -93,7 +99,7 @@ def push_payload(payload, timeout=90, log_cb=None):
                     if not failed and log_cb:
                         log_cb(True, 'FLUSH - OK')
 
-            except Exception, e:
+            except Exception as e:
                 if not failed and log_cb:
                     log_cb(False, 'FLUSH - Fail ({})'.format(e))
 

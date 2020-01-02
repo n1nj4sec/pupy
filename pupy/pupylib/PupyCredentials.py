@@ -1,11 +1,17 @@
 # -*- coding: utf-8-*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 if __name__ == '__main__':
     import sys
     sys.path.append('..')
 
-from PupyConfig import PupyConfig
+from .PupyConfig import PupyConfig
 
+from io import open
 from os import path, urandom, chmod, makedirs
 
 import string
@@ -59,7 +65,7 @@ class GnomeKeyring(object):
             collection = secretstorage.get_default_collection(self.bus)
             if collection.is_locked():
                 collection.unlock() # will open a gnome-keyring popup
-            x=collection.search_items(self.collection).next()
+            x=next(collection.search_items(self.collection))
             return x.get_secret()
 
         except StopIteration:
@@ -87,7 +93,7 @@ class GnomeKeyring(object):
         collection = secretstorage.get_default_collection(self.bus)
         if collection.is_locked():
             collection.unlock()
-        x=collection.search_items(self.collection).next()
+        x=next(collection.search_items(self.collection))
         x.delete()
 
 class Encryptor(object):
@@ -500,7 +506,7 @@ class Credentials(object):
 
         try:
             with open(self._configfile, 'wb') as user_config:
-                chmod(self._configfile, 0600)
+                chmod(self._configfile, 0o600)
                 content = json.dumps(
                     self._credentials,
                     sort_keys=True, indent=2
@@ -554,7 +560,7 @@ class Credentials(object):
                         v for k,v in json.loads(content).iteritems()
                     }
                 else:
-                    exec content in self._credentials
+                    exec(content, self._credentials)
                     for key in self._credentials.keys():
                         if key.startswith('_'):
                             del self._credentials[key]

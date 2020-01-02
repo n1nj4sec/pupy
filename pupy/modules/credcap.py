@@ -2,12 +2,18 @@
 # Thanks to Dan McInerney for its net-creds project
 # Github: https://github.com/DanMcInerney/net-creds
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     QA_DANGEROUS
 )
 import os
 import datetime
+
+from io import open
 
 __class_name__="Credcap"
 

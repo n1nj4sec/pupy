@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = (
     'get_proxies', 'find_default_proxy',
     'get_proxy_for_address', 'set_proxy_unavailable',
@@ -14,6 +19,7 @@ import re
 import os
 import time
 
+from io import open
 from collections import namedtuple
 
 from . import getLogger
@@ -282,7 +288,7 @@ def gio_init():
             gio.g_settings_schema_source_get_default = None
 
 
-    except Exception, e:
+    except Exception as e:
         logger.error('GIO initialization failed: %s', e)
         gio = False
 
@@ -339,7 +345,7 @@ def get_gio_proxies(force=True):
             logger.debug('SOCKS Proxy found via GIO: %s:%s user=%s password=%s', host, port, user, password)
             yield Proxy('SOCKS', '{}:{}'.format(host, port), None, None)
 
-    except Exception, e:
+    except Exception as e:
         logger.exception('GIO request exception: %s', e)
 
     finally:
@@ -441,7 +447,7 @@ def _check_proxy_info(proxy_info):
     try:
         data, code = ctx.get(CHECK_CONNECTIVITY_URL, code=True)
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('%s - failed - %s', proxy_info, e)
         return False
 
@@ -505,7 +511,7 @@ def has_wpad():
         ctx = HTTP(proxy=proxy_info, timeout=5)
         try:
             data, code = ctx.get(CHECK_CONNECTIVITY_URL, code=True)
-        except Exception, e:
+        except Exception as e:
             logger.debug('WPAD: %s - failed - %s', proxy_info, e)
             continue
 

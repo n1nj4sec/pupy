@@ -1,7 +1,12 @@
 from __future__ import unicode_literals
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 import json
-import codecs
+
+from io import open
 from StringIO import StringIO
 
 from ..PupyConfig import PupyConfig
@@ -31,18 +36,21 @@ class Credentials(object):
             self._save_db({'creds': []})
 
     def _save_db(self, data):
-        with codecs.open(self.db, 'w+') as db:
+        with open(self.db, 'w+') as db:
             if self.encryptor:
                 jsondb = json.dumps(data, indent=4)
                 self.encryptor.encrypt(StringIO(jsondb), db)
             else:
                 json.dump(data, db, indent=4)
 
+    def _db_is_encrypted(self):
+        content = db.read(8)
+        db.seek(0)
+        return content.decode('latin1') == 'Salted__'
+
     def _load_db(self):
-        with open(self.db) as db:
-            content = db.read(8)
-            db.seek(0)
-            if content == ('Salted__'):
+        if self._db_is_encrypted():
+            with open(self.db, 'rb') as db:
                 data = StringIO()
                 if self.encryptor:
                     self.encryptor.decrypt(db, data)
@@ -50,8 +58,9 @@ class Credentials(object):
                     raise EncryptionError(
                         'Encrpyted credential storage: {}'.format(self.db)
                     )
-                return json.loads(data.getvalue())
-            else:
+                return json.loads(data.getvalue())    
+        else:
+            with open(self.db, 'r') as db:
                 return json.load(db)
 
     def add(self, data, cid=None):

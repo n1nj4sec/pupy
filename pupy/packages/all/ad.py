@@ -2,6 +2,11 @@
 
 # Stolen from ldapdomaindump
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from future.utils import raise_
 from ldap3 import (
     Server, Connection, SIMPLE, ALL, BASE,
     SASL, NTLM, ALL_ATTRIBUTES, GSSAPI, RESTARTABLE
@@ -78,7 +83,7 @@ def _add_exception_to_history(self, exc):
 
     # GSSAPI exceptions to be raised fast. Unlikely something will change
     if issubclass(exc_type, gssexceptions.GSSError):
-        raise exc_type, exc_value, exc_trace
+        raise_(exc_type, exc_value, exc_trace)
 
     if exc_type:
         _orig_add_exception_to_history(self, exc_type(*exc_value))
@@ -562,7 +567,7 @@ class ADCtx(object):
             raise AutodiscoveryNoDnsServersFound()
 
         self._preferred_name_server, duration = sorted(
-            self._name_servers, key=lambda (_, duration): duration
+            self._name_servers, key=lambda __duration: __duration[1]
         )[0]
 
         if on_data:

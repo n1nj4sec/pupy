@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import sys
 import cPickle
@@ -10,7 +15,7 @@ import marshal
 from zipfile import ZipFile
 
 from elftools.elf.elffile import ELFFile
-from io import BytesIO
+from io import open, BytesIO
 
 from pupylib.PupyCompile import pupycompile
 from pupylib import ROOT, getLogger

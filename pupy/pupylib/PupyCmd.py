@@ -13,6 +13,10 @@
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import sys
 import cmd
 import os
@@ -481,7 +485,7 @@ class PupyCmd(cmd.Cmd):
 
             self.completion_matches = None
 
-        except PupyModuleUsageError, e:
+        except PupyModuleUsageError as e:
             prog, message, usage = e.args
             self.display(Line(Error(message, prog)))
             self.display(usage)
@@ -489,12 +493,12 @@ class PupyCmd(cmd.Cmd):
         except PupyModuleExit:
             pass
 
-        except InvalidCommand, e:
+        except InvalidCommand as e:
             self.display(Error(
                 'Unknown (or unavailable) command {}. Use help -M to '
                 'list available commands and modules'.format(e)))
 
-        except (PupyModuleError, LauncherError, NotImplementedError), e:
+        except (PupyModuleError, LauncherError, NotImplementedError) as e:
             if str(e) and str(e) != 'None':
                 self.display(Error(e))
 
@@ -534,7 +538,7 @@ class PupyCmd(cmd.Cmd):
                 self.pupsrv, self, self.config, text)
 
             return completer(text)
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
 
     def pre_input_hook(self):
@@ -556,7 +560,7 @@ class PupyCmd(cmd.Cmd):
             self.commands.execute(
                 self.pupsrv, self, self.pupsrv.config, 'help {}'.format(arg))
 
-        except PupyModuleUsageError, e:
+        except PupyModuleUsageError as e:
             prog, message, usage = e.args
             self.display(Line(Error(message, prog)))
             self.display(usage)
@@ -580,7 +584,7 @@ class PupyCmd(cmd.Cmd):
                 return [
                     RawTerminal(
                         self.stdin,
-                        os.fdopen(stdout2, 'w', 0),
+                        os.fdopen(stdout2, 'wb', 0),
                         self.config.getboolean('cmdline', 'shadow_screen')
                 )]
             else:

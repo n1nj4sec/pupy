@@ -1,13 +1,18 @@
-"""
+'''
 compatibility module for various versions of python (2.4/3+/jython)
 and various platforms (posix/windows)
-"""
+'''
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __all__ = (
-    'is_py3k', 'BYTES_LITERAL', 'maxint',
+    'is_py3k', 'maxint',
     'Struct', 'BytesIO', 'pickle', 'callable',
     'select_module', 'select', 'get_exc_errno',
-    'select_error', 'poll'
+    'select_error', 'poll', 'xrange'
 )
 
 
@@ -18,21 +23,16 @@ is_py3k = (sys.version_info[0] >= 3)
 
 
 if is_py3k:
-    exec("execute = exec")
-
-    def BYTES_LITERAL(text):
-        return bytes(text, "utf8")
+    exec('execute = exec')
 
     maxint = sys.maxsize
+    xrange = range
 
 else:
-    exec("""def execute(code, globals = None, locals = None):
-                exec code in globals, locals""")
+    exec('''def execute(code, globals = None, locals = None):
+                exec code in globals, locals''')
 
-    def BYTES_LITERAL(text):
-        return text
-
-    maxint = sys.maxint
+    maxint = sys.maxsize
 
 try:
     from struct import Struct
@@ -42,7 +42,7 @@ except ImportError:
 
     class Struct(object):
 
-        __slots__ = ["format", "size"]
+        __slots__ = ('format', 'size')
 
         def __init__(self, format):
             self.format = format
@@ -76,7 +76,7 @@ try:
     callable = callable
 except NameError:
     def callable(obj):
-        return hasattr(obj, "__call__")
+        return hasattr(obj, '__call__')
 
 try:
     import select as select_module
@@ -84,7 +84,7 @@ except ImportError:
     select_module = None
 
     def select(*args):
-        raise ImportError("select not supported on this platform")
+        raise ImportError('select not supported on this platform')
 
 else:
     # jython
@@ -95,7 +95,7 @@ else:
 
 
 def get_exc_errno(exc):
-    if hasattr(exc, "errno"):
+    if hasattr(exc, 'errno'):
         return exc.errno
     else:
         return exc[0]
@@ -107,7 +107,7 @@ else:
     select_error = IOError
 
 
-if hasattr(select_module, "poll"):
+if hasattr(select_module, 'poll'):
 
     class PollingPoll(object):
         def __init__(self):
@@ -115,13 +115,13 @@ if hasattr(select_module, "poll"):
 
         def register(self, fd, mode):
             flags = 0
-            if "r" in mode:
+            if 'r' in mode:
                 flags |= select_module.POLLIN | select_module.POLLPRI
-            if "w" in mode:
+            if 'w' in mode:
                 flags |= select_module.POLLOUT
-            if "e" in mode:
+            if 'e' in mode:
                 flags |= select_module.POLLERR
-            if "h" in mode:
+            if 'h' in mode:
                 # POLLRDHUP is a linux only extension, not known to python, but nevertheless
                 # used and thus needed in the flags
                 POLLRDHUP = 0x2000
@@ -143,17 +143,17 @@ if hasattr(select_module, "poll"):
             processed = []
 
             for fd, evt in events:
-                mask = ""
+                mask = ''
                 if evt & (select_module.POLLIN | select_module.POLLPRI):
-                    mask += "r"
+                    mask += 'r'
                 if evt & select_module.POLLOUT:
-                    mask += "w"
+                    mask += 'w'
                 if evt & select_module.POLLERR:
-                    mask += "e"
+                    mask += 'e'
                 if evt & select_module.POLLHUP:
-                    mask += "h"
+                    mask += 'h'
                 if evt & select_module.POLLNVAL:
-                    mask += "n"
+                    mask += 'n'
                 processed.append((fd, mask))
             return processed
 
@@ -167,9 +167,9 @@ else:
             self.wlist = set()
 
         def register(self, fd, mode):
-            if "r" in mode:
+            if 'r' in mode:
                 self.rlist.add(fd)
-            if "w" in mode:
+            if 'w' in mode:
                 self.wlist.add(fd)
 
         modify = register
@@ -184,6 +184,6 @@ else:
                 return []  # need to return an empty array in this case
             else:
                 rl, wl, _ = select(self.rlist, self.wlist, (), timeout)
-                return [(fd, "r") for fd in rl] + [(fd, "w") for fd in wl]
+                return [(fd, 'r') for fd in rl] + [(fd, 'w') for fd in wl]
 
     poll = SelectingPoll

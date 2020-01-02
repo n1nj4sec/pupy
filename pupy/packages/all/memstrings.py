@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import memorpy
 import re
 import os
@@ -61,7 +65,7 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
                     if len(strings) >= portions:
                         yield pid, name, strings
                         del strings[:]
-        except Exception, e:
+        except Exception as e:
             logging.exception('MemWorker failed: %s', e)
 
         if strings:
@@ -71,8 +75,8 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
 if __name__=="__main__":
     import sys
     for pid, strings in iterate_strings(sys.argv[1].split(',')).iteritems():
-        print 'pid: ', pid
-    print
+        print('pid: ', pid)
+    print()
     for s in strings:
-        print s
-    print
+        print(s)
+    print()

@@ -1,19 +1,27 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 __all__ = ['PupyHTTPWrapperServer']
 
-from ..base import BasePupyTransport, ReleaseChainedTransport
+from io import open
+from os import path, stat
 
 try:
     from http_parser.parser import HttpParser
 except ImportError:
     from http_parser.pyparser import HttpParser
 
-from os import path, stat
 from network.lib.buffer import Buffer
 from network.lib import getLogger
 
+from ..base import BasePupyTransport, ReleaseChainedTransport
+
 logger = getLogger('httpwrap')
+
 
 class PupyHTTPWrapperServer(BasePupyTransport):
     path = '/index.php?d='
@@ -69,7 +77,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
 
     def _handle_file(self, filepath):
         try:
-            with open(filepath) as infile:
+            with open(filepath, 'rb') as infile:
                 size = stat(filepath).st_size
                 self._http_response(200, 'OK', datasize=size)
 
@@ -149,12 +157,13 @@ class PupyHTTPWrapperServer(BasePupyTransport):
     def downstream_recv(self, data):
         header = data.peek(self.probe_len)
 
-        if __debug__:
-            logger.debug('Recv: len=%d // header = %s', len(data), header)
-
         if self.server and self.is_http is None:
-            self.is_http = header.startswith(self.well_known) and \
-              not header.startswith(self.omit)
+            try:
+                self.is_http = header.startswith(self.well_known) and \
+                    not header.startswith(self.omit)
+
+            except UnicodeError:
+                self.is_http = False
 
             if __debug__:
                 logger.debug('Http: %s', self.is_http)

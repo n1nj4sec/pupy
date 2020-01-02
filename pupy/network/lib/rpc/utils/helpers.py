@@ -1,10 +1,16 @@
 """
 Helpers and wrappers for common RPyC tasks
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import time
 import threading
+
 from network.lib.rpc.lib.colls import WeakValueDict
-from network.lib.rpc.lib.compat import callable
+from network.lib.compat import callable
 from network.lib.rpc.core.consts import HANDLE_BUFFITER, HANDLE_CALL
 from network.lib.rpc.core.netref import syncreq, asyncreq
 

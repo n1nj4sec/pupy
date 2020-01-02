@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyOutput import List, Success, Warn, Error
 
 from base64 import b64encode
@@ -134,7 +138,7 @@ def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
             s = socket.create_connection((target_ip, int(bind_port)))
             break
 
-        except socket.error, e:
+        except socket.error as e:
             if e.errno not in (errno.ECONNREFUSED, errno.ETIMEDOUT):
                 display(Error('Connection failed: {}'.format(e)))
                 return

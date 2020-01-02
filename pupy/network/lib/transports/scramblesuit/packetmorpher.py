@@ -5,12 +5,16 @@ The class provides an interface to morph a network packet's length to a
 previously generated probability distribution.  The packet lengths of the
 morphed network data should then match the probability distribution.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import random
 
-import message
-import probdist
-import const
+from . import message
+from . import probdist
+from . import const
 
 import logging
 
@@ -52,15 +56,15 @@ class PacketMorpher(object):
 
         # We have to use two padding messages if the padding is > MTU.
         if padLen > const.MTU:
-            padMsgs = [message.new("", paddingLen=700 - const.HDR_LENGTH),
-                       message.new("", paddingLen=padLen - 700 - \
+            padMsgs = [message.new(b"", paddingLen=700 - const.HDR_LENGTH),
+                       message.new(b"", paddingLen=padLen - 700 - \
                                        const.HDR_LENGTH)]
         else:
-            padMsgs = [message.new("", paddingLen=padLen - const.HDR_LENGTH)]
+            padMsgs = [message.new(b"", paddingLen=padLen - const.HDR_LENGTH)]
 
         blurbs = [msg.encryptAndHMAC(sendCrypter, sendHMAC) for msg in padMsgs]
 
-        return "".join(blurbs)
+        return b"".join(blurbs)
 
     def calcPadding(self, dataLen):
         """

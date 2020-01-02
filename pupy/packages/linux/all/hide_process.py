@@ -3,8 +3,15 @@
 # Modifications: Nicolas VERDIER (contact@n1nj4.eu)
 # Original author is unknown
 # source : I received the original version of this code from a private message on reddit
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import ctypes
 import os
+
+from io import open
 
 
 class Stat():
@@ -50,7 +57,7 @@ def change_argv(argv="/bin/bash", env=""):
 
 
 if __name__=="__main__":
-    print "pid: %s"%os.getpid()
+    print("pid: %s"%os.getpid())
     change_argv(argv="[kworker/2:0]")
     import time
     while True:

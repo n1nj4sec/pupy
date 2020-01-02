@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import sys
 import binascii
 import pylzma
 import struct
 import os
+
+from io import open
 
 MAX_CHAR_PER_LINE = 50
 

@@ -4,10 +4,14 @@ This module provides code to generate and sample probability distributions.
 The class RandProbDist provides an interface to randomly generate probability
 distributions.  Random samples can then be drawn from these distributions.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import random
 
-import const
+from . import const
 
 import logging
 

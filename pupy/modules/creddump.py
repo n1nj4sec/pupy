@@ -13,6 +13,10 @@
 # saves the hives with a random name
 # do not write the saves on the target
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.credentials import Credentials
 from modules.lib.utils.shell_exec import shell_exec
@@ -23,6 +27,8 @@ import os
 import os.path
 import ntpath
 
+from io import open
+
 # CredDump imports
 from modules.lib.windows.creddump.win32.domcachedump import dump_hashes
 from modules.lib.windows.creddump.addrspace import HiveFileAddressSpace
@@ -32,6 +38,7 @@ from modules.lib.windows.creddump.win32.hashdump import empty_lm, empty_nt
 from modules.lib.windows.creddump.win32.lsasecrets import get_file_secrets
 
 __class_name__="CredDump"
+
 
 @config(cat="creds", compatibilities=['windows', 'linux', 'darwin'], tags=['creds',
     'credentials', 'password', 'gather', 'hives'])

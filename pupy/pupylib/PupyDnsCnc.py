@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import logging
-from PupyCredentials import Credentials
+
+from .PupyCredentials import Credentials
 from network.lib.picocmd.server import (
     DnsCommandServerHandler, DnsCommandServer, SessionDependedCommand
 )
@@ -19,6 +25,7 @@ import netaddr
 
 from urlparse import urlparse
 
+from io import open
 from os import path
 
 from .PupyTriggers import event
@@ -397,7 +404,7 @@ class PupyDnsCnc(object):
         if self.pproxy:
             try:
                 self.server = self.pproxy.dns(self.dns_handler, domain)
-            except Exception, e:
+            except Exception as e:
                 logging.exception(e)
         else:
             self.server = DnsCommandServer(
@@ -527,7 +534,7 @@ class PupyDnsCnc(object):
 
             payload = b''
             # TODO: add more providers
-            with open(content_path) as content:
+            with open(content_path, 'rb') as content:
                 payload = self.dns_handler.encode_pastelink_content(
                     content.read(), self.dns_handler.ENCODER_V1 \
                     if legacy else self.dns_handler.ENCODER_V2)

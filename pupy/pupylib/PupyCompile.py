@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import ast
 import marshal
 import logging
+
+from io import open
 
 try:
     from .PupyLogger import getLogger
@@ -10,6 +17,7 @@ try:
 except ValueError:
     # If PupyCompile imported directly (build_library_zip.py)
     logger = logging
+
 
 class Compiler(ast.NodeTransformer):
     def __init__(self, data, path=False, main=False, docstrings=False):
@@ -25,16 +33,21 @@ class Compiler(ast.NodeTransformer):
 
         self._source_ast = None
 
+        if type(source) is unicode:
+            first, rest = source.split('\n', 1)
+            if first.strip().startswith('#') and 'coding:' in first:
+                source = rest
+
         try:
             self._source_ast = ast.parse(source)
-        except SyntaxError, e:
+        except SyntaxError as e:
             if path:
                 logger.error('Compilation error: {} {}:{}'.format(e.msg, data, e.lineno))
             else:
                 logger.error('Compilation error: {} line: {}'.format(
                     e.msg, source.split('\n')[e.lineno]))
 
-    def compile(self, filename, obfuscate=False, raw=False, magic='\x00'*8):
+    def compile(self, filename, obfuscate=False, raw=False, magic=b'\x00'*8):
         if self._source_ast is None:
             return None
 
@@ -109,7 +122,11 @@ def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug
         logger.info('debug: %s', data if path else filename)
         data = marshal.dumps(compile(source, filename, 'exec'))
 
+    if data is None:
+        raise ValueError('Compilation failed (debug={})'.format(debug))
+
     return data
+
 
 if __name__ == '__main__':
     import argparse
@@ -146,7 +163,7 @@ if __name__ == '__main__':
                     fake_filepath or filepath, False, False,
                     struct.pack('<4sl', imp.get_magic(), mtime)))
 
-        except (OSError, IOError, SyntaxError), e:
+        except (OSError, IOError, SyntaxError) as e:
             logger.error('%s: %s', filepath, e)
 
     fid = 0

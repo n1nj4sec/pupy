@@ -5,13 +5,17 @@ This module implements several commonly used utility functions.
 The implemented functions can be used to swap variables, write and read data
 from files and to convert a number to raw text.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import logging
 import os
 import time
-import const
+from . import const
 
-import mycrypto
+from . import mycrypto
 import StringIO
 
 log = logging
@@ -106,7 +110,7 @@ def getEpoch():
     `EPOCH_GRANULARITY'.
     """
 
-    return str(int(time.time()) / const.EPOCH_GRANULARITY)
+    return str(int(time.time()) // const.EPOCH_GRANULARITY)
 
 
 def expandedEpoch():

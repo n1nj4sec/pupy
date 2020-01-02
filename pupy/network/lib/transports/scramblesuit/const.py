@@ -4,6 +4,10 @@ This module defines constant values for the ScrambleSuit protocol.
 While some values can be changed, in general they should not.  If you do not
 obey, be at least careful because the protocol could easily break.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # Length of the key of the HMAC which used to authenticate tickets in bytes.
 TICKET_HMAC_KEY_LENGTH = 32
@@ -105,7 +109,7 @@ ST_CONNECTED = 2
 
 # Static validation string embedded in all tickets.  Must be a multiple of 16
 # bytes due to AES' block size.
-TICKET_IDENTIFIER = "ScrambleSuitTicket"
+TICKET_IDENTIFIER = b"ScrambleSuitTicket"
 
 # Length of a session ticket in bytes.
 TICKET_LENGTH = 112

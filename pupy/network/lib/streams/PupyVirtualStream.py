@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from network.lib import getLogger
 logger = getLogger('pvs')
 
@@ -88,7 +92,7 @@ class PupyVirtualStream(object):
         try:
             self.on_receive(self, data, None)
             logger.debug('Flush (%s / %d) - complete', self, len(self.downstream))
-        except Exception, e:
+        except Exception as e:
             logger.exception('Flush (%s) - failed - %d', self, e)
             self.closed = True
             raise EOFError(e)
@@ -125,7 +129,7 @@ class PupyVirtualStream(object):
 
             logger.debug('Submit (%s): completed', self)
 
-        except Exception, e:
+        except Exception as e:
             logger.debug('Submit (%s): exception %s', self, e)
             raise
 

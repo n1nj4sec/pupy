@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'Command',
     'Poll', 'Ack', 'Idle',
@@ -152,8 +156,8 @@ def to_bytes(value, size=0):
     while value:
         bytes.append(chr(value % 256))
         value = value >> 8
-    bytes = ''.join(bytes)
-    bytes += '\x00'*(size-len(bytes))
+    bytes = b''.join(bytes)
+    bytes += b'\x00'*(size-len(bytes))
     return bytes
 
 

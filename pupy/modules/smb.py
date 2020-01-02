@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import os
 import ntpath
 import StringIO
+
+from io import open
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table
@@ -10,8 +17,10 @@ from pupylib.utils.rpyc_utils import obtain
 
 __class_name__="SMB"
 
+
 class SMBError(Exception):
     pass
+
 
 @config(cat="admin")
 class SMB(PupyModule):
@@ -181,7 +190,7 @@ class SMB(PupyModule):
     def ls(self, args):
         try:
             host, share, path = self.parse_netloc(args.dst, partial=True, codepage=args.codepage)
-        except Exception, e:
+        except Exception as e:
             self.error(e)
             return
 
@@ -215,7 +224,7 @@ class SMB(PupyModule):
     def rm(self, args):
         try:
             host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
-        except Exception, e:
+        except Exception as e:
             self.error(str(e))
             return
 
@@ -231,7 +240,7 @@ class SMB(PupyModule):
     def mkdir(self, args):
         try:
             host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
-        except Exception, e:
+        except Exception as e:
             self.error(str(e))
             return
 
@@ -247,7 +256,7 @@ class SMB(PupyModule):
     def rmdir(self, args):
         try:
             host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
-        except Exception, e:
+        except Exception as e:
             self.error(str(e))
             return
 
@@ -277,7 +286,7 @@ class SMB(PupyModule):
 
         try:
             host, share, path = self.parse_netloc(remote, codepage=args.codepage)
-        except Exception, e:
+        except Exception as e:
             self.error(e)
             return
 
@@ -307,7 +316,7 @@ class SMB(PupyModule):
     def cat(self, args):
         try:
             host, share, path = self.parse_netloc(args.remote, codepage=args.codepage)
-        except Exception, e:
+        except Exception as e:
             self.error(e)
             return
 

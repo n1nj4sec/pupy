@@ -2,6 +2,10 @@
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from modules.lib.windows.winpcap import init_winpcap
 from pupylib.utils.rpyc_utils import redirected_stdo
 

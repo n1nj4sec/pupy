@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = [
   'Key', 'search', 'enum',
   'set', 'get', 'rm'
@@ -514,7 +518,7 @@ class KeyIter(object):
             else:
                 self.idx = 0
                 self.is_value = True
-                return self.next()
+                return next(self)
 
 class Value(object):
     __slots__ = ('parent', 'name', 'value', 'type')
@@ -652,7 +656,7 @@ class Key(object):
         attr = as_unicode(attr)
         try:
             value, ktype = QueryValueEx(handle, attr)
-        except WindowsError, e:
+        except WindowsError as e:
             if e.winerror != 2:
                 raise
 

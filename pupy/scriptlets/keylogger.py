@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
 ''' Start keylogger '''
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __dependencies__ = {
     'windows': ['pupwinutils.keylogger', 'pupwinutils.hookfuncs'],
@@ -10,7 +14,7 @@ __dependencies__ = {
 __compatibility__ = ('windows', 'linux')
 
 if '__os:linux__':
-    from keylogger import keylogger_start
+    from .keylogger import keylogger_start
     from display import when_attached
 
     def main():

@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from network.transports import Transport, LAUNCHER_TYPE_BIND
 from network.lib import PupyUDPServer, PupyUDPClient, PupyUDPSocketStream
 from network.lib import EC4TransportClient, EC4TransportServer

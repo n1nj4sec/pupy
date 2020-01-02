@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ['SafePopen']
 
 import threading
@@ -10,6 +14,7 @@ import os
 import struct
 import errno
 
+from io import open
 from network.lib.pupyrpc import nowait
 
 ON_POSIX = 'posix' in sys.builtin_module_names
@@ -150,7 +155,7 @@ class SafePopen(object):
                         del kwargs[arg]
             else:
                 need_fork = True
-                devnull = open(os.devnull, 'a')
+                devnull = open(os.devnull, 'ab')
                 kwargs.update({
                     'stdout': devnull,
                     'stderr': devnull,

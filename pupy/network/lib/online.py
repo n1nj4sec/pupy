@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = (
     'check_transparent_proxy',
     'internal_ip',
@@ -12,16 +16,16 @@ __all__ = (
     'PortQuiz',
 )
 
-import tinyhttp
+from . import tinyhttp
 import socket
 import time
 import threading
 import random
 import urllib2
-import scan
+from . import scan
 import netaddr
 import struct
-import igd
+from . import igd
 import sys
 import json
 
@@ -89,11 +93,11 @@ STUN_PORT = 19302
 STUN_HOST_BROKEN = False
 
 # Don't want to import large (200k - 1Mb) dnslib/python dns just for that..
-OPENDNS_REQUEST = '\xe4\x9a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04' \
-                  'myip\x07opendns\x03com\x00\x00\x01\x00\x01'
-OPENDNS_RESPONSE = '\xe4\x9a\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x04' \
-                   'myip\x07opendns\x03com\x00\x00\x01\x00\x01\xc0\x0c\x00' \
-                   '\x01\x00\x01\x00\x00\x00\x00\x00\x04'
+OPENDNS_REQUEST = b'\xe4\x9a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04' \
+                  b'myip\x07opendns\x03com\x00\x00\x01\x00\x01'
+OPENDNS_RESPONSE = b'\xe4\x9a\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x04' \
+                   b'myip\x07opendns\x03com\x00\x00\x01\x00\x01\xc0\x0c\x00' \
+                   b'\x01\x00\x01\x00\x00\x00\x00\x00\x04'
 OPENDNS_BROKEN = False
 
 PASTEBINS = {
@@ -195,7 +199,7 @@ def check_transparent_proxy():
         if data.startswith('HTTP'):
             return True
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('Check transparent proxy: %s', e)
 
     return False
@@ -242,7 +246,7 @@ def external_ip(force_ipv4=False):
 
                 return LAST_EXTERNAL_IP
 
-    except Exception, e:
+    except Exception as e:
         STUN_HOST_BROKEN = True
         logger.debug('external_ip: STUN failed: %s', e)
 
@@ -265,7 +269,7 @@ def external_ip(force_ipv4=False):
 
                     return LAST_EXTERNAL_IP
 
-            except Exception, e:
+            except Exception as e:
                 logger.debug('Get IP service failed: %s: %s (%s)', service, e, type(e))
                 OWN_IP_BROKEN.add(service)
 
@@ -291,7 +295,7 @@ def dns_external_ip():
         if data.startswith(OPENDNS_RESPONSE):
             return netaddr.IPAddress(struct.unpack('>I', data[-4:])[0])
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('DNS External IP failed: %s', e)
         OPENDNS_BROKEN = True
 
@@ -307,7 +311,7 @@ def external_headers():
         data = json.loads(data)
         return data['headers']
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('External headers failed: %s', e)
 
     return {}
@@ -323,7 +327,7 @@ def online():
         if data == CHECKS['msonline']['text']:
             return True
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('MS Online check failed: %s', e)
 
     return False
@@ -376,7 +380,7 @@ def check():
             if code == 302:
                 result |= HOTSPOT
 
-        except Exception, e:
+        except Exception as e:
             logger.debug('Captive check failed %s: %s', url, e)
 
     if ok == 2:
@@ -393,7 +397,7 @@ def check():
         if data == CHECKS['msonline']['text']:
             result |= ONLINE_MS
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('MS Online check failed: %s', e)
 
     if result & ONLINE_CAPTIVE:
@@ -404,7 +408,7 @@ def check():
                     result |= PROXY
                     break
 
-            except Exception, e:
+            except Exception as e:
                 result |= PROXY
                 logger.debug('Captive check failed %s: %s', url, e)
 
@@ -413,7 +417,7 @@ def check():
         if CHECKS['http']['text'] in data:
             result |= HTTP
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('HTTP Check failed: %s', e)
 
     try:
@@ -421,7 +425,7 @@ def check():
         if CHECKS['https']['text'] in data:
             result |= HTTPS
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('HTTPS Check failed: %s', e)
 
     try:
@@ -429,7 +433,7 @@ def check():
         if result | HTTPS and CHECKS['https']['text'] not in data:
             result |= HTTPS_MITM
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('HTTPS Mitm Check failed: %s', e)
         result |= HTTPS_MITM
 
@@ -439,7 +443,7 @@ def check():
             result |= HTTPS_NOCERT
             result |= HTTPS
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('HTTPS NoCert Check failed: %s', e)
 
     for hostname, ip in KNOWN_DNS.iteritems():
@@ -447,7 +451,7 @@ def check():
             if ip == socket.gethostbyname(hostname):
                 result |= DNS
 
-        except Exception, e:
+        except Exception as e:
             logger.debug('DNS Check failed: %s', e)
 
     for pastebin, bit in PASTEBINS.iteritems():
@@ -459,7 +463,7 @@ def check():
             if code == 200:
                 result |= bit
 
-        except Exception, e:
+        except Exception as e:
             logger.debug('Pastebin Check failed %s: %s', pastebin, e)
 
     if check_transparent_proxy():
@@ -482,7 +486,7 @@ def check():
                 result |= bit
                 break
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('STUN Checks failed: %s', e)
         result |= STUN_NAT_BLOCKED
 
@@ -494,7 +498,7 @@ def check():
         elif offset < -32768:
             offset = -32768
 
-    except Exception, e:
+    except Exception as e:
         logger.debug('NTP Checks failed: %s', e)
         offset = 0
 
@@ -506,7 +510,7 @@ def check():
             if igdc.available:
                 result |= IGD
 
-        except Exception, e:
+        except Exception as e:
             logger.debug('IGD Check failed: %s', e)
 
     if mintime is None:
@@ -619,7 +623,7 @@ class PortQuiz(threading.Thread):
             else:
                 logger.debug('Invalid response, port %d: %s', port, repr(data))
 
-        except Exception, e:
+        except Exception as e:
             logger.exception('port check: %s:%s: %s', host, port, e)
 
         finally:
@@ -659,5 +663,5 @@ class PortQuiz(threading.Thread):
             self._run()
             logger.debug('PortQuiz: completed (available %d ports)', len(self.available))
 
-        except Exception, e:
+        except Exception as e:
             logger.exception('PortQuiz: %s', e)

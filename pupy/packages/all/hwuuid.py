@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 import uuid
+
+from io import open
+
 
 def get_hw_uuid():
     zero_uuid = str(uuid.UUID('00000000-0000-0000-0000-000000000000'))
 
-    if sys.platform=='win32':
+    if sys.platform == 'win32':
         try:
             import win32com
 
@@ -16,6 +24,7 @@ def get_hw_uuid():
             for objItem in colItems:
                 if objItem.UUID is not None:
                     return 'wmi', objItem.UUID
+
         except:
             pass
 

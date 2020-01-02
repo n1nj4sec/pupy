@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Pygment, Table, NewLine
 from pygments.lexers import guess_lexer, JsonLexer
@@ -116,11 +120,11 @@ class http(PupyModule):
 
                 self.log(result)
 
-        except Exception, e:
+        except Exception as e:
             if hasattr(e, 'reason'):
                 code = getattr(e, 'code', None)
                 message = '{} {} ({})'.format(code or '?', e.reason, e.filename or '')
-                if code and (code / 100 < 4):
+                if code and (code // 100 < 4):
                     self.warning(message)
                 else:
                     self.error(message)

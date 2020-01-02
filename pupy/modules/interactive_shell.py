@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import os
 from network.lib.rpc import nowait
@@ -118,5 +122,5 @@ class InteractiveShell(PupyModule):
                 release_shell()
                 self.success('Shell closed')
                 self.client.conn.unregister_remote_cleanup(release_shell)
-            except Exception, e:
+            except Exception as e:
                 self.error(e)

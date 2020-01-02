@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import psutil
 
 import sys
@@ -8,6 +13,8 @@ import socket
 import struct
 import netaddr
 import time
+
+from io import open
 
 families = {
     v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
@@ -79,6 +86,7 @@ def make_known_fields():
 
 
 KNOWN_FIELDS, UNSUPPORTED_FIELDS = make_known_fields()
+
 
 
 if os.name == 'nt':
@@ -232,6 +240,7 @@ def pstree():
 
     return min(tree), tree, data
 
+
 def users():
     info = {}
     terminals = {}
@@ -291,6 +300,7 @@ def users():
 
     return info
 
+
 def connections():
     connections = []
 
@@ -318,11 +328,13 @@ def connections():
 
     return connections
 
+
 def _tryint(x):
     try:
         return int(x)
     except:
         return str(x)
+
 
 def interfaces():
     try:
@@ -354,6 +366,7 @@ def interfaces():
         'stats': stats
     }
 
+
 def drives():
     partitions = []
 
@@ -383,11 +396,14 @@ def drives():
 
     return partitions
 
+
 def cstring(string):
     return string[:string.find('\x00')]
 
+
 def convrecord(item):
     return item if type(item) in (int,long) else cstring(item)
+
 
 def wtmp(input='/var/log/wtmp'):
     retval = []
@@ -408,7 +424,7 @@ def wtmp(input='/var/log/wtmp'):
 
     now = time.time()
 
-    with open('/var/log/wtmp') as wtmp:
+    with open('/var/log/wtmp', 'rb') as wtmp:
         while True:
             data = wtmp.read(WTmp.size)
             if not data or len(data) != WTmp.size:
@@ -478,13 +494,14 @@ def wtmp(input='/var/log/wtmp'):
         'records': retval
     }
 
+
 def lastlog(log='/var/log/lastlog'):
     import pwd
 
     result = {}
     LastLog = struct.Struct('I32s256s')
 
-    with open(log) as lastlog:
+    with open(log, 'rb') as lastlog:
         uid = 0
         while True:
             data = lastlog.read(LastLog.size)
@@ -509,6 +526,7 @@ def lastlog(log='/var/log/lastlog'):
 
     return result
 
+
 def get_win_services():
     return [
         {
@@ -521,7 +539,7 @@ if __name__ == '__main__':
     import datetime
     for result in wtmp():
         if result['type'] in ('process', 'boot'):
-            print '{:12s} {:5d} {:7} {:8s} {:8s} {:16s} {:3} {:3} {} - {}'.format(
+            print('{:12s} {:5d} {:7} {:8s} {:8s} {:16s} {:3} {:3} {} - {}'.format(
                 result['type'],
                 result['pid'],
                 result['id'],
@@ -529,4 +547,4 @@ if __name__ == '__main__':
                 result['termination'], result['exit'],
                 datetime.datetime.fromtimestamp(result['start']),
                 datetime.datetime.fromtimestamp(result['end']) if result['end'] != -1 else 'logged in',
-            )
+            ))

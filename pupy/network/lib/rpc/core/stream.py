@@ -2,12 +2,16 @@
 An abstraction layer over OS-dependent file-like objects, that provides a
 consistent view of a *duplex byte stream*.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import socket
 import errno
 
-from network.lib.rpc.lib.compat import (
-    poll, select_error, BYTES_LITERAL, get_exc_errno
+from network.lib.compat import (
+    poll, select_error, get_exc_errno
 )
 
 retry_errnos = (errno.EAGAIN, errno.EWOULDBLOCK)
@@ -177,7 +181,7 @@ class SocketStream(Stream):
                 raise EOFError("connection closed by peer")
             data.append(buf)
             count -= len(buf)
-        return BYTES_LITERAL("").join(data)
+        return b''.join(data)
 
     def write(self, data):
         try:

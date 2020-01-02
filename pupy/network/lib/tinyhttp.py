@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ('HTTP',)
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+__all__ = ('HTTP',)
 
 import urllib2
 import urllib
@@ -11,8 +15,9 @@ import httplib
 import ssl
 import socket
 import types
-
 import StringIO
+
+from io import open
 
 from netaddr import IPAddress, AddrFormatError
 
@@ -581,7 +586,7 @@ class HTTP(object):
 
         opener = urllib2.OpenerDirector()
         for h in handlers:
-            if isinstance(h, (types.ClassType, type)):
+            if isinstance(h, type):
                 h = h()
 
             opener.add_handler(h)

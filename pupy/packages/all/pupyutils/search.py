@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
@@ -18,6 +22,7 @@ import string
 
 from uuid import uuid4
 
+from io import open
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
 from tarfile import open as open_tarfile
@@ -147,13 +152,13 @@ class Search(object):
                 prev = chunk
                 offset += len(chunk)
 
-        except IOError, e:
+        except IOError as e:
             if e.errno in PERMISSION_ERRORS:
                 return
 
-        except Exception, e:
+        except Exception as e:
             setattr(e, 'filename', filename)
-            setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+            setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
             yield e
 
     def search_string(self, path, find_all=False):
@@ -162,13 +167,13 @@ class Search(object):
                 for result in self.search_string_in_fileobj(f, find_all, filename=path):
                     yield result
 
-        except IOError, e:
+        except IOError as e:
             if e.errno in PERMISSION_ERRORS:
                 return
 
-        except Exception, e:
+        except Exception as e:
             setattr(e, 'filename', path)
-            setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+            setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
             yield e
 
     def filter_extended(self, item):
@@ -200,7 +205,7 @@ class Search(object):
             if item.is_dir():
                 try:
                     tmp_file = os.path.join(path, OWAW_PROBE_NAME)
-                    f = open(tmp_file, 'w')
+                    f = open(tmp_file, 'wb')
                     f.close()
                     os.unlink(tmp_file)
                     return True
@@ -210,7 +215,7 @@ class Search(object):
 
             elif item.is_file():
                 try:
-                    f = open(path, 'a')
+                    f = open(path, 'ab')
                     f.close()
                     return True
 
@@ -329,13 +334,13 @@ class Search(object):
                                     else:
                                         if self.filter_extended(entry):
                                             yield (entry.path, s)
-                    except IOError, e:
+                    except IOError as e:
                         if e.errno in PERMISSION_ERRORS:
                             continue
 
-                    except Exception, e:
+                    except Exception as e:
                         setattr(e, 'filename', entry.path)
-                        setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+                        setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
 
                 try:
                     if entry.is_dir(follow_symlinks=followlinks):
@@ -347,22 +352,22 @@ class Search(object):
                         for res in self.search_in_archive(entry.path):
                             yield res
 
-                except IOError, e:
+                except IOError as e:
                     if e.errno in PERMISSION_ERRORS:
                         continue
 
-                except Exception, e:
+                except Exception as e:
                     setattr(e, 'filename', entry.path)
-                    setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+                    setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
 
-        except IOError, e:
+        except IOError as e:
             if e.errno in PERMISSION_ERRORS:
                 return
 
         # try / except used for permission denied
-        except Exception, e:
+        except Exception as e:
             setattr(e, 'filename', path)
-            setattr(e, 'exc', (sys.exc_type, sys.exc_value, sys.exc_traceback))
+            setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
             yield e
 
     def run(self):
@@ -408,7 +413,7 @@ class Search(object):
                             on_error('Scanwalk exception: {}:{}:{}'.format(
                                 str(type(result)), str(result),
                                 '\n'.join(traceback.format_exception(*result.exc))))
-                        except Exception, e:
+                        except Exception as e:
                             try:
                                 on_error('Scanwalk exception (module): ({})'.format(e))
                             except:
@@ -421,7 +426,7 @@ class Search(object):
                 if result != previous_result:
                     on_data(result)
                     previous_result = result
-            except Exception, e:
+            except Exception as e:
                 try:
                     on_error('Scanwalk exception (module): {}'.format(e))
                 except:

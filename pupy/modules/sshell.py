@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 
 from urlparse import urlparse
 from argparse import REMAINDER
 
+from io import open
 from os import path, environ, walk
 
 from network.lib.rpc import nowait
@@ -111,7 +117,7 @@ class SSHell(PupyModule):
                 program, write, remote_close, args.timeout
             )
 
-        except Exception, e:
+        except Exception as e:
             self.error(e.args[0])
             return
 

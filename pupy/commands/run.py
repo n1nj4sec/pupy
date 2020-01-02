@@ -2,6 +2,9 @@
 
 # TODO: Fix stream/interaction
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 from pupylib.PupyModule import PupyArgumentParser, PupyModuleUsageError
 from pupylib.PupyCompleter import module_name_completer, module_args_completer, path_completer
 from pupylib.PupyOutput import Error, Line, Color
@@ -41,7 +44,7 @@ def do(server, handler, config, modargs):
         module = server.get_module(
             server.get_module_name_from_category(modargs.module))
 
-    except PupyModuleUsageError, e:
+    except PupyModuleUsageError as e:
         prog, message, usage = e.args
         handler.display(Line(Error(prog+':'), Color(message, 'lightred')))
         handler.display(usage)

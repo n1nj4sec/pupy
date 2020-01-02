@@ -4,15 +4,19 @@ This module provides cryptographic functions not implemented in PyCrypto.
 The implemented algorithms include HKDF-SHA256, HMAC-SHA256-128, (CS)PRNGs and
 an interface for encryption and decryption using AES in counter mode.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from ... import base
 from ..cryptoutils import (
     hmac_sha256_digest, AES_MODE_CTR, NewAESCipher
 )
 
-from struct import unpack
+from struct import pack, unpack
 
-import const
+from . import const
 import logging
 
 from math import ceil
@@ -34,7 +38,7 @@ class HKDF_SHA256(object):
         'length', 'ctr', 'T'
     )
 
-    def __init__(self, prk, info="", length=32):
+    def __init__(self, prk, info=b'', length=32):
         """
         Initialise a HKDF_SHA256 object.
         """
@@ -49,12 +53,12 @@ class HKDF_SHA256(object):
             raise ValueError("The PRK must be at least %d bytes in length "
                              "(%d given)." % (self.hashLen, len(prk)))
 
-        self.N = ceil(float(length) / self.hashLen)
+        self.N = ceil(length / self.hashLen)
         self.prk = prk
         self.info = info
         self.length = length
         self.ctr = 1
-        self.T = ""
+        self.T = b''
 
     def expand(self):
         """
@@ -69,13 +73,21 @@ class HKDF_SHA256(object):
             raise base.PluggableTransportError("HKDF-SHA256 OKM must not "
                                                "be re-used by application.")
 
-        tmp = ''
+        tmp_data = []
+        tmp_len = 0
+        tmp = b''
 
-        while self.length > len(self.T):
-            tmp = hmac_sha256_digest(self.prk, tmp + self.info + chr(self.ctr))
-            self.T += tmp
+        while self.length > tmp_len:
+            tmp = hmac_sha256_digest(
+                self.prk, b''.join((tmp, self.info, pack('B', self.ctr)))
+            )
+
+            tmp_len += len(tmp)
+            tmp_data.append(tmp)
+
             self.ctr += 1
 
+        self.T = b''.join(tmp_data)
         return self.T[:self.length]
 
 

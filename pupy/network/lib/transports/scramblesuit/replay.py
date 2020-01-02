@@ -6,10 +6,14 @@ previously observed keys.  New keys can be added to the dictionary and existing
 ones can be queried.  A pruning mechanism deletes expired keys from the
 dictionary.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import time
 
-import const
+from . import const
 
 import logging
 

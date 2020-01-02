@@ -1,6 +1,10 @@
 # A script to generate helper files for dynamic linking to the Python dll
 #
+
 import string
+
+from io import open
+
 decls = '''
 void, Py_InitializeEx, (int)
 void, Py_Finalize, (void)

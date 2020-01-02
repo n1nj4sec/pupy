@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 __all__ = ('set_sighandlers',)
 
 import os
@@ -46,7 +50,7 @@ def _handle_sigterm(*args):
         # Should be the custom event, as generated on client
         pupy.broadcast_event(0x10000000 | 0xFFFF)
         logger.info('Event broadcasted')
-    except Exception, e:
+    except Exception as e:
         logger.exception(e)
 
     if pupy.connection:

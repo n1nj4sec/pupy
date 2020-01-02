@@ -1,6 +1,11 @@
 """
 The  protocol
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 import weakref
 import itertools
@@ -8,7 +13,7 @@ import socket
 import time
 
 from threading import Lock, RLock, Event, Thread
-from ..lib.compat import pickle, next, is_py3k, maxint, select_error
+from network.lib.compat import pickle, next, is_py3k, maxint, select_error
 from ..lib.colls import WeakValueDict, RefCountingColl
 from ..lib import get_methods
 from . import consts, brine, vinegar, netref
@@ -17,6 +22,7 @@ from .nowait import AsyncResult
 class PingError(Exception):
     """The exception raised should :func:`Connection.ping` fail"""
     pass
+
 
 DEFAULT_CONFIG = dict(
     # ATTRIBUTES
@@ -233,7 +239,7 @@ class Connection(object):
         :raises: :class:`PingError` if the echoed data does not match
         """
         if data is None:
-            data = "abcdefghijklmnopqrstuvwxyz" * 20
+            data = b'abcdefghijklmnopqrstuvwxyz' * 20
         res = self.async_request(consts.HANDLE_PING, data, timeout = timeout)
         if res.value != data:
             raise PingError("echo mismatches sent data")

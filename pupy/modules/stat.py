@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Table, Line, List, MultiPart
@@ -39,7 +43,7 @@ class FStat(PupyModule):
 
         try:
             sec = getfilesec(path)
-        except Exception, e:
+        except Exception as e:
             self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
             return
 

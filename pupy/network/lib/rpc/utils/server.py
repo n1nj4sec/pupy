@@ -1,6 +1,12 @@
 """
 rpyc plug-in server (threaded or forking)
 """
+
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import sys
 import os
 import socket
@@ -8,13 +14,16 @@ import time
 import threading
 import errno
 import logging
+
 try:
     import Queue
 except ImportError:
     import queue as Queue
+
 from network.lib.rpc.core import SocketStream, Channel, Connection
 from network.lib.rpc.lib import safe_import
-from network.lib.rpc.lib.compat import poll, get_exc_errno
+from network.lib.compat import poll, get_exc_errno
+
 signal = safe_import("signal")
 
 

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import sys
 import subprocess
 import time
@@ -75,7 +79,7 @@ def interactive_open(program=None, encoding=None):
                 fullargs=["powershell.exe", "-C", "-"] # trick to make powershell work without blocking
         if encoding is None:
             encoding=locale.getpreferredencoding()
-        print "Opening interactive %s (with encoding %s)..."%(program,encoding)
+        print("Opening interactive %s (with encoding %s)..."%(program,encoding))
         if sys.platform=="win32":
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW

@@ -1,8 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import StringIO, zipfile, os.path, imp, sys, os
 #import pylzma
 import struct
+
+from io import open
+
 
 def get_encoded_library_string(filepath, out):
 	dest = os.path.dirname(filepath)
@@ -27,6 +31,7 @@ def get_encoded_library_string(filepath, out):
 		out.write(struct.pack('>II', len(k), len(v)))
 		out.write(k)
 		out.write(v)
+
 
 with open(sys.argv[1],'wb') as w:
 	get_encoded_library_string(sys.argv[2], w)

@@ -2,8 +2,13 @@
 # gssapi-like wrapper over ccs-pykerberos and winkerberos
 # enough to run ldap3 auth, no more
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import logging
+from functools import reduce
 
 logger = logging.getLogger().getChild('gssapi_wrap')
 

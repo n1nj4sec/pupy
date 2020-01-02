@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from threading import Event
 from StringIO import StringIO
 from msgpack import Unpacker
 
 from Queue import Queue
+from io import open
 
 import tarfile
 import tempfile
@@ -208,7 +214,7 @@ class DownloadFronted(object):
     def _callback(self, data, exception):
         try:
             self._callback_unsafe(data, exception)
-        except Exception, e:
+        except Exception as e:
             if self._error:
                 import traceback
                 self._error('Internal error: {} / {}'.format(e, traceback.format_exc()))
@@ -306,11 +312,11 @@ class DownloadFronted(object):
                 if self._honor_single_file_root and not self._archive:
                     try:
                         os.makedirs(os.path.dirname(filepath))
-                    except OSError, e:
+                    except OSError as e:
                         if e.errno != errno.EEXIST:
                             if self._error:
                                 self._error('{}: {}'.format(filepath, e))
-                    except Exception, e:
+                    except Exception as e:
                         if self._error:
                             self._error('{}: {}'.format(filepath, e))
 
