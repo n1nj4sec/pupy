@@ -13,8 +13,8 @@ try:
     from ConfigParser import ConfigParser, Error, NoSectionError
 except ImportError:
     from configparser import ConfigParser, Error, NoSectionError
+    from io import open
 
-from io import open
 from os import path, makedirs
 from netaddr import IPAddress
 import platform
