@@ -4,16 +4,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import string
 
-def ascii85EncodeDG(str):
+def ascii85EncodeDG(indata):
     "Encode a string according to ASCII-Base-85."
 
     result = ''
     fetched = 0
 
     while 1:
-        buf = map(lambda x:ord(x)+0, str[fetched:fetched+4])
+        buf = map(lambda x:ord(x)+0, indata[fetched:fetched+4])
         fetched = fetched + len(buf)
 
         if not buf:
@@ -32,28 +33,28 @@ def ascii85EncodeDG(str):
             res[i] = ord('!') + num % 85
             num = num // 85
 
-        res = res[:len(str)+1]
+        res = res[:len(indata)+1]
         result = result + string.join(map(chr, res), '')
 
     return result + "~>"
 
 
-def ascii85DecodeDG(str):
+def ascii85DecodeDG(indata):
     "Decode a string encoded with ASCII-Base-85."
 
-    str = string.join(string.split(str),'')
+    indata = string.join(string.split(indata),'')
     msg = 'Invalid terminator for Ascii Base 85 Stream'
-    assert str[-2:] == '~>', msg
-    str = str[:-2]
+    assert indata[-2:] == '~>', msg
+    indata = indata[:-2]
 
     #may have 'z' in it which complicates matters - expand them
-    str = string.replace(str, 'z', '!!!!!')
+    indata = string.replace(indata, 'z', '!!!!!')
 
     result = ''
     fetched = 0
 
     while 1:
-        buf = map(lambda x:ord(x)+0-33, str[fetched:fetched+5])
+        buf = map(lambda x:ord(x)+0-33, indata[fetched:fetched+5])
         fetched = fetched + len(buf)
 
         if not buf:

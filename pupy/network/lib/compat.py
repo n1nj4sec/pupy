@@ -12,7 +12,9 @@ __all__ = (
     'is_py3k', 'maxint',
     'Struct', 'BytesIO', 'pickle', 'callable',
     'select_module', 'select', 'get_exc_errno',
-    'select_error', 'poll', 'xrange'
+    'select_error', 'poll', 'xrange',
+    'is_str', 'is_int', 'is_bin',
+    'as_byte'
 )
 
 
@@ -28,11 +30,36 @@ if is_py3k:
     maxint = sys.maxsize
     xrange = range
 
+    def is_int(value):
+        return isinstance(value, int)
+
+    def is_str(value):
+        return isinstance(value, str)
+
+    def as_byte(value):
+        return bytes((value,))
+
 else:
+    from __builtin__ import xrange
+
     exec('''def execute(code, globals = None, locals = None):
                 exec code in globals, locals''')
 
     maxint = sys.maxsize
+
+    def is_int(value):
+        return isinstance(value, (int, long))
+
+    def is_str(value):
+        return isinstance(value, basestring)
+
+    def as_byte(value):
+        return chr(value)
+
+
+def is_bin(value):
+    return isinstance(value, (bytes, bytearray, memoryview))
+
 
 try:
     from struct import Struct

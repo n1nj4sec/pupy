@@ -151,7 +151,7 @@ def from_bytes(bytes):
 
 
 def to_bytes(value, size=0):
-    value = long(value)
+    value = int(value)
     bytes = []
     while value:
         bytes.append(chr(value % 256))

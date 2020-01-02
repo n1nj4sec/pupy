@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'convert_node',
     'Session',
@@ -21,6 +22,7 @@ import struct
 import random
 import base64
 import time
+import string
 
 import zlib
 import hashlib
@@ -63,6 +65,9 @@ from .picocmd import (
 )
 
 from network.lib.transports.cryptoutils import ECPV
+from network.lib.compat import (
+    as_byte, is_int, is_str, xrange
+)
 
 SUPPORTED_METHODS = {
     QTYPE.A: A,
@@ -335,15 +340,16 @@ class DnsCommandServerHandler(BaseResolver):
         )
         self.translation = dict(zip(
             ''.join([
-                ''.join([chr(x) for x in xrange(ord('a'), ord('z') + 1)]),
+                string.ascii_lowercase,
                 '-',
-                ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
-            ]),
+                string.digits
+            ]).encode('ascii'),
             ''.join([
-                ''.join([chr(x) for x in xrange(ord('A'), ord('Z') + 1)]),
-                ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
+                string.ascii_uppercase,
+                string.digits,
                 '=',
-            ])))
+            ]).encode('ascii')
+        ))
 
         self.interval = 30
         self.kex = True
@@ -451,9 +457,9 @@ class DnsCommandServerHandler(BaseResolver):
         if default and session:
             nodes = session
 
-            if type(nodes) in (str,unicode):
+            if is_str(nodes):
                 nodes = [convert_node(x) for x in nodes.split(',')]
-            elif type(nodes) == int:
+            elif is_int(nodes):
                 nodes = [nodes]
 
             idx = 0
@@ -507,9 +513,9 @@ class DnsCommandServerHandler(BaseResolver):
     def reset_commands(self, session=None, default=False):
         if default and session:
             nodes = session
-            if type(nodes) in (str,unicode):
+            if is_str(nodes):
                 nodes = [convert_node(x) for x in nodes.split(',')]
-            elif type(nodes) == int:
+            elif is_int(nodes):
                 nodes = [nodes]
 
             idx = 0
@@ -556,9 +562,9 @@ class DnsCommandServerHandler(BaseResolver):
         if node is None:
             return list(self.nodes.itervalues())
 
-        if type(node) in (str,unicode):
+        if is_str(node):
             node = [convert_node(x) for x in node.split(',')]
-        elif type(node) == int:
+        elif is_int(node):
             node = [node]
 
         return self._nodes_by_nodeids(node)
@@ -566,15 +572,15 @@ class DnsCommandServerHandler(BaseResolver):
     @locked
     def find_sessions(self, spi=None, node=None):
         if spi:
-            if type(spi) in (str,unicode):
+            if is_str(spi):
                 spi = [int(x, 16) for x in spi.split(',')]
-            elif type(spi) == int:
+            elif is_int(spi):
                 spi = [spi]
 
         if node:
-            if type(node) in (str,unicode):
+            if is_str(node):
                 node = [convert_node(x) for x in node.split(',')]
-            elif type(node) == int:
+            elif is_int(node):
                 node = [node]
 
         if not (spi or node):
@@ -723,9 +729,14 @@ class DnsCommandServerHandler(BaseResolver):
         for idx, part in enumerate([payload[i:i+3] for i in xrange(0, len(payload), 3)]):
             header = (random.randint(1, 3) << 30)
             idx = idx << 25
-            bits = (struct.unpack('>I', b'\x00'+part+chr(random.randrange(0, 255))*(3-len(part)))[0]) << 1
-            packed = struct.unpack('!BBBB', struct.pack('>I', header | idx | bits | int(not bool(bits & 6))))
-            response.append('.'.join(['{}'.format(int(x)) for x in packed]))
+            bits = (struct.unpack('>I', b'\x00'+part+as_byte(
+                random.randrange(0, 255))*(3-len(part)))[0]) << 1
+
+            response.append(
+                '{}.{}.{}.{}'.format(
+                    *struct.unpack(
+                        '!BBBB', struct.pack(
+                            '>I', header | idx | bits | int(not bool(bits & 6))))))
 
         return response
 
@@ -786,9 +797,9 @@ class DnsCommandServerHandler(BaseResolver):
             raise DnsNoCommandServerException()
 
         parts = [
-            base64.b32decode(''.join([
+            base64.b32decode(b''.join(
                 self.translation[x] for x in part
-            ])) for part in parts
+            )) for part in parts
         ]
 
         node_blob = ''
@@ -844,7 +855,7 @@ class DnsCommandServerHandler(BaseResolver):
             version, cid, iid = struct.unpack_from('>BIH', node_blob)
 
             if version != 2:
-                raise UnknownVersion()
+                raise UnknownVersion('Version: {}'.format(version))
 
             nodeid = from_bytes(node_blob[1+4+2:1+4+2+6])
 

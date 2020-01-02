@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from threading import Thread, Event, Lock
 
 import imp
@@ -465,7 +466,7 @@ class PupyServer(object):
                     server=self
                 )
             except Exception as e:
-                logger.error('DnsCNC failed: %s', e)
+                logger.exception('DnsCNC failed: %s', e)
 
 
     def get_listeners(self):
