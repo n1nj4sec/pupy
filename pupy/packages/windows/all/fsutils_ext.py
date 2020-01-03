@@ -241,23 +241,37 @@ CryptMsgClose.argtypes = (
     LPVOID,
 )
 
-GetFileVersionInfoSizeExW = kernel32.GetFileVersionInfoSizeExW
-GetFileVersionInfoSizeExW.restype = DWORD
-GetFileVersionInfoSizeExW.argtypes = (
-    DWORD, LPCWSTR, PDWORD
-)
+ver_lib = None
 
-GetFileVersionInfoExW = kernel32.GetFileVersionInfoExW
-GetFileVersionInfoExW.restype = BOOL
-GetFileVersionInfoExW.argtypes = (
-    DWORD, LPCWSTR, DWORD, DWORD, LPVOID
-)
+if hasattr(kernel32, 'GetFileVersionInfoSizeExW'):
+    ver_lib = kernel32
+else:
+    try:
+        ver_lib = WinDLL(
+            'Api-ms-win-core-version-l1-1-0', use_last_error=True)
 
-VerQueryValueW = kernel32.VerQueryValueW
-VerQueryValueW.restype = BOOL
-VerQueryValueW.argtypes = (
-    LPVOID, LPCWSTR, POINTER(LPVOID), PDWORD
-)
+    except WindowsError:
+        pass
+
+if ver_lib:
+    GetFileVersionInfoSizeExW = ver_lib.GetFileVersionInfoSizeExW
+    GetFileVersionInfoExW = ver_lib.GetFileVersionInfoExW
+    VerQueryValueW = ver_lib.VerQueryValueW
+
+    GetFileVersionInfoSizeExW.restype = DWORD
+    GetFileVersionInfoSizeExW.argtypes = (
+        DWORD, LPCWSTR, PDWORD
+    )
+
+    GetFileVersionInfoExW.restype = BOOL
+    GetFileVersionInfoExW.argtypes = (
+        DWORD, LPCWSTR, DWORD, DWORD, LPVOID
+    )
+
+    VerQueryValueW.restype = BOOL
+    VerQueryValueW.argtypes = (
+        LPVOID, LPCWSTR, POINTER(LPVOID), PDWORD
+    )
 
 WinVerifyTrust = wintrust.WinVerifyTrust
 WinVerifyTrust.restype = ULONG
@@ -366,6 +380,9 @@ WINTRUST_ACTION_GENERIC_VERIFY_V2 = GUID(
 
 
 def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
+    if not ver_lib:
+        return {}
+
     result = {}
 
     dwReserved = DWORD(0)
