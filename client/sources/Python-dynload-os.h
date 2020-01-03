@@ -16,6 +16,9 @@
 
 typedef FARPROC (WINAPI *resolve_symbol_t) (HMODULE hModule, const char *name);
 
+#define OSAlloc(size) LocalAlloc(LMEM_FIXED, size)
+#define OSFree(ptr) LocalFree(ptr)
+
 static char *OSGetProgramName() {
     static const char *program_name = "";
     static BOOL is_set = FALSE;

