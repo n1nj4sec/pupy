@@ -84,6 +84,18 @@ class Compiler(ast.NodeTransformer):
 
         return node
 
+    def visit_Assign(self, node):
+        if self._docstrings:
+            return node
+
+        if (type(node.value) == ast.Str) and all(
+                type(target) == ast.Name and target.id in ('__copyright__', '__doc__')
+                for target in node.targets):
+            node.value.s = ''
+
+        return node
+
+
 def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug=False, main=False):
     if not debug:
         logger.info(data if path else filename)

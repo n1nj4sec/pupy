@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sysconfig
 import site
 import sys
 import os
@@ -66,11 +67,12 @@ all_dependencies = set(
         x.split('.')[0] for x, m in sys_modules
         if '(built-in)' not in str(m) and x != '__main__'
     ] + [
-        'Crypto', 'pyasn1', 'rsa', 'stringprep',
+        'Crypto', 'pyasn1', 'rsa', 'stringprep'
     ]
 )
 
 all_dependencies.add('site')
+all_dependencies.add('sysconfig')
 
 exceptions = (
     'pupy', 'network', 'pupyimporter', 'additional_imports'
@@ -115,7 +117,7 @@ elif sys.platform.startswith('win'):
         '_pssunos.py'
     })
 
-for dep in ('cffi', 'pycparser', 'pyaes'):
+for dep in ('cffi', 'pycparser', 'pyaes', 'distutils'):
     if dep in all_dependencies:
         all_dependencies.remove(dep)
 
@@ -123,6 +125,30 @@ print "ALLDEPS: ", all_dependencies
 
 
 zf = zipfile.ZipFile(sys.argv[1], mode='w', compression=zipfile.ZIP_DEFLATED)
+
+zf.writestr(
+    'bundlevars.pyo',
+    pupycompile(
+        'bundlevars={}'.format(repr({
+            k: v for k, v in sysconfig.get_config_vars().iteritems()
+            if k not in (
+                'BINDIR', 'BINLIBDEST', 'CONFINCLUDEDIR', 'CONFINCLUDEPY',
+                'COREPYTHONPATH', 'COVERAGE_INFO', 'COVERAGE_REPORT',
+                'DESTDIRS', 'DESTLIB', 'DESTSHARED', 'INCLDIRSTOMAKE',
+                'INCLUDEDIR', 'INCLUDEPY', 'INSTALL', 'INSTALL_DATA',
+                'INSTALL_PROGRAM', 'INSTALL_SCRIPT', 'INSTALL_SHARED',
+                'LIBDEST', 'LIBDIR', 'LIBFFI_INCLUDEDIR', 'LIBOBJDIR',
+                'LIBP', 'LIBPC', 'LIBPL', 'LIBSUBDIRS', 'MACHDEPPATH',
+                'MACHDESTLIB', 'MAKESETUP', 'MANDIR', 'MKDIR_P', 'PLATMACDIRS',
+                'PLATMACPATH', 'PYTHONPATH', 'RUNSHARED', 'SCRIPTDIR',
+                'SRC_GDB_HOOKS', 'TESTPROG', 'TESTPYTHON', 'abs_builddir',
+                'abs_srcdir', 'base', 'datarootdir', 'exec_prefix', 'platbase',
+                'prefix', 'projectbase', 'userbase'
+            )
+        })),
+        '<vars>', path=False
+    )
+)
 
 if 'win' in sys.platform:
     for root, _, files in os.walk(r'C:\Python27\Lib\site-packages'):
