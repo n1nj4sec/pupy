@@ -39,7 +39,7 @@ typedef void *(*resolve_symbol_t)(HMODULE hModule, const char *name);
 #define OSAlloc(size) malloc(size)
 #define OSFree(ptr) free(ptr)
 
-#define OSLoadLibary(name) dlopen(name, RTLD_NOW)
+#define OSLoadLibrary(name) dlopen(name, RTLD_NOW)
 #define OSResolveSymbol dlsym
 #define OSUnmapRegion munmap
 #define MemLoadLibrary(name, bytes, size, arg) \
