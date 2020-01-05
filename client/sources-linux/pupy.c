@@ -98,6 +98,8 @@ static PyObject *Py_get_arch(PyObject *self, PyObject *args)
     return Py_BuildValue("s", "x64");
 #elif __i386__
     return Py_BuildValue("s", "x86");
+#elif __arm__
+    return Py_BuildValue("s", "arm");
 #else
     return Py_BuildValue("s", "unknown");
 #endif
