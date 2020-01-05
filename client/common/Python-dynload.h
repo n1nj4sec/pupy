@@ -1,6 +1,9 @@
 #ifndef PYTHON_DYNLOAD_H
 #define PYTHON_DYNLOAD_H
 
+#include <stdint.h>
+#include <sys/types.h>
+
 typedef void *PyObject;
 typedef void *PyCodeObject;
 
@@ -21,12 +24,12 @@ struct py_imports {
     void (*proc)();
 };
 
+#if defined(_MSC_VER) && _MSC_VER < 1600
+    #define ssize_t signed long long
+#endif
+
 #ifndef Py_ssize_t
-    #ifdef ssize_t
-        typedef ssize_t Py_ssize_t;
-    #else
-        typedef signed long long Py_ssize_t;
-    #endif
+    #define Py_ssize_t ssize_t
 #endif
 
 #ifndef BOOL
