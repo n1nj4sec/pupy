@@ -79,9 +79,14 @@ def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     ), path=ROOT, as_dict=True)
 
     new_conf = marshal.dumps([config, pupylib])
+
+    logger.debug('First marshalled bytes: %s (total=%d)', ' '.join('{:02x}'.format(
+        ord(c)) for c in new_conf[:64]), len(new_conf))
+
     uncompressed = len(new_conf)
     if compressed_config:
         new_conf = pylzma.compress(new_conf)
+
     compressed = len(new_conf)
     new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
     new_conf_len = len(new_conf)
@@ -378,13 +383,18 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
 
     TO_PLATFORM = {
         'x64': 'intel',
-        'x86': 'intel'
+        'x86': 'intel',
+        'armv7l': 'armhf',
     }
 
     TO_ARCH = {
         'intel': {
             '32bit': 'x86',
             '64bit': 'x64'
+        },
+        'armhf': {
+            '32bit': 'armhf',
+            '64bit': 'aarch64'
         }
     }
 
@@ -504,7 +514,7 @@ PAYLOAD_FORMATS = [
 ]
 
 CLIENT_OS = ['android', 'windows', 'linux', 'solaris']
-CLIENT_ARCH = ['x86', 'x64']
+CLIENT_ARCH = ['x86', 'x64', 'armhf']
 
 def get_parser(base_parser, config):
     parser = base_parser(description='Generate payloads for windows, linux, osx and android.')

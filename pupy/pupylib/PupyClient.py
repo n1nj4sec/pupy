@@ -169,6 +169,7 @@ class PupyClient(object):
             'i386': 'x86',
             'i686': 'x86',
             'i486': 'x86',
+            'armv7l': 'armhf'
         }
         return substitute.get(arch, arch)
 
@@ -178,7 +179,7 @@ class PupyClient(object):
             'amd64': 'intel',
             'x86': 'intel',
             'i86pc': 'sun-intel',
-            'armv7l': 'arm',
+            'armhf': 'armhf',
             'aarch64': 'arm',
         }
 
@@ -192,6 +193,10 @@ class PupyClient(object):
                 # The script is for amd64
                 '32bit': 'i86pc',
                 '64bit': 'i86pc'
+            },
+            'armhf': {
+                '32bit': 'armhf',
+                '64bit': 'armhf'
             },
             'arm': {
                 '32bit': 'arm',

@@ -781,7 +781,7 @@ def init_pupy(argv, stdlib, debug=False):
 
     if is_supported(get_arch):
         platform.architecture = lambda *args, **kwargs: (
-            '32bit' if get_arch() == 'x86' else '64bit', ''
+            '64bit' if '64' in get_arch() else '32bit', ''
         )
 
 
