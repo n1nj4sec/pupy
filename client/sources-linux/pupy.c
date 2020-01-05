@@ -21,7 +21,9 @@
 #ifdef Linux
 #include <sys/prctl.h>
 #include "memfd.h"
+#ifdef _FEATURE_INJECTOR
 #include "injector.h"
+#endif
 #endif
 
 #include "ld_hooks.h"
@@ -174,6 +176,7 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
 }
 
 #ifdef Linux
+#ifdef _FEATURE_INJECTOR
 static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 {
     uint32_t dwPid;
@@ -231,6 +234,7 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
 
     return PyBool_FromLong(0);
 }
+#endif
 
 
 static PyObject *Py_memfd_is_supported(PyObject *self, PyObject *args)
@@ -426,9 +430,11 @@ static PyMethodDef methods[] = {
     { "is_shared", Py_is_shared_object, METH_NOARGS, DOC("Client is shared object") },
     { "get_arch", Py_get_arch, METH_NOARGS, DOC("get current pupy architecture (x86 or x64)") },
 #ifdef Linux
+#ifdef _FEATURE_INJECTOR
     { "reflective_inject_dll", Py_reflective_inject_dll, METH_VARARGS|METH_KEYWORDS,
       DOC("reflective_inject_dll(pid, dll_buffer)\nreflectively inject a dll into a process. raise an Exception on failure")
     },
+#endif
     { "memfd_is_supported", Py_memfd_is_supported, METH_VARARGS, DOC("Check memfd is supported") },
     { "memfd_create", (PyCFunction) Py_memfd_create, METH_VARARGS | METH_KEYWORDS, DOC("Create memfd file") },
 #endif
