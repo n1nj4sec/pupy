@@ -115,15 +115,23 @@ echo "[+] Build pupy"
 
 case $TOOLCHAIN_ARCH in
 amd64)
-    MAKEFLAGS="ARCH=64"
+    MAKEFLAGS="ARCH=64 MACH=x86_64"
     TARGETS="pupyx64d.lin pupyx64d.lin"
     TARGETS="$TARGETS pupyx64.lin pupyx64.lin.so"
     ;;
 
 x86)
-    MAKEFLAGS="ARCH=32 PIE="
+    MAKEFLAGS="ARCH=32 PIE= MACH=i686"
     TARGETS="pupyx86d.lin pupyx86d.lin.so"
-    TARGTS="$TARGETS pupyx86dpupyx86.lin pupyx86.lin.so"
+    TARGTS="$TARGETS pupyx86.lin pupyx86.lin.so"
+    ;;
+
+*)
+    LIBS="LIBSSL=/usr/lib/libssl.so LIBCRYPTO=/usr/lib/libcrypto.so"
+    LIBS="$LIBS LIBPYTHON=/usr/lib/libpython2.7.so"
+    MAKEFLAGS="MACH=${TOOLCHAIN_ARCH} $LIBS"
+    TARGETS="pupy${TOOLCHAIN_ARCH}d.lin pupy${TOOLCHAIN_ARCH}d.lin.so"
+    TARGTS="$TARGETS pupy${TOOLCHAIN_ARCH}.lin pupy${TOOLCHAIN_ARCH}.lin.so"
     ;;
 esac
 
@@ -131,9 +139,9 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 cd $SRC
 
-make distclean
+make $MAKEFLAGS distclean
 make -j $MAKEFLAGS
-make clean
+make $MAKEFLAGS clean
 make -j DEBUG=1 $MAKEFLAGS
 
 for object in $TARGETS; do
