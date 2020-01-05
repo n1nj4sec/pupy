@@ -82,10 +82,10 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     CFLAGS_PYUV="$CFLAGS_PYUV -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'"
 
     CC=/gccwrap CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64" CFLAGS="$CFLAGS_PYUV" \
-        $PIP_INSTALL pyuv --no-binary :all:
+        $PIP_INSTALL https://github.com/alxchk/pyuv/archive/v1.x.zip --no-binary :all:
 else
     CFLAGS="$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
-        $PIP_INSTALL pyuv --no-binary :all:
+        $PIP_INSTALL https://github.com/alxchk/pyuv/archive/v1.x.zip --no-binary :all:
 fi
 
 # $PIP_INSTALL --no-binary :all: pycryptodome==3.7.0
