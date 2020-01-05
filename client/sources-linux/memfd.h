@@ -19,6 +19,8 @@
   #define __NR_memfd_create 319
  #elif __i386__
   #define __NR_memfd_create 356
+ #elif __arm__
+  #define __NR_memfd_create 385
  #endif
 #endif
 
