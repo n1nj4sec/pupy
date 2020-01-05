@@ -40,9 +40,9 @@ static unsigned int charToUInt(const char *data) {
     return x.l;
 }
 
-static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_size) {
+static void *lzmaunpack(const char *data, size_t size, Py_ssize_t *puncompressed_size) {
     unsigned char *uncompressed = NULL;
-    size_t uncompressed_size = 0;
+    SizeT uncompressed_size = 0;
 
 #ifndef UNCOMPRESSED
     const Byte *wheader = (Byte *) data + sizeof(unsigned int);
@@ -87,11 +87,16 @@ static void *lzmaunpack(const char *data, size_t size, size_t *puncompressed_siz
 
 static PyObject *PyObject_lzmaunpack(const char *data, size_t size) {
     PyObject * object;
-    size_t uncompressed_size = 0;
+    Py_ssize_t uncompressed_size = 0;
+
     void *uncompressed = lzmaunpack(data, size, &uncompressed_size);
     if (!uncompressed) {
+        PyErr_SetString(PyExc_Exception, "LZMA error");
         return NULL;
     }
+
+    dprint("PyMarshal_ReadObjectFromString(%p, %d [sizeof=%d])\n",
+        uncompressed, (int) uncompressed_size, sizeof(uncompressed_size));
 
     object = PyMarshal_ReadObjectFromString(
         uncompressed, uncompressed_size);
@@ -111,7 +116,7 @@ static PyObject *PyDict_lzmaunpack(const char *data, size_t size) {
     PyObject *k = NULL;
     PyObject *v = NULL;
 
-    size_t uncompressed_size = 0;
+    Py_ssize_t uncompressed_size = 0;
     void *uncompressed = lzmaunpack(data, size, &uncompressed_size);
     if (!uncompressed) {
         return NULL;
