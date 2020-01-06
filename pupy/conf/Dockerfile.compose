@@ -36,6 +36,6 @@ RUN apt-get remove -y autoconf automake libssl1.0-dev libffi-dev python-dev \
 ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
-EXPOSE 1080 5454 5454/udp 8080
+EXPOSE 1080 5454 5454/udp 8080 9000
 
 ENTRYPOINT [ "/opt/pupy/conf/pupysh.sh" ]

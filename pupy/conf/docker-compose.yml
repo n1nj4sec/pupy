@@ -9,6 +9,7 @@ services:
       - ${WORKDIR}:/project
     ports:
       - 8443:8443
+      - 9000:9000
     container_name: pupy
     stdin_open: true
     tty: true

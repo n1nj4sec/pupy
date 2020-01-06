@@ -3,10 +3,11 @@ transport = ec4
 port = 8080
 ipv6 = false
 igd = false
-httpd = true
+httpd = false
+webserver = true
 dnscnc = localhost:5454
 use_gnome_keyring = false
-allow_requests_to_external_services = true
+allow_requests_to_external_services = false
 
 [cmdline]
 display_banner = yes
