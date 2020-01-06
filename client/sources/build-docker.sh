@@ -2,10 +2,11 @@
 
 PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog dukpy zeroconf==0.19.1"
 PACKAGES_BUILD="$PACKAGES_BUILD https://github.com/CoreSecurity/impacket/archive/master.zip"
+PACKAGES_BUILD="$PACKAGES_BUILD https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
 
 PACKAGES="rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
-PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyuv pyaudio"
+PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyaudio"
 PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
