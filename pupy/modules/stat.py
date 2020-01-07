@@ -17,7 +17,7 @@ class FStat(PupyModule):
         'all': [
             'pupyutils.basic_cmds', 'fsutils', 'fsutils_ext'
         ],
-        'windows': ['junctions', 'ntfs_streams'],
+        'windows': ['junctions', 'ntfs_streams', 'pupwinutils.security'],
         'linux': ['xattr', 'posix1e', 'prctl', '_prctl']
     }
 
