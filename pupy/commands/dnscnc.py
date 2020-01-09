@@ -186,7 +186,8 @@ def do(server, handler, config, args):
                 'P': '',
                 'NODE': '{:012x}'.format(session.system_info['node']),
                 'SESSION': '{:08x}'.format(session.spi),
-                'IP': session.system_info['external_ip'] or '?',
+                'EIP': session.system_info['external_ip'] or '?',
+                'IIP': session.system_info.get('internal_ip') or '',
                 'OS': '{}/{}'.format(
                     session.system_info['os'],
                     session.system_info['arch']
@@ -234,7 +235,7 @@ def do(server, handler, config, args):
             objects.append(object)
 
         columns = [
-            '#', 'P', 'NODE', 'SESSION', 'IP', 'OS',
+            '#', 'P', 'NODE', 'SESSION', 'EIP', 'IIP', 'OS',
             'CPU', 'MEM', 'LIS', 'EST', 'USERS', 'IDLE', 'TAGS'
         ]
 
@@ -273,6 +274,9 @@ def do(server, handler, config, args):
                 'SESSION': '{:08x}'.format(session.spi),
                 'EXTERNAL IP': '{}'.format(
                     session.system_info['external_ip'] or '?'
+                ),
+                'INTERNAL IP': '{}'.format(
+                    session.system_info.get('internal_ip') or ''
                 ),
                 'ONLINE': '{}'.format(
                     'Y' if session.system_info['internet'] else 'N'
@@ -321,7 +325,8 @@ def do(server, handler, config, args):
 
         columns = [
             '#', 'P', 'NODE', 'SESSION', 'OS', 'ONLINE',
-            'EXTERNAL IP', 'IDLE', 'DURATION', 'BOOTED', 'CMDS'
+            'EXTERNAL IP', 'INTERNAL IP', 'IDLE', 'DURATION',
+            'BOOTED', 'CMDS'
         ]
 
         handler.display(Table(objects, columns))
@@ -495,7 +500,7 @@ def do(server, handler, config, args):
         )
 
         if count:
-            handler.display(Success('Schedule online status request to {} known nodes'.format(count)))
+            handler.display(Success('Schedule scan request to {} known nodes'.format(count)))
         elif args.node:
             handler.display(Error('Node {} not found'.format(args.node)))
 
