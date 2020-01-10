@@ -115,9 +115,6 @@ def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
             'deploy pupy without writing on the disk')))
 
     display(Success('Generating puppy dll. Be patient...'))
-    
-    display(Success('Press any key when you are ready for connecting to target {0}:{1}'.format(target_ip, bind_port)))
-    raw_input()
 
     display(Success('Connecting to {0}:{1}'.format(target_ip, bind_port)))
 
