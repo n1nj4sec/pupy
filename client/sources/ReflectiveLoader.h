@@ -79,10 +79,20 @@ typedef DWORD  (NTAPI * NTFLUSHINSTRUCTIONCACHE)( HANDLE, PVOID, ULONG );
 #define FNV_OFFSET_32   2166136261
 
 __forceinline static
-DWORD hash(const unsigned char *s) {
+DWORD symhash(const unsigned char *s) {
    register DWORD h = FNV_OFFSET_32;
 
-   while (s[0]) {
+   if (!s || !s[0])
+      return h;
+
+   /*
+      Workaround stdcall namings
+      _BLABLA@1234 -> BLABLA
+   */
+   if (s[0] == '_')
+      s ++;
+
+   while (s[0] && s[0] != '@') {
       h = h ^ s[0];
       h = h * FNV_PRIME_32;
       s ++;

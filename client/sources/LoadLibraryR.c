@@ -80,7 +80,7 @@ DWORD GetReflectiveLoaderOffset( const VOID * lpReflectiveDllBuffer )
     BOOL is64                = 0;
     DWORD dwIdx              = 0;
     DWORD dwReflectiveLoaderSymHashes[] = {
-        hash(REFLECTIVE_LOADER_SYMNAME),
+        symhash(REFLECTIVE_LOADER_SYMNAME),
         0x994d06f3, // ReflectiveLoader
         0x6249c9c2, // Loader
         0xda5392de  // RLEp
@@ -132,7 +132,7 @@ DWORD GetReflectiveLoaderOffset( const VOID * lpReflectiveDllBuffer )
     while( dwCounter-- )
     {
         char * cpExportedFunctionName = (char *)(uiBaseAddress + Rva2Offset( DEREF_32( uiNameArray ), uiBaseAddress, is64 ));
-        DWORD dwHash = hash(cpExportedFunctionName);
+        DWORD dwHash = symhash(cpExportedFunctionName);
 
         for (dwIdx=0; dwIdx < dwSymHashesCnt; dwIdx ++) {
             if (dwReflectiveLoaderSymHashes[dwIdx] != dwHash)

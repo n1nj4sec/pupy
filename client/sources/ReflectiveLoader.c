@@ -212,7 +212,7 @@ DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM(LPVOID lpParameter)
             ppvFunction = NULL;
 
             // compute the hash values for this function name
-            dwHashValue = hash((unsigned char *)(uiBaseAddress + DEREF_32(uiNameArray)));
+            dwHashValue = symhash((unsigned char *)(uiBaseAddress + DEREF_32(uiNameArray)));
 
             for (dwIdx = 0; dwIdx < dwFunctions; dwIdx ++) {
                 if (dwHashValue == funcs[dwIdx].dwFunctionHash) {
