@@ -161,7 +161,7 @@ class IndexHandler(tornado.web.RequestHandler):
 
     @tornado.web.asynchronous
     def get(self):
-        if self.request.remote_ip in LOCAL_IPS:
+        if self.request.remote_ip in self.local_ips:
             self.render("index.html")
         else:
             self.render("nginx_index.html")
