@@ -167,7 +167,13 @@ class RemoteDesktopModule(PupyModule):
 
         port, path = conninfo
         self.success("Web handler started on http://127.0.0.1:%d%s"%(port, path))
+        self.info("By default, web handler accepts connections from localhost only")
+        self.info("Use the following pupy command for allowing another ip address to connect to web handler:")
+        self.info("'config set webserver local_ips X.Y.Z.A'")
         if args.view:
             config = self.client.pupsrv.config
             viewer = config.get('default_viewers', 'browser')
-            subprocess.Popen([viewer, path])
+            try:
+                subprocess.Popen([viewer, path])
+            except Exception as e:
+                self.error("Impossible to execute '{0} {1}': {2}".format(viewer, path, str(e)))
