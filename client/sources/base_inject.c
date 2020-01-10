@@ -54,10 +54,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #define BREAK_ON_ERROR( str ) { \
-    dprint(str "\n"); \
-    PyErr_SetString(PyExc_Exception, str); \
+    dprint(str " GetLastError()=%d" "\n", GetLastError()); \
+    PyErr_Format(PyExc_Exception, str " GetLastError()=%d", GetLastError()); \
     break; \
 }
+
 
 // see '/msf3/external/source/shellcode/x86/migrate/executex64.asm'
 BYTE migrate_executex64[] =	\
@@ -564,7 +565,7 @@ DWORD inject_dll( DWORD dwPid, const LPVOID lpDllBuffer, DWORD dwDllLenght, cons
     // alloc memory (RWX) in the host process for the image...
     lpRemoteLibraryBuffer = VirtualAllocEx( hProcess, NULL, dwDllLenght, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE );
     if( !lpRemoteLibraryBuffer )
-        BREAK_ON_ERROR( "[INJECT] inject_dll. VirtualAllocEx 2 failed" );
+        BREAK_ON_ERROR( "[INJECT] inject_dll. VirtualAllocEx failed" );
 
     // write the image into the host process...
     if( !WriteProcessMemory( hProcess, lpRemoteLibraryBuffer, lpDllBuffer, dwDllLenght, NULL ) )

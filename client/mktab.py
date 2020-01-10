@@ -41,7 +41,9 @@ PyObject, PyInt_Type
 PyObject, _Py_NoneStruct
 PyObject, _Py_ZeroStruct
 
-PyObject *, PyErr_SetFromErrno, (PyObject *)
+PyObject*, PyErr_SetFromErrno, (PyObject *)
+PyObject*, PyErr_Format, (PyObject *, const char *format, ...)
+
 PyObject *, PyExc_ImportError
 PyObject *, PyExc_Exception
 PyObject *, PyExc_KeyError
