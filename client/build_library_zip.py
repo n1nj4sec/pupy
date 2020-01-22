@@ -13,8 +13,6 @@ import zipfile
 from glob import glob
 from distutils.core import setup
 
-import additional_imports
-
 
 THIS = os.path.abspath(__file__)
 ROOT = os.path.dirname(os.path.dirname(THIS))
@@ -39,6 +37,8 @@ elif sys.platform.startswith('linux'):
     sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'posix', 'all'))
 else:
     sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'posix', 'all'))
+
+import additional_imports
 
 __import__('pupy').prepare()
 
