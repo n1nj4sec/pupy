@@ -41,5 +41,5 @@ def ensure_ntop():
             else:
                 raise ValueError('Unsupported family {}'.format(family))
 
-            setattr(socket, 'inet_pton', inet_pton)
-            setattr(socket, 'inet_ntop', inet_ntop)
+        setattr(socket, 'inet_pton', inet_pton)
+        setattr(socket, 'inet_ntop', inet_ntop)
