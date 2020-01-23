@@ -1,8 +1,7 @@
 #!/bin/sh
 
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python scandir construct bcrypt watchdog dukpy zeroconf==0.19.1"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy zeroconf==0.19.1"
 PACKAGES_BUILD="$PACKAGES_BUILD https://github.com/CoreSecurity/impacket/archive/master.zip"
-PACKAGES_BUILD="$PACKAGES_BUILD https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
 
 PACKAGES="rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
@@ -43,6 +42,9 @@ for PYTHON in $PYTHON32 $PYTHON64; do
         $PYTHON -m pip install --upgrade --force-reinstall \
         https://github.com/alxchk/pyjnius/archive/master.zip
 
+    $PYTHON -m pip install --upgrade --force-reinstall \
+        https://github.com/alxchk/scandir/archive/master.zip
+
     $PYTHON -m pip install --upgrade $PACKAGES
 
     $PYTHON -c "from Crypto.Cipher import AES; AES.new"
@@ -55,6 +57,12 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install --upgrade --force $PYKCP
     $PYTHON -c 'import kcp' || exit 1
 done
+
+echo "[+] Install pyuv"
+# For x86 use the old build, which supports windows XP
+$PYTHON32 -m pip install pyuv==1.3.0
+$PYTHON64 -m pip install --upgrade --force-reinstall \
+    https://github.com/alxchk/pyuv/archive/v1.x.zip
 
 echo "[+] Install psutil"
 $PYTHON32 -m pip install --no-binary :all: psutil==4.3.1
