@@ -15,7 +15,7 @@ import traceback
 from ctypes import (
     POINTER, byref,
     c_char_p, c_void_p, c_long,
-    c_ulonglong, Structure, WinError, WinDLL,
+    Structure, WinError, WinDLL,
     create_unicode_buffer, create_string_buffer,
     wstring_at
 )
@@ -33,7 +33,7 @@ class FILETIME(Structure):
     ]
 
 
-HKEY = c_ulonglong
+HKEY = c_void_p
 PHKEY = POINTER(HKEY)
 PFILETIME = POINTER(FILETIME)
 PDWORD = POINTER(DWORD)
