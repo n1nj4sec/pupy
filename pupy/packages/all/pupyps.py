@@ -51,15 +51,35 @@ KNOWN_DOMAINS = (
     socket.gethostname() + '\\'
 )
 
-KNOWN_FIELDS = tuple(
-    field for field in (
+# Try to figure out not supported fields
+def make_known_fields():
+    this = psutil.Process()
+    candidates = (
         'cmdline', 'connections', 'cpu_percent', 'cpu_times', 'create_time',
         'cwd', 'environ', 'exe', 'io_counters', 'memory_info',
         'memory_maps', 'memory_percent', 'name', 'nice', 'num_handles',
         'num_threads', 'open_files', 'pid', 'ppid', 'status', 'threads', 'username',
         'terminal', 'uids', 'gids', 'num_fds', 'ionice'
-    ) if field in psutil._as_dict_attrnames
-)
+    )
+
+    supported = []
+    unsupported = []
+
+    for field in candidates:
+        if field not in psutil._as_dict_attrnames:
+            continue
+
+        try:
+            this.as_dict([field])
+            supported.append(field)
+        except NotImplementedError:
+            unsupported.append(field)
+
+    return tuple(supported), tuple(unsupported)
+
+
+KNOWN_FIELDS, UNSUPPORTED_FIELDS = make_known_fields()
+
 
 if os.name == 'nt':
     try:
@@ -107,6 +127,10 @@ def _is_iterable(obj):
 
 def safe_as_dict(p, data):
     removed = set()
+
+    data = tuple(
+        field for field in data if field not in UNSUPPORTED_FIELDS
+    )
 
     for unsafe in (None, 'cmdline', 'exe'):
         if unsafe is not None and unsafe in data:
