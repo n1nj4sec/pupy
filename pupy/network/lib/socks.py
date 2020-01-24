@@ -87,10 +87,11 @@ from . import getLogger
 
 if os.name == 'nt':
     try:
-        import win_inet_pton
-        assert win_inet_pton
+        from network.lib.ntop import ensure_ntop
+        ensure_ntop()
 
         import socket
+
     except ImportError:
         raise ImportError('To run PySocks under windows you need to install win_inet_pton')
 else:

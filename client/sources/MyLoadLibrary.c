@@ -23,7 +23,7 @@ typedef struct {
     PHCUSTOMLIBRARY by_module;
     PHCUSTOMLIBRARY by_name;
     PHCUSTOMLIBRARY by_filename;
-    SRWLOCK lock;
+    CRITICAL_SECTION lock;
     PDL_CALLBACKS pCallbacks;
 } HLIBRARIES, *PHLIBRARIES;
 
@@ -56,7 +56,7 @@ static PHCUSTOMLIBRARY _FindMemoryModule(LPCSTR name, HMODULE module)
     if (!libraries)
         return NULL;
 
-    AcquireSRWLockShared(&libraries->lock);
+    EnterCriticalSection(&libraries->lock);
 
     if (name) {
         LPCSTR srcName = NULL;
@@ -122,7 +122,7 @@ static PHCUSTOMLIBRARY _FindMemoryModule(LPCSTR name, HMODULE module)
         dprint("_FindMemoryModule by module %p -> %p (%p)\n", module, phIdx, phIdx? phIdx->module : NULL);
     }
 
-    ReleaseSRWLockShared(&libraries->lock);
+    LeaveCriticalSection(&libraries->lock);
 
     return phIdx;
 }
@@ -257,7 +257,7 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
         libraries->by_filename = NULL;
         libraries->pCallbacks = &callbacks;
 
-        InitializeSRWLock(&libraries->lock);
+        InitializeCriticalSection(&libraries->lock);
         dprint("Initialize libraries: %p\n", libraries);
     }
 
@@ -290,7 +290,7 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
         if (*psi == '/')
             *psi = '\\';
 
-    AcquireSRWLockExclusive(&libraries->lock);
+    EnterCriticalSection(&libraries->lock);
 
     HASH_ADD_KEYPTR(
         by_module, libraries->by_module,
@@ -315,7 +315,7 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
         strlen(hmodule->fileName), hmodule
     );
 
-    ReleaseSRWLockExclusive(&libraries->lock);
+    LeaveCriticalSection(&libraries->lock);
 
     dprint("_AddMemoryModule(%s, %p) -> %p[%d] (hmod=%p)\n",
         hmodule->name, module, hmodule, hmodule->refcount, module);
@@ -522,13 +522,13 @@ BOOL CALLBACK MyFreeLibrary(HMODULE module)
             module, lib->name, lib->refcount);
 
         if (--lib->refcount == 0) {
-            AcquireSRWLockExclusive(&libraries->lock);
+            EnterCriticalSection(&libraries->lock);
 
             HASH_DELETE(by_name, libraries->by_name, lib);
             HASH_DELETE(by_filename, libraries->by_filename, lib);
             HASH_DELETE(by_module, libraries->by_module, lib);
 
-            ReleaseSRWLockExclusive(&libraries->lock);
+            LeaveCriticalSection(&libraries->lock);
 
             free(lib->name);
             free(lib);

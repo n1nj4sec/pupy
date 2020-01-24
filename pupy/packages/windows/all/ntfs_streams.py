@@ -25,26 +25,41 @@ class WIN32_FIND_STREAM_DATA(Structure):
         ("cStreamName", WCHAR * (260+36+1)),
     ]
 
-FindFirstStreamW = kernel32.FindFirstStreamW
-FindFirstStreamW.argtypes = [
-    LPWSTR, DWORD, c_void_p, DWORD
-]
-FindFirstStreamW.restype = HANDLE
+try:
+    FindFirstStreamW = kernel32.FindFirstStreamW
+    FindFirstStreamW.argtypes = [
+        LPWSTR, DWORD, c_void_p, DWORD
+    ]
+    FindFirstStreamW.restype = HANDLE
 
-FindNextStreamW = kernel32.FindNextStreamW
-FindNextStreamW.argtypes = [
-    HANDLE, c_void_p
-]
-FindNextStreamW.restype = BOOL
+    FindNextStreamW = kernel32.FindNextStreamW
+    FindNextStreamW.argtypes = [
+        HANDLE, c_void_p
+    ]
+    FindNextStreamW.restype = BOOL
 
-FindClose = kernel32.FindClose
-FindClose.argtypes = [
-    HANDLE
-]
+    FindClose = kernel32.FindClose
+    FindClose.argtypes = [
+        HANDLE
+    ]
+
+    NTFS_STREAMS_API_PRESENT = True
+
+except AttributeError:
+    # Unsupported version of windows
+    FindFirstStreamW = None
+    FindNextStreamW = None
+    FindClose = None
+
+    NTFS_STREAMS_API_PRESENT = False 
+
 
 INVALID_HANDLE_VALUE = c_void_p(-1).value
 
 def get_streams(filename):
+    if not NTFS_STREAMS_API_PRESENT:
+        return []
+
     if type(filename) == str:
         filename = filename.decode(
             getfilesystemencoding())

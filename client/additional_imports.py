@@ -72,7 +72,12 @@ import poster
 
 if 'win' in sys.platform:
     import ctypes.wintypes
-    import win_inet_pton
+
+    try:
+        import win_inet_pton
+    except AttributeError:
+        pass
+
     import winkerberos
 else:
     import pty
