@@ -51,7 +51,7 @@ except AttributeError:
     FindNextStreamW = None
     FindClose = None
 
-    NTFS_STREAMS_API_PRESENT = False 
+    NTFS_STREAMS_API_PRESENT = False
 
 
 INVALID_HANDLE_VALUE = c_void_p(-1).value
