@@ -11,6 +11,7 @@ PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
+PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES="$PACKAGES adodbapi idna wmi http_parser pyodbc"
 
 SELF=$(readlink -f "$0")
@@ -57,12 +58,6 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install --upgrade --force $PYKCP
     $PYTHON -c 'import kcp' || exit 1
 done
-
-echo "[+] Install pyuv"
-# For x86 use the old build, which supports windows XP
-$PYTHON32 -m pip install pyuv==1.3.0
-$PYTHON64 -m pip install --upgrade --force-reinstall \
-    https://github.com/alxchk/pyuv/archive/v1.x.zip
 
 echo "[+] Install psutil"
 $PYTHON32 -m pip install --no-binary :all: psutil==4.3.1
