@@ -33,7 +33,10 @@ class PStore(object):
             import getpass
             uid = getpass.getuser()
         except:
-            uid = os.getuid()
+            if hasattr(os, 'getuid'):
+                uid = os.getuid()
+            else:
+                uid = ''
 
         seed = '{}:{}'.format(uid, uuid.getnode())
 

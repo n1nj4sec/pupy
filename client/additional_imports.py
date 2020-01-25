@@ -45,6 +45,7 @@ import netaddr
 import urllib_auth
 import http_parser
 import unicodedata
+import getpass
 
 try:
     import psutil
