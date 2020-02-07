@@ -47,8 +47,8 @@ except:
         USERNAME = None
 
 KNOWN_DOMAINS = (
-    'NT AUTHORITY\\',
-    socket.gethostname() + '\\'
+    to_unicode('NT AUTHORITY\\'),
+    to_unicode(socket.gethostname() + '\\')
 )
 
 # Try to figure out not supported fields
