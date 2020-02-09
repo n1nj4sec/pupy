@@ -39,6 +39,17 @@ KPROBES_ENABLED='kprobes/enabled'
 TTY_PRIVATE_2 = '0x0'
 
 
+def _to_int(x):
+    if x is None:
+        return None
+    elif isinstance(x, (int, long)):
+        return x
+    elif x.startswith('0x'):
+        return int(x[2:], 16)
+    else:
+        return int(x)
+
+
 class KProbesNotAvailable(Exception):
     pass
 
@@ -218,7 +229,7 @@ class TTYMon(object):
         self._pipe = None
         self._pipe_fd = None
         self._parser_body = r'\s+([^-]+)-(\d+)\s+\[\d+\]\s+[^\s]+\s+(\d+\.\d+):' \
-            r'\s+({})_([o|i]):\s+\([^+]+\+[^)]+\)\s+arg1="([^"]+)"\s+arg2=(\d+)\s+arg3=(\d+)\s+arg4=(-?\d+)\s+arg5="'.format(
+            r'\s+({})_([o|i]):\s+\([^+]+\+[^)]+\)\s+arg1="([^"]+)"\s+arg2=(\S+)\s+arg3=(\S+)\s+arg4=(-?\S+)\s+arg5="'.format(
                 '|'.join(probe.name.rsplit('_', 1)[0] for probe in self._probes))
 
         self._parser_start = re.compile(self._parser_body)
@@ -310,15 +321,15 @@ class TTYMon(object):
         more = True
         buf = ''
 
-        debug = open('/tmp/debug.txt', 'w+')
-        groups_debug = open('/tmp/groups.txt', 'w+')
+        # debug = open('/tmp/debug.txt', 'w+')
+        # groups_debug = open('/tmp/groups.txt', 'w+')
 
         while not self._stopping:
             if more:
                 try:
                     r = os.read(self._pipe_fd, 8192)
 
-                    debug.write(r)
+                    # debug.write(r)
                     buf += r
                 except OSError, e:
                     if e.errno not in (errno.EAGAIN, errno.ENODATA):
@@ -348,12 +359,12 @@ class TTYMon(object):
             comm, pid, ts, rule, probe, tty_name, x, y, items = \
                 start.groups()
 
-            groups_debug.write(repr(start.groups()) + '\n')
+            # groups_debug.write(repr(start.groups()) + '\n')
 
-            pid = int(pid)
-            items = int(items)
-            x = int(x)
-            y = int(y)
+            pid = _to_int(pid)
+            items = _to_int(items)
+            x = _to_int(x)
+            y = _to_int(y)
 
             data = rest[:end.start()]
             buf = rest[end.start()+2:]
