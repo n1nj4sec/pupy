@@ -39,6 +39,7 @@ class DownloaderScript(PupyModule):
                                          help='Open file with xdg-open')
         cls.arg_parser.add_argument('-a', '--archive', action='store_true', default=False,
                                          help='Store to archive (use this only for dirs)')
+        cls.arg_parser.add_argument('-C', '--chunk-size', type=int, default=1*1024, help='Max transfer chunk (Kbytes)')
         cls.arg_parser.add_argument('-i', '--include', help='Regex to include files')
         cls.arg_parser.add_argument('-e', '--exclude', help='Regex to exclude files')
         cls.arg_parser.add_argument('-F', '--follow-symlinks', action='store_true', help='Follow symlinks')
@@ -66,7 +67,8 @@ class DownloaderScript(PupyModule):
             self._downloader.download(
                 args.remote_file,
                 args.local_file,
-                args.archive
+                args.archive,
+                args.chunk_size * 1024
             )
 
             if args.verbose:

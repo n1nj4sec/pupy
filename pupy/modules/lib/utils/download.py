@@ -153,13 +153,15 @@ class DownloadFronted(object):
         return self._archive_file or self._last_downloaded_dest \
             or self._download_dir or self._local_path
 
-    def download(self, remote_file, local_file=None, archive=False):
+    def download(self, remote_file,
+            local_file=None, archive=False, chunk_size=1*1024*1024):
+
         self._setup_context(remote_file, local_file, archive)
 
         transfer = self.client.remote('transfer', 'transfer', False)
         self._terminate = transfer(
             remote_file, self._submit_message, self._exclude, self._include,
-            self._follow_symlinks, self._ignore_size, self._no_single_device)
+            self._follow_symlinks, self._ignore_size, self._no_single_device, chunk_size)
 
         if self._verbose:
             if self._archive:
