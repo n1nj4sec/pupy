@@ -35,12 +35,11 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
 fi
 
 $PIP_INSTALL \
-    pyaml rsa netaddr pyyaml ecdsa idna \
+    pyaml rsa netaddr pyyaml ecdsa idna impacket \
     paramiko pylzma pydbus python-ptrace psutil scandir \
     scapy colorama pyOpenSSL python-xlib msgpack-python \
     u-msgpack-python poster dnslib pyxattr pylibacl python-prctl http_parser \
     https://github.com/alxchk/tinyec/archive/master.zip \
-    https://github.com/CoreSecurity/impacket/archive/master.zip \
     https://github.com/warner/python-ed25519/archive/master.zip \
     https://github.com/alxchk/urllib-auth/archive/master.zip \
     zeroconf==0.19.1 pyodbc \
@@ -138,6 +137,8 @@ esac
 for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 cd $SRC
+
+MAKEFLAGS="$MAKEFLAGS FEATURE_PATHMAP=1"
 
 make $MAKEFLAGS distclean
 make -j $MAKEFLAGS

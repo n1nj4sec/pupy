@@ -1,7 +1,6 @@
 #!/bin/sh
 
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy zeroconf==0.19.1"
-PACKAGES_BUILD="$PACKAGES_BUILD https://github.com/CoreSecurity/impacket/archive/master.zip"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy impacket zeroconf==0.19.1"
 PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
 
 PACKAGES="rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"

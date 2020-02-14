@@ -13,7 +13,7 @@ colorama
 mss==4.0.3
 pyOpenSSL
 scapy
-https://github.com/CoreSecurity/impacket/archive/master.zip
+impacket
 pyuv
 dnslib
 https://github.com/benoitc/http-parser/archive/master.zip
