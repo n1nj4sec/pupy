@@ -138,7 +138,7 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 cd $SRC
 
-MAKEFLAGS="$MAKEFLAGS FEATURE_PATHMAP=1"
+MAKEFLAGS="$MAKEFLAGS"
 
 make $MAKEFLAGS distclean
 make -j $MAKEFLAGS
