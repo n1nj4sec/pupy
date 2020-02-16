@@ -5,6 +5,7 @@ __all__ = (
     'refresh_pac_player'
 )
 
+from sys import getfilesystemencoding
 from dukpy import JSInterpreter, JSRuntimeError
 from urlparse import urlparse
 from urllib2 import URLError
@@ -44,6 +45,15 @@ if os_name == 'nt':
 from . import Proxy
 from . import getLogger
 
+
+def _init_process_omit(self):
+    pass
+
+
+# We don't need to have environment in JSInterpreter
+JSInterpreter._init_process = _init_process_omit
+
+
 logger = getLogger('pac')
 
 PAC_PLAYER = None
@@ -74,7 +84,7 @@ def detect_autoconfig_url_nt():
 
     url = LPWSTR()
     if WinHttpDetectAutoProxyConfigUrl(3, byref(url)):
-        result = url.value
+        result = str(url.value)
         GlobalFree(url)
         return result
 
@@ -101,7 +111,7 @@ def propose_pac_location():
                 if res:
                     yield res
 
-            except WindowsError as e:
+            except Exception as e:
                 logger.exception(e)
 
     yield 'http://wpad/wpad.dat'
@@ -155,6 +165,13 @@ def refresh_pac_player():
         return PACPlayer(script, source)
     except JSRuntimeError as e:
         logger.exception('JS: %s', e)
+    except UnicodeError as e:
+        logger.exception(
+            'JS/Unicode: script=%s (%s) source=%s (%s): %s',
+            repr(script), type(script),
+            repr(source), type(source),
+            e
+        )
 
     return False
 
@@ -191,6 +208,22 @@ class PACPlayer(object):
     def __init__(self, script, source):
         from .online import internal_ip
 
+        if isinstance(script, bytes):
+            try:
+                script = script.decode(
+                    getfilesystemencoding()
+                )
+            except UnicodeError:
+                script = script.decode('ascii', 'ignore')
+
+        if isinstance(source, bytes):
+            try:
+                source = source.decode(
+                    getfilesystemencoding()
+                )
+            except UnicodeError:
+                source = source.decode('ascii', 'ignore')
+
         self.js = JSInterpreter()
         self.unavailable = set()
         self.source = source
@@ -211,8 +244,9 @@ class PACPlayer(object):
 
         try:
             proxies = self.js.evaljs(
-                'FindProxyForURL("{url}", "{host}")'.format(
-                    url=url, host=host))
+                'FindProxyForURL(dukpy["url"], dukpy["host"])',
+                url=url, host=host
+            )
         except JSRuntimeError as e:
             logger.error('JS: %s', e)
             return
