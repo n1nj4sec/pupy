@@ -70,10 +70,13 @@ SHARED_OBJS += ReflectiveLoader.obj
 LIBPYTHON_DIR ?= C:\\Python27
 LIBPYTHON_LIBS := $(PYTHONPATH)\\libs\\python27.lib advapi32.lib
 LIBPYTHON_INC := /I$(PYTHONPATH)/Include
-
 else
 SHARED_OBJS += $(PUPY_MODULE)
 APP_OBJS += $(PUPY_MODULE)
+endif
+
+ifneq ($(PUPY_POSTMORTEM),)
+CFLAGS += /DPOSTMORTEM
 endif
 
 ifneq ($(DEBUG),)

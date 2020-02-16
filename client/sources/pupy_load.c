@@ -11,6 +11,11 @@
 
 #include "Python-dynload.c"
 
+#ifdef POSTMORTEM
+#include "postmortem.h"
+#include "postmortem.c"
+#endif
+
 #ifdef _PUPY_DYNLOAD
 #ifdef DEBUG
 #include "_pupy_debug_pyd.c"
@@ -203,6 +208,14 @@ void initialize(BOOL isDll) {
 
     if (fnIsWow64Process)
         fnIsWow64Process(GetCurrentProcess(),&blIsWow64);
+#endif
+
+#ifdef POSTMORTEM
+    dprint("Postmortem - enabling minidumps\n");
+    SetUnhandledExceptionFilter(MinidumpFilter);
+    _set_abort_behavior(2, 0xF);
+#else
+    _set_abort_behavior(0, 0);
 #endif
 
     if (!blIsWow64 && hNtDll && hKernel32 && hKernelBase)  {
