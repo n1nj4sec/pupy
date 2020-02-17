@@ -63,7 +63,7 @@ SHARED_OBJS := \
 APP_OBJS := \
 	main_exe.obj
 
-ifneq ($(PUPY_DYNLOAD),)
+ifneq ($(FEATURE_DYNLOAD),)
 CFLAGS += /D_PUPY_DYNLOAD /D_PUPY_PRIVATE_NT
 SHARED_OBJS += ReflectiveLoader.obj
 
@@ -75,7 +75,7 @@ SHARED_OBJS += $(PUPY_MODULE)
 APP_OBJS += $(PUPY_MODULE)
 endif
 
-ifneq ($(PUPY_POSTMORTEM),)
+ifneq ($(FEATURE_POSTMORTEM),)
 CFLAGS += /DPOSTMORTEM
 endif
 
@@ -112,7 +112,7 @@ TARGETS := \
 
 REQUIRED_LIBS := user32.lib
 
-ifneq ($(PUPY_DYNLOAD),)
+ifneq ($(FEATURE_DYNLOAD),)
 	TARGETS += $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)pyr
 	PUPY_LOAD_DEPS += resources/$(ARCH)/$(PUPY_PYD_C)
 else
