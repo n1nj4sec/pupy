@@ -210,14 +210,6 @@ void initialize(BOOL isDll) {
         fnIsWow64Process(GetCurrentProcess(),&blIsWow64);
 #endif
 
-#ifdef POSTMORTEM
-    dprint("Postmortem - enabling minidumps\n");
-    SetUnhandledExceptionFilter(MinidumpFilter);
-    _set_abort_behavior(2, 0xF);
-#else
-    _set_abort_behavior(0, 0);
-#endif
-
     if (!blIsWow64 && hNtDll && hKernel32 && hKernelBase)  {
         HMODULE hPrivate;
         dprint("Loading private copy of NTDLL/KERNELBASE\n");
@@ -267,6 +259,14 @@ void initialize(BOOL isDll) {
 #endif
         }
     }
+#endif
+
+#ifdef POSTMORTEM
+    dprint("Postmortem - enable postmortem processing\n");
+    SetUnhandledExceptionFilter(MinidumpFilter);
+    _set_abort_behavior(2, 0xF);
+#else
+    _set_abort_behavior(0, 0);
 #endif
 
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
