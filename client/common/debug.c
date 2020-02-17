@@ -17,6 +17,21 @@ int dprint(const char *fmt, ...) {
     return n;
 }
 
+int dwprint(const wchar_t *fmt, ...) {
+    va_list args;
+    int n;
+    FILE *log = stdout;
+
+    if (debug_log != NULL)
+        log = debug_log;
+
+    va_start (args, fmt);
+    n = vfwprintf(log, fmt, args);
+    va_end (args);
+    fflush(log);
+    return n;
+}
+
 void set_debug_log(const char *dest) {
     FILE * new_debug_log = fopen(dest, "w+");
     FILE * old_debug_log = debug_log;
