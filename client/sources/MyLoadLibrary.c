@@ -468,7 +468,7 @@ MyLoadLibraryEx(
 HMODULE CALLBACK MyGetModuleHandleW(LPCWSTR name) {
     PHCUSTOMLIBRARY hResult = _FindMemoryModuleW(name);
     if (hResult)
-        return hResult;
+        return (HMODULE) hResult;
 
     return GetModuleHandleW(name);
 }
@@ -662,4 +662,40 @@ LPVOID CALLBACK MyLoadResource(HMODULE hModule, HRSRC resource)
 
     dprint("MyLoadResource(%p, %p) -> %d (%p)\n", hModule, resource, res, lib);
     return res;
+}
+
+VOID MyEnumerateLibraries(LibraryInfoCb_t callback, PVOID pvCallbackData)
+{
+    PHCUSTOMLIBRARY module, tmp;
+
+    if (!callback)
+        return;
+
+    dprint("Enumerating libraries: %p\n", libraries);
+    dprint("By Module hashmap: %p\n", libraries->by_module);
+
+    HASH_ITER(by_module, libraries->by_module, module, tmp) {
+        PVOID pvBaseAddress = NULL;
+        ULONG ulSize = 0;
+
+        dprint("GetMemoryModuleInfo: Try: %p\n", module);
+
+        if (GetMemoryModuleInfo(module->module, &pvBaseAddress, &ulSize)) {
+            dprint(
+                "GetMemoryModuleInfo %p: name=%s base=%p size=%u callback=%p\n",
+                module, module->name, pvBaseAddress, ulSize, callback
+            );
+
+            if (!callback(pvCallbackData, module->name, pvBaseAddress, ulSize)) {
+                dprint("GetMemoryModuleInfo: break requested\n");
+                break;
+            }
+
+            dprint("GetMemoryModuleInfo: continue\n");
+        } else {
+            dprint("GetMemoryModuleInfo failed for %p\n", module);
+        }
+    }
+
+    dprint("Enumerating libraries: %p - complete\n", libraries);
 }

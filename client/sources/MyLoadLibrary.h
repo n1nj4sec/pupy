@@ -35,6 +35,12 @@ FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 VOID MySetLibraries(PVOID pLibraries);
 PVOID MyGetLibraries();
 
+typedef BOOL (*LibraryInfoCb_t) (
+    PVOID pvCallbackData, LPCSTR pszName, PVOID pvBaseImage, ULONG ulSize
+);
+
+VOID MyEnumerateLibraries(LibraryInfoCb_t callback, PVOID pvCallbackData);
+
 #ifndef DLL_QUERY_HMODULE
 #define DLL_QUERY_HMODULE 6
 #endif

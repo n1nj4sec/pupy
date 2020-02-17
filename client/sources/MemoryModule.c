@@ -108,6 +108,7 @@ typedef struct {
 
     PIMAGE_NT_HEADERS headers;
     unsigned char *codeBase;
+    ULONG codeSize;
 
     HMODULE hOriginalModule;
     HMODULE hAliasedModule;
@@ -1047,7 +1048,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(
         }
     }
 
-    dprint("ImageBase: %p\n", code);
+    dprint("ImageBase: %p - %p\n", code, code + old_header->OptionalHeader.SizeOfImage);
 
     result = (PMEMORYMODULE)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MEMORYMODULE));
     if (result == NULL) {
@@ -1057,6 +1058,7 @@ HMEMORYMODULE MemoryLoadLibraryEx(
     }
 
     result->codeBase = code;
+    result->codeSize = (ULONG) old_header->OptionalHeader.SizeOfImage;
     result->isDLL = (old_header->FileHeader.Characteristics & IMAGE_FILE_DLL) != 0;
 
     result->callbacks = pdlCallbacks;
@@ -1610,4 +1612,20 @@ LPVOID MemoryLoadResource(HMEMORYMODULE hModule, HMEMORYRSRC resource)
         return pvData;
 
     return _MemoryLoadResource(module, resource);
+}
+
+BOOL GetMemoryModuleInfo(
+    HMEMORYMODULE hMemoryModule, PVOID *ppvBaseAddress, PULONG pulSize)
+{
+    PMEMORYMODULE module = (PMEMORYMODULE) hMemoryModule;
+    if (!module)
+        return FALSE;
+
+    if (ppvBaseAddress)
+        *ppvBaseAddress = module->codeBase;
+
+    if (pulSize)
+        *pulSize = module->codeSize;
+
+    return TRUE;
 }

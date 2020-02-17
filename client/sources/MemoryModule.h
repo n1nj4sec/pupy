@@ -173,6 +173,8 @@ void MemoryFreeLibrary(HMEMORYMODULE);
 DWORD MemoryModuleFileNameA(HMODULE, LPSTR, DWORD);
 DWORD MemoryModuleFileNameW(HMODULE, LPWSTR, DWORD);
 
+BOOL GetMemoryModuleInfo(HMEMORYMODULE hModule, PVOID *ppvBaseAddress, PULONG pulSize);
+
 HMEMORYRSRC MemoryFindResourceA(HMEMORYMODULE module, LPCSTR name, LPCSTR type);
 HMEMORYRSRC MemoryFindResourceW(HMEMORYMODULE module, LPCWSTR name, LPCWSTR type);
 
