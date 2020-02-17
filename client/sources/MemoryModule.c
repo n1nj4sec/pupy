@@ -543,6 +543,8 @@ BuildImportTable(PMEMORYMODULE module)
         {"SizeofResource", (FARPROC) module->callbacks->getSizeofResource},
         {"LoadResource", (FARPROC) module->callbacks->getLoadResource},
 
+        {"CreateThread", (FARPROC) module->callbacks->createThread},
+
         {"GetProcAddress", (FARPROC) module->callbacks->getProcAddress},
         {"FreeLibrary", (FARPROC) module->callbacks->freeLibrary},
         {NULL, NULL}

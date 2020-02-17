@@ -474,15 +474,13 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
     CloseHandle(hExceptionInfoFile);
 }
 
-LONG WINAPI MinidumpFilter(PEXCEPTION_POINTERS pExceptionPointers)
+LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
 {
   WCHAR appdata_local[MAX_PATH];
   HMODULE hShell32 = LoadLibraryA("SHELL32.DLL");
   HMODULE hDbgHelp = LoadLibraryA("DBGHELP.DLL");
 
-  SHGetFolderPathAndSubDirW_t pSHGetFolderPathAndSubDirW =
-    (SHGetFolderPathAndSubDirW_t) GetProcAddress(
-        hShell32, "SHGetFolderPathAndSubDirW");
+  SHGetFolderPathAndSubDirW_t pSHGetFolderPathAndSubDirW = NULL;
 
   if (pExceptionPointers && pExceptionPointers->ExceptionRecord) {
     dprint(
@@ -497,9 +495,14 @@ LONG WINAPI MinidumpFilter(PEXCEPTION_POINTERS pExceptionPointers)
       return EXCEPTION_EXECUTE_HANDLER;
   }
 
+  if (hShell32)
+    pSHGetFolderPathAndSubDirW = (SHGetFolderPathAndSubDirW_t) GetProcAddress(
+        hShell32, "SHGetFolderPathAndSubDirW");
+
   if (!pSHGetFolderPathAndSubDirW) {
     dprint("Failed to find SHGetFolderPathAndSubDirW (SHELL32.DLL AT %p)\n", hShell32);
-    return EXCEPTION_EXECUTE_HANDLER;
+    if (GetTempPathW(sizeof(appdata_local)/sizeof(WCHAR), appdata_local) < 1)
+      return EXCEPTION_EXECUTE_HANDLER;
   }
 
   dprint("Creating folder for exception info\n");

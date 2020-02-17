@@ -32,7 +32,18 @@ int CALLBACK MyLoadStringW(HMODULE module, UINT id, LPWSTR buffer, int maxsize);
 
 FARPROC MyFindProcAddress(LPCSTR modulename, LPCSTR procname);
 
+HANDLE CALLBACK MyCreateThread(
+  LPSECURITY_ATTRIBUTES   lpThreadAttributes,
+  SIZE_T                  dwStackSize,
+  LPTHREAD_START_ROUTINE  lpStartAddress,
+  LPVOID                  lpParameter,
+  DWORD                   dwCreationFlags,
+  LPDWORD                 lpThreadId
+);
+
 VOID MySetLibraries(PVOID pLibraries);
+VOID MySetUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER handler);
+LPTOP_LEVEL_EXCEPTION_FILTER MyGetUnhandledExceptionFilter(VOID);
 PVOID MyGetLibraries();
 
 typedef BOOL (*LibraryInfoCb_t) (

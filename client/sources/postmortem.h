@@ -165,6 +165,6 @@ typedef BOOL (*MiniDumpWriteDump_t)(
     PVOID CallbackParam
 );
 
-LONG WINAPI MinidumpFilter(PEXCEPTION_POINTERS pExceptionInfo);
+LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionInfo);
 
 #endif

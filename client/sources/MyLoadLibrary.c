@@ -7,6 +7,12 @@
 
 #include "debug.h"
 
+typedef struct _ORIGINAL_THREAD_ARGS {
+    LPTHREAD_START_ROUTINE lpOriginalRoutine;
+    LPVOID lpOriginalParameter;
+    LPTOP_LEVEL_EXCEPTION_FILTER lpExceptionFilter;
+} ORIGINAL_THREAD_ARGS, *PORIGINAL_THREAD_ARGS;
+
 typedef struct {
     PSTR name;
     PSTR fileName;
@@ -28,6 +34,7 @@ typedef struct {
 } HLIBRARIES, *PHLIBRARIES;
 
 static PHLIBRARIES libraries = NULL;
+static LPTOP_LEVEL_EXCEPTION_FILTER lpDefaultExceptionHandler = NULL;
 
 VOID MySetLibraries(PVOID pLibraries) {
     if (!libraries) {
@@ -231,6 +238,8 @@ static DL_CALLBACKS callbacks = {
     GetProcAddress,
     GetModuleFileNameA, GetModuleFileNameW,
     FindResourceExW, SizeofResource, LoadResource,
+
+    MyCreateThread,
 
 #ifdef _PUPY_PRIVATE_WS2_32
     MyEtwRegister, MyEtwEventWrite,
@@ -662,6 +671,92 @@ LPVOID CALLBACK MyLoadResource(HMODULE hModule, HRSRC resource)
 
     dprint("MyLoadResource(%p, %p) -> %d (%p)\n", hModule, resource, res, lib);
     return res;
+}
+
+VOID MySetUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER handler)
+{
+    lpDefaultExceptionHandler = handler;
+    dprint("Set default thread handler to %p\n", lpDefaultExceptionHandler);
+}
+
+LPTOP_LEVEL_EXCEPTION_FILTER MyGetUnhandledExceptionFilter(VOID) {
+    return lpDefaultExceptionHandler;
+}
+
+LONG WINAPI ThreadUnhandledExceptionFilter(
+    PEXCEPTION_POINTERS pExceptionPointers, LPTOP_LEVEL_EXCEPTION_FILTER lpFilter, LONG lResult
+) {
+    dprint("ThreadUnhandledExceptionFilter; Process exception info at %p\n", pExceptionPointers);
+    lpFilter(pExceptionPointers);
+    return lResult;
+}
+
+static DWORD WINAPI WrappedThreadRoutine(LPVOID lpThreadParameter)
+{
+    DWORD dwResult = 0;
+    ORIGINAL_THREAD_ARGS OriginalThreadArgs;
+
+    RtlCopyMemory(&OriginalThreadArgs, lpThreadParameter, sizeof(OriginalThreadArgs));
+    LocalFree(lpThreadParameter);
+
+    __try {
+        dprint(
+            "Thread wrapper [%p]: Calling original args: %p(%p) filter: %p\n",
+            WrappedThreadRoutine,
+            OriginalThreadArgs.lpOriginalRoutine,
+            OriginalThreadArgs.lpOriginalParameter,
+            OriginalThreadArgs.lpExceptionFilter
+        );
+
+        dwResult = OriginalThreadArgs.lpOriginalRoutine(
+            OriginalThreadArgs.lpOriginalParameter
+        );
+    }
+    __except(ThreadUnhandledExceptionFilter(
+        GetExceptionInformation(), OriginalThreadArgs.lpExceptionFilter, EXCEPTION_CONTINUE_SEARCH
+    )) {
+        dprint("Thread wrapper caught fatal error (%p)\n", OriginalThreadArgs.lpOriginalRoutine);
+    }
+
+    dprint("Thread wrapper exited (%p)\n", OriginalThreadArgs.lpOriginalRoutine);
+    return dwResult;
+}
+
+HANDLE CALLBACK MyCreateThread(
+  LPSECURITY_ATTRIBUTES   lpThreadAttributes,
+  SIZE_T                  dwStackSize,
+  LPTHREAD_START_ROUTINE  lpStartAddress,
+  LPVOID                  lpParameter,
+  DWORD                   dwCreationFlags,
+  LPDWORD                 lpThreadId
+)
+{
+    dprint(
+        "MyCreateThread(func=%p, args=%p eh=%p)\n",
+        lpStartAddress, lpParameter, lpDefaultExceptionHandler
+    );
+
+    if (lpDefaultExceptionHandler) {
+        PORIGINAL_THREAD_ARGS pOriginalArgsCopy = LocalAlloc(
+            LMEM_FIXED, sizeof(ORIGINAL_THREAD_ARGS)
+        );
+
+        if (pOriginalArgsCopy) {
+            pOriginalArgsCopy->lpOriginalRoutine = lpStartAddress;
+            pOriginalArgsCopy->lpOriginalParameter = lpParameter;
+            pOriginalArgsCopy->lpExceptionFilter = lpDefaultExceptionHandler;
+
+            lpStartAddress = WrappedThreadRoutine;
+            lpParameter = (PVOID) pOriginalArgsCopy;
+        } else {
+            dprint("MyCreateThread: LocalAlloc failed\n");
+        }
+    }
+
+    return CreateThread(
+        lpThreadAttributes, dwStackSize, lpStartAddress,
+        lpParameter, dwCreationFlags, lpThreadId
+    );
 }
 
 VOID MyEnumerateLibraries(LibraryInfoCb_t callback, PVOID pvCallbackData)

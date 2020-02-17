@@ -62,6 +62,15 @@ typedef LPVOID (CALLBACK *CustomLoadResource)(HMEMORYMODULE module, HRSRC resour
 typedef FARPROC (CALLBACK *CustomGetProcAddress)(HMODULE, LPCSTR);
 typedef void (CALLBACK *CustomFreeLibraryFunc)(HMODULE);
 
+typedef HANDLE (CALLBACK *CustomCreateThread)(
+    LPSECURITY_ATTRIBUTES   lpThreadAttributes,
+    SIZE_T                  dwStackSize,
+    LPTHREAD_START_ROUTINE  lpStartAddress,
+    LPVOID                  lpParameter,
+    DWORD                   dwCreationFlags,
+    LPDWORD                 lpThreadId
+);
+
 #ifdef _PUPY_PRIVATE_WS2_32
 typedef NTSTATUS (CALLBACK *CustomEtwRegister) (
     LPCGUID            ProviderId,
@@ -125,6 +134,8 @@ typedef struct {
     CustomFindResourceExW systemFindResourceExW;
     CustomSizeofResource systemSizeofResource;
     CustomLoadResource systemLoadResource;
+
+    CustomCreateThread createThread;
 
 #ifdef _PUPY_PRIVATE_WS2_32
     CustomEtwRegister systemEtwRegister;

