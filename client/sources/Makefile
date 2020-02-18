@@ -22,6 +22,8 @@ endif
 CFLAGS += /Iresources\\$(ARCH) /Iresources /DHAVE_WINDOW
 #CFLAGS += /Iresources\\$(ARCH) /Iresources
 
+CFLAGS += /EHa
+
 ifdef DEBUG
 DEBUG_ADD   := -debug
 CFLAGS      := $(CFLAGS) /DDEBUG /DVERBOSE
