@@ -61,6 +61,10 @@ DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM(LPVOID lpParameter)
     VIRTUALALLOC pVirtualAlloc;
     VIRTUALPROTECT pVirtualProtect;
     VIRTUALFREE pVirtualFree;
+
+#ifdef _WIN64
+    RTLADDFUNCTIONTABLE pRtlAddFunctionTable;
+#endif
     // NTFLUSHINSTRUCTIONCACHE pNtFlushInstructionCache;
 
     BOOL blModuleResolved = FALSE;
@@ -105,6 +109,9 @@ DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM(LPVOID lpParameter)
         {VIRTUALALLOC_HASH, &pVirtualAlloc},
         {VIRTUALPROTECT_HASH, &pVirtualProtect},
         {VIRTUALFREE_HASH, &pVirtualFree}
+#ifdef _WIN64
+        , {RTLADDFUNCTIONTABLE_HASH, &pRtlAddFunctionTable}
+#endif
     };
 
     // ImportFunc ntdll[] = {
@@ -439,9 +446,51 @@ DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM(LPVOID lpParameter)
         }
     }
 
-    // STEP 6: Finalize all the crap
+    // STEP 6: Execute TLS is any
+    uiValueC = (ULONG_PTR)&((
+        PIMAGE_NT_HEADERS) uiHeaderValue)->OptionalHeader.DataDirectory[
+            IMAGE_DIRECTORY_ENTRY_TLS];
+    if (((PIMAGE_DATA_DIRECTORY)uiValueC)->VirtualAddress) {
+        uiValueA = (PIMAGE_TLS_CALLBACK *) (
+            (PIMAGE_TLS_DIRECTORY) (
+                uiBaseAddress + ((PIMAGE_DATA_DIRECTORY)uiValueC)->VirtualAddress
+            )
+        )->AddressOfCallBacks;
+
+        if (uiValueA) {
+            while (*((PIMAGE_TLS_CALLBACK *) uiValueA)) {
+                (*((PIMAGE_TLS_CALLBACK *) uiValueA))(
+                    (LPVOID) uiBaseAddress, DLL_PROCESS_ATTACH, NULL
+                );
+
+                uiValueA += sizeof(ULONG_PTR);
+            }
+        }
+    }
+
+    // STEP 7: If AMD64 - register exceptions
+#if _WIN64
+    uiValueC = (ULONG_PTR)&((
+        PIMAGE_NT_HEADERS) uiHeaderValue)->OptionalHeader.DataDirectory[
+            IMAGE_DIRECTORY_ENTRY_EXCEPTION];
+    uiValueA = ((PIMAGE_DATA_DIRECTORY) uiValueC)->VirtualAddress;
+    uiValueE = ((PIMAGE_DATA_DIRECTORY) uiValueC)->Size;
+
+    if (uiValueA && uiValueE && pRtlAddFunctionTable) {
+        pRtlAddFunctionTable(
+            uiBaseAddress + uiValueA,
+            (
+                 uiValueE / sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY)
+            ) - 1,
+            uiBaseAddress
+        );
+    }
+#endif
+
+    // STEP 8: Finalize all the crap
     // uiValueA = the VA of the first section
-    uiValueA = ((ULONG_PTR)&((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader + ((PIMAGE_NT_HEADERS)uiHeaderValue)->FileHeader.SizeOfOptionalHeader);
+    uiValueA = ((ULONG_PTR)&((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader + (
+        (PIMAGE_NT_HEADERS)uiHeaderValue)->FileHeader.SizeOfOptionalHeader);
 
     uiValueE = ((PIMAGE_NT_HEADERS)uiHeaderValue)->FileHeader.NumberOfSections;
     while(uiValueE--)
@@ -468,7 +517,7 @@ DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM(LPVOID lpParameter)
 
     pVirtualFree(uiLibraryAddress, dwSizeOfImage, MEM_DECOMMIT);
 
-    // STEP 7: call our images entry point
+    // STEP 9: call our images entry point
 
     // uiValueA = the VA of our newly loaded DLL/EXE's entry point
     uiValueA = (uiBaseAddress + ((PIMAGE_NT_HEADERS)uiHeaderValue)->OptionalHeader.AddressOfEntryPoint);
@@ -480,7 +529,7 @@ DLLEXPORT ULONG_PTR WINAPI REFLECTIVE_LOADER_SYM(LPVOID lpParameter)
     // if we are injecting a DLL via LoadRemoteLibraryR we call DllMain and pass in our parameter (via the DllMain lpReserved parameter)
     ((DLLMAIN)uiValueA)((HINSTANCE)uiBaseAddress, DLL_PROCESS_ATTACH, lpParameter);
 
-    // STEP 8: return our new entry point address so whatever called us can call DllMain() if needed.
+    // STEP 10: return our new entry point address so whatever called us can call DllMain() if needed.
     return uiValueA;
 }
 //
