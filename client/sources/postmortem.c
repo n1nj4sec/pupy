@@ -7,6 +7,9 @@
 
 #define ECODE(x) EXCEPTION_ ## x, # x
 
+typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags);
+typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags);
+
 typedef struct _EXCMSG {
   DWORD dwExceptionCode;
   LPCSTR pszExceptionHuman;
@@ -297,6 +300,9 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
 #endif
 
     for( frame = 0; frame < 32; frame++ ) {
+        LPCSTR pcModuleName = NULL;
+        PVOID pcModuleBase = NULL;
+
         symbol->SizeOfStruct  = sizeof(symbol_storage.symbol);
         symbol->MaxNameLength = sizeof(symbol_storage) -
             sizeof(symbol_storage.symbol);
@@ -338,14 +344,40 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
         );
 
 #endif
-        buffer_len = snprintf(
-            buffer,
-            sizeof(buffer) - 1,
-            "+ %lu:\t%s\t(PC %p)\n",
-            frame,
-            blSymbolFound? symbol->Name : "?",
-            stack.AddrPC.Offset
-        );
+        if (blSymbolFound) {
+          buffer_len = snprintf(
+              buffer,
+              sizeof(buffer) - 1,
+              "+ %lu:\t%s\t(PC %p)\n",
+              frame,
+              symbol->Name,
+              stack.AddrPC.Offset
+          );
+        } else {
+          LPCSTR pcModuleName = NULL;
+          PVOID pcModuleBase = NULL;
+
+          if (MyFindMemoryModuleNameByAddr(
+              stack.AddrPC.Offset, &pcModuleName, &pcModuleBase, NULL)) {
+            buffer_len = snprintf(
+                buffer,
+                sizeof(buffer) - 1,
+                "+ %lu:\t%s+0x%x\t(PC %p)\n",
+                frame,
+                pcModuleName,
+                ((UINT_PTR)stack.AddrPC.Offset) - ((UINT_PTR)pcModuleBase),
+                stack.AddrPC.Offset
+            );
+          } else {
+            buffer_len = snprintf(
+                buffer,
+                sizeof(buffer) - 1,
+                "+ %lu:\t?\t\t\t(PC %p)\n",
+                frame,
+                stack.AddrPC.Offset
+            );
+          }
+        }
 
         if (buffer_len > 0)
           WriteFile(hExceptionInfoFile, buffer, buffer_len, &dwWritten, NULL);
@@ -492,7 +524,7 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
     );
   } else {
       dprint("Catch fatal exception somewhere\n");
-      return EXCEPTION_EXECUTE_HANDLER;
+      return EXCEPTION_CONTINUE_SEARCH;
   }
 
   if (hShell32)
@@ -502,7 +534,7 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
   if (!pSHGetFolderPathAndSubDirW) {
     dprint("Failed to find SHGetFolderPathAndSubDirW (SHELL32.DLL AT %p)\n", hShell32);
     if (GetTempPathW(sizeof(appdata_local)/sizeof(WCHAR), appdata_local) < 1)
-      return EXCEPTION_EXECUTE_HANDLER;
+      return EXCEPTION_CONTINUE_SEARCH;
   }
 
   dprint("Creating folder for exception info\n");
@@ -512,7 +544,7 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
           0, POSTMORTEM_DEST_FOLDER, appdata_local)))
   {
       dprint("Failed to create exception info folder\n");
-      return EXCEPTION_EXECUTE_HANDLER;
+      return EXCEPTION_CONTINUE_SEARCH;
   }
 
   dwprint(L"Folder created: %s\n", appdata_local);
@@ -527,5 +559,27 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
   dprint("Minidump ready\n");
 #endif
 
-  return EXCEPTION_EXECUTE_HANDLER;
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void EnableCrashingOnCrashes()
+{
+  static const DWORD EXCEPTION_SWALLOWING = 0x1;
+
+  const HMODULE kernel32 = LoadLibraryA("kernel32.dll");
+
+  const tGetPolicy pGetPolicy = (tGetPolicy) GetProcAddress(
+    kernel32, "GetProcessUserModeExceptionPolicy");
+
+  const tSetPolicy pSetPolicy = (tSetPolicy) GetProcAddress(
+    kernel32, "SetProcessUserModeExceptionPolicy");
+
+  if(pGetPolicy && pSetPolicy) {
+    DWORD dwFlags = 0;
+    dprint("EnableCrashingOnCrashes: ProcessUserModeExceptionPolicy found\n");
+    if(pGetPolicy(&dwFlags)) {
+      dprint("EnableCrashingOnCrashes: default policy: %08x\n", dwFlags);
+      pSetPolicy(dwFlags & ~EXCEPTION_SWALLOWING);
+    }
+  }
 }

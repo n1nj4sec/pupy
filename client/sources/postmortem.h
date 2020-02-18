@@ -166,5 +166,6 @@ typedef BOOL (*MiniDumpWriteDump_t)(
 );
 
 LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionInfo);
+void EnableCrashingOnCrashes(void);
 
 #endif
