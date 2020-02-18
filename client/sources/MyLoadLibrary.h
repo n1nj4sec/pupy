@@ -42,7 +42,10 @@ HANDLE CALLBACK MyCreateThread(
 );
 
 VOID MySetLibraries(PVOID pLibraries);
-VOID MySetUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER handler);
+BOOL MySetUnhandledExceptionFilter(
+  LPCSTR pszModuleName, LPTOP_LEVEL_EXCEPTION_FILTER handler
+);
+
 LPTOP_LEVEL_EXCEPTION_FILTER MyGetUnhandledExceptionFilter(VOID);
 PVOID MyGetLibraries();
 
@@ -51,6 +54,10 @@ typedef BOOL (*LibraryInfoCb_t) (
 );
 
 VOID MyEnumerateLibraries(LibraryInfoCb_t callback, PVOID pvCallbackData);
+BOOL MyFindMemoryModuleNameByAddr(
+  PVOID pvAddress, LPCSTR *ppszName, PVOID *ppvBaseAddress,
+  LPTOP_LEVEL_EXCEPTION_FILTER *pehFilter
+);
 
 #ifndef DLL_QUERY_HMODULE
 #define DLL_QUERY_HMODULE 6
