@@ -1,4 +1,5 @@
 #include <Shlobj.h>
+#include <stdio.h>
 
 #include "postmortem.h"
 #include "debug.h"
@@ -49,7 +50,7 @@ LPCSTR code2str(DWORD dwExceptionCode) {
   return "UNKNOWN";
 }
 
-typedef HRESULT (*SHGetFolderPathAndSubDirW_t)(
+typedef HRESULT (WINAPI *SHGetFolderPathAndSubDirW_t)(
   HWND   hwnd,
   int    csidl,
   HANDLE hToken,
@@ -92,7 +93,7 @@ typedef BOOL (WINAPI *SymGetSymFromAddr64_t)(
   PIMAGEHLP_SYMBOL64 Symbol
 );
 
-typedef BOOL (WINAPI * StackWalk_t)(
+typedef BOOL (WINAPI *StackWalk_t)(
   DWORD  MachineType,
   HANDLE hProcess,
   HANDLE hThread,
@@ -104,7 +105,7 @@ typedef BOOL (WINAPI * StackWalk_t)(
   PVOID  TranslateAddress
 );
 
-typedef BOOL (* EnumProcessModules_t)(
+typedef BOOL (WINAPI *EnumProcessModules_t)(
   HANDLE  hProcess,
   HMODULE *lphModule,
   DWORD   cb,
@@ -190,18 +191,18 @@ static
 BOOL SaveLibraryInfo(PVOID pvCallbackData, LPCSTR pszName, PVOID pvBaseImage, ULONG ulSize)
 {
     HANDLE hExceptionInfoFile = (HANDLE) pvCallbackData;
-    CHAR module_info_buf[8192];
+    CHAR module_info_buf[8192] = "\0";
     DWORD dwWritten;
     int module_info_buf_size;
 
     dprint(
-      "SaveLibraryInfo called (%p, %s %p %u)\n",
+      "SaveLibraryInfo called (%p, \"%s\", %p, %u)\n",
       pvCallbackData, pszName, pvBaseImage, ulSize
     );
 
     module_info_buf_size = snprintf(
       module_info_buf, sizeof(module_info_buf)-1, "%p - %p\t%s\n",
-      pvBaseImage, (((ULONGLONG) pvBaseImage) + ulSize), pszName
+      pvBaseImage, (((UINT_PTR) pvBaseImage) + ulSize), pszName
     );
 
     dprint("+ %s", module_info_buf);
@@ -257,7 +258,7 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
     DWORD                   displacement;
 
     SymFunctionTableAccess_t pSymFunctionTableAccess = (SymFunctionTableAccess_t)
-      GetProcAddress(hDbgHelp, "SymFunctionTableAccess64");
+      GetProcAddress(hDbgHelp, "SymFunctionTableAccess");
 
     SymGetModuleBase_t pSymGetModuleBase = (SymGetModuleBase_t)
       GetProcAddress(hDbgHelp, "SymGetModuleBase");
@@ -299,7 +300,7 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
     stack.AddrFrame.Offset = pContext->Ebp;
 #endif
 
-    for( frame = 0; frame < 32; frame++ ) {
+    for( frame = 0; frame < 64; frame++ ) {
         LPCSTR pcModuleName = NULL;
         PVOID pcModuleBase = NULL;
 
@@ -358,8 +359,8 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
           PVOID pcModuleBase = NULL;
 
           if (MyFindMemoryModuleNameByAddr(
-              stack.AddrPC.Offset, &pcModuleName, &pcModuleBase, NULL)) {
-            buffer_len = snprintf(
+                stack.AddrPC.Offset, &pcModuleName, &pcModuleBase, NULL)) {
+              buffer_len = snprintf(
                 buffer,
                 sizeof(buffer) - 1,
                 "+ %lu:\t%s+0x%x\t(PC %p)\n",
@@ -479,11 +480,56 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
 
     einfo_buf_size = snprintf(
       einfo_buf, sizeof(einfo_buf) - 1,
-      "Catch fatal exception: Code: %08x Flags: %08x Address: %p\n",
+      "Catch fatal exception: Code: %08x (%s)\n"
+      "Flags: %08x Address: %p\n"
+      "Registers:\n"
+
+#ifdef _WIN64
+      "RSP: %016x RBP: %016x RIP: %016x\n"
+      "RAX: %016x RBX: %016x RCX: %016x RDX: %016x\n"
+      "RSI: %016x RDI: %016x R8:  %016x R9:  %016x\n"
+      "R10: %016x R11: %016x R12: %016x R13: %016x\n"
+      "R14: %016x R15: %016x\n",
+#else
+      "ESP: %08x EBP: %08x EIP: %08x\n"
+      "EAX: %08x EBX: %08x ECX: %08x EDX: %08x\n"
+      "ESI: %08x EDI: %08x\n",
+#endif
+
       pExceptionPointers->ExceptionRecord->ExceptionCode,
       code2str(pExceptionPointers->ExceptionRecord->ExceptionCode),
       pExceptionPointers->ExceptionRecord->ExceptionFlags,
-      pExceptionPointers->ExceptionRecord->ExceptionAddress
+      pExceptionPointers->ExceptionRecord->ExceptionAddress,
+
+#ifdef _WIN64
+      pExceptionPointers->ContextRecord->Rsp,
+      pExceptionPointers->ContextRecord->Rbp,
+      pExceptionPointers->ContextRecord->Rip,
+      pExceptionPointers->ContextRecord->Rax,
+      pExceptionPointers->ContextRecord->Rbx,
+      pExceptionPointers->ContextRecord->Rcx,
+      pExceptionPointers->ContextRecord->Rdx,
+      pExceptionPointers->ContextRecord->Rsi,
+      pExceptionPointers->ContextRecord->Rdi,
+      pExceptionPointers->ContextRecord->R8,
+      pExceptionPointers->ContextRecord->R9,
+      pExceptionPointers->ContextRecord->R10,
+      pExceptionPointers->ContextRecord->R11,
+      pExceptionPointers->ContextRecord->R12,
+      pExceptionPointers->ContextRecord->R13,
+      pExceptionPointers->ContextRecord->R14,
+      pExceptionPointers->ContextRecord->R15
+#else
+      pExceptionPointers->ContextRecord->Esp,
+      pExceptionPointers->ContextRecord->Ebp,
+      pExceptionPointers->ContextRecord->Eip,
+      pExceptionPointers->ContextRecord->Eax,
+      pExceptionPointers->ContextRecord->Ebx,
+      pExceptionPointers->ContextRecord->Ecx,
+      pExceptionPointers->ContextRecord->Edx,
+      pExceptionPointers->ContextRecord->Esi,
+      pExceptionPointers->ContextRecord->Edi
+#endif
     );
 
     if (einfo_buf_size > 0)
@@ -498,9 +544,11 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
     WriteToFile(hExceptionInfoFile, "\nNormal modules:\n");
     MyEnumerateLoadedLibraries(hExceptionInfoFile);
 
-    dprint("Generating stack trace ..\n");
-    WriteToFile(hExceptionInfoFile, "\nStack trace:\n");
-    SaveStack(hDbgHelp, hExceptionInfoFile, pExceptionPointers->ContextRecord);
+    if (hDbgHelp) {
+      dprint("Generating stack trace ..\n");
+      WriteToFile(hExceptionInfoFile, "\nStack trace:\n");
+      SaveStack(hDbgHelp, hExceptionInfoFile, pExceptionPointers->ContextRecord);
+    }
 
     dprint("Exception info saved\n");
     CloseHandle(hExceptionInfoFile);
@@ -556,9 +604,9 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
 #ifdef DEBUG
   dprint("Generating minidump...\n");
   CreateMiniDump(hDbgHelp, appdata_local, pExceptionPointers);
-  dprint("Minidump ready\n");
 #endif
 
+  dprint("Postmortem exception filter completed\n");
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
