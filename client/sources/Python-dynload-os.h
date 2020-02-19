@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#define PYTHON_LIB_NAME "python27.dll"
+
 #include "MyLoadLibrary.h"
 #include "MemoryModule.h"
 #include "resource_python_manifest.c"
@@ -19,6 +21,41 @@ typedef FARPROC (WINAPI *resolve_symbol_t) (HMODULE hModule, const char *name);
 #define OSAlloc(size) LocalAlloc(LMEM_FIXED, size)
 #define OSFree(ptr) LocalFree(ptr)
 
+static HMODULE OSLoadLibrary(const char *dllname) {
+    HMODULE hModule = NULL;
+    hModule = GetModuleHandle(dllname);
+    if (!hModule)
+        hModule = LoadLibrary(dllname);
+
+    return hModule;
+}
+
+#define OSResolveSymbol MyGetProcAddress
+
+static HMODULE MemLoadLibrary(const char *dllname, char *bytes, size_t size, void *arg) {
+    ULONG_PTR cookie = _My_ActivateActCtx();
+    HMODULE hModule = MyLoadLibrary(dllname, bytes, arg);
+    _My_DeactivateActCtx(cookie);
+    return hModule;
+}
+
+#define MemResolveSymbol MyGetProcAddress
+#define CheckLibraryLoaded MyGetModuleHandleA
+
+#define OSUnmapRegion(start, size) do {} while(0)
+
+#define DEPENDENCIES { \
+        { \
+            "MSVCR90.DLL", \
+            msvcr90_c_start, msvcr90_c_size, FALSE \
+        }, \
+        { \
+            "PYTHON27.DLL", \
+            python27_c_start, python27_c_size, TRUE \
+        } \
+    }
+
+#ifndef PYTHON_DYNLOAD_OS_NO_BLOBS
 static char *OSGetProgramName() {
     static const char *program_name = "";
     static BOOL is_set = FALSE;
@@ -58,41 +95,8 @@ static char *OSGetProgramName() {
     return program_name;
 }
 
-static HMODULE OSLoadLibrary(const char *dllname) {
-    HMODULE hModule = NULL;
-    hModule = GetModuleHandle(dllname);
-    if (!hModule)
-        hModule = LoadLibrary(dllname);
-
-    return hModule;
-}
-
-#define OSResolveSymbol MyGetProcAddress
-
-static HMODULE MemLoadLibrary(const char *dllname, char *bytes, size_t size, void *arg) {
-    ULONG_PTR cookie = _My_ActivateActCtx();
-    HMODULE hModule = MyLoadLibrary(dllname, bytes, arg);
-    _My_DeactivateActCtx(cookie);
-    return hModule;
-}
-
-#define MemResolveSymbol MyGetProcAddress
-#define CheckLibraryLoaded GetModuleHandle
-
-#define OSUnmapRegion(start, size) do {} while(0)
-
-#define DEPENDENCIES { \
-        { \
-            "msvcr90.dll", \
-            msvcr90_c_start, msvcr90_c_size, FALSE \
-        }, \
-        { \
-            "python27.dll", \
-            python27_c_start, python27_c_size, TRUE \
-        } \
-    }
-
 #include "msvcr90.c"
 #include "python27.c"
+#endif
 
 #endif // PYTHON_DYNLOAD_OS_H

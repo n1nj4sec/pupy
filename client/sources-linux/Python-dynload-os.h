@@ -1,8 +1,13 @@
+#ifndef PYTHON_DYNLOAD_OS_H
+#define PYTHON_DYNLOAD_OS_H
+
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+
+#define PYTHON_LIB_NAME "libpython2.7.so.1.0"
 
 #include "Python-dynload.h"
 
@@ -29,7 +34,7 @@ typedef void *(*resolve_symbol_t)(HMODULE hModule, const char *name);
         libssl_c_size,                        \
         FALSE                                 \
     }, {                                      \
-        "libpython2.7.so.1.0",                \
+        PYTHON_LIB_NAME,                \
         python27_c_start,                     \
         python27_c_size,                      \
         TRUE                                  \
@@ -47,6 +52,7 @@ typedef void *(*resolve_symbol_t)(HMODULE hModule, const char *name);
 #define MemResolveSymbol dlsym
 #define CheckLibraryLoaded(name) dlopen(name, RTLD_NOW | RTLD_NOLOAD)
 
+#ifndef PYTHON_DYNLOAD_OS_NO_BLOBS
 static const char *OSGetProgramName()
 {
     static BOOL is_set = FALSE;
@@ -86,3 +92,6 @@ static const char *OSGetProgramName()
 #include "libcrypto.c"
 #include "libssl.c"
 #include "tmplibrary.h"
+#endif
+
+#endif

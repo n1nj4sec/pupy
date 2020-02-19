@@ -1,10 +1,15 @@
 #include <Shlobj.h>
 #include <stdio.h>
 
+#define PYTHON_DYNLOAD_OS_NO_BLOBS
+
 #include "postmortem.h"
 #include "debug.h"
 
 #include "MyLoadLibrary.h"
+
+#include "Python-stacktrace.h"
+#include "Python-stacktrace.c"
 
 #define ECODE(x) EXCEPTION_ ## x, # x
 
@@ -213,6 +218,29 @@ BOOL SaveLibraryInfo(PVOID pvCallbackData, LPCSTR pszName, PVOID pvBaseImage, UL
       );
 
     return FALSE;
+}
+
+static
+void SavePythonStackTrace(
+    PVOID pvCallbackData, LPCSTR pszFunction, LPCSTR pszFile, DWORD dwLine)
+{
+  CHAR buffer[8192];
+  DWORD dwWritten;
+  int buffer_len;
+  HANDLE hExceptionInfoFile = (HANDLE) pvCallbackData;
+
+  dprint("Python stack: %s %s:%d\n", pszFunction, pszFile, dwLine);
+
+  buffer_len = snprintf(
+    buffer, sizeof(buffer)-1, "+ %s\t%s:%d\n",
+    pszFunction, pszFile, dwLine
+  );
+
+  if (buffer_len > 0)
+    WriteFile(
+      hExceptionInfoFile,
+      buffer, buffer_len, &dwWritten, NULL
+    );
 }
 
 static
@@ -449,6 +477,7 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
     CHAR einfo_buf[8192];
     DWORD dwWritten;
     int einfo_buf_size;
+    int pystack_saved;
 
     dprint("SaveExceptionInfo start..\n");
 
@@ -550,7 +579,14 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
       SaveStack(hDbgHelp, hExceptionInfoFile, pExceptionPointers->ContextRecord);
     }
 
-    dprint("Exception info saved\n");
+    dprint("Try to save python stack\n");
+    WriteToFile(hExceptionInfoFile, "\nCurrent Python stack (if any):\n");
+
+    pystack_saved = Py_GetCurrentThreadStackTrace(
+      SavePythonStackTrace, (PVOID) hExceptionInfoFile
+    );
+
+    dprint("Exception info saved (python=%d)\n", pystack_saved);
     CloseHandle(hExceptionInfoFile);
 }
 

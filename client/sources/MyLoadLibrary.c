@@ -408,7 +408,6 @@ DWORD CALLBACK MyGetModuleFileNameA(HMODULE hModule, LPSTR lpStr, DWORD dwSize)
     return GetModuleFileNameA(hModule, lpStr, dwSize);
 }
 
-
 HMODULE CALLBACK MyGetModuleHandleA(LPCSTR name)
 {
     PHCUSTOMLIBRARY lib;
