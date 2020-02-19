@@ -38,7 +38,11 @@ struct py_imports {
 };
 
 #if defined(_MSC_VER) && _MSC_VER < 1600
+#ifdef _WIN64
     #define ssize_t signed long long
+#else
+    #define ssize_t signed long
+#endif
 #endif
 
 #ifndef Py_ssize_t
