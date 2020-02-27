@@ -23,7 +23,7 @@ except ImportError:
         pass
 
 if os_name == 'nt':
-    from ctypes import WinDLL, byref, POINTER, c_void_p
+    from ctypes import WinDLL, byref, POINTER, c_void_p, cast
     from ctypes.wintypes import LPWSTR, BOOL, DWORD
 
     try:
@@ -33,7 +33,7 @@ if os_name == 'nt':
         WinHttpDetectAutoProxyConfigUrl = winhttp.WinHttpDetectAutoProxyConfigUrl
         WinHttpDetectAutoProxyConfigUrl.restype = BOOL
         WinHttpDetectAutoProxyConfigUrl.argtypes = (
-            DWORD, POINTER(LPWSTR)
+            DWORD, POINTER(c_void_p)
         )
 
         GlobalFree = kernel32.GlobalFree
@@ -82,11 +82,12 @@ def detect_autoconfig_url_nt():
     if not WinHttpDetectAutoProxyConfigUrl:
         return None
 
-    url = LPWSTR()
+    url = c_void_p()
     if WinHttpDetectAutoProxyConfigUrl(3, byref(url)):
-        result = str(url.value)
-        GlobalFree(url)
-        return result
+        if url.value:
+            result = cast(url, LPWSTR).value.encode('idna')
+            GlobalFree(url.value)
+            return result
 
 
 def propose_pac_domains():
