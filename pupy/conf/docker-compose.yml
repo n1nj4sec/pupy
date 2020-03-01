@@ -3,7 +3,7 @@ version: '3'
 services:
   pupy:
     image: alxchk/pupy:base-${TAG}
-    user: ${UID}:${GID}
+    user: ${CUID}:${CGID}
     volumes:
       - ${PUPY}:/opt/pupy
       - ${WORKDIR}:/project
