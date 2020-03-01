@@ -4,6 +4,7 @@ SELF=`readlink -f "$0"`
 PUPY=`dirname "$SELF"`/../
 PUPY=`readlink -f "$PUPY"`
 
+DOCKER_COMMAND=${DOCKER_COMMAND:-docker}
 DOCKER_REPO=${DOCKER_REPO:-"alxchk"}
 CLEAN=${CLEAN:-"no"}
 
@@ -31,17 +32,17 @@ start_container() {
 	echo
 	echo "[+] Build $SOURCES with toolchain ${REPO}$TOOLCHAIN"
 	NEW=""
-	docker container inspect ${CONTAINER_NAME} >/dev/null 2>/dev/null || NEW=1
+	${DOCKER_COMMAND} container inspect ${CONTAINER_NAME} >/dev/null 2>/dev/null || NEW=1
 	if [ ! -z "$NEW" ]; then
 	    mkdir -p /tmp/pupy-build/${REPO}${TOOLCHAIN}
-	    docker run --name ${CONTAINER_NAME} \
+	    ${DOCKER_COMMAND} run --name ${CONTAINER_NAME} \
 		   -v ${PUPY}:/build/workspace/project ${REPO}${TOOLCHAIN} ${SCRIPT}
 	else
-	    docker start -ai ${CONTAINER_NAME}
+	    ${DOCKER_COMMAND} start -ai ${CONTAINER_NAME}
 	fi
 
 	if [ "$CLEAN" == "yes" ]; then
-	    docker rm ${CONTAINER_NAME}
+	    ${DOCKER_COMMAND} rm ${CONTAINER_NAME}
 	fi
 	echo
     )
