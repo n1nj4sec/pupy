@@ -346,8 +346,11 @@ ExecuteTLS(PMEMORYMODULE module)
     PIMAGE_DATA_DIRECTORY directory = GET_HEADER_DICTIONARY(
         module, IMAGE_DIRECTORY_ENTRY_TLS);
     if (directory->VirtualAddress == 0) {
+        dprint("No TLS callbacks..\n");
         return TRUE;
     }
+
+    dprint("Execute TLS..\n");
 
     tls = (PIMAGE_TLS_DIRECTORY) (codeBase + directory->VirtualAddress);
     callback = (PIMAGE_TLS_CALLBACK *) tls->AddressOfCallBacks;
@@ -530,6 +533,8 @@ BuildImportTable(PMEMORYMODULE module)
         {"LoadLibraryExW", (FARPROC) module->callbacks->loadLibraryExW},
         {"GetModuleHandleA", (FARPROC) module->callbacks->getModuleHandleA},
         {"GetModuleHandleW", (FARPROC) module->callbacks->getModuleHandleW},
+        {"GetModuleHandleExA", (FARPROC) module->callbacks->getModuleHandleExA},
+        {"GetModuleHandleExW", (FARPROC) module->callbacks->getModuleHandleExW},
         {"GetModuleFileNameA", (FARPROC) module->callbacks->getModuleFileNameA},
         {"GetModuleFileNameW", (FARPROC) module->callbacks->getModuleFileNameW},
 
@@ -709,17 +714,22 @@ BOOL WINAPI RegisterExceptionTable(PMEMORYMODULE pModule)
 
     pDataDirectory = GET_HEADER_DICTIONARY(pModule, IMAGE_DIRECTORY_ENTRY_EXCEPTION);
 
-    if (pDataDirectory->Size == 0 || pDataDirectory->VirtualAddress == 0)
+    if (pDataDirectory->Size == 0 || pDataDirectory->VirtualAddress == 0) {
+        dprint("No exception table found\n");
         return TRUE;
+    }
 
     // get the VA of the export directory
     pExceptionDirectory = (PIMAGE_RUNTIME_FUNCTION_ENTRY)(codeBase + pDataDirectory->VirtualAddress);
 
-    if (!pExceptionDirectory)
-            return TRUE;
+    if (!pExceptionDirectory) {
+        dprint("No exception directory found\n");
+        return TRUE;
+    }
 
     dwCount = (pDataDirectory->Size / sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY)) - 1;
 
+    dprint("Registering exception table (size=%d)\n", dwCount);
     return RtlAddFunctionTable((PRUNTIME_FUNCTION)pExceptionDirectory, dwCount, (UINT_PTR)codeBase);
 }
 #endif
@@ -1121,7 +1131,6 @@ HMEMORYMODULE MemoryLoadLibraryEx(
 
     // TLS callbacks are executed BEFORE the main loading
     if (!_ISSET(flags, MEMORY_LOAD_NO_TLS_CALLBACKS)) {
-        dprint("Execute TLS..\n");
         if (!ExecuteTLS(result)) {
             goto error;
         }
@@ -1130,7 +1139,6 @@ HMEMORYMODULE MemoryLoadLibraryEx(
 #ifdef _WIN64
     if (!_ISSET(flags, MEMORY_LOAD_NO_EXCEPTION_HANDLING)) {
         // Enable exceptions
-        dprint("Register Exception table..\n");
         if (!RegisterExceptionTable(result)) {
             goto error;
         }

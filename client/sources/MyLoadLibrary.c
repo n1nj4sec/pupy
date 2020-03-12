@@ -21,6 +21,7 @@ typedef struct {
 
     HCUSTOMMODULE module;
     int refcount;
+    int pin;
 
     UT_hash_handle by_name;
     UT_hash_handle by_filename;
@@ -49,6 +50,33 @@ VOID MySetLibraries(PVOID pLibraries) {
 
 PVOID MyGetLibraries() {
     return (PVOID) libraries;
+}
+
+static PHCUSTOMLIBRARY _FindMemoryModuleByAddress(
+        PVOID pvAddress, PVOID *ppvBaseAddress) {
+    PHCUSTOMLIBRARY module, tmp;
+    UINT_PTR uiAddress = (UINT_PTR) pvAddress;
+
+    if (!pvAddress)
+        return NULL;
+
+    HASH_ITER(by_module, libraries->by_module, module, tmp) {
+        PVOID pvBaseAddress = NULL;
+        ULONG ulSize = 0;
+
+        if (GetMemoryModuleInfo(module->module, &pvBaseAddress, &ulSize)) {
+            UINT_PTR uiBaseAddress = (UINT_PTR) pvBaseAddress;
+
+            if (uiAddress >= uiBaseAddress && uiAddress <= (uiBaseAddress + ulSize)) {
+                if (ppvBaseAddress)
+                    *ppvBaseAddress = pvBaseAddress;
+
+                return module;
+            }
+        }
+    }
+
+    return NULL;
 }
 
 /****************************************************************
@@ -229,6 +257,7 @@ static DL_CALLBACKS callbacks = {
     MyLoadLibraryA, MyLoadLibraryW,
     MyLoadLibraryExA, MyLoadLibraryExW,
     MyGetModuleHandleA, MyGetModuleHandleW,
+    MyGetModuleHandleExA, MyGetModuleHandleExW,
     MyGetModuleFileNameA, MyGetModuleFileNameW,
     MyGetProcAddress,
     MyFreeLibrary,
@@ -286,6 +315,7 @@ static PHCUSTOMLIBRARY _AddMemoryModule(
         srcName = name;
 
     hmodule->refcount = 1;
+    hmodule->pin = 0;
     hmodule->name = strdup(srcName);
     hmodule->fileName = strdup(name);
     hmodule->module = module;
@@ -419,6 +449,59 @@ HMODULE CALLBACK MyGetModuleHandleA(LPCSTR name)
     return GetModuleHandleA(name);
 }
 
+static
+BOOL MyGetModuleHandleEx(DWORD dwFlags, LPVOID lpArg, HMODULE *phModule, BOOL bWide)
+{
+    PHCUSTOMLIBRARY lib;
+
+    if (dwFlags & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS) {
+        dprint("MyGetModuleHandleEx -> by Address (%p)", lpArg);
+        lib = _FindMemoryModuleByAddress(lpArg, NULL);
+    } else {
+        if (bWide) {
+            dwprint(L"MyGetModuleHandleEx -> by Name (%s)", lpArg);
+            lib = _FindMemoryModuleW(lpArg, NULL);
+        } else {
+            dprint("MyGetModuleHandleEx -> by Name (%s)", lpArg);
+            lib = _FindMemoryModule(lpArg, NULL);
+        }
+    }
+
+    if (!lib)  {
+        dprint(" -> NULL\n", phModule);
+        if (bWide) {
+            return GetModuleHandleExW(dwFlags, lpArg, phModule);
+        } else {
+            return GetModuleHandleExA(dwFlags, lpArg, phModule);
+        }
+    }
+
+    dprint(" -> Found (%p:%s)", lib->module, lib->name);
+
+    if (dwFlags & GET_MODULE_HANDLE_EX_FLAG_PIN) {
+        dprint(" -> set pin\n");
+        lib->pin = 1;
+    } else if (! (dwFlags & GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT)) {
+        lib->refcount ++;
+        dprint(" -> incr refcnt (%d)\n", lib->refcount);
+    } else {
+        dprint(" -> do nothing\n", lib->refcount);
+    }
+
+    if (phModule)
+        *phModule = lib->module;
+
+    return TRUE;
+}
+
+BOOL CALLBACK MyGetModuleHandleExA(DWORD dwFlags, LPVOID lpArg, HMODULE *phModule) {
+    return MyGetModuleHandleEx(dwFlags, lpArg, phModule, FALSE);
+}
+
+BOOL CALLBACK MyGetModuleHandleExW(DWORD dwFlags, LPVOID lpArg, HMODULE *phModule) {
+    return MyGetModuleHandleEx(dwFlags, lpArg, phModule, TRUE);
+}
+
 HMODULE MyLoadLibrary(LPCSTR name, void *bytes, void *dllmainArg)
 {
     return MyLoadLibraryEx(
@@ -529,10 +612,10 @@ BOOL CALLBACK MyFreeLibrary(HMODULE module)
     PHCUSTOMLIBRARY lib = _FindMemoryModule(NULL, module);
 
     if (lib) {
-        dprint("MyFreeLibrary(%p) -> %s REFCNT: %d\n",
-            module, lib->name, lib->refcount);
+        dprint("MyFreeLibrary(%p) -> %s REFCNT: %d PIN: %d\n",
+            module, lib->name, lib->refcount, lib->pin);
 
-        if (--lib->refcount == 0) {
+        if (lib->pin == 0 && --lib->refcount == 0) {
             EnterCriticalSection(&libraries->lock);
 
             HASH_DELETE(by_name, libraries->by_name, lib);
@@ -870,33 +953,19 @@ BOOL MyFindMemoryModuleNameByAddr(
     PVOID pvAddress, LPCSTR *ppszName, PVOID *ppvBaseAddress,
     LPTOP_LEVEL_EXCEPTION_FILTER *pehFilter
 ) {
-    PHCUSTOMLIBRARY module, tmp;
-    UINT_PTR uiAddress = (UINT_PTR) pvAddress;
+    PHCUSTOMLIBRARY module = _FindMemoryModuleByAddress(
+        pvAddress, ppvBaseAddress
+    );
 
-    if (!pvAddress)
+    if (!module) {
         return FALSE;
-
-    HASH_ITER(by_module, libraries->by_module, module, tmp) {
-        PVOID pvBaseAddress = NULL;
-        ULONG ulSize = 0;
-
-        if (GetMemoryModuleInfo(module->module, &pvBaseAddress, &ulSize)) {
-            UINT_PTR uiBaseAddress = (UINT_PTR) pvBaseAddress;
-
-            if (uiAddress >= uiBaseAddress && uiAddress <= (uiBaseAddress + ulSize)) {
-                if (ppszName)
-                    *ppszName = module->name;
-
-                if (ppvBaseAddress)
-                    *ppvBaseAddress = pvBaseAddress;
-
-                if (pehFilter)
-                    *pehFilter = module->ehFilter;
-
-                return TRUE;
-            }
-        }
     }
 
-    return FALSE;
+    if (ppszName)
+        *ppszName = module->name;
+
+    if (pehFilter)
+        *pehFilter = module->ehFilter;
+
+    return TRUE;
 }

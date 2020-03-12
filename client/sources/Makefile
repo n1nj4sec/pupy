@@ -10,16 +10,22 @@ endif
 CC := $(BUILDENV)/$(ARCH)/cl.sh
 PYTHON := $(BUILDENV)/$(ARCH)/python.sh
 HOST_PYTHON := python
+OPENSSL_ABI ?= 1_1
 
 ifeq "$(ARCH)" "win64"
 CFLAGS:=$(CFLAGS) /DWIN_X64 /D_WIN64 /nologo
 PPARCH := x64
+LIBCRYPTO := libcrypto-$(OPENSSL_ABI)-x64.dll
+LIBSSL := libssl-$(OPENSSL_ABI)-x64.dll
 else
 CFLAGS:=$(CFLAGS) /DWIN_X86 /nologo
 PPARCH := x86
+LIBCRYPTO := libcrypto-$(OPENSSL_ABI).dll
+LIBSSL := libssl-$(OPENSSL_ABI).dll
 endif
 
 CFLAGS += /Iresources\\$(ARCH) /Iresources /DHAVE_WINDOW
+CFLAGS += /DLIBCRYPTO=\"$(LIBCRYPTO)\" /DLIBSSL=\"$(LIBSSL)\"
 #CFLAGS += /Iresources\\$(ARCH) /Iresources
 
 CFLAGS += /EHa
@@ -106,6 +112,8 @@ PUPY_LOAD_DEPS := \
 	resources/$(ARCH)/library.c \
 	resources/$(ARCH)/msvcr90.c \
 	resources/$(ARCH)/python27.c \
+	resources/$(ARCH)/libssl.c \
+	resources/$(ARCH)/libcrypto.c \
 	import-tab.c revision.h
 
 TARGETS := \
@@ -139,6 +147,14 @@ resources/$(ARCH)/library.zip: ../build_library_zip.py
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(SECARGS)
 
+resources/$(ARCH)/$(LIBCRYPTO): $(BUILDENV)/$(ARCH)/drive_c/Python27/$(LIBCRYPTO)
+	@mkdir -p resources/$(ARCH)
+	cp $< $@
+
+resources/$(ARCH)/$(LIBSSL): $(BUILDENV)/$(ARCH)/drive_c/Python27/$(LIBSSL)
+	@mkdir -p resources/$(ARCH)
+	cp $< $@
+
 resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
@@ -146,6 +162,12 @@ resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dl
 resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
+
+resources/$(ARCH)/libcrypto.c: resources/$(ARCH)/$(LIBCRYPTO) ../gen_resource_header.py
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
+
+resources/$(ARCH)/libssl.c: resources/$(ARCH)/$(LIBSSL) ../gen_resource_header.py
+	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)

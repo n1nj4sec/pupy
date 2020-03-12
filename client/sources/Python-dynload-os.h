@@ -50,6 +50,14 @@ static HMODULE MemLoadLibrary(const char *dllname, char *bytes, size_t size, voi
             msvcr90_c_start, msvcr90_c_size, FALSE \
         }, \
         { \
+            LIBCRYPTO, \
+            libcrypto_c_start, libcrypto_c_size, FALSE \
+        }, \
+        { \
+            LIBSSL, \
+            libssl_c_start, libssl_c_size, FALSE \
+        }, \
+        { \
             "PYTHON27.DLL", \
             python27_c_start, python27_c_size, TRUE \
         } \
@@ -97,6 +105,8 @@ static char *OSGetProgramName() {
 
 #include "msvcr90.c"
 #include "python27.c"
+#include "libcrypto.c"
+#include "libssl.c"
 #endif
 
 #endif // PYTHON_DYNLOAD_OS_H

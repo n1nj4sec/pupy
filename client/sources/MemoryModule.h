@@ -41,6 +41,8 @@ extern "C" {
 
 typedef HMODULE (CALLBACK *CustomGetModuleHandleA)(LPCSTR);
 typedef HMODULE (CALLBACK *CustomGetModuleHandleW)(LPCWSTR);
+typedef BOOL (CALLBACK *CustomGetModuleHandleExA)(DWORD dwFlags, LPVOID lpArg, HMODULE *phModule);
+typedef BOOL (CALLBACK *CustomGetModuleHandleExW)(DWORD dwFlags, LPVOID lpArg, HMODULE *phModule);
 typedef HMODULE (CALLBACK *CustomLoadLibraryExA)(LPCSTR, HANDLE, DWORD);
 typedef HMODULE (CALLBACK *CustomLoadLibraryExW)(LPCWSTR, HANDLE, DWORD);
 typedef HCUSTOMMODULE (CALLBACK *CustomLoadLibraryA)(LPCSTR);
@@ -116,6 +118,8 @@ typedef struct {
     CustomLoadLibraryExW loadLibraryExW;
     CustomGetModuleHandleA getModuleHandleA;
     CustomGetModuleHandleW getModuleHandleW;
+    CustomGetModuleHandleExA getModuleHandleExA;
+    CustomGetModuleHandleExW getModuleHandleExW;
     CustomGetModuleFileNameA getModuleFileNameA;
     CustomGetModuleFileNameW getModuleFileNameW;
     CustomGetProcAddress getProcAddress;
