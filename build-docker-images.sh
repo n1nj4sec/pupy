@@ -27,12 +27,12 @@ echo
 
 echo "[+] Build pupysh full image (${REPO}:${TAG})"
 cd ${PUPY}/pupy && \
-    ${DOCKER_COMMAND} build --squash \
+    ${DOCKER_COMMAND} build \
         -f ${PUPY}/pupy/conf/Dockerfile.default -t ${REPO}:${TAG} .
 echo
 
 echo "[+] Build pupysh environment (pupy-python2-env:${TAG})"
 cd ${PUPY}/pupy && \
-    ${DOCKER_COMMAND} build --squash \
+    ${DOCKER_COMMAND} build \
         -f ${PUPY}/pupy/conf/Dockerfile.env -t pupy-python2-env:${TAG} .
 echo
