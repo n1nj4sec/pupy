@@ -443,7 +443,7 @@ def create_container_env(
 
     build_command.extend([
         '-t', ENV_IMAGE,
-        '-f', 'conf/Dockerfile.env',
+        '-f', os.path.join(git_path, 'pupy', 'conf', 'Dockerfile.env'),
         os.path.join(git_path, 'pupy')
     ])
 
