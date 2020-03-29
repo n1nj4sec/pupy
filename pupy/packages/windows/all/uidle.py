@@ -21,9 +21,9 @@ else:
 def get_gui_idle(display=None):
     lastInputInfo = LASTINPUTINFO()
     lastInputInfo.cbSize = sizeof(lastInputInfo)
-    GetLastInputInfo(byref(lastInputInfo))
-    millis = GetTickCount() - lastInputInfo.dwTime
-    return int(millis / 1000)
+    if GetLastInputInfo(byref(lastInputInfo)):
+        millis = GetTickCount() - lastInputInfo.dwTime
+        return int(millis / 1000)
 
 def get_idle():
     return get_gui_idle()

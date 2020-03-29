@@ -43,6 +43,9 @@ from network.lib.picocmd import (
 
 try:
     import psutil
+    import threading
+
+    _psutil_lock = threading.Lock()
 except ImportError:
     psutil = None
 
@@ -234,7 +237,8 @@ class SystemStatus(Command):
     def __init__(self, cpu=None, users=None, mem=None, listen=None, remote=None, idle=None):
         if cpu is None:
             try:
-                self.cpu = int(psutil.cpu_percent())
+                with _psutil_lock:
+                    self.cpu = int(psutil.cpu_percent())
             except:
                 self.cpu = 0
         else:
@@ -242,7 +246,8 @@ class SystemStatus(Command):
 
         if users is None:
             try:
-                self.users = len(set([x.name for x in psutil.users()]))
+                with _psutil_lock:
+                    self.users = len(set([x.name for x in psutil.users()]))
             except:
                 self.users = 0
         else:
@@ -253,7 +258,8 @@ class SystemStatus(Command):
 
         if mem is None:
             try:
-                self.mem = int(psutil.virtual_memory().percent)
+                with _psutil_lock:
+                    self.mem = int(psutil.virtual_memory().percent)
             except:
                 self.mem = 0
         else:
@@ -261,9 +267,11 @@ class SystemStatus(Command):
 
         if listen is None:
             try:
-                self.listen = len(set([
-                    x.laddr[1] for x in psutil.net_connections() if x.status=='LISTEN'
-                ]))
+                with _psutil_lock:
+                    self.listen = len(set([
+                        x.laddr[1] for x in psutil.net_connections()
+                        if x.status == 'LISTEN'
+                    ]))
             except:
                 self.listen = 0
         else:
@@ -274,12 +282,13 @@ class SystemStatus(Command):
 
         if remote is None:
             try:
-                self.remote = len(set([
-                    x.raddr for x in psutil.net_connections() \
-                    if x.status=='ESTABLISHED' and x.raddr[0] not in (
-                        '127.0.0.1', '::ffff:127.0.0.1'
-                    )
-                ]))
+                with _psutil_lock:
+                    self.remote = len(set([
+                        x.raddr for x in psutil.net_connections() \
+                        if x.status=='ESTABLISHED' and x.raddr[0] not in (
+                            '127.0.0.1', '::ffff:127.0.0.1'
+                        )
+                    ]))
 
             except:
                 self.remote = 0
@@ -528,9 +537,13 @@ class SystemInfo(Command):
 
         self.node = node or uuid.getnode()
         try:
-            self.boottime = boottime or datetime.datetime.fromtimestamp(
-                psutil.boot_time()
-            )
+            if boottime:
+                self.boottime = boottime
+            else:
+                with _psutil_lock:
+                    self.boottime = datetime.datetime.fromtimestamp(
+                        psutil.boot_time()
+                    )
         except:
             self.boottime = datetime.datetime.fromtimestamp(0)
 
@@ -1187,9 +1200,10 @@ class SystemInfoEx(Command):
         self.node = uuid.getnode()
 
         try:
-            self.boottime = datetime.datetime.fromtimestamp(
-                psutil.boot_time()
-            )
+            with _psutil_lock:
+                self.boottime = datetime.datetime.fromtimestamp(
+                    psutil.boot_time()
+                )
         except:
             self.boottime = datetime.datetime.fromtimestamp(0)
 

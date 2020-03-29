@@ -15,6 +15,8 @@ from inspect import getmembers, ismethod
 from os import name as os_name
 from time import time
 from re import match
+from threading import Lock
+
 
 try:
     from pupyimporter import dprint
@@ -58,6 +60,11 @@ logger = getLogger('pac')
 
 PAC_PLAYER = None
 PAC_PLAYER_LAST_UPDATED = None
+
+# It turns out that dukpy is not thread-safe
+# https://github.com/amol-/dukpy/issues/18
+
+PAC_PLAYER_LOCK = Lock()
 
 WPAD_REFRESH_TIMEOUT = 3600
 
@@ -150,7 +157,7 @@ def get_pac_content():
             logger.exception('url: %s: %s', url, e)
 
 
-def refresh_pac_player():
+def _refresh_pac_player():
     global PAC_PLAYER_LAST_UPDATED
 
     # Update anyway
@@ -177,13 +184,18 @@ def refresh_pac_player():
     return False
 
 
-def get_proxy_for_address(address):
+def refresh_pac_player():
+    with PAC_PLAYER_LOCK:
+        return _refresh_pac_player()
+
+
+def _get_proxy_for_address(address):
     global PAC_PLAYER
 
     if PAC_PLAYER is None or (
             time() - PAC_PLAYER_LAST_UPDATED > WPAD_REFRESH_TIMEOUT):
 
-        PAC_PLAYER = refresh_pac_player()
+        PAC_PLAYER = _refresh_pac_player()
 
     if not PAC_PLAYER:
         return []
@@ -191,7 +203,12 @@ def get_proxy_for_address(address):
     return list(PAC_PLAYER[address])
 
 
-def set_proxy_unavailable(proto, addr):
+def get_proxy_for_address(address):
+    with PAC_PLAYER_LOCK:
+        return _get_proxy_for_address(address)
+
+
+def _set_proxy_unavailable(proto, addr):
     global PAC_PLAYER
 
     if not PAC_PLAYER:
@@ -201,9 +218,15 @@ def set_proxy_unavailable(proto, addr):
         frozenset((proto, addr)))
 
 
+def set_proxy_unavailable(proto, addr):
+    with PAC_PLAYER_LOCK:
+        _set_proxy_unavailable(proto, addr)
+
+
 class PACPlayer(object):
     __slots__ = (
-        'internal_ip', 'js', 'unavailable', 'source'
+        'internal_ip', 'js', 'unavailable', 'source',
+        '_lock'
     )
 
     def __init__(self, script, source):
@@ -225,6 +248,7 @@ class PACPlayer(object):
             except UnicodeError:
                 source = source.decode('ascii', 'ignore')
 
+        self._lock = Lock()
         self.js = JSInterpreter()
         self.unavailable = set()
         self.source = source
@@ -244,10 +268,11 @@ class PACPlayer(object):
             url = 'tcp://' + address + '/'
 
         try:
-            proxies = self.js.evaljs(
-                'FindProxyForURL(dukpy["url"], dukpy["host"])',
-                url=url, host=host
-            )
+            with self._lock:
+                proxies = self.js.evaljs(
+                    'FindProxyForURL(dukpy["url"], dukpy["host"])',
+                    url=url, host=host
+                )
         except JSRuntimeError as e:
             logger.error('JS: %s', e)
             return

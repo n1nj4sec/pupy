@@ -8,6 +8,7 @@ import socket
 import struct
 import netaddr
 import time
+import threading
 
 families = {
     v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
@@ -25,6 +26,7 @@ socktypes = {
 }
 
 SELF = psutil.Process()
+_PSUTIL_LOCK = threading.Lock()
 
 
 def to_unicode(x):
@@ -242,7 +244,10 @@ def users():
             if pinfo.get('terminal'):
                 terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
 
-    for term in psutil.users():
+    with _PSUTIL_LOCK:
+        users = psutil.users()
+
+    for term in users:
         terminfo = {
             k:to_unicode(v) for k,v in _psiter(term) if v and k not in ('host', 'name')
         }
@@ -292,7 +297,10 @@ def users():
 def connections():
     connections = []
 
-    for connection in psutil.net_connections():
+    with _PSUTIL_LOCK:
+        net_connections = psutil.net_connections()
+
+    for connection in net_connections:
         obj = {
             k:getattr(connection, k) for k in (
                 'family', 'type', 'laddr', 'raddr', 'status'
@@ -322,21 +330,27 @@ def _tryint(x):
 
 def interfaces():
     try:
+        with _PSUTIL_LOCK:
+            if_addrs = psutil.net_if_addrs()
+
         addrs = {
             to_unicode(x):[
                 {
                     k:_tryint(getattr(z,k)) for k in dir(z) if not k.startswith('_')
                 } for z in y
-            ] for x,y in psutil.net_if_addrs().iteritems()
+            ] for x,y in if_addrs.iteritems()
         }
     except:
         addrs = None
 
     try:
+        with _PSUTIL_LOCK:
+            if_stats = psutil.net_if_addrs()
+
         stats = {
             to_unicode(x):{
                 k:_tryint(getattr(y,k)) for k in dir(y) if not k.startswith('_')
-            } for x,y in psutil.net_if_stats().iteritems()
+            } for x,y in if_stats.iteritems()
         }
     except:
         stats = None
@@ -348,7 +362,11 @@ def interfaces():
 
 def drives():
     partitions = []
-    for partition in psutil.disk_partitions():
+
+    with _PSUTIL_LOCK:
+        disk_partitions = psutil.disk_partitions()
+
+    for partition in disk_partitions:
         record = {
             'device': partition.device,
             'mountpoint': partition.mountpoint,
@@ -357,7 +375,9 @@ def drives():
         }
 
         try:
-            usage = psutil.disk_usage(partition.mountpoint)
+            with _PSUTIL_LOCK:
+                usage = psutil.disk_usage(partition.mountpoint)
+
             record.update({
                 'total': usage.total,
                 'used': usage.used,
