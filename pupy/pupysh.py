@@ -74,6 +74,11 @@ if __name__ == '__main__':
     if args.workdir:
         os.chdir(args.workdir)
 
+        if os.getuid() == 0 and os.getgid() == 0:
+            wdstat = os.stat(args.workdir)
+            os.setresgid(wdstat.st_uid, wdstat.st_uid, wdstat.st_uid)
+            os.setresuid(wdstat.st_uid, wdstat.st_uid, wdstat.st_uid)
+
     root_logger = logging.getLogger()
 
     if args.logfile:
