@@ -267,7 +267,7 @@ def build_templates(
                 'client/' + TEMPLATES[template] + '/build-docker.sh'
             ])
 
-            subprocess.check_call(args)
+            subprocess.check_call(args, stderr=subprocess.STDOUT)
 
             if persistent:
                 update_commands.append(
@@ -284,7 +284,7 @@ def build_templates(
 
             subprocess.check_call([
                 orchestrator, 'start', '-a', shstr(container_name)
-            ])
+            ], stderr=subprocess.STDOUT)
 
             update_commands.append(
                 orchestrator + ' start -a ' + shstr(container_name)
@@ -363,14 +363,14 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
         os.path.join(workdir, 'bin', 'pip'),
         'install',
         '--upgrade', 'pip'
-    ], cwd=workdir)
+    ], cwd=workdir, stderr=subprocess.STDOUT)
 
     print("[+] Install dependencies")
     subprocess.check_call([
         os.path.join(workdir, 'bin', 'pip'),
         'install',
         '-r', 'requirements.txt'
-    ], cwd=os.path.join(git_path, 'pupy'))
+    ], cwd=os.path.join(git_path, 'pupy'), stderr=subprocess.STDOUT)
 
     shell_commands = [
         'exec {1}/bin/python -OB {0}/pupy/pupysh.py --workdir {1} "$@"'.format(
@@ -430,7 +430,7 @@ def create_container_env(
             ENV_IMAGE
         ))
 
-        subprocess.check_call(build_command)
+        subprocess.check_call(build_command, stderr=subprocess.STDOUT)
 
     container_name = ENV_CONTAINER + get_place_digest(
         workdir, git_path
@@ -449,7 +449,7 @@ def create_container_env(
         ENV_IMAGE
     ]
 
-    subprocess.check_call(create_command)
+    subprocess.check_call(create_command, stderr=subprocess.STDOUT)
 
     shell_commands = [
         'exec {} start -a {}'.format(orchestrator, container_name)
