@@ -1,3 +1,4 @@
+from __future__ import print_function
 # A script to generate helper files for dynamic linking to the Python dll
 #
 
@@ -111,27 +112,27 @@ for decl in decls:
     if len(items) == 3:
         # exported function with argument list
         restype, name, argtypes = map(string.strip, items)
-        print >> hfile, '#define %(name)s ((%(restype)s(*)%(argtypes)s)py_sym_table[%(index)d].proc)' % locals(
-        )
+        print('#define %(name)s ((%(restype)s(*)%(argtypes)s)py_sym_table[%(index)d].proc)' % locals(
+        ), file=hfile)
     elif len(items) == 2:
         # exported data
         typ, name = map(string.strip, items)
-        print >> hfile, '#define %(name)s (*(%(typ)s(*))py_sym_table[%(index)s].proc)' % locals(
-        )
+        print('#define %(name)s (*(%(typ)s(*))py_sym_table[%(index)s].proc)' % locals(
+        ), file=hfile)
     else:
-        raise ValueError, "could not parse %r" % decl
+        raise ValueError("could not parse %r" % decl)
     if name == "Py_InitModule4":
-        print >> cfile, '#ifdef _DEBUG'
-        print >> cfile, '\t{ "Py_InitModule4TraceRefs", NULL },' % locals()
-        print >> cfile, '#else'
-        print >> cfile, '#  if defined (__x86_64__) || defined (_WIN64)'
-        print >> cfile, '\t{ "Py_InitModule4_64", NULL },' % locals()
-        print >> cfile, '#  else'
-        print >> cfile, '\t{ "Py_InitModule4", NULL },' % locals()
-        print >> cfile, '#  endif'
-        print >> cfile, '#endif'
+        print('#ifdef _DEBUG', file=cfile)
+        print('\t{ "Py_InitModule4TraceRefs", NULL },' % locals(), file=cfile)
+        print('#else', file=cfile)
+        print('#  if defined (__x86_64__) || defined (_WIN64)', file=cfile)
+        print('\t{ "Py_InitModule4_64", NULL },' % locals(), file=cfile)
+        print('#  else', file=cfile)
+        print('\t{ "Py_InitModule4", NULL },' % locals(), file=cfile)
+        print('#  endif', file=cfile)
+        print('#endif', file=cfile)
     else:
-        print >> cfile, '\t{ "%(name)s", NULL },' % locals()
+        print('\t{ "%(name)s", NULL },' % locals(), file=cfile)
 
     index += 1
 

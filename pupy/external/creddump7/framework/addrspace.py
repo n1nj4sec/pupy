@@ -13,11 +13,11 @@
 # This program is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details. 
+# General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA 
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
 """
@@ -38,19 +38,19 @@ from io import open
 class FileAddressSpace(object):
     def __init__(self, fname, mode='rb', fast=False):
         self.fname = fname
-	self.name = fname
-	self.fhandle = open(fname, mode)
+        self.name = fname
+        self.fhandle = open(fname, mode)
         self.fsize = os.path.getsize(fname)
 
-	if fast == True:
+        if fast == True:
             self.fast_fhandle = open(fname, mode)
 
     def fread(self,len):
         return self.fast_fhandle.read(len)
 
     def read(self, addr, len):
-        self.fhandle.seek(addr)        
-        return self.fhandle.read(len)    
+        self.fhandle.seek(addr)
+        return self.fhandle.read(len)
 
     def read_long(self, addr):
         string = self.read(addr, 4)
@@ -86,7 +86,7 @@ class HiveFileAddressSpace:
         first_block = BLOCK_SIZE - vaddr % BLOCK_SIZE
         full_blocks = ((length + (vaddr % BLOCK_SIZE)) // BLOCK_SIZE) - 1
         left_over = (length + vaddr) % BLOCK_SIZE
-        
+
         paddr = self.vtop(vaddr)
         if paddr == None and zero:
             if length < first_block:

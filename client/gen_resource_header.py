@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
 import binascii
 import pylzma
@@ -65,7 +66,7 @@ if __name__ == "__main__":
         compiler = sys.argv[4]
 
         if compiler == 'cl':
-            print "USING MSVC pragmas, const_seg: {}".format(sys.argv[5])
+            print("USING MSVC pragmas, const_seg: {}".format(sys.argv[5]))
             attribute = '\n#pragma const_seg(push, stack1, "{}")\n'.format(
                 sys.argv[5])
             pragma = '\n#pragma const_seg(pop, stack1)'

@@ -18,6 +18,7 @@
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
+from __future__ import print_function
 
 from ..newobj import Obj,Pointer
 from struct import unpack
@@ -38,7 +39,7 @@ def open_key(root, key):
     for s in subkeys(root):
         if s.Name.upper() == keyname.upper():
             return open_key(s, key)
-    print "ERR: Couldn't find subkey %s of %s" % (keyname, root.Name)
+    print("ERR: Couldn't find subkey %s of %s" % (keyname, root.Name))
     return None
 
 def subkeys(key,stable=True):
