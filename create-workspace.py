@@ -124,6 +124,9 @@ _ESCAPE = (
 
 
 def shstr(string):
+    if not any(esc in string for esc in _ESCAPE):
+        return string
+
     result = ['"']
 
     for char in string:
@@ -133,6 +136,10 @@ def shstr(string):
 
     result.append('"')
     return ''.join(result)
+
+
+def shjoin(args):
+    return ' '.join(shstr(string) for string in args)
 
 
 def get_place_digest(*args):
@@ -274,16 +281,14 @@ def build_templates(
                     orchestrator + ' start -a ' + shstr(container_name)
                 )
             else:
-                update_commands.append(
-                    ' '.join(shstr(x) for x in args)
-                )
+                update_commands.append(shjoin(args))
 
         else:
             print("[+] Build {} using {} (existing)".format(
                 template, container_name))
 
             subprocess.check_call([
-                orchestrator, 'start', '-a', shstr(container_name)
+                orchestrator, 'start', '-a', container_name
             ], stderr=subprocess.STDOUT)
 
             update_commands.append(
@@ -460,10 +465,10 @@ def create_container_env(
         'prev_ref=`git rev-parse HEAD`',
         'git pull --recurse-submodules=yes --autostash --rebase',
         'echo "[+] Update {} environment"'.format(orchestrator),
-        ' '.join(shstr(x) for x in build_command),
+        shjoin(build_command),
         orchestrator + ' kill ' + container_name + ' || true',
         orchestrator + ' rm ' + container_name,
-        ' '.join(shstr(x) for x in create_command),
+        shjoin(create_command),
         'if (git diff --name-only $prev_ref HEAD | grep client/ >/dev/null)',
         'then',
     ]
