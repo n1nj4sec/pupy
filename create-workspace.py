@@ -293,9 +293,15 @@ def build_templates(
             print("[+] Build {} using {} (existing)".format(
                 template, container_name))
 
-            subprocess.check_call([
-                orchestrator, 'start', '-a', container_name
-            ], stderr=subprocess.STDOUT)
+            try:
+                subprocess.check_call([
+                    orchestrator, 'start', '-a', container_name
+                ], stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                if e.returncode == 139 and template == 'linux64':
+                    print("[!] Likely you must to enable vsyscall=emulate")
+
+                raise
 
             update_commands.append(
                 orchestrator + ' start -a ' + shstr(container_name)
