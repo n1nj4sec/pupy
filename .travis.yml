@@ -1,8 +1,19 @@
+os: linux
+dist: xenial
+services: docker
 language: generic
-services:
-- docker
-os:
-- linux
+jobs:
+  include:
+    - language: generic
+    - language: python  # run flake8 linter on Python 3 in allow_failures mode
+      python: 3.8
+      env:
+        - FLAKE8_SELECT="E9,F63,F7,F82"
+      install: pip install flake8
+      before_script: true  # override
+      script: flake8 . --count --select=$FLAKE8_SELECT --show-source --statistics
+  allow_failures:
+    - python: 3.8
 before_script:
   - sudo pip2 install flake8 flake8-per-file-ignores
   - sudo apt-get install swig libssl-dev python-all-dev
