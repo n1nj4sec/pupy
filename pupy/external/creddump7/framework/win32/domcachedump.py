@@ -18,6 +18,7 @@
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
+from __future__ import print_function
 
 from rawreg import *
 from ..addrspace import HiveFileAddressSpace
@@ -131,5 +132,5 @@ def dump_file_hashes(syshive_fname, sechive_fname, vista):
     secaddr = HiveFileAddressSpace(sechive_fname)
 
     for (u, d, dn, hash) in dump_hashes(sysaddr, secaddr, vista):
-        print "%s:%s:%s:%s" % (u.lower(), hash.encode('hex'),
-                               d.lower(), dn.lower())
+        print("%s:%s:%s:%s" % (u.lower(), hash.encode('hex'),
+                               d.lower(), dn.lower()))

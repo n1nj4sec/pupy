@@ -2,6 +2,7 @@
 #Author: @bobsecq
 #Contributor(s):
 
+from __future__ import print_function
 __class_name__="gpstracker"
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
@@ -108,10 +109,10 @@ class gpstracker(PupyModule):
         gpsTracker = self.client.conn.modules['pupydroid.gpsTracker'].GpsTracker(period=args.period, inMemory=args.in_memory)
         if args.is_GPS_enabled:
             self.success("Is GPS enabled?")
-            print gpsTracker.isGPSenabled()
+            print(gpsTracker.isGPSenabled())
         if args.is_network_rovider_enabled:
             self.success("Is Network Provider enabled?")
-            print gpsTracker.isNetworkProviderEnabled()
+            print(gpsTracker.isNetworkProviderEnabled())
         if args.get_position:
             if not gpsTracker.isNetworkProviderEnabled() and not gpsTracker.isGPSenabled():
                 self.error("GPS or Network Provider is not enabled on the device. You should not be able to get location!")
@@ -128,7 +129,7 @@ class gpstracker(PupyModule):
                     sleep(5)
                 else:
                     self.success("Current location:")
-                    print "latitude: {0} , longitude: {1}".format(lat, lon)
+                    print("latitude: {0} , longitude: {1}".format(lat, lon))
                     break
             gpsTracker.disable()
         if args.start:

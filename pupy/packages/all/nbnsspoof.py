@@ -9,6 +9,7 @@
 # questions.
 # rewritten by Nicolas VERDIER for pupy
 
+from __future__ import print_function
 import re
 
 from scapy.all import (
@@ -39,17 +40,17 @@ def config_nbns(ip, mac_addr, regexp, verbose=True, interface=None):
             query = True
 
         if verbose:
-            print str(pkt.NAME_TRN_ID) + ":",
+            print(str(pkt.NAME_TRN_ID) + ":", end=' ')
             if query:
-                print "Q",
+                print("Q", end=' ')
             else:
-                print "R",
-            print "SRC:" + pkt.getlayer(IP).src + " DST:" + pkt.getlayer(IP).dst,
+                print("R", end=' ')
+            print("SRC:" + pkt.getlayer(IP).src + " DST:" + pkt.getlayer(IP).dst, end=' ')
             if query:
-                print 'NAME:"' + pkt.QUESTION_NAME + '"'
+                print('NAME:"' + pkt.QUESTION_NAME + '"')
             else:
-                print 'NAME:"' + pkt.QUESTION_NAME + '"',
-                print 'IP:' + addr
+                print('NAME:"' + pkt.QUESTION_NAME + '"', end=' ')
+                print('IP:' + addr)
 
         if query and regexp.match(pkt.QUESTION_NAME.rstrip(),1):
             response  = Ether(dst=pkt.src,src=mac_addr)
@@ -78,7 +79,7 @@ def config_nbns(ip, mac_addr, regexp, verbose=True, interface=None):
             response.getlayer(Raw).load += pack_ip(ip)
             sendp(response,iface=interface,verbose=0)
             if verbose:
-                print 'Sent spoofed reply to #' + str(response.getlayer(NBNSQueryRequest).NAME_TRN_ID)
+                print('Sent spoofed reply to #' + str(response.getlayer(NBNSQueryRequest).NAME_TRN_ID))
 
     return get_packet
 

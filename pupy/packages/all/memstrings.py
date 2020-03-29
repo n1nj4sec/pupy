@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import memorpy
 import re
 import os
@@ -71,8 +72,8 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
 if __name__=="__main__":
     import sys
     for pid, strings in iterate_strings(sys.argv[1].split(',')).iteritems():
-        print 'pid: ', pid
-    print
+        print('pid: ', pid)
+    print()
     for s in strings:
-        print s
-    print
+        print(s)
+    print()

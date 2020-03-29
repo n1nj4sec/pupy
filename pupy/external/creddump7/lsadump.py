@@ -20,6 +20,7 @@
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
+from __future__ import print_function
 
 import sys
 from framework.win32.lsasecrets import get_file_secrets
@@ -30,11 +31,11 @@ from framework.win32.lsasecrets import get_file_secrets
 FILTER=''.join([(len(repr(chr(x)))==3) and chr(x) or '.' for x in range(256)])
 
 def showUsage():
-    print "usage: %s <system hive> <security hive> <Vista/7>" % sys.argv[0]
-    print "\nExample (Windows Vista/7):"
-    print "%s /path/to/System32/config/SYSTEM /path/to/System32/config/SECURITY true" % sys.argv[0]
-    print "\nExample (Windows XP):"
-    print "%s /path/to/System32/SYSTEM /path/to/System32/config/SECURITY false" % sys.argv[0]
+    print("usage: %s <system hive> <security hive> <Vista/7>" % sys.argv[0])
+    print("\nExample (Windows Vista/7):")
+    print("%s /path/to/System32/config/SYSTEM /path/to/System32/config/SECURITY true" % sys.argv[0])
+    print("\nExample (Windows XP):")
+    print("%s /path/to/System32/SYSTEM /path/to/System32/config/SECURITY false" % sys.argv[0])
 
 
 def dump(src, length=8):
@@ -55,9 +56,9 @@ else:
 
 secrets = get_file_secrets(sys.argv[1], sys.argv[2], vista)
 if not secrets:
-    print "Unable to read LSA secrets. Perhaps you provided invalid hive files?"
+    print("Unable to read LSA secrets. Perhaps you provided invalid hive files?")
     sys.exit(1)
 
 for k in secrets:
-    print k
-    print dump(secrets[k], length=16)
+    print(k)
+    print(dump(secrets[k], length=16))

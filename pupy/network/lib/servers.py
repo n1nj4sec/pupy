@@ -2,6 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import print_function
 __all__ = ('PupyTCPServer', 'PupyUDPServer')
 
 import logging
@@ -416,7 +417,7 @@ class PupyUDPServer(object):
             pass # server closed by another thread
         except KeyboardInterrupt:
             print("")
-            print "keyboard interrupt!"
+            print("keyboard interrupt!")
         except Exception, e:
             logging.exception('Unknown exception %s: %s', type(e), e)
         finally:

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from _winreg import (
     ConnectRegistry, OpenKey, SetValueEx, CloseKey,
     KEY_WRITE, REG_DWORD, HKEY_LOCAL_MACHINE
@@ -47,13 +48,13 @@ def enable_rdp():
             # cmd = 'netsh advfirewall firewall set rule group="Bureau à distance" new enable=Yes'
             r = executeCmd(cmd)
             if 'ok' in r.lower():
-                print '[+] RDP enabled'
+                print('[+] RDP enabled')
             else:
-                print '[-] Failed to add new firewall rule'
+                print('[-] Failed to add new firewall rule')
         else:
-            print '[-] Failed to disable NLA authentication'
+            print('[-] Failed to disable NLA authentication')
     else:
-        print '[-] Failed to change the rdp key'
+        print('[-] Failed to change the rdp key')
 
 
 def disable_rdp():
@@ -65,13 +66,13 @@ def disable_rdp():
             cmd = 'netsh firewall set service type=remotedesktop mod=disable'
             r = executeCmd(cmd)
             if 'ok' in r.lower():
-                print '[+] RDP disabled'
+                print('[+] RDP disabled')
             else:
-                print '[-] Failed to remove the rdp firewall rule'
+                print('[-] Failed to remove the rdp firewall rule')
         else:
-            print '[-] Failed to disable NLA authentication'
+            print('[-] Failed to disable NLA authentication')
     else:
-        print '[-] Failed to change the rdp key'
+        print('[-] Failed to change the rdp key')
 
 
 

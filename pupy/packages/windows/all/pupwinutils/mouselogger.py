@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Mostly stolen from Nicolas VERDIER (contact@n1nj4.eu)
 # Mostly stolen and recreated by golind
 
@@ -150,6 +151,6 @@ if __name__=="__main__":
     ml.start()
     while True:
         for d, height, width, exe, win_title, buf in ml.retrieve_screenshots():
-            print "screenshot of %s/%s taken at %s (%s bytes) from %s : %s "%(
-                height, width, d, len(buf), exe, win_title)
+            print("screenshot of %s/%s taken at %s (%s bytes) from %s : %s "%(
+                height, width, d, len(buf), exe, win_title))
         time.sleep(1)

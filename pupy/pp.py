@@ -31,6 +31,7 @@
 # POSSIBILITY OF SUCH DAMAGE
 # ---------------------------------------------------------------
 
+from __future__ import print_function
 import sys
 import imp
 
@@ -208,7 +209,7 @@ def print_exception(tag=''):
         try:
             logger.error(error)
         except:
-            print error
+            print(error)
 
 class PStore(object):
 
@@ -1008,7 +1009,7 @@ if __name__ == "__main__":
 
     if __debug__:
         for thread in threading.enumerate():
-            print "> ALIVE:", thread, thread.daemon
+            print("> ALIVE:", thread, thread.daemon)
 else:
     if not platform.system() == 'android':
         if not hasattr(platform, 'pupy_thread'):

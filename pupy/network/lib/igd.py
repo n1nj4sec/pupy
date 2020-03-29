@@ -3,6 +3,7 @@
 # Reworked by Oleskii Shevchuk (@alxchk)
 # License: MIT
 
+from __future__ import print_function
 __all__ = (
     'UPNPError', 'FakeSocket', 'IGDClient',
 )
@@ -186,7 +187,7 @@ class IGDClient(object):
                 else:
                     r[tagn] = None
             except:
-                print"xml parse err: {tag} not found".format(tag=tagn)
+                print("xml parse err: {tag} not found".format(tag=tagn))
 
         return r
 
@@ -241,7 +242,7 @@ class IGDClient(object):
                 socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
             if self.debug:
-                print "trying to bind to address:", self.bindIP
+                print("trying to bind to address:", self.bindIP)
 
             socketaddr = socket.getaddrinfo(
                 self.bindIP.format(), 19110)[-1:][0][-1:][0]
@@ -249,7 +250,7 @@ class IGDClient(object):
             sock.sendto(up_disc, (dst_ip, 1900))
 
         if self.debug:
-            print "Discovery: ----- tx request -----\n " + up_disc
+            print("Discovery: ----- tx request -----\n " + up_disc)
 
         sock.settimeout(self.timeout)
         try:
@@ -260,7 +261,7 @@ class IGDClient(object):
         sock.close()
 
         if self.debug:
-            print "Discovery: ----- rx reply -----\n " + data
+            print("Discovery: ----- rx reply -----\n " + data)
 
         descURL = httpparse(StringIO(data)).getheader('location')
         if not descURL:
@@ -289,7 +290,7 @@ class IGDClient(object):
                     break
 
         if self.debug:
-            print "control URL is ", self.ctrlURL
+            print("control URL is ", self.ctrlURL)
 
     def AddPortMapping(self, extPort, proto, intPort, enabled=1, duration=0, intIP=None, desc='', remoteHost=''):
         upnp_method = 'AddPortMapping'
@@ -656,7 +657,7 @@ class IGDClient(object):
         upnp_method = "AddPinhole"
         pid = getProtoId(proto)
         if not pid:
-            print proto, " is not a supported protocol"
+            print(proto, " is not a supported protocol")
             return
         sendArgs = {
             "RemoteHost": (rhost, 'string'),
@@ -686,7 +687,7 @@ class IGDClient(object):
         upnp_method = "GetOutboundPinholeTimeout"
         pid = getProtoId(proto)
         if not pid:
-            print proto, " is not a supported protocol"
+            print(proto, " is not a supported protocol")
             return
         sendArgs = {
             "RemoteHost": (rhost, 'string'),

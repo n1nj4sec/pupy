@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import string
 
@@ -31,7 +32,7 @@ new = '''span {
 
 def fixhtmlfile(file):
     if os.path.isfile(file) and file[-5:] == '.html':
-        print file
+        print(file)
         fp = open(file, 'rt')
         cont = fp.read()
         fp.close()

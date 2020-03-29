@@ -1,3 +1,4 @@
+from __future__ import print_function
 from impacket.smbconnection import SMBConnection, SessionError
 from impacket.smb3structs import FILE_READ_DATA
 
@@ -54,7 +55,7 @@ class SMBSpider:
                 if "STATUS_ACCESS_DENIED" in e.message:
                     pass
 
-            print "[+] {}:{} is running {} (name:{}) (domain:{})".format(self.host, self.port, self.smbconnection.getServerOS(), self.smbconnection.getServerName(), self.domain)
+            print("[+] {}:{} is running {} (name:{}) (domain:{})".format(self.host, self.port, self.smbconnection.getServerOS(), self.smbconnection.getServerName(), self.domain))
 
             lmhash = ''
             nthash = ''
@@ -64,7 +65,7 @@ class SMBSpider:
             self.smbconnection.login(self.user, self.passwd, self.domain, lmhash, nthash)
             return True
         except Exception as e:
-            print "[!] {}".format(e)
+            print("[!] {}".format(e))
             return False
 
     def logoff(self):
@@ -144,7 +145,7 @@ class SMBSpider:
                 pass
 
         except Exception, e:
-            print e
+            print(e)
 
 
 class Spider():

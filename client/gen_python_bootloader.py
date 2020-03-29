@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import sys
 import marshal
 import struct
@@ -72,7 +73,7 @@ if __name__=="__main__":
     pupyimporter = pupycompile(pupyimporter, raw=True, debug=args.debug)
 
     if not args.debug:
-        print 'Generate bootloader with blackholed stderr/stdout'
+        print('Generate bootloader with blackholed stderr/stdout')
 
     bootloader = [
         remove_stdout if not args.debug else 'print "DEBUG"\n',

@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import print_function
 import dbus
 import os
 
@@ -55,4 +56,4 @@ def get_services_systemd():
 
 if __name__ == '__main__':
     for x in get_services_systemd():
-        print x
+        print(x)

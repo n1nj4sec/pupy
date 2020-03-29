@@ -1,3 +1,4 @@
+from __future__ import print_function
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
@@ -107,4 +108,4 @@ def isUserAdmin():
 
 if __name__ == '__main__':
     for dic in enum_processes():
-        print dic
+        print(dic)

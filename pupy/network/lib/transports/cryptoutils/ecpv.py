@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import struct
 import base64
 
@@ -373,39 +374,39 @@ if __name__ == '__main__':
         x._curve.g * (1 << 47)
 
         priv, pub = x.generate_key()
-        print "PRIV:", priv
-        print "PUB:", pub
+        print("PRIV:", priv)
+        print("PUB:", pub)
         msg = 'Hello, world'
         msg2 = x.decode(x.encode(msg, 0), 0)
         if not msg == msg2:
-            print "VRFY1 FAIL: ", msg2
+            print("VRFY1 FAIL: ", msg2)
             break
 
         signer = ECPV(private_key=priv, curve='brainpoolP384r1')
         verifier = ECPV(public_key=pub, curve='brainpoolP384r1')
 
         if not signer._public_key_digest == verifier._public_key_digest:
-            print "PSK FAIL"
+            print("PSK FAIL")
             break
 
         if not verifier.decrypt(signer.encrypt(msg, 0), 0) == msg:
-            print "DEC FAIL"
+            print("DEC FAIL")
             break
 
         msg3 = verifier.decode(signer.encode(msg, 0), 0)
         if not msg == msg3:
-            print "VRFY2 FAIL: ", msg3
+            print("VRFY2 FAIL: ", msg3)
             break
 
         msg41 = msg + '1234'
         msg4 = verifier.unpack(signer.pack(msg41))
         if not msg41 == msg4:
-            print "VRFY3 FAIL: ", msg4
+            print("VRFY3 FAIL: ", msg4)
             break
 
         req = verifier.generate_kex_request()
         resp, key = signer.process_kex_request(req, 0)
         key2 = verifier.process_kex_response(resp, 0)
         if not list(key) == list(reversed(key2)):
-            print "KEX FAILED", key, key2
+            print("KEX FAILED", key, key2)
             break

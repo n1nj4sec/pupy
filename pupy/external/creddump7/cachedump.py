@@ -20,16 +20,17 @@
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
+from __future__ import print_function
 
 
 import sys
 from framework.win32.domcachedump import dump_file_hashes
 def showUsage():
-    print "usage: %s <system hive> <security hive> <Vista/7>" % sys.argv[0]
-    print "\nExample (Windows Vista/7):"
-    print "%s /path/to/System32/config/SYSTEM /path/to/System32/config/SECURITY true" % sys.argv[0]
-    print "\nExample (Windows XP):"
-    print "%s /path/to/System32/SYSTEM /path/to/System32/config/SECURITY false" % sys.argv[0]
+    print("usage: %s <system hive> <security hive> <Vista/7>" % sys.argv[0])
+    print("\nExample (Windows Vista/7):")
+    print("%s /path/to/System32/config/SYSTEM /path/to/System32/config/SECURITY true" % sys.argv[0])
+    print("\nExample (Windows XP):")
+    print("%s /path/to/System32/SYSTEM /path/to/System32/config/SECURITY false" % sys.argv[0])
 
 if len(sys.argv) < 4:
     showUsage()

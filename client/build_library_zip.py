@@ -1,10 +1,11 @@
+from __future__ import print_function
 import sys
 import os
 import imp
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-print "ROOT: ", ROOT
+print("ROOT: ", ROOT)
 
 PATCHES = os.path.join(ROOT, 'pupy', 'library_patches')
 
@@ -31,7 +32,7 @@ import Crypto
 try:
     import idna
 except ImportError:
-    print "[W] idna not found"
+    print("[W] idna not found")
 
 try:
     import pp
@@ -55,7 +56,7 @@ def compile_py(path):
     compile_map.append(path)
 
     data = pupycompile(path, 'f:{:x}'.format(fileid), path=True)
-    print "[C] {} -> f:{:x}".format(path, fileid)
+    print("[C] {} -> f:{:x}".format(path, fileid))
 
     return data
 
@@ -107,7 +108,7 @@ for dep in ('cffi', 'pycparser', 'pyaes'):
     if dep in all_dependencies:
         all_dependencies.remove(dep)
 
-print "ALLDEPS: ", all_dependencies
+print("ALLDEPS: ", all_dependencies)
 
 from distutils.core import setup
 from glob import glob
@@ -127,7 +128,7 @@ try:
     for dep in all_dependencies:
         _, mpath, info = imp.find_module(dep)
 
-        print "DEPENDENCY: ", dep, mpath
+        print("DEPENDENCY: ", dep, mpath)
         if info[2] == imp.PKG_DIRECTORY:
             print('adding package %s / %s'%(dep, mpath))
             path, root = os.path.split(mpath)

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 __all__ = ['PupyHTTPWrapperServer']
 
 from ..base import BasePupyTransport, ReleaseChainedTransport
@@ -135,7 +136,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
                                 '{}:{}'.format(*self.downstream.transport.peer[:2]), urlpath))
 
             except Exception, e:
-                print "Exception: {}".format(e)
+                print("Exception: {}".format(e))
 
             finally:
                 self.close()

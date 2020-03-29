@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import print_function
 __all__ = [
     'SSHNotConnected', 'SSH',
     'ssh_interactive',
@@ -1300,22 +1301,22 @@ if __name__ == '__main__':
     s = SSH(*[try_int(x) for x in sys.argv[1:]])
     stdout, stderr, status = s.check_output('sleep 1 && id && sleep 1 && whoami')
 
-    print status
-    print stdout.getvalue()
-    print stderr.getvalue()
+    print(status)
+    print(stdout.getvalue())
+    print(stderr.getvalue())
 
-    print "Upload"
+    print("Upload")
     test = BytesIO('Hello, world!\n')
     stdout, stderr, status = s.upload_file(test.read, '/tmp/test123', rtouch='/bin/bash', append=True)
 
-    print status
-    print stdout.getvalue()
-    print stderr.getvalue()
+    print(status)
+    print(stdout.getvalue())
+    print(stderr.getvalue())
 
-    print "Download"
+    print("Download")
     test = BytesIO()
     executable, stderr, status = s.download_file('/tmp/test123', test.write)
-    print status
-    print executable
-    print test.getvalue()
-    print stderr.getvalue()
+    print(status)
+    print(executable)
+    print(test.getvalue())
+    print(stderr.getvalue())

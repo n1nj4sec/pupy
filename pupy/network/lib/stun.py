@@ -1,3 +1,4 @@
+from __future__ import print_function
 # https://raw.githubusercontent.com/jtriley/pystun/develop/stun/__init__.py
 
 __all__ = (
@@ -130,7 +131,7 @@ def stun_test(sock, host, port, send_data="", count=3):
                 log.debug("recvfrom: %s", addr)
                 recieved = True
             except Exception, e:
-                print e
+                print(e)
                 recieved = False
                 if count > 0:
                     count -= 1

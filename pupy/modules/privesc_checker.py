@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import os
 import subprocess
 
@@ -41,7 +42,7 @@ class PrivEsc_Checker(PupyModule):
                 self.success("You can use the following command on Linux for reading this file: less -r {0}".format(args.outputfile))
             else:
                 self.success("Results of the Lineum script:")
-                print output
+                print(output)
         else:
             self.error("You have to choose a script")
             return -1

@@ -2,6 +2,7 @@
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
+from __future__ import print_function
 import sys
 import traceback
 
@@ -234,7 +235,7 @@ def run(on_data, on_close, iface=None, bpf=None, timeout=None, count=0):
 if __name__=="__main__":
 
     def cb(pkt):
-        print pkt.summary()
+        print(pkt.summary())
 
     t = SniffSession(cb, None, iface="eth0")
     t.start()

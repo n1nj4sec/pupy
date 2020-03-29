@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 
+from __future__ import print_function
 from dukpy import JSInterpreter, JSRuntimeError
 from urlparse import urlparse
 from urllib2 import URLError
@@ -258,7 +259,7 @@ class PACPlayer(object):
         try:
             return bool(match(regexp, host))
         except Exception, e:
-            print e
+            print(e)
 
         return False
 

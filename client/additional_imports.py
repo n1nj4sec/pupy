@@ -1,3 +1,4 @@
+from __future__ import print_function
 import socket
 import threading
 import Queue
@@ -42,24 +43,24 @@ import netaddr
 try:
     import psutil
 except Exception as e:
-    print "psutil: ", e
+    print("psutil: ", e)
 import pyexpat
 import fnmatch
 
 try:
     import dukpy
 except ImportError:
-    print "dukpy not found"
+    print("dukpy not found")
 
 try:
     import kcp
 except ImportError:
-    print "kcp not found"
+    print("kcp not found")
 
 try:
     import uidle
 except ImportError:
-    print "uidle not found"
+    print("uidle not found")
 
 import poster
 

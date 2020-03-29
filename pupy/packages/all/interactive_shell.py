@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
 from subprocess import PIPE, Popen
 import subprocess
@@ -72,7 +73,7 @@ def interactive_open(program=None, encoding=None):
                 fullargs=["powershell.exe", "-C", "-"] # trick to make powershell work without blocking
         if encoding is None:
             encoding=locale.getpreferredencoding()
-        print "Opening interactive %s (with encoding %s)..."%(program,encoding)
+        print("Opening interactive %s (with encoding %s)..."%(program,encoding))
         if sys.platform=="win32":
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags = subprocess.CREATE_NEW_CONSOLE | subprocess.STARTF_USESHOWWINDOW

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import pupy
 import base64
 import subprocess
@@ -160,7 +161,7 @@ class Powershell(threading.Thread):
         self._pipe.stdin.write(request)
         self._pipe.stdin.flush()
 
-        print "WAITING FOR ", preamble_complete
+        print("WAITING FOR ", preamble_complete)
         data = self._pipe.stdout.readline()
 
         if 'Version v2.0.50727 of the .NET Framework is not installed'.encode('UTF-16LE') in data:
@@ -168,8 +169,8 @@ class Powershell(threading.Thread):
             raise PowershellV2NotInstalled()
 
         elif not data or preamble_complete not in data:
-            print "First line: ", repr(data)
-            print '.NET Framework is not installed' in data
+            print("First line: ", repr(data))
+            print('.NET Framework is not installed' in data)
             self.stop()
             raise PowershellInitializationFailed()
 

@@ -2,6 +2,7 @@
 # Author: the-useless-one
 # Project: https://github.com/the-useless-one/pywerview
 
+from __future__ import print_function
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from argparse import FileType
 
@@ -350,8 +351,8 @@ class Pywerview(PupyModule):
         try:
             for x in results:
                 x = str(x)
-                print x
+                print(x)
                 if '\n' in x:
-                    print ''
+                    print('')
         except TypeError:
-            print results
+            print(results)

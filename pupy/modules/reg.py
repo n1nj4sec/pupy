@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 __class_name__ = 'reg'
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
@@ -219,7 +220,7 @@ class reg(PupyModule):
             else:
                 self.error('No such key')
         except Exception, e:
-            print e
+            print(e)
             raise
 
     def rm(self, args):

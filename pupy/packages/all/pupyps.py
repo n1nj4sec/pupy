@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import psutil
 
 import sys
@@ -440,7 +441,7 @@ if __name__ == '__main__':
     import datetime
     for result in wtmp():
         if result['type'] in ('process', 'boot'):
-            print '{:12s} {:5d} {:7} {:8s} {:8s} {:16s} {:3} {:3} {} - {}'.format(
+            print('{:12s} {:5d} {:7} {:8s} {:8s} {:16s} {:3} {:3} {} - {}'.format(
                 result['type'],
                 result['pid'],
                 result['id'],
@@ -448,4 +449,4 @@ if __name__ == '__main__':
                 result['termination'], result['exit'],
                 datetime.datetime.fromtimestamp(result['start']),
                 datetime.datetime.fromtimestamp(result['end']) if result['end'] != -1 else 'logged in',
-            )
+            ))
