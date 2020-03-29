@@ -12,7 +12,7 @@ before_script:
     docker pull alxchk/tc-linux64 & docker pull alxchk/tc-android
 script:
   - export TAG=`if [ "$TRAVIS_BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
-  - cd $TRAVIS_BUILD_DIR && ./build-docker.sh
+  - cd $TRAVIS_BUILD_DIR && ./build-docker-images.sh
   - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.lin
   - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.so
   - ls -l $TRAVIS_BUILD_DIR/pupy/payload_templates/pupyx64*.dll

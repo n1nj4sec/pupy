@@ -26,7 +26,8 @@ CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
     $PIP_INSTALL -q pynacl --no-binary :all:
 
 CC=/gccwrap CFLAGS_FILTER="-Wno-error=sign-conversion" \
-    $PIP_INSTALL -q cryptography --no-binary :all:
+    CFLAGS="$CFLAGS -DHEADER_UI_H -D__builtin_unreachable=abort" \
+        $PIP_INSTALL -q cryptography --no-binary :all:
 
 export PRCTL_SKIP_KERNEL_CHECK=yes
 
@@ -34,16 +35,22 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     export CFLAGS="$CFLAGS -D__NR_ioprio_get=290 -D__NR_ioprio_set=289"
 fi
 
+LDFLAGS="$LDFLAGS -Wl,-Bstatic -lcap -Wl,-Bdynamic" \
+    $PIP_INSTALL python-prctl --no-binary :all:
+
 $PIP_INSTALL \
     pyaml rsa netaddr pyyaml ecdsa idna impacket \
     paramiko pylzma pydbus python-ptrace psutil scandir \
     scapy colorama pyOpenSSL python-xlib msgpack-python \
-    u-msgpack-python poster dnslib pyxattr pylibacl python-prctl http_parser \
+    u-msgpack-python poster dnslib pyxattr pylibacl http_parser \
     https://github.com/alxchk/tinyec/archive/master.zip \
     https://github.com/warner/python-ed25519/archive/master.zip \
     https://github.com/alxchk/urllib-auth/archive/master.zip \
     zeroconf==0.19.1 pyodbc \
-    watchdog pulsectl pyalsaaudio pycryptodomex==3.7.0 --no-binary :all:
+    watchdog pulsectl pycryptodomex==3.7.0 --no-binary :all:
+
+LDFLAGS="$LDFLAGS -lm -lasound" \
+    $PIP_INSTALL pyalsaaudio  --no-binary :all:
 
 if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     CFLAGS_PYJNIUS="$CFLAGS"
@@ -56,11 +63,13 @@ CFLAGS="${CFLAGS_PYJNIUS}" NO_JAVA=1 \
     https://github.com/alxchk/pyjnius/archive/master.zip
 
 CFLAGS="$CFLAGS -DDUK_DOUBLE_INFINITY=\"(1.0 / 0.0)\"" \
+LDFLAGS="$LDFLAGS -lm" \
     $PIP_INSTALL dukpy --no-binary :all:
 
-$PIP_INSTALL https://github.com/alxchk/ccs-pykerberos/archive/master.zip
+LDFLAGS="$LDFLAGS -lkrb5 -lk5crypto -lcom_err -lgssrpc -lgssapi_krb5" \
+    $PIP_INSTALL https://github.com/alxchk/ccs-pykerberos/archive/master.zip
 
-LDFLAGS="$LDFLAGS -lasound" $PIP_INSTALL pyaudio
+LDFLAGS="$LDFLAGS -lasound -lm -lrt" $PIP_INSTALL pyaudio
 
 $PIP_INSTALL --force-reinstall pycparser==2.17
 
@@ -70,7 +79,7 @@ $PIP_INSTALL --force $PYKCP
 python -c 'import kcp' || exit 1
 
 echo "[+] Compile opus"
-(cd $PYOPUS && make clean && make && mv -f opus.so /usr/lib/python2.7/site-packages)
+(cd $PYOPUS && make clean && LDFLAGS="$LDFLAGS -lm" make && mv -f opus.so /usr/lib/python2.7/site-packages)
 python -c 'import opus' || exit 1
 
 echo "[+] Compile pyuv"
@@ -80,7 +89,11 @@ if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
     CFLAGS_PYUV="$CFLAGS_PYUV -U_FILE_OFFSET_BITS -D_XOPEN_SOURCE=600 -D__USE_XOPEN2K8"
     CFLAGS_PYUV="$CFLAGS_PYUV -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'"
 
-    CC=/gccwrap CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64" CFLAGS="$CFLAGS_PYUV" \
+# It may not be possible to build pyuv with linux32 toolchain, because woody don't have epoll() wrapper yet
+# So make an exception
+    CC=/gccwrap LDSHARED=/gccwrap \
+    LDFLAGS="--shared -Os -L/opt/static -static-libgcc -Wl,--allow-shlib-undefined" \
+        CFLAGS_FILTER="-D_FILE_OFFSET_BITS=64 -Wl,--no-undefined" CFLAGS="$CFLAGS_PYUV" \
         $PIP_INSTALL https://github.com/alxchk/pyuv/archive/v1.x.zip --no-binary :all:
 else
     CFLAGS="$CFLAGS -D_XOPEN_SOURCE=600 -D_GNU_SOURCE -DS_ISSOCK(m)='(((m) & S_IFMT) == S_IFSOCK)'" \
@@ -138,7 +151,7 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 cd $SRC
 
-MAKEFLAGS="$MAKEFLAGS"
+MAKEFLAGS="$MAKEFLAGS OPENSSL_LIB_VERSION=1.1"
 
 make $MAKEFLAGS distclean
 make -j $MAKEFLAGS

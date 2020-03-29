@@ -34,9 +34,7 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     # Still problems here
     $PYTHON -m pip install -q --upgrade pynacl
 
-    LIB="C:\\Windows\\openssl-build\\lib" \
-        INCLUDE="C:\\Windows\\openssl-build\\include" \
-        $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
+    $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
 
     NO_JAVA=1 \
         $PYTHON -m pip install --upgrade --force-reinstall \
