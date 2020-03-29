@@ -479,7 +479,7 @@ def create_container_env(
     subprocess.check_call(create_command, stderr=subprocess.STDOUT)
 
     shell_commands = [
-        'exec {} start -a {}'.format(orchestrator, container_name)
+        'exec {} start -ai {}'.format(orchestrator, container_name)
     ]
 
     update_commands = [
