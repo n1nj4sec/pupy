@@ -274,7 +274,13 @@ def build_templates(
                 'client/' + TEMPLATES[template] + '/build-docker.sh'
             ])
 
-            subprocess.check_call(args, stderr=subprocess.STDOUT)
+            try:
+                subprocess.check_call(args, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                if e.returncode == 139 and template == 'linux64':
+                    print("[!] Likely you must to enable vsyscall=emulate")
+
+                raise
 
             if persistent:
                 update_commands.append(
