@@ -76,6 +76,11 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    '-S', '--squash', default=False, action='store_true',
+    help='Use --squash feature (podman/docker)'
+)
+
+parser.add_argument(
     '-R', '--images-repo', default='alxchk',
     help='Use non-default toolchains repo (Use "local" to '
     'build all the things on your PC'
@@ -425,17 +430,22 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
 
 
 def create_container_env(
-        workdir, git_path, orchestrator, network, templates=[]):
+        workdir, git_path, orchestrator, network, templates=[], squash=False):
 
     print("[+] Build {} image ({})".format(orchestrator, ENV_IMAGE))
 
     build_command = [
-        orchestrator, 'build',
-        '--squash',
+        orchestrator, 'build'
+    ]
+
+    if squash:
+        build_command.append('--squash')
+
+    build_command.extend([
         '-t', ENV_IMAGE,
         '-f', 'conf/Dockerfile.env',
         os.path.join(git_path, 'pupy')
-    ]
+    ])
 
     try:
         with open(os.devnull, 'w') as devnull:
@@ -614,7 +624,7 @@ def main():
     if args.environment in ('podman', 'docker'):
         shell_cmds, update_cmds = create_container_env(
             workdir, git_folder, default_orchestrator,
-            args.network, templates
+            args.network, templates, args.squash
         )
 
         update_commands.extend(update_cmds)
