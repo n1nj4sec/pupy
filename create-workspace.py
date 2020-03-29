@@ -273,6 +273,7 @@ def build_templates(
 
             args.extend([
                 '--name=' + container_name,
+                '--security-opt', 'label=disable',
                 '--mount', 'type=bind,src=' + git_folder +
                 ',target=/build/workspace/project',
                 repo + 'tc-' + template + ':' + tag,
@@ -467,6 +468,7 @@ def create_container_env(
 
     create_command = [
         orchestrator, 'create',
+        '--security-opt', 'label=disable',
         '--hostname=pupy', '--network=' + network,
         '--name='+container_name,
         '--interactive', '--tty',
