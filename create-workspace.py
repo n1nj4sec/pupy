@@ -167,7 +167,7 @@ def check_programs(programs, available=False):
                 subprocess.check_call(args, stdout=devnull)
 
             ok.append(program)
-        except subprocess.CalledProcessError:
+        except (OSError, subprocess.CalledProcessError):
             messages.append(message)
 
     if available:
