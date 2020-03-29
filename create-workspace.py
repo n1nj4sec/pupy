@@ -13,14 +13,15 @@ import errno
 import tempfile
 import tarfile
 import hashlib
+import shutil
 
 if sys.version_info.major == 3:
     from urllib.request import urlopen
 else:
     from urllib2 import urlopen
 
-PODMAN_IMAGE = 'pupy-python2-image'
-PODMAN_CONTAINER = 'pupy-'
+ENV_IMAGE = 'pupy-python2-env'
+ENV_CONTAINER = 'pupy-'
 
 TEMPLATES = {
     'linux32': 'sources-linux',
@@ -60,14 +61,28 @@ templates_args.add_argument(
 )
 
 parser.add_argument(
-    '-P', '--podman', action='store_true',
-    help='Use podman instead of docker and virtualenv'
+    '-E', '--environment', choices=['virtualenv', 'docker', 'podman'],
+    default='virtualenv', help='The way to organize workspace bottle'
+)
+
+parser.add_argument(
+    '-N', '--network', default='host',
+    help='Network type for docker/podman. Default is host'
+)
+
+parser.add_argument(
+    '-P', '--persistent', default=False, action='store_true',
+    help='Do not remove docker/podman build image'
 )
 
 parser.add_argument(
     '-R', '--images-repo', default='alxchk',
     help='Use non-default toolchains repo (Use "local" to '
     'build all the things on your PC'
+)
+
+parser.add_argument(
+    '-T', '--image-tag', default='latest', help='Image tag'
 )
 
 parser.add_argument(
@@ -103,9 +118,34 @@ _REQUIRED_ABIS = {
     )
 }
 
+_ESCAPE = (
+    '"', '$', '`', '\\'
+)
 
-def check_programs(programs):
+
+def shstr(string):
+    result = ['"']
+
+    for char in string:
+        if char in _ESCAPE:
+            result.append('\\')
+        result.append(char)
+
+    result.append('"')
+    return ''.join(result)
+
+
+def get_place_digest(*args):
+    return hashlib.sha1(
+        b'\0'.join(
+            arg.encode('ascii') for arg in args
+        )
+    ).hexdigest()[:4]
+
+
+def check_programs(programs, available=False):
     messages = []
+    ok = []
 
     for program in programs:
         args, message = _REQUIRED_PROGRAMS[program]
@@ -113,10 +153,15 @@ def check_programs(programs):
         try:
             with open(os.devnull, 'w') as devnull:
                 subprocess.check_call(args, stdout=devnull)
+
+            ok.append(program)
         except subprocess.CalledProcessError:
             messages.append(message)
 
-    return messages
+    if available:
+        return ok
+    else:
+        return messages
 
 
 def check_abis(abis):
@@ -172,7 +217,8 @@ def get_changed_files(git_folder, prev_ref, current_ref='HEAD'):
     ], cwd=git_folder).split()
 
 
-def build_templates(git_folder, docker_repo, orchestrator, templates):
+def build_templates(
+        git_folder, docker_repo, orchestrator, templates, tag, persistent):
     print("[+] Compile templates: {}".format(templates))
 
     if docker_repo.lower().strip() == 'local':
@@ -185,31 +231,66 @@ def build_templates(git_folder, docker_repo, orchestrator, templates):
     elif orchestrator == 'podman':
         repo = 'localhost' + '/'
 
+    update_commands = []
+
     for template in templates:
-        container_name = 'build-pupy-' + template
+        container_name = 'build-pupy-' + template + '-' + get_place_digest(
+            git_folder
+        )
+
+        create_template = False
 
         try:
             with open(os.devnull, 'w') as devnull:
                 subprocess.check_call([
                     orchestrator, 'inspect', container_name
-                ], stdout=devnull)
+                ], stdout=devnull, stderr=devnull)
         except subprocess.CalledProcessError:
-            print("[+] Build {}: Create container {}".format(
+            create_template = True
+
+        if create_template:
+            print("[+] Build {} using {} (create)".format(
                 template, container_name))
 
-            subprocess.check_call([
-                orchestrator, 'create',
+            args = [
+                orchestrator, 'run'
+            ]
+
+            if not persistent:
+                args.append('--rm')
+
+            args.extend([
                 '--name=' + container_name,
                 '--mount', 'type=bind,src=' + git_folder +
                 ',target=/build/workspace/project',
-                repo + 'tc-' + template,
+                repo + 'tc-' + template + ':' + tag,
                 'client/' + TEMPLATES[template] + '/build-docker.sh'
             ])
 
-        print("[+] Build {} using {}".format(template, container_name))
-        subprocess.check_call([
-            orchestrator, 'start', '-a', container_name
-        ])
+            subprocess.check_call(args)
+
+            if persistent:
+                update_commands.append(
+                    orchestrator + ' start -a ' + shstr(container_name)
+                )
+            else:
+                update_commands.append(
+                    ' '.join(shstr(x) for x in args)
+                )
+
+        else:
+            print("[+] Build {} using {} (existing)".format(
+                template, container_name))
+
+            subprocess.check_call([
+                orchestrator, 'start', '-a', shstr(container_name)
+            ])
+
+            update_commands.append(
+                orchestrator + ' start -a ' + shstr(container_name)
+            )
+
+    return update_commands
 
 
 def fetch_templates(workdir, git_folder):
@@ -258,9 +339,18 @@ def makedirs_p(dirpath):
             raise
 
 
-def initialize_workdir(workdir):
-    for dirname in ('crypto', 'data', 'bin'):
+def initialize_workdir(workdir, gitdir):
+    for dirname in ('crypto', 'data', 'bin', 'config'):
         makedirs_p(os.path.join(workdir, dirname))
+
+    shutil.copy(
+        os.path.join(
+            gitdir, 'pupy', 'conf', 'pupy.conf.docker'
+        ),
+        os.path.join(
+            workdir, 'config', 'pupy.conf'
+        )
+    )
 
 
 def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
@@ -283,13 +373,12 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
     ], cwd=os.path.join(git_path, 'pupy'))
 
     shell_commands = [
-        'exec bin/python -OB {}/pupy/pupysh.py --workdir {} "$@"'.format(
-            repr(git_path), repr(workdir)
+        'exec {1}/bin/python -OB {0}/pupy/pupysh.py --workdir {1} "$@"'.format(
+            shstr(git_path), shstr(workdir)
         )
     ]
 
     update_commands = [
-        'set -xe',
         'cd {}'.format(git_path),
         'prev_ref=`git rev-parse HEAD`',
         'git pull --recurse-submodules=yes --autostash --rebase',
@@ -301,7 +390,10 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
         for target in templates:
             update_commands.extend([
                 'echo "[+] Rebuilding templates for {}"'.format(target),
-                '{} start -a build-pupy-{}'.format(orchestrator, target)
+                '{} start -a build-pupy-{}-{}'.format(
+                    orchestrator, target,
+                    get_place_digest(git_path)
+                )
             ])
     else:
         update_commands.extend([
@@ -315,51 +407,63 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
     return shell_commands, update_commands
 
 
-def create_podman_env(workdir, git_path, templates=[]):
-    print("[+] Build podman image ({})".format(PODMAN_IMAGE))
+def create_container_env(
+        workdir, git_path, orchestrator, network, templates=[]):
 
-    podman_build_command = [
-        'podman', 'build',
-        '-t', PODMAN_IMAGE,
-        '-f', 'conf/Dockerfile.podman',
+    print("[+] Build {} image ({})".format(orchestrator, ENV_IMAGE))
+
+    build_command = [
+        orchestrator, 'build',
+        '--squash',
+        '-t', ENV_IMAGE,
+        '-f', 'conf/Dockerfile.env',
         os.path.join(git_path, 'pupy')
     ]
 
-    subprocess.check_call(podman_build_command)
+    try:
+        with open(os.devnull, 'w') as devnull:
+            subprocess.check_call([
+                orchestrator, 'inspect', ENV_IMAGE
+            ], stdout=devnull, stderr=devnull)
+    except subprocess.CalledProcessError:
+        print("[+] Create pupysh environment image {}".format(
+            ENV_IMAGE
+        ))
 
-    container_name = PODMAN_CONTAINER + hashlib.sha1(
-        workdir.encode('ascii') + b'\0' + git_path.encode('ascii')
-    ).hexdigest()[:4]
+        subprocess.check_call(build_command)
+
+    container_name = ENV_CONTAINER + get_place_digest(
+        workdir, git_path
+    )
 
     print("[+] Create podman container ({})".format(container_name))
 
-    podman_create_command = [
-        'podman', 'create',
-        '--hostname=pupy', '--network=host',
+    create_command = [
+        orchestrator, 'create',
+        '--hostname=pupy', '--network=' + network,
         '--name='+container_name,
         '--interactive', '--tty',
         '--mount', 'type=bind,src=' + os.path.join(
                 git_path, 'pupy') + ',target=/pupy',
         '--mount', 'type=bind,src=' + workdir + ',target=/project',
-        PODMAN_IMAGE
+        ENV_IMAGE
     ]
 
-    subprocess.check_call(podman_create_command)
+    subprocess.check_call(create_command)
 
     shell_commands = [
-        'exec podman start -a ' + container_name
+        'exec {} start -a {}'.format(orchestrator, container_name)
     ]
 
     update_commands = [
-        'set -xe',
         'cd {}'.format(git_path),
         'prev_ref=`git rev-parse HEAD`',
         'git pull --recurse-submodules=yes --autostash --rebase',
-        'echo "[+] Update podman environment"',
-        ' '.join(repr(x) for x in podman_build_command),
-        'podman kill ' + container_name + ' || true',
-        'podman rm ' + container_name,
-        ' '.join(repr(x) for x in podman_create_command),
+        'echo "[+] Update {} environment"'.format(orchestrator),
+        ' '.join(shstr(x) for x in build_command),
+        orchestrator + ' kill ' + container_name + ' || true',
+        orchestrator + ' rm ' + container_name,
+        ' '.join(shstr(x) for x in create_command),
         'if (git diff --name-only $prev_ref HEAD | grep client/ >/dev/null)',
         'then',
     ]
@@ -368,7 +472,9 @@ def create_podman_env(workdir, git_path, templates=[]):
         for target in templates:
             update_commands.extend([
                 'echo "[+] Rebuilding templates for {}"'.format(target),
-                'podman start -a build-pupy-{}'.format(target)
+                '{} start -a build-pupy-{}-{}'.format(
+                    orchestrator, target, get_place_digest(git_path)
+                )
             ])
     else:
         update_commands.extend([
@@ -385,31 +491,48 @@ def create_podman_env(workdir, git_path, templates=[]):
 def main():
     args = parser.parse_args()
 
+    default_orchestrator = 'docker'
+
+    # Check some programs in advance
+    if args.environment == 'virtualenv':
+        available = check_programs([
+            'podman', 'docker'
+        ], available=True)
+
+        for orchestrator in ('podman', 'docker'):
+            if orchestrator in available:
+                default_orchestrator = orchestrator
+                break
+    else:
+        default_orchestrator = args.environment
+
     required_programs = {'git'}
     required_modules = set()
     required_abis = set()
 
-    orchestrator = 'docker'
-
-    if sys.version_info.major == 3 and not args.podman:
+    if sys.version_info.major == 3 and args.environment == 'virtualenv':
         sys.exit(
             "Python 3 is not supported. If your can't or don't want"
             " to install python 2 to the system, "
-            "use podman or docker-compose.\n"
-            "If you have podman configured, use -P flag."
+            "use -E option to select podman or docker to build bottle.\n"
         )
 
-    if args.podman:
-        orchestrator = 'podman'
+    if not args.do_not_compile_templates and default_orchestrator == 'podman' \
+            and args.persistent:
+        print(
+            'Warning! You have chosen persistent images. '
+            'This known to have problems with podman + fuse-overlayfs'
+        )
 
-        required_programs.add(orchestrator)
-    else:
+    if args.environment == 'virtualenv':
         required_modules.add('virtualenv')
+        required_programs.add(default_orchestrator)
+    else:
+        required_programs.add(args.environment)
 
     if not args.do_not_compile_templates:
         required_abis.add('vsyscall32')
-        if not args.podman:
-            required_programs.append('docker')
+        required_programs.add(default_orchestrator)
 
     workdir = os.path.abspath(args.workdir)
 
@@ -446,6 +569,10 @@ def main():
 
     templates = []
 
+    update_commands = [
+        'set -xe'
+    ]
+
     if not args.do_not_compile_templates:
         templates.extend(
             set(
@@ -454,32 +581,39 @@ def main():
             )
         )
 
-        build_templates(
-            git_folder, args.images_repo,
-            'podman' if args.podman else 'docker',
-            templates
+        update_commands.extend(
+            build_templates(
+                git_folder, args.images_repo,
+                default_orchestrator,
+                templates, args.image_tag, args.persistent
+            )
         )
 
     print("[+] Create workdir")
     makedirs_p(workdir)
 
     shell_cmds = []
-    update_cmds = []
 
-    if args.podman:
-        shell_cmds, update_cmds = create_podman_env(
-            workdir, git_folder, templates
+    if args.environment in ('podman', 'docker'):
+        shell_cmds, update_cmds = create_container_env(
+            workdir, git_folder, default_orchestrator,
+            args.network, templates
         )
+
+        update_commands.extend(update_cmds)
+
     else:
         shell_cmds, update_cmds = create_virtualenv(
-            workdir, git_folder, orchestrator, templates
+            workdir, git_folder, 'docker', templates
         )
+
+        update_commands.extend(update_cmds)
 
     if args.download_templates_from_github_releases:
         fetch_templates(workdir, git_folder)
 
     print("[+] Initialize workdir")
-    initialize_workdir(workdir)
+    initialize_workdir(workdir, git_folder)
 
     wrappers = ("pupysh", "pupygen")
 
@@ -492,7 +626,7 @@ def main():
         pupysh.write(
             '\n'.join([
                 '#!/bin/sh',
-            ] + shell_cmds + [''])
+            ] + shell_cmds) + '\n'
         )
 
         os.chmod(pupysh_path, 0o755)
@@ -501,7 +635,7 @@ def main():
         pupysh.write(
             '\n'.join([
                 '#!/bin/sh',
-            ] + update_cmds + [''])
+            ] + update_commands) + '\n'
         )
 
         os.chmod(pupysh_update_path, 0o755)
