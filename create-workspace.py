@@ -14,6 +14,7 @@ import tempfile
 import tarfile
 import hashlib
 import shutil
+import resource
 
 if sys.version_info.major == 3:
     from urllib.request import urlopen
@@ -115,14 +116,6 @@ _REQUIRED_PROGRAMS = {
     )
 }
 
-_REQUIRED_ABIS = {
-    'vsyscall32': (
-        ('/proc/sys/abi/vsyscall32', int, 1),
-        'You may need to have vsyscall enabled:\n'
-        '~> sudo sysctl -w abi.vsyscall32=1'
-    )
-}
-
 _ESCAPE = (
     '"', '$', '`', '\\'
 )
@@ -174,21 +167,6 @@ def check_programs(programs, available=False):
         return ok
     else:
         return messages
-
-
-def check_abis(abis):
-    messages = []
-
-    for abi in abis:
-        (filepath, content_type, required_value), message = _REQUIRED_ABIS[abi]
-        try:
-            if content_type(
-                    open(filepath, 'r').read().strip()) != required_value:
-                messages.append(message)
-        except OSError:
-            messages.append(message)
-
-    return messages
 
 
 def check_modules(modules):
@@ -273,6 +251,7 @@ def build_templates(
 
             args.extend([
                 '--name=' + container_name,
+                '--ulimit', 'nofile=65535:65535',
                 '--security-opt', 'label=disable',
                 '--mount', 'type=bind,src=' + git_folder +
                 ',target=/build/workspace/project',
@@ -584,12 +563,18 @@ def main():
     )
 
     messages.extend(
-        check_abis(required_abis)
-    )
-
-    messages.extend(
         check_modules(required_modules)
     )
+
+    if not args.do_not_compile_templates and default_orchestrator == 'podman':
+        _, nofile_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if nofile_limit < 65535:
+            messages.append(
+                'To build templates using podman RLIMIT_NOFILE (ulimit -n) '
+                'must be >= 65535.\n'
+                'Read documentation for your linux distribution to find '
+                'how to change them.'
+            )
 
     if messages:
         sys.exit('\n'.join(messages))
