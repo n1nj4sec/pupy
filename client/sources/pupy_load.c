@@ -192,7 +192,12 @@ static const PSTR Kernel32AllowedPrefixes[] = {
 
 static
 LONG WINAPI OnThreadCrash(PVOID ExceptionInfo) {
+
+#ifdef POSTMORTEM
     LONG lVerdict = Postmortem(ExceptionInfo);
+#else
+    LONG lVerdict = 0;
+#endif
 
     if (on_exit_session_cb && !on_exit_session_called) {
         dprint("Try to notify about client death\n");
@@ -203,18 +208,18 @@ LONG WINAPI OnThreadCrash(PVOID ExceptionInfo) {
         dprint("Try to notify about client death - done\n");
     }
 
+    if (ExceptionInfo == NULL) {
+        dprint("Non-Exception crash. Terminate process\n");
+        TerminateProcess(GetCurrentProcess(), 0);
+    }
+
     return lVerdict;
 }
 
 void OnAbortHandler(int signum)
 {
     dprint("Get abort() exception!\n");
-    RaiseException(
-        EXCEPTION_NONCONTINUABLE_EXCEPTION,
-        0,
-        0,
-        NULL
-    );
+    OnThreadCrash(NULL);
 }
 
 void initialize(BOOL isDll) {

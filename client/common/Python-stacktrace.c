@@ -20,7 +20,10 @@ int Py_GetCurrentThreadStackTrace(Py_GetStackTraceCb_t cb, void *cbdata) {
     PyCode_Addr2Line_t pCode_Addr2Line = NULL;
 
     PyGILState_STATE GIL_state;
+    PyThreadState* Current_Thread_state;
     PyThreadState* Thread_state;
+    BOOL blCurrentThreadDumped = FALSE;
+    DWORD dwDumpedThreadsCount = 0;
 
     HMODULE hPythonLib = CheckLibraryLoaded(PYTHON_LIB_NAME);
     if (!hPythonLib) {
@@ -68,8 +71,8 @@ int Py_GetCurrentThreadStackTrace(Py_GetStackTraceCb_t cb, void *cbdata) {
         return -4;
     }
 
-    Thread_state = pGILState_GetThisThreadState();
-    if (!Thread_state) {
+    Current_Thread_state = pGILState_GetThisThreadState();
+    if (!Current_Thread_state) {
         dprint(
             "Py_GetCurrentThreadStackTrace: Thread state is NULL\n"
         );
@@ -80,47 +83,69 @@ int Py_GetCurrentThreadStackTrace(Py_GetStackTraceCb_t cb, void *cbdata) {
     dprint("Py_GetCurrentThreadStackTrace: start\n");
     GIL_state = pGILState_Ensure();
 
-    if (Thread_state->frame) {
-        PyFrameObject *frame = Thread_state->frame;
+    Thread_state = Current_Thread_state;
 
-        dprint(
-            "Py_GetCurrentThreadStackTrace: parse %p (Thread ID: %d)\n",
-            frame, Thread_state->thread_id
-        );
+    while (Thread_state && dwDumpedThreadsCount ++ < 256) {
+        if (Thread_state == Current_Thread_state) {
+            if (blCurrentThreadDumped) {
+                dprint("Current thread was already dumped\n");
+                Thread_state = Thread_state->next;
+                continue;
+            } else {
+                dprint("Dumping current thread first time\n");
+                cb(cbdata, "Current Thread", NULL, Thread_state->thread_id);
+            }
+        } else {
+            cb(cbdata, "Thread", NULL, Thread_state->thread_id);
+        }
 
-        dprint(
-            "Py_GetCurrentThreadStackTrace: Top frame object: %p size=%d refs=%d\n",
-            frame, frame->ob_size, frame->ob_refcnt
-        );
-
-        dprint(
-            "Py_GetCurrentThreadStackTrace: Top frame code object: %p refs=%d\n",
-            frame->f_code, frame->f_code->ob_refcnt
-        );
-
-        dprint(
-            "Py_GetCurrentThreadStackTrace: Top frame code object: function=%s, file=%s\n",
-            frame->f_code->co_name, frame->f_code->co_filename
-        );
-
-        while (frame) {
-            int line = pCode_Addr2Line(frame->f_code, frame->f_lasti);
-            const char *funcname = PyString_AsString(frame->f_code->co_name);
-            const char *filename = PyString_AsString(frame->f_code->co_filename);
+        if (Thread_state->frame) {
+            PyFrameObject *frame = Thread_state->frame;
 
             dprint(
-                "Py_GetCurrentThreadStackTrace: func=%s file=%s line=%d\n",
-                funcname, filename, line
+                "Py_GetCurrentThreadStackTrace: parse %p (Thread ID: %d)\n",
+                frame, Thread_state->thread_id
             );
 
-            cb(cbdata, funcname, filename, line);
+            dprint(
+                "Py_GetCurrentThreadStackTrace: Top frame object: %p size=%d refs=%d\n",
+                frame, frame->ob_size, frame->ob_refcnt
+            );
 
-            frame = frame->f_back;
+            dprint(
+                "Py_GetCurrentThreadStackTrace: Top frame code object: %p refs=%d\n",
+                frame->f_code, frame->f_code->ob_refcnt
+            );
+
+            dprint(
+                "Py_GetCurrentThreadStackTrace: Top frame code object: function=%s, file=%s\n",
+                frame->f_code->co_name, frame->f_code->co_filename
+            );
+
+            while (frame) {
+                int line = pCode_Addr2Line(frame->f_code, frame->f_lasti);
+                const char *funcname = PyString_AsString(frame->f_code->co_name);
+                const char *filename = PyString_AsString(frame->f_code->co_filename);
+
+                dprint(
+                    "Py_GetCurrentThreadStackTrace: func=%s file=%s line=%d\n",
+                    funcname, filename, line
+                );
+
+                cb(cbdata, funcname, filename, line);
+
+                frame = frame->f_back;
+            }
         }
-    } else {
-        dprint(
-            "Py_GetCurrentThreadStackTrace: Thread frame is NULL\n"
-        );
+
+        if (Thread_state == Current_Thread_state) {
+            dprint("Switching to all threads\n");
+            Thread_state = Current_Thread_state->interp->tstate_head;
+            blCurrentThreadDumped = TRUE;
+        } else {
+            dprint("Continue to dump all threads\n");
+            Thread_state = Thread_state->next;
+        }
     }
 
     pGILState_Release(GIL_state);

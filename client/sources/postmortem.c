@@ -64,14 +64,19 @@ typedef HRESULT (WINAPI *SHGetFolderPathAndSubDirW_t)(
   LPWSTR pszPath
 );
 
+typedef DWORD (WINAPI *SymSetOptions_t)(
+  DWORD SymOptions
+);
+
+typedef BOOL (WINAPI *SymInitialize_t)(
+  HANDLE hProcess,
+  PCSTR  UserSearchPath,
+  BOOL   fInvadeProcess
+);
+
 typedef PVOID (WINAPI *SymFunctionTableAccess_t)(
   HANDLE hProcess,
   DWORD  AddrBase
-);
-
-typedef PVOID (WINAPI *SymFunctionTableAccess64_t)(
-  HANDLE hProcess,
-  DWORD64  AddrBase
 );
 
 typedef DWORD (WINAPI *SymGetModuleBase_t)(
@@ -229,12 +234,20 @@ void SavePythonStackTrace(
   int buffer_len;
   HANDLE hExceptionInfoFile = (HANDLE) pvCallbackData;
 
-  dprint("Python stack: %s %s:%d\n", pszFunction, pszFile, dwLine);
+  if (pszFile == NULL) {
+    buffer_len = snprintf(
+      buffer, sizeof(buffer)-1,
+      "\n%s [%d]\n",
+      pszFunction, dwLine
+    );
+  } else {
+    dprint("Python stack: %s %s:%d\n", pszFunction, pszFile, dwLine);
 
-  buffer_len = snprintf(
-    buffer, sizeof(buffer)-1, "+ %s\t%s:%d\n",
-    pszFunction, pszFile, dwLine
-  );
+    buffer_len = snprintf(
+      buffer, sizeof(buffer)-1, "+ %s\t%s:%d\n",
+      pszFunction, pszFile, dwLine
+    );
+  }
 
   if (buffer_len > 0)
     WriteFile(
@@ -243,8 +256,36 @@ void SavePythonStackTrace(
     );
 }
 
+#ifdef _WIN64
 static
-VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
+PVOID WINAPI PupyFunctionTableAccess(HANDLE  hProcess, DWORD64 AddrBase) {
+  // hProcess - Ignoree
+  DWORD64 ImageBase;
+  return RtlLookupFunctionEntry((PVOID) AddrBase, &ImageBase, NULL);
+}
+#endif
+
+static
+#ifdef _WIN64
+DWORD64 WINAPI PupyGetModuleBase(HANDLE  hProcess, DWORD64 pvAddr)
+#else
+DWORD WINAPI PupyGetModuleBase(HANDLE  hProcess, DWORD pvAddr)
+#endif
+{
+  // hProcess - Ignoree
+  PVOID pvModuleBase = NULL;
+  if (MyFindMemoryModuleNameByAddr(pvAddr, NULL, &pvModuleBase, NULL))
+    return pvModuleBase;
+  else if (GetModuleHandleExA(
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,(LPCSTR) pvAddr, &pvModuleBase))
+      return pvModuleBase;
+  else
+    return 0;
+}
+
+
+static
+VOID SaveContextStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
 {
     BOOL                result;
     BOOL                blSymbolFound;
@@ -261,11 +302,11 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
     PIMAGEHLP_SYMBOL64        symbol = &(symbol_storage.symbol);
     DWORD64                   displacement;
 
-    SymFunctionTableAccess64_t pSymFunctionTableAccess64 = (SymFunctionTableAccess64_t)
-      GetProcAddress(hDbgHelp, "SymFunctionTableAccess64");
+    SymSetOptions_t pSymSetOptions = (SymSetOptions_t)
+      GetProcAddress(hDbgHelp, "SymSetOptions");
 
-    SymGetModuleBase64_t pSymGetModuleBase64 = (SymGetModuleBase64_t)
-      GetProcAddress(hDbgHelp, "SymGetModuleBase64");
+    SymInitialize_t pSymInitialize = (SymInitialize_t)
+      GetProcAddress(hDbgHelp, "SymInitialize");
 
     SymGetSymFromAddr64_t pSymGetSymFromAddr64 = (SymGetSymFromAddr64_t)
       GetProcAddress(hDbgHelp, "SymGetSymFromAddr64");
@@ -273,8 +314,7 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
     StackWalk_t pStackWalk = (StackWalk_t)
       GetProcAddress(hDbgHelp, "StackWalk64");
 
-    if (! (pSymFunctionTableAccess64 && pSymGetModuleBase64 &&
-        pSymGetSymFromAddr64 && pStackWalk)) {
+    if (! (pSymGetSymFromAddr64 && pStackWalk)) {
       dprint("Not all functions find at dbghelp\n");
       return;
     }
@@ -285,11 +325,14 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
     PIMAGEHLP_SYMBOL        symbol = &(symbol_storage.symbol);
     DWORD                   displacement;
 
+    SymSetOptions_t pSymSetOptions = (SymSetOptions_t)
+      GetProcAddress(hDbgHelp, "SymSetOptions");
+
+    SymInitialize_t pSymInitialize = (SymInitialize_t)
+      GetProcAddress(hDbgHelp, "SymInitialize");
+
     SymFunctionTableAccess_t pSymFunctionTableAccess = (SymFunctionTableAccess_t)
       GetProcAddress(hDbgHelp, "SymFunctionTableAccess");
-
-    SymGetModuleBase_t pSymGetModuleBase = (SymGetModuleBase_t)
-      GetProcAddress(hDbgHelp, "SymGetModuleBase");
 
     SymGetSymFromAddr_t pSymGetSymFromAddr = (SymGetSymFromAddr_t)
       GetProcAddress(hDbgHelp, "SymGetSymFromAddr");
@@ -297,8 +340,7 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
     StackWalk_t pStackWalk = (StackWalk_t)
       GetProcAddress(hDbgHelp, "StackWalk");
 
-    if (! (pSymFunctionTableAccess && pSymGetModuleBase &&
-        pSymGetSymFromAddr && pStackWalk)) {
+    if (! (pSymFunctionTableAccess && pSymGetSymFromAddr && pStackWalk)) {
       dprint("Not all functions find at dbghelp\n");
       return;
     }
@@ -308,6 +350,15 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
       dprint("pContext is NULL\n");
       return;
     }
+
+    pSymSetOptions(
+      SYMOPT_NO_PROMPTS | SYMOPT_NO_IMAGE_SEARCH | SYMOPT_IGNORE_NT_SYMPATH | \
+        SYMOPT_DISABLE_SYMSRV_AUTODETECT | SYMOPT_DEFERRED_LOADS
+    );
+
+    pSymInitialize(
+      GetCurrentProcess(), NULL, TRUE
+    );
 
     memset(&stack, 0, sizeof(stack));
 
@@ -346,8 +397,8 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
             &stack,
             pContext,
             NULL,
-            pSymFunctionTableAccess64,
-            pSymGetModuleBase64,
+            PupyFunctionTableAccess,
+            PupyGetModuleBase,
             NULL
         );
 
@@ -364,7 +415,7 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
             pContext,
             NULL,
             pSymFunctionTableAccess,
-            pSymGetModuleBase,
+            PupyGetModuleBase,
             NULL
         );
 
@@ -377,7 +428,7 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
           buffer_len = snprintf(
               buffer,
               sizeof(buffer) - 1,
-              "+ %lu:\t%s\t(PC %p)\n",
+              "+ %lu:\tSYS:%s\t(PC %p)\n",
               frame,
               symbol->Name,
               stack.AddrPC.Offset
@@ -391,20 +442,46 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
               buffer_len = snprintf(
                 buffer,
                 sizeof(buffer) - 1,
-                "+ %lu:\t%s+0x%x\t(PC %p)\n",
+                "+ %lu:\t[PC %p]\tMEM:%s+0x%x\n",
                 frame,
+                stack.AddrPC.Offset,
                 pcModuleName,
-                ((UINT_PTR)stack.AddrPC.Offset) - ((UINT_PTR)pcModuleBase),
-                stack.AddrPC.Offset
+                ((UINT_PTR)stack.AddrPC.Offset) - ((UINT_PTR)pcModuleBase)
             );
           } else {
-            buffer_len = snprintf(
-                buffer,
-                sizeof(buffer) - 1,
-                "+ %lu:\t?\t\t\t(PC %p)\n",
-                frame,
-                stack.AddrPC.Offset
+            HMODULE hSymbolModule;
+            CHAR szModName[MAX_PATH];
+            PCHAR pcModName = szModName;
+            BOOL blFound = GetModuleHandleExA(
+              GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+              (LPCSTR) stack.AddrPC.Offset,
+              &hSymbolModule
             );
+
+            if (blFound && GetModuleFileNameA(
+                hSymbolModule, szModName, sizeof(szModName))) {
+
+              PCHAR pcLastDm = strrchr(szModName, '\\');
+              if (pcLastDm)
+                pcModName = pcLastDm + 1;
+
+              buffer_len = snprintf(
+                  buffer,
+                  sizeof(buffer) - 1,
+                  "+ %lu:\t[PC %p]\tSYS:%s+0x%x\n",
+                  frame, stack.AddrPC.Offset,
+                  pcModName,
+                  ((UINT_PTR)stack.AddrPC.Offset) - ((UINT_PTR)hSymbolModule)
+              );
+            } else {
+              buffer_len = snprintf(
+                  buffer,
+                  sizeof(buffer) - 1,
+                  "+ %lu:\t[PC %p]\t?\t\t\n",
+                  frame,
+                  stack.AddrPC.Offset
+              );
+            }
           }
         }
 
@@ -413,6 +490,126 @@ VOID SaveStack(HMODULE hDbgHelp, HANDLE hExceptionInfoFile, PCONTEXT pContext)
 
         if( !result )
             break;
+    }
+}
+
+#ifdef _WIN64
+static
+USHORT GetBackTrace(USHORT usFrames, PVOID* BackTrace)
+{
+    USHORT usFrame;
+    CONTEXT ContextRecord;
+    RtlCaptureContext(&ContextRecord);
+
+    dprint("GetBackTrace: Start for %p\n", ContextRecord.Rip);
+
+    for (usFrame = 0; usFrame < usFrames; usFrame++)
+    {
+        DWORD64 ImageBase;
+        PVOID HandlerData;
+        DWORD64 EstablisherFrame;
+
+        PRUNTIME_FUNCTION pFunctionEntry = RtlLookupFunctionEntry(
+          ContextRecord.Rip, &ImageBase, NULL
+        );
+
+        if (pFunctionEntry == NULL) {
+            dprint("GetBackTrace: Break on %p\n", ContextRecord.Rip);
+            break;
+        }
+
+        RtlVirtualUnwind(
+          0,
+          ImageBase,
+          ContextRecord.Rip,
+          pFunctionEntry,
+          &ContextRecord,
+          &HandlerData,
+          &EstablisherFrame,
+          NULL
+        );
+
+        BackTrace[usFrame] = (PVOID)ContextRecord.Rip;
+    }
+
+    return usFrame;
+}
+#endif
+
+static
+VOID SaveCallingStack(HANDLE hExceptionInfoFile)
+{
+    PVOID pvFrames[MAX_STACK_FRAMES];
+    PVOID pvModuleBase;
+    LPCSTR pcModuleName;
+    USHORT usFrames = 0;
+    USHORT usFrame;
+    DWORD dwWritten;
+
+    char buffer[1024];
+    int buffer_len;
+
+#ifdef _WIN64
+    usFrames = GetBackTrace(
+      MAX_STACK_FRAMES, pvFrames
+    );
+#else
+    usFrames = CaptureStackBackTrace(
+      0, MAX_STACK_FRAMES, pvFrames, NULL
+    );
+#endif
+
+    for(usFrame = 0; usFrame < usFrames; usFrame ++) {
+
+      if (MyFindMemoryModuleNameByAddr(
+            pvFrames[usFrame], &pcModuleName, &pvModuleBase, NULL)) {
+          buffer_len = snprintf(
+            buffer,
+            sizeof(buffer) - 1,
+            "+ %u:\t[PC %p]\tMEM:%s+0x%x\n",
+            usFrame,
+            pvFrames[usFrame],
+            pcModuleName,
+            ((UINT_PTR) pvFrames[usFrame]) - ((UINT_PTR) pvModuleBase)
+        );
+      } else {
+        HMODULE hSymbolModule;
+        CHAR szModName[MAX_PATH];
+        PCHAR pcModName = szModName;
+        BOOL blFound = GetModuleHandleExA(
+          GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+          (LPCSTR) pvFrames[usFrame],
+          &hSymbolModule
+        );
+
+        if (blFound && GetModuleFileNameA(
+            hSymbolModule, szModName, sizeof(szModName))) {
+
+          PCHAR pcLastDm = strrchr(szModName, '\\');
+          if (pcLastDm)
+            pcModName = pcLastDm + 1;
+
+          buffer_len = snprintf(
+              buffer,
+              sizeof(buffer) - 1,
+              "+ %lu:\t[PC %p]\tSYS:%s+0x%x\n",
+              usFrame, pvFrames[usFrame],
+              pcModName,
+              ((UINT_PTR)pvFrames[usFrame]) - ((UINT_PTR)hSymbolModule)
+          );
+        } else {
+          buffer_len = snprintf(
+              buffer,
+              sizeof(buffer) - 1,
+              "+ %lu:\t[PC %p]\t?\t\t\n",
+              usFrame,
+              pvFrames[usFrame]
+          );
+        }
+      }
+
+      if (buffer_len > 0)
+        WriteFile(hExceptionInfoFile, buffer, buffer_len, &dwWritten, NULL);
     }
 }
 
@@ -471,11 +668,15 @@ VOID MyEnumerateLoadedLibraries(HANDLE hExceptionInfoFile)
 }
 
 static
-void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* pExceptionPointers) {
+void SaveExceptionInfo(
+    HMODULE hDbgHelp, LPCWSTR pwzFolder,
+      EXCEPTION_POINTERS* pExceptionPointers) {
+
     HANDLE hExceptionInfoFile = INVALID_HANDLE_VALUE;
     WCHAR einfo_path[MAX_PATH];
     CHAR einfo_buf[8192];
     DWORD dwWritten;
+
     int einfo_buf_size;
     int pystack_saved;
 
@@ -483,8 +684,7 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
 
     if (!(pExceptionPointers && pExceptionPointers->ExceptionRecord
             && pExceptionPointers->ContextRecord)) {
-      dprint("No exception info\n");
-      return;
+      dprint("No exception info!\n");
     }
 
     _snwprintf(
@@ -496,9 +696,9 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
 
     hExceptionInfoFile = CreateFileW(
       einfo_path,
-      GENERIC_READ | GENERIC_WRITE,
+      FILE_APPEND_DATA,
       0, NULL,
-      CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+      OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL,
       NULL
     );
 
@@ -507,64 +707,74 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
       return;
     }
 
-    einfo_buf_size = snprintf(
-      einfo_buf, sizeof(einfo_buf) - 1,
-      "Catch fatal exception: Code: %08x (%s)\n"
-      "Flags: %08x Address: %p\n"
-      "Registers:\n"
+    if (pExceptionPointers) {
+      einfo_buf_size = snprintf(
+        einfo_buf, sizeof(einfo_buf) - 1,
+        "\nCatch fatal exception: Code: %08x (%s)\n"
+        "Flags: %08x Address: %p\n"
+        "Registers:\n"
 
 #ifdef _WIN64
-      "RSP: %016x RBP: %016x RIP: %016x\n"
-      "RAX: %016x RBX: %016x RCX: %016x RDX: %016x\n"
-      "RSI: %016x RDI: %016x R8:  %016x R9:  %016x\n"
-      "R10: %016x R11: %016x R12: %016x R13: %016x\n"
-      "R14: %016x R15: %016x\n",
+        "RSP: %016x RBP: %016x RIP: %016x\n"
+        "RAX: %016x RBX: %016x RCX: %016x RDX: %016x\n"
+        "RSI: %016x RDI: %016x R8:  %016x R9:  %016x\n"
+        "R10: %016x R11: %016x R12: %016x R13: %016x\n"
+        "R14: %016x R15: %016x\n",
 #else
-      "ESP: %08x EBP: %08x EIP: %08x\n"
-      "EAX: %08x EBX: %08x ECX: %08x EDX: %08x\n"
-      "ESI: %08x EDI: %08x\n",
+        "ESP: %08x EBP: %08x EIP: %08x\n"
+        "EAX: %08x EBX: %08x ECX: %08x EDX: %08x\n"
+        "ESI: %08x EDI: %08x\n",
 #endif
 
-      pExceptionPointers->ExceptionRecord->ExceptionCode,
-      code2str(pExceptionPointers->ExceptionRecord->ExceptionCode),
-      pExceptionPointers->ExceptionRecord->ExceptionFlags,
-      pExceptionPointers->ExceptionRecord->ExceptionAddress,
+        pExceptionPointers->ExceptionRecord->ExceptionCode,
+        code2str(pExceptionPointers->ExceptionRecord->ExceptionCode),
+        pExceptionPointers->ExceptionRecord->ExceptionFlags,
+        pExceptionPointers->ExceptionRecord->ExceptionAddress,
 
 #ifdef _WIN64
-      pExceptionPointers->ContextRecord->Rsp,
-      pExceptionPointers->ContextRecord->Rbp,
-      pExceptionPointers->ContextRecord->Rip,
-      pExceptionPointers->ContextRecord->Rax,
-      pExceptionPointers->ContextRecord->Rbx,
-      pExceptionPointers->ContextRecord->Rcx,
-      pExceptionPointers->ContextRecord->Rdx,
-      pExceptionPointers->ContextRecord->Rsi,
-      pExceptionPointers->ContextRecord->Rdi,
-      pExceptionPointers->ContextRecord->R8,
-      pExceptionPointers->ContextRecord->R9,
-      pExceptionPointers->ContextRecord->R10,
-      pExceptionPointers->ContextRecord->R11,
-      pExceptionPointers->ContextRecord->R12,
-      pExceptionPointers->ContextRecord->R13,
-      pExceptionPointers->ContextRecord->R14,
-      pExceptionPointers->ContextRecord->R15
+        pExceptionPointers->ContextRecord->Rsp,
+        pExceptionPointers->ContextRecord->Rbp,
+        pExceptionPointers->ContextRecord->Rip,
+        pExceptionPointers->ContextRecord->Rax,
+        pExceptionPointers->ContextRecord->Rbx,
+        pExceptionPointers->ContextRecord->Rcx,
+        pExceptionPointers->ContextRecord->Rdx,
+        pExceptionPointers->ContextRecord->Rsi,
+        pExceptionPointers->ContextRecord->Rdi,
+        pExceptionPointers->ContextRecord->R8,
+        pExceptionPointers->ContextRecord->R9,
+        pExceptionPointers->ContextRecord->R10,
+        pExceptionPointers->ContextRecord->R11,
+        pExceptionPointers->ContextRecord->R12,
+        pExceptionPointers->ContextRecord->R13,
+        pExceptionPointers->ContextRecord->R14,
+        pExceptionPointers->ContextRecord->R15
 #else
-      pExceptionPointers->ContextRecord->Esp,
-      pExceptionPointers->ContextRecord->Ebp,
-      pExceptionPointers->ContextRecord->Eip,
-      pExceptionPointers->ContextRecord->Eax,
-      pExceptionPointers->ContextRecord->Ebx,
-      pExceptionPointers->ContextRecord->Ecx,
-      pExceptionPointers->ContextRecord->Edx,
-      pExceptionPointers->ContextRecord->Esi,
-      pExceptionPointers->ContextRecord->Edi
+        pExceptionPointers->ContextRecord->Esp,
+        pExceptionPointers->ContextRecord->Ebp,
+        pExceptionPointers->ContextRecord->Eip,
+        pExceptionPointers->ContextRecord->Eax,
+        pExceptionPointers->ContextRecord->Ebx,
+        pExceptionPointers->ContextRecord->Ecx,
+        pExceptionPointers->ContextRecord->Edx,
+        pExceptionPointers->ContextRecord->Esi,
+        pExceptionPointers->ContextRecord->Edi
 #endif
-    );
-
-    if (einfo_buf_size > 0)
-      WriteFile(
-        hExceptionInfoFile, einfo_buf, einfo_buf_size, &dwWritten, NULL
       );
+
+      if (einfo_buf_size > 0)
+        WriteFile(
+          hExceptionInfoFile, einfo_buf, einfo_buf_size, &dwWritten, NULL
+        );
+    } else {
+        static const char no_exception_header[] = "\nNon-exception crash report\n";
+        DWORD dwWritten = 0;
+
+        WriteFile(
+          hExceptionInfoFile, no_exception_header, sizeof(no_exception_header)-1,
+          &dwWritten, NULL
+        );
+    }
 
     dprint("Enumerating libraries..\n");
     WriteToFile(hExceptionInfoFile, "\nMemory modules:\n");
@@ -573,14 +783,27 @@ void SaveExceptionInfo(HMODULE hDbgHelp, LPCWSTR pwzFolder, EXCEPTION_POINTERS* 
     WriteToFile(hExceptionInfoFile, "\nNormal modules:\n");
     MyEnumerateLoadedLibraries(hExceptionInfoFile);
 
-    if (hDbgHelp) {
-      dprint("Generating stack trace ..\n");
-      WriteToFile(hExceptionInfoFile, "\nStack trace:\n");
-      SaveStack(hDbgHelp, hExceptionInfoFile, pExceptionPointers->ContextRecord);
+    dprint("Generating stack trace ..\n");
+
+    if (pExceptionPointers) {
+      if (hDbgHelp) {
+        WriteToFile(hExceptionInfoFile, "\nException Stack trace:\n");
+        SaveContextStack(
+          hDbgHelp, hExceptionInfoFile, pExceptionPointers->ContextRecord
+        );
+      } else {
+        WriteToFile(
+          hExceptionInfoFile,
+          "\nFailed to save Exception Stack trace: DBGHELP not found\n"
+        );
+      }
+    } else {
+      WriteToFile(hExceptionInfoFile, "\nCurrent stack trace:\n");
+      SaveCallingStack(hExceptionInfoFile);
     }
 
     dprint("Try to save python stack\n");
-    WriteToFile(hExceptionInfoFile, "\nCurrent Python stack (if any):\n");
+    WriteToFile(hExceptionInfoFile, "\nCurrent Python stacks (if any):\n");
 
     pystack_saved = Py_GetCurrentThreadStackTrace(
       SavePythonStackTrace, (PVOID) hExceptionInfoFile
@@ -607,8 +830,8 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
       pExceptionPointers->ExceptionRecord->ExceptionAddress
     );
   } else {
-      dprint("Catch fatal exception somewhere\n");
-      return EXCEPTION_CONTINUE_SEARCH;
+      dprint("Non-exception postmortem call\n");
+      pExceptionPointers = NULL;
   }
 
   if (hShell32)
@@ -633,13 +856,19 @@ LONG WINAPI Postmortem(PEXCEPTION_POINTERS pExceptionPointers)
 
   dwprint(L"Folder created: %s\n", appdata_local);
 
-  dprint("Generating exception info..\n");
+  dprint("Generating crash context info..\n");
   SaveExceptionInfo(hDbgHelp, appdata_local, pExceptionPointers);
-  dprint("Exception info saved\n");
+  dprint("Crash context saved\n");
 
 #ifdef DEBUG
-  dprint("Generating minidump...\n");
-  CreateMiniDump(hDbgHelp, appdata_local, pExceptionPointers);
+  if (pExceptionPointers) {
+    if (hDbgHelp) {
+      dprint("Generating minidump...\n");
+      CreateMiniDump(hDbgHelp, appdata_local, pExceptionPointers);
+    } else {
+      dprint("Failed to load DBGHELP\n");
+    }
+  }
 #endif
 
   dprint("Postmortem exception filter completed\n");
