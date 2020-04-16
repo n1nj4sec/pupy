@@ -26,7 +26,6 @@ socktypes = {
 }
 
 SELF = psutil.Process()
-_PSUTIL_LOCK = threading.Lock()
 
 
 def to_unicode(x):
@@ -244,8 +243,7 @@ def users():
             if pinfo.get('terminal'):
                 terminals[pinfo['terminal'].replace('/dev/', '')] = pinfo
 
-    with _PSUTIL_LOCK:
-        users = psutil.users()
+    users = psutil.users()
 
     for term in users:
         terminfo = {
@@ -297,8 +295,7 @@ def users():
 def connections():
     connections = []
 
-    with _PSUTIL_LOCK:
-        net_connections = psutil.net_connections()
+    net_connections = psutil.net_connections()
 
     for connection in net_connections:
         obj = {
@@ -330,8 +327,7 @@ def _tryint(x):
 
 def interfaces():
     try:
-        with _PSUTIL_LOCK:
-            if_addrs = psutil.net_if_addrs()
+        if_addrs = psutil.net_if_addrs()
 
         addrs = {
             to_unicode(x):[
@@ -344,8 +340,7 @@ def interfaces():
         addrs = None
 
     try:
-        with _PSUTIL_LOCK:
-            if_stats = psutil.net_if_addrs()
+        if_stats = psutil.net_if_addrs()
 
         stats = {
             to_unicode(x):{
@@ -363,8 +358,7 @@ def interfaces():
 def drives():
     partitions = []
 
-    with _PSUTIL_LOCK:
-        disk_partitions = psutil.disk_partitions()
+    disk_partitions = psutil.disk_partitions()
 
     for partition in disk_partitions:
         record = {
@@ -375,8 +369,7 @@ def drives():
         }
 
         try:
-            with _PSUTIL_LOCK:
-                usage = psutil.disk_usage(partition.mountpoint)
+            usage = psutil.disk_usage(partition.mountpoint)
 
             record.update({
                 'total': usage.total,

@@ -43,9 +43,6 @@ from network.lib.picocmd import (
 
 try:
     import psutil
-    import threading
-
-    _psutil_lock = threading.Lock()
 except ImportError:
     psutil = None
 
@@ -237,8 +234,7 @@ class SystemStatus(Command):
     def __init__(self, cpu=None, users=None, mem=None, listen=None, remote=None, idle=None):
         if cpu is None:
             try:
-                with _psutil_lock:
-                    self.cpu = int(psutil.cpu_percent())
+                self.cpu = int(psutil.cpu_percent())
             except:
                 self.cpu = 0
         else:
@@ -246,8 +242,7 @@ class SystemStatus(Command):
 
         if users is None:
             try:
-                with _psutil_lock:
-                    self.users = len(set([x.name for x in psutil.users()]))
+                self.users = len(psutil.users())
             except:
                 self.users = 0
         else:
@@ -258,21 +253,26 @@ class SystemStatus(Command):
 
         if mem is None:
             try:
-                with _psutil_lock:
-                    self.mem = int(psutil.virtual_memory().percent)
+                self.mem = int(psutil.virtual_memory().percent)
             except:
                 self.mem = 0
         else:
             self.mem = int(mem)
 
-        if listen is None:
+        net_connections = None
+        if listen is None or remote is None:
             try:
-                with _psutil_lock:
-                    self.listen = len(set([
-                        x.laddr[1] for x in psutil.net_connections()
-                        if x.status == 'LISTEN'
-                    ]))
+                net_connections = psutil.net_connections()
             except:
+                pass
+
+        if listen is None:
+            if net_connections:
+                self.listen = len(set([
+                    x.laddr[1] for x in net_connections
+                    if x.status == 'LISTEN'
+                ]))
+            else:
                 self.listen = 0
         else:
             self.listen = int(listen)
@@ -281,16 +281,14 @@ class SystemStatus(Command):
             self.listen = 255
 
         if remote is None:
-            try:
-                with _psutil_lock:
-                    self.remote = len(set([
-                        x.raddr for x in psutil.net_connections() \
-                        if x.status=='ESTABLISHED' and x.raddr[0] not in (
-                            '127.0.0.1', '::ffff:127.0.0.1'
-                        )
-                    ]))
-
-            except:
+            if net_connections:
+                self.remote = len(set([
+                    x.raddr for x in net_connections \
+                    if x.status=='ESTABLISHED' and x.raddr[0] not in (
+                        '127.0.0.1', '::ffff:127.0.0.1'
+                    )
+                ]))
+            else:
                 self.remote = 0
         else:
             self.remote = int(remote)
@@ -540,10 +538,9 @@ class SystemInfo(Command):
             if boottime:
                 self.boottime = boottime
             else:
-                with _psutil_lock:
-                    self.boottime = datetime.datetime.fromtimestamp(
-                        psutil.boot_time()
-                    )
+                self.boottime = datetime.datetime.fromtimestamp(
+                    psutil.boot_time()
+                )
         except:
             self.boottime = datetime.datetime.fromtimestamp(0)
 
@@ -1200,10 +1197,9 @@ class SystemInfoEx(Command):
         self.node = uuid.getnode()
 
         try:
-            with _psutil_lock:
-                self.boottime = datetime.datetime.fromtimestamp(
-                    psutil.boot_time()
-                )
+            self.boottime = datetime.datetime.fromtimestamp(
+                psutil.boot_time()
+            )
         except:
             self.boottime = datetime.datetime.fromtimestamp(0)
 
@@ -1806,7 +1802,7 @@ class Parcel(object):
                 messages.append(cmd)
                 data = data[offt:]
 
-        except struct.error, e:
+        except struct.error as e:
             raise ParcelInvalidPayload('Unpack Failed: {}'.format(e))
 
         return Parcel(messages)
