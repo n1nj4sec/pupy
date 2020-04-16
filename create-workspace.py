@@ -370,7 +370,7 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
     print("[+] Install dependencies")
     subprocess.check_call([
         os.path.join(workdir, 'bin', 'pip'),
-        'install',
+        'install', '--no-use-pep517',
         '-r', 'requirements.txt'
     ], cwd=os.path.join(git_path, 'pupy'), stderr=subprocess.STDOUT)
 
