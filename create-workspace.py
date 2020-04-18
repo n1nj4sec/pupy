@@ -54,13 +54,6 @@ templates_args.add_argument(
     help='Compile specified templates (default: linux32,linux64,windows)'
 )
 
-templates_args.add_argument(
-    '-DG', '--download-templates-from-github-releases',
-    action='store_true', default=False,
-    help='Do not compile payload templates and download latest '
-    'templates from travis-ci automatic build'
-)
-
 parser.add_argument(
     '-E', '--environment', choices=['virtualenv', 'docker', 'podman'],
     default='virtualenv', help='The way to organize workspace bottle'
@@ -293,38 +286,6 @@ def build_templates(
             )
 
     return update_commands
-
-
-def fetch_templates(workdir, git_folder):
-    origin = get_repo_origin(git_folder)
-
-    if 'n1nj4sec/pupy' not in origin:
-        print(
-            "[!] There are no prebuild templates, "
-            "you must build them manually"
-        )
-
-        return False
-
-    download_link = "https://github.com/n1nj4sec/pupy" \
-        "/releases/download/latest/payload_templates.txz"
-
-    print("downloading payload_templates from {}".format(download_link))
-
-    with tempfile.NamedTemporaryFile() as tmpf:
-        response = urlopen(download_link)
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            tmpf.write(chunk)
-
-        tmpf.flush()
-        tmpf.seek(0)
-
-        tarfile.TarFile(fileobj=tmpf).extractall(workdir)
-
-    return True
 
 
 def make_pupysh_wrapper(workdir, git_folder, orchestrator):
@@ -622,9 +583,6 @@ def main():
         )
 
         update_commands.extend(update_cmds)
-
-    if args.download_templates_from_github_releases:
-        fetch_templates(workdir, git_folder)
 
     print("[+] Initialize workdir")
     initialize_workdir(workdir, git_folder)
