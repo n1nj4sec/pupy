@@ -8,7 +8,6 @@ import socket
 import struct
 import netaddr
 import time
-import threading
 
 families = {
     v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
