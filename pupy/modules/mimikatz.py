@@ -25,7 +25,6 @@ class Mimikatz(MemoryExec):
     """
 
     dependencies = [
-        'pupymemexec',
         'pupwinutils.memexec',
         'pupwinutils.wdigest'
     ]

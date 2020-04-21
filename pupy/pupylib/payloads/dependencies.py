@@ -63,11 +63,6 @@ IGNORED_ENDINGS = (
 
 # dependencies to load for each modules
 WELL_KNOWN_DEPS = {
-    'pupwinutils.memexec': {
-        'all': [
-            'pupymemexec'
-        ],
-    },
     'pupyps': {
         'windows': ['pupwinutils.security']
     },
