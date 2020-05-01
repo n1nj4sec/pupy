@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = [
     'EventLog', 'get_last_events'
 ]
@@ -28,7 +29,7 @@ from win32con import (
     FORMAT_MESSAGE_FROM_HMODULE, LOAD_LIBRARY_AS_DATAFILE
 )
 
-from sys import getdefaultencoding
+from sys import getdefaultencoding, version_info
 from os.path import expandvars, isfile
 from socket import gethostbyaddr
 from socket import error as socket_error
@@ -51,6 +52,11 @@ from win32evtlog import (
     GetNumberOfEventLogRecords,
     EVENTLOG_BACKWARDS_READ, EVENTLOG_SEQUENTIAL_READ
 )
+
+if version_info.major > 2:
+    basestring = str
+    unicode = str
+    long = int
 
 LANGID = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL)
 BLACKLIST = (
@@ -98,7 +104,7 @@ class Match(object):
 
     def matches(self, other):
         if self.is_num:
-            if type(other) in (str, unicode):
+            if isinstance(other, basestring):
                 return any(
                     tpl.format(self.value) in other for tpl in (
                         '{}', '{:x}', '{:08x}', '0x{:08x}', '0x{:x}'
@@ -214,9 +220,9 @@ class EventLog(object):
 
     def get_events(self, logtype, server='', filter_event_id=None, fmt=True, filter_source=None):
         if filter_event_id is not None:
-            if type(filter_event_id) in (int, long):
+            if isinstance(filter_event_id, (int, long)):
                 filter_event_id = {filter_event_id}
-            elif type(filter_event_id) in (str, unicode):
+            elif isinstance(filter_event_id, basestring):
                 if ',' in filter_event_id:
                     filter_event_id = set(int(x.strip()) for x in filter_event_id.split(','))
                 else:
@@ -395,7 +401,7 @@ class EventLog(object):
                 append = not includes and not excludes
                 excluded = False
 
-                for key, value in event.iteritems():
+                for key, value in event.items():
                     if append:
                         break
 

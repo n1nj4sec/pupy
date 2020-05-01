@@ -46,7 +46,7 @@ def connect(host, port, user, passwd, hash, domain="workgroup"):
                 'auth': 'guest',
             })
         except SessionError as e:
-            if "STATUS_ACCESS_DENIED" in e.message:
+            if "STATUS_ACCESS_DENIED" in str(e):
                 pass
 
         try:
@@ -69,7 +69,7 @@ def connect(host, port, user, passwd, hash, domain="workgroup"):
                 'shares': [],
             })
 
-            for share, perm in _listShares(smb, passwd).iteritems():
+            for share, perm in _listShares(smb, passwd).items():
                 result['shares'].append((share, perm))
 
             smb.logoff()

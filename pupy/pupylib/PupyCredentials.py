@@ -41,7 +41,8 @@ class EncryptionError(Exception):
 from hashlib import md5
 from Crypto.Cipher import AES
 from Crypto import Random
-from StringIO import StringIO
+
+from io import BytesIO
 
 try:
     import secretstorage
@@ -451,11 +452,12 @@ class Credentials(object):
     def _generate(self, password):
         required_generators = set()
 
-        for cred, generator in Credentials.GENERATORS.iteritems():
+        for cred in Credentials.GENERATORS:
+            generator = Credentials.GENERATORS[cred]
             if cred not in self._credentials:
                 required_generators.add(generator)
                 logger.warning('Credential "%s" is missing and will be generated', cred)
-            elif 'BEGIN CERTIFICATE' in self._credentials[cred]:
+            elif b'BEGIN CERTIFICATE' in self._credentials[cred]:
                 cert = X509.load_cert_string(self._credentials[cred])
                 expiration = cert.get_not_after().get_datetime()
                 now = datetime.now(expiration.tzinfo)
@@ -514,7 +516,7 @@ class Credentials(object):
 
                 if self._encrypted and ENCRYPTOR and password:
                     encryptor = ENCRYPTOR(password=password)
-                    encryptor.encrypt(StringIO(content), user_config)
+                    encryptor.encrypt(BytesIO(content), user_config)
                 else:
                     user_config.write(content)
 
@@ -535,16 +537,16 @@ class Credentials(object):
                     logger.error('Credentials storage (%s) is empty', self._configfile)
                     return
 
-                if content.startswith('Salted__'):
+                if content.startswith(b'Salted__'):
                     if not ENCRYPTOR:
                         raise EncryptionError(
                             'Encrpyted credential storage: {}'.format(self._configfile)
                         )
 
-                    fcontent = StringIO()
+                    fcontent = BytesIO()
                     encryptor = ENCRYPTOR(password=password, config=self._config)
                     try:
-                        encryptor.decrypt(StringIO(content), fcontent)
+                        encryptor.decrypt(BytesIO(content), fcontent)
                     except:
                         raise EncryptionError(
                             'Invalid password or corrupted data.\n{}'.format(HELP_RESET_MSG)
@@ -554,10 +556,11 @@ class Credentials(object):
                 else:
                     self._encrypted = False
 
-                if content.startswith('{'):
+                if content.startswith(b'{'):
+                    credentials_dict = json.loads(content)
                     self._credentials = {
-                        k:v.encode('utf-8') if type(v) == unicode else \
-                        v for k,v in json.loads(content).iteritems()
+                        k: credentials_dict[k].encode('latin1')
+                        for k in credentials_dict
                     }
                 else:
                     exec(content, self._credentials)

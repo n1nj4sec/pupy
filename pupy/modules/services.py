@@ -75,7 +75,7 @@ class Services(PupyModule):
 
             if color is not None:
                 service = {
-                    k:Color(v if v is not None else '', color) for k,v in service.iteritems()
+                    k:Color(v if v is not None else '', color) for k,v in service.items()
                 }
 
             data.append(service)

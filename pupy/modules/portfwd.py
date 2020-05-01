@@ -6,12 +6,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     QA_UNSTABLE
 )
 
-import SocketServer
+import sys
 import threading
 import socket
 import logging
@@ -19,7 +20,18 @@ import traceback
 import time
 import subprocess
 
-__class_name__="PortFwdModule"
+if sys.version_info.major > 2:
+    from socketserver import (
+        BaseRequestHandler, TCPServer,
+        ThreadingMixIn
+    )
+else:
+    from SocketServer import (
+        BaseRequestHandler, TCPServer,
+        ThreadingMixIn
+    )
+
+__class_name__ = 'PortFwdModule'
 
 
 class SocketPiper(threading.Thread):
@@ -60,7 +72,7 @@ class SocketPiper(threading.Thread):
                 pass
         logging.debug("piper finished")
 
-class LocalPortFwdRequestHandler(SocketServer.BaseRequestHandler):
+class LocalPortFwdRequestHandler(BaseRequestHandler):
     def handle(self):
         DST_ADDR, DST_PORT=self.server.remote_address
         logging.debug("forwarding local addr %s to remote %s "%(self.server.server_address, self.server.remote_address))
@@ -85,17 +97,20 @@ class LocalPortFwdRequestHandler(SocketServer.BaseRequestHandler):
         sp2.join()
         logging.debug("conn to %s:%s closed"%(DST_ADDR,DST_PORT))
 
-class LocalPortFwdServer(SocketServer.TCPServer):
+
+class LocalPortFwdServer(TCPServer):
     allow_reuse_address = True
 
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, rpyc_client=None, remote_address=None):
         self.rpyc_client=rpyc_client
         self.remote_address=remote_address
-        SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
-class ThreadedLocalPortFwdServer(SocketServer.ThreadingMixIn, LocalPortFwdServer):
+
+class ThreadedLocalPortFwdServer(ThreadingMixIn, LocalPortFwdServer):
     def __str__(self):
         return "<LocalPortForward local=%s remote=%s"%(self.server_address,self.remote_address)
+
 
 def get_remote_port_fwd_cb(remote_addr, local_addr):
     def func(rsocket):
@@ -243,5 +258,5 @@ class PortFwdModule(PupyModule):
             if not self.portfwd_dic:
                 self.error("There are currently no ports forwarded on %s"%self.client)
             else:
-                for cid, server in self.portfwd_dic.iteritems():
+                for cid, server in self.portfwd_dic.items():
                     self.success("%s : %s"%(cid, server))

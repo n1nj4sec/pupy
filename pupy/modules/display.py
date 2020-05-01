@@ -4,9 +4,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="Display"
+
 
 @config(compat="posix", cat="admin")
 class Display(PupyModule):
@@ -43,6 +45,6 @@ class Display(PupyModule):
                 self.error('Couldn\'t attach to {}'.format(args.display))
         else:
             displays = guess_displays()
-            for display, items in displays.iteritems():
+            for display, items in displays.items():
                 for item in items:
                     self.success('{} user={} xauth={}'.format(display, item[0], item[1]))

@@ -18,14 +18,17 @@
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
+
 from __future__ import print_function
 
-from rawreg import *
+from .rawreg import *
 from ..addrspace import HiveFileAddressSpace
 from Crypto.Hash import MD5
 from Crypto.Cipher import ARC4,DES,AES
 from struct import unpack,pack
+
 import binascii
+import codecs
 
 odd_parity = [
   1, 1, 2, 2, 4, 4, 7, 7, 8, 8, 11, 11, 13, 13, 14, 14,
@@ -56,8 +59,8 @@ anum = "0123456789012345678901234567890123456789\0"
 antpassword = "NTPASSWORD\0"
 almpassword = "LMPASSWORD\0"
 
-empty_lm = "aad3b435b51404eeaad3b435b51404ee".decode('hex')
-empty_nt = "31d6cfe0d16ae931b73c59d7e0c089c0".decode('hex')
+empty_lm = codecs.decode('aad3b435b51404eeaad3b435b51404ee', 'hex')
+empty_nt = codecs.decode('31d6cfe0d16ae931b73c59d7e0c089c0', 'hex')
 
 def str_to_key(s):
     key = []

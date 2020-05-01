@@ -6,13 +6,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_REPL
 )
 
 from pupylib.utils.rpyc_utils import redirected_stdo
+
+import sys
 import readline
+
+if sys.version_info.major > 2:
+    raw_input = input
 
 
 __class_name__="InteractivePythonShell"
@@ -34,11 +40,13 @@ class InteractivePythonShell(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='pyshell', description=cls.__doc__)
 
     def run(self, args):
-        PyShellController = self.client.remote('pyshell.controller', 'PyShellController', False)
+        PyShellController = self.client.remote(
+            'pyshell.controller', 'PyShellController', False
+        )
 
         try:
             with redirected_stdo(self):
-                old_completer=readline.get_completer()
+                old_completer = readline.get_completer()
                 try:
                     psc = PyShellController()
                     readline.set_completer(psc.get_completer())

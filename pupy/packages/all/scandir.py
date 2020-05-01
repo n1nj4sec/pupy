@@ -44,6 +44,9 @@ if _scandir is None and ctypes is None:
     warnings.warn("scandir can't find the compiled _scandir C module "
                   "or ctypes, using slow generic fallback")
 
+if sys.version_info.major > 2:
+    basestring = str
+
 __version__ = '1.3'
 __all__ = ['scandir', 'walk']
 

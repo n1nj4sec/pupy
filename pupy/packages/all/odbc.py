@@ -39,6 +39,10 @@ else:
     def register_driver(name, library):
         raise NotImplementedError()
 
+if sys.version_info.major > 2:
+    basestring = str
+    long = int
+
 
 CONNECTIONS = {}
 
@@ -147,7 +151,7 @@ def unbind(alias):
 
 
 def _convval(value):
-    if isinstance(value, (int, long, str, unicode)):
+    if isinstance(value, (int, long, basestring)):
         return value
 
     return str(value)
@@ -286,7 +290,7 @@ def one(cursor, query):
 def bounded():
     return tuple(
         (alias, connstring) for alias, (
-            connstring, _, _) in CONNECTIONS.iteritems()
+            connstring, _, _) in CONNECTIONS.items()
     )
 
 

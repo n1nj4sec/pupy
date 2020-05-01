@@ -4,6 +4,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
+
 from io import open
 from os import path, lstat, readlink
 from stat import S_ISREG, S_ISLNK
@@ -18,6 +20,10 @@ from pwd import getpwuid
 from grp import getgrgid
 
 from pupyutils.basic_cmds import mode_to_letter, special_to_letter
+
+if sys.version_info.major > 2:
+    xrange = range
+
 
 def getselinux(filepath):
     try:
@@ -36,7 +42,7 @@ def getacls(filepath):
             return None
 
         # posix1e doesn't work with unicode properly
-        if type(filepath) == unicode:
+        if not isinstance(filepath, bytes):
             filepath = filepath.encode('utf-8')
 
         acls += ACL(file=filepath).to_any_text()
@@ -198,4 +204,4 @@ def getfilesec(filepath):
 
     return int(filestat.st_ctime), int(filestat.st_atime), \
       int(filestat.st_mtime), filestat.st_size, owner, \
-      group, header, mode, {k:v for k,v in extra.iteritems() if v}
+      group, header, mode, {k:v for k,v in extra.items() if v}

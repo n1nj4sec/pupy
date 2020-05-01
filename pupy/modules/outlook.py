@@ -74,7 +74,7 @@ class Outlook(PupyModule):
             return
         if args.information:
             info = outlook.getInformation()
-            for key, value in info.iteritems():
+            for key, value in info.items():
                 self.success("{0}: {1}".format(key, value))
         if args.foldersAndSubFolders:
             self.success("Outlook folders and subfolders:")

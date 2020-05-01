@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Success, Color, Table
 
@@ -23,6 +24,7 @@ group.add_argument(
     '-r', '--remove', metavar='TRANSPORT',
     type=str, help='stop listener')
 
+
 def do(server, handler, config, args):
     if args.add:
         name, args = args.add[0], args.add[1:]
@@ -38,7 +40,7 @@ def do(server, handler, config, args):
 
         table = []
 
-        for name, transport in transports.iteritems():
+        for name, transport in transports.items():
             color = None
             listener = None
             info = transport.info
@@ -58,5 +60,5 @@ def do(server, handler, config, args):
         handler.display(Table(table, ['NAME', 'INFO', 'ACTIVE']))
 
     else:
-        for listener in server.listeners.itervalues():
+        for listener in server.listeners.values():
             handler.display(Success(listener))

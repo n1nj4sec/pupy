@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 import sys
 import subprocess
 import time
@@ -14,7 +15,14 @@ import os
 
 from subprocess import PIPE, Popen
 from threading import Thread
-from Queue import Queue, Empty
+
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+
+    raw_input = input
+else:
+    from Queue import Queue, Empty
+
 from network.lib.pupyrpc import nowait
 
 

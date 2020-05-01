@@ -273,7 +273,7 @@ class PupyWebServer(object):
         self._ioloop = None
         self._thread = None
 
-        for (_, _, cleanup) in self._registered.itervalues():
+        for (_, _, cleanup) in self._registered.values():
             if cleanup:
                 cleanup()
 

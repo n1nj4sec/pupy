@@ -18,7 +18,7 @@ class WeakValueDict(object):
         return repr(self._dict)
 
     def __iter__(self):
-        return self.iterkeys()
+        return self
 
     def __len__(self):
         return len(self._dict)

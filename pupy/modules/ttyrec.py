@@ -37,13 +37,18 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
 import os
 import zlib
 import struct
 import json
 
 from io import open
-from StringIO import StringIO
+
+if sys.version_info.major > 2:
+    from io import BytesIO
+else:
+    from StringIO import StringIO as BytesIO
 
 from pupylib.PupyModule import PupyModule, PupyArgumentParser
 from pupylib.PupyModule import config
@@ -140,7 +145,7 @@ class TTYRec(PupyModule):
         dumpdir = self.config.get_folder('records', {'%c': self.client.short_name()})
         dests = {}
 
-        data = StringIO(zlib.decompress(data))
+        data = BytesIO(zlib.decompress(data))
 
         while True:
             header = data.read(self.header.size)
@@ -195,7 +200,7 @@ class TTYRec(PupyModule):
                 ], dests[filename])
                 dests[filename].write('\n')
 
-        for f in dests.itervalues():
+        for f in dests.values():
             f.close()
 
     def run(self, args):

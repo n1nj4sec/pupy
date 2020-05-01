@@ -55,11 +55,15 @@ except ImportError:
             pupy.dprint('memfd: disabled for jython')
             return False
 
-        maj, min = platform.release().split('.')[:2]
-        if maj < 3:
+        kv_maj, kv_min = platform.release().split('.')[:2]
+        kv_maj = int(kv_maj)
+        kv_min = int(kv_min)
+
+        if kv_maj < 3:
             pupy.dprint('memfd: kernel too old (maj < 3)')
             return False
-        elif maj == 3 and min < 13:
+
+        elif kv_maj == 3 and kv_min < 13:
             pupy.dprint('memfd: kernel too old (maj == 3, min < 13)')
             return False
 

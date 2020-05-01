@@ -5,11 +5,21 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+import sys
+
 from pupylib.PupyModule import PupyArgumentParser, PupyModuleUsageError
-from pupylib.PupyCompleter import module_name_completer, module_args_completer, path_completer
+from pupylib.PupyCompleter import (
+    module_name_completer, module_args_completer, path_completer
+)
+
 from pupylib.PupyOutput import Error, Line, Color
 from pupylib.PupyJob import PupyJob
+
 from argparse import REMAINDER
+
+if sys.version_info.major > 2:
+    basestring = str
 
 usage = 'Run a module on one or multiple clients'
 parser = PupyArgumentParser(prog='run', description=usage)
@@ -66,7 +76,7 @@ def do(server, handler, config, modargs):
         return
 
     modjobs = [
-        job for job in server.jobs.itervalues() \
+        job for job in server.jobs.values() \
                if job.module.get_name() == module.get_name() and \
                any(instance in clients for instance in job.clients)
     ]
@@ -93,7 +103,11 @@ def do(server, handler, config, modargs):
         )
 
         for io, client in zip(ios, clients):
-            io.set_title(client if type(client) in (str, unicode) else str(client))
+
+            io.set_title(
+                client if isinstance(client, basestring) else str(client)
+            )
+
             instance = module(client, pj, io, log=modargs.output)
             pj.add_module(instance)
 

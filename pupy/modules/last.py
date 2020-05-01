@@ -55,10 +55,10 @@ class LastModule(PupyModule):
                 if args.days and (record['start'] + args.days*24*60*60 < now):
                     break
 
-                if args.exclude and any([x in args.exclude for x in record.itervalues()]):
+                if args.exclude and any([x in args.exclude for x in record.values()]):
                     continue
 
-                if args.include and not any([x in args.include for x in record.itervalues()]):
+                if args.include and not any([x in args.include for x in record.values()]):
                     continue
 
                 if not is_windows and record['type'] not in ('boot', 'process'):

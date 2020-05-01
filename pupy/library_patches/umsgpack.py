@@ -196,6 +196,10 @@ class DuplicateKeyException(UnpackException):
 KeyNotPrimitiveException = UnhashableKeyException
 KeyDuplicateException = DuplicateKeyException
 
+dict_keys = type({}.keys())
+dict_items = type({}.items())
+dict_values = type({}.values())
+
 #############################################################################
 # Exported Functions and Glob
 #############################################################################
@@ -507,9 +511,9 @@ def _pack3(obj, fp, **options):
         _pack_string(obj, fp, options)
     elif isinstance(obj, bytes):
         _pack_binary(obj, fp, options)
-    elif isinstance(obj, list) or isinstance(obj, tuple):
+    elif isinstance(obj, (list, tuple, dict_keys, dict_values)):
         _pack_array(obj, fp, options)
-    elif isinstance(obj, dict):
+    elif isinstance(obj, (dict, dict_items)):
         _pack_map(obj, fp, options)
     elif isinstance(obj, Ext):
         _pack_ext(obj, fp, options)
@@ -993,7 +997,7 @@ def __init():
         _float_precision = "single"
 
     # Map packb and unpackb to the appropriate version
-    if sys.version_info[0] == 3:
+    if sys.version_info.major > 2:
         pack = _pack3
         packb = _packb3
         dump = _pack3

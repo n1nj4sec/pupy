@@ -13,9 +13,13 @@ import random
 
 from . import const
 
+import sys
 import logging
 
 log = logging
+
+if sys.version_info.major > 2:
+    xrange = range
 
 
 class RandProbDist:
@@ -77,7 +81,7 @@ class RandProbDist:
 
         log.debug("Dumping probability distribution.")
 
-        for singleton in self.dist.iterkeys():
+        for singleton in self.dist:
             # We are not interested in tiny probabilities.
             if self.dist[singleton] > 0.01:
                 log.debug("P(%s) = %.3f" %

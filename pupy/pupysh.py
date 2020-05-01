@@ -43,10 +43,8 @@ import os
 import logging
 import argparse
 
-if sys.version_info[0] != 2:
-    exit("Pupy only support Python 2.x")
-
 args = None
+
 
 if __name__ == '__main__':
     ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
@@ -132,8 +130,9 @@ if __name__ == "__main__":
             x[0]: x[1:] if len(x) > 1 else [] for x in args.listen
         }
 
-        config.set('pupyd', 'listen', ','.join(listeners.iterkeys()))
-        for listener, args in listeners.iteritems():
+        config.set('pupyd', 'listen', ','.join(listeners))
+        for listener in listeners:
+            args = listeners[listener]
             if args:
                 config.set('listeners', listener, ' '.join(args))
 

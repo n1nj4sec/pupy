@@ -16,13 +16,13 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import sys
 import time
-import cPickle
+
 import random
 import base64
 
 import logging
-import StringIO
 
 from io import open
 
@@ -34,11 +34,12 @@ from ..cryptoutils import get_random
 
 log = logging
 
-memoryStateFile=StringIO.StringIO()
+memoryState = None
 
 
 def load():
-    global memoryStateFile
+    global memoryState
+
     """
     Load the server's state object from file.
 
@@ -46,19 +47,13 @@ def load():
     state file is found, a new one is created and returned.
     """
 
-    #stateFile = os.path.join(const.STATE_LOCATION, const.SERVER_STATE_FILE)
+    if memoryState:
+        return memoryState
 
-    log.info("Attempting to load the server's state file from memory.")
-
-    #if len(memoryStateFile.getvalue())==0:
     log.info("The server's state file does not exist (yet).")
-    state = State()
-    state.genState()
-    return state
-
-    #stateObject = cPickle.load(memoryStateFile)
-
-    #return stateObject
+    memoryState = State()
+    memoryState.genState()
+    return memoryState
 
 
 def writeServerPassword(password):
@@ -185,14 +180,4 @@ class State(object):
         self.writeState()
 
     def writeState(self):
-        global memoryStateFile
-        """
-        Write the state object to a file using the `cPickle' module.
-        """
-
-        #stateFile = os.path.join(const.STATE_LOCATION, const.SERVER_STATE_FILE)
-
-        #log.debug("Writing server's state file to `%s'." %
-        #          stateFile)
-
-        cPickle.dump(self, memoryStateFile)
+        pass

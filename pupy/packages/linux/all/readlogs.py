@@ -4,11 +4,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = [
     'SDJournalIterator', 'SDJournalReader', 'SDJournalException',
     'get_last_events', 'get_last_events_journald'
 ]
 
+import sys
 import ctypes
 import time
 import datetime
@@ -17,6 +19,10 @@ import pwd
 import os
 
 from readlogs_generic import GenericLogReader
+
+if sys.version_info.major > 2:
+    long = int
+    basestring = str
 
 LIBJOURNAL = None
 MAX_RECORDS_ITER = 65535
@@ -141,18 +147,16 @@ def _payload_to_key_value(payload):
 
 
 def _value_to_timestamp(value):
-    stype = type(value)
-
     ts = 0
 
-    if stype in (int, long):
+    if isinstance(value, (int, long)):
         if value < 0:
             ts = int((time.time() - value) * 1000000)
             ts = ctypes.c_ulonglong(ts)
         else:
             ts = ctypes.c_ulonglong(int(value) * 1000000)
     else:
-        if stype in (str, unicode):
+        if isinstance(value, basestring):
             dt = None
             for formats in ('%d/%m/%Y', '%d/%m/%y %H:%M', '%d/%m/%y %H:%M:%S', '%H:%M', '%H:%M:%S'):
                 try:
@@ -170,10 +174,12 @@ def _value_to_timestamp(value):
             if not dt:
                 raise ValueError('Unknown date format')
 
-        elif stype == datetime.timedelta:
+        elif isinstance(value, datetime.timedelta):
             dt = datetime.datetime.now() + value
-        elif stype != datetime.datetime:
-            raise ValueError('Invalid type for since: {}'.format(stype))
+        elif not isinstance(value, datetime.datetime):
+            raise ValueError(
+                'Invalid type for since: {}'.format(type(value))
+            )
 
         ts = int(time.mktime(dt.timetuple())*1000000)
 
@@ -362,7 +368,7 @@ def get_last_events_journald(count=10, includes=[], excludes=[], filter_source=N
                 break
 
             event = {
-                v:event.get(k, '') for k,v in field_mappings.iteritems()
+                v:event.get(k, '') for k,v in field_mappings.items()
             }
 
             source = event.pop('source')
@@ -385,7 +391,7 @@ def get_last_events_journald(count=10, includes=[], excludes=[], filter_source=N
                 if append:
                     break
 
-                if type(value) not in (str, unicode):
+                if isinstance(value, basestring):
                     try:
                         value = str(value)
                     except TypeError:

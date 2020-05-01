@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import os
 import sys
-import cPickle
 import zlib
 import marshal
 
@@ -20,14 +19,33 @@ from io import open, BytesIO
 from pupylib.PupyCompile import pupycompile
 from pupylib import ROOT, getLogger
 
+if sys.version_info.major > 2:
+    import pickle
+    from os import getcwd
+
+    xrange = range
+
+    def reprb(data):
+        return repr(data)
+else:
+    import cPickle as pickle
+    from os import getcwdu as getcwd
+
+    def reprb(data):
+        return 'b' + repr(data)
+
+
 class BinaryObjectError(ValueError):
     pass
+
 
 class UnsafePathError(ValueError):
     pass
 
+
 class NotFoundError(NameError):
     pass
+
 
 class IgnoreFileException(Exception):
     pass
@@ -42,7 +60,7 @@ LIBS_AUTHORIZED_PATHS = [
 ]
 
 PATCHES_PATHS = [
-    os.path.abspath(os.path.join(os.getcwdu(), 'packages', 'patches')),
+    os.path.abspath(os.path.join(getcwd(), 'packages', 'patches')),
     os.path.abspath(os.path.join(ROOT, 'packages', 'patches')),
     os.path.abspath(os.path.join(ROOT, 'library_patches'))
 ]
@@ -142,6 +160,8 @@ WELL_KNOWN_DEPS = {
 
 logger.debug("LIBS_AUTHORIZED_PATHS=%s"%repr(LIBS_AUTHORIZED_PATHS))
 
+
+
 def remove_dt_needed(data, libname):
     ef = ELFFile(data)
     dyn = ef.get_section_by_name('.dynamic')
@@ -186,15 +206,22 @@ def safe_file_exists(f):
 
 def bootstrap(stdlib, config, autostart=True):
     actions = [
+        'from __future__ import absolute_import',
+        'from __future__ import division',
+        'from __future__ import print_function',
+        'from __future__ import unicode_literals',
+
         'import imp, sys, marshal',
+
         'stdlib = marshal.loads({stdlib})',
         'config = marshal.loads({config})',
         'pupy = imp.new_module("pupy")',
-        'pupy.__file__ = "pupy://pupy/__init__.pyo"',
-        'pupy.__package__ = "pupy"',
-        'pupy.__path__ = ["pupy://pupy/"]',
-        'sys.modules["pupy"] = pupy',
-        'exec marshal.loads(stdlib["pupy/__init__.pyo"][8:]) in pupy.__dict__',
+        'pupy.__file__ = str("pupy://pupy/__init__.pyo")',
+        'pupy.__package__ = str("pupy")',
+        'pupy.__path__ = [str("pupy://pupy/")]',
+        'sys.modules[str("pupy")] = pupy',
+
+        'exec(marshal.loads(stdlib["pupy/__init__.pyo"][8:]), pupy.__dict__)',
     ]
 
     if autostart:
@@ -206,8 +233,8 @@ def bootstrap(stdlib, config, autostart=True):
     loader = '\n'.join(actions)
 
     return loader.format(
-        stdlib=repr(marshal.dumps(stdlib)),
-        config=repr(marshal.dumps(config))
+        stdlib=reprb(marshal.dumps(stdlib)),
+        config=reprb(marshal.dumps(config))
     )
 
 
@@ -224,7 +251,7 @@ def importer(
             modules.update(from_path(os, arch, path, dependency))
 
         if not as_dict:
-            blob = cPickle.dumps(modules)
+            blob = pickle.dumps(modules)
             blob = zlib.compress(blob, 9)
         else:
             blob = modules
@@ -242,7 +269,7 @@ def importer(
 
 
 def modify_native_content(filename, content):
-    if content.startswith('\x7fELF'):
+    if content.startswith(b'\x7fELF'):
         logger.info('ELF file - %s, check for libpython DT_NEED record', filename)
         image = BytesIO(content)
         if remove_dt_needed(image, 'libpython2.7.so.1.0'):
@@ -653,7 +680,9 @@ def package(requirements, platform, arch, remote=False, posix=False,
             )
 
         if not as_dict:
-            payload = zlib.compress(cPickle.dumps(modules), 9)
+            payload = zlib.compress(
+                pickle.dumps(modules), 9
+            )
         else:
             payload = modules
 

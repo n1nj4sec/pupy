@@ -11,6 +11,7 @@ import logging
 
 __class_name__="IPModule"
 
+
 @config(cat="admin")
 class IPModule(PupyModule):
     """ list interfaces """
@@ -29,22 +30,22 @@ class IPModule(PupyModule):
             families = {
                 int(k):v for k,v in self.client.remote_const(
                     'pupyps', 'families'
-                ).iteritems()
+                ).items()
             }
 
             data = interfaces()
             families = {
-                int(x):y for x,y in families.iteritems()
+                int(x):y for x,y in families.items()
             }
 
             objects = []
 
-            for addr, addresses in data['addrs'].iteritems():
+            for addr, addresses in data['addrs'].items():
 
                 if args.iface and addr not in args.iface:
                     continue
 
-                color = ""
+                color = ''
                 if 'stats' in data and data['stats']:
                     if addr in data['stats'] and not data['stats'][addr].get('isup'):
                         color = 'darkgrey'

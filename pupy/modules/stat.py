@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Table, Line, List, MultiPart
@@ -11,7 +12,13 @@ from argparse import REMAINDER
 
 from magic import Magic
 
-__class_name__="FStat"
+import sys
+
+if sys.version_info.major > 2:
+    basestring = str
+
+__class_name__ = 'FStat'
+
 
 @config(cat='admin', compat=['windows', 'linux'])
 class FStat(PupyModule):
@@ -44,7 +51,9 @@ class FStat(PupyModule):
         try:
             sec = getfilesec(path)
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )
             return
 
         ctime, atime, mtime, size, owner, group, header, mode, extra = sec
@@ -83,7 +92,7 @@ class FStat(PupyModule):
 
         certificates = None
 
-        for extra, values in extra.iteritems():
+        for extra, values in extra.items():
             if extra == 'Certificates':
                 certificates = [
                     load_cert_string(cert, FORMAT_DER).as_text() for cert in values
@@ -92,7 +101,7 @@ class FStat(PupyModule):
                 records = [{
                     'KEY': k.decode('utf-8'),
                     'VALUE': v.decode('utf-8') if isinstance(v, str) else str(v)
-                } for k, v in values.iteritems()]
+                } for k, v in values.items()]
 
                 infos.append(
                     Table(records, ['KEY', 'VALUE'], caption=extra)

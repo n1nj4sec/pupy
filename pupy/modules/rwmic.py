@@ -6,18 +6,23 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from argparse import REMAINDER
 
+import sys
+
 from netaddr import IPNetwork
 
 from pupylib.PupyOutput import Table, List
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
+if sys.version_info.major > 2:
+    basestring = str
+
 __class_name__ = 'RWMIC'
 
 
 def _stringify(x):
-    if type(x) in (str, unicode):
+    if isinstance(x, basestring):
         return x
-    elif type(x) in (list, tuple):
+    elif isinstance(x, (list, tuple)):
         return ';'.join(_stringify(y) for y in x)
     elif type(x) is None:
         return ''

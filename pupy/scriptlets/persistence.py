@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-
 ''' Execute persistence command '''
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -28,6 +27,7 @@ from uuid import getnode
 from hashlib import md5
 
 from pupwinutils.persistence import add_registry_startup
+
 
 def main(src=None, directory=None, filename=None, args=None, regkey=None, logger=None, pupy=None):
     if not directory:

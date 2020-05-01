@@ -7,6 +7,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'TransportInfo', 'TransportException',
     'create_client_transport_info_for_addr',
@@ -15,12 +16,15 @@ __all__ = (
 )
 
 
+import sys
 import shlex
 import netaddr
 
 from collections import namedtuple
 from network.conf import transports
 
+if sys.version_info.major > 2:
+    basestring = str
 
 TransportInfo = namedtuple(
     'TransportInfo', [
@@ -46,7 +50,7 @@ def error(message, exit=True):
 
 
 def parse_transports_args(args, exit=True):
-    if type(args) not in (str, unicode):
+    if not isinstance(args, basestring):
         args = ' '.join(args)
 
     result = {}
@@ -106,7 +110,7 @@ def create_client_transport_info_for_addr(
             hostname, ':{}'.format(port) if port != 80 else ''
         )
 
-    for key, value in opt_args.iteritems():
+    for key, value in opt_args.items():
         if key in client_args:
             client_args[key] = value
         elif key in transport_args:

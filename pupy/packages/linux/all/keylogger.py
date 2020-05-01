@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 # inspired from https://github.com/amoffat/pykeylogger
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
 import os
 import sys
 import ctypes as ct
@@ -14,6 +16,10 @@ from time import sleep, time
 from ctypes.util import find_library
 
 import pupy
+
+if sys.version_info.major > 2:
+    xrange = range
+    unicode = str
 
 try:
     x11 = ct.cdll.LoadLibrary(find_library('X11'))

@@ -36,7 +36,7 @@ class PythonCompleter:
         m = re.match(r"(\w*)", text)
         if not m:
             return []
-        words=[x for x in self.local_ns.iterkeys() if x.startswith(m.group(1))]
+        words=[x for x in self.local_ns if x.startswith(m.group(1))]
         if "__builtins__" in words:
             words.remove("__builtins__")
         return words

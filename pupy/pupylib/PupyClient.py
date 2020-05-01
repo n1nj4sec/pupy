@@ -34,9 +34,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import zlib
 
-import msgpack
+import umsgpack
+import sys
 
 from threading import Lock
 from os import path
@@ -53,15 +55,34 @@ from network.lib.rpc import nowait
 from . import getLogger
 logger = getLogger('client')
 
+if sys.version_info.major > 2:
+    basestring = str
+
+    def reprb(data):
+        return repr(data)
+else:
+    def reprb(data):
+        return 'b' + repr(data)
+
+
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
-        self.desc = {
-            (
-                k.encode('utf-8') if type(k) == unicode else k
-            ):(
-                v.encode('utf-8') if type(v) == unicode else v
-            ) for k,v in desc.iteritems()
-        }
+        if sys.version_info.major > 2:
+            self.desc = dict(desc)
+        else:
+            self.desc = {
+                (
+                    k.encode('utf-8') if type(k) == unicode else k
+                ):(
+                    v.encode('utf-8') if type(v) == unicode else v
+                ) for k,v in desc.items()
+            }
+
+        if __debug__:
+            logger.debug(
+                'New client, desc: %s (%s) -> %s (%s)',
+                desc, type(desc), self.desc, type(self.desc)
+            )
 
         #alias
         self.conn = self.desc['conn']
@@ -101,7 +122,7 @@ class PupyClient(object):
 
     def get_conf(self):
         return {
-            k:v for k,v in self.desc.iteritems() if k in (
+            k:v for k,v in self.desc.items() if k in (
                 'offline_script', 'launcher', 'launcher_args',
                 'cid', 'debug'
             )
@@ -297,8 +318,8 @@ class PupyClient(object):
                     'import imp, sys, marshal',
                     'mod = imp.new_module("pupyimporter")',
                     'mod.__file__="<bootloader>/pupyimporter"',
-                    'exec marshal.loads({}) in mod.__dict__'.format(
-                        repr(pupycompile(
+                    'exec(marshal.loads({}), mod.__dict__)'.format(
+                        reprb(pupycompile(
                             path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
                             'pupyimporter.py', path=True, raw=True))),
                     'sys.modules["pupyimporter"]=mod',
@@ -327,22 +348,24 @@ class PupyClient(object):
         if self.conn.obtain_call:
             def obtain_call(function, *args, **kwargs):
                 if args or kwargs:
-                    packed_args = msgpack.dumps((args, kwargs))
+                    packed_args = umsgpack.dumps((args, kwargs))
                     packed_args = zlib.compress(packed_args)
                 else:
                     packed_args = None
 
                 result = self.conn.obtain_call(function, packed_args)
                 result = zlib.decompress(result)
-                result = msgpack.loads(result)
+                result = umsgpack.loads(result)
 
                 return result
 
             self.obtain_call = obtain_call
 
         if self.obtain_call:
-            self.imported_modules = set(self.obtain_call(self.conn.modules.sys.modules.keys))
-            self.cached_modules = set(self.obtain_call(self.pupyimporter.modules.keys))
+            self.imported_modules = set(self.obtain_call(
+                self.conn.modules.sys.modules.keys))
+            self.cached_modules = set(
+                self.obtain_call(self.pupyimporter.modules.keys))
         else:
             self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
             self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
@@ -429,7 +452,7 @@ class PupyClient(object):
                 return new_modules
 
     def invalidate_packages(self, packages):
-        if type(packages) in (str, unicode):
+        if isinstance(packages, basestring):
             packages = [packages]
 
         invalidated = False
@@ -438,7 +461,7 @@ class PupyClient(object):
             for module in packages:
                 self.pupyimporter.invalidate_module(module)
 
-                for m in self.remotes.keys():
+                for m in list(self.remotes):
                     if m == module or m.startswith(module+'.'):
                         invalidated = True
                         del self.remotes[m]

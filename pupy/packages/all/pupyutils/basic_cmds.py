@@ -27,6 +27,26 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
+textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+
+if sys.version_info.major > 2:
+    xrange = range
+    getcwd = os.getcwd
+
+    del_textchars = {
+        k: None for k in textchars
+    }
+
+    def is_binary(text):
+        return bool(text.translate(del_textchars))
+
+else:
+    getcwd = os.getcwdu
+
+    def is_binary(text):
+        return bool(text.translate(None, textchars))
+
+
 PREV_CWD = None
 
 # -------------------------- For ls functions --------------------------
@@ -47,14 +67,11 @@ T_ZIPFILE   = 12
 T_TARFILE   = 13
 T_HAS_XATTR = 14
 
-textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 
 from fsutils import (
     readlink, lstat, has_xattrs, uidgid
 )
 
-def is_binary(text):
-    return bool(text.translate(None, textchars))
 
 def file_timestamp(entry):
     try:
@@ -63,8 +80,9 @@ def file_timestamp(entry):
     except:
         return '00/00/00'
 
+
 def try_unicode(path):
-    if type(path) != unicode:
+    if isinstance(path, bytes):
         try:
             return path.decode('utf-8')
         except UnicodeDecodeError:
@@ -73,24 +91,30 @@ def try_unicode(path):
     return path
 
 
-def try_utf8(data):
-    if type(data) == unicode:
-        return data.encode('utf-8')
-    elif type(data) != str:
+if sys.version_info.major > 2:
+    def try_utf8(data):
         return data
+else:
+    def try_utf8(data):
+        if isinstance(data, unicode):
+            return data.encode('utf-8')
+        elif type(data) != str:
+            return data
 
-    try:
-        return data.decode(
-            sys.getfilesystemencoding()).encode('utf-8')
-    except UnicodeError:
-        return data
+        try:
+            return data.decode(
+                sys.getfilesystemencoding()).encode('utf-8')
+        except UnicodeError:
+            return data
 
 
 def try_exc_utf8(exc):
     exc.args = tuple(
         try_utf8(arg) for arg in exc.args
     )
-    exc.message = try_utf8(exc.message)
+
+    if hasattr(exc, 'message'):
+        exc.message = try_utf8(exc.message)
 
 
 class FakeStat(object):
@@ -369,7 +393,7 @@ def _complete(cwd, path, limit=32, dirs=None):
     return path, results
 
 def complete(path, limit=32, dirs=None):
-    cwd = os.getcwdu()
+    cwd = getcwd()
     path, results = _complete(cwd, path, limit, dirs)
 
     if path.endswith(('/', '\\')):
@@ -408,7 +432,7 @@ def ls(path=None, listdir=True, limit=4096, list_arc=False, resolve_uidgid=False
         path = os.path.expanduser(path)
         path = os.path.expandvars(path)
     else:
-        path = os.getcwdu()
+        path = getcwd()
 
     results = []
     found = False
@@ -481,7 +505,7 @@ def ls(path=None, listdir=True, limit=4096, list_arc=False, resolve_uidgid=False
 def cd(path=None):
     global PREV_CWD
 
-    cwd = os.getcwdu()
+    cwd = getcwd()
 
     if path:
         path = try_unicode(path)

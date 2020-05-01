@@ -40,13 +40,16 @@ from impacket.smb3structs import (
     FILE_READ_DATA, FILE_WRITE_DATA, FILE_APPEND_DATA
 )
 
-from sys import getdefaultencoding
+from sys import getdefaultencoding, version_info
 
 from network.lib.netcreds import add_cred, find_first_cred
 
 from Crypto.Cipher import DES
 assert(DES)
 
+if version_info.major > 2:
+    xrange = range
+    basestring = str
 
 SMB_SESSIONS_CACHE = {}
 WBEM_SESSIONS_CACHE = {}
@@ -66,6 +69,9 @@ SERVICE_STATUS_STR = {
 
 class PsExecException(Exception):
     def as_unicode(self, codepage=None):
+        if not hasattr(self, 'message'):
+            return str(self)
+
         error = self.message
         if not isinstance(error, str):
             error = str(error)
@@ -261,16 +267,16 @@ class ConnectionInfo(object):
 
         self._use_cache = use_cache
 
-        if type(host) == unicode:
+        if host and not isinstance(host, str):
             host = host.encode('utf-8')
 
-        if type(user) == unicode:
+        if user and not isinstance(user, str):
             user = user.encode('utf-8')
 
-        if type(password) == unicode:
+        if password and not isinstance(password, str):
             password = password.encode('utf-8')
 
-        if type(domain) == unicode:
+        if domain and not isinstance(domain, str):
             domain = domain.encode('utf-8')
 
         creds = find_first_cred(
@@ -576,7 +582,7 @@ class FileTransfer(object):
             return 'Could not convert name to unicode. Use -c option to specify encoding'
         elif te == SessionError:
             error = self._exception.getErrorString()[1]
-            if type(error) != unicode:
+            if isinstance(error, bytes):
                 error = error.decode(getdefaultencoding())
             return error
         else:
@@ -681,7 +687,7 @@ class FileTransfer(object):
             raise ValueError('Connection was not established')
 
         try:
-            if type(local) in (str, unicode):
+            if isinstance(local, basestring):
                 local = os.path.expandvars(local)
                 local = os.path.expanduser(local)
 
@@ -704,7 +710,7 @@ class FileTransfer(object):
             raise ValueError('Connection was not established')
 
         try:
-            if type(local) in (str, unicode):
+            if isinstance(local, basestring):
                 local = os.path.expandvars(local)
                 local = os.path.expanduser(local)
 
@@ -749,10 +755,10 @@ class ShellService(object):
     )
 
     def __init__(self, rpc, name=SERVICE_NAME):
-        if type(name) == unicode:
+        if not isinstance(name, bytes):
             name = name.encode('latin1', errors='ignore')
 
-        self._name = name + '\x00'
+        self._name = name + b'\x00'
 
         self._scmr = rpc
         self._scmr.bind(scmr.MSRPC_UUID_SCMR)
@@ -777,8 +783,8 @@ class ShellService(object):
         if self._serviceHandle:
             raise ShellServiceAlreadyExists()
 
-        if not command.endswith('\x00'):
-            command += '\x00'
+        if not command.endswith(b'\x00'):
+            command += b'\x00'
 
         resp = scmr.hRCreateServiceW(
             self._scmr,

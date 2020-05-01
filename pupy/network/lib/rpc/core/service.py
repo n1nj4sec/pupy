@@ -97,11 +97,6 @@ class Service(object):
     exposed_get_service_name = get_service_name
 
 
-class VoidService(Service):
-    """void service - an do-nothing service"""
-    __slots__ = ()
-
-
 class ModuleNamespace(object):
     """used by the :class:`SlaveService` to implement the magical
     'module namespace'"""
@@ -129,52 +124,3 @@ class ModuleNamespace(object):
 
     def __getattr__(self, name):
         return self[name]
-
-
-class SlaveService(Service):
-    """The SlaveService allows the other side to perform arbitrary imports and
-    execution arbitrary code on the server. This is provided for compatibility
-    with the classic RPyC (2.6) modus operandi.
-
-    This service is very useful in local, secure networks, but it exposes
-    a **major security risk** otherwise."""
-    __slots__ = ["exposed_namespace"]
-
-    def on_connect(self):
-        self.exposed_namespace = {}
-        self._conn._config.update(dict(
-            allow_all_attrs = True,
-            allow_pickle = True,
-            allow_getattr = True,
-            allow_setattr = True,
-            allow_delattr = True,
-            import_custom_exceptions = True,
-            instantiate_custom_exceptions = True,
-            instantiate_oldstyle_exceptions = True,
-        ))
-        # shortcuts
-        self._conn.modules = ModuleNamespace(self._conn.root.getmodule)
-        self._conn.eval = self._conn.root.eval
-        self._conn.execute = self._conn.root.execute
-        self._conn.namespace = self._conn.root.namespace
-        if is_py3k:
-            self._conn.builtin = self._conn.modules.builtins
-        else:
-            self._conn.builtin = self._conn.modules.__builtin__
-        self._conn.builtins = self._conn.builtin
-
-    def exposed_execute(self, text):
-        """execute arbitrary code (using ``exec``)"""
-        execute(text, self.exposed_namespace)
-
-    def exposed_eval(self, text):
-        """evaluate arbitrary code (using ``eval``)"""
-        return eval(text, self.exposed_namespace)
-
-    def exposed_getmodule(self, name):
-        """imports an arbitrary module"""
-        return __import__(name, None, None, "*")
-
-    def exposed_getconn(self):
-        """returns the local connection instance to the other side"""
-        return self._conn

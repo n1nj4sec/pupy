@@ -6,9 +6,15 @@ from __future__ import unicode_literals
 import pupygen
 import time
 import gzip
-import cStringIO
 
 from io import open
+import sys
+
+if sys.version_info.major > 2:
+    xrange = range
+    from io import BytesIO
+else:
+    from StringIO import StringIO as BytesIO
 
 
 def has_proc_migrated(client, pid):
@@ -46,7 +52,7 @@ def get_payload(module, compressed=True, debug=False, from_payload=None):
     if not compressed:
         return dllbuff
 
-    dllgzbuf = cStringIO.StringIO()
+    dllgzbuf = BytesIO()
     gzf = gzip.GzipFile('pupy.so', 'wb', 9, dllgzbuf)
     gzf.write(dllbuff)
     gzf.close()

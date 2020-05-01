@@ -8,13 +8,14 @@ import os
 import zipfile
 
 def try_unicode(path):
-    if type(path) != unicode:
+    if isinstance(path, bytes):
         try:
             return path.decode('utf-8')
         except UnicodeDecodeError:
             pass
 
     return path
+
 
 def zip(src, dst):
     src = try_unicode(src)

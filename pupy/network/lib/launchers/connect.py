@@ -7,6 +7,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ['ConnectLauncher']
 
 import argparse
@@ -36,9 +37,7 @@ class ConnectLauncher(BaseLauncher):
     credentials = ['SSL_BIND_CERT']
 
     __slots__ = (
-        'arg_parser', 'args',
-        'hosts', 'connect_on_bind_payload',
-        'opt_args'
+        'args', 'hosts', 'connect_on_bind_payload', 'opt_args'
     )
 
     def __init__(self, *args, **kwargs):

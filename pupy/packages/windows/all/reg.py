@@ -4,11 +4,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = [
   'Key', 'search', 'enum',
   'set', 'get', 'rm'
 ]
-
 
 import re
 import sys
@@ -29,6 +29,10 @@ from ctypes.wintypes import (
 )
 
 from network.lib.pupyrpc import nowait
+
+if sys.version_info.major > 2:
+    basestring = str
+    unicode = str
 
 class FILETIME(Structure):
     _fields_ = [
@@ -205,9 +209,11 @@ WELL_KNOWN_KEYS = {
 
 WELL_KNOWN_TYPES = {
     int: REG_DWORD,
-    str: REG_SZ,
-    unicode: REG_SZ,
+    str: REG_SZ
 }
+
+if sys.version_info.major < 3:
+    WELL_KNOWN_TYPES[unicode] = REG_SZ
 
 WELL_KNOWN_TYPES_NAMES = {
     REG_DWORD: 'DWORD',
@@ -246,23 +252,25 @@ def value_to_bytes(value, ktype):
         return value
 
     if ktype in (REG_SZ, REG_EXPAND_SZ):
-        if isinstance(value, unicode):
-            value = value.encode('utf-16le')
-        else:
+        if not isinstance(value, basestring):
             value = str(value)
+
+        if not isinstance(value, bytes):
+            value = value.encode('utf-16le')
 
     elif ktype == REG_MULTI_SZ:
         new_value = []
 
         for item in value:
-            if isinstance(value, unicode):
-                item = item.encode('utf-16le')
-            else:
+            if not isinstance(item, basestring):
                 item = str(item)
+
+            if not isinstance(item, bytes):
+                item = item.encode('utf-16le')
 
             new_value.append(item)
 
-        value = u'\0'.join(new_value) + u'\0\0'
+        value = b'\0'.join(new_value) + b'\0\0'
 
     elif ktype == REG_DWORD:
         value = struct.pack('<i', value)
@@ -280,10 +288,7 @@ def value_to_bytes(value, ktype):
 
 
 def as_unicode(value):
-    if isinstance(value, unicode):
-        return value
-
-    elif isinstance(value, str):
+    if isinstance(value, bytes):
         try:
             value = value.decode(sys.getfilesystemencoding())
         except UnicodeError:
@@ -295,20 +300,25 @@ def as_unicode(value):
     return value
 
 
-def as_str(value):
-    if isinstance(value, str):
-        return value
-    elif isinstance(value, unicode):
-        return value.encode('utf-8')
+if sys.version_info.major > 2:
+    def as_str(value):
+        if not isinstance(value, basestring):
+            return str(value)
 
-    return str(value)
+        if sys.version_info.major > 2 and isinstance(value, str):
+            return value.encode('utf-8')
+
+        return value
+else:
+    def as_str(value):
+        if not isinstance(value, basestring):
+            return str(value)
+
+        return value
 
 
 def as_local(value):
-    if isinstance(value, str):
-        return value
-
-    elif isinstance(value, unicode):
+    if isinstance(value, unicode):
         return value.encode(sys.getfilesystemencoding())
 
     return value
@@ -609,7 +619,7 @@ class Key(object):
         top_key = None
 
         key = as_unicode(key)
-        for wkk, wrk in WELL_KNOWN_KEYS.iteritems():
+        for wkk, wrk in WELL_KNOWN_KEYS.items():
             if key == wkk:
                 top_key = wrk
                 sub_key = ''

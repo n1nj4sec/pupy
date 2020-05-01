@@ -125,7 +125,7 @@ def check_modules():
 
     try:
         modules = os.listdir('/sys/module')
-        for mods, vm in dic[1].iteritems():
+        for mods, vm in dic[1].items():
             for mod in mods.split(', '):
                 if mod in modules:
                     return vm

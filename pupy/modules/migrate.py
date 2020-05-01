@@ -68,7 +68,7 @@ class MigrateModule(PupyModule):
                 self.success("Looking for process %s"%args.process)
                 pstree = self.client.remote('pupyps', 'pstree')
                 root, tree, data = pstree()
-                for k,v in data.iteritems():
+                for k,v in data.items():
                     proc=v['exe']
                     if not proc:
                         continue

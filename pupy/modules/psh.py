@@ -174,7 +174,7 @@ class PowershellManager(PupyModule):
                 {
                     'CONTEXT': ctx,
                     'RIDS': ', '.join([str(x) for x in rids])
-                } for ctx, rids in results.iteritems()
+                } for ctx, rids in results.items()
             ]
             self.table(objects, ['CONTEXT', 'RIDS'])
 

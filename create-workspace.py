@@ -17,7 +17,7 @@ import hashlib
 import shutil
 import resource
 
-if sys.version_info.major == 3:
+if sys.version_info.major > 2:
     from urllib.request import urlopen
 else:
     from urllib2 import urlopen

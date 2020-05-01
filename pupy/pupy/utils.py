@@ -15,10 +15,14 @@ __all__ = (
 import sys
 import imp
 import zlib
-import cPickle
 import gc
 
 import umsgpack
+
+if sys.version_info.major > 2:
+    import pickle
+else:
+    import cPickle as pickle
 
 import pupy
 
@@ -37,7 +41,7 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     if compressed:
         pkdic = zlib.decompress(pkdic)
 
-    module = cPickle.loads(pkdic)
+    module = pickle.loads(pkdic)
 
     if __debug__:
         logger.debug('Add files: %s', module.keys())
@@ -107,12 +111,12 @@ def new_dlls(names):
 
 
 def invalidate_module(name):
-    for item in pupy.modules.keys():
+    for item in list(pupy.modules):
         if item.startswith((name+'/', name+'.')):
             pupy.dprint('Remove {} from pupyimporter.modules'.format(item))
             del pupy.modules[item]
 
-    for item in sys.modules.keys():
+    for item in list(sys.modules):
         if not (item == name or item.startswith(name+'.')):
             continue
 

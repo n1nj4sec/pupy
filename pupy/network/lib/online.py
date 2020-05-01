@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'check_transparent_proxy',
     'internal_ip',
@@ -16,24 +17,33 @@ __all__ = (
     'PortQuiz',
 )
 
-from . import tinyhttp
+import sys
 import socket
 import time
 import threading
 import random
-import urllib2
-from . import scan
 import netaddr
 import struct
-from . import igd
-import sys
 import json
 
-from . import getLogger
-logger = getLogger('online')
+if sys.version_info.major > 2:
+    from urllib.request import (
+        OpenerDirector, HTTPHandler, Request
+    )
+else:
+    from urllib2 import (
+        OpenerDirector, HTTPHandler, Request
+    )
 
+from . import tinyhttp
+from . import scan
+from . import igd
+from . import getLogger
 from . import stun
 from . import ntplib
+
+logger = getLogger('online')
+
 
 ONLINE_STATUS = None
 ONLINE_STATUS_CHECKED = None
@@ -446,7 +456,7 @@ def check():
     except Exception as e:
         logger.debug('HTTPS NoCert Check failed: %s', e)
 
-    for hostname, ip in KNOWN_DNS.iteritems():
+    for hostname, ip in KNOWN_DNS.items():
         try:
             if ip == socket.gethostbyname(hostname):
                 result |= DNS
@@ -454,7 +464,7 @@ def check():
         except Exception as e:
             logger.debug('DNS Check failed: %s', e)
 
-    for pastebin, bit in PASTEBINS.iteritems():
+    for pastebin, bit in PASTEBINS.items():
         try:
             data, code = ctx_nocert.get(
                 pastebin,
@@ -481,7 +491,7 @@ def check():
 
     try:
         nat, _, _ = stun.get_ip_info()
-        for bit, descr in STUN_NAT_DESCRIPTION.iteritems():
+        for bit, descr in STUN_NAT_DESCRIPTION.items():
             if descr == nat:
                 result |= bit
                 break
@@ -544,13 +554,13 @@ def bits_to_dict(data):
         'proxy': bool(data & PROXY),
         'transparent-proxy': bool(data & TRANSPARENT),
         'stun': [
-            descr for value,descr in STUN_NAT_DESCRIPTION.iteritems() if (
+            descr for value,descr in STUN_NAT_DESCRIPTION.items() if (
                 (data & STUN_NAT_VALUE) == value
             )
         ][0],
         'ntp': bool(data & NTP),
         'pastebins': {
-            pastebin:bool(data & bit) for pastebin,bit in PASTEBINS.iteritems()
+            pastebin:bool(data & bit) for pastebin,bit in PASTEBINS.items()
         }
     }
 
@@ -576,10 +586,10 @@ class PortQuiz(threading.Thread):
         self.lock = threading.Lock()
         self.abort = threading.Event()
         self.amount = 8
-        self.opener = urllib2.OpenerDirector()
+        self.opener = OpenerDirector()
         self.opener.handlers = []
         self.opener.add_handler(tinyhttp.NullHandler(self.table, self.lock))
-        self.opener.add_handler(urllib2.HTTPHandler())
+        self.opener.add_handler(HTTPHandler())
         self.http_timeout = http_timeout
         self.connect_timeout = connect_timeout
         self.available = list()
@@ -606,7 +616,7 @@ class PortQuiz(threading.Thread):
                 sock.settimeout(self.http_timeout)
 
 
-            url = urllib2.Request(
+            url = Request(
                 'http://{}:{}'.format(host, port),
                 headers={
                     'Host': self.hostname,

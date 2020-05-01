@@ -35,12 +35,11 @@ class RSA_AESTransport(BasePupyTransport):
     """
     password     = None
     iterations   = 1000
-    key_size     = 32
     rsa_key_size = 4096
     aes_size     = 256
 
     __slots__ = (
-        'aes_size', 'key_size',
+        'key_size',
         '_iv_enc', '_iv_dec',
         'enc_cipher', 'dec_cipher',
         'aes_key', 'size_to_read',
@@ -177,27 +176,31 @@ class RSA_AESTransport(BasePupyTransport):
         except:
             logger.debug(traceback.format_exc())
 
+
 class RSA_AESClient(RSA_AESTransport):
     __slots__ = (
-        'pubkey', 'pubkey_path'
+        '_pubkey', '_pubkey_path'
     )
 
-    pubkey=None
-    pubkey_path=None
+    pubkey = None
+    pubkey_path = None
 
     def __init__(self, *args, **kwargs):
         super(RSA_AESClient, self).__init__(*args, **kwargs)
-        if "pubkey" in kwargs:
-            self.pubkey=kwargs["pubkey"]
-        if "pubkey_path" in kwargs:
-            self.pubkey_path=kwargs["pubkey_path"]
-        if self.pubkey_path:
-            self.pubkey=open(self.pubkey_path).read()
-        if self.pubkey is None:
-            raise TransportError("A public key (pem format) needs to be supplied for RSA_AESClient")
+
+        self._pubkey = kwargs.get('pubkey', getattr(self, 'pubkey'))
+        self._pubkey_path = kwargs.get('pubkey_path', getattr(self, 'pubkey_path'))
+
+        if self._pubkey_path:
+            self._pubkey = open(self._pubkey_path).read()
+
+        if self._pubkey is None:
+            raise TransportError(
+                'A public key (pem format) needs to be supplied for RSA_AESClient'
+            )
 
     def on_connect(self):
-        pk = rsa.PublicKey.load_pkcs1(self.pubkey)
+        pk = rsa.PublicKey.load_pkcs1(self._pubkey)
         self.aes_key = get_random(self.key_size)
         self.enc_cipher = NewAESCipher(self.aes_key, self._iv_enc)
 
@@ -210,7 +213,7 @@ class RSA_AESClient(RSA_AESTransport):
 
 class RSA_AESServer(RSA_AESTransport):
     __slots__ = (
-        'privkey', 'privkey_path',
+        '_privkey', '_privkey_path',
         'pk', 'post_handshake_callbacks'
     )
 
@@ -219,16 +222,25 @@ class RSA_AESServer(RSA_AESTransport):
 
     def __init__(self, *args, **kwargs):
         super(RSA_AESServer, self).__init__(*args, **kwargs)
-        if "privkey" in kwargs:
-            raise TransportError("You need to pass privatekeys as a path or it could be usafe and embedded in payloads")
-        if "privkey_path" in kwargs:
-            self.privkey_path=kwargs["privkey_path"]
-        if self.privkey_path:
-            self.privkey=open(self.privkey_path).read()
-        if self.privkey is None:
-            raise TransportError("A private key (pem format) needs to be supplied for RSA_AESServer")
-        self.pk = rsa.PrivateKey.load_pkcs1(self.privkey)
-        self.post_handshake_callbacks=[]
+
+        self._privkey = kwargs.get(
+            'privkey', getattr(self, 'privkey')
+        )
+
+        self._privkey_path = kwargs.get(
+            'privkey_path', getattr(self, 'privkey_path')
+        )
+
+        if self._privkey_path:
+            self._privkey=open(self.privkey_path).read()
+
+        if self._privkey is None:
+            raise TransportError(
+                'A private key (pem format) needs to be supplied for RSA_AESServer'
+            )
+
+        self.pk = rsa.PrivateKey.load_pkcs1(self._privkey)
+        self.post_handshake_callbacks = []
 
     def downstream_recv(self, data):
         try:

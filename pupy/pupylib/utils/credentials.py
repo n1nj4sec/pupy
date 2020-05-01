@@ -3,11 +3,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
 import os
 import json
+import codecs
 
-from io import open
-from StringIO import StringIO
+from io import open, BytesIO
 
 from ..PupyConfig import PupyConfig
 from ..PupyCredentials import Encryptor
@@ -39,26 +40,26 @@ class Credentials(object):
         with open(self.db, 'w+') as db:
             if self.encryptor:
                 jsondb = json.dumps(data, indent=4)
-                self.encryptor.encrypt(StringIO(jsondb), db)
+                self.encryptor.encrypt(BytesIO(jsondb), db)
             else:
                 json.dump(data, db, indent=4)
 
     def _db_is_encrypted(self):
-        content = db.read(8)
-        db.seek(0)
-        return content.decode('latin1') == 'Salted__'
+        with open(self.db) as db:
+            content = db.read(8)
+            return content == b'Salted__'
 
     def _load_db(self):
         if self._db_is_encrypted():
             with open(self.db, 'rb') as db:
-                data = StringIO()
+                data = BytesIO()
                 if self.encryptor:
                     self.encryptor.decrypt(db, data)
                 else:
                     raise EncryptionError(
                         'Encrpyted credential storage: {}'.format(self.db)
                     )
-                return json.loads(data.getvalue())    
+                return json.loads(data.getvalue())
         else:
             with open(self.db, 'r') as db:
                 return json.load(db)
@@ -84,13 +85,11 @@ class Credentials(object):
 
             for k in d:
                 ktype = type(d[k])
-                if ktype == unicode:
-                    d[k] = d[k].encode('utf-8', errors='replace')
-                elif ktype == str:
+                if issubclass(ktype, bytes):
                     try:
-                        d[k] = d[k].decode('utf-8').encode('utf-8')
+                        d[k] = d[k].decode('utf-8')
                     except (UnicodeDecodeError, UnicodeEncodeError):
-                        d[k] = d[k].encode('hex')
+                        d[k] = codecs.encode(d[k], 'hex')
 
             if 'credtype' not in d:
                 if d.get('password'):
@@ -185,7 +184,7 @@ class Credentials(object):
 
             if search:
                 found = False
-                for value in c.itervalues():
+                for value in c.values():
                     if search.lower() in value.lower():
                         found = True
                         break

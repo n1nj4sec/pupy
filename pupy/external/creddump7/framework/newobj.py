@@ -19,8 +19,8 @@
 @contact:      bdolangavitt@wesleyan.edu
 """
 
-from object import *
-from types import regtypes as types
+from .object import *
+from .types import regtypes as types
 from operator import itemgetter
 from struct import unpack
 

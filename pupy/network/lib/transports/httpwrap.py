@@ -69,7 +69,7 @@ class PupyHTTPWrapperServer(BasePupyTransport):
         data = '\r\n'.join([
             'HTTP/1.1 {} {}'.format(code, status),
             '\r\n'.join([
-                '{}: {}'.format(key, value) for key,value in headers.iteritems()
+                '{}: {}'.format(key, value) for key,value in headers.items()
             ])
         ]) + '\r\n\r\n'
 

@@ -79,20 +79,16 @@ def _determine_split_char(entry):
 
 
 def _config_win32_nameservers(nameservers):
-    if isinstance(nameservers, unicode):
-        nameservers = nameservers.encode('utf-8')
-
     split_char = _determine_split_char(nameservers)
+
     return list(set(
         nameserver.strip() for nameserver in nameservers.split(split_char)
     ))
 
 
 def _config_win32_search(searches):
-    if isinstance(searches, unicode):
-        searches = searches.encode('utf-8')
-
     split_char = _determine_split_char(searches)
+
     return list(set(
         search.strip() for search in searches.split(split_char)
     ))

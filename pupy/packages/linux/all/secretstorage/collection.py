@@ -14,6 +14,7 @@ collections can also be locked and unlocked using
 requires showing the unlocking prompt to user and can be synchronous or
 asynchronous). Creating new items and editing existing ones is possible
 only in unlocked collection."""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

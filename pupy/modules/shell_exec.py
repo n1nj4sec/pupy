@@ -6,10 +6,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from argparse import REMAINDER
 
-__class_name__="ShellExec"
+if sys.version_info.major > 2:
+    basestring = str
+
+__class_name__ = 'ShellExec'
 
 
 @config(cat="admin")
@@ -49,7 +55,10 @@ class ShellExec(PupyModule):
                 self.terminate, get_data = check_output(
                     cmdline, shell=not args.no_shell, encoding=args.codepage, suid=args.set_uid)
             except Exception as e:
-                self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+                self.error(
+                    ' '.join(x for x in e.args if isinstance(x, basestring))
+                )
+
                 return
 
             data, code = get_data()

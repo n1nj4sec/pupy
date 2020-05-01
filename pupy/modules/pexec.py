@@ -134,7 +134,7 @@ class PExec(PupyModule):
         if type(cmdargs) == list:
             cmdargs = tuple(cmdargs)
 
-        kwargs = tuple((k,v) for k,v in cmdenv.iteritems())
+        kwargs = tuple((k,v) for k,v in cmdenv.items())
 
         self.terminate_pipe, get_returncode = safe_exec(
             on_read, close_event.set, cmdargs, kwargs

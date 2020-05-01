@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import sys
 import socket
 import errno
@@ -85,7 +86,7 @@ class ClosedFile(object):
 
     def __getattr__(self, name):
         if name.startswith("__"): # issue 71
-            raise AttributeError("stream has been closed")
+            raise AttributeError("stream has been closed (issue 71)")
         raise EOFError("stream has been closed")
 
     def close(self):
@@ -148,6 +149,7 @@ class SocketStream(Stream):
                 self.sock.shutdown(socket.SHUT_RDWR)
             except Exception:
                 pass
+
         self.sock.close()
         self.sock = ClosedFile
 

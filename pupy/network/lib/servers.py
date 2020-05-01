@@ -6,13 +6,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ('PupyTCPServer', 'PupyUDPServer')
 
+import sys
 import logging
 
 import socket
 
-from Queue import Queue, Empty
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+else:
+    from Queue import Queue, Empty
+
 from threading import Thread
 from netaddr import IPAddress, AddrFormatError
 
@@ -413,7 +419,10 @@ class PupyUDPServer(object):
                     for f in updated:
                         try:
                             x = self.clients[f].consume()
-                        except EOFError:
+                        except EOFError as e:
+                            if __debug__:
+                                logging.exception('EOF (consume): %s', e)
+
                             x = None
 
                         if not x:
@@ -433,13 +442,16 @@ class PupyUDPServer(object):
             for f in self.clients.keys():
                 self.clients[f].close()
 
-        except EOFError:
-            logging.error("EOF")
+        except EOFError as e:
+            logging.error('EOF: %s', e)
             pass # server closed by another thread
+
         except KeyboardInterrupt:
             logging.error('Keyboard interrupt')
+
         except Exception as e:
             logging.exception('Unknown exception %s: %s', type(e), e)
+
         finally:
             logging.info("server has terminated")
             self.close()

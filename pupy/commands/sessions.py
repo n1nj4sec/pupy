@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Color, Success, Table
 
@@ -17,6 +18,7 @@ parser.add_argument('-K', dest='killall', action='store_true', help='Kill all se
 parser.add_argument('-d', dest='drop', metavar='<id>', type=int,
                     help='Drop the connection (abruptly close the socket)')
 parser.add_argument('-D', dest='dropall', action='store_true', help='Drop all connections')
+
 
 def do(server, handler, config, modargs):
     if modargs.global_reset:
@@ -83,7 +85,7 @@ def do(server, handler, config, modargs):
 
             data = {
                 k:Color(v, color)
-                for k,v in client.desc.iteritems() if k in columns
+                for k,v in client.desc.items() if k in columns
             }
 
             data.update({

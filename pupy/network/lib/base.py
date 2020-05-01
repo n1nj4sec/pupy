@@ -7,6 +7,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+
 class ReleaseChainedTransport(Exception):
     __slots__ = ()
 
@@ -41,7 +42,7 @@ class BasePupyTransport(object):
     def customize(cls, **kwargs):
         """ return a class with some existing attributes customized """
 
-        for name, value in kwargs.iteritems():
+        for name, value in kwargs.items():
             if name in ["cookie", "upstream", "downstream", "stream"]:
                 raise TransportError("you cannot customize the protected attribute %s"%name)
             if not hasattr(cls, name):
@@ -130,7 +131,7 @@ logger = getLogger('chain')
 
 class TransportWrapper(BasePupyTransport):
 
-    __slots__ = ('cls_chain', 'chain')
+    __slots__ = ('chain',)
 
     cls_chain = ()
 

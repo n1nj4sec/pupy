@@ -56,7 +56,7 @@ def launch_dns_ip_resolver(ip_or_domain):
     }
 
     return {
-        k:v['function'](ip_or_domain) for k,v in functions.iteritems()
+        k:v['function'](ip_or_domain) for k,v in functions.items()
     }
 
 def launch_reverse_ip_resolver(ip):

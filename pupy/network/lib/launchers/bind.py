@@ -23,7 +23,7 @@ class BindLauncher(BaseLauncher):
     name = 'bind'
     credentials = ['BIND_PAYLOADS_PASSWORD']
 
-    __slots__ = ('credentials', 'arg_parser', 'args', 'rhost', 'rport')
+    __slots__ = ('args', 'rhost', 'rport')
 
     @classmethod
     def init_argparse(cls):

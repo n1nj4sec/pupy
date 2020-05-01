@@ -6,8 +6,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import sys
 import ntpath
-import StringIO
 
 from io import open
 
@@ -15,7 +15,12 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table
 from pupylib.utils.rpyc_utils import obtain
 
-__class_name__="SMB"
+if sys.version_info.major > 2:
+    from io import BytesIO
+else:
+    import StringIO as BytesIO
+
+__class_name__ = 'SMB'
 
 
 class SMBError(Exception):
@@ -151,11 +156,15 @@ class SMB(PupyModule):
         if not line.startswith('//'):
             raise ValueError('Invalid network format')
 
-        if not type(line) == unicode:
+        if isinstance(line, bytes):
             line = line.decode('utf-8')
 
         if codepage:
             line = line.encode(codepage, errors='replace')
+
+        # FIXME?
+        if isinstance(line, bytes):
+            line = line.decode('utf-8')
 
         remote = line[2:].split('/')
 
@@ -208,7 +217,7 @@ class SMB(PupyModule):
             return
 
         for name, directory, size, ctime in obtain(ft.ls(share, path)):
-            if type(name) != unicode:
+            if isinstance(name, bytes):
                 if args.codepage:
                     name = name.decode(args.codepage, errors='replace')
                 else:
@@ -325,7 +334,7 @@ class SMB(PupyModule):
             self.error(ft.error)
             return
 
-        memobj = StringIO.StringIO()
+        memobj = BytesIO()
         ft.get(share, path, memobj.write)
 
         if ft.ok:

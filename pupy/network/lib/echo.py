@@ -4,10 +4,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'Echo', 'echo'
 )
 
+import sys
 
 from random import choice, shuffle
 from time import time
@@ -22,6 +24,9 @@ from urllib2 import (
 
 from network.lib.scan import scan, TOP1000
 from network.lib.tinyhttp import NullHandler
+
+if sys.version_info.major > 2:
+    xrange = range
 
 
 MAGIC = b'\xDE\xAD\xBE\xEF'
@@ -165,7 +170,7 @@ def udp(host, timeout=10, amount=10, abort=None):
         to_cleanup = []
         now = time()
 
-        for sock, (_, _, start) in datas.iteritems():
+        for sock, (_, _, start) in datas.items():
             if now - start > timeout:
                 to_cleanup.append(sock)
 

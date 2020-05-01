@@ -4,17 +4,17 @@ This module implements a class to deal with Uniform Diffie-Hellman handshakes.
 The class `UniformDH' is used by the server as well as by the client to handle
 the Uniform Diffie-Hellman handshake used by ScrambleSuit.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 from . import const
+
 import random
 
-
 from ..cryptoutils import SHA256, get_random
-
 
 from . import util
 from . import mycrypto
@@ -23,6 +23,7 @@ from ..obfs3 import obfs3_dh
 
 import logging
 log = logging
+
 
 class UniformDH(object):
 
@@ -154,8 +155,9 @@ class UniformDH(object):
         data.drain(index + const.MARK_LENGTH + const.HMAC_SHA256_128_LENGTH)
 
         if srvState is not None:
-            log.debug("Adding the HMAC authenticating the UniformDH message " \
-                      "to the replay table: %s." % existingHMAC.encode('hex'))
+            log.debug(
+                "Adding the HMAC authenticating the UniformDH message."
+            )
             srvState.registerKey(existingHMAC)
 
         return handshake[:const.PUBLIC_KEY_LENGTH]
@@ -199,8 +201,7 @@ class UniformDH(object):
                                        publicKey + padding + mark + epoch)
 
         if self.weAreServer and (srvState is not None):
-            log.debug("Adding the HMAC authenticating the server's UniformDH "
-                      "message to the replay table: %s." % mac.encode('hex'))
+            log.debug("Adding the HMAC authenticating the server's UniformDH.")
             srvState.registerKey(mac)
 
         return publicKey + padding + mark + mac

@@ -138,7 +138,7 @@ class SniffSession(Thread):
 
     def _set_iface(self, iface):
 
-        if not type(iface) == unicode:
+        if isinstance(iface, bytes):
             iface = iface.decode('utf-8')
 
         nice_name = iface

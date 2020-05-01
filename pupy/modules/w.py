@@ -170,8 +170,8 @@ class WModule(PupyModule):
             data = users()
             tablein = []
 
-            for user, hosts in reversed(sorted(data.iteritems())):
-                for host, sessions in hosts.iteritems():
+            for user, hosts in reversed(sorted(data.items())):
+                for host, sessions in hosts.items():
                     for session in sessions:
                         color = ""
 

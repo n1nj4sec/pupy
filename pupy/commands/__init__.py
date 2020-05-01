@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 __all__ = ('InvalidCommand', 'Commands')
 
 import os
@@ -12,8 +13,10 @@ import shlex
 from pupylib.PupyCompleter import commands_completer
 from pupylib.PupyModule import PupyArgumentParser
 
+
 class InvalidCommand(Exception):
     pass
+
 
 class CommandsNamespace(object):
 
@@ -22,6 +25,7 @@ class CommandsNamespace(object):
     def __init__(self, module, args):
         self.module = module
         self.args = args
+
 
 class Commands(object):
     SUFFIXES = tuple([
@@ -48,7 +52,9 @@ class Commands(object):
                 not x.startswith('__init__')
             })
 
-        for command, source in files.iteritems():
+        for command in files:
+            source = files[command]
+
             try:
                 current_stat = os.stat(source)
             except OSError:
@@ -139,7 +145,9 @@ class Commands(object):
         if refresh:
             self._refresh()
 
-        for command, module in self._commands.iteritems():
+        for command in self._commands:
+            module = self._commands[command]
+
             yield command, module.usage
 
     def completer(self, context, cmdline):

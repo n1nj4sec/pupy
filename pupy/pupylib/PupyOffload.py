@@ -4,7 +4,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-import msgpack
+
+import sys
+import umsgpack
 import threading
 import socket
 import struct
@@ -12,10 +14,14 @@ import logging
 import time
 import errno
 import ssl
-import urlparse
 
 from network.lib import socks
 from dnslib import QTYPE
+
+if sys.version_info.major > 2:
+    from urllib.parse import urlparse
+else:
+    from urlparse import urlparse
 
 try:
     from . import getLogger
@@ -57,10 +63,10 @@ class MsgPackMessages(object):
         if data == '':
             raise EOFError
 
-        return msgpack.loads(data)
+        return umsgpack.loads(data)
 
     def send(self, msg):
-        data = msgpack.dumps(msg)
+        data = umsgpack.dumps(msg)
         datalen = len(data)
         datalen_b = struct.pack('>I', datalen)
         self._conn.sendall(datalen_b + data)
@@ -280,7 +286,7 @@ class PupyOffloadManager(object):
         if via:
             if '://' not in via:
                 raise OffloadProxyCommonError('Proxy argument should be in URI form')
-            self._via = urlparse.urlparse(via)
+            self._via = urlparse(via)
         else:
             self._via = None
 

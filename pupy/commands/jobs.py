@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Error, Success, Table
 
@@ -54,7 +55,7 @@ def do(server, handler, config, modargs):
         if server.jobs:
             dictable = []
 
-            for jid,job in server.jobs.iteritems():
+            for jid,job in server.jobs.items():
                 dictable.append({
                     'id':jid,
                     'job':str(job),

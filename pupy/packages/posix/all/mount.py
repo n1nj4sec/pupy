@@ -48,7 +48,7 @@ class MountInfo(object):
                 self.pused = 100 - int(self.free/self.total*100)
 
         except Exception as e:
-            self.exception = e.message
+            self.exception = str(e)
             self.total = None
             self.free = None
             self.files = None
@@ -98,7 +98,7 @@ class MountInfo(object):
 
     def as_dict(self):
         result = {
-            k:v for k,v in self.__dict__.iteritems() if not k.startswith('_')
+            k:v for k,v in self.__dict__.items() if not k.startswith('_')
         }
         result.update({'options': self.options})
         return result

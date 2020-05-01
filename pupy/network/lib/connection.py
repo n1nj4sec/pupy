@@ -4,14 +4,23 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-__all__ = ('SyncRequestDispatchQueue', 'PupyConnection',
-           'PupyConnectionThread')
 
+__all__ = (
+    'SyncRequestDispatchQueue',
+    'PupyConnection',
+    'PupyConnectionThread'
+)
+
+import sys
 import time
 import traceback
 
 from threading import Thread, Lock, current_thread
-from Queue import Queue, Full, Empty
+
+if sys.version_info.major > 2:
+    from queue import Queue, Full, Empty
+else:
+    from Queue import Queue, Full, Empty
 
 from network.lib import getLogger
 
@@ -41,8 +50,9 @@ def stream_dump(obj):
     return buf
 
 
-@brine.register(brine._dump_registry, str)
-def _dump_str_to_buffer(obj, stream):
+# Py2: bytes == str
+@brine.register(brine._dump_registry, bytes)
+def _dump_bytes_to_buffer(obj, stream):
     obj_len = len(obj)
     if obj_len == 0:
         stream.append(brine.TAG_EMPTY_STR)
@@ -314,7 +324,7 @@ class PupyConnection(Connection):
 
     def _on_sync_request_exception(self, exc):
         if __debug__:
-            logger.debug('Connection(%s) - sync request exception %s', self, exc)
+            logger.exception('Connection(%s) - sync request exception %s', self, exc)
 
         if not isinstance(exc, EOFError):
             logger.exception('%s: %s', self, exc)
@@ -612,7 +622,9 @@ class PupyConnection(Connection):
 
             logger.debug('Check timeout(%s) - start', self)
 
-            promise = self.async_request(consts.HANDLE_PING, 'ping', timeout=timeout)
+            promise = self.async_request(
+                consts.HANDLE_PING, b'ping', timeout=timeout
+            )
 
             while (time.time() - now < timeout) and not self.closed:
                 if promise.expired:
@@ -636,9 +648,11 @@ class PupyConnection(Connection):
 
             try:
                 self._init_service()
-            except AttributeError:
+            except AttributeError as e:
+                if __debug__:
+                    logger.exception('Init service failed: %s', e)
                 # Connection was broken in the middle
-                raise EOFError()
+                raise EOFError('Connection was broken in the middle')
         else:
             logger.debug('Local root is absent')
 
@@ -825,7 +839,8 @@ class PupyConnection(Connection):
         ''' RPyC do not have any PING handler. So.. why to wait? '''
         now = now or time.time()
         promise = self.async_request(
-            consts.HANDLE_PING, 'ping', timeout=timeout)
+            consts.HANDLE_PING, b'ping', timeout=timeout
+        )
         if block:
             promise.wait()
 

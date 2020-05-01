@@ -25,7 +25,6 @@ class Mimishell(MemoryExec):
     """
 
     dependencies = [
-        'pupymemexec',
         'pupwinutils.memexec',
     ]
 

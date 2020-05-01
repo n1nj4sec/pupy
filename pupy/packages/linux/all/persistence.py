@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
 import os
 import subprocess
 import random
@@ -12,6 +13,9 @@ import stat
 import pwd
 
 from io import open
+
+if sys.version_info.major > 2:
+    xrange = range
 
 
 class DropManager(object):

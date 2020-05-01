@@ -18,11 +18,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import sys
 import traceback
 import json
 import zlib
-import msgpack
+import umsgpack
 
 from network.lib.msgtypes import msgpack_exthook
 from network.lib.rpc import Service, timed, nowait
@@ -92,7 +93,7 @@ class PupyService(Service):
         self.eval = remote_eval
         self.execute = remote_execute
         self.pupyimporter = pupyimporter
-        self.infos = msgpack.loads(infos, ext_hook=msgpack_exthook)
+        self.infos = umsgpack.loads(infos, ext_hook=msgpack_exthook)
         self.get_infos = lambda: self.infos
 
         self.pupy_srv.add_client(self)
@@ -162,7 +163,7 @@ class PupyService(Service):
                 pass
 
     def exposed_msgpack_dumps(self, js, compressed=False):
-        data = msgpack.dumps(js)
+        data = umsgpack.dumps(js)
         if compressed:
             data = zlib.compress(data)
 

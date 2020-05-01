@@ -17,10 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ['Ack']
 
 from threading import Lock
 from time import time, sleep
+
 
 class Ack(object):
     """ Dumb (and fast, and unsafe) event replacement """

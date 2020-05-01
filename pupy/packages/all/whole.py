@@ -4,19 +4,28 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
+if sys.version_info.major > 2:
+    basestring = str
+    unicode = str
+
+
 def to_string(x):
-    if type(x) in (list, tuple, set, frozenset):
+    if isinstance(x, (list, tuple, set, frozenset)):
         return [to_string(y) for y in x]
-    elif type(x) in (str, unicode):
+    elif isinstance(x, basestring):
         return x
     elif x is None:
         return ''
-    elif type(x) == dict:
+    elif isinstance(x, dict):
         return {
-            to_string(k):to_string(v) for k,v in x.iteritems()
+            to_string(k):to_string(v) for k,v in x.items()
         }
     else:
         return unicode(x)
+
 
 def to_strings_list(function, *args, **kwargs):
     results = []

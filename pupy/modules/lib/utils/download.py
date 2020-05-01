@@ -6,10 +6,18 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from threading import Event
-from StringIO import StringIO
-from msgpack import Unpacker
 
-from Queue import Queue
+import sys
+
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+    from io import BytesIO
+
+    xrange = range
+else:
+    from Queue import Queue, Empty
+    from StringIO import StringIO as BytesIO
+
 from io import open
 
 import tarfile
@@ -20,6 +28,7 @@ import os
 import os.path
 import zlib
 import errno
+import umsgpack
 
 FIELDS_MAP = {
     x:y for x,y in enumerate([
@@ -233,10 +242,12 @@ class DownloadFronted(object):
             self._completed.set()
 
         else:
-            data = StringIO(data)
+            data = BytesIO(data)
 
-            for msg in Unpacker(data):
-                if self._completed.is_set():
+            while not self._completed.is_set():
+                try:
+                    msg = umsgpack.unpack(data)
+                except umsgpack.InsufficientDataException:
                     break
 
                 self._handle_msg(msg)

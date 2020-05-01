@@ -4,15 +4,21 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import path_completer, remote_dirs_completer
 
 from network.lib.rpc.utils.classic import upload
 
+import sys
 import os
 import os.path
 
+if sys.version_info.major > 2:
+    basestring = str
+
 __class_name__="UploaderScript"
+
 
 @config(cat="manage")
 class UploaderScript(PupyModule):
@@ -58,7 +64,9 @@ class UploaderScript(PupyModule):
         try:
             upload(self.client.conn, localfile, remotefile, chunk_size=8*1024*1024)
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )
             return
 
         self.success("file local:%s uploaded to remote:%s"%(localfile, remotefile))

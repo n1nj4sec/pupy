@@ -4,8 +4,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-__all__ = ['scan', 'scanthread']
 
+__all__ = ('scan', 'scanthread')
+
+import sys
 import socket
 import select
 import errno
@@ -19,7 +21,10 @@ from network.lib.rpc import nowait
 from . import getLogger
 logger = getLogger('scan')
 
-TOP1000 = [
+if sys.version_info.major > 2:
+    xrange = range
+
+TOP1000 = (
     1,3,4,6,7,9,13,17,19,20,21,22,23,24,25,26,30,32,33,37,42,43,49,53,70,79,80,81,82,
     83,84,85,88,89,90,99,100,106,109,110,111,113,119,125,135,139,143,144,146,161,163,
     179,199,211,212,222,254,255,256,259,264,280,301,306,311,340,366,389,406,407,416,
@@ -63,7 +68,8 @@ TOP1000 = [
     9900,9917,9929,9943,9944,9968,9998,9999,10000,10001,10002,10003,10004,10009,10010,10012,10024,10025,
     10082,10180, 10215,10243,10566,10616,10617,10621,10626,10628,10629,10778,11110,11111,11967,12000,
     12174,12265,12345,13456,13722
-]
+)
+
 
 def create_socket(host, port):
     sock = socket.socket()
@@ -75,6 +81,7 @@ def create_socket(host, port):
         return None, None
 
     return sock, r
+
 
 def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_open_port=None, pass_socket=False):
     connectable=[]
@@ -124,7 +131,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
                     sock.close()
 
         if sockets:
-            socks = list(sockets.iterkeys())
+            socks = list(sockets)
             _, w, _ = select.select([], socks, [], timeout)
 
             for sock in w:
@@ -169,6 +176,7 @@ def scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_
     else:
         return connectable
 
+
 def safe_scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None, on_open_port=None, pass_socket=False, on_exception=None):
     try:
         return scan(
@@ -179,6 +187,7 @@ def safe_scan(hosts, ports, abort=None, timeout=10, portion=32, on_complete=None
             on_exception(e)
         elif on_complete:
             on_complete([])
+
 
 def scanthread(hosts, ports, on_complete, **kwargs):
     abort = threading.Event()
@@ -191,6 +200,7 @@ def scanthread(hosts, ports, on_complete, **kwargs):
     scanner.start()
 
     return abort
+
 
 def scanthread_parse(hosts, ports, on_complete, **kwargs):
     targets = []

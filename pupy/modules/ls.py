@@ -4,14 +4,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Color
 from modules.lib import size_human_readable, file_timestamp, to_utf8
 from pupylib.utils.term import elen
+
+import sys
 from argparse import REMAINDER
 
-__class_name__="ls"
+if sys.version_info.major > 2:
+    basestring = str
+
+__class_name__= 'ls'
 
 T_NAME      = 0
 T_TYPE      = 1
@@ -31,11 +37,13 @@ T_HAS_XATTR = 14
 
 # TODO: Rewrite using tables
 
+
 def to_str(x):
-    if type(x) in (str, unicode):
+    if isinstance(x, basestring):
         return to_utf8(x)
 
     return str(x)
+
 
 def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_len=0):
     if file[T_TYPE] == 'X':
@@ -101,6 +109,7 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
 
     return out
 
+
 @config(cat="admin")
 class ls(PupyModule):
     """ list system files """
@@ -139,7 +148,9 @@ class ls(PupyModule):
                 args.archive, args.userinfo or args.groupinfo)
 
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )
             return
 
         # results = obtain(results)

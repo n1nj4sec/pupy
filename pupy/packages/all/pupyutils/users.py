@@ -9,16 +9,18 @@ import sys
 
 from io import open
 
+if sys.version_info.major > 3:
+    basestring = str
+
 
 if os.name == 'nt':
     import win32net
     import win32api
 
     def to_unicode(x):
-        tx = type(x)
-        if tx == str:
+        if isinstance(x, bytes):
             return x.decode(sys.getfilesystemencoding())
-        elif tx == unicode:
+        elif isinstance(x, basestring):
             return x
         else:
             return str(x)

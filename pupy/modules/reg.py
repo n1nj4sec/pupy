@@ -4,7 +4,10 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 __class_name__ = 'reg'
+
+import sys
 
 from threading import Event
 
@@ -12,6 +15,11 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import (
     Color, List, Table, Line, MultiPart, TruncateToTerm
 )
+
+if sys.version_info.major > 2:
+    unicode = str
+    basestring = str
+
 
 TYPES = (
     'NONE', 'SZ', 'EXPAND_SZ', 'BINARY', 'LE32', 'BE32',
@@ -34,6 +42,7 @@ TYPE_COLORS = {
     'RESOURCE_REQUIREMENTS_LIST': 'red'
 }
 
+
 def as_unicode(x):
     if x is None:
         return None
@@ -43,6 +52,7 @@ def as_unicode(x):
         return x.decode('utf-8')
     else:
         return unicode(x)
+
 
 def fix_key(x):
     x = as_unicode(x)
@@ -240,7 +250,7 @@ class reg(PupyModule):
             else:
                 value = as_unicode(value)
 
-            if not wide and isinstance(value, (str,unicode)):
+            if not wide and isinstance(value, basestring):
                 value = value.strip()
 
             values.append({
@@ -341,7 +351,7 @@ class reg(PupyModule):
         ktype = TYPES[ktype]
         color = TYPE_COLORS[ktype]
 
-        if type(value) in (str,unicode):
+        if isinstance(value, basestring):
             value = value.strip()
 
         self.log(

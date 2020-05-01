@@ -27,6 +27,7 @@ import re
 import struct
 import math
 import argparse
+import sys
 
 from io import open
 
@@ -38,8 +39,14 @@ from .PupyOutput import (
     Info, Table, TruncateToTerm
 )
 
-from pupylib.utils.term import hint_to_text, obj2utf8
+from pupylib.utils.term import hint_to_text, deep_as_str
 from pupylib import getLogger
+
+from network.lib.compat import with_metaclass
+
+if sys.version_info.major > 2:
+    unicode = str
+    basestring = str
 
 REQUIRE_NOTHING  = 0
 REQUIRE_STREAM   = 1
@@ -160,7 +167,10 @@ class PupyArgumentParser(argparse.ArgumentParser, PupyArgumentParserRef):
 
 
 class Log(object):
-    def __init__(self, out, log, consize, rec=None, command=None, title=None, unicode=False, stream=False):
+    def __init__(
+        self, out, log, consize, rec=None,
+            command=None, title=None, unicode=False, stream=False):
+
         self.out = out
         self.log = log
         self.rec = None
@@ -231,7 +241,7 @@ class Log(object):
         self.last = now
 
         if self.unicode:
-            if type(data) != unicode:
+            if isinstance(data, bytes):
                 data = data.decode('utf-8', errors='ignore')
 
         if self.rec == 'ttyrec':
@@ -244,11 +254,11 @@ class Log(object):
             self.log.write(json.dumps([
                 duration, 'o', data
             ]))
-            self.log.write('\n')
+            self.log.write(b'\n')
 
         elif self.rec == 'asciinema1':
             if delay:
-                self.log.write(',')
+                self.log.write(b',')
 
             self.log.write(json.dumps([duration, data]))
 
@@ -318,13 +328,12 @@ class PupyModuleMetaclass(type):
         super(PupyModuleMetaclass, self).__init__(*args, **kwargs)
         self.init_argparse()
 
-class PupyModule(object):
+
+class PupyModule(with_metaclass(PupyModuleMetaclass)):
     """
         This is the class all the pupy scripts must inherit from
         daemon_script -> script that will continue running in background once started
     """
-
-    __metaclass__ = PupyModuleMetaclass
 
     # QA - Safeness of the module
     qa = QA_STABLE
@@ -402,7 +411,7 @@ class PupyModule(object):
             }
 
             if self.log_file:
-                for k,v in replacements.iteritems():
+                for k,v in replacements.items():
                     log = self.log_file.replace(k, str(v))
             else:
                 log = self.config.get_file('logs', replacements)
@@ -504,13 +513,12 @@ class PupyModule(object):
         raise NotImplementedError("PupyModule's run method has not been implemented !")
 
     def encode(self, msg):
-        tmsg = type(msg)
-        if issubclass(tmsg, Text) or tmsg == unicode:
-            return msg
-        elif tmsg == str:
+        if isinstance(msg, bytes):
             return msg.decode('utf8', errors="replace")
+        elif isinstance(msg, (Text, basestring)):
+            return msg
         else:
-            return obj2utf8(msg)
+            return deep_as_str(msg)
 
     def _message(self, msg):
         if self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
@@ -573,7 +581,7 @@ def config(**kwargs):
 
         return klass
 
-    for k in kwargs.iterkeys():
+    for k in kwargs:
         if k not in ['tags', 'category', 'cat', 'compatibilities', 'compatibility', 'compat', 'daemon']:
             logger.warning("Unknown argument \"%s\" to @config context manager"%k)
 

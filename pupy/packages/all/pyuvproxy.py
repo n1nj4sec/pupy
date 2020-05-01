@@ -4,6 +4,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 import pyuv
 import struct
 import os
@@ -16,16 +18,27 @@ from threading import Thread, Lock
 from socket import inet_ntop
 from socket import AF_INET, AF_INET6
 
-from Queue import Queue, Empty
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+    xrange = range
+    basestring = str
+    long = int
+
+    def bval(x):
+        return x
+else:
+    from Queue import Queue, Empty
+
+    def bval(x):
+        return ord(x)
 
 import socket
-
 import errno
-
 import uuid
 
 from network.lib.pupyrpc import nowait
 from network.lib import getLogger
+
 logger = getLogger('pyuvproxy')
 
 CODE_SUCCEEDED, CODE_GENERAL_SRV_FAILURE, CODE_CONN_NOT_ALLOWED, \
@@ -248,7 +261,7 @@ class Connection(object):
         try:
             self.timer.start(self._connection_timeout, self.timeout, 0)
 
-            if type(address) in (str, unicode):
+            if isinstance(address, basestring):
                 self.socket = pyuv.Pipe(self.loop, True)
                 self.socket.getsockname = lambda: ''
 
@@ -337,7 +350,7 @@ class Acceptor(object):
         self.forward_address = forward_address
         self.bind_address = bind_address
         self.associaction = {}
-        if type(local_address) in (str, unicode):
+        if isinstance(local_address, basestring):
             self.socket = pyuv.Pipe(self.loop, True)
         else:
             self.socket = pyuv.TCP(self.loop)
@@ -455,7 +468,7 @@ class Acceptor(object):
                 elif atyp == ADDR_IPV6:
                     addr_len = 16
                 elif atyp == ADDR_HOSTNAME:
-                    addr_len = ord(packet[4])
+                    addr_len = bval(packet[4])
                     addr_offt = 1
                     dns = True
 
@@ -627,7 +640,7 @@ class Neighbor(object):
         self.acceptors[path_or_port] = acceptor
 
     def unregister_acceptor(self, acceptor_or_path_or_port):
-        if type(acceptor_or_path_or_port) in (str, unicode, int):
+        if isinstance(acceptor_or_path_or_port, (basestring, int)):
             try:
                 self.acceptors[acceptor_or_path_or_port].close()
                 return True
@@ -814,7 +827,7 @@ class Manager(Thread):
             bind_address=bind
         )
 
-        if type(local_address) in (str, unicode):
+        if isinstance(local_address, basestring):
             neighbor.register_acceptor(acceptor, local_address)
         else:
             host, port = local_address
@@ -831,7 +844,7 @@ class Manager(Thread):
         logger.debug('Manager: unbind(%s)',
             path_or_port)
 
-        for neighbor in self.neighbors.itervalues():
+        for neighbor in self.neighbors.values():
             if neighbor.unregister_acceptor(path_or_port):
                 return True
         return False
@@ -970,11 +983,11 @@ class Manager(Thread):
                 return
 
             neighbor = self.neighbors[filter_by_local_id]
-            for port, acceptor in neighbor.acceptors.iteritems():
+            for port, acceptor in neighbor.acceptors.items():
                 results.append([port, acceptor.forward_address or 'socks5'])
         else:
-            for neighbor in self.neighbors.itervalues():
-                for port, acceptor in neighbor.acceptors.iteritems():
+            for neighbor in self.neighbors.values():
+                for port, acceptor in neighbor.acceptors.items():
                     results.append(
                         [port, acceptor.forward_address or 'socks5'])
 

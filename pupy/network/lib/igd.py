@@ -7,21 +7,36 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 __all__ = (
-    'UPNPError', 'FakeSocket', 'IGDClient',
+    'UPNPError', 'IGDClient',
 )
 
+import sys
 import socket
-import urllib2
-from StringIO import StringIO
-from httplib import HTTPResponse
+
+if sys.version_info.major > 2:
+    from urllib.request import urlopen, Request
+    from urllib.error import HTTPError
+    from urllib.parse import urlparse
+else:
+    from urllib2 import HTTPError, Request, urlopen
+    from urlparse import urlparse
+
+try:
+    from http_parser.parser import HttpParser
+except ImportError:
+    from http_parser.pyparser import HttpParser
+
 from xml.etree.ElementTree import fromstring
-from urlparse import urlparse
+
 import netaddr
 import logging
 
+
 def str2bool(bstr):
     return bool(int(bstr))
+
 
 def getProtoId(proto_name):
     if isinstance(proto_name, int):
@@ -33,6 +48,7 @@ def getProtoId(proto_name):
         return False
 
     return getattr(socket, proto_name)
+
 
 class UPNPError(Exception):
     def __init__(self, hcode, ucode, udes):
@@ -50,16 +66,19 @@ class UPNPError(Exception):
             .format(hc=self.http_code, c=self.code, d=self.description)
 
 
-class FakeSocket(StringIO):
-    def makefile(self, *args, **kw):
-        return self
+def get_location_url(sock):
+    try:
+        chunk, _ = sock.recvfrom(1024)
+    except socket.error:
+        return
 
+    response = HttpParser(kind=1)
+    response.execute(chunk, len(chunk))
 
-def httpparse(fp):
-    socket = FakeSocket(fp.read())
-    response = HTTPResponse(socket)
-    response.begin()
-    return response
+    if response.is_headers_complete():
+        headers = response.get_headers()
+
+        return headers.get('location')
 
 
 # sendSOAP is based on part of source code from miranda-upnp.
@@ -95,7 +114,7 @@ class IGDClient(object):
 
     __slots__ = (
         'ctrlURL', 'debug', 'pprint', 'isv6', 'timeout', 'intIP',
-        'igdsvc', 'available', 'pr', 'bindIP'
+        'igdsvc', 'pr', 'bindIP'
     )
 
     def __init__(
@@ -138,7 +157,7 @@ class IGDClient(object):
                 self.igdsvc = "WANIPC"
 
             self.discovery()
-            self.discovery(st='upnp:rootdevice')
+            self.discovery(st=b'upnp:rootdevice')
 
         if self.available and not self.intIP:
             self.intIP = self._getOutgoingLocalAddress()
@@ -204,19 +223,19 @@ class IGDClient(object):
         err_desc = dom.find('.//control:errorDescription', self.NS)
         return (err_code.text, err_desc.text)
 
-    def discovery(self, st='urn:schemas-upnp-org:device:InternetGatewayDevice:1'):
+    def discovery(self, st=b'urn:schemas-upnp-org:device:InternetGatewayDevice:1'):
         """
         Find IGD device and its control URL via UPnP multicast discovery
         """
         logging.warning("Sending multicast traffic looking for IGD Devices / forwarding TCP port ...")
         if not self.isv6:
-            up_disc = '\r\n'.join([
-                'M-SEARCH * HTTP/1.1',
-                'HOST:239.255.255.250:1900',
-                'ST:{}'.format(st),
-                'MX:2',
-                'MAN:"ssdp:discover"'
-            ]) + '\r\n' * 2
+            up_disc = b'\r\n'.join([
+                b'M-SEARCH * HTTP/1.1',
+                b'HOST:239.255.255.250:1900',
+                b'ST:' + st,
+                b'MX:2',
+                b'MAN:"ssdp:discover"'
+            ]) + b'\r\n' * 2
 
             sock = socket.socket(
                 socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -226,20 +245,20 @@ class IGDClient(object):
                 pass
 
             sock.bind((self.bindIP.format(), 19110))
-            sock.sendto(up_disc, ("239.255.255.250", 1900))
+            sock.sendto(up_disc, (b'239.255.255.250', 1900))
 
         else:
             if self.bindIP.is_link_local():
-                dst_ip = "ff02::c"
+                dst_ip = b'ff02::c'
             else:
-                dst_ip = "ff05::c"
-                up_disc = '\r\n'.join([
-                    'M-SEARCH * HTTP/1.1',
-                    'HOST:[{dst}]:1900'.format(dst=dst_ip),
-                    'ST:upnp:rootdevice',
-                    'MX:2',
-                    'MAN:"ssdp:discover"'
-                ]) + '\r\n' * 2
+                dst_ip = b'ff05::c'
+                up_disc = b'\r\n'.join([
+                    b'M-SEARCH * HTTP/1.1',
+                    b'HOST:[{dst}]:1900'.format(dst=dst_ip),
+                    b'ST:upnp:rootdevice',
+                    b'MX:2',
+                    b'MAN:"ssdp:discover"'
+                ]) + b'\r\n' * 2
 
             sock = socket.socket(
                 socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -256,22 +275,17 @@ class IGDClient(object):
             print("Discovery: ----- tx request -----\n " + up_disc)
 
         sock.settimeout(self.timeout)
-        try:
-            data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
-        except socket.error:
-            return
-
+        descURL = get_location_url(sock)
         sock.close()
 
         if self.debug:
-            print("Discovery: ----- rx reply -----\n " + data)
+            print("Discovery: ----- Location -----\n " + descURL)
 
-        descURL = httpparse(StringIO(data)).getheader('location')
         if not descURL:
             return
 
         try:
-            descXMLs = urllib2.urlopen(descURL, None, self.timeout).read()
+            descXMLs = urlopen(descURL, None, self.timeout).read()
         except:
             return
 
@@ -568,7 +582,7 @@ class IGDClient(object):
             upnp_method,
             sendArgs)
 
-    def customAction(self, method_name, in_args={}, svc="WANIPConnection"):
+    def customAction(self, method_name, in_args={}, svc='WANIPConnection'):
         """
         this is for the vendor specific action
         in_args is a dict,
@@ -605,7 +619,8 @@ class IGDClient(object):
 
         # Create a string containing all of the SOAP action's arguments and
         # values
-        for arg, (val, dt) in actionArguments.iteritems():
+        for arg in actionArguments:
+            val, dt = actionArguments[arg]
             argList += '<%s>%s</%s>' % (arg, val, arg)
 
         # Create the SOAP request
@@ -622,18 +637,16 @@ class IGDClient(object):
               serviceType,
               argList,
               actionName
-        )
+        ).encode('ascii')
 
         try:
-            response = urllib2.urlopen(
-                urllib2.Request(controlURL, soapBody, {
-                    'Content-Type': 'text/xml',
-                    'SOAPAction': '"{}#{}"'.format(
-                        serviceType,
-                        actionName
-                    )
+            response = urlopen(
+                Request(controlURL, soapBody, {
+                    b'Content-Type': b'text/xml',
+                    b'SOAPAction': serviceType.encode(
+                        'ascii') + b'#' + actionName.encode('ascii')
                 }))
-        except urllib2.HTTPError as e:
+        except HTTPError as e:
             err_code, err_desc = self._parseErrMsg(e.read())
             raise UPNPError(e.code, err_code, err_desc)
 

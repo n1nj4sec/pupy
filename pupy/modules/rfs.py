@@ -161,7 +161,7 @@ class RFSManager(object):
     @property
     def mounts(self):
         return {
-            x:y.operations.root for x,y in self._mounts.iteritems()
+            x:y.operations.root for x,y in self._mounts.items()
         }
 
     def umountall(self):
@@ -367,5 +367,5 @@ class RemoteFS(PupyModule):
         manager.umount(args.dest)
 
     def list(self, args, manager):
-        for src,dst in manager.mounts.iteritems():
+        for src,dst in manager.mounts.items():
             self.info('{} -> {}'.format(src, dst))

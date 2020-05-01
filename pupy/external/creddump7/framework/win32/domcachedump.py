@@ -18,18 +18,25 @@
 @license:      GNU General Public License 2.0 or later
 @contact:      bdolangavitt@wesleyan.edu
 """
+
 from __future__ import print_function
 
-from rawreg import *
+from .rawreg import *
+
 from ..addrspace import HiveFileAddressSpace
-from hashdump import get_bootkey
-from lsasecrets import get_secret_by_name,get_lsa_key
+from .hashdump import get_bootkey
+from .lsasecrets import get_secret_by_name,get_lsa_key
+
 from Crypto.Hash import HMAC
 from Crypto.Cipher import ARC4, AES
+
 from struct import unpack
+from codecs import encode
+
 
 def get_nlkm(secaddr, lsakey, vista):
     return get_secret_by_name(secaddr, 'NL$KM', lsakey, vista)
+
 
 def decrypt_hash(edata, nlkm, ch):
     hmac_md5 = HMAC.new(nlkm,ch)
@@ -38,6 +45,7 @@ def decrypt_hash(edata, nlkm, ch):
     rc4 = ARC4.new(rc4key)
     data = rc4.encrypt(edata)
     return data
+
 
 def decrypt_hash_vista(edata, nlkm, ch):
     """
@@ -54,12 +62,14 @@ def decrypt_hash_vista(edata, nlkm, ch):
         out += aes.decrypt(buf)
     return out
 
+
 def parse_cache_entry(cache_data):
     (uname_len, domain_len) = unpack("<HH", cache_data[:4])
     (domain_name_len,) = unpack("<H", cache_data[60:62])
     ch = cache_data[64:80]
     enc_data = cache_data[96:]
-    return (uname_len, domain_len, domain_name_len, enc_data, ch) 
+    return (uname_len, domain_len, domain_name_len, enc_data, ch)
+
 
 def parse_decrypted_cache(dec_data, uname_len,
         domain_len, domain_name_len):
@@ -78,6 +88,7 @@ def parse_decrypted_cache(dec_data, uname_len,
     domain_name = domain_name.decode('utf-16-le', errors='ignore')
 
     return (username, domain, domain_name, hash)
+
 
 def dump_hashes(sysaddr, secaddr, vista):
     bootkey = get_bootkey(sysaddr)
@@ -103,12 +114,12 @@ def dump_hashes(sysaddr, secaddr, vista):
     hashes = []
     for v in values(cache):
         if v.Name == "NL$Control": continue
-        
+
         data = v.space.read(v.Data.value, v.DataLength.value)
 
-        (uname_len, domain_len, domain_name_len, 
+        (uname_len, domain_len, domain_name_len,
             enc_data, ch) = parse_cache_entry(data)
-        
+
         # Skip if nothing in this cache entry
         if uname_len == 0:
             continue
@@ -125,12 +136,13 @@ def dump_hashes(sysaddr, secaddr, vista):
 
         hashes.append((username, domain, domain_name, hash))
 
-    return hashes 
+    return hashes
+
 
 def dump_file_hashes(syshive_fname, sechive_fname, vista):
     sysaddr = HiveFileAddressSpace(syshive_fname)
     secaddr = HiveFileAddressSpace(sechive_fname)
 
     for (u, d, dn, hash) in dump_hashes(sysaddr, secaddr, vista):
-        print("%s:%s:%s:%s" % (u.lower(), hash.encode('hex'),
+        print("%s:%s:%s:%s" % (u.lower(), encode(hash, 'hex'),
                                d.lower(), dn.lower()))

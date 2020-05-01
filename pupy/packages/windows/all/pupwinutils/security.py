@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from ctypes import (
     WinDLL, c_uint32, c_char_p,
     c_long, c_uint16, Structure, Union,
@@ -31,14 +32,15 @@ import logging
 
 from os import W_OK, X_OK, R_OK
 
+if sys.version_info.major > 2:
+    xrange = range
+    unicode = str
+
 def to_unicode(x):
-    tx = type(x)
-    if tx == unicode:
-        return x
-    elif tx == str:
+    if isinstance(x, bytes):
         return x.decode(sys.getfilesystemencoding())
-    else:
-        return x
+
+    return x
 
 ntdll    = WinDLL('ntdll',    use_last_error=True)
 advapi32 = WinDLL('advapi32', use_last_error=True)
@@ -1436,7 +1438,7 @@ def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
     close_hToken = False
 
-    if type(privilegeStr) == unicode:
+    if isinstance(privilegeStr, str) and not isinstance(privilegeStr, bytes):
         privilege = privilegeStr.encode('latin1')
     else:
         privilege = str(privilegeStr)
@@ -1619,7 +1621,7 @@ IMPERSONATION_TOKENS = {}
 
 def ListCachedSids():
     return tuple(
-        (sid, username) for sid, (username, value) in IMPERSONATION_TOKENS.iteritems()
+        (sid, username) for sid, (username, value) in IMPERSONATION_TOKENS.items()
     )
 
 

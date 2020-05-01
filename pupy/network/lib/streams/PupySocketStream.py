@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+
 """ abstraction layer over rpyc streams to handle different transports and integrate obfsproxy pluggable transports """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 from network.lib import getLogger
+
 logger = getLogger('pss')
 
 __all__ = [
@@ -365,9 +368,9 @@ class PupySocketStream(SocketStream):
 
 
 class PupyUDPSocketStream(object):
-    NEW = '\x00'
-    DAT = '\x01'
-    END = '\x02'
+    NEW = b'\x00'
+    DAT = b'\x01'
+    END = b'\x02'
 
     def __init__(self, sock, transport_class, transport_kwargs={}, client_side=True, close_cb=None, lsi=5):
 
@@ -440,7 +443,7 @@ class PupyUDPSocketStream(object):
     def on_connect(self):
         self.transport.on_connect()
 
-    def _send_packet(self, flag, data=''):
+    def _send_packet(self, flag, data=b''):
         need_flush = False
         if flag in (self.NEW, self.END):
             need_flush = True
@@ -449,7 +452,9 @@ class PupyUDPSocketStream(object):
             flag = self.NEW
             self.NEW_SENT = True
 
-        self.kcp.send(flag + self.local_connid + data)
+        packet = flag + self.local_connid + data
+
+        self.kcp.send(packet)
         if need_flush:
             self.kcp.flush()
 
@@ -491,15 +496,19 @@ class PupyUDPSocketStream(object):
         buf = buf[5:]
 
         if not self.INITIALIZED:
-            if flag == self.NEW:
+            if flag == self.NEW[0]:
                 self.INITIALIZED = True
                 self.remote_connid = connid
             else:
-                if flag == self.DAT:
+                if flag == self.DAT[0]:
                     self._send_packet(self.END)
 
-                raise EOFError('Unexpected flag')
-        elif flag == self.END:
+                raise EOFError(
+                    'Unexpected flag ({} ({}))'.format(
+                        repr(flag), type(flag)
+                    )
+                )
+        elif flag == self.END[0]:
             raise EOFError('EOF Flag received')
 
         elif connid != self.remote_connid:

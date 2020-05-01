@@ -12,10 +12,14 @@ __all__ = [
 import datetime
 import re
 import os
+import sys
 
 from io import open
 
 MAX_RECORDS_ITER = 65535
+
+if sys.version_info.major > 2:
+    basestring = str
 
 
 def to_timestamp(d):
@@ -117,7 +121,7 @@ class GenericLogReader(object):
                     break
 
                 for value in item.values():
-                    if type(value) not in (str, unicode):
+                    if not isinstance(value, basestring):
                         continue
 
                     for exclude in excludes:

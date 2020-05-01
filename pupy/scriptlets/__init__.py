@@ -13,11 +13,13 @@ __all__ = [
   'ScriptletsPacker', 'load_scriptlets'
 ]
 
+import sys
+
 from io import open
 from os import path, listdir
 from ast import (
     parse,
-    TryExcept, FunctionDef,
+    FunctionDef,
     Num, Name, Str, Expr, Assign, If,
     Load, Param, NodeTransformer
 )
@@ -27,6 +29,10 @@ from pupylib.payloads  import dependencies
 from pupylib.PupyCompile import Compiler
 
 from collections import OrderedDict
+
+if sys.version_info.major > 2:
+    basestring = str
+    long = int
 
 ROOT = path.abspath(path.join(path.dirname(__file__), '..', 'packages'))
 
@@ -150,7 +156,7 @@ class ScriptletsPacker(object):
                     dependencies.importer(requirements, os=self.os)
                 ]) +'\n'))
 
-        for scriptlet, kwargs in self.scriptlets.iteritems():
+        for scriptlet, kwargs in self.scriptlets.items():
             template = WRAPPING_TEMPLATE.format(
                 scriptlet=scriptlet.name)
 
@@ -210,7 +216,7 @@ class ScriptletsPacker(object):
 
                             value.n = default
                         elif vtype == Str:
-                            if type(default) not in (str, unicode):
+                            if not isinstance(default, basestring):
                                 default = str(default)
                             value.s = default
                         elif vtype == Name:
@@ -268,8 +274,6 @@ class ScriptletsPacker(object):
                 if not(type(item) == FunctionDef and \
                        item.name == '__{}_closure__'.format(scriptlet.name)):
                     continue
-
-                assert(len(item.body) == 1 and type(item.body[0]) == TryExcept)
 
                 closure = item.body[0]
 
@@ -395,8 +399,12 @@ def load_scriptlets(target_os, target_arch):
             scriptlets[scriptlet.name] = scriptlet
 
         except SyntaxError as e:
-            logger.error('SyntaxError (scriptlet=%s:%d:+%d):\nline: %s\nError: %s',
-                         filename, e.lineno, e.offset, e.text.strip(), e.msg)
+            logger.error(
+                'SyntaxError (scriptlet=%s:%s:+%s):\nline: %s\nError: %s',
+                filename, e.lineno, e.offset,
+                e.text.strip() if e.text else '',
+                e.msg
+            )
 
         except IOError as e:
             logger.debug(e)

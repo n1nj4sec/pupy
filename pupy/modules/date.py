@@ -3,9 +3,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 from pupylib.PupyModule import config, PupyArgumentParser, PupyModule
 
-__class_name__="date"
+if sys.version_info.major > 2:
+    basestring = str
+
+__class_name__ = 'date'
+
 
 @config(cat="admin")
 class date(PupyModule):
@@ -24,4 +30,6 @@ class date(PupyModule):
             self.success(date())
 
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )

@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from future.utils import raise_
 from ldap3 import (
     Server, Connection, SIMPLE, ALL, BASE,
@@ -32,7 +33,7 @@ from socket import (
 )
 
 from socket import error as socket_error
-from sys import exc_info
+from sys import exc_info, version_info
 from os import environ
 
 from datetime import datetime
@@ -70,6 +71,10 @@ try:
     auto_discovery = True
 except ImportError:
     auto_discovery = False
+
+if version_info.major > 2:
+    xrange = range
+    basestring = str
 
 
 # Monkey-patch _add_exception_to_history to save original exception,
@@ -1028,7 +1033,7 @@ class ADCtx(object):
 
         dump_requests = self.SIMPLE_DUMP_REQUESTS
 
-        if isinstance(filter, (str, unicode)):
+        if isinstance(filter, basestring):
             if filter.startswith('('):
                 dump_requests = {
                     'custom_' + md5(filter).hexdigest(): LDAPLargeRequest(filter)
@@ -1039,11 +1044,11 @@ class ADCtx(object):
 
                 dump_requests = {
                     name: request for name, request in
-                    self.SIMPLE_DUMP_REQUESTS.iteritems()
+                    self.SIMPLE_DUMP_REQUESTS.items()
                     if name in categories
                 }
 
-        for name, request in dump_requests.iteritems():
+        for name, request in dump_requests.items():
             if interrupt.is_set():
                 if on_completed:
                     on_completed()
@@ -1052,7 +1057,7 @@ class ADCtx(object):
 
             _on_data = lambda data: on_data(
                 name, as_tuple_deep({
-                    k:v for k,v in record.iteritems()
+                    k:v for k,v in record.items()
                     if k not in ('raw_attributes', 'raw_dn', 'type')
                 } for record in data if record['type'] == 'searchResEntry')
             )
@@ -1411,7 +1416,7 @@ def search(realm, global_catalog, term,
     elif global_catalog is not None:
         expected_btype = 'GC' if global_catalog else 'LDAP'
         ctxs.extend([
-            ctx for (btype, _), ctx in REALM_CACHE.iteritems()
+            ctx for (btype, _), ctx in REALM_CACHE.items()
             if btype == expected_btype
         ])
     else:

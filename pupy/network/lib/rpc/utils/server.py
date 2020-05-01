@@ -15,10 +15,10 @@ import threading
 import errno
 import logging
 
-try:
-    import Queue
-except ImportError:
+if sys.version_info.major > 2:
     import queue as Queue
+else:
+    import Queue
 
 from network.lib.rpc.core import SocketStream, Channel, Connection
 from network.lib.rpc.lib import safe_import

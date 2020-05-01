@@ -4,22 +4,32 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color
 
+import sys
 import logging
 
 __class_name__="NetStatModule"
 
 ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
-def to_unicode(x):
-    if type(x) == str:
-        return x.decode('utf-8')
-    elif type(x) == unicode:
-        return x
-    else:
-        return unicode(x)
+if sys.version_info.major > 2:
+    def to_unicode(x):
+        if isinstance(x, str):
+            return str
+
+        return str(x)
+else:
+    def to_unicode(x):
+        if isinstance(x, str):
+            return x.decode('utf-8')
+        elif isinstance(x, unicode):
+            return x
+        else:
+            return unicode(x)
+
 
 @config(cat="admin")
 class NetStatModule(PupyModule):
@@ -44,13 +54,13 @@ class NetStatModule(PupyModule):
             families = {
                 int(k):v for k,v in self.client.remote_const(
                     'pupyps', 'families'
-                ).iteritems()
+                ).items()
             }
 
             socktypes = {
                 int(k):v for k,v in self.client.remote_const(
                     'pupyps', 'socktypes'
-                ).iteritems()
+                ).items()
             }
 
             data = connections()
@@ -105,7 +115,7 @@ class NetStatModule(PupyModule):
                         ), color)
                 }
 
-                for v in connection.itervalues():
+                for v in connection.values():
                     if any(to_unicode(h) in to_unicode(v.data) for h in args.hide):
                         deny = True
                     if any(to_unicode(h) in to_unicode(v.data) for h in args.show):

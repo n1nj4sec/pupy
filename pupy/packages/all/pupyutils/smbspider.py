@@ -55,7 +55,7 @@ class SMBSpider:
             try:
                 self.smbconnection.login('', '')
             except SessionError as e:
-                if "STATUS_ACCESS_DENIED" in e.message:
+                if "STATUS_ACCESS_DENIED" in str(e):
                     pass
 
             print("[+] {}:{} is running {} (name:{}) (domain:{})".format(self.host, self.port, self.smbconnection.getServerOS(), self.smbconnection.getServerName(), self.domain))

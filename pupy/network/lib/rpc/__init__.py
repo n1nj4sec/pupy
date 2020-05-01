@@ -48,7 +48,7 @@ from __future__ import unicode_literals
 
 __all__ = (
     'Channel', 'Connection', 'Service', 'BaseNetref', 'AsyncResult',
-    'GenericException', 'AsyncResultTimeout', 'VoidService', 'SlaveService',
+    'GenericException', 'AsyncResultTimeout',
     'nowait', 'timed', 'buffiter', 'BgServingThread', 'restricted',
     'classic',
     '__version__'
@@ -56,7 +56,7 @@ __all__ = (
 
 from network.lib.rpc.core import (
     Channel, Connection, Service, BaseNetref, AsyncResult,
-    GenericException, AsyncResultTimeout, VoidService, SlaveService
+    GenericException, AsyncResultTimeout
 )
 
 from network.lib.rpc.utils.helpers import (

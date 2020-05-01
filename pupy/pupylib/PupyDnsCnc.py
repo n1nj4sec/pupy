@@ -4,6 +4,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
 import logging
 
 from .PupyCredentials import Credentials
@@ -23,7 +24,12 @@ from pupylib.utils.listener import get_listener_ip_with_local, get_listener_port
 import requests
 import netaddr
 
-from urlparse import urlparse
+if sys.version_info.major > 2:
+    from urllib.parse import urlparse
+
+    basestring = str
+else:
+    from urlparse import urlparse
 
 from io import open
 from os import path
@@ -287,11 +293,11 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
 
     def find_nodes(self, node):
         if not node:
-            return list(self.nodes.itervalues())
+            return self.nodes.values()
 
         results = []
 
-        if type(node) in (str,unicode):
+        if isinstance(node, basestring):
             nodes = []
 
             for n in node.split(','):
@@ -312,7 +318,7 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
         if spi or node:
             results = []
             if self.config and node:
-                if type(node) in (str,unicode):
+                if isinstance(node, basestring):
                     nodes = []
                     for n in node.split(','):
                         try:
@@ -333,7 +339,7 @@ class PupyDnsCommandServerHandler(DnsCommandServerHandler):
                         results = []
 
             if spi:
-                if type(spi) in (str,unicode):
+                if isinstance(spi, basestring):
                     spis = []
                     for s in spi.split(','):
                         try:
@@ -448,13 +454,13 @@ class PupyDnsCnc(object):
                     raise ValueError('Listener for transport {} not found'.format(transport))
 
             else:
-                for l in listeners.itervalues():
+                for l in listeners.values():
                     if not l.local or (port and (l.port == port or l.external_port == port)):
                         listener = l
                         break
 
                 if not listener:
-                    listener = next(listeners.itervalues())
+                    listener = next(iter(listeners.values()))
                     if listener.port == 0:
                         local = False
                     else:

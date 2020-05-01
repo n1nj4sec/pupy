@@ -4,15 +4,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ['SafePopen']
 
 import threading
 import subprocess
-import Queue
 import sys
 import os
 import struct
 import errno
+
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+else:
+    from Queue import Queue, Empty
 
 from io import open
 from network.lib.pupyrpc import nowait

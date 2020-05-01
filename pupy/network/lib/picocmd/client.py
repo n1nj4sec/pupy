@@ -96,7 +96,7 @@ class DnsCommandsClient(Thread):
                 logging.info('Using DoH')
 
                 if not ns:
-                    for known_hostname, known_ip in online.KNOWN_DNS.iteritems():
+                    for known_hostname, known_ip in online.KNOWN_DNS.items():
                         ns = securedns.SecureDNS.available(
                             known_hostname, False, known_ip
                         )

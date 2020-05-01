@@ -136,7 +136,7 @@ class CredDump(PupyModule):
                     passwd.write(line+'\n')
 
         except Exception as e:
-            self.error('getent passwd failed: {}: {}'.format(type(e), e.message))
+            self.error('getent passwd failed: {}: {}'.format(type(e), str(e)))
 
         try:
             with open(os.path.join(self.rep, 'getent.shadow'), 'w') as shadow:
@@ -148,7 +148,7 @@ class CredDump(PupyModule):
                     shadow.write(line+'\n')
 
         except Exception as e:
-            self.error('getent shadow failed: {}: {}'.format(type(e), e.message))
+            self.error('getent shadow failed: {}: {}'.format(type(e), str(e)))
 
         self.db.add([{
             'Hash':':'.join(hsh.split(':')[1:]),

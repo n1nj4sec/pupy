@@ -124,16 +124,16 @@ class SSH(PupyModule):
         records = get_hosts()
 
         if args.host:
-            for user, hosts in records.iteritems():
-                for alias, host in hosts.iteritems():
+            for user, hosts in records.items():
+                for alias, host in hosts.items():
                     if args.host == alias or args.host == host.get('hostname'):
                         self.log(Table([{
                             'KEY':k, 'VALUE': ','.join(v) if type(v) == list else v
-                        } for k,v in host.iteritems()],
+                        } for k,v in host.items()],
                         ['KEY', 'VALUE'], Color('{}, user={}'.format(alias, user), 'yellow')))
 
         else:
-            for user, hosts in records.iteritems():
+            for user, hosts in records.items():
                 self.log(Table([{
                     'ALIAS':alias,
                     'USER':hosts[alias].get('user', user),

@@ -78,7 +78,7 @@ class Tracker(object):
         deleteList = []
         now = int(time.time())
 
-        for element in self.table.iterkeys():
+        for element in self.table:
             if (now - self.table[element]) > const.EPOCH_GRANULARITY:
                 deleteList.append(element)
 

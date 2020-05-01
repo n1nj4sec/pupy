@@ -4,17 +4,34 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Pygment
 from pupylib.PupyCompleter import remote_path_completer
 from pygments.lexers import guess_lexer, guess_lexer_for_filename
 
-textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+textchars = bytearray(
+    {7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f}
+)
 
-def is_binary(text):
-    return bool(text.translate(None, textchars))
+if sys.version_info.major > 2:
+    basestring = str
 
-__class_name__="cat"
+    del_textchars = {
+        k: None for k in textchars
+    }
+
+    def is_binary(text):
+        return bool(text.translate(del_textchars))
+
+else:
+    def is_binary(text):
+        return bool(text.translate(None, textchars))
+
+__class_name__ = 'cat'
+
 
 @config(cat="admin")
 class cat(PupyModule):
@@ -69,7 +86,7 @@ class cat(PupyModule):
                         if args.color:
                             lexer = HexdumpLexer()
 
-                    except Exception as e:
+                    except Exception:
                         r = '[ BINARY FILE ]'
                         lexer = False
 
@@ -92,4 +109,6 @@ class cat(PupyModule):
                 self.log(r)
 
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )

@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ['acquire', 'release']
 
 import sys
@@ -27,6 +28,9 @@ from collections import deque
 from network.lib.pupyrpc import nowait
 
 from pupy import manager, Task
+
+if sys.version_info.major > 2:
+    basestring = str
 
 DEFAULT_SHELL = None
 
@@ -196,7 +200,7 @@ class PtyShell(Task):
         if not self.argv:
             argv = [find_shell()]
 
-        elif type(self.argv) in (str, unicode):
+        elif isinstance(self.argv, basestring):
             argv = shlex.split(self.argv)
         else:
             argv = self.argv

@@ -47,7 +47,8 @@ class Buffer(object):
             logger.error('Buffer: unsupported data type ({}) at {}'.format(
                 type(data), format_stack()))
 
-            raise TypeError('Buffer: unsupported data type ({})'.format(type(data)))
+            raise TypeError('Buffer: unsupported data type ({}): {}'.format(
+                type(data), repr(data)))
 
     def __init__(self, data='', on_write=None, transport_func=None, truncate=False,
                  chunk_size=None, compressed=False, shared=False):

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+
 """
 launchers bring an abstraction layer over transports to allow pupy payloads to try multiple transports until one succeed or perform custom actions on their own.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -14,6 +16,8 @@ __all__ = (
 )
 
 import argparse
+
+from .compat import with_metaclass
 
 
 class LauncherError(Exception):
@@ -39,30 +43,28 @@ class BaseLauncherMetaclass(type):
         self.init_argparse()
 
 
-class BaseLauncher(object):
+class BaseLauncher(with_metaclass(BaseLauncherMetaclass)):
     arg_parser = None
-    args = None
     name = None
 
     __slots__ = (
         'args', 'host', 'hostname', 'port',
         '_transport', 'proxies', '_default_transport'
     )
-    __metaclass__ = BaseLauncherMetaclass
 
     def __init__(self):
         self.args = None
         self.reset_connection_info()
         self._default_transport = None
 
-    def iterate(self):
-        ''' iterate must be an iterator returning rpyc stream instances '''
-        raise NotImplementedError('iterate launcher\'s method needs to be implemented')
-
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = LauncherArgumentParser(
             prog=cls.__name__, description=cls.__doc__)
+
+    def iterate(self):
+        ''' iterate must be an iterator returning rpyc stream instances '''
+        raise NotImplementedError('iterate launcher\'s method needs to be implemented')
 
     def parse_args(self, args):
         if not self.args:

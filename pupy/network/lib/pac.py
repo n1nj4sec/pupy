@@ -10,19 +10,28 @@ __all__ = (
     'refresh_pac_player'
 )
 
-from sys import getfilesystemencoding
+from sys import getfilesystemencoding, version_info
 from dukpy import JSInterpreter, JSRuntimeError
-from urlparse import urlparse
-from urllib2 import URLError
+
+if version_info.major > 2:
+    from urllib.parse import urlparse
+    from urllib.error import URLError
+
+    basestring = str
+    xrange = range
+else:
+    from urlparse import urlparse
+    from urllib2 import URLError
+
 from socket import gethostbyname, gaierror, getfqdn
 from netaddr import IPAddress, IPNetwork, AddrFormatError
 from inspect import getmembers, ismethod
+
 from io import open
 from os import name as os_name
 from time import time
 from re import match
 from threading import Lock
-
 
 try:
     from pupyimporter import dprint
@@ -149,7 +158,7 @@ def get_pac_content():
                 logger.debug('WPAD: %s: invalid HTTP status %d', url, code)
                 continue
 
-            if 'FindProxyForURL' not in content:
+            if b'FindProxyForURL' not in content:
                 logger.debug('WPAD: %s: invalid content')
                 continue
 
@@ -390,4 +399,8 @@ class PACPlayer(object):
         return value.lower().startswith(host.lower())
 
     def alert(self, *args):
-        dprint(' '.join(str(x) if type(x) is not unicode else x for x in args))
+        dprint(
+            ' '.join(
+                x if isinstance(x, basestring) else str(x) for x in args
+            )
+        )

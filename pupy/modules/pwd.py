@@ -3,9 +3,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyArgumentParser, PupyModule
 
-__class_name__="pwd"
+if sys.version_info.major > 2:
+    getcwd = 'getcwd'
+    basestring = str
+else:
+    getcwd = 'getcwdu'
+
+__class_name__ = 'pwd'
+
 
 @config(cat="admin")
 class pwd(PupyModule):
@@ -18,7 +28,9 @@ class pwd(PupyModule):
 
     def run(self, args):
         try:
-            getcwd = self.client.remote('os', 'getcwdu', False)
-            self.success(getcwd())
+            rgetcwd = self.client.remote('os', getcwd, False)
+            self.success(rgetcwd())
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )

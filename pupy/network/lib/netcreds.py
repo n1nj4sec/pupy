@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'NetCreds',
     'add_cred', 'add_cred_for_uri', 'find_creds',
@@ -11,10 +12,18 @@ __all__ = (
     'export'
 )
 
-from socket import getaddrinfo, gaierror
-from urlparse import urlparse
+import sys
 
+from socket import getaddrinfo, gaierror
 from netaddr import IPAddress, AddrFormatError
+
+if sys.version_info.major > 2:
+    from urllib.parse import urlparse
+
+    basestring = str
+else:
+    from urlparse import urlparse
+
 
 _TARGET_WEIGHTS = {
     'domain': 0b1, 'schema': 0b10,
@@ -105,7 +114,7 @@ class AuthInfo(object):
     def _weight(self, available_fields):
         value = 0b0
 
-        for field, weight in _TARGET_WEIGHTS.iteritems():
+        for field, weight in _TARGET_WEIGHTS.items():
             if field not in available_fields:
                 continue
 
@@ -169,8 +178,9 @@ class AuthInfo(object):
 
     def as_tuple(self):
         return tuple(
-            (k, tuple(str(x) for x in v) if hasattr(v, '__iter__') else v)
-            for k,v in self.as_dict().iteritems()
+            (k, tuple(str(x) for x in v)
+            if hasattr(v, '__iter__')  and not isinstance(v, str) else v)
+            for k,v in self.as_dict().items()
         )
 
 
@@ -205,7 +215,7 @@ class NetCreds(object):
         if realm is not None:
             realm = realm.upper()
 
-        if isinstance(domain, (str, unicode)):
+        if isinstance(domain, basestring):
             domain = domain.lower()
 
         self.creds.add(
@@ -266,7 +276,7 @@ class NetCreds(object):
         if realm is not None:
             realm = realm.upper()
 
-        if isinstance(domain, (str, unicode)):
+        if isinstance(domain, basestring):
             domain = domain.lower()
 
         fields = {

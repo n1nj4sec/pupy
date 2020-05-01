@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'Command',
     'Poll', 'Ack', 'Idle',
@@ -29,6 +30,7 @@ __all__ = (
     'AddressTable'
 )
 
+import sys
 import struct
 import netaddr
 import re
@@ -38,12 +40,21 @@ import time
 import datetime
 import platform
 import uuid
-import urlparse
 import socket
 
 from network.lib.picocmd import (
     baseconv, dns_encoder, dns_encoder_table
 )
+
+if sys.version_info.major > 2:
+    from urllib.parse import urlparse
+
+    basestring = str
+    long = int
+    xrange = range
+
+else:
+    from urlparse import urlparse
 
 try:
     import psutil
@@ -107,8 +118,8 @@ class AddressTable(object):
 
     def get_address(self, target_id):
         address = None
-        for this_address, this_target_id in self.table.iteritems():
-            if this_target_id == target_id:
+        for this_address, this_target_id in self.table:
+            if self.table[this_target_id] == target_id:
                 address = this_address
                 break
 
@@ -120,7 +131,9 @@ class AddressTable(object):
     def _find_free_target_id(self):
         auto_target_id_is_ok = True
 
-        for used_target_id in self.table.itervalues():
+        for used_address in self.table:
+            used_target_id = self.table[used_address]
+
             if self.auto_target_id == used_target_id:
                 auto_target_id_is_ok = False
                 break
@@ -172,7 +185,7 @@ class EncodingTable(object):
         start = kwargs.get('start', 0)
         self._decode = dict(enumerate(alphabet, start))
         self._encode = {
-            v:k for k,v in self._decode.iteritems()
+            self._decode[k]:k for k in self._decode
         }
 
     def is_registered(self, value):
@@ -194,7 +207,7 @@ class EncodingTable(object):
 
 
 class Command(object):
-    __slots__ = ('session_required', 'internet_required')
+    __slots__ = ()
 
     session_required = False
     internet_required = False
@@ -786,7 +799,7 @@ class DownloadExec(Command):
         except:
             raise PackError('Unknown action: {}'.format(self.action))
 
-        url = urlparse.urlparse(self.url)
+        url = urlparse(self.url)
 
         try:
             addr = netaddr.IPAddress(url.hostname)
@@ -894,7 +907,7 @@ class PasteLink(Command):
     }
 
     well_known_paste_services_decode = {
-        i:k for k,i in well_known_paste_services_encode.iteritems()
+        i:k for k,i in well_known_paste_services_encode.items()
     }
 
     # 4 max - 2 bits
@@ -914,7 +927,10 @@ class PasteLink(Command):
         if not self.well_known_pastebin_action.is_registered(self.action):
             raise PackError('User-defined actions are not supported')
 
-        for (service, encode, decode), code in self.well_known_paste_services_encode.iteritems():
+        for key in self.well_known_paste_services_encode:
+            service, encode, decode = key
+            code = self.well_known_paste_services_encode[key]
+
             match = re.match(service.format('(.*)'), self.url)
             if match:
                 paste = encode(match.groups()[0])
@@ -1013,9 +1029,9 @@ class OnlineStatus(Command):
             ' '.join(
                 '{}={}'.format(
                     k.upper(),
-                    v if type(v) in (int,str,unicode,bool) else any([
-                        x for x in v.itervalues()
-                    ])) for k,v in self.get_dict().iteritems()))
+                    v if type(v) in (int, basestring, bool) else any([
+                        x for x in v.values()
+                    ])) for k,v in self.get_dict().items()))
 
 
 class PortQuizPort(Command):
@@ -1379,7 +1395,7 @@ class ConnectEx(Command):
     def __init__(self, address, port, transport, fronting=None):
         self.address = None
 
-        if type(address) in (str, unicode, netaddr.IPAddress):
+        if type(address) in (basestring, netaddr.IPAddress):
             try:
                 self.address = netaddr.IPAddress(address)
                 if self.address.version == 6:

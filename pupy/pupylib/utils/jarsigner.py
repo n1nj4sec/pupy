@@ -13,10 +13,10 @@ from base64 import b64encode
 def jarsigner(pem_priv, pem_cert, apk_path, dest_fileobj):
     pk = EVP.PKey()
 
-    if type(pem_priv) == unicode:
+    if not isinstance(pem_priv, bytes):
         pem_priv = pem_priv.encode('utf-8')
 
-    if type(pem_cert) == unicode:
+    if not isinstance(pem_cert, bytes):
         pem_cert = pem_cert.encode('utf-8')
 
     pk.assign_rsa(RSA.load_key_string(pem_priv))

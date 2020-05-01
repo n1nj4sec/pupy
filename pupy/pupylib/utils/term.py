@@ -5,6 +5,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 import random
 import os
 import struct
@@ -28,7 +30,26 @@ from pupylib.PupyOutput import (
     ServiceInfo, Section, Line, List, Table, Pygment
 )
 
-PYGMENTS_STYLE='native'
+if sys.version_info.major > 2:
+    xrange = range
+    unicode = str
+
+
+DEFAULT_MULTIBYTE_CP = 'utf-8'
+FALLBACK_MULTIBYTE_CP = 'latin-1'
+
+
+def from_bytes(value, errors=None):
+    if errors is not None:
+        return value.decode(DEFAULT_MULTIBYTE_CP, errors=errors)
+    else:
+        try:
+            return value.decode(DEFAULT_MULTIBYTE_CP)
+        except UnicodeError:
+            return value.decode(FALLBACK_MULTIBYTE_CP)
+
+
+PYGMENTS_STYLE = 'native'
 
 ESC_REGEX = re.compile(r'(\033[^m]+m)')
 
@@ -53,6 +74,7 @@ SHADOW_SCREEN_TO = '\033[?1049h\033[2J\033[1;1H'
 SHADOW_SCREEN_FROM = '\033[?1049l'
 RESET = '\033g\033c\033r\033m'
 
+
 # https://gist.githubusercontent.com/jtriley/1108174/raw/6ec4c846427120aa342912956c7f717b586f1ddb/terminalsize.py
 def consize(file=None):
     """ getTerminalSize()
@@ -70,6 +92,7 @@ def consize(file=None):
 
     return tuple_xy or (None, None)
 
+
 def _size_windows(file=None):
     try:
         from ctypes import windll, create_string_buffer
@@ -85,6 +108,7 @@ def _size_windows(file=None):
             return sizex, sizey
     except:
         pass
+
 
 def _size_linux(file=None):
     def ioctl_GWINSZ(fd):
@@ -118,20 +142,26 @@ def _size_linux(file=None):
 
     return int(cr[1]), int(cr[0])
 
+
 def colorize(text, color, prompt=False):
+    color = color.lower()
+
     if not text:
         return ''
-    elif color == 'white':
+
+    if isinstance(text, bytes):
+        text = from_bytes(text)
+
+    elif not isinstance(text, str):
+        text = unicode(text)
+
+    if color == 'white':
         return text
 
-    ttype = type(text)
-    if ttype not in (str, unicode):
-        text = str(text)
+    elif color == 'random':
+        color = random.choice(COLORS)
 
-    if color.lower() == 'random':
-        color = random.choice(COLORS.keys())
-
-    ccode = COLORS.get(color.lower())
+    ccode = COLORS.get(color)
     if prompt:
         ccode = '\001' + ccode + '\002'
 
@@ -144,31 +174,37 @@ def colorize(text, color, prompt=False):
 
     sequence.append(eccode)
 
-
     if ccode:
-        joiner = u'' if ttype == unicode else ''
-        return joiner.join(sequence)
+        return ''.join(sequence)
 
     return text
 
+
 def terminal_size():
-    h, w, hp, wp = struct.unpack('HHHH',
-        fcntl.ioctl(0, termios.TIOCGWINSZ,
-        struct.pack('HHHH', 0, 0, 0, 0)))
+    h, w, hp, wp = struct.unpack(
+        'HHHH',
+        fcntl.ioctl(
+            0, termios.TIOCGWINSZ,
+            struct.pack('HHHH', 0, 0, 0, 0)
+        )
+    )
+
     return w, h
 
 
 def ediff(s):
     utf8diff = 0
 
-    if type(s) is str:
-        s2 = s.decode('utf8', errors='replace')
+    if isinstance(s, bytes):
+        s2 = from_bytes(s, 'ignore')
         utf8diff = len(s) - len(s2)
 
     return utf8diff + len(''.join(ESC_REGEX.findall(s)))
 
+
 def elen(s):
     return len(s) - ediff(s)
+
 
 def ejust(line, width):
     initial = line
@@ -189,47 +225,50 @@ def ejust(line, width):
 
     return line
 
-def obj2utf8(obj):
+
+def deep_as_str(obj):
     objtype = type(obj)
 
     if issubclass(objtype, Hint):
         pass
 
-    elif objtype == dict:
+    elif issubclass(objtype, dict):
         for k in obj:
-            obj[k] = obj2utf8(obj[k])
+            obj[k] = deep_as_str(obj[k])
 
-    elif objtype == list:
-        for i in range(0, len(obj)):
-            obj[i] = obj2utf8(obj[i])
+    elif issubclass(objtype, list):
+        for i, item in enumerate(obj):
+            obj[i] = deep_as_str(item)
 
-    elif objtype == tuple:
-        obj = list(obj)
-        for i in range(0, len(obj)):
-            obj[i] = obj2utf8(obj[i])
+    elif issubclass(objtype, tuple):
+        obj = [None] * len(tuple)
+        for i, item in enumerate(obj):
+            obj[i] = deep_as_str(item)
 
-        obj = tuple(obj)
+        obj = objtype(obj)
 
-    elif objtype == unicode:
+    elif objtype is bytes:
+        obj = obj.decode('utf-8', 'replace')
+
+    elif objtype is str:
         pass
-
-    elif objtype == str:
-        obj = obj.decode('utf-8', errors='replace')
 
     else:
         obj = unicode(obj)
 
     return obj
 
+
 def get_columns_size(columns):
     size_dic = {}
     for column in columns:
-        for key, value in column.iteritems():
+        for key, value in column.items():
             value_elen = elen(value)
             if key not in size_dic or size_dic[key] < value_elen:
                 size_dic[key] = value_elen
 
     return size_dic
+
 
 def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
     """
@@ -241,13 +280,13 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
     res = []
 
     if not diclist:
-        return u''
+        return ''
 
-    diclist = obj2utf8(diclist)
+    diclist = deep_as_str(diclist)
     keys = [
         (
-            x if type(x) in (tuple, list) else (x, x)
-        ) for x in (wl if wl else diclist[0].iterkeys()) if x not in bl
+            x if isinstance(x, (tuple, list)) else (x, x)
+        ) for x in (wl if wl else diclist[0]) if x not in bl
     ]
 
     titlesdic = {}
@@ -263,8 +302,8 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
     for c in diclist:
         if i == 1 and legend:
             res.append(
-                u'-'*sum([
-                    k+2 for k in [y for x,y in colsize.iteritems() if x in titlesdic
+                '-'*sum([
+                    k+2 for k in [y for x,y in colsize.items() if x in titlesdic
                 ]]))
         i += 1
 
@@ -273,9 +312,10 @@ def table_format(diclist, wl=[], bl=[], truncate=None, legend=True):
             value = c.get(key, '').strip()
             lines.append(value.ljust(colsize[key]+2 + ediff(value)))
 
-        res.append(u''.join(lines))
+        res.append(''.join(lines))
 
     return '\n'.join(res)
+
 
 def hint_to_text(text, width=0):
     if text is None:
@@ -287,19 +327,17 @@ def hint_to_text(text, width=0):
         raise ValueError('hint_to_text() support only Text messages')
     elif issubclass(hint, Text):
         pass
-    elif isinstance(text, str):
-        try:
-            return text.decode('utf-8')
-        except UnicodeError:
-            return text.decode('latin-1')
-    elif isinstance(text, unicode):
+    elif hint is bytes:
+        return from_bytes(text)
+    elif hint is str:
         return text
     else:
-        return obj2utf8(text)
+        return deep_as_str(text)
 
-    if hint == NewLine:
-        return '\n'*int(text.data)
-    elif hint == Title:
+    if hint is NewLine:
+        return '\n' * int(text.data)
+
+    elif hint is Title:
         if width <= 0:
             real_width, _ = terminal_size()
             width = real_width + width
@@ -309,6 +347,7 @@ def hint_to_text(text, width=0):
         ajust = width - tlen - 4
         ljust = 0
         rjust = 0
+
         if ajust > 0:
             ljust = ajust/2
             rjust = ajust - ljust
@@ -317,19 +356,22 @@ def hint_to_text(text, width=0):
         title = ('-'*width) + '\n' + title + '\n' + ('-'*width)
 
         return colorize(title, 'lightyellow')
-    elif hint == MultiPart:
+
+    elif hint is MultiPart:
         return '\n\n'.join(
             hint_to_text(x, width) for x in text.data
         )
-    elif hint == Indent:
+
+    elif hint is Indent:
         return '\n'.join(
             (' '*text.indent) + x for x in hint_to_text(
                 text.data, width).split('\n')
         )
 
-    elif hint == Color:
+    elif hint is Color:
         return colorize(hint_to_text(text.data, width), text.color)
-    elif hint == TruncateToTerm:
+
+    elif hint is TruncateToTerm:
         if width <= 0:
             real_width, _ = terminal_size()
             width = real_width + width
@@ -337,77 +379,95 @@ def hint_to_text(text, width=0):
         text = hint_to_text(text.data, width)
         return '\n'.join(ejust(x, width) for x in text.split('\n'))
 
-    elif hint == Error:
+    elif hint is Error:
         header = text.header
         text = text.data
         etype = type(text)
         if issubclass(etype, Exception) and etype.__class__.__name__ != 'type':
-            text = u'({}) {}'.format(type(text).__class__.__name__, text)
+            text = '({}) {}'.format(type(text).__class__.__name__, text)
         else:
             text = hint_to_text(text, width).rstrip()
 
         if header:
-            text = u'{}: {}'.format(colorize(header, 'yellow'), text)
+            text = '{}: {}'.format(colorize(header, 'yellow'), text)
 
-        return colorize('[-] ','red')+text
-    elif hint == Log:
+        return colorize('[-] ','red') + text
+
+    elif hint is Log:
         return hint_to_text(text.data, width).rstrip()
-    elif hint == Warn:
-        return colorize('[!] ','yellow')+hint_to_text(text.data, width).rstrip()
-    elif hint == Success:
-        return colorize('[+] ','green')+hint_to_text(text.data, width).rstrip()
-    elif hint == Info:
-        return colorize('[%] ','grey')+hint_to_text(text.data, width).rstrip()
-    elif hint == ServiceInfo:
+
+    elif hint is Warn:
+        return colorize('[!] ','yellow') + hint_to_text(text.data, width).rstrip()
+
+    elif hint is Success:
+        return colorize('[+] ','green') + hint_to_text(text.data, width).rstrip()
+
+    elif hint is Info:
+        return colorize('[%] ','grey') + hint_to_text(text.data, width).rstrip()
+
+    elif hint is ServiceInfo:
         return ''.join([
             colorize('[*] ','blue'),
             hint_to_text(text.data, width).rstrip()
         ])
-    elif hint == Section:
-        return '\n'.join([
-            colorize('#>#>  ','green') + hint_to_text(text.header, width)+ colorize('  <#<#','green'),
+
+    elif hint is Section:
+        return '\n'.join((
+            ''.join((
+                colorize('#>#> ','green'),
+                hint_to_text(text.header, width),
+                colorize('  <#<#','green')
+            )),
             hint_to_text(text.data, width)
-        ])
-    elif hint == Line:
+        ))
+
+    elif hint is Line:
         return text.dm.join(hint_to_text(v, width) for v in text.data)
-    elif hint == List:
+
+    elif hint is List:
         return (hint_to_text(text.caption, width) + '\n' if text.caption else '') + (
             '\n'.join([
                 (
-                    (' '*text.indent) + (
-                        (hint_to_text(text.bullet, width) + ' ') if text.bullet else ''
-                    ) + hint_to_text(x, width)
+                    ''.join((
+                        (' '*text.indent),
+                        (hint_to_text(text.bullet, width) + ' ') if text.bullet else '',
+                        hint_to_text(x, width)
+                    ))
                 ) for x in text.data
             ])
         )
-    elif hint == Table:
+
+    elif hint is Table:
         table_data = [
             {
-                k:hint_to_text(v, width) for k,v in record.iteritems()
+                k:hint_to_text(v, width) for k, v in record.items()
             } for record in text.data
         ]
 
         columns = set()
         for record in table_data:
-            for column, value in record.iteritems():
+            for column, value in record.items():
                 if value and (not text.headers or column in text.headers):
                     columns.add(column)
-                    if hasattr(value, '__iter__'):
-                        record[column] = ';'.join(obj2utf8(x) for x in value)
+                    if hasattr(value, '__iter__') and not isinstance(value, str):
+                        record[column] = ';'.join(deep_as_str(x) for x in value)
 
         headers = None
         if text.headers:
             headers = [
                 column for column in text.headers if column in columns
             ]
+
         else:
             headers = list(columns)
 
-        return (
-            '\n'*text.vspace + '{ ' + hint_to_text(text.caption, width) + ' }\n' if text.caption else ''
-        ) + table_format(table_data, wl=headers, legend=text.legend) + '\n'*text.vspace
+        return ''.join((
+            '\n'*text.vspace + '{ ' + hint_to_text(text.caption, width) + ' }\n' if text.caption else '',
+            table_format(table_data, wl=headers, legend=text.legend),
+            '\n'*text.vspace
+        ))
 
-    elif hint == Pygment:
+    elif hint is Pygment:
         lexer = text.lexer
         text = hint_to_text(text.data, width)
         return highlight(text, lexer, TerminalFormatter(style=PYGMENTS_STYLE))

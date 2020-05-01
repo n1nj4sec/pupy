@@ -4,7 +4,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from datetime import datetime
+
+import sys
+
 
 def size_human_readable(num, suffix=''):
     try:
@@ -17,6 +21,7 @@ def size_human_readable(num, suffix=''):
     except:
         return '0.0B'
 
+
 def file_timestamp(timestamp, time=False):
     try:
         d = datetime.fromtimestamp(timestamp)
@@ -27,13 +32,12 @@ def file_timestamp(timestamp, time=False):
     except:
         return '00/00/00'
 
+
 def to_utf8(value):
-    if type(value) == unicode:
-        return value
-    elif type(value) == str:
+    if isinstance(value, bytes):
         try:
             return value.decode('utf-8')
         except:
             return value.decode('latin1', errors='ignore')
-    else:
-        return value
+
+    return value

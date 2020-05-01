@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
 import random
 import string
 import base64
@@ -16,6 +17,9 @@ from ctypes.wintypes import BOOL, LPSTR, DWORD
 from time import sleep
 
 from hashlib import md5
+
+if sys.version_info.major > 2:
+    xrange = range
 
 kernel32 = WinDLL('kernel32', use_last_error=True)
 

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
@@ -30,6 +31,12 @@ from tarfile import open as open_tarfile
 from fsutils import uidgid, username_to_uid, groupname_to_gid, has_xattrs
 
 from network.lib.pupyrpc import nowait
+
+if sys.version_info.major > 2:
+    getcwd = os.getcwd
+    basestring = str
+else:
+    getcwd = os.getcwdu
 
 PERMISSION_ERRORS = [
     getattr(errno, x) for x in ('EPERM', 'EACCESS') if hasattr(errno, x)
@@ -73,10 +80,10 @@ class Search(object):
         else:
             i = re.UNICODE
 
-        if type(path) != unicode:
+        if isinstance(path, bytes):
             path = path.decode(sys.getfilesystemencoding())
 
-        if type(root_path) != unicode:
+        if isinstance(root_path, bytes):
             root_path = root_path.decode(sys.getfilesystemencoding())
 
         path = os.path.expandvars(os.path.expanduser(path))
@@ -106,7 +113,7 @@ class Search(object):
         self.terminate = terminate
 
         if root_path == '.':
-            self.root_path = os.getcwdu()
+            self.root_path = getcwd()
         else:
             self.root_path = root_path
 
@@ -405,7 +412,7 @@ class Search(object):
                         if result.errno not in (errno.EPERM, errno.EACCES):
                             on_error(
                                 result.filename + ': ' + \
-                                u' '.join(x for x in result.args if type(x) in (str, unicode)))
+                                u' '.join(x for x in result.args if isinstance(x, basestring)))
                     elif isinstance(result, UnicodeDecodeError):
                         on_error('Invalid encoding: {}'.format(repr(result.args[1])))
                     else:

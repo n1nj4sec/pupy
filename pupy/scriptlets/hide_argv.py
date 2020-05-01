@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """ Change pupy process's name """
 from __future__ import absolute_import
 from __future__ import division

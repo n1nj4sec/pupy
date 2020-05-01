@@ -4,12 +4,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, MultiPart
 from pupylib.utils.term import colorize
 from modules.lib import size_human_readable
 
 __class_name__="Drives"
+
 
 @config(category='admin', compatibilities=['windows', 'posix', 'darwin'])
 class Drives(PupyModule):
@@ -100,7 +102,7 @@ class Drives(PupyModule):
 
             output = []
 
-            for fstype in mountinfo.iterkeys():
+            for fstype in mountinfo:
                 if fstype in tier1:
                     continue
 
@@ -204,12 +206,12 @@ class Drives(PupyModule):
                     resource['used'] = '?'
 
                 providers[resource['provider']].append(dict(
-                    (k, v) for k, v in resource.iteritems() if k not in (
+                    (k, v) for k, v in resource.items() if k not in (
                         'usage', 'provider', 'scope'
                     )
                 ))
 
-            for provider, records in providers.iteritems():
+            for provider, records in providers.items():
 
                 parts.append(
                     Table(records, [

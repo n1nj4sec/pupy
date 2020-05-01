@@ -18,10 +18,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import sys
 import json
 import zlib
-import msgpack
+import umsgpack
+
 from contextlib import contextmanager
 
 from network.lib.rpc.utils.helpers import restricted
@@ -54,7 +56,7 @@ def safe_obtain(proxy):
     data = zlib.decompress(data)
 
     if conn.is_msgpack_obtain:
-        data = msgpack.loads(data)
+        data = umsgpack.loads(data)
     else:
         try:
             data = data.decode('utf-8')

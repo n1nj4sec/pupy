@@ -4,10 +4,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer, remote_dirs_completer
 
-__class_name__="mv"
+__class_name__ = 'mv'
+
+if sys.version_info.major > 2:
+    basestring = str
+
 
 @config(cat="admin")
 class mv(PupyModule):
@@ -31,5 +38,7 @@ class mv(PupyModule):
                 self.log(r)
 
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
-            return
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )
+

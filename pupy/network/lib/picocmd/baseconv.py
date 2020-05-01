@@ -38,6 +38,7 @@ Sample usage::
   '$1234'
 
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -53,7 +54,7 @@ BASE64_ALPHABET = BASE62_ALPHABET + '-_'
 
 
 class BaseConverter(object):
-    __slots__ = ('decimal_digits', 'sign', 'digits')
+    __slots__ = ('sign', 'digits')
 
     decimal_digits = '0123456789'
 

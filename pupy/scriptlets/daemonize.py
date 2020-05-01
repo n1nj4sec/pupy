@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-
 ''' Daemonize the process at startup (posix only) '''
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

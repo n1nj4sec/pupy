@@ -131,7 +131,7 @@ zf.writestr(
     'bundlevars.pyo',
     pupycompile(
         'bundlevars={}'.format(repr({
-            k: v for k, v in sysconfig.get_config_vars().iteritems()
+            k: v for k, v in sysconfig.get_config_vars().items()
             if k not in (
                 'BINDIR', 'BINLIBDEST', 'CONFINCLUDEDIR', 'CONFINCLUDEPY',
                 'COREPYTHONPATH', 'COVERAGE_INFO', 'COVERAGE_REPORT',

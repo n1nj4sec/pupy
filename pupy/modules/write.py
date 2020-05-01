@@ -4,11 +4,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from argparse import REMAINDER
 
+if sys.version_info.major > 2:
+    basestring = str
+
 __class_name__='Write'
+
+
 @config(cat='manage')
 class Write(PupyModule):
     ''' Write short string to file '''
@@ -63,5 +71,7 @@ class Write(PupyModule):
         try:
             fputcontent(args.remote_file, text, args.append)
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )
             return

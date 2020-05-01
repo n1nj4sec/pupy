@@ -5,6 +5,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
+
 from argparse import REMAINDER
 from threading import Event
 from re import compile as re_compile
@@ -44,16 +46,23 @@ class Counter(object):
         return str(self.value)
 
 
-def _asunicode(x):
-    if isinstance(x, str):
-        try:
-            return x.decode('utf-8')
-        except UnicodeError:
-            return x.decode('latin-1')
-    elif isinstance(x, unicode):
-        return x
-    else:
-        return unicode(x)
+if sys.version_info.major > 2:
+    def _asunicode(x):
+        if isinstance(x, str):
+            return x
+        else:
+            return str(x)
+else:
+    def _asunicode(x):
+        if isinstance(x, str):
+            try:
+                return x.decode('utf-8')
+            except UnicodeError:
+                return x.decode('latin-1')
+        elif isinstance(x, unicode):
+            return x
+        else:
+            return unicode(x)
 
 
 @config(category='admin')
@@ -252,7 +261,7 @@ class ODBC(PupyModule):
         if args.filter:
             re_filter = re_compile(' '.join(args.filter), IGNORECASE)
 
-        for catalog, records in catalogs.iteritems():
+        for catalog, records in catalogs.items():
             if args.views:
                 self.log(
                     Table([

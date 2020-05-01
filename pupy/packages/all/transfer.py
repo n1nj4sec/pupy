@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
+
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
 
+import sys
+
 from io import open
 from os import path, stat
 from threading import Thread, Event
-from Queue import Queue
 
-import sys
+if sys.version_info.major > 2:
+    from queue import Queue, Empty
+else:
+    from Queue import Queue, Empty
 
 from network.lib.buffer import Buffer
 from network.lib.pupyrpc import nowait, brine
@@ -40,10 +45,7 @@ if scandir is None:
 import sys
 import traceback
 
-try:
-    import umsgpack as msgpack
-except ImportError:
-    import msgpack
+import umsgpack
 
 import re
 
@@ -57,7 +59,7 @@ FIELDS_MAP = {
 }
 
 FIELDS_MAP_ENCODE = {
-    y:x for x,y in FIELDS_MAP.iteritems()
+    y:x for x,y in FIELDS_MAP.items()
 }
 
 F_TYPE     = 0
@@ -293,7 +295,7 @@ class Transfer(object):
 
             try:
                 for chunk in command(*args):
-                    msgpack.dump(chunk, buf)
+                    umsgpack.dump(chunk, buf)
 
                     if channel and channel.compress and chunk.get(F_TYPE) == T_ZCONTENT:
                         restore_compression = True
@@ -786,15 +788,15 @@ if __name__ == '__main__':
 
             while True:
                 try:
-                    msg = msgpack.load(data)
-                except msgpack.InsufficientDataException:
+                    msg = umsgpack.load(data)
+                except umsgpack.InsufficientDataException:
                     break
 
                 if msg['type'].endswith('content'):
                     print("chunk size", len(msg['data']))
                 elif msg['type'] == 'dirview':
                     line = msg['data']['root'] + ':'
-                    for k,v in msg['data'].iteritems():
+                    for k,v in msg['data'].items():
                         if k == 'root':
                             continue
                         line += ' {}:{}'.format(k, len(v))

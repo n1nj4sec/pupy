@@ -5,6 +5,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
+
 from ldap3.protocol.formatters.formatters import format_sid
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
@@ -24,6 +26,8 @@ from uuid import UUID
 
 from collections import OrderedDict
 
+if sys.version_info.major > 2:
+    basestring = str
 
 __class_name__ = 'AD'
 
@@ -272,7 +276,7 @@ def parseFlags(attr, flags_def, bits=True):
         attr = int(attr)
 
     return tuple(
-        flag for flag, val in flags_def.iteritems()
+        flag for flag, val in flags_def.items()
         if (bits and (attr & val == val)) or (
             not bits and attr == val
         )
@@ -283,7 +287,7 @@ def LDAPAclMaskToSet(mask):
     result = []
     rest = mask['Mask']
 
-    for flag, value in access_mask_flags.iteritems():
+    for flag, value in access_mask_flags.items():
         if (rest & value) == value:
             result.append(flag)
             rest &= ~value
@@ -338,7 +342,7 @@ def formatAttribute(key, att, formatCnAsGroup=False):
     if isinstance(att, tuple) and \
             len(att) == 1 and not isinstance(att[0], dict):
         att = att[0]
-        if isinstance(att, (str, unicode)):
+        if isinstance(att, basestring):
             att = att.strip()
             try:
                 att = int(att)
@@ -563,11 +567,11 @@ class AD(PupyModule):
                 self.error(
                     Table(report, [
                         'Method', 'Server', 'Domain', 'User', 'Message'
-                    ], caption=e.message)
+                    ], caption=str(e))
                 )
             else:
                 self.error('AD Error ({}): {}'.format(
-                    e.type, e.message))
+                    e.type, str(e)))
         else:
             self.error(e)
 
@@ -611,7 +615,7 @@ class AD(PupyModule):
             is_table = all(
                 all(
                     not isinstance(value, (dict, tuple, list))
-                    for value in record.itervalues()
+                    for value in record.values()
                 ) for record in results
             )
 
@@ -709,7 +713,7 @@ class AD(PupyModule):
         results = from_tuple_deep(result, True)
 
         if isinstance(results, dict):
-            for realm, results in results.iteritems():
+            for realm, results in results.items():
                 self._output_search_results(results, fields, args.table, realm)
         else:
             self._output_search_results(results, fields, args.table)
@@ -751,7 +755,7 @@ class AD(PupyModule):
             'supported_ldap_versions', []
         )
 
-        if not hasattr(versions, '__iter__'):
+        if not hasattr(versions, '__iter__') and not isinstance(versions, str):
             versions = [versions]
 
         infos.append(
@@ -801,7 +805,7 @@ class AD(PupyModule):
             )
 
         if idesc['naming_contexts'] and not isinstance(
-                idesc['naming_contexts'], (str, unicode)):
+                idesc['naming_contexts'], basestring):
             infos.append(
                 List(
                     idesc['naming_contexts'],
@@ -834,7 +838,7 @@ class AD(PupyModule):
             infos.append(
                 List(tuple(
                     '{}: {}'.format(key, value)
-                    for key, value in idesc['other'].iteritems()
+                    for key, value in idesc['other'].items()
                     if key not in ('supportedLDAPPolicies',)
                 ),
                 caption='Other info')

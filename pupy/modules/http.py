@@ -93,7 +93,7 @@ class http(PupyModule):
                     {
                         'HEADER': header,
                         'VALUE': value,
-                    } for header, value in headers.iteritems()
+                    } for header, value in headers.items()
                 ], ['HEADER', 'VALUE'], caption='{} {}'.format(code, url)))
 
                 if not args.no_result:
@@ -134,5 +134,6 @@ class http(PupyModule):
             elif hasattr(e, 'msg'):
                 message = e.msg
             else:
-                message = e.message
+                message = str(e)
+
             self.error('Error: {}'.format(message))

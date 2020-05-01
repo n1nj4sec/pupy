@@ -5,15 +5,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, NewLine
 from pupylib.utils.credentials import Credentials
 from pupylib.utils.rpyc_utils import obtain
 
+import codecs
 import ntpath
 import traceback
 
-__class_name__="LaZagne"
+__class_name__ = 'LaZagne'
 
 
 @config(cat="creds", compat=["linux", "windows"])
@@ -141,16 +143,19 @@ class LaZagne(PupyModule):
 
     # print hex value
     def dump(self, src, length=8):
-        if type(src) == unicode:
+        if not isinstance(src, bytes):
             src = src.encode('latin1')
-        N=0
-        result=''
+
+        N = 0
+        result = ''
+
         while src:
-            s,src = src[:length], src[length:]
-            hexa = ' '.join(["%02X"%ord(x) for x in s])
+            s, src = src[:length], src[length:]
+            hexa = codecs.encode(s, 'hex')
             s = s.translate(self.FILTER)
-            result += "%04X   %-*s   %s\n" % (N, length*3, hexa, s)
+            result += '%04X   %-*s   %s\n' % (N, length*3, hexa, s)
             N += length
+
         return result
 
     def hashdump_to_dict(self, creds):
@@ -238,7 +243,7 @@ class LaZagne(PupyModule):
                 for c in cred.keys():
                     result[c] = cred[c].strip()
 
-                    for t, name in self.TYPESMAP.iteritems():
+                    for t, name in self.TYPESMAP.items():
                         if t in set([x.lower() for x in result]):
                             result['CredType'] = name
 
@@ -256,7 +261,7 @@ class LaZagne(PupyModule):
         data = [
             {
                 self.try_utf8(k):self.try_utf8(v)
-                for k,v in item.iteritems() if k not in remove
+                for k,v in item.items() if k not in remove
             } for item in items
         ]
 
@@ -269,10 +274,11 @@ class LaZagne(PupyModule):
         return data, columns
 
     def try_utf8(self, value):
-        if type(value) == unicode:
+        # Py2 non-unicode string
+        if isinstance(value, bytes) and isinstance(value, str):
             try:
                 return value.encode('utf-8')
-            except:
+            except UnicodeError:
                 return value.encode('latin1', errors='ignore')
         else:
             return str(value)
@@ -286,7 +292,7 @@ class LaZagne(PupyModule):
 
     def print_lsa(self, creds):
         for cred in creds:
-            for name, value in cred.iteritems():
+            for name, value in cred.items():
                 if name in ('Category', 'CredType'):
                     continue
 
@@ -321,7 +327,7 @@ class LaZagne(PupyModule):
                         {
                             'KEY':self.try_utf8(k),
                             'VALUE':self.try_utf8(v)
-                        } for k, v in cred.iteritems() if k not in self.FILTER_COLUMNS
+                        } for k, v in cred.items() if k not in self.FILTER_COLUMNS
                     ], ['KEY', 'VALUE'], truncate=True, legend=False, vspace=1)
 
         try:

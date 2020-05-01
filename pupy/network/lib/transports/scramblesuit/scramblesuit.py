@@ -29,9 +29,10 @@ from . import const
 from . import util
 from . import packetmorpher
 from . import uniformdh
-from . import state
-from . import fifobuf
 from . import ticket
+from . import state
+
+from network.lib.buffer import Buffer
 
 log = logging
 
@@ -72,10 +73,10 @@ class ScrambleSuitTransport(base.BaseTransport):
         self.protoState = const.ST_WAIT_FOR_AUTH
 
         # Buffer for outgoing data.
-        self.sendBuf = ""
+        self.sendBuf = b''
 
         # Buffer for inter-arrival time obfuscation.
-        self.choppingBuf = fifobuf.Buffer()
+        self.choppingBuf = Buffer()
 
         # AES instances to decrypt incoming and encrypt outgoing data.
         self.sendCrypter = mycrypto.PayloadCrypter()
@@ -362,7 +363,7 @@ class ScrambleSuitTransport(base.BaseTransport):
         #          len(self.sendBuf))
 
         self.sendRemote(self.sendBuf)
-        self.sendBuf = ""
+        self.sendBuf = b''
 
     def receiveTicket(self, data):
         """

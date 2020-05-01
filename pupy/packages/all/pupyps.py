@@ -17,7 +17,7 @@ import time
 from io import open
 
 families = {
-    v:k[3:] for k,v in socket.__dict__.iteritems() if k.startswith('AF_')
+    v:k[3:] for k,v in socket.__dict__.items() if k.startswith('AF_')
 }
 
 try:
@@ -28,24 +28,31 @@ except:
 families.update({-1: 'LINK'})
 
 socktypes = {
-    v:k[5:] for k,v in socket.__dict__.iteritems() if k.startswith('SOCK_')
+    v:k[5:] for k,v in socket.__dict__.items() if k.startswith('SOCK_')
 }
 
 SELF = psutil.Process()
 
+if sys.version_info.major > 2:
+    basestring = str
 
-def to_unicode(x):
-    tx = type(x)
-    if tx == unicode:
-        return x
-    elif tx == str:
-        return x.decode(sys.getfilesystemencoding())
-    else:
-        return x
+    def iteritems(value):
+        return value.items()
+
+else:
+    def iteritems(value):
+        return value.iteritems()
+
+
+def from_psutil_value(value):
+    if isinstance(value, bytes):
+        return value.decode(sys.getfilesystemencoding())
+
+    return value
 
 
 try:
-    USERNAME = to_unicode(SELF.username())
+    USERNAME = from_psutil_value(SELF.username())
 except:
     try:
         import getpass
@@ -54,8 +61,8 @@ except:
         USERNAME = None
 
 KNOWN_DOMAINS = (
-    to_unicode('NT AUTHORITY\\'),
-    to_unicode(socket.gethostname() + '\\')
+    from_psutil_value('NT AUTHORITY\\'),
+    from_psutil_value(socket.gethostname() + '\\')
 )
 
 # Try to figure out not supported fields
@@ -88,8 +95,6 @@ def make_known_fields():
 KNOWN_FIELDS, UNSUPPORTED_FIELDS = make_known_fields()
 
 
-
-
 if os.name == 'nt':
     try:
         from pupwinutils import security
@@ -113,12 +118,12 @@ def set_relations(infos):
     if not username:
         return
 
-    if USERNAME and USERNAME == username:
+    if USERNAME and USERNAME == from_psutil_value(username):
         infos['same_user'] = True
 
     if username.startswith(KNOWN_DOMAINS):
         _, username = username.split('\\', 1)
-        infos['username'] = to_unicode(username)
+        infos['username'] = from_psutil_value(username)
 
 
 def _psiter(obj):
@@ -126,8 +131,14 @@ def _psiter(obj):
         for field in obj._fields:
             yield field, getattr(obj, field)
     elif hasattr(obj, '__dict__'):
-        for k,v in obj.__dict__.iteritems():
+        for k,v in iteritems(obj.__dict__):
             yield k, v
+    elif isinstance(obj, dict):
+        for k,v in iteritems(obj):
+            yield k, v
+    else:
+        for v in obj:
+            yield v
 
 
 def _is_iterable(obj):
@@ -167,26 +178,26 @@ def psinfo(pids):
             continue
 
         info = {}
-        for key, val in safe_as_dict(process, KNOWN_FIELDS).iteritems():
+        for key, val in safe_as_dict(process, KNOWN_FIELDS).items():
             newv = None
             if type(val) == list:
                 newv = []
                 for item in val:
                     if _is_iterable(item):
                         newv.append({
-                            k:to_unicode(v) for k,v in _psiter(item)
+                            k:from_psutil_value(v) for k,v in _psiter(item)
                         })
                     else:
-                        newv.append(to_unicode(item))
+                        newv.append(from_psutil_value(item))
 
-                if all([type(x) in (str, unicode) for x in newv]):
-                    newv = to_unicode(' '.join(newv))
+                if all(isinstance(x, basestring) for x in newv):
+                    newv = from_psutil_value(' '.join(newv))
             elif _is_iterable(val):
                 newv = [{
-                    'KEY': k, 'VALUE':to_unicode(v)
+                    'KEY': k, 'VALUE':from_psutil_value(v)
                 } for k,v in _psiter(val)]
             else:
-                newv = to_unicode(val)
+                newv = from_psutil_value(val)
 
             info.update({key: newv})
 
@@ -204,11 +215,11 @@ def pstree():
             continue
 
         props = {
-            k:to_unicode(v) for k,v in safe_as_dict(p, [
+            k:from_psutil_value(v) for k,v in safe_as_dict(p, [
                 'name', 'username', 'cmdline', 'exe', 'status',
                 'cpu_percent', 'memory_percent', 'connections',
                 'terminal', 'pid'
-            ]).iteritems()
+            ]).items()
         }
 
         set_relations(props)
@@ -256,16 +267,16 @@ def users():
 
     for term in users:
         terminfo = {
-            k:to_unicode(v) for k,v in _psiter(term) if v and k not in ('host', 'name')
+            k:from_psutil_value(v) for k,v in _psiter(term) if v and k not in ('host', 'name')
         }
 
         if 'pid' in terminfo:
             try:
                 pinfo = {
-                    k:to_unicode(v) for k,v in safe_as_dict(psutil.Process(
+                    k:from_psutil_value(v) for k,v in safe_as_dict(psutil.Process(
                         terminfo['pid']), [
                             'exe', 'cmdline', 'name'
-                        ]).iteritems()
+                        ]).items()
                 }
 
                 terminfo.update(pinfo)
@@ -316,10 +327,10 @@ def connections():
         try:
             if connection.pid:
                 obj.update({
-                    k:to_unicode(v) for k,v in psutil.Process(
+                    k:from_psutil_value(v) for k,v in psutil.Process(
                         connection.pid).as_dict({
                            'pid', 'exe', 'name', 'username'
-                       }).iteritems()
+                       }).items()
                 })
                 set_relations(obj)
         except:
@@ -342,22 +353,22 @@ def interfaces():
         if_addrs = psutil.net_if_addrs()
 
         addrs = {
-            to_unicode(x):[
+            from_psutil_value(x):[
                 {
-                    k:_tryint(getattr(z,k)) for k in dir(z) if not k.startswith('_')
+                    k:_tryint(v) for k,v in _psiter(z)
                 } for z in y
-            ] for x,y in if_addrs.iteritems()
+            ] for x,y in _psiter(if_addrs)
         }
     except:
         addrs = None
 
     try:
-        if_stats = psutil.net_if_addrs()
+        if_stats = psutil.net_if_stats()
 
         stats = {
-            to_unicode(x):{
-                k:_tryint(getattr(y,k)) for k in dir(y) if not k.startswith('_')
-            } for x,y in if_stats.iteritems()
+            from_psutil_value(x):{
+                k:_tryint(v) for k,v in _psiter(y)
+            } for x,y in _psiter(if_stats)
         }
     except:
         stats = None
@@ -531,7 +542,7 @@ def lastlog(log='/var/log/lastlog'):
 def get_win_services():
     return [
         {
-            k:to_unicode(v) for k,v in service.as_dict().iteritems()
+            k:from_psutil_value(v) for k,v in service.as_dict().items()
         } for service in psutil.win_service_iter()
     ]
 

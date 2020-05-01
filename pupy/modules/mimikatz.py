@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import (
     config, PupyArgumentParser,
     REQUIRE_NOTHING
@@ -17,10 +18,15 @@ from modules.memory_exec import MemoryExec
 from modules.lib.windows.memory_exec import exec_pe
 from pupylib.utils.credentials import Credentials
 
+import sys
 import os.path
 import re
 
+if sys.version_info.major > 2:
+    xrange = range
+
 __class_name__="Mimikatz"
+
 
 @config(cat="exploit", compat="windows")
 class Mimikatz(MemoryExec):

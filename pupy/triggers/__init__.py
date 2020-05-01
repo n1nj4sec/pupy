@@ -52,7 +52,9 @@ class Triggers(object):
                 not x.startswith('__init__')
             })
 
-        for trigger, source in triggers.iteritems():
+        for trigger in triggers:
+            source = triggers[trigger
+            ]
             try:
                 current_stat = os.stat(source)
             except OSError:

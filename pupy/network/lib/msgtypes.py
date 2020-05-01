@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'MSG_TYPES_PACK', 'MSG_TYPES_UNPACK',
     'msgpack_exthook'
@@ -44,8 +45,8 @@ for idx, type in enumerate(KNOWN_NAMED_TUPLES):
 
 SPECIAL_TYPES_OFFT = len(KNOWN_NAMED_TUPLES)
 
-for idx, (name, type) in enumerate(transports.iteritems()):
-    register_string(idx, type, name)
+for idx, name in enumerate(transports):
+    register_string(idx, transports[name], name)
 
 
 wrapext = namedtuple('Ext', ('code', 'data'))

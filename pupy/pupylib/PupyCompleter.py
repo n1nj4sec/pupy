@@ -18,6 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 import os
 import os.path
 import stat
@@ -26,6 +28,10 @@ from argparse import REMAINDER
 
 from .PupyErrors import PupyModuleExit, PupyModuleUsageError
 from .payloads.dependencies import paths
+
+if sys.version_info.major > 2:
+    xrange = range
+
 
 def package_completer(module, args, text, context):
     clients = context.server.get_clients(context.handler.default_filter)
@@ -65,6 +71,7 @@ def package_completer(module, args, text, context):
 
     return list(completions)
 
+
 def commands_completer(module, args, text, context):
     aliases = dict(context.config.items('aliases'))
     modules = list(context.server.iter_modules(
@@ -73,20 +80,23 @@ def commands_completer(module, args, text, context):
     commands = context.commands.list(False)
 
     return [
-        x+' ' for x in aliases.iterkeys() if x.startswith(text)
+        x+' ' for x in aliases if x.startswith(text)
     ] + [
         x+' ' for x,_ in commands if x.startswith(text)
     ] + [
         x.get_name()+' ' for x in modules if x.get_name().startswith(text)
     ]
 
+
 def list_completer(l):
     def func(module, args, text, context):
         return [x+" " for x in l if x.startswith(text)]
     return func
 
+
 def void_completer(module, args, text, context):
     return []
+
 
 def remote_path_completer(module, args, text, context, dirs=None):
     results = []
@@ -114,11 +124,14 @@ def remote_path_completer(module, args, text, context, dirs=None):
 
     return results
 
+
 def remote_dirs_completer(module, args, text, context):
     return remote_path_completer(module, args, text, context, dirs=True)
 
+
 def remote_files_completer(module, args, text, context):
     return remote_path_completer(module, args, text, context, dirs=False)
+
 
 def path_completer(module, args, text, context):
     completions=[]
@@ -142,6 +155,7 @@ def path_completer(module, args, text, context):
 
     return completions
 
+
 def module_name_completer(module, args, text, context):
 
     del module
@@ -155,6 +169,7 @@ def module_name_completer(module, args, text, context):
     return [
         module for module in modules if module.startswith(text) or not(text)
     ]
+
 
 def module_args_completer(module, args, text, context):
     try:
@@ -181,6 +196,7 @@ class CompletionContext(object):
         self.handler = handler
         self.config = config
         self.commands = commands
+
 
 class PupyModCompleter(object):
     def __init__(self, parser):

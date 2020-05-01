@@ -4,10 +4,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_dirs_completer
 
+if sys.version_info.major > 2:
+    basestring = str
+
 __class_name__="cd"
+
 
 @config(cat="admin")
 class cd(PupyModule):
@@ -32,4 +39,6 @@ class cd(PupyModule):
             if r:
                 self.log(r)
         except Exception as e:
-            self.error(' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                ' '.join(x for x in e.args if isinstance(x, basestring))
+            )

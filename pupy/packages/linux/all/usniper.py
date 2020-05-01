@@ -17,6 +17,12 @@ import select
 
 from io import open
 
+import sys
+
+if sys.version_info.major > 2:
+    basestring = str
+    long = int
+
 
 class USniper(pupy.Task):
     def __init__(self, manager, path, addr, reg='ax', ret=False, cast='', argtype=None):
@@ -36,7 +42,7 @@ class USniper(pupy.Task):
                 r'^\s*[^-]+-([\d]+)\s+\[[0-9]+\]\s+[a-z.]{4}\s(\d+)\.\d+:'
                 r'\s+([^:]+):\s\(0x[a-f0-9]+\)\s+arg1=(?:(?:0x)?([0-9a-f]+)|"([^"]+)"$)')
 
-        if type(addr) in (str, unicode):
+        if isinstance(addr, basestring):
             if addr.startswith('0x'):
                 addr = int(addr[2:], 16)
             else:

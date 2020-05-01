@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
 import ast
 import marshal
 import logging
@@ -17,6 +18,10 @@ try:
 except ValueError:
     # If PupyCompile imported directly (build_library_zip.py)
     logger = logging
+
+if sys.version_info.major > 2:
+    xrange = range
+    unicode = str
 
 
 class Compiler(ast.NodeTransformer):
@@ -33,7 +38,7 @@ class Compiler(ast.NodeTransformer):
 
         self._source_ast = None
 
-        if type(source) is unicode:
+        if isinstance(source, unicode):
             first, rest = source.split('\n', 1)
             if first.strip().startswith('#') and 'coding:' in first:
                 source = rest
@@ -74,7 +79,15 @@ class Compiler(ast.NodeTransformer):
 
     def visit_If(self, node):
         if hasattr(node.test, 'id') and node.test.id == '__debug__':
-            return node.orelse
+            if node.orelse:
+                return node.orelse
+            else:
+                return [
+                    ast.Pass(
+                        lineno=node.lineno,
+                        col_offset=node.col_offset
+                    )
+                ]
         if not self._main and type(node.test) == ast.Compare and type(node.test.left) == ast.Name \
           and node.test.left.id == '__name__':
             for comparator in node.test.comparators:

@@ -81,7 +81,7 @@ class WinPty(object):
 
         _new_api = set(['winpty_config_set_htoken'])
 
-        for funcname, definition in _functions.iteritems():
+        for funcname, definition in _functions.items():
             funcaddr = pupy.find_function_address(DLLNAME, funcname)
             if not funcaddr and funcname not in _new_api:
                 raise ImportError(

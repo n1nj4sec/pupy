@@ -9,7 +9,7 @@ usage = 'Exit Shell'
 parser = PupyArgumentParser(prog='exit', description=usage)
 
 def do(server, handler, config, args):
-    for job in server.jobs.itervalues():
+    for job in server.jobs.values():
         job.stop()
 
     if server.dnscnc:

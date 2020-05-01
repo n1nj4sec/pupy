@@ -21,12 +21,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     QA_UNSTABLE
 )
 
-import SocketServer
+import sys
 import threading
 import socket
 import logging
@@ -34,18 +35,29 @@ import struct
 import traceback
 import time
 
-__class_name__="Socks5Proxy"
+if sys.version_info.major > 2:
+    from socketserver import (
+        BaseRequestHandler, TCPServer,
+        ThreadingMixIn
+    )
+else:
+    from SocketServer import (
+        BaseRequestHandler, TCPServer,
+        ThreadingMixIn
+    )
 
-CODE_SUCCEEDED=b'\x00'
-CODE_GENERAL_SRV_FAILURE=b'\x01'
-CODE_CONN_NOT_ALLOWED=b'\x02'
-CODE_NET_NOT_REACHABLE=b'\x03'
-CODE_HOST_UNREACHABLE=b'\x04'
-CODE_CONN_REFUSED=b'\x05'
-CODE_TTL_EXPIRED=b'\x06'
-CODE_COMMAND_NOT_SUPPORTED=b'\x07'
-CODE_ADDRESS_TYPE_NOT_SUPPORTED=b'\x08'
-CODE_UNASSIGNED=b'\x09'
+__class_name__ = 'Socks5Proxy'
+
+CODE_SUCCEEDED = b'\x00'
+CODE_GENERAL_SRV_FAILURE = b'\x01'
+CODE_CONN_NOT_ALLOWED = b'\x02'
+CODE_NET_NOT_REACHABLE = b'\x03'
+CODE_HOST_UNREACHABLE = b'\x04'
+CODE_CONN_REFUSED = b'\x05'
+CODE_TTL_EXPIRED = b'\x06'
+CODE_COMMAND_NOT_SUPPORTED = b'\x07'
+CODE_ADDRESS_TYPE_NOT_SUPPORTED = b'\x08'
+CODE_UNASSIGNED = b'\x09'
 
 
 class SocketPiper(threading.Thread):
@@ -59,20 +71,22 @@ class SocketPiper(threading.Thread):
         try:
             self.read_sock.setblocking(0)
             while True:
-                data=""
+                data = ''
                 try:
-                    data+=self.read_sock.recv(1000000)
+                    data += self.read_sock.recv(1000000)
                     if not data:
                         break
                 except Exception as e:
-                    if e[0]==9:#errno connection closed
+                    if e[0] == 9: #errno connection closed
                         break
                     if not data:
                         time.sleep(0.05)
                     continue
                 self.write_sock.sendall(data)
+
         except Exception as e:
             logging.debug("error in socket piper: %s", traceback.format_exc())
+
         finally:
             try:
                 self.write_sock.shutdown(socket.SHUT_RDWR)
@@ -93,7 +107,7 @@ class SocketPiper(threading.Thread):
         logging.debug("piper finished")
 
 
-class Socks5RequestHandler(SocketServer.BaseRequestHandler):
+class Socks5RequestHandler(BaseRequestHandler):
     def _socks_response(self, code, terminate=False):
         ip="".join([chr(int(i)) for i in self.server.server_address[0].split(".")])
         port=struct.pack("!H",self.server.server_address[1])
@@ -184,15 +198,15 @@ class Socks5RequestHandler(SocketServer.BaseRequestHandler):
         sp2.join()
         self.server.module.info("conn to %s:%s closed"%(DST_ADDR,DST_PORT))
 
-class Socks5Server(SocketServer.TCPServer):
+class Socks5Server(TCPServer):
     allow_reuse_address = True
 
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, rpyc_client=None, module=None):
         self.rpyc_client=rpyc_client
         self.module=module
-        SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
+        TCPServer.__init__(self, server_address, RequestHandlerClass, bind_and_activate)
 
-class ThreadedSocks5Server(SocketServer.ThreadingMixIn, Socks5Server):
+class ThreadedSocks5Server(ThreadingMixIn, Socks5Server):
     pass
 
 @config(cat="network", tags=["pivot", "proxy"])

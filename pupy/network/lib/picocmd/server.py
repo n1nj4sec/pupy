@@ -110,7 +110,8 @@ class SessionDependedCommand(object):
                     min_version, commands = rule
                     if session.system_info_version is not None and \
                             session.system_info_version >= min_version:
-                        if hasattr(commands, '__iter__'):
+                        if hasattr(commands, '__iter__') \
+                                and not isinstance(commands, str):
                             for command in commands:
                                 session.add_command(command)
                                 amount += 1
@@ -122,7 +123,8 @@ class SessionDependedCommand(object):
                 else:
                     result = rule(session)
                     if result is not None:
-                        if hasattr(result, '__iter__'):
+                        if hasattr(result, '__iter__') \
+                                and not isinstance(result, str):
                             for command in result:
                                 session.add_command(command)
                                 amount += 1
@@ -132,7 +134,8 @@ class SessionDependedCommand(object):
 
                         return amount
 
-        if hasattr(self.default, '__iter__'):
+        if hasattr(self.default, '__iter__') \
+                and not isinstance(self.default, str):
             for command in self.default:
                 session.add_command(command)
                 amount += 1
@@ -406,7 +409,7 @@ class DnsCommandServerHandler(BaseResolver):
             with self.lock:
                 to_remove = []
 
-                for spi, session in self.sessions.iteritems():
+                for spi, session in self.sessions.items():
                     if session.expired:
                         to_remove.append(spi)
 
@@ -416,7 +419,7 @@ class DnsCommandServerHandler(BaseResolver):
 
                 to_remove = []
 
-                for key, node in self.nodes.iteritems():
+                for key, node in self.nodes.items():
                     if node.expired:
                         to_remove.append(key)
 
@@ -436,7 +439,7 @@ class DnsCommandServerHandler(BaseResolver):
 
     def _nodes_by_nodeids(self, ids):
         return [
-            node for (nodeid, iid),node in self.nodes.iteritems() if nodeid in ids
+            node for (nodeid, iid),node in self.nodes.items() if nodeid in ids
         ]
 
     def _sessions_by_nodeids(self, ids):
@@ -560,7 +563,7 @@ class DnsCommandServerHandler(BaseResolver):
     @locked
     def find_nodes(self, node):
         if node is None:
-            return list(self.nodes.itervalues())
+            return self.nodes.values()
 
         if is_str(node):
             node = [convert_node(x) for x in node.split(',')]
@@ -585,7 +588,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         if not (spi or node):
             return [
-                session for session in self.sessions.itervalues() \
+                session for session in self.sessions.values() \
                 if session.system_info is not None
             ]
         elif spi:
@@ -594,7 +597,7 @@ class DnsCommandServerHandler(BaseResolver):
             ]
         elif node:
             return [
-                session for session in self.sessions.itervalues() \
+                session for session in self.sessions.values() \
                     if session.cid == node or session.node == node or (
                         session.system_info and \
                         (session.system_info['node'] in set(node) or \

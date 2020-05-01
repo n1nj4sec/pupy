@@ -69,7 +69,10 @@ import struct
 from errno import EOPNOTSUPP, EINVAL, EAGAIN
 from io import BytesIO
 from os import SEEK_CUR
+
 import os
+import sys
+
 from collections import Callable
 from base64 import b64encode
 
@@ -100,6 +103,10 @@ if os.name == 'nt':
         raise ImportError('To run PySocks under windows you need to install win_inet_pton')
 else:
     import socket
+
+if sys.version_info.major > 2:
+    basestring = str
+
 
 logger = getLogger('tinyhttp')
 
@@ -326,7 +333,7 @@ class socksocket(_BaseSocket):
     default_proxy = None
 
     __slots__ = (
-        'proxy', '_proxy_negotiators',
+        'proxy',
         'proxy_sockname', 'proxy_peername',
         '_socks5_bind_addr', '_proxyconn', '_last_addr'
     )
@@ -383,7 +390,7 @@ class socksocket(_BaseSocket):
         auth_type -   Engine to perform authentication (None = BASIC, 'NTLM' = NTLM)
         """
 
-        if type(proxy_type) in (str, unicode):
+        if isinstance(proxy_type, basestring):
             proxy_type = PROXY_TYPES.get(proxy_type)
             if not proxy_type:
                 raise ValueError('Unknown proxy type {}'.format(proxy_type))
@@ -905,7 +912,7 @@ class socksocket(_BaseSocket):
                     need_request = True
                     challenge = None
 
-                    for header, value in headers.iteritems():
+                    for header, value in headers.items():
                         if header.lower() == 'proxy-authenticate':
                             value = value.strip()
                             if not value.startswith(method + ' '):

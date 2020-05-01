@@ -7,13 +7,18 @@ from __future__ import unicode_literals
 
 import sys
 
-from urlparse import urlparse
 from argparse import REMAINDER
 
 from io import open
 from os import path, environ, walk
 
+if sys.version_info.major > 2:
+    from urllib.parse import urlparse
+else:
+    from urlparse import urlparse
+
 from network.lib.rpc import nowait
+
 from pupylib.PupyCompleter import path_completer
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,

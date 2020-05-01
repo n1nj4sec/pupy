@@ -41,7 +41,11 @@ def query(sql, limit):
 
     except adodbapi.apibase.DatabaseError as e:
         # ZOMG
-        parts = e.message.split('\n')
+        if hasattr(e, 'message'):
+            parts = e.message.split('\n')
+        else:
+            parts = str(e).split('\n')
+
         code = eval(parts[0])[1].decode(encoding)
         error = '\n'.join(parts[1:]) + '\n' + code
 

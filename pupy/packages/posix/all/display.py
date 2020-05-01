@@ -141,8 +141,8 @@ def guess_displays():
             if pair not in displays[DISPLAY] and check_display(DISPLAY, XAUTHORITY):
                 displays[DISPLAY].add(pair)
 
-    for user, hosts in pupyps.users().iteritems():
-        for host, terminals in hosts.iteritems():
+    for user, hosts in pupyps.users().items():
+        for host, terminals in hosts.items():
             for terminal in terminals:
                 try:
                     executable = os.path.basename(
@@ -179,7 +179,7 @@ def guess_displays():
                     pass
 
     return {
-        k:list(v) for k,v in displays.iteritems()
+        k:list(v) for k,v in displays.items()
     }
 
 def attach_to_display(name, xauth=None):

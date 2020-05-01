@@ -6,6 +6,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
@@ -15,6 +17,9 @@ from threading import Event
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser
 )
+
+if sys.version_info.major > 2:
+    basestring = str
 
 __class_name__ = "TcpdumpModule"
 
@@ -106,7 +111,9 @@ class TcpdumpModule(PupyModule):
 
         except Exception as e:
             self.wait.set()
-            self.error('Error: ' + ' '.join(x for x in e.args if type(x) in (str, unicode)))
+            self.error(
+                'Error: ' + ' '.join(x for x in e.args if isinstance(x, basestring))
+            )
 
     def interrupt(self):
         if self.terminate:

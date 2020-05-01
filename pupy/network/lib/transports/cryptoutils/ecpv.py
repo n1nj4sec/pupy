@@ -7,10 +7,20 @@ from __future__ import unicode_literals
 
 __all__ = ('PubKeyCache', 'ECPV')
 
+import sys
 import struct
 import base64
 
 from collections import deque
+
+if sys.version_info.major > 2:
+    xrange = range
+
+    def _reversed_bytes(data):
+        return bytes(reversed(data))
+else:
+    def _reversed_bytes(data):
+        return b''.join(reversed(data))
 
 from tinyec.registry import get_curve
 from tinyec.ec import (
@@ -159,9 +169,11 @@ class ECPV(object):
         return clone
 
     def _gen_random(self):
-        value = None
-        while not value > 1 and value < self._curve.field.n:
+        value = 0
+
+        while not (value > 1 and value < self._curve.field.n):
             value = from_bytes(get_random(self._curve.bytes))
+
         return value
 
     def _mgf2(self, value, length):
@@ -262,7 +274,7 @@ class ECPV(object):
             raise ValueError('Invalid ECDH PK response')
 
         key = self._mgf2(ec2osp(P1 * self._kex_private_key), key_size)
-        self._kex_shared_key = (key, b''.join(reversed(key)))
+        self._kex_shared_key = (key, _reversed_bytes(key))
         return self._kex_shared_key
 
     def check_csum(self, message, nonce, csum, key=None):

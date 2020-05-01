@@ -86,7 +86,7 @@ class NetMon(pupy.Task):
 
         new_listeners_udp = set(
             new_listener_udp for new_listener_udp, cnt in
-            self.pending_udp_listeners.iteritems() if
+            self.pending_udp_listeners.items() if
             cnt > 16
         )
 

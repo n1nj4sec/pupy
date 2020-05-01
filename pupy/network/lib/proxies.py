@@ -140,7 +140,7 @@ def get_win_proxies():
 def get_python_proxies():
     python_proxies = urllib.getproxies()
 
-    for key, value in python_proxies.iteritems():
+    for key, value in python_proxies.items():
         if not (key.upper() in ('HTTP', 'HTTPS', 'SOCKS') and value):
             continue
 

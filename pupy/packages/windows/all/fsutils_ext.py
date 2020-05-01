@@ -6,6 +6,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
+
 from fsutils import has_xattrs
 from io import open
 from os import stat, path
@@ -21,6 +23,10 @@ from pupwinutils.security import (
     BOOL, WORD, DWORD, LPCWSTR, LPVOID, PDWORD,
     POINTER, HANDLE, BYTE, ULONG
 )
+
+if sys.version_info.major > 2:
+    xrange = range
+    unicode = str
 
 FILE_VER_GET_LOCALISED = 0x01
 FILE_VER_GET_NEUTRAL = 0x02
@@ -430,24 +436,24 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
         flags = []
         valid_flags = info.dwFileFlags & info.dwFileFlagsMask
         if valid_flags:
-            for flag, value in VS_FF_STR.iteritems():
+            for flag, value in VS_FF_STR.items():
                 if _bit(flag, valid_flags):
                     flags.append(value)
 
         result['Flags'] = flags
 
-        for flag, value in VFT_STR.iteritems():
+        for flag, value in VFT_STR.items():
             if _bit(flag, info.dwFileType):
                 if flag == VFT_UNKNOWN:
                     break
 
                 elif flag == VFT_DRV:
-                    for subflag, subvalue in VFT2_DRV_STR.iteritems():
+                    for subflag, subvalue in VFT2_DRV_STR.items():
                         if _bit(subflag, info.dwFileSubtype):
                             value += '(' + subvalue + ')'
                             break
                 elif flag == VFT_FONT:
-                    for subflag, subvalue in VFT2_FONT_STR.iteritems():
+                    for subflag, subvalue in VFT2_FONT_STR.items():
                         if _bit(subflag, info.dwFileSubtype):
                             value += '(' + subvalue + ')'
                             break
@@ -499,7 +505,7 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
 
             if not found:
                 # Just pick any
-                result.update(next(iter(translations.itervalues())))
+                result.update(next(iter(translations.values())))
 
     return result
 
@@ -654,4 +660,4 @@ def getfilesec(filepath):
 
     return int(filestat.st_ctime), int(filestat.st_atime), \
       int(filestat.st_mtime), filestat.st_size, owner, group, \
-      header, mode, {k:v for k,v in extras.iteritems() if v}
+      header, mode, {k:v for k,v in extras.items() if v}

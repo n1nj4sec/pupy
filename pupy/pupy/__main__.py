@@ -4,6 +4,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 import argparse
 import sys
 import os
@@ -12,7 +13,11 @@ from . import main
 
 setattr(sys, '__pupy_main__', True)
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+root = os.path.dirname(os.path.dirname(__file__))
+
+sys.path.extend((
+    root, os.path.join(root, 'library_patches')
+))
 
 import pupylib
 assert(pupylib)

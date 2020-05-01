@@ -4,13 +4,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Pygment
+
+import sys
 
 from pygments import lexers
 import json
 
+if sys.version_info.major > 2:
+    unicode = str
+
 __class_name__="CloudInfo"
+
 
 @config(cat="gather")
 class CloudInfo(PupyModule):

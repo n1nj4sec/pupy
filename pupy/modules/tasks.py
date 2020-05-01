@@ -24,7 +24,7 @@ class Tasks(PupyModule):
         pupy = self.client.remote('pupy')
         active = obtain(pupy.manager.status)
         data = []
-        for task, state in active.iteritems():
+        for task, state in active.items():
             color = 'grey'
             if state['active']:
                 color = 'lightgreen'

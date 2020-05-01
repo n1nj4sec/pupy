@@ -13,10 +13,12 @@
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
+
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 import sys
 import cmd
 import os
@@ -59,6 +61,9 @@ from termios import TCSANOW
 from . import getLogger
 logger = getLogger('cmd')
 
+if sys.version_info.major > 2:
+    xrange = range
+
 
 class ObjectStreamPipeConsumer(Thread):
     __slots__ = (
@@ -89,7 +94,7 @@ class ObjectStreamPipeConsumer(Thread):
             text += '\n'
 
         with self._write_lock:
-            if isinstance(text, unicode):
+            if not isinstance(text, bytes):
                 text = text.encode('utf-8')
 
             self.pipe.stdin.write(text)
@@ -405,6 +410,9 @@ class RawTerminal(IOGroup):
 class PupyCmd(cmd.Cmd):
     def __init__(self, pupsrv):
         cmd.Cmd.__init__(self)
+
+        cmd.info = self._make_intro
+
         self.pupsrv = pupsrv
         self.dnscnc = pupsrv.dnscnc
         self.config = pupsrv.config
@@ -449,8 +457,7 @@ class PupyCmd(cmd.Cmd):
 
         self.pupsrv.register_handler(self)
 
-    @property
-    def intro(self):
+    def _make_intro(self):
         return '\n'.join(
             hint_to_text(x) for x in self._intro
         )

@@ -17,6 +17,8 @@ except ImportError:
 
 from os import path, makedirs
 from netaddr import IPAddress
+
+import sys
 import platform
 import random
 import string
@@ -24,6 +26,10 @@ import datetime
 
 from .PupyLogger import getLogger
 logger = getLogger('config')
+
+if sys.version_info.major > 2:
+    long = int
+
 
 class Tags(object):
     def __init__(self, config, node):
@@ -114,7 +120,8 @@ class PupyConfig(ConfigParser):
 
         result = []
 
-        for node, node_tags in available_tags.iteritems():
+        for node in available_tags:
+            node_tags = available_tags[node]
             if op_filter(x in node_tags for x in tags):
                 result.append(node)
 
@@ -178,7 +185,8 @@ class PupyConfig(ConfigParser):
             '%t': str(datetime.datetime.now()).replace(' ','_').replace(':','-')
         })
 
-        for key, value in substitutions.iteritems():
+        for key in substitutions:
+            value = substitutions[key]
             try:
                 value = value.replace('/', '_').replace('..', '_')
                 if platform.system == 'Windows':

@@ -235,7 +235,7 @@ def catcher_dump():
 def catcher_sync():
     catcher = manager.get(PipeCatcher)
     if catcher:
-        for sid, token in catcher.tokens.iteritems():
+        for sid, token in catcher.tokens.items():
             if sid not in IMPERSONATION_TOKENS:
                 IMPERSONATION_TOKENS[sid] = token
 

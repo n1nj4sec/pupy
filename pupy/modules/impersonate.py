@@ -47,7 +47,7 @@ class ImpersonateModule(PupyModule):
 
                 sids_dict[sid] = username
 
-            for sid, username in sids_dict.iteritems():
+            for sid, username in sids_dict.items():
                 sids_table.append({
                     'sid': sid,
                     'username': username

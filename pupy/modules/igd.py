@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import json
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
@@ -11,6 +12,7 @@ from pupylib.utils.term import colorize
 from defusedxml import minidom
 
 __class_name__ = "IGDClient"
+
 
 class IGDCMDClient(object):
     def __init__(self):
@@ -28,9 +30,9 @@ class IGDCMDClient(object):
 
     def show(self, values):
         if hasattr(values, 'iterkeys'):
-            column_size = max([len(x) for x in values.iterkeys()])
+            column_size = max([len(x) for x in values])
             fmt = '{{:<{}}}'.format(column_size)
-            for k, v in values.iteritems():
+            for k, v in values.items():
                 if k.startswith('New'):
                     k = k[3:]
                 self.log(colorize(fmt.format(k), 'yellow')+' {}'.format(v))
@@ -39,7 +41,7 @@ class IGDCMDClient(object):
             columns = []
             column_sizes = {}
             for value in values:
-                for column, cvalue in value.iteritems():
+                for column, cvalue in value.items():
                     if column not in columns:
                         if column.startswith('New'):
                             columnlen = len(column) - 3

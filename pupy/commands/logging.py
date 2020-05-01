@@ -24,6 +24,7 @@ parser.add_argument('-s', '--set-level', choices=levels, help='Set log level')
 parser.add_argument('-g', '--get-level', action='store_true', help='Get log level')
 parser.add_argument('level', choices=levels, nargs='?', help='Set log level')
 
+
 def levelToString(level):
     return {
         logging.ERROR: 'ERROR',
@@ -32,6 +33,7 @@ def levelToString(level):
         logging.DEBUG: 'DEBUG'
     }.get(level)
 
+
 def levelToColor(level):
     return {
         logging.ERROR: 'grey',
@@ -39,6 +41,7 @@ def levelToColor(level):
         logging.INFO: 'yellow',
         logging.DEBUG: 'red'
     }.get(level)
+
 
 def do(server, handler, config, args):
     logger = logging.getLogger(args.logger)
@@ -51,7 +54,7 @@ def do(server, handler, config, args):
             levelToString(logger.getEffectiveLevel()))))
     else:
         objects = []
-        for name, logger in logging.Logger.manager.loggerDict.iteritems():
+        for name, logger in logging.Logger.manager.loggerDict.items():
             if not hasattr(logger, 'getEffectiveLevel'):
                 continue
 

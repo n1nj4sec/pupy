@@ -137,7 +137,7 @@ class Context(object):
     )
 
     def __init__(self, name=None, mech=None, creds=None, flags=0, usage=None):
-        if hasattr(flags, '__iter__'):
+        if hasattr(flags, '__iter__') and not isinstance(flags, str):
             flags = reduce(lambda x, y: x|y, flags, 0)
 
         self.name = name or ''

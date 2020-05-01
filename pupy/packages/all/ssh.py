@@ -34,7 +34,7 @@ from paramiko.ecdsakey import ECDSAKey
 
 from urllib import unquote
 
-from sys import getfilesystemencoding
+from sys import getfilesystemencoding, version_info
 
 from traceback import format_exc
 
@@ -58,7 +58,11 @@ except ImportError:
     Ed25519Key = None
 
 from netaddr import (IPNetwork, AddrFormatError)
-from urlparse import urlparse
+
+if version_info.major > 2:
+    from urllib.parse import urlparse
+else:
+    from urlparse import urlparse
 
 from socket import error as socket_error, gaierror
 from hashlib import md5
@@ -210,10 +214,10 @@ try:
                 except WindowsError:
                     break
 
-                if type(value) in (str, unicode):
+                if isinstance(value, basestring):
                     new_value = unquote(value)
                     if new_value != value:
-                        if type(new_value) == unicode:
+                        if not isinstance(new_value, bytes):
                             try:
                                 new_value = new_value.encode('latin1')
                                 value = bin_decode(new_value)
@@ -353,8 +357,8 @@ class SSH(object):
 
         self._ssh_hosts = ssh_hosts()
 
-        for user, hosts in self._ssh_hosts.iteritems():
-            for alias, config in hosts.iteritems():
+        for user, hosts in self._ssh_hosts.items():
+            for alias, config in hosts.items():
                 if self.host in (alias, config.get('hostname')):
                     if self.user is not None and self.user != config.get('user', user):
                         continue
@@ -371,7 +375,7 @@ class SSH(object):
                         private_keys = []
 
                         identityfiles = config['identityfile']
-                        if type(identityfiles) in (str, unicode):
+                        if isinstance(identityfiles, basestring):
                             identityfiles = [identityfiles]
 
                         for identityfile in identityfiles:
@@ -581,7 +585,7 @@ class SSH(object):
         if chown:
             commands.append('chown {} {}'.format(repr(chown), repr(remote_path)))
 
-        if perm and type(perm) in (str, unicode):
+        if perm and isinstance(perm, basestring):
             perm = int(perm, 8)
 
         commands.append('chmod {} {}'.format(oct(perm), repr(remote_path)))
@@ -1092,7 +1096,7 @@ def ssh_interactive(term, w, h, wp, hp, host, port, user, passwords,
     return attach, writer, resizer, ssh_close
 
 def iter_hosts(hosts, default_passwords=None, default_port=None, default_user=None):
-    if type(hosts) in (str, unicode):
+    if isinstance(hosts, basestring):
         hosts = [hosts]
 
     ssh_passwords, key_passwords = None, None

@@ -6,9 +6,14 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from io import open
+
+import sys
 import time
 
 import pupygen
+
+if sys.version_info.major > 2:
+    xrange = range
 
 
 def has_proc_migrated(client, pid):

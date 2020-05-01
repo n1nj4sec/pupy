@@ -22,9 +22,24 @@ from __future__ import unicode_literals
 from threading import Thread, Event, Lock
 
 import imp
+import sys
 
 from os import path, listdir, stat, unlink
-from itertools import count, ifilterfalse
+from itertools import count
+
+if sys.version_info.major > 2:
+    from itertools import filterfalse
+
+    basestring = str
+
+    def reprb(data):
+        return repr(data)
+else:
+    from itertools import ifilterfalse as filterfalse
+
+    def reprb(data):
+        return 'b' + repr(data)
+
 from netaddr import IPAddress
 from random import randint
 from tempfile import NamedTemporaryFile
@@ -346,7 +361,7 @@ class Listener(Thread):
             result += ' ' + ' '.join(
                 '{}={}'.format(
                     k, v if k != 'password' else '*'*len(v)
-                ) for k,v in self.kwargs.iteritems())
+                ) for k,v in self.kwargs.items())
 
         return '{}: {}'.format(self.name, result)
 
@@ -506,7 +521,7 @@ class PupyServer(object):
     def create_id(self):
         """ return first lowest unused session id """
         with self._current_id_lock:
-            new_id = next(ifilterfalse(self._current_id.__contains__, count(1)))
+            new_id = next(filterfalse(self._current_id.__contains__, count(1)))
             self._current_id.append(new_id)
             return new_id
 
@@ -583,8 +598,8 @@ class PupyServer(object):
         client = None
 
         conn.execute(
-            'import marshal;exec marshal.loads({})'.format(
-                repr(pupycompile(
+            'import marshal;exec(marshal.loads({}))'.format(
+                reprb(pupycompile(
                     path.join(
                         self.config.root, 'pupylib', 'PupyClientInitializer.py'),
                     path=True, raw=True))))
@@ -646,14 +661,10 @@ class PupyServer(object):
                 remote = ' ({}:{})'.format(client_ip, client_port)
 
                 user = client_info.get('user', '?')
-                if type(user) == unicode:
-                    user = user.encode('utf-8')
 
                 user_info = user
                 if '\\' not in user:
                     hostname = client_info.get('hostname', '?')
-                    if type(hostname) == unicode:
-                        hostname = hostname.encode('utf-8')
 
                     user_info = user_info + '@' + hostname
 
@@ -698,10 +709,10 @@ class PupyServer(object):
         except Exception:
             pass
 
-        if not type(search_criteria) in (str, unicode):
+        if not isinstance(search_criteria, basestring):
             return
 
-        clients=set([])
+        clients = set([])
 
         if search_criteria=="*":
             return self.clients
@@ -729,14 +740,14 @@ class PupyServer(object):
                     if tab[0] in tags:
                         take = True
                     else:
-                        for k,v in c.desc.iteritems():
-                            if type(v) is unicode or type(v) is str:
+                        for k,v in c.desc.items():
+                            if isinstance(v, basestring):
                                 if tab[0].lower() in v.decode('utf8').lower():
-                                    take=True
+                                    take = True
                                     break
                             else:
-                                if tab[0].lower() in str(v).decode('utf8').lower():
-                                    take=True
+                                if tab[0].lower() in str(v).lower():
+                                    take = True
                                     break
                         if not take:
                             break
@@ -822,7 +833,8 @@ class PupyServer(object):
                 except Exception as e:
                     logger.exception(e)
 
-        for modname, modpath in files.iteritems():
+        for modname in files:
+            modpath = files[modname]
             current_stats = stat(modpath)
 
             if not force and modname in self.modules and \
@@ -870,7 +882,7 @@ class PupyServer(object):
                 class_name = item_name
 
         if hasattr(module, '__events__'):
-            for event_id, event_name in module.__events__.iteritems():
+            for event_id, event_name in module.__events__.items():
                 try:
                     registered_event_name = event_to_string(event_id)
                     if registered_event_name != event_name:
@@ -977,7 +989,7 @@ class PupyServer(object):
         """ connect on a client that would be running a bind payload """
 
         try:
-            stream = next(launcher.iterate())
+            stream = next(iter(launcher.iterate()))
         except socket.error as e:
             self.handler.display_error("Couldn't connect to pupy: {}".format(e))
             return
@@ -1188,7 +1200,7 @@ class PupyServer(object):
 
         self._cleanups = []
 
-        for name in self.listeners.keys():
+        for name in list(self.listeners.keys()):
             self.remove_listener(name)
 
         if self.pupweb:

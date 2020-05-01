@@ -55,7 +55,9 @@ def do(server, handler, config, modargs):
 
             category = categories[item['category']]
             category['creds'].append({
-                k:v for k,v in item.iteritems() if k in ('cid', 'login', 'secret', 'resource')
+                k:v for k,v in item.items() if k in (
+                    'cid', 'login', 'secret', 'resource'
+                )
             })
 
     except Exception as e:
@@ -67,7 +69,7 @@ def do(server, handler, config, modargs):
         return
 
     try:
-        for category, info in categories.iteritems():
+        for category, info in categories.items():
             if not info['creds']:
                 continue
 

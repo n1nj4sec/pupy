@@ -342,7 +342,7 @@ class Pywerview(PupyModule):
             return
 
         parsed_args = dict()
-        for k, v in vars(args).iteritems():
+        for k, v in vars(args).items():
             if k not in ('func', 'hashes'):
                 parsed_args[k] = v
 

@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from ctypes import (
     WinDLL, Structure, POINTER, create_string_buffer,
     cast, c_void_p, WinError, byref
@@ -14,6 +15,11 @@ from ctypes.wintypes import (
 )
 
 from psutil import disk_usage
+
+import sys
+
+if sys.version_info.major > 2:
+    unicode = str
 
 
 class NETRESOURCE(Structure):
@@ -173,7 +179,7 @@ def EnumNetResources(scope=RESOURCE_CONNECTED, lpnr=None):
 
                 usage_flags = []
 
-                for value, name in RESOURCEUSAGE_TEXT.iteritems():
+                for value, name in RESOURCEUSAGE_TEXT.items():
                     if (entry.dwUsage & value) == value:
                         usage_flags.append(name)
 
@@ -218,7 +224,7 @@ def EnumNetResources(scope=RESOURCE_CONNECTED, lpnr=None):
 
 def EnumAllNetResources():
     results = {}
-    for value, text in SCOPE_TEXT.iteritems():
+    for value, text in SCOPE_TEXT.items():
         try:
             results[text] = EnumNetResources(value)
         except WinError:

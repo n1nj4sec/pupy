@@ -6,6 +6,7 @@
 
     Lots of the WebSocket protocol code came from https://github.com/Pithikos/python-websocket-server
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -91,6 +92,7 @@ def add_ws_encapsulation(data, output, mask=None, opcode=OPCODE_BINARY):
 
     output.write(header, notify=False)
     data.write_to(output, modificator=modificator)
+
 
 def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     if remainder:
@@ -183,17 +185,19 @@ def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     remainder = payload_len - written
     return 0, encoder.offset if encoder else 0, remainder, mask
 
+
 class PupyWebSocketTransport(BasePupyTransport):
     """
     Implements the http protocol transport for pupy.
     """
     __slots__ = ()
 
+
 class PupyWebSocketClient(PupyWebSocketTransport):
     socketkey = ''.join(random.sample(string.printable,16))
 
     __slots__ = (
-        'host', 'path', 'user_agent', 'socketkey', 'offset',
+        'host', 'path', 'user_agent', 'offset',
         'missing_bytes', 'decoded', 'upgraded', 'mask',
         'connect', 'proxy', 'auth', 'upgraded_buf'
     )

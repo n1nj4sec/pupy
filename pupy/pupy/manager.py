@@ -4,11 +4,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ('Task', 'Manager')
 
 from threading import Thread, Event
 
 import pupy
+import sys
+
+if sys.version_info.major > 2:
+    basestring = str
 
 
 class Task(Thread):
@@ -58,7 +63,7 @@ class Task(Thread):
         return self._dirty
 
     def append(self, result):
-        if self.results_type in (str, unicode):
+        if issubclass(self.results_type, basestring):
             self._pstore[self] += result
         elif self.results_type == list:
             self._pstore[self].append(result)
@@ -67,7 +72,9 @@ class Task(Thread):
         elif self.results_type == dict:
             self._pstore[self][result[0]] = result[1]
         else:
-            raise TypeError('Unknown results type: {}'.format(self.results_type))
+            raise TypeError(
+                'Unknown results type: {}'.format(self.results_type)
+            )
 
         fire_event = False
 
@@ -172,7 +179,7 @@ class Manager(object):
 
     @property
     def dirty(self):
-        return any(x.dirty for x in self.tasks.itervalues())
+        return any(x.dirty for x in self.tasks.values())
 
     @property
     def status(self):
@@ -180,18 +187,18 @@ class Manager(object):
             name:{
                 'active': task.active,
                 'results': task.dirty,
-            } for name,task in self.tasks.iteritems()
+            } for name,task in self.tasks.items()
         }
 
     def event(self, event):
-        for task in self.tasks.itervalues():
+        for task in self.tasks.values():
             try:
                 task.event(event)
             except:
                 pupy.remote_error('Manager (event): {} evt={}', task.name, event)
 
         if event == self.TERMINATE:
-            for task in self.tasks.itervalues():
+            for task in self.tasks.values():
                 try:
                     task.stop()
                 except:

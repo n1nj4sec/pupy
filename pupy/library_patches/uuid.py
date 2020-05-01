@@ -49,12 +49,17 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from io import open
+from sys import version_info
+
+if version_info.major > 2:
+    long = int
 
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
 
 RESERVED_NCS, RFC_4122, RESERVED_MICROSOFT, RESERVED_FUTURE = [
     'reserved for NCS compatibility', 'specified in RFC 4122',
     'reserved for Microsoft compatibility', 'reserved for future definition']
+
 
 class UUID(object):
     """Instances of the UUID class represent UUIDs as specified in RFC 4122.
@@ -726,7 +731,7 @@ def _netiface_getnode():
         interface_name = None
 
         for interface in get_network_interfaces():
-            for addresses in interface.addresses.itervalues():
+            for addresses in interface.addresses.values():
                 if src_ip in addresses:
                     interface_name = interface.name
                     break

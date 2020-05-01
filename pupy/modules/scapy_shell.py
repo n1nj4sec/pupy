@@ -6,6 +6,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 import readline
 
 from modules.lib.windows.winpcap import init_winpcap
@@ -13,6 +15,9 @@ from pupylib.utils.rpyc_utils import redirected_stdo
 from pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser, QA_DANGEROUS
 )
+
+if sys.version_info.major > 2:
+    raw_input = input
 
 __class_name__="InteractiveScapyShell"
 

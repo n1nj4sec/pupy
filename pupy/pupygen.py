@@ -56,8 +56,13 @@ logger = getLogger('gen')
 
 HARDCODED_CONF_SIZE = 262144
 
+if sys.version_info.major > 2:
+    unicode = str
+
+
 class NoOutput(Exception):
     pass
+
 
 def get_edit_binary(display, path, conf, compressed_config=True, debug=False):
     logger.debug("generating binary %s with conf: %s"%(path, conf))
@@ -141,12 +146,13 @@ def get_raw_conf(display, conf, verbose=False):
                 required_credentials.add(name)
 
     elif not transport:
-        for n, t in transports.iteritems():
-            transports_list.append(n)
+        for name in transports:
+            transports_list.append(name)
+            conf = transports[name]
 
-            if t.credentials:
-                for name in t.credentials:
-                    required_credentials.add(name)
+            if conf.credentials:
+                for cred_name in conf.credentials:
+                    required_credentials.add(cred_name)
 
     available = []
     not_available = []
@@ -176,7 +182,7 @@ def get_raw_conf(display, conf, verbose=False):
             'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (
                 unicode(v) if type(v) not in (tuple,list,set) else ' '.join(
                     unicode(x) for x in v))
-        } for k,v in conf.iteritems() if v]
+        } for k,v in conf.items() if v]
 
         display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
 
@@ -466,7 +472,7 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
         'KEY': k, 'VALUE': 'PRESENT' if (k in ('offline_script') and v) else (
                 unicode(v) if type(v) not in (tuple,list,set) else ' '.join(
                     unicode(x) for x in v))
-    } for k,v in config.iteritems() if v]
+    } for k,v in config.items() if v]
 
     display(Table(config_table, ['KEY', 'VALUE'], Color('Configuration', 'yellow'), vspace=1))
 
@@ -489,14 +495,14 @@ def pack_scriptlets(display, scriptlets, args_scriptlet, os=None, arch=None, deb
         if name not in scriptlets:
             raise ValueError("unknown scriptlet %s, valid choices are : %s"%(
                 repr(name), [
-                    x for x in scriptlets.iterkeys()
+                    x for x in scriptlets
                 ]))
 
         display(Success('loading scriptlet {}{}'.format(
             repr(name),
             'with args {}'.format(
                 ' '.join(
-                    '{}={}'.format(k, repr(v)) for k,v in sc_args.iteritems())
+                    '{}={}'.format(k, repr(v)) for k,v in sc_args.items())
             ) if sc_args else '')))
 
         try:
@@ -556,7 +562,7 @@ def get_parser(base_parser, config):
     parser.add_argument('--workdir', help='Set Workdir (Default = current workdir)')
     parser.add_argument(
         'launcher', choices=[
-            x for x in launchers.iterkeys()
+            x for x in launchers
         ], default=config.get('gen', 'launcher') or 'connect', nargs='?',
         help="Choose a launcher. Launchers make payloads behave differently at startup."
     )
@@ -581,18 +587,18 @@ def pupygen(args, config, pupsrv, display):
                 'csharp': 'generate C# source (.cs) that executes pupy',
                 '.NET': 'compile a C# payload into a windows executable.',
                 '.NET_oneliner': 'Loads .NET assembly from memory via powershell'
-            }.iteritems()], ['FORMAT', 'DESCRIPTION'], Color('Available formats (usage: -f <format>)', 'yellow')),
+            }.items()], ['FORMAT', 'DESCRIPTION'], Color('Available formats (usage: -f <format>)', 'yellow')),
 
             Table([{
                 'TRANSPORT': name, 'DESCRIPTION': t.info
-            } for name, t in transports.iteritems()],
+            } for name, t in transports.items()],
             ['TRANSPORT', 'DESCRIPTION'], Color('Available transports (usage: -t <transport>)', 'yellow')),
 
             Table([{
                 'SCRIPTLET': name, 'DESCRIPTION': sc.description, 'ARGS': '; '.join(
-                    '{}={}'.format(k,v) for k,v in sc.arguments.iteritems()
+                    '{}={}'.format(k,v) for k,v in sc.arguments.items()
                 )
-            } for name, sc in scriptlets.iteritems()],
+            } for name, sc in scriptlets.items()],
             ['SCRIPTLET', 'DESCRIPTION', 'ARGS'], Color(
                 'Available scriptlets for {}/{} '
                 '(usage: -s <scriptlet>[,arg1=value1,arg2=value2]'.format(
@@ -617,12 +623,13 @@ def pupygen(args, config, pupsrv, display):
                 debug=args.debug_scriptlets)
 
     except ValueError as e:
-        display(Error(e.message))
+        display(Error(str(e)))
         raise NoOutput()
 
     launcher = launchers[args.launcher]
     while True:
         try:
+            print("LAUNCHER:", launcher, launcher.arg_parser)
             launcher.arg_parser.parse_args(args.launcher_args)
         except LauncherError as e:
             if str(e).strip().endswith("--host is required") and "--host" not in args.launcher_args:
@@ -742,12 +749,13 @@ def pupygen(args, config, pupsrv, display):
             linux_modules = getLinuxImportedModules()
         packed_payload = pack_py_payload(display, get_raw_conf(display, conf, verbose=True), args.debug)
 
-        outfile.write('\n'.join([
+        outfile.write(
+            '\n'.join([
             '#!/usr/bin/env python',
             '# -*- coding: utf-8 -*-',
             linux_modules,
             packed_payload
-        ]))
+        ]).encode('utf-8'))
         outfile.close()
 
         outpath = outfile.name

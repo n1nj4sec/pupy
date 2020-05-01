@@ -4,12 +4,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
 from argparse import REMAINDER
 
 from pupylib.PupyOutput import Table, List
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
+if sys.version_info.major > 2:
+    basestring = str
+
 __class_name__ = 'WMIC'
+
 
 @config(category='admin', compat=['windows'])
 class WMIC(PupyModule):
@@ -45,11 +51,11 @@ class WMIC(PupyModule):
             return
 
         def _stringify(x):
-            if type(x) in (str, unicode):
+            if isinstance(x, basestring):
                 return x
-            elif type(x) in (list, tuple):
+            elif isinstance(x, (list, tuple)):
                 return ';'.join(_stringify(y) for y in x)
-            elif type(x) is None:
+            elif x is None:
                 return ''
             else:
                 return str(x)

@@ -33,7 +33,7 @@ class PupyCategories(object):
                 self.categories[mod.category].append(mod)
             #fill shell_list for fast auto-completion:
             self.shell_list.append("%s/%s"%(mod.category,mod.get_name()))
-            for system in self.os_shell_lists.iterkeys():
+            for system in self.os_shell_lists:
                 if self.is_os_compatible(mod, system):
                     self.os_shell_lists[system].append("%s/%s/%s"%(system,mod.category,mod.get_name()))
 
@@ -74,13 +74,13 @@ class PupyCategories(object):
 
     def get_shell_list(self, start_text):
         """ return a list of modules sorted for shell auto completion """
-        for k in self.os_shell_lists.iterkeys():
+        for k in self.os_shell_lists:
             if start_text.startswith(k):
                 return [x+" " for x in self.os_shell_lists[k] if x.startswith(start_text)]
         completions = [
             x+" " for x in self.shell_list if x.startswith(start_text)
         ] + [
-            x+"/" for x in self.os_shell_lists.iterkeys() if x.startswith(start_text)
+            x+"/" for x in self.os_shell_lists if x.startswith(start_text)
         ]
 
         if not completions:

@@ -4,7 +4,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+
+if sys.version_info.major > 2:
+    basestring = str
 
 USNIPER_EVENT = 0x13000001
 
@@ -12,6 +18,7 @@ __class_name__ = 'USniper'
 __events__ = {
     USNIPER_EVENT: 'usniper'
 }
+
 
 @config(cat='gather', compat=['linux'])
 class USniper(PupyModule):
@@ -79,9 +86,9 @@ class USniper(PupyModule):
 
         records = []
 
-        for pid, values in data.iteritems():
-            for timestamp, dumps in values['dump'].iteritems():
-                if all(len(x) == 1 and type(x) in (str,unicode) for x in dumps):
+        for pid, values in data.items():
+            for timestamp, dumps in values['dump'].items():
+                if all(len(x) == 1 and isinstance(x, basestring) for x in dumps):
                     records.append({
                         'PID': pid,
                         'EXE': values['exe'],

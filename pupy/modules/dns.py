@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, NewLine
 
@@ -11,6 +12,7 @@ from netaddr import IPNetwork, IPAddress
 from netaddr.core import AddrFormatError
 
 __class_name__="DNS"
+
 
 @config(cat="admin")
 class DNS(PupyModule):
@@ -70,7 +72,7 @@ class DNS(PupyModule):
             known = set()
             found = False
 
-            for k,v in launch_dns_ip_resolver(target).iteritems():
+            for k,v in launch_dns_ip_resolver(target).items():
                 if v and not type(v) == str:
                     v = [x for x in v if x not in known]
                     for x in v:

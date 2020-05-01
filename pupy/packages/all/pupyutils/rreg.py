@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = [
   'Key', 'search', 'enum',
   'set', 'get', 'rm'
@@ -21,6 +22,11 @@ from impacket.dcerpc.v5.dcom.wmi import ENCODED_STRING
 from impacket.structure import Structure
 
 from network.lib.pupyrpc import nowait
+
+if sys.version_info.major > 2:
+    unicode = str
+    basestring = str
+    long = int
 
 
 ERROR_SUCCESS = 0
@@ -115,9 +121,11 @@ WELL_KNOWN_KEYS = {
 
 WELL_KNOWN_TYPES = {
     int: REG_DWORD,
-    str: REG_SZ,
-    unicode: REG_SZ,
+    str: REG_SZ
 }
+
+if sys.version_info.major < 3:
+    WELL_KNOWN_TYPES[unicode] = REG_SZ
 
 WELL_KNOWN_TYPES_NAMES = {
     REG_DWORD: 'DWORD',
@@ -160,17 +168,18 @@ WELL_KNOWN_TYPES_SETTERS = {
 
 # Workaround for impacket
 
-def ENCODED_STRING__setitem__(self, key, value):
-    if key == 'Character' and isinstance(value, unicode):
-        value = value.encode('utf-16le')
-        Structure.__setitem__(self, 'Encoded_String_Flag', 0x1)
-        self.structure = self.tunicode
-        self.isUnicode = True
+if sys.version_info.major < 3:
+    def ENCODED_STRING__setitem__(self, key, value):
+        if key == 'Character' and isinstance(value, unicode):
+            value = value.encode('utf-16le')
+            Structure.__setitem__(self, 'Encoded_String_Flag', 0x1)
+            self.structure = self.tunicode
+            self.isUnicode = True
 
-    Structure.__setitem__(self, key, value)
+        Structure.__setitem__(self, key, value)
 
 
-setattr(ENCODED_STRING, '__setitem__', ENCODED_STRING__setitem__)
+    setattr(ENCODED_STRING, '__setitem__', ENCODED_STRING__setitem__)
 
 
 def value_to_bytes(value, ktype):
@@ -178,10 +187,10 @@ def value_to_bytes(value, ktype):
         return value
 
     if ktype in (REG_SZ, REG_EXPAND_SZ):
-        if isinstance(value, unicode):
+        if not isinstance(value, bytes):
             value = value.encode('utf-16le')
-        else:
-            value = str(value)
+        if not isinstance(value, str):
+            value = str(value).encode('utf-16le')
 
     elif ktype == REG_MULTI_SZ:
         value = u'\0'.join(value) + u'\0\0'
@@ -202,10 +211,7 @@ def value_to_bytes(value, ktype):
 
 
 def as_unicode(value):
-    if isinstance(value, unicode):
-        return value
-
-    elif isinstance(value, str):
+    if isinstance(value, bytes):
         try:
             value = value.decode(sys.getfilesystemencoding())
         except UnicodeError:
@@ -217,20 +223,24 @@ def as_unicode(value):
     return value
 
 
-def as_str(value):
-    if isinstance(value, str):
-        return value
-    elif isinstance(value, unicode):
-        return value.encode('utf-8')
+if sys.version_info.major > 2:
+    def as_str(value):
+        if isinstance(value, str):
+            return value
 
-    return str(value)
+        return str(value)
+else:
+    def as_str(value):
+        if isinstance(value, str):
+            return value
+        elif isinstance(value, unicode):
+            return value.encode('utf-8')
+
+        return str(value)
 
 
 def as_local(value):
-    if isinstance(value, str):
-        return value
-
-    elif isinstance(value, unicode):
+    if not isinstance(value, bytes):
         return value.encode(sys.getfilesystemencoding())
 
     return value
@@ -320,7 +330,7 @@ class Key(object):
         top_key = None
 
         key = as_unicode(key)
-        for wkk, wrk in WELL_KNOWN_KEYS.iteritems():
+        for wkk, wrk in WELL_KNOWN_KEYS.items():
             if key == wkk:
                 top_key = wrk
                 sub_key = ''
@@ -502,7 +512,7 @@ def __search(
         else:
             compare = lambda x: contains(u_term, b_term, i_term, x, ignorecase)
 
-    if type(roots) in (str, unicode):
+    if isinstance(roots, basestring):
         roots = [roots]
 
     def _walk(root, data_cb):

@@ -77,7 +77,7 @@ class Logs(PupyModule):
 
         for category, events in get_last_events(
                     args.number, args.include, args.exclude, args.event_id, args.source
-                ).iteritems():
+                ).items():
             if not events:
                 continue
 

@@ -4,16 +4,23 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, TruncateToTerm, MultiPart, Table
 from modules.lib import size_human_readable
 
+import sys
 import logging
 import re
 
 __class_name__="PsModule"
 
 ADMINS = (r'SYSTEM', 'root')
+
+if sys.version_info.major > 2:
+    basestring = str
+    unicode = str
+
 
 def gen_colinfo(data):
     colinfo = {'pid': 0}
@@ -25,16 +32,27 @@ def gen_colinfo(data):
             if '_percent' in column:
                 colinfo[column] = 4
                 continue
-            if type(data[pid][column]) not in (str,unicode,int,float):
+
+            if type(data[pid][column]) not in (basestring, int, float):
                 continue
 
             #fix ascii encode errors
-            if type(data[pid][column]) == unicode:
-                data[pid][column]=data[pid][column].encode('utf8', 'replace')
-            elif type(data[pid][column]) != str:
-                data[pid][column]=str(data[pid][column])
+            if isinstance(data[pid][column], str):
+                pass
 
-            col_len = len(data[pid][column].decode('utf8', 'replace'))
+            # Will never be here in Py3
+            elif isinstance(data[pid][column], unicode):
+                data[pid][column] = data[pid][column].encode('utf8', 'replace')
+
+            elif not isinstance(data[pid][column], str):
+                data[pid][column] = str(data[pid][column])
+
+            if isinstance(data[pid][column], bytes):
+                # Will never be here in Py3
+                col_len = len(data[pid][column].decode('utf8', 'replace'))
+            else:
+                col_len = len(data[pid][column])
+
             if column not in colinfo:
                 colinfo[column] = col_len
             else:
@@ -43,18 +61,19 @@ def gen_colinfo(data):
 
     return colinfo
 
-def to_string(value):
-    tvalue = type(value)
 
-    if tvalue == unicode:
+def to_string(value):
+    if isinstance(value, unicode):
         return value
-    elif tvalue != str:
+    elif not isinstance(value, str):
         return unicode(value)
 
+    # Will never be here in Py3
     try:
         return value.decode('utf-8')
     except:
         return value.decode('latin1')
+
 
 def gen_columns(record, colinfo=None):
     columns = {}
@@ -80,13 +99,13 @@ def gen_columns(record, colinfo=None):
     if colinfo:
         if 'username' in colinfo:
             username = columns['username']
-            if type(username) == str:
+            if isinstance(username, bytes):
                 username = username.decode('utf-8')
             columns['username'] = u'{{:{}}}'.format(colinfo['username']).format(username)
 
         if 'terminal' in colinfo and colinfo['terminal']:
             terminal = columns['terminal']
-            if type(terminal) == str:
+            if isinstance(terminal, bytes):
                 terminal = terminal.decode('utf-8')
             columns['terminal'] = u'{{:{}}}'.format(colinfo['terminal']).format(terminal)
 
@@ -119,7 +138,7 @@ def gen_output_line(columns, info, record, wide=False):
         color = None
 
     template = u' '.join(u'{{{}}}'.format(x) for x in info)
-    columns = {k:to_string(v) for k,v in columns.iteritems()}
+    columns = {k:to_string(v) for k,v in columns.items()}
 
     if 'status' not in columns:
         columns['status'] = ''
@@ -144,12 +163,12 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
 
     parts = []
 
-    for pid, info in data.iteritems():
+    for pid, info in data.items():
         if sections is not None:
             infosecs = {
                 'general': []
             }
-            for prop, value in info.iteritems():
+            for prop, value in info.items():
                 if type(value) not in (list, dict):
                     infosecs['general'].append({
                         'PROPERTY': prop,
@@ -159,7 +178,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
                     if prop == 'environ':
                         infosecs[prop] = [{
                             'VAR':x, 'VALUE':y
-                        } for x,y in value.iteritems()]
+                        } for x,y in value.items()]
                         continue
                     elif prop == 'connections':
                         newvalue = []
@@ -185,7 +204,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
                         filtered = None
 
                     infosecs[prop] = [{
-                        k:v for k,v in item.iteritems() if filtered is None or k in filtered
+                        k:v for k,v in item.items() if filtered is None or k in filtered
                     } for item in (value if type(value) == list else [value])]
 
             if sections:
@@ -201,7 +220,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
                                     Color(section.upper(), 'yellow'))))
 
             else:
-                for section, table in infosecs.iteritems():
+                for section, table in infosecs.items():
                     if table:
                         labels = sorted(table[0], cmp=sorter)
                         parts.append(TruncateToTerm(Table(
@@ -385,13 +404,13 @@ class PsModule(PupyModule):
         families = {
             int(k):v for k,v in self.client.remote_const(
                 'pupyps', 'families'
-            ).iteritems()
+            ).items()
         }
 
         socktypes = {
             int(k):v for k,v in self.client.remote_const(
                 'pupyps', 'socktypes'
-            ).iteritems()
+            ).items()
         }
 
         if args.show_pid and not args.tree:
@@ -399,11 +418,11 @@ class PsModule(PupyModule):
         else:
             root, tree, data = pstree()
             tree = {
-                int(k):v for k,v in tree.iteritems()
+                int(k):v for k,v in tree.items()
             }
 
         data = {
-            int(k):v for k,v in data.iteritems()
+            int(k):v for k,v in data.items()
         }
 
         colinfo = gen_colinfo(data)
@@ -443,7 +462,7 @@ class PsModule(PupyModule):
                     )
                 else:
                     data = {
-                        x:y for x,y in data.iteritems() if x in args.show_pid
+                        x:y for x,y in data.items() if x in args.show_pid
                     } if args.show_pid else data
 
                     print_ps(

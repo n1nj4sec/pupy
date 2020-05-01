@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Success, Error, Table, Color
 
@@ -129,7 +130,7 @@ def do(server, handler, config, args):
         }
 
         handler.display(Table([
-            {'PROPERTY':k, 'VALUE':v} for k,v in objects.iteritems()
+            {'PROPERTY':k, 'VALUE':v} for k,v in objects.items()
         ], ['PROPERTY', 'VALUE']))
 
         if server.dnscnc.commands:
@@ -139,7 +140,7 @@ def do(server, handler, config, args):
 
         if server.dnscnc.node_commands:
             handler.display('\nNODE DEFAULT COMMANDS:')
-            for node, commands in server.dnscnc.node_commands.iteritems():
+            for node, commands in server.dnscnc.node_commands.items():
                 handler.display('\n' + '\n'.join([
                     '{:03d} {}: {}'.format(
                         i, '{:012x}'.format(node) if type(node) == int else node, cmd
@@ -232,7 +233,7 @@ def do(server, handler, config, args):
 
             if color:
                 object = {
-                    k:Color(v, color) for k,v in object.iteritems()
+                    k:Color(v, color) for k,v in object.items()
                 }
 
             objects.append(object)
@@ -321,7 +322,7 @@ def do(server, handler, config, args):
 
             if color:
                 object = {
-                    k:Color(v, color) for k,v in object.iteritems()
+                    k:Color(v, color) for k,v in object.items()
                 }
 
             objects.append(object)
@@ -413,7 +414,7 @@ def do(server, handler, config, args):
 
             if color:
                 object = {
-                    k:Color(v, color) for k,v in object.iteritems()
+                    k:Color(v, color) for k,v in object.items()
                 }
 
             objects.append(object)
@@ -647,7 +648,7 @@ def do(server, handler, config, args):
                 {
                     'KEY': Color(k, 'green' if v else 'lightyellow'),
                     'VALUE':Color(v, 'green' if v else 'lightyellow')
-                } for k,v in session.online_status['pastebins'].iteritems()
+                } for k,v in session.online_status['pastebins'].items()
             ]
             handler.display(Table(objects, ['KEY', 'VALUE']))
 
@@ -663,7 +664,7 @@ def do(server, handler, config, args):
                 {
                     'IP': str(ip),
                     'PORTS': ','.join(str(x) for x in ports)
-                } for ip,ports in session.open_ports.iteritems()
+                } for ip,ports in session.open_ports.items()
             ]
             handler.display(Table(objects, ['IP', 'PORTS']))
             session.open_ports = {}

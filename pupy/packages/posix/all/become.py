@@ -4,18 +4,25 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import pwd
 import os
 import sys
 import subprocess
 
+if sys.version_info.major > 2:
+    getcwd = os.getcwd
+else:
+    getcwd = os.getcwdu
+
 if not hasattr(sys, '_BECOME_INITIALIZED'):
     sys._SAVED_UID = os.getuid()
     sys._SAVED_GID = os.getgid()
     sys._SAVED_GROUPS = os.getgroups()
-    sys._SAVED_CWD = os.getcwdu()
+    sys._SAVED_CWD = getcwd()
     sys._SAVED_ENV = os.environ.copy()
     sys._BECOME_INITIALIZED = True
+
 
 def become(user):
     try:
@@ -32,7 +39,7 @@ def become(user):
     sys._SAVED_UID = os.geteuid()
     sys._SAVED_GID = os.getegid()
     sys._SAVED_GROUPS = os.getgroups()
-    sys._SAVED_CWD = os.getcwdu()
+    sys._SAVED_CWD = getcwd()
     sys._SAVED_ENV = os.environ.copy()
 
     os.initgroups(userinfo.pw_name, userinfo.pw_gid)

@@ -16,11 +16,8 @@ import time
 from . import const
 
 from . import mycrypto
-import StringIO
 
 log = logging
-
-memory_files={}
 
 def setStateLocation(stateLocation):
     """
@@ -121,42 +118,6 @@ def expandedEpoch():
     epoch = int(getEpoch())
 
     return [str(epoch), str(epoch - 1), str(epoch + 1)]
-
-
-def writeToFile(data, fileName):
-    """
-    Writes the given `data' to the file specified by `fileName'.
-
-    If an error occurs, the function logs an error message but does not throw
-    an exception or return an error code.
-    """
-    global memory_files
-    log.debug("Opening memory file `%s' for writing." % fileName)
-    memory_files[fileName]=StringIO.StringIO(data)
-
-
-def readFromFile(fileName, length=-1):
-    """
-    Read `length' amount of bytes from the given `fileName'
-
-    If `length' equals -1 (the default), the entire file is read and the
-    content returned.  If an error occurs, the function logs an error message
-    but does not throw an exception or return an error code.
-    """
-    global memory_files
-    data = None
-
-    if fileName not in memory_files:
-        log.debug("Memory File `%s' does not exist (yet?)." % fileName)
-        return None
-
-    log.debug("Opening memory file `%s' for reading." % fileName)
-
-    memory_files[fileName].seek(0)
-    data = memory_files[fileName].read(length)
-
-
-    return data
 
 
 def sanitiseBase32(data):

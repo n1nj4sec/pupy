@@ -4,13 +4,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+import sys
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, TruncateToTerm
 from argparse import REMAINDER
 
 from datetime import datetime
 
+if sys.version_info.major > 2:
+    xrange = range
+
 __class_name__='IndexSearchModule'
+
 
 # ZOMG Kill me please
 def escape(x):
@@ -18,6 +25,7 @@ def escape(x):
         x = x.replace("'", "")
 
     return "'" + x + "'"
+
 
 @config(cat='gather', compat='windows')
 class IndexSearchModule(PupyModule):

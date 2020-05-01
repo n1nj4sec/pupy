@@ -81,7 +81,7 @@ def do(server, handler, config, args):
 
             if not default_listener:
                 try:
-                    default_listener = next(server.listeners.itervalues())
+                    default_listener = next(iter(server.listeners.values()))
                 except StopIteration:
                     pass
 
