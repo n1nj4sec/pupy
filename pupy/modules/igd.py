@@ -29,7 +29,7 @@ class IGDCMDClient(object):
         self.log = log
 
     def show(self, values):
-        if hasattr(values, 'iterkeys'):
+        if isinstance(values, dict):
             column_size = max([len(x) for x in values])
             fmt = '{{:<{}}}'.format(column_size)
             for k, v in values.items():
@@ -51,7 +51,9 @@ class IGDCMDClient(object):
                         columns.append(column)
                         column_sizes[column] = max(len(str(cvalue)), columnlen)
                     else:
-                        column_sizes[column] = max(column_sizes[column], len(str(cvalue)))
+                        column_sizes[column] = max(
+                            column_sizes[column], len(str(cvalue))
+                        )
 
             lines = []
             header = ''
@@ -66,7 +68,7 @@ class IGDCMDClient(object):
                 row = ''
                 for column in columns:
                     fmt = ' {{:<{}}} '.format(column_sizes[column])
-                    row += fmt.format(value[column])
+                    row += fmt.format(value[column] or '')
                 lines.append(row)
 
             self.log('\n'.join(lines))
@@ -211,6 +213,7 @@ class IGDClient(PupyModule):
             prog='igdc',
             description=cls.__doc__
         )
+        parser.set_defaults(func=cli.getExtIP)
         parser.add_argument('-d', '--DEBUG', action='store_true',
                             help='enable DEBUG output')
 
@@ -427,6 +430,7 @@ class IGDClient(PupyModule):
 
         self.cli.igdc.enableDebug(args.DEBUG)
         self.cli.igdc.enablePPrint(args.pretty_print)
+
         try:
             args.func(args)
         except Exception as e:
