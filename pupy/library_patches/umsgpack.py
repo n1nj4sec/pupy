@@ -66,11 +66,15 @@ version = (2, 4, 1)
 ##############################################################################
 
 # Extension type for application-defined types and data
-class Ext:
+class Ext(object):
     """
     The Ext class facilitates creating a serializable extension object to store
     an application-defined type and data byte array.
     """
+
+    __slots__ = (
+        'type', 'data'
+    )
 
     def __init__(self, type, data):
         """
@@ -118,17 +122,13 @@ class Ext:
         """
         return not self.__eq__(other)
 
-    def __str__(self):
+    def __repr__(self):
         """
         String representation of this Ext object.
         """
-        s = "Ext Object (Type: 0x%02x, Data: " % self.type
-        s += " ".join(["0x%02x" % ord(self.data[i:i + 1])
-                       for i in xrange(min(len(self.data), 8))])
-        if len(self.data) > 8:
-            s += " ..."
-        s += ")"
-        return s
+        return self.__class__.__name__ + '(0x{:X}, {})'.format(
+            self.type, repr(self.data)
+        )
 
     def __hash__(self):
         """
