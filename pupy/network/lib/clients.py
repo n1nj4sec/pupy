@@ -200,8 +200,6 @@ class PupySSLClient(PupyTCPClient):
             logging.error("Error writing certificates to temp file %s"%e)
             raise e
 
-        exception = None
-
         try:
             wrapped_socket = ssl.wrap_socket(
                 socket,
@@ -213,16 +211,11 @@ class PupySSLClient(PupyTCPClient):
                 ssl_version=self.ssl_version,
                 ciphers=self.ciphers
             )
-        except Exception as e:
-            exception = e
 
         finally:
             os.unlink(tmp_cert_path)
             os.unlink(tmp_key_path)
             os.unlink(tmp_ca_path)
-
-        if exception:
-            raise e
 
         peer = wrapped_socket.getpeercert()
 
