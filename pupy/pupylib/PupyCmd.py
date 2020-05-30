@@ -50,8 +50,13 @@ from .PupyOutput import (
     ServiceInfo, Warn, Error, Success,  Indent
 )
 
-from .utils.term import colorize, hint_to_text, consize
-from .utils.term import SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM
+from .utils.term import (
+    colorize, as_term_bytes, consize, fix_stdout,
+    SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM,
+    CUR_DOWN, CUR_LEFT, CUR_UP, CUR_RIGHT,
+    STOR_CUR, LOAD_CUR, DEL_RIGHT
+)
+
 from .PupySignalHandler import set_signal_winch
 
 from commands import Commands, InvalidCommand
@@ -63,6 +68,13 @@ logger = getLogger('cmd')
 
 if sys.version_info.major > 2:
     xrange = range
+
+    def bm_byte(x):
+        return bytes((x,))
+
+else:
+    def bm_byte(x):
+        return x
 
 
 class ObjectStreamPipeConsumer(Thread):
@@ -85,7 +97,7 @@ class ObjectStreamPipeConsumer(Thread):
         self.daemon = True
 
     def write(self, object):
-        text = hint_to_text(object)
+        text = as_term_bytes(object)
         text = text.strip(' ')
         if not text:
             return
@@ -202,8 +214,8 @@ class IOGroup(object):
     def set_title(self, title):
         pass
 
-    def as_text(self, msg):
-        return hint_to_text(msg)
+    def as_bytes(self, msg):
+        return as_term_bytes(msg)
 
     def close(self):
         if self._pipe:
@@ -244,7 +256,7 @@ class RawTerminal(IOGroup):
         self._shadow_screen = shadow_screen
 
         self._stdin_fd = None
-        self._special_state = ''
+        self._special_state = b''
         self._special_activated = False
 
         self._last_window_size = None
@@ -299,53 +311,60 @@ class RawTerminal(IOGroup):
             else:
                 self._special_state += buf
 
-                data_buf = ''
+                data_buf = b''
 
                 while self._special_state:
                     again = False
 
-                    data_buf = ''
-                    special_buf = ''
+                    data_buf = b''
+                    special_buf = b''
 
                     for b in self._special_state:
+                        b = bm_byte(b)
+
                         if self._special_activated:
-                            if not special_buf and b != '~':
+                            if not special_buf and b != b'~':
                                 data_buf += b
-                                if b == '\r':
+                                if b == b'\r':
+
                                     yield data_buf
                                     self._special_state = self._special_state[
                                         len(data_buf):]
 
-                                    data_buf = ''
+                                    data_buf = b''
                                     again = True
                                     break
                                 else:
                                     self._special_activated = False
                                     continue
                             else:
+
                                 special_buf += b
                                 if special_buf in self._specials:
                                     cb = self._specials[special_buf]
                                     cb(self)
                                     again = True
+
                                     self._special_state = self._special_state[
                                         len(special_buf):]
-                                    special_buf = ''
+                                    special_buf = b''
                                     self._special_activated = False
                                     break
                                 elif not any([x.startswith(special_buf) for x in self._specials]):
+
                                     data_buf += special_buf
-                                    special_buf = ''
+                                    special_buf = b''
                                     self._special_activated = False
                         else:
                             data_buf += b
-                            if b == '\r':
+                            if b == b'\r':
                                 self._special_activated = True
+
                                 yield data_buf
                                 self._special_state = self._special_state[
                                     len(data_buf):]
 
-                                data_buf = ''
+                                data_buf = b''
                                 again = True
                                 break
 
@@ -353,7 +372,9 @@ class RawTerminal(IOGroup):
                         break
 
             if data_buf:
+
                 self._special_state = self._special_state[len(data_buf):]
+
                 yield data_buf
 
     def __enter__(self):
@@ -386,7 +407,10 @@ class RawTerminal(IOGroup):
         self._on_winch = on_winch
 
     def set_mapping(self, sequence, on_sequence):
-        if not sequence or len(sequence) < 2 or not sequence.startswith('~'):
+        if not isinstance(sequence, bytes):
+            sequence = sequence.encode()
+
+        if not sequence or len(sequence) < 2 or not sequence.startswith(b'~'):
             raise ValueError('Sequence should start from ~ and be at least 2 symbols')
 
         self._specials[sequence] = on_sequence
@@ -411,6 +435,8 @@ class PupyCmd(cmd.Cmd):
     def __init__(self, pupsrv):
         cmd.Cmd.__init__(self)
 
+        self.stdout = fix_stdout(self.stdout)
+
         cmd.info = self._make_intro
 
         self.pupsrv = pupsrv
@@ -432,12 +458,11 @@ class PupyCmd(cmd.Cmd):
             Indent(Color(DISCLAIMER, 'lightred'))
         ]
 
-        self.raw_prompt = colorize('>> ','blue')
-        self.prompt = colorize('>> ','blue', prompt=True)
+        self.prompt = colorize('>> ', 'blue', prompt=True)
 
         self.default_filter = None
         try:
-            if not self.config.getboolean("cmdline","display_banner"):
+            if not self.config.getboolean('cmdline', 'display_banner'):
                 self._intro = []
         except Exception:
             pass
@@ -459,7 +484,7 @@ class PupyCmd(cmd.Cmd):
 
     def _make_intro(self):
         return '\n'.join(
-            hint_to_text(x) for x in self._intro
+            as_term_bytes(x) for x in self._intro
         )
 
     def add_motd(self, motd={}):
@@ -521,23 +546,25 @@ class PupyCmd(cmd.Cmd):
 
     def cmdloop(self, intro=None):
         closed = False
+
         while not closed:
             try:
                 cmd.Cmd.cmdloop(self, intro)
                 closed = True
             except KeyboardInterrupt:
-                self.stdout.write('\n')
+                self.stdout.write(b'\n')
 
-            except:
-                msg = hint_to_text(Error(traceback.format_exc()))
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+
+                msg = as_term_bytes(Error(traceback.format_exc()))
                 self.redraw_line(msg)
-
-            intro = ''
-
+                closed = True
 
     def init_completer(self):
         readline.set_pre_input_hook(self.pre_input_hook)
-        readline.set_completer_delims(" \t")
+        readline.set_completer_delims(' \t')
 
     def completenames(self, text, *ignored):
         try:
@@ -549,7 +576,7 @@ class PupyCmd(cmd.Cmd):
             logger.exception(e)
 
     def pre_input_hook(self):
-        #readline.redisplay()
+        # readline.redisplay()
         pass
 
     def emptyline(self):
@@ -565,7 +592,9 @@ class PupyCmd(cmd.Cmd):
 
         try:
             self.commands.execute(
-                self.pupsrv, self, self.pupsrv.config, 'help {}'.format(arg))
+                self.pupsrv, self, self.pupsrv.config,
+                'help {}'.format(arg)
+            )
 
         except PupyModuleUsageError as e:
             prog, message, usage = e.args
@@ -642,34 +671,45 @@ class PupyCmd(cmd.Cmd):
 
     def display(self, text, nocrlf=False, to_bytes=False):
         with self.display_lock:
-            text = hint_to_text(text)
+            try:
+                text = as_term_bytes(text)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+
+            self.stdout.write(text)
+
             if not nocrlf:
-                text += '\n'
+                self.stdout.write(b'\n')
 
-            return self.stdout.write(text)
+    def redraw_line(self, msg=b''):
+        buf = as_term_bytes(
+            readline.get_line_buffer()
+        )
 
-    def redraw_line(self, msg=''):
-        buf = readline.get_line_buffer()
+        msg = as_term_bytes(msg)
+        prompt = as_term_bytes(self.prompt)
 
-        self.stdout.write(''.join([
-            '\x1b[0G',
-            msg+'\n',
-            '\x1b[0E\x1b[2K',
-            '' if msg.startswith(self.raw_prompt) else self.raw_prompt,
-            buf
-        ]))
+        self.stdout.write(
+            b''.join([
+                STOR_CUR,
+                CUR_LEFT,
+                DEL_RIGHT,
+                msg,
+                b'\n',
+                prompt,
+                buf,
+                LOAD_CUR
+            ])
+        )
 
         try:
             readline.redisplay()
         except Exception:
-            pass
+            traceback.print_exc()
 
     def display_srvinfo(self, msg):
-        if isinstance(msg, Text):
-            msg = hint_to_text(msg)
-        else:
-            msg = colorize('[*] ', 'blue') + msg
-
+        msg = colorize(b'[*] ', 'blue') + as_term_bytes(msg)
         self.redraw_line(msg)
 
     def display_success(self, msg):
@@ -686,6 +726,7 @@ class PupyCmd(cmd.Cmd):
 
     def postcmd(self, stop, line):
         readline.write_history_file('.pupy_history')
+        readline.redisplay()
         return stop
 
     def complete(self, text, state):
@@ -693,7 +734,10 @@ class PupyCmd(cmd.Cmd):
             line = readline.get_line_buffer().lstrip()
 
             try:
-                context = CompletionContext(self.pupsrv, self, self.config, self.commands)
+                context = CompletionContext(
+                    self.pupsrv, self, self.config, self.commands
+                )
+
                 compfunc, module, args = self.commands.completer(context, line)
                 self.completion_matches = compfunc(module, args, text, context)
 
@@ -729,6 +773,7 @@ class PupyCmd(cmd.Cmd):
         if len(tab)>=2:
             return self._complete_path(tab[1])
 
+
 class PupyCmdLoop(object):
     def __init__(self, pupyServer):
         self.cmd = PupyCmd(pupyServer)
@@ -741,7 +786,7 @@ class PupyCmdLoop(object):
                 self.cmd.cmdloop()
                 self.stopped.set()
             except:
-                print(traceback.format_exc())
+
                 time.sleep(0.1) #to avoid flood in case of exceptions in loop
                 self.cmd.intro = []
 

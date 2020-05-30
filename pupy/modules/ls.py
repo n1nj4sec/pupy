@@ -9,7 +9,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Color
 from modules.lib import size_human_readable, file_timestamp, to_utf8
-from pupylib.utils.term import elen
+from pupylib.utils.term import symbol_len
 
 import sys
 from argparse import REMAINDER
@@ -17,7 +17,7 @@ from argparse import REMAINDER
 if sys.version_info.major > 2:
     basestring = str
 
-__class_name__= 'ls'
+__class_name__ = 'ls'
 
 T_NAME      = 0
 T_TYPE      = 1
@@ -181,16 +181,16 @@ class ls(PupyModule):
                             if type(uid) == int:
                                 uid = str(uid)
 
-                            if elen(uid) > uid_len:
-                                uid_len = elen(uid)
+                            if symbol_len(uid) > uid_len:
+                                uid_len = symbol_len(uid)
 
                         if args.groupinfo:
                             gid = x.get(T_GID, '?')
                             if type(gid) == int:
                                 gid = str(gid)
 
-                            if elen(gid) > gid_len:
-                                gid_len = elen(gid)
+                            if symbol_len(gid) > gid_len:
+                                gid_len = symbol_len(gid)
 
                 if T_ZIPFILE in r:
                     self.log(Color('ZIP: '+r[T_ZIPFILE]+':', 'lightred'))
@@ -265,14 +265,14 @@ class ls(PupyModule):
                     if type(uid) == int:
                         uid = str(uid)
 
-                    uid_len = elen(uid)
+                    uid_len = symbol_len(uid)
 
                 if args.groupinfo:
                     gid = r[T_FILE][T_GID]
                     if type(gid) == int:
                         gid = str(gid)
 
-                    gid_len = elen(gid)
+                    gid_len = symbol_len(gid)
 
                 self.log(output_format(r[T_FILE], is_windows, archive, show_time, uid_len=uid_len, gid_len=gid_len))
 

@@ -3,15 +3,31 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
 #
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
 #
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 1. Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
 #
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
 #
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
 #
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+# THE POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
 from __future__ import absolute_import
@@ -23,7 +39,6 @@ import textwrap
 import time
 import os
 import json
-import re
 import struct
 import math
 import argparse
@@ -39,7 +54,11 @@ from .PupyOutput import (
     Info, Table, TruncateToTerm
 )
 
-from pupylib.utils.term import hint_to_text, deep_as_str
+from pupylib.utils.term import (
+    as_term_bytes, deep_as_bytes, remove_esc,
+    DEFAULT_MULTIBYTE_CP
+)
+
 from pupylib import getLogger
 
 from network.lib.compat import with_metaclass
@@ -47,6 +66,19 @@ from network.lib.compat import with_metaclass
 if sys.version_info.major > 2:
     unicode = str
     basestring = str
+
+    def json_string(x):
+        if isinstance(x, bytes):
+            x = x.decode(DEFAULT_MULTIBYTE_CP)
+
+        return x
+else:
+    def json_string(x):
+        if isinstance(x, unicode):
+            x = x.encode(DEFAULT_MULTIBYTE_CP)
+
+        return x
+
 
 REQUIRE_NOTHING  = 0
 REQUIRE_STREAM   = 1
@@ -59,8 +91,10 @@ QA_DANGEROUS = 2
 
 logger = getLogger('module')
 
+
 class IgnoreModule(Exception):
     pass
+
 
 class PupyArgumentParserWrap(object):
     def __init__(self, base, wrapped):
@@ -107,6 +141,7 @@ class PupyArgumentParserWrap(object):
         else:
             return original
 
+
 class PupyArgumentParserRef(argparse._ActionsContainer):
     def add_argument(self, *args, **kwargs):
         completer_func = None
@@ -134,21 +169,27 @@ class PupyArgumentParserRef(argparse._ActionsContainer):
     def add_argument_group(self, *args, **kwargs):
         return PupyArgumentParserWrap(
             self,
-            super(PupyArgumentParserRef, self).add_argument_group(*args, **kwargs)
+            super(
+                PupyArgumentParserRef, self
+            ).add_argument_group(*args, **kwargs)
         )
 
     def add_mutually_exclusive_group(self, *args, **kwargs):
         return PupyArgumentParserWrap(
             self,
-            super(PupyArgumentParserRef, self).add_mutually_exclusive_group(*args, **kwargs)
+            super(
+                PupyArgumentParserRef, self
+            ).add_mutually_exclusive_group(*args, **kwargs)
         )
 
     def get_completer(self):
-        if hasattr(self, 'pupy_mod_completer') and self.pupy_mod_completer is not None:
+        if hasattr(self, 'pupy_mod_completer') and \
+                self.pupy_mod_completer is not None:
             return self.pupy_mod_completer
         else:
             self.pupy_mod_completer = PupyModCompleter(self)
             return self.pupy_mod_completer
+
 
 class PupyArgumentParser(argparse.ArgumentParser, PupyArgumentParserRef):
     def __init__(self, *args, **kwargs):
@@ -181,27 +222,29 @@ class Log(object):
         self.last = 0
         self.start = 0
         self.unicode = unicode
-        self.cleaner = re.compile('(\033[^m]+m)')
         self.closed = False
         self.stream = stream
         self.is_stream = self.stream
 
+        initial_payload = None
+
         if self.rec == 'asciinema1':
             height, width = consize
-            self.log.write(
-                '{{'
-                '"command":{},"title":{},"env":null,"version":1,'
+
+            initial_payload = '{{' \
+                '"command":{},"title":{},"env":null,"version":1,' \
                 '"width":{},"height":{},"stdout":['.format(
                     json.dumps(command), json.dumps(title),
                     width, height
                 )
-            )
+
             self.start = time.time()
         if self.rec == 'asciinema':
             height, width = consize
             ts = time.time()
-            self.log.write(json.dumps({
-                'version':2,
+
+            initial_payload = json.dumps({
+                'version': 2,
                 'width': width,
                 'height': height,
                 'timestamp': ts,
@@ -210,17 +253,19 @@ class Log(object):
                     'SHELL': os.environ.get('SHELL'),
                     'TERM': os.environ.get('TERM'),
                 }
-            }))
-            self.log.write('\n')
+            }) + '\n'
             self.last = self.start = ts
         elif self.rec == 'ttyrec':
             self.last = time.time()
         else:
             if command:
-                if self.unicode:
-                    command = command.decode('utf-8', errors='replace')
+                initial_payload = '> ' + command + '\n'
 
-                self.log.write('> ' + command + '\n')
+        if initial_payload is not None:
+            if not self.unicode and not isinstance(initial_payload, bytes):
+                initial_payload = initial_payload.encode(DEFAULT_MULTIBYTE_CP)
+
+            self.log.write(initial_payload)
 
     def write(self, data):
         if self.closed:
@@ -231,47 +276,39 @@ class Log(object):
 
         self.out.write(data)
 
-        data = hint_to_text(data)
+        data = as_term_bytes(data, width=32768)
         if not self.stream:
-            data += '\n'
+            data += b'\n'
 
         now = time.time()
         delay = (now - self.last) if self.last else 0
         duration = now - self.start
         self.last = now
 
-        if self.unicode:
-            if isinstance(data, bytes):
-                data = data.decode('utf-8', errors='ignore')
-
         if self.rec == 'ttyrec':
             usec, sec = math.modf(now)
             usec = int(usec * 10**6)
             sec = int(sec)
-            self.log.write(struct.pack('<III', sec, usec, len(data)) + data)
+            data = struct.pack('<III', sec, usec, len(data)) + data
 
         elif self.rec == 'asciinema':
-            self.log.write(json.dumps([
-                duration, 'o', data
-            ]))
-            self.log.write(b'\n')
+            data = json.dumps([
+                duration, 'o', json_string(data)
+            ]) + '\n'
 
         elif self.rec == 'asciinema1':
+            data = json.dumps([duration, json_string(data)])
             if delay:
-                self.log.write(b',')
-
-            self.log.write(json.dumps([duration, data]))
+                data = ',' + data
 
         else:
-            seqs = set()
-            for seqgroups in self.cleaner.finditer(data):
-                seqs.add(seqgroups.groups()[0])
+            data = remove_esc(data)
 
-            for seq in seqs:
-                data = data.replace(seq, '')
+        if self.unicode and isinstance(data, bytes):
+            data = data.decode(DEFAULT_MULTIBYTE_CP, errors='ignore')
 
-            self.log.write(data)
-            self.log.flush()
+        self.log.write(data)
+        self.log.flush()
 
     def flush(self):
         if self.closed:
@@ -341,13 +378,15 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
     # Interaction requirements
     io = REQUIRE_NOTHING
 
-    # if your module is meant to run in background, set this to True and override the stop_daemon method.
+    # if your module is meant to run in background,
+    # set this to True and override the stop_daemon method.
     daemon = False
 
     # if True, don't start a new module and use another instead
     unique_instance = False
 
-    # dependencies to push on the remote target. same as calling self.client.load_package
+    # dependencies to push on the remote target. same
+    # as calling self.client.load_package
     dependencies = []
 
     # Should be aliased by default
@@ -398,7 +437,9 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
     def init(self, args):
         self.iogroup.set_title(self)
 
-        if self.client and (self.config.getboolean('pupyd', 'logs') or self.log_file):
+        if self.client and (
+                self.config.getboolean('pupyd', 'logs') or self.log_file):
+
             replacements = {
                 '%c': self.client.short_name(),
                 '%m': self.client.desc['macaddr'],
@@ -411,12 +452,12 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
             }
 
             if self.log_file:
-                for k,v in replacements.items():
+                for k, v in replacements.items():
                     log = self.log_file.replace(k, str(v))
             else:
                 log = self.config.get_file('logs', replacements)
 
-            if self.rec:
+            if self.rec == 'ttyrec':
                 log = open(log, 'w+b')
                 unicode = False
             else:
@@ -428,7 +469,9 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
                 log,
                 self.iogroup.consize,
                 rec=self.rec,
-                command=self.get_name() + ' ' + u' '.join(args.original_cmdline),
+                command=self.get_name() + ' ' + ' '.join(
+                    args.original_cmdline
+                ),
                 unicode=unicode,
                 stream=self.io != REQUIRE_NOTHING
             )
@@ -447,7 +490,8 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
     def import_dependencies(self):
         if type(self.dependencies) == dict:
             dependencies = self.dependencies.get(self.client.platform, []) + (
-                self.dependencies.get('posix', []) if self.client.is_posix() else []
+                self.dependencies.get('posix', [])
+                if self.client.is_posix() else []
             ) + self.dependencies.get('all', [])
         else:
             dependencies = self.dependencies
@@ -514,20 +558,20 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
 
     def encode(self, msg):
         if isinstance(msg, bytes):
-            return msg.decode('utf8', errors="replace")
+            return msg.decode(DEFAULT_MULTIBYTE_CP, errors="replace")
         elif isinstance(msg, (Text, basestring)):
             return msg
         else:
-            return deep_as_str(msg)
+            return deep_as_bytes(msg)
 
     def _message(self, msg):
         if self.io in (REQUIRE_REPL, REQUIRE_TERMINAL):
-            msg = self.iogroup.as_text(msg)
+            msg = self.iogroup.as_bytes(msg)
 
         self.stdout.write(msg)
 
         if self.io != REQUIRE_NOTHING:
-            self.stdout.write(self.iogroup.as_text(NewLine()))
+            self.stdout.write(self.iogroup.as_bytes(NewLine()))
 
     def rawlog(self, msg):
         """ log data to the module stdout """
