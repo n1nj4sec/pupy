@@ -119,7 +119,7 @@ class PowershellManager(PupyModule):
 
             try:
                 result = call(
-                    args.context, expression, timeout=args.timeout, async=args.background
+                    args.context, expression, timeout=args.timeout, nowait=args.background
                 )
 
                 if args.background:

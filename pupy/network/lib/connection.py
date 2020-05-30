@@ -438,13 +438,13 @@ class PupyConnection(Connection):
         else:
             return obj
 
-    def _send_request(self, handler, args, async=None):
+    def _send_request(self, handler, args, nowait=None):
         seq = next(self._seqcounter)
-        if async:
+        if nowait:
             if __debug__:
                 logger.debug('Async request(%s): %s', self, seq)
 
-            self._async_callbacks[seq] = async
+            self._async_callbacks[seq] = nowait
         else:
             if __debug__:
                 synclogger.debug('Sync request(%s): %s', self, seq)
@@ -459,7 +459,7 @@ class PupyConnection(Connection):
         return seq
 
     def _async_request(self, handler, args=(), callback=(lambda a, b: None)):
-        self._send_request(handler, args, async=callback)
+        self._send_request(handler, args, nowait=callback)
 
     def _dispatch_reply(self, seq, raw):
         if __debug__:

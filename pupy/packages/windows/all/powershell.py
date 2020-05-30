@@ -301,9 +301,9 @@ class Powershell(threading.Thread):
             sol_at+len(SOL):-(len(EOL)+1)
         ].strip(), response[:sol_at]
 
-    def execute(self, expression, async=False, timeout=None, wait=None):
+    def execute(self, expression, nowait=False, timeout=None, wait=None):
         if self._daemon:
-            async = True
+            nowait = True
 
             if self._daemon_request:
                 self._execute(expression)
@@ -311,9 +311,9 @@ class Powershell(threading.Thread):
 
         if timeout:
             if wait is None:
-                wait = not async
+                wait = not nowait
 
-            async = True
+            nowait = True
 
         if self._queue:
             request = Request(
@@ -330,16 +330,16 @@ class Powershell(threading.Thread):
             self._rid += 1
             self._queue.put(request)
 
-            if async and not wait:
+            if nowait and not wait:
                 return request.rid
             else:
                 return request.result
 
-        elif not self._queue and async:
+        elif not self._queue and nowait:
             self._queue = Queue.Queue()
             self._host.results[self._name] = {}
             self.start()
-            return self.execute(expression, async, timeout, wait)
+            return self.execute(expression, nowait, timeout, wait)
 
         else:
             return self._execute(expression)
@@ -439,11 +439,11 @@ class PowerHost(object):
             expression
         )
 
-    def call(self, name, expression, async=False, timeout=None):
+    def call(self, name, expression, nowait=False, timeout=None):
         if name not in self._powershells:
             raise ValueError('{} is not registered'.format(name))
 
-        return self._powershells[name].execute(expression, async, timeout)
+        return self._powershells[name].execute(expression, nowait, timeout)
 
     def stop(self):
         for name in self._powershells.keys():
@@ -499,7 +499,7 @@ def unload(name):
     powershell.unregister(name)
 
 
-def call(name, expression, async=False, timeout=None, content=None, try_x64=False):
+def call(name, expression, nowait=False, timeout=None, content=None, try_x64=False):
     powershell = pupy.manager.get(PowerHost) or \
       pupy.manager.create(PowerHost)
 
@@ -510,8 +510,8 @@ def call(name, expression, async=False, timeout=None, content=None, try_x64=Fals
         load(name, content, force=True, try_x64=try_x64)
 
     try:
-        result = powershell.call(name, expression, async, timeout)
-        if async:
+        result = powershell.call(name, expression, nowait, timeout)
+        if nowait:
             return result.rid
         else:
             return result
