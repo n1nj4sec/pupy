@@ -8,7 +8,12 @@ from . import main
 
 setattr(sys, '__pupy_main__', True)
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+root = os.path.dirname(os.path.dirname(__file__))
+
+sys.path.extend((
+    root, os.path.join(root, 'library_patches')
+))
+
 
 import pupylib
 assert(pupylib)
