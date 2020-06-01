@@ -30,21 +30,18 @@ apt-get install docker-ce -y
 systemctl start docker
 systemctl enable docker
 
-# Install Docker Compose
-pip install docker-compose
-
 # Add user to docker group
 usermod -aG docker $username
 
 # End of root section
 EOF
 
-# Pull dependencies from github
-git submodule update --init --recursive
+PYTHON=python
 
-# Download latest compiled payload templates
-wget https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz
-tar xvf payload_templates.txz && mv payload_templates/* pupy/payload_templates/ && rm payload_templates.txz && rm -r payload_templates
+$PYTHON --help >/dev/null
+if [ ! $? -eq 0 ]; then
+  PYTHON=python3
+fi
 
-# Build docker container
-sudo docker pull alxchk/pupy:base-unstable
+# Create workspace at ~/pupyws
+${PYTHON} create-workspace.py -E docker -P $HOME/pupyws
