@@ -111,17 +111,17 @@ class outlook():
             info['ExchangeMailboxServerName']=self.mapi.ExchangeMailboxServerName #Returns a String value that represents the name of the Exchange server that hosts the primary Exchange account mailbox.
         except Exception,e:
             logging.debug("Impossible to get ExchangeMailboxServerName configuration: {0}".format(e))
-            info['ExchangeMailboxServerName'.format(i)]=""
+            info['ExchangeMailboxServerName']=""
         try:
             info['ExchangeMailboxServerVersion']=self.mapi.ExchangeMailboxServerVersion #Returns a String value that represents the full version number of the Exchange server that hosts the primary Exchange account mailbox.
         except Exception,e:
             logging.debug("Impossible to get ExchangeMailboxServerVersion configuration: {0}".format(e))
-            info['ExchangeMailboxServerVersion'.format(i)]=""
+            info['ExchangeMailboxServerVersion']=""
         try:
             info['Offline']=self.mapi.Offline #Returns a Boolean indicating True if Outlook is offline (not connected to an Exchange server), and False if online (connected to an Exchange server)
         except Exception,e:
             logging.debug("Impossible to get Offline configuration: {0}".format(e))
-            info['Offline'.format(i)]=""
+            info['Offline']=""
         try:
             info['ExchangeConnectionMode']=self.OL_EXCHANGE_CONNECTION_MODE[self.mapi.ExchangeConnectionMode]
             self.mapi.SendAndReceive(True)
@@ -190,7 +190,7 @@ class outlook():
         '''
         ctime, subjectCleaned, receivedTime, path, filename = str(time.time()).replace('.',''), "Unknown", "Unknown", "", ""
         try:
-            subjectCleaned = ''.join(l for l in mailItem.Subject.encode('ascii','ignore') if l.isalnum())
+            subjectCleaned = ''.join(subj for subj in mailItem.Subject.encode('ascii','ignore') if subj.isalnum())
             receivedTime = str(mailItem.ReceivedTime).replace('/','').replace('\\','').replace(':','-').replace(' ','_')
         except Exception,e:
             logging.warning("Impossible to encode email subject or receivedTime:{0}".format(repr(e)))

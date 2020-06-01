@@ -5,7 +5,7 @@
 
 from ctypes import (
     byref, WinDLL, WinError, sizeof, pointer,
-    c_int, c_ulong, c_void_p, c_wchar_p,
+    c_int, c_ulong, c_void_p, c_wchar_p, c_uint,
     CFUNCTYPE, cast,
     c_void_p as LPRECT,
     c_void_p as PSID,
@@ -18,11 +18,23 @@ from ctypes import (
 
 from ctypes.wintypes import (
     BOOL, DOUBLE, DWORD, HBITMAP, HINSTANCE, HDC, HGDIOBJ, HANDLE,
-    HWND, INT, LPARAM, LONG, RECT, UINT, WORD, MSG, HMODULE, HHOOK,
+    HWND, INT, LPARAM, LONG, RECT, UINT, WORD, HMODULE, HHOOK, POINT,
     LPCWSTR, WPARAM, LPVOID, LPSTR, LPWSTR, BYTE, WCHAR, SHORT,
     WPARAM as ULONG_PTR,
     LPARAM as LRESULT,
 )
+
+class MSG(Structure):
+    _fields_ = [
+        ("hWnd", HWND),
+        ("message", c_uint),
+        ("wParam", WPARAM),
+        ("lParam", LPARAM),
+        ("time", DWORD),
+        ("pt", POINT),
+        ("private", DWORD)
+    ]
+
 
 # consts
 WH_MOUSE_LL   = 14

@@ -10,16 +10,9 @@ import subprocess
 import os
 import sys
 import errno
-import tempfile
-import tarfile
 import hashlib
 import shutil
 import resource
-
-if sys.version_info.major == 3:
-    from urllib.request import urlopen
-else:
-    from urllib2 import urlopen
 
 ENV_IMAGE = 'pupy-python2-env'
 ENV_CONTAINER = 'pupy-'

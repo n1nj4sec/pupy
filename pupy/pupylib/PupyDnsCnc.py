@@ -441,9 +441,10 @@ class PupyDnsCnc(object):
                     raise ValueError('Listener for transport {} not found'.format(transport))
 
             else:
-                for l in listeners.itervalues():
-                    if not l.local or (port and (l.port == port or l.external_port == port)):
-                        listener = l
+                for candidate in listeners.itervalues():
+                    if not candidate.local or (port and (
+                            candidate.port == port or candidate.external_port == port)):
+                        listener = candidate
                         break
 
                 if not listener:

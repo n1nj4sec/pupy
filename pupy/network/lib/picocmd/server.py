@@ -1249,6 +1249,9 @@ class DnsCommandServerHandler(BaseResolver):
 
             return None
 
+        except UnknownVersion:
+            return None
+
         except Exception as e:
             logger.exception(e)
 
